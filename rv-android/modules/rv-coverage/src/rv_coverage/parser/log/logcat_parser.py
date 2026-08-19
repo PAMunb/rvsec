@@ -27,7 +27,7 @@ import re
 from datetime import datetime
 from typing import Any, Dict, Optional, Tuple
 
-from rv_android_core.domain.coverage import LogcatRepository
+from rv_android_core.domain.coverage import LogcatRepository, ParserDiagnostics
 from rv_android_core.domain.log import (
     TAG_RVSEC,
     TAG_RVSEC_COV,
@@ -141,6 +141,10 @@ def parse_logcat_file(
     repository = LogcatRepository()
     logger = logging.getLogger(__name__)
 
+    # The repository owns the counters and the parser increments them, so a caller
+    # that holds the repository holds the account of the whole file (INV-ANA-62).
+    diagnostics = repository.parser_diagnostics
+
     # Initialize repository with static data if provided
     if static_data and hasattr(static_data, "classes"):
         logger.debug("Initializing repository with static analysis data")
@@ -161,10 +165,11 @@ def parse_logcat_file(
     # repeated calls into MethodCoverageData keyed by first call, so the
     # first-call time is unrecoverable afterwards (design gh83, Decision 1).
     entries_parsed = False
+    line_number = 0
     try:
         with open(log_file, "r") as f:
-            for line in f:
-                error_log, coverage_log = parse_logcat_line(line)
+            for line_number, line in enumerate(f, start=1):
+                error_log, coverage_log = parse_logcat_line(line, diagnostics)
 
                 if error_log:
                     if tool_execution_start and error_log.time_occurred:
@@ -200,7 +205,17 @@ def parse_logcat_file(
             entries_parsed = True
             repository.register_diagnostic_event(tail)
     except Exception as e:
-        logger.error(f"Error parsing logcat file {log_file}: {e}", exc_info=True)
+        # Re-raised, never swallowed. Returning the repository built so far would hand
+        # the caller a partial file it has no way to recognise as partial: every count
+        # it reads — total_errors, unique_errors, coverage — would be computed over the
+        # prefix that happened to parse, and would look exactly like a complete result.
+        # The line number is logged because it is the only thing that locates the input
+        # that broke, and it is lost the moment the exception leaves this frame.
+        logger.error(
+            f"Error parsing logcat file {log_file} at line {line_number}: {e}",
+            exc_info=True,
+        )
+        raise
 
     if tool_execution_start is None and entries_parsed:
         logger.warning(
@@ -213,19 +228,35 @@ def parse_logcat_file(
 
 def parse_logcat_line(
     line: str,
+    diagnostics: Optional[ParserDiagnostics] = None,
 ) -> Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]:
     """
     Parse a single logcat line for RVSEC or RVSEC-COV entries.
 
+    Every line that does not become a record increments exactly one counter of
+    ``diagnostics`` (INV-ANA-62), so that the account of a file is arithmetic:
+    records registered plus counted lines equals lines read. The only lines that do
+    neither are the diagnostic-tag lines, which ``DiagnosticEventParser`` assembles
+    into multi-line events on its own pass over the same input.
+
     Args:
         line: Raw logcat line in standard Android format.
+        diagnostics: The counter object to increment. Callers that hold a repository
+            pass ``repository.parser_diagnostics`` — the live ``CoverageTracker`` and
+            the offline ``parse_logcat_file`` both do, which is what makes the two
+            paths count onto the same totals. ``None`` means "count nowhere": the
+            parse is unchanged, the counts simply go to a throwaway object.
 
     Returns:
         Tuple of ``(error_log, coverage_log)``. At most one element is
         non-None. Both are None for non-RVSEC lines or unparseable input.
     """
+    if diagnostics is None:
+        diagnostics = ParserDiagnostics()
+
     entry = _parse_logcat_line(line)
     if not entry:
+        diagnostics.lines_not_threadtime += 1
         return None, None
 
     tag = entry["tag"]
@@ -233,19 +264,45 @@ def parse_logcat_line(
 
     # Parse based on the tag
     if tag == TAG_RVSEC:
-        error = _parse_error_message(message)
+        error = _parse_error_message(message, diagnostics, (entry["pid"], entry["tid"]))
         if error:
             error.original_msg = entry["original"]
             error.time_occurred = _convert_to_datetime(entry["date"], entry["time"])
             return error, None
-    elif tag == TAG_RVSEC_COV:
+        return None, None
+    if tag == TAG_RVSEC_COV:
         coverage = _parse_coverage_message(message)
         if coverage:
             coverage.original_msg = entry["original"]
             coverage.time_occurred = _convert_to_datetime(entry["date"], entry["time"])
             return None, coverage
+        diagnostics.unrecognised += 1
+        return None, None
+
+    if tag not in _diagnostic_base_tags():
+        diagnostics.lines_other_tag += 1
 
     return None, None
+
+
+_DIAGNOSTIC_TAGS: Optional[frozenset] = None
+
+
+def _diagnostic_base_tags() -> frozenset:
+    """The tags whose lines belong to ``DiagnosticEventParser``, cached.
+
+    Those lines are neither records here nor discards: they are the raw material of
+    the multi-line diagnostic events the other parser assembles from the same file,
+    so counting them as dropped would misstate the account. The import is deferred
+    and cached because ``diagnostic_parser`` imports this module at load time; the
+    same reason ``parse_logcat_file`` defers its own import of that module.
+    """
+    global _DIAGNOSTIC_TAGS
+    if _DIAGNOSTIC_TAGS is None:
+        from rv_coverage.parser.log.diagnostic_parser import _DIAGNOSTIC_BASE_TAGS
+
+        _DIAGNOSTIC_TAGS = _DIAGNOSTIC_BASE_TAGS
+    return _DIAGNOSTIC_TAGS
 
 
 def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
@@ -282,31 +339,204 @@ def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
     }
 
 
-def _parse_error_message(message: str) -> Optional[RvErrorLog]:
+# Sentinels. A value the producer did not supply is named, never invented: an
+# invented value ("Unknown Source:1", "No additional message") reads as a
+# measurement in every file it reaches, and there is no way back from it.
+_SENTINEL_UNSPECIFIED = "UNSPECIFIED"
+_SENTINEL_SOURCE = "UNSPECIFIED:0"
+
+# One `key=` of the v1 envelope. Quoted values are scanned by hand rather than by
+# a regex because the escape (`\'`) has to be undone as the value is read, and a
+# value whose closing quote never arrives is the evidence of truncation, not a
+# non-match.
+_ENVELOPE_KEY = re.compile(r"([A-Za-z][A-Za-z0-9_]*)=")
+_ENVELOPE_PREFIX = "v=1"
+
+# The separator of `unique_msg`. The envelope grammar forbids it inside a value;
+# the parser detects and counts a producer that emits it anyway, and keeps the
+# value verbatim — repairing it here would hide the defect from the only place
+# that can see it.
+_FORBIDDEN_IN_VALUE = ":::"
+
+# Format 1 and Format 3 end in the same words and differ in their punctuation: the
+# generic emitter writes " ::: " with spaces, the FSM emitter writes ":::" without.
+_ERROR_STATE_SUFFIX = "went into an error state."
+_FORMAT1_SEPARATOR = " ::: "
+
+
+def _parse_envelope(message: str) -> Optional[Tuple[Dict[str, str], bool]]:
+    """Decompose a v1 message envelope into its keys.
+
+    The grammar is
+    ``v=1 code=<SPEC>-<KIND>-<NN> ev=<event> obj=<SimpleClass> val='<observed>'
+    exp='<expected>' msg='<text>'``: bare values carry no space, quoted values are
+    delimited by ``'`` with ``\'`` as the escape and ``\n`` for a newline the
+    collector escaped so that logcat would not split the line in two.
+
+    Args:
+        message: The seventh comma field of a Format-2 line.
+
+    Returns:
+        ``(fields, truncated)``, or ``None`` when the text is not an envelope at
+        all (a legacy ``unknown``, a free-text ``expecting …``, a cmp162 message).
+        ``truncated`` is True when a quoted value's closing quote never arrived —
+        logcat cuts a payload at 4068 bytes without a marker, so an unclosed quote
+        is the only evidence the parser has that it is holding half a record. The
+        fields parsed before the cut are kept; nothing from the cut value onwards
+        is, because a value read up to an arbitrary byte is not the value.
+    """
+    if not message.startswith(_ENVELOPE_PREFIX):
+        return None
+
+    fields: Dict[str, str] = {}
+    truncated = False
+    pos, size = 0, len(message)
+
+    while pos < size:
+        match = _ENVELOPE_KEY.match(message, pos)
+        if not match:
+            # Whitespace between fields, or text the producer wrote outside the
+            # grammar. Skipping it keeps a malformed envelope readable up to the
+            # keys it did get right, which is more use than discarding the record.
+            pos += 1
+            continue
+
+        key = match.group(1)
+        pos = match.end()
+
+        if pos < size and message[pos] == "'":
+            pos += 1
+            value, pos, closed = _read_quoted(message, pos)
+            if not closed:
+                truncated = True
+                break
+            fields[key] = value
+        else:
+            end = message.find(" ", pos)
+            end = size if end == -1 else end
+            fields[key] = message[pos:end]
+            pos = end
+
+    return fields, truncated
+
+
+def _read_quoted(message: str, pos: int) -> Tuple[str, int, bool]:
+    """Read one single-quoted envelope value, undoing its escapes.
+
+    Returns ``(value, position_after_the_closing_quote, closed)``.
+    """
+    chars = []
+    size = len(message)
+    while pos < size:
+        char = message[pos]
+        if char == "\\" and pos + 1 < size:
+            following = message[pos + 1]
+            if following == "'":
+                chars.append("'")
+            elif following == "n":
+                chars.append("\n")
+            elif following == "\\":
+                chars.append("\\")
+            else:
+                chars.append(char)
+                pos += 1
+                continue
+            pos += 2
+            continue
+        if char == "'":
+            return "".join(chars), pos + 1, True
+        chars.append(char)
+        pos += 1
+    return "".join(chars), pos, False
+
+
+def _apply_envelope(
+    error: RvErrorLog, message: str, diagnostics: ParserDiagnostics
+) -> None:
+    """Fill the envelope fields of a record, or its sentinels, and count both.
+
+    A message that is not an envelope leaves ``code`` and ``event`` at the sentinel
+    ``UNSPECIFIED`` — never at ``""`` — so that a reader can tell a record whose
+    producer named no event from one whose event was named and empty. The same
+    counters catch an envelope whose ``code=`` or ``ev=`` is *itself* the literal
+    sentinel (the collector's ``null`` guard writes exactly that): the value is a
+    sentinel whoever wrote it.
+    """
+    parsed = _parse_envelope(message)
+    if parsed is not None:
+        fields, truncated = parsed
+        error.code = fields.get("code") or _SENTINEL_UNSPECIFIED
+        error.event = fields.get("ev") or _SENTINEL_UNSPECIFIED
+        error.obj = fields.get("obj", "")
+        error.val = fields.get("val", "")
+        error.exp = fields.get("exp", "")
+        error.msg = fields.get("msg", "")
+        error.truncated = truncated
+        if truncated:
+            diagnostics.truncated_envelopes += 1
+        if any(_FORBIDDEN_IN_VALUE in value for value in fields.values()):
+            # One per record, not one per offending value: the record is the unit
+            # everything else here counts in, and a record is either readable as
+            # seven `:::` parts downstream or it is not.
+            diagnostics.envelope_forbidden_chars += 1
+
+    if error.code == _SENTINEL_UNSPECIFIED:
+        diagnostics.sentinel_code += 1
+    if error.event == _SENTINEL_UNSPECIFIED:
+        diagnostics.sentinel_event += 1
+
+
+def _parse_error_message(
+    message: str,
+    diagnostics: Optional[ParserDiagnostics] = None,
+    thread_key: Optional[Tuple[str, str]] = None,
+) -> Optional[RvErrorLog]:
     """
     Parse an RVSEC error message into an RvErrorLog.
 
-    Try three formats in order: generic spec error (``went into an error
-    state.``), JCA comma-separated (6+ fields), and FSM ``:::`` separator.
-    Log a warning and return None if no format matches.
+    Try three formats, each recognised by structure: Format 1, the generic spec
+    error, by the suffix ``went into an error state.``; Format 2, the JCA line the
+    logcat ``ErrorCollector`` writes, by its comma count; Format 3, the FSM line,
+    by ``:::``. A message that matches none is counted and returns None.
 
     Args:
         message: The message portion of an RVSEC-tagged logcat line.
+        diagnostics: Counters to increment (INV-ANA-62).
+        thread_key: ``(pid, tid)`` of the line, used only to recognise the second
+            half of a payload logcat split on a newline.
 
     Returns:
         Parsed RvErrorLog, or None if the message format is unrecognized.
     """
-    # Three error formats exist because different RV-Monitor/RVSEC versions emit
-    # different message structures. We try the most specific first (generic spec
-    # error with source location), then JCA comma-separated (6+ fields), then the
-    # older FSM triple-colon format. Order matters: the comma-split would match
-    # generic messages too, producing garbled fields.
+    if diagnostics is None:
+        diagnostics = ParserDiagnostics()
+
+    # The line after a truncated record from the same thread is that record's
+    # second half, not a record of its own. The state is one-shot — it is cleared
+    # here whether or not this line is the continuation — so a truncation can
+    # swallow at most one following line, and that line is counted rather than
+    # dropped. Reading it as a fresh record is the failure this guards: a second
+    # half that happens to carry six commas parses into a JCA record whose every
+    # field is a fragment of a value.
+    if thread_key is not None and diagnostics.last_truncated_key == thread_key:
+        diagnostics.last_truncated_key = None
+        diagnostics.continuation_lines += 1
+        logging.getLogger(__name__).warning(
+            f"Continuation of a truncated RVSEC record, counted not parsed: {message}"
+        )
+        return None
 
     # Format 1: Generic spec error -- "class.method(file:line) ::: Spec went into an error state."
-    if message.endswith("went into an error state."):
+    #
+    # The suffix alone does not select it: an FSM line (Format 3) ends in the same
+    # words. What separates them is the punctuation — the generic emitter writes the
+    # separator with spaces around it, the FSM emitter writes it without — so both
+    # are required here, and an unspaced `:::` line falls through to Format 3 below
+    # where it belongs.
+    if message.endswith(_ERROR_STATE_SUFFIX) and _FORMAT1_SEPARATOR in message:
         generic = _parse_generic_spec_error(message)
         if generic:
-            return RvErrorLog(
+            error = RvErrorLog(
                 generic["spec"],
                 generic["spec"],
                 generic["class"],
@@ -314,10 +544,32 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
                 generic["file_name"],
                 generic["message"],
             )
+            _apply_envelope(error, generic["message"], diagnostics)
+            return error
 
-    # Format 2: JCA comma-separated -- "spec,class,init,method,source,error_type[,message]"
-    # The JCA instrumentation emits exactly this CSV layout. Fields beyond index 6
-    # are joined back as the human-readable message (some messages contain commas).
+        # The regex disagreed with the punctuation, so the line is dropped here
+        # rather than retried below. Falling through was the old behaviour and it
+        # scrambled: a generic class or method name bearing five commas —
+        # `com.example.Svc.call(a,b,c,d,e,f) ::: HasNext went into an error state.` —
+        # satisfies the comma count and comes out as a JCA record whose `spec` is
+        # `com.example.Svc.call(a`.
+        #
+        # A left part with no dot at all cannot be a `class.method` under any format
+        # and is counted as the unresolvable `:::` line it is — that is the shape of
+        # the `[helper] ::: ` lines of `generic_new`, a written non-goal of gh104.
+        if "." in message.split(_FORMAT1_SEPARATOR, 1)[0]:
+            diagnostics.format1_regex_failed += 1
+        else:
+            diagnostics.format3_unresolved += 1
+        logging.getLogger(__name__).warning(
+            f"Format-1 message did not match its regex, dropped: {message}"
+        )
+        return None
+
+    # Format 2: JCA comma-separated -- "spec,class,className,method,source,error_type[,expecting]"
+    # The logcat ErrorCollector writes ErrorSummary.toString() then "," then the
+    # expecting text, so fields beyond index 6 are the expecting text's own commas
+    # rejoined: 27 % of the recorded messages carry one and every one of them is legal.
     parts = message.split(",")
 
     if len(parts) >= 6:
@@ -338,22 +590,30 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
                 f"class={clazz!r} method={method!r} source={source!r}"
             )
 
-        return RvErrorLog(
-            parts[0],  # spec
-            parts[5],  # error_type
-            clazz,
-            method,
-            source,
-            (
-                ",".join(parts[6:]) if len(parts) > 6 else "No additional message"
-            ),  # message
-        )
+        error_type = parts[5]
+        if not error_type.strip():
+            error_type = _SENTINEL_UNSPECIFIED
+            diagnostics.sentinel_error_type += 1
+        if not source.strip():
+            source = _SENTINEL_SOURCE
+            diagnostics.sentinel_source += 1
+
+        # An absent seventh field is an empty message, not the words "No additional
+        # message": that string was written into 6-field records for years and reads
+        # downstream as something the monitor said.
+        message_text = ",".join(parts[6:]) if len(parts) > 6 else ""
+
+        error = RvErrorLog(parts[0], error_type, clazz, method, source, message_text)
+        _apply_envelope(error, message_text, diagnostics)
+        if error.truncated and thread_key is not None:
+            diagnostics.last_truncated_key = thread_key
+        return error
 
     # Format 3: FSM triple-colon -- "class.method(params):::Spec message"
     # Older RV-Monitor FSM output. Extract class and method by finding the last
     # dot before the opening parenthesis (handles inner classes with dots).
-    if ":::" in message:
-        split = message.split(":::")
+    if _FORBIDDEN_IN_VALUE in message:
+        split = message.split(_FORBIDDEN_IN_VALUE)
         if len(split) >= 2:
             tmp = split[0]
             tmp = tmp[: tmp.find("(") if "(" in tmp else len(tmp)]
@@ -363,12 +623,34 @@ def _parse_error_message(message: str) -> Optional[RvErrorLog]:
                 method = tmp[dot_idx + 1 :]
                 message_text = split[1].strip()
                 spec = message_text.split(" ")[0]
-                return RvErrorLog(
-                    spec, spec, clazz, method, "Unknown Source:1", message_text
+                # The FSM line carries no source position at all. `Unknown Source:1`
+                # used to be written here and is a fabricated line number: it reads
+                # as a measurement, and one that agrees with itself across every
+                # unrelated record.
+                diagnostics.sentinel_source += 1
+                error = RvErrorLog(
+                    spec, spec, clazz, method, _SENTINEL_SOURCE, message_text
                 )
+                _apply_envelope(error, message_text, diagnostics)
+                return error
 
-    # Fallback for malformed messages - log warning instead of creating malformed data
+        # A `:::` line whose left part has no dot resolves to no class and no
+        # method — the `[helper] ::: ` lines of `generic_new`, a written non-goal of
+        # this change. Counted, so that the set's traffic is visible rather than
+        # simply absent.
+        diagnostics.format3_unresolved += 1
+        logging.getLogger(__name__).warning(
+            f"Unresolvable ':::' message, counted not parsed: {message}"
+        )
+        return None
+
+    # Between one and four commas, no `:::`, no Format-1 suffix: the shape logcat
+    # leaves when it cuts a payload before its sixth comma.
     logging.getLogger(__name__).warning(f"Failed to parse error message: {message}")
+    if 1 <= len(parts) - 1 <= 4:
+        diagnostics.format2_short += 1
+    else:
+        diagnostics.unrecognised += 1
     return None
 
 

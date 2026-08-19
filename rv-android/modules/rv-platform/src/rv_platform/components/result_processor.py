@@ -40,6 +40,31 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
 from rv_static_analysis.parser.static import static_analysis_parser
 
+# The written contract of errors.csv (INV-PLT-19). `source` was added by gh89 and
+# `code`/`event` by gh104; those three are the only additions since the baseline, and
+# readers that address the columns by name — `aperv_tool.analysis.violations`,
+# `rvsec-dataset`, the article's scripts — tolerate them where positional readers do not.
+ERRORS_CSV_COLUMNS = [
+    "apk",
+    "rep",
+    "timeout",
+    "tool",
+    "time",
+    "spec",
+    "class",
+    "method",
+    "source",
+    "code",
+    "event",
+    "message",
+    "unique_msg",
+]
+
+# What a row carries when the record's message held no envelope: the frozen `jca` set
+# writes none, and neither did anything persisted before gh104. Never an empty string —
+# a reader must be able to tell "no envelope" from "envelope with an empty value".
+SENTINEL_UNSPECIFIED = "UNSPECIFIED"
+
 
 class ResultProcessorComponent:
     """
@@ -331,7 +356,11 @@ class ResultProcessorComponent:
         """
         logcat_file = getattr(task.result, "logcat_file", None)
         if not logcat_file or not os.path.isfile(logcat_file):
-            self.logger.warning(
+            # Counted, because the consequence is the same as a failed write: the task
+            # contributes no violation row, and a reader of errors.csv cannot tell that
+            # from a task that violated nothing.
+            self._count_write_error(task, "logcat_missing")
+            self.logger.error(
                 f"No logcat file available for task {task.id} — "
                 "MOP violation details cannot be reconstructed"
             )
@@ -361,7 +390,15 @@ class ResultProcessorComponent:
             )
             return repository
         except Exception as e:
-            self.logger.warning(f"Failed to parse logcat file for task {task.id}: {e}")
+            # The parser re-raises rather than returning a partial repository
+            # (analysis INV-ANA-62), so reaching here means the task's violations were
+            # not read at all. That is an error and a counted one: every row of the task
+            # is missing from errors.csv and from results.json.
+            self._count_write_error(task, "logcat_reconstruction")
+            self.logger.error(
+                f"Failed to parse logcat file for task {task.id}: {e} — "
+                "no violation row of this task was written"
+            )
             return None
 
     @ErrorHandler.handle_errors(
@@ -559,21 +596,12 @@ class ResultProcessorComponent:
                 writer = csv.writer(f)
 
                 # Write header for monitored operations violations
-                writer.writerow(
-                    [
-                        "apk",
-                        "rep",
-                        "timeout",
-                        "tool",
-                        "time",
-                        "spec",
-                        "class",
-                        "method",
-                        "source",
-                        "message",
-                        "unique_msg",
-                    ]
-                )
+                # Thirteen columns (INV-PLT-19). `code` and `event` sit after `source`
+                # and carry the `code=`/`ev=` values of the message envelope, or the
+                # sentinel UNSPECIFIED for a record whose producer wrote none — so a
+                # legacy row is well-formed and its absence of attribution is explicit
+                # rather than an empty cell.
+                writer.writerow(ERRORS_CSV_COLUMNS)
 
                 # Process each completed task
                 for task in completed_tasks:
@@ -589,6 +617,10 @@ class ResultProcessorComponent:
             writer: CSV writer instance
             task: Task to process for error data
         """
+        # Declared before the try so the failure handler can say how many rows of this
+        # task never reached the file — the number is the whole point of counting.
+        errors: List[Dict[str, Any]] = []
+        written = 0
         try:
             # Extract task configuration
             config = task.config
@@ -622,14 +654,14 @@ class ResultProcessorComponent:
                     # schema; the field itself has always existed on RvErrorLog.
                     source = error.get("source", "")
                     spec = error.get("spec", "")
-                    error_type = error.get("error_type", "")
                     message = error.get("message", "")
 
-                    # Use existing unique_msg if available, otherwise construct it
-                    unique_msg = error.get(
-                        "unique_msg",
-                        f"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}",
-                    )
+                    # The key is read, never rebuilt. It is `__hash__` and `__eq__` of
+                    # RvErrorLog and is composed in exactly one place (core
+                    # INV-CORE-25); a formula copied here would re-key the record under
+                    # an identity the domain did not give it, and would keep the old
+                    # five-part shape the moment the domain grew to seven.
+                    unique_msg = error["unique_msg"]
 
                     # time is written as-is (INV-PLT-24): 0 means "within the
                     # first second of tool execution", never a fabricated value.
@@ -646,13 +678,35 @@ class ResultProcessorComponent:
                             class_full_name,
                             method,
                             source,
+                            error.get("code", SENTINEL_UNSPECIFIED),
+                            error.get("event", SENTINEL_UNSPECIFIED),
                             message,
                             unique_msg,
                         ]
                     )
+                    written += 1
 
         except Exception as e:
-            self.logger.warning(f"Failed to write error data for task {task.id}: {e}")
+            # ERROR, naming what was lost. A WARNING here left errors.csv silently short
+            # of every remaining row of the task, and nothing downstream could tell a
+            # task with no violations from a task whose violations were lost. Generation
+            # continues with the next task: one bad record must not cost the campaign
+            # its other tasks.
+            self._count_write_error(task, "errors.csv")
+            self.logger.error(
+                f"Failed to write error data for task {task.id}: {e} — "
+                f"{len(errors) - written} row(s) not written"
+            )
+
+    @staticmethod
+    def _count_write_error(task: Any, artefact: str) -> None:
+        """Record on the task's own result that a write of ``artefact`` failed
+        (INV-PLT-32), so the loss is readable from the result and not only from a log.
+        """
+        result = getattr(task, "result", None)
+        if result is None or not hasattr(result, "write_errors"):
+            return
+        result.write_errors[artefact] = result.write_errors.get(artefact, 0) + 1
 
     @ErrorHandler.handle_errors(
         component="ResultProcessorComponent", phase="app_events_csv_generation"
@@ -985,19 +1039,9 @@ class ResultProcessorComponent:
                 task_data["monitored_operations_errors"]["total"] = len(errors)
 
                 # Create complete messages
-                messages = []
-                for error in errors:
-                    if "unique_msg" in error and error["unique_msg"]:
-                        messages.append(error["unique_msg"])
-                    else:
-                        # Construct using field names
-                        class_full_name = error.get("class_full_name", "")
-                        method = error.get("method", "")
-                        spec = error.get("spec", "")
-                        error_type = error.get("error_type", "")
-                        message = error.get("message", "")
-                        complete_msg = f"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}"
-                        messages.append(complete_msg)
+                # The key as the domain object computed it; never re-assembled here
+                # (core INV-CORE-25).
+                messages = [error["unique_msg"] for error in errors]
 
                 task_data["monitored_operations_errors"]["messages"] = messages
                 task_data["monitored_operations_errors"]["details"] = errors
@@ -1025,18 +1069,9 @@ class ResultProcessorComponent:
                     errors = reconstructed.get_errors()
                     task_data["monitored_operations_errors"]["total"] = len(errors)
 
-                    messages = []
-                    for error in errors:
-                        if "unique_msg" in error and error["unique_msg"]:
-                            messages.append(error["unique_msg"])
-                        else:
-                            class_full_name = error.get("class_full_name", "")
-                            method = error.get("method", "")
-                            spec = error.get("spec", "")
-                            error_type = error.get("error_type", "")
-                            message = error.get("message", "")
-                            complete_msg = f"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}"
-                            messages.append(complete_msg)
+                    # The key as the domain object computed it; never re-assembled
+                    # here (core INV-CORE-25).
+                    messages = [error["unique_msg"] for error in errors]
 
                     task_data["monitored_operations_errors"]["messages"] = messages
                     task_data["monitored_operations_errors"]["details"] = errors
@@ -1044,13 +1079,18 @@ class ResultProcessorComponent:
             return task_data
 
         except Exception as e:
-            self.logger.warning(f"Failed to extract data for task {task.id}: {e}")
+            # ERROR and counted, and the entry says so. Returning `total: 0` under a
+            # WARNING presented a task whose violations could not be read as a task
+            # that had none — the one reading a consumer cannot recover from.
+            self._count_write_error(task, "results.json")
+            self.logger.error(f"Failed to extract data for task {task.id}: {e}")
             return {
                 "summary": {},
                 "monitored_operations_errors": {
-                    "total": 0,
+                    "total": None,
                     "messages": [],
                     "details": [],
+                    "extraction_failed": True,
                 },
             }
 

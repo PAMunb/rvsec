@@ -3,6 +3,7 @@ Tests for ResultProcessorComponent — CSV/JSON generation, task filtering,
 coverage/error/summary data writing, and logcat reconstruction fallback.
 """
 
+import logging
 import csv
 import json
 import os
@@ -246,9 +247,10 @@ class TestErrorsCSV:
         assert len(reader) == 2  # header + 1 reconstructed error
 
     def test_errors_csv_header_carries_source_after_method(self, tmp_path):
-        """gh89: the column set is a contract shared with rvsec-dataset and the
+        """gh89/gh104: the column set is a contract shared with rvsec-dataset and the
         ase-journal analysis scripts, so it is asserted exactly rather than loosely.
-        `source` sits after `method` — identity fields first, then evidence."""
+        `source` sits after `method` — identity fields first, then evidence — and
+        `code`/`event` after it, carrying the envelope's attribution (INV-PLT-19)."""
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent([], results_dir)
         processor._generate_errors_csv([])
@@ -266,6 +268,8 @@ class TestErrorsCSV:
             "class",
             "method",
             "source",
+            "code",
+            "event",
             "message",
             "unique_msg",
         ]
@@ -299,6 +303,128 @@ class TestErrorsCSV:
         assert len({r["unique_msg"] for r in rows}) == 1
         assert {r["class"] for r in rows} == {"okio.ByteString"}
         assert {r["method"] for r in rows} == {"digest$okio"}
+
+    def test_errors_csv_row_carries_code_and_event(self, tmp_path):
+        """The two columns gh104 adds: per-event attribution becomes a column read
+        rather than a regex over the free text of `message`."""
+        errors = [
+            {
+                "class_full_name": "com.example.vault.KeyDeriver",
+                "method": "derive",
+                "source": "KeyDeriver.java:31",
+                "spec": "PBEKeySpecSpec",
+                "error_type": "ForbiddenMethod",
+                "code": "PBEKEYSPEC-FORB-01",
+                "event": "f1",
+                "message": (
+                    "v=1 code=PBEKEYSPEC-FORB-01 ev=f1 obj=PBEKeySpec "
+                    "val='PBEKeySpec(char[])' exp='PBEKeySpec(char[],byte[],int,int)' "
+                    "msg='forbidden constructor'"
+                ),
+                "unique_msg": (
+                    "com.example.vault.KeyDeriver:::derive:::PBEKeySpecSpec:::"
+                    "ForbiddenMethod:::PBEKEYSPEC-FORB-01:::f1:::v=1 …"
+                ),
+                "time_since_task_start": 5,
+            }
+        ]
+        task = _make_completed_task(repository=_make_mock_repository(errors=errors))
+
+        results_dir = str(tmp_path / "results")
+        ResultProcessorComponent([task], results_dir)._generate_errors_csv([task])
+
+        with open(os.path.join(results_dir, "errors.csv")) as f:
+            row = next(csv.DictReader(f))
+
+        assert row["code"] == "PBEKEYSPEC-FORB-01"
+        assert row["event"] == "f1"
+        assert row["message"].startswith("v=1 ")
+
+    def test_a_record_without_an_envelope_gets_the_sentinels(self, tmp_path):
+        """Never an empty cell: a reader must be able to tell "no envelope" from
+        "envelope with an empty value"."""
+        errors = [
+            {
+                "class_full_name": "okio.ByteString",
+                "method": "digest$okio",
+                "source": "ByteString.kt:83",
+                "spec": "MessageDigestSpec",
+                "error_type": "MessageDigest",
+                "message": "unknown",
+                "unique_msg": (
+                    "okio.ByteString:::digest$okio:::MessageDigestSpec:::MessageDigest"
+                    ":::UNSPECIFIED:::UNSPECIFIED:::unknown"
+                ),
+                "time_since_task_start": 0,
+            }
+        ]
+        task = _make_completed_task(repository=_make_mock_repository(errors=errors))
+
+        results_dir = str(tmp_path / "results")
+        ResultProcessorComponent([task], results_dir)._generate_errors_csv([task])
+
+        with open(os.path.join(results_dir, "errors.csv")) as f:
+            row = next(csv.DictReader(f))
+
+        assert row["code"] == "UNSPECIFIED"
+        assert row["event"] == "UNSPECIFIED"
+        assert row["unique_msg"].endswith(":::UNSPECIFIED:::UNSPECIFIED:::unknown")
+
+    def test_a_write_failure_is_counted_and_logged_as_an_error(self, tmp_path, caplog):
+        """INV-PLT-32. A WARNING left the file short of every remaining row of the task
+        and nothing downstream could tell that from a task with no violations."""
+        errors = [
+            {
+                "class_full_name": "com.example.C",
+                "method": "enc",
+                "source": "C.java:9",
+                "spec": "CipherSpec",
+                "error_type": "UnsafeAlgorithm",
+                "message": "unknown",
+                "unique_msg": f"com.example.C:::enc:::CipherSpec:::UnsafeAlgorithm:::u{i}",
+                "time_since_task_start": 0,
+            }
+            for i in range(37)
+        ]
+        task = _make_completed_task(repository=_make_mock_repository(errors=errors))
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+
+        writer = MagicMock()
+        writer.writerow.side_effect = [None] * 11 + [OSError("disk full")]
+
+        with caplog.at_level(logging.ERROR):
+            processor._write_task_error_data(writer, task)
+
+        assert task.result.write_errors["errors.csv"] == 1
+        assert "26 row(s) not written" in caplog.text
+        assert "disk full" in caplog.text
+
+    def test_the_writer_has_no_unique_msg_fallback(self, tmp_path):
+        """core INV-CORE-25: the key is built in one place. A record reaching the writer
+        without one is a defect of the producer, not something to paper over with a
+        second formula that would silently re-key it."""
+        errors = [
+            {
+                "class_full_name": "com.example.C",
+                "method": "enc",
+                "source": "C.java:9",
+                "spec": "CipherSpec",
+                "error_type": "UnsafeAlgorithm",
+                "message": "unknown",
+                "time_since_task_start": 0,
+            }
+        ]
+        task = _make_completed_task(repository=_make_mock_repository(errors=errors))
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent([task], results_dir)
+        processor._generate_errors_csv([task])
+
+        with open(os.path.join(results_dir, "errors.csv")) as f:
+            rows = list(csv.DictReader(f))
+
+        assert rows == []
+        assert task.result.write_errors["errors.csv"] == 1
 
     def test_errors_csv_empty_when_no_repository_no_logcat(self, tmp_path):
         """No repository and no logcat → header-only errors.csv."""
@@ -425,9 +551,10 @@ class TestAppEventsCSV:
         """INV-PLT-19: generating diagnostics does not alter the coverage/errors/
         summary headers.
 
-        The `source` column asserted below is gh89's, not the diagnostic feature's — the
-        invariant is that *diagnostics* add no column to these three files, and it still
-        holds. Every diagnostic field lives in `app_events.csv` alone.
+        The `source` column asserted below is gh89's and `code`/`event` are gh104's,
+        none of them the diagnostic feature's — the invariant is that *diagnostics* add
+        no column to these three files, and it still holds. Every diagnostic field lives
+        in `app_events.csv` alone.
         """
         repo = _make_mock_repository(
             method_calls=[],
@@ -458,6 +585,8 @@ class TestAppEventsCSV:
             "class",
             "method",
             "source",
+            "code",
+            "event",
             "message",
             "unique_msg",
         ]

@@ -345,6 +345,16 @@ class TaskResult(BaseValidatedModel):
     detected_errors: List[Dict[str, Any]] = Field(
         default_factory=list, description="List of detected errors"
     )
+    # Rows this task lost while its results were being written, keyed by the artefact
+    # that lost them (`errors.csv`, `results.json`). A write failure used to be a
+    # WARNING and nothing else, which left the file silently short of every row of the
+    # task: downstream, a task whose violations were lost is indistinguishable from a
+    # task that had none. Counting it here is what makes the loss readable from the
+    # result rather than from a log nobody re-reads (INV-PLT-32).
+    write_errors: Dict[str, int] = Field(
+        default_factory=dict,
+        description="Rows not written per output artefact during result processing",
+    )
 
     # === STATE TRANSITION HISTORY ===
     state_transitions: List[Dict[str, Any]] = Field(

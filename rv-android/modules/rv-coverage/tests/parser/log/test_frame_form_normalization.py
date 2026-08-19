@@ -257,7 +257,9 @@ class TestOtherFormatsUntouched:
         )
         assert error.class_full_name == "com.example.app.Auth"
         assert error.method == "login"
-        assert error.source == "Unknown Source:1"
+        # The FSM line carries no source position; the parser names that rather than
+        # fabricating the line number 1 (INV-ANA-08).
+        assert error.source == "UNSPECIFIED:0"
 
 
 class TestCorpusParity:

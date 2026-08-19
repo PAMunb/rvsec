@@ -21,9 +21,11 @@ from pathlib import Path
 from unittest.mock import Mock, mock_open, patch
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 # Import domain models used by the parser
-from rv_android_core.domain.coverage import LogcatRepository
+from rv_android_core.domain.coverage import LogcatRepository, ParserDiagnostics
 
 # Import the module to test
 from rv_coverage.parser.log.logcat_parser import (
@@ -198,13 +200,15 @@ class TestLogcatParser:
         assert len(repository.unique_errors) == 2
 
     def test_parse_logcat_file_with_exception(self):
-        """Test handling of exceptions when parsing a logcat file."""
-        with patch("builtins.open", side_effect=Exception("File error")):
-            repository = parse_logcat_file("non_existent_file.logcat")
+        """An exception during the read reaches the caller (INV-ANA-62).
 
-            # Should return an empty repository instead of raising an exception
-            assert isinstance(repository, LogcatRepository)
-            assert len(repository.errors) == 0
+        Returning the repository built so far used to look like graceful degradation
+        and is the opposite: the caller receives counts computed over whatever prefix
+        happened to parse, indistinguishable from the counts of the whole file.
+        """
+        with patch("builtins.open", side_effect=Exception("File error")):
+            with pytest.raises(Exception, match="File error"):
+                parse_logcat_file("non_existent_file.logcat")
 
     def test_parse_logcat_line_internal(self, valid_error_line):
         """Test the internal _parse_logcat_line function."""
@@ -411,12 +415,9 @@ class TestLogcatParser:
             os.unlink(temp_filename)
 
     def test_parse_logcat_file_nonexistent(self):
-        """Test trying to parse a non-existent logcat file."""
-        repository = parse_logcat_file("this_file_does_not_exist.logcat")
-
-        # Should return an empty repository instead of raising an exception
-        assert isinstance(repository, LogcatRepository)
-        assert len(repository.errors) == 0
+        """A missing file is the caller's error to see, not an empty repository."""
+        with pytest.raises(FileNotFoundError):
+            parse_logcat_file("this_file_does_not_exist.logcat")
 
     def test_parse_logcat_line_with_other_tag(self):
         """Test parsing a logcat line with a tag other than RVSEC or RVSEC-COV."""
@@ -760,3 +761,441 @@ class TestHeartbeatInertness:
             crashes[0]["stack_head"]
             == "br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)"
         )
+
+
+class TestEnvelopeAndDiagnostics:
+    """Task 5.3: the parser reads the v1 envelope, names what it could not read, and
+    counts every line it did not turn into a record (INV-ANA-08/62/63).
+
+    The three families of loss these tests close were measured on the recorded corpus:
+    silence (ten points dropped or rewrote a line with no counter), fabrication
+    (`Unknown Source:1`, `No additional message` — values that read as measurements and
+    are not), and scrambling (a Format-1 line whose regex failed fell into the comma
+    path and came out a JCA record whose `spec` was a fragment of a class name).
+    """
+
+    HEAD = "07-15 14:30:22.123  1234  5678 V RVSEC: "
+
+    @staticmethod
+    def _diag():
+        return ParserDiagnostics()
+
+    def test_envelope_with_commas_inside_a_value(self):
+        diag = self._diag()
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "MessageDigestSpec,okio.ByteString,ByteString,digest$okio,ByteString.kt:12,"
+            "UnsafeAlgorithm,v=1 code=MESSAGEDIGEST-ALG-01 ev=update obj=MessageDigest "
+            "val='MD2' exp='MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384' "
+            "msg='expecting one of MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384 but found MD2'",
+            diag,
+        )
+
+        assert error.spec == "MessageDigestSpec"
+        assert error.class_full_name == "okio.ByteString"
+        assert error.method == "digest$okio"
+        assert error.source == "ByteString.kt:12"
+        assert error.error_type == "UnsafeAlgorithm"
+        assert error.code == "MESSAGEDIGEST-ALG-01"
+        assert error.event == "update"
+        assert error.obj == "MessageDigest"
+        assert error.val == "MD2"
+        assert error.exp == "MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384"
+        assert (
+            error.msg
+            == "expecting one of MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384 but found MD2"
+        )
+        assert error.truncated is False
+        assert error.message.startswith("v=1 ")
+        assert error.message.endswith("but found MD2'")
+        assert diag.to_dict() == ParserDiagnostics().to_dict()
+
+    def test_unclosed_quote_is_a_truncated_record(self):
+        diag = self._diag()
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "CipherSpec,com.example.Crypto,Crypto,doEncrypt,Crypto.java:15,UnsafeAlgorithm,"
+            "v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='AES/ECB/PKCS5Padding' "
+            "exp='AES/GCM/NoPadding,AES/CBC/PKCS7Pad",
+            diag,
+        )
+
+        assert error.truncated is True
+        assert error.code == "CIPHER-ALG-02"
+        assert error.event == "c1"
+        assert error.obj == "Cipher"
+        assert error.val == "AES/ECB/PKCS5Padding"
+        # Nothing from the cut value onwards: a value read up to an arbitrary byte is
+        # not the value, and `exp` half-read is worse than `exp` absent.
+        assert error.exp == ""
+        assert error.msg == ""
+        assert diag.truncated_envelopes == 1
+
+    def test_legacy_unknown_message_receives_sentinels(self):
+        diag = self._diag()
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "MessageDigestSpec,com.example.Hash,Hash,digest,Hash.java:40,UnsafeAlgorithm,unknown",
+            diag,
+        )
+
+        assert error.message == "unknown"
+        assert (error.code, error.event) == ("UNSPECIFIED", "UNSPECIFIED")
+        assert (error.obj, error.val, error.exp, error.msg) == ("", "", "", "")
+        assert error.truncated is False
+        assert diag.sentinel_code == 1
+        assert diag.sentinel_event == 1
+        # What the producer did write is kept as written.
+        assert error.error_type == "UnsafeAlgorithm"
+        assert error.source == "Hash.java:40"
+        assert diag.sentinel_error_type == 0
+        assert diag.sentinel_source == 0
+
+    def test_empty_fields_receive_sentinels_not_invented_values(self):
+        diag = self._diag()
+        error, _ = parse_logcat_line(
+            self.HEAD + "SecretKeySpecSpec,com.example.K,K,make,,,", diag
+        )
+
+        assert error.error_type == "UNSPECIFIED"
+        assert error.source == "UNSPECIFIED:0"
+        assert error.message == ""
+        assert error.code == "UNSPECIFIED"
+        assert error.event == "UNSPECIFIED"
+        assert diag.sentinel_error_type == 1
+        assert diag.sentinel_source == 1
+        assert diag.sentinel_code == 1
+        assert diag.sentinel_event == 1
+        assert "No additional message" not in str(error.to_dict())
+
+    def test_format1_regex_failure_is_counted_not_scrambled(self):
+        """The five commas in the prefix are exactly what used to produce a JCA record
+        whose `spec` was `com.example.Svc.call(a`."""
+        diag = self._diag()
+        error, coverage = parse_logcat_line(
+            self.HEAD + "com.example.Svc.call(a,b,c,d,e,f) ::: HasNext went into an error state.",
+            diag,
+        )
+
+        assert (error, coverage) == (None, None)
+        assert diag.format1_regex_failed == 1
+        assert diag.format2_short == 0
+        assert diag.unrecognised == 0
+
+    def test_helper_lines_of_generic_new_are_counted(self):
+        diag = self._diag()
+        error, coverage = parse_logcat_line(
+            self.HEAD + "[helper] ::: Iterator_HasNext went into an error state.", diag
+        )
+
+        assert (error, coverage) == (None, None)
+        assert diag.format3_unresolved == 1
+
+    def test_fsm_line_gets_the_source_sentinel(self):
+        diag = self._diag()
+        error, _ = parse_logcat_line(
+            self.HEAD + "java.util.Iterator.next():::HasNext went into an error state.", diag
+        )
+
+        assert error.spec == "HasNext"
+        assert error.class_full_name == "java.util.Iterator"
+        assert error.method == "next"
+        assert error.source == "UNSPECIFIED:0"
+        assert diag.sentinel_source == 1
+
+    def test_a_short_payload_is_counted_under_format2_short(self):
+        diag = self._diag()
+        error, _ = parse_logcat_line(self.HEAD + "CipherSpec,com.example.C,C", diag)
+
+        assert error is None
+        assert diag.format2_short == 1
+        assert diag.unrecognised == 0
+
+    def test_a_message_with_no_structure_at_all_is_unrecognised(self):
+        diag = self._diag()
+        parse_logcat_line(self.HEAD + "some malformed message", diag)
+
+        assert diag.unrecognised == 1
+
+    def test_a_non_threadtime_line_is_counted(self):
+        diag = self._diag()
+        parse_logcat_line("--------- beginning of crash", diag)
+
+        assert diag.lines_not_threadtime == 1
+
+    def test_a_line_under_another_tag_is_counted(self):
+        diag = self._diag()
+        parse_logcat_line("07-15 14:30:22.123  1234  5678 D ApeRvHb: step 7", diag)
+
+        assert diag.lines_other_tag == 1
+
+    def test_a_diagnostic_tag_line_is_neither_a_record_nor_a_discard(self):
+        """Those lines are the raw material of the multi-line diagnostic events the
+        other parser assembles from the same file; counting them as dropped would
+        misstate the account."""
+        diag = self._diag()
+        parse_logcat_line(
+            "07-15 14:30:22.123  1234  5678 E AndroidRuntime: FATAL EXCEPTION: main", diag
+        )
+
+        assert diag.to_dict() == ParserDiagnostics().to_dict()
+
+    def test_a_forbidden_separator_inside_a_value_is_counted_and_kept(self):
+        diag = self._diag()
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,"
+            "v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='A:::B' exp='AES' msg='bad'",
+            diag,
+        )
+
+        assert error.val == "A:::B"
+        assert diag.envelope_forbidden_chars == 1
+
+    def test_an_escaped_quote_round_trips(self):
+        diag = self._diag()
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,"
+            r"v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='it\'s' exp='AES' msg='bad'",
+            diag,
+        )
+
+        assert error.val == "it's"
+        assert error.exp == "AES"
+
+    def test_an_escaped_newline_round_trips(self):
+        """The collector escapes a newline so that logcat emits one line; the parser
+        restores it so the message the monitor wrote is the message read back."""
+        diag = self._diag()
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,"
+            r"v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='AES' exp='AES' msg='first\nsecond'",
+            diag,
+        )
+
+        assert error.msg == "first\nsecond"
+        assert diag.continuation_lines == 0
+
+    def test_a_payload_split_on_a_newline_yields_one_record_and_one_continuation(self):
+        diag = self._diag()
+        first, _ = parse_logcat_line(
+            self.HEAD
+            + "CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,"
+            "v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='AES' exp='AES' msg='first",
+            diag,
+        )
+        second, _ = parse_logcat_line(self.HEAD + "second'", diag)
+
+        assert first.truncated is True
+        assert second is None
+        assert diag.continuation_lines == 1
+        assert diag.truncated_envelopes == 1
+
+    def test_the_continuation_state_is_one_shot(self):
+        """A truncation accounts for at most one following line: the record after it is
+        a record again, so a 4068-byte cut cannot swallow a run's remaining traffic."""
+        diag = self._diag()
+        parse_logcat_line(
+            self.HEAD
+            + "CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,"
+            "v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='AES' exp='AES' msg='first",
+            diag,
+        )
+        parse_logcat_line(self.HEAD + "second'", diag)
+        third, _ = parse_logcat_line(
+            self.HEAD + "CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,unknown",
+            diag,
+        )
+
+        assert third is not None
+        assert diag.continuation_lines == 1
+
+    def test_a_continuation_from_another_thread_is_not_swallowed(self):
+        diag = self._diag()
+        parse_logcat_line(
+            self.HEAD
+            + "CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,"
+            "v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='AES' exp='AES' msg='first",
+            diag,
+        )
+        other, _ = parse_logcat_line(
+            "07-15 14:30:22.500  1234  9999 V RVSEC: "
+            "CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,unknown",
+            diag,
+        )
+
+        assert other is not None
+        assert diag.continuation_lines == 0
+
+    def test_a_payload_cut_at_the_logcat_bound_is_truncated(self):
+        """API 30's `LOGGER_ENTRY_MAX_PAYLOAD` is 4068 bytes and the cut carries no
+        marker, so an unclosed quote is the only evidence the record is half a record."""
+        diag = self._diag()
+        long_exp = ",".join(f"ALG-{i:04d}" for i in range(600))
+        payload = (
+            "CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,"
+            f"v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='AES' exp='{long_exp}' msg='bad'"
+        )
+        assert len(payload) > 4068
+        error, _ = parse_logcat_line(self.HEAD + payload[:4068], diag)
+
+        assert error.truncated is True
+        assert error.val == "AES"
+        assert error.exp == ""
+        assert diag.truncated_envelopes == 1
+
+
+class TestCounterArithmetic:
+    """INV-ANA-62: records registered plus counted lines equals lines read.
+
+    The file below deliberately mixes every discard shape with real records. It carries
+    no diagnostic-tag lines, because those are neither records here nor discards — they
+    are assembled into events by `DiagnosticEventParser` on its own pass, and including
+    one would make this sum short by design rather than by defect.
+    """
+
+    LINES = [
+        "07-15 14:30:22.123  1234  5678 V RVSEC: MessageDigestSpec,com.example.H,H,d,H.java:1,UnsafeAlgorithm,"
+        "v=1 code=MESSAGEDIGEST-ALG-01 ev=g1 obj=MessageDigest val='MD5' exp='SHA-256' msg='bad'",
+        "07-15 14:30:22.124  1234  5678 V RVSEC: MessageDigestSpec,com.example.H,H,d,H.java:1,UnsafeAlgorithm,unknown",
+        "07-15 14:30:22.125  1234  5678 V RVSEC-COV: <com.example.H: void d()>",
+        "07-15 14:30:22.126  1234  5678 V RVSEC: [helper] ::: Iterator_HasNext went into an error state.",
+        "07-15 14:30:22.127  1234  5678 V RVSEC: com.example.Svc.call(a,b,c,d,e,f) ::: HasNext went into an error state.",
+        "07-15 14:30:22.128  1234  5678 V RVSEC: CipherSpec,com.example.C,C",
+        "07-15 14:30:22.129  1234  5678 V RVSEC: nonsense",
+        "07-15 14:30:22.130  1234  5678 D ApeRvHb: step 7",
+        "--------- beginning of main",
+        "07-15 14:30:22.131  1234  5678 V RVSEC: java.util.Iterator.next():::HasNext went into an error state.",
+    ]
+
+    def test_records_plus_counted_lines_equal_lines_read(self, tmp_path):
+        log = tmp_path / "run.logcat"
+        log.write_text("\n".join(self.LINES) + "\n")
+
+        repository = parse_logcat_file(str(log))
+        diagnostics = repository.parser_diagnostics
+
+        records = len(repository.errors) + sum(
+            method.call_count
+            for class_data in repository.classes.values()
+            for method in class_data.methods.values()
+        )
+        # The coverage record above names a class absent from static data, which the
+        # repository does not register; count what the parser produced instead.
+        parsed_records = len(repository.errors) + 1
+
+        assert parsed_records + diagnostics.discarded_lines == len(self.LINES)
+        assert records >= 0
+
+    def test_each_discard_is_attributed_to_exactly_one_counter(self, tmp_path):
+        log = tmp_path / "run.logcat"
+        log.write_text("\n".join(self.LINES) + "\n")
+
+        counters = parse_logcat_file(str(log)).parser_diagnostics
+
+        assert counters.format3_unresolved == 1
+        assert counters.format1_regex_failed == 1
+        assert counters.format2_short == 1
+        assert counters.unrecognised == 1
+        assert counters.lines_other_tag == 1
+        assert counters.lines_not_threadtime == 1
+        assert counters.continuation_lines == 0
+
+    def test_the_live_path_and_the_file_path_count_on_the_same_object(self):
+        """The tracker hands `parse_logcat_line` the repository's own counters, so a
+        run's discards are visible whichever path read the file."""
+        repository = LogcatRepository()
+        for line in self.LINES:
+            parse_logcat_line(line, repository.parser_diagnostics)
+
+        assert repository.parser_diagnostics.discarded_lines == 6
+
+
+class TestEnvelopeProperties:
+    """The property test the analysis delta names: values built from the characters the
+    grammar constrains — `,` (legal), `\\'` (escaped), `:::` (forbidden, counted).
+
+    Generating rather than enumerating matters here because the failure mode is
+    positional: a comma one field earlier, a quote one character later, and the record
+    decomposes into different fields without anything raising.
+    """
+
+    HEAD = "07-15 14:30:22.123  1234  5678 V RVSEC: "
+
+    FRAGMENTS = st.sampled_from(
+        ["plain", "AES/GCM/NoPadding", "a,b", "it's", "A:::B", "", "SHA-256, SHA-512"]
+    )
+    # Stripped, because `BaseValidatedModel` is configured with
+    # `str_strip_whitespace=True`: leading and trailing whitespace never survives into
+    # any field of the domain model, and the collector trims the expecting text before
+    # it writes the line anyway, so a value that begins or ends in a space is not a
+    # value the transport can carry.
+    VALUES = st.lists(FRAGMENTS, min_size=1, max_size=4).map(" ".join).map(str.strip)
+
+    @staticmethod
+    def _escape(value: str) -> str:
+        return value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
+
+    @classmethod
+    def _line(cls, val: str, exp: str, msg: str) -> str:
+        envelope = (
+            "v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher "
+            f"val='{cls._escape(val)}' exp='{cls._escape(exp)}' msg='{cls._escape(msg)}'"
+        )
+        return (
+            cls.HEAD
+            + f"CipherSpec,com.example.C,C,enc,C.java:9,UnsafeAlgorithm,{envelope}"
+        )
+
+    @given(val=VALUES, exp=VALUES, msg=VALUES)
+    @settings(max_examples=200, deadline=None)
+    def test_every_value_round_trips_byte_for_byte(self, val, exp, msg):
+        diagnostics = ParserDiagnostics()
+        error, _ = parse_logcat_line(self._line(val, exp, msg), diagnostics)
+
+        assert error is not None
+        assert error.val == val
+        assert error.exp == exp
+        assert error.msg == msg
+        assert error.truncated is False
+        assert diagnostics.truncated_envelopes == 0
+        assert diagnostics.sentinel_code == 0
+        assert diagnostics.sentinel_event == 0
+
+    @given(val=VALUES, exp=VALUES, msg=VALUES)
+    @settings(max_examples=100, deadline=None)
+    def test_a_forbidden_separator_is_counted_exactly_once_per_record(self, val, exp, msg):
+        diagnostics = ParserDiagnostics()
+        parse_logcat_line(self._line(val, exp, msg), diagnostics)
+
+        carries = any(":::" in value for value in (val, exp, msg))
+        assert diagnostics.envelope_forbidden_chars == (1 if carries else 0)
+
+    @given(val=VALUES, exp=VALUES, msg=VALUES)
+    @settings(max_examples=100, deadline=None)
+    def test_every_comma_inside_a_value_survives(self, val, exp, msg):
+        error, _ = parse_logcat_line(self._line(val, exp, msg), ParserDiagnostics())
+
+        assert error.val.count(",") == val.count(",")
+        assert error.exp.count(",") == exp.count(",")
+        assert error.msg.count(",") == msg.count(",")
+
+    @given(cut=st.integers(min_value=60, max_value=200))
+    @settings(max_examples=100, deadline=None)
+    def test_a_cut_inside_a_quoted_value_is_truncation_never_a_value(self, cut):
+        line = self._line("AES/ECB/PKCS5Padding", "AES/GCM/NoPadding,AES/CBC/PKCS7Padding", "bad")
+        payload = line[len(self.HEAD) :]
+        # Cut inside the `exp` value: after its opening quote, before its closing one.
+        opening = payload.index("exp='") + len("exp='")
+        closing = payload.index("'", opening)
+        cut_at = opening + (cut % max(1, closing - opening - 1)) + 1
+
+        diagnostics = ParserDiagnostics()
+        error, _ = parse_logcat_line(self.HEAD + payload[:cut_at], diagnostics)
+
+        assert error.truncated is True
+        assert error.exp == ""
+        assert error.msg == ""
+        assert diagnostics.truncated_envelopes == 1

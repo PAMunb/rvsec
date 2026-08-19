@@ -408,7 +408,14 @@ class CoverageTracker:
 
             # parse_logcat_line returns a mutually exclusive tuple: at most one of
             # error_log or coverage_log is non-None. Both are None for non-RVSEC lines.
-            error_log, coverage_log = parse_logcat_line(line)
+            #
+            # The repository's own counter object is handed in, not a fresh one: the
+            # live path and the offline `parse_logcat_file` path must account for the
+            # same lines on the same totals, or a run's discards would be visible only
+            # in whichever of the two happened to read the file (INV-ANA-62).
+            error_log, coverage_log = parse_logcat_line(
+                line, self.repository.parser_diagnostics
+            )
 
             if error_log:
                 # Compute relative timestamp: seconds since the testing tool started.

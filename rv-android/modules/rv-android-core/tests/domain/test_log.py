@@ -331,7 +331,14 @@ class TestSourceIsPreservedButNotIdentifying:
             "class_full_name",
             "method",
             "source",
+            "code",
+            "event",
             "message",
+            "obj",
+            "val",
+            "exp",
+            "msg",
+            "truncated",
             "time_occurred",
             "time_since_task_start",
             "unique_msg",
@@ -396,3 +403,154 @@ class TestSourceIsPreservedButNotIdentifying:
         # The analysis key deliberately drops error_type and message.
         analysis_keys = {(e.class_full_name, e.method, e.spec) for e in (sha1, md5)}
         assert len(analysis_keys) == 1
+
+
+class TestSevenPartIdentity:
+    """INV-CORE-25/56/57: `unique_msg` is
+    `class:::method:::spec:::error_type:::code:::event:::message`, and it is built here
+    and nowhere else.
+
+    The two new parts are the `code=` and `ev=` values of the message envelope the
+    `jca_android` monitors write. A record with no envelope — the frozen `jca` set, and
+    everything persisted before this change — carries the sentinel `UNSPECIFIED` in both
+    rather than an empty string, so a legacy key is still seven readable parts and a
+    reader can tell "no envelope" from "envelope with an empty value".
+    """
+
+    @staticmethod
+    def _envelope_error():
+        return RvErrorLog(
+            spec="PBEKeySpecSpec",
+            error_type="ForbiddenMethod",
+            class_full_name="com.example.vault.KeyDeriver",
+            method="derive",
+            source="KeyDeriver.java:31",
+            code="PBEKEYSPEC-FORB-01",
+            event="f1",
+            obj="PBEKeySpec",
+            val="PBEKeySpec(char[])",
+            exp="PBEKeySpec(char[],byte[],int,int)",
+            msg="forbidden constructor",
+            message=(
+                "v=1 code=PBEKEYSPEC-FORB-01 ev=f1 obj=PBEKeySpec "
+                "val='PBEKeySpec(char[])' exp='PBEKeySpec(char[],byte[],int,int)' "
+                "msg='forbidden constructor'"
+            ),
+        )
+
+    @staticmethod
+    def _legacy_error():
+        return RvErrorLog(
+            spec="MessageDigestSpec",
+            error_type="SequenceViolation",
+            class_full_name="okio.ByteString",
+            method="digest$okio",
+            source="ByteString.kt:83",
+            message="unknown",
+        )
+
+    def test_an_envelope_message_yields_code_and_event_parts(self):
+        error = self._envelope_error()
+
+        assert error.unique_msg == (
+            "com.example.vault.KeyDeriver:::derive:::PBEKeySpecSpec:::ForbiddenMethod"
+            ":::PBEKEYSPEC-FORB-01:::f1:::"
+            "v=1 code=PBEKEYSPEC-FORB-01 ev=f1 obj=PBEKeySpec "
+            "val='PBEKeySpec(char[])' exp='PBEKeySpec(char[],byte[],int,int)' "
+            "msg='forbidden constructor'"
+        )
+
+        parts = error.unique_msg.split(":::")
+        assert len(parts) == 7
+        assert parts[4] == "PBEKEYSPEC-FORB-01"
+        assert parts[5] == "f1"
+
+    def test_a_legacy_unknown_message_yields_the_sentinels(self):
+        error = self._legacy_error()
+
+        assert error.code == "UNSPECIFIED"
+        assert error.event == "UNSPECIFIED"
+        assert error.unique_msg == (
+            "okio.ByteString:::digest$okio:::MessageDigestSpec:::SequenceViolation"
+            ":::UNSPECIFIED:::UNSPECIFIED:::unknown"
+        )
+
+    def test_two_legacy_records_deduplicate(self):
+        from rv_android_core.domain.coverage import LogcatRepository
+
+        repo = LogcatRepository()
+        repo.register_rv_error(self._legacy_error())
+        repo.register_rv_error(self._legacy_error())
+
+        assert len(repo.unique_errors) == 1
+
+    def test_an_empty_code_or_event_still_renders_the_sentinel(self):
+        """A caller that writes `code=""` gets the sentinel, not an empty part: an empty
+        part would make the key ambiguous with a key whose part was genuinely absent."""
+        error = self._legacy_error().model_copy(update={"code": "", "event": ""})
+
+        assert error.unique_msg.split(":::")[4] == "UNSPECIFIED"
+        assert error.unique_msg.split(":::")[5] == "UNSPECIFIED"
+
+    def test_event_separates_two_records_that_agree_on_everything_else(self):
+        """INV-CORE-57: the identity discontinuity is not a no-op on an envelope corpus."""
+        from rv_android_core.domain.coverage import LogcatRepository
+
+        def violation(event):
+            return RvErrorLog(
+                spec="MessageDigestSpec",
+                error_type="UnsafeAlgorithm",
+                class_full_name="com.apk.axml.APKParser",
+                method="getCertificateFingerprint",
+                source="APKParser.java:120",
+                code="MESSAGEDIGEST-ALG-01",
+                event=event,
+                message="v=1 code=MESSAGEDIGEST-ALG-01 ev=%s obj=MessageDigest val='MD5' exp='SHA-256' msg='bad'"
+                % event,
+            )
+
+        g1, d1 = violation("g1"), violation("d1")
+        assert g1.unique_msg != d1.unique_msg
+
+        repo = LogcatRepository()
+        repo.register_rv_error(g1)
+        repo.register_rv_error(d1)
+        assert len(repo.unique_errors) == 2
+
+    def test_round_trip_through_dict_preserves_the_envelope_fields(self):
+        error = self._envelope_error()
+        restored = RvErrorLog.from_dict(error.to_dict())
+
+        assert restored.code == "PBEKEYSPEC-FORB-01"
+        assert restored.event == "f1"
+        assert restored.obj == "PBEKeySpec"
+        assert restored.val == "PBEKeySpec(char[])"
+        assert restored.exp == "PBEKeySpec(char[],byte[],int,int)"
+        assert restored.msg == "forbidden constructor"
+        assert restored.unique_msg == error.unique_msg
+
+    def test_a_dict_without_the_envelope_keys_restores_the_sentinels(self):
+        """`tasks.json` files written before this change carry no `code`/`event` keys."""
+        restored = RvErrorLog.from_dict(
+            {
+                "spec": "MessageDigestSpec",
+                "error_type": "SequenceViolation",
+                "class_full_name": "okio.ByteString",
+                "method": "digest$okio",
+                "source": "ByteString.kt:83",
+                "message": "unknown",
+            }
+        )
+
+        assert restored.code == "UNSPECIFIED"
+        assert restored.event == "UNSPECIFIED"
+        assert restored.truncated is False
+
+    def test_a_message_carrying_the_separator_is_not_rewritten(self):
+        """INV-CORE-56: the model does not hide a producer's violation of the grammar."""
+        error = self._legacy_error().model_copy(
+            update={"message": "expecting one of {A:::B} but found C."}
+        )
+
+        assert error.unique_msg.count(":::") == 7
+        assert len(error.unique_msg.split(":::")) == 8

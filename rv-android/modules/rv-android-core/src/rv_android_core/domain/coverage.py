@@ -7,6 +7,7 @@ and coverage metrics during runtime verification execution.
 
 import logging
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
@@ -448,6 +449,113 @@ class CoverageMetrics(BaseValidatedModel):
         return (part / total * 100) if total > 0 else 0.0
 
 
+@dataclass
+class ParserDiagnostics:
+    """Why every logcat line that did not become a record did not become one.
+
+    Whatever the logcat parser drops is invisible in every count downstream of it,
+    and whatever it substitutes for a value the producer did not supply reads as a
+    measurement everywhere. This object makes both countable: no line leaves the
+    parser without incrementing exactly one of the seven discard counters or
+    becoming a record, and every sentinel the parser writes into a record is
+    counted under its own name. The gate is arithmetic — records registered plus
+    counted lines equals lines read (INV-ANA-62).
+
+    It lives here, beside `LogcatRepository`, rather than in `rv-coverage` where the
+    parsing happens, because the repository is what carries it to its readers and
+    `rv-android-core` cannot import `rv-coverage` — the dependency runs the other
+    way. `rv-coverage` constructs nothing: it increments the object the repository
+    already owns, so the live `CoverageTracker` path and the offline
+    `parse_logcat_file` path count onto the same totals.
+
+    The seven discard counters:
+        lines_not_threadtime: the line is not in Android's threadtime format at all
+            (a `--------- beginning of crash` banner, a truncated tail).
+        lines_other_tag: a well-formed threadtime line under a tag that is neither
+            `RVSEC`, `RVSEC-COV` nor one of the diagnostic tags.
+        format1_regex_failed: the message ends in `went into an error state.` — so it
+            is Format 1 — but its regex does not match. It is dropped rather than
+            retried as Format 2, because a class or method name bearing five commas
+            would otherwise be scrambled into a JCA record.
+        format2_short: between one and four commas, no `:::`, no Format-1 suffix —
+            the shape logcat leaves when it cuts a payload before its sixth comma.
+        format3_unresolved: a `:::` message whose left part has no dot, so no class
+            and method can be recovered (the `[helper] ::: ` lines of `generic_new`).
+        unrecognised: the message matched none of the three formats.
+        continuation_lines: an unrecognised message that immediately follows, from
+            the same `(pid, tid)`, a record flagged truncated — the second half of a
+            payload logcat split on a newline.
+
+    The sentinel and grammar counters:
+        truncated_envelopes: a record whose envelope's last quoted value is unclosed.
+        sentinel_error_type, sentinel_source, sentinel_code, sentinel_event: one per
+            value the producer did not supply and the parser named `UNSPECIFIED`
+            rather than invented.
+        envelope_forbidden_chars: a value containing `:::`, which the producer
+            contract forbids because it is the separator of `unique_msg`. The record
+            is kept verbatim; the parser counts, it does not repair.
+    """
+
+    lines_not_threadtime: int = 0
+    lines_other_tag: int = 0
+    format1_regex_failed: int = 0
+    format2_short: int = 0
+    format3_unresolved: int = 0
+    unrecognised: int = 0
+    continuation_lines: int = 0
+    truncated_envelopes: int = 0
+    sentinel_error_type: int = 0
+    sentinel_source: int = 0
+    sentinel_code: int = 0
+    sentinel_event: int = 0
+    envelope_forbidden_chars: int = 0
+
+    # Not a counter: the parser's one piece of carry-over state. A payload logcat
+    # split on a newline arrives as two lines, and the second has no structure of
+    # its own; the only thing that identifies it is that the previous record from
+    # the same `(pid, tid)` came out truncated. The state lives here because it
+    # needs exactly the lifetime and the sharing the counters have — one object per
+    # repository, seen by both the live and the offline path — and it is one-shot:
+    # the parser clears it on the next line from that thread, so a truncation can
+    # account for at most one following line. `to_dict` does not expose it.
+    last_truncated_key: Optional[Any] = None
+
+    def to_dict(self) -> Dict[str, int]:
+        """The counters by name, for a report or a test's arithmetic."""
+        return {
+            "lines_not_threadtime": self.lines_not_threadtime,
+            "lines_other_tag": self.lines_other_tag,
+            "format1_regex_failed": self.format1_regex_failed,
+            "format2_short": self.format2_short,
+            "format3_unresolved": self.format3_unresolved,
+            "unrecognised": self.unrecognised,
+            "continuation_lines": self.continuation_lines,
+            "truncated_envelopes": self.truncated_envelopes,
+            "sentinel_error_type": self.sentinel_error_type,
+            "sentinel_source": self.sentinel_source,
+            "sentinel_code": self.sentinel_code,
+            "sentinel_event": self.sentinel_event,
+            "envelope_forbidden_chars": self.envelope_forbidden_chars,
+        }
+
+    @property
+    def discarded_lines(self) -> int:
+        """Lines read that became no record at all — the seven discard counters.
+
+        The sentinel and grammar counters are deliberately excluded: those lines did
+        become records, so adding them would double-count against lines read.
+        """
+        return (
+            self.lines_not_threadtime
+            + self.lines_other_tag
+            + self.format1_regex_failed
+            + self.format2_short
+            + self.format3_unresolved
+            + self.unrecognised
+            + self.continuation_lines
+        )
+
+
 class LogcatRepository:
     """
     Repository for logcat-based coverage data with centralized metrics calculation.
@@ -480,6 +588,10 @@ class LogcatRepository:
                 (crashes, VerifyError, ANR). Isolated from coverage/MOP metrics and the
                 error counts — metric calculation reads only self.classes/self.errors,
                 so this collection never perturbs any existing metric (INV-CORE-39).
+            self.parser_diagnostics: Counters for every logcat line the parser did not
+                turn into a record, and for every sentinel it wrote into one. The
+                parser increments this object rather than owning one, so the live and
+                the offline paths count onto the same totals (INV-ANA-62).
             self._static_totals: Cached static analysis totals, invalidated when
                 classes are added. Lazily computed by _calculate_static_totals().
         """
@@ -488,6 +600,7 @@ class LogcatRepository:
         self.errors: List[RvErrorLog] = []
         self.unique_errors: Set[str] = set()
         self.diagnostic_events: List[RvDiagnosticEvent] = []
+        self.parser_diagnostics: ParserDiagnostics = ParserDiagnostics()
 
         # Cache for static analysis totals - calculated once
         self._static_totals: Optional[Dict[str, int]] = None
