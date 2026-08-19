@@ -70,7 +70,7 @@ The `get_module_config()` method MUST serve as a generic dispatcher that routes 
   - `aspects_dir="/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/aspect"`
 - **AND** `mop_specs_dir` MUST be the frozen set's directory exactly, not a directory whose name merely begins with it — `jca_android` and `jca_android_bug_predicate` are sibling directories, not sub-paths of `jca`
 
-#### Scenario: JIT Configuration for Monitor Generation With the Successor Set
+#### Scenario: JIT Configuration for Monitor Generation With the Derived Android Specs
 
 - **WHEN** `PreProcessor._generate_monitors()` calls `config.get_monitored_operations_config()` with `specification_set="jca_android"`, `custom_specs_dir=None` and `RVSEC_HOME="/path/to/rvsec"`
 - **THEN** the method MUST return an `RVGeneratorConfig` with `mop_specs_dir="/path/to/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android"`

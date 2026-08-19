@@ -20,9 +20,10 @@ Read `design.md` D-6, the `instrumentation` delta (`Requirement: Arity Mismatch 
 | `pointcut-engine/.../ArgsPC.java` | — | `:49-56` `hasTypeConstraint`, `types()` |
 | `cli/src/main/java/br/unb/cic/rv/cli/BatchRunner.java` | — | `:199-201` `counts.put("wrappersGenerated", …)` right after `WrapperEmitter.generate` — add `advicesExcludedByArity` beside it (**not** in `DexWeaver.WeaveReport :978-1008`) |
 | `cli/src/test/.../ResultsJsonReportingTest.java` | 95 | assert the counter key reaches the JSON |
-| regression to keep green (unchanged assertions) | `EmissionParityTest` 135, `EmissionCardinalityTest` 155, `WrapperEmitterTest` 785, `WrapperMergeTest` 129, `WrapperRegistryGuardTest` 78 (dex-mutator), `MonitorCallsPremiseContractTest` 115 (validator) |
+| `advice-emitter/src/test/.../WrapperMergeTest.java` | 129 | task 4.4: **+3 cases** (`args(a,*)` counted and still emitted — count 1 on a TMF-only descriptor; no `args()` never counted; trailing `..` honoured); its 3 existing call sites move to `.wrappers()` |
+| regression to keep green (unchanged assertions) | `EmissionParityTest` 135, `EmissionCardinalityTest` 155, `WrapperEmitterTest` 785, `WrapperMergeTest` 129 (existing cases), `WrapperRegistryGuardTest` 78 (dex-mutator), `MonitorCallsPremiseContractTest` 115 (validator) |
 
-Python: `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py` `_parse_results_json` (surfaces counters into `weave_counts`) + `modules/rv-instrumentation-dexlib2/tests/test_dexlib_instrumentation.py`.
+Python: `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexlib_instrumentation.py` `_parse_results_json` (`:591-616`) copies each entry's whole `weaveCounts` dict into `weave_counts` as it is — so a new key in the JSON reaches Python with **no code change**; task 4.3 is test-only: add the surface test in `modules/rv-instrumentation-dexlib2/tests/test_dexlib_instrumentation.py` (a synthetic results JSON with `advicesExcludedByArity` in `weaveCounts`, assert it is present in `weave_counts[apk]`).
 
 ## The rule being evaluated (verbatim source: `docs/20260815_javamop_mensagens_FINAL_analise_lacunas.md:674-684`)
 
@@ -32,11 +33,12 @@ Python: `modules/rv-instrumentation-dexlib2/src/rv_instrumentation_dexlib2/dexli
 
 ## Tests
 
-There is **no red test for exclusion in this group**, because nothing is excluded. The tests are surface tests:
+Nothing is excluded, so there is no exclusion test; there **are** red tests for the counter, in `WrapperMergeTest` (task 4.4), and surface tests for its transport:
 
+- `WrapperMergeTest` gains three cases, written red first against a hand-built descriptor (the same in-memory descriptor style the file already uses), each asserting both the counter **and** the emission: (i) an `after` advice with `args(a, *)` (arity 2) grouped on a one-parameter overload — `TrustManagerFactorySpec_g2` over `getInstance(String)`, a TMF-only descriptor — gives `advicesExcludedByArity == 1` **and** the wrapper still calls `g2Event` (count 1, emission unchanged: the `MUST be 1` scenario of the delta); (ii) an advice with no `args()` clause on any overload gives `advicesExcludedByArity == 0` whatever `cc.paramFqns.size()` is (clause 1: never counted, never treated as length 0); (iii) an advice with a trailing `..` (`args(a, ..)`) on a one-, two- and three-parameter overload gives 0 on all three (at-least semantics honoured), and `args(a, b, ..)` on the one-parameter overload gives 1.
 - `ResultsJsonReportingTest` — `advicesExcludedByArity` is present in `instrument_results.json` next to `wrappersGenerated`.
-- `test_dexlib_instrumentation.py` — `_parse_results_json` carries the key into `weave_counts` (a synthetic results JSON is enough; no weave, no device).
-- The existing emission suite stays green with no assertion changed (the `EmitResult` return type of 4.2 changes 29 test call sites — `WrapperEmitterTest` 25, `WrapperMergeTest` 3, `EmissionParityTest` 1 — to `.wrappers()`, mechanically). Task 4.4's deliverable is the recorded statement that no assertion in `EmissionParityTest`, `EmissionCardinalityTest`, `WrapperEmitterTest`, `WrapperMergeTest`, `WrapperRegistryGuardTest` or `MonitorCallsPremiseContractTest` had to change. If one did, the counter is filtering — stop and fix it.
+- `test_dexlib_instrumentation.py` — `_parse_results_json` carries the key into `weave_counts` (a synthetic results JSON is enough; no weave, no device; no production Python changes — see Files).
+- The existing emission suite stays green with no assertion changed (the `EmitResult` return type of 4.2 changes 29 test call sites — `WrapperEmitterTest` 25, `WrapperMergeTest` 3, `EmissionParityTest` 1 — to `.wrappers()`, mechanically). The rest of task 4.4's deliverable is the recorded statement that no **existing** assertion in `EmissionParityTest`, `EmissionCardinalityTest`, `WrapperEmitterTest`, `WrapperMergeTest`, `WrapperRegistryGuardTest` or `MonitorCallsPremiseContractTest` had to change. If one did, the counter is filtering — stop and fix it.
 
 ## The reach of the rule (task 4.5) — write this into `evidence/e2_reach.md` verbatim
 
@@ -82,8 +84,23 @@ EOF
 export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2/advice-emitter && mvn -q test
 export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2/cli && mvn -q test -Dtest=ResultsJsonReportingTest && mvn -q test
 export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2/dex-mutator && mvn -q test; cd ../validator && mvn -q test
-# re-weave the frozen descriptor and read the counters (instr-cli, no device):
-export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; java -jar <path to instr-cli.jar> instrument --results-json ... (see BatchRunner usage in gh100 tasks 1.x)
+# 4.6 — re-weave the frozen descriptor and read the counters (instr-cli, no device). Run it TWICE with the same
+# inputs: once on the pre-change instr-cli.jar (the one in modules/rv-instrumentation-dexlib2/lib/ before this
+# group's rebuild), once on the rebuilt jar. Flags are the real ones of InstrumentationCli (picocli; apksigner/zipalign/
+# javac fall back to env/defaults per ConfigResolver — see experimento-gh104/instrumentacao/README.md for the values
+# the campaign uses and the keystore location, modules/rv-instrumentation/assets/keystore.jks):
+export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; java -jar modules/rv-instrumentation-dexlib2/lib/instr-cli.jar \
+  --descriptor results/gh101_group8_jca_frozen_control/monitors/MultiSpec_1MonitorAspect.json \
+  --android-jar $ANDROID_HOME/platforms/android-30/android.jar \
+  --monitor-src-dir $HOME/tmp-gh104/e2-reweave-<before|after>/monitors \
+  --keystore modules/rv-instrumentation/assets/keystore.jks --keystore-pass <pass> --key-alias <alias> --key-pass <pass> \
+  --work-dir $HOME/tmp-gh104/e2-reweave-<before|after> --output $HOME/tmp-gh104/e2-reweave-<before|after>/out \
+  --results-json $HOME/tmp-gh104/e2-reweave-<before|after>/instrument_results.json \
+  instrument <one APK of the corpus, e.g. apks_examples/cryptoapp.apk>
+# --monitor-src-dir is a COPY of results/gh101_group8_jca_frozen_control/monitors/ made per run (cp -r), never the
+# frozen directory itself: the CLI writes mop/MonitorWrappers.java into that directory (BatchRunner.java:189-201).
+# Hash the re-woven wrappers on both sides —
+sha256sum $HOME/tmp-gh104/e2-reweave-before/monitors/mop/MonitorWrappers.java $HOME/tmp-gh104/e2-reweave-after/monitors/mop/MonitorWrappers.java   # MUST be equal: this is the parity instrument
 # orchestrator only, between waves (task 4.6's lib/ rebuild): ~12 min; refreshes rv-android/lib/ and modules/rv-instrumentation-dexlib2/lib/instr-cli.jar
 export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; cd /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec && mvn -q install -DskipTests -DskipMopAgent=true
 uv run pytest --import-mode=importlib -o "addopts=" modules/rv-instrumentation-dexlib2/tests -q
@@ -93,8 +110,9 @@ uv run pytest --import-mode=importlib -o "addopts=" modules/rv-instrumentation-d
 
 ## Acceptance
 
-- `advicesExcludedByArity` present in `instrument_results.json` and in `weave_counts`; its value on the frozen `jca` descriptor recorded in `evidence/e2_reweave.md`.
-- **`wrappersGenerated` on the frozen descriptor is identical before and after this group.** If it moved, the rule leaked into emission and the group is wrong — revert and re-do.
+- `advicesExcludedByArity` present in `instrument_results.json` and in `weave_counts`; its value on the frozen `jca` descriptor recorded in `evidence/e2_reweave.md`, as a table with the columns `run (before|after) | instr-cli.jar sha256 | wrappersGenerated | advicesExcludedByArity | MonitorWrappers.java sha256 | predicted pairs (10) | measured pairs | per-advice breakdown (TrustManagerFactorySpec_g2, KeyManagerFactorySpec_g2, SecureRandomSpec_g2, SecureRandomSpec_g4)` and one row per run, plus the exact command line used.
+- **The parity instrument**: the sha256 of `mop/MonitorWrappers.java` re-woven from the frozen descriptor is **byte-identical** before and after this group (the `before` run on the pre-rebuild `instr-cli.jar`, the `after` run on the rebuilt one, same descriptor, same APK, same flags), and `wrappersGenerated` is identical too. An unchanged `wrappersGenerated` alone cannot see a lost monitor call inside a wrapper; the file hash can. If either moved, the rule leaked into emission and the group is wrong — revert and re-do.
+- `WrapperMergeTest` carries the three new cases (`args(a,*)` counted and still emitted, count 1 on the TMF-only descriptor; no `args()` never counted; trailing `..` honoured), written red first and green at the end.
 - Every listed regression test green with no assertion changed, and that fact recorded.
 - `evidence/e2_reach.md` written with the four-class partition (48 / 44 / 9 / 14 = 115), both name lists, the corrected count of 25 `after`-with-parameters-and-no-`args()` advices with its name list, the reproduction command and its output, the two closing sentences, and the note about the four constructor advices.
 - Delta spec INV-INS-122 satisfied in its counter form; `PointcutMatcher` unchanged; `/rv-verify rv-instrumentation-dexlib2` run and result recorded.

@@ -18,7 +18,7 @@ The three families of loss this delta closes were measured on the recorded corpu
 ### Output
 
 - `RvErrorLog` — the six legacy fields (`spec`, `error_type`, `class_full_name`, `method`, `source`, `message`) plus the envelope fields `code: str`, `event: str`, `obj: str`, `val: str`, `exp: str`, `msg: str` and the flag `truncated: bool`. `code` and `event` hold the sentinel `UNSPECIFIED` when the message is not an envelope; `obj`/`val`/`exp`/`msg` hold `""` then. `unique_msg` is a computed field owned by `core` (INV-CORE-25/41) and is not assigned by the parser (destination: `LogcatRepository.register_rv_error`, `CoverageTracker`, `result_processor`).
-- `ParserDiagnostics` — a counter object carried by the returned `LogcatRepository` as `parser_diagnostics` and shared by the live `CoverageTracker`, with exactly these integer counters: `lines_not_threadtime`, `lines_other_tag`, `format1_regex_failed`, `format2_short`, `format3_unresolved`, `unrecognised`, `continuation_lines`, `truncated_envelopes`, `sentinel_error_type`, `sentinel_source`, `sentinel_code`, `sentinel_event`, `envelope_forbidden_chars` (destination: `result_processor`, offline analysis scripts, tests).
+- `ParserDiagnostics` — a counter object defined in `rv-android-core` (`rv_android_core/domain/`, beside `LogcatRepository` in `domain/coverage.py`, because the repository that carries it lives there and `rv-android-core` cannot import `rv-coverage`), carried by the returned `LogcatRepository` as its `parser_diagnostics` field and shared by the live `CoverageTracker`, whose `tracker.py` call of `parse_logcat_line(line, diagnostics=repository.parser_diagnostics)` passes the repository's object; `parse_logcat_line(line, diagnostics=None)` counts into the object it is given and into a fresh one otherwise. It has exactly these integer counters: `lines_not_threadtime`, `lines_other_tag`, `format1_regex_failed`, `format2_short`, `format3_unresolved`, `unrecognised`, `continuation_lines`, `truncated_envelopes`, `sentinel_error_type`, `sentinel_source`, `sentinel_code`, `sentinel_event`, `envelope_forbidden_chars` (destination: `result_processor`, offline analysis scripts, tests).
 
 ### Side-Effects
 
@@ -50,7 +50,7 @@ Three error message formats are supported by the `LogcatParser`, tried in this o
 
 3. **FSM format (Format 3)**: `class.method():::Spec went into an error state.` -- Recognised by `:::`; class and method are split at the last `.` before `(`. Example: `java.util.Iterator.next():::HasNext went into an error state.` The record's `source` MUST be the sentinel `UNSPECIFIED:0` (counting `sentinel_source`), never `Unknown Source:1`. A `:::` line whose left part has no `.` — the `[helper] ::: ` lines of `generic_new`, a written non-goal of gh104 — MUST be counted under `format3_unresolved` and dropped.
 
-A message matching none of the three MUST be logged, return `None` and be counted under `unrecognised`; a message that matches none of the three **and** immediately follows, from the same `(pid, tid)`, an `RVSEC` record flagged `truncated` MUST instead be counted under `continuation_lines` — it is the second half of a payload logcat split on a `\n` the producer contract forbids. Lines that do not match the threadtime format are counted under `lines_not_threadtime`; threadtime lines under a tag that is neither `RVSEC`, `RVSEC-COV` nor a diagnostic tag are counted under `lines_other_tag`. The counters live in a `ParserDiagnostics` object carried by the returned `LogcatRepository` and shared by the live `CoverageTracker`; no line is dropped without incrementing exactly one of them (INV-ANA-62). `parse_logcat_file` MUST NOT swallow an exception raised while iterating the file: it logs the 1-based line number and re-raises, so a caller never mistakes a partial repository for a complete one.
+A message matching none of the three MUST be logged, return `None` and be counted under `unrecognised`; a message that matches none of the three **and** immediately follows, from the same `(pid, tid)`, an `RVSEC` record flagged `truncated` MUST instead be counted under `continuation_lines` — it is the second half of a payload logcat split on a `\n` the producer contract forbids. Lines that do not match the threadtime format are counted under `lines_not_threadtime`; threadtime lines under a tag that is neither `RVSEC`, `RVSEC-COV` nor a diagnostic tag are counted under `lines_other_tag`. The counters live in a `ParserDiagnostics` object defined in `rv-android-core` (`rv_android_core/domain/coverage.py`, beside `LogcatRepository`), carried by the returned `LogcatRepository` as `parser_diagnostics` and shared by the live `CoverageTracker`, which passes it as the `diagnostics` parameter of `parse_logcat_line`; no line is dropped without incrementing exactly one of them (INV-ANA-62). `parse_logcat_file` MUST NOT swallow an exception raised while iterating the file: it logs the 1-based line number and re-raises, so a caller never mistakes a partial repository for a complete one.
 
 Each parsed error produces an `RvErrorLog` with `spec`, `error_type`, `class_full_name`, `method`, `source`, `message`, `code`, `event`, `obj`, `val`, `exp`, `msg` and `truncated`. The `LogcatRepository` stores all registered errors and provides deduplication via the `unique_msg` computed field, which `core` composes from the record's fields (INV-CORE-25/41); the parser MUST NOT assemble `unique_msg` itself.
 
@@ -58,9 +58,9 @@ In the ICST study, the top 4 violation classes (SSLContextSpec, MessageDigestSpe
 
 #### Scenario: JCA envelope parsing with commas inside a value
 
-- **WHEN** a logcat line contains `RVSEC: TrustManagerFactorySpec,okhttp3.internal.tls.X,X,get,X.java:12,UnsafeAlgorithm,v=1 code=TMF-ALG-01 ev=g3 obj=TrustManagerFactory val='X509' exp='PKIX,SunX509' msg='expecting one of PKIX,SunX509 but found X509'`
-- **THEN** `parse_logcat_line()` MUST return an `RvErrorLog` with `spec=TrustManagerFactorySpec`, `class_full_name=okhttp3.internal.tls.X`, `method=get`, `source=X.java:12`, `error_type=UnsafeAlgorithm`
-- **AND** `code=TMF-ALG-01`, `event=g3`, `obj=TrustManagerFactory`, `val=X509`, `exp=PKIX,SunX509`, `msg=expecting one of PKIX,SunX509 but found X509`, `truncated=False`
+- **WHEN** a logcat line contains `RVSEC: MessageDigestSpec,okio.ByteString,ByteString,digest$okio,ByteString.kt:12,UnsafeAlgorithm,v=1 code=MESSAGEDIGEST-ALG-01 ev=update obj=MessageDigest val='MD2' exp='MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384' msg='expecting one of MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384 but found MD2'`
+- **THEN** `parse_logcat_line()` MUST return an `RvErrorLog` with `spec=MessageDigestSpec`, `class_full_name=okio.ByteString`, `method=digest$okio`, `source=ByteString.kt:12`, `error_type=UnsafeAlgorithm`
+- **AND** `code=MESSAGEDIGEST-ALG-01`, `event=update`, `obj=MessageDigest`, `val=MD2`, `exp=MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384`, `msg=expecting one of MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384 but found MD2`, `truncated=False`
 - **AND** `message` MUST be the whole envelope from `v=1` to the closing `'`, the commas inside `exp` and `msg` preserved
 - **AND** no `sentinel_*` counter MUST be incremented
 
@@ -100,6 +100,13 @@ In the ICST study, the top 4 violation classes (SSLContextSpec, MessageDigestSpe
 - **THEN** `parse_logcat_line()` MUST return an `RvErrorLog` with `error_type=UNSPECIFIED`, `source=UNSPECIFIED:0`, `message=""`, `code=UNSPECIFIED`, `event=UNSPECIFIED`
 - **AND** `sentinel_error_type`, `sentinel_source`, `sentinel_code` and `sentinel_event` MUST each be incremented by 1
 - **AND** the string `No additional message` MUST NOT appear in any field
+
+#### Scenario: Standard (JCA) error format parsing
+
+- **WHEN** a logcat line contains `RVSEC: CipherSpec,com.example.Crypto,<init>,doEncrypt,Crypto.java:15,MISUSE,Using weak algorithm DES`
+- **THEN** `parse_logcat_line()` MUST return an `RvErrorLog` with `spec=CipherSpec`, `class_full_name=com.example.Crypto`, `method=doEncrypt`, `error_type=MISUSE`
+- **AND** the seven-field grammar MUST be unchanged for a line whose seventh field is free text rather than an envelope: `message` MUST keep that text verbatim
+- **AND** because the message is not an envelope, `code=UNSPECIFIED` and `event=UNSPECIFIED`, and `sentinel_code` and `sentinel_event` MUST each be incremented by 1
 
 #### Scenario: FSM error format parsing
 

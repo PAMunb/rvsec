@@ -78,12 +78,12 @@ reader comparing the two figures does not conclude that one is defective.
 
 #### Scenario: an envelope message yields code and event parts
 
-- **WHEN** an `RvErrorLog` is created with `class_full_name` = `com.apk.axml.APKParser`, `method` = `getCertificateFingerprint`,
-  `spec` = `MessageDigestSpec`, `error_type` = `ForbiddenMethod`, `code` = `MD-FORB-01`, `event` = `g1` and
-  `message` = `v=1 code=MD-FORB-01 ev=g1 obj=MessageDigest val='MD5' exp='SHA-256, SHA-384, SHA-512' msg='digest not allowed'`
+- **WHEN** an `RvErrorLog` is created with `class_full_name` = `com.example.vault.KeyDeriver`, `method` = `derive`,
+  `spec` = `PBEKeySpecSpec`, `error_type` = `ForbiddenMethod`, `code` = `PBEKEYSPEC-FORB-01`, `event` = `f1` and
+  `message` = `v=1 code=PBEKEYSPEC-FORB-01 ev=f1 obj=PBEKeySpec val='PBEKeySpec(char[])' exp='PBEKeySpec(char[],byte[],int,int)' msg='forbidden constructor'` (the `<SPEC>` token of a code is the specification name without its `Spec` suffix, upper-cased — `PBEKEYSPEC`, `MESSAGEDIGEST`, `TRUSTMANAGERFACTORY`; list-valued `exp` values are joined with `,`)
 - **THEN** `unique_msg` MUST be
-  `com.apk.axml.APKParser:::getCertificateFingerprint:::MessageDigestSpec:::ForbiddenMethod:::MD-FORB-01:::g1:::v=1 code=MD-FORB-01 ev=g1 obj=MessageDigest val='MD5' exp='SHA-256, SHA-384, SHA-512' msg='digest not allowed'`
-- **AND** splitting it on `:::` MUST yield exactly seven parts, the fifth being `MD-FORB-01` and the sixth `g1`
+  `com.example.vault.KeyDeriver:::derive:::PBEKeySpecSpec:::ForbiddenMethod:::PBEKEYSPEC-FORB-01:::f1:::v=1 code=PBEKEYSPEC-FORB-01 ev=f1 obj=PBEKeySpec val='PBEKeySpec(char[])' exp='PBEKeySpec(char[],byte[],int,int)' msg='forbidden constructor'`
+- **AND** splitting it on `:::` MUST yield exactly seven parts, the fifth being `PBEKEYSPEC-FORB-01` and the sixth `f1`
 
 #### Scenario: a legacy `unknown` message yields the sentinels
 
@@ -93,7 +93,7 @@ reader comparing the two figures does not conclude that one is defective.
 - **AND** `unique_msg` MUST be `okio.ByteString:::digest$okio:::MessageDigestSpec:::SequenceViolation:::UNSPECIFIED:::UNSPECIFIED:::unknown`
 - **AND** two such records MUST compare equal and hash equal, so a legacy campaign deduplicates exactly as its records allow
 
-#### Scenario: distinct events under one message remain distinct
+#### Scenario: distinct offending parameters remain distinct events
 
 - **WHEN** two violations occur in `com.apk.axml.APKParser.getCertificateFingerprint` under `MessageDigestSpec` with the same
   `error_type` and the same `message`, one with `event` = `g1` and one with `event` = `d1`
