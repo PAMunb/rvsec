@@ -121,3 +121,39 @@ That build **fails afterwards**, at the `agent-gen` goal, with `aspectjrt.jar is
 classpath. Halting.` The failure is pre-existing, unrelated to this change and downstream of the
 regeneration — `mop-gen` has already run and written the monitor when it happens. It is why
 `-DskipMopAgent` is the standard flag for building this reactor.
+
+## Impact on this change, measured artefact by artefact
+
+The question the pin raises is which of gh104's instruments read a state number. Four do not, one
+does, and one now says so.
+
+**The gates are invariant.** `scripts/gh104_gates.py` was run over the frozen `jca` monitor
+generated under JDK 21 and over the control generated under JDK 25, same allow-list, same CrySL
+oracle. Every gate returns the same hit set — same specifications, same events, same verdicts,
+same counts: G-2 3, G-2a 1, G-2b′ 8, G-2c 1, G-2d 2, G-6′ 1, G-ERE 1, G-CONF 4, G-PRED 304. The
+only textual difference in the whole report is that G-2b′ echoes the raw transition row in its
+hit payload (`KeyStoreSpec.g2`, `[0,5,0,5,5,5]` against `[0,0,5,5,5,5]`) — a diagnostic field, not
+a verdict. No test asserts on it.
+
+**The gate allow-list is invariant.** `data/jca/gate_allowlist.csv` keys its 34 rows by event name
+and `*`; not one row names a state number.
+
+**The differential harness is invariant.** `gh104_diff_harness.py` generates both snapshots
+through the same `generate()` in one run, so both sides carry the same labelling whatever the JDK,
+and it classifies by which event accuses, never by a state number.
+
+**Device runs and published measurements are unaffected.** A relabelled monitor accuses the same
+traces, so nothing measured on a device or in the published corpus depends on this.
+
+**Only the regeneration diff is sensitive**, because it is the one instrument that compares two
+monitors byte for byte. It now names the cause instead of printing hundreds of rows: when every
+substantive difference is a state label and the remainder is a pure reordering, it prints the
+relabelling diagnosis with the JDK it is running under. Measured on the failing JDK-21 run: 347
+unexpected differences = 300 state labels + 14 reordered declarations (a pure permutation, verified
+by multiset) + 33 braces or blanks.
+
+**One residue is documentary, not executable.** `design.md`, `tasks.md` and the conformance record
+cite state numbers and transition rows read off the frozen control — `{4,4,4,4,4}` at
+`MultiSpec_1RuntimeMonitor.java:6369`, `fail` = 4, `gtm1` = `{3,0,3,3}`, and the rows of task 8.12.
+Those citations are true of the control, which is a JDK-25 artefact; read against a monitor
+regenerated under another JDK they will not match, and the reader needs this section to know why.

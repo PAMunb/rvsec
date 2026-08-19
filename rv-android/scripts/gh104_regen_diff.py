@@ -71,6 +71,7 @@ import os
 import re
 import shutil
 import subprocess
+from collections import Counter
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -136,6 +137,34 @@ class Report:
         for d in self.differences:
             counts[d.category] = counts.get(d.category, 0) + 1
         return counts
+
+
+# The two places a state number is written into the generated monitor: the
+# transition rows and the category tests. A difference confined to these is a
+# relabelling — the automaton is the same, its states are numbered differently.
+STATE_LABEL_RE = re.compile(
+    r"Prop_\d+_transition_\w+\[\]"
+    r"|_Category_\w+\s*=\s*(?:nextstate|Prop_\d+_state)\s*=="
+)
+
+RELABELLING_DIAGNOSIS = """
+All {count} substantive differences are state labels — transition rows and category tests — and
+everything else is a pure reordering. That is the signature of a state relabelling rather than of
+a changed automaton, and its known cause is the JDK: the state numbering a generated monitor
+carries depends on the JDK that ran the generation, because the ERE-to-FSM conversion of the
+logic repository returns its states in a different order. The control under results/ was
+generated under JDK 25; you are running {jdk}.
+
+Re-run with JAVA_HOME=$HOME/.sdkman/candidates/java/25.0.3-tem before reading this as a defect.
+The automata are isomorphic across JDKs and no verdict moves, so this is a constraint on
+byte-comparison, not on correctness. Measured in data/gh104/evidence/g_regeneration.md.
+"""
+
+
+def running_jdk() -> str:
+    """The JDK that would run the generation, for the relabelling diagnosis."""
+    home = os.environ.get("JAVA_HOME")
+    return Path(home).name if home else "an unnamed JDK (JAVA_HOME unset)"
 
 
 def classify(line: str) -> str:
@@ -453,6 +482,23 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n{len(unexpected)} unexpected difference(s); first 40:")
         for d in unexpected[:40]:
             print(f"  {d.sign} [{d.category}] {d.text}")
+        substantive = [d for d in unexpected if d.text.strip() not in ("", "}", "{", "};")]
+        rows = [d for d in substantive if STATE_LABEL_RE.search(d.text)]
+        rest = [d for d in substantive if not STATE_LABEL_RE.search(d.text)]
+        # A line that is removed and added with identical text was reordered, not
+        # changed; only a residue that is not a pure permutation carries evidence.
+        removed = Counter(d.text.strip() for d in rest if d.sign == "-")
+        added = Counter(d.text.strip() for d in rest if d.sign == "+")
+        residue = (removed - added) + (added - removed)
+        print(
+            f"\nshape of the {len(unexpected)} unexpected: {len(rows)} state-label lines, "
+            f"{len(rest)} reordered or changed lines ({sum(residue.values())} not a pure "
+            f"reordering), {len(unexpected) - len(substantive)} braces or blanks"
+        )
+        for text, n in list(residue.items())[:10]:
+            print(f"  not a reordering (x{n}): {text}")
+        if rows and not residue:
+            print(RELABELLING_DIAGNOSIS.format(count=len(rows), jdk=running_jdk()))
 
     if scratch and not args.keep:
         shutil.rmtree(scratch, ignore_errors=True)
