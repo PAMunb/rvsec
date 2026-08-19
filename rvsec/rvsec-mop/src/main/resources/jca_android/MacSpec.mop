@@ -1,0 +1,87 @@
+package mop;
+
+import javax.crypto.Mac;
+import java.security.spec.AlgorithmParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+MacSpec(Mac m) {
+
+        List<String> safeAlgorithms = Arrays.asList("PBEwithHmacSHA256", "PBEwithHmacSHA1", "HmacSHA224",
+           "HmacSHA256", "HmacMD5", "HmacSHA512", "PBEwithHmacSHA512", "HmacSHA384", "PBEwithHmacSHA384",
+           "PBEwithHmacSHA224", "PBEwithHmacSHA", "HmacSHA1");
+        String currentAlgorithmInstance = "";
+
+        Mac mac = null;
+
+        event g1 after(String alg) returning(Mac m):
+          call(public static Mac Mac.getInstance(String)) &&
+          args(alg) &&
+          condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            mac = m;
+            currentAlgorithmInstance = alg;
+        }
+
+        event g2 after(String alg, String provider) returning(Mac m):
+          call(public static Mac Mac.getInstance(String, String)) &&
+          args(alg, provider) &&
+          condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            mac = m;
+            currentAlgorithmInstance = alg;
+        }
+
+        event g3 after(String alg) returning(Mac m):
+          call(public static Mac Mac.getInstance(String)) &&
+          args(alg) &&
+          condition(!ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            currentAlgorithmInstance = alg;
+        }
+
+        event i1 before(java.security.Key key, Mac m):
+          call(public void Mac.init(java.security.Key)) &&
+          args(key) &&
+          target(m) {
+            if (!ConscryptAliasTable.matches("Mac", currentAlgorithmInstance, safeAlgorithms)) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
+                 " expecting one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+            }
+
+        }
+
+        event i2 after(java.security.Key key, java.security.spec.AlgorithmParameterSpec params, Mac m):
+          call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) &&
+          args(key, params) &&
+          target(m)  {
+            if (!ConscryptAliasTable.matches("Mac", currentAlgorithmInstance, safeAlgorithms)) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
+        "one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+        }
+        }
+
+        event update after(Mac m):
+          call(public void Mac.update(..)) &&
+          target(m) { }
+
+        event f1 after(Mac m) returning(byte[] output):
+          (call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) &&
+          target(m){
+        }
+
+        event f2 after(byte[] output, int outOffset):
+          call(void Mac.doFinal(byte[], int)) &&
+          args(output, outOffset) &&
+          target(m){
+        }
+
+        ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f2) | (update* (f1 | f2)))
+
+        @fail {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC));
+            __RESET;
+        }
+
+        @match {
+        }
+
+}

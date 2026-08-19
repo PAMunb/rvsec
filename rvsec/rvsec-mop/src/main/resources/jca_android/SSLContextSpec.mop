@@ -1,0 +1,89 @@
+package mop;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.KeyManager;
+import javax.net.ssl.TrustManager;
+import java.security.SecureRandom;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * SSLContextSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.net.ssl.SSLContext class.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/SSLContext.crysl
+ */
+SSLContextSpec(SSLContext ctx) {
+
+   List<String> protocols = Arrays.asList("Default", "TLSv1.2", "TLSv1.1", "SSL", "TLSv1", "TLS",
+       "TLSv1.3");
+   String currentProtocol = "";
+
+   SSLContext context;
+
+   SSLEngine engine;
+
+   event g1 after(String protocol) returning(SSLContext ctx):
+    call(public static SSLContext SSLContext.getInstance(String))
+    && args(protocol)
+    && condition(ConscryptAliasTable.matches("SSLContext", protocol, protocols)) {
+      context = ctx;
+      currentProtocol = protocol;
+    }
+
+    event g2 after(String protocol, String provider) returning(SSLContext ctx):
+      call(public static SSLContext SSLContext.getInstance(String, String)) &&
+      args(protocol, provider) &&
+      condition(ConscryptAliasTable.matches("SSLContext", protocol, protocols)) {
+        context = ctx;
+        currentProtocol = protocol;
+    }
+
+    event unsafe_protocol after(String protocol):
+      call(public static SSLContext SSLContext.getInstance(String)) &&
+      args(protocol) &&
+      condition(!ConscryptAliasTable.matches("SSLContext", protocol, protocols)) {
+        currentProtocol = protocol;
+    }
+
+   event init after(SSLContext ctx):
+     call(public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)) &&
+     target(ctx) {
+       if (!ConscryptAliasTable.matches("SSLContext", currentProtocol, protocols)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, "SSLContextSpec", "" + __LOC,
+           "expecting one of {TLSv1.2, TLSv1.3} but found " + currentProtocol + "."));
+       }
+   }
+
+   event engine after(SSLContext ctx) returning(SSLEngine eng) :
+     call(public void SSLContext.createSSLEngine(..)) &&
+     target(ctx) {
+   }
+
+  fsm:
+    start [
+      g1 -> s1
+      g2 -> s1
+    ]
+    s1 [
+      init -> end
+    ]
+    end [
+      engine -> end
+    ]
+
+  alias match1 = end
+
+  @fail {
+    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC));
+    __RESET;
+  }
+
+  @match1 {
+  }
+  
+}

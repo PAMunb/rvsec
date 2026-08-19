@@ -1,0 +1,79 @@
+package mop;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * KeyGeneratorSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.crypto.KeyGenerator class.
+ *
+ * https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyGenerator.crysl
+ */
+KeyGeneratorSpec(KeyGenerator k) {
+
+    List<String> safeAlgorithms = Arrays.asList("ChaCha20", "ARC4", "HmacSHA224", "DESede", "HmacSHA256",
+        "HmacMD5", "HmacSHA1", "HmacSHA512", "AES", "BLOWFISH", "HmacSHA384");
+    String currentAlgorithmInstance = "";
+    KeyGenerator keyGenerator = null;
+
+    Key generatedKey;
+
+    event g1 after(String alg) returning(KeyGenerator k):
+      call(public static KeyGenerator KeyGenerator.getInstance(String))
+      && args(alg)
+      && condition(ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms)) {
+        keyGenerator = k;
+        currentAlgorithmInstance = alg;
+    }
+
+    event g2 after(String alg, Object provider) returning(KeyGenerator k):
+      call(public static KeyGenerator KeyGenerator.getInstance(String, Object+))
+      && args(alg, provider)
+      && condition(ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms)) {
+        keyGenerator = k;
+        currentAlgorithmInstance = alg;
+    }
+
+    event g3 after(String alg) returning(KeyGenerator k):
+      call(public static KeyGenerator KeyGenerator.getInstance(String))
+      && args(alg)
+      && condition(!ConscryptAliasTable.matches("KeyGenerator", currentAlgorithmInstance, safeAlgorithms))  {
+        currentAlgorithmInstance = alg;
+    }
+
+    event init before(KeyGenerator k):
+       ( call(public void KeyGenerator.init(int)) ||
+         call(public void KeyGenerator.init(int, SecureRandom)) ||
+         call(public void KeyGenerator.init(AlgorithmParameterSpec)) ||
+         call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) ||
+         call(public void KeyGenerator.init(SecureRandom))
+       ) && target(k) {  }
+
+    event gk1 after(KeyGenerator k) returning(SecretKey key):
+      call(public SecretKey KeyGenerator.generateKey())
+      && target(k) {
+        if (!ConscryptAliasTable.matches("KeyGenerator", currentAlgorithmInstance, safeAlgorithms)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyGeneratorSpec", "" + __LOC,
+        "expecting one of" + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+        }
+        generatedKey = key;
+    }
+
+    ere : (g3* g1+ | g3* g2+) ((init gk1) | gk1)
+
+    @fail {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC));
+
+        __RESET;
+    }
+
+    @match {
+    }
+}

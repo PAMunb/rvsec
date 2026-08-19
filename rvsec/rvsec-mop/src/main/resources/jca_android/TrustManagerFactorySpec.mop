@@ -1,0 +1,90 @@
+package mop;
+
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.ManagerFactoryParameters;
+import java.security.KeyStore;
+import javax.net.ssl.KeyManager;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * KeyManagerFactory
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.net.ssl.TrustManagerFactory class.
+ *
+ * https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/TrustManagerFactory.crysl
+ */
+TrustManagerFactorySpec(TrustManagerFactory mf) {
+
+    List<String> algorithms = Arrays.asList("PKIX");
+    String currentAlgorithmInstance = "";
+
+    TrustManagerFactory trustManagerFactory = null;
+
+    event g1 after(String alg) returning(TrustManagerFactory mf):
+      call(public static TrustManagerFactory TrustManagerFactory.getInstance(String))
+      && args(alg)
+      && condition(ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms)) {
+        trustManagerFactory = mf;
+        currentAlgorithmInstance = alg;
+    }
+
+    event g2 after(String alg) returning(TrustManagerFactory mf):
+      call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..))
+      && args(alg, *)
+      && condition(ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms)) {
+        trustManagerFactory = mf;
+        currentAlgorithmInstance = alg;
+    }
+
+    event g3 after(String alg) returning(TrustManagerFactory k):
+      call(public static TrustManagerFactory TrustManagerFactory.getInstance(String))
+      && args(alg)
+      && condition(!ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms))  {
+        currentAlgorithmInstance = alg;
+    }
+
+    event init before(TrustManagerFactory mf):
+       ( call(public void TrustManagerFactory.init(KeyStore)) ||
+         call(public void TrustManagerFactory.init(ManagerFactoryParameters))
+       ) && target(mf) {
+        if (!ConscryptAliasTable.matches("TrustManagerFactory", currentAlgorithmInstance, algorithms)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "TrustManagerFactorySpec", "" + __LOC,
+              "expecting one of " + String.join(",", algorithms) + " but found " + currentAlgorithmInstance + "."));
+        }
+    }
+
+    event gtm1 after(TrustManagerFactory k) returning(TrustManager[][] trustManager):
+      call(public KeyManager[] TrustManagerFactory.getTrustManagers())
+      && target(k) {
+    }
+
+    fsm :
+      start [
+        g1 -> waitingInit
+        g2 -> waitingInit
+      ]
+      waitingInit [
+        init -> final
+      ]
+      final [
+        g1   -> waitingInit
+        g2   -> waitingInit
+        gtm1 -> start
+      ]
+
+    alias match1 = final
+
+    @fail {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC));
+
+        __RESET;
+    }
+
+    @match1 {
+    }
+    
+}
