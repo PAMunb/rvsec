@@ -7,6 +7,8 @@ import java.security.SecureRandom;
 import java.security.cert.Certificate;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
@@ -100,6 +102,7 @@ SignatureSpec(Signature s) {
        event s1 after(Signature s) returning(byte[] output):
          call(public byte Signature.sign()) &&
          target(s) {
+           ExecutionContext.instance().setProperty(Property.SIGNED, output);
        }
 
 
@@ -107,12 +110,14 @@ SignatureSpec(Signature s) {
          call(public byte Signature.sign(byte[], int, int)) &&
          args(output, offset, len) &&
          target(s) {
+           ExecutionContext.instance().setProperty(Property.SIGNED, output);
        }
 
        event v1 after(byte[] sign, Signature s) returning(boolean signed):
          call(public boolean Signature.verify(byte[])) &&
          args(sign) &&
          target(s) {
+           ExecutionContext.instance().setProperty(Property.VERIFIED, signed);
        }
 
 
@@ -120,6 +125,7 @@ SignatureSpec(Signature s) {
          call(public boolean Signature.verify(byte[], int, int)) &&
          args(sign, offset, len) &&
          target(s) {
+            ExecutionContext.instance().setProperty(Property.VERIFIED, signed);
        }
 
        ere: (g1 | g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )
@@ -130,6 +136,7 @@ SignatureSpec(Signature s) {
        }
 
        @match {
+          ExecutionContext.instance().setObjectAsInAcceptingState(signature);
        }
 
 }

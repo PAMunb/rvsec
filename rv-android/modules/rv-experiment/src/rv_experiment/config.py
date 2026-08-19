@@ -245,8 +245,8 @@ class ExperimentConfig(BaseValidatedModel):
     # --- 5. Specification set ---
     # Determines which .mop files are used for monitor generation in Phase 1.
     # "jca" = Java Cryptography Architecture API misuse detection
-    # "jca_android" = the successor of the frozen jca set for Android API 30: 21
-    #   specifications seeded from jca, carrying no predicates and with every
+    # "jca_android" = the successor of the frozen jca set for Android API 30: all 23
+    #   specifications seeded from jca, predicate machinery included, with every
     #   allow-list transcribed from the generated api30 CrySL rules. It is the only
     #   set carrying the specification repairs (issue #104). The reproved derived
     #   set that held this name is archived as jca_android_bug_predicate and is not
@@ -682,7 +682,7 @@ class ExperimentConfig(BaseValidatedModel):
         # The directory structure under RVSEC_HOME is:
         #   rvsec/rvsec-mop/src/main/resources/
         #     jca/          <- JCA crypto API specs (.mop files)
-        #     jca_android/  <- the successor set for Android API 30 (21 specs)
+        #     jca_android/  <- the successor set for Android API 30 (23 specs)
         #     generic/      <- generic API usage specs (.mop files)
         #     aspect/       <- shared AspectJ aspects
         # This mapping is the one asserted by Scenario "JIT Configuration for

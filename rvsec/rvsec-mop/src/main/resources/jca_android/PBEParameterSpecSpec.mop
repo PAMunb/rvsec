@@ -4,6 +4,8 @@ import javax.crypto.spec.PBEParameterSpec;
 import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * GCMParameterSpec
@@ -21,7 +23,8 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
           call(public PBEParameterSpec.new(byte[], int)) &&
           args(salt, iterationCount) &&
           condition(
-            iterationCount >= 10000
+            iterationCount >= 10000 &&
+            ExecutionContext.instance().validate(Property.RANDOMIZED, salt)
           ) {
               spec = s;
         }
@@ -30,7 +33,8 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
           call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) &&
           args(salt, iterationCount, paramSpec) &&
           condition(
-            iterationCount >= 10000
+            iterationCount >= 10000 &&
+            ExecutionContext.instance().validate(Property.RANDOMIZED, salt)
         ) {
             spec = s;
         }
@@ -39,7 +43,8 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
           call(public PBEParameterSpec.new(byte[], int)) &&
           args(salt, iterationCount) &&
           condition(
-            iterationCount < 10000
+            iterationCount < 10000 ||
+            !(ExecutionContext.instance().validate(Property.RANDOMIZED, salt))
           ) {
              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "PBEParameterSpecSpec", "" + __LOC,
                     "expecting at least 1000 iterations and a randomized salt."));
@@ -53,5 +58,7 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
         }
 
         @match {
+          ExecutionContext.instance().setProperty(Property.PREPARED_PBE, spec);
+          ExecutionContext.instance().setObjectAsInAcceptingState(spec);
         }
 }

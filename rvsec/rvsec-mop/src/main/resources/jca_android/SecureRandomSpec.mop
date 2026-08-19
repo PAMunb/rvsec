@@ -4,6 +4,8 @@ import java.security.SecureRandom;
 import java.util.stream.IntStream;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
@@ -32,8 +34,17 @@ SecureRandomSpec(SecureRandom r) {
     // - c2: SecureRandom(byte[]);
     event c2 after(byte[] seed) returning(SecureRandom r):
       call(public SecureRandom.new(byte[])) &&
-      args(seed) {
+      args(seed) &&
+      condition(ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
          sr = r;
+    }
+
+
+    event c3 after(byte[] seed) returning(SecureRandom r):
+      call(public SecureRandom.new(byte[])) &&
+      args(seed) &&
+      condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
+        sr = r;
     }
 
 
@@ -78,11 +89,22 @@ SecureRandomSpec(SecureRandom r) {
     event setSeed2 after(byte[] seed, SecureRandom r):
       call(public void SecureRandom.setSeed(byte[]))  &&
       args(seed) &&
-      target(r) {  }
+      target(r) &&
+      condition(ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {  }
+
+    event setSeed3 after(byte[] seed, SecureRandom r):
+      call(public void SecureRandom.setSeed(byte[]))  &&
+      args(seed) &&
+      target(r) &&
+      condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec",  "" + __LOC,
+        "setSeed() expects a randomized byte array."));
+    }
 
     event genSeed after(SecureRandom r) returning(byte[] seed):
       call(public byte[] SecureRandom.generateSeed(int))
       && target(r) {
+        ExecutionContext.instance().setProperty(Property.RANDOMIZED, seed);
     }
 
 //TODO randIntInRange eh RANDOMIZED ou eh o retorno do nextInt ???
@@ -90,22 +112,26 @@ SecureRandomSpec(SecureRandom r) {
       call(public int SecureRandom.nextInt(int))
       && args(randIntInRange)
       && target(r) {
+         ExecutionContext.instance().setProperty(Property.RANDOMIZED, randIntInRange);
     }
 
     event next2 before(SecureRandom r, byte[] bytes):
       call(public void SecureRandom.nextBytes(byte[]))
       && args(bytes)
       && target(r) {
+         ExecutionContext.instance().setProperty(Property.RANDOMIZED, bytes);
     }
 
     event next3 after(SecureRandom r) returning(int randInt) :
       call(public int SecureRandom.nextInt())
       && target(r) {
+         ExecutionContext.instance().setProperty(Property.RANDOMIZED, randInt);
     }
 
      event ints after(SecureRandom r) returning(IntStream stream):
        call(public IntStream SecureRandom.ints(..))
        && target(r) {
+          ExecutionContext.instance().setProperty(Property.RANDOMIZED, stream);
      }
 
     fsm :
@@ -143,5 +169,7 @@ SecureRandomSpec(SecureRandom r) {
     }
 
     @match1 {
+        ExecutionContext.instance().setObjectAsInAcceptingState(sr);
+        ExecutionContext.instance().setProperty(Property.RANDOMIZED, sr);
     }
 }

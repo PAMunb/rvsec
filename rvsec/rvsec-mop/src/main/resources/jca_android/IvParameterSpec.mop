@@ -3,6 +3,8 @@ package mop;
 import javax.crypto.spec.IvParameterSpec;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * IvParameterSpec
@@ -18,7 +20,10 @@ IvParameterSpecSpec(IvParameterSpec s) {
 
     event c1 after(byte[] iv) returning(IvParameterSpec s):
       call(public IvParameterSpec.new(byte[])) &&
-      args(iv) {
+      args(iv) &&
+      condition(
+        ExecutionContext.instance().validate(Property.RANDOMIZED, iv)
+      ) {
          spec = s;
     }
 
@@ -26,12 +31,29 @@ IvParameterSpecSpec(IvParameterSpec s) {
       call(public IvParameterSpec.new(byte[], int, int)) &&
       args(iv, offset, len) &&
       condition(
+        ExecutionContext.instance().validate(Property.RANDOMIZED, iv) &&
         offset >= 0 &&
         len >= 0 &&
         iv.length >= offset + len
     ) {
         spec = s;
     }
+
+    event c3 after(byte[] iv) returning(IvParameterSpec s):
+       call(public IvParameterSpec.new(byte[])) &&
+       args(iv) &&
+       condition(
+         !ExecutionContext.instance().validate(Property.RANDOMIZED, iv)
+       ) {
+       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC));
+    }
+
+    event c4 after(byte[] iv, int offset, int len) returning(IvParameterSpec s):
+       call(public IvParameterSpec.new(byte[], int, int)) &&
+       args(iv, offset, len) &&
+       condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC));
+       }
 
     ere : c1 | c2
 
@@ -41,6 +63,8 @@ IvParameterSpecSpec(IvParameterSpec s) {
     }
 
     @match {
+      ExecutionContext.instance().setProperty(Property.PREPARED_IV, spec);
+      ExecutionContext.instance().setObjectAsInAcceptingState(spec);
     }
 
 }

@@ -164,10 +164,8 @@ def _gates(monitor: Path, allowlist: Path | None) -> dict:
     return json.loads(result.stdout)
 
 
-def _lint(set_name: str, strict: bool = False) -> dict:
+def _lint(set_name: str) -> dict:
     command = [sys.executable, str(SCRIPTS / "gh104_mop_lint.py"), str(_set_dir(set_name))]
-    if strict:
-        command.append("--strict-predicate")
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     assert result.stdout, result.stderr
     return json.loads(result.stdout)
@@ -228,10 +226,16 @@ def test_jca_g_ere_finds_the_gcm_symbol_and_nothing_else():
     ]
 
 
-def test_jca_g_pred_counts_the_negative_control():
-    """134 occurrences of `ExecutionContext`: the set the successor removes them from."""
+def test_jca_g_pred_counts_the_sites_the_successor_must_carry():
+    """134 `ExecutionContext` sites: what the successor set is checked against.
+
+    The seed is its own oracle here, so the gate reports no failure; what the test
+    pins is the census behind it. If this number ever moves, the frozen `jca` has
+    been edited and every measurement published from it is in question.
+    """
     report = _gates(_control_monitor(), None)
-    assert report["gates"]["G-PRED"]["execution_context"] == JCA_EXECUTION_CONTEXT
+    assert report["gates"]["G-PRED"]["predicate_sites"] == JCA_EXECUTION_CONTEXT
+    assert report["gates"]["G-PRED"]["failures"] == []
 
 
 def test_no_file_of_the_frozen_set_names_the_alias_class():
@@ -334,21 +338,9 @@ def test_jca_android_event_names_survive_generation():
     assert report["gates"]["G-6'"]["failures"] == []
 
 
-def test_jca_android_carries_no_predicate():
-    """INV-INS-128: zero occurrences of `ExecutionContext` in the successor set.
-
-    The bare `validate(` is deliberately not the test: `KeyPairGeneratorSpec`
-    keeps a local `private boolean validate(int)` that has nothing to do with the
-    predicate architecture.
-    """
-    report = _lint("jca_android", strict=True)
-    assert [hit for hit in report["findings"] if hit["kind"] == "predicate"] == []
-
-
 def test_jca_android_lint_is_clean():
     report = _lint("jca_android")
-    residue = {kind: count for kind, count in report["counts"].items() if kind != "predicate"}
-    assert residue == {}, residue
+    assert report["counts"] == {}, report["counts"]
 
 
 def test_jca_android_message_gate_is_clean():

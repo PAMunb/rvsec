@@ -3,6 +3,8 @@ package mop;
 import javax.crypto.spec.DHGenParameterSpec;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * DHGenParameterSpec
@@ -31,6 +33,8 @@ DHGenParameterSpecSpec(DHGenParameterSpec s) {
    }
 
    @match {
+      ExecutionContext.instance().setProperty(Property.PREPARED_DH, spec);
+      ExecutionContext.instance().setObjectAsInAcceptingState(spec);
    }
 
 }

@@ -7,6 +7,8 @@ import java.security.KeyStore;
 import javax.net.ssl.KeyManager;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
@@ -55,11 +57,13 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "TrustManagerFactorySpec", "" + __LOC,
               "expecting one of " + String.join(",", algorithms) + " but found " + currentAlgorithmInstance + "."));
         }
+       ExecutionContext.instance().setProperty(Property.GENERATED_TRUST_MANAGER, trustManagerFactory);
     }
 
     event gtm1 after(TrustManagerFactory k) returning(TrustManager[][] trustManager):
       call(public KeyManager[] TrustManagerFactory.getTrustManagers())
       && target(k) {
+        ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, trustManager);
     }
 
     fsm :
@@ -80,11 +84,15 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
 
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC));
+        ExecutionContext.instance().unsetObjectAsInAcceptingState(trustManagerFactory);
+        ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGER);
+        ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGERS);
 
         __RESET;
     }
 
     @match1 {
+       ExecutionContext.instance().setObjectAsInAcceptingState(trustManagerFactory);
     }
     
 }

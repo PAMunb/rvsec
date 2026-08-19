@@ -5,6 +5,8 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * KeyPairSpec
@@ -27,11 +29,13 @@ KeyPairSpec(KeyPair keyPair) {
     event gpu after(KeyPair keyPair) returning(PublicKey publicKey):
       call(public PublicKey KeyPair.getPublic()) &&
       target(keyPair) {
+        ExecutionContext.instance().setProperty(Property.GENERATED_PUBLIC_KEY, publicKey);
     }
 
     event gpr after(KeyPair keyPair) returning(PrivateKey privateKey):
       call(public PrivateKey KeyPair.getPrivate()) &&
       target(keyPair) {
+        ExecutionContext.instance().setProperty(Property.GENERATED_PUBLIC_KEY, privateKey);
     }
 
     ere: c1 (gpu | gpr)*
@@ -42,6 +46,7 @@ KeyPairSpec(KeyPair keyPair) {
     }
 
     @match {
+        ExecutionContext.instance().setObjectAsInAcceptingState(keyPair);
     }
 
 

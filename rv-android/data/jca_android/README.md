@@ -2,8 +2,9 @@
 
 This directory holds the records of the specification set that `--specification-set jca_android`
 resolves to from gh104 on: `rvsec/rvsec-mop/src/main/resources/jca_android/`, seeded from the frozen
-`jca` Java set and shaped by three mechanical passes (two pure predicate propagators deleted, every
-use of `ExecutionContext` removed, every allow-list re-transcribed from `MetaCrySL/generated/api30/`).
+`jca` Java set and shaped by one mechanical pass: every allow-list re-transcribed from
+`MetaCrySL/generated/api30/`, read through the normalisation rule below. The seed's predicate
+machinery travels with it untouched — see *What the successor set contains*.
 
 The oracle of the set is the already-generated MetaCrySL api30 rules under
 `MetaCrySL/generated/api30/`. MetaCrySL is read-only in gh104: where a generated rule is judged
@@ -39,40 +40,46 @@ keep resolving (INV-INS-118), and by the identity checks of tasks 2.11 and 10.1.
 
 ## What the successor set contains
 
-Twenty-one `.mop` files and `codes.csv`, and nothing else. `codes.csv` (header
+Twenty-three `.mop` files and `codes.csv`, and nothing else. `codes.csv` (header
 `spec,code,error_type,site_kind,event,file_line`) is the table of failure codes the set's
 envelopes emit; it is the **only** non-`.mop` file of the directory. The seed directory
 `jca/` also holds `MultiSpec_1MonitorAspect.aj`, a gitignored leftover of a generation run
 that is not tracked and does not travel with the seed.
 
-The two files that leave are `RandomStringPassword.mop` and `SecretKeySpec.mop`, pure
+That count includes `RandomStringPassword.mop` and `SecretKeySpec.mop`, the two pure
 predicate propagators: `grep -c "new ErrorDescription("` returns 0 for both and neither has
-a `@fail`, so each existed only to write a `Property` another specification read. With
-predicates gone they detect nothing, and deleting them costs zero report sites.
+a `@fail`, so each exists only to write a `Property` another specification's `condition()`
+reads. An earlier revision of this change deleted them along with the predicate machinery
+they feed; that decision is withdrawn (design D-11), so they still have work to do and
+removing either would silently disarm a `condition()` elsewhere in the set.
 
-The `ExecutionContext` keying ruling of gh101 (equality, `e204e2a4`) is **moot for this
-set**: it references `ExecutionContext` at no site at all, which the G-PRED gate
-(`tests/parity/test_gh104_specset_gates.py::test_jca_android_has_no_execution_context`)
-checks as a grep over the 21 files, with the frozen `jca`'s 134 occurrences as the negative
-control.
+The predicates are carried over **byte-for-byte**: the seed's 134 `ExecutionContext` lines
+(23 `import`, 27 `validate(`, 49 `setProperty(`, 9 `remove(`, 25 accepting-state calls and
+1 comment at `MessageDigestSpec.mop:25`) appear in `jca_android` at the same events, in the
+same order, unrewritten. The G-PRED gate
+(`tests/parity/test_gh104_specset_gates.py::test_jca_android_predicates_preserved`) checks
+exactly that, per file, against the frozen `jca` as the oracle — it is the gate that would
+have caught the withdrawn removal going in. The `ExecutionContext` keying ruling of gh101
+(equality, `e204e2a4`) therefore applies to this set exactly as it applies to the seed.
 
 ## The normalisation rule
 
 An allow-list of this set is the `CONSTRAINTS` clause of its api30 rule and nothing else, so
 a value the application spells differently would not match it. The set therefore declares
-**one** normalisation rule and applies it uniformly across the 21:
+**one** normalisation rule and applies it uniformly at every value test it has:
 
 > **Comparison is case-insensitive, and an observed value matches a list entry when a row of
 > `alias_table.csv` maps it to that entry.**
 
 Both halves go through a single call to `ConscryptAliasTable`
-(`rvsec-core/src/main/java/br/unb/cic/mop/jca/util/`), which every `jca_android`
-specification names in its check. That one call replaces two inconsistent idioms the seed
-carried by accident: case-sensitive `contains()` in `Mac`, `Signature`, `SecureRandom`,
-`KeyGenerator`, `TrustManagerFactory`, `KeyManagerFactory`, `KeyStore` and
-`KeyPairGenerator`, and `.toUpperCase()` in `MessageDigest`, `SSLContext` and
-`SecretKeySpec` — under which the same string was a misuse in one specification and not in
-another.
+(`rvsec-core/src/main/java/br/unb/cic/mop/jca/util/`), which each of the ten specifications
+that still carries an allow-list names in its check. That one call replaces two inconsistent
+idioms the seed carried by accident: case-sensitive `contains()` in `Mac`, `Signature`,
+`SecureRandom`, `KeyGenerator`, `TrustManagerFactory`, `KeyManagerFactory`, `KeyStore` and
+`KeyPairGenerator`, and `.toUpperCase()` in `MessageDigest` and `SSLContext` — under which
+the same string was a misuse in one specification and not in another. The seed's eleventh
+idiom, `SecretKeySpecSpec`'s `.toUpperCase()`, needs no replacement: its list has no api30
+clause behind it and leaves the set entirely (MOP-SEM-BASE).
 
 The table is **not read at run time**. A monitor woven into an APK has no filesystem
 contract with this repository, so `ConscryptAliasTable` carries the table as code and
@@ -212,6 +219,5 @@ insecure"; the name is kept for continuity with `jca` and the meaning shift is d
 | `divergence_record.csv` | one entry per hunk of the successor set against the frozen `jca` seed, plus the two registered exceptions to literal transcription (`EC`, the four `SHA*withECDSA`). |
 | `conformance_record.csv` | one row per specification against its api30 rule: transcription verdicts, deferred constants, declared costs, and the divergences measured but not repaired. |
 | `alias_table.csv` | the Conscrypt `android11-release` alias table (158 rows), carried as code by `ConscryptAliasTable`. |
-| `predicate_removal.csv` | the 55 sites the predicate removal deleted, with the accusation each used to raise. Not to be confused with gh101's `predicate_omissions.csv`, which records a different thing — a `Property` written and never read. This set writes none (INV-INS-128). |
 | `constraint_table.csv` | one row per api30 `CONSTRAINTS` clause of the 21 paired rules plus one per `.mop` value test with no clause behind it. |
 | `gate_allowlist.csv` | the remaining gate hits with a reason and the task that owns each. |

@@ -17,7 +17,8 @@ directory it was generated from:
             declaration behind it
     G-CONF  an `Arrays.asList` allow-list that does not transcribe the
             `CONSTRAINTS ... in {...}` clause of the corresponding api30 rule
-    G-PRED  any occurrence of the predicate architecture (`ExecutionContext`)
+    G-PRED  a predicate site of the frozen `jca` seed that the set under test
+            has lost or rewritten
 
 Why G-2 takes the CrySL rule as a second input
 ----------------------------------------------
@@ -39,10 +40,11 @@ So G-2 splits its verdict:
                             failure, naming the rule and the clause consulted
     orphan-without-clause   no clause accounts for it -- a failure
 
-`REQUIRES` clears only where the set still carries predicates. On a set with no
-`ExecutionContext` (`jca_android`, D-11) a `REQUIRES` clause has nothing left to
-evaluate it, so only `CONSTRAINTS` and `FORBIDDEN` clear there; accepting
-`REQUIRES` would clear an event whose only guard was the predicate that left.
+`REQUIRES` clears only where the set still carries predicates, which the gate
+decides by looking rather than by name: a set with no `ExecutionContext` has
+nothing left to evaluate a `REQUIRES` clause, so only `CONSTRAINTS` and
+`FORBIDDEN` clear there. Both `jca` and `jca_android` carry them (D-11), so
+`REQUIRES` clears on both.
 
 Usage:
     gh104_gates.py --monitor <MultiSpec_1RuntimeMonitor.java>
@@ -1006,40 +1008,47 @@ def _line_of(mop: MopSpec, name: str) -> int:
 # INV-INS-128 names the identifier `ExecutionContext`, not the bare `validate(`:
 # `KeyPairGeneratorSpec` keeps a local `private boolean validate(int)` that has
 # nothing to do with the predicate architecture.
-PREDICATE_MARKERS = (
-    "ExecutionContext",
-    "Property.",
-    "ExecutionContext.instance().validate(",
-    "setProperty(",
-    ".remove(Property",
-)
+PREDICATE_MARKER = "ExecutionContext"
 
 
-def predicate_occurrences(specs: dict[str, MopSpec]) -> list[dict]:
+def predicate_sites(text: str) -> list[str]:
+    """The file's predicate lines, in the order it declares them."""
+    return [line for line in text.splitlines() if PREDICATE_MARKER in line]
+
+
+def predicate_divergences(specs: dict[str, MopSpec], seed: Path | None) -> list[dict]:
+    """G-PRED: what the set under test lost or rewrote against the frozen seed.
+
+    The gate compares sequences, not counts. A set that moved a `validate(` from
+    the event reading a key to the event writing it keeps its grep count and has
+    changed what it accuses, so an equal-totals check would wave it through.
+
+    The seed is its own oracle, which makes the gate trivially green on `jca` --
+    that is the intended reading: `jca` is frozen, so nothing there can drift, and
+    the gate exists for the sets derived from it.
+    """
+    if seed is None:
+        return []
     hits: list[dict] = []
     for spec, mop in sorted(specs.items()):
-        for number, line in enumerate(mop.text.splitlines(), start=1):
-            for marker in PREDICATE_MARKERS:
-                for column in _positions(line, marker):
-                    hits.append(
-                        {
-                            "spec": spec,
-                            "file": mop.path.name,
-                            "line": number,
-                            "column": column,
-                            "marker": marker,
-                        }
-                    )
+        counterpart = seed / mop.path.name
+        if not counterpart.is_file():
+            continue
+        want = predicate_sites(counterpart.read_text(encoding="utf-8"))
+        got = predicate_sites(mop.text)
+        if want == got:
+            continue
+        lost = [line.strip() for line in want if line not in got]
+        hits.append(
+            {
+                "spec": spec,
+                "file": mop.path.name,
+                "seed_sites": len(want),
+                "set_sites": len(got),
+                "lost": lost[:10],
+            }
+        )
     return hits
-
-
-def _positions(line: str, needle: str) -> list[int]:
-    found: list[int] = []
-    start = 0
-    while (index := line.find(needle, start)) != -1:
-        found.append(index + 1)
-        start = index + 1
-    return found
 
 
 # --------------------------------------------------------------------------
@@ -1443,15 +1452,19 @@ def run_gates(
         )
 
     # ---- G-PRED ----
+    seed_dir = resolve_set_dir("jca")
     if not specs:
         report["skipped"].append("G-PRED: the set directory could not be derived from the monitor")
         gate("G-PRED", [])
+    elif seed_dir is None:
+        report["skipped"].append("G-PRED: the frozen jca seed is not reachable (RVSEC_HOME)")
+        gate("G-PRED", [])
     else:
-        occurrences = predicate_occurrences(specs)
-        gate("G-PRED", occurrences)
-        report["gates"]["G-PRED"]["occurrences"] = len(occurrences)
-        report["gates"]["G-PRED"]["execution_context"] = sum(
-            hit["marker"] == "ExecutionContext" for hit in occurrences
+        divergences = predicate_divergences(specs, seed_dir)
+        gate("G-PRED", divergences)
+        report["gates"]["G-PRED"]["seed"] = str(seed_dir)
+        report["gates"]["G-PRED"]["predicate_sites"] = sum(
+            len(predicate_sites(mop.text)) for mop in specs.values()
         )
 
     report["ok"] = not any(gate["failures"] for gate in report["gates"].values())

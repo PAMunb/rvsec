@@ -4,6 +4,8 @@ import javax.crypto.Mac;
 import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 MacSpec(Mac m) {
@@ -41,7 +43,8 @@ MacSpec(Mac m) {
         event i1 before(java.security.Key key, Mac m):
           call(public void Mac.init(java.security.Key)) &&
           args(key) &&
-          target(m) {
+          target(m) &&
+          condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key)) {
             if (!ConscryptAliasTable.matches("Mac", currentAlgorithmInstance, safeAlgorithms)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
                  " expecting one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
@@ -52,7 +55,8 @@ MacSpec(Mac m) {
         event i2 after(java.security.Key key, java.security.spec.AlgorithmParameterSpec params, Mac m):
           call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) &&
           args(key, params) &&
-          target(m)  {
+          target(m) &&
+          condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key))  {
             if (!ConscryptAliasTable.matches("Mac", currentAlgorithmInstance, safeAlgorithms)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
         "one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
@@ -66,22 +70,26 @@ MacSpec(Mac m) {
         event f1 after(Mac m) returning(byte[] output):
           (call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) &&
           target(m){
+           ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
         }
 
         event f2 after(byte[] output, int outOffset):
           call(void Mac.doFinal(byte[], int)) &&
           args(output, outOffset) &&
           target(m){
+            ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
         }
 
         ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f2) | (update* (f1 | f2)))
 
         @fail {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC));
+            ExecutionContext.instance().remove(Property.GENERATED_MAC);
             __RESET;
         }
 
         @match {
+           ExecutionContext.instance().setObjectAsInAcceptingState(mac);
         }
 
 }

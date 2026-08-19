@@ -6,6 +6,8 @@ import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
@@ -64,16 +66,20 @@ KeyGeneratorSpec(KeyGenerator k) {
         "expecting one of" + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
         }
         generatedKey = key;
+        ExecutionContext.instance().setProperty(Property.GENERATED_KEY, generatedKey);
     }
 
     ere : (g3* g1+ | g3* g2+) ((init gk1) | gk1)
 
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC));
+        ExecutionContext.instance().unsetObjectAsInAcceptingState(keyGenerator);
+        ExecutionContext.instance().remove(Property.GENERATED_KEY, generatedKey);
 
         __RESET;
     }
 
     @match {
+       ExecutionContext.instance().setObjectAsInAcceptingState(keyGenerator);
     }
 }

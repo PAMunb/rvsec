@@ -3,6 +3,8 @@ package mop;
 import javax.crypto.spec.GCMParameterSpec;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 
 /**
  * GCMParameterSpec
@@ -22,7 +24,8 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
     call(public GCMParameterSpec.new(int, byte[])) &&
     args(tagLen, src) &&
     condition(
-      validLengths.contains(tagLen)
+      validLengths.contains(tagLen) &&
+      ExecutionContext.instance().validate(Property.RANDOMIZED, src)
     )
     {
        spec = s;
@@ -33,6 +36,7 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
       args(tagLen, src, offset, len) &&
       condition(
         validLengths.contains(tagLen) &&
+        ExecutionContext.instance().validate(Property.RANDOMIZED, src) &&
         offset >= 0 &&
         len >= 0 &&
         src.length >= offset + len
@@ -49,6 +53,8 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    }
 
    @match {
+      ExecutionContext.instance().setProperty(Property.PREPARED_GCM, spec);
+      ExecutionContext.instance().setObjectAsInAcceptingState(spec);
    }
 
 }

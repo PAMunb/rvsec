@@ -21,9 +21,9 @@ in `Signature`) and the one `behavioural` case (`OAEPWithSHA1AndMGF1Padding`,
 which no Conscrypt registration explains and which therefore gets no alias row).
 They are statements about the set, not about a diff, and G-CONF reads them here.
 
-The base directory may hold a file the target does not: the successor deletes the
-two pure predicate propagators (`RandomStringPassword.mop`, `SecretKeySpec.mop`),
-and each deletion is a `removed-file` hunk with a row of its own.
+The successor carries all 23 specifications of the seed, predicates included, so
+neither set holds a file the other lacks; a `removed-file` or `new-file` hunk would
+therefore be a real divergence and needs a row like any other.
 
 Usage:
     gh104_divergence_record.py --check    [--record <csv>]   # exit 1 on any mismatch
@@ -45,8 +45,6 @@ FIELDS = ["file", "hunk", "kind", "summary", "reason", "task"]
 # What a difference between the seed and the successor is allowed to be.
 KINDS = {
     "set-archived",      # the reproved derived set moved out of the way (task 2.1)
-    "spec-removed",      # a pure predicate propagator ceased to exist (task 2.2)
-    "predicate-removed", # ExecutionContext left a file (task 2.3)
     "allow-list",        # a list was transcribed from the api30 rule (tasks 2.4-2.7)
     "cipher-import",     # CipherSpec now names Api30CipherTransformationUtil (task 2.8)
     "api30-omits",       # a value the rule omits and the platform provably carries
@@ -88,7 +86,7 @@ def hunks(base: Path, target: Path) -> list[dict[str, str]]:
         if changed:
             rows.append(digest_row(path.name, changed))
 
-    # A file the seed has and the successor does not: the two propagators.
+    # A file the seed has and the successor does not; the successor should have none.
     for path in sorted(base.glob("*.mop")):
         if not (target / path.name).exists():
             rows.append(

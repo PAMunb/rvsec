@@ -5,6 +5,8 @@ import java.security.MessageDigest;
 import java.util.List;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 // The MessageDigestSpec specifies
@@ -21,6 +23,7 @@ MessageDigestSpec(MessageDigest digest) {
 	is only actually executed during the encryption phase (i.e., in calls to digest() and update(), in the case of MD.)
 	Therefore, during the getInstance sub-graph, we only need to keep track of what is the latest algorithm that has
 	been instantiated.
+	We can use ExecutionContext to keep track of a propety UNSAFE_ALGORITHM, but it is working as is.
 	 */
 	event g1 after(String alg) returning(MessageDigest digest):
 	  call(public static MessageDigest MessageDigest.getInstance(String))
@@ -76,6 +79,7 @@ MessageDigestSpec(MessageDigest digest) {
 	event d1 after(MessageDigest digest) returning(byte[] out):
 	 call(public byte[] MessageDigest.digest()) &&
 	 target(digest) {
+	    ExecutionContext.instance().setProperty(Property.DIGESTED, out);
 	}
 
 	/*
@@ -88,12 +92,14 @@ MessageDigestSpec(MessageDigest digest) {
 			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
 		     __LOC, "expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
 		}
+    	ExecutionContext.instance().setProperty(Property.DIGESTED, out);
     }
 
     event d3 after(byte[] out, int offset, int len, MessageDigest digest):
      call(public int MessageDigest.digest(byte[], int, int)) &&
      args(out, offset, len) &&
      target(digest) {
+       ExecutionContext.instance().setProperty(Property.DIGESTED, out);
     }
 
 	/*
@@ -104,9 +110,11 @@ MessageDigestSpec(MessageDigest digest) {
 
 	@fail {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec",  "" + __LOC));
+           ExecutionContext.instance().unsetObjectAsInAcceptingState(md);
            __RESET;
 	}
 
 	@match {
+           ExecutionContext.instance().setObjectAsInAcceptingState(md);
 	}
 }

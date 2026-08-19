@@ -6,6 +6,8 @@ import javax.net.ssl.KeyManager;
 import java.security.KeyStore;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
@@ -53,11 +55,13 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyManagerFactorySpec", "" + __LOC,
         " expecting one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
         }
+       ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManagerFactory);
     }
 
     event gkm1 after(KeyManagerFactory k) returning(KeyManager[] keyManager):
       call(public KeyManager[] KeyManagerFactory.getKeyManagers())
       && target(k) {
+        ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManager);
     }
 
     fsm :
@@ -84,10 +88,13 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
 
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC));
+        ExecutionContext.instance().unsetObjectAsInAcceptingState(keyManagerFactory);
+        ExecutionContext.instance().remove(Property.GENERATED_KEY_MANAGERS);
 
         __RESET;
     }
 
     @match1 {
+       ExecutionContext.instance().setObjectAsInAcceptingState(keyManagerFactory);
     }
 }

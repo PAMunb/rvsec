@@ -6,6 +6,8 @@ import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
@@ -100,15 +102,18 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       (call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) &&
       target(k) {
        kp = keyPair;
+       ExecutionContext.instance().setProperty(Property.GENERATED_KEY_PAIR, kp);
     }
 
     ere: (g3* g1 | g3* g2) (init1 | init2 | init3 | init4) gen
 
     @fail {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC));
+      ExecutionContext.instance().remove(Property.GENERATED_KEY_PAIR, kp);
     }
 
     @match {
+       ExecutionContext.instance().setObjectAsInAcceptingState(kpg);
     }
 
 }

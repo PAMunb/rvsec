@@ -1,15 +1,15 @@
 """Gates over the successor specification set `jca_android` (gh104).
 
 The set is seeded from the frozen `jca` and differs from it only by hunks a record
-names, so what makes it checkable is enumeration rather than equality. Three gates
+names, so what makes it checkable is enumeration rather than equality. Two gates
 hold that shape:
 
     INV-INS-118   every hunk between the seed and the successor is named in
                   `data/jca_android/divergence_record.csv`, and no entry names a
                   hunk that no longer exists
-    INV-INS-128   no `.mop` of the successor references `ExecutionContext` -- the
-                  gate is a grep, so it cannot drift -- and the cost of that
-                  removal is enumerated in `predicate_removal.csv`
+    INV-INS-128   every `ExecutionContext` site of the seed survives into the
+                  successor at the same event and unrewritten -- the predicate
+                  machinery is carried over, not removed (design D-11)
 
 Group 6 writes the structural gates over the generated monitor in
 `test_gh104_structural_gates.py`; they read the same records and are kept in a
@@ -21,7 +21,6 @@ All of these run against the sibling Java reactor, so they skip when it is absen
 from __future__ import annotations
 
 import collections
-import csv
 import os
 import re
 import subprocess
@@ -34,22 +33,23 @@ REPO = Path(__file__).resolve().parents[2]
 DATA = REPO / "data" / "jca_android"
 SCRIPTS = REPO / "scripts"
 
+SEED = "rvsec/rvsec-mop/src/main/resources/jca"
 SUCCESSOR = "rvsec/rvsec-mop/src/main/resources/jca_android"
 
-# What predicate_removal.csv must account for, measured on the seed: the 21
-# predicate-reading events, the 9 remove(...) sites and the 25 accepting-state
-# calls. The 46 setProperty deletions, the 21 import deletions and the comment at
-# MessageDigestSpec.mop:25 are divergence-record entries, one per file, not rows
-# of this record -- they cost no detection, so there is nothing per-site to say.
-EXPECTED_CLASS_TOTALS = {
-    "guard": 10,
-    "total-loss": 7,
-    "partial-loss": 1,
-    "provenance": 3,
-    "remove": 9,
+# A line belongs to the predicate machinery when it names the singleton or imports
+# the property enum. Counted over the frozen seed, keyed by the construct each line
+# performs, this is what the successor must still carry.
+PREDICATE = re.compile(r"ExecutionContext")
+EXPECTED_CONSTRUCTS = {
+    "import": 23,
+    "validate(": 27,
+    "setProperty(": 49,
+    "remove(": 9,
     "accepting-state": 25,
+    "comment": 1,
 }
-EXPECTED_ROWS = 55
+EXPECTED_PREDICATE_LINES = 134
+EXPECTED_SPECS = 23
 
 
 def _rvsec_home() -> Path:
@@ -57,6 +57,18 @@ def _rvsec_home() -> Path:
     if not home or not (Path(home) / SUCCESSOR).is_dir():
         pytest.skip("RVSEC_HOME not set or the successor set is absent from the Java reactor")
     return Path(home)
+
+
+def _classify(line: str) -> str:
+    stripped = line.strip()
+    if stripped.startswith("import"):
+        return "import"
+    for construct in ("validate(", "setProperty(", "remove("):
+        if construct in stripped:
+            return construct
+    if "ObjectAsInAcceptingState" in stripped:
+        return "accepting-state"
+    return "comment"
 
 
 def test_jca_android_hunks_all_recorded():
@@ -76,64 +88,54 @@ def test_jca_android_hunks_all_recorded():
     assert result.returncode == 0, result.stderr
 
 
-def test_jca_android_has_no_execution_context():
-    """INV-INS-128: G-PRED, and it is a grep so that it cannot drift.
+def test_jca_android_predicates_preserved():
+    """INV-INS-128: G-PRED, preservation, checked against the seed file by file.
 
-    Zero occurrences of the identifier, imports and comments included -- not "no
-    validate call". A file that still imports `ExecutionContext` is a file where
-    re-adding one predicate is a one-line change, and the whole point of removing
-    the machinery rather than repairing it is that there is nothing left to re-add.
+    An earlier revision of this change deleted the predicate machinery outright.
+    That is the largest behavioural change the set could take -- it deletes
+    detection at 11 of the 21 predicate-reading events -- and it went in with no
+    before/after evidence behind it, which is exactly what this gate exists to
+    stop. The decision is withdrawn (design D-11) and the gate now runs the other
+    way: the successor must carry every site the seed has, in the same order,
+    byte-for-byte, so that a deletion cannot slip in as a side effect of an
+    allow-list edit.
+
+    Order matters as much as content. Comparing multisets would pass a file whose
+    predicate moved from the event that reads a key to the one that writes it, and
+    that is a behavioural change wearing an unchanged grep count.
     """
     home = _rvsec_home()
     specs = sorted((home / SUCCESSOR).glob("*.mop"))
-    assert len(specs) == 21, f"expected 21 specifications, found {len(specs)}"
-
-    offenders = []
-    for path in specs:
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            if "ExecutionContext" in line or re.search(r"\bProperty\.", line):
-                offenders.append(f"{path.name}:{number}: {line.strip()}")
-
-    assert not offenders, "predicate machinery left in jca_android:\n" + "\n".join(offenders)
-
-    # The negative control: the same grep over the frozen seed still finds the 134
-    # occurrences the removal was measured against, so a gate that passes because
-    # it stopped looking would fail here.
-    frozen = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca").glob("*.mop"))
-    total = sum(
-        path.read_text(encoding="utf-8").count("ExecutionContext") for path in frozen
+    assert len(specs) == EXPECTED_SPECS, (
+        f"expected {EXPECTED_SPECS} specifications, found {len(specs)} -- the two pure "
+        "propagators travel with the set (D-11)"
     )
-    assert total == 134, f"the frozen jca no longer carries its 134 occurrences ({total})"
 
+    divergences = []
+    for path in specs:
+        seed = home / SEED / path.name
+        assert seed.is_file(), f"{path.name} has no counterpart in the frozen seed"
+        want = [line for line in seed.read_text(encoding="utf-8").splitlines() if PREDICATE.search(line)]
+        got = [line for line in path.read_text(encoding="utf-8").splitlines() if PREDICATE.search(line)]
+        if want != got:
+            divergences.append(f"{path.name}: seed has {len(want)} site(s), successor {len(got)}")
 
-def test_predicate_removal_record_complete():
-    """INV-INS-128: the cost of the removal is enumerated, not absorbed.
+    assert not divergences, "predicate sites rewritten or lost:\n" + "\n".join(divergences)
 
-    Fifty-five rows: 21 + 9 + 25. The class totals are asserted individually
-    because the sum alone would let one loss be reclassified as a guard -- and the
-    difference between those two words is the difference between a detection this
-    change gave up and one it recovered.
-    """
-    with (DATA / "predicate_removal.csv").open(encoding="utf-8") as handle:
-        rows = list(csv.DictReader(handle))
+    # The construct census, so that a gate cannot pass by comparing two files that
+    # both stopped carrying predicates: the totals are asserted per construct
+    # because the sum alone would let a `validate(` become a `setProperty(`.
+    census = collections.Counter(
+        _classify(line)
+        for path in specs
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if PREDICATE.search(line)
+    )
+    assert dict(census) == EXPECTED_CONSTRUCTS, dict(census)
+    assert sum(census.values()) == EXPECTED_PREDICATE_LINES
 
-    assert len(rows) == EXPECTED_ROWS, f"expected {EXPECTED_ROWS} rows, found {len(rows)}"
-    assert sum(EXPECTED_CLASS_TOTALS.values()) == EXPECTED_ROWS
-
-    totals = collections.Counter(row["class"] for row in rows)
-    assert dict(totals) == EXPECTED_CLASS_TOTALS
-
-    # Every row says which site it removed and why; a row that loses an accusation
-    # says which sentence stops being raised.
-    for row in rows:
-        assert row["file"] and row["line"] and row["spec"] and row["event"], row
-        assert row["reason"].strip(), f"no reason for {row['file']}:{row['line']}"
-        if row["class"] in {"total-loss", "partial-loss", "provenance"}:
-            assert row["lost_accusation"].strip(), (
-                f"{row['class']} row with no accusation recorded: "
-                f"{row['file']}:{row['line']} {row['event']}"
-            )
-
-    # And there is no predicate_omissions.csv: that record justifies a Property
-    # written and never read, and this set writes none.
+    # And there is no record of a removal, because there is no removal: neither the
+    # withdrawn `predicate_removal.csv` nor gh101's `predicate_omissions.csv`, which
+    # justifies a `Property` written and never read.
+    assert not (DATA / "predicate_removal.csv").exists()
     assert not (DATA / "predicate_omissions.csv").exists()

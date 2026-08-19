@@ -10,6 +10,8 @@ import java.security.cert.Certificate;
 import java.nio.ByteBuffer;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import static br.unb.cic.mop.jca.util.Api30CipherTransformationUtil.*;
 
 
@@ -63,7 +65,12 @@ CipherSpec(Cipher c) {
    event i2 before(int mode, Key key, Cipher c):
      call(public void Cipher.init(int, Key,..)) &&
      args(mode, key, ..) &&
-     target(c) {
+     target(c) &&
+     condition(
+         ExecutionContext.instance().validate(Property.GENERATED_KEY, key)
+      || ExecutionContext.instance().validate(Property.GENERATED_PUBLIC_KEY, key)
+      || ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, key)
+     ){
         if (!isValid(currentTransformation)) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
         "expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found " + currentTransformation + "."));
@@ -74,69 +81,81 @@ CipherSpec(Cipher c) {
      call(public byte[] Cipher.update(byte[])) &&
      args(plainText) &&
      target(c) {
+        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
    event u2 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.update(byte[], int, int)) &&
      args(plainText, prePlainTextOffset, prePlainTextLen) &&
      target(c) {
+        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
    event u3 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, Cipher c):
      call(public int Cipher.update(byte[], int, int, byte[])) &&
      args(plainText, prePlainTextOffset, prePlainTextLen, cipherText) &&
      target(c) {
+       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
    event u4 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, int outputOffset, Cipher c):
      call(public int Cipher.update(byte[], int, int, byte[], int)) &&
      args(plainText, prePlainTextOffset, prePlainTextLen, cipherText, outputOffset) &&
      target(c) {
+       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
    event u5 after (ByteBuffer plainBuffer, ByteBuffer cipherBuffer, Cipher c):
      call(public int Cipher.update(ByteBuffer, ByteBuffer)) &&
      args(plainBuffer, cipherBuffer) &&
      target(c) {
+       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherBuffer);
    }
 
    event wkb1 after(Cipher c) returning(byte[] wrappedKeyBytes):
      call(byte[] Cipher.wrap(Key)) &&
      target(c) {
+        ExecutionContext.instance().setProperty(Property.WRAPPED_KEY, wrappedKeyBytes);
    }
 
    event f1 after(Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.doFinal()) &&
      target(c) {
+      ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
    event f2 after(Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.doFinal(..)) &&
      target(c) {
+       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
    event f3 after(byte[] cipherText, int offset, Cipher c):
      call(public int Cipher.doFinal(byte[], int)) &&
      args(cipherText, offset) &&
      target(c) {
+       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
    }
 
     event f5 after(byte[] plainText, int offset, int len, byte[] cipherText, Cipher c):
       call(public int Cipher.doFinal(byte[], int, int, byte[])) &&
       args(plainText, offset, len, cipherText) &&
       target(c) {
+         ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
     }
 
     event f6 after(byte[] plainText, int offset, int len, byte[] cipherText, int cipherOffset, Cipher c):
       call(public int Cipher.doFinal(byte[], int, int, byte[], int)) &&
       args(plainText, offset, len, cipherText, cipherOffset) &&
       target(c) {
+        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
     }
 
     event f7 after(ByteBuffer plainTextBuffer, ByteBuffer cipherTextBuffer, Cipher c):
        call(public int Cipher.doFinal(ByteBuffer, ByteBuffer)) &&
        args(plainTextBuffer, cipherTextBuffer) &&
        target(c) {
+         ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherTextBuffer);
     }
 
    fsm :
@@ -195,5 +214,6 @@ CipherSpec(Cipher c) {
    }
 
    @match1 {
+        ExecutionContext.instance().setObjectAsInAcceptingState(cipher);
    }
 }

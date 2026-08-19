@@ -23,12 +23,13 @@ What it reports:
                         because the wrong name is still a name
     reserved-name       a declaration that collides with a name the generator
                         writes into the monitor
-    predicate           any occurrence of `ExecutionContext` (INV-INS-128); on
-                        the frozen `jca` this is the negative control and is
-                        reported, not failed, unless --strict-predicate is given
+
+Predicates are not a lint subject: the successor set carries the seed's
+`ExecutionContext` machinery byte-for-byte (design D-11) and G-PRED, in
+`gh104_gates.py`, is what checks that it is still all there.
 
 Usage:
-    gh104_mop_lint.py <set directory> [--json report.json] [--strict-predicate]
+    gh104_mop_lint.py <set directory> [--json report.json]
 """
 
 from __future__ import annotations
@@ -100,7 +101,7 @@ def error_sites(mop: MopSpec) -> list[dict]:
     return sites
 
 
-def lint(directory: Path, strict_predicate: bool = False) -> dict:
+def lint(directory: Path) -> dict:
     findings: list[dict] = []
     notes: list[dict] = []
 
@@ -201,16 +202,6 @@ def lint(directory: Path, strict_predicate: bool = False) -> dict:
         # `reset` becomes `Prop_1_event_reset` and collides with nothing, while a
         # *field* named `reset` shadows a member of the generated monitor.
 
-        occurrences = mop.text.count("ExecutionContext")
-        if occurrences:
-            entry = {
-                "kind": "predicate",
-                "file": path.name,
-                "line": 0,
-                "detail": f"{occurrences} occurrences of `ExecutionContext` (INV-INS-128)",
-            }
-            (findings if strict_predicate else notes).append(entry)
-
     counts: dict[str, int] = {}
     for finding in findings:
         counts[finding["kind"]] = counts.get(finding["kind"], 0) + 1
@@ -229,18 +220,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("directory", type=Path)
     parser.add_argument("--json", type=Path)
-    parser.add_argument(
-        "--strict-predicate",
-        action="store_true",
-        help="fail on `ExecutionContext` instead of noting it (the successor set)",
-    )
     args = parser.parse_args()
 
     if not args.directory.is_dir():
         print(f"not a specification-set directory: {args.directory}", file=sys.stderr)
         return 2
 
-    report = lint(args.directory, strict_predicate=args.strict_predicate)
+    report = lint(args.directory)
     if args.json:
         args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps(report, indent=2), encoding="utf-8")

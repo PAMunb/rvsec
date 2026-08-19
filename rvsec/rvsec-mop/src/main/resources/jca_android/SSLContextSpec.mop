@@ -7,6 +7,8 @@ import javax.net.ssl.TrustManager;
 import java.security.SecureRandom;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
@@ -57,11 +59,13 @@ SSLContextSpec(SSLContext ctx) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, "SSLContextSpec", "" + __LOC,
            "expecting one of {TLSv1.2, TLSv1.3} but found " + currentProtocol + "."));
        }
+       ExecutionContext.instance().setProperty(Property.GENERATE_SSL_CONTEXT, context);
    }
 
    event engine after(SSLContext ctx) returning(SSLEngine eng) :
      call(public void SSLContext.createSSLEngine(..)) &&
      target(ctx) {
+       ExecutionContext.instance().setProperty(Property.GENERATE_SSL_ENGINE, eng);
    }
 
   fsm:
@@ -80,10 +84,12 @@ SSLContextSpec(SSLContext ctx) {
 
   @fail {
     ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC));
+    ExecutionContext.instance().unsetObjectAsInAcceptingState(context);
     __RESET;
   }
 
   @match1 {
+     ExecutionContext.instance().setObjectAsInAcceptingState(context);
   }
   
 }

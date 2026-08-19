@@ -653,8 +653,8 @@ def run(
     ### Monitored Operations:
     The system supports experiments with different specification sets:
     - `jca`: JCA cryptography API monitoring
-    - `jca_android`: the successor JCA set for Android API 30 (21 specifications,
-      seeded from `jca`, no predicates, allow-lists transcribed from api30 CrySL)
+    - `jca_android`: the successor JCA set for Android API 30 (23 specifications,
+      seeded from `jca`, allow-lists transcribed from api30 CrySL)
     - `generic`: Generic programming pattern monitoring (e.g., Iterator usage patterns)
     - `custom`: Custom specification sets for domain-specific monitored operations
     """
