@@ -14,4 +14,47 @@
 
 	<name>RVSec :: MOP Specifications</name>	
 
+	<!-- Test scope only. The module ships specification text and has no main code, but the
+	     differential harness of gh104 lives here because it is the specifications' own
+	     instrument: `TraceRunner` compiles a generated monitor snapshot at test time and
+	     replays traces through its static event dispatchers.
+
+	     `ErrorCollector` is in rvsec-logger-csv, not in rvsec-core: rvsec-core carries
+	     `ErrorDescription`, `ErrorSummary` and `ErrorType`, and the collector that records them
+	     is the CSV logger. Both are needed: the harness reads the accusations the monitor hands
+	     to the collector. Versions and scope come from the reactor's dependencyManagement. -->
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.maven.surefire</groupId>
+			<artifactId>surefire-junit4</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-core</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-logger-csv</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>br.unb.cic.rvmonitor</groupId>
+			<artifactId>rv-monitor-rt</artifactId>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>org.aspectj</groupId>
+					<artifactId>aspectjweaver</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+	</dependencies>
+
 </project>

@@ -4,3 +4,9 @@
 
 target
 
+
+# The patterns above exist for the artefacts the generator drops into this module
+# (.rvm, .aj and the generated monitor .java). Hand-written test sources are not
+# among them: the gh104 differential harness lives at src/test/java and must be
+# tracked, so it is excluded from the exclusion rather than moved elsewhere.
+!src/test/java/**/*.java
