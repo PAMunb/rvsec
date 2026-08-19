@@ -28,6 +28,12 @@ of `SecretKeySpecSpec`, whose derived rule constrains nothing at all.
 Usage:
     gh101_conformance_check.py [--specs <dir>] [--frozen-specs <dir>]
                                [--rules <dir>] [-o <out.csv>]
+
+gh104 rebound the name `jca_android` to a successor set and archived the
+derived set this gate guards as `jca_android_bug_predicate/`. The default
+path therefore names the archive: the gate keeps gh101's freeze and
+divergence records resolving over the artefact they were computed on
+(INV-INS-118), and says nothing about the successor set.
 """
 
 from __future__ import annotations
@@ -266,7 +272,9 @@ def check(specs_dir: Path, rules_dir: Path, frozen_dir: Path) -> list[dict[str, 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     mop_base = Path(os.environ.get("RVSEC_HOME", "")) / "rvsec/rvsec-mop/src/main/resources"
-    parser.add_argument("--specs", type=Path, default=mop_base / "jca_android")
+    parser.add_argument(
+        "--specs", type=Path, default=mop_base / "jca_android_bug_predicate"
+    )
     parser.add_argument("--frozen-specs", type=Path, default=mop_base / "jca")
     parser.add_argument("--rules", type=Path, default=DEFAULT_RULES)
     parser.add_argument("-o", "--output", type=Path)

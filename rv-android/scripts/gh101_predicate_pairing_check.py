@@ -33,6 +33,12 @@ is computed, so a stale CSV fails here instead of quietly deciding the answer.
 Usage:
     gh101_predicate_pairing_check.py [--specs <dir>] [--inventory <csv>]
                                      [--omissions <csv>]
+
+gh104 rebound the name `jca_android` to a successor set and archived the
+derived set this gate guards as `jca_android_bug_predicate/`. The default
+path therefore names the archive: the gate keeps gh101's freeze and
+divergence records resolving over the artefact they were computed on
+(INV-INS-118), and says nothing about the successor set.
 """
 
 from __future__ import annotations
@@ -153,7 +159,9 @@ def main() -> int:
         Path(os.environ.get("RVSEC_HOME", "")) / "rvsec/rvsec-mop/src/main/resources"
     )
     here = Path(__file__).resolve().parent.parent
-    parser.add_argument("--specs", type=Path, default=mop_base / "jca_android")
+    parser.add_argument(
+        "--specs", type=Path, default=mop_base / "jca_android_bug_predicate"
+    )
     parser.add_argument(
         "--inventory",
         type=Path,

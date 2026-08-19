@@ -22,6 +22,12 @@ the old content has not been shown to hold for the new.
 Usage:
     gh101_divergence_record.py --check    [--record <csv>]   # exit 1 on any mismatch
     gh101_divergence_record.py --refresh  [--record <csv>]   # print rows for the live diff
+
+gh104 rebound the name `jca_android` to a successor set and archived the
+derived set this gate guards as `jca_android_bug_predicate/`. The default
+path therefore names the archive: the gate keeps gh101's freeze and
+divergence records resolving over the artefact they were computed on
+(INV-INS-118), and says nothing about the successor set.
 """
 
 from __future__ import annotations
@@ -149,7 +155,9 @@ def main() -> int:
     here = Path(__file__).resolve().parent.parent
     parser.add_argument("--record", type=Path, default=here / "data/gh101/divergence_record.csv")
     parser.add_argument("--frozen", type=Path, default=mop_base / "jca")
-    parser.add_argument("--derived", type=Path, default=mop_base / "jca_android")
+    parser.add_argument(
+        "--derived", type=Path, default=mop_base / "jca_android_bug_predicate"
+    )
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--refresh", action="store_true")
