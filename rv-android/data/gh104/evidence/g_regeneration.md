@@ -34,7 +34,9 @@ Java command line with JDK 21. Under JDK 21 this diff fails with 347 `other` dif
 them in the `Prop_N_transition_*` rows: the same 133 tables with the same event names, carrying
 different state numbers.
 
-The cause is not this change, and the evidence is a three-way comparison:
+### What is established, and how
+
+**1. It is not this change.** Three-way comparison of the transition tables:
 
 | generation | transition tables |
 |---|---|
@@ -43,18 +45,58 @@ The cause is not this change, and the evidence is a three-way comparison:
 | post-change generator, JDK 21 | identical to pre-change, differ from the control |
 | post-change generator, **JDK 25** | **identical to the control** |
 
-So the change does not move a single transition row — the pre-change and post-change generators
-produce the same tables — and the control is reproducible, but only under JDK 25. Two runs under
-one JDK are byte-identical, so the generator is deterministic; what varies is the state numbering
-across JDK versions, produced inside rv-monitor. javamop is not implicated: its descriptor
-(`MultiSpec_1MonitorAspect.json`) is byte-identical to the control's under either JDK.
+The pre-change and post-change generators produce the same tables, so the change does not move a
+transition row.
+
+**2. It is deterministic within a JDK.** Three separate invocations per JDK: the 23 `.rvm` and the
+generated `MultiSpec_1RuntimeMonitor.java` are byte-identical within each version. The variation is
+across versions, not across runs.
+
+**3. javamop is not implicated.** The 23 `.rvm` files are byte-identical between JDK 21 and JDK 25,
+as are `MultiSpec_1MonitorAspect.aj` and `.json`.
+
+**4. The divergence arises inside the ERE→FSM conversion of the logic repository.** `rv-monitor -v`
+prints the exchange. The request (`== send to logic repository ==`, the `ere` formula and the event
+list) is **byte-identical** across the two JDKs; the reply (`== result from logic repository ==`,
+the `fsm` formula) **differs**, in the order of the states and of the transitions within a state.
+Downstream, `JavaFSM.java:81-91` numbers states by the order of `fsmInput.getItems()`, so an order
+difference in that reply becomes a state-number difference in the generated monitor.
+
+**5. The automata are the same up to relabelling — no verdict moves.** Of the 23 monitor classes
+that carry an automaton, 11 differ between the JDKs. For each of the 11 there is a bijection of
+states that fixes the initial state 0 and satisfies `π(T_A[e][s]) = T_B[e][π(s)]` for every event
+`e` and state `s`, and that carries the `fail` and `match` category sets onto their counterparts —
+e.g. `SignatureSpecMonitor`, `π = {1↔2, 3→6, 5→7, 6→3, 7→5}`, `fail {8}→{8}`, `match {3,4}→{4,6}`.
+The remaining 12 classes are byte-identical. A monitor generated under either JDK therefore accuses
+exactly the same traces; only the integers labelling its states differ.
+
+### What is NOT established
+
+The exact data structure whose iteration order changes. The visible candidate is
+`ERE.hashCode()` (`plugins_logicrepository/ere/.../ERE.java:98-106`), which falls back to
+`super.hashCode()` — the JVM identity hash — for a leaf, and `Symbol` is a leaf; a hash-ordered
+iteration keyed on such objects would be stable within a JVM version and vary across versions,
+which is the observed pattern. **This was not confirmed.** Forcing the identity hash to a
+version-independent scheme, which would prove it, destroys the subject: both
+`-XX:hashCode=2` (constant) and `-XX:hashCode=3` (sequential) make the conversion fail with
+`Logic Engine Error: null`. A second loose end: the FSM text in the reply is formatted `s0[` with
+two-space indentation, while `FSM.print` in the running `ere.jar` emits `s0 [` with three, so the
+formatter is some other code path, not chased here.
+
+Only two JDKs were measured, 21.0.12 and 25.0.3. Nothing is claimed about the versions between them.
+
+### Consequence
 
 D-4 rests the reproducibility of published measurements on pinning the toolchain rather than
-freezing the generator. This is that pin, and it was incomplete: **the JDK is part of the
-toolchain a generated monitor is pinned to**, and the control was made under JDK 25. Anything that
+freezing the generator. This is that pin, and it was incomplete: **the JDK is part of the toolchain
+a generated monitor is pinned to**, and the control was made under JDK 25. Anything that
 regenerates a monitor for comparison against this control runs under
 `$HOME/.sdkman/candidates/java/25.0.3-tem`; the reactor still *builds* under 21, which is what the
 pom targets.
+
+Because the difference is a relabelling and not a behavioural change, a monitor generated under
+JDK 21 is as correct as one generated under 25 — what it is not is byte-comparable against an
+artefact produced by the other. That is a constraint on *diffing*, not on running.
 
 ## Task 3.9 — the JSE agent's monitor
 
