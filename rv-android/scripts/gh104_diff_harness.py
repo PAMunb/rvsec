@@ -115,25 +115,36 @@ def classpath() -> str:
 
 
 def replay(monitor_dir: Path, traces: Path, work: Path) -> list[dict]:
-    """Runs `TraceRunner` over every trace of a directory against one snapshot."""
+    """Runs `TraceRunner` over every trace of a directory against one snapshot.
+
+    `TraceRunner` runs with its working directory in scratch, so every path handed to
+    it is resolved here first: a relative `--traces` would otherwise be looked up
+    under the scratch directory and the run would die with an empty trace set.
+    """
     out = work / "outcomes.json"
     work.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
+    run = subprocess.run(
         [
             "java",
             "-cp",
             classpath(),
             "br.unb.cic.mop.harness.TraceRunner",
-            str(monitor_dir),
-            str(traces),
-            str(work / "classes"),
-            str(out),
+            str(monitor_dir.resolve()),
+            str(traces.resolve()),
+            str((work / "classes").resolve()),
+            str(out.resolve()),
         ],
         cwd=work,
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
+    if run.returncode != 0:
+        # `check=True` would raise with the whole classpath in the message and nothing
+        # about what TraceRunner objected to, which is the half that matters.
+        raise SystemExit(
+            f"TraceRunner failed on {monitor_dir} (exit {run.returncode})\n{run.stderr.strip()}"
+        )
     return json.loads(out.read_text(encoding="utf-8"))
 
 
