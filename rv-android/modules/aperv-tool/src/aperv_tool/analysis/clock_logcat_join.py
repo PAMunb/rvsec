@@ -330,7 +330,25 @@ def _tagged_line(tag: str) -> re.Pattern[str]:
     )
 
 
-def read_tagged_lines(logcat_path: Path, tag: str) -> list[tuple[dt.datetime, str]]:
+class TaggedLines(list):
+    """The tag's lines, plus how many carrying it could not be read.
+
+    A plain `list` subclass, so every caller that indexes, iterates, measures or
+    compares the result is untouched — and the one caller that needs the count reads
+    it off the same object. A second return value would have rippled through four
+    call sites and eight tests to deliver a number three of them do not want.
+
+    Attributes:
+        skipped: Lines whose tag matched exactly and whose threadtime shape did not
+            parse. Lines under a longer tag that merely starts with this one
+            (`RVSEC-COV` under a request for `RVSEC`) are not skips: they belong to
+            another stream and are rejected before any parse is attempted.
+    """
+
+    skipped: int = 0
+
+
+def read_tagged_lines(logcat_path: Path, tag: str) -> TaggedLines:
     """
     Read every line of one logcat tag as `(device timestamp, payload)`.
 
@@ -350,15 +368,19 @@ def read_tagged_lines(logcat_path: Path, tag: str) -> list[tuple[dt.datetime, st
         tag: The logcat tag to admit, e.g. `RVSEC`. Matched exactly.
 
     Returns:
-        One `(stamp, payload)` per line carrying the tag, in file order. The
-        stamp is the device wall clock as logcat rendered it; the payload is
+        One `(stamp, payload)` per line carrying the tag, in file order, as a
+        `TaggedLines` — a list that also carries `skipped`, the number of lines that
+        carried the tag and whose shape could not be read. A line that is dropped
+        without being counted is invisible to every gate downstream (INV-CAN-04).
+        The stamp is the device wall clock as logcat rendered it; the payload is
         everything after the tag, still unparsed.
     """
     pattern = _tagged_line(tag)
     needle = tag.encode()
     end_of_tag = len(needle)
 
-    lines: list[tuple[dt.datetime, str]] = []
+    lines = TaggedLines()
+    skipped = 0
     with open(logcat_path, "rb") as logcat_file:
         for raw_line in logcat_file:
             start = raw_line.find(needle)
@@ -377,6 +399,12 @@ def read_tagged_lines(logcat_path: Path, tag: str) -> list[tuple[dt.datetime, st
             match = pattern.match(raw_line.decode("utf-8", errors="replace"))
             if match:
                 lines.append((_stamp_of(match), match.group("payload")))
+            else:
+                # The tag is this one — the byte test above has already rejected the
+                # longer tags — so the line is a line of this stream that the
+                # threadtime pattern could not read. Counted, never simply gone.
+                skipped += 1
+    lines.skipped = skipped
     return lines
 
 
@@ -451,16 +479,6 @@ def place_on_timeline(
             return Phase.EXPLORATION, heartbeat[1], heartbeat
 
 
-def _parse_payload(payload: str) -> tuple[str, str, str]:
-    """Split an `RVSEC` payload into `(spec, violation_type, message)`."""
-    fields = payload.split(",", _VIOLATION_FIELDS)
-    if len(fields) <= _VIOLATION_FIELDS:
-        # A shape the logger did not produce in the recorded corpus. Kept rather
-        # than dropped: the line is still a violation, and the count is the gate.
-        return fields[0] if fields else "", "", payload
-    return fields[0], fields[5], fields[6]
-
-
 def join_run(trace_path: Path | str) -> RunJoin:
     """
     Join one run's step clock against its violation log.
@@ -489,8 +507,22 @@ def join_run(trace_path: Path | str) -> RunJoin:
     raw_violations = read_tagged_lines(logcat_path, VIOLATION_TAG) if has_logcat else []
 
     violations: list[Violation] = []
+    # One payload parser for the module. `violations.parse_payload` owns the seven
+    # comma fields and the envelope inside the seventh; a second copy here is how the
+    # step timeline and the run join came to be able to disagree about one line.
+    # Imported inside the function because `violations` imports this module's
+    # `read_tagged_lines` and `_VIOLATION_FIELDS` at load time — the split of
+    # responsibilities is deliberate (this module owns the line, that one owns the
+    # payload) and the cycle is the price of it.
+    from aperv_tool.analysis.violations import parse_payload
+
     for stamp, payload in raw_violations:
-        spec, violation_type, message = _parse_payload(payload)
+        event = parse_payload(payload)
+        spec, violation_type, message = (
+            event.spec,
+            event.violation_type,
+            event.message,
+        )
         if not heartbeats:
             violations.append(
                 Violation(

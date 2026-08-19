@@ -70,15 +70,51 @@ def repair_frame_form(row: dict) -> bool:
     return True
 
 
-def error_type(unique_msg: str) -> str:
-    """`class:::method:::spec:::ErrorType:::message` — field 4."""
+#: `unique_msg` is seven `:::`-joined parts, in this order. Named rather than
+#: indexed at the call sites: `parts[3]` and `parts[4]` were the error type and the
+#: message under the five-part key, and after gh104 `parts[4]` is the violation code
+#: — a reader that kept the old index would have gone on producing a column labelled
+#: "message" holding a code, with nothing raising.
+UNIQUE_MSG_PARTS = ("class", "method", "spec", "error_type", "code", "event", "message")
+
+
+def unique_msg_parts(unique_msg: str) -> dict[str, str] | None:
+    """The seven named parts of a `unique_msg`, or None when it does not have seven.
+
+    A part count other than seven means either a key of the five-part identity era —
+    the published dataset and every campaign consolidated before gh104 — or a
+    `message` carrying the `:::` the envelope grammar forbids. Neither is reinterpreted
+    by taking the parts positionally anyway: the two eras are not comparable, and a key
+    with a separator inside a part is unreadable to every consumer that splits on it.
+    """
     parts = unique_msg.split(":::")
-    return parts[3] if len(parts) >= 4 else "Unknown"
+    if len(parts) != len(UNIQUE_MSG_PARTS):
+        return None
+    return dict(zip(UNIQUE_MSG_PARTS, parts))
+
+
+def error_type(unique_msg: str) -> str:
+    """The `error_type` part, or `Unknown` for a key that is not seven parts."""
+    parts = unique_msg_parts(unique_msg)
+    return parts["error_type"] if parts else "Unknown"
+
+
+def code(unique_msg: str) -> str:
+    """The `code` part — the stable violation code of the message envelope."""
+    parts = unique_msg_parts(unique_msg)
+    return parts["code"] if parts else ""
+
+
+def event(unique_msg: str) -> str:
+    """The `event` part — the automaton event that failed."""
+    parts = unique_msg_parts(unique_msg)
+    return parts["event"] if parts else ""
 
 
 def message(unique_msg: str) -> str:
-    parts = unique_msg.split(":::")
-    return parts[4] if len(parts) >= 5 else ""
+    """The `message` part — the whole envelope, or the free text before it."""
+    parts = unique_msg_parts(unique_msg)
+    return parts["message"] if parts else ""
 
 
 def sha256(path: Path) -> str:

@@ -420,3 +420,74 @@ def test_cmp162_heartbeat_gap(cmp162_root: Path, cmp162_manifest: dict) -> None:
     assert heartbeats == figures["heartbeats"]
     assert steps - heartbeats == figures["heartbeat_gap"]
     assert len(gaps) == figures["heartbeat_gap"]
+
+
+ENVELOPE_PAYLOAD = (
+    "MessageDigestSpec,okio.ByteString,ByteString,digest$okio,ByteString.kt:12,"
+    "UnsafeAlgorithm,v=1 code=MESSAGEDIGEST-ALG-01 ev=update obj=MessageDigest "
+    "val='MD2' exp='MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384' "
+    "msg='expecting one of MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384 but found MD2'"
+)
+
+TRUNCATED_PAYLOAD = (
+    "CipherSpec,com.example.Crypto,Crypto,doEncrypt,Crypto.java:15,UnsafeAlgorithm,"
+    "v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='AES/ECB/PKCS5Padding' "
+    "exp='AES/GCM/NoPadding,AES/CBC/PKCS7Pad"
+)
+
+
+def test_one_payload_parser_on_the_step_timeline_and_in_the_run_join(
+    tmp_path: Path,
+) -> None:
+    """The envelope's fields reach the bundle, and the shipped join reports the same
+    event at the same step: both decompose the payload through
+    `violations.parse_payload`, so they cannot disagree about what a line said."""
+    between_three_and_four = _at(2, 990)
+    trace = _write_run(
+        tmp_path,
+        steps=10,
+        logcat_lines=[_line(between_three_and_four, VIOLATION_TAG, ENVELOPE_PAYLOAD)],
+    )
+
+    bundles, report = bundle_run(trace)
+    by_step = {bundle.row.step: bundle for bundle in bundles}
+    (event,) = by_step[3].violations
+
+    assert event.code == "MESSAGEDIGEST-ALG-01"
+    assert event.event == "update"
+    assert event.obj == "MessageDigest"
+    assert event.exp == "MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384"
+    assert event.shape_ok is True
+    assert report.violations.envelope_malformed == 0
+    assert report.violations.envelope_truncated == 0
+
+    joined = clock_logcat_join.join_run(trace)
+    assert [violation.step for violation in joined.violations] == [3]
+    assert joined.violations[0].violation_type == "UnsafeAlgorithm"
+    assert joined.violations[0].message.startswith("v=1 ")
+
+
+def test_a_discarded_line_is_a_number_on_the_bundle(tmp_path: Path) -> None:
+    """A step whose lines were cut short must not read as a step that had none
+    (INV-CAN-04/25/26): the run's reader counters ride on the report."""
+    trace = _write_run(
+        tmp_path,
+        steps=10,
+        logcat_lines=[
+            _line(_at(2, 990), VIOLATION_TAG, TRUNCATED_PAYLOAD),
+            _line(_at(4, 990), VIOLATION_TAG, "SomeSpec,went into an error state"),
+        ],
+    )
+
+    bundles, report = bundle_run(trace)
+    by_step = {bundle.row.step: bundle for bundle in bundles}
+
+    assert report.violations is not None
+    assert report.violations.lines == 2
+    assert report.violations.envelope_truncated == 1
+    assert report.violations.shape_bad == 1
+    assert report.violations.envelope_malformed == 0
+    # Both lines are still violations and still on the timeline.
+    assert len(by_step[3].violations) == 1
+    assert by_step[3].violations[0].code == "CIPHER-ALG-02"
+    assert len(by_step[5].violations) == 1

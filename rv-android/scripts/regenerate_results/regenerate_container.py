@@ -239,9 +239,13 @@ def process_logcat(args: Tuple[str, str]) -> Optional[Dict]:
         class_full = err.get("class_full_name", "")
         method_n = err.get("method", "")
         spec = err.get("spec", "")
-        err_type = err.get("error_type", "")
         msg = err.get("message", "")
-        unique = err.get("unique_msg") or f"{class_full}:::{method_n}:::{spec}:::{err_type}:::{msg}"
+        # Read, never rebuilt. `to_dict()` always carries the key, and the key is
+        # composed in exactly one place (`RvErrorLog.unique_msg`) because it is the
+        # identity of the record; a formula copied here would keep writing the
+        # five-part shape after the domain moved to seven, and the regenerated file
+        # would silently disagree with every freshly consolidated one.
+        unique = err["unique_msg"]
         t = seconds_since_t0(err.get("time_occurred"))
         errors_rows.append([apk, rep, timeout, tool, t, spec, class_full, method_n, msg, unique])
 

@@ -138,6 +138,11 @@ class BundleDiagnostics:
             no diagnostics".
         uicov: The state-key join's own accounting for this run, or None when the
             trace carried no dump.
+        violations: The violation reader's own counters for this run —
+            `shape_bad`, `envelope_malformed`, `envelope_truncated`. Carried here
+            because a bundle whose lines were discarded upstream is otherwise
+            indistinguishable from a bundle whose step produced no violation, and the
+            per-tag counters above account only for lines the reader returned.
     """
 
     steps: int
@@ -153,6 +158,7 @@ class BundleDiagnostics:
     logcat_present: bool
     diagnostics_read: bool
     uicov: JoinTotals | None
+    violations: violations_module.LogcatDiagnostics
 
 
 def _read_diagnostic_events(
@@ -281,10 +287,16 @@ def bundle_run(
         _read_heartbeats(logcat_path) if logcat_present else []
     )
 
+    # `read_logcat` returns its counters with its events: a step whose violation
+    # lines were discarded must not read as a step that had none (INV-CAN-04).
+    run_violations, violation_diagnostics = (
+        violations_module.read_logcat(logcat_path)
+        if logcat_present
+        else ([], violations_module.LogcatDiagnostics(0, 0, 0, 0))
+    )
+
     streams: dict[str, list[tuple[dt.datetime, Any]]] = {
-        VIOLATION_TAG: (
-            violations_module.read_logcat(logcat_path) if logcat_present else []
-        ),
+        VIOLATION_TAG: run_violations,
         monitored_ops.MONITORED_OP_TAG: (
             monitored_ops.read_logcat(logcat_path) if logcat_present else []
         ),
@@ -360,6 +372,7 @@ def bundle_run(
         logcat_present=logcat_present,
         diagnostics_read=diagnostics_read,
         uicov=uicov_totals,
+        violations=violation_diagnostics,
     )
     return bundles, report
 
