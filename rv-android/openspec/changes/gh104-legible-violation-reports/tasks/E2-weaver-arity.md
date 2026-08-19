@@ -91,7 +91,7 @@ export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HO
 # the campaign uses and the keystore location, modules/rv-instrumentation/assets/keystore.jks):
 export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH; java -jar modules/rv-instrumentation-dexlib2/lib/instr-cli.jar \
   --descriptor results/gh101_group8_jca_frozen_control/monitors/MultiSpec_1MonitorAspect.json \
-  --android-jar $ANDROID_HOME/platforms/android-30/android.jar \
+  --android-jar $ANDROID_HOME/platforms/android-37.0/android.jar \
   --monitor-src-dir $HOME/tmp-gh104/e2-reweave-<before|after>/monitors \
   --keystore modules/rv-instrumentation/assets/keystore.jks --keystore-pass <pass> --key-alias <alias> --key-pass <pass> \
   --work-dir $HOME/tmp-gh104/e2-reweave-<before|after> --output $HOME/tmp-gh104/e2-reweave-<before|after>/out \
@@ -116,3 +116,8 @@ uv run pytest --import-mode=importlib -o "addopts=" modules/rv-instrumentation-d
 - Every listed regression test green with no assertion changed, and that fact recorded.
 - `evidence/e2_reach.md` written with the four-class partition (48 / 44 / 9 / 14 = 115), both name lists, the corrected count of 25 `after`-with-parameters-and-no-`args()` advices with its name list, the reproduction command and its output, the two closing sentences, and the note about the four constructor advices.
 - Delta spec INV-INS-122 satisfied in its counter form; `PointcutMatcher` unchanged; `/rv-verify rv-instrumentation-dexlib2` run and result recorded.
+
+
+## Correction, measured 2026-08-19 (task 4.1 execution)
+
+The counter is a function of the `android.jar` as well as of the descriptor: `SecureRandom.getInstance(String, ..)` expands to 3 overloads up to API 34 and 6 from API 35 on (`SecureRandomParameters`). Against `android-30` the rule counts **5** pairs and the emitter writes 81 wrappers; against a jar >= 35 it counts the predicted **10** pairs over the 4 predicted advices and writes 84. The frozen control was woven with the `ConfigResolver` env default — the lexicographic max under `$ANDROID_HOME/platforms`, `android-37.0` here — and only under that jar family does the re-woven `mop/MonitorWrappers.java` match the control byte for byte. Task 4.6 therefore runs with `android-37.0`; every `android-30` above has been corrected to it.
