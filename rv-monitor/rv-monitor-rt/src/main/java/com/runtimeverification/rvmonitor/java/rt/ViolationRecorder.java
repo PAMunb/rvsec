@@ -81,23 +81,34 @@ public class ViolationRecorder {
     /**
      * Filter out the javamop and rv-monitor classes from the stack trace, as they are
      * not relevant to the property.
+     *
+     * <p>
+     * The two tests are null-guarded independently, and that is the whole point of the method's
+     * present shape. The previous form required <em>both</em> a file name and a class name before
+     * it would consider excluding anything, so a monitoring-runtime frame compiled or generated
+     * without debug information — {@code getFileName() == null} — fell through to the else branch
+     * and was kept. Because {@link #getLineOfCode()} reports {@code relevantStack.get(0)}, that
+     * frame then became the reported location of the violation, and the location is part of the
+     * dedupe identity of a record: one misuse in application code was attributed to the runtime
+     * that observed it. A frame is monitoring runtime because of what it is, not because of
+     * whether the compiler kept its file name.
+     *
      * @param elements The stack trace at time of violation.
      * @return The relevant parts of the stack trace at time of violation.
      */
-    private static List<StackTraceElement> makeRelevantList(StackTraceElement[] elements) {
+    static List<StackTraceElement> makeRelevantList(StackTraceElement[] elements) {
         final ArrayList<StackTraceElement> relevantList = new ArrayList<StackTraceElement>();
         for(int i = 0; i < elements.length; i++) {
             final String fileName = elements[i].getFileName();
             final String className = elements[i].getClassName();
-            // when file is generated at runtime, fileName is null
-            // also check for nullity of className, just in case
-            if((fileName != null && className != null)
-                    && (className.startsWith("com.runtimeverification.rvmonitor.")
-                    || className.startsWith("javamop.")
-                    || fileName.contains(".aj")
-                    || className.startsWith("mop.")
-                    || className.startsWith("rvm."))) {
-            } else {
+            final boolean monitoringRuntime =
+                    (className != null
+                            && (className.startsWith("com.runtimeverification.rvmonitor.")
+                            || className.startsWith("javamop.")
+                            || className.startsWith("mop.")
+                            || className.startsWith("rvm.")))
+                    || (fileName != null && fileName.contains(".aj"));
+            if(!monitoringRuntime) {
                 relevantList.add(elements[i]);
             }
         }

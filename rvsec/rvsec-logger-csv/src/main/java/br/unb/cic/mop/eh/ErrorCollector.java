@@ -80,12 +80,21 @@ public class ErrorCollector {
         }
     }
 
+    /**
+     * Escapes a newline as the two characters {@code \n} — the same rule the logcat collector
+     * applies — and only then quotes the value if the CSV needs it.
+     *
+     * <p>
+     * The order matters and used to be the other way round: the newline replacement wrote into a
+     * local while the quoting branch re-read the original, so a value carrying both a comma and a
+     * newline was quoted with its newline intact and broke the row in two. Both collectors now
+     * agree on the newline rule, so a message escaped for one file reads the same in the other.
+     */
     private String escape(String data) {
-        String escapedData = data.replaceAll("\\R", " ");
-        if (data.contains(",") || data.contains("\"")
-                || data.contains("'")) {
-            data = data.replace("\"", "\"\"");
-            escapedData = "\"" + data + "\"";
+        String escapedData = data.replaceAll("\\R", "\\\\n");
+        if (escapedData.contains(",") || escapedData.contains("\"")
+                || escapedData.contains("'")) {
+            escapedData = "\"" + escapedData.replace("\"", "\"\"") + "\"";
         }
         return escapedData;
     }
