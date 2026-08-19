@@ -897,6 +897,67 @@ def test_parse_results_json_carries_weave_counts(tmp_workspace):
     }
 
 
+def test_parse_results_json_carries_arity_counter(tmp_workspace):
+    """`advicesExcludedByArity` reaches Python without a production change.
+
+    The weaver measures how many advice/overload pairs a positional `args()`
+    arity filter would exclude (INV-INS-122) and writes the number into
+    `instrument_results.json` beside `wrappersGenerated`. `_parse_results_json`
+    copies each entry's whole `weaveCounts` dict through, so the key travels by
+    construction — this test is the surface that pins that, and it is the reason
+    no parser code had to learn the key's name.
+
+    The second APK carries the counter at zero on purpose: the Java side always
+    writes the key, so a zero must arrive as a zero. If it were omitted instead,
+    "no incompatible advice was found" and "this build did not measure" would be
+    the same observation downstream.
+    """
+    cfg = DexlibInstrumentationConfig(
+        cli_jar_path=tmp_workspace["cli_jar"],
+        monitor_output_dir=tmp_workspace["monitors"],
+        instrumented_dir=tmp_workspace["instrumented"],
+        working_dir=tmp_workspace["work"],
+    )
+    inst = DexlibInstrumentation(cfg)
+    path = tmp_workspace["instrumented"] / "instrument_results.json"
+    path.write_text(
+        json.dumps(
+            {
+                "variant": "dexlib2",
+                "results": [
+                    {
+                        "apkName": "cryptoapp.apk",
+                        "success": True,
+                        "message": "ok",
+                        "phase": "signed",
+                        "weaveCounts": {
+                            "wrappersGenerated": 96,
+                            "advicesExcludedByArity": 10,
+                        },
+                    },
+                    {
+                        "apkName": "clean.apk",
+                        "success": True,
+                        "message": "ok",
+                        "phase": "signed",
+                        "weaveCounts": {
+                            "wrappersGenerated": 4,
+                            "advicesExcludedByArity": 0,
+                        },
+                    },
+                ],
+            }
+        )
+    )
+
+    results = inst._parse_results_json(path)
+
+    assert results.weave_counts["cryptoapp.apk"]["advicesExcludedByArity"] == 10
+    assert results.weave_counts["cryptoapp.apk"]["wrappersGenerated"] == 96
+    assert "advicesExcludedByArity" in results.weave_counts["clean.apk"]
+    assert results.weave_counts["clean.apk"]["advicesExcludedByArity"] == 0
+
+
 def test_demote_silent_failures_preserves_weave_counts(tmp_workspace):
     from rv_instrumentation_core import InstrumentationResults
     from rv_instrumentation_dexlib2.dexlib_instrumentation import (

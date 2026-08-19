@@ -81,6 +81,40 @@ class ResultsJsonReportingTest {
         assertEquals(3, entry.get("weaveCounts").get("plansSkippedHighRegister").asInt());
     }
 
+    /**
+     * {@code advicesExcludedByArity} (INV-INS-122) travels the same channel as
+     * {@code wrappersGenerated}, and a zero must be written rather than omitted:
+     * the Python wrapper copies {@code weaveCounts} through whole, so an absent
+     * key and a measured zero would be indistinguishable downstream — "no
+     * incompatible advice" would read as "this build did not measure".
+     *
+     * <p>Like the case above this is a serialisation test: {@code counts} is
+     * built by hand, so it pins the document shape, not the origin of the
+     * number. What produces the number is the wrapper grouping loop, and the
+     * instrument for that is the re-weave of the frozen descriptor recorded in
+     * {@code evidence/e2_reweave.md}.
+     */
+    @Test
+    void resultsJsonCarriesTheArityCounterBesideWrappersGenerated(@TempDir Path tmp)
+            throws Exception {
+        BatchRunner.PerApkResult measured = new BatchRunner.PerApkResult(
+                "cryptoapp.apk", true, "instrumented + signed", "signed",
+                Map.of("wrappersGenerated", 96, "advicesExcludedByArity", 10));
+        BatchRunner.PerApkResult none = new BatchRunner.PerApkResult(
+                "clean.apk", true, "instrumented + signed", "signed",
+                Map.of("wrappersGenerated", 4, "advicesExcludedByArity", 0));
+        Path out = tmp.resolve("results.json");
+
+        BatchRunner.writeResultsJson(List.of(measured, none), out);
+
+        JsonNode results = MAPPER.readTree(out.toFile()).get("results");
+        assertEquals(96, results.get(0).get("weaveCounts").get("wrappersGenerated").asInt());
+        assertEquals(10, results.get(0).get("weaveCounts").get("advicesExcludedByArity").asInt());
+        assertTrue(results.get(1).get("weaveCounts").hasNonNull("advicesExcludedByArity"),
+                "an APK with no incompatible advice carries the key, never omits it");
+        assertEquals(0, results.get(1).get("weaveCounts").get("advicesExcludedByArity").asInt());
+    }
+
     @Test
     void instrumentWritesNothingWhenNoResultsJsonIsRequested(@TempDir Path tmp) throws Exception {
         Path apk = Files.createFile(tmp.resolve("sample.apk"));

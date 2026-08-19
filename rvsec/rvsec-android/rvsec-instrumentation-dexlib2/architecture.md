@@ -172,7 +172,11 @@ fails fast with `phase=apk_read`.
 **Stage 4 — wrapper generation + APK-wide inheritance.** Still in phase 4 setup,
 `WrapperEmitter.generate` writes `mop/MonitorWrappers.java` — one public static wrapper per
 advice whose hook would otherwise alias registers (the canonical after-returning case). It
-returns `WrapperEntry` metadata telling the `DexWeaver` which call-site signatures to redirect.
+returns an `EmitResult`: the `WrapperEntry` metadata telling the `DexWeaver` which call-site
+signatures to redirect, plus `advicesExcludedByArity` — a count of the advice/overload pairs
+whose positional `args()` arity does not fit the overload they were grouped onto (INV-INS-122).
+That count is a measurement only: nothing is excluded, every advice still fires, and
+`BatchRunner` writes the number into `instrument_results.json` beside `wrappersGenerated`.
 A single `InheritanceResolver` is built across **every** DEX of the APK first, then
 `weaver.expandWrapperReplacementsForApk` widens each instance wrapper's lookup map to include
 app-internal subtypes of the target class (so a `CustomCipher extends Cipher` call site in

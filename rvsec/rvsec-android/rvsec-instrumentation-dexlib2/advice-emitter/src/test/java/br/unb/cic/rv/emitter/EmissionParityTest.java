@@ -93,7 +93,7 @@ class EmissionParityTest {
         AspectDescriptor descriptor = new AspectDescriptor();
         descriptor.setAspectName("MultiSpec_1MonitorAspect");
         descriptor.setAdvices(List.of(advice));
-        WrapperEmitter.generate(descriptor, outputDir);
+        WrapperEmitter.generate(descriptor, outputDir).wrappers();
         return Files.readString(outputDir.resolve(WrapperEmitter.WRAPPER_PACKAGE)
                 .resolve(WrapperEmitter.WRAPPER_CLASS_NAME + ".java"));
     }

@@ -196,9 +196,18 @@ public final class BatchRunner {
                     ? cfg.monitorSrcDir()
                     : workDir.resolve("monitor-src");
             Files.createDirectories(wrapperOutDir);
-            List<WrapperEmitter.WrapperEntry> wrappers =
+            WrapperEmitter.EmitResult emitResult =
                     WrapperEmitter.generate(descriptor, wrapperOutDir, androidIndex);
+            List<WrapperEmitter.WrapperEntry> wrappers = emitResult.wrappers();
             counts.put("wrappersGenerated", wrappers.size());
+            // A measurement, not the effect of a filter (INV-INS-122): the number
+            // of advice/overload pairs whose positional args() arity does not fit
+            // the overload they are grouped onto. Every one of them still fires.
+            // Always written, so a 0 means "measured none" rather than "not
+            // measured"; and it is a count over the wrapper-path after-advices
+            // only — the before-side and constructor advices never reach the
+            // grouping loop and are invisible to it.
+            counts.put("advicesExcludedByArity", emitResult.advicesExcludedByArity());
             DexWeaver weaver = new DexWeaver(
                     new EmitterDispatch(), new RegisterAllocator(), wrappers);
 

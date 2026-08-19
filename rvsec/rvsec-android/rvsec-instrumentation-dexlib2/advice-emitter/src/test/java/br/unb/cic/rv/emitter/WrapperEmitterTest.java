@@ -89,7 +89,7 @@ class WrapperEmitterTest {
                 "result"));
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
         List<WrapperEmitter.WrapperEntry> entries =
-                WrapperEmitter.generate(d, out, idx);
+                WrapperEmitter.generate(d, out, idx).wrappers();
         assertEquals(1, entries.size(), "expected one entry for the String-arg overload");
         WrapperEmitter.WrapperEntry e = entries.get(0);
         assertTrue(e.isStatic, "Cipher.getInstance is static");
@@ -108,7 +108,7 @@ class WrapperEmitterTest {
                 "result"));
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
         List<WrapperEmitter.WrapperEntry> entries =
-                WrapperEmitter.generate(d, out, idx);
+                WrapperEmitter.generate(d, out, idx).wrappers();
         assertEquals(1, entries.size(), "expected single byte[]-arg doFinal overload");
         WrapperEmitter.WrapperEntry e = entries.get(0);
         assertFalse(e.isStatic, "doFinal is an instance method");
@@ -134,7 +134,7 @@ class WrapperEmitterTest {
                 "result"));
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
         List<WrapperEmitter.WrapperEntry> entries =
-                WrapperEmitter.generate(d, out, idx);
+                WrapperEmitter.generate(d, out, idx).wrappers();
         assertEquals(3, entries.size(),
                 "expected 3 getInstance overloads from the fixture; got " + entries.size());
         assertTrue(entries.stream().allMatch(e -> e.isStatic));
@@ -154,7 +154,7 @@ class WrapperEmitterTest {
                 List.of(new ParameterDescriptor("Cipher", "c")),
                 "result"));
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx).wrappers();
         assertEquals(2, entries.size(),
                 "byte[]-prefix must match the ([B) and ([BII) overloads, not the zero-arg ()");
         assertTrue(entries.stream().noneMatch(e -> e.isStatic),
@@ -173,7 +173,7 @@ class WrapperEmitterTest {
                 "result"));
         // No index → varargs cannot be expanded → wrapper skipped (zero entries).
         List<WrapperEmitter.WrapperEntry> entries =
-                WrapperEmitter.generate(d, out, null);
+                WrapperEmitter.generate(d, out, null).wrappers();
         assertTrue(entries.isEmpty(),
                 "varargs must not produce wrappers when AndroidClassIndex is null");
     }
@@ -196,7 +196,7 @@ class WrapperEmitterTest {
                 "result"));
 
         // Two-arg overload = the index-less back-compat entry point.
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out).wrappers();
 
         assertEquals(1, entries.size(), "static target must yield one literal-fallback wrapper");
         WrapperEmitter.WrapperEntry e = entries.get(0);
@@ -235,7 +235,7 @@ class WrapperEmitterTest {
                 "call(public byte[] Cipher.doFinal(byte[]))",
                 List.of(),
                 "result"));
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out).wrappers();
         assertTrue(entries.isEmpty(),
                 "instance target must be skipped by the index-less fallback");
     }
@@ -254,7 +254,7 @@ class WrapperEmitterTest {
                 "call(public static Cipher Cipher.getInstance(String, Object))",
                 List.of(),
                 "result"));
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out).wrappers();
         assertTrue(entries.isEmpty(),
                 "a non-leading Object param must veto the literal-fallback wrapper");
     }
@@ -272,7 +272,7 @@ class WrapperEmitterTest {
                 "call(public static Cipher Cipher.getInstance(String, .., int))",
                 List.of(),
                 "result"));
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out).wrappers();
         assertTrue(entries.isEmpty(),
                 "a mid-list '..' wildcard must veto the literal-fallback wrapper");
     }
@@ -291,7 +291,7 @@ class WrapperEmitterTest {
                 "call(public static byte[] Cipher.getInstance(String, byte[], int))",
                 List.of(),
                 "result"));
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out).wrappers();
 
         assertEquals(1, entries.size());
         WrapperEmitter.WrapperEntry e = entries.get(0);
@@ -323,7 +323,7 @@ class WrapperEmitterTest {
                 List.of(),
                 "result"));
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx).wrappers();
         assertEquals(1, entries.size(),
                 "return-subtype pattern must still resolve the String-arg overload");
         assertEquals(List.of("java.lang.String"), entries.get(0).originalParamFqn);
@@ -343,7 +343,7 @@ class WrapperEmitterTest {
                 List.of(),
                 "result"));
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx).wrappers();
         assertTrue(entries.isEmpty(),
                 "a mid-list '..' must produce no wrappers even with the index present");
     }
@@ -377,7 +377,7 @@ class WrapperEmitterTest {
                 "com.runtimeverification.rvmonitor.X"));   // runtime → dropped
         d.setAdvices(List.of(advice));
 
-        WrapperEmitter.generate(d, out);
+        WrapperEmitter.generate(d, out).wrappers();
         String src = Files.readString(out.resolve("mop").resolve("MonitorWrappers.java"));
 
         assertTrue(src.contains("import javax.crypto.Cipher;"),
@@ -424,7 +424,7 @@ class WrapperEmitterTest {
 
         AspectDescriptor d = newDescriptor(advice);
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx).wrappers();
         assertEquals(1, entries.size(), "byte[]-arg doFinal has exactly one overload");
         assertFalse(entries.get(0).isStatic, "doFinal is an instance method");
 
@@ -467,7 +467,7 @@ class WrapperEmitterTest {
         d.setImports(List.of("java.security.Security", "java.lang.String"));
         d.setAdvices(List.of(advice));
 
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out).wrappers();
         assertEquals(1, entries.size());
         assertEquals("void", entries.get(0).originalReturnFqn);
 
@@ -502,7 +502,7 @@ class WrapperEmitterTest {
                 newDescriptor(adviceAfterReturning("doFinal", "Cipher",
                         "call(public byte[] Cipher.doFinal(byte[][])) && target(c)",
                         List.of(new ParameterDescriptor("Cipher", "c")), "result")),
-                out, idx);
+                out, idx).wrappers();
         assertTrue(tooManyDims.isEmpty(),
                 "a rank-2 byte[][] pattern must not match the rank-1 byte[] overload");
 
@@ -510,7 +510,7 @@ class WrapperEmitterTest {
                 newDescriptor(adviceAfterReturning("doFinal", "Cipher",
                         "call(public byte[] Cipher.doFinal(byte)) && target(c)",
                         List.of(new ParameterDescriptor("Cipher", "c")), "result")),
-                out, idx);
+                out, idx).wrappers();
         assertTrue(tooFewDims.isEmpty(),
                 "a rank-0 byte pattern must not match the rank-1 byte[] overload");
 
@@ -518,7 +518,7 @@ class WrapperEmitterTest {
                 newDescriptor(adviceAfterReturning("doFinal", "Cipher",
                         "call(public byte[] Cipher.doFinal(byte[])) && target(c)",
                         List.of(new ParameterDescriptor("Cipher", "c")), "result")),
-                out, idx);
+                out, idx).wrappers();
         assertEquals(1, exactRank.size(),
                 "the rank-1 byte[] pattern still matches doFinal([B) — control case");
         assertEquals(List.of("byte[]"), exactRank.get(0).originalParamFqn);
@@ -545,7 +545,7 @@ class WrapperEmitterTest {
                 newDescriptor(adviceAfterReturning("getInstance", "Cipher",
                         "call(public static Cipher Cipher.getInstance(*))",
                         List.of(), "result")),
-                out, idx);
+                out, idx).wrappers();
         assertEquals(1, wildcard.size(),
                 "'*' matches the single arity-1 getInstance(String) overload");
         assertEquals(List.of("java.lang.String"), wildcard.get(0).originalParamFqn);
@@ -554,7 +554,7 @@ class WrapperEmitterTest {
                 newDescriptor(adviceAfterReturning("getInstance", "Cipher",
                         "call(public static Cipher Cipher.getInstance(String, Provider+))",
                         List.of(), "result")),
-                out, idx);
+                out, idx).wrappers();
         assertEquals(1, subtype.size(),
                 "'Provider+' subtype pattern matches the getInstance(String, Provider) overload");
         assertEquals(List.of("java.lang.String", "java.security.Provider"),
@@ -578,7 +578,7 @@ class WrapperEmitterTest {
                 List.of(),
                 "result"));
 
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out).wrappers();
 
         assertEquals(1, entries.size(),
                 "a subtype return must still yield one literal-fallback wrapper");
@@ -622,7 +622,7 @@ class WrapperEmitterTest {
 
         AspectDescriptor d = newDescriptor(advice);
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx).wrappers();
         assertEquals(1, entries.size(), "byte[]-arg doFinal has exactly one overload");
         assertFalse(entries.get(0).isStatic, "doFinal is an instance method");
 
@@ -656,7 +656,7 @@ class WrapperEmitterTest {
         d.setAdvices(List.of(blank, unparseable));
 
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx).wrappers();
         assertTrue(entries.isEmpty(),
                 "blank and unparseable pointcuts must yield no wrapper entries");
 
@@ -689,7 +689,7 @@ class WrapperEmitterTest {
         AspectDescriptor d = newDescriptor(adviceAfterReturning(
                 "<init>", "Cipher",
                 "call(Cipher.new(String))", List.of(), "result"));
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx).wrappers();
         assertTrue(entries.isEmpty(),
                 "a constructor-target after-advice must not produce a wrapper");
 
@@ -722,7 +722,7 @@ class WrapperEmitterTest {
         d.setAdvices(List.of(before, after));
 
         AndroidClassIndex idx = new AndroidClassIndex(androidJar);
-        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx);
+        List<WrapperEmitter.WrapperEntry> entries = WrapperEmitter.generate(d, out, idx).wrappers();
         assertEquals(1, entries.size(),
                 "only the after-advice is wrapped; the before-advice is skipped");
         assertEquals("javax_crypto_Cipher_getInstance", entries.get(0).wrapperName);
