@@ -1,0 +1,4 @@
+# guard-on-field: init() reads `currentAlgorithmInstance` on an object whose
+# getInstance the monitor never saw
+bind kmf = KeyManagerFactory.getInstance("PKIX")
+kmf.init(null, chars)

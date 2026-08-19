@@ -1,0 +1,3 @@
+# separating: NativePRNG is a seed value the api30 clause narrows away
+SecureRandom.getInstance("NativePRNG") -> r
+r.nextBytes(bytes)

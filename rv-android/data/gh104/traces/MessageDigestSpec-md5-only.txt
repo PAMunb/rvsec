@@ -1,0 +1,5 @@
+# getInstance under an unsafe algorithm and nothing else: the frozen set does not
+# accuse it, because the report at :57-58 is commented out and the accusation is
+# raised by the calls that consume the algorithm. Reviving that report is the
+# `introduced` case of the harness self-test.
+MessageDigest.getInstance("MD5") -> md

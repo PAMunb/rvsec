@@ -1,0 +1,4 @@
+# legitimate: RSA at a size the rule admits
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(2048)
+kpg.generateKeyPair() -> kp

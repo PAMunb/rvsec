@@ -1,0 +1,5 @@
+# legitimate, and the `unchanged` case of the harness self-test:
+# PKIX, initialised, managers taken -- accused by neither snapshot
+TrustManagerFactory.getInstance("PKIX") -> tmf
+tmf.init(null)
+tmf.getTrustManagers()

@@ -1,0 +1,5 @@
+# the `moved` case of the harness self-test, and the separating trace of the
+# whole pivot: X509 is what Conscrypt registers (OpenSSLProvider.java:90) and
+# the seed's list carries only PKIX
+TrustManagerFactory.getInstance("X509") -> tmf
+tmf.init(null)

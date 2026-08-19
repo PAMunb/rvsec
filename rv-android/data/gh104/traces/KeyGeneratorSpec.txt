@@ -1,0 +1,4 @@
+# legitimate: an algorithm of the allow-list, initialised, then generate
+KeyGenerator.getInstance("AES") -> kg
+kg.init(256)
+kg.generateKey() -> key

@@ -1,0 +1,4 @@
+# violating branch setSeed3: a seed nothing randomised
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.setSeed(bytes)
+r.nextBytes(bytes)

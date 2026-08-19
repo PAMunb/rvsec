@@ -1,0 +1,6 @@
+# legitimate: HmacSHA256, initialised with a generated key
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> key
+Mac.getInstance("HmacSHA256") -> m
+m.init(key)
+m.doFinal(bytes)

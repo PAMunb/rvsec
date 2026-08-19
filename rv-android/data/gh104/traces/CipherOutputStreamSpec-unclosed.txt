@@ -1,0 +1,4 @@
+# violating branch: written and never closed
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> cipher
+new CipherOutputStream(null, cipher) -> cos
+cos.write(bytes)

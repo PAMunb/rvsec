@@ -1,0 +1,4 @@
+# separating: SHA-1 is an api30 value the seed's list does not carry
+MessageDigest.getInstance("SHA-1") -> md
+md.update(bytes)
+md.digest() -> out

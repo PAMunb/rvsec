@@ -1,0 +1,5 @@
+# violating branch: MD5 reaches g4, and the accusation lands on the call that
+# consumes the algorithm (update), not on getInstance
+MessageDigest.getInstance("MD5") -> md
+md.update(bytes)
+md.digest() -> out

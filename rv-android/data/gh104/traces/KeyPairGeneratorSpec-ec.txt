@@ -1,0 +1,5 @@
+# separating: EC is in the seed's list and the api30 `alg in {...}` clause omits it
+# (the `api30-omits` divergence of task 2.6)
+KeyPairGenerator.getInstance("EC") -> kpg
+kpg.initialize(256)
+kpg.generateKeyPair() -> kp

@@ -1,0 +1,2 @@
+# violating branch c3: below the bound, and the message says 1000
+new PBEParameterSpec(bytes, 1000) -> spec

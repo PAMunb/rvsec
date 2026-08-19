@@ -1,0 +1,4 @@
+# the legitimate prefix, and the `unchanged` case of the harness self-test:
+# PKIX and an init, accused by neither snapshot
+TrustManagerFactory.getInstance("PKIX") -> tmf
+tmf.init(null)

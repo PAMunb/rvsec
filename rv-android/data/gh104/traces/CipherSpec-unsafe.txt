@@ -1,0 +1,4 @@
+# violating branch: a transformation no table admits
+Cipher.getInstance("DES") -> c
+c.init(1, null)
+c.doFinal(bytes)

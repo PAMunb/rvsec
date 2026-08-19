@@ -1,0 +1,5 @@
+# separating: 3072 is in the seed's switch and not in the api30 clause
+# (`alg in {"RSA"} => keySize in {4096, 2048}`)
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(3072)
+kpg.generateKeyPair() -> kp

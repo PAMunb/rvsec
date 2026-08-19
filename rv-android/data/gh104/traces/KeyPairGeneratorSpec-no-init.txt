@@ -1,0 +1,5 @@
+# violating branch: no initialize, so the `ere` fails at the first generateKeyPair,
+# and the sticky `fail` state re-runs the handler on the second
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.generateKeyPair() -> kp1
+kpg.generateKeyPair() -> kp2

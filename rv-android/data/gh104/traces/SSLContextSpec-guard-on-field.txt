@@ -1,0 +1,3 @@
+# guard-on-field: init() reads `currentProtocol` on an unobserved context
+bind ctx = SSLContext.getInstance("TLSv1.2")
+ctx.init(null, null, null)

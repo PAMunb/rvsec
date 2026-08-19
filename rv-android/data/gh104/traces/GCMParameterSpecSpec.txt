@@ -1,0 +1,5 @@
+# legitimate: a tag length in {96, 104, 112, 120, 128} over randomised material
+bind iv = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(iv)
+new GCMParameterSpec(128, iv) -> spec

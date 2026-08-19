@@ -1,0 +1,5 @@
+# guard-on-field: the digest really is SHA-256 and the monitor never saw its
+# getInstance, so the guard reads the empty field and accuses
+bind md = MessageDigest.getInstance("SHA-256")
+md.update(bytes)
+md.digest() -> out

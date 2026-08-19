@@ -1,0 +1,5 @@
+# legitimate: sign with an allow-listed algorithm
+Signature.getInstance("SHA256withRSA") -> s
+s.initSign(null)
+s.update(bytes)
+s.sign() -> out

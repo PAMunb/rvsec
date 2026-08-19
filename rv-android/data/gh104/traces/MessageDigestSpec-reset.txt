@@ -1,0 +1,6 @@
+# the single real orphan of the frozen set: `reset` has no clause and no
+# condition(), and its row is {4,4,4,4,4} against a fail of 4
+MessageDigest.getInstance("SHA-256") -> md
+md.reset()
+md.update(bytes)
+md.digest() -> out

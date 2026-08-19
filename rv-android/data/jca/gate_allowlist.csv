@@ -1,0 +1,35 @@
+set,gate,spec,event_or_state,verdict,clause,reason,task
+jca,G-2,IvParameterSpecSpec,c3,orphan-with-clause,IvParameterSpec.cryptsl:28 REQUIRES randomized[iv],"note, not a failure: condition() tests Property.RANDOMIZED on iv -> iv",6.2
+jca,G-2,IvParameterSpecSpec,c4,orphan-with-clause,IvParameterSpec.cryptsl:28 REQUIRES randomized[iv],"note, not a failure: condition() tests Property.RANDOMIZED on iv -> iv",6.2
+jca,G-2,KeyPairGeneratorSpec,initError,orphan-with-clause,"KeyPairGenerator.cryptsl:47 CONSTRAINTS alg in {""DH""} => keySize in {2048}","note, not a failure: condition() constrains keySize -> keySize",6.2
+jca,G-2,PBEKeySpecSpec,err1,orphan-with-clause,PBEKeySpec.cryptsl:33 CONSTRAINTS iterationCount >= 10000,"note, not a failure: condition() constrains iterationCount -> iterationCount",6.2
+jca,G-2,PBEKeySpecSpec,err3,orphan-with-clause,PBEKeySpec.cryptsl:40 REQUIRES randomized[salt],"note, not a failure: condition() tests Property.RANDOMIZED on salt -> salt",6.2
+jca,G-2,PBEKeySpecSpec,f1,orphan-with-clause,PBEKeySpec.cryptsl:16 FORBIDDEN PBEKeySpec(char[]) => c1,"note, not a failure: no condition(); the rule forbids this call outright",6.2
+jca,G-2,PBEKeySpecSpec,f2,orphan-with-clause,"PBEKeySpec.cryptsl:18 FORBIDDEN PBEKeySpec(char[], byte[], int) => c1","note, not a failure: no condition(); the rule forbids this call outright",6.2
+jca,G-2,PBEParameterSpecSpec,c3,orphan-with-clause,PBEParameterSpec.cryptsl:32 REQUIRES randomized[salt],"note, not a failure: condition() tests Property.RANDOMIZED on salt -> salt",6.2
+jca,G-2,SSLContextSpec,unsafe_protocol,orphan-with-clause,"SSLContext.cryptsl:43 CONSTRAINTS protocol in {""Default"", ""TLSv1.2"", ""TLSv1.1"", ""SSL"", ""TLSv1"", ""TLS"", ""TLSv1.3""}","note, not a failure: condition() constrains protocol -> protocol",6.2
+jca,G-2,SecretKeySpecSpec,c4,orphan-with-clause,SecretKeySpec.cryptsl:29 CONSTRAINTS length(keyMaterial) >= off + len,"note, not a failure: condition() constrains keyMaterial -> keyMaterial",6.2
+jca,G-2,SecureRandomSpec,c3,orphan-with-clause,SecureRandom.cryptsl:66 REQUIRES randomized[seed],"note, not a failure: condition() tests Property.RANDOMIZED on seed -> seed",6.2
+jca,G-2,SecureRandomSpec,g4,orphan-with-clause,"SecureRandom.cryptsl:61 CONSTRAINTS randAlg in {""SHA1PRNG""}","note, not a failure: condition() constrains alg -> randAlg",6.2
+jca,G-2,SecureRandomSpec,setSeed3,orphan-with-clause,SecureRandom.cryptsl:66 REQUIRES randomized[seed],"note, not a failure: condition() tests Property.RANDOMIZED on seed -> seed",6.2
+jca,G-2,SignatureSpec,g3,orphan-with-clause,"Signature.cryptsl:75 CONSTRAINTS alg in {""NONEwithRSA"", ""SHA1withDSA"", ""SHA224withECDSA"", ""MD5withRSA"", ""SHA256withDSA"", ""SHA384withRSA/PSS"", ""DSAwithSHA1"", ""SHA384withRSA"", ""SHA512withRSA/PSS"", ""SHA1withRSA/PSS"", ""SHA512withRSA"", ""SHA1withRSA"", ""NONEwithDSA"", ""SHA256withRSA/PSS"", ""SHA224withRSA/PSS"", ""SHA256withRSA"", ""DSA"", ""SHA224withRSA"", ""SHA224withDSA"", ""DSS""}","note, not a failure: condition() constrains alg -> alg",6.2
+jca,G-2,TrustManagerFactorySpec,g3,orphan-with-clause,"TrustManagerFactory.cryptsl:37 CONSTRAINTS algo in {""PKIX""}","note, not a failure: condition() constrains alg -> algo",6.2
+jca,G-2,MessageDigestSpec,reset,orphan-without-clause,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); no condition() and no FORBIDDEN clause names this call,6.2
+jca,G-2,PBEKeySpecSpec,err2,orphan-without-clause,,"frozen set; knowingly retained (data/gh101/frozen_set_debt.md); no CONSTRAINTS/FORBIDDEN/REQUIRES clause of PBEKeySpec.cryptsl constrains what the condition() tests (iterationCount, keyLength, password, salt)",6.2
+jca,G-2,SecretKeySpecSpec,c3,orphan-without-clause,,"frozen set; knowingly retained (data/gh101/frozen_set_debt.md); no CONSTRAINTS/FORBIDDEN/REQUIRES clause of SecretKeySpec.cryptsl constrains what the condition() tests (keyAlgorithm, keyMaterial)",6.2
+jca,G-2a,SecretKeySpec,e1,,,"frozen set; knowingly retained (data/gh101/frozen_set_debt.md); inert everywhere, the row is the identity",6.1
+jca,G-2b',CipherSpec,g3,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); the unsafe getInstance loops at the initial state by design,6.1
+jca,G-2b',KeyGeneratorSpec,g3,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); the unsafe getInstance loops at the initial state by design,6.1
+jca,G-2b',KeyManagerFactorySpec,g3,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); the unsafe getInstance loops at the initial state by design,6.1
+jca,G-2b',KeyPairGeneratorSpec,g3,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); the unsafe getInstance loops at the initial state by design,6.1
+jca,G-2b',KeyStoreSpec,g2,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); the unsafe getInstance loops at the initial state by design,6.1
+jca,G-2b',MacSpec,g3,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); the unsafe getInstance loops at the initial state by design,6.1
+jca,G-2b',MessageDigestSpec,g4,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); the unsafe getInstance loops at the initial state by design,6.1
+jca,G-2b',SecretKeySpec,e1,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); the unsafe getInstance loops at the initial state by design,6.1
+jca,G-2c,SecretKeySpec,*,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); state [1] is unreachable from the initial state,6.1
+jca,G-2d,RandomStringPasswordSpec,*,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); no `fail` category,6.1
+jca,G-2d,SecretKeySpec,*,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); no `fail` category,6.1
+jca,G-6',GCMParameterSpecSpec,*,,,"frozen set; knowingly retained (data/gh101/frozen_set_debt.md); 2 event methods against 1 transition rows -- the duplicate `c1` declaration of :23,34",6.1
+jca,G-ERE,GCMParameterSpecSpec,c2,,,frozen set; knowingly retained (data/gh101/frozen_set_debt.md); GCMParameterSpecSpec.mop:48 names `c2` and the file declares only ['c1'] -- gh104 task 8.1 closes it in jca_android,6.3
+jca,G-PRED,*,*,,,"frozen set; knowingly retained (data/gh101/frozen_set_debt.md); the predicate architecture is the frozen set's -- INV-INS-128 binds jca_android, not jca (134 `ExecutionContext` occurrences are the negative control)",6.5
+jca,G-CONF,*,*,,,"frozen set; knowingly retained (data/gh101/frozen_set_debt.md); on `jca` G-CONF is a report, not an assertion: the hand-written Java SE allow-lists are what the successor set exists to replace",6.4

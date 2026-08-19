@@ -1,0 +1,4 @@
+# legitimate: construct the pair and read both halves (ere: c1 (gpu | gpr)*)
+new KeyPair(null, null) -> kp
+kp.getPublic()
+kp.getPrivate()

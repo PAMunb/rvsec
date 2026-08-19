@@ -1,0 +1,5 @@
+# legitimate: construct, read, close (ere: c1 (r1 | r2)+ cl1)
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> cipher
+new CipherInputStream(null, cipher) -> cis
+cis.read()
+cis.close()

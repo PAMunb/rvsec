@@ -1,0 +1,2 @@
+# violating branch err1: an iteration count below the CONSTRAINTS bound
+new PBEKeySpec(chars, bytes, 1000, 256) -> spec

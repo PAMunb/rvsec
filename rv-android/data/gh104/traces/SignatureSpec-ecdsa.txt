@@ -1,0 +1,6 @@
+# separating: SHA256withECDSA is a seed value the api30 clause omits
+# (the `api30-omits` divergence of task 2.7)
+Signature.getInstance("SHA256withECDSA") -> s
+s.initSign(null)
+s.update(bytes)
+s.sign() -> out

@@ -1,0 +1,4 @@
+# violating branch g3: an algorithm outside the allow-list
+KeyGenerator.getInstance("DES") -> kg
+kg.init(56)
+kg.generateKey() -> key

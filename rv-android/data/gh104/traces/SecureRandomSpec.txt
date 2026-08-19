@@ -1,0 +1,3 @@
+# legitimate: SHA1PRNG, then bytes drawn from it
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(bytes)

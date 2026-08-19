@@ -1,0 +1,2 @@
+# FORBIDDEN clause: PBEKeySpec(char[], byte[], int) is forbidden outright
+new PBEKeySpec(chars, bytes, 256) -> spec

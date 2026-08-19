@@ -1,0 +1,4 @@
+# legitimate: PKIX, initialised, managers taken
+KeyManagerFactory.getInstance("PKIX") -> kmf
+kmf.init(null, chars)
+kmf.getKeyManagers()

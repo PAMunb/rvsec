@@ -1,0 +1,2 @@
+# legitimate: the iteration count the rule requires
+new PBEParameterSpec(bytes, 10000) -> spec

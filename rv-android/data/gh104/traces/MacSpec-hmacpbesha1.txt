@@ -1,0 +1,4 @@
+# separating: HmacPBESHA1 is a seed value the api30 clause narrows away
+Mac.getInstance("HmacPBESHA1") -> m
+m.init(null)
+m.doFinal(bytes)

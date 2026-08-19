@@ -1,0 +1,5 @@
+# legitimate: construct, write, close (ere: c1 (w1 | w2 | fl)+ cl)
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> cipher
+new CipherOutputStream(null, cipher) -> cos
+cos.write(bytes)
+cos.close()

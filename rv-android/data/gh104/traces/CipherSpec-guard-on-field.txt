@@ -1,0 +1,4 @@
+# guard-on-field: the object exists and its getInstance was never observed,
+# so `currentTransformation` is still the empty string when init() reads it
+bind c = Cipher.getInstance("AES/CBC/PKCS5Padding")
+c.init(1, null)

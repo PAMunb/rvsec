@@ -1,0 +1,4 @@
+# violating branch: the stream is read and never closed
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> cipher
+new CipherInputStream(null, cipher) -> cis
+cis.read()

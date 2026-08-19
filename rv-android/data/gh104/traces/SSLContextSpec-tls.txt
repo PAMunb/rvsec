@@ -1,0 +1,4 @@
+# separating: "TLS" is the Android default and the api30 clause admits it;
+# the seed's list carries only TLSV1.2 and TLSV1.3
+SSLContext.getInstance("TLS") -> ctx
+ctx.init(null, null, null)

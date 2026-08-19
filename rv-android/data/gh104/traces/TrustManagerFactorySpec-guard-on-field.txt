@@ -1,0 +1,3 @@
+# guard-on-field: init() reads `currentAlgorithmInstance` on an unobserved factory
+bind tmf = TrustManagerFactory.getInstance("PKIX")
+tmf.init(null)

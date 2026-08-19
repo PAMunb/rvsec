@@ -1,0 +1,5 @@
+# legitimate: the IV is randomised before it reaches the constructor
+bind iv = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(iv)
+new IvParameterSpec(iv) -> spec

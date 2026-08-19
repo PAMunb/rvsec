@@ -1,0 +1,4 @@
+# legitimate: a transformation CipherTransformationUtil.isValid accepts
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, null)
+c.doFinal(bytes)

@@ -1,0 +1,2 @@
+# legitimate: the only event of the specification
+new HMACParameterSpec(96) -> spec

@@ -1,0 +1,3 @@
+# guard-on-field: initSign() reads the monitor field on an unobserved object
+bind s = Signature.getInstance("SHA256withRSA")
+s.initSign(null)

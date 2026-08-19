@@ -1,0 +1,3 @@
+# guard-on-field: init() reads the monitor field on an unobserved object
+bind m = Mac.getInstance("HmacSHA256")
+m.init(null)

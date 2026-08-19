@@ -1,0 +1,4 @@
+# legitimate: a protocol of the seed's list
+SSLContext.getInstance("TLSv1.2") -> ctx
+ctx.init(null, null, null)
+ctx.createSSLEngine()

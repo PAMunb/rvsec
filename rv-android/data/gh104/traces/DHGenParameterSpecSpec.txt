@@ -1,0 +1,2 @@
+# legitimate: the only event of the specification
+new DHGenParameterSpec(2048, 256) -> params

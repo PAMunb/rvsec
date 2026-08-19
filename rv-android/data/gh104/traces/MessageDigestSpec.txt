@@ -1,0 +1,4 @@
+# legitimate: a digest of the allow-list, updated, digested
+MessageDigest.getInstance("SHA-256") -> md
+md.update(bytes)
+md.digest() -> out
