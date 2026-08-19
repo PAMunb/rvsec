@@ -1,66 +1,81 @@
-# Tasks 3.9, 3.5 and 3.8 — the `jca` regeneration diff
+# G — regeneration of the frozen `jca` against its control (tasks 3.5, 3.8, 3.9)
 
-**STUB — not yet run.** These three tasks are one between-waves step, in that
-order, executed by the orchestrator after wave 1's generator edits have landed:
-the regeneration needs the repaired generator on the toolchain, which is what
-3.9's reactor install puts there. Wave 1 delivered 3.0-3.4, 3.6 and 3.7 only.
+Run 2026-08-19, after task 3.9 installed the modified generator
+(`mvn clean install -DskipMopAgent -DskipTests` at the reactor root, BUILD SUCCESS in 1m17s).
 
-## The state the generator is in
+## Result
 
-`rv-monitor/rv-monitor` carries both halves of group G:
-
-- **INV-INS-120** — `BaseMonitor` emits, into every monitor class, a
-  `static final String[] RVM_eventNames` table and a `final String RVM_eventName()`
-  decoder; `__EVENTNAME` expands to a string literal in event bodies
-  (`BaseMonitor.printEventMethod`, `RawMonitor.doEvent`) and to `RVM_eventName()`
-  in handler bodies (`HandlerMethod`); `Main.writeCombinedOutputFile` aborts if
-  the literal survives.
-- **INV-INS-129** — `Advice.enterGuardedRegion` emits `try {` after the lock
-  acquisition and `Advice.leaveGuardedRegion` emits `} finally { <release> }` in
-  place of the bare release. `GlobalLock.java` is untouched.
-
-The table and the helper are emitted **unconditionally**, whether or not a
-specification writes the macro. That is why the frozen `jca` — which writes no
-`__EVENTNAME` — still differs from its control: by the table, by the helper and
-by the framing, and by nothing else.
-
-## Commands to run
-
-```bash
-export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem
-export PATH=$JAVA_HOME/bin:$PATH
-
-# 3.9 — from the reactor root (~12 min)
-mvn -q install -DskipTests -DskipMopAgent=true
-
-# 3.5 + 3.8 — from rv-android, one run
-export TMPDIR=$HOME/tmp-gh104 && mkdir -p "$TMPDIR"
+```
 python3 scripts/gh104_regen_diff.py \
-    --specs-dir "$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca" \
-    --control results/gh101_group8_jca_frozen_control/monitors \
-    --manifest data/gh104/jca_frozen_control.sha256 \
-    --expect table,helper,lock-framing
+  --specs-dir "$RVSEC_HOME/rvsec/rvsec-mop/src/main/resources/jca" \
+  --control results/gh101_group8_jca_frozen_control/monitors \
+  --manifest data/gh104/jca_frozen_control.sha256 \
+  --expect table,helper,lock-framing
+→ RESULT: OK (exit 0)
 ```
 
-## What to expect
+| category | lines | meaning |
+|---|---|---|
+| `table` | 92 | the per-class event-name array |
+| `helper` | 130 | the per-class `RVM_eventName()` |
+| `lock-framing` | 402 | the `try`/`finally` around the guarded region |
+| `other` | **0** | nothing else moved |
+| indent-only | 6,010 | the framing adds a brace level and re-indents every dispatcher body |
 
-| check | expected |
+`macro` = 0 and no unexpanded `__EVENTNAME` survives — expected, since the frozen `jca` writes
+none. Lock accounting: **134 acquisitions, 134 releases, 134 `finally` blocks**, against the
+control's 134 / 134 / **0**. `MultiSpec_1MonitorAspect.aj` and `.json` are byte-identical: javamop
+is untouched.
+
+## The control reproduces only under the JDK it was generated with
+
+**This is a precondition of the run above and it is not in the plan.** The plan prefixes every
+Java command line with JDK 21. Under JDK 21 this diff fails with 347 `other` differences, all of
+them in the `Prop_N_transition_*` rows: the same 133 tables with the same event names, carrying
+different state numbers.
+
+The cause is not this change, and the evidence is a three-way comparison:
+
+| generation | transition tables |
 |---|---|
-| classified categories | only `table`, `helper`, `lock-framing` |
-| `macro` category | 0 — the frozen `jca` writes no `__EVENTNAME` |
-| `other` category | 0 |
-| lock accounting on the regenerated monitor | 134 acquisitions / 134 releases / **134** `finally` blocks (it is 134 / 134 / **0** on the control) |
-| every acquisition inside a `try` | yes |
-| `indent-only` lines | non-zero and large: the framing adds one brace level to every dispatcher body and `Tool.changeIndentation` re-indents the file from its brace structure |
-| `MultiSpec_1MonitorAspect.aj`, `…​.json` | byte-identical — javamop is untouched by this change |
+| control (2026-08-08) | reference |
+| pre-change generator (`c069bc3b`), JDK 21 | **differ** from the control |
+| post-change generator, JDK 21 | identical to pre-change, differ from the control |
+| post-change generator, **JDK 25** | **identical to the control** |
 
-The script's exit codes: 0 every difference expected, 1 an unexpected
-difference, 2 the run could not be made.
+So the change does not move a single transition row — the pre-change and post-change generators
+produce the same tables — and the control is reproducible, but only under JDK 25. Two runs under
+one JDK are byte-identical, so the generator is deterministic; what varies is the state numbering
+across JDK versions, produced inside rv-monitor. javamop is not implicated: its descriptor
+(`MultiSpec_1MonitorAspect.json`) is byte-identical to the control's under either JDK.
 
-## Also to record here
+D-4 rests the reproducibility of published measurements on pinning the toolchain rather than
+freezing the generator. This is that pin, and it was incomplete: **the JDK is part of the
+toolchain a generated monitor is pinned to**, and the control was made under JDK 25. Anything that
+regenerates a monitor for comparison against this control runs under
+`$HOME/.sdkman/candidates/java/25.0.3-tem`; the reactor still *builds* under 21, which is what the
+pom targets.
 
-`rvsec/rvsec-agent/pom.xml` regenerates the JSE agent's monitor from
-`resources/jca` at every build without `-DskipMopAgent=true`. Task 3.9 diffs
-that regenerated monitor once against the frozen control;
-`rvsec-agent/src/main/java/mop/MultiSpec_1RuntimeMonitor.java` is gitignored, so
-there is no committed source to compare against.
+## Task 3.9 — the JSE agent's monitor
+
+`rvsec-agent/pom.xml` runs `mop-gen` on every build that does not carry `-DskipMopAgent`,
+regenerating `rvsec-agent/src/main/java/mop/MultiSpec_1RuntimeMonitor.java` from
+`resources/jca`. That file is gitignored, so there is no committed source to diff against; it is
+compared to the frozen control instead.
+
+Re-emitted once with the new generator (`mvn install -DskipTests -pl rvsec/rvsec-agent`, JDK 25):
+
+| | control | regenerated agent monitor |
+|---|---|---|
+| lines | 16,487 | 18,655 |
+| `tryLock` / `unlock()` | 134 / 134 | 134 / 134 |
+| `finally` | 0 | 157 |
+| `RVM_eventName()` helpers | 0 | 23 — one per monitor class |
+| unexpanded `__EVENTNAME` | 0 | 0 |
+
+Table, helper and framing only; the acquisition and release counts are unchanged.
+
+That build **fails afterwards**, at the `agent-gen` goal, with `aspectjrt.jar is missing from the
+classpath. Halting.` The failure is pre-existing, unrelated to this change and downstream of the
+regeneration — `mop-gen` has already run and written the monitor when it happens. It is why
+`-DskipMopAgent` is the standard flag for building this reactor.

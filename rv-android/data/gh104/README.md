@@ -57,19 +57,36 @@ output:
    whole reactor at that point is `git checkout 4153939 -- rv-monitor/` from the
    `rvsec` repository root, or a full checkout of that commit.
 2. Build and install the reactor so the `rv-monitor`/`javamop` launchers under
-   `$RVSEC_HOME` are the pinned ones:
+   `$RVSEC_HOME` are the pinned ones. The reactor **builds** under JDK 21, which
+   is what the pom targets:
 
    ```bash
    export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem
    export PATH=$JAVA_HOME/bin:$PATH
-   cd "$RVSEC_HOME" && mvn -q install -DskipTests -DskipMopAgent=true
+   cd "$RVSEC_HOME" && mvn clean install -DskipMopAgent -DskipTests
    ```
+
+   **The JDK that runs the generation is part of the pin, and it is not the one
+   that builds.** This control was generated under **JDK 25**
+   (`$HOME/.sdkman/candidates/java/25.0.3-tem`), and the state numbering of the
+   generated monitor depends on it: regenerating the same frozen sources with
+   the same generator under JDK 21 yields the same 133 transition tables, with
+   the same event names, carrying different state numbers — 347 differing lines,
+   every one of them a `Prop_N_transition_*` row. Two runs under one JDK are
+   byte-identical, so the generator is deterministic; the variation is across
+   JDK versions and arises inside rv-monitor. javamop is not implicated: its
+   `MultiSpec_1MonitorAspect.json` is byte-identical under either JDK.
+
+   Export JDK 25 for step 3, and leave JDK 21 for step 2. Measured 2026-08-19,
+   `data/gh104/evidence/g_regeneration.md`.
 
 3. Generate from the frozen source set
    `rvsec/rvsec-mop/src/main/resources/jca` into
    `rv-android/results/gh101_group8_jca_frozen_control/monitors/`:
 
    ```bash
+   export JAVA_HOME=$HOME/.sdkman/candidates/java/25.0.3-tem   # the control's JDK
+   export PATH=$JAVA_HOME/bin:$PATH
    export TMPDIR=$HOME/tmp-gh104 && mkdir -p "$TMPDIR"   # /tmp is tmpfs here
    cd rv-android
    python3 scripts/gh104_regen_diff.py \
