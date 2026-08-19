@@ -84,11 +84,17 @@ DEFAULT_TOOL_TIMEOUT = 60
 # JCA, JCA Android and generic are predefined directories under RVSEC_HOME containing
 # .mop files. Custom allows user-provided .mop files via --custom-specs-dir.
 # An experiment uses exactly one spec set — they are mutually exclusive.
-# SPEC_SET_JCA_ANDROID is the JCA set derived against generated CrySL rules for a
-# declared Android API level. It is selectable by name rather than only through
-# SPEC_SET_CUSTOM because it is the only set carrying the specification repairs
-# (issue #101): a mistyped or stale custom path selects the uncorrected instrument
-# while the experiment reports as though it ran the corrected one.
+# SPEC_SET_JCA_ANDROID is the successor of the frozen jca set, targeted at Android
+# API 30 / Android 11: 21 specifications seeded byte-for-byte from jca, with the two
+# pure predicate propagators deleted, no ExecutionContext predicate anywhere, and every
+# allow-list re-transcribed from the generated CrySL rules under MetaCrySL/generated/
+# api30 (issue #104). It is selectable by name rather than only through SPEC_SET_CUSTOM
+# because it is the only set carrying the specification repairs: a mistyped or stale
+# custom path selects an uncorrected instrument while the experiment reports as though
+# it ran the corrected one. The derived Android set that held this name before was
+# reproved by the 2026-08-08 predicate audit and is archived, unselectable, as
+# rvsec-mop/src/main/resources/jca_android_bug_predicate/ — the enumeration below did
+# not grow, the name was rebound.
 # SPEC_SET_CUSTOM triggers INV-EXP-04: when specification_set is "custom",
 # custom_specs_dir MUST be set and point to a directory containing at least one .mop
 # file, else the CLI raises ClickException before execution. DEFAULT_SPEC_SET (jca) is

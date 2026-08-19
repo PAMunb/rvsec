@@ -139,6 +139,25 @@ class TestSpecificationSetValidation:
         with pytest.raises(ValueError, match="Invalid specification set"):
             ExperimentConfig.validate.__wrapped__(config)
 
+    def test_jca_android_bug_predicate_not_selectable(self, tmp_apk_dir):
+        """INV-EXP-03 (f): the archived derived set has no value pointing at it.
+
+        `jca_android_bug_predicate` is the one rejected name that also names a
+        directory that exists on disk -- the derived set the 2026-08-08 predicate
+        audit reproved, archived rather than deleted because it is the artefact that
+        audit assessed. It is refused exactly like the hyphenated near-miss above,
+        and for a stronger reason: a value pointing at it would put a knowingly
+        reproved instrument one flag away from an experiment. Reproducing the audit
+        means pointing RVSEC_HOME at the commit it was run against, or naming the
+        archive deliberately through --custom-specs-dir.
+        """
+        config = make_config(
+            tmp_apk_dir, specification_set="jca_android_bug_predicate"
+        )
+
+        with pytest.raises(ValueError, match="Invalid specification set"):
+            ExperimentConfig.validate.__wrapped__(config)
+
 
 class TestValidateSpecsDir:
     """INV-EXP-04: validate_specs_dir checks for .mop files."""

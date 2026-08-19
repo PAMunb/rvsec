@@ -245,9 +245,12 @@ class ExperimentConfig(BaseValidatedModel):
     # --- 5. Specification set ---
     # Determines which .mop files are used for monitor generation in Phase 1.
     # "jca" = Java Cryptography Architecture API misuse detection
-    # "jca_android" = the same 23 specifications derived against generated CrySL
-    #   rules for a declared Android API level, and the only set carrying the
-    #   specification repairs of issue #101
+    # "jca_android" = the successor of the frozen jca set for Android API 30: 21
+    #   specifications seeded from jca, carrying no predicates and with every
+    #   allow-list transcribed from the generated api30 CrySL rules. It is the only
+    #   set carrying the specification repairs (issue #104). The reproved derived
+    #   set that held this name is archived as jca_android_bug_predicate and is not
+    #   selectable by any value below.
     # "generic" = general API usage patterns (Iterator, Collections, Streams)
     # "custom" = user-provided .mop files via custom_specs_dir
     # The predefined sets are mutually exclusive — an experiment uses one
@@ -428,7 +431,11 @@ class ExperimentConfig(BaseValidatedModel):
         # Validate specification set — INV-EXP-03 (f): specification_set is one of
         # "jca", "jca_android", "generic", "custom". The first three map to
         # predefined directories under RVSEC_HOME; "custom" requires a
-        # user-provided path to .mop files.
+        # user-provided path to .mop files. The enumeration is closed and did not
+        # grow with issue #104: "jca_android" was rebound to the successor set, and
+        # the archived "jca_android_bug_predicate" — a directory that exists on disk
+        # — is rejected here like any other unknown string, because a knowingly
+        # reproved instrument must not sit one flag away from an experiment.
         valid_spec_sets = [
             SPEC_SET_JCA,
             SPEC_SET_JCA_ANDROID,
@@ -654,7 +661,7 @@ class ExperimentConfig(BaseValidatedModel):
 
         ### Specification Set Support:
         - **JCA**: Java Cryptography Architecture API monitoring
-        - **JCA Android**: the JCA set derived for a declared Android API level
+        - **JCA Android**: the successor of the frozen JCA set for Android API 30
         - **Generic**: Generic programming patterns (Iterator, Collections, etc.)
         - **Custom**: User-defined specification sets
 
@@ -675,7 +682,7 @@ class ExperimentConfig(BaseValidatedModel):
         # The directory structure under RVSEC_HOME is:
         #   rvsec/rvsec-mop/src/main/resources/
         #     jca/          <- JCA crypto API specs (.mop files)
-        #     jca_android/  <- the same specs derived for an Android API level
+        #     jca_android/  <- the successor set for Android API 30 (21 specs)
         #     generic/      <- generic API usage specs (.mop files)
         #     aspect/       <- shared AspectJ aspects
         # This mapping is the one asserted by Scenario "JIT Configuration for

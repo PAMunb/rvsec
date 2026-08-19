@@ -130,8 +130,10 @@ class PreProcessor:
         # 4. Output (aspects + monitors) goes to out/monitors/
         #
         # ExperimentConfig.specification_set ("jca", "jca_android" or "generic")
-        # determines which .mop files are used. The sets are mutually exclusive —
-        # an experiment uses exactly one of them, never several.
+        # determines which .mop files are used: "jca" is the frozen Java SE set that
+        # produced the published measurements, "jca_android" its successor for
+        # Android API 30. The sets are mutually exclusive — an experiment uses
+        # exactly one of them, never several.
         with self.logger.with_context(phase="generate_monitors"):
             self.logger.info(LOG_START.format(phase="monitor generation"))
 

@@ -365,7 +365,7 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
 
     **Monitored Operations Support:**
     - `--specification-set jca`: JCA cryptography API monitoring
-    - `--specification-set jca_android`: the JCA set derived for an Android API level
+    - `--specification-set jca_android`: the successor JCA set for Android API 30
     - `--specification-set generic`: Generic programming patterns monitoring
     - `--specification-set custom`: User-defined monitored operations
 
@@ -653,7 +653,8 @@ def run(
     ### Monitored Operations:
     The system supports experiments with different specification sets:
     - `jca`: JCA cryptography API monitoring
-    - `jca_android`: the JCA set derived for an Android API level
+    - `jca_android`: the successor JCA set for Android API 30 (21 specifications,
+      seeded from `jca`, no predicates, allow-lists transcribed from api30 CrySL)
     - `generic`: Generic programming pattern monitoring (e.g., Iterator usage patterns)
     - `custom`: Custom specification sets for domain-specific monitored operations
     """
