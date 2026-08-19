@@ -1,0 +1,2 @@
+file,hunk,kind,summary,reason,task
+rvsec-mop/src/main/resources/jca_android_bug_predicate/,,set-archived,"the derived set that held the name jca_android is moved unchanged to jca_android_bug_predicate/ (23 .mop, R100, zero content hunks); the name jca_android is rebound to the successor set seeded from the frozen jca","reproved by the 2026-08-08 predicate audit (22 of the 23 files in scope, all 22 reproved); retained for reproduction of published measurements only",2.1
