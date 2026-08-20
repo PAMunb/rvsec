@@ -66,6 +66,17 @@ from gh104_mop_lint import error_sites  # noqa: E402
 # A standalone integer: `>= 1000` yes, the `256` of `SHA-256` no. The negative
 # look-around on `-` and `.` is what keeps algorithm names out of the count.
 STANDALONE_INT = re.compile(r"(?<![\w.\-])\d+(?![\w.\-])")
+
+# The envelope's version marker (design D-3) is structure, not sentence. `v=1`
+# reads as a standalone integer to the pattern above, so without this every
+# envelope of `jca_android` would be reported as a number its guard does not
+# use -- fifty findings that would bury the one real off-by-a-factor-of-ten.
+ENVELOPE_VERSION = re.compile(r"(?<![\w.\-])v=\d+")
+
+# The failure code as the envelope carries it: `code=<SPEC>-<KIND>-<NN>`, inside
+# the message rather than as a literal of its own, so the bijection is read out
+# of the grammar the report actually uses.
+CODE_TOKEN = re.compile(r"\bcode=([A-Z0-9][A-Z0-9\-]*)")
 STRING_LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"')
 FIELD_READ = re.compile(r"\b(current\w+)\b")
 GETTER_READ = re.compile(r"\b(\w+)\.get(\w+)\(\)")
@@ -87,9 +98,14 @@ def _site_type(site: dict) -> str | None:
 
 
 def _messages(site: dict) -> list[str]:
-    """The free-text arguments of a report site (everything past the location)."""
+    """The free-text arguments of a report site (everything past the location).
+
+    The envelope's version marker is dropped first, so that what is scanned for
+    numbers is what a reader would call the message: the sentence and the
+    expected value, never the grammar's own header.
+    """
     return [
-        literal
+        ENVELOPE_VERSION.sub("", literal)
         for argument in site["arguments"][3:]
         for literal in STRING_LITERAL.findall(argument)
     ]
@@ -177,6 +193,8 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
     for path in sorted(directory.glob("*.mop")):
         mop = parse_mop(path)
         for site in error_sites(mop):
+            if site["commented"]:
+                continue  # a report the set holds and does not emit
             event = _enclosing_event(mop, site["line"])
             guard = _guard_text(mop, event, site)
             messages = _messages(site)
@@ -255,10 +273,48 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
                 )
 
             # -- code-bijection ---------------------------------------------
-            for argument in site["arguments"]:
-                for literal in STRING_LITERAL.findall(argument):
-                    if literal in codes:
-                        site_codes.add(literal)
+            # Only meaningful once the set has a `codes.csv`; the frozen `jca`
+            # has none and its sites carry no code, so the whole property is
+            # skipped there rather than reported as fifty absences.
+            if codes_path.is_file():
+                emitted = {
+                    code
+                    for argument in site["arguments"][3:]
+                    for literal in STRING_LITERAL.findall(argument)
+                    for code in CODE_TOKEN.findall(literal)
+                }
+                if not emitted:
+                    findings.append(
+                        {
+                            "kind": "code-bijection",
+                            "spec": mop.spec,
+                            "file": path.name,
+                            "line": site["line"],
+                            "detail": "the site emits no `code=` and cannot be counted",
+                        }
+                    )
+                for code in sorted(emitted):
+                    if code not in codes:
+                        findings.append(
+                            {
+                                "kind": "code-bijection",
+                                "spec": mop.spec,
+                                "file": path.name,
+                                "line": site["line"],
+                                "detail": f"`{code}` is emitted and listed in no row of codes.csv",
+                            }
+                        )
+                    elif code in site_codes:
+                        findings.append(
+                            {
+                                "kind": "code-bijection",
+                                "spec": mop.spec,
+                                "file": path.name,
+                                "line": site["line"],
+                                "detail": f"`{code}` is emitted by more than one report site",
+                            }
+                        )
+                    site_codes.add(code)
 
     if codes:
         for code in sorted(set(codes) - site_codes):

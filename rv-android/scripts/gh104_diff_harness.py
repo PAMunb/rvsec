@@ -48,6 +48,12 @@ CLASSPATH_FILE = RVSEC_MOP / "target/gh104-classpath.txt"
 # `val` inside `exp`: `expecting one of A,B,C but found B.`
 ENVELOPE = re.compile(r"expecting (?:one of|at least)?\s*\{?([^}]*?)\}?\s*but found\s+(.*?)\.?\s*$")
 
+# The `v=1` envelope names the two values outright, so where it is present they are
+# read from it rather than parsed back out of the sentence. Reading the prose would
+# take the envelope's own closing quote as part of the observed value and the
+# comparison would never match. `\'` is D-3's escape and stays inside the field.
+ENVELOPE_FIELDS = re.compile(r"\bval='((?:\\'|[^'])*)'\s+exp='((?:\\'|[^'])*)'")
+
 
 def scratch_root() -> Path:
     """Off tmpfs: monitor generation writes hundreds of megabytes of intermediates."""
@@ -154,12 +160,22 @@ def replay(monitor_dir: Path, traces: Path, work: Path) -> list[dict]:
 
 
 def self_contradicting(envelope: str) -> str | None:
-    """`val ∈ exp`: the observed value is inside the list it is accused of missing."""
-    match = ENVELOPE.search(envelope)
-    if not match:
-        return None
-    expected = {item.strip().strip("{}").lower() for item in re.split(r"[,;]", match.group(1))}
-    observed = match.group(2).strip().lower()
+    """`val ∈ exp`: the observed value is inside the list it is accused of missing.
+
+    Both message shapes are read: the `v=1` envelope by its own fields, and the
+    pre-envelope sentence by its prose, so that a before/after pair is judged by
+    one rule and a flag on side B is a real change rather than a parser artefact.
+    """
+    fields = ENVELOPE_FIELDS.search(envelope)
+    if fields:
+        expected_text, observed = fields.group(2), fields.group(1)
+    else:
+        prose = ENVELOPE.search(envelope)
+        if not prose:
+            return None
+        expected_text, observed = prose.group(1), prose.group(2)
+    expected = {item.strip().strip("{}").lower() for item in re.split(r"[,;]", expected_text)}
+    observed = observed.strip().lower()
     if observed and observed in expected:
         return f"val ∈ exp: observed {observed!r} is listed in {sorted(expected)}"
     return None

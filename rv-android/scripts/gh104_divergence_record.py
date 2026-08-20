@@ -49,6 +49,7 @@ KINDS = {
     "cipher-import",     # CipherSpec now names Api30CipherTransformationUtil (task 2.8)
     "api30-omits",       # a value the rule omits and the platform provably carries
     "behavioural",       # a spelling proved to work on the platform and cited to no rule
+    "message",           # a report site rewritten as a v=1 envelope (tasks 7.3-7.5)
 }
 
 # Kinds that describe the set rather than a diff, so they carry no hunk key.

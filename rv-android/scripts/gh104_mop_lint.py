@@ -84,18 +84,30 @@ DECLARATION = re.compile(
 
 
 def error_sites(mop: MopSpec) -> list[dict]:
-    """Every `new ErrorDescription(...)` with its argument list and line."""
+    """Every `new ErrorDescription(...)` with its argument list and line.
+
+    A site whose first line is commented out is carried with `commented` set
+    rather than dropped, because the census counts it apart: it is a report the
+    set holds and does not emit. `MessageDigestSpec`'s `g4` is the one such site
+    of `jca` and of its successor. Only a leading `//` is recognised -- no
+    specification of either set comments a report with a block comment, and a
+    parser that guessed at `/* */` nesting would be wrong more often than the
+    case is worth.
+    """
+    lines = mop.text.splitlines()
     sites: list[dict] = []
     for match in ERROR_SITE.finditer(mop.text):
         start, end = _match_delimiters(mop.text, match.end() - 1, "(", ")")
         arguments = _split_top_level(mop.text[start + 1 : end])
+        line = mop.text[: match.start()].count("\n") + 1
         sites.append(
             {
                 "file": mop.path.name,
-                "line": mop.text[: match.start()].count("\n") + 1,
+                "line": line,
                 "arity": len(arguments),
                 "arguments": arguments,
                 "text": mop.text[match.start() : end + 1],
+                "commented": lines[line - 1].lstrip().startswith("//"),
             }
         )
     return sites
@@ -165,6 +177,8 @@ def lint(directory: Path) -> dict:
                     )
 
         for site in error_sites(mop):
+            if site["commented"]:
+                continue
             if site["arity"] == 3:
                 findings.append(
                     {
