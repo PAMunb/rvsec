@@ -1,0 +1,1186 @@
+{
+  "change": "gh104-legible-violation-reports",
+  "corpora": {
+    "comp162": {
+      "corpus": "comp162 (E3 trial)",
+      "decides_e6": false,
+      "envelopes": {
+        "discontinuity": {
+          "agrees": true,
+          "definitions": [
+            "identity5",
+            "identity7",
+            "envelope_parse"
+          ],
+          "denominator": 409,
+          "excluded": "nothing",
+          "expected": 0,
+          "inputs": [
+            "comp162_shards"
+          ],
+          "note": "zero **by construction** - labelled so, not read as a failure (INV-CORE-57).",
+          "numerator": 0,
+          "percent": 0.0,
+          "quantity": "identities the 7-tuple adds over the 5-tuple",
+          "unit": "identities / identities"
+        },
+        "identities_5tuple": {
+          "agrees": true,
+          "definitions": [
+            "identity5",
+            "error_type"
+          ],
+          "denominator": 19664,
+          "excluded": "nothing",
+          "expected": 409,
+          "inputs": [
+            "comp162_shards"
+          ],
+          "note": "the era every published deduplicated count of this corpus belongs to.",
+          "numerator": 409,
+          "percent": 2.08,
+          "quantity": "distinct identities under the `ErrorSummary` 5-tuple `(spec, error, class, method, location)`",
+          "unit": "identities / rows"
+        },
+        "identities_7tuple": {
+          "agrees": true,
+          "definitions": [
+            "identity7",
+            "error_type",
+            "envelope_parse"
+          ],
+          "denominator": 19664,
+          "excluded": "nothing",
+          "expected": 409,
+          "inputs": [
+            "comp162_shards"
+          ],
+          "note": "equal to the 5-tuple count by construction: this corpus predates the envelope.",
+          "numerator": 409,
+          "percent": 2.08,
+          "quantity": "distinct identities under the 7-tuple `(spec, error, class, method, location, code, event)`",
+          "unit": "identities / rows"
+        },
+        "identities_8tuple": {
+          "agrees": true,
+          "definitions": [
+            "identity8"
+          ],
+          "denominator": 19664,
+          "excluded": "nothing",
+          "expected": 6344,
+          "inputs": [
+            "comp162_shards"
+          ],
+          "note": "Group 1's freeze item, reproduced here so the two tuples are never interchanged.",
+          "numerator": 6344,
+          "percent": 32.26,
+          "quantity": "distinct identities under the 8-tuple `(apk, rep, tool, spec, class, method, source, message)`",
+          "unit": "identities / rows"
+        },
+        "records_carrying_an_envelope": {
+          "agrees": true,
+          "definitions": [
+            "envelope_parse"
+          ],
+          "denominator": 19664,
+          "excluded": "nothing",
+          "expected": 0,
+          "inputs": [
+            "comp162_shards"
+          ],
+          "note": "zero is the reason the discontinuity below is zero, and it is a property of the corpus, not a result about the identity.",
+          "numerator": 0,
+          "percent": 0.0,
+          "quantity": "records whose message carries a `v=1` envelope",
+          "unit": "rows"
+        }
+      },
+      "reader": "frozen 11-column reader of `scripts/gh104_baseline.py`",
+      "rows": 19664
+    },
+    "harness": {
+      "corpus": "differential harness (`data/gh104/evidence/harness/*.md`)",
+      "decides_e6": true,
+      "envelopes": {
+        "discontinuity": {
+          "agrees": null,
+          "definitions": [
+            "identity5",
+            "identity7",
+            "harness_site",
+            "envelope_parse"
+          ],
+          "denominator": 25,
+          "excluded": "nothing",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "the whole-corpus figure, which spans both eras: the A sides of the E1 rounds replay a pre-envelope snapshot, so some of this number is a sentinel standing beside a named event. E6 is decided on `discontinuity_envelope_only` below, not on this one.",
+          "numerator": 26,
+          "percent": 104.0,
+          "quantity": "identities the 7-tuple adds over the 5-tuple",
+          "unit": "identities / identities"
+        },
+        "discontinuity_envelope_only": {
+          "agrees": null,
+          "definitions": [
+            "identity5",
+            "identity7",
+            "harness_site",
+            "envelope_parse"
+          ],
+          "denominator": 23,
+          "excluded": "records whose message carries no envelope",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "the number that decides E6: it must be non-zero, or `code` and `event` add nothing to the identity and design D-5 is re-opened. It counts only records carrying an envelope, so the sentinel cannot pass the gate on its own.",
+          "numerator": 6,
+          "percent": 26.09,
+          "quantity": "identities the 7-tuple adds over the 5-tuple, counting only enveloped records",
+          "unit": "identities / identities"
+        },
+        "distinct_codes": {
+          "agrees": null,
+          "definitions": [
+            "envelope_parse"
+          ],
+          "denominator": 281,
+          "excluded": "nothing",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "",
+          "numerator": 26,
+          "percent": 9.25,
+          "quantity": "distinct `code=` values inside the envelopes",
+          "unit": "codes / records"
+        },
+        "distinct_events": {
+          "agrees": null,
+          "definitions": [
+            "envelope_parse"
+          ],
+          "denominator": 281,
+          "excluded": "nothing",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "",
+          "numerator": 17,
+          "percent": 6.05,
+          "quantity": "distinct `ev=` values inside the envelopes",
+          "unit": "events / records"
+        },
+        "five_part_identities_split": {
+          "agrees": null,
+          "definitions": [
+            "identity5",
+            "identity7",
+            "harness_site"
+          ],
+          "denominator": 23,
+          "excluded": "records whose message carries no envelope",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "",
+          "numerator": 6,
+          "percent": 26.09,
+          "quantity": "five-part identities that the seven-part identity splits into more than one",
+          "unit": "identities / identities"
+        },
+        "identities_5tuple": {
+          "agrees": null,
+          "definitions": [
+            "identity5",
+            "harness_site"
+          ],
+          "denominator": 369,
+          "excluded": "nothing",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "",
+          "numerator": 25,
+          "percent": 6.78,
+          "quantity": "distinct identities under the 5-tuple, with the site held constant",
+          "unit": "identities / records"
+        },
+        "identities_7tuple": {
+          "agrees": null,
+          "definitions": [
+            "identity7",
+            "harness_site",
+            "envelope_parse"
+          ],
+          "denominator": 369,
+          "excluded": "nothing",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "",
+          "numerator": 51,
+          "percent": 13.82,
+          "quantity": "distinct identities under the 7-tuple, with the site held constant",
+          "unit": "identities / records"
+        },
+        "records": {
+          "agrees": null,
+          "definitions": [
+            "harness_corpus"
+          ],
+          "denominator": 369,
+          "excluded": "the `selftest*` reports of the harness self-test",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "",
+          "numerator": 369,
+          "percent": 100.0,
+          "quantity": "violation records read from the harness reports",
+          "unit": "records"
+        },
+        "records_carrying_an_envelope": {
+          "agrees": null,
+          "definitions": [
+            "envelope_parse"
+          ],
+          "denominator": 369,
+          "excluded": "nothing",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "the remainder are pre-E1 messages replayed as the A side of the E1 rounds; they parse to the sentinel exactly as a legacy device record would.",
+          "numerator": 281,
+          "percent": 76.15,
+          "quantity": "records whose message carries a `v=1` envelope",
+          "unit": "records"
+        },
+        "split_by_event_alone": {
+          "agrees": null,
+          "definitions": [
+            "identity5",
+            "identity7",
+            "harness_site",
+            "envelope_parse"
+          ],
+          "denominator": 6,
+          "excluded": "records whose message carries no envelope",
+          "expected": null,
+          "inputs": [
+            "harness_reports"
+          ],
+          "note": "these are the reports `event` separates on its own, with `code` identical - the measured form of design D-5's claim that `code` alone would refine nothing.",
+          "numerator": 3,
+          "percent": 50.0,
+          "quantity": "of those, the ones whose separated causes share a single `code`",
+          "unit": "identities / identities"
+        }
+      },
+      "reader": "`## Envelopes` bullets of the harness reports",
+      "rows": 369,
+      "runs": {
+        "e1": 62,
+        "e4": 250,
+        "s": 57
+      },
+      "separated": {
+        "MessageDigestSpec/InvalidSequenceOfMethodCalls": {
+          "by_event_alone": true,
+          "causes": [
+            "code=MESSAGEDIGEST-ORDER-00 ev=reset",
+            "code=MESSAGEDIGEST-ORDER-00 ev=update"
+          ]
+        },
+        "MessageDigestSpec/UnsafeAlgorithm": {
+          "by_event_alone": false,
+          "causes": [
+            "code=MESSAGEDIGEST-ALG-00 ev=update",
+            "code=MESSAGEDIGEST-ALG-02 ev=g4"
+          ]
+        },
+        "PBEKeySpecSpec/ForbiddenMethod": {
+          "by_event_alone": false,
+          "causes": [
+            "code=PBEKEYSPEC-FORB-00 ev=f1",
+            "code=PBEKEYSPEC-FORB-01 ev=f2"
+          ]
+        },
+        "PBEKeySpecSpec/UnsatisfiedConstraint": {
+          "by_event_alone": false,
+          "causes": [
+            "code=PBEKEYSPEC-CONSTR-00 ev=err1",
+            "code=PBEKEYSPEC-CONSTR-01 ev=err2"
+          ]
+        },
+        "SignatureSpec/InvalidSequenceOfMethodCalls": {
+          "by_event_alone": true,
+          "causes": [
+            "code=SIGNATURE-ORDER-00 ev=i1",
+            "code=SIGNATURE-ORDER-00 ev=s1"
+          ]
+        },
+        "TrustManagerFactorySpec/InvalidSequenceOfMethodCalls": {
+          "by_event_alone": true,
+          "causes": [
+            "code=TRUSTMANAGERFACTORY-ORDER-00 ev=gtm1",
+            "code=TRUSTMANAGERFACTORY-ORDER-00 ev=init"
+          ]
+        }
+      }
+    }
+  },
+  "definitions": {
+    "envelope_parse": {
+      "definition": "`code` and `event` are the `code=` and `ev=` values of a `v=1` message envelope. A message carrying no envelope yields the sentinel `UNSPECIFIED` for both, never an empty string.",
+      "value": {
+        "marker": "v=1",
+        "sentinel": "UNSPECIFIED"
+      },
+      "why": "It is the rule `ErrorDescription.createErrorSummary` will apply on the device, so the measurement and the production path read the same field the same way. The sentinel keeps a legacy record's key readable and distinguishable from an envelope record whose event was named (INV-CORE-25)."
+    },
+    "error_type": {
+      "definition": "The `ErrorType` of a row is `unique_msg.split(':::')[3]`, never parsed from `message`.",
+      "value": "unique_msg.split(':::')[3]",
+      "why": "`unique_msg` is the machine field: `class:::method:::spec:::ErrorType:::message`. `message` is the free text this change is rewriting, so deriving the type from it would make the baseline move when the messages move - the one thing a baseline may not do."
+    },
+    "harness_corpus": {
+      "definition": "The deciding corpus is every `## Envelopes` record of `data/gh104/evidence/harness/*.md` whose file name does not begin with `selftest`; both replay sides (A and B) are read.",
+      "value": {
+        "dir": "data/gh104/evidence/harness",
+        "excluded_prefix": "selftest"
+      },
+      "why": "The self-test reports replay a synthetic mutant written into scratch to prove the harness can reach all four verdicts; they measure the instrument, not the specification set, and counting them would inflate the corpus with authored differences. Both sides are read because the A side of the E4 rounds is itself a post-E1 snapshot and carries envelopes."
+    },
+    "harness_site": {
+      "definition": "On the harness corpus `class`, `method` and `location` are constant across every record and are held fixed, because `TraceRunner` resolves every trace line through one reflective frame and its record carries no frame at all (`spec`, `ev`, `type`, `msg` - `TraceRunner.java:320-324`).",
+      "value": "one call site, held constant",
+      "why": "It is what makes this corpus the right instrument rather than a limitation of it: with the site fixed, the difference between the two identities is exactly what `code` and `event` add at one site - the case INV-INS-126 names, two events reported at one location."
+    },
+    "identity5": {
+      "definition": "The identity era in force before this change: `ErrorSummary.equals`/`hashCode` compare `(spec, error, classQualifiedName, methodName, location)`. On comp162 `location` is the `source` column and `error` is part 4 of `unique_msg`.",
+      "value": [
+        "spec",
+        "error",
+        "class",
+        "method",
+        "location"
+      ],
+      "why": "It is the identity every deduplicated count published before this change was computed under, so it is the baseline the discontinuity is measured against - not a candidate design."
+    },
+    "identity7": {
+      "definition": "The identity era this change introduces: the five fields of `identity5` plus `code` and `event`, both read from the message envelope. The message free text stays outside the identity in both eras.",
+      "value": [
+        "spec",
+        "error",
+        "class",
+        "method",
+        "location",
+        "code",
+        "event"
+      ],
+      "why": "`code` alone would refine nothing - every specification of the set has at most one `@fail`, so `code=<SPEC>-ORDER-00` is a function of `spec` (design D-5). It is `event` that separates causes that share a call site, which is why the measurement that decides E6 must be taken on a corpus carrying `ev=`."
+    },
+    "identity8": {
+      "definition": "A repeated report is counted under the 8-tuple `(apk, rep, tool, spec, class, method, source, message)`. The `ErrorSummary` identity is a different, coarser 5-tuple: `(spec, error, class, method, location)`.",
+      "value": [
+        "apk",
+        "rep",
+        "tool",
+        "spec",
+        "class",
+        "method",
+        "source",
+        "message"
+      ],
+      "why": "The two tuples answer different questions and give different numbers on the same rows - 6,344 against 409 - so every repetition figure states which one produced it. `location` in the `ErrorSummary` tuple is the `source` column."
+    }
+  },
+  "era": {
+    "after": {
+      "applies_to": "every count computed from a run whose monitors were generated from `jca_android` after task 9.2 landed",
+      "identity": [
+        "spec",
+        "error",
+        "class",
+        "method",
+        "location",
+        "code",
+        "event"
+      ],
+      "name": "seven-part identity",
+      "unique_msg_parts": 7
+    },
+    "before": {
+      "applies_to": "every deduplicated count published before this change, including the E3 trial `experimento-comp162` and the journal-article dataset",
+      "identity": [
+        "spec",
+        "error",
+        "class",
+        "method",
+        "location"
+      ],
+      "name": "five-part identity",
+      "unique_msg_parts": 5
+    },
+    "rule": "A count of one era MUST NOT be compared to a count of the other without the discontinuity stated beside the comparison (INV-CORE-41, INV-CORE-57)."
+  },
+  "group": "E6 - identity",
+  "inputs": {
+    "comp162_shards": {
+      "header": [
+        "apk",
+        "rep",
+        "timeout",
+        "tool",
+        "time",
+        "spec",
+        "class",
+        "method",
+        "source",
+        "message",
+        "unique_msg"
+      ],
+      "members": {
+        "comp162_00": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_00/comp162_00/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 2325,
+          "sha256": "1c31151c125378cda6c0514c4f3f9d440fb5c757a1f24b29f7ebc210490dcdd4"
+        },
+        "comp162_01": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_01/comp162_01/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 1992,
+          "sha256": "1151f54b8a728f1f23e6b679cdd8f8fa14a917f7ba021899a7a8e4a99e8c391c"
+        },
+        "comp162_02": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_02/comp162_02/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 1721,
+          "sha256": "0d9fa25f17e288bddeb406b9a2bfc63928937d479d6daaa77e2b1d1d53338fad"
+        },
+        "comp162_03": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_03/comp162_03/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 1960,
+          "sha256": "20e7a943d2c9acb36d4f166947c7958d8f5b6a15468664279aff98d952067d2d"
+        },
+        "comp162_04": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_04/comp162_04/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 5031,
+          "sha256": "1e582dc9cd6d8a539d5a63979fb45f83e96c34aa90f55a5790b5ea6711789fa5"
+        },
+        "comp162_05": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_05/comp162_05/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 846,
+          "sha256": "0e561b3e2d3e1108885be4409ef89b522b2beca4d40bbd92835017e432b2a3ef"
+        },
+        "comp162_06": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_06/comp162_06/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 1938,
+          "sha256": "3f6ae0dea444bd55e07d399d21d4215dd2044e7ae69110b32a60a0634cd3af4e"
+        },
+        "comp162_07": {
+          "header": [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "time",
+            "spec",
+            "class",
+            "method",
+            "source",
+            "message",
+            "unique_msg"
+          ],
+          "path": "rvsec/rv-android/experimento-comp162/results/comp162_07/comp162_07/errors.csv",
+          "reader": "frozen 11-column reader (carries `source`)",
+          "rows": 3851,
+          "sha256": "978da312c1a14811f8287d7f75b1e14c95a2a753a9ab26a5d1b46af3bcf3538d"
+        }
+      },
+      "path": "rvsec/rv-android/experimento-comp162/results/*/*/errors.csv",
+      "reader": "frozen 11-column reader (carries `source`), eight shards concatenated",
+      "rows": 19664,
+      "sha256": "099b1b3a50e07d36ecda0184e21fa0c8de39ab73e3ae4f8587b9180d5c4fa7a7"
+    },
+    "harness_reports": {
+      "excluded": "reports named `selftest*` (the harness self-test mutant)",
+      "files": 138,
+      "members": {
+        "e1-CipherInputStreamSpec.md": {
+          "records": 0,
+          "sha256": "05f507f1c2eba1302f422a159406a9b757fe85c0baf78e94c490a8f76bb1e10d"
+        },
+        "e1-CipherOutputStreamSpec.md": {
+          "records": 0,
+          "sha256": "3efa2ecad664d1e4b7ed13d9ec39cd0140bf60a528e8ef38f8e6d5a6ceb2fb58"
+        },
+        "e1-CipherSpec.md": {
+          "records": 4,
+          "sha256": "83f52c0c72c9a4489823a58410ea450827a6e87c38aeaea82fe0144a8d5e451f"
+        },
+        "e1-DHGenParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "161fc833a61ffced700ca251a58e7e3094ea4c62eafa4fde6a8c316bec357a18"
+        },
+        "e1-GCMParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "a258c1bcc9e61cc363492c8578d741d3943bf4990317159175c26b538c62e9b3"
+        },
+        "e1-HMACParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "3c5482b56c371bb8be22ccb22b0da7f138e6768174d32817747e703e429c0368"
+        },
+        "e1-IvParameterSpecSpec.md": {
+          "records": 2,
+          "sha256": "ed708edd5837d4f2c810f6a1546fe72ca44359aed3b24719756342b24b9dd1ee"
+        },
+        "e1-KeyGeneratorSpec.md": {
+          "records": 8,
+          "sha256": "608ab0f7872a14147bf7f8472c58bca6f24dd3c9149d864d1ca5d418dd42d6e7"
+        },
+        "e1-KeyManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "d58b8a681949cc758bb4b429fd8c61be9fc985167cab71c816ae564fba9e9b11"
+        },
+        "e1-KeyPairGeneratorSpec.md": {
+          "records": 4,
+          "sha256": "b2b8cf73487e62b0fb4e6d74e20203b0f32db426533872a5daa0e382dccedd31"
+        },
+        "e1-KeyPairSpec.md": {
+          "records": 0,
+          "sha256": "9fd0f6470aef5cd32418a443a980d091cbb6630b90e4385ab0fa795de6122fd4"
+        },
+        "e1-KeyStoreSpec.md": {
+          "records": 8,
+          "sha256": "043927813395f9d34fc13caefe7978283666135638d66c32fd3fde5e3173cc29"
+        },
+        "e1-MacSpec.md": {
+          "records": 4,
+          "sha256": "eebb3ee5494e17dc8190f86ee9fe2ffefe8bf9170b56cbe3402f137f50b48a4e"
+        },
+        "e1-MessageDigestSpec.md": {
+          "records": 4,
+          "sha256": "06ddcb0c9c5f2de1cb01d38c882309cc942fe675c1a267ecddd7d04a15ee2d1b"
+        },
+        "e1-PBEKeySpecSpec.md": {
+          "records": 8,
+          "sha256": "e7984cea30a9899aa676e4184e8dd28b9af504b7e8f711db6fae104b6d5f888a"
+        },
+        "e1-PBEParameterSpecSpec.md": {
+          "records": 4,
+          "sha256": "4830e56d425fec4ac4bb7b9ea9d4f9373124557fb7a0ff157ca07d9e3286f393"
+        },
+        "e1-RandomStringPasswordSpec.md": {
+          "records": 0,
+          "sha256": "8c320f045e8b82825be44b2071e6dffc5b9c205331b30ea633681e167b20540d"
+        },
+        "e1-SSLContextSpec.md": {
+          "records": 2,
+          "sha256": "d8e7d7a4d6cc3ad56c3d76016cbd8c91985e13e47588f144e00a300f0a0ad7bf"
+        },
+        "e1-SecretKeySpec.md": {
+          "records": 0,
+          "sha256": "19e83f317ad565a1513b0e2906bfd8f20d39dca120f8980e6a1658cbc0569663"
+        },
+        "e1-SecretKeySpecSpec.md": {
+          "records": 2,
+          "sha256": "937301d816b995a732c97885cbb627b03da66741db2edb267c0523434874ff3e"
+        },
+        "e1-SecureRandomSpec.md": {
+          "records": 4,
+          "sha256": "7192d5bc164ea8b8fd6af8a13039d05425e9a93af99db9117d9f2ba720127d3b"
+        },
+        "e1-SignatureSpec.md": {
+          "records": 2,
+          "sha256": "026c759ce58ae546e1bd0b55fd0148fb7899cc78e479eadf3a76243d4e6981d2"
+        },
+        "e1-TrustManagerFactorySpec.md": {
+          "records": 4,
+          "sha256": "bedefd203ba620f60383c97b7236e03b3aa06087aa4d063a7a182eff5e4fa2d3"
+        },
+        "e4-8.14-CipherInputStreamSpec.md": {
+          "records": 0,
+          "sha256": "a5bbf91925b485f16ca49bcc23739d9d1e4f4bb4821ad0e720982470a19589e1"
+        },
+        "e4-8.14-CipherOutputStreamSpec.md": {
+          "records": 0,
+          "sha256": "0668f031fc7c68ac89593fcb07d34856ba395c90da2d0ad724095c21e32708dc"
+        },
+        "e4-8.14-CipherSpec.md": {
+          "records": 4,
+          "sha256": "ffd5dde1e26e63f60a0b00387f0ccb5e8d7a261db3db745c32cfcdcb4558cd33"
+        },
+        "e4-8.14-DHGenParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "e0c7b3443db4c678817581849f659c0a87e80e8e71e00a765578aa6aab8319da"
+        },
+        "e4-8.14-GCMParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "d7b7d4ba278c69456de475f2f8d553039c58d268f303fdb40221a11441d8d93f"
+        },
+        "e4-8.14-HMACParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "d5d2e7498795e72e3c68d98ef13862ae54800d0725c6ea5c70393fef6268cf95"
+        },
+        "e4-8.14-IvParameterSpecSpec.md": {
+          "records": 2,
+          "sha256": "cea90b76dad7d5eb04c90a942a342b63a51d8a6305ab9bf22dbb7b1ec6d32f97"
+        },
+        "e4-8.14-KeyGeneratorSpec.md": {
+          "records": 8,
+          "sha256": "1746c7d2614def1209b9bfeb07b307d92cfbe34e6ab0bece6b67924294a53428"
+        },
+        "e4-8.14-KeyManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "a4327c3971266af99ea5658cd0054f41cb22215424d209c2a1aa9c57a559b447"
+        },
+        "e4-8.14-KeyPairGeneratorSpec.md": {
+          "records": 6,
+          "sha256": "70b6d42d43832f6c0c4f2de4518b064bf676d28a90723f3530481e0755d9b1db"
+        },
+        "e4-8.14-KeyPairSpec.md": {
+          "records": 0,
+          "sha256": "39680dbe40123aeb211df21614b16d8f9cfa7a8dd54ae771cf5882416a0dbe5c"
+        },
+        "e4-8.14-KeyStoreSpec.md": {
+          "records": 8,
+          "sha256": "f7448b7a65cd6e61867e16df7c79719f5ea35ea5cfdcf90bc5d23524f6131d87"
+        },
+        "e4-8.14-MacSpec.md": {
+          "records": 4,
+          "sha256": "2ef34ca469ee24d57d5fee4747cae1946aaad25aeea254cf1e26da644a747ea8"
+        },
+        "e4-8.14-MessageDigestSpec.md": {
+          "records": 3,
+          "sha256": "2b14b89b3bcbe2dd3b4f5e033db682914e5fefd3e38cd2ff6793f43048bb959a"
+        },
+        "e4-8.14-PBEKeySpecSpec.md": {
+          "records": 8,
+          "sha256": "80404fa52980642afe776c2fa0bed1c7e1baa4cfa1e907d2d21c8f603a906516"
+        },
+        "e4-8.14-PBEParameterSpecSpec.md": {
+          "records": 4,
+          "sha256": "93cdc011bfacba5f2ee7e5efb826dd12ff0de795bd9d3448fb6439f308e083dd"
+        },
+        "e4-8.14-RandomStringPasswordSpec.md": {
+          "records": 0,
+          "sha256": "2369d7213612fa92ccc197528165a2833b3627b0f57899d0ddd9cee4d53bbb58"
+        },
+        "e4-8.14-SSLContextSpec.md": {
+          "records": 2,
+          "sha256": "525786e9f542e66aef5c3f6cd46e4e8026007dbfaf5fb57778f3a846988e1342"
+        },
+        "e4-8.14-SecretKeySpec.md": {
+          "records": 0,
+          "sha256": "32dc6f56365428b1639177a56e1a951b47a5600ef6a8775b25317cac6cfb4363"
+        },
+        "e4-8.14-SecretKeySpecSpec.md": {
+          "records": 2,
+          "sha256": "d13c384d314198ee818a808f6f6f7c4eb3cbda6ab3f98919b03a184217c89415"
+        },
+        "e4-8.14-SecureRandomSpec.md": {
+          "records": 4,
+          "sha256": "0b8d12a6263300183054ffb55c78c1b2d7d41d3d046b893821f06701ac57f884"
+        },
+        "e4-8.14-SignatureSpec.md": {
+          "records": 4,
+          "sha256": "dc16a6b0de738ade3ab2b2bbd43befbbfb2e8146e26974ff6641072b1581a7ab"
+        },
+        "e4-8.14-TrustManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "763a357d02e4cb26d362a882eb1d4a0fd26abdcb83aa4da67fd5f9f6ededb74b"
+        },
+        "e4-8.15-CipherInputStreamSpec.md": {
+          "records": 0,
+          "sha256": "8cb5c8abc725b5e95241912242e451c231ec364e16e9ef7d5be8b22674504183"
+        },
+        "e4-8.15-CipherOutputStreamSpec.md": {
+          "records": 0,
+          "sha256": "0a9f6f734b32b7483c750d89c4f0e1950b0cc27839255b0c3a444d424f211596"
+        },
+        "e4-8.15-CipherSpec.md": {
+          "records": 4,
+          "sha256": "dc6c3115880ec4252eceb35b43ff9ad33aac1bce000dc74041263a92f19a63ed"
+        },
+        "e4-8.15-DHGenParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "e53011adde17f52d04b02c30cfd35ac6993e52696c38aad28e17bb21944aff65"
+        },
+        "e4-8.15-GCMParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "50c1be5c693105c2d66a8b023b4116948eed8bdd5e521305f4d8310ecebe9ebb"
+        },
+        "e4-8.15-HMACParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "352fe1d2322b52dfebb5d7183ed7759cdb5deab7aa7df7d90180a0165671a356"
+        },
+        "e4-8.15-IvParameterSpecSpec.md": {
+          "records": 2,
+          "sha256": "09d3ae31915f55dca55375d894e29847253553ca80f0b18e1538aeb67ee6a316"
+        },
+        "e4-8.15-KeyGeneratorSpec.md": {
+          "records": 8,
+          "sha256": "46e4ba98eec2c9be21d808ec0c4f2730fb1d56556396708a3494a5b5ee7c3ec1"
+        },
+        "e4-8.15-KeyManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "703bbb5237d6c8c7414b1e2583844141bcfe07215b65d4a925eb05b63cb1a993"
+        },
+        "e4-8.15-KeyPairGeneratorSpec.md": {
+          "records": 6,
+          "sha256": "9cb2c2a8d857a2f2ba9230fa3ef914c943245bd4f912de35a344ea9a3fbc9b22"
+        },
+        "e4-8.15-KeyPairSpec.md": {
+          "records": 0,
+          "sha256": "08e7f6bc7442d15b456e5281ada3e3ac19b50dd9c21d819814169175f8e14222"
+        },
+        "e4-8.15-KeyStoreSpec.md": {
+          "records": 8,
+          "sha256": "e27967d7bfa52a32e956460284ad7b07fa24d921f8b385975ed7d60a10aee487"
+        },
+        "e4-8.15-MacSpec.md": {
+          "records": 4,
+          "sha256": "65c8bc7df8a06bed458ddce7b4db3a1fcf4531fb01c1c6b3f235dad78b758b56"
+        },
+        "e4-8.15-MessageDigestSpec.md": {
+          "records": 2,
+          "sha256": "5d9ab5f6a4055b75bfbc4664ec1c0e10fb093aa342e3c87f2d6c925c095cad73"
+        },
+        "e4-8.15-PBEKeySpecSpec.md": {
+          "records": 8,
+          "sha256": "6e70b2b93f076c724a736d39a6464646a33ca6ed1bbe1293407ef5721387000b"
+        },
+        "e4-8.15-PBEParameterSpecSpec.md": {
+          "records": 4,
+          "sha256": "33acc58c6f2d6f09f12c48ee9573eec5575b43b13c80ec502408d23d01137de6"
+        },
+        "e4-8.15-RandomStringPasswordSpec.md": {
+          "records": 0,
+          "sha256": "a6444c4da6480159dd12cb445ed948f7bd3f9a3754455e9661651847b88cc73c"
+        },
+        "e4-8.15-SSLContextSpec.md": {
+          "records": 2,
+          "sha256": "1097327b16f7eef446c3c1f2a41962ec59e28676b29f06002221df0567c5ef63"
+        },
+        "e4-8.15-SecretKeySpec.md": {
+          "records": 0,
+          "sha256": "ac98e6027161297788cb08179450be01049c26c8844a8d0decc656579399136c"
+        },
+        "e4-8.15-SecretKeySpecSpec.md": {
+          "records": 2,
+          "sha256": "ba866cb5dc20e59da0fde3d8a21f3e12cf2fa11ed3987a43fbc7109262eba03a"
+        },
+        "e4-8.15-SecureRandomSpec.md": {
+          "records": 4,
+          "sha256": "df7eaa72a517cb075907b0b1421342fc7823f789dbef6eb9c799f3e6c4d5bce7"
+        },
+        "e4-8.15-SignatureSpec.md": {
+          "records": 4,
+          "sha256": "a1294254856995e6f31bb5637bab609e438185be426493d295d9501582f92b56"
+        },
+        "e4-8.15-TrustManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "3afdc2b9a235324a66e3401a41b6b49d639a79820d02d89857606e407eae0a9f"
+        },
+        "e4-8.16-CipherInputStreamSpec.md": {
+          "records": 0,
+          "sha256": "6ee51abc373f9336ff968be584cf0cddfa7c0f31aa601cbfc7241400767f271f"
+        },
+        "e4-8.16-CipherOutputStreamSpec.md": {
+          "records": 0,
+          "sha256": "a81e8e843766520f97b50373ee658b7457b5f80c002cfa913ace5f7b7b123bea"
+        },
+        "e4-8.16-CipherSpec.md": {
+          "records": 4,
+          "sha256": "15c3b5147579c5dff9549c881e116d124de2f6059ae0a31bf82c4119a4916a94"
+        },
+        "e4-8.16-DHGenParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "63644369ee82ff3933daa12495025ce3afcb607b374cad93242344ba29202dca"
+        },
+        "e4-8.16-GCMParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "813eb04ba2a79c03594309ee6ad0ad3cfa76c04ae0247a119e5fe2f7fcd90d61"
+        },
+        "e4-8.16-HMACParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "8a3bfeca4916a6efafc8d3779a8531bf8b0e93cf85bd65f5b6c1028d446acd7a"
+        },
+        "e4-8.16-IvParameterSpecSpec.md": {
+          "records": 2,
+          "sha256": "da01a80f0235908867991f0f4fd4eb6a1e22c170207a15e4124d34b9d5a66260"
+        },
+        "e4-8.16-KeyGeneratorSpec.md": {
+          "records": 7,
+          "sha256": "8fb8605eb0151c714b37b79eb1a156b2729553cce287dbff5a48c3a9948acc30"
+        },
+        "e4-8.16-KeyManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "f036c6811740c73be629014a7282a2e6b42968c2f939b2a433bec13d9fa430a7"
+        },
+        "e4-8.16-KeyPairGeneratorSpec.md": {
+          "records": 6,
+          "sha256": "9b89cf86507ced7d79f3ca3d4c261ce1efac0cf0af8cf0e88a6dadb06c01c6d8"
+        },
+        "e4-8.16-KeyPairSpec.md": {
+          "records": 0,
+          "sha256": "79468dfe3635208b72dc4dedcf4bfee74aae2c49c24c2a3653fe6aa1bc280da7"
+        },
+        "e4-8.16-KeyStoreSpec.md": {
+          "records": 7,
+          "sha256": "a95f0720117a620e5ec5e2d599cd280e61ebccdaf8b60206390596a1a59f5a01"
+        },
+        "e4-8.16-MacSpec.md": {
+          "records": 4,
+          "sha256": "623fb27a4193f30da40ab6d6411b849fc00be2f41a47f8595d6efef07d55ce8a"
+        },
+        "e4-8.16-MessageDigestSpec.md": {
+          "records": 4,
+          "sha256": "4116c5e3050f113fd351028b03ae052095508c3ced8112c29761886e1c2799b6"
+        },
+        "e4-8.16-PBEKeySpecSpec.md": {
+          "records": 8,
+          "sha256": "b9be7d3d73e736291e25211aa2014b8b9422f70e7c75d922a29985e6bbf18447"
+        },
+        "e4-8.16-PBEParameterSpecSpec.md": {
+          "records": 4,
+          "sha256": "81302d6650bd6da655b7bc5bf7175e36f3040cf2b27ef002596b5f2eb2174ea6"
+        },
+        "e4-8.16-RandomStringPasswordSpec.md": {
+          "records": 0,
+          "sha256": "3ab2e265596c69716dfab9bdb531005e72f12f562912612dd046cfa227a74f0c"
+        },
+        "e4-8.16-SSLContextSpec.md": {
+          "records": 2,
+          "sha256": "f4fb9bd4fe654f37d09782997b63d0acb15d18294e0e01266e24af9d7d991eb3"
+        },
+        "e4-8.16-SecretKeySpec.md": {
+          "records": 0,
+          "sha256": "b863b8ad0ee16788bf97207046735d21159a8796648d337be22c3b5d80a34396"
+        },
+        "e4-8.16-SecretKeySpecSpec.md": {
+          "records": 2,
+          "sha256": "36325735922068a1d6d7aa652dd0009cc67276af6a08c4dd048433db56be2663"
+        },
+        "e4-8.16-SecureRandomSpec.md": {
+          "records": 4,
+          "sha256": "6cbeec92d682dd57af45cb69ab5b69449d09b7245cfa04a3930ebea3e0b5ee3b"
+        },
+        "e4-8.16-SignatureSpec.md": {
+          "records": 4,
+          "sha256": "15ae5fbc368a873e34fd0ee58b846aa6985a95e3a618e7e547dec3e7a81441ab"
+        },
+        "e4-8.16-TrustManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "08afb30226c5eb768d889e71661703d171ee89d4ace8acd55c3a392af81545c5"
+        },
+        "e4-CipherInputStreamSpec.md": {
+          "records": 0,
+          "sha256": "3a295ea80bcc68b8e446319d980443577265d38e37560d33506928b52cf7d3ae"
+        },
+        "e4-CipherOutputStreamSpec.md": {
+          "records": 0,
+          "sha256": "196dff0b3e9c17286e56823709cbad0442a078e262c93fd82875175a544491ea"
+        },
+        "e4-CipherSpec.md": {
+          "records": 4,
+          "sha256": "c49c4e8636bb27810eab86a39f30f87d78a39be8d2cce1026d77274a1f8ed13d"
+        },
+        "e4-DHGenParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "ca2ea4122aa3e09036cf7b8b0c48b05c4e7aa83b516ed844d759ac2039ac233c"
+        },
+        "e4-GCMParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "59ffcdf0268e63dd25dddb5a5a2cce7d69288d150c10830b89631e3f594bcacd"
+        },
+        "e4-HMACParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "c7e11516f57f4f7263a41734dd8a069ae880da9df47223a9b7c5e288a54913b2"
+        },
+        "e4-IvParameterSpecSpec.md": {
+          "records": 2,
+          "sha256": "c9e4b3419d3be2b978bdf51952427ee68c899b03971ce101d0e507fcf6876f4b"
+        },
+        "e4-KeyGeneratorSpec.md": {
+          "records": 8,
+          "sha256": "dd7685565dfdec3b34428b63fb396a756f59e5c5186c5ac2834a7b20090f18d8"
+        },
+        "e4-KeyManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "822a2799185ca8a00a66ed9a13f9be06befba847c7f6be755ca497a79e599bdd"
+        },
+        "e4-KeyPairGeneratorSpec.md": {
+          "records": 6,
+          "sha256": "dc3eb190d6bb99d65670cf7343c08934d43c8d56d20c6b1e8c869e591f354c49"
+        },
+        "e4-KeyPairSpec.md": {
+          "records": 0,
+          "sha256": "4c0dfd8a657c275d68f48b30476a1b6e3526603b025a9687a8c43ee8c5b8fb37"
+        },
+        "e4-KeyStoreSpec.md": {
+          "records": 8,
+          "sha256": "52ea310918a61481005d51e835d23388f34975b7f25c69cdcd04dbda71c9c6c7"
+        },
+        "e4-MacSpec.md": {
+          "records": 4,
+          "sha256": "8b234e97732031e93af809e2659bc4f3b606d02b7cc476b04729fe036c135285"
+        },
+        "e4-MessageDigestSpec.md": {
+          "records": 3,
+          "sha256": "0d8427a5c6034a4e2feb184fc0a699b8edb2e421e38b9e8dd776bdb10e195fb8"
+        },
+        "e4-PBEKeySpecSpec.md": {
+          "records": 8,
+          "sha256": "82f292f9af2088386dc1f8abaddd46f2285dc6ea3ba6a8235fb0932f5691ca88"
+        },
+        "e4-PBEParameterSpecSpec.md": {
+          "records": 4,
+          "sha256": "3bf8b61bd68960bc22c94d37379b7eee59d9fae84ae2e4ee15c9068dabcf610a"
+        },
+        "e4-RandomStringPasswordSpec.md": {
+          "records": 0,
+          "sha256": "e91ec03d44f86018a1add82c7b8c50499f85aa307933400eb52045914aafceba"
+        },
+        "e4-SSLContextSpec.md": {
+          "records": 2,
+          "sha256": "ed6dab670205f4d25f6b53c3478c805c6b1ed7a73edafd6cdf26346070708a2c"
+        },
+        "e4-SecretKeySpec.md": {
+          "records": 0,
+          "sha256": "d0367a70aa2b9d4215c40cd1c32ebf35186fbe94e3333116faf1624effd6e668"
+        },
+        "e4-SecretKeySpecSpec.md": {
+          "records": 2,
+          "sha256": "9a2ad29e8e0732a0837f87241bfb8e677cb37bfff2b4dcade45fb40f154c208e"
+        },
+        "e4-SecureRandomSpec.md": {
+          "records": 4,
+          "sha256": "c687e2f39aa758d0a425b97d5044a1bf796cb10e019d7b937fc65f2dcc169206"
+        },
+        "e4-SignatureSpec.md": {
+          "records": 4,
+          "sha256": "3a76e7a257bc9481399b5a4b1deaf311a3a394e61b8f296f66b8d791dcc96f6f"
+        },
+        "e4-TrustManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "e127cf066cab3435d04ef0e273e62cfb09a936f0b8c42d890159f280bc6989e8"
+        },
+        "s-CipherInputStreamSpec.md": {
+          "records": 0,
+          "sha256": "d76038a27010b19bf201e61a8f978d8021ce7b0c0766025b32d51e310ded852e"
+        },
+        "s-CipherOutputStreamSpec.md": {
+          "records": 0,
+          "sha256": "036abd9738c4b681a7c97a88ec98c8322ce9f845e0c8ad0b7b7b365f76a059b8"
+        },
+        "s-CipherSpec.md": {
+          "records": 4,
+          "sha256": "350a41d911e4ee9fe50d098eecdecd9255b59a3cef394738a3c530c9577ff170"
+        },
+        "s-DHGenParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "67fa708e50f6cf90a9c45bf06ebeea279c8403b9ecc98df89579b55a1191ed1a"
+        },
+        "s-GCMParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "22d54f6dfda47a506c018f33b7ab2963baa86adcbaab0023a94dae012064ce6d"
+        },
+        "s-HMACParameterSpecSpec.md": {
+          "records": 0,
+          "sha256": "b6d76d5beb9d1f5f1e308473a2e381b2b94ca73c1d737d9e07700d32867b6c34"
+        },
+        "s-IvParameterSpecSpec.md": {
+          "records": 2,
+          "sha256": "84094d247ca86085adf50350bc877f5ee70c0f0fcaea3e78cda1e10a948e0aef"
+        },
+        "s-KeyGeneratorSpec.md": {
+          "records": 4,
+          "sha256": "034e17508e1dcca651e78f9ad1a9dc1917a385014b04e70ed10b6e1aa37c9e7e"
+        },
+        "s-KeyManagerFactorySpec.md": {
+          "records": 2,
+          "sha256": "f8beaa67dd92474179e76315c5b9b178e7d615809c7ec6ba3c41549c9410936e"
+        },
+        "s-KeyPairGeneratorSpec.md": {
+          "records": 3,
+          "sha256": "61c4811b699d46bfe6895086f506e72c8fa5aa13536bf22043798eb2665e1e1e"
+        },
+        "s-KeyPairSpec.md": {
+          "records": 0,
+          "sha256": "c72dbb5ec17315e1ed8f0865e740da5924c15405436b3eba0a290ca5a8c6d5b8"
+        },
+        "s-KeyStoreSpec.md": {
+          "records": 4,
+          "sha256": "b98b6d70dbab7ebb3e5a2c29c744bf3e27b3862b22d58df92d34a1f6326856bc"
+        },
+        "s-MacSpec.md": {
+          "records": 3,
+          "sha256": "3816e4b026b3dba7c24ccb0b6d96a14a357125b0a8eaef0b1f4e1943e9fb72f5"
+        },
+        "s-MessageDigestSpec.md": {
+          "records": 6,
+          "sha256": "640a1067223d8470293d61ddac7aeaaa395afa644d5998c070534bc9fa6be6d8"
+        },
+        "s-PBEKeySpecSpec.md": {
+          "records": 8,
+          "sha256": "5c4855dc7be29b0b40c0628f6dc6955bf87242fe62d2e55fe42ae8954ab7db11"
+        },
+        "s-PBEParameterSpecSpec.md": {
+          "records": 4,
+          "sha256": "cdf4da97bcf98ffac16d91766bee23ed85186724807621e27fec62fca6f44694"
+        },
+        "s-RandomStringPasswordSpec.md": {
+          "records": 0,
+          "sha256": "37fe7b766199536377e11ee47bc37154fa9c01196051771de818208e89252083"
+        },
+        "s-SSLContextSpec.md": {
+          "records": 4,
+          "sha256": "4fcef31cbebbe25f074e9eab3f534073c4a290699f2346aa10a2b93c93ad4194"
+        },
+        "s-SecretKeySpec.md": {
+          "records": 0,
+          "sha256": "9d565fa62e720e8d5e748593e2cef459bcdcfea44f946ecf4acb2031feed154f"
+        },
+        "s-SecretKeySpecSpec.md": {
+          "records": 2,
+          "sha256": "1bd1e2707168b463e3f515e028e16cefb377ffbcd2ceebb22ab2c8ce1bf7ac84"
+        },
+        "s-SecureRandomSpec.md": {
+          "records": 3,
+          "sha256": "c284b4358fdb0954e4e4c67653c633406a5df52e16ed1c88a0a12fca42e7135e"
+        },
+        "s-SignatureSpec.md": {
+          "records": 2,
+          "sha256": "36e04e4b1385cd8759603906f79e2968a1701eb1a2b12ca9e44bf62e12c12c71"
+        },
+        "s-TrustManagerFactorySpec.md": {
+          "records": 6,
+          "sha256": "197fbef095428afc9ec38e8acabf47ba1f4e3ab418bd2d2094b329acb400d227"
+        }
+      },
+      "path": "rvsec/rv-android/data/gh104/evidence/harness/*.md",
+      "reader": "`## Envelopes` bullets of the differential-harness reports",
+      "records": 369,
+      "sha256": "a2e29c607c2b4d52be80a4be9748b2b91f0e7d085b6ee587440527140e88d3f3"
+    }
+  },
+  "task": "9.1",
+  "verdict": {
+    "deciding_corpus": "differential harness (`data/gh104/evidence/harness/*.md`)",
+    "discontinuity": 26,
+    "discontinuity_envelope_only": 6,
+    "e6_lands": true,
+    "rule": "E6 lands only if the discontinuity is non-zero on a corpus whose records carry `ev=`, counting only the records that carry an envelope - so that the sentinel cannot pass the gate on its own. On comp162 the discontinuity is zero by construction and is not the gate.",
+    "split_by_event_alone": 3
+  }
+}

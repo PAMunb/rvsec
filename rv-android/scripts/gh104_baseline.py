@@ -1140,6 +1140,17 @@ def render_markdown(b: Mapping[str, Any]) -> str:
         "measurement disagrees with the brief, the measurement is what this file publishes."
     )
     add("")
+    add(
+        "**Identity era.** Every deduplicated count in this file belongs to the **five-part "
+        "era**: the identity is `(spec, error, class, method, location)` and `unique_msg` has "
+        "five parts. Task 9.2 of this change adds `code` and `event` to it, and counts of the "
+        "two eras are not comparable (INV-CORE-41, INV-CORE-57). The discontinuity between them "
+        "is measured in `identity_discontinuity.md` beside this file — zero on comp162, which "
+        "predates the envelope, and non-zero on the differential-harness corpus, which carries "
+        "`ev=`. A reader comparing a number here with a number from a later campaign must read "
+        "that file first."
+    )
+    add("")
 
     dis = disagreements(b)
     add("## Disagreements with the brief")
