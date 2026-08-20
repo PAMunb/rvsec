@@ -1,8 +1,18 @@
 # Group 7 — E1: legible messages in `jca_android`
 
+> **CORRECTION, 2026-08-20 — read this before anything else in this file.**
+> An earlier revision of this change removed the predicate machinery from the successor set. **That decision is
+> withdrawn (design D-11)**, and the set carries the seed's predicates byte-for-byte. Every passage below that
+> counts on sites disappearing with the predicates is superseded by this banner. Concretely: the set has **23**
+> `.mop`, `RandomStringPassword.mop` and `SecretKeySpec.mop` included; the site census is **50 live sites — 25
+> three-argument and 25 four-argument — plus 1 commented occurrence**, which is the frozen `jca`'s census
+> unchanged, because the successor keeps every event the seed declares and the allow-list transcription removed
+> no report site. Task 7.2's recount has been run against the files and is reproduced below; the provisional
+> arithmetic of 44/45 it replaced is gone.
+
 Tracked checkboxes: `tasks.md` §7. Starts after Group 2's commits **including task 2.14** (the harness before/after + promotion pass, which edits `jca_android/*.mop` last — two writers must not overlap) **and** the between-waves 3.9/3.5/3.8 step of Group 3 (the installed generator expands `__EVENTNAME`; until it does, every envelope you write would carry an undefined identifier) **and** Group 6 tasks 6.1/6.2/6.3 (`gh104_gates.py` with G-2/G-6′/G-ERE — 7.2 writes the G-ERE allowlist row that 7.6's gate run consumes) and 6.4/6.5/6.7/6.8/6.9 (7.6 runs the lint, message gate, G-CONF, G-PRED; 7.7 runs the harness). One more ordering inside the group: 7.1 edits `ErrorType.java` in `rvsec-core`, and 7.7 compiles `PBEKeySpecSpec`'s monitor against `ErrorType.ForbiddenMethod` — so after 7.1 and before 7.7 the orchestrator runs `mvn -q install -pl rvsec/rvsec-core -DskipTests` at the reactor root (a pre-wave install of `rvsec-core` alone, not the full reactor install); without it the monitor of 7.b's half does not compile. `evidence/...` means `data/gh104/evidence/...`, `traces` means `data/gh104/traces`. Environment: prefix EVERY Java/Maven/generation command line with `export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH` (shell state does not persist between tool calls) and every generation line with `export TMPDIR=$HOME/tmp-gh104 && mkdir -p $TMPDIR` (`/tmp` and the session scratchpad are tmpfs); task 7.7 is this group's generating task (`[GEN]`) — the orchestrator dispatches at most one generating task at a time, and `mvn install` at the reactor root runs only between waves, by the orchestrator. Git: one repository (rv-android is a subdirectory of `…/rvsec`); every `git status`/`git diff` carries a pathspec (`git status --short -- <paths>`; `git diff --cached --stat -- <paths>`); commits are made by one writer at a time — the orchestrator, after each half's summary, `git add <explicit pathspecs>` + commit; the halves do not commit, and never `git add -A`/`git commit -a`. Edits `rvsec-mop/src/main/resources/jca_android/*.mop`, `jca_android/codes.csv`, `rvsec-core/.../eh/ErrorType.java` (+ its test), `data/jca_android/divergence_record.csv`, `data/jca_android/gate_allowlist.csv`, `data/jca_android/README.md` and `evidence/harness/e1-<Spec>.md` (one file per specification).
 
-Two subagents on disjoint halves of the **21** surviving specifications: **7.a** = `CipherInputStreamSpec, CipherOutputStreamSpec, CipherSpec, DHGenParameterSpecSpec, GCMParameterSpecSpec, HMACParameterSpecSpec, IvParameterSpec, KeyGeneratorSpec, KeyManagerFactorySpec, KeyPairGeneratorSpec, KeyPairSpec, KeyStoreSpec`; **7.b** = `MacSpec, MessageDigestSpec, PBEKeySpecSpec, PBEParameterSpecSpec, SecretKeySpecSpec, SecureRandomSpec, SignatureSpec, SSLContextSpec, TrustManagerFactorySpec` **plus `ErrorType.java`**, which 7.b owns alone. `RandomStringPassword` and `SecretKeySpec` are not in either half — Group 2 deleted them. **`codes.csv` and `data/jca_android/divergence_record.csv` are owned by 7.b**: both halves produce rows for them, so 7.a writes its rows into `jca_android/codes.7a.part` and `data/jca_android/divergence.7a.part` (or hands them over in its summary) and 7.b merges them into the two files; 7.a never appends to the files themselves.
+Two subagents on disjoint halves of the **21** specifications that carry a report site: **7.a** = `CipherInputStreamSpec, CipherOutputStreamSpec, CipherSpec, DHGenParameterSpecSpec, GCMParameterSpecSpec, HMACParameterSpecSpec, IvParameterSpec, KeyGeneratorSpec, KeyManagerFactorySpec, KeyPairGeneratorSpec, KeyPairSpec, KeyStoreSpec`; **7.b** = `MacSpec, MessageDigestSpec, PBEKeySpecSpec, PBEParameterSpecSpec, SecretKeySpecSpec, SecureRandomSpec, SignatureSpec, SSLContextSpec, TrustManagerFactorySpec` **plus `ErrorType.java`**, which 7.b owns alone. `RandomStringPassword` and `SecretKeySpec` are in the set (D-11) but in neither half: `grep -c "new ErrorDescription("` returns 0 for both, so there is no message in either to make legible. **`codes.csv` and `data/jca_android/divergence_record.csv` are owned by 7.b**: both halves produce rows for them, so 7.a writes its rows into `jca_android/codes.7a.part` and `data/jca_android/divergence.7a.part` (or hands them over in its summary) and 7.b merges them into the two files; 7.a never appends to the files themselves.
 
 ## Subagent brief
 
@@ -12,29 +22,45 @@ Read `design.md` D-2, D-3, D-4 and the `instrumentation` delta requirements `Vio
 
 `rvsec-core/src/main/java/br/unb/cic/mop/eh/ErrorType.java` has six values today (`:4-9`): `UnsafeAlgorithm`, `InvalidSequenceOfMethodCalls`, `UnsatisfiedConstraint`, `InvalidKeySize`, `InvalidKeyStoreType`, `UnsafeProtocol`. Add **`ForbiddenMethod`**.
 
-`RequiredPredicate` does **not** enter: predicates left the set in Group 2, so no site could carry it, and an enum value nothing produces is dead code (P3). `ForbiddenMethod` does enter, because CrySL's `FORBIDDEN` is not a predicate — it is a per-call prohibition, and `generated/api30/PBEKeySpec.cryptsl` declares exactly two of them (`PBEKeySpec(char[])`, `PBEKeySpec(char[], byte[], int)`), which are what `PBEKeySpecSpec` `f1`/`f2` encode. Today they report `InvalidSequenceOfMethodCalls`, which is the wrong type and sends the developer looking for a call-order bug that is not there. (`generated/api30/SSLContext.cryptsl` also declares `FORBIDDEN: getDefault()`, which no `.mop` event encodes — record it as an omission in the conformance record; adding the event is not this group's work.)
+`RequiredPredicate` does **not** enter, and the reason is no longer that the predicates left — they stayed (D-11). It is that **no site would produce it**: every predicate-guarded accuser of the set already reports `UnsatisfiedConstraint` (`IvParameterSpec` c3/c4, `PBEKeySpecSpec` err2/err3, `SecureRandomSpec` setSeed3, `SecretKeySpecSpec` c3), which is the right type for a failed CrySL `REQUIRES` — the constraint the clause states is exactly what went unsatisfied. Adding a second name for it would split one condition across two vocabularies, and an enum value nothing produces is dead code (P3). `ForbiddenMethod` does enter, because CrySL's `FORBIDDEN` is not a predicate — it is a per-call prohibition, and `generated/api30/PBEKeySpec.cryptsl` declares exactly two of them (`PBEKeySpec(char[])`, `PBEKeySpec(char[], byte[], int)`), which are what `PBEKeySpecSpec` `f1`/`f2` encode. Today they report `InvalidSequenceOfMethodCalls`, which is the wrong type and sends the developer looking for a call-order bug that is not there. (`generated/api30/SSLContext.cryptsl` also declares `FORBIDDEN: getDefault()`, which no `.mop` event encodes — record it as an omission in the conformance record; adding the event is not this group's work.)
 
 KIND `FORB` joins the `codes.csv` vocabulary of design D-3: `ORDER`, `ALG`, `CONSTR`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`. `REQ` is not used by this set.
 
 ## Task 7.2 — recount the sites before editing anything
 
-**The seed's site census does not survive Group 2, and no number in this file may be trusted until you re-derive it.** The frozen `jca` had 51 `new ErrorDescription(` occurrences = **50 live sites** + one commented, and the commented one (`MessageDigestSpec:57-58`, the `g4` report) **stays commented in this group** — reviving it is Group 8 task 8.14. The 50 live are 25 three-argument (21 `@fail` + `IvParameterSpec:48,55` + `PBEKeySpecSpec:24,30`) + 25 four-argument.
+**The recount has been run. It is reproduced here so the group starts from a measured number, and it must still
+be re-derived from the files before editing** — the point of the task is that no number in a plan is trusted
+over the tree it describes.
 
-What is known to be gone after Group 2:
+Measured on `rvsec-mop/src/main/resources/jca_android/` after Group 2 (tasks 2.2–2.8 and 2.14):
 
-| site | seed line | why it disappears |
-|---|---|---|
-| `IvParameterSpec` c3 | `:48` (3-arg) | condition was `!validate(RANDOMIZED, iv)` and nothing else |
-| `IvParameterSpec` c4 | `:55` (3-arg) | idem |
-| `PBEKeySpecSpec` err2 | `:57-58` (4-arg) | condition was `!validate(RANDOMIZED, password)` and nothing else |
-| `PBEKeySpecSpec` err3 | `:65-66` (4-arg) | condition was `!validate(RANDOMIZED, salt)` and nothing else |
-| `SecureRandomSpec` setSeed3 | `:100-101` (4-arg) | condition was `!validate(RANDOMIZED, seed)` and nothing else |
+| | three-argument | four-argument | commented | live total |
+|---|---|---|---|---|
+| frozen `jca` (the seed) | 25 | 25 | 1 | **50** |
+| `jca_android` (the successor) | 25 | 25 | 1 | **50** |
 
-Deleting `RandomStringPassword.mop` and `SecretKeySpec.mop` costs zero sites (both had none). That leaves a **provisional 23 three-argument + 22 live four-argument = 45 live sites** (46 occurrences with the commented one), and the 21 `@fail` are untouched.
+**The census is the seed's, unchanged.** That is the direct consequence of D-11: the successor keeps every event
+the seed declares, predicates and all, and the allow-list transcription of task 2.4 changed which *values* a
+condition admits without removing a single report site. The one site Group 2 could have cost —
+`SecretKeySpecSpec.c3`, whose condition had an allow-list half and a predicate half — kept its predicate half and
+so kept its accusation; only its algorithm test left, because `generated/api30/SecretKeySpec.cryptsl` declares
+`length(keyMaterial) >= off + len` and nothing about the algorithm.
 
-One more site is settled since that provisional was written: `SecretKeySpecSpec.c3` (`:48-49`) had two halves, an allow-list test and a predicate test. The predicate half went with Group 2 task 2.3, and the allow-list half went with Group 2 task 2.4 — `generated/api30/SecretKeySpec.cryptsl` declares only `length(keyMaterial) >= off + len` and nothing about the algorithm, so the seed's algorithm list has no base and was removed. Both halves gone means the site is gone, `c4` keeps only its length test, and the arithmetic becomes **23 three-argument + 21 live four-argument = 44 live sites** (45 occurrences with the commented one). Count live sites and the commented occurrence separately in the census: `codes.csv` has a row per live site and none for the commented one.
+An earlier revision of this file predicted 44 or 45 live sites, arrived at by subtracting the five purely
+predicate-guarded accusers (`IvParameterSpec` c3/c4, `PBEKeySpecSpec` err2/err3, `SecureRandomSpec` setSeed3) and
+`SecretKeySpecSpec.c3`. All six are alive. The commented occurrence is `MessageDigestSpec:57-58`, the `g4` report,
+and it **stays commented in this group** — reviving it is Group 8 task 8.14.
 
-That is still **A RECALCULAR na execução**, and the reasons are mechanical rather than open questions: every line number in the tables below moved when the `ExecutionContext` blocks were deleted, and the allow-list transcription may have emptied a condition somewhere else without anyone predicting it here. **Count from the files, write the count into `data/jca_android/README.md` (a "site census after Group 2" paragraph — not into this file), and only then start editing.** If the live count is neither 44 nor 45, say there which site explains the difference before continuing. In the same pass add the G-ERE `GCMParameterSpecSpec` row to `data/jca_android/gate_allowlist.csv` (`set=jca_android, gate=G-ERE, spec=GCMParameterSpecSpec, event_or_state=c2, reason='until 8.1', task=7.6`): `ere : c1 | c2` (`:48`) names a `c2` the file never declares (`:23` and `:34` both declare `c1`) — Group 8 task 8.1 repairs it, and until then 7.6's gate run must see the hit as expected.
+The 25 three-argument sites are the 21 `@fail`/`@match1` handlers plus `IvParameterSpec` c3/c4 and
+`PBEKeySpecSpec`'s two order sites; the 25 four-argument sites are the value accusers. Every line number in the
+tables below moved when Group 2 rewrote the conditions, so **count from the files, write the count into
+`data/jca_android/README.md`** (a "site census after Group 2" paragraph — not into this file) and say there which
+site explains any difference from the 50 above before continuing.
+
+In the same pass add the G-ERE `GCMParameterSpecSpec` row to `data/jca_android/gate_allowlist.csv`
+(`set=jca_android, gate=G-ERE, spec=GCMParameterSpecSpec, event_or_state=c2, reason='until 8.1', task=7.6`):
+`ere : c1 | c2` (`:48`) names a `c2` the file never declares (`:23` and `:34` both declare `c1`) — Group 8 task
+8.1 repairs it, and until then 7.6's gate run must see the hit as expected.
 
 ## Idiom (per file)
 
@@ -135,7 +161,7 @@ uv run pytest --import-mode=importlib -o "addopts=" tests/parity -q
 
 ## Acceptance
 
-- The recount of task 7.2 is written into `data/jca_android/README.md`, live sites and the commented occurrence counted separately, with the number derived from the files and the reason for any difference from the expected 44 live; `data/jca_android/gate_allowlist.csv` carries the G-ERE `GCMParameterSpecSpec` row with reason `until 8.1`.
+- The recount of task 7.2 is written into `data/jca_android/README.md`, live sites and the commented occurrence counted separately, with the number derived from the files and the reason for any difference from the measured 50 live; `data/jca_android/gate_allowlist.csv` carries the G-ERE `GCMParameterSpecSpec` row with reason `until 8.1`.
 - `ErrorType` carries `ForbiddenMethod` and not `RequiredPredicate`; the three wrong `ErrorType` values of D-13 are corrected.
 - Zero three-argument sites; zero field-interpolating `but found` sites; every envelope's `ev=` comes from `__EVENTNAME`; no bookkeeping field or statement exists; `codes.csv` bijective with the recounted sites; every hunk recorded.
 - Harness post-Group-2-vs-E1: every trace `unchanged` in accusation; envelope now carries `ev=`; `evidence/harness/e1-<Spec>.md` per specification; the no-`getInstance` traces of the declared case flagged `self-contradicting envelope` and the nine `guard-on-field` rows present in `data/jca_android/conformance_record.csv`.

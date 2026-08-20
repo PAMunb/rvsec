@@ -361,7 +361,7 @@ The gates CLI takes the generated monitor, the allowlist, the api30 directory an
 | Envelope whose `val` is a member of `exp` (guard-on-field site, object with no observed `getInstance`) | message gate (6.8), harness report (6.9) | flag, declared | the case is declared in E1 (`conformance_record.csv` row, one trace per site); the repair is E4 task 8.16 under harness measurement (D-2) |
 | Alias-table row without a source pointer | G-CONF | fail | add the pointer or drop the row |
 | `ConscryptAliasTable` disagrees with `alias_table.csv` | the Java equality test of task 2.5 | fail | bring the code and the record back into agreement; the CSV is the record, the class is the instrument |
-| a predicate site of the seed missing from `jca_android` | G-PRED (grep) | fail | restore it byte-for-byte; record the site in `predicate_removal.csv` |
+| a predicate site of the seed missing or rewritten in `jca_android` | G-PRED (per-file ordered comparison against the frozen seed) | fail | restore the site byte-for-byte at the event the seed puts it on; there is no record to write, because there is no removal to record (D-11) |
 | Structural gate hit not allowlisted | `test_gh104_specset_gates.py` | fail | repair or allowlist with reason |
 | G-2 hit whose CrySL clause exists | gate (with `crysl_dir`) | not a hit | none — the encoding is correct (17 of the frozen `jca`'s 18 orphans) |
 | `CipherSpec` > 17 events | generation (`StackOverflowError`) | fail closed | remove an event first (INV-INS-115; no re-budget lands in this change) |
