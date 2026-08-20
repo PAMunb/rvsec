@@ -92,16 +92,16 @@ Subagent dispatch (docs/WORKFLOW.md §5):
      always reports passed/failed/skipped(reason). The universe is ENUMERATED, never a literal
      (INV-INS-140): 214 `.mop` today, 214 + junction specifications after Group 5. -->
 
-- [ ] 2.1 `scripts/gh105_predicate_graph.py`, pass 1 — the reader: comment/string
+- [x] 2.1 `scripts/gh105_predicate_graph.py`, pass 1 — the reader: comment/string
       neutralization, brace/paren matching, `alias` resolution, and the `(Property`
       discriminator that separates predicate sites from helper methods shadowing API names
       (`validate(int)` in `KeyPairGeneratorSpec`; collection `.remove(`). Unit fixtures for each
       neutralization case
-- [ ] 2.2 Pass 2 — the alphabet: `fsm`/`ere` event extraction including the reverse direction
+- [x] 2.2 Pass 2 — the alphabet: `fsm`/`ere` event extraction including the reverse direction
       (events named in states but not declared, and declared but never named) and multiset
       handling. Fixtures: the two archived files whose `ere` names an undeclared event; the 17
       event-only `generic_new` files (no automaton at all)
-- [ ] 2.3 Pass 3 — the emitter: `data/jca_android/predicate_graph.csv` with the full 15-column
+- [x] 2.3 Pass 3 — the emitter: `data/jca_android/predicate_graph.csv` with the full 15-column
       schema of the delta's Output contract (incl. `guard`, `mechanism`, `polarity`,
       `disposition`, `reason` — the columns Groups 4-6 write into), placement classes per
       INV-INS-133/134, and the skip-and-count contract over the enumerated universe

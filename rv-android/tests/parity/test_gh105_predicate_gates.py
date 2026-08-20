@@ -1,0 +1,691 @@
+"""The predicate-wiring gates of gh105, and the reader they are all built on.
+
+The `jca_android` set is being wired: the CrySL predicates its rules ensure and
+require stop being decoration and become links a gate can check. Everything here
+answers to one reader (`scripts/gh105_predicate_graph.py`), so the reader is
+tested first and on its own -- a defect there does not produce a wrong gate
+verdict, it produces a wrong verdict on every gate at once.
+
+Two properties of that reader carry the weight, and both are tested against the
+cases that motivated them rather than against a happy path:
+
+* **Neutralisation.** Every accusing event in these files carries an English
+  message that names its own predicate and code. A reader that scans raw text
+  finds sites inside those messages, and the sites it invents are exactly the
+  ones nobody would think to look for.
+* **The `Property.` discriminator.** `KeyPairGeneratorSpec` declares
+  `private boolean validate(int keySize)` and calls it from three conditions;
+  several specifications call `remove` on a collection. Neither is a predicate
+  site, and only the literal `Property.` first argument tells them apart.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+import pytest
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO / "scripts"))
+
+from gh105_predicate_graph import (  # noqa: E402
+    COLUMNS,
+    analyze_set,
+    carry_judgments,
+    neutralize,
+    read_graph,
+    read_mop,
+)
+
+
+def _rvsec_home() -> Path:
+    home = os.environ.get("RVSEC_HOME")
+    if not home or not (Path(home) / "rvsec/rvsec-mop/src/main/resources/jca").is_dir():
+        pytest.skip("RVSEC_HOME not set or the sibling Java reactor is absent")
+    return Path(home)
+
+
+def _write(tmp_path: Path, body: str, name: str = "FixtureSpec.mop") -> Path:
+    path = tmp_path / name
+    path.write_text(body, encoding="utf-8")
+    return path
+
+
+# --------------------------------------------------------------- neutralisation
+
+
+def test_neutralisation_preserves_every_offset():
+    """Offsets survive so a site can be reported at its real line.
+
+    Reporting is the whole point of the reader, and a reader that finds the right
+    site at the wrong line sends its reader to the wrong file.
+    """
+    source = 'a // comment\nb /* two\nlines */ c\nd "text" e\n'
+    neutral = neutralize(source)
+    assert len(neutral) == len(source)
+    assert neutral.count("\n") == source.count("\n")
+    assert neutral.splitlines()[0].startswith("a ")
+
+
+@pytest.mark.parametrize(
+    "case,source",
+    [
+        ("line comment", "// ExecutionContext.instance().validate(Property.RANDOMIZED, x)\n"),
+        ("block comment", "/* ExecutionContext.instance().validate(Property.RANDOMIZED, x) */\n"),
+        (
+            "accusation message",
+            '"obj=Cipher msg=ExecutionContext.instance().validate(Property.RANDOMIZED, iv)"\n',
+        ),
+        ("char literal", "char quote = '\"';\n"),
+        ("escaped quote inside a string", '"he said \\"Property.RANDOMIZED\\" once"\n'),
+    ],
+)
+def test_neutralisation_blanks_every_form_that_can_hide_a_false_site(case, source):
+    assert "Property." not in neutralize(source), case
+
+
+def test_a_site_inside_an_accusation_message_is_not_read_as_a_site(tmp_path):
+    """The live shape of the problem, not a synthetic one.
+
+    Every accusing event of the set writes a message that quotes the predicate it
+    is accusing about. Counting those as sites would inflate the graph by roughly
+    one row per accuser, and each invented row would look entirely plausible.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(Cipher c) {
+    event c1 after(byte[] iv): call(public Cipher.new(byte[])) && args(iv) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint,
+            "FixtureSpec", "" + __LOC,
+            "msg='ExecutionContext.instance().validate(Property.RANDOMIZED, iv) failed'"));
+    }
+    ere : c1
+}
+""",
+    )
+    assert read_mop(path).sites == []
+
+
+# ------------------------------------------------------------- the discriminator
+
+
+def test_a_helper_named_validate_is_not_a_predicate_read(tmp_path):
+    """`KeyPairGeneratorSpec` is the live case: a private `validate(int)`.
+
+    It is called from three conditions. Without the `Property.` anchor those
+    three calls become three predicate reads of an unnamed predicate, and the
+    closure gate then demands a producer for something that was never a
+    predicate.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(KeyPairGenerator kpg) {
+    private boolean validate(int keySize) { return keySize >= 2048; }
+
+    event init before(int keySize): call(public void KeyPairGenerator.initialize(int))
+      && args(keySize) && condition(validate(keySize)) { }
+    ere : init
+}
+""",
+    )
+    assert read_mop(path).sites == []
+
+
+def test_a_collection_remove_is_not_a_predicate_removal(tmp_path):
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(Cipher c) {
+    List<String> seen = new ArrayList<>();
+    event c1 after(String alg): call(public Cipher.new(String)) && args(alg) {
+        seen.remove(alg);
+    }
+    ere : c1
+}
+""",
+    )
+    assert read_mop(path).sites == []
+
+
+# ---------------------------------------------------------------- attribution
+
+
+def test_a_read_in_a_condition_and_a_write_in_a_body_are_told_apart(tmp_path):
+    """Placement is the invariant, so placement is what the reader must resolve.
+
+    `condition(...)` compiles to a boolean guard: a false read there suppresses
+    the transition and turns an unobserved predicate into a wrong ordering
+    accusation. The same call in the body accuses about what it actually saw.
+    Nothing but position distinguishes them in the source.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(Cipher c) {
+    event c1 after(byte[] iv) returning(Cipher c):
+      call(public Cipher.new(byte[])) && args(iv) &&
+      condition(ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) {
+        ExecutionContext.instance().setProperty(Property.PREPARED_IV, c);
+    }
+    ere : c1
+    @match {
+        ExecutionContext.instance().setObjectAsInAcceptingState(c);
+    }
+}
+""",
+    )
+    kinds = {(site.operation, site.site_kind, site.owner) for site in read_mop(path).sites}
+    assert kinds == {
+        ("read", "condition", "c1"),
+        ("write", "body", "c1"),
+        ("accepting-state", "@match", "match"),
+    }
+
+
+def test_an_alias_is_resolved_to_the_state_it_names(tmp_path):
+    """`alias match1 = init` renames a handler, and five specifications use it.
+
+    A handler reached through an alias is still a handler; a reader that did not
+    resolve the alias would attribute its sites to nothing at all.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(SecureRandom sr) {
+    event c1 after() returning(SecureRandom r): call(public SecureRandom.new()) { }
+    fsm : start [ c1 -> init ] init [ ]
+    alias match1 = init
+    @match1 {
+        ExecutionContext.instance().setProperty(Property.RANDOMIZED, sr);
+    }
+}
+""",
+    )
+    source = read_mop(path)
+    assert source.aliases == {"match1": "init"}
+    assert [(site.owner, site.site_kind) for site in source.sites] == [("match1", "@match1")]
+
+
+def test_the_declared_type_of_a_bound_symbol_is_recovered(tmp_path):
+    """The tracked-type rule needs the declared type, not the runtime one.
+
+    Only positions declared `String`, `int` or `Integer` are compared by value;
+    everything else is compared by identity. The distinction is decided here, in
+    the source, and an event parameter shadows a field of the same name exactly
+    as it would for the compiler.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(Cipher c) {
+    String transformation;
+    event c1 after(byte[] transformation, int len): call(public Cipher.new(byte[], int))
+      && args(transformation, len) {
+        ExecutionContext.instance().setProperty(Property.RANDOMIZED, transformation);
+    }
+    ere : c1
+}
+""",
+    )
+    source = read_mop(path)
+    assert source.fields["transformation"] == "String"
+    assert source.declared_type("c1", "transformation") == "byte[]"
+    assert source.declared_type("c1", "len") == "int"
+    assert source.declared_type("<spec-body>", "transformation") == "String"
+
+
+def test_arguments_are_split_on_top_level_commas_only(tmp_path):
+    """A splitter argument is one argument, however many commas it contains.
+
+    The oracle's `part(0,"/",transformation)` becomes a `split` call in Java, and
+    a naive comma split would read one argument as three -- reporting arity 4 for
+    a binary clause.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(Cipher c) {
+    event i2 before(Key key, String transformation):
+      call(public void Cipher.init(int, Key)) && args(key) {
+        PredicateStore.instance().validate(Property.GENERATED_KEY, key,
+            transformation.split("/")[0]);
+    }
+    ere : i2
+}
+""",
+    )
+    site = read_mop(path).sites[0]
+    assert site.operation == "read"
+    assert site.substrate == "PredicateStore"
+    assert site.arity == 2
+    assert site.arguments[0] == "key"
+    assert site.arguments[1].startswith("transformation.split(")
+
+
+def test_a_negated_read_in_a_condition_is_recorded_as_negated_in_the_source(tmp_path):
+    """The accusing twin of a guard is written `!validate(...)`.
+
+    That `!` is not the clause's polarity -- it is the branch that accuses -- and
+    the twin fusions of this change are found by pairing a guard with the negated
+    read that shares its pointcut. Losing the sign loses the pairing.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(IvParameterSpec s) {
+    event c3 after(byte[] iv) returning(IvParameterSpec s):
+      call(public IvParameterSpec.new(byte[])) && args(iv) &&
+      condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) { }
+    ere : c3
+}
+""",
+    )
+    assert read_mop(path).sites[0].source_negated is True
+
+
+# ----------------------------------------------------------- skip, never crash
+
+
+def test_an_unbalanced_file_is_reported_and_not_half_read(tmp_path):
+    """The frozen `jca/SecretKeySpecSpec.mop` carries a stray `)` after `c1`.
+
+    It is frozen, so it is not repaired. What matters is that a reader meeting it
+    says so instead of walking off the end of a region and attributing the rest of
+    the file to nothing -- the gates' skip-and-count contract has no way to
+    express a file that was read wrong, only one that was not read.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(SecretKeySpec s) {
+    event c1 after(byte[] km) returning(SecretKeySpec s):
+      call(public SecretKeySpec.new(byte[])) && args(km) &&
+      condition(ExecutionContext.instance().validate(Property.RANDOMIZED, km))
+    ) { }
+    ere : c1
+}
+""",
+    )
+    source = read_mop(path)
+    assert "unbalanced parenthesis" in source.parse_error
+    assert source.has_specification is False
+    assert source.sites == []
+
+
+def test_a_file_with_no_specification_block_reads_as_empty_rather_than_failing(tmp_path):
+    """17 files of `generic_new` declare events and nothing else.
+
+    They are not broken and they are not predicate-free by accident; they are a
+    different kind of file. Reading one must produce an empty source, so a gate
+    can skip it declaredly instead of crashing on it.
+    """
+    path = _write(tmp_path, "package mop;\n\nimport java.util.List;\n")
+    source = read_mop(path)
+    assert source.parse_error == ""
+    assert source.has_specification is False
+    assert source.sites == []
+
+
+# ------------------------------------------------------------------ the alphabet
+
+
+def test_an_fsm_alphabet_is_a_multiset_over_its_transitions(tmp_path):
+    """An event named once per state is not the same as an event named once.
+
+    The absorptions of this change add a benign self-loop at every state where a
+    call is legal, and the occurrence count is the only thing that distinguishes
+    that from a loop added at one state and forgotten at the rest.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(Cipher c) {
+    event g1 after(): call(public Cipher.new()) { }
+    event i1 after(): call(public void Cipher.init()) { }
+    event f1 after(): call(public void Cipher.doFinal()) { }
+    fsm :
+      start [ g1 -> s1 ]
+      s1 [ i1 -> s2  f1 -> s2 ]
+      s2 [ f1 -> s2 ]
+}
+""",
+    )
+    alphabet = read_mop(path).alphabet
+    assert alphabet.kind == "fsm"
+    assert alphabet.states == ("start", "s1", "s2")
+    assert alphabet.occurrences("f1") == 2
+    assert alphabet.occurrences("i1") == 1
+    assert alphabet.orphans == ()
+    assert alphabet.undeclared == ()
+
+
+def test_an_ere_alphabet_ignores_the_empty_word(tmp_path):
+    """`epsilon` is the one reserved identifier an `ere` uses.
+
+    `generic/ListIterator_Set.mop` names it inside an alternation. Reading it as
+    an event would report an undeclared symbol in a file that has none.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(List l) {
+    event add after(): call(public boolean List.add(Object)) { }
+    event next after(): call(public Object Iterator.next()) { }
+    ere : add* ((next)+ (add | epsilon))*
+}
+""",
+    )
+    alphabet = read_mop(path).alphabet
+    assert alphabet.kind == "ere"
+    assert alphabet.undeclared == ()
+    assert set(alphabet.referenced) == {"add", "next"}
+
+
+def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
+    """The census this change's first group is scoped against, re-derived.
+
+    An orphan accuser is an event that is woven and fires but that the automaton
+    never names: it reports a violation for a call the specification's own
+    ordering does not model. Seventeen of them sustain at most 56.1 % of the
+    published `InvalidSequenceOfMethodCalls` category -- a ceiling, not an
+    attribution -- which is why they are the first thing this change absorbs.
+
+    The list is asserted by name because the group has one task per file, and a
+    census that only counted would not say which file moved.
+    """
+    home = _rvsec_home()
+    root = home / "rvsec/rvsec-mop/src/main/resources/jca_android"
+
+    found: dict[str, tuple[str, ...]] = {}
+    for path in sorted(root.glob("*.mop")):
+        source = read_mop(path)
+        assert source.parse_error == "", f"{path.name}: {source.parse_error}"
+        if source.alphabet.orphans:
+            found[path.stem] = source.alphabet.orphans
+        assert source.alphabet.undeclared == (), f"{path.name} names an undeclared event"
+
+    assert found == {
+        "IvParameterSpec": ("c3", "c4"),
+        "KeyPairGeneratorSpec": ("initError",),
+        "PBEKeySpecSpec": ("f1", "f2", "err1", "err2", "err3"),
+        "PBEParameterSpecSpec": ("c3",),
+        "SSLContextSpec": ("unsafe_protocol",),
+        "SecretKeySpecSpec": ("c3", "c4"),
+        "SecureRandomSpec": ("c3", "g4", "setSeed3"),
+        "SignatureSpec": ("g3",),
+        "TrustManagerFactorySpec": ("g3",),
+    }
+    assert sum(len(events) for events in found.values()) == 17
+
+
+def test_the_frozen_gcm_specification_is_read_in_both_broken_directions():
+    """`GCMParameterSpecSpec` declares `c1` twice and its `ere` names `c2`.
+
+    Both defects are real, both are in a frozen set, and neither is repaired: they
+    are the standing negative fixture for the two directions of the orphan check.
+    A gate that could only see events declared-and-unused would report this file
+    as clean, which is the failure this fixture exists to make impossible.
+    """
+    home = _rvsec_home()
+    root = home / "rvsec/rvsec-mop/src/main/resources"
+
+    for frozen_set in ("jca", "jca_android_bug_predicate"):
+        source = read_mop(root / frozen_set / "GCMParameterSpecSpec.mop")
+        assert source.alphabet.duplicates == ("c1",), frozen_set
+        assert source.alphabet.undeclared == ("c2",), frozen_set
+
+
+def test_the_seventeen_event_only_files_declare_no_automaton_at_all():
+    """`generic_new` holds 17 files with events and no `fsm`/`ere`.
+
+    They are not broken. A gate that judged their events as orphans would report
+    27 findings in a set that has none, and a gate that silently passed them would
+    be green by vacuity. Both are wrong; the contract is to skip them and say so.
+    """
+    home = _rvsec_home()
+    root = home / "rvsec/rvsec-mop/src/main/resources/generic_new"
+
+    without = [path.name for path in sorted(root.glob("*.mop")) if not read_mop(path).alphabet.has_automaton]
+    assert len(without) == 17, without
+
+
+def test_a_creation_modifier_is_read_off_the_declaration(tmp_path):
+    """`creation event x` is a different declaration, and the difference is gated.
+
+    A junction specification whose *consumer* event is declared `creation` starts
+    a monitor at the consuming call, with the producer's mark never observed, and
+    accuses the conforming trace. The pilot measured exactly that, which is why
+    the modifier is read rather than skipped over.
+    """
+    path = _write(
+        tmp_path,
+        """
+FixtureSpec(Collection c) {
+    creation event enter before(Collection t): call(public boolean Collection.addAll(Collection))
+      && target(t) { }
+    event leave after(Collection t): call(public boolean Collection.addAll(Collection))
+      && target(t) { }
+    ere : (enter leave)*
+}
+""",
+    )
+    source = read_mop(path)
+    assert source.creation_events == {"enter"}
+    assert source.alphabet.undeclared == ()
+
+
+# ------------------------------------------------- the reader against the tree
+
+
+def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
+    """The counts this whole change is scoped against, re-derived from source.
+
+    27 reads, every one of them inside a `condition`; 49 writes; 25 accepting-state
+    calls; 9 removals. They are asserted here rather than trusted because every
+    later gate subtracts from them, and a census that drifts silently turns each
+    of those subtractions into a different number than the one that was planned.
+
+    The numbers move as the migration lands. When they do, this test is what says
+    which group moved them.
+    """
+    home = _rvsec_home()
+    specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
+    assert len(specs) >= 23
+
+    counts: dict[str, int] = {}
+    read_placement: dict[str, int] = {}
+    for path in specs:
+        source = read_mop(path)
+        assert source.parse_error == "", f"{path.name}: {source.parse_error}"
+        for site in source.sites:
+            counts[site.operation] = counts.get(site.operation, 0) + 1
+            if site.operation.startswith("read"):
+                read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
+
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 27
+    assert counts.get("write", 0) == 49
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 25
+    assert counts.get("remove", 0) + counts.get("negate", 0) == 9
+
+
+def test_the_predicate_free_sets_read_as_predicate_free():
+    """`generic` and `generic_new` are the genericity test bed, and they are empty.
+
+    145 files that call no predicate substrate at all. A reader that found a site
+    in one of them would be finding it in a file where the answer is known, which
+    is the cheapest possible way to catch a pattern that has started matching too
+    much.
+    """
+    home = _rvsec_home()
+    root = home / "rvsec/rvsec-mop/src/main/resources"
+    files = sorted(root.glob("generic/*.mop")) + sorted(root.glob("generic_new/*.mop"))
+    assert len(files) == 145
+
+    for path in files:
+        source = read_mop(path)
+        assert source.parse_error == "", f"{path.name}: {source.parse_error}"
+        assert source.sites == [], f"{path.name} names a predicate substrate"
+
+
+# ------------------------------------------------------------------- the graph
+
+
+GRAPH = REPO / "data/jca_android/predicate_graph.csv"
+
+
+def _specs_root() -> Path:
+    return _rvsec_home() / "rvsec/rvsec-mop/src/main/resources"
+
+
+def test_the_graph_carries_exactly_the_fifteen_contracted_columns():
+    """The column set is a contract, so it is asserted as a whole.
+
+    Adding a column silently is how a record stops being comparable with the one
+    committed beside it; removing one is how a gate starts reading an empty
+    string as a decision.
+    """
+    rows = read_graph(GRAPH)
+    assert rows, f"the predicate graph is missing or empty: {GRAPH}"
+    assert tuple(rows[0]) == COLUMNS
+
+
+def test_the_graph_round_trips_over_an_unedited_tree():
+    """Regenerating over an unchanged tree reproduces the committed file exactly.
+
+    Everything downstream diffs this file. A generator whose output depended on
+    dictionary order, file-system order or a timestamp would produce a diff on
+    every run, and a record that always differs from itself records nothing.
+    """
+    report = analyze_set(_specs_root() / "jca_android")
+    regenerated = carry_judgments(list(report.rows), read_graph(GRAPH))
+    committed = read_graph(GRAPH)
+
+    assert len(regenerated) == len(committed)
+    for fresh, stored in zip(regenerated, committed):
+        assert fresh == stored
+
+
+def test_the_graph_reproduces_the_measured_placement_census():
+    """The placement distribution this change is scoped against.
+
+    27 reads, every one of them a guard inside `condition(...)`; 42 of 49 writes
+    in event bodies rather than at the acceptance point; 8 of the 9 removals in a
+    `@fail` handler, implementing an undo that no CrySL generation has. These are
+    the four numbers the migration drives to 0, 0, 8 and 1, and they are asserted
+    here so that each group's progress is a diff on this test rather than a claim.
+    """
+    rows = read_graph(GRAPH)
+    counts: dict[str, int] = {}
+    for row in rows:
+        counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
+
+    assert counts.get("read:condition-guard", 0) == 27
+    assert counts.get("write:body", 0) == 42
+    assert counts.get("write:acceptance", 0) == 7
+    assert counts.get("remove:fail", 0) == 8
+    assert counts.get("remove:body", 0) == 1
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 25
+
+
+def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
+    """A site on an orphan event is a predicate read the ordering never reaches.
+
+    Eight of the seventeen orphans carry predicate sites, and those are the ones
+    whose fusion changes what the set accuses rather than only where it accuses
+    from. Marking membership in the graph is what lets the difference be counted.
+    """
+    rows = read_graph(GRAPH)
+    orphan_sites = {(row["file"], row["event"]) for row in rows if row["automaton_membership"] == "orphan"}
+    assert orphan_sites == {
+        ("IvParameterSpec.mop", "c3"),
+        ("IvParameterSpec.mop", "c4"),
+        ("PBEKeySpecSpec.mop", "err2"),
+        ("PBEKeySpecSpec.mop", "err3"),
+        ("PBEParameterSpecSpec.mop", "c3"),
+        ("SecretKeySpecSpec.mop", "c3"),
+        ("SecureRandomSpec.mop", "c3"),
+        ("SecureRandomSpec.mop", "setSeed3"),
+    }
+
+
+def test_judgment_columns_survive_a_regeneration():
+    """A decision written into the graph is not erased by re-reading the tree.
+
+    Which clause a site translates, which mechanism wired it, why a write sits
+    where it does -- none of that is recoverable from the source, and all of it is
+    what the wiring groups produce. A regeneration that dropped it would quietly
+    undo the work of the group that ran before it.
+    """
+    report = analyze_set(_specs_root() / "jca_android")
+    rows = list(report.rows)
+    assert rows
+
+    annotated = [dict(row) for row in rows]
+    annotated[0]["clause"] = "Cipher.cryptsl:180"
+    annotated[0]["mechanism"] = "B"
+    annotated[0]["disposition"] = "wired"
+    annotated[0]["reason"] = "pilot chain"
+    annotated[0]["guard"] = "alg in {AES}"
+
+    carried = carry_judgments([dict(row) for row in rows], annotated)
+    assert carried[0]["clause"] == "Cipher.cryptsl:180"
+    assert carried[0]["mechanism"] == "B"
+    assert carried[0]["disposition"] == "wired"
+    assert carried[0]["reason"] == "pilot chain"
+    assert carried[0]["guard"] == "alg in {AES}"
+    assert carried[1]["clause"] == ""
+
+
+def test_a_predicate_free_set_produces_zero_rows_and_that_is_green():
+    """Genericity, stated as the case that is easiest to get wrong.
+
+    `generic` and `generic_new` call no predicate substrate at all. The correct
+    content of the graph over them is nothing -- not an error, not a skip, and not
+    a pass that was never computed. A gate that cannot say "zero rows, read in
+    full" about them is not generic; it is specialised to the set it was written
+    against.
+    """
+    for name in ("generic", "generic_new"):
+        report = analyze_set(_specs_root() / name)
+        assert report.rows == [], name
+        assert report.read == report.total, f"{name}: {report.skipped}"
+
+
+def test_every_file_is_either_read_or_skipped_with_a_reason():
+    """The skip-and-count contract: the three numbers always add up.
+
+    Green by vacuity and red by absence are the two ways a gate over a
+    heterogeneous universe lies. The defence is arithmetic -- read plus skipped
+    equals the files that exist -- plus a reason for every skip, so a growing skip
+    list is visible instead of comfortable.
+    """
+    root = _specs_root()
+    universe = 0
+    for name in ("jca", "jca_android", "jca_android_bug_predicate", "generic", "generic_new"):
+        report = analyze_set(root / name)
+        existing = len(list((root / name).glob("*.mop")))
+        assert report.total == existing, name
+        universe += existing
+        for skipped_file, reason in report.skipped:
+            assert reason, f"{name}/{skipped_file} was skipped without a reason"
+
+    # Enumerated, never asserted as a literal: this change adds junction
+    # specifications, and the universe is meant to grow.
+    assert universe == len(list(root.glob("*/*.mop")))
+
+
+def test_the_frozen_unbalanced_specification_is_skipped_with_its_reason():
+    """`jca/SecretKeySpecSpec.mop` cannot be walked, and says so.
+
+    It carries a stray `)` after its `c1` condition. It is frozen, so it stays
+    broken; what must not happen is a gate reading two thirds of it and reporting
+    the result as a verdict over the set.
+    """
+    report = analyze_set(_specs_root() / "jca")
+    skipped = dict(report.skipped)
+    assert "SecretKeySpecSpec.mop" in skipped
+    assert "unbalanced parenthesis" in skipped["SecretKeySpecSpec.mop"]
