@@ -81,4 +81,27 @@ public class ErrorCollectorTest {
 
 		assertEquals(7, line.split(",").length);
 	}
+
+	@Test
+	public void buildLineReproducesTheRecordedFixtureLineByteForByte() {
+		// The Python side of gh104 checks the transport chain against a recorded transcript of
+		// this method, `rv-android/data/gh104/evidence/collector_lines.logcat`. A transcript can
+		// go stale silently — the fixture would keep passing while the collector had moved on,
+		// and the end-to-end test would then be measuring a format nothing emits any more. This
+		// test is the other half of that pin: the two enveloped lines of the transcript are
+		// asserted here verbatim, so a change to the line text fails in the module that owns it.
+		String site = "com.example.vault.Hash.digest(Hash.java:40)";
+		String prefix = "MessageDigestSpec,com.example.vault.Hash,Hash,digest,Hash.java:40,"
+				+ "InvalidSequenceOfMethodCalls,";
+		String envelope = "v=1 code=MESSAGEDIGEST-ORDER-00 ev=%s obj=MessageDigest val='' exp='' "
+				+ "msg='the observed call sequence is not one MessageDigestSpec accepts'";
+
+		for (String event : new String[] {"update", "reset"}) {
+			String expecting = String.format(envelope, event);
+			ErrorDescription err = new ErrorDescription(
+					ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", site, expecting);
+
+			assertEquals(prefix + expecting, collector.buildLine(err));
+		}
+	}
 }

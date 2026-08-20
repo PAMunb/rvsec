@@ -176,21 +176,100 @@ public class ErrorDescriptionTest {
 		assertFalse(at83.getLocation().equals(at84.getLocation()));
 	}
 
+	private static final String LOCATION = "okio.ByteString.digest$okio(ByteString.kt:83)";
+
+	private static String envelope(String code, String event, String message) {
+		return "v=1 code=" + code + " ev=" + event + " obj=MessageDigest val='MD5' exp='SHA-256' msg='"
+				+ message + "'";
+	}
+
 	@Test
 	public void hashCodeMatchesEquals() {
-		// equals() delegates to the summary and ignores `expecting`; hashCode() must agree, or
-		// two equal descriptions can land in different buckets and both survive an in-JVM dedup.
-		String location = "okio.ByteString.digest$okio(ByteString.kt:83)";
-		ErrorDescription a = new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", location, "SHA-256");
-		ErrorDescription b = new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", location, "SHA-512");
+		// The identity is seven fields — spec, error, class, method, location, code, event — and
+		// the message free text is not one of them. Two envelopes that agree on the two identity
+		// keys and disagree only in their `msg` tail are therefore one record, and hashCode() must
+		// agree with that or both land in different buckets and survive an in-JVM dedup.
+		ErrorDescription a = new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", LOCATION,
+				envelope("MESSAGEDIGEST-ALG-00", "update", "MD5 is not admitted"));
+		ErrorDescription b = new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", LOCATION,
+				envelope("MESSAGEDIGEST-ALG-00", "update", "expected one of the admitted digests"));
 
-		assertTrue("descriptions differing only in `expecting` are equal", a.equals(b));
+		assertEquals("MESSAGEDIGEST-ALG-00", a.getErrorSummary().getCode());
+		assertEquals("update", a.getErrorSummary().getEvent());
+		assertTrue("descriptions differing only in the message free text are equal", a.equals(b));
 		assertEquals("equal descriptions must hash equally", a.hashCode(), b.hashCode());
 
 		Set<ErrorDescription> deduped = new HashSet<>();
 		deduped.add(a);
 		deduped.add(b);
 		assertEquals(1, deduped.size());
+	}
+
+	@Test
+	public void twoEventsAtOneLocationAreTwoRecords() {
+		// The reason `event` is in the identity at all. Both reports name the same specification,
+		// the same error kind and the same call site, and under the five-field identity that
+		// preceded this one they were a single record whose surviving cause was arrival order.
+		ErrorDescription viaUpdate = new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls,
+				"MessageDigestSpec", LOCATION, envelope("MESSAGEDIGEST-ORDER-00", "update", "out of order"));
+		ErrorDescription viaReset = new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls,
+				"MessageDigestSpec", LOCATION, envelope("MESSAGEDIGEST-ORDER-00", "reset", "out of order"));
+
+		assertEquals("the failure code alone does not separate them",
+				viaUpdate.getErrorSummary().getCode(), viaReset.getErrorSummary().getCode());
+		assertFalse("two events at one location are two records", viaUpdate.equals(viaReset));
+
+		Set<ErrorDescription> deduped = new HashSet<>();
+		deduped.add(viaUpdate);
+		deduped.add(viaReset);
+		assertEquals(2, deduped.size());
+	}
+
+	@Test
+	public void aMessageWithoutAnEnvelopeYieldsTheSentinelTwice() {
+		// Every record of a specification set that emits no envelope — the frozen `jca` set, and
+		// every record persisted before this change — keeps a readable identity rather than a null
+		// one, and two of them still deduplicate exactly as their records allow.
+		ErrorDescription a = new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", LOCATION,
+				"expecting one of {SHA-256, SHA-512} but found MD5.");
+		ErrorDescription b = new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", LOCATION,
+				"expecting one of {SHA-256, SHA-512} but found SHA-1.");
+
+		assertEquals("UNSPECIFIED", a.getErrorSummary().getCode());
+		assertEquals("UNSPECIFIED", a.getErrorSummary().getEvent());
+		assertTrue(a.equals(b));
+		assertEquals(a.hashCode(), b.hashCode());
+	}
+
+	@Test
+	public void theKeysAreReadFromTheEnvelopeAndNotFromTheFreeText() {
+		// Absence of the `v=1` marker is what decides, not presence of the characters. A
+		// pre-envelope sentence that happens to quote `ev=` must still yield the sentinel, or the
+		// five-part and seven-part eras stop being distinguishable in the record.
+		ErrorDescription prose = new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", LOCATION,
+				"the handler wrote ev=update and code=MESSAGEDIGEST-ALG-00 into the log");
+
+		assertEquals("UNSPECIFIED", prose.getErrorSummary().getCode());
+		assertEquals("UNSPECIFIED", prose.getErrorSummary().getEvent());
+
+		// And inside a real envelope, the free-text tail must not supply either key: the grammar
+		// puts both immediately after the marker, so the first match is always the record's own.
+		ErrorDescription tail = new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", LOCATION,
+				envelope("MESSAGEDIGEST-ALG-00", "update", "not the value of ev=g4 nor code=WRONG-99"));
+
+		assertEquals("MESSAGEDIGEST-ALG-00", tail.getErrorSummary().getCode());
+		assertEquals("update", tail.getErrorSummary().getEvent());
+	}
+
+	@Test
+	public void theReportedLineStillCarriesSixSummaryFields() {
+		// `code` and `event` enter the identity and not the line: they are already on it, inside
+		// the envelope the collector appends as the seventh field. Widening the positional record
+		// would break every downstream parser that splits it by count, for nothing gained.
+		ErrorSummary summary = new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", LOCATION,
+				envelope("MESSAGEDIGEST-ALG-00", "update", "MD5 is not admitted")).getErrorSummary();
+
+		assertEquals(6, summary.toString().split(",").length);
 	}
 
 	@Test

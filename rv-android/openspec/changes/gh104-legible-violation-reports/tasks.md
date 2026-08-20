@@ -244,10 +244,10 @@ Every diagnosis below was re-confirmed on 2026-08-18 against the api30 rule, `ja
 
 ## 9. E6 — Identity (`tasks/E6-identity.md`) — after Groups 1 (the frozen 11-column reader of `scripts/gh104_baseline.py`), 5 and 7, with the harness output of 6.9 as the deciding corpus
 
-- [ ] 9.1 `scripts/gh104_identity_discontinuity.py`: recompute comp162 identities with `event` (from the envelope where present; sentinel otherwise) next to the 6,344 distinct 8-tuples `(apk, rep, tool, spec, class, method, source, message)`; record both in `data/gh104/identity_discontinuity.md`; comp162 predates E1 so its delta is zero by construction — the deciding corpus is the harness output of Group 6 (task 6.9, which exists before this group runs); task 10.4's device logcat reconfirms it afterwards and 10.5 records it; if the delta is zero on a corpus that does carry `ev=`, stop and re-open design D-5
-- [ ] 9.2 `rvsec-core` `ErrorSummary.equals/hashCode` += `code`, `event`; `ErrorDescription` carries them; `ErrorDescriptionTest.hashCodeMatchesEquals` rewritten for seven fields; logcat collector emits them in the envelope (already) — no line-format change
-- [ ] 9.3 Confirm `errors.csv` `code`/`event` columns and `unique_msg` parts (Group 5) are fed from the collector line end to end with a recorded logcat fixture; declare the era in `data/gh104/identity_discontinuity.md`
-- [ ] 9.4 Rebuild `lib/` jars; run `/rv-test-run modules/rv-coverage` and `/rv-test-run modules/aperv-tool`
+- [x] 9.1 `scripts/gh104_identity_discontinuity.py`: recompute comp162 identities with `event` (from the envelope where present; sentinel otherwise) next to the 6,344 distinct 8-tuples `(apk, rep, tool, spec, class, method, source, message)`; record both in `data/gh104/identity_discontinuity.md`; comp162 predates E1 so its delta is zero by construction — the deciding corpus is the harness output of Group 6 (task 6.9, which exists before this group runs); task 10.4's device logcat reconfirms it afterwards and 10.5 records it; if the delta is zero on a corpus that does carry `ev=`, stop and re-open design D-5
+- [x] 9.2 `rvsec-core` `ErrorSummary.equals/hashCode` += `code`, `event`; `ErrorDescription` carries them; `ErrorDescriptionTest.hashCodeMatchesEquals` rewritten for seven fields; logcat collector emits them in the envelope (already) — no line-format change
+- [x] 9.3 Confirm `errors.csv` `code`/`event` columns and `unique_msg` parts (Group 5) are fed from the collector line end to end with a recorded logcat fixture; declare the era in `data/gh104/identity_discontinuity.md`
+- [x] 9.4 Rebuild `lib/` jars; run `/rv-test-run modules/rv-coverage` and `/rv-test-run modules/aperv-tool`
 
 ## 10. Integration and verification (`tasks/E10-integration.md`)
 

@@ -1,0 +1,4 @@
+--------- beginning of main
+06-23 11:00:00.000  3001  3001 I RVSEC: MessageDigestSpec,com.example.vault.Hash,Hash,digest,Hash.java:40,InvalidSequenceOfMethodCalls,v=1 code=MESSAGEDIGEST-ORDER-00 ev=update obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'
+06-23 11:00:01.000  3001  3001 I RVSEC: MessageDigestSpec,com.example.vault.Hash,Hash,digest,Hash.java:40,InvalidSequenceOfMethodCalls,v=1 code=MESSAGEDIGEST-ORDER-00 ev=reset obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'
+06-23 11:00:02.000  3001  3001 I RVSEC: MessageDigestSpec,com.example.vault.Hash,Hash,digest,Hash.java:40,InvalidSequenceOfMethodCalls,expecting one of {SHA-256, SHA-384, SHA-512} but found MD5.

@@ -25,6 +25,45 @@ public class ErrorDescription implements Serializable {
 	 */
 	static final Pattern FRAME_SUFFIX = Pattern.compile("\\(([^()]+:\\d+)\\)$");
 
+	/**
+	 * What a report carries for {@code code} and {@code event} when its message has no envelope.
+	 *
+	 * <p>
+	 * A sentinel and not {@code null}, and not the empty string either. Both new fields are part
+	 * of the identity, so their absence has to be a value a reader can see and a
+	 * {@code HashSet} can compare: every record of a specification set that emits no envelope
+	 * then shares one readable identity, distinguishable at a glance from a record whose event
+	 * was actually named.
+	 */
+	static final String UNSPECIFIED = "UNSPECIFIED";
+
+	/**
+	 * The marker that opens the v1 message envelope.
+	 *
+	 * <p>
+	 * Presence of this marker — not presence of the keys — is what decides whether a message is
+	 * an envelope. A pre-envelope sentence that happened to contain the characters {@code ev=}
+	 * must yield the sentinel, or the two identity eras would not be distinguishable in the
+	 * record, which is the one thing a declared discontinuity has to keep true.
+	 */
+	private static final String ENVELOPE_MARKER = "v=1 ";
+
+	/**
+	 * The two identity keys of the envelope, matched on a whitespace boundary and running to the
+	 * next space.
+	 *
+	 * <p>
+	 * The boundary is what keeps the free-text {@code msg='...'} tail from supplying a value: the
+	 * grammar puts {@code code} and {@code ev} second and third, immediately after the marker, so
+	 * the first match is always the record's own. The Python reader that measured the identity
+	 * discontinuity applies the same two rules to the same field
+	 * ({@code rv-android/scripts/gh104_identity_discontinuity.py}); one grammar read two ways
+	 * drifts unless both readers are written from it.
+	 */
+	private static final Pattern ENVELOPE_CODE = Pattern.compile("(?:^|\\s)code=(\\S+)");
+
+	private static final Pattern ENVELOPE_EVENT = Pattern.compile("(?:^|\\s)ev=(\\S+)");
+
 	private ErrorType type;
 	private String spec;
 	private String location;
@@ -102,7 +141,25 @@ public class ErrorDescription implements Serializable {
 			}
 		}
 
-		return new ErrorSummary(spec, type, clazz, method, loc);
+		return new ErrorSummary(spec, type, clazz, method, loc, envelopeValue(ENVELOPE_CODE),
+				envelopeValue(ENVELOPE_EVENT));
+	}
+
+	/**
+	 * Reads one identity key out of the message envelope, or returns {@link #UNSPECIFIED}.
+	 *
+	 * <p>
+	 * The value is taken from {@code expecting} rather than passed in beside it because that is
+	 * where the monitor already puts it: the specification writes one envelope, the collector
+	 * appends it to the line whole, and every consumer downstream reads the same characters. A
+	 * second channel for the same two values would be a second thing to keep in agreement.
+	 */
+	private String envelopeValue(Pattern key) {
+		if (expecting == null || !expecting.contains(ENVELOPE_MARKER)) {
+			return UNSPECIFIED;
+		}
+		Matcher matcher = key.matcher(expecting);
+		return matcher.find() ? matcher.group(1) : UNSPECIFIED;
 	}
 
 	@Override
@@ -129,9 +186,13 @@ public class ErrorDescription implements Serializable {
 	 * the summary alone needs no such argument.
 	 *
 	 * <p>
-	 * One consequence is worth knowing where dedup happens: {@code expecting} is not part of the
-	 * identity, so two reports of the same violation that differ only in the expected value are
-	 * one record, and which of the two survives an in-JVM {@code HashSet} is arrival order.
+	 * One consequence is worth knowing where dedup happens: the <em>free text</em> of
+	 * {@code expecting} is not part of the identity, so two reports that differ only in the
+	 * expected value are one record and which of them survives an in-JVM {@code HashSet} is
+	 * arrival order. What is <em>not</em> outside the identity any more is the {@code code=} and
+	 * {@code ev=} pair the same field carries when the message is an envelope: those two are
+	 * read out of it and enter the summary, so two reports that name different events are two
+	 * records even at one location.
 	 */
 	@Override
 	public int hashCode() {
