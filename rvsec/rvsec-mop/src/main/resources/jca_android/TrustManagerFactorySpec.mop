@@ -20,6 +20,17 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
  * https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/TrustManagerFactory.crysl
  */
 TrustManagerFactorySpec(TrustManagerFactory mf) {
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
 
     List<String> algorithms = Arrays.asList("PKIX");
     String currentAlgorithmInstance = "";
@@ -55,7 +66,7 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
        ) && target(mf) {
         if (!ConscryptAliasTable.matches("TrustManagerFactory", currentAlgorithmInstance, algorithms)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "TrustManagerFactorySpec", "" + __LOC,
-              "expecting one of " + String.join(",", algorithms) + " but found " + currentAlgorithmInstance + "."));
+                "v=1 code=TRUSTMANAGERFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + mf.getAlgorithm() + "'"));
         }
        ExecutionContext.instance().setProperty(Property.GENERATED_TRUST_MANAGER, trustManagerFactory);
     }
@@ -83,7 +94,8 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     alias match1 = final
 
     @fail {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC));
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC,
+            "v=1 code=TRUSTMANAGERFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='' exp='' msg='the observed call sequence is not one TrustManagerFactorySpec accepts'"));
         ExecutionContext.instance().unsetObjectAsInAcceptingState(trustManagerFactory);
         ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGER);
         ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGERS);

@@ -9,6 +9,17 @@ import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 MacSpec(Mac m) {
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
 
         List<String> safeAlgorithms = Arrays.asList("PBEwithHmacSHA256", "PBEwithHmacSHA1", "HmacSHA224",
            "HmacSHA256", "HmacMD5", "HmacSHA512", "PBEwithHmacSHA512", "HmacSHA384", "PBEwithHmacSHA384",
@@ -47,7 +58,7 @@ MacSpec(Mac m) {
           condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key)) {
             if (!ConscryptAliasTable.matches("Mac", currentAlgorithmInstance, safeAlgorithms)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
-                 " expecting one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+                    "v=1 code=MAC-ALG-00 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
             }
 
         }
@@ -59,7 +70,7 @@ MacSpec(Mac m) {
           condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key))  {
             if (!ConscryptAliasTable.matches("Mac", currentAlgorithmInstance, safeAlgorithms)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
-        "one of " + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+                    "v=1 code=MAC-ALG-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
         }
         }
 
@@ -83,7 +94,8 @@ MacSpec(Mac m) {
         ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f2) | (update* (f1 | f2)))
 
         @fail {
-            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC));
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
+                "v=1 code=MAC-ORDER-00 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'"));
             ExecutionContext.instance().remove(Property.GENERATED_MAC);
             __RESET;
         }

@@ -21,13 +21,15 @@ PBEKeySpecSpec(PBEKeySpec s) {
         event f1 after(char[] password):
           call (public PBEKeySpec.new(char[])) &&
           args(password) {
-            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec",  "" + __LOC));
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,
+                "v=1 code=PBEKEYSPEC-FORB-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[]) is forbidden by api30 PBEKeySpec.cryptsl'"));
         }
 
         event f2 after(char[] password, byte[] salt, int keyLength):
           call (public PBEKeySpec.new(char[], byte[], int)) &&
           args(password, salt, keyLength) {
-            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec",  "" + __LOC));
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,
+                "v=1 code=PBEKEYSPEC-FORB-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[], byte[], int) is forbidden by api30 PBEKeySpec.cryptsl'"));
         }
 
         event c1 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
@@ -46,24 +48,24 @@ PBEKeySpecSpec(PBEKeySpec s) {
            call(public PBEKeySpec.new(char[], byte[], int, int)) &&
            args(password, salt, iterationCount, keyLength) &&
            condition( iterationCount < 10000 ) {
-               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec",
-                  ""  + __LOC, "third argument should be >= 1000"));
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", ""  + __LOC,
+                   "v=1 code=PBEKEYSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='" + iterationCount + "' exp='>= 10000' msg='the third argument should be >= 10000'"));
          }
 
         event err2 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
           call(public PBEKeySpec.new(char[], byte[], int, int)) &&
           args(password, salt, iterationCount, keyLength) &&
           condition( ! ExecutionContext.instance().validate(Property.RANDOMIZED, password) ) {
-             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec",
-                  "" + __LOC, "first argument should have been randomized" ));
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
+                 "v=1 code=PBEKEYSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'"));
         }
 
         event err3 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
           call(public PBEKeySpec.new(char[], byte[], int, int)) &&
           args(password, salt, iterationCount, keyLength) &&
           condition( ! ExecutionContext.instance().validate(Property.RANDOMIZED, salt) ) {
-            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec",
-                 "" + __LOC, "second argument should have been randomized"));
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
+                "v=1 code=PBEKEYSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument was not observed to come from a randomized source'"));
         }
 
         event c2 after(PBEKeySpec s):
@@ -75,8 +77,8 @@ PBEKeySpecSpec(PBEKeySpec s) {
         ere : c1 c2
 
         @fail {
-          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec",
-               "" + __LOC));
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec", "" + __LOC,
+              "v=1 code=PBEKEYSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='' msg='the observed call sequence is not one PBEKeySpecSpec accepts'"));
           __RESET;
         }
 

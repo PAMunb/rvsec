@@ -1,0 +1,6 @@
+# guard-on-field: generateKey() reads `currentAlgorithmInstance` on a generator
+# whose getInstance the monitor never saw, so the guard tests the empty string
+# while the object itself carries AES
+bind kg = KeyGenerator.getInstance("AES")
+kg.init(256)
+kg.generateKey() -> key

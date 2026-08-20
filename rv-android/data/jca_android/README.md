@@ -212,12 +212,56 @@ reports and 6.1 % of the 97,018-row corpus. `Signature`: the same rule accepts `
 therefore means "value outside the api30 allow-list of the platform", not "cryptographically
 insecure"; the name is kept for continuity with `jca` and the meaning shift is declared.
 
+## Site census after Group 2
+
+Counted from the files with `scripts/gh104_mop_lint.py`'s own site parser, on the set as Group 2
+left it (tasks 2.2–2.8 and 2.14), before Group 7 edited a single message:
+
+| | three-argument | four-argument | commented | live total |
+|---|---|---|---|---|
+| frozen `jca` (the seed) | 25 | 25 | 1 | **50** |
+| `jca_android` after Group 2 | 25 | 25 | 1 | **50** |
+
+**The census is the seed's, unchanged, and there is no difference to explain.** That follows from
+D-11: the successor keeps every event the seed declares, predicates included, and the allow-list
+re-transcription of task 2.4 changed which *values* a condition admits without deleting a report
+site. The one site that could have been lost is `SecretKeySpecSpec.c3`, whose condition had an
+allow-list half and a predicate half; `generated/api30/SecretKeySpec.cryptsl` declares
+`length(keyMaterial) >= off + len` and nothing about the algorithm, so the algorithm half left and
+the randomisation predicate — and with it the accusation and its report site — stayed.
+
+The five purely predicate-guarded accusers are likewise all alive: `IvParameterSpec` c3/c4,
+`PBEKeySpecSpec` err2/err3 and `SecureRandomSpec` setSeed3. An earlier revision of this change
+predicted 44 or 45 live sites by subtracting exactly those six; the prediction died with the
+removal it assumed.
+
+The 51st `new ErrorDescription(` of the set is the commented `g4` report of `MessageDigestSpec`
+(`:58`). It is counted apart because it emits nothing, and it **stays commented** through Group 7 —
+un-commenting it revives an `UnsafeAlgorithm` on every `getInstance(String)` outside the list, which
+is an accusation added, measured by the harness under Group 8 task 8.14.
+
+The 25 three-argument sites are the 21 `@fail`/`@match1` handlers plus `IvParameterSpec` c3/c4 and
+`PBEKeySpecSpec`'s two `FORBIDDEN` sites; the 25 four-argument sites are the value accusers. Group 7
+gives all 50 an envelope, so after it the three-argument count is zero and the codes.csv row count is
+50.
+
+### `codes.csv`, the set's failure codes
+
+The set's report sites carry a failure code from Group 7 on, and `codes.csv` (inside the
+specification directory, not here) is the table of them: one row per live site, header
+`spec,code,error_type,site_kind,event,file_line`. A code is `<SPEC>-<KIND>-<NN>`, where `<SPEC>` is
+the specification's name without its `Spec` suffix in upper case (`MESSAGEDIGEST`,
+`TRUSTMANAGERFACTORY`, `PBEKEYSPEC`) — derived mechanically, so no abbreviation table exists for two
+readers to disagree over — and `<KIND>` is the clause family the `ErrorType` implies: `ORDER`,
+`ALG`, `CONSTR`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`. The table is bijective with the census above:
+50 rows, 50 live sites, and the message gate fails on either half of that going wrong.
+
 ## Records in this directory
 
 | file | what it records |
 |---|---|
-| `divergence_record.csv` | one entry per hunk of the successor set against the frozen `jca` seed, plus the two registered exceptions to literal transcription (`EC`, the four `SHA*withECDSA`). |
-| `conformance_record.csv` | one row per specification against its api30 rule: transcription verdicts, deferred constants, declared costs, and the divergences measured but not repaired. |
+| `divergence_record.csv` | one entry per hunk of the successor set against the frozen `jca` seed, plus the two registered exceptions to literal transcription (`EC`, the four `SHA*withECDSA`). Group 7 added the kind `message`: a report site rewritten as a `v=1` envelope. |
+| `conformance_record.csv` | one row per specification against its api30 rule: transcription verdicts, deferred constants, declared costs, and the divergences measured but not repaired — including the nine `guard-on-field` rows Group 7 declares and Group 8 task 8.16 repairs. |
 | `alias_table.csv` | the Conscrypt `android11-release` alias table (158 rows), carried as code by `ConscryptAliasTable`. |
 | `constraint_table.csv` | one row per api30 `CONSTRAINTS` clause of the 21 paired rules plus one per `.mop` value test with no clause behind it. |
 | `gate_allowlist.csv` | the remaining gate hits with a reason and the task that owns each. |

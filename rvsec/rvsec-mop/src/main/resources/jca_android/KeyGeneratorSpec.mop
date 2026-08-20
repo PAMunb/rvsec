@@ -19,6 +19,17 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
  * https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyGenerator.crysl
  */
 KeyGeneratorSpec(KeyGenerator k) {
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
 
     List<String> safeAlgorithms = Arrays.asList("ChaCha20", "ARC4", "HmacSHA224", "DESede", "HmacSHA256",
         "HmacMD5", "HmacSHA1", "HmacSHA512", "AES", "BLOWFISH", "HmacSHA384");
@@ -63,7 +74,7 @@ KeyGeneratorSpec(KeyGenerator k) {
       && target(k) {
         if (!ConscryptAliasTable.matches("KeyGenerator", currentAlgorithmInstance, safeAlgorithms)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyGeneratorSpec", "" + __LOC,
-        "expecting one of" + String.join(",", safeAlgorithms) + " but found " + currentAlgorithmInstance + "."));
+                "v=1 code=KEYGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
         }
         generatedKey = key;
         ExecutionContext.instance().setProperty(Property.GENERATED_KEY, generatedKey);
@@ -72,7 +83,8 @@ KeyGeneratorSpec(KeyGenerator k) {
     ere : (g3* g1+ | g3* g2+) ((init gk1) | gk1)
 
     @fail {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC));
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,
+            "v=1 code=KEYGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'"));
         ExecutionContext.instance().unsetObjectAsInAcceptingState(keyGenerator);
         ExecutionContext.instance().remove(Property.GENERATED_KEY, generatedKey);
 

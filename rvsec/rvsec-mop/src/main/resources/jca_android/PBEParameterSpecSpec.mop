@@ -46,14 +46,15 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
             iterationCount < 10000 ||
             !(ExecutionContext.instance().validate(Property.RANDOMIZED, salt))
           ) {
-             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "PBEParameterSpecSpec", "" + __LOC,
-                    "expecting at least 1000 iterations and a randomized salt."));
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC,
+                 "v=1 code=PBEPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='" + iterationCount + "' exp='>= 10000 iterations and a randomized salt' msg='expecting at least 10000 iterations and a randomized salt'"));
         }
 
         ere : c1 | c2
 
         @fail {
-          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpecSpec", "" + __LOC));
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpecSpec", "" + __LOC,
+              "v=1 code=PBEPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='' msg='the observed call sequence is not one PBEParameterSpecSpec accepts'"));
           __RESET;
         }
 

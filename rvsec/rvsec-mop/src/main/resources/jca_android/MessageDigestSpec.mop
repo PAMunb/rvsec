@@ -13,6 +13,17 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 // the correct usage of the MessageDigest
 // class (from the JCA specification).
 MessageDigestSpec(MessageDigest digest) {
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
 
     List<String> algorithms = Arrays.asList("MD5", "SHA-224", "SHA-256", "SHA-1", "SHA-512", "SHA-384");
     MessageDigest md = null;
@@ -68,7 +79,8 @@ MessageDigestSpec(MessageDigest digest) {
 	  target(digest) {
 		if (!ConscryptAliasTable.matches("MessageDigest", currentAlgorithmInstance, algorithms)) {
 			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
-		__LOC,"expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
+		__LOC,
+       "v=1 code=MESSAGEDIGEST-ALG-00 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(digest.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + digest.getAlgorithm() + "'"));
 		}
 	  }
 
@@ -90,7 +102,8 @@ MessageDigestSpec(MessageDigest digest) {
      target(digest) {
 		if (!ConscryptAliasTable.matches("MessageDigest", currentAlgorithmInstance, algorithms)) {
 			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
-		     __LOC, "expecting one of {SHA-256, SHA-384, SHA-512} but found " + currentAlgorithmInstance + "."));
+		     __LOC,
+       "v=1 code=MESSAGEDIGEST-ALG-01 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(digest.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + digest.getAlgorithm() + "'"));
 		}
     	ExecutionContext.instance().setProperty(Property.DIGESTED, out);
     }
@@ -109,7 +122,8 @@ MessageDigestSpec(MessageDigest digest) {
 	ere : (g4* g1 | g4* g2 | g4* g3) (d2 | (update+ (d1 | d2 | d3)))+
 
 	@fail {
-           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec",  "" + __LOC));
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC,
+               "v=1 code=MESSAGEDIGEST-ORDER-00 ev=" + __EVENTNAME + " obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'"));
            ExecutionContext.instance().unsetObjectAsInAcceptingState(md);
            __RESET;
 	}

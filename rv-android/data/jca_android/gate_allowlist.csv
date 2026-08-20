@@ -1,1 +1,2 @@
 set,gate,spec,event_or_state,reason,task
+jca_android,G-ERE,GCMParameterSpecSpec,c2,"the ere `c1 | c2` names a c2 the file never declares (both events are declared c1); until 8.1",7.6

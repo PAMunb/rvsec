@@ -41,7 +41,8 @@ KeyPairSpec(KeyPair keyPair) {
     ere: c1 (gpu | gpr)*
 
     @fail {
-       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairSpec", "" + __LOC));
+       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairSpec", "" + __LOC,
+           "v=1 code=KEYPAIR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='' msg='the observed call sequence is not one KeyPairSpec accepts'"));
        __RESET;
     }
 

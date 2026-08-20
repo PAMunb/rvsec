@@ -28,7 +28,8 @@ DHGenParameterSpecSpec(DHGenParameterSpec s) {
    ere : c1
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHGenParameterSpecSpec", "" + __LOC));
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHGenParameterSpecSpec", "" + __LOC,
+          "v=1 code=DHGENPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=DHGenParameterSpec val='' exp='' msg='the observed call sequence is not one DHGenParameterSpecSpec accepts'"));
       __RESET;
    }
 

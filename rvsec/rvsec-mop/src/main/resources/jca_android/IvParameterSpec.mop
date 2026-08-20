@@ -45,20 +45,23 @@ IvParameterSpecSpec(IvParameterSpec s) {
        condition(
          !ExecutionContext.instance().validate(Property.RANDOMIZED, iv)
        ) {
-       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC));
+       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
+           "v=1 code=IVPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[]) was not observed to come from a randomized source'"));
     }
 
     event c4 after(byte[] iv, int offset, int len) returning(IvParameterSpec s):
        call(public IvParameterSpec.new(byte[], int, int)) &&
        args(iv, offset, len) &&
        condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) {
-           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC));
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
+               "v=1 code=IVPARAMETERSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[], int, int) was not observed to come from a randomized source'"));
        }
 
     ere : c1 | c2
 
     @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "IvParameterSpecSpec", "" + __LOC));
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "IvParameterSpecSpec", "" + __LOC,
+          "v=1 code=IVPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='' msg='the observed call sequence is not one IvParameterSpecSpec accepts'"));
       __RESET;
     }
 

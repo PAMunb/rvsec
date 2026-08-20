@@ -23,7 +23,8 @@ CipherInputStreamSpec() {
     ere : c1 (r1 | r2)+ cl1
 
     @fail {
-       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherInputStreamSpec", "" + __LOC));
+       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherInputStreamSpec", "" + __LOC,
+           "v=1 code=CIPHERINPUTSTREAM-ORDER-00 ev=" + __EVENTNAME + " obj=CipherInputStream val='' exp='' msg='the observed call sequence is not one CipherInputStreamSpec accepts'"));
        __RESET;
     }
 }

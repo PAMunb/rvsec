@@ -48,7 +48,8 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    ere : c1 | c2
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "GCMParameterSpecSpec", "" + __LOC));
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "GCMParameterSpecSpec", "" + __LOC,
+          "v=1 code=GCMPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='' msg='the observed call sequence is not one GCMParameterSpecSpec accepts'"));
       __RESET;
    }
 

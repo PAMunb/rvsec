@@ -26,7 +26,8 @@ HMACParameterSpecSpec(HMACParameterSpec hmacParameterSpec) {
    ere : c
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "HMACParameterSpecSpec", "" + __LOC));
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "HMACParameterSpecSpec", "" + __LOC,
+          "v=1 code=HMACPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=HMACParameterSpec val='' exp='' msg='the observed call sequence is not one HMACParameterSpecSpec accepts'"));
       __RESET;
    }
 

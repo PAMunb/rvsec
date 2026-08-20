@@ -25,6 +25,19 @@ import static br.unb.cic.mop.jca.util.Api30CipherTransformationUtil.*;
  */
 CipherSpec(Cipher c) {
 
+    String expectedTransformations = "a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl)";
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
+
    Cipher cipher = null;
    String currentTransformation = "";
 
@@ -58,7 +71,7 @@ CipherSpec(Cipher c) {
      target(c) {
        if (!isValid(currentTransformation)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
-        "expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found " + currentTransformation + "."));
+                "v=1 code=CIPHER-ALG-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedTransformations) + "' msg='expecting " + expectedTransformations + " but found " + c.getAlgorithm() + "'"));
         }
     }
 
@@ -73,7 +86,7 @@ CipherSpec(Cipher c) {
      ){
         if (!isValid(currentTransformation)) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
-        "expecting one of {AES/CBC/PKCS5Padding, AES/PCBC/ISO10126Padding, ...} but found " + currentTransformation + "."));
+            "v=1 code=CIPHER-ALG-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedTransformations) + "' msg='expecting " + expectedTransformations + " but found " + c.getAlgorithm() + "'"));
         }
     }
 
@@ -209,7 +222,8 @@ CipherSpec(Cipher c) {
    alias match1 = end
 
    @fail {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC));
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,
+            "v=1 code=CIPHER-ORDER-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'"));
 	    __RESET;
    }
 

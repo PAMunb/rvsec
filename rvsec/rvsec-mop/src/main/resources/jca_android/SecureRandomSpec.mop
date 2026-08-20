@@ -17,6 +17,17 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
  * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/SecureRandom.crysl
  */
 SecureRandomSpec(SecureRandom r) {
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
 
     SecureRandom sr;
 
@@ -79,7 +90,7 @@ SecureRandomSpec(SecureRandom r) {
       && condition(!ConscryptAliasTable.matches("SecureRandom", alg, algorithms))
     {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SecureRandomSpec", "" + __LOC,
-         "expecting one of " + String.join(" or ", algorithms) + " but found " + alg + "."));
+            "v=1 code=SECURERANDOM-ALG-00 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
     }
 
     event setSeed1 after(SecureRandom r):
@@ -97,8 +108,8 @@ SecureRandomSpec(SecureRandom r) {
       args(seed) &&
       target(r) &&
       condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec",  "" + __LOC,
-        "setSeed() expects a randomized byte array."));
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "" + __LOC,
+            "v=1 code=SECURERANDOM-CONSTR-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='setSeed() expects a byte array observed to come from a randomized source'"));
     }
 
     event genSeed after(SecureRandom r) returning(byte[] seed):
@@ -164,7 +175,8 @@ SecureRandomSpec(SecureRandom r) {
     alias match1 = init
 
     @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC));
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC,
+          "v=1 code=SECURERANDOM-ORDER-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts'"));
       __RESET;
     }
 
