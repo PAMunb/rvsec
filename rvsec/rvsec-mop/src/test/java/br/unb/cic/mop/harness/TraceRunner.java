@@ -1,5 +1,7 @@
 package br.unb.cic.mop.harness;
 
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.eh.ErrorCollector;
 import br.unb.cic.mop.eh.ErrorDescription;
 
@@ -227,7 +229,15 @@ public final class TraceRunner implements AutoCloseable {
     public Outcome replay(Path traceFile) throws Exception {
         bindings.clear();
         reload();
+        // Everything a trace can leave behind is cleared here, and the predicate substrate is
+        // part of that. `reload()` builds a fresh loader for the monitor classes, but both
+        // stores sit on `java.class.path`, so parent-first delegation resolves the same
+        // singleton for every trace of a directory replay -- exactly why the error sink already
+        // needed an explicit reset. Left alone, a satisfying trace's `ensure` silently satisfies
+        // the violating trace that follows it, and the pair reports a pass it did not earn.
         ErrorCollector.instance().reset();
+        PredicateStore.instance().reset();
+        ExecutionContext.instance().reset();
 
         List<String> accusing = new ArrayList<>();
         List<String> envelopes = new ArrayList<>();

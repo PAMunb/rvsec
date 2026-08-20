@@ -52,5 +52,18 @@ public enum Property {
     SIGNED,
     SPECCED_KEY,
     VERIFIED,
-    WRAPPED_KEY
+    WRAPPED_KEY,
+    /**
+     * The key material a {@code SecretKeySpec} is constructed from.
+     *
+     * <p>CrySL states {@code preparedKeyMaterial[keyMaterial]}, ensured by
+     * {@code SecretKey.getEncoded()} and required by the {@code SecretKeySpec}
+     * constructor. The set wrote and read that clause under {@link #RANDOMIZED}
+     * until this constant existed, which conflated two different obligations:
+     * key material that came out of a generated key, and a byte array that came
+     * out of a {@code SecureRandom}. A conforming program satisfies one without
+     * satisfying the other, so the conflation both missed misuse and accused
+     * conforming code.
+     */
+    PREPARED_KEY_MATERIAL
 }

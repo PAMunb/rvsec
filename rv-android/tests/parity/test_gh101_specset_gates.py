@@ -22,14 +22,18 @@ which the sets differ is named in a versioned record with the reason it exists.
                      another specification, or recorded as a deliberate omission
     INV-INS-113      every one of the 23 derived specifications carries a
                      conformance verdict against the generated API 30 rules
+    INV-INS-132      the shared `Property` enum only ever grows: the constants the
+                     frozen set names, and their relative order, survive every
+                     addition the derived set needs
 
-All five run against the sibling Java reactor, so they skip when it is absent.
+All six run against the sibling Java reactor, so they skip when it is absent.
 """
 
 from __future__ import annotations
 
 import csv
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -45,11 +49,51 @@ SCRIPTS = REPO / "scripts"
 # is not a freeze.
 BASE_COMMIT = "7e7acb69"
 
-# Everything the freeze covers. The whole `jca` directory, and the utility its
-# CipherSpec delegates its transformation verdict to.
+# Everything the freeze covers. The whole `jca` directory, the utility its
+# CipherSpec delegates its transformation verdict to, and the predicate substrate
+# the set calls at 27 sites.
+#
+# `ExecutionContext.java` joined this tuple when the derived set stopped calling
+# it: an earlier attempt re-keyed that class by identity to repair the derived
+# set, and the repair silently changed what the *frozen* set accuses, because a
+# gate that reads `.mop` files cannot see the Java classes they call. It was
+# reverted three days later. The derived set now has its own store, so the class
+# serves one set alone -- and a one-set class is frozen with that set.
 FROZEN_PATHS = (
     "rvsec/rvsec-mop/src/main/resources/jca",
     "rvsec/rvsec-core/src/main/java/br/unb/cic/mop/jca/util/CipherTransformationUtil.java",
+    "rvsec/rvsec-core/src/main/java/br/unb/cic/mop/ExecutionContext.java",
+)
+
+# The `Property` constants as the frozen set found them, in declaration order.
+# Recorded here rather than derived, because deriving them from the file under
+# test would make the test agree with whatever the file says.
+PROPERTY_CONSTANTS_AT_FREEZE = (
+    "GENERATED_KEY",
+    "DIGESTED",
+    "ENCRYPTED",
+    "GENERATED_CIPHER",
+    "GENERATED_MAC",
+    "MACED",
+    "GENERATED_PRIVATE_KEY",
+    "GENERATED_PUBLIC_KEY",
+    "GENERATE_SSL_CONTEXT",
+    "GENERATE_SSL_ENGINE",
+    "GENERATED_KEY_MANAGERS",
+    "GENERATED_KEY_PAIR",
+    "GENERATED_TRUST_MANAGER",
+    "GENERATED_TRUST_MANAGERS",
+    "GENERATED_KEY_STORE",
+    "PREPARED_DH",
+    "PREPARED_GCM",
+    "PREPARED_HMAC",
+    "PREPARED_PBE",
+    "PREPARED_IV",
+    "RANDOMIZED",
+    "SIGNED",
+    "SPECCED_KEY",
+    "VERIFIED",
+    "WRAPPED_KEY",
 )
 
 
@@ -143,3 +187,52 @@ def test_conformance_record_covers_all_twenty_three():
         if row["verdict"] == "no-anchor" and not row["reason"].strip()
     ]
     assert not unexplained, f"no-anchor without a reason: {', '.join(unexplained)}"
+
+
+def _declared_property_constants(source: Path) -> list[str]:
+    """The enum's constants, in declaration order, with comments removed first.
+
+    Javadoc on a constant is not decoration here -- several constants carry the
+    reasoning for the place they hold in a CrySL clause -- and those comments name
+    other constants. Stripping comments before matching is what keeps a mention
+    from being read as a declaration.
+    """
+    text = source.read_text(encoding="utf-8")
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    text = re.sub(r"//[^\n]*", "", text)
+    body = text[text.index("{", text.index("enum Property")) + 1 : text.rindex("}")]
+    return re.findall(r"\b([A-Z][A-Z0-9_]*)\b", body)
+
+
+def test_property_append_only():
+    """INV-INS-132: the shared `Property` enum grows, and never moves.
+
+    `Property` is the one piece of the predicate substrate both sets still share,
+    so it cannot be frozen outright -- the derived set needs constants the frozen
+    set never had, `PREPARED_KEY_MATERIAL` among them. What it can be is
+    append-only: no constant the frozen set names is removed, renamed, or moved
+    relative to another.
+
+    Relative order rather than position is the checkable claim, because the tree's
+    own precedent inserts mid-enum: `MACED` was added between `GENERATED_MAC` and
+    `GENERATED_PRIVATE_KEY`, not at the end. Order matters at all only because
+    `ordinal()` and `values()` would make it observable; both are measured absent
+    from the tree today, and this test is what keeps the absence from being the
+    only thing standing between a reordering and a silent change of meaning.
+    """
+    home = _rvsec_home()
+    declared = _declared_property_constants(
+        home / "rvsec/rvsec-core/src/main/java/br/unb/cic/mop/Property.java"
+    )
+
+    missing = [name for name in PROPERTY_CONSTANTS_AT_FREEZE if name not in declared]
+    assert not missing, (
+        "constants the frozen `jca` set names were removed or renamed from "
+        f"`Property`: {missing}"
+    )
+
+    surviving = [name for name in declared if name in PROPERTY_CONSTANTS_AT_FREEZE]
+    assert surviving == list(PROPERTY_CONSTANTS_AT_FREEZE), (
+        "the frozen set's constants were reordered relative to one another; "
+        f"expected {list(PROPERTY_CONSTANTS_AT_FREEZE)}, found {surviving}"
+    )

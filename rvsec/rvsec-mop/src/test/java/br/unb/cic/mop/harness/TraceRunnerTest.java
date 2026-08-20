@@ -1,5 +1,10 @@
 package br.unb.cic.mop.harness;
 
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+
 import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -141,6 +146,53 @@ public class TraceRunnerTest {
         assertEquals("one trace per specification of the frozen set, including the two the "
                 + "successor set drops -- a comparison with no trace on one side classifies "
                 + "nothing: " + names, 23, names.size());
+    }
+
+    /**
+     * A replay starts from an empty predicate substrate, and the violating half of a pair is
+     * still accused after the satisfying half ran before it.
+     *
+     * <p>
+     * {@code replay()} rebuilds a class loader for the monitor classes, which is what makes each
+     * trace see a fresh automaton. It does nothing for the predicate stores: both sit on
+     * {@code java.class.path}, so parent-first delegation hands every trace of a directory replay
+     * the same singleton. That is the same reason {@code ErrorCollector} needed an explicit reset,
+     * and the consequence lands on the one thing the differential harness uses as evidence -- a
+     * satisfying trace's mark silently satisfies the violating trace that follows it, and the pair
+     * reports a pass it did not earn.
+     *
+     * <p>
+     * The marks are planted from here rather than harvested from the satisfying trace because the
+     * objects a trace binds are freshly allocated inside {@code replay()} and never escape it. A
+     * planted mark is the same contamination the shared singleton produces, on an object this test
+     * can name -- and it fails this assertion whenever the resets are removed, which harvesting
+     * from a trace of byte arrays would not.
+     */
+    @Test
+    public void aReplayStartsFromAnEmptySubstrateSoOneTraceCannotSatisfyTheNext() throws Exception {
+        Object legacyMark = new Object();
+        Object storeMark = new Object();
+
+        try (TraceRunner runner = TraceRunner.of(monitorDir, workDir.resolve("control"))) {
+            TraceRunner.Outcome satisfying =
+                    runner.replay(tracesDir.resolve("IvParameterSpecSpec.txt"));
+            assertFalse("an IV randomised before the constructor must be accused by nothing: "
+                    + satisfying.accusingEvents, satisfying.accused);
+
+            ExecutionContext.instance().setProperty(Property.RANDOMIZED, legacyMark);
+            PredicateStore.instance().ensure(Property.RANDOMIZED, storeMark);
+
+            TraceRunner.Outcome violating =
+                    runner.replay(tracesDir.resolve("IvParameterSpecSpec-unrandomised.txt"));
+            assertTrue("an IV nothing randomised must still be accused after a satisfying trace "
+                    + "ran before it: " + violating.accusingEvents, violating.accused);
+
+            assertFalse("replay() must clear the legacy substrate, not only the error sink",
+                    ExecutionContext.instance().validate(Property.RANDOMIZED, legacyMark));
+            assertEquals("replay() must clear the jca_android predicate store as well",
+                    PredicateVerdict.NOT_OBSERVED,
+                    PredicateStore.instance().validate(Property.RANDOMIZED, storeMark));
+        }
     }
 
     private static List<Path> traces() throws Exception {
