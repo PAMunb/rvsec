@@ -1,0 +1,18 @@
+# CipherSpec — differential harness
+
+- **A** `/home/pedro/tmp-gh104/e4-a/jca_android`
+- **B** `/home/pedro/tmp-gh104/e4-b815a`
+- traces: 3
+
+| trace | class | A accuses | B accuses |
+|---|---|---|---|
+| `CipherSpec-guard-on-field.txt` | unchanged | CipherSpec.i1 | CipherSpec.i1 |
+| `CipherSpec-unsafe.txt` | unchanged | CipherSpec.i1 | CipherSpec.i1 |
+| `CipherSpec.txt` | unchanged | — | — |
+
+## Envelopes
+
+- `CipherSpec-guard-on-field.txt` (A) `spec=CipherSpec,ev=i1,type=UnsafeAlgorithm,msg=v=1 code=CIPHER-ALG-00 ev=i1 obj=Cipher val='AES/CBC/PKCS5Padding' exp='a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl)' msg='expecting a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl) but found AES/CBC/PKCS5Padding'`
+- `CipherSpec-guard-on-field.txt` (B) `spec=CipherSpec,ev=i1,type=UnsafeAlgorithm,msg=v=1 code=CIPHER-ALG-00 ev=i1 obj=Cipher val='AES/CBC/PKCS5Padding' exp='a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl)' msg='expecting a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl) but found AES/CBC/PKCS5Padding'`
+- `CipherSpec-unsafe.txt` (A) `spec=CipherSpec,ev=i1,type=UnsafeAlgorithm,msg=v=1 code=CIPHER-ALG-00 ev=i1 obj=Cipher val='DES' exp='a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl)' msg='expecting a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl) but found DES'`
+- `CipherSpec-unsafe.txt` (B) `spec=CipherSpec,ev=i1,type=UnsafeAlgorithm,msg=v=1 code=CIPHER-ALG-00 ev=i1 obj=Cipher val='DES' exp='a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl)' msg='expecting a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl) but found DES'`

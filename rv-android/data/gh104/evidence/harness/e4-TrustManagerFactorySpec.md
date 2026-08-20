@@ -1,0 +1,27 @@
+# TrustManagerFactorySpec — differential harness
+
+- **A** `/home/pedro/tmp-gh104/e4-a/jca_android`
+- **B** `/home/pedro/tmp-gh104/e4-b815a`
+- traces: 4
+
+| trace | class | A accuses | B accuses |
+|---|---|---|---|
+| `TrustManagerFactorySpec-guard-on-field.txt` | unchanged | TrustManagerFactorySpec.init | TrustManagerFactorySpec.init |
+| `TrustManagerFactorySpec-pkix-init.txt` | unchanged | — | — |
+| `TrustManagerFactorySpec-x509.txt` | unchanged | — | — |
+| `TrustManagerFactorySpec.txt` | unchanged | — | — |
+
+## Self-contradicting envelopes
+
+- `TrustManagerFactorySpec-guard-on-field.txt` — a: self-contradicting envelope -- val ∈ exp: observed 'pkix' is listed in ['pkix']
+- `TrustManagerFactorySpec-guard-on-field.txt` — b: self-contradicting envelope -- val ∈ exp: observed 'pkix' is listed in ['pkix']
+
+## Lines no pointcut resolved
+
+- `TrustManagerFactorySpec.txt` — `tmf.getTrustManagers()`
+- `TrustManagerFactorySpec.txt` — `tmf.getTrustManagers()`
+
+## Envelopes
+
+- `TrustManagerFactorySpec-guard-on-field.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=UnsafeAlgorithm,msg=v=1 code=TRUSTMANAGERFACTORY-ALG-00 ev=init obj=TrustManagerFactory val='PKIX' exp='PKIX' msg='expecting one of PKIX but found PKIX'`
+- `TrustManagerFactorySpec-guard-on-field.txt` (B) `spec=TrustManagerFactorySpec,ev=init,type=UnsafeAlgorithm,msg=v=1 code=TRUSTMANAGERFACTORY-ALG-00 ev=init obj=TrustManagerFactory val='PKIX' exp='PKIX' msg='expecting one of PKIX but found PKIX'`
