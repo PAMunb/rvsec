@@ -56,7 +56,7 @@ MacSpec(Mac m) {
           args(key) &&
           target(m) &&
           condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key)) {
-            if (!ConscryptAliasTable.matches("Mac", currentAlgorithmInstance, safeAlgorithms)) {
+            if (!ConscryptAliasTable.matches("Mac", m.getAlgorithm(), safeAlgorithms)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
                     "v=1 code=MAC-ALG-00 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
             }
@@ -68,7 +68,7 @@ MacSpec(Mac m) {
           args(key, params) &&
           target(m) &&
           condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key))  {
-            if (!ConscryptAliasTable.matches("Mac", currentAlgorithmInstance, safeAlgorithms)) {
+            if (!ConscryptAliasTable.matches("Mac", m.getAlgorithm(), safeAlgorithms)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
                     "v=1 code=MAC-ALG-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
         }

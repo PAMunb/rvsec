@@ -64,7 +64,7 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
        ( call(public void TrustManagerFactory.init(KeyStore)) ||
          call(public void TrustManagerFactory.init(ManagerFactoryParameters))
        ) && target(mf) {
-        if (!ConscryptAliasTable.matches("TrustManagerFactory", currentAlgorithmInstance, algorithms)) {
+        if (!ConscryptAliasTable.matches("TrustManagerFactory", mf.getAlgorithm(), algorithms)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "TrustManagerFactorySpec", "" + __LOC,
                 "v=1 code=TRUSTMANAGERFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + mf.getAlgorithm() + "'"));
         }

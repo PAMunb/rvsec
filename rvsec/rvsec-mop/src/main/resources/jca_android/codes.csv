@@ -14,7 +14,6 @@ KeyGeneratorSpec,KEYGENERATOR-ALG-00,UnsafeAlgorithm,ALG,gk1,KeyGeneratorSpec.mo
 KeyGeneratorSpec,KEYGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyGeneratorSpec.mop:86
 KeyManagerFactorySpec,KEYMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,KeyManagerFactorySpec.mop:66
 KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:101
-KeyPairGeneratorSpec,KEYPAIRGENERATOR-ALG-00,UnsafeAlgorithm,ALG,init1,KeyPairGeneratorSpec.mop:82
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-KEYSIZE-00,InvalidKeySize,KEYSIZE,initError,KeyPairGeneratorSpec.mop:109
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairGeneratorSpec.mop:123
 KeyPairSpec,KEYPAIR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairSpec.mop:44
@@ -25,6 +24,7 @@ MacSpec,MAC-ALG-01,UnsafeAlgorithm,ALG,i2,MacSpec.mop:72
 MacSpec,MAC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,MacSpec.mop:97
 MessageDigestSpec,MESSAGEDIGEST-ALG-00,UnsafeAlgorithm,ALG,update,MessageDigestSpec.mop:81
 MessageDigestSpec,MESSAGEDIGEST-ALG-01,UnsafeAlgorithm,ALG,d2,MessageDigestSpec.mop:104
+MessageDigestSpec,MESSAGEDIGEST-ALG-02,UnsafeAlgorithm,ALG,g4,MessageDigestSpec.mop:70
 MessageDigestSpec,MESSAGEDIGEST-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,MessageDigestSpec.mop:125
 PBEKeySpecSpec,PBEKEYSPEC-FORB-00,ForbiddenMethod,FORB,f1,PBEKeySpecSpec.mop:24
 PBEKeySpecSpec,PBEKEYSPEC-FORB-01,ForbiddenMethod,FORB,f2,PBEKeySpecSpec.mop:31

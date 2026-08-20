@@ -69,7 +69,7 @@ CipherSpec(Cipher c) {
      call(public void Cipher.init(int, Certificate, ..)) &&
      args(mode, cert, ..) &&
      target(c) {
-       if (!isValid(currentTransformation)) {
+       if (!isValid(c.getAlgorithm())) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
                 "v=1 code=CIPHER-ALG-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedTransformations) + "' msg='expecting " + expectedTransformations + " but found " + c.getAlgorithm() + "'"));
         }
@@ -84,7 +84,7 @@ CipherSpec(Cipher c) {
       || ExecutionContext.instance().validate(Property.GENERATED_PUBLIC_KEY, key)
       || ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, key)
      ){
-        if (!isValid(currentTransformation)) {
+        if (!isValid(c.getAlgorithm())) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
             "v=1 code=CIPHER-ALG-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedTransformations) + "' msg='expecting " + expectedTransformations + " but found " + c.getAlgorithm() + "'"));
         }

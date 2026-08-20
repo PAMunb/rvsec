@@ -68,7 +68,7 @@ SignatureSpec(Signature s) {
          call(public void Signature.initSign(PrivateKey)) &&
          args(privateKey) &&
          target(s) {
-           if (!ConscryptAliasTable.matches("Signature", currentAlgorithmInstance, algorithms)) {
+           if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                   "v=1 code=SIGNATURE-ALG-00 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
            }
@@ -78,7 +78,7 @@ SignatureSpec(Signature s) {
          call(public void Signature.initSign(PrivateKey, SecureRandom)) &&
          args(privateKey, random) &&
          target(s) {
-              if (!ConscryptAliasTable.matches("Signature", currentAlgorithmInstance, algorithms)) {
+              if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                    "v=1 code=SIGNATURE-ALG-01 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
         }
@@ -88,7 +88,7 @@ SignatureSpec(Signature s) {
          call(public void Signature.initVerify(Certificate)) &&
          args(cert) &&
          target(s) {
-           if (!ConscryptAliasTable.matches("Signature", currentAlgorithmInstance, algorithms)) {
+           if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                    "v=1 code=SIGNATURE-ALG-02 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
         }
@@ -98,7 +98,7 @@ SignatureSpec(Signature s) {
          call(public void Signature.initVerify(PublicKey)) &&
          args(key) &&
          target(s) {
-              if (!ConscryptAliasTable.matches("Signature", currentAlgorithmInstance, algorithms)) {
+              if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                    "v=1 code=SIGNATURE-ALG-03 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
         }
@@ -111,14 +111,14 @@ SignatureSpec(Signature s) {
         }
 
        event s1 after(Signature s) returning(byte[] output):
-         call(public byte Signature.sign()) &&
+         call(public byte[] Signature.sign()) &&
          target(s) {
            ExecutionContext.instance().setProperty(Property.SIGNED, output);
        }
 
 
        event s2 after(byte[] output, int offset, int len, Signature s):
-         call(public byte Signature.sign(byte[], int, int)) &&
+         call(public int Signature.sign(byte[], int, int)) &&
          args(output, offset, len) &&
          target(s) {
            ExecutionContext.instance().setProperty(Property.SIGNED, output);

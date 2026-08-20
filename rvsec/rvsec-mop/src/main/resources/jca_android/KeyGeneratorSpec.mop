@@ -72,7 +72,7 @@ KeyGeneratorSpec(KeyGenerator k) {
     event gk1 after(KeyGenerator k) returning(SecretKey key):
       call(public SecretKey KeyGenerator.generateKey())
       && target(k) {
-        if (!ConscryptAliasTable.matches("KeyGenerator", currentAlgorithmInstance, safeAlgorithms)) {
+        if (!ConscryptAliasTable.matches("KeyGenerator", k.getAlgorithm(), safeAlgorithms)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyGeneratorSpec", "" + __LOC,
                 "v=1 code=KEYGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
         }

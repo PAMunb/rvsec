@@ -62,7 +62,7 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
        ( call(public void KeyManagerFactory.init(KeyStore, char[])) ||
          call(public void KeyManagerFactory.init(ManagerFactoryParameters))
        ) && target(k) {
-        if (!ConscryptAliasTable.matches("KeyManagerFactory", currentAlgorithmInstance, safeAlgorithms)) {
+        if (!ConscryptAliasTable.matches("KeyManagerFactory", k.getAlgorithm(), safeAlgorithms)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyManagerFactorySpec", "" + __LOC,
                 "v=1 code=KEYMANAGERFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
         }

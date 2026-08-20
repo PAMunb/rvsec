@@ -31,7 +31,7 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
        spec = s;
     }
 
-     event c1 after(int tagLen, byte[] src, int offset, int len) returning(GCMParameterSpec s):
+     event c2 after(int tagLen, byte[] src, int offset, int len) returning(GCMParameterSpec s):
       call(public GCMParameterSpec.new(int, byte[], int, int)) &&
       args(tagLen, src, offset, len) &&
       condition(

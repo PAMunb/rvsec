@@ -77,19 +77,13 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       call(public void KeyPairGenerator.initialize(int)) &&
       args(keySize) &&
       target(k) &&
-      condition(validate(keySize)) {
-         if (!ConscryptAliasTable.matches("KeyPairGenerator", algorithm, safeAlgorithms)) {
-            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyPairGeneratorSpec", "" +
-             __LOC,
-                "v=1 code=KEYPAIRGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
-         }
-      }
+      condition(algorithm != null && validate(keySize)) { }
 
     event init2 after(int keySize, SecureRandom random, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(int, SecureRandom)) &&
       args(keySize, random) &&
       target(k) &&
-      condition(validate(keySize)) { }
+      condition(algorithm != null && validate(keySize)) { }
 
     event init3 after(AlgorithmParameterSpec params, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) &&
@@ -105,7 +99,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       call(public void KeyPairGenerator.initialize(int)) &&
       args(keySize) &&
       target(k) &&
-      condition(!validate(keySize)) {
+      condition(algorithm != null && !validate(keySize)) {
          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "KeyPairGeneratorSpec", "" + __LOC,
              "v=1 code=KEYPAIRGENERATOR-KEYSIZE-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + keySize + "' exp='the key size api30 KeyPairGenerator.cryptsl declares for " + q(k.getAlgorithm()) + "' msg='invalid key size for algorithm " + k.getAlgorithm() + "'"));
     }

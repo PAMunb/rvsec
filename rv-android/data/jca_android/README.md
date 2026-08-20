@@ -221,6 +221,7 @@ left it (tasks 2.2–2.8 and 2.14), before Group 7 edited a single message:
 |---|---|---|---|---|
 | frozen `jca` (the seed) | 25 | 25 | 1 | **50** |
 | `jca_android` after Group 2 | 25 | 25 | 1 | **50** |
+| `jca_android` after Group 8 | 25 | 25 | 0 | **50** |
 
 **The census is the seed's, unchanged, and there is no difference to explain.** That follows from
 D-11: the successor keeps every event the seed declares, predicates included, and the allow-list
@@ -235,15 +236,26 @@ The five purely predicate-guarded accusers are likewise all alive: `IvParameterS
 predicted 44 or 45 live sites by subtracting exactly those six; the prediction died with the
 removal it assumed.
 
-The 51st `new ErrorDescription(` of the set is the commented `g4` report of `MessageDigestSpec`
-(`:58`). It is counted apart because it emits nothing, and it **stays commented** through Group 7 —
-un-commenting it revives an `UnsafeAlgorithm` on every `getInstance(String)` outside the list, which
-is an accusation added, measured by the harness under Group 8 task 8.14.
+The 51st `new ErrorDescription(` of the set was the commented `g4` report of `MessageDigestSpec`
+(`:58` of the seed). It was counted apart because it emitted nothing, and it stayed commented
+through Group 7. Group 8 task 8.14 revived it: the harness classified the change `introduced` on
+`data/gh104/traces/MessageDigestSpec-unlisted-only.txt` and `unchanged` on the other 62 traces, so
+the accusation it adds is measured rather than assumed. The set now has no commented report site.
 
 The 25 three-argument sites are the 21 `@fail`/`@match1` handlers plus `IvParameterSpec` c3/c4 and
 `PBEKeySpecSpec`'s two `FORBIDDEN` sites; the 25 four-argument sites are the value accusers. Group 7
 gives all 50 an envelope, so after it the three-argument count is zero and the codes.csv row count is
 50.
+
+**Group 8 leaves the total where it found it, by two changes that cancel.** Task 8.6 removes the
+`UnsafeAlgorithm` report inside `KeyPairGeneratorSpec`'s `init1`, whose branch is unreachable — the
+`condition(validate(keySize))` compiles to an early return and `validate` accepts exactly the
+members of `safeAlgorithms`, so the guarded `!matches(...)` is false whenever it is evaluated — and
+`KEYPAIRGENERATOR-ALG-00` leaves `codes.csv` with it. Task 8.14 revives the commented `g4` report of
+`MessageDigestSpec` in the envelope form, which adds `MESSAGEDIGEST-ALG-02`. So the four-argument
+count is 25 either way, the commented count falls to **zero**, and the set holds no report it does
+not emit. Task 8.3 deletes `MessageDigestSpec`'s `reset` event, which had an empty body and so no
+row to move.
 
 ### `codes.csv`, the set's failure codes
 

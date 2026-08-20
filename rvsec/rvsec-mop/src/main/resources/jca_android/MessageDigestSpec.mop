@@ -66,8 +66,8 @@ MessageDigestSpec(MessageDigest digest) {
 	  call(public static MessageDigest MessageDigest.getInstance(String))
     	  && args(alg) && condition(!ConscryptAliasTable.matches("MessageDigest", currentAlgorithmInstance, algorithms))
         {
-//          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
-//             "expecting one of {SHA-256, SHA-384, SHA-512} but found " + alg + "."));
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
+              "v=1 code=MESSAGEDIGEST-ALG-02 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
 		    currentAlgorithmInstance = alg;
         }
 
@@ -77,16 +77,12 @@ MessageDigestSpec(MessageDigest digest) {
 	event update after(MessageDigest digest):
 	  call(void MessageDigest.update(..)) &&
 	  target(digest) {
-		if (!ConscryptAliasTable.matches("MessageDigest", currentAlgorithmInstance, algorithms)) {
+		if (!ConscryptAliasTable.matches("MessageDigest", digest.getAlgorithm(), algorithms)) {
 			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
 		__LOC,
        "v=1 code=MESSAGEDIGEST-ALG-00 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(digest.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + digest.getAlgorithm() + "'"));
 		}
 	  }
-
-	event reset before(MessageDigest digest):
-	  call(void MessageDigest.reset()) &&
-	  target(digest) { }
 
 	event d1 after(MessageDigest digest) returning(byte[] out):
 	 call(public byte[] MessageDigest.digest()) &&
@@ -100,7 +96,7 @@ MessageDigestSpec(MessageDigest digest) {
 	event d2 after(MessageDigest digest) returning(byte[] out):
      call(public byte[] MessageDigest.digest(byte[])) &&
      target(digest) {
-		if (!ConscryptAliasTable.matches("MessageDigest", currentAlgorithmInstance, algorithms)) {
+		if (!ConscryptAliasTable.matches("MessageDigest", digest.getAlgorithm(), algorithms)) {
 			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
 		     __LOC,
        "v=1 code=MESSAGEDIGEST-ALG-01 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(digest.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + digest.getAlgorithm() + "'"));
