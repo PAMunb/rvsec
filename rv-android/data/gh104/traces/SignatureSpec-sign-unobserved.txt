@@ -1,0 +1,6 @@
+# task 8.5, the `introduced` side: `s1` creates its monitor, so a sign() on a
+# Signature whose getInstance was never dispatched starts at state 0, where
+# s1[0] = 8 = fail. With the pointcut dead the call resolved to no advice at all
+# and the object was never accused.
+bind s = Signature.getInstance("SHA256withRSA")
+s.sign() -> out

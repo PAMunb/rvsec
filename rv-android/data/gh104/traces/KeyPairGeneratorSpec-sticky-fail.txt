@@ -1,0 +1,18 @@
+# task 8.15, the discriminating case. `bind` produces the generator without
+# dispatching a getInstance event, so the monitor's `algorithm` field stays null
+# and the initialize(int) dispatch that follows is condition-false on both init1
+# and initError (task 8.4's guard).
+#
+# Without __RESET, Category_fail is sticky: the dispatcher re-runs
+# Prop_1_handler_fail on every later dispatch while the flag holds, condition-false
+# ones included, so the initialize below reports a second time at a second call
+# site. With __RESET the flag is cleared at the first report and the condition-false
+# dispatch is silent.
+#
+# The repeat has to land at a different call site to be observable at all:
+# ErrorCollector.addError writes a row only when errors.add(err) succeeds, and
+# ErrorSummary is (spec, error, class, method, location), so a handler re-running
+# at the same __LOC is already suppressed in production.
+bind kpg = KeyPairGenerator.getInstance("RSA")
+kpg.generateKeyPair() -> kp1
+kpg.initialize(2048)

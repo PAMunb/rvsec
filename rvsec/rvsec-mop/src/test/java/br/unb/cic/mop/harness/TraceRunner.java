@@ -280,7 +280,24 @@ public final class TraceRunner implements AutoCloseable {
             for (Advice advice : matched) {
                 for (MonitorCall monitorCall : advice.calls) {
                     int before = ErrorCollector.instance().getErrors().size();
-                    invoke(advice, monitorCall, arguments, target, produced);
+                    try {
+                        invoke(advice, monitorCall, arguments, target, produced);
+                    } catch (Exception | StackOverflowError raised) {
+                        // A guard or a handler can throw -- KeyPairGeneratorSpec's validate()
+                        // switched on a null field until gh104 task 8.4 -- and in the woven
+                        // application the exception propagates into the caller's frame,
+                        // leaving the dispatcher's lock held (INV-INS-129, design D-14). A
+                        // snapshot that throws is a result about that snapshot, so it is
+                        // recorded against the trace and the replay continues; letting it end
+                        // the run would mean the side that throws produces no verdict at all
+                        // and the side that does not could never be compared with it.
+                        Throwable cause = raised instanceof java.lang.reflect.InvocationTargetException
+                                ? ((java.lang.reflect.InvocationTargetException) raised).getCause()
+                                : raised;
+                        unresolved.add(line + "  (" + advice.specName + "."
+                                + monitorCall.eventId + " raised " + cause + ")");
+                        continue;
+                    }
                     Set<ErrorDescription> after = ErrorCollector.instance().getErrors();
                     if (after.size() > before) {
                         accusing.add(advice.specName + "." + monitorCall.eventId);
@@ -339,11 +356,63 @@ public final class TraceRunner implements AutoCloseable {
                         continue;
                     }
                 }
+                if (!returnTypeAdmits(pointcut)) {
+                    continue;
+                }
                 matched.add(advice);
                 break;
             }
         }
         return matched;
+    }
+
+    /**
+     * Whether the type the pointcut declares is the one the method actually returns.
+     *
+     * <p>
+     * Both weavers gate this exactly -- AspectJ by construction, and the dexlib2 engine in
+     * code with a test that spells it out ({@code PointcutMatcher.java:361-363},
+     * {@code PointcutMatcherTest.java:603-612}, "concrete return-type gate MUST be exact") --
+     * so a pointcut that names the wrong return type matches nothing and its advice, though
+     * generated, never fires. Replaying such an advice would make the harness report that a
+     * specification accuses where the woven application is silent, and would make a repair
+     * that corrects a return type read as no difference at all. That is what it did before
+     * this check: gh104 task 8.5 repairs {@code SignatureSpec}'s two {@code sign()} pointcuts,
+     * which declared {@code byte} where android-30 declares {@code byte[]} and {@code int},
+     * and the before/after replay classified the trace {@code unchanged} because both sides
+     * fired {@code s1}.
+     *
+     * <p>
+     * The platform consulted is this JVM's, not android-30's. The two agree on every signature
+     * the set names -- the JCA classes are the same API -- and a type the harness cannot
+     * resolve carries no gate rather than a false negative.
+     */
+    private boolean returnTypeAdmits(Pointcut pointcut) {
+        if (pointcut.returnType == null) {
+            return true;
+        }
+        Class<?> owner = resolve(pointcut.type);
+        if (owner == null) {
+            return true;
+        }
+        int fixed = 0;
+        for (String declared : pointcut.paramTypes) {
+            if (!declared.contains("..")) {
+                fixed++;
+            }
+        }
+        for (Method method : owner.getMethods()) {
+            if (!method.getName().equals(pointcut.method)) {
+                continue;
+            }
+            if (!pointcut.variadic && method.getParameterCount() != fixed) {
+                continue;
+            }
+            if (method.getReturnType().getSimpleName().equals(pointcut.returnType)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -781,14 +850,37 @@ public final class TraceRunner implements AutoCloseable {
     static final class Pointcut {
         final String type;
         final String method;
+        final String returnType;
         final List<String> paramTypes;
         final boolean variadic;
 
-        Pointcut(String type, String method, List<String> paramTypes, boolean variadic) {
+        /** Words a signature may carry ahead of the return type. */
+        private static final List<String> MODIFIERS = Arrays.asList(
+                "public", "protected", "private", "static", "final", "abstract",
+                "synchronized", "native", "strictfp");
+
+        Pointcut(String type, String method, String returnType, List<String> paramTypes,
+                boolean variadic) {
             this.type = type;
             this.method = method;
+            this.returnType = returnType;
             this.paramTypes = paramTypes;
             this.variadic = variadic;
+        }
+
+        /**
+         * The return type a signature declares, or {@code null} where it declares none --
+         * a constructor, or a wildcard the weaver does not gate on.
+         */
+        static String returnTypeOf(String[] words, String method) {
+            if ("new".equals(method) || words.length < 2) {
+                return null;
+            }
+            String candidate = words[words.length - 2];
+            if (MODIFIERS.contains(candidate) || candidate.contains("*")) {
+                return null;
+            }
+            return candidate;
         }
 
         /** Name and arity; the owning type is checked by the caller, which knows the receiver. */
@@ -848,7 +940,8 @@ public final class TraceRunner implements AutoCloseable {
                         ? new ArrayList<String>()
                         : Call.split(parameters);
                 boolean variadic = parameters.contains("..");
-                pointcuts.add(new Pointcut(owner, method, declared, variadic));
+                pointcuts.add(new Pointcut(owner, method, returnTypeOf(words, method), declared,
+                        variadic));
             }
             return pointcuts;
         }

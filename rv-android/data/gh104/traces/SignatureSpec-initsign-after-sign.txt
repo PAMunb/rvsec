@@ -1,0 +1,9 @@
+# task 8.5, the `removed` side: s1 is the only transition into the accepting
+# state of the signing branch (state 7 -> 6), and i1[6] = 1 where i1[7] = 8. With
+# the pointcut dead the monitor stayed at 7 and the second initSign accused
+# falsely; with it alive the sequence is one the `ere` accepts.
+Signature.getInstance("SHA256withRSA") -> s
+s.initSign(null)
+s.update(bytes)
+s.sign() -> out
+s.initSign(null)

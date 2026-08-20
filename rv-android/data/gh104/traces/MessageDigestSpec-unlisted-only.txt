@@ -1,0 +1,10 @@
+# task 8.14, the `introduced` case. The api30 transcription of task 2.4 admits MD5
+# and SHA-1, so MessageDigestSpec-md5-only.txt no longer reaches g4: g1 fires first
+# and writes the field, and g4's guard `!matches(field, algorithms)` goes false.
+# SHA3-256 is outside the api30 list, so g1 returns without writing, the field stays
+# empty and g4's guard holds -- which is the site task 8.14 revives.
+#
+# getInstance and nothing else, deliberately: with a consuming call the update site
+# would accuse on both sides and the verdict would read `moved` rather than
+# `introduced`, which is the shape task 8.14 asks the harness to name.
+MessageDigest.getInstance("SHA3-256") -> md
