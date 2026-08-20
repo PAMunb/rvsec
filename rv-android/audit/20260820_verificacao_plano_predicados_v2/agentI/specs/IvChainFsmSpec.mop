@@ -1,0 +1,76 @@
+package mop;
+
+import java.security.SecureRandom;
+import java.security.Key;
+import java.security.spec.AlgorithmParameterSpec;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+
+/**
+ * IvChainFsmSpec (piloto, mecanismo B, variante 2)
+ *
+ * Diferencas para a variante 1 (ere):
+ *  - use NAO e evento criador: consumidor sem cadeia observada fica
+ *    "nao observado" (silencio), em vez de acusar sem evidencia.
+ *  - fsm com laco benigno got_gen[use]: a instancia produto-cruzado
+ *    (iv de um gen desconexo + (spec,c) de um use) nao acusa.
+ */
+IvChainFsmSpec(Object iv, IvParameterSpec spec, Cipher c) {
+
+    Object fiv;
+    IvParameterSpec fspec;
+    Cipher fc;
+
+    creation event gen after(SecureRandom r, Object iv):
+      call(public void SecureRandom.nextBytes(byte[])) &&
+      args(iv) &&
+      target(r) {
+        fiv = iv;
+    }
+
+    creation event mk after(Object iv) returning(IvParameterSpec spec):
+      call(public IvParameterSpec.new(byte[])) &&
+      args(iv) {
+        fiv = iv;
+        fspec = spec;
+    }
+
+    event use before(IvParameterSpec spec, Cipher c):
+      call(public void Cipher.init(int, Key, AlgorithmParameterSpec)) &&
+      args(*, *, spec) &&
+      target(c) {
+        fspec = spec;
+        fc = c;
+    }
+
+    fsm :
+      start [
+        gen -> got_gen
+      ]
+      got_gen [
+        gen -> got_gen
+        use -> got_gen
+        mk -> got_mk
+      ]
+      got_mk [
+        use -> ok
+      ]
+      ok [
+        use -> ok
+      ]
+
+    alias match = ok
+
+    @match {
+      System.out.println("[IvChainFsmSpec] MATCH iv=" + (fiv == null ? "-" : String.valueOf(System.identityHashCode(fiv)))
+          + " spec=" + (fspec == null ? "-" : String.valueOf(System.identityHashCode(fspec)))
+          + " c=" + (fc == null ? "-" : String.valueOf(System.identityHashCode(fc))));
+    }
+
+    @fail {
+      System.out.println("[IvChainFsmSpec] FAIL ev=" + __EVENTNAME
+          + " iv=" + (fiv == null ? "-" : String.valueOf(System.identityHashCode(fiv)))
+          + " spec=" + (fspec == null ? "-" : String.valueOf(System.identityHashCode(fspec)))
+          + " c=" + (fc == null ? "-" : String.valueOf(System.identityHashCode(fc))));
+    }
+}

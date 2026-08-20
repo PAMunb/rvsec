@@ -1,0 +1,21 @@
+package mop;
+
+import java.security.SecureRandom;
+
+/** Produtor isolado: observa apenas nextBytes. */
+IvGenSpec(Object iv) {
+    creation event gen after(SecureRandom r, Object iv):
+      call(public void SecureRandom.nextBytes(byte[])) &&
+      args(iv) &&
+      target(r) { }
+
+    fsm :
+      start [ gen -> done ]
+      done  [ gen -> done ]
+
+    alias match = done
+
+    @match {
+      System.out.println("[IvGenSpec] MATCH (iv randomizado observado)");
+    }
+}

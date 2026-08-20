@@ -1,0 +1,62 @@
+package mop;
+
+import java.security.SecureRandom;
+import java.security.Key;
+import java.security.spec.AlgorithmParameterSpec;
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+
+/**
+ * IvChainSpec (piloto, mecanismo B)
+ *
+ * Cadeia do IV como spec de juncao multiparametrica:
+ *   SecureRandom.nextBytes(iv) -> new IvParameterSpec(iv) -> Cipher.init(..., spec)
+ * O elo byte[] e declarado Object (contorno da secao 7.5) e ligado no pointcut
+ * contra o argumento byte[].
+ *
+ * Idioma das specs reais: parametros de spec nao sao visiveis nos handlers;
+ * copiam-se para campos do monitor no corpo dos eventos.
+ */
+IvChainSpec(Object iv, IvParameterSpec spec, Cipher c) {
+
+    Object fiv;
+    IvParameterSpec fspec;
+    Cipher fc;
+
+    creation event gen after(SecureRandom r, Object iv):
+      call(public void SecureRandom.nextBytes(byte[])) &&
+      args(iv) &&
+      target(r) {
+        fiv = iv;
+    }
+
+    creation event mk after(Object iv) returning(IvParameterSpec spec):
+      call(public IvParameterSpec.new(byte[])) &&
+      args(iv) {
+        fiv = iv;
+        fspec = spec;
+    }
+
+    creation event use before(IvParameterSpec spec, Cipher c):
+      call(public void Cipher.init(int, Key, AlgorithmParameterSpec)) &&
+      args(*, *, spec) &&
+      target(c) {
+        fspec = spec;
+        fc = c;
+    }
+
+    ere : gen mk use
+
+    @match {
+      System.out.println("[IvChainSpec] MATCH iv=" + (fiv == null ? "-" : String.valueOf(System.identityHashCode(fiv)))
+          + " spec=" + (fspec == null ? "-" : String.valueOf(System.identityHashCode(fspec)))
+          + " c=" + (fc == null ? "-" : String.valueOf(System.identityHashCode(fc))));
+    }
+
+    @fail {
+      System.out.println("[IvChainSpec] FAIL ev=" + __EVENTNAME
+          + " iv=" + (fiv == null ? "-" : String.valueOf(System.identityHashCode(fiv)))
+          + " spec=" + (fspec == null ? "-" : String.valueOf(System.identityHashCode(fspec)))
+          + " c=" + (fc == null ? "-" : String.valueOf(System.identityHashCode(fc))));
+    }
+}
