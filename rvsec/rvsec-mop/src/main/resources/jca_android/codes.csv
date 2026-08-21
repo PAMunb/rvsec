@@ -53,9 +53,10 @@ PBEParameterSpecSpec,PBEPARAMETERSPEC-NOBS-01,UnsatisfiedConstraint,NOBS,c2,PBEP
 PBEParameterSpecSpec,PBEPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,PBEParameterSpecSpec.mop:129
 SSLContextSpec,SSLCONTEXT-PROTO-00,UnsafeProtocol,PROTO,init,SSLContextSpec.mop:91
 SSLContextSpec,SSLCONTEXT-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SSLContextSpec.mop:118
-SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,SecretKeySpecSpec.mop:46
-SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c2,SecretKeySpecSpec.mop:72
-SecretKeySpecSpec,SECRETKEYSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecretKeySpecSpec.mop:83
+SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,SecretKeySpecSpec.mop:63
+SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,UnsatisfiedConstraint,NOBS,c1,SecretKeySpecSpec.mop:68
+SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c2,SecretKeySpecSpec.mop:102
+SecretKeySpecSpec,SECRETKEYSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecretKeySpecSpec.mop:122
 SecureRandomSpec,SECURERANDOM-ALG-00,UnsafeAlgorithm,ALG,g4,SecureRandomSpec.mop:111
 SecureRandomSpec,SECURERANDOM-CONSTR-00,UnsatisfiedConstraint,CONSTR,setSeed2,SecureRandomSpec.mop:147
 SecureRandomSpec,SECURERANDOM-NOBS-00,UnsatisfiedConstraint,NOBS,setSeed2,SecureRandomSpec.mop:151

@@ -478,7 +478,7 @@ Every F3/record task resolves against this table, not against family names.
 | 28 | SSLContext | `generatedKeyManager[kms]` | | | yes | wire (bound-first API — `kms` is `KeyManager[]`) | 5.9 |
 | 29 | SSLContext | `generatedTrustManager[tms]` | | | yes | wire (bound-first API) | 5.9 |
 | 30 | SSLContext | `randomized[sr]` | | | yes (vacuous) | record `vacuous` — `Init: init(kms, tms, _)` binds `sr` in no event | 5.5 |
-| 31 | SecretKeyFactory | `speccedKey[keySpec, _]` | | | no (no consumer .mop) | record `unmonitored-consumer` (PBEKeySpec is its producer) | 5.10 |
+| 31 | SecretKeyFactory | `speccedKey[keySpec, _]` | | | no (no consumer .mop) | record `unmonitored-consumer` (PBEKeySpec and SecretKeySpec are its producers) | 5.10 |
 | 32 | SecretKeySpec | `preparedKeyMaterial[keyMaterial]` | | | yes | wire — un-conflate from `RANDOMIZED` with 6.1, same commit | 5.10+6.1 |
 | 33 | SecureRandom | `randomized[seed]` | | | yes | wire (self-chain) | 5.5 |
 | 34 | Signature | `generatedPrivkey[priv]` | | | yes | wire (Signature's clauses — not `generatedKey`) | 5.7 |

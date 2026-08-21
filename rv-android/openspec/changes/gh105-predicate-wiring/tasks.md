@@ -270,7 +270,27 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       a handler when it has something to write, at arity 2 over `output` and the data, not over
       `mac`. What stays: the `MAC-ALG-00`/`-01` bodies, `q(...)`, `ConscryptAliasTable`, and the
       `g3*` order defect, which belongs to the automaton and is recorded, not repaired
-- [ ] 4.10 `SecretKeySpecSpec` (2 reads / 1 write / 1 call)
+- [x] 4.10 `SecretKeySpecSpec` (1 body read / 1 acceptance write / 1 call; the pre-change census
+      of 2 reads counted the twin `c3`'s guard, which task 3.4 removed when it fused the pair).
+      The pass that closes the **last open F2 window**: the `c1` read of `randomized[keyMaterial]`
+      moves to the new store and becomes three-valued, and its producer `SecureRandom` moved at
+      task 4.5, so a construction over genuinely randomised material stops being accused of not
+      being randomised (measured: one report becomes none). The read keeps testing `RANDOMIZED`
+      where the rule requires `preparedKeyMaterial`; that conflation is ledger #32, undone at
+      5.10+6.1, and is recorded here rather than repaired.
+      Two researcher decisions, 2026-08-21, each measured before it was taken. **The `@match`
+      write moves store but NOT arity**: api30 states `generatedKey[this, alg]` at arity 2, and
+      the write stays at arity 1 with a recorded reason, rising at 5.6 with its consumer.
+      Measured on `PredicateStore` itself — an `ensure` at arity 2 read by a `validate` at arity 1
+      returns `VIOLATED`, not `NOT_OBSERVED` — so raising it alone would make every
+      `SecretKeySpec`-created key given to `Cipher.init` draw `CIPHER-CONSTR-00`, a positive
+      accusation about a conforming program, until 5.6 lands. At arity 1 it instead closes a
+      **second** window: `CipherSpec.i2` goes from `NOT_OBSERVED` to `SATISFIED` for such keys,
+      the first time that read can tell an observed key origin from an unobserved one.
+      **The rule's other `ENSURES`, `speccedKey[this, _]`, is not written here**: its consumer
+      `SecretKeyFactory` has no `.mop` in the set, ledger #31 already disposes the chain as
+      `unmonitored-consumer` at 5.10, and `PBEKeySpecSpec` already produces the predicate, so a
+      second producer for a chain with no consumer at all would be a site with no purpose
 - [ ] 4.11 `RandomStringPassword` (2 reads / 2 writes / 0 calls); both reads are **propagation**
       (no rule) — no accuser, recorded as such
 - [ ] 4.12 `SecretKeySpec` (1 read / 1 write / 0 calls); `e1` is **propagation** (no `REQUIRES`
@@ -324,7 +344,10 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       (`KeyGenerator`, `KeyPairGenerator`, `SecretKeyFactory`, `KeyStore`); consumer
       `Cipher.init` `generatedKey[key, part(0,"/",transformation)]` (arity-2, splitter applied
       by the caller, store read replacing the `i2` guard — zero new events); `KeyPair`
-      `generatedPrivkey`/`generatedPubkey`
+      `generatedPrivkey`/`generatedPubkey`. The producer list includes `SecretKeySpecSpec`'s
+      `@match` write, which task 4.10 migrated to the new store at arity 1 with a recorded reason:
+      it rises to the rule's `generatedKey[this, alg]` here, in the same commit as the consumer,
+      because the two arities must move together or the read returns `VIOLATED` on a conforming key
 - [ ] 5.7 `generated*key` family B (ledger #34, #35, #8): `Signature`
       `generatedPrivkey[priv]`/`generatedPubkey[pub]` (Signature's own clauses — not
       `generatedKey`); the Cipher negated `!macced` (#8) via `validateAbsent`, with the `MACED`

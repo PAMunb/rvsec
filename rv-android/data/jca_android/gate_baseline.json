@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 64,
+    "structural_findings": 63,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -323,11 +323,6 @@
       [
         "jca_android",
         "SecretKeySpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "SecretKeySpecSpec.mop",
         "ExecutionContext"
       ],
       [

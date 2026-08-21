@@ -601,6 +601,16 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       and the rule's `macced` is two-place, so the real producer is ledger #8 at task
       5.7. The accepting-state calls go 19 -> 18 and the removals 9 -> 8, both with the
       `@match` handler and the `@fail` withdrawal that went with those writes.
+    * task 4.10 migrated `SecretKeySpecSpec`, and only one of these five numbers moves: the
+      accepting-state calls go 18 -> 17. Nothing else does, and that is the point of the pass.
+      The read stays a read and the write stays a write; what changes is the store under them,
+      which this census cannot see and INV-INS-130 can. The read is the last consumer whose
+      producer had already moved -- `randomized`, from `SecureRandom` at task 4.5 -- so moving it
+      closes the last open F2 window: measured over the whole `ErrorCollector`, key material an
+      observed `SecureRandom` had just filled went from one report to none. The write closes a
+      second window at `CipherSpec.i2` and deliberately stays below the rule's arity to do it
+      (researcher, 2026-08-21; INV-INS-134's recorded-reason clause, the reason in
+      `predicate_graph.csv`).
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -619,7 +629,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 16
     assert read_placement.get("condition", 0) == 3
     assert counts.get("write", 0) == 36
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 18
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 17
     assert counts.get("remove", 0) + counts.get("negate", 0) == 8
 
 
@@ -756,6 +766,14 @@ def test_the_graph_reproduces_the_measured_placement_census():
       task 4.6 -- and the bookkeeping goes 19 -> 18 with the `@match` handler. A reader
       who looks only at this census will see the smallest kind of change; what it
       actually records is a whole file leaving.
+    * task 4.10: `SecretKeySpecSpec` moves store without moving placement, so the only count that
+      changes is the bookkeeping, 18 -> 17. `read:body` stays 13 and `write:acceptance` stays 11
+      -- the read was already in its body (task 3.4 put it there when it fused the twins) and the
+      write was already at the acceptance point, because api30 states `generatedKey[this, alg]`
+      with no `after L`. Two rows gain judgments instead of changing verdicts: the read's `clause`
+      records that it tests `randomized` where the rule requires `preparedKeyMaterial` (ledger
+      #32, un-conflated at 5.10+6.1), and the write's `reason` records that it stays at arity 1
+      until task 5.6 moves its consumer.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -768,7 +786,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
     assert counts.get("write:acceptance", 0) == 11
     assert counts.get("remove:fail", 0) == 7
     assert counts.get("negate:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 18
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 17
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
@@ -955,7 +973,8 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     they feed no write, so there is nothing for a body to carry. Measured, the guards
     were not inert -- one of them turned a program that breaks no clause into an
     `InvalidSequenceOfMethodCalls` and hid the algorithm accusation behind the same
-    suppressed transition.
+    suppressed transition. Still 3 after task 4.10, which moved a read that was already in its
+    body: this gate counts guards, and that pass moved a store, not a placement.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))

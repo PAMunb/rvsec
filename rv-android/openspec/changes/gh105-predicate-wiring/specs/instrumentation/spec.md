@@ -188,7 +188,12 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
 - **INV-INS-134**: A predicate write (`ENSURES` translation) MUST be placed at the rule's
   acceptance point — the `@match` handler, or the states of an `after L` clause — never in an
   arbitrary event body; each write names the object the rule's clause binds, at the rule's arity.
-  A write kept elsewhere MUST carry a recorded reason in `predicate_graph.csv`.
+  A write kept elsewhere, or kept below the rule's arity, MUST carry a recorded reason in
+  `predicate_graph.csv`. The arity exception exists because producer and consumer must move
+  together: `PredicateStore.validate` compares the value tuple, so a write at arity 2 read by a
+  not-yet-migrated consumer at arity 1 returns `VIOLATED` — a positive accusation about a
+  conforming program — where the unmigrated pair returned `NOT_OBSERVED`. A write MUST NOT stay
+  below the rule's arity past the task that migrates its last consumer.
 - **INV-INS-135**: `jca_android` MUST have zero orphan accusers in both directions: every
   declared event appears in the `fsm`/`ere`, and every symbol the `fsm`/`ere` uses is declared
   exactly once (the alphabet is a multiset — a duplicate declaration is a defect; the archived
