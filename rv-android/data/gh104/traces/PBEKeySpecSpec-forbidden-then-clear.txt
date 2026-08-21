@@ -1,0 +1,7 @@
+# the Kleene-prefix residue the absorption of f1 leaves, recorded rather than
+# repaired: the forbidden constructor is now inside the automaton, so it no longer
+# draws an ordering report of its own, but the clearPassword() that follows still
+# reaches c2 from a state where c1 never happened and still draws
+# PBEKEYSPEC-ORDER-00 beside the PBEKEYSPEC-FORB-00.
+new PBEKeySpec(chars) -> spec
+spec.clearPassword()

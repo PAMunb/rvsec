@@ -53,9 +53,6 @@ KeyPairGeneratorSpec,gen,Generators,aggregate,KeyPairGenerator.cryptsl,37,mapped
 PBEKeySpecSpec,f1,,,PBEKeySpec.cryptsl,,order-unmapped,"`PBEKeySpec(char[])` is a constructor the rule's EVENTS do not name at all; the event exists to accuse the forbidden overload, and a call outside the rule's alphabet has no ORDER symbol. Absorbed by task 3.5"
 PBEKeySpecSpec,f2,,,PBEKeySpec.cryptsl,,order-unmapped,"same as f1 for `PBEKeySpec(char[], byte[], int)`"
 PBEKeySpecSpec,c1,c1,event,PBEKeySpec.cryptsl,23,mapped,
-PBEKeySpecSpec,err1,c1,event,PBEKeySpec.cryptsl,23,mapped,"an accusing twin of c1 over the same four-argument constructor (iteration count); task 3.5 decomposes its check per clause into c1's body"
-PBEKeySpecSpec,err2,c1,event,PBEKeySpec.cryptsl,23,mapped,"an accusing twin of c1; its guard tests RANDOMIZED on `password` where the rule requires it of `salt` -- the standing allow-list row that 3.5 owns"
-PBEKeySpecSpec,err3,c1,event,PBEKeySpec.cryptsl,23,mapped,"an accusing twin of c1 (key length); fused with err2 into one arrow by task 3.5"
 PBEKeySpecSpec,c2,cP,event,PBEKeySpec.cryptsl,25,mapped,"`clearPassword()`, the rule's second and last ordered event"
 PBEParameterSpecSpec,c1,c1,event,PBEParameterSpec.cryptsl,15,mapped,
 PBEParameterSpecSpec,c2,c2,event,PBEParameterSpec.cryptsl,17,mapped,

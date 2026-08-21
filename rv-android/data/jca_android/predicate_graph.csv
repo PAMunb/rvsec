@@ -59,11 +59,9 @@ MessageDigestSpec.mop,d2,body,positive,,1,DIGESTED,byte[],,,,write:body,,,member
 MessageDigestSpec.mop,d3,body,positive,,1,DIGESTED,byte[],,,,write:body,,,member
 MessageDigestSpec.mop,fail,@fail,positive,,1,,MessageDigest,,,,bookkeeping:fail,,,n/a
 MessageDigestSpec.mop,match,@match,positive,,1,,MessageDigest,,,,bookkeeping:match,,,n/a
-PBEKeySpecSpec.mop,c1,condition,positive,,1,RANDOMIZED,char[],,,,read:condition-guard,,,member
-PBEKeySpecSpec.mop,c1,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,member
+PBEKeySpecSpec.mop,c1,body,positive,,1,RANDOMIZED,char[],,,,read:body,,,member
+PBEKeySpecSpec.mop,c1,body,positive,,1,RANDOMIZED,byte[],,,,read:body,,,member
 PBEKeySpecSpec.mop,c1,body,positive,,1,SPECCED_KEY,PBEKeySpec,,,,write:body,,,member
-PBEKeySpecSpec.mop,err2,condition,positive,,1,RANDOMIZED,char[],,,,read:condition-guard,,,orphan
-PBEKeySpecSpec.mop,err3,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,orphan
 PBEKeySpecSpec.mop,c2,body,positive,,1,SPECCED_KEY,PBEKeySpec,,,,remove:body,,,member
 PBEKeySpecSpec.mop,match,@match,positive,,1,,PBEKeySpec,,,,bookkeeping:match,,,n/a
 PBEParameterSpecSpec.mop,c1,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,member

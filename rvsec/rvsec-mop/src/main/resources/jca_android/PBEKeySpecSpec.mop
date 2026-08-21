@@ -18,6 +18,19 @@ PBEKeySpecSpec(PBEKeySpec s) {
 
         PBEKeySpec spec;
 
+        // `f1` and `f2` are absorbed, not fused: each accuses a constructor the
+        // rule FORBIDS outright, which is a report of its own and not the negation
+        // of another event's guard. They enter the automaton through the Kleene
+        // groups of the `ere` below, at every position, because the ordering has
+        // nothing to say about a call the rule turns down.
+        //
+        // Absorbing them matters more here than the noise argument alone suggests.
+        // Neither binds the specification parameter -- `after(char[] password)` names
+        // no `PBEKeySpec` -- so the generator dispatches them to the whole monitor
+        // set (`PBEKeySpecSpec__Map`, `stateTransitionedSet.event_f1`). Left outside
+        // the automaton they carry an all-`fail` transition row, so one forbidden
+        // construction anywhere in a program pushed *every* live PBEKeySpec monitor
+        // into `fail`, accusing objects that had done nothing wrong.
         event f1 after(char[] password):
           call (public PBEKeySpec.new(char[])) &&
           args(password) {
@@ -32,40 +45,54 @@ PBEKeySpecSpec(PBEKeySpec s) {
                 "v=1 code=PBEKEYSPEC-FORB-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[], byte[], int) is forbidden by api30 PBEKeySpec.cryptsl'"));
         }
 
+        // One event over `PBEKeySpec(char[], byte[], int, int)`, where there used to
+        // be four. `err1`, `err2` and `err3` matched the same call with the same
+        // `args`, each negating one conjunct of this event's guard, and none of them
+        // named a state in the `ere`. They are three of the 17 orphan accusers, and
+        // they fuse into one arrow (INV-INS-135) rather than being absorbed as three
+        // more events: four events matching one construction would take four
+        // transitions.
+        //
+        // The guard was a conjunction and the negations were per-conjunct, so the
+        // fused body decomposes the same way -- three independent tests, one report
+        // per violated clause, which is what the three orphans emitted between them.
+        // What leaves is the ordering noise: each orphan sat outside the automaton
+        // with an all-`fail` transition row, so a construction that broke all three
+        // clauses drew three PBEKEYSPEC-ORDER-00 on top of the three constraint
+        // reports, and the `clearPassword()` that followed drew a fourth, because the
+        // failing `c1` had never moved the monitor off `start`.
+        //
+        // The middle clause has no rule behind it and is kept unchanged. api30
+        // REQUIRES `randomized[salt]` and says nothing about the password; the
+        // CONSTRAINTS clause about the password is `neverTypeOf(password,
+        // java.lang.String)`, which is not what PBEKEYSPEC-CONSTR-01 tests. That was
+        // the standing allow-list finding against `err2`, and the fusion moves the
+        // accusation without repairing it: dropping it or moving it to the salt
+        // changes what the set accuses, which is a behavioural change this task does
+        // not make. It is recorded in divergence_record.csv instead.
         event c1 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
           call(public PBEKeySpec.new(char[], byte[], int, int)) &&
-          args(password, salt, iterationCount, keyLength) &&
-          condition(
-           iterationCount >= 10000 &&
-           ExecutionContext.instance().validate(Property.RANDOMIZED, password) &&
-           ExecutionContext.instance().validate(Property.RANDOMIZED, salt)
-          ) {
-           spec = s;
-           ExecutionContext.instance().setProperty(Property.SPECCED_KEY, spec);
-        }
-
-        event err1 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
-           call(public PBEKeySpec.new(char[], byte[], int, int)) &&
-           args(password, salt, iterationCount, keyLength) &&
-           condition( iterationCount < 10000 ) {
+          args(password, salt, iterationCount, keyLength) {
+           boolean conforms = true;
+           if (iterationCount < 10000) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", ""  + __LOC,
                    "v=1 code=PBEKEYSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='" + iterationCount + "' exp='>= 10000' msg='the third argument should be >= 10000'"));
-         }
-
-        event err2 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
-          call(public PBEKeySpec.new(char[], byte[], int, int)) &&
-          args(password, salt, iterationCount, keyLength) &&
-          condition( ! ExecutionContext.instance().validate(Property.RANDOMIZED, password) ) {
-             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
-                 "v=1 code=PBEKEYSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'"));
-        }
-
-        event err3 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
-          call(public PBEKeySpec.new(char[], byte[], int, int)) &&
-          args(password, salt, iterationCount, keyLength) &&
-          condition( ! ExecutionContext.instance().validate(Property.RANDOMIZED, salt) ) {
-            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
-                "v=1 code=PBEKEYSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument was not observed to come from a randomized source'"));
+               conforms = false;
+           }
+           if (!ExecutionContext.instance().validate(Property.RANDOMIZED, password)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
+                   "v=1 code=PBEKEYSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'"));
+               conforms = false;
+           }
+           if (!ExecutionContext.instance().validate(Property.RANDOMIZED, salt)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
+                   "v=1 code=PBEKEYSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument was not observed to come from a randomized source'"));
+               conforms = false;
+           }
+           if (conforms) {
+               spec = s;
+               ExecutionContext.instance().setProperty(Property.SPECCED_KEY, spec);
+           }
         }
 
         event c2 after(PBEKeySpec s):
@@ -74,7 +101,19 @@ PBEKeySpecSpec(PBEKeySpec s) {
             ExecutionContext.instance().remove(Property.SPECCED_KEY, s);
         }
 
-        ere : c1 c2
+        // The Kleene groups are where `f1` and `f2` are absorbed. Erased before the
+        // G-ORDER comparison (they are ORDER-unmapped in order_alphabet_map.csv),
+        // this is still the rule's `ORDER c1, cP`.
+        //
+        // Residue, recorded and not repaired: absorbing a forbidden constructor by a
+        // Kleene group silences the ordering report at the forbidden call itself, but
+        // not the obligatory call that follows it. A program that builds a PBEKeySpec
+        // with `PBEKeySpec(char[])` and then calls `clearPassword()` still reaches
+        // `c2` from a state where `c1` never happened, and still draws
+        // PBEKEYSPEC-ORDER-00 on top of the PBEKEYSPEC-FORB-00 the constructor
+        // already earned. Silencing that would mean modelling `f1` as an alternative
+        // opening of the ordering, which is the opposite of what FORBIDDEN says.
+        ere : (f1 | f2)* c1 (f1 | f2)* c2 (f1 | f2)*
 
         @fail {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec", "" + __LOC,

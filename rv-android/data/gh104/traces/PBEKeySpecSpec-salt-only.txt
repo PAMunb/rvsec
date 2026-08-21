@@ -1,0 +1,10 @@
+# one clause violated, not three: the salt is randomised and the iteration count is
+# fine, so only PBEKEYSPEC-CONSTR-01 -- the password read that no clause of api30
+# stands behind -- is left to fire. It is what makes the decomposition visible:
+# before the fusion this construction drew err2 plus its ordering report; after it,
+# one report from c1's body.
+bind salt = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(salt)
+new PBEKeySpec(chars, salt, 10000, 256) -> spec
+spec.clearPassword()

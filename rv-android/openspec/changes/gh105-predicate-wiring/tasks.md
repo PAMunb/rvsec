@@ -190,7 +190,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 - [x] 3.3 `IvParameterSpec`: fuse `c3`→`c1` and `c4`→`c2` (twins; `c4` is not an exact
       complement — it ignores `c2`'s offset/length constraints, so the fused body keeps both)
 - [x] 3.4 `SecretKeySpecSpec`: fuse `c3`→`c1` and `c4`→`c2` (`c4` is the length complement)
-- [ ] 3.5 `PBEKeySpecSpec`: absorb `f1`, `f2`; fuse `err2` AND `err3` into `c1` (one arrow, two
+- [x] 3.5 `PBEKeySpecSpec`: absorb `f1`, `f2`; fuse `err2` AND `err3` into `c1` (one arrow, two
       orphans) and `err1` as the tenth fused orphan, its iteration-count check decomposed per
       clause into the `c1` body — the three overlap today (one bad call fires up to three
       accusers; the fusion emits one report per violated clause). Declare the Kleene-prefix
