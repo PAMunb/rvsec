@@ -1,0 +1,7 @@
+# the residue the fusion leaves, measured rather than asserted: a getInstance whose
+# protocol the rule rejects and which is never init()ed. Seed: unsafe_protocol
+# accuses SSLCONTEXT-ORDER-00 about an ordering the rule accepts. After: nothing is
+# accused, because the protocol check lives in the init body and no init happens.
+# Moving the check up into the fused g1 would close the hole and create a report
+# where none exists today -- a behavioural change, deliberately deferred.
+SSLContext.getInstance("SSLv3") -> ctx

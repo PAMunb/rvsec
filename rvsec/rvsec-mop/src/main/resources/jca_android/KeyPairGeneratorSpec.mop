@@ -111,7 +111,21 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
        ExecutionContext.instance().setProperty(Property.GENERATED_KEY_PAIR, kp);
     }
 
-    ere: (g3* g1 | g3* g2) (init1 | init2 | init3 | init4) gen
+    // `initError` is absorbed rather than fused: it accuses a key size the rule's
+    // CONSTRAINTS bound, which is a report of its own and not the negation of another
+    // event's guard. It enters the automaton as one more alternative of the `Inits`
+    // group, at the only position where an `initialize` call is legal, because that is
+    // what the api30 rule says it is: `i3: initialize(keySize)` is an `Inits` event
+    // whatever size it is handed, and the size is stated separately, under CONSTRAINTS.
+    // Outside the automaton it drew a KEYPAIRGENERATOR-ORDER-00 as well as its own
+    // KEYPAIRGENERATOR-KEYSIZE-00, for an ordering -- `Gets, Inits, Generators` -- that
+    // the rule accepts; a self-loop would have kept that second report, because a loop
+    // does not satisfy the `Inits` the `gen` that follows needs.
+    //
+    // `order_alphabet_map.csv` therefore maps it to `i3`, like `init1`, instead of
+    // exempting it: the two events stand for the same rule symbol, the erased
+    // languages are the ones compared today, and G-ORDER sees no change.
+    ere: (g3* g1 | g3* g2) (init1 | init2 | init3 | init4 | initError) gen
 
     @fail {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,

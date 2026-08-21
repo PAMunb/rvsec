@@ -533,6 +533,21 @@ Plain absorptions — the remaining **4**, each one an accusation of its own:
 `PBEKeySpecSpec.f1` and `f2` (`ForbiddenMethod`). Partition: 12 twins + `err1` + 4
 absorptions = 17.
 
+**Refinement of 2026-08-21, ratified by the researcher at the start of task 3.6.** Absorption has
+two forms, and which one applies is decided by the rule, not by taste: where the ORDER has no
+symbol for the call the orphan matches, the event self-loops and its mapping row is ORDER-unmapped
+(`g4`, `f1`, `f2` — the rule turns those calls down rather than sequencing them); where the ORDER
+*does* name the call, the event enters at that position and its row is `mapped` to the same symbol
+as its sibling. `initError` is the second kind: it matches `initialize(int)`, which api30 states as
+`i3: initialize(keySize)`, and the size bound is a CONSTRAINTS clause, so the size may no more
+govern the transition than the algorithm may in the three `getInstance` fusions above. Absorbing it
+as a self-loop was measured and rejected: a loop does not satisfy the `Inits` the following `gen`
+needs, so `getInstance("RSA"); initialize(3072); generateKeyPair()` would have kept drawing a
+KEYPAIRGENERATOR-ORDER-00 on top of its KEYPAIRGENERATOR-KEYSIZE-00, about an ordering the rule
+accepts. As an `Inits` alternative the same trace goes 2 reports → 1
+(`data/gh105/evidence/harness/f1-KeyPairGeneratorSpec.md`). The partition is unchanged: the event
+is still absorbed, still keeps its own accusation, and is still one of the 4.
+
 **Correction of 2026-08-20, ratified by the researcher at the start of task 3.2.** The three
 `getInstance` accusers — `TrustManagerFactorySpec.g3`, `SignatureSpec.g3`,
 `SSLContextSpec.unsafe_protocol` — were listed here as plain absorptions until the 3.2 file pass

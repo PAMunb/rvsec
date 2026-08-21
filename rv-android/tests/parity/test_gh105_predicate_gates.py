@@ -423,6 +423,12 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
     * task 3.5 took `PBEKeySpecSpec` whole, taking it to 4: `err1`, `err2` and
       `err3` fused into `c1` on one arrow, and `f1` and `f2` absorbed into the
       Kleene groups of the `ere` because each accuses a FORBIDDEN constructor.
+    * task 3.6 took the last four, and the census is empty. `PBEParameterSpecSpec
+      .c3`, `SSLContextSpec.unsafe_protocol` and `SignatureSpec.g3` were fused
+      into their siblings; `KeyPairGeneratorSpec.initError` was absorbed into the
+      `Inits` group of the `ere`, where the api30 rule already puts the call it
+      matches -- `i3: initialize(keySize)` is an `Inits` event whatever size it is
+      handed, and the bound is a CONSTRAINTS clause.
     """
     home = _rvsec_home()
     root = home / "rvsec/rvsec-mop/src/main/resources/jca_android"
@@ -435,13 +441,8 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
             found[path.stem] = source.alphabet.orphans
         assert source.alphabet.undeclared == (), f"{path.name} names an undeclared event"
 
-    assert found == {
-        "KeyPairGeneratorSpec": ("initError",),
-        "PBEParameterSpecSpec": ("c3",),
-        "SSLContextSpec": ("unsafe_protocol",),
-        "SignatureSpec": ("g3",),
-    }
-    assert sum(len(events) for events in found.values()) == 4
+    assert found == {}
+    assert sum(len(events) for events in found.values()) == 0
 
 
 def test_the_frozen_gcm_specification_is_read_in_both_broken_directions():
@@ -528,6 +529,11 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       file's four reads were the twins' guards and leave with them; `c1`'s two move
       into its body, so the reads go 21 -> 19, of which 13 are still guards and 6
       are body reads.
+    * task 3.6 fused `PBEParameterSpecSpec.c3` into `c1`. The twin's guard leaves
+      with it and `c1`'s moves into its body, so the reads go 19 -> 18, of which
+      11 are still guards and 7 are body reads. The other three files of the task
+      carry no predicate read: their guards read an algorithm allow-list, and a
+      key size is not a predicate.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -543,8 +549,8 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 19
-    assert read_placement.get("condition", 0) == 13
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 18
+    assert read_placement.get("condition", 0) == 11
     assert counts.get("write", 0) == 49
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 25
     assert counts.get("remove", 0) + counts.get("negate", 0) == 9
@@ -625,14 +631,17 @@ def test_the_graph_reproduces_the_measured_placement_census():
       two-argument constructor being the fourth.
     * task 3.5: 13 guards left, and six body reads -- the fused `PBEKeySpecSpec.c1`
       carries two of them, one per predicate its decomposed body tests.
+    * task 3.6: 11 guards left, and seven body reads -- the fused
+      `PBEParameterSpecSpec.c1` is the seventh, reading the salt where it can
+      accuse about it.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
-    assert counts.get("read:condition-guard", 0) == 13
-    assert counts.get("read:body", 0) == 6
+    assert counts.get("read:condition-guard", 0) == 11
+    assert counts.get("read:body", 0) == 7
     assert counts.get("write:body", 0) == 42
     assert counts.get("write:acceptance", 0) == 7
     assert counts.get("remove:fail", 0) == 8
@@ -658,12 +667,14 @@ def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
       not a predicate.
     * task 3.5 took `PBEKeySpecSpec.err2` and `err3` out, leaving one row in the
       set. Both reads survive in `c1`'s body, where they are member sites.
+    * task 3.6 took the last one, `PBEParameterSpecSpec.c3`. Its read survives in
+      the fused `c1` body; the three-argument `c2` keeps its accuser-less guard
+      until that file's Group-4 pass, but `c2` is a member event and was never an
+      orphan site.
     """
     rows = read_graph(GRAPH)
     orphan_sites = {(row["file"], row["event"]) for row in rows if row["automaton_membership"] == "orphan"}
-    assert orphan_sites == {
-        ("PBEParameterSpecSpec.mop", "c3"),
-    }
+    assert orphan_sites == set()
 
 
 def test_judgment_columns_survive_a_regeneration():
@@ -771,7 +782,8 @@ def test_gacc_counts_the_orphans_group_three_has_not_absorbed_yet():
     `SecureRandomSpec` whole; 13 after task 3.2 fused `TrustManagerFactorySpec.g3`
     into `g1`; 11 after task 3.3 fused both `IvParameterSpec` twins; 9 after task
     3.4 fused both `SecretKeySpecSpec` twins; 4 after task 3.5 took
-    `PBEKeySpecSpec` whole. Task 3.7 closes it at zero.
+    `PBEKeySpecSpec` whole; zero after task 3.6 took the last four. Task 3.7 is
+    what retires the gate's baseline rows now that the count is nothing.
     """
     root = _specs_root()
     report = analyze_set(root / "jca_android")
@@ -779,7 +791,7 @@ def test_gacc_counts_the_orphans_group_three_has_not_absorbed_yet():
 
     findings = gate_acc(report, sources)
     assert all(finding.gate == "G-ACC" for finding in findings)
-    assert len(findings) == 4
+    assert len(findings) == 0
 
 
 def test_gacc_reports_both_directions_and_the_duplicate_declaration():
@@ -805,7 +817,8 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     All 27 of them when the change opened; 23 after task 3.1's fusions took four
     guards out; 19 after task 3.3 fused the two `IvParameterSpec` pairs; 17 after
     task 3.4 fused the two `SecretKeySpecSpec` pairs; 13 after task 3.5 fused the
-    three `PBEKeySpecSpec` twins. The gate exists to make the migration's progress
+    three `PBEKeySpecSpec` twins; 11 after task 3.6 fused `PBEParameterSpecSpec`'s.
+    The gate exists to make the migration's progress
     a number that goes down, and to make it impossible for a new one to arrive
     quietly.
     """
@@ -814,7 +827,7 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
 
     findings = gate_placement(report)
     guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
-    assert len(guards) == 13
+    assert len(guards) == 11
 
 
 def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():
@@ -1288,15 +1301,23 @@ def test_the_securerandom_kleene_star_is_measured_and_not_argued():
 def test_an_absorbed_accuser_is_erased_from_both_languages():
     """`KeyPairGeneratorSpec` agrees with its rule *because* of the erasure.
 
-    Its `ere` names `g3` (the invalid-algorithm accuser) and it declares
-    `initError`, and the rule's ORDER has a symbol for neither. Their mapping rows
-    record the exemption, the gate erases them, and what remains is
-    `(g1|g2)(inits)gen` against `Gets, Inits, Generators`. Without the erasure
-    Group 3 could not absorb an orphan without turning this gate red.
+    Its `ere` names `g3`, the invalid-algorithm accuser, and the rule's ORDER has
+    no symbol for a call it turns down on a constraint. The mapping row records
+    the exemption, the gate erases it, and what remains is `(g1|g2)(inits)gen`
+    against `Gets, Inits, Generators`. Without the erasure Group 3 could not
+    absorb an orphan without turning this gate red.
+
+    Task 3.6 shows the exemption is not the only way to absorb one. `initError`
+    was listed here too until that task read the rule: `i3: initialize(keySize)`
+    is an `Inits` event whatever size it is handed, and the size bound is a
+    CONSTRAINTS clause, so the honest row is the mapping to `i3` and not an
+    exemption. Two events standing for one symbol is the non-bijection the map
+    already models, and the erased languages are the same either way.
     """
     rows = gh105_order_gate.read_map(ORDER_MAP)["KeyPairGeneratorSpec"]
     exempt = {row.mop_event for row in rows if row.disposition == "order-unmapped"}
-    assert exempt == {"g3", "initError"}
+    assert exempt == {"g3"}
+    assert {row.mop_event for row in rows if row.order_symbol == "i3"} == {"init1", "initError"}
     assert all(row.reason for row in rows if row.disposition == "order-unmapped")
 
     built = gh105_order_gate.build_automata(

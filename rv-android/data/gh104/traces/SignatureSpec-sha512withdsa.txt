@@ -1,0 +1,13 @@
+# the co-emission the g3->g1 fusion removes. SHA512withDSA is an algorithm the JVM
+# really produces -- getAlgorithm() answers "SHA512withDSA" -- and the api30
+# CONSTRAINTS clause admits neither it nor any alias of it (alias_table.csv has no
+# row that resolves to it), so the rejected signature reaches the guard both ways.
+# Seed: g3 fires outside the automaton and accuses InvalidSequenceOfMethodCalls,
+# its __RESET drops the monitor to the start state, where initSign is not declared
+# and accuses a second time, and SIGNATURE-ALG-00 is never reached. After: g1 binds
+# the signature, the run reaches the accepting state, and SIGNATURE-ALG-00 stands
+# alone.
+Signature.getInstance("SHA512withDSA") -> s
+s.initSign(null)
+s.update(bytes)
+s.sign() -> out

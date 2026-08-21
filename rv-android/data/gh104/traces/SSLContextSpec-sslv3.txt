@@ -1,0 +1,11 @@
+# the co-emission the unsafe_protocol->g1 fusion removes. SSLv3 is a protocol the
+# JVM really produces -- getProtocol() answers "SSLv3" -- and the api30 CONSTRAINTS
+# clause admits neither it nor any alias of it (there is no SSLContext row in
+# alias_table.csv), so the rejected context reaches the guard both ways.
+# Seed: unsafe_protocol fires outside the automaton and accuses
+# InvalidSequenceOfMethodCalls, its __RESET drops the monitor to start, where the
+# following init is not declared and accuses a second time, and SSLCONTEXT-PROTO-00
+# is never reached. After: g1 binds the context, init reaches end, and
+# SSLCONTEXT-PROTO-00 stands alone.
+SSLContext.getInstance("SSLv3") -> ctx
+ctx.init(null, null, null)

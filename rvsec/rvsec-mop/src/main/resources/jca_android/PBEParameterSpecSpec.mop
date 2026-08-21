@@ -19,14 +19,37 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
 
         PBEParameterSpec spec;
 
+        // One event over `PBEParameterSpec(byte[], int)`, where there used to be two
+        // split by the sign of a guard. The negated twin `c3` matched the same call
+        // with the same `args(salt, iterationCount)` and named no state in the `ere`,
+        // so one bad construction drew two reports: PBEPARAMETERSPEC-CONSTR-00 from
+        // its body and a PBEPARAMETERSPEC-ORDER-00 about an ordering the rule
+        // accepts, because the generator gives an event absent from the automaton a
+        // transition row that sends every state to the fail state. The rule's ORDER
+        // is `Cons` with `Cons := c1 | c2`: constructing a PBEParameterSpec is the
+        // whole of the ordering, and neither the iteration count nor the salt may
+        // govern the transition -- the count is a CONSTRAINTS clause and the salt a
+        // REQUIRES predicate.
+        //
+        // The two guards partitioned the join point exactly, so the fused body is one
+        // `if`/`else` over the same disjunction the twin carried, and it emits the
+        // same single report with the same code. Nothing the twin accused is lost and
+        // nothing new is accused; what leaves is the spurious ordering report.
+        //
+        // The write stays behind the check: `spec` is bound only when both halves
+        // hold, because `@match` turns `spec` into `preparedPBE[this]` and CrySL
+        // ensures a predicate only for a use that satisfied the rule.
         event c1 after(byte[] salt, int iterationCount) returning(PBEParameterSpec s):
           call(public PBEParameterSpec.new(byte[], int)) &&
-          args(salt, iterationCount) &&
-          condition(
-            iterationCount >= 10000 &&
-            ExecutionContext.instance().validate(Property.RANDOMIZED, salt)
-          ) {
-              spec = s;
+          args(salt, iterationCount) {
+              if (iterationCount < 10000 ||
+                  !(ExecutionContext.instance().validate(Property.RANDOMIZED, salt))) {
+                  ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC,
+                      "v=1 code=PBEPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='" + iterationCount + "' exp='>= 10000 iterations and a randomized salt' msg='expecting at least 10000 iterations and a randomized salt'"));
+              }
+              else {
+                  spec = s;
+              }
         }
 
         event c2 after(byte[] salt, int iterationCount, AlgorithmParameterSpec paramSpec) returning(PBEParameterSpec s):
@@ -37,17 +60,6 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
             ExecutionContext.instance().validate(Property.RANDOMIZED, salt)
         ) {
             spec = s;
-        }
-
-        event c3 after(byte[] salt, int iterationCount) returning(PBEParameterSpec s):
-          call(public PBEParameterSpec.new(byte[], int)) &&
-          args(salt, iterationCount) &&
-          condition(
-            iterationCount < 10000 ||
-            !(ExecutionContext.instance().validate(Property.RANDOMIZED, salt))
-          ) {
-             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC,
-                 "v=1 code=PBEPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='" + iterationCount + "' exp='>= 10000 iterations and a randomized salt' msg='expecting at least 10000 iterations and a randomized salt'"));
         }
 
         ere : c1 | c2

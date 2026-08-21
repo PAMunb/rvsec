@@ -41,10 +41,34 @@ SignatureSpec(Signature s) {
 
        Signature signature = null;
 
+       // One event over `getInstance(String)`, where there used to be two split by
+       // the sign of a guard. The negated twin `g3` matched the same call with the
+       // same `args(alg)` and named no state in the `ere`, and the generator gives an
+       // event absent from the automaton a transition row that moves every state to
+       // the fail state: a signature built with an algorithm the rule rejects was
+       // reported as a wrong call sequence, and the `initSign`/`initVerify` that
+       // followed it was reported again, because `g3`'s failing transition had taken
+       // the `@fail` path, which `__RESET`s the monitor to the start state, where no
+       // init event is declared.
+       //
+       // The api30 rule orders `Gets, ((InitSigns+, ...)+ | (InitVerifies+, ...)+)`
+       // with `Gets := g1 | g2` and states the algorithm under CONSTRAINTS, so the
+       // algorithm must not govern the transition: `getInstance` is a `Gets` whatever
+       // it was asked for. Dropping the guard lets the rejected signature reach the
+       // init events like any other, where the four `i1`-`i4` bodies accuse it
+       // exactly once, with SIGNATURE-ALG-00 through SIGNATURE-ALG-03. `g3`'s body
+       // accused nothing of its own -- it only rebound `currentAlgorithmInstance` --
+       // so nothing it reported is lost.
+       //
+       // Residue, recorded and not repaired (divergence_record.csv): a `getInstance`
+       // whose algorithm the rule rejects and which is never initialised is now
+       // accused by nothing, because the accusation lives in the init bodies. The
+       // two-argument `g2` still carries the guard this event lost, and with it the
+       // same suppression, for the same reason -- it is not an orphan, so no task of
+       // this group reaches it. Both are behavioural changes, deliberately deferred.
        event g1 after(String alg) returning(Signature s):
          call(public static Signature Signature.getInstance(String)) &&
-         args(alg) &&
-         condition(ConscryptAliasTable.matches("Signature", alg, algorithms)) {
+         args(alg) {
            signature = s;
            currentAlgorithmInstance = alg;
        }
@@ -54,13 +78,6 @@ SignatureSpec(Signature s) {
          args(alg, provider) &&
          condition(ConscryptAliasTable.matches("Signature", alg, algorithms)) {
            signature = s;
-           currentAlgorithmInstance = alg;
-       }
-
-       event g3 after(String alg) returning(Signature s):
-         call(public static Signature Signature.getInstance(String)) &&
-         args(alg) &&
-         condition(!ConscryptAliasTable.matches("Signature", alg, algorithms)) {
            currentAlgorithmInstance = alg;
        }
 

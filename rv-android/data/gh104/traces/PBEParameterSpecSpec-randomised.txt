@@ -1,0 +1,10 @@
+# legitimate, and the only trace of the corpus that satisfies c1 whole: the api30
+# rule asks for `iterationCount >= 10000` under CONSTRAINTS and `randomized[salt]`
+# under REQUIRES, and the sibling PBEParameterSpecSpec.txt satisfies only the first
+# -- its salt is a plain byte[], so the pre-image reaches the fusion through c3.
+# Seed: c1's guard holds, nothing is accused. After: the same, by the `else` branch
+# of the fused body, which is where the write to `spec` now lives.
+bind salt = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(salt)
+new PBEParameterSpec(salt, 10000) -> spec

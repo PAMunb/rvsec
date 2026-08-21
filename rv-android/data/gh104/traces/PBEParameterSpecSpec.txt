@@ -1,2 +1,5 @@
-# legitimate: the iteration count the rule requires
+# legitimate in its iteration count and violating in its salt: 10000 is what the
+# api30 CONSTRAINTS clause asks for, but `bytes` is a plain byte[] that nothing
+# randomises, so `randomized[salt]` does not hold and both snapshots accuse. See
+# PBEParameterSpecSpec-randomised.txt for the trace that satisfies c1 whole.
 new PBEParameterSpec(bytes, 10000) -> spec

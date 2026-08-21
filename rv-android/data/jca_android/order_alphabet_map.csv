@@ -15,12 +15,17 @@
 # no `ORDER` counterpart at all, and the gate erases it from BOTH languages before
 # deciding equivalence. That is what lets an absorbed accuser -- one whose body
 # carries an accusation of its own, so the set would lose a report by deleting it
-# (`SecureRandomSpec.g4`, `KeyPairGeneratorSpec.initError`, `PBEKeySpecSpec.f1`
-# and `f2`) -- satisfy G-ACC by entering the
-# automaton without breaking the language comparison. It is a claim with a reason
+# (`SecureRandomSpec.g4`, `PBEKeySpecSpec.f1` and `f2`) -- satisfy G-ACC by entering
+# the automaton without breaking the language comparison. It is a claim with a reason
 # attached, never a way to make a comparison come out right. A negated twin gets no
 # row at all: it is fused into its sibling and stops existing as an event
 # (design.md census, corrected 2026-08-20).
+#
+# Not every absorbed accuser needs the exemption. `KeyPairGeneratorSpec.initError`
+# is absorbed and yet `mapped`, to `i3`, because the rule's `i3: initialize(keySize)`
+# is what the call is whatever size it carries -- the bound is a CONSTRAINTS clause,
+# not an ORDER symbol -- so the honest row is the mapping, and the two events
+# standing for one symbol is the non-bijection this file already models (task 3.6).
 #
 # Covered here (task 2.8) -- the specifications Groups 3 and 5 reach first:
 #   Group 3, the nine orphan-carrying specifications: IvParameterSpec,
@@ -48,7 +53,7 @@ KeyPairGeneratorSpec,init1,i3,event,KeyPairGenerator.cryptsl,27,mapped,"`initial
 KeyPairGeneratorSpec,init2,i4,event,KeyPairGenerator.cryptsl,29,mapped,
 KeyPairGeneratorSpec,init3,i1,event,KeyPairGenerator.cryptsl,23,mapped,"`initialize(AlgorithmParameterSpec)` is the rule's params branch"
 KeyPairGeneratorSpec,init4,i2,event,KeyPairGenerator.cryptsl,25,mapped,
-KeyPairGeneratorSpec,initError,,,KeyPairGenerator.cryptsl,,order-unmapped,"an accuser over the same `initialize(int)` call as init1, outside the automaton today; task 3.6 absorbs it with benign self-loops and this exemption is what keeps the absorption invisible to the language comparison"
+KeyPairGeneratorSpec,initError,i3,event,KeyPairGenerator.cryptsl,27,mapped,"the rejected-key-size accuser over the same `initialize(int)` call as init1; task 3.6 absorbed it into the `Inits` group of the `ere`, where the rule already puts it -- `i3` is the call, and the size bound is a CONSTRAINTS clause, so the two events stand for one symbol and the erased languages are unchanged"
 KeyPairGeneratorSpec,gen,Generators,aggregate,KeyPairGenerator.cryptsl,37,mapped,"one event over both `generateKeyPair()` and `genKeyPair()`, which is the aggregate whole"
 PBEKeySpecSpec,f1,,,PBEKeySpec.cryptsl,,order-unmapped,"`PBEKeySpec(char[])` is a constructor the rule's EVENTS do not name at all; the event exists to accuse the forbidden overload, and a call outside the rule's alphabet has no ORDER symbol. Absorbed by task 3.5"
 PBEKeySpecSpec,f2,,,PBEKeySpec.cryptsl,,order-unmapped,"same as f1 for `PBEKeySpec(char[], byte[], int)`"
@@ -56,10 +61,8 @@ PBEKeySpecSpec,c1,c1,event,PBEKeySpec.cryptsl,23,mapped,
 PBEKeySpecSpec,c2,cP,event,PBEKeySpec.cryptsl,25,mapped,"`clearPassword()`, the rule's second and last ordered event"
 PBEParameterSpecSpec,c1,c1,event,PBEParameterSpec.cryptsl,15,mapped,
 PBEParameterSpecSpec,c2,c2,event,PBEParameterSpec.cryptsl,17,mapped,
-PBEParameterSpecSpec,c3,c1,event,PBEParameterSpec.cryptsl,15,mapped,"the accusing twin of c1 over the same two-argument constructor; task 3.6 fuses it, and the three-argument c2 keeps its accuser-less read until its Group-4 file pass"
 SSLContextSpec,g1,g1,event,SSLContext.cryptsl,23,mapped,
 SSLContextSpec,g2,g2,event,SSLContext.cryptsl,25,mapped,
-SSLContextSpec,unsafe_protocol,,,SSLContext.cryptsl,,order-unmapped,"the unsafe-protocol accuser over the same `getInstance(String)` call as g1; the protocol is a CONSTRAINTS matter and the ORDER has no symbol for a rejected one. Absorbed by task 3.6"
 SSLContextSpec,init,Init,event,SSLContext.cryptsl,29,mapped,"the rule names one init event, `init(kms, tms, _)`, and the `.mop` has one event for it"
 SSLContextSpec,engine,Engine,aggregate,SSLContext.cryptsl,35,mapped,"`createSSLEngine(..)` is one event over both overloads, which is the aggregate whole"
 SecretKeySpecSpec,c1,c1,event,SecretKeySpec.cryptsl,17,mapped,
@@ -79,7 +82,6 @@ SecureRandomSpec,next3,,,SecureRandom.cryptsl,,order-unmapped,"`nextInt()` with 
 SecureRandomSpec,ints,,,SecureRandom.cryptsl,,order-unmapped,"`ints(..)` returns an IntStream and the rule names no stream event; the site exists to mark the stream randomized, not to order anything"
 SignatureSpec,g1,g1,event,Signature.cryptsl,29,mapped,
 SignatureSpec,g2,g2,event,Signature.cryptsl,31,mapped,
-SignatureSpec,g3,,,Signature.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; absorbed by task 3.6"
 SignatureSpec,i1,i1,event,Signature.cryptsl,35,mapped,
 SignatureSpec,i2,i2,event,Signature.cryptsl,37,mapped,
 SignatureSpec,i3,i3,event,Signature.cryptsl,39,mapped,

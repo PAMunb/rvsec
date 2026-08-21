@@ -1,0 +1,6 @@
+# the residue the fusion leaves, measured rather than asserted: a getInstance whose
+# algorithm the rule rejects and which is never initialised. Seed: g3 accuses
+# SIGNATURE-ORDER-00 about an ordering the rule accepts. After: nothing is accused,
+# because the algorithm check lives in the four init bodies and no init happens.
+# Same treatment and same recorded residue as TrustManagerFactorySpec-sunx509-no-init.
+Signature.getInstance("SHA512withDSA") -> s

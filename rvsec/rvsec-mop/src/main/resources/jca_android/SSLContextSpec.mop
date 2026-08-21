@@ -40,10 +40,38 @@ SSLContextSpec(SSLContext ctx) {
 
    SSLEngine engine;
 
+   // One event over `getInstance(String)`, where there used to be two split by the
+   // sign of a guard. The negated twin `unsafe_protocol` matched the same call with
+   // the same `args(protocol)` and named no state, and the generator gives an event
+   // absent from the automaton a transition row that moves every state to `fail`: a
+   // context built for a protocol the rule rejects was reported as a wrong call
+   // sequence, and the `init` that followed it was reported again, because
+   // `unsafe_protocol`'s failing transition had taken the `@fail` path -- which
+   // `__RESET`s the monitor to `start`, where `init` is not declared.
+   //
+   // It was worse than a second report about one context. `unsafe_protocol` bound no
+   // `SSLContext`: it was `after(String protocol)` with no `returning` and no
+   // `target`, so the generator dispatched it to the whole monitor set rather than
+   // to an instance, and one rejected protocol anywhere in the program pushed every
+   // live SSLContextSpec monitor to `fail`.
+   //
+   // The api30 rule orders `Gets, Init, Engine?` with `Gets := g1 | g2` and states
+   // the protocol under CONSTRAINTS, so the protocol must not govern the transition:
+   // `getInstance` is a `Gets` whatever it was asked for. Dropping the guard lets the
+   // rejected context reach `end` like any other, where the `init` body accuses it
+   // exactly once, with SSLCONTEXT-PROTO-00. `unsafe_protocol`'s body accused nothing
+   // of its own -- it only rebound `currentProtocol` -- so nothing it reported is
+   // lost.
+   //
+   // Residue, recorded and not repaired (divergence_record.csv): a `getInstance`
+   // whose protocol the rule rejects and which is never `init`ed is now accused by
+   // nothing, because the accusation lives in the `init` body. The two-argument `g2`
+   // still carries the guard this event lost, and with it the same suppression, for
+   // the same reason -- it is not an orphan, so no task of this group reaches it.
+   // Both are behavioural changes, deliberately deferred.
    event g1 after(String protocol) returning(SSLContext ctx):
     call(public static SSLContext SSLContext.getInstance(String))
-    && args(protocol)
-    && condition(ConscryptAliasTable.matches("SSLContext", protocol, protocols)) {
+    && args(protocol) {
       context = ctx;
       currentProtocol = protocol;
     }
@@ -53,13 +81,6 @@ SSLContextSpec(SSLContext ctx) {
       args(protocol, provider) &&
       condition(ConscryptAliasTable.matches("SSLContext", protocol, protocols)) {
         context = ctx;
-        currentProtocol = protocol;
-    }
-
-    event unsafe_protocol after(String protocol):
-      call(public static SSLContext SSLContext.getInstance(String)) &&
-      args(protocol) &&
-      condition(!ConscryptAliasTable.matches("SSLContext", protocol, protocols)) {
         currentProtocol = protocol;
     }
 

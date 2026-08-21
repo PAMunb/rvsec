@@ -213,11 +213,25 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
   twin is not an exact complement (`IvParameterSpec.c4` ignores its sibling's offset/length
   constraints; the three `PBEKeySpecSpec` accusers overlap, so one bad call fires up to three),
   the fusion decomposes the accusation per clause, one report each. To **absorb** the remaining
-  4 is defined operationally: the event enters the automaton's declared alphabet with benign
-  self-loops at every state where its call is legal, and its `order_alphabet_map.csv` row
-  records it as ORDER-unmapped — G-ACC then holds by membership, and G-ORDER holds because the
-  comparison erases unmapped events first (INV-INS-138); without this definition the two gates
-  could only be satisfied by mutually exclusive automata.
+  4 is defined operationally by where the rule's ORDER puts the call the orphan matches, and it
+  takes one of two forms. Where the ORDER has no symbol for that call — `SecureRandomSpec.g4`
+  and the two `PBEKeySpecSpec` FORBIDDEN constructors, three calls the rule turns down rather
+  than sequences — the event enters the automaton's declared alphabet with benign self-loops at
+  every state where its call is legal, and its `order_alphabet_map.csv` row records it as
+  ORDER-unmapped. Where the ORDER does name the call — `KeyPairGeneratorSpec.initError` matches
+  `initialize(int)`, which api30 states as `i3: initialize(keySize)` with the size bound under
+  CONSTRAINTS — the event enters at that position, as one more alternative of the group its
+  sibling belongs to, and its row is `mapped` to the same symbol; two events standing for one
+  symbol is the non-bijection the mapping already models. G-ACC holds by membership either way,
+  and so does G-ORDER: the first form because the comparison erases unmapped events first
+  (INV-INS-138), the second because the erased languages are then literally unchanged. Without
+  this definition the two gates could only be satisfied by mutually exclusive automata. The
+  second form is not a convenience, and the first is not always available: a self-loop does not
+  satisfy the position the following event needs, so absorbing `initError` as a loop would have
+  left `getInstance("RSA"); initialize(3072); generateKeyPair()` drawing a
+  KEYPAIRGENERATOR-ORDER-00 on top of its KEYPAIRGENERATOR-KEYSIZE-00, about an ordering the
+  rule accepts. Measured 2 → 1 against the pre-image, task 3.6
+  (`data/gh105/evidence/harness/f1-KeyPairGeneratorSpec.md`, trace `-rsa3072`).
 - **INV-INS-136**: A junction specification (mechanism B) MUST obey four rules: (a) the consumer
   event is never `creation` — a consumer-created partial instance cannot see the chain and
   accuses the conforming trace; (b) every state reachable by a disconnected join (an instance

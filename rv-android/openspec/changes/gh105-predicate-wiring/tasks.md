@@ -26,9 +26,12 @@ Subagent dispatch (docs/WORKFLOW.md §5):
   the intended final state, not a conflict.
 - Group 3 (orphans) is independent of the mechanism decision and of Group 4 — parallelizable
   per-spec across subagents once 2.1-2.6, 2.8 and 2.11 exist. "Absorb" = the event enters the
-  automaton's declared alphabet with benign self-loops at every state where its call is legal,
-  and its `order_alphabet_map.csv` row records it as ORDER-unmapped (erased before the G-ORDER
-  comparison — INV-INS-138); "fuse" per INV-INS-135. The `gate_allowlist.csv` rows are owned by
+  automaton's declared alphabet and keeps accusing, in whichever of the two forms INV-INS-135
+  defines: self-loops at every state where the call is legal plus an ORDER-unmapped mapping row
+  (erased before the G-ORDER comparison — INV-INS-138) when the rule's ORDER has no symbol for
+  that call, or entry at the position the ORDER does name plus a `mapped` row to that symbol
+  when it has one (`KeyPairGeneratorSpec.initError` → `i3`, ratified 2026-08-21 during task 3.6);
+  "fuse" per INV-INS-135. The `gate_allowlist.csv` rows are owned by
   named tasks (`c3` by 3.1, `err2` by 3.5) so two parallel subagents cannot both claim the file.
 - Group 4 is ONE PASS PER FILE, not four sequential sweeps: each file's reads, writes,
   accepting-state calls, divergence hunks and trace pair move together, because they are the same
@@ -195,7 +198,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       clause into the `c1` body — the three overlap today (one bad call fires up to three
       accusers; the fusion emits one report per violated clause). Declare the Kleene-prefix
       residue. Owns the `err2` row of `data/jca_android/gate_allowlist.csv:2`
-- [ ] 3.6 `PBEParameterSpecSpec`: fuse `c3`→`c1` (2-arg twin; the 3-arg `c2` read stays
+- [x] 3.6 `PBEParameterSpecSpec`: fuse `c3`→`c1` (2-arg twin; the 3-arg `c2` read stays
       accuser-less until its Group-4 file pass); `KeyPairGeneratorSpec`: absorb `initError` (it
       accuses `InvalidKeySize` on its own); `SSLContextSpec`: fuse `unsafe_protocol`→`g1` and
       `SignatureSpec`: fuse `g3`→`g1` — both negated twins whose bodies only rebind a field,
