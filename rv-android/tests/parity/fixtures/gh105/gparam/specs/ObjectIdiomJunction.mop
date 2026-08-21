@@ -1,0 +1,14 @@
+package mop;
+
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+ObjectIdiomJunction(Object iv, Cipher c) {
+
+    event produce before(Object iv):
+      call(public void SecureRandom.nextBytes(byte[])) && args(iv) {
+        PredicateStore.instance().ensure(Property.RANDOMIZED, iv);
+    }
+
+    ere : produce
+}

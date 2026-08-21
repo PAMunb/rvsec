@@ -192,6 +192,10 @@ class MopSource:
     neutral: str
     regions: list[Region] = field(default_factory=list)
     aliases: dict[str, str] = field(default_factory=dict)
+    # The specification's own parameter list -- the monitor's index. These names
+    # are NOT visible inside `@match`/`@fail` handlers, which is a compile-time
+    # fact and INV-INS-136(d)'s whole subject.
+    parameters: dict[str, str] = field(default_factory=dict)
     fields: dict[str, str] = field(default_factory=dict)
     event_parameters: dict[str, dict[str, str]] = field(default_factory=dict)
     # Declarations in source order, repeats included: `jca/GCMParameterSpecSpec.mop`
@@ -611,6 +615,7 @@ def read_mop(path: Path) -> MopSource:
         return MopSource(path=path, spec=path.stem, text=text, neutral=neutral, parse_error=imbalance)
 
     spec_name = path.stem
+    parameters: dict[str, str] = {}
     body_start = -1
     for match in _SPEC_DECL.finditer(neutral):
         keyword = match.group("name")
@@ -621,12 +626,14 @@ def read_mop(path: Path) -> MopSource:
         remainder = neutral[after_params:]
         if remainder.lstrip().startswith("{"):
             spec_name = keyword
+            parameters = _collect_declarations(neutral, open_paren, after_params)
             body_start = after_params + remainder.index("{")
             break
 
     source = MopSource(path=path, spec=spec_name, text=text, neutral=neutral)
     if body_start < 0:
         return source
+    source.parameters.update(parameters)
 
     body_end = _match_delimiter(neutral, body_start, "{", "}") - 1
     _scan_regions(source, body_start + 1, body_end)
@@ -839,7 +846,7 @@ def analyze_set(set_dir: Path) -> SetReport:
     return report
 
 
-# ------------------------------------------------------------------------ CLI
+# ------------------------------------------------------- the enumerated universe
 
 
 # Every set the gates run over. The universe is enumerated from these directories
@@ -878,6 +885,428 @@ def write_graph(path: Path, rows: list[dict[str, str]]) -> None:
         writer.writerows(rows)
 
 
+# ---------------------------------------------------------------- the gates
+
+
+# The dispositions that close a read without a producer in the set. Each names a
+# reason the edge cannot be wired, and each is a decision somebody wrote down --
+# which is the difference between a gap that is known and a gap that is missing.
+RECORDED_READ_DISPOSITIONS = {
+    "unclosable",           # no producing rule exists at all (`preparedEC`)
+    "unmonitored-producer",  # the producing rule has no `.mop` in the set
+    "unmonitored-consumer",  # the consuming rule has no `.mop` in the set
+    "vacuous",              # the clause binds a value no event of the rule binds
+    "propagation",          # the read translates no clause; it forwards a mark
+}
+
+# The disposition that closes a write with no reader: an `ENSURES`-only dead end,
+# recorded rather than given a fabricated reader.
+RECORDED_WRITE_DISPOSITIONS = {"omission", "propagation"}
+
+# A junction specification, by name. The convention is what makes the four rules
+# of INV-INS-136 checkable at all: they apply to mechanism B and to nothing else,
+# and a typestate specification that fails on an unexpected call is doing its job.
+JUNCTION_SUFFIX = "Junction.mop"
+
+
+# The one set this change edits. The placement invariants and the closure gate
+# are its contract and nobody else's: `jca` is frozen because it produced
+# published measurements, and the archived set is a record. Running those gates
+# against either would report, correctly and uselessly, that a frozen file is
+# still what it was frozen as.
+TARGET_SET = "jca_android"
+
+
+@dataclass(frozen=True)
+class Finding:
+    """One gate hit, identified by something stable enough to allow-list.
+
+    The key deliberately excludes line numbers and messages: an allow-list entry
+    or a baseline row that stopped matching because a file was reformatted would
+    reappear as a new finding, and a gate that cries wolf on formatting is a gate
+    that gets muted.
+    """
+
+    gate: str
+    spec_set: str
+    file: str
+    subject: str
+    message: str
+    # `informative` is a finding in a set the gate does not govern -- the orphan
+    # in `generic/FSM246.mop` is real and is nobody's task. It is reported so that
+    # the gate is visibly running over the whole universe, and it does not fail a
+    # run, because failing on it would make the only cure to stop running there.
+    severity: str = "failing"
+
+    @property
+    def key(self) -> tuple[str, str, str, str]:
+        return (self.gate, self.spec_set, self.file, self.subject)
+
+
+def gate_acc(report: SetReport, sources: list[MopSource]) -> list[Finding]:
+    """G-ACC (INV-INS-135): the declared alphabet and the automaton's, both ways.
+
+    An event declared and never named by the automaton is an *orphan accuser*: it
+    is woven, it fires, and it can report a violation for a call the specification's
+    own ordering does not model. An event named and never declared is the mirror
+    image -- an alphabet symbol with no advice behind it, so the transition it
+    labels can never be taken.
+
+    A third direction rides along: an event name declared twice. The generator
+    keys advice by name, so the second declaration wins and the first is woven
+    nowhere; the file reads as if both were live.
+    """
+    findings: list[Finding] = []
+    for source in sources:
+        alphabet = source.alphabet
+        if not alphabet.has_automaton:
+            continue
+        for event in alphabet.orphans:
+            findings.append(
+                Finding(
+                    "G-ACC",
+                    report.name,
+                    source.path.name,
+                    event,
+                    f"`{event}` is declared and never named by the {alphabet.kind}: "
+                    "it fires outside the ordering it belongs to",
+                )
+            )
+        for event in alphabet.undeclared:
+            findings.append(
+                Finding(
+                    "G-ACC",
+                    report.name,
+                    source.path.name,
+                    event,
+                    f"the {alphabet.kind} names `{event}`, which no event declares: "
+                    "the transition it labels can never be taken",
+                )
+            )
+        for event in alphabet.duplicates:
+            findings.append(
+                Finding(
+                    "G-ACC",
+                    report.name,
+                    source.path.name,
+                    event,
+                    f"`{event}` is declared more than once; the generator keys advice by "
+                    "name, so only the last declaration is woven",
+                )
+            )
+    return findings
+
+
+def gate_placement(report: SetReport) -> list[Finding]:
+    """INV-INS-133 and INV-INS-134: reads out of guards, writes at acceptance.
+
+    A read inside `condition(...)` compiles to a boolean guard: when it is false
+    the transition does not happen, so an unobserved predicate is reported as a
+    wrong call sequence instead of as an unsatisfied constraint. That is the
+    mechanism behind the set's largest published error category, and it is why the
+    reads move to event bodies where they can accuse about what they saw.
+
+    A write belongs at the rule's acceptance point, because that is when the rule
+    has finished judging the object it is about to vouch for. A write kept
+    elsewhere is not forbidden -- it needs a recorded reason, in the graph, where
+    the next reader will find it.
+    """
+    findings: list[Finding] = []
+    for row in report.rows:
+        operation = row["verdict"].split(":")[0]
+        if operation in ("read", "read-absent") and row["site_kind"] == "condition":
+            findings.append(
+                Finding(
+                    "INV-INS-133",
+                    report.name,
+                    row["file"],
+                    f"{row['event']}/{row['predicate']}",
+                    "a predicate read inside `condition(...)` suppresses the transition "
+                    "instead of accusing at it",
+                )
+            )
+        if operation == "write" and row["verdict"] != "write:acceptance" and not row["reason"]:
+            findings.append(
+                Finding(
+                    "INV-INS-134",
+                    report.name,
+                    row["file"],
+                    f"{row['event']}/{row['predicate']}",
+                    f"a write at `{row['verdict']}` rather than at the acceptance point, "
+                    "with no recorded reason",
+                )
+            )
+    return findings
+
+
+def gate_pred2(report: SetReport) -> list[Finding]:
+    """G-PRED2 (INV-INS-137): the graph closes, or says in writing why it does not.
+
+    Every read needs a producer somewhere in the set or a disposition naming the
+    reason there is none; every write needs a reader or a recorded deliberate
+    omission. Over a set with no predicates the correct answer is zero rows and
+    green -- the closure of an empty graph is the empty graph.
+    """
+    written: set[str] = set()
+    read: set[str] = set()
+    for row in report.rows:
+        operation = row["verdict"].split(":")[0]
+        if operation == "write":
+            written.add(row["predicate"])
+        elif operation in ("read", "read-absent"):
+            read.add(row["predicate"])
+
+    findings: list[Finding] = []
+    for row in report.rows:
+        operation = row["verdict"].split(":")[0]
+        subject = f"{row['event']}/{row['predicate']}"
+        if operation in ("read", "read-absent"):
+            if row["predicate"] not in written and row["disposition"] not in RECORDED_READ_DISPOSITIONS:
+                findings.append(
+                    Finding(
+                        "G-PRED2",
+                        report.name,
+                        row["file"],
+                        subject,
+                        f"`{row['predicate']}` is read and written by no specification of the "
+                        "set, and no disposition names the absent producer",
+                    )
+                )
+        elif operation == "write":
+            if row["predicate"] not in read and row["disposition"] not in RECORDED_WRITE_DISPOSITIONS:
+                findings.append(
+                    Finding(
+                        "G-PRED2",
+                        report.name,
+                        row["file"],
+                        subject,
+                        f"`{row['predicate']}` is written and read by no specification of the "
+                        "set, and no deliberate omission is recorded for it",
+                    )
+                )
+    return findings
+
+
+def gate_junction_rules(report: SetReport, sources: list[MopSource]) -> list[Finding]:
+    """INV-INS-136 (a), (b) and (d), decided from the `.mop` alone.
+
+    Each of the three exists because the pilot measured its violation, and each is
+    gated rather than reviewed: a rule checked once per chain is not protected
+    against the edit that comes after the review.
+
+    (a) A consumer event declared `creation` starts a monitor at the consuming
+        call. The producer's mark was written on an instance that monitor never
+        saw, so the conforming trace is the one that gets accused.
+
+    (b) A junction's automaton must be total over its own alphabet. A state with
+        no transition for an event sends that event to `fail`, and the events that
+        arrive at unexpected states here are the cross-product instances -- pairs
+        whose parameters never met in a single event. They must stay silent, which
+        in an `fsm` means a benign self-loop at every state.
+
+    (d) `@match` and `@fail` handlers cannot see the specification's parameters;
+        only monitor fields are in scope. Naming a parameter there does not fail
+        the gate at runtime -- it fails to compile, which is worse, because it
+        fails late and far from the edit.
+    """
+    findings: list[Finding] = []
+    for source in sources:
+        if not source.path.name.endswith(JUNCTION_SUFFIX):
+            continue
+
+        consumers = {
+            site.owner
+            for site in source.sites
+            if site.operation in ("read", "read-absent") and not site.site_kind.startswith("@")
+        }
+        for event in sorted(consumers & source.creation_events):
+            findings.append(
+                Finding(
+                    "INV-INS-136(a)",
+                    report.name,
+                    source.path.name,
+                    event,
+                    f"the consumer event `{event}` is declared `creation`: a monitor created at "
+                    "the consuming call never saw the producer, and accuses the conforming trace",
+                )
+            )
+
+        alphabet = source.alphabet
+        if alphabet.kind == "fsm":
+            transitions = _fsm_transitions(source)
+            for state in alphabet.states:
+                missing = [event for event in dict.fromkeys(alphabet.declared) if event not in transitions.get(state, set())]
+                for event in missing:
+                    findings.append(
+                        Finding(
+                            "INV-INS-136(b)",
+                            report.name,
+                            source.path.name,
+                            f"{state}/{event}",
+                            f"state `{state}` has no transition for `{event}`, so a disconnected "
+                            "join arriving there fails instead of staying silent",
+                        )
+                    )
+
+        for region in source.regions:
+            if not region.kind.startswith("@"):
+                continue
+            body = source.neutral[region.start : region.end]
+            named = {name for name in _ERE_IDENTIFIER.findall(body)}
+            for parameter in sorted(named & set(source.parameters) - set(source.fields)):
+                findings.append(
+                    Finding(
+                        "INV-INS-136(d)",
+                        report.name,
+                        source.path.name,
+                        f"{region.kind}/{parameter}",
+                        f"`{parameter}` is a specification parameter, which is not in scope "
+                        f"inside `{region.kind}`; handler state belongs in a monitor field",
+                    )
+                )
+    return findings
+
+
+def _fsm_transitions(source: MopSource) -> dict[str, set[str]]:
+    """The out-alphabet of each state, read off the `fsm` block."""
+    automaton = next((region for region in source.regions if region.kind == "automaton"), None)
+    if automaton is None or automaton.owner != "fsm":
+        return {}
+
+    text = source.neutral[automaton.start : automaton.end]
+    transitions: dict[str, set[str]] = {}
+    for match in _FSM_STATE.finditer(text):
+        state = match.group("name")
+        open_bracket = text.index("[", match.start())
+        close = _match_delimiter(text, open_bracket, "[", "]")
+        transitions[state] = {
+            transition.group("event")
+            for transition in _FSM_TRANSITION.finditer(text[open_bracket:close])
+        }
+    return transitions
+
+
+@dataclass
+class GateRun:
+    """Everything one run of the gate suite produced, skips included."""
+
+    findings: list[Finding] = field(default_factory=list)
+    informative: list[Finding] = field(default_factory=list)
+    allowed: list[Finding] = field(default_factory=list)
+    reports: list[SetReport] = field(default_factory=list)
+    gate_skips: list[tuple[str, str, str]] = field(default_factory=list)
+
+    @property
+    def universe(self) -> int:
+        return sum(report.total for report in self.reports)
+
+    @property
+    def read(self) -> int:
+        return sum(report.read for report in self.reports)
+
+    @property
+    def skipped(self) -> int:
+        return sum(len(report.skipped) for report in self.reports)
+
+
+def read_allowlist(path: Path) -> set[tuple[str, str, str, str]]:
+    """Findings that are deliberately permanent, keyed like a `Finding`.
+
+    An allow-list row is a decision with a reason attached, not a mute button:
+    every row of `gate_allowlist.csv` carries the measurement behind it and the
+    task that owns it. A `*` in the spec or event column allows a family, which is
+    how eight instances of one idiom are recorded as one reason.
+    """
+    if not path.is_file():
+        return set()
+    allowed: set[tuple[str, str, str, str]] = set()
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            allowed.add((row["gate"], row["set"], row["spec"], row["event_or_state"]))
+    return allowed
+
+
+def _is_allowed(finding: Finding, allowed: set[tuple[str, str, str, str]]) -> bool:
+    spec = finding.file.removesuffix(".mop")
+    subject = finding.subject
+    candidates = {
+        (finding.gate, finding.spec_set, spec, subject),
+        (finding.gate, finding.spec_set, spec, "*"),
+        (finding.gate, finding.spec_set, "*", "*"),
+    }
+    return bool(candidates & allowed)
+
+
+def run_gates(
+    specs_root: Path,
+    selection: str = "all",
+    graph: Path = DEFAULT_GRAPH,
+    allowlist: Path | None = None,
+) -> GateRun:
+    """The whole structural suite over the enumerated universe.
+
+    The graph rows of `jca_android` are merged with the committed record before
+    the gates read them, because the judgment columns -- the dispositions that
+    close an edge nobody can wire, the reasons a write stays where it is -- live
+    there and nowhere else. Every other set is judged from its source alone,
+    which for the 145 predicate-free files means zero rows and green.
+    """
+    allowed = read_allowlist(allowlist) if allowlist else set()
+    run = GateRun()
+
+    for set_dir in _resolve_sets(specs_root, selection):
+        report = analyze_set(set_dir)
+        sources = [
+            read_mop(path)
+            for path in sorted(set_dir.glob("*.mop"))
+            if path.name not in {name for name, _ in report.skipped}
+        ]
+        if report.name == "jca_android":
+            report.rows = carry_judgments(report.rows, read_graph(graph))
+
+        run.reports.append(report)
+
+        produced = gate_acc(report, sources) + gate_junction_rules(report, sources)
+        if report.name == TARGET_SET:
+            produced += gate_placement(report) + gate_pred2(report)
+        else:
+            for gate in ("INV-INS-133", "INV-INS-134", "G-PRED2"):
+                run.gate_skips.append(
+                    (
+                        gate,
+                        report.name,
+                        "the placement and closure contract governs the migrated set only; "
+                        f"`{report.name}` is frozen or predicate-free",
+                    )
+                )
+            produced = [
+                finding if report.name == TARGET_SET else _informative(finding)
+                for finding in produced
+            ]
+
+        for finding in produced:
+            if _is_allowed(finding, allowed):
+                run.allowed.append(finding)
+            elif finding.severity == "informative":
+                run.informative.append(finding)
+            else:
+                run.findings.append(finding)
+
+    return run
+
+
+def _informative(finding: Finding) -> Finding:
+    """The same finding, in a set the gate reports on but does not govern."""
+    return Finding(
+        finding.gate,
+        finding.spec_set,
+        finding.file,
+        finding.subject,
+        finding.message,
+        severity="informative",
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
 
@@ -891,6 +1320,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sets", default="all", help="`all` or the name of one set")
     parser.add_argument("--graph", type=Path, default=DEFAULT_GRAPH, help="the graph CSV")
     parser.add_argument("--emit", action="store_true", help="rewrite the graph CSV")
+    parser.add_argument(
+        "--allowlist",
+        type=Path,
+        default=Path("data/jca_android/gate_allowlist.csv"),
+        help="findings recorded as deliberately permanent",
+    )
     parser.add_argument("--json", action="store_true", help="machine-readable report")
     arguments = parser.parse_args(argv)
 
@@ -899,15 +1334,24 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no specification set found under {arguments.specs_root}", file=sys.stderr)
         return 2
 
-    reports = [analyze_set(set_dir) for set_dir in set_dirs]
+    if arguments.emit:
+        emitted = analyze_set(arguments.specs_root / "jca_android")
+        write_graph(arguments.graph, carry_judgments(list(emitted.rows), read_graph(arguments.graph)))
 
-    target = next((report for report in reports if report.name == "jca_android"), None)
-    if arguments.emit and target is not None:
-        rows = carry_judgments(list(target.rows), read_graph(arguments.graph))
-        write_graph(arguments.graph, rows)
+    run = run_gates(arguments.specs_root, arguments.sets, arguments.graph, arguments.allowlist)
 
     payload = {
-        "universe": sum(report.total for report in reports),
+        "universe": run.universe,
+        "read": run.read,
+        "skipped": run.skipped,
+        "passed": run.universe - run.skipped - len({finding.file for finding in run.findings}),
+        "failed": len(run.findings),
+        "allowed": len(run.allowed),
+        "informative": len(run.informative),
+        "gate_skips": [
+            {"gate": gate, "set": spec_set, "reason": reason}
+            for gate, spec_set, reason in run.gate_skips
+        ],
         "sets": [
             {
                 "set": report.name,
@@ -916,26 +1360,48 @@ def main(argv: list[str] | None = None) -> int:
                 "skipped": [{"file": name, "reason": reason} for name, reason in report.skipped],
                 "sites": len(report.rows),
             }
-            for report in reports
+            for report in run.reports
+        ],
+        "findings": [
+            {
+                "gate": finding.gate,
+                "set": finding.spec_set,
+                "file": finding.file,
+                "subject": finding.subject,
+                "message": finding.message,
+            }
+            for finding in run.findings
         ],
     }
 
     if arguments.json:
         print(json.dumps(payload, indent=2))
     else:
-        print(f"universe: {payload['universe']} .mop files enumerated under {arguments.specs_root}")
-        for report in reports:
+        print(f"universe: {run.universe} .mop files enumerated under {arguments.specs_root}")
+        for report in run.reports:
             print(
                 f"  {report.name:26s} files={report.total:3d} read={report.read:3d} "
                 f"skipped={len(report.skipped):2d} sites={len(report.rows):3d}"
             )
             for name, reason in report.skipped:
                 print(f"      skipped {name}: {reason}")
+        for gate, spec_set, reason in run.gate_skips:
+            print(f"  gate {gate} skipped over {spec_set}: {reason}")
+        print(
+            f"findings: {len(run.findings)} failing, {len(run.allowed)} allow-listed, "
+            f"{len(run.informative)} informative"
+        )
+        for finding in run.findings + run.informative:
+            marker = "" if finding.severity == "failing" else " (informative)"
+            print(
+                f"  [{finding.gate}]{marker} {finding.spec_set}/{finding.file} "
+                f"{finding.subject}: {finding.message}"
+            )
 
-    # The reader itself never fails a run: it reports. The gates built on it
-    # (G-ACC, G-PRED2, the placement checks) are what carry exit codes.
-    return 0
+    return 1 if run.findings else 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

@@ -1,0 +1,14 @@
+package mop;
+
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+ByteArrayJunction(byte[] iv, Cipher c) {
+
+    event produce before(byte[] iv):
+      call(public void SecureRandom.nextBytes(byte[])) && args(iv) {
+        PredicateStore.instance().ensure(Property.RANDOMIZED, iv);
+    }
+
+    ere : produce
+}

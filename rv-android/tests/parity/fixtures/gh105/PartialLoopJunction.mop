@@ -1,0 +1,45 @@
+package mop;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+/**
+ * INV-INS-136(b) violated: `prepared` has no transition for `randomise`.
+ *
+ * A cross-product instance -- an `iv` and a `spec` whose parameters never met in
+ * a single event -- arrives there and fails, which is the spurious accusation the
+ * pilot measured.
+ */
+IvChainJunction(Object iv, IvParameterSpec spec) {
+
+    event randomise before(Object iv):
+      call(public void SecureRandom.nextBytes(byte[])) && args(iv) { }
+
+    event prepare after(Object iv) returning(IvParameterSpec s):
+      call(public IvParameterSpec.new(byte[])) && args(iv) {
+        PredicateStore.instance().ensure(Property.PREPARED_IV, s);
+    }
+
+    event consume before(IvParameterSpec spec):
+      call(public void Cipher.init(int, java.security.Key, java.security.spec.AlgorithmParameterSpec))
+      && args(.., spec) {
+        PredicateStore.instance().validate(Property.PREPARED_IV, spec);
+    }
+
+    fsm :
+      start [
+        randomise -> randomised
+        prepare -> start
+        consume -> start
+      ]
+      randomised [
+        randomise -> randomised
+        prepare -> prepared
+        consume -> randomised
+      ]
+      prepared [
+        prepare -> prepared
+        consume -> prepared
+      ]
+}

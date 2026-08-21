@@ -1,0 +1,30 @@
+package mop;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+/** INV-INS-136(a) violated: the consumer event is declared `creation`. */
+IvChainJunction(Object iv, IvParameterSpec spec) {
+
+    event randomise before(Object iv):
+      call(public void SecureRandom.nextBytes(byte[])) && args(iv) { }
+
+    event prepare after(Object iv) returning(IvParameterSpec s):
+      call(public IvParameterSpec.new(byte[])) && args(iv) {
+        PredicateStore.instance().ensure(Property.PREPARED_IV, s);
+    }
+
+    creation event consume before(IvParameterSpec spec):
+      call(public void Cipher.init(int, java.security.Key, java.security.spec.AlgorithmParameterSpec))
+      && args(.., spec) {
+        PredicateStore.instance().validate(Property.PREPARED_IV, spec);
+    }
+
+    fsm :
+      start [
+        randomise -> start
+        prepare -> start
+        consume -> start
+      ]
+}

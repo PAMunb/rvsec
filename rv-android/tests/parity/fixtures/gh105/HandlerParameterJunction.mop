@@ -1,0 +1,41 @@
+package mop;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+/**
+ * INV-INS-136(d) violated: `@match` names the specification parameter `spec`.
+ *
+ * Specification parameters are not in scope inside a handler; only monitor
+ * fields are. This does not misbehave at runtime -- it fails to compile, far from
+ * the edit that caused it.
+ */
+IvChainJunction(Object iv, IvParameterSpec spec) {
+
+    event randomise before(Object iv):
+      call(public void SecureRandom.nextBytes(byte[])) && args(iv) { }
+
+    event prepare after(Object iv) returning(IvParameterSpec s):
+      call(public IvParameterSpec.new(byte[])) && args(iv) {
+        PredicateStore.instance().ensure(Property.PREPARED_IV, s);
+    }
+
+    event consume before(IvParameterSpec spec):
+      call(public void Cipher.init(int, java.security.Key, java.security.spec.AlgorithmParameterSpec))
+      && args(.., spec) {
+        PredicateStore.instance().validate(Property.PREPARED_IV, spec);
+    }
+
+    fsm :
+      start [
+        randomise -> start
+        prepare -> start
+        consume -> start
+      ]
+
+    @match {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint,
+          "IvChainJunction", "" + __LOC, "spec was " + spec));
+    }
+}

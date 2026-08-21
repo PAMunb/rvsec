@@ -107,14 +107,14 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       INV-INS-133/134, and the skip-and-count contract over the enumerated universe
       (INV-INS-140). Done when the CSV round-trips: re-running the analyzer over an unedited
       tree reproduces it byte-for-byte
-- [ ] 2.4 G-ACC (orphans, both directions) + placement checks + G-PRED2 closure + the junction
+- [x] 2.4 G-ACC (orphans, both directions) + placement checks + G-PRED2 closure + the junction
       rules (a)(b)(d) of INV-INS-136 — (a) `creation` on a consumer event declaration, (d)
       handler state outside the monitor's field block, (b) benign self-loop reachability over the
       declared automaton (design D-6: these are gated, not reviewed). Negative fixtures in
       `tests/parity/fixtures/`: `jca/GCMParameterSpecSpec.mop` (dup `c1`, undeclared `c2` —
       allowlisted, never repaired), event-only `generic_new` files (skipped), `generic` FSM246
       orphan (informative)
-- [ ] 2.5 `scripts/gh105_param_gate.py` (G-PARAM): `.mop` header vs generated `.rvm` header,
+- [x] 2.5 `scripts/gh105_param_gate.py` (G-PARAM): `.mop` header vs generated `.rvm` header,
       artifact-only, never exit codes (INV-INS-139); fixtures for `byte[]`/`int[]`/`char[]`
       collapse and the `Object`-idiom pass, checked in as `.rvm` samples so the gate is testable
       before the first real generation

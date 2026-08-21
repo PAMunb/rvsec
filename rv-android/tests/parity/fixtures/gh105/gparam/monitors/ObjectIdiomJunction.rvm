@@ -1,0 +1,12 @@
+package mop;
+
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+ObjectIdiomJunction(Object iv, Cipher c) {
+	event produce(Object iv){
+		PredicateStore.instance().ensure(Property.RANDOMIZED, iv);
+	}
+
+	ere : produce
+}

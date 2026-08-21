@@ -1,0 +1,57 @@
+package mop;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+
+/**
+ * The IV chain as a junction: SecureRandom randomises a byte[], IvParameterSpec
+ * is built from it, Cipher is initialised with the spec.
+ *
+ * The array position is declared Object -- a primitive-array parameter is
+ * silently deleted from the generated .rvm, and the overload is pinned in the
+ * call(...) signature instead.
+ */
+IvChainJunction(Object iv, IvParameterSpec spec) {
+
+    boolean randomised;
+
+    event randomise before(Object iv):
+      call(public void SecureRandom.nextBytes(byte[])) && args(iv) {
+        randomised = true;
+    }
+
+    event prepare after(Object iv) returning(IvParameterSpec s):
+      call(public IvParameterSpec.new(byte[])) && args(iv) {
+        PredicateStore.instance().ensure(Property.PREPARED_IV, s);
+    }
+
+    event consume before(IvParameterSpec spec):
+      call(public void Cipher.init(int, java.security.Key, java.security.spec.AlgorithmParameterSpec))
+      && args(.., spec) {
+        PredicateStore.instance().validate(Property.PREPARED_IV, spec);
+    }
+
+    fsm :
+      start [
+        randomise -> randomised
+        prepare -> start
+        consume -> start
+      ]
+      randomised [
+        randomise -> randomised
+        prepare -> prepared
+        consume -> randomised
+      ]
+      prepared [
+        randomise -> prepared
+        prepare -> prepared
+        consume -> prepared
+      ]
+
+    @match {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint,
+          "IvChainJunction", "" + __LOC, "v=1 code=IVCHAIN-JUNCTION-00"));
+    }
+}

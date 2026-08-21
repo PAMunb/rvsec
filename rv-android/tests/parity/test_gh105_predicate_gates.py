@@ -30,13 +30,21 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
+import gh105_param_gate  # noqa: E402
 from gh105_predicate_graph import (  # noqa: E402
     COLUMNS,
+    SetReport,
     analyze_set,
+    build_rows,
     carry_judgments,
+    gate_acc,
+    gate_junction_rules,
+    gate_placement,
+    gate_pred2,
     neutralize,
     read_graph,
     read_mop,
+    run_gates,
 )
 
 
@@ -689,3 +697,268 @@ def test_the_frozen_unbalanced_specification_is_skipped_with_its_reason():
     skipped = dict(report.skipped)
     assert "SecretKeySpecSpec.mop" in skipped
     assert "unbalanced parenthesis" in skipped["SecretKeySpecSpec.mop"]
+
+
+# ---------------------------------------------------------------- the gates
+
+
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "gh105"
+ALLOWLIST = REPO / "data/jca_android/gate_allowlist.csv"
+
+
+def _fixture_report(name: str):
+    source = read_mop(FIXTURES / name)
+    assert source.parse_error == "", f"{name}: {source.parse_error}"
+    report = SetReport(name="jca_android")
+    report.read = 1
+    report.rows = build_rows([source])
+    return report, source
+
+
+def test_gacc_reports_the_seventeen_orphans_of_the_derived_set():
+    """G-ACC over the set it governs, before the absorptions land.
+
+    Seventeen findings is the expected state at this point in the change, not a
+    failure of the gate: the gates are written before the edits that make them
+    green, which is what lets each group's landing be measured as a drop in this
+    number rather than asserted.
+    """
+    root = _specs_root()
+    report = analyze_set(root / "jca_android")
+    sources = [read_mop(path) for path in sorted((root / "jca_android").glob("*.mop"))]
+
+    findings = gate_acc(report, sources)
+    assert all(finding.gate == "G-ACC" for finding in findings)
+    assert len(findings) == 17
+
+
+def test_gacc_reports_both_directions_and_the_duplicate_declaration():
+    """The frozen GCM specification trips all three readings of the alphabet.
+
+    Declared-and-unused, named-and-undeclared, declared-twice. It is allow-listed
+    and never repaired -- it is frozen -- so it serves as the standing proof that
+    a gate which only looks one way would call this file clean.
+    """
+    root = _specs_root()
+    source = read_mop(root / "jca" / "GCMParameterSpecSpec.mop")
+    report = SetReport(name="jca")
+    report.read = 1
+
+    subjects = {(finding.subject, finding.message.split(":")[0]) for finding in gate_acc(report, [source])}
+    assert ("c2", "the ere names `c2`, which no event declares") in subjects
+    assert any(subject == "c1" and "declared more than once" in message for subject, message in subjects)
+
+
+def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
+    """INV-INS-133 over the set, before the reads move.
+
+    All 27 of them. The gate exists to make the migration's progress a number
+    that goes down, and to make it impossible for the 28th to arrive quietly.
+    """
+    report = analyze_set(_specs_root() / "jca_android")
+    report.rows = carry_judgments(report.rows, read_graph(GRAPH))
+
+    findings = gate_placement(report)
+    guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
+    assert len(guards) == 27
+
+
+def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():
+    """A write off the acceptance point is not forbidden -- it is accountable.
+
+    Some writes legitimately belong elsewhere: `GENERATED_CIPHER` is marked at the
+    init events rather than at acceptance, because a cipher handed to a
+    `CipherInputStream` has been initialised and has not yet encrypted anything.
+    What the gate demands is the reason, written where the next reader will find
+    it.
+    """
+    report = analyze_set(_specs_root() / "jca_android")
+    report.rows = carry_judgments(report.rows, read_graph(GRAPH))
+
+    before = len([finding for finding in gate_placement(report) if finding.gate == "INV-INS-134"])
+    for row in report.rows:
+        if row["verdict"] == "write:body":
+            row["reason"] = "recorded for the test"
+            break
+    after = len([finding for finding in gate_placement(report) if finding.gate == "INV-INS-134"])
+    assert after == before - 1
+
+
+def test_gpred2_closes_a_read_whose_producer_is_recorded_as_absent():
+    """A gap that is written down is closed; a gap that is silent is a finding.
+
+    `preparedEC` has no producing rule anywhere in the oracle, so no edit can wire
+    it. The gate's answer to that is a disposition naming the absence -- which is
+    a decision a reader can disagree with -- rather than a green that hides it.
+    """
+    report = SetReport(name="jca_android")
+    report.read = 1
+    report.rows = [
+        {column: "" for column in COLUMNS} | {
+            "file": "CipherSpec.mop",
+            "event": "i2",
+            "predicate": "PREPARED_EC",
+            "verdict": "read:body",
+            "site_kind": "body",
+        }
+    ]
+    assert len(gate_pred2(report)) == 1
+
+    report.rows[0]["disposition"] = "unclosable"
+    assert gate_pred2(report) == []
+
+
+def test_gpred2_is_green_over_a_graph_with_no_rows():
+    """Zero rows is the correct content over a predicate-free set, and it passes.
+
+    The closure of an empty graph is the empty graph. A gate that could not say so
+    would be reporting on 145 files it never looked at.
+    """
+    report = SetReport(name="generic")
+    report.read = 118
+    assert gate_pred2(report) == []
+
+
+@pytest.mark.parametrize(
+    "fixture,rule,subject",
+    [
+        ("CreationConsumerJunction.mop", "INV-INS-136(a)", "consume"),
+        ("PartialLoopJunction.mop", "INV-INS-136(b)", "prepared/randomise"),
+        ("HandlerParameterJunction.mop", "INV-INS-136(d)", "@match/spec"),
+    ],
+)
+def test_each_junction_rule_catches_the_failure_the_pilot_measured(fixture, rule, subject):
+    """One fixture per rule, each carrying its defect and nothing else.
+
+    (a) A consumer declared `creation` starts a monitor at the consuming call,
+    which never saw the producer, and accuses the conforming trace. (b) A state
+    without a transition for an event sends the cross-product instances that
+    arrive there to `fail`. (d) A handler naming a specification parameter does
+    not compile, and fails far from the edit that caused it.
+    """
+    report, source = _fixture_report(fixture)
+    findings = gate_junction_rules(report, [source])
+    assert [(finding.gate, finding.subject) for finding in findings] == [(rule, subject)]
+
+
+def test_the_conforming_junction_trips_nothing():
+    """The chain written correctly. Without this, three red fixtures prove little.
+
+    A gate that has only ever been shown broken input cannot demonstrate that it
+    stays quiet on good input, and a rule that fires on everything is indistinguishable
+    from a rule that means nothing.
+    """
+    report, source = _fixture_report("ConformingJunction.mop")
+    assert gate_junction_rules(report, [source]) == []
+
+
+def test_the_junction_rules_do_not_govern_typestate_specifications():
+    """The four rules are mechanism B's, and only a junction is mechanism B.
+
+    A typestate specification whose state has no transition for an event is doing
+    its job -- that is how it accuses a wrong call sequence. Applying rule (b) to
+    the 23 specifications of the set would report the set's whole purpose as a
+    defect, which is why the rules key on the junction naming convention.
+    """
+    root = _specs_root()
+    report = analyze_set(root / "jca_android")
+    sources = [read_mop(path) for path in sorted((root / "jca_android").glob("*.mop"))]
+    assert gate_junction_rules(report, sources) == []
+
+
+def test_the_suite_skips_the_frozen_sets_declaredly_rather_than_failing_them():
+    """A frozen set cannot satisfy the placement contract, and is not asked to.
+
+    `jca` produced published measurements; the archived set is a record. Running
+    the migration's contract against either would report, correctly and uselessly,
+    that a frozen file is still what it was frozen as -- and a suite that is
+    expected to be red stops being read. The skips are counted and carry reasons,
+    which is the difference between scoping a gate and quietly not running it.
+    """
+    run = run_gates(_specs_root(), "all", GRAPH, ALLOWLIST)
+
+    skipped_sets = {spec_set for _, spec_set, _ in run.gate_skips}
+    assert skipped_sets == {"jca", "jca_android_bug_predicate", "generic", "generic_new"}
+    assert all(reason for _, _, reason in run.gate_skips)
+    assert {finding.spec_set for finding in run.findings} == {"jca_android"}
+
+
+def test_the_orphan_in_the_generic_set_is_reported_without_failing_the_run():
+    """`generic/FSM246.mop` declares `event_2` and never names it.
+
+    It is real, it is nobody's task, and this change does not edit that set. The
+    gate reports it as informative: silence would mean the gate stops at the set
+    it was written for, and a failure would make the only cure be to stop running
+    there.
+    """
+    run = run_gates(_specs_root(), "all", GRAPH, ALLOWLIST)
+    informative = {(finding.spec_set, finding.file, finding.subject) for finding in run.informative}
+    assert ("generic", "FSM246.mop", "event_2") in informative
+
+
+# ---------------------------------------------------------------------- G-PARAM
+
+
+GPARAM = FIXTURES / "gparam"
+
+
+def test_gparam_catches_every_primitive_array_the_generator_deletes():
+    """The collapse, on the three array types the chains actually bind.
+
+    JavaMOP deletes a primitive-array parameter from the generated header and
+    returns 0. A specification that loses its `byte[]` position stops slicing by
+    that object: every instance of the chain collapses into one monitor, so a
+    randomised IV in one part of the program satisfies a constructor in another.
+    The monitor compiles and runs and reports plausible nonsense, which is why
+    nothing but an artifact comparison finds it.
+
+    The pairs are checked in rather than generated, because the first real
+    generation of a junction specification is exactly the run where a wrong gate
+    costs the most.
+    """
+    result = gh105_param_gate.run(GPARAM, GPARAM / "monitors", "specs")
+
+    collapsed = {finding.spec for finding in result.findings}
+    assert collapsed == {"ByteArrayJunction", "IntArrayJunction", "CharArrayJunction"}
+    assert all("returned 0" in finding.message or "return code 0" in finding.message for finding in result.findings)
+
+
+def test_gparam_passes_the_object_idiom():
+    """`Object` survives the grammar branch, which is why the idiom exists.
+
+    The overload is pinned in the `call(...)` signature instead, and `args(x)`
+    with `Object` matches any single argument. Without this half of the fixture
+    the gate would be indistinguishable from one that fails every junction.
+    """
+    result = gh105_param_gate.run(GPARAM, GPARAM / "monitors", "specs")
+    assert "specs/ObjectIdiomJunction" in result.passed
+
+
+def test_gparam_skips_a_specification_that_was_never_generated():
+    """A missing monitor is a skip with a reason, never a pass.
+
+    The generation this gate reads can fail while returning 0 and writing nothing
+    at all -- a logic engine that ran out of memory does exactly that. Counting a
+    missing artifact as a pass would make the gate green precisely when the
+    generation failed hardest.
+    """
+    result = gh105_param_gate.run(GPARAM, GPARAM / "monitors" / "absent", "specs")
+    assert result.passed == []
+    assert len(result.skipped) == 4
+    assert all("no generated monitor" in reason for _, reason in result.skipped)
+
+
+def test_gparam_is_green_over_the_set_as_it_stands():
+    """No specification of the set declares a primitive-array parameter today.
+
+    The gate is written before the first one exists, so this assertion is what
+    says the gate is quiet on the tree it will guard -- and the day it goes red is
+    the day a junction specification was written the wrong way.
+    """
+    monitors = REPO / "results/gh51_e2e_test/monitors"
+    if not monitors.is_dir():
+        pytest.skip(f"no generated monitors to compare against: {monitors}")
+
+    result = gh105_param_gate.run(_specs_root(), monitors, "jca_android")
+    assert result.findings == []
+    assert len(result.passed) == 23

@@ -1,0 +1,12 @@
+package mop;
+
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+CharArrayJunction(Cipher c) {
+	event produce(char[] password){
+		PredicateStore.instance().ensure(Property.RANDOMIZED, password);
+	}
+
+	ere : produce
+}
