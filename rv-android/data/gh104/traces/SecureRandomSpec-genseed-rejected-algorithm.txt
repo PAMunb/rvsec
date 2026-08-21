@@ -1,0 +1,8 @@
+# the violating half of the write relocation, and the reason INV-INS-134 exists: the
+# generator comes from an algorithm the rule's CONSTRAINTS reject, so no call after
+# it is in a sequence the automaton accepts. A write in the event body marked the
+# seed randomized anyway and the consumer downstream was satisfied by it; a write at
+# the acceptance point is never reached, and the consumer says what it observed.
+SecureRandom.getInstance("NativePRNG") -> r
+r.generateSeed(20) -> gs
+r.setSeed(gs)

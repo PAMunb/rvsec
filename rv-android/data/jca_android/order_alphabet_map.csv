@@ -77,7 +77,7 @@ SecureRandomSpec,setSeed1,s2,event,SecureRandom.cryptsl,43,mapped,"`setSeed(long
 SecureRandomSpec,setSeed2,s1,event,SecureRandom.cryptsl,41,mapped,"`setSeed(byte[])` is the rule's s1"
 SecureRandomSpec,genSeed,gS,event,SecureRandom.cryptsl,39,mapped,
 SecureRandomSpec,next1,,,SecureRandom.cryptsl,,order-unmapped,"`nextInt(int)`. The rule's `ne` is `next(numB)` -- `next(int)`, the protected method -- and no rule event names `nextInt`. Mapping the two together would be an inference about which call the oracle meant, which INV-INS-138 forbids"
-SecureRandomSpec,next2,nB,event,SecureRandom.cryptsl,49,mapped,"`nextBytes(byte[])`. This is the anchored case: the rule's ORDER ends in `Ends*` while the automaton's end state omits next2, so a second `nextBytes()` is accused -- 12,400 events, 99.98 % of them in libraries"
+SecureRandomSpec,next2,nB,event,SecureRandom.cryptsl,49,mapped,"`nextBytes(byte[])`. This is the anchored case: the rule's ORDER ends in `Ends*` and the automaton's end state omitted next2, so a second `nextBytes()` was accused of a wrong call sequence -- 12,400 events, 99.98 % of them in libraries. Task 4.5 added the row; the mapping itself never changed"
 SecureRandomSpec,next3,,,SecureRandom.cryptsl,,order-unmapped,"`nextInt()` with no argument; the rule names no such event. Same reading as next1"
 SecureRandomSpec,ints,,,SecureRandom.cryptsl,,order-unmapped,"`ints(..)` returns an IntStream and the rule names no stream event; the site exists to mark the stream randomized, not to order anything"
 SignatureSpec,g1,g1,event,Signature.cryptsl,29,mapped,

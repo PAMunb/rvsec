@@ -8,9 +8,10 @@
 |---|---|---|---|
 | `SecretKeySpecSpec-badalg.txt` | moved | SecretKeySpecSpec.c3 | SecretKeySpecSpec.c1 |
 | `SecretKeySpecSpec-offset.txt` | unchanged | — | — |
-| `SecretKeySpecSpec.txt` | unchanged | — | — |
+| `SecretKeySpecSpec.txt` | introduced | — | SecretKeySpecSpec.c1 |
 
 ## Envelopes
 
 - `SecretKeySpecSpec-badalg.txt` (A) `spec=SecretKeySpecSpec,ev=c3,type=UnsatisfiedConstraint,msg=v=1 code=SECRETKEYSPEC-CONSTR-00 ev=c3 obj=SecretKeySpec val='' exp='a randomized byte[]' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to come from a randomized source'`
 - `SecretKeySpecSpec-badalg.txt` (B) `spec=SecretKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=SECRETKEYSPEC-CONSTR-00 ev=c1 obj=SecretKeySpec val='' exp='a randomized byte[]' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to come from a randomized source'`
+- `SecretKeySpecSpec.txt` (B) `spec=SecretKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=SECRETKEYSPEC-CONSTR-00 ev=c1 obj=SecretKeySpec val='' exp='a randomized byte[]' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to come from a randomized source'`

@@ -4,7 +4,8 @@ import java.security.SecureRandom;
 import java.util.stream.IntStream;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -33,6 +34,24 @@ SecureRandomSpec(SecureRandom r) {
 
     // the expected algorithms for SecureRandom
     List<String> algorithms = Arrays.asList("SHA1PRNG");
+
+    // api30 SecureRandom.cryptsl ensures `randomized` over three different objects:
+    // the generator itself `after Ins`, the seed `generateSeed(int)` returns, and the
+    // array `nextBytes(byte[])` fills. The first is ensured at the state Ins leads to
+    // and the other two at the accepting state the Ends reach, so this file has two
+    // acceptance points and the second one needs the object to travel: a handler is
+    // generated as a no-argument method and sees no event parameter. The event body
+    // stages the object here and the handler that runs immediately after the
+    // transition writes it and clears the field.
+    //
+    // Staging rather than writing in the body is the whole point of the placement.
+    // An event body runs *before* the transition is decided (measured in the
+    // generated monitor at task 4.1), so a write there marks an array for a call
+    // sequence the automaton is about to reject -- and this file has such sequences:
+    // `getInstance("NativePRNG"); nextBytes(iv)` never reaches a state where
+    // `nextBytes` is legal, and the seed it produced is not one the rule accepts.
+    byte[] stagedGeneratedSeed = null;
+    byte[] stagedNextBytes = null;
 
     // this event captures the following event in the original CrySL specification.
     //  - c1: SecureRandom();
@@ -104,48 +123,114 @@ SecureRandomSpec(SecureRandom r) {
     // an ordering that never modelled the call. The check is the same and reports
     // the same code from the same clause; what leaves is the second report and the
     // guard that suppressed the transition.
+    //
+    // This is the read of `randomized[seed]` (SecureRandom.cryptsl, REQUIRES), and
+    // it is the half of that clause `setSeed(byte[])` carries -- the rule binds
+    // `seed` in two events, `s1: setSeed(seed)` and `c2: SecureRandom(seed)`, and
+    // the constructor's half is wired at task 5.5 with the rest of the `randomized`
+    // hub.
+    //
+    // The verdict is three-valued because the two accusing outcomes are different
+    // claims. VIOLATED is positive evidence: this array carries a randomisation
+    // predicate that was withdrawn. NOT_OBSERVED says only that no randomised source
+    // of the array was ever observed, which on Android is as often a reach limit of
+    // the instrumentation as it is a misuse. The seed's message already said the
+    // second thing ("expects a byte array observed to come from a randomized
+    // source") while its code said the first; the split makes the code say what the
+    // message always meant.
     event setSeed2 after(byte[] seed, SecureRandom r):
       call(public void SecureRandom.setSeed(byte[]))  &&
       args(seed) &&
       target(r) {
-        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, seed);
+        if (randomised == PredicateVerdict.VIOLATED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "" + __LOC,
-                "v=1 code=SECURERANDOM-CONSTR-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='setSeed() expects a byte array observed to come from a randomized source'"));
+                "v=1 code=SECURERANDOM-CONSTR-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='the byte array given to setSeed() carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "" + __LOC,
+                "v=1 code=SECURERANDOM-NOBS-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='setSeed() expects a byte array observed to come from a randomized source'"));
         }
     }
 
+    // `randomized[genSeed]` (SecureRandom.cryptsl, ENSURES) over the array
+    // `gS: genSeed = generateSeed(num)` returns. The clause carries no `after L`
+    // qualification, so its acceptance point is the accepting state the Ends reach,
+    // and the write belongs to `@match2` (INV-INS-134).
     event genSeed after(SecureRandom r) returning(byte[] seed):
       call(public byte[] SecureRandom.generateSeed(int))
       && target(r) {
-        ExecutionContext.instance().setProperty(Property.RANDOMIZED, seed);
+        stagedGeneratedSeed = seed;
     }
 
-//TODO randIntInRange eh RANDOMIZED ou eh o retorno do nextInt ???
+    // The rule's fourth ENSURES clause is `randomized[numB]`, over the argument of
+    // `ne: next(numB)`. `next(int)` is protected in java.util.Random, so no
+    // application calls it, and this file answers the clause with two stand-ins
+    // whose relation to it the specification itself has never settled: `next1`
+    // marks the *argument* of `nextInt(int)`, `next3` marks the *return* of
+    // `nextInt()`. `order_alphabet_map.csv:79,81` already decided the ORDER half of
+    // that question at task 2.8 -- both rows are ORDER-unmapped, because pairing
+    // either with `ne` would be an inference about which call the oracle meant, and
+    // INV-INS-138 forbids inferring one.
+    //
+    // So these two writes stay in the event body, with their reason recorded in
+    // `predicate_graph.csv`: they are not the translation of a clause this file can
+    // point at, and moving them to an acceptance point would claim a placement that
+    // no clause justifies. Task 5.5 resolves the clause with the rest of the
+    // `randomized` hub and drops them.
+    //
+    // The migration alone already narrows what they can do, and the narrowing is
+    // worth stating because nothing measures it: `PredicateStore` keys the bound
+    // object by identity, where the substrate this file leaves keyed it by `equals`,
+    // and an `int` is autoboxed at the call. A predicate over a boxed primitive therefore only
+    // survives to a later read inside the `Integer` cache (-128..127), where equal
+    // small values genuinely are one object. This is the write-side unsoundness the
+    // delta's "inexpressible predicate" rule names; the only structural consumer is
+    // `RandomStringPassword.vo`, a propagation read with no accuser.
     event next1 before(SecureRandom r, int randIntInRange):
       call(public int SecureRandom.nextInt(int))
       && args(randIntInRange)
       && target(r) {
-         ExecutionContext.instance().setProperty(Property.RANDOMIZED, randIntInRange);
+         PredicateStore.instance().ensure(Property.RANDOMIZED, randIntInRange);
     }
 
+    // `randomized[next]` (SecureRandom.cryptsl, ENSURES) over the array
+    // `nB: nextBytes(next)` fills -- the producer half of the IV chain, and the site
+    // task 4.4 named when it declared its own F2 window: the reads of
+    // `IvParameterSpec.c1/c2` bind the same array by identity, so they stop
+    // answering NOT_OBSERVED from here on.
+    //
+    // The advice stays `before`, as the seed had it. An identity-keyed store does
+    // not care whether the array is already filled -- it is the same object on both
+    // sides of the call -- so switching to `after` would change when the predicate
+    // is written without changing what it says, which is not what a substrate
+    // migration is for.
     event next2 before(SecureRandom r, byte[] bytes):
       call(public void SecureRandom.nextBytes(byte[]))
       && args(bytes)
       && target(r) {
-         ExecutionContext.instance().setProperty(Property.RANDOMIZED, bytes);
+         stagedNextBytes = bytes;
     }
 
+    // The second stand-in for `randomized[numB]` -- see the note on `next1`, which
+    // carries the reasoning for both.
     event next3 after(SecureRandom r) returning(int randInt) :
       call(public int SecureRandom.nextInt())
       && target(r) {
-         ExecutionContext.instance().setProperty(Property.RANDOMIZED, randInt);
+         PredicateStore.instance().ensure(Property.RANDOMIZED, randInt);
     }
 
-     event ints after(SecureRandom r) returning(IntStream stream):
-       call(public IntStream SecureRandom.ints(..))
-       && target(r) {
-          ExecutionContext.instance().setProperty(Property.RANDOMIZED, stream);
-     }
+    // api30 SecureRandom.cryptsl declares no stream event at all, so this event
+    // translates no clause and marks nothing: the write that stood here claimed
+    // `randomized` over an IntStream on the strength of the method name alone. The
+    // event stays -- it is in the automaton, and removing it would make the call
+    // unmodelled rather than unmarked -- and this is the same disposition
+    // `CipherSpec.wkb1` received at task 4.1, where `wrap` is declared by the rule
+    // and named in no ENSURES clause.
+    event ints after(SecureRandom r) returning(IntStream stream):
+      call(public IntStream SecureRandom.ints(..))
+      && target(r) {
+    }
 
     // `g4` is absorbed rather than fused: it accuses an algorithm the rule's
     // CONSTRAINTS reject, which is a report of its own and not the negation of
@@ -155,6 +240,14 @@ SecureRandomSpec(SecureRandom r) {
     // instead of twice. The rule's ORDER has no symbol for a call it turns down, so
     // `order_alphabet_map.csv` records `g4` ORDER-unmapped and G-ORDER erases it
     // from both languages before comparing.
+    //
+    // The `end` state carries `next2` because the rule's ORDER ends in `Ends*` and
+    // `nB` is one of the Ends: `nextBytes(); nextBytes()` is a sequence api30
+    // accepts, and the omission of that one row accused the second call of a wrong
+    // call sequence -- 12,400 events on the published campaign, 99.98 % of them
+    // inside libraries. The remaining divergences of this automaton against the
+    // ORDER (`c1 c1` at `init`, and the Seeds the `end` state still admits after an
+    // End) are recorded, not repaired here; task 7.1 owns them.
     fsm :
       start [
          c1 -> init
@@ -181,20 +274,48 @@ SecureRandomSpec(SecureRandom r) {
          setSeed1 -> end
          setSeed2 -> end
          next1    -> end
+         next2    -> end
          next3    -> end
          ints     -> end
       ]
 
+    // The acceptance point of `randomized[this] after Ins`: an `after L` clause is
+    // ensured at the states L leads to, and `Ins := Gets | Cons` leads here.
     alias match1 = init
+    // The acceptance point of the two unqualified clauses, `randomized[genSeed]` and
+    // `randomized[next]`. Both objects are bound by Ends events, which land here.
+    alias match2 = end
 
     @fail {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC,
           "v=1 code=SECURERANDOM-ORDER-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts'"));
+      stagedGeneratedSeed = null;
+      stagedNextBytes = null;
       __RESET;
     }
 
+    // What leaves this handler is the accepting-state bookkeeping that stood beside
+    // the write: the new store does not offer it and the set has no reader of it
+    // (INV-INS-147). `sr` is null on the one path that reaches `init` without
+    // binding it -- `g4`, which only accuses -- and `ensure` treats a null binding as
+    // a no-op, so no guard is needed here.
     @match1 {
-        ExecutionContext.instance().setObjectAsInAcceptingState(sr);
-        ExecutionContext.instance().setProperty(Property.RANDOMIZED, sr);
+        PredicateStore.instance().ensure(Property.RANDOMIZED, sr);
+    }
+
+    // A staged array is consumed by exactly one handler run or discarded by `@fail`,
+    // so it is never written for a sequence the automaton did not accept. The
+    // generated dispatcher recomputes the state categories after every event and
+    // calls the handler whenever the category holds, so two `nextBytes` calls run
+    // this handler twice, each with the array its own body staged.
+    @match2 {
+        if (stagedGeneratedSeed != null) {
+            PredicateStore.instance().ensure(Property.RANDOMIZED, stagedGeneratedSeed);
+            stagedGeneratedSeed = null;
+        }
+        if (stagedNextBytes != null) {
+            PredicateStore.instance().ensure(Property.RANDOMIZED, stagedNextBytes);
+            stagedNextBytes = null;
+        }
     }
 }

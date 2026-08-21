@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 85,
+    "structural_findings": 79,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -150,31 +150,6 @@
         "jca_android",
         "SecretKeySpec.mop",
         "e1/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "genSeed/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "ints/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "next1/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "next2/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "next3/RANDOMIZED"
       ],
       [
         "jca_android",
@@ -428,11 +403,6 @@
       [
         "jca_android",
         "SecretKeySpecSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
         "ExecutionContext"
       ],
       [

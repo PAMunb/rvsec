@@ -232,7 +232,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       prerequisite (proposal Out of scope, design Non-Goals).** Do not start Group 5 on an
       unanswered probe
 - [x] 4.4 `IvParameterSpec` (4 reads / 1 write / 1 call)
-- [ ] 4.5 `SecureRandomSpec` (4 reads / 6 writes / 1 call); the `end`-state `next2` omission is
+- [x] 4.5 `SecureRandomSpec` (4 reads / 6 writes / 1 call); the `end`-state `next2` omission is
       repaired here (6.3 carries the rest of the pointwise `Signature` work, this one rides its
       own file)
 - [ ] 4.6 `PBEKeySpecSpec` (4 reads / 1 write / 1 call); its `remove()` at `:74` is NOT touched

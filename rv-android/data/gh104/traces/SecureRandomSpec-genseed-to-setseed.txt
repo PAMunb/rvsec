@@ -1,0 +1,6 @@
+# the satisfying half of the write relocation: generateSeed produces the array and
+# setSeed consumes it, both inside a sequence the automaton accepts, so
+# `randomized[genSeed]` is written at the acceptance point and the read finds it.
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.generateSeed(20) -> gs
+r.setSeed(gs)

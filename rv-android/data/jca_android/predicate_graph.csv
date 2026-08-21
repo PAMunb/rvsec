@@ -69,14 +69,12 @@ SecretKeySpec.mop,e1,body,positive,,1,RANDOMIZED,byte[],,,,write:body,,,member
 SecretKeySpecSpec.mop,c1,body,positive,,1,RANDOMIZED,byte[],,,,read:body,,,member
 SecretKeySpecSpec.mop,match,@match,positive,,1,,SecretKeySpec,,,,bookkeeping:match,,,n/a
 SecretKeySpecSpec.mop,match,@match,positive,,1,GENERATED_KEY,SecretKeySpec,,,,write:acceptance,,,n/a
-SecureRandomSpec.mop,setSeed2,body,positive,,1,RANDOMIZED,byte[],,,,read:body,,,member
-SecureRandomSpec.mop,genSeed,body,positive,,1,RANDOMIZED,byte[],,,,write:body,,,member
-SecureRandomSpec.mop,next1,body,positive,,1,RANDOMIZED,int,,,,write:body,,,member
-SecureRandomSpec.mop,next2,body,positive,,1,RANDOMIZED,byte[],,,,write:body,,,member
-SecureRandomSpec.mop,next3,body,positive,,1,RANDOMIZED,int,,,,write:body,,,member
-SecureRandomSpec.mop,ints,body,positive,,1,RANDOMIZED,IntStream,,,,write:body,,,member
-SecureRandomSpec.mop,match1,@match,positive,,1,,SecureRandom,,,,bookkeeping:match,,,n/a
-SecureRandomSpec.mop,match1,@match,positive,,1,RANDOMIZED,SecureRandom,,,,write:acceptance,,,n/a
+SecureRandomSpec.mop,setSeed2,body,positive,,1,RANDOMIZED,byte[],,SecureRandom.cryptsl:66 randomized[seed],store,read:body,,,member
+SecureRandomSpec.mop,next1,body,positive,,1,RANDOMIZED,int,,,,write:body,,"the rule's fourth ENSURES clause, `randomized[numB]`, binds the argument of `ne: next(numB)` -- `next(int)`, protected in java.util.Random -- and order_alphabet_map.csv:79,81 already records that pairing either nextInt overload with `ne` would be an inference INV-INS-138 forbids. No clause this file can point at justifies an acceptance-point placement; task 5.5 resolves the clause and drops the write. The migration already narrows it: a boxed primitive only survives to a later read inside the Integer cache",member
+SecureRandomSpec.mop,next3,body,positive,,1,RANDOMIZED,int,,,,write:body,,"the rule's fourth ENSURES clause, `randomized[numB]`, binds the argument of `ne: next(numB)` -- `next(int)`, protected in java.util.Random -- and order_alphabet_map.csv:79,81 already records that pairing either nextInt overload with `ne` would be an inference INV-INS-138 forbids. No clause this file can point at justifies an acceptance-point placement; task 5.5 resolves the clause and drops the write. The migration already narrows it: a boxed primitive only survives to a later read inside the Integer cache",member
+SecureRandomSpec.mop,match1,@match,positive,,1,RANDOMIZED,SecureRandom,,SecureRandom.cryptsl:71 randomized[this] after Ins,store,write:acceptance,,,n/a
+SecureRandomSpec.mop,match2,@match,positive,,1,RANDOMIZED,byte[],,SecureRandom.cryptsl:73 randomized[genSeed],store,write:acceptance,,,n/a
+SecureRandomSpec.mop,match2,@match,positive,,1,RANDOMIZED,byte[],,SecureRandom.cryptsl:75 randomized[next],store,write:acceptance,,,n/a
 SignatureSpec.mop,s1,body,positive,,1,SIGNED,byte[],,,,write:body,,,member
 SignatureSpec.mop,s2,body,positive,,1,SIGNED,byte[],,,,write:body,,,member
 SignatureSpec.mop,v1,body,positive,,1,VERIFIED,boolean,,,,write:body,,,member

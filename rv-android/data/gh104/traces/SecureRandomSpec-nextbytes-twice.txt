@@ -1,0 +1,8 @@
+# the end-state omission task 4.5 repairs: api30 orders `Ins, Seeds?, Ends*`, so a
+# second nextBytes is a sequence the rule accepts. The seed's `end` state omitted
+# next2, so the second call took the fail row -- 12,400 events on the published
+# campaign, 99.98 % of them inside libraries.
+bind buf = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(buf)
+r.nextBytes(buf)

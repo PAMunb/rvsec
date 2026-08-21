@@ -43,9 +43,10 @@ SSLContextSpec,SSLCONTEXT-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SSLC
 SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,SecretKeySpecSpec.mop:46
 SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c2,SecretKeySpecSpec.mop:72
 SecretKeySpecSpec,SECRETKEYSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecretKeySpecSpec.mop:83
-SecureRandomSpec,SECURERANDOM-ALG-00,UnsafeAlgorithm,ALG,g4,SecureRandomSpec.mop:92
-SecureRandomSpec,SECURERANDOM-CONSTR-00,UnsatisfiedConstraint,CONSTR,setSeed2,SecureRandomSpec.mop:112
-SecureRandomSpec,SECURERANDOM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecureRandomSpec.mop:191
+SecureRandomSpec,SECURERANDOM-ALG-00,UnsafeAlgorithm,ALG,g4,SecureRandomSpec.mop:111
+SecureRandomSpec,SECURERANDOM-CONSTR-00,UnsatisfiedConstraint,CONSTR,setSeed2,SecureRandomSpec.mop:147
+SecureRandomSpec,SECURERANDOM-NOBS-00,UnsatisfiedConstraint,NOBS,setSeed2,SecureRandomSpec.mop:151
+SecureRandomSpec,SECURERANDOM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecureRandomSpec.mop:290
 SignatureSpec,SIGNATURE-ALG-00,UnsafeAlgorithm,ALG,i1,SignatureSpec.mop:89
 SignatureSpec,SIGNATURE-ALG-01,UnsafeAlgorithm,ALG,i2,SignatureSpec.mop:99
 SignatureSpec,SIGNATURE-ALG-02,UnsafeAlgorithm,ALG,i3,SignatureSpec.mop:109

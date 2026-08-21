@@ -549,6 +549,16 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       is change the substrate under all three sites and split the boolean read into
       three verdicts, which the counts here cannot see. The one number it moves is
       the accepting-state calls, 24 -> 23 (INV-INS-147).
+    * task 4.5 migrated `SecureRandomSpec`. The reads stay at 18 -- `setSeed2`'s was
+      already a body read after task 3.1 fused the twins -- and the writes go
+      39 -> 38: five body writes become two, because `genSeed` and `next2` stage
+      their arrays for the new `@match2` handler at `end` (the acceptance point of
+      the rule's two unqualified `randomized` clauses), while the `ints` write is
+      deleted for the reason `WRAPPED_KEY` was at 4.1 -- api30 declares no stream
+      event, so the site translated no clause. `next1` and `next3` keep their body
+      writes with a recorded reason, which is what INV-INS-134 asks of a write left
+      off the acceptance point; task 5.5 owns them. The accepting-state calls go
+      23 -> 22 (INV-INS-147).
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -566,8 +576,8 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
 
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 18
     assert read_placement.get("condition", 0) == 8
-    assert counts.get("write", 0) == 39
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 23
+    assert counts.get("write", 0) == 38
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 22
     assert counts.get("remove", 0) + counts.get("negate", 0) == 9
 
 
@@ -662,6 +672,15 @@ def test_the_graph_reproduces_the_measured_placement_census():
       A file pass that moves nothing is still a file pass: what it changes is the
       substrate and the arity of the verdict, and the graph records that in the
       `mechanism` column rather than in these counts.
+    * task 4.5: the guards and body reads stay at 8 and 10, and the write columns
+      move for the second time: `write:body` goes 30 -> 27 and `write:acceptance`
+      9 -> 11. `SecureRandomSpec` is the first file with two acceptance points whose
+      handlers each carry their own clause -- `@match1` at `init` for
+      `randomized[this] after Ins`, `@match2` at `end` for `randomized[genSeed]` and
+      `randomized[next]`, one row per clause -- and the `ints` write is deleted. The
+      two rows that stay `write:body` are `next1` and `next3`, and they stay because
+      their `reason` column is filled, not because the gate missed them. The
+      bookkeeping calls go 23 -> 22.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -670,11 +689,11 @@ def test_the_graph_reproduces_the_measured_placement_census():
 
     assert counts.get("read:condition-guard", 0) == 8
     assert counts.get("read:body", 0) == 10
-    assert counts.get("write:body", 0) == 30
-    assert counts.get("write:acceptance", 0) == 9
+    assert counts.get("write:body", 0) == 27
+    assert counts.get("write:acceptance", 0) == 11
     assert counts.get("remove:fail", 0) == 8
     assert counts.get("remove:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 23
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 22
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
@@ -1310,14 +1329,23 @@ def test_an_aggregate_is_expanded_through_every_level_it_names():
 
 
 def test_the_securerandom_kleene_star_is_measured_and_not_argued():
-    """The anchored case: `Ins, Seeds?, Ends*` against the automaton as it stands.
+    """The anchored case: `Ins, Seeds?, Ends*` against the automaton.
 
-    The rule accepts `getInstance()` followed by any number of `nextBytes()`. The
-    specification accepts none of them: its only accepting state is `init`, the
-    one `alias match1` names, and `next2` leaves it for `end`, which is not
-    accepting and has no `next2` transition of its own. That is the shape of the
+    The rule accepts `getInstance()` followed by any number of `nextBytes()`, and
+    the specification now accepts them too. It did not before task 4.5, for two
+    reasons the gate reads together: `end` had no `next2` transition of its own,
+    and `end` was not an accepting state, because `alias match1 = init` was the
+    file's only alias. Both moved for the same reason -- the rule ensures
+    `randomized[genSeed]` and `randomized[next]` at the accepting state the Ends
+    reach, so `end` needed the `@match2` handler INV-INS-134 asks for, and
+    aliasing it is what tells this gate the state accepts. That is the shape of the
     measured false positive -- 12,400 events, 99.98 % of them inside libraries --
     and this test is what turns it from an argument into a decided question.
+
+    A witness still exists, and it is a different defect: `c1 c1`, the `init`
+    self-loop over the constructor, which the rule's `Ins` does not repeat. Task
+    7.1 owns it, and this assertion is here so that a later repair of *this*
+    automaton cannot pass unnoticed by closing the wrong hole.
     """
     built = gh105_order_gate.build_automata(
         _specs_root() / "jca_android" / "SecureRandomSpec.mop", _rules_root(),
@@ -1327,8 +1355,11 @@ def test_the_securerandom_kleene_star_is_measured_and_not_argued():
     specified, ordered = built
 
     assert gh105_order_gate.accepts(ordered, ("c1", "nB", "nB"))
-    assert not gh105_order_gate.accepts(specified, ("c1", "nB", "nB"))
+    assert gh105_order_gate.accepts(specified, ("c1", "nB", "nB"))
     assert gh105_order_gate.accepts(ordered, ("c1",)) and gh105_order_gate.accepts(specified, ("c1",))
+
+    assert gh105_order_gate.accepts(specified, ("c1", "c1"))
+    assert not gh105_order_gate.accepts(ordered, ("c1", "c1"))
 
     witness = gh105_order_gate.difference_witness(specified, ordered)
     assert witness is not None
