@@ -145,7 +145,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 - [x] 2.8 Create `data/jca_android/order_alphabet_map.csv` (schema + rows for the specs Groups 3
       and 5 touch first, enumerated in the file's header comment so completeness is checkable
       before 7.1 closes it)
-- [ ] 2.9 `scripts/gh105_order_gate.py` (G-ORDER): DFA equivalence under the 2.8 mapping,
+- [x] 2.9 `scripts/gh105_order_gate.py` (G-ORDER): DFA equivalence under the 2.8 mapping,
       `skipped` without rule or mapping, never inferred (INV-INS-138); SecureRandom
       `Ins, Seeds?, Ends*` as the first anchored case; wire `test_inv_ins_138_gorder` into
       `test_gh105_predicate_gates.py` (it is written after 2.6, so it registers itself)

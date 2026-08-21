@@ -32,6 +32,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
+import gh105_order_gate  # noqa: E402
 import gh105_param_gate  # noqa: E402
 from gh105_predicate_graph import (  # noqa: E402
     COLUMNS,
@@ -1003,8 +1004,8 @@ def _recorded(gate: str) -> set[tuple[str, str, str]]:
     return {tuple(row) for row in payload["gates"].get(gate, [])}
 
 
-def _no_regression(suite, gates: tuple[str, ...]) -> None:
-    """Every finding of `gates` is one the baseline already carries.
+def _no_regression_over(gates: tuple[str, ...], measured: set[tuple[str, str, str]]) -> None:
+    """The measured findings are a subset of what the baseline records.
 
     Keyed on set/file/subject and never on line numbers or message text, so a
     reformatted file does not read as a new finding -- a gate that cries wolf on
@@ -1013,13 +1014,20 @@ def _no_regression(suite, gates: tuple[str, ...]) -> None:
     recorded: set[tuple[str, str, str]] = set()
     for gate in gates:
         recorded |= _recorded(gate)
-    measured = {
-        (finding.spec_set, finding.file, finding.subject)
-        for finding in suite.findings
-        if finding.gate in gates
-    }
     new = sorted(measured - recorded)
     assert not new, f"{gates}: findings absent from the baseline at {BASELINE}: {new}"
+
+
+def _no_regression(suite, gates: tuple[str, ...]) -> None:
+    """The structural suite's own findings, under the same rule."""
+    _no_regression_over(
+        gates,
+        {
+            (finding.spec_set, finding.file, finding.subject)
+            for finding in suite.findings
+            if finding.gate in gates
+        },
+    )
 
 
 def test_inv_ins_130_import_discipline(suite):
@@ -1157,3 +1165,155 @@ def test_inv_ins_140_genericity(suite):
     governed = {gate for gate, _, _ in suite.gate_skips}
     assert governed == {"INV-INS-130", "INV-INS-133", "INV-INS-134", "G-PRED2"}
     assert all(reason for _, _, reason in suite.gate_skips)
+
+
+# ---------------------------------------------------------------------- G-ORDER
+
+
+ORDER_MAP = REPO / "data/jca_android/order_alphabet_map.csv"
+
+
+def _rules_root() -> Path:
+    if not gh105_order_gate.DEFAULT_RULES.is_dir():
+        pytest.skip(f"the api30 oracle is absent: {gh105_order_gate.DEFAULT_RULES}")
+    return gh105_order_gate.DEFAULT_RULES
+
+
+def _order_run():
+    return gh105_order_gate.run(_specs_root(), "jca_android", _rules_root(), ORDER_MAP)
+
+
+def test_the_order_grammar_is_read_with_alternation_weakest():
+    """`a, b | c` is `(a, b) | c`, and the Cipher rule depends on it.
+
+    Its ORDER is `Gets, Inits+, w+ | (FINWOU | (updates+, DOFINALS))+`: read with
+    the wrong precedence the whole right-hand side would sit inside the sequence,
+    and the gate would report a divergence that is an artifact of its own parser.
+    """
+    parsed = gh105_order_gate.parse_expression("a, b | c")
+    assert parsed[0] == "alt"
+    assert parsed[1][0] == ("cat", (("sym", "a"), ("sym", "b")))
+    assert parsed[1][1] == ("sym", "c")
+
+
+def test_an_aggregate_is_expanded_through_every_level_it_names():
+    """`Ins := Gets | Cons` over `Gets := g1 | g2 | gI` is two levels deep.
+
+    The SecureRandom rule orders `Ins`, and an `Ins` left unexpanded is a symbol
+    the specification's alphabet can never contain -- the comparison would fail
+    for a reason that has nothing to do with either language.
+    """
+    rule = gh105_order_gate.read_rule(_rules_root() / "SecureRandom.cryptsl")
+    order = gh105_order_gate.expand_aggregates(
+        gh105_order_gate.parse_expression(rule.order), rule.aggregates
+    )
+    assert gh105_order_gate.symbols_of(order) == {"c1", "c2", "g1", "g2", "gI", "gS", "s1", "s2", "ne", "nB"}
+
+
+def test_the_securerandom_kleene_star_is_measured_and_not_argued():
+    """The anchored case: `Ins, Seeds?, Ends*` against the automaton as it stands.
+
+    The rule accepts `getInstance()` followed by any number of `nextBytes()`. The
+    specification accepts none of them: its only accepting state is `init`, the
+    one `alias match1` names, and `next2` leaves it for `end`, which is not
+    accepting and has no `next2` transition of its own. That is the shape of the
+    measured false positive -- 12,400 events, 99.98 % of them inside libraries --
+    and this test is what turns it from an argument into a decided question.
+    """
+    built = gh105_order_gate.build_automata(
+        _specs_root() / "jca_android" / "SecureRandomSpec.mop", _rules_root(),
+        gh105_order_gate.read_map(ORDER_MAP),
+    )
+    assert not isinstance(built, str), built
+    specified, ordered = built
+
+    assert gh105_order_gate.accepts(ordered, ("c1", "nB", "nB"))
+    assert not gh105_order_gate.accepts(specified, ("c1", "nB", "nB"))
+    assert gh105_order_gate.accepts(ordered, ("c1",)) and gh105_order_gate.accepts(specified, ("c1",))
+
+    witness = gh105_order_gate.difference_witness(specified, ordered)
+    assert witness is not None
+
+
+def test_an_absorbed_accuser_is_erased_from_both_languages():
+    """`KeyPairGeneratorSpec` agrees with its rule *because* of the erasure.
+
+    Its `ere` names `g3` (the invalid-algorithm accuser) and it declares
+    `initError`, and the rule's ORDER has a symbol for neither. Their mapping rows
+    record the exemption, the gate erases them, and what remains is
+    `(g1|g2)(inits)gen` against `Gets, Inits, Generators`. Without the erasure
+    Group 3 could not absorb an orphan without turning this gate red.
+    """
+    rows = gh105_order_gate.read_map(ORDER_MAP)["KeyPairGeneratorSpec"]
+    exempt = {row.mop_event for row in rows if row.disposition == "order-unmapped"}
+    assert exempt == {"g3", "initError"}
+    assert all(row.reason for row in rows if row.disposition == "order-unmapped")
+
+    built = gh105_order_gate.build_automata(
+        _specs_root() / "jca_android" / "KeyPairGeneratorSpec.mop", _rules_root(),
+        gh105_order_gate.read_map(ORDER_MAP),
+    )
+    assert not isinstance(built, str), built
+    assert gh105_order_gate.difference_witness(*built) is None
+
+
+def test_a_specification_without_a_mapping_is_skipped_and_never_inferred(tmp_path):
+    """A missing association is a skip with a reason, not a guess.
+
+    Two ways to have none: a specification with no rows at all (13 of the set
+    today, owed to task 7.1), and a specification whose rows stop short of an
+    event its automaton names. The second is the dangerous one -- there is enough
+    of a mapping to produce a verdict, and the verdict would be about an alphabet
+    nobody finished writing down.
+    """
+    result = _order_run()
+    skipped = dict(result.skipped)
+    assert "jca_android/MacSpec" in skipped
+    assert "no rows in the alphabet mapping" in skipped["jca_android/MacSpec"]
+
+    partial = tmp_path / "order_alphabet_map.csv"
+    partial.write_text(
+        "\n".join(
+            line
+            for line in ORDER_MAP.read_text(encoding="utf-8").splitlines()
+            if not line.startswith("SecureRandomSpec,next2,")
+        ),
+        encoding="utf-8",
+    )
+    outcome = gh105_order_gate.build_automata(
+        _specs_root() / "jca_android" / "SecureRandomSpec.mop", _rules_root(),
+        gh105_order_gate.read_map(partial),
+    )
+    assert isinstance(outcome, str) and "incomplete" in outcome
+
+
+def test_the_gate_reports_a_word_a_reader_can_check_by_hand():
+    """Every finding carries a witness, and the shortest one.
+
+    A verdict of *not equivalent* over two automata is unactionable on its own.
+    The product walk is breadth-first so the counterexample that comes back is a
+    sequence short enough to read against the rule.
+    """
+    result = _order_run()
+    assert result.findings, "the set diverges from its rules today; a green run here means the gate stopped looking"
+    for finding in result.findings:
+        assert finding.witness or "empty sequence" in finding.message
+        assert finding.accepted_by in ("the api30 ORDER", "the specification")
+
+
+def test_inv_ins_138_gorder(suite):
+    """G-ORDER under CI: no ordering divergence the baseline does not carry.
+
+    The gate is written before the repairs that make it green (D-13), so what is
+    asserted is that the four measured divergences do not become five. It also
+    asserts the shape of the run itself: every specification is decided or skipped
+    with a reason, and the counts add up to the files that exist (INV-INS-140).
+    """
+    result = _order_run()
+    assert result.total == len(list((_specs_root() / "jca_android").glob("*.mop")))
+    assert all(reason for _, reason in result.skipped)
+
+    _no_regression_over(
+        ("G-ORDER",),
+        {("jca_android", f"{finding.spec}.mop", "order") for finding in result.findings},
+    )
