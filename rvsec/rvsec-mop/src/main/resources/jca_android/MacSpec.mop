@@ -4,8 +4,6 @@ import javax.crypto.Mac;
 import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
-import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 MacSpec(Mac m) {
@@ -24,15 +22,24 @@ MacSpec(Mac m) {
         List<String> safeAlgorithms = Arrays.asList("PBEwithHmacSHA256", "PBEwithHmacSHA1", "HmacSHA224",
            "HmacSHA256", "HmacMD5", "HmacSHA512", "PBEwithHmacSHA512", "HmacSHA384", "PBEwithHmacSHA384",
            "PBEwithHmacSHA224", "PBEwithHmacSHA", "HmacSHA1");
-        String currentAlgorithmInstance = "";
 
-        Mac mac = null;
+        // A second monitor field, `Mac mac`, stood beside this one until this pass.
+        // Its only reader was the accepting-state bookkeeping in the `@match`
+        // handler, which the new substrate does not offer and which no
+        // specification of the set ever read back (INV-INS-147), so the field went
+        // with the handler and the two `getInstance` events no longer bind it.
+        //
+        // This one is assigned by the three `getInstance` events and read by
+        // nothing -- here and before this pass alike. It is left standing on
+        // purpose: this pass owns the file's predicate sites, and a monitor field
+        // that no site reads is a separate repair. Recorded, not made, alongside
+        // the ordering finding above the `ere` below.
+        String currentAlgorithmInstance = "";
 
         event g1 after(String alg) returning(Mac m):
           call(public static Mac Mac.getInstance(String)) &&
           args(alg) &&
           condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
-            mac = m;
             currentAlgorithmInstance = alg;
         }
 
@@ -40,7 +47,6 @@ MacSpec(Mac m) {
           call(public static Mac Mac.getInstance(String, String)) &&
           args(alg, provider) &&
           condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
-            mac = m;
             currentAlgorithmInstance = alg;
         }
 
@@ -51,57 +57,120 @@ MacSpec(Mac m) {
             currentAlgorithmInstance = alg;
         }
 
+        // api30's `Inits`, the one-argument overload. Until this pass it opened
+        // with a `condition(...)` that read a `generatedKey` predicate on the key,
+        // and this pass deletes that read outright instead of moving it into the
+        // body the way the rest of the group moves its reads.
+        //
+        // It translates no clause. The api30 Mac rule requires
+        // `preparedHMAC[params]` and the two negated `encrypted[output1, _]` /
+        // `encrypted[output2, _]` (Mac.cryptsl:80-84); `generatedKey` is not among
+        // them, and no CONSTRAINTS clause mentions the key either. Nor did the read
+        // propagate: the reads elsewhere in the set that carry no clause of their
+        // own -- `RandomStringPassword.vo` and `gb`, `SecretKeySpec.e1` -- each feed
+        // a write, so a verdict of theirs travels; this one fed nothing. It
+        // computed a verdict, discarded it, and its only surviving effect was the
+        // transition it suppressed. Deleting it and moving it to the body without
+        // an accuser are behaviourally the same program, and what separates them is
+        // dead code and two rows in predicate_graph.csv.
+        //
+        // The suppression was not harmless, which is why the deletion is a repair
+        // and not housekeeping. A guard compiles into the generated monitor as
+        // `if (!(<read>)) return false;` ahead of `handleEvent`, so `init` took no
+        // transition whenever the key came from no observed generator, `doFinal`
+        // then arrived in a state the ORDER does not admit, and the file accused
+        // the program of `MAC-ORDER-00`. Measured over the whole ErrorCollector, on
+        // the two traces this pass added to the corpus: a safe algorithm with an
+        // unobserved key -- a program that breaks no clause of the rule -- drew one
+        // report, and an unsafe algorithm with an unobserved key drew the same
+        // single ordering report while the real defect stayed silent, because
+        // `MAC-ALG-00` lives in this body and this body did not run. After the
+        // deletion the first is silent and the second reports the algorithm.
+        //
+        // The rule's real clauses reach this same event at tasks 5.2 and 5.3, where
+        // they arrive as reads of `preparedHMAC` and as absence checks on
+        // `encrypted`, each with an accuser of its own.
         event i1 before(java.security.Key key, Mac m):
           call(public void Mac.init(java.security.Key)) &&
           args(key) &&
-          target(m) &&
-          condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key)) {
+          target(m) {
             if (!ConscryptAliasTable.matches("Mac", m.getAlgorithm(), safeAlgorithms)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
                     "v=1 code=MAC-ALG-00 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
             }
-
         }
 
+        // The other alternative of `Inits`, taking parameters beside the key. It
+        // carried the same read on the same key and loses it for the same reason;
+        // the `params` it binds is what task 5.2 reads `preparedHMAC` on.
         event i2 after(java.security.Key key, java.security.spec.AlgorithmParameterSpec params, Mac m):
           call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) &&
           args(key, params) &&
-          target(m) &&
-          condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key))  {
+          target(m) {
             if (!ConscryptAliasTable.matches("Mac", m.getAlgorithm(), safeAlgorithms)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
                     "v=1 code=MAC-ALG-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
-        }
+            }
         }
 
         event update after(Mac m):
           call(public void Mac.update(..)) &&
           target(m) { }
 
+        // api30's `Finals`. Both of these events established a one-place
+        // "a MAC was generated" property on the tag they return, and this pass
+        // deletes both writes rather than moving them to the acceptance point.
+        //
+        // The property is written by three of this tree's five specification sets
+        // and read by none of them, so nothing downstream loses a fact. And it does
+        // not translate the rule's ENSURES: api30 states `macced[output1, inp]`,
+        // `macced[output1, pre_input]` and `macced[output2, input]`
+        // (Mac.cryptsl:89-93) -- two places, the tag and the data it authenticates
+        // -- while a one-place property over the tag alone cannot say which data
+        // was authenticated, which is the only thing the consumer asks. That
+        // consumer is Cipher's `!macced[_, plainText]`, ledger clause #8, and it is
+        // wired at task 5.7 by a write made at the acceptance point with the arity
+        // the clause states. Relocating this write would have handed that one edge
+        // a second producer, at an arity that cannot answer it.
+        //
+        // The `returning` and `args` bindings stay as they are: they are what task
+        // 5.7 writes from, and this pass moves no symbol of the alphabet.
         event f1 after(Mac m) returning(byte[] output):
           (call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) &&
           target(m){
-           ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
         }
 
         event f2 after(byte[] output, int outOffset):
           call(void Mac.doFinal(byte[], int)) &&
           args(output, outOffset) &&
           target(m){
-            ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
         }
 
+        // `g3` is the unsafe-algorithm `getInstance`, and `g3*` is followed by a
+        // required `g1` or `g2` -- a safe one. A program that only ever asks for an
+        // unsafe algorithm therefore never leaves the prefix, and every such run
+        // ends in `MAC-ORDER-00` no matter what else it does correctly. It is the
+        // third site of the family the CipherSpec `unsafeAlg` sink opened and the
+        // GCMParameterSpecSpec unreachable `@fail` continued: an ordering
+        // accusation standing in for a constraint the automaton has no way to
+        // state. Recorded, not repaired -- the repair is to the automaton, this
+        // pass moves no symbol, and this file is one of the thirteen still absent
+        // from order_alphabet_map.csv, which task 7.1 owns, so G-ORDER skips it in
+        // both directions.
         ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f2) | (update* (f1 | f2)))
 
         @fail {
+            // The withdrawal that stood in this handler went with the write it
+            // withdrew. INV-INS-142 requires all eight of the set's `@fail`
+            // withdrawals to go, on the ground that "undo the predicate when the
+            // automaton fails" is a semantics no generation of CrySL has; this one
+            // goes here rather than at task 6.4 by the criterion task 4.6 used for
+            // the `clearPassword` withdrawal -- a withdrawal travels with the write
+            // it undoes, and both of this file's writes are deleted above. The
+            // other seven remain 6.4's.
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
                 "v=1 code=MAC-ORDER-00 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'"));
-            ExecutionContext.instance().remove(Property.GENERATED_MAC);
             __RESET;
-        }
-
-        @match {
-           ExecutionContext.instance().setObjectAsInAcceptingState(mac);
         }
 
 }

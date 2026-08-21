@@ -249,9 +249,27 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       accuser here (`randomized[salt]`)
 - [x] 4.8 `GCMParameterSpecSpec` (2 reads / 1 write / 1 call); `c1`/`c2` gain their accusers
       (`randomized[src]`)
-- [ ] 4.9 `MacSpec` (2 reads / 2 writes / 1 call); `i1`/`i2` read `generatedKey`, which the Mac
-      rule does not require — they are **propagation**, MUST NOT gain an accuser, and are
-      recorded as `propagation` in the graph; the rule's real clause is re-derived at 5.2
+- [x] 4.9 `MacSpec` (2 reads / 2 writes / 1 call / 1 removal). Three researcher decisions,
+      2026-08-21, each measured before it was taken; after this pass the file names no predicate
+      at all and loses all six of its `predicate_graph.csv` rows. **The `i1`/`i2` reads are
+      deleted, not recorded as `propagation`** — this reverses the instruction this task carried.
+      The Mac rule does not require `generatedKey` (its REQUIRES are `preparedHMAC[params]` and
+      the two `!encrypted`), and unlike the three reads that earn the label, `i1`/`i2` feed no
+      write, so deleting them and moving them to the body without an accuser are behaviourally
+      indistinguishable; the difference is dead code and two graph rows. The guard is not inert:
+      measured, it turns a program that breaks no clause into a `MAC-ORDER-00` and hides
+      `MAC-ALG-00` behind the same suppressed transition. The rule's real clauses arrive at 5.2
+      and 5.3. **The two `GENERATED_MAC` writes are deleted** — the property is written in three
+      sets and read in none, and it does not translate `macced[output1, inp]`, which is arity 2
+      where `GENERATED_MAC` holds only the output; the real producer is ledger #8 at 5.7, and
+      migrating the write would hand that edge a second producer (precedents: `WRAPPED_KEY` at
+      4.1, the `ints` write at 4.5). The `remove(GENERATED_MAC)` in `@fail` goes with the write it
+      withdraws (precedent 4.6), which is why 6.4 performs seven of INV-INS-142's eight.
+      **The `@match` handler and the `mac` field are deleted whole** — the handler carried only
+      `setObjectAsInAcceptingState(mac)` (INV-INS-147) and the field served only it; 5.7 recreates
+      a handler when it has something to write, at arity 2 over `output` and the data, not over
+      `mac`. What stays: the `MAC-ALG-00`/`-01` bodies, `q(...)`, `ConscryptAliasTable`, and the
+      `g3*` order defect, which belongs to the automaton and is recorded, not repaired
 - [ ] 4.10 `SecretKeySpecSpec` (2 reads / 1 write / 1 call)
 - [ ] 4.11 `RandomStringPassword` (2 reads / 2 writes / 0 calls); both reads are **propagation**
       (no rule) — no accuser, recorded as such
@@ -351,9 +369,11 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       property goes with it. Pairs with 5.9
 - [ ] 6.3 `SignatureSpec`: `verified` marked on the `boolean` instead of the `byte[]`; `sign()`
       pointcuts declaring `public byte`
-- [ ] 6.4 Delete the 8 `@fail` removals (INV-INS-142), one harness delta each — the sites are
-      `TrustManagerFactorySpec.mop:100,101`, `KeyStoreSpec.mop:92,93`,
-      `KeyManagerFactorySpec.mop:104`, `KeyPairGeneratorSpec.mop:119`, `MacSpec.mop:99`,
+- [ ] 6.4 Delete the 7 `@fail` removals this task still owns (INV-INS-142 counts eight; 4.9 took
+      `MacSpec.mop:99` with the write it withdrew), one harness delta each — the sites, re-read
+      from the tree on 2026-08-21 because Group 3 moved two of them, are
+      `TrustManagerFactorySpec.mop:124,125` (was `:100,101`), `KeyStoreSpec.mop:92,93`,
+      `KeyManagerFactorySpec.mop:104`, `KeyPairGeneratorSpec.mop:133` (was `:119`),
       `KeyGeneratorSpec.mop:89`. They implement "undo the predicate when the automaton fails", a
       semantics no CrySL generation has, and couple typestate to predicate against the rule's
       own orthogonality
@@ -362,7 +382,9 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       to remove. The ninth removal (`PBEKeySpecSpec`, `clearPassword`, the one real `NEGATES`
       clause) was translated to `PredicateStore.negate`, object-scoped, by task 4.6 — it moved
       with the file pass that migrated the write it withdraws, so this task verifies it rather
-      than performing it
+      than performing it. By the same criterion task 4.9 deleted the `@fail` removal at
+      `MacSpec.mop:99` together with the two `GENERATED_MAC` writes it withdrew, leaving 6.4 with
+      seven of the eight; verify that one here as well
 - [ ] 6.6 `CipherSpec` `f1`/`f2` (pointcuts at `:135` and `:141`; the `event` declarations sit at
       `:134`/`:140`): both match the argument-less call — one call, two transitions; make the
       wider pointcut disjoint (two-events-same-call scenario)

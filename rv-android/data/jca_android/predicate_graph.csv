@@ -35,12 +35,6 @@ KeyStoreSpec.mop,fail,@fail,positive,,1,,KeyStore,,,,bookkeeping:fail,,,n/a
 KeyStoreSpec.mop,fail,@fail,positive,,1,GENERATED_KEY,Key,,,,remove:fail,,,n/a
 KeyStoreSpec.mop,fail,@fail,positive,,1,GENERATED_KEY_STORE,KeyStore,,,,remove:fail,,,n/a
 KeyStoreSpec.mop,match,@match,positive,,1,,KeyStore,,,,bookkeeping:match,,,n/a
-MacSpec.mop,i1,condition,positive,,1,GENERATED_KEY,java.security.Key,,,,read:condition-guard,,,member
-MacSpec.mop,i2,condition,positive,,1,GENERATED_KEY,java.security.Key,,,,read:condition-guard,,,member
-MacSpec.mop,f1,body,positive,,1,GENERATED_MAC,byte[],,,,write:body,,,member
-MacSpec.mop,f2,body,positive,,1,GENERATED_MAC,byte[],,,,write:body,,,member
-MacSpec.mop,fail,@fail,positive,,0,GENERATED_MAC,,,,,remove:fail,,,n/a
-MacSpec.mop,match,@match,positive,,1,,Mac,,,,bookkeeping:match,,,n/a
 MessageDigestSpec.mop,d1,body,positive,,1,DIGESTED,byte[],,,,write:body,,,member
 MessageDigestSpec.mop,d2,body,positive,,1,DIGESTED,byte[],,,,write:body,,,member
 MessageDigestSpec.mop,d3,body,positive,,1,DIGESTED,byte[],,,,write:body,,,member

@@ -591,6 +591,16 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       `ENSURES` write does not move, for the same reason as task 4.7's. The
       accepting-state calls go 20 -> 19. No omission record here: `preparedGCM` is
       required at Cipher.cryptsl:184, ledger clause #10, wired at task 5.8.
+    * task 4.9 migrated `MacSpec`, and it is the only pass so far that moves every one
+      of these five numbers downward at once, because it leaves the file naming no
+      predicate at all. The reads go 18 -> 16 and the guards 5 -> 3: `i1` and `i2` read
+      `generatedKey`, which the api30 Mac rule does not require, and they feed no write
+      either, so they are deleted rather than moved -- a read that translates no clause
+      and propagates nothing has no body to move to. The writes go 38 -> 36: the two
+      `Finals` writes held a one-place property that three sets write and none reads,
+      and the rule's `macced` is two-place, so the real producer is ledger #8 at task
+      5.7. The accepting-state calls go 19 -> 18 and the removals 9 -> 8, both with the
+      `@match` handler and the `@fail` withdrawal that went with those writes.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -606,11 +616,11 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 18
-    assert read_placement.get("condition", 0) == 5
-    assert counts.get("write", 0) == 38
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 19
-    assert counts.get("remove", 0) + counts.get("negate", 0) == 9
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 16
+    assert read_placement.get("condition", 0) == 3
+    assert counts.get("write", 0) == 36
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 18
+    assert counts.get("remove", 0) + counts.get("negate", 0) == 8
 
 
 def test_the_predicate_free_sets_read_as_predicate_free():
@@ -736,19 +746,29 @@ def test_the_graph_reproduces_the_measured_placement_census():
       stays 11 and `write:body` stays 27. The bookkeeping goes 20 -> 19. No row gains a
       `disposition`: `preparedGCM` has a consumer in the oracle (Cipher.cryptsl:184,
       ledger #10), so its G-PRED2 row closes by a read at task 5.8, not by a record.
+    * task 4.9: `MacSpec` leaves the graph entirely. It is the first file of the
+      migration to lose all of its rows rather than to have them re-classified -- the
+      set goes 84 rows to 78 -- because after the pass the file names no predicate:
+      the guards go 5 -> 3 with `i1`'s and `i2`'s reads deleted (not moved: they
+      translate no clause of the rule and feed no write, so `read:body` stays 13),
+      `write:body` goes 27 -> 25 with the two `Finals` writes, `remove:fail` goes
+      8 -> 7 -- the withdrawal travels with the writes it undid, by the criterion of
+      task 4.6 -- and the bookkeeping goes 19 -> 18 with the `@match` handler. A reader
+      who looks only at this census will see the smallest kind of change; what it
+      actually records is a whole file leaving.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
-    assert counts.get("read:condition-guard", 0) == 5
+    assert counts.get("read:condition-guard", 0) == 3
     assert counts.get("read:body", 0) == 13
-    assert counts.get("write:body", 0) == 27
+    assert counts.get("write:body", 0) == 25
     assert counts.get("write:acceptance", 0) == 11
-    assert counts.get("remove:fail", 0) == 8
+    assert counts.get("remove:fail", 0) == 7
     assert counts.get("negate:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 19
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 18
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
@@ -929,14 +949,20 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     was measured to silence not one event but the whole specification -- both events
     guarded and the `fail` handler unreachable, so no program it could see drew a
     report. The gate exists to make the migration's progress a number that goes down,
-    and to make it impossible for a new one to arrive quietly.
+    and to make it impossible for a new one to arrive quietly. 3 after task 4.9, whose
+    two guards on `MacSpec.i1` and `i2` come out of the count by deletion rather than
+    by relocation: they read `generatedKey`, which the Mac rule does not require, and
+    they feed no write, so there is nothing for a body to carry. Measured, the guards
+    were not inert -- one of them turned a program that breaks no clause into an
+    `InvalidSequenceOfMethodCalls` and hid the algorithm accusation behind the same
+    suppressed transition.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
 
     findings = gate_placement(report)
     guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
-    assert len(guards) == 5
+    assert len(guards) == 3
 
 
 def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():

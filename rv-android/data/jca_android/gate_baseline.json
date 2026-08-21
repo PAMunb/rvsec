@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 71,
+    "structural_findings": 64,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -53,16 +53,6 @@
         "jca_android",
         "KeyStoreSpec.mop",
         "load/GENERATED_KEY_STORE"
-      ],
-      [
-        "jca_android",
-        "MacSpec.mop",
-        "f1/GENERATED_MAC"
-      ],
-      [
-        "jca_android",
-        "MacSpec.mop",
-        "f2/GENERATED_MAC"
       ],
       [
         "jca_android",
@@ -138,16 +128,6 @@
     "INV-INS-133": [
       [
         "jca_android",
-        "MacSpec.mop",
-        "i1/GENERATED_KEY"
-      ],
-      [
-        "jca_android",
-        "MacSpec.mop",
-        "i2/GENERATED_KEY"
-      ],
-      [
-        "jca_android",
         "RandomStringPassword.mop",
         "gb/RANDOMIZED"
       ],
@@ -217,16 +197,6 @@
         "jca_android",
         "KeyStoreSpec.mop",
         "load/GENERATED_KEY_STORE"
-      ],
-      [
-        "jca_android",
-        "MacSpec.mop",
-        "f1/GENERATED_MAC"
-      ],
-      [
-        "jca_android",
-        "MacSpec.mop",
-        "f2/GENERATED_MAC"
       ],
       [
         "jca_android",
@@ -333,11 +303,6 @@
       [
         "jca_android",
         "KeyStoreSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "MacSpec.mop",
         "ExecutionContext"
       ],
       [

@@ -1,0 +1,11 @@
+# An unsafe Mac algorithm initialised with a key KeyGenerator produced. The corpus
+# had no trace of this combination, and it is the only one in which MacSpec's
+# unsafe-algorithm report can fire today: MAC-ALG-00 lives in `i1`'s body, behind a
+# `condition(...)` that reads `generatedKey[key]` -- a predicate about the key, not
+# about the algorithm -- so the accusation is only reachable when the key came from
+# an observed generator.
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> key
+Mac.getInstance("HmacPBESHA1") -> m
+m.init(key)
+m.doFinal(bytes)

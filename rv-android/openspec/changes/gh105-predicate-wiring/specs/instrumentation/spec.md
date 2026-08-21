@@ -340,7 +340,9 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
   clauses (`SecretKey: generatedKey[this,_] after d`; `PBEKeySpec: speccedKey[this,_] after cP`);
   only the second has a corresponding event in the set. The eight `@fail` removals — "undo the
   predicate when the automaton fails", a semantics no CrySL generation has — MUST be removed,
-  each with its harness-measured delta.
+  each with its harness-measured delta. One of the eight (`MacSpec.mop:99`) is deleted by the
+  file pass that deletes the write it withdraws (task 4.9), by the precedent of the
+  `clearPassword` removal at 4.6; task 6.4 performs the remaining seven.
 - **INV-INS-143**: The *not observed* verdict MUST reach the violation-report envelope with its
   own `codes.csv` code family, distinct from the violation codes, in the same task that
   introduces the first three-valued read — so no intermediate state exists where the third value
@@ -667,9 +669,15 @@ clause of their rule gain their accuser in the same task that moves them; the re
 translate **no clause** MUST NOT gain one — `MacSpec.i1/i2` read `generatedKey`, which the Mac
 rule does not require (it requires `preparedHMAC` and `!encrypted`); `RandomStringPassword.vo/gb`
 have no rule at all; `SecretKeySpec.e1` guards a propagation write and the SecretKey rule has no
-`REQUIRES` section. Arming a propagation read fabricates a misuse class no rule describes; such
-reads are recorded as `propagation` in `predicate_graph.csv`, and the real clauses are wired
-where they belong (F3).
+`REQUIRES` section. Arming a propagation read fabricates a misuse class no rule describes. Of
+those that translate no clause, only the ones that **feed a write** are propagation, and those
+are recorded as `propagation` in `predicate_graph.csv`: `RandomStringPassword.vo` and `gb`
+establish `RANDOMIZED` on the string and on the char array, `SecretKeySpec.e1` establishes it on
+the key bytes. A read that translates no clause **and feeds no write** propagates nothing — it
+computes a verdict no site consumes, and its only remaining effect is the transition its guard
+suppresses — so it MUST be deleted rather than recorded: `MacSpec.i1/i2` are deleted by task 4.9
+(researcher, 2026-08-21), which measured that guard turning a program that breaks no clause into
+an `InvalidSequenceOfMethodCalls`. The real clauses are wired where they belong (F3).
 
 #### Scenario: Read moved from guard to body
 

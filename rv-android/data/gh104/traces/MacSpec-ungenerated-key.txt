@@ -1,0 +1,13 @@
+# A safe Mac algorithm initialised with a key no observed generator produced. The
+# key is bound silently -- constructing it through SecretKeySpec's own events would
+# put a second specification's reports in the envelope of a trace about this one.
+#
+# The api30 Mac rule does not require `generatedKey`: its REQUIRES are
+# preparedHMAC[params] and the two negated encrypted[...] clauses (Mac.cryptsl:80-84).
+# So nothing here is a defect -- and yet the pre-image accuses, because `i1`'s guard
+# suppresses the init transition and `doFinal` then arrives in a state the ORDER
+# does not admit.
+bind key = new SecretKeySpec(bytes, "HmacSHA256")
+Mac.getInstance("HmacSHA256") -> m
+m.init(key)
+m.doFinal(bytes)
