@@ -63,23 +63,39 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   be discarded); a trailing `+` on the owner MUST be stripped and the resulting `MopMethod` MUST carry
   `includeSubtypes=true`; the simple owner name MUST be resolved to an FQN via explicit imports first
   and `Class.forName(pkg + "." + simple)` over the wildcard packages second. The implicit `java.lang`
-  package MUST be seeded by default as defense-in-depth (Java imports it implicitly, so a future spec may
-  legitimately omit it; every current `generic_new` spec with a `java.lang` owner — `Object_MonitorOwner`,
-  `Comparable_CompareToNull*`, `CharSequence_UndefinedHashCode` — does carry an explicit
-  `import java.lang.*;`, verified 2026-07-09, so today's owners already resolve via wildcard-import
-  registration alone). A wildcard method name MUST be
-  preserved as a pattern with `nameIsPattern=true`; the patterns actually present in `generic_new` are
+  package MUST NOT be seeded: resolution MUST come from imports the spec actually declares. All **seven**
+  current `generic_new` specs with a `java.lang` `call()` owner — `Object_MonitorOwner`,
+  `Comparable_CompareToNull`, `Comparable_CompareToNullException`, `CharSequence_UndefinedHashCode`,
+  `Long_BadParsingArgs`, and (owner `Iterable`) `ListIterator_Set` and `Map_UnsafeIterator` — carry an
+  explicit `import java.lang.*;` (list corrected 2026-08-21: an earlier draft named six and wrongly
+  included `CharSequence_NotInSet`, whose `call()` owner is `Set`; `CharSequence` appears there only in
+  `args()`). So the wildcard-import registration alone covers this capability's target set; seeding the
+  implicit package would instead alter the frozen `jca`/`jca_android` sets (scope boundary (c) below).
+  An owner whose package is registered by no import MUST be logged and skipped — never silently dropped.
+  Resolvability is import-driven, **not** a property of being a JDK class: `CharSequence_NotInSet.mop`
+  declared owner `Set+` while importing only `java.io`/`java.lang`/`java.nio`, and so resolved to nothing.
+  That spec is repaired within this change (one added `import java.util.*;`); after the repair all 20
+  non-constructor owners resolve and the extractor MUST report **zero** unresolved-owner skips for
+  `generic_new`. A wildcard
+  method name MUST be
+  preserved as a pattern with `nameIsPattern=true`. (`nameIsPattern` is derivable from the stored name —
+  a Java identifier cannot contain `*` — and is kept to record extractor intent at the boundary, not
+  because it discriminates; see design D7 caveat.) The patterns actually present in `generic_new` are
   `add*`, `remove*`, `retain*`, `clear*`, `put*`, `offer*`, `write*` and the bare `*`
   (`call(* Iterator.*(..))`) — a trailing `*` matches by prefix and the bare `*` matches every method of
   the owner (prefix `""`). The `MopMethod` identity (`equals`/`hashCode`) MUST include `includeSubtypes`
-  and `nameIsPattern`, so two pointcuts that differ only by `+` or by name-pattern are not silently
-  deduplicated in the extractor's `Set<MopMethod>`. For `generic_new` (27 specs) the emitted set MUST
-  have cardinality > 0 (currently 0); the exact expected cardinality MUST be pinned in the unit test at
-  implementation time (reference enumeration 2026-07-09: **67 distinct `(owner, method-name)` `call()`
-  pairs** after excluding the 3 constructor pointcuts; params/flag granularity may raise the final N).
-  All 21 distinct `call()` owners are JDK classes (`java.lang`/`util`/`io`/`net`) — 23 owners exist in
-  total counting the two `staticinitialization`-only owners `Serializable`/`URLConnection`, which are
-  out of scope (see below); an owner that cannot be resolved MUST be logged and skipped.
+  and `nameIsPattern`, so two pointcuts that differ only by `+` are not silently deduplicated in the
+  extractor's `Set<MopMethod>` (the corpus contains exactly one such pair: `Iterator.next` in
+  `Map_UnsafeIterator` vs `Iterator+.next` in `ListIterator_Set`). For `generic_new` (27 specs) the
+  emitted set MUST have cardinality equal to a number **fixed before implementation**, not pinned to
+  whatever the implementation happens to emit: the enumeration over the corpus gives **67 distinct
+  `call()` pairs** when the `+` is part of the owner key and **66** when it is not, after excluding the 3
+  constructor pointcuts. The unit test MUST state which key it uses and assert that number; parameter
+  granularity may raise it, and any such raise MUST be explained rather than absorbed. All 21 distinct
+  `call()` owners are JDK classes (`java.lang`/`util`/`io`/`net`), of which **20** carry non-constructor
+  targets (`TreeMap` appears only in `call(TreeMap.new(Map))`); 23 owners exist in total counting the two
+  `staticinitialization`-only owners `Serializable`/`URLConnection`, which are out of scope (see below).
+  An owner that cannot be resolved MUST be logged and skipped.
 
   **Scope boundary (documented static false-negatives, accepted):** this invariant covers `call(...)`
   pointcuts only. (a) Three specs whose ONLY pointcut is `staticinitialization(Owner+)` —
@@ -89,7 +105,28 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   pointcuts `call(Owner.new(..))` — `ServerSocket.new(int,int)`, `ServerSocket.new(int,int,InetAddress)`,
   `TreeMap.new(Map)` — are NOT extracted (Soot represents constructors as `<init>`; no `new`→`<init>`
   mapping in this change); both owning specs still emit targets via their other `call()` pointcuts.
-  Net coverage: **24/27 specs** with ≥1 static target.
+  Net coverage: **24/27 specs** with ≥1 static target — a figure that holds only because
+  `CharSequence_NotInSet.mop` is repaired within this change. Without the added `import java.util.*;` its
+  owner `Set` resolves to nothing, the spec contributes zero targets, and net coverage is 23/27.
+
+  (c) **`jca`/`jca_android`: `RandomStringPassword.mop` contributes zero static targets** and MUST keep
+  contributing zero under this capability. Its two pointcuts name the owner `String` while the spec
+  imports only `java.util.stream.IntStream` and three `br.unb.cic.mop.*` packages — `java.lang.String`
+  being implicit in Java but not for the visitor. It is the ONLY unresolved owner in either set
+  (enumerated 2026-08-21 over the 144 `jca` and 130 `jca_android` `call()` pointcuts), and the woven
+  aspect does carry both pointcuts
+  (`rvsec/rvsec-mop/src/main/resources/jca/MultiSpec_1MonitorAspect.aj:874,879` — the full path matters:
+  the ~40 generated copies elsewhere in the tree are 664–733 lines and do not contain these lines). That
+  is weaving evidence by construction, not an observed runtime trace, but it is sufficient: the aspect
+  advises call sites the static layer never marks, so this is a real static false-negative — documented,
+  not repaired here. Repairing it by seeding the implicit
+  package would take `jca` 120→122 and `jca_android` 119→121 and, because MOP targets are LENIENT
+  (class+name, signature ignored), would make `String#valueOf` match every overload: measured over 3
+  corpus APKs, 74 call sites of `String.valueOf`/`toCharArray` of which only 17 match the woven
+  signatures (`valueOf(Object)`, `toCharArray()`) — 57 false positives, propagated transitively through
+  `reachesTarget`, on the spec set that is the published measurement ruler. The repair therefore needs
+  owner visibility **plus** a STRICT policy for that target **plus** FQN parameter resolution, and is
+  deferred to its own change (tasks 5.6). Evidence: `docs/20260821_handoff_gh69_coringas.md`.
 
 - **INV-ANA-41**: `MopSpecsTargetSource.load()` MUST propagate `includeSubtypes` and `nameIsPattern`
   from each `MopMethod` to the corresponding `TargetMethod`. A target derived from a JCA spec (no `+`,
@@ -120,7 +157,14 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   false-negative. Therefore the degrade criterion MUST be `isPhantom()` or `resolvingLevel() < HIERARCHY`
   on the declared super-type — **not** merely `containsClass`. An owner that is absent or phantom MUST
   degrade to exact `equals` matching and the degradation MUST be logged (no silent false-negative).
-  `canStoreType` MUST NOT be called with a phantom or absent type.
+  `canStoreType` MUST NOT be called with a phantom or absent type. **Ordering**: the owners MUST be
+  force-resolved *before* the `FastHierarchy` used to answer `canStoreType` is obtained, and that
+  `FastHierarchy` instance MUST NOT be cached across a resolution. This capability MUST NOT require
+  force-resolution to precede every `getOrMakeFastHierarchy()` call in the process — that is
+  unsatisfiable, since SPARK materialises the hierarchy during the `cg` pack, before any client analysis
+  runs — and it need not: `Scene.addClass` invalidates the cached `FastHierarchy` via `modifyHierarchy()`,
+  so resolving a not-yet-present owner rebuilds it. For an owner already present as a phantom (the one
+  case `addClass` does not cover) `Scene.releaseFastHierarchy()` MUST be called before the rebuild.
 
 - **INV-ANA-44**: The GATOR JSON output schema MUST be unchanged by this capability — no new, renamed,
   or removed keys. The key set of a `generic_new` run MUST be identical to that of a `jca` run; only
@@ -129,7 +173,7 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
 
 ## ADDED Requirements
 
-### Requirement: Subtype/Wildcard-Aware Target Matching for Hierarchy-Declared Spec Sets (FR04, FR06)
+### Requirement: Subtype/Wildcard-Aware Target Matching for Hierarchy-Declared Spec Sets (FR04, FR05, FR06)
 
 The GATOR target-matching pipeline MUST match a call site to a `.mop` pointcut when the pointcut
 declares its owner by **type hierarchy** (the `+` subtype operator) and/or via **wildcard imports**
@@ -151,7 +195,8 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 - **WHEN** the extractor parses `generic_new/Collection_UnsynchronizedAddAll.mop` containing `import java.util.*;` and `call(boolean Collection+.addAll(..))`
 - **THEN** it MUST emit a `MopMethod` with `className="java.util.Collection"`, `methodName="addAll"`, and `includeSubtypes=true`
 - **AND** over all 27 `generic_new` specs the emitted target set MUST have cardinality > 0 (currently 0)
-- **AND** the same extractor run on the 23 `jca` specs MUST still emit 120 targets, each with `includeSubtypes=false` and `nameIsPattern=false`
+- **AND** the same extractor run on the 23 `jca` specs MUST still emit **exactly 120** targets (68 `(class, method)` pairs, 22 owners; `jca_android`: 119/67/22 — re-measured 2026-08-21), each with `includeSubtypes=false` and `nameIsPattern=false`
+- **AND** the `String` owner of `RandomStringPassword.mop` MUST remain unresolved, logged as a skipped owner (scope boundary (c)) — the implicit `java.lang` package MUST NOT be seeded to resolve it
 
 #### Scenario: Wildcard method names are preserved as patterns (including the bare `*`)
 - **WHEN** a pointcut declares `call(* Collection+.add*(..))`
@@ -179,11 +224,12 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 #### Scenario: Predicate applied at both match points
 - **WHEN** the target set contains a `includeSubtypes=true` entry
 - **THEN** `TargetResolver.resolveInScene` MUST seed the reverse-BFS by matching scene methods via `canStoreType` against the declared super-type
-- **AND** `RvsecAnalysisClient.findDirectTargetCallersByBytecodeScan` MUST match invokes via `canStoreType` against the declared super-type, NOT against a set of pre-resolved exact `class#method` keys
+- **AND** `RvsecAnalysisClient.findDirectTargetCallersByBytecodeScan` MUST match invokes **for those `includeSubtypes=true` entries** via `canStoreType` against the declared super-type, NOT against pre-resolved exact keys
+- **AND** the scan MUST remain **hybrid**: the `!includeSubtypes` entries in the same target set MUST keep the existing `Set<String>` `class#method` key path, so JCA lookup stays O(1) and byte-for-byte parity (INV-ANA-35) is unaffected. The prohibition on pre-resolved keys applies to the subtype entries only
 
 #### Scenario: Target super-type force-resolved into the Scene with graceful degradation
 - **WHEN** the declared target owner `java.io.Closeable` is not yet loaded as a `SootClass` in the Scene
-- **THEN** the matcher MUST force-resolve `java.io.Closeable` at HIERARCHY level before calling `canStoreType`
+- **THEN** the matcher MUST force-resolve `java.io.Closeable` at HIERARCHY level, and MUST obtain the `FastHierarchy` only afterwards (never reusing an instance held from before the resolution)
 - **AND** because Soot runs with `allow_phantom_refs=true`, the matcher MUST treat a resolved-but-**phantom** owner (or one whose `resolvingLevel() < HIERARCHY`) as unresolved — `containsClass` alone is insufficient, since `canStoreType` would return a definite (wrong) `false` rather than throwing
 - **AND** IF a declared owner remains absent or phantom at match time THEN that owner MUST degrade to exact `equals` matching and the degradation MUST be logged as a warning (no silent false-negative)
 
@@ -202,4 +248,5 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 #### Scenario: JCA exact path preserved (parity)
 - **WHEN** the matcher resolves a JCA target such as `Cipher.getInstance(String)` (`includeSubtypes=false`)
 - **THEN** matching MUST use exact `equals(className) && equals(methodName)` with no hierarchy query
-- **AND** `MopSpecsParityTest` MUST pass byte-for-byte against the gh57 baseline (INV-ANA-35), including the `cryptoapp.mop` 16-target count
+- **AND** `MopSpecsParityTest` MUST keep passing (INV-ANA-35, source-layer parity)
+- **AND** because that test compares `MopSpecsTargetSource.load()` against `JavamopFacade.listUsedMethods()` on the same directory — both sides running through the modified visitor — it CANNOT detect an extractor-side JCA regression; the load-bearing JCA gate is therefore the **literal count** asserted in the extractor test (120 targets / 68 pairs / 22 owners, all flags `false`), plus the `BaselineComparisonIT` on `cryptoapp.apk`

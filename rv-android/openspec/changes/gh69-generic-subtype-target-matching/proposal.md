@@ -8,26 +8,42 @@ matching is **exact-FQN** and was written for the JCA spec style (explicit impor
 `Class.method` pointcuts). The `generic_new` spec set uses a different style — wildcard imports
 (`import java.util.*;`), owners declared by **subtype** (`call(* Collection+.addAll(..))`), and
 **wildcard method names** (`add*`). Against `generic_new` the pipeline loads **0 targets** and reports
-`reachesTarget=false` for every method of every APK, making the static analysis useless for defining
-the generic experiment dataset.
+`reachesTarget=false` for every method of every APK — the static layer contributes no reachability
+signal whatsoever for that spec set. That is the defect this change repairs. What the repaired signal is
+then *good for* is a separate question, deliberately not claimed here: see the two downstream caveats in
+Impact (the experiment path cannot select `generic_new` today, and quasi-universal owners saturate the
+boolean). This change makes the matcher correct; it does not by itself deliver the generic dataset.
 
 This is confirmed empirically: the `rvsec-mop-extractor` extracts **0 methods** from the 27
 `generic_new` specs versus **120** from `jca`; **27/27** generic specs use wildcard imports and
 **71/89** `call(...)` pointcuts use a `+` subtype owner. Full root-cause analysis and an adversarial
 validation are in `docs/20260617_sa_generic_new.md` (§1–§14) and `docs/20260611_sweep_generic_new_400.md`
-(§10–§11). The blocked reachability sweep (49/400) waits on this fix.
+(§10 — the former §11 was folded into §10 when decision B was recorded, so cite §10 only; the Estágio A
+*procedure* is §5). The reachability sweep that stalled at 49/400 on the old sweep corpus waits on this
+fix; that corpus has since been superseded (see Impact).
 
 ## What Changes
 
 - **Extractor (`rvsec-mop-extractor`)** — teach `UsedJcaMethodsVisitor` to handle the generic style:
   register wildcard-import packages (stop discarding `isAsterisk()` imports), strip the `+` subtype
   suffix from owners and flag `includeSubtypes`, resolve simple owner names to FQN via explicit
-  imports first and `Class.forName` over wildcard packages second (all 21 owners are JDK classes),
+  imports first and `Class.forName` over wildcard packages second (all 21 owners appearing in `call(...)`
+  pointcuts are JDK classes — 23 counting the two `staticinitialization`-only owners `Serializable`/
+  `URLConnection`; 20 carry non-constructor targets, `TreeMap` appearing only in a constructor pointcut),
   and preserve wildcard method names (`add*`) as a pattern rather than a literal. New `MopMethod`
   flags: `includeSubtypes`, `nameIsPattern`. **Coverage boundary (documented, accepted)**: only
   `call(...)` pointcuts are extracted — the 3 specs whose sole pointcut is `staticinitialization(Owner+)`
   and the 3 constructor `call(Owner.new(..))` pointcuts remain without static targets (net 24/27 specs
-  with ≥1 target; see design Non-Goals and INV-ANA-40 scope boundary).
+  with ≥1 target; see design Non-Goals and INV-ANA-40 scope boundary). **That 24/27 depends on the
+  one-line spec repair in task 1.0b**: `CharSequence_NotInSet.mop` declared owner `Set+` while importing
+  only `java.io`/`java.lang`/`java.nio`, so under the import-driven resolution rule its owner resolved to
+  nothing. Without the repair the spec contributes zero targets and coverage is 23/27 — being a JDK class
+  is not sufficient for an owner to resolve; the spec must actually import its package (RISK-006). The implicit `java.lang` package
+  is deliberately **not** seeded: `generic_new` does not need it, and seeding it would move the frozen
+  `jca`/`jca_android` sets (120→122 / 119→121) by resolving `RandomStringPassword.mop`'s `String` owner
+  into a LENIENT target that matches every `String.valueOf` overload — 74 call sites over 3 corpus APKs,
+  17 of them woven. That false-negative is documented in scope boundary (c) and repaired in its own
+  change; evidence in `docs/20260821_handoff_gh69_coringas.md`.
 
 - **Matcher (`rvsec-gator`, `commons` + `client`)** — make target matching subtype/wildcard-aware
   via decision **A2**: carry `includeSubtypes` + name-pattern on `TargetMethod`, and at the two match
@@ -75,8 +91,17 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
 
 - **Modules / repos**: `rvsec-mop-extractor` (extractor JAR), `rvsec-gator` `commons` + `client`
   (`rvsec-gator.jar` + `rvsec-analysis-client.jar`, copied to `rv-android/lib/gator/` on `mvn install`).
-  No Python module changes — `rv-static-analysis` consumes the unchanged JSON through its single
-  parser boundary (`static_analysis_parser.py`); the ape `MopData.java` parser is `opt*`-tolerant.
+  No Python module changes — the schema is unchanged (INV-ANA-44), only boolean values move. Note the
+  consumer map is wider than earlier drafts stated: the raw GATOR JSON has **three** independent readers,
+  not two — `rv-static-analysis` through its single parser boundary (`static_analysis_parser.py:98-99`),
+  the repo gate/sweep scripts under `scripts/`, and **`aperv-tool`**, which parses `<apk>.json` itself and
+  imports nothing from `rv_static_analysis` (`analysis/static_artifact.py:261,270-271,293,359`;
+  `tools/aperv/derive_mop_artifact.py:421-422,1029,1158`). The ape `MopData.java` is **not** one of them:
+  it reads the *derived* `*.mop.json`, where the key has already been renamed `reachesTarget` →
+  `reachesMop` (`derive_mop_artifact.py:1158`), and hard-rejects any document without `formatVersion == 1`
+  (`MopData.java:207-213`). So its `opt*` tolerance is no argument for schema safety here; the component
+  actually exposed to a GATOR key change is `derive_mop_artifact.py`, which is **not** tolerant
+  (`method.get("reachesTarget") is True` at :422 degrades a rename to a silent `False`).
 - **Requirements**: FR04 (WTG), FR05 (GUI elements), FR06 (method reachability) — the reachability
   target-set computation. Relates to INV-ANA-15 (coverage denominator uses `reaches_target`),
   INV-ANA-18 (Soot 4.7.1), BUG-INV-ANA-19 (bytecode-scan complement gains the subtype predicate).
@@ -92,13 +117,35 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
     Phase-6 checks remain (not blockers for `/opsx:apply`): (a) confirm 40-44 are still free and INV-ANA-33/35
     still present at archive time; (b) reconcile a pre-existing sync anomaly — two changes archived *after*
     gh66 took higher numbers (gh70-wtg-reachability-sharing: INV-ANA-45; gh72-logcat-diagnostic-events:
-    INV-ANA-46/47/48) yet the synced inventory jumps 39 → 46,47,48, so gh70's INV-ANA-45 is **absent** from
-    the synced spec. gh69's insertion at 40-44 is therefore non-contiguous but collision-free. See RISK-008.
+    INV-ANA-46/47/48) yet the synced inventory jumps **38 → 46,47,48**. The gap is systemic, not a one-off
+    gh70 miss: INV-ANA-39 (gh66) has no bullet either, and INV-ANA-55 (gh92, archived 2026-08-02) is also
+    absent. Related: gh69 cites INV-ANA-17, INV-ANA-18 and BUG-INV-ANA-19 as though defined in the synced
+    spec; there they survive only as narrative references, their normative bullets living in the gh51
+    archive. gh69's insertion at 40-44 is non-contiguous but collision-free. See RISK-008.
 - **Invariant preserved**: `FlowgraphRebuilder` arity guard (WTG SPARK cgDelegation) lives in source
-  (`FlowgraphRebuilder.java:212-225,704-717`) — including `sootandroid` in the rebuild keeps it.
+  (`FlowgraphRebuilder.java:212-225,704-717`) — including `sootandroid` in the rebuild keeps it. Caveat
+  worth knowing: `Configs.cgDelegation` defaults to **`false`** (`Configs.java:89`), contradicting the
+  comment at `FlowgraphRebuilder.java:1030`, so the live path today is the legacy one at
+  `FlowgraphRebuilder.java:1065` unless `-cgDelegation true` is passed. The guards still ship; they simply
+  protect the non-default path.
+- **Downstream (out of scope) — how `generic_new` is actually selected**: the experiment path cannot
+  reach it today. `rv-experiment`/`rv-platform` never set `mop_dir`, so `RVStaticAnalysisConfig` always
+  falls back to `rvsec-mop/src/main/resources/jca` (`config.py:199-208`) — the static analysis runs
+  against `jca` even under `--specification-set jca_android` or `generic`; and `--specification-set
+  generic` maps to `resources/generic`, a different corpus (118 synthetic `FSM*` specs — no wildcard
+  imports, no `+` owners, no wildcard method names; they *do* use `*` as a return-type wildcard in 356 of
+  436 `call()` pointcuts, which the extractor ignores since it keys on owner+method), not to `generic_new`. This change is verified through `rv-static-analysis --mop-dir
+  .../generic_new` directly (tasks 4.3/5.2, procedure in `docs/20260611_sweep_generic_new_400.md`), which
+  is unaffected. Wiring the spec-set → `mopDir` selection is the sibling orchestrator repair tracked in
+  `docs/20260821_plano_correcao_analise_estatica.md` (D2) and is a precondition for the downstream
+  generic experiment, not for this change.
 - **Downstream (out of scope)**: the `generic_new` reachability sweep and the generic dataset definition
-  are a separate later change. **Corpus updated 2026-07-09**: the generic experiment will draw APKs from
-  the new dataset repo (`rvsec-dataset`, 219 curated apps), superseding the 400-APK sweep corpus;
+  are a separate later change. **Corpus updated 2026-07-09, re-verified 2026-08-21**: the generic
+  experiment will draw APKs from the new dataset repo (`rvsec-dataset`), superseding the 400-APK sweep
+  corpus. Two corrections to the earlier note: `apks_original/` is **empty** (a lone `.gitkeep`) — the APKs
+  live in `head_apks/` (348), `built_apks/` (317) and `instrumented_apks/` (219) — and the "219 curated
+  apps" figure is stale, the repo having re-frozen to 182 (Phase 10) and then 181 (Phase 11) on
+  2026-07-14;
   `docs/20260611_sweep_generic_new_400.md` remains the procedure reference. Caveat for that downstream
   change: with quasi-universal owners (`Object+`, `Iterable+`) `reachesTarget` saturates near-true across
   APKs, and decision B (no per-owner attribution in the JSON) means the dataset filter cannot statically

@@ -3,6 +3,7 @@ package mop;
 import java.io.*;
 import java.lang.*;
 import java.nio.*;
+import java.util.*;
 
 /**
  * Warns if one tries to add a CharSequence object into a set.
