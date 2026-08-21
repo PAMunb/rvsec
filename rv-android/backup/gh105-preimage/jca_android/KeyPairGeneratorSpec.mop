@@ -1,0 +1,126 @@
+package mop;
+
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * KeyPairGeneratorSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.KeyPairGenerator class.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyPairGenerator.crysl
+ */
+KeyPairGeneratorSpec(KeyPairGenerator k) {
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
+
+    List<String> safeAlgorithms = Arrays.asList("DSA", "DH", "RSA", "EC");
+
+    KeyPairGenerator kpg = null;
+    KeyPair kp;
+    String algorithm;
+
+    private boolean validate(int keySize) {
+      switch(ConscryptAliasTable.canonical("KeyPairGenerator", algorithm).toUpperCase()) {
+        case "RSA": return Arrays.asList(4096, 2048).contains(keySize);
+        case "DSA": return keySize == 2048;
+        case "DH": return keySize == 2048;
+        case "EC": return keySize == 256;
+      }
+      return false;
+    }
+
+    event g1 after(String alg) returning(KeyPairGenerator k):
+      call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
+      args(alg) &&
+      condition(ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
+        kpg = k;
+        algorithm = alg;
+    }
+
+    event g2 after(String alg, String provider) returning(KeyPairGenerator k):
+      call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, String)) &&
+      args(alg, provider) &&
+      condition(ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
+        kpg = k;
+        algorithm = alg;
+    }
+
+    event g3 after(String alg) returning(KeyPairGenerator k):
+      call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
+      args(alg) &&
+      condition(!ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
+        algorithm = alg;
+    }
+
+    /*
+    It can be very difficult to format code properly inside these .mop files.
+     */
+    event init1 after(int keySize, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(int)) &&
+      args(keySize) &&
+      target(k) &&
+      condition(algorithm != null && validate(keySize)) { }
+
+    event init2 after(int keySize, SecureRandom random, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(int, SecureRandom)) &&
+      args(keySize, random) &&
+      target(k) &&
+      condition(algorithm != null && validate(keySize)) { }
+
+    event init3 after(AlgorithmParameterSpec params, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) &&
+      args(params) &&
+      target(k)  { }
+
+    event init4 after(AlgorithmParameterSpec params, SecureRandom random, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)) &&
+      args(params, random) &&
+      target(k) { }
+
+    event initError after(int keySize, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(int)) &&
+      args(keySize) &&
+      target(k) &&
+      condition(algorithm != null && !validate(keySize)) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "KeyPairGeneratorSpec", "" + __LOC,
+             "v=1 code=KEYPAIRGENERATOR-KEYSIZE-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + keySize + "' exp='the key size api30 KeyPairGenerator.cryptsl declares for " + q(k.getAlgorithm()) + "' msg='invalid key size for algorithm " + k.getAlgorithm() + "'"));
+    }
+
+    event gen after(KeyPairGenerator k) returning(KeyPair keyPair):
+      (call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) &&
+      target(k) {
+       kp = keyPair;
+       ExecutionContext.instance().setProperty(Property.GENERATED_KEY_PAIR, kp);
+    }
+
+    ere: (g3* g1 | g3* g2) (init1 | init2 | init3 | init4) gen
+
+    @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,
+          "v=1 code=KEYPAIRGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='' exp='' msg='the observed call sequence is not one KeyPairGeneratorSpec accepts'"));
+      ExecutionContext.instance().remove(Property.GENERATED_KEY_PAIR, kp);
+    }
+
+    @match {
+       ExecutionContext.instance().setObjectAsInAcceptingState(kpg);
+    }
+
+}

@@ -149,12 +149,12 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `skipped` without rule or mapping, never inferred (INV-INS-138); SecureRandom
       `Ins, Seeds?, Ends*` as the first anchored case; wire `test_inv_ins_138_gorder` into
       `test_gh105_predicate_gates.py` (it is written after 2.6, so it registers itself)
-- [ ] 2.10 Expected-baseline mechanism (design D-13): the new gates are written before the edits
+- [x] 2.10 Expected-baseline mechanism (design D-13): the new gates are written before the edits
       that make them green, so each pytest wrapper asserts *no regression against the recorded
       baseline* at `data/jca_android/gate_baseline.json`, not *zero findings*. A spec's rows
       leave the baseline as its group lands. This is scaffolding with a demolition date (7.6),
       and it is NOT `gate_allowlist.csv`, which records permanent, justified findings
-- [ ] 2.11 Run the full gate suite over the unmodified universe; commit the baseline report at
+- [x] 2.11 Run the full gate suite over the unmodified universe; commit the baseline report at
       `data/jca_android/evidence/gate_baseline_report.md` (passed/failed/skipped counts — the
       genericity evidence for INV-INS-140, exercised by `test_inv_ins_140_genericity`) and the
       machine baseline at `data/jca_android/gate_baseline.json`; archive the pre-change

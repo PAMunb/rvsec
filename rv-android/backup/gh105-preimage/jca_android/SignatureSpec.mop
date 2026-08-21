@@ -1,0 +1,154 @@
+package mop;
+
+import java.security.Signature;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.SecureRandom;
+import java.security.cert.Certificate;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * SignatureSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.Signature class.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/Signature.crysl
+ */
+SignatureSpec(Signature s) {
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
+
+       List<String> algorithms = Arrays.asList("NONEwithRSA", "SHA1withDSA", "SHA224withECDSA", "MD5withRSA",
+            "SHA256withDSA", "SHA384withRSA/PSS", "DSAwithSHA1", "SHA384withRSA", "SHA512withRSA/PSS",
+            "SHA1withRSA/PSS", "SHA512withRSA", "SHA1withRSA", "NONEwithDSA", "SHA256withRSA/PSS",
+            "SHA224withRSA/PSS", "SHA256withRSA", "DSA", "SHA224withRSA", "SHA224withDSA", "DSS",
+            "SHA1withECDSA", "SHA256withECDSA", "SHA384withECDSA", "SHA512withECDSA");
+       String currentAlgorithmInstance = "";
+
+       Signature signature = null;
+
+       event g1 after(String alg) returning(Signature s):
+         call(public static Signature Signature.getInstance(String)) &&
+         args(alg) &&
+         condition(ConscryptAliasTable.matches("Signature", alg, algorithms)) {
+           signature = s;
+           currentAlgorithmInstance = alg;
+       }
+
+       event g2 after(String alg, String provider) returning(Signature s):
+         call(public static Signature Signature.getInstance(String, String)) &&
+         args(alg, provider) &&
+         condition(ConscryptAliasTable.matches("Signature", alg, algorithms)) {
+           signature = s;
+           currentAlgorithmInstance = alg;
+       }
+
+       event g3 after(String alg) returning(Signature s):
+         call(public static Signature Signature.getInstance(String)) &&
+         args(alg) &&
+         condition(!ConscryptAliasTable.matches("Signature", alg, algorithms)) {
+           currentAlgorithmInstance = alg;
+       }
+
+       event i1 before(PrivateKey privateKey, Signature s):
+         call(public void Signature.initSign(PrivateKey)) &&
+         args(privateKey) &&
+         target(s) {
+           if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
+              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
+                  "v=1 code=SIGNATURE-ALG-00 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
+           }
+        }
+
+       event i2 before(PrivateKey privateKey, SecureRandom random, Signature s):
+         call(public void Signature.initSign(PrivateKey, SecureRandom)) &&
+         args(privateKey, random) &&
+         target(s) {
+              if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
+                   "v=1 code=SIGNATURE-ALG-01 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
+        }
+        }
+
+       event i3 before(Certificate cert, Signature s):
+         call(public void Signature.initVerify(Certificate)) &&
+         args(cert) &&
+         target(s) {
+           if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
+                   "v=1 code=SIGNATURE-ALG-02 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
+        }
+        }
+
+       event i4 before(PublicKey key, Signature s):
+         call(public void Signature.initVerify(PublicKey)) &&
+         args(key) &&
+         target(s) {
+              if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
+                   "v=1 code=SIGNATURE-ALG-03 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
+        }
+        }
+
+       event update before(Signature s):
+         call(public void Signature.update(..)) &&
+         target(s) {
+
+        }
+
+       event s1 after(Signature s) returning(byte[] output):
+         call(public byte[] Signature.sign()) &&
+         target(s) {
+           ExecutionContext.instance().setProperty(Property.SIGNED, output);
+       }
+
+
+       event s2 after(byte[] output, int offset, int len, Signature s):
+         call(public int Signature.sign(byte[], int, int)) &&
+         args(output, offset, len) &&
+         target(s) {
+           ExecutionContext.instance().setProperty(Property.SIGNED, output);
+       }
+
+       event v1 after(byte[] sign, Signature s) returning(boolean signed):
+         call(public boolean Signature.verify(byte[])) &&
+         args(sign) &&
+         target(s) {
+           ExecutionContext.instance().setProperty(Property.VERIFIED, signed);
+       }
+
+
+       event v2 after(byte[] sign, int offset, int len, Signature s) returning(boolean signed):
+         call(public boolean Signature.verify(byte[], int, int)) &&
+         args(sign, offset, len) &&
+         target(s) {
+            ExecutionContext.instance().setProperty(Property.VERIFIED, signed);
+       }
+
+       ere: (g1 | g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )
+
+       @fail {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC,
+              "v=1 code=SIGNATURE-ORDER-00 ev=" + __EVENTNAME + " obj=Signature val='' exp='' msg='the observed call sequence is not one SignatureSpec accepts'"));
+          __RESET;
+       }
+
+       @match {
+          ExecutionContext.instance().setObjectAsInAcceptingState(signature);
+       }
+
+}

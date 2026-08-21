@@ -32,6 +32,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
+import gh105_gate_baseline  # noqa: E402
 import gh105_order_gate  # noqa: E402
 import gh105_param_gate  # noqa: E402
 from gh105_predicate_graph import (  # noqa: E402
@@ -1317,3 +1318,60 @@ def test_inv_ins_138_gorder(suite):
         ("G-ORDER",),
         {("jca_android", f"{finding.spec}.mop", "order") for finding in result.findings},
     )
+
+
+# -------------------------------------------------- the baseline mechanism (D-13)
+
+
+@pytest.fixture(scope="module")
+def measured():
+    """Both gate suites, reduced to the keys a baseline records."""
+    payload, _, _ = gh105_gate_baseline.collect(_specs_root())
+    return payload
+
+
+def test_the_baseline_is_keyed_by_what_survives_a_reformat(measured):
+    """`[set, file, subject]`, never a line number and never the message text.
+
+    The mechanism exists to hold still while the tree is edited underneath it.
+    Keyed on a position, every touched file would report its own findings as new
+    ones, and the first person to see that would delete the mechanism rather than
+    read it -- which is how a change loses its only regression net.
+    """
+    assert measured["gates"], "a baseline of nothing would make every wrapper vacuous"
+    for gate, rows in measured["gates"].items():
+        for row in rows:
+            assert len(row) == 3, f"{gate}: {row}"
+            assert all(isinstance(field, str) and field for field in row[:2])
+            assert not any(field.isdigit() for field in row), f"{gate}: a line number in {row}"
+
+
+def test_a_finding_outside_the_recorded_baseline_is_a_regression(measured, tmp_path, monkeypatch):
+    """The mechanism has to fail on something, and this is the something.
+
+    A baseline that records everything the gates can report would be a mute
+    button. This drops one row from each gate's record and asserts the wrappers'
+    comparison notices exactly the dropped rows -- the check that separates *no
+    regression* from *no assertion*.
+    """
+    trimmed = {gate: rows[1:] for gate, rows in measured["gates"].items()}
+    fake = tmp_path / "gate_baseline.json"
+    fake.write_text(json.dumps({"gates": trimmed}), encoding="utf-8")
+    monkeypatch.setattr(sys.modules[__name__], "BASELINE", fake)
+
+    for gate, rows in measured["gates"].items():
+        keys = {tuple(row) for row in rows}
+        _no_regression_over((gate,), keys - {tuple(rows[0])})
+        with pytest.raises(AssertionError):
+            _no_regression_over((gate,), keys)
+
+
+def test_the_baseline_carries_its_own_removal_order(measured):
+    """Scaffolding with a demolition date says so in the artifact.
+
+    Task 7.6 deletes this mechanism when the gates are green on their own. Written
+    into the JSON rather than only into `tasks.md`, because the person who finds
+    this file two groups from now will be reading the file.
+    """
+    assert measured["demolition_task"] == "7.6"
+    assert "allow-list" in measured["what_this_is"]

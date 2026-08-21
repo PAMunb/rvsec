@@ -1,0 +1,112 @@
+package mop;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.ManagerFactoryParameters;
+import javax.net.ssl.KeyManager;
+import java.security.KeyStore;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * KeyManagerFactory
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.net.ssl.KeyManagerFactory class.
+ *
+ * https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyManagerFactory.crysl
+ */
+KeyManagerFactorySpec(KeyManagerFactory k) {
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
+
+    List<String> safeAlgorithms = Arrays.asList("PKIX");
+    String currentAlgorithmInstance = "";
+    KeyManagerFactory keyManagerFactory = null;
+
+    event g1 after(String alg) returning(KeyManagerFactory k):
+      call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
+      && args(alg)
+      && condition(ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms)) {
+        keyManagerFactory = k;
+        currentAlgorithmInstance = alg;
+    }
+
+    event g2 after(String alg) returning(KeyManagerFactory k):
+      call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..))
+      && args(alg, *)
+      && condition(ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms)) {
+        keyManagerFactory = k;
+        currentAlgorithmInstance = alg;
+    }
+
+    event g3 after(String alg) returning(KeyManagerFactory k):
+      call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
+      && args(alg)
+      && condition(!ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms))  {
+        currentAlgorithmInstance = alg;
+    }
+
+    event init before(KeyManagerFactory k):
+       ( call(public void KeyManagerFactory.init(KeyStore, char[])) ||
+         call(public void KeyManagerFactory.init(ManagerFactoryParameters))
+       ) && target(k) {
+        if (!ConscryptAliasTable.matches("KeyManagerFactory", k.getAlgorithm(), safeAlgorithms)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyManagerFactorySpec", "" + __LOC,
+                "v=1 code=KEYMANAGERFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
+        }
+       ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManagerFactory);
+    }
+
+    event gkm1 after(KeyManagerFactory k) returning(KeyManager[] keyManager):
+      call(public KeyManager[] KeyManagerFactory.getKeyManagers())
+      && target(k) {
+        ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManager);
+    }
+
+    fsm :
+      start [
+        g3 -> unsafeAlg
+        g1 -> waitingInit
+        g2 -> waitingInit
+      ]
+      unsafeAlg [
+        g3 -> unsafeAlg
+        g1 -> waitingInit
+        g2 -> waitingInit
+      ]
+      waitingInit [
+        init -> final
+      ]
+      final [
+        g1   -> waitingInit
+        g2   -> waitingInit
+        gkm1 -> start
+      ]
+
+    alias match1 = final
+
+    @fail {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC,
+            "v=1 code=KEYMANAGERFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='' exp='' msg='the observed call sequence is not one KeyManagerFactorySpec accepts'"));
+        ExecutionContext.instance().unsetObjectAsInAcceptingState(keyManagerFactory);
+        ExecutionContext.instance().remove(Property.GENERATED_KEY_MANAGERS);
+
+        __RESET;
+    }
+
+    @match1 {
+       ExecutionContext.instance().setObjectAsInAcceptingState(keyManagerFactory);
+    }
+}

@@ -1,0 +1,107 @@
+package mop;
+
+import javax.crypto.Mac;
+import java.security.spec.AlgorithmParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+MacSpec(Mac m) {
+    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // a single quote is escaped so it cannot close the field early, and the value
+    // is capped so a pathological argument cannot push the record past the
+    // logcat payload limit.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
+
+        List<String> safeAlgorithms = Arrays.asList("PBEwithHmacSHA256", "PBEwithHmacSHA1", "HmacSHA224",
+           "HmacSHA256", "HmacMD5", "HmacSHA512", "PBEwithHmacSHA512", "HmacSHA384", "PBEwithHmacSHA384",
+           "PBEwithHmacSHA224", "PBEwithHmacSHA", "HmacSHA1");
+        String currentAlgorithmInstance = "";
+
+        Mac mac = null;
+
+        event g1 after(String alg) returning(Mac m):
+          call(public static Mac Mac.getInstance(String)) &&
+          args(alg) &&
+          condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            mac = m;
+            currentAlgorithmInstance = alg;
+        }
+
+        event g2 after(String alg, String provider) returning(Mac m):
+          call(public static Mac Mac.getInstance(String, String)) &&
+          args(alg, provider) &&
+          condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            mac = m;
+            currentAlgorithmInstance = alg;
+        }
+
+        event g3 after(String alg) returning(Mac m):
+          call(public static Mac Mac.getInstance(String)) &&
+          args(alg) &&
+          condition(!ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            currentAlgorithmInstance = alg;
+        }
+
+        event i1 before(java.security.Key key, Mac m):
+          call(public void Mac.init(java.security.Key)) &&
+          args(key) &&
+          target(m) &&
+          condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key)) {
+            if (!ConscryptAliasTable.matches("Mac", m.getAlgorithm(), safeAlgorithms)) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-ALG-00 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
+            }
+
+        }
+
+        event i2 after(java.security.Key key, java.security.spec.AlgorithmParameterSpec params, Mac m):
+          call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) &&
+          args(key, params) &&
+          target(m) &&
+          condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key))  {
+            if (!ConscryptAliasTable.matches("Mac", m.getAlgorithm(), safeAlgorithms)) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-ALG-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
+        }
+        }
+
+        event update after(Mac m):
+          call(public void Mac.update(..)) &&
+          target(m) { }
+
+        event f1 after(Mac m) returning(byte[] output):
+          (call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) &&
+          target(m){
+           ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
+        }
+
+        event f2 after(byte[] output, int outOffset):
+          call(void Mac.doFinal(byte[], int)) &&
+          args(output, outOffset) &&
+          target(m){
+            ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);
+        }
+
+        ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f2) | (update* (f1 | f2)))
+
+        @fail {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
+                "v=1 code=MAC-ORDER-00 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'"));
+            ExecutionContext.instance().remove(Property.GENERATED_MAC);
+            __RESET;
+        }
+
+        @match {
+           ExecutionContext.instance().setObjectAsInAcceptingState(mac);
+        }
+
+}
