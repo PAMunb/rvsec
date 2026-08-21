@@ -413,6 +413,10 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
 
     * task 3.1 removed `SecureRandomSpec` whole -- `c3` and `setSeed3` fused into
       their siblings, `g4` absorbed into the automaton -- taking the count to 14.
+    * task 3.2 fused `TrustManagerFactorySpec.g3` into `g1`, taking it to 13. The
+      census had listed `g3` as an absorption until that task read its body: it
+      only rebinds `currentAlgorithmInstance`, which makes it a negated twin and
+      not a report of its own (design.md census, corrected 2026-08-20).
     """
     home = _rvsec_home()
     root = home / "rvsec/rvsec-mop/src/main/resources/jca_android"
@@ -433,9 +437,8 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
         "SSLContextSpec": ("unsafe_protocol",),
         "SecretKeySpecSpec": ("c3", "c4"),
         "SignatureSpec": ("g3",),
-        "TrustManagerFactorySpec": ("g3",),
     }
-    assert sum(len(events) for events in found.values()) == 14
+    assert sum(len(events) for events in found.values()) == 13
 
 
 def test_the_frozen_gcm_specification_is_read_in_both_broken_directions():
@@ -743,7 +746,8 @@ def test_gacc_counts_the_orphans_group_three_has_not_absorbed_yet():
     failure of the gate: the gates are written before the edits that make them
     green, which is what lets each group's landing be measured as a drop in this
     number rather than asserted. Seventeen at the start; 14 after task 3.1 took
-    `SecureRandomSpec` whole. Task 3.7 closes it at zero.
+    `SecureRandomSpec` whole; 13 after task 3.2 fused `TrustManagerFactorySpec.g3`
+    into `g1`. Task 3.7 closes it at zero.
     """
     root = _specs_root()
     report = analyze_set(root / "jca_android")
@@ -751,7 +755,7 @@ def test_gacc_counts_the_orphans_group_three_has_not_absorbed_yet():
 
     findings = gate_acc(report, sources)
     assert all(finding.gate == "G-ACC" for finding in findings)
-    assert len(findings) == 14
+    assert len(findings) == 13
 
 
 def test_gacc_reports_both_directions_and_the_duplicate_declaration():

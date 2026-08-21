@@ -433,7 +433,7 @@ is that directory against the edited one.
 |-------|-------------|-----|-------|
 | Unit (Java) | `PredicateStore`: identity vs equals, tracked-type matching, arity, 3 verdicts, negate scoping, weak purge, thread-safety | JUnit in `rvsec-core` | ~17 |
 | Unit (Python) | analyzers/gates: placement classes, orphan directions, alias/shadowing, skip-and-count | pytest fixtures incl. negative (`GCMParameterSpecSpec`, byte[]-collapse spec) | ~20 |
-| Trace (per edge) | satisfy + violate pair per wired edge / guard move / orphan / removal (F2-window pairs assert `NOT_OBSERVED`); the replay's substrate reset proved by a cross-trace case (INV-INS-148) | `TraceRunner` + `gh104_diff_harness.py` over specification-set directories, verdicts committed | 2 × 77 (24 F3 edges + 27 F2 moves + 17 F1 absorptions + 8 `@fail` removals + the `PBEKeySpec` translation) ≈ 154 files — a **floor**: the Group-6 closing task adds pairs for the pointwise fixes; the current corpus holds 63 files (~40 %) |
+| Trace (per edge) | satisfy + violate pair per wired edge / guard move / orphan / removal (F2-window pairs assert `NOT_OBSERVED`); the replay's substrate reset proved by a cross-trace case (INV-INS-148) | `TraceRunner` + `gh104_diff_harness.py` over specification-set directories, verdicts committed | 2 × 77 (24 F3 edges + 27 F2 moves + 17 F1 orphans (fusions and absorptions) + 8 `@fail` removals + the `PBEKeySpec` translation) ≈ 154 files — a **floor**: the Group-6 closing task adds pairs for the pointwise fixes; the current corpus holds 63 files (~40 %) |
 | Gates (CI) | G-ORDER, G-PRED2, G-ACC, G-PARAM, junction rules, import, genericity over the enumerated universe; gh104 gates still green, the recorder included | `tests/parity/` under the CI contract, each new gate reading its expected-baseline until its group lands (D-13) | the 12 pytest functions named in the mapping table |
 | Ground truth | C5: `errors_unit_tests.csv` misuse corpus — corrected specs keep accusing planted misuse, stop accusing conforming use | harness replay of `../../ase-journal/dataset/results/errors_unit_tests.csv` (sibling repository, read-only per gh89) | 1 suite |
 | Reach probe (device) | does any predicate-derived report reach `errors.csv` at all — the change's blocking condition, asked before any F3 edge (D-12) | one `rv-experiment`/`rv-platform` run over a sample APK instrumented with the first migrated file | 1 run |
@@ -508,18 +508,60 @@ for any of them, and no write is fabricated for the two stream predicates that h
 `IvParameterSpec{c3,c4}` · `KeyPairGeneratorSpec{initError}` · `PBEKeySpecSpec{f1,f2,err1,err2,err3}`
 · `PBEParameterSpecSpec{c3}` · `SSLContextSpec{unsafe_protocol}` · `SecretKeySpecSpec{c3,c4}` ·
 `SecureRandomSpec{c3,g4,setSeed3}` · `SignatureSpec{g3}` · `TrustManagerFactorySpec{g3}`.
-Twin fusions (identical pointcut, INV-INS-135): `IvParameterSpec.c3→c1`, `c4→c2` (c4 is not an
+**What separates a fusion from an absorption is the orphan's own body, not the shape of its
+guard.** An orphan whose body carries an accusation of its own — an algorithm the CONSTRAINTS
+reject, a key size the rule bounds, a constructor it forbids — is a report the set would lose if
+the event went away, so it is **absorbed**: it enters the automaton with benign self-loops and
+keeps accusing. An orphan whose body only rebinds a monitor field accuses nothing of its own;
+whatever it appears to detect is emitted somewhere else, and the single report it does produce is
+the spurious `InvalidSequenceOfMethodCalls` the generator hands every event absent from the
+automaton. That one is a **negated twin** and is fused into its sibling, per INV-INS-135.
+
+Twin fusions (identical `call`/`args`, condition differing only in polarity — INV-INS-135):
+`IvParameterSpec.c3→c1`, `c4→c2` (c4 is not an
 exact complement — it ignores c2's offset/length constraints), `SecureRandomSpec.c3→c2` (c3
 accuses nothing today — body only rebinds), `setSeed3→setSeed2`, `SecretKeySpecSpec.c3→c1`,
 `c4→c2` (length complement), `PBEParameterSpecSpec.c3→c1` (2-arg twin; the 3-arg `c2` read stays
-accuser-less until that file's F2 pass), `PBEKeySpecSpec.err2/err3→c1` (one arrow, two orphans). That is 8
-arrows fusing **9 twin orphans**. `PBEKeySpecSpec.err1` is the **tenth fused orphan**: it rides
+accuser-less until that file's F2 pass), `PBEKeySpecSpec.err2/err3→c1` (one arrow, two orphans),
+`TrustManagerFactorySpec.g3→g1`, `SignatureSpec.g3→g1`, `SSLContextSpec.unsafe_protocol→g1`.
+That is 11 arrows fusing **12 twin orphans**. `PBEKeySpecSpec.err1` is the **thirteenth fused
+orphan**: it rides
 the same `c1` fusion, its iteration-count check decomposed per clause — the three overlap (one
 bad call fires up to three accusers today; the fusion decomposes per clause, one report each).
-Plain absorptions — the remaining **7**: `KeyPairGeneratorSpec.initError`,
-`SSLContextSpec.unsafe_protocol`, `SecureRandomSpec.g4`, `SignatureSpec.g3`,
-`TrustManagerFactorySpec.g3`, `PBEKeySpecSpec.f1/f2`. Partition: 9 twins + `err1` + 7
+Plain absorptions — the remaining **4**, each one an accusation of its own:
+`KeyPairGeneratorSpec.initError` (`InvalidKeySize`), `SecureRandomSpec.g4` (`UnsafeAlgorithm`),
+`PBEKeySpecSpec.f1` and `f2` (`ForbiddenMethod`). Partition: 12 twins + `err1` + 4
 absorptions = 17.
+
+**Correction of 2026-08-20, ratified by the researcher at the start of task 3.2.** The three
+`getInstance` accusers — `TrustManagerFactorySpec.g3`, `SignatureSpec.g3`,
+`SSLContextSpec.unsafe_protocol` — were listed here as plain absorptions until the 3.2 file pass
+read their bodies: each only assigns `currentAlgorithmInstance` or `currentProtocol`, and each is
+the polarity-negated twin of its file's `g1` over the same
+`call(getInstance(String)) && args(...)`. Three independent oracles agree they are fusions. The
+api30 rules order `Gets, Init, …` with `Gets := g1 | g2` and put the algorithm in CONSTRAINTS, so
+the algorithm must not govern a transition. INV-INS-135's own definition of a negated twin
+matches all three literally. And the differential harness measured the fusion against the
+pre-change set: on `TrustManagerFactorySpec-sunx509.txt` the pre-image emits
+`TRUSTMANAGERFACTORY-ORDER-00` **twice** — once at `g3`, once at the `init` that follows it — and
+accuses the algorithm **not at all**, because `g3`'s `__RESET` leaves the monitor at `start`,
+where `init` is not declared, and the failing transition takes the `@fail` path instead of the
+event body that carries the check. After the fusion the same trace produces exactly one report,
+`TRUSTMANAGERFACTORY-ALG-00 val='SunX509' exp='PKIX'`. The orphan was therefore not merely adding
+noise to a finding: it was **suppressing** the finding. (`SunX509` is the algorithm that still
+reaches the orphan in `jca_android` — the corpus's older `-x509` trace no longer does, because
+gh104's alias table resolves `X509` to `PKIX`, `alias_table.csv:2` / OpenSSLProvider.java:90.)
+Absorption was never needed to preserve a report, because `g3` carried none of its own.
+
+**The residue the fusion leaves is recorded, not repaired.** After fusion, a `getInstance` whose
+algorithm the rule rejects and which is never followed by an `init` is accused by nothing: today
+it draws the spurious ordering report, and the real accusation lives in the `init` body. Moving
+the algorithm check up into the fused `g1` would close that hole, but it creates an accusation
+where none exists today and would need deduplication against the `init` one — a behavioural
+change, not a structural repair. Decision (researcher, 2026-08-20): each of the three tasks
+records the residue as a `divergence_record.csv` row and leaves the check where it is. It is
+measured, not asserted: `TrustManagerFactorySpec-sunx509-no-init.txt` classifies `removed` — the
+pre-image's one spurious `TRUSTMANAGERFACTORY-ORDER-00` at `g3` becomes silence.
 
 ## Open Questions
 

@@ -1,0 +1,10 @@
+# the co-emission the g3->g1 fusion removes. SunX509 is the algorithm that still
+# reaches the orphan in jca_android: X509 aliases to PKIX (alias_table.csv:2,
+# OpenSSLProvider.java:90), so the older -x509 trace no longer exercises g3, while
+# SunX509 stays a narrowing the alias table deliberately does not resolve.
+# Seed: g3 fires outside the automaton and accuses InvalidSequenceOfMethodCalls,
+# and its __RESET drops the monitor to start, where the following init is not
+# declared and accuses a second time. After: g1 binds the factory, init reaches
+# final, and TRUSTMANAGERFACTORY-ALG-00 stands alone.
+TrustManagerFactory.getInstance("SunX509") -> tmf
+tmf.init(null)

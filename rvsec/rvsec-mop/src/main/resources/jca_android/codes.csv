@@ -47,5 +47,5 @@ SignatureSpec,SIGNATURE-ALG-01,UnsafeAlgorithm,ALG,i2,SignatureSpec.mop:82
 SignatureSpec,SIGNATURE-ALG-02,UnsafeAlgorithm,ALG,i3,SignatureSpec.mop:92
 SignatureSpec,SIGNATURE-ALG-03,UnsafeAlgorithm,ALG,i4,SignatureSpec.mop:102
 SignatureSpec,SIGNATURE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SignatureSpec.mop:145
-TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,TrustManagerFactorySpec.mop:68
-TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:97
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,TrustManagerFactorySpec.mop:92
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:121

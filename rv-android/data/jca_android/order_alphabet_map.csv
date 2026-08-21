@@ -13,10 +13,14 @@
 #
 # `disposition = order-unmapped` is the exemption INV-INS-138 grants: the event has
 # no `ORDER` counterpart at all, and the gate erases it from BOTH languages before
-# deciding equivalence. That is what lets an absorbed accuser (`initError`,
-# `unsafe_protocol`, the invalid-algorithm twins) satisfy G-ACC by entering the
+# deciding equivalence. That is what lets an absorbed accuser -- one whose body
+# carries an accusation of its own, so the set would lose a report by deleting it
+# (`SecureRandomSpec.g4`, `KeyPairGeneratorSpec.initError`, `PBEKeySpecSpec.f1`
+# and `f2`) -- satisfy G-ACC by entering the
 # automaton without breaking the language comparison. It is a claim with a reason
-# attached, never a way to make a comparison come out right.
+# attached, never a way to make a comparison come out right. A negated twin gets no
+# row at all: it is fused into its sibling and stops existing as an event
+# (design.md census, corrected 2026-08-20).
 #
 # Covered here (task 2.8) -- the specifications Groups 3 and 5 reach first:
 #   Group 3, the nine orphan-carrying specifications: IvParameterSpec,
@@ -94,7 +98,6 @@ SignatureSpec,v1,v1,event,Signature.cryptsl,63,mapped,
 SignatureSpec,v2,v2,event,Signature.cryptsl,65,mapped,
 TrustManagerFactorySpec,g1,g1,event,TrustManagerFactory.cryptsl,17,mapped,
 TrustManagerFactorySpec,g2,g2,event,TrustManagerFactory.cryptsl,19,mapped,
-TrustManagerFactorySpec,g3,,,TrustManagerFactory.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; task 3.2 absorbs it (co-emission signature 9,015/9,014)"
 TrustManagerFactorySpec,init,Init,aggregate,TrustManagerFactory.cryptsl,27,mapped,"one event over `init(KeyStore)` and `init(ManagerFactoryParameters)`, which is the aggregate whole"
 TrustManagerFactorySpec,gtm1,gtm,event,TrustManagerFactory.cryptsl,29,mapped,"the association is with `getTrustManagers()`; the pointcut declares the return type `KeyManager[]`, which is the binding defect task 6.2 repairs -- it changes what the event binds, not which rule event it is"
 CipherSpec,g1,g1,event,Cipher.cryptsl,53,mapped,

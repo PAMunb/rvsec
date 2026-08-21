@@ -130,7 +130,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `test_inv_ins_135_gacc`, `test_inv_ins_136_junction_rules`, `test_inv_ins_137_gpred2`,
       `test_inv_ins_139_gparam`, `test_inv_ins_140_genericity` (no literal in the name — the
       universe grows in Group 5)
-- [ ] 2.7 Rescope G-PRED to the `jca` lock (INV-INS-141) — lands in the same commit as task
+- [x] 2.7 Rescope G-PRED to the `jca` lock (INV-INS-141) — lands in the same commit as task
       3.1, the first migrated file, which is the trigger the invariant states. Collateral, all
       in the same commit: `gh104_gates.py` (`predicate_divergences` wiring,
       the `accept_requires` flag computed at `:1189-1190`, the `PREDICATE_CALL` regex at `:516`
@@ -172,13 +172,21 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 
 <!-- Per task: automaton edit + trace pair (satisfy/violate) + harness before/after delta +
      divergence_record.csv rows KEYED BY HUNK + order_alphabet_map.csv row for every absorbed
-     event. 17 = 9 twin fusions (8 arrows) + PBEKeySpecSpec.err1 + 7 plain absorptions. -->
+     event. 17 = 12 twin fusions (11 arrows) + PBEKeySpecSpec.err1 + 4 plain absorptions.
+     What tells the two treatments apart is the orphan's body, not its guard: a body that
+     accuses on its own is absorbed, a body that only rebinds a monitor field is a negated twin
+     and is fused (design.md census, corrected and ratified 2026-08-20 during task 3.2). -->
 
-- [ ] 3.1 `SecureRandomSpec`: fuse `c3`→`c2` and `setSeed3`→`setSeed2` (twins; note `c3` accuses
+- [x] 3.1 `SecureRandomSpec`: fuse `c3`→`c2` and `setSeed3`→`setSeed2` (twins; note `c3` accuses
       nothing today — its body only rebinds); absorb `g4`. Owns the `c3` row of
       `data/jca_android/gate_allowlist.csv:3` (`SecretKeySpecSpec.c3` justification cites a
       condition read this group removes — re-justify or drop it in this commit)
-- [ ] 3.2 `TrustManagerFactorySpec`: absorb `g3` (co-emission signature 9,015/9,014)
+- [x] 3.2 `TrustManagerFactorySpec`: fuse `g3`→`g1` (negated twin over the same
+      `call(getInstance(String)) && args(alg)`; its body only rebinds `currentAlgorithmInstance`,
+      and the `-x509` harness snapshot shows the seed accusing `InvalidSequenceOfMethodCalls`
+      twice — the published co-emission signature 9,015/9,014). Record the fusion residue (a
+      rejected algorithm never followed by an `init` goes unaccused) as a `divergence_record.csv`
+      row; do NOT move the algorithm check into `g1` — that is a behavioural change, deferred
 - [ ] 3.3 `IvParameterSpec`: fuse `c3`→`c1` and `c4`→`c2` (twins; `c4` is not an exact
       complement — it ignores `c2`'s offset/length constraints, so the fused body keeps both)
 - [ ] 3.4 `SecretKeySpecSpec`: fuse `c3`→`c1` and `c4`→`c2` (`c4` is the length complement)
@@ -188,8 +196,10 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       accusers; the fusion emits one report per violated clause). Declare the Kleene-prefix
       residue. Owns the `err2` row of `data/jca_android/gate_allowlist.csv:2`
 - [ ] 3.6 `PBEParameterSpecSpec`: fuse `c3`→`c1` (2-arg twin; the 3-arg `c2` read stays
-      accuser-less until its Group-4 file pass); `KeyPairGeneratorSpec`: absorb `initError`;
-      `SSLContextSpec`: absorb `unsafe_protocol`; `SignatureSpec`: absorb `g3`
+      accuser-less until its Group-4 file pass); `KeyPairGeneratorSpec`: absorb `initError` (it
+      accuses `InvalidKeySize` on its own); `SSLContextSpec`: fuse `unsafe_protocol`→`g1` and
+      `SignatureSpec`: fuse `g3`→`g1` — both negated twins whose bodies only rebind a field,
+      same treatment and same recorded residue as 3.2
 - [ ] 3.7 G-ACC green over `jca_android` (zero orphans, both directions), its baseline rows
       retired; harness evidence committed for all 17
 

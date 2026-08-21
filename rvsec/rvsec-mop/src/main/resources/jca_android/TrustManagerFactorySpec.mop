@@ -37,10 +37,41 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
 
     TrustManagerFactory trustManagerFactory = null;
 
+    // One event over `getInstance(String)`, where there used to be two split by the
+    // sign of a guard. The negated twin `g3` matched the same call and named no
+    // state, and the generator gives an event absent from the automaton a
+    // transition row that moves every state to `fail`: a factory built with an
+    // algorithm the rule rejects was reported as a wrong call sequence, and then
+    // reported again at the `init` that followed it, because `g3`'s `__RESET` had
+    // dropped the monitor back to `start`, which does not declare `init`. That is
+    // the co-emission the published campaign measured -- 9,015 ordering reports
+    // against 9,014 algorithm reports, near one for one.
+    //
+    // Worse than noise: the orphan suppressed the finding. `TrustManagerFactory
+    // .getInstance("SunX509")` followed by an `init` drew two
+    // TRUSTMANAGERFACTORY-ORDER-00 and no algorithm report at all, because the
+    // failing `init` transition takes the `@fail` path instead of the event body
+    // that carries the algorithm check
+    // (data/gh105/evidence/harness/f1-TrustManagerFactorySpec.md).
+    //
+    // The api30 rule orders `Gets, Init, gtm?` with `Gets := g1 | g2` and puts the
+    // algorithm in CONSTRAINTS, so the algorithm must not govern the transition:
+    // `getInstance` is a `Gets` whatever it was asked for. Dropping the guard lets
+    // the rejected factory reach `final` like any other, where the `init` body
+    // accuses it exactly once, with `TRUSTMANAGERFACTORY-ALG-00`. `g3`'s body
+    // accused nothing of its own -- it only rebound `currentAlgorithmInstance` --
+    // so nothing it reported is lost; what leaves is the pair of ordering reports
+    // about an ordering the rule accepts, and what arrives is the constraint
+    // report the rule states.
+    //
+    // Residue, recorded and not repaired (divergence_record.csv): a rejected
+    // algorithm whose factory is never `init`ed is now accused by nothing, because
+    // the accusation lives in the `init` body. Moving it up into this event would
+    // create a report where none exists today and would need deduplicating against
+    // the `init` one -- a behavioural change, deliberately deferred.
     event g1 after(String alg) returning(TrustManagerFactory mf):
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String))
-      && args(alg)
-      && condition(ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms)) {
+      && args(alg) {
         trustManagerFactory = mf;
         currentAlgorithmInstance = alg;
     }
@@ -50,13 +81,6 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
       && args(alg, *)
       && condition(ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms)) {
         trustManagerFactory = mf;
-        currentAlgorithmInstance = alg;
-    }
-
-    event g3 after(String alg) returning(TrustManagerFactory k):
-      call(public static TrustManagerFactory TrustManagerFactory.getInstance(String))
-      && args(alg)
-      && condition(!ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms))  {
         currentAlgorithmInstance = alg;
     }
 

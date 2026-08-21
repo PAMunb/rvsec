@@ -196,14 +196,24 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
   negative fixture). The gate is G-ACC, and on specification forms without an automaton
   (event-only) it MUST skip declaredly, never report "all events orphan". An orphan that is the
   **negated twin** of a conforming sibling — identical `call`/`args` pointcut, condition
-  differing only in polarity; 9 of the 17 measured orphans are this, and `PBEKeySpecSpec.err1`
-  rides the same fusion as a tenth — MUST be **fused** into the
+  differing only in polarity; 12 of the 17 measured orphans are this, and `PBEKeySpecSpec.err1`
+  rides the same fusion as a thirteenth — MUST be **fused** into the
   sibling (one event, the accusation moved into the body), never absorbed as a second event:
-  two events matching the same call is itself the defect the automaton scenarios name. Where the
+  two events matching the same call is itself the defect the automaton scenarios name. The two
+  treatments are told apart by the orphan's body, not by the shape of its guard: an orphan whose
+  body carries an accusation of its own MUST be absorbed, because absorbing preserves a report
+  the set would otherwise lose; an orphan whose body only rebinds a monitor field accuses nothing
+  of its own — the only report it emits is the spurious `InvalidSequenceOfMethodCalls` that its
+  absence from the automaton produces — and MUST be fused. Such a twin can suppress the very
+  finding its file exists to make: on `TrustManagerFactorySpec-sunx509.txt` the unfused set
+  emits `TRUSTMANAGERFACTORY-ORDER-00` twice and never accuses the algorithm, because the
+  orphan's `__RESET` leaves the monitor in a state where the next event's transition fails and
+  the `@fail` path replaces the body that carries the check; the fusion produces exactly one
+  report, the `TRUSTMANAGERFACTORY-ALG-00` the rule states. Where the
   twin is not an exact complement (`IvParameterSpec.c4` ignores its sibling's offset/length
   constraints; the three `PBEKeySpecSpec` accusers overlap, so one bad call fires up to three),
   the fusion decomposes the accusation per clause, one report each. To **absorb** the remaining
-  7 is defined operationally: the event enters the automaton's declared alphabet with benign
+  4 is defined operationally: the event enters the automaton's declared alphabet with benign
   self-loops at every state where its call is legal, and its `order_alphabet_map.csv` row
   records it as ORDER-unmapped — G-ACC then holds by membership, and G-ORDER holds because the
   comparison erases unmapped events first (INV-INS-138); without this definition the two gates
@@ -242,7 +252,7 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
   revised with the specification that uses it. The gate MUST report `skipped` (with the reason)
   for a specification with no CrySL rule or no mapping, and MUST NOT infer a mapping
   heuristically. An event with no `ORDER` counterpart (an absorbed accuser such as `initError`
-  or `unsafe_protocol`) maps to no `ORDER` symbol: its mapping row records the exemption, and
+  or `g4`) maps to no `ORDER` symbol: its mapping row records the exemption, and
   the gate erases unmapped events from both languages before deciding equivalence — this is
   what lets an absorbed accuser satisfy G-ACC without breaking G-ORDER. A wrong mapping is a
   wrong verdict in both directions.
@@ -532,7 +542,8 @@ monitor generator assigns an event absent from the automaton a transition row th
 state to `fail`, so such an event does not merely go unmodelled — it makes the specification
 accuse unconditionally; a symbol used but never declared is dropped by the generator silently. In
 `jca_android` this SHALL hold with zero exceptions after this change: the 17 orphan accusers (9
-specifications) are absorbed into their automata, each absorption measured by the differential
+specifications) are absorbed into their automata or fused into their conforming siblings, each
+change measured by the differential
 harness, rescuing the structural bucket of the archived attempt under fresh evidence rather than
 by copying its hunks. The gate is G-ACC, and it runs generically: on event-only specification
 forms (no `fsm`/`ere` block — 17 files in `generic_new`) it skips declaredly instead of calling

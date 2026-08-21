@@ -1,0 +1,6 @@
+# the residue the g3->g1 fusion leaves, pinned so it is measured and not asserted:
+# a factory whose algorithm the rule rejects, never initialised. The seed accuses
+# it with a spurious InvalidSequenceOfMethodCalls from the orphan g3; after the
+# fusion nothing accuses it at all, because TRUSTMANAGERFACTORY-ALG-00 lives in the
+# init body. Moving that check up into g1 is the deferred behavioural change.
+TrustManagerFactory.getInstance("SunX509") -> tmf
