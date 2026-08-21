@@ -1,0 +1,2 @@
+# violating c2 (the old c3 branch): a constructor seed nothing randomised
+new SecureRandom(bytes) -> r

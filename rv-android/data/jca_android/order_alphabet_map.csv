@@ -69,14 +69,12 @@ SecretKeySpecSpec,c3,c1,event,SecretKeySpec.cryptsl,17,mapped,"the accusing twin
 SecretKeySpecSpec,c4,c2,event,SecretKeySpec.cryptsl,19,mapped,"the accusing twin of c2, checking the length complement; 3.4's fused body keeps that check"
 SecureRandomSpec,c1,c1,event,SecureRandom.cryptsl,23,mapped,
 SecureRandomSpec,c2,c2,event,SecureRandom.cryptsl,25,mapped,
-SecureRandomSpec,c3,c2,event,SecureRandom.cryptsl,25,mapped,"the negated twin of c2 over the same `SecureRandom(byte[])` call; it accuses nothing today -- its body only rebinds -- and task 3.1 fuses it into c2"
 SecureRandomSpec,g1,g1,event,SecureRandom.cryptsl,29,mapped,
 SecureRandomSpec,g2,g2,event,SecureRandom.cryptsl,31,mapped,
 SecureRandomSpec,g3,gI,event,SecureRandom.cryptsl,33,mapped,"`getInstanceStrong()`; the `.mop` numbers it g3 and the rule names it gI, which is exactly the kind of association that cannot be inferred from the name"
 SecureRandomSpec,g4,,,SecureRandom.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String, ..)` calls as g1/g2; task 3.1 absorbs it"
 SecureRandomSpec,setSeed1,s2,event,SecureRandom.cryptsl,43,mapped,"`setSeed(long)` is the rule's s2 -- the numbering is crossed against the `.mop`, which is why this row exists"
 SecureRandomSpec,setSeed2,s1,event,SecureRandom.cryptsl,41,mapped,"`setSeed(byte[])` is the rule's s1"
-SecureRandomSpec,setSeed3,s1,event,SecureRandom.cryptsl,41,mapped,"the accusing twin of setSeed2 over the same `setSeed(byte[])` call; task 3.1 fuses it"
 SecureRandomSpec,genSeed,gS,event,SecureRandom.cryptsl,39,mapped,
 SecureRandomSpec,next1,,,SecureRandom.cryptsl,,order-unmapped,"`nextInt(int)`. The rule's `ne` is `next(numB)` -- `next(int)`, the protected method -- and no rule event names `nextInt`. Mapping the two together would be an inference about which call the oracle meant, which INV-INS-138 forbids"
 SecureRandomSpec,next2,nB,event,SecureRandom.cryptsl,49,mapped,"`nextBytes(byte[])`. This is the anchored case: the rule's ORDER ends in `Ends*` while the automaton's end state omits next2, so a second `nextBytes()` is accused -- 12,400 events, 99.98 % of them in libraries"

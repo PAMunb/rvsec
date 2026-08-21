@@ -38,7 +38,8 @@ SUCCESSOR = "rvsec/rvsec-mop/src/main/resources/jca_android"
 
 # A line belongs to the predicate machinery when it names the singleton or imports
 # the property enum. Counted over the frozen seed, keyed by the construct each line
-# performs, this is what the successor must still carry.
+# performs, this is the census of the `jca` lock -- and, until gh105's first
+# migrated file landed, of what the successor had to carry unchanged.
 PREDICATE = re.compile(r"ExecutionContext")
 EXPECTED_CONSTRUCTS = {
     "import": 23,
@@ -88,43 +89,38 @@ def test_jca_android_hunks_all_recorded():
     assert result.returncode == 0, result.stderr
 
 
-def test_jca_android_predicates_preserved():
-    """INV-INS-128: G-PRED, preservation, checked against the seed file by file.
+def test_the_frozen_seed_still_carries_every_predicate_site_it_was_frozen_with():
+    """INV-INS-128, rescoped by INV-INS-141 to the `jca` lock it still governs.
 
-    An earlier revision of this change deleted the predicate machinery outright.
-    That is the largest behavioural change the set could take -- it deletes
-    detection at 11 of the 21 predicate-reading events -- and it went in with no
-    before/after evidence behind it, which is exactly what this gate exists to
-    stop. The decision is withdrawn (design D-11) and the gate now runs the other
-    way: the successor must carry every site the seed has, in the same order,
-    byte-for-byte, so that a deletion cannot slip in as a side effect of an
-    allow-list edit.
+    The gate was written the other way round. An earlier revision of gh104 deleted
+    the successor set's predicate machinery outright -- the largest behavioural
+    change the set could take, detection gone at 11 of the 21 predicate-reading
+    events, with no before/after evidence behind it -- so the requirement became
+    *the successor carries every site the seed has, in the same order,
+    byte-for-byte* (design D-11), and a deletion could no longer slip in as a side
+    effect of an allow-list edit.
 
-    Order matters as much as content. Comparing multisets would pass a file whose
-    predicate moved from the event that reads a key to the one that writes it, and
-    that is a behavioural change wearing an unchanged grep count.
+    gh105 supersedes that for `jca_android` alone, and only from the first migrated
+    file (INV-INS-141). The successor's predicate machinery is now the subject of a
+    change rather than a thing to preserve: `SecureRandomSpec`'s twin fusions
+    removed two guards and moved a third read into an event body, which is exactly
+    the class of edit this assertion was built to refuse. What replaces it is not
+    trust -- it is three instruments that measure the departure instead of denying
+    it: `divergence_record.csv` names every hunk with a reason
+    (`test_jca_android_hunks_all_recorded`, which is the check that would catch an
+    unattributed deletion today), `data/jca_android/predicate_graph.csv` inventories
+    every surviving site, and G-PRED2 closes the graph.
+
+    What is left here is the half INV-INS-141 keeps verbatim: the frozen `jca` set,
+    whose 134 sites are the census every published measurement was taken against.
+    If this number moves, the freeze was broken.
     """
     home = _rvsec_home()
-    specs = sorted((home / SUCCESSOR).glob("*.mop"))
+    specs = sorted((home / SEED).glob("*.mop"))
     assert len(specs) == EXPECTED_SPECS, (
-        f"expected {EXPECTED_SPECS} specifications, found {len(specs)} -- the two pure "
-        "propagators travel with the set (D-11)"
+        f"expected {EXPECTED_SPECS} specifications in the frozen seed, found {len(specs)}"
     )
 
-    divergences = []
-    for path in specs:
-        seed = home / SEED / path.name
-        assert seed.is_file(), f"{path.name} has no counterpart in the frozen seed"
-        want = [line for line in seed.read_text(encoding="utf-8").splitlines() if PREDICATE.search(line)]
-        got = [line for line in path.read_text(encoding="utf-8").splitlines() if PREDICATE.search(line)]
-        if want != got:
-            divergences.append(f"{path.name}: seed has {len(want)} site(s), successor {len(got)}")
-
-    assert not divergences, "predicate sites rewritten or lost:\n" + "\n".join(divergences)
-
-    # The construct census, so that a gate cannot pass by comparing two files that
-    # both stopped carrying predicates: the totals are asserted per construct
-    # because the sum alone would let a `validate(` become a `setProperty(`.
     census = collections.Counter(
         _classify(line)
         for path in specs

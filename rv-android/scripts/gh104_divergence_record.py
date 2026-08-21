@@ -52,6 +52,16 @@ KINDS = {
     "message",           # a report site rewritten as a v=1 envelope (tasks 7.3-7.5)
     "automaton",         # a structural repair proved against the api30 rule, the JDK
                          # signature or the generated monitor (tasks 8.1-8.6, 8.14-8.16)
+    # gh105 (predicate wiring). The successor set stops carrying the seed's
+    # predicate machinery unchanged when its first file is migrated (INV-INS-141),
+    # so the four things that migration does to a `.mop` each need a name a reason
+    # can be filed under. Without them every gh105 row fails `check()` as an
+    # unknown kind, which reads as a defect in the record rather than a gap in it.
+    "predicate-store",   # a site moves from ExecutionContext to PredicateStore
+    "placement",         # a read leaves `condition(...)` for the body, or a write
+                         # moves to the rule's acceptance point (INV-INS-133/134)
+    "junction",          # a junction specification for a co-observable chain
+    "predicate-removal",  # a `remove`/`negate` site, or a `@fail` undo retired
 }
 
 # Kinds that describe the set rather than a diff, so they carry no hunk key.

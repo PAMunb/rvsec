@@ -43,19 +43,19 @@ SecureRandomSpec(SecureRandom r) {
 
     // this event captures the following event in the original CrySL specification.
     // - c2: SecureRandom(byte[]);
+    //
+    // One event over the constructor, where there used to be two split by the sign
+    // of a guard. The negated twin `c3` matched the same call and was absent from
+    // the automaton, and the generator gives an absent event a row that moves every
+    // state to `fail`: a seed nobody had randomised was reported as a wrong call
+    // sequence. Neither half accused anything of its own -- both only rebound `sr`
+    // -- so removing the guard changes no reported constraint and removes the
+    // spurious ordering report. The rule's `randomized[seed]` REQUIRES is a real
+    // clause and is wired, with its own accuser, at task 5.5.
     event c2 after(byte[] seed) returning(SecureRandom r):
       call(public SecureRandom.new(byte[])) &&
-      args(seed) &&
-      condition(ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
+      args(seed) {
          sr = r;
-    }
-
-
-    event c3 after(byte[] seed) returning(SecureRandom r):
-      call(public SecureRandom.new(byte[])) &&
-      args(seed) &&
-      condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
-        sr = r;
     }
 
 
@@ -97,19 +97,21 @@ SecureRandomSpec(SecureRandom r) {
       call(public void SecureRandom.setSeed(long)) &&
       target(r) {  }
 
+    // One event over `setSeed(byte[])`, with the accusation moved into the body.
+    // The negated twin `setSeed3` matched the same call and named no state, so a
+    // seed nobody had randomised drew two reports: its own `UnsatisfiedConstraint`,
+    // which is the one the rule states, and an `InvalidSequenceOfMethodCalls` about
+    // an ordering that never modelled the call. The check is the same and reports
+    // the same code from the same clause; what leaves is the second report and the
+    // guard that suppressed the transition.
     event setSeed2 after(byte[] seed, SecureRandom r):
       call(public void SecureRandom.setSeed(byte[]))  &&
       args(seed) &&
-      target(r) &&
-      condition(ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {  }
-
-    event setSeed3 after(byte[] seed, SecureRandom r):
-      call(public void SecureRandom.setSeed(byte[]))  &&
-      args(seed) &&
-      target(r) &&
-      condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "" + __LOC,
-            "v=1 code=SECURERANDOM-CONSTR-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='setSeed() expects a byte array observed to come from a randomized source'"));
+      target(r) {
+        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, seed)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "" + __LOC,
+                "v=1 code=SECURERANDOM-CONSTR-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='setSeed() expects a byte array observed to come from a randomized source'"));
+        }
     }
 
     event genSeed after(SecureRandom r) returning(byte[] seed):
@@ -145,6 +147,14 @@ SecureRandomSpec(SecureRandom r) {
           ExecutionContext.instance().setProperty(Property.RANDOMIZED, stream);
      }
 
+    // `g4` is absorbed rather than fused: it accuses an algorithm the rule's
+    // CONSTRAINTS reject, which is a report of its own and not the negation of
+    // another event's guard. It sits in the automaton as a benign self-loop at
+    // every state where a `getInstance` call is legal -- which is all of them --
+    // so the rejected algorithm is accused once, by the constraint that rejects it,
+    // instead of twice. The rule's ORDER has no symbol for a call it turns down, so
+    // `order_alphabet_map.csv` records `g4` ORDER-unmapped and G-ORDER erases it
+    // from both languages before comparing.
     fsm :
       start [
          c1 -> init
@@ -152,9 +162,11 @@ SecureRandomSpec(SecureRandom r) {
          g1 -> init
          g2 -> init
          g3 -> init
+         g4 -> start
       ]
       init [
          c1       -> init
+         g4       -> init
          genSeed  -> end
          setSeed1 -> end
          setSeed2 -> end
@@ -164,6 +176,7 @@ SecureRandomSpec(SecureRandom r) {
          ints     -> end
       ]
       end [
+         g4       -> end
          genSeed  -> end
          setSeed1 -> end
          setSeed2 -> end

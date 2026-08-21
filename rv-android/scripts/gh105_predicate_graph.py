@@ -15,10 +15,8 @@ It is built in three passes, each usable on its own:
                               find the predicate sites and the symbols they name
     pass 2  the alphabet   -- the declared events and the ones the automaton
                               names, in both directions
-    pass 3  the emitter     -- `data/jca_android/predicate_graph.csv` and the
+    pass 3  the emitter    -- `data/jca_android/predicate_graph.csv` and the
                               gate verdicts over the enumerated universe
-
-Passes 1 and 2 live here so far.
 
 **Why the reader is not a regex over the raw text.** Two things in these files
 defeat that. Every accusing event carries an English message naming its own
@@ -29,6 +27,21 @@ keySize)`, called from three conditions. Neutralising literals and comments
 answers the first; anchoring every site on a literal `Property.` first argument
 answers the second, and also excludes the collection `.remove(...)` calls that
 have nothing to do with the graph.
+
+### Integration Points:
+
+- Input: the `.mop` sets under `--specs-root`, plus the committed
+  `data/jca_android/predicate_graph.csv` for the judgment columns no analyzer
+  can re-derive and `data/jca_android/gate_allowlist.csv` for the findings
+  recorded as deliberately permanent
+- Output: the regenerated graph CSV under `--emit`, a text or `--json` report,
+  and exit code 1 when a gate that governs the set fails
+- Dependencies: the standard library only. `gh105_order_gate.py` and
+  `gh105_param_gate.py` import `SPECIFICATION_SETS`, `read_mop` and
+  `neutralize` from here, so pass 1 is the reader all three gates share
+
+Usage:
+    uv run python scripts/gh105_predicate_graph.py --sets all [--emit] [--json]
 """
 
 from __future__ import annotations
@@ -39,6 +52,10 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+# --------------------------------------------------------------------- pass 1
+
 
 # The store operations that carry a `Property` constant, mapped to what they do
 # to the graph. The two substrates are recognised together on purpose: the
@@ -105,6 +122,13 @@ def neutralize(text: str) -> str:
     than it sounds: the sites this reader must *not* find live inside accusation
     messages that name their own predicate, and reporting them at the wrong line
     would be worse than not finding them.
+
+    Args:
+        text: The raw contents of a `.mop` or a generated `.rvm`.
+
+    Returns:
+        The same text, of the same length, with comment and literal characters
+        replaced by spaces and every newline kept where it was.
     """
     out = list(text)
     index = 0
@@ -149,9 +173,14 @@ def neutralize(text: str) -> str:
 class Region:
     """One attributable stretch of a specification.
 
-    `kind` is what the predicate-placement invariants talk about -- a read inside
-    `condition` is a guard and a read inside `body` is an accusation -- and
-    `owner` names the event or handler it belongs to.
+    Attributes:
+        kind: What the predicate-placement invariants talk about -- a read inside
+            `condition` is a guard and a read inside `body` is an accusation.
+            One of `condition`, `body`, `automaton`, `spec-body`, or `@<handler>`.
+        owner: The event or handler the stretch belongs to; the automaton's kind
+            (`fsm`/`ere`) for an automaton region, `<spec-body>` for a helper.
+        start: Offset of the first character, into the neutralised text.
+        end: Offset just past the last character.
     """
 
     kind: str
@@ -162,7 +191,28 @@ class Region:
 
 @dataclass(frozen=True)
 class Site:
-    """One predicate operation, with everything needed to place and judge it."""
+    """One predicate operation, with everything needed to place and judge it.
+
+    Attributes:
+        file: Name of the `.mop` the site was read from.
+        spec: Specification the site belongs to, as the specification block
+            declares itself -- not necessarily the file stem.
+        owner: Event or handler carrying the site, or `<unattributed>` when it
+            sits outside every region.
+        site_kind: The owning region's kind, which is the placement.
+        operation: What the site does to the graph: `write`, `read`,
+            `read-absent`, `negate`, `remove`, or one of the accepting-state
+            bookkeeping kinds.
+        substrate: `ExecutionContext` or `PredicateStore` -- which store the call
+            went to. Both are recognised for the length of the migration.
+        predicate: The `Property` constant named, empty for a bookkeeping site.
+        arguments: The argument positions after the constant: the bound object
+            and any values, normalised to single spaces.
+        line: 1-based line in the real file, which the neutralisation preserves.
+        source_negated: Whether the call is written under a `!`, which inverts
+            what the site asserts without changing the operation it names.
+        snippet: The call as written, whitespace collapsed, for the report.
+    """
 
     file: str
     spec: str
@@ -184,7 +234,37 @@ class Site:
 
 @dataclass
 class MopSource:
-    """A parsed `.mop` file: its regions, its symbols, and its predicate sites."""
+    """A parsed `.mop` file: its regions, its symbols, and its predicate sites.
+
+    Attributes:
+        path: Where the file was read from.
+        spec: The specification block's own name, which is not always the stem.
+        text: The raw contents, kept for the gates that must read prose -- a
+            comment naming the old substrate is a file that has not migrated.
+        neutral: The same text with comments and literals blanked, offsets
+            preserved. Every scan in this module runs over this one.
+        regions: Every attributable stretch of the specification body.
+        aliases: `alias` name to the state it names, which is where an `fsm`
+            says which of its states is a match.
+        parameters: The specification's own parameter list -- the monitor's
+            index -- as name to declared type. These names are NOT visible
+            inside `@match`/`@fail` handlers, which is a compile-time fact and
+            INV-INS-136(d)'s whole subject.
+        fields: Specification-level fields, as name to declared type.
+        event_parameters: Event name to the parameters that event binds. They
+            shadow `fields`, which is the order a Java compiler resolves in.
+        declared_events: Event names in source order, repeats included:
+            `jca/GCMParameterSpecSpec.mop` declares `c1` twice over different
+            signatures, and the second silently replaces the first everywhere a
+            name is the key.
+        creation_events: Events declared `creation`, which start a monitor.
+        sites: Every predicate operation found, sorted by line.
+        parse_error: Why the file could not be walked, empty when it was. A file
+            with a parse error carries no regions and no sites, so a gate reading
+            it skips with this reason instead of judging half a file.
+        alphabet: What the specification declares against what its automaton
+            names. Empty until pass 2 fills it.
+    """
 
     path: Path
     spec: str
@@ -192,15 +272,9 @@ class MopSource:
     neutral: str
     regions: list[Region] = field(default_factory=list)
     aliases: dict[str, str] = field(default_factory=dict)
-    # The specification's own parameter list -- the monitor's index. These names
-    # are NOT visible inside `@match`/`@fail` handlers, which is a compile-time
-    # fact and INV-INS-136(d)'s whole subject.
     parameters: dict[str, str] = field(default_factory=dict)
     fields: dict[str, str] = field(default_factory=dict)
     event_parameters: dict[str, dict[str, str]] = field(default_factory=dict)
-    # Declarations in source order, repeats included: `jca/GCMParameterSpecSpec.mop`
-    # declares `c1` twice, over different signatures, and the second silently
-    # replaces the first everywhere a name is the key.
     declared_events: list[str] = field(default_factory=list)
     creation_events: set[str] = field(default_factory=set)
     sites: list[Site] = field(default_factory=list)
@@ -218,6 +292,7 @@ class MopSource:
         return bool(self.regions) and not self.parse_error
 
     def line_of(self, offset: int) -> int:
+        """The 1-based line of an offset into the neutralised text."""
         return self.neutral.count("\n", 0, offset) + 1
 
     def declared_type(self, owner: str, name: str) -> str:
@@ -227,12 +302,32 @@ class MopSource:
         compiler resolves them in, and the order that matters here: several
         specifications keep a field with the same name as the parameter their
         events bind.
+
+        Args:
+            owner: The event whose scope the symbol is read from.
+            name: The symbol as the predicate site writes it.
+
+        Returns:
+            The declared type with whitespace removed, or the empty string when
+            the symbol is neither a parameter of `owner` nor a field -- a local
+            variable, a literal, or an expression.
         """
         return self.event_parameters.get(owner, {}).get(name) or self.fields.get(name, "")
 
 
 def _match_delimiter(neutral: str, start: int, opening: str, closing: str) -> int:
-    """Index just past the delimiter that closes the one at `start`."""
+    """Find the index just past the delimiter that closes the one at `start`.
+
+    Args:
+        neutral: Neutralised text, so no delimiter inside a literal is counted.
+        start: Offset of the opening delimiter.
+        opening: The opening character.
+        closing: The closing character.
+
+    Returns:
+        The offset just past the matching close, or the end of the text when the
+        delimiter never closes.
+    """
     depth = 0
     index = start
     while index < len(neutral):
@@ -252,6 +347,12 @@ def _split_arguments(argument_text: str) -> list[str]:
     Nested calls are ordinary here -- `part(0, "/", transformation)` translated
     into Java is a `split(...)[0]` -- so a plain `str.split(",")` would cut one
     argument into three.
+
+    Args:
+        argument_text: What sits between a call's parentheses, neutralised.
+
+    Returns:
+        The arguments in order, stripped. Empty for an empty argument list.
     """
     arguments: list[str] = []
     depth = 0
@@ -273,6 +374,7 @@ def _split_arguments(argument_text: str) -> list[str]:
 
 
 def _collect_declarations(neutral: str, start: int, end: int) -> dict[str, str]:
+    """Every `<type> <name>` declared in a span, as name to whitespace-free type."""
     return {
         match.group("name"): re.sub(r"\s+", "", match.group("type"))
         for match in _DECLARATION.finditer(neutral, start, end)
@@ -298,6 +400,11 @@ def _scan_regions(source: MopSource, body_start: int, body_end: int) -> None:
     to walk it rather than to pattern-match line by line is the helper methods --
     they carry braces and statements that look exactly like an event body, and
     only their position tells them apart.
+
+    Args:
+        source: The parsed file, filled in place with its regions and symbols.
+        body_start: Offset of the first character inside the specification block.
+        body_end: Offset just past its last character.
     """
     neutral = source.neutral
     index = body_start
@@ -360,6 +467,14 @@ def _find_body_brace(neutral: str, start: int, limit: int) -> int:
     body and contain no braces, but generics and array initialisers in a pointcut
     would, so the depth counter is what makes this safe rather than the absence of
     braces in today's files.
+
+    Args:
+        neutral: Neutralised text.
+        start: Offset just past the event declaration.
+        limit: Offset the search must not pass.
+
+    Returns:
+        The offset of the opening brace, or -1 when the event declares no body.
     """
     depth = 0
     index = start
@@ -392,6 +507,15 @@ def _automaton_end(neutral: str, start: int, limit: int) -> int:
     token of its own: an `ere` is one expression and an `fsm` is a run of
     bracketed state blocks. Scanning for the next construct keyword outside every
     bracket is what ends it without inventing a terminator the grammar lacks.
+
+    Args:
+        neutral: Neutralised text.
+        start: Offset just past the `fsm:`/`ere:` heading.
+        limit: End of the specification body.
+
+    Returns:
+        The offset of the next construct, or `limit` when the automaton is the
+        last thing the specification declares.
     """
     depth = 0
     index = start
@@ -412,7 +536,21 @@ def _automaton_end(neutral: str, start: int, limit: int) -> int:
 
 
 def _skip_member(neutral: str, start: int, limit: int, source: MopSource) -> int:
-    """Consume one specification-level member, recording the symbols it declares."""
+    """Consume one specification-level member, recording the symbols it declares.
+
+    Which kind of member it is is decided by whichever comes first at depth zero:
+    a `{` makes it a helper method or an initializer, a `;` makes it a field.
+
+    Args:
+        neutral: Neutralised text.
+        start: Offset of the member's first character.
+        limit: End of the specification body.
+        source: The parsed file, updated in place with the member's fields and,
+            for a method, the `spec-body` region covering its statements.
+
+    Returns:
+        The offset just past the member.
+    """
     depth = 0
     index = start
     while index < limit:
@@ -440,6 +578,18 @@ def _skip_member(neutral: str, start: int, limit: int, source: MopSource) -> int
 
 
 def _collect_sites(source: MopSource) -> None:
+    """Find every predicate and bookkeeping site, and attribute each to a region.
+
+    A site is attributed to the innermost region containing it, which is what
+    makes a read inside `condition(...)` distinguishable from a read in the event
+    body a few characters later. A site outside every region is kept as
+    `<unattributed>` rather than dropped: a predicate operation the reader cannot
+    place is a fact about the file, and silently losing it would make the graph
+    look closed when it is not.
+
+    Args:
+        source: The parsed file, whose `sites` list is filled in line order.
+    """
     neutral = source.neutral
     for match in _GRAPH_SITE.finditer(neutral):
         open_paren = neutral.index("(", match.end("op"))
@@ -486,6 +636,9 @@ def _collect_sites(source: MopSource) -> None:
     source.sites.sort(key=lambda site: site.line)
 
 
+# --------------------------------------------------------------------- pass 2
+
+
 # `epsilon` is the empty word of an `ere`, not an event. It is the one reserved
 # identifier these expressions use.
 _ERE_RESERVED = {"epsilon"}
@@ -510,6 +663,12 @@ class Alphabet:
     `referenced` is a multiset, and deliberately so. An `fsm` names the same event
     once per state where the call is legal, and the count is what tells a benign
     self-loop added at every reachable state from one added at a single one.
+
+    Attributes:
+        kind: `fsm`, `ere`, or empty when the specification declares no automaton.
+        declared: Event names in declaration order, repeats included.
+        referenced: Event names the automaton uses, as a multiset in source order.
+        states: The `fsm`'s state names in declaration order; empty for an `ere`.
     """
 
     kind: str
@@ -551,10 +710,26 @@ class Alphabet:
         return tuple(name for name, count in seen.items() if count > 1)
 
     def occurrences(self, event: str) -> int:
+        """How many times the automaton names `event`."""
         return self.referenced.count(event)
 
 
 def _read_alphabet(source: MopSource) -> Alphabet:
+    """Read the declared events and the ones the automaton names.
+
+    The two notations are read differently because they say different things: an
+    `fsm` names an event only on a transition, so only the transition's left-hand
+    side counts, while every identifier of an `ere` except the empty word is an
+    event by construction.
+
+    Args:
+        source: A parsed file whose regions are already scanned.
+
+    Returns:
+        An Alphabet with an empty `kind` when the specification declares no
+        automaton, which is how the gates tell "no ordering" from "an ordering
+        that names nothing".
+    """
     declared = tuple(source.declared_events)
     automaton = next((region for region in source.regions if region.kind == "automaton"), None)
     if automaton is None:
@@ -583,6 +758,13 @@ def _delimiter_imbalance(neutral: str) -> str:
     reported, so that every gate built on this reader skips it with a reason and
     counts the skip, instead of reading half a file and calling the result a
     verdict.
+
+    Args:
+        neutral: Neutralised text, so a `)` inside a string is not counted.
+
+    Returns:
+        A sentence naming the delimiter, the direction of the imbalance and the
+        line where it was detected, or the empty string when the file balances.
     """
     for opening, closing, name in (("(", ")", "parenthesis"), ("{", "}", "brace"), ("[", "]", "bracket")):
         depth = 0
@@ -606,6 +788,15 @@ def read_mop(path: Path) -> MopSource:
     them, event declarations and nothing else -- parses to an empty source rather
     than an error. The gates built on this reader must be able to skip such a file
     declaredly and count the skip, which they cannot do if reading it throws.
+
+    Args:
+        path: The `.mop` to read.
+
+    Returns:
+        A MopSource carrying its regions, symbols, sites and alphabet. A file
+        whose delimiters do not balance comes back with `parse_error` set and
+        nothing else filled in; a file with no specification block comes back
+        with no regions, which is what `has_specification` reports on.
     """
     text = path.read_text(encoding="utf-8")
     neutral = neutralize(text)
@@ -694,14 +885,29 @@ _SPLITTER = re.compile(r"\.\s*split\s*\(")
 
 
 def _placement(site: Site) -> str:
-    """The `site_kind` column: where the site sits, in the invariants' vocabulary."""
+    """Reduce a site's region to the `site_kind` column's vocabulary.
+
+    Every numbered acceptance handler collapses to `@match`, because the
+    invariants are written about the acceptance point and not about which of the
+    `@match1`/`@match2` aliases happened to reach it.
+    """
     if site.site_kind.startswith("@"):
         return "@match" if _ACCEPTANCE_HANDLERS.match(site.site_kind) else site.site_kind
     return site.site_kind
 
 
 def _verdict(site: Site) -> str:
-    """The `verdict` column: the operation, and how its placement reads."""
+    """Judge a site as `<operation>:<class>` -- what it does, and how that reads.
+
+    Args:
+        site: The site to judge.
+
+    Returns:
+        The `verdict` column: `read:condition-guard`, `write:acceptance`,
+        `remove:fail-handler` and so on. The part before the colon is what the
+        closure gate filters reads and writes on, so it is always the operation
+        and never the placement.
+    """
     placement = _placement(site)
     if site.operation in ("read", "read-absent"):
         if placement == "condition":
@@ -727,6 +933,15 @@ def _membership(source: MopSource, site: Site) -> str:
     A handler is not an event and has no membership; an event the automaton never
     names is an orphan, and an orphan that accuses is a specification reporting a
     violation for a call its own ordering does not model.
+
+    Args:
+        source: The parsed file the site was read from.
+        site: The site whose owner is being placed.
+
+    Returns:
+        `member`, `orphan`, `no-automaton` for a specification that declares no
+        ordering at all, or `n/a` when the site sits in a handler or a helper
+        method rather than in an event.
     """
     if site.site_kind.startswith("@") or site.site_kind == "spec-body":
         return "n/a"
@@ -736,6 +951,17 @@ def _membership(source: MopSource, site: Site) -> str:
 
 
 def _row(source: MopSource, site: Site) -> dict[str, str]:
+    """Turn one site into a graph row, judgment columns left blank.
+
+    Args:
+        source: The parsed file the site was read from, for symbol resolution.
+        site: The site to render.
+
+    Returns:
+        A row over COLUMNS. The five CARRIED_COLUMNS come back empty: they hold
+        decisions no analyzer can derive, and carry_judgments is what fills them
+        from the committed graph.
+    """
     types = [source.declared_type(site.owner, argument) for argument in site.arguments]
     splitters = [argument for argument in site.arguments if _SPLITTER.search(argument)]
     return {
@@ -763,6 +989,15 @@ def _row_key(row: dict[str, str], ordinal: int) -> tuple[str, str, str, str, int
     Deliberately not the line number: every edit of this change moves lines, and a
     key that moved with them would drop the judgment columns of every site in a
     file the moment that file was touched.
+
+    Args:
+        row: The row to key.
+        ordinal: Which repeat of the same file/event/predicate/operation this is,
+            counted in file order, so two identical sites keep separate records.
+
+    Returns:
+        The identifying tuple, stable across any edit that does not change what
+        the site does.
     """
     return (row["file"], row["event"], row["predicate"], row["verdict"].split(":")[0], ordinal)
 
@@ -773,6 +1008,12 @@ def build_rows(sources: list[MopSource]) -> list[dict[str, str]]:
     Sorted by file and then by the order the sites appear in it, so the emitted
     CSV is a function of the tree and nothing else -- which is what lets a
     regeneration over an unedited tree reproduce the file byte for byte.
+
+    Args:
+        sources: The parsed files to render, in any order.
+
+    Returns:
+        One row per site, with the judgment columns blank.
     """
     rows: list[dict[str, str]] = []
     for source in sorted(sources, key=lambda item: item.path.name):
@@ -788,6 +1029,17 @@ def carry_judgments(rows: list[dict[str, str]], existing: list[dict[str, str]]) 
     which mechanism wired it, why a write was left where it is -- and no analyzer
     can re-derive them from the source. Regenerating without carrying them would
     silently erase the record this change exists to build.
+
+    Args:
+        rows: Freshly read rows, updated in place.
+        existing: Rows of the committed graph, matched by `_row_key`. A site the
+            previous graph does not carry keeps its blank columns; a previous row
+            no site matches any more is dropped, which is how a decision about a
+            site that no longer exists stops being carried.
+
+    Returns:
+        The same `rows` list, with the carried columns filled where a previous
+        row matched.
     """
     carried: dict[tuple[str, str, str, str, int], dict[str, str]] = {}
     seen: dict[tuple[str, str, str, str], int] = {}
@@ -817,6 +1069,12 @@ class SetReport:
     it, count it and say why: green by vacuity and red by absence are the two ways
     a generic gate lies, and the only defence is a report where the three numbers
     always add up to the files that exist.
+
+    Attributes:
+        name: The set's directory name.
+        read: How many `.mop` files were parsed and judged.
+        skipped: `(file, reason)` for each file that was not.
+        rows: Every graph row the read files contributed.
     """
 
     name: str
@@ -830,6 +1088,17 @@ class SetReport:
 
 
 def analyze_set(set_dir: Path) -> SetReport:
+    """Read one specification set into graph rows and a record of what was skipped.
+
+    Args:
+        set_dir: A directory of `.mop` files.
+
+    Returns:
+        A SetReport whose `read` and `skipped` add up to the `.mop` files the
+        directory holds. Two things are skipped rather than judged: a file whose
+        delimiters do not balance, and a file that declares events and no
+        specification block.
+    """
     report = SetReport(name=set_dir.name)
     sources: list[MopSource] = []
     for path in sorted(set_dir.glob("*.mop")):
@@ -865,11 +1134,21 @@ DEFAULT_GRAPH = Path("data/jca_android/predicate_graph.csv")
 
 
 def _resolve_sets(root: Path, selection: str) -> list[Path]:
+    """The directories of the selected sets, silently dropping the ones absent."""
     names = SPECIFICATION_SETS if selection == "all" else (selection,)
     return [root / name for name in names if (root / name).is_dir()]
 
 
 def read_graph(path: Path) -> list[dict[str, str]]:
+    """Read the committed graph, or nothing when it has not been emitted yet.
+
+    Args:
+        path: The graph CSV.
+
+    Returns:
+        Its rows, or the empty list when the file does not exist -- a first
+        emission has no judgments to carry, and that is not an error.
+    """
     if not path.is_file():
         return []
 
@@ -878,6 +1157,12 @@ def read_graph(path: Path) -> list[dict[str, str]]:
 
 
 def write_graph(path: Path, rows: list[dict[str, str]]) -> None:
+    """Write the graph CSV over COLUMNS, with `\n` line endings on every platform.
+
+    Args:
+        path: Where to write; parent directories are created.
+        rows: The rows to write, already in their emitted order.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(COLUMNS), lineterminator="\n")
@@ -925,6 +1210,19 @@ class Finding:
     or a baseline row that stopped matching because a file was reformatted would
     reappear as a new finding, and a gate that cries wolf on formatting is a gate
     that gets muted.
+
+    Attributes:
+        gate: The gate or invariant that produced the hit, as it is cited.
+        spec_set: The set the file belongs to.
+        file: The `.mop` file name.
+        subject: What inside the file the hit is about -- an event, a predicate,
+            an `<event>/<predicate>` pair, a `<state>/<event>` transition.
+        message: What is wrong and why it matters, in English.
+        severity: `failing`, or `informative` for a hit in a set the gate reports
+            on but does not govern -- the orphan in `generic/FSM246.mop` is real
+            and is nobody's task. Informative hits are printed so the gate is
+            visibly running over the whole universe, and they do not fail a run,
+            because failing on them would make the only cure to stop running there.
     """
 
     gate: str
@@ -932,10 +1230,6 @@ class Finding:
     file: str
     subject: str
     message: str
-    # `informative` is a finding in a set the gate does not govern -- the orphan
-    # in `generic/FSM246.mop` is real and is nobody's task. It is reported so that
-    # the gate is visibly running over the whole universe, and it does not fail a
-    # run, because failing on it would make the only cure to stop running there.
     severity: str = "failing"
 
     @property
@@ -955,6 +1249,15 @@ def gate_acc(report: SetReport, sources: list[MopSource]) -> list[Finding]:
     A third direction rides along: an event name declared twice. The generator
     keys advice by name, so the second declaration wins and the first is woven
     nowhere; the file reads as if both were live.
+
+    Args:
+        report: The set's report, read for its name.
+        sources: The set's parsed files.
+
+    Returns:
+        One finding per orphan, per undeclared symbol and per duplicated name.
+        A specification with no automaton contributes none: there is no ordering
+        for its events to be outside of.
     """
     findings: list[Finding] = []
     for source in sources:
@@ -1010,6 +1313,16 @@ def gate_placement(report: SetReport) -> list[Finding]:
     has finished judging the object it is about to vouch for. A write kept
     elsewhere is not forbidden -- it needs a recorded reason, in the graph, where
     the next reader will find it.
+
+    Args:
+        report: The set's report, whose rows must already carry the judgment
+            columns -- an unmerged row has an empty `reason`, so every displaced
+            write would be reported as unexplained.
+
+    Returns:
+        One INV-INS-133 finding per read inside a `condition(...)`, and one
+        INV-INS-134 finding per write away from the acceptance point with no
+        recorded reason.
     """
     findings: list[Finding] = []
     for row in report.rows:
@@ -1059,6 +1372,16 @@ def gate_import(report: SetReport, sources: list[MopSource]) -> list[Finding]:
     `jca_android_bug_predicate` call `ExecutionContext` because that is what they
     were frozen calling (INV-INS-132), and the 145 files of the two generic sets
     call no substrate at all.
+
+    Args:
+        report: The set's report, read for its name.
+        sources: The set's parsed files, read for both their raw and their
+            neutralised text -- the difference between the two counts is exactly
+            the mentions that survive in prose.
+
+    Returns:
+        One finding per file that names `ExecutionContext` at all, carrying both
+        counts.
     """
     findings: list[Finding] = []
     for source in sources:
@@ -1087,6 +1410,15 @@ def gate_pred2(report: SetReport) -> list[Finding]:
     reason there is none; every write needs a reader or a recorded deliberate
     omission. Over a set with no predicates the correct answer is zero rows and
     green -- the closure of an empty graph is the empty graph.
+
+    Args:
+        report: The set's report, whose rows must already carry the judgment
+            columns -- the dispositions that close an unwireable edge live there
+            and nowhere else.
+
+    Returns:
+        One finding per read with no producer and no recorded disposition, and
+        one per write with no reader and no recorded omission.
     """
     written: set[str] = set()
     read: set[str] = set()
@@ -1149,6 +1481,16 @@ def gate_junction_rules(report: SetReport, sources: list[MopSource]) -> list[Fin
         only monitor fields are in scope. Naming a parameter there does not fail
         the gate at runtime -- it fails to compile, which is worse, because it
         fails late and far from the edit.
+
+    Args:
+        report: The set's report, read for its name.
+        sources: The set's parsed files. Everything not named `*Junction.mop` is
+            passed over: these three rules are mechanism B's and nobody else's.
+
+    Returns:
+        One finding per violation, tagged with the sub-rule it breaks. Rule (c)
+        is absent by design -- whether a junction's two halves ever meet on the
+        same object is not decidable from the `.mop` text.
     """
     findings: list[Finding] = []
     for source in sources:
@@ -1209,7 +1551,16 @@ def gate_junction_rules(report: SetReport, sources: list[MopSource]) -> list[Fin
 
 
 def _fsm_transitions(source: MopSource) -> dict[str, set[str]]:
-    """The out-alphabet of each state, read off the `fsm` block."""
+    """Read the out-alphabet of each state off the `fsm` block.
+
+    Args:
+        source: A parsed file whose regions are already scanned.
+
+    Returns:
+        State name to the events it has a transition for. Empty when the
+        specification declares no automaton or declares an `ere`, which has no
+        states to be total over.
+    """
     automaton = next((region for region in source.regions if region.kind == "automaton"), None)
     if automaton is None or automaton.owner != "fsm":
         return {}
@@ -1229,7 +1580,18 @@ def _fsm_transitions(source: MopSource) -> dict[str, set[str]]:
 
 @dataclass
 class GateRun:
-    """Everything one run of the gate suite produced, skips included."""
+    """Everything one run of the gate suite produced, skips included.
+
+    Attributes:
+        findings: Hits that fail the run.
+        informative: Hits in a set the gate reports on but does not govern.
+        allowed: Hits matched by the allow-list, kept so a muted finding is still
+            a counted one.
+        reports: One report per set visited, carrying its own file accounting.
+        gate_skips: `(gate, set, reason)` for each gate that deliberately did not
+            run over a set. A gate that does not run says so, by name and with
+            the reason, rather than contributing a silent green.
+    """
 
     findings: list[Finding] = field(default_factory=list)
     informative: list[Finding] = field(default_factory=list)
@@ -1257,6 +1619,14 @@ def read_allowlist(path: Path) -> set[tuple[str, str, str, str]]:
     every row of `gate_allowlist.csv` carries the measurement behind it and the
     task that owns it. A `*` in the spec or event column allows a family, which is
     how eight instances of one idiom are recorded as one reason.
+
+    Args:
+        path: The allow-list CSV. Its `reason`, `task` and `verdict` columns are
+            for the reader, not for the match, so they are not loaded here.
+
+    Returns:
+        `(gate, set, spec, event_or_state)` for each row, or the empty set when
+        the file does not exist.
     """
     if not path.is_file():
         return set()
@@ -1268,6 +1638,12 @@ def read_allowlist(path: Path) -> set[tuple[str, str, str, str]]:
 
 
 def _is_allowed(finding: Finding, allowed: set[tuple[str, str, str, str]]) -> bool:
+    """Whether the allow-list covers a finding exactly, by specification, or by set.
+
+    The three candidate keys are the three widths a row may be written at: one
+    subject, every subject of one specification (`spec, *`), or every finding of
+    one gate over one set (`*, *`). The gate is never widened past a set.
+    """
     spec = finding.file.removesuffix(".mop")
     subject = finding.subject
     candidates = {
@@ -1291,6 +1667,17 @@ def run_gates(
     close an edge nobody can wire, the reasons a write stays where it is -- live
     there and nowhere else. Every other set is judged from its source alone,
     which for the 145 predicate-free files means zero rows and green.
+
+    Args:
+        specs_root: Directory holding the specification sets.
+        selection: `"all"` for the enumerated universe, or the name of one set.
+        graph: The committed graph CSV, read for the judgment columns.
+        allowlist: The allow-list CSV, or None to run with nothing muted.
+
+    Returns:
+        A GateRun. G-ACC and the junction rules run over every set, demoted to
+        informative outside the target set; the import, placement and closure
+        gates run over the target set only, and record a named skip elsewhere.
     """
     allowed = read_allowlist(allowlist) if allowlist else set()
     run = GateRun()
@@ -1349,6 +1736,16 @@ def _informative(finding: Finding) -> Finding:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the suite from the command line, optionally re-emitting the graph.
+
+    Args:
+        argv: Command-line arguments, or None to read `sys.argv`.
+
+    Returns:
+        1 when any governed gate fails, 2 when no specification set was found
+        under `--specs-root`, 0 otherwise. Allow-listed and informative hits are
+        printed and counted but do not change the code.
+    """
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])

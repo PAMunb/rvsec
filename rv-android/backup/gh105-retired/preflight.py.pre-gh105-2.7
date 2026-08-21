@@ -1,0 +1,413 @@
+#!/usr/bin/env python3
+"""gh104 stage-1 preflight — refuse to launch a shard on the wrong substrate.
+
+One shard weaves ~20 APKs over several hours on the host. Every mistake this script looks for is
+silent when it happens and expensive afterwards: the woven corpus is indistinguishable from a
+correct one by inspection, so the substrate has to be proven *before* the first JVM starts.
+
+What differs from the Study-03 preflight (``scripts/e3_preflight_instrument.py``): that one froze
+the ``jca`` set at exactly 23 ``.mop`` files and probed a jca-era detail of ``rvsec-core``
+(``IdentityHashMap`` / ``newSetFromMap`` inside ``ExecutionContext``). The gh104 successor set has
+a different cardinality and, by design, no predicates at all — so the spec-set assertions here
+*print and compare* rather than hardcode, and the ``ExecutionContext`` question moved from the jar
+to the specs (gate G-PRED).
+
+Usage:
+    uv run python experimento-gh104/scripts/preflight.py \\
+        --shard-file experimento-gh104/filters/s0.txt \\
+        --output-dir /path/to/shards/s0 --expect 21 [--spec-set jca_android]
+
+Exit 0 iff every mandatory check passes. WARN lines never fail the run; they are the things a
+human has to look at and decide about.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import os
+import re
+import struct
+import subprocess
+import sys
+import zipfile
+from datetime import datetime
+from pathlib import Path
+
+RV_ANDROID = Path(__file__).resolve().parent.parent.parent
+WORKSPACE = RV_ANDROID.parent.parent
+EXPECTED_RVSEC_HOME = WORKSPACE / "rvsec"
+
+SPECS_SUBPATH = Path("rvsec/rvsec-mop/src/main/resources")
+
+MAVEN_REPO = Path("/home/pedro/desenvolvimento/repository")
+SNAPSHOT = "0.9.3-SNAPSHOT"
+# The three jars the dexlib2 allowlist puts on the weaver classpath
+# (``rv_instrumentation_core/instrumenter.py:_resolve_runtime_libs``). They are copied out of
+# THIS repository, not ~/.m2 — the local repo is redefined in ~/.m2/settings.xml.
+RUNTIME_JARS = {
+    "rvsec-core": MAVEN_REPO / f"br/unb/cic/rvsec-core/{SNAPSHOT}/rvsec-core-{SNAPSHOT}.jar",
+    "rv-monitor-rt": (MAVEN_REPO / f"br/unb/cic/rvmonitor/rv-monitor-rt/{SNAPSHOT}"
+                      / f"rv-monitor-rt-{SNAPSHOT}.jar"),
+    "rvsec-logger-logcat": (MAVEN_REPO / f"br/unb/cic/rvsec-logger-logcat/{SNAPSHOT}"
+                            / f"rvsec-logger-logcat-{SNAPSHOT}.jar"),
+}
+
+CLI_JAR = RV_ANDROID / "modules/rv-instrumentation-dexlib2/lib/instr-cli.jar"
+CLI_JAR_REBUILD = "mvn -pl rvsec-android/rvsec-instrumentation-dexlib2/cli -am package"
+
+DEFAULT_APKS_DIR = Path("/home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS")
+
+VARIANT = "dexlib2"
+
+# Negative control: the frozen jca set carries this many ExecutionContext occurrences today. The
+# gh104 successor set must carry zero (gate G-PRED: no predicates).
+JCA_EXECUTION_CONTEXT_OCCURRENCES = 134
+
+# DEX header: method_ids_size is a uint32 little-endian at byte 88 (magic 8, checksum 4,
+# signature 20, file_size, header_size, endian_tag, link_size/off, map_off, then the four
+# string/type/proto/field id size+off pairs). The format caps method references at 65536 per DEX;
+# weaving injects one reference per generated wrapper plus the coverage probe, so an APK whose
+# DEX already sits near the cap cannot be instrumented at all. This is what killed
+# info.dvkr.screenstream_44000.apk in the Study-03 run: 65521 used, 15 free, 84 wrappers needed.
+DEX_METHOD_IDS_OFFSET = 88
+DEX_METHOD_IDS_LIMIT = 65536
+DEFAULT_METHODID_MARGIN = 200
+
+WARNINGS: list[str] = []
+
+
+class Failed(Exception):
+    """One mandatory assertion did not hold."""
+
+
+def warn(message: str) -> None:
+    WARNINGS.append(message)
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def mtime_of(path: Path) -> str:
+    return datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def specs_dir_for(spec_set: str, override: Path | None) -> Path:
+    """Where ``rv-experiment`` will look for the ``.mop`` files of this set.
+
+    Mirrors ``get_monitored_operations_config`` (``rv_experiment/config.py:674-711``): the
+    predefined sets resolve from the set name alone under ``$RVSEC_HOME/<SPECS_SUBPATH>/``, which
+    is what keeps a stale path from selecting a set other than the one the experiment reports.
+    """
+    if override is not None:
+        return override
+    rvsec_home = os.environ.get("RVSEC_HOME") or str(EXPECTED_RVSEC_HOME)
+    return Path(rvsec_home) / SPECS_SUBPATH / spec_set
+
+
+# --------------------------------------------------------------------------------------- checks
+
+def check_rvsec_home() -> str:
+    """``RVSEC_HOME`` must point at a reactor that actually holds the spec resources.
+
+    Monitor generation and the runtime libraries resolve relative to it. A stale value pointing at
+    another checkout produces monitors from another set of specifications, and the run reports
+    success.
+    """
+    value = os.environ.get("RVSEC_HOME")
+    if not value:
+        raise Failed("RVSEC_HOME is not set")
+    root = Path(value).resolve()
+    if not (root / SPECS_SUBPATH).is_dir():
+        raise Failed(f"RVSEC_HOME={value} has no {SPECS_SUBPATH}/")
+    if root != EXPECTED_RVSEC_HOME.resolve():
+        warn(f"RVSEC_HOME is {root}, not this workspace's reactor {EXPECTED_RVSEC_HOME}")
+    return f"RVSEC_HOME={root}"
+
+
+def check_specs(spec_set: str, override: Path | None, expect_specs: int | None) -> str:
+    """The spec set exists, holds at least one ``.mop``, and is identified by a digest.
+
+    Deliberately no hardcoded cardinality: the frozen ``jca`` set has 23 files, the gh104
+    successor is planned at 21, and pinning either number here would make the script wrong for the
+    other side of the comparison. The count and the digest are *printed* so the campaign log can
+    carry the identity of the set that was actually woven; ``--expect-specs`` turns that into an
+    assertion when the operator already knows the number.
+
+    Digest = sha256 over the sorted ``<name> <sha256>`` lines, so it is stable against directory
+    order and sensitive to any content or membership change.
+    """
+    specs = specs_dir_for(spec_set, override)
+    if not specs.is_dir():
+        raise Failed(f"specs dir {specs} does not exist")
+    mops = sorted(specs.glob("*.mop"))
+    if not mops:
+        raise Failed(f"{specs} holds no .mop file")
+    lines = [f"{p.name} {sha256_file(p)}" for p in mops]
+    digest = hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+    if expect_specs is not None and len(mops) != expect_specs:
+        raise Failed(f"{specs} holds {len(mops)} .mop files, expected {expect_specs}")
+    return f"{spec_set}: {len(mops)} .mop  sha256={digest}  ({specs})"
+
+
+def check_no_predicates(spec_set: str, override: Path | None) -> str:
+    """Gate G-PRED — the gh104 successor set carries no ``ExecutionContext`` predicates.
+
+    Reported, never fatal. Before the change lands the successor set is still the gh101-derived
+    one and this count is nonzero on purpose; failing here would block the very run that proves
+    the script. With ``--spec-set jca`` the expected value is the negative control (134): if that
+    moved, the frozen baseline set was edited, which is itself worth a human look.
+    """
+    specs = specs_dir_for(spec_set, override)
+    occurrences = 0
+    carriers = []
+    for path in sorted(specs.glob("*.mop")):
+        hits = len(re.findall(r"ExecutionContext", path.read_text(encoding="utf-8")))
+        occurrences += hits
+        if hits:
+            carriers.append(f"{path.name}({hits})")
+    expected = JCA_EXECUTION_CONTEXT_OCCURRENCES if spec_set == "jca" else 0
+    if occurrences != expected:
+        warn(f"ExecutionContext occurrences in '{spec_set}' = {occurrences}, expected {expected}"
+             + (f" — carriers: {', '.join(carriers)}" if carriers else ""))
+    return f"ExecutionContext occurrences = {occurrences} (expected {expected} for '{spec_set}')"
+
+
+def check_cli_jar() -> str:
+    """The DEX-native weaver itself.
+
+    ``lib/`` is gitignored; the jar only exists after a reactor build copies it there (design D9).
+    A jar older than the reactor's last change weaves the previous semantics with nothing in the
+    output to say so, which is why its sha256 and mtime belong in the campaign log.
+    """
+    if not CLI_JAR.is_file():
+        raise Failed(f"missing {CLI_JAR} — rebuild with: {CLI_JAR_REBUILD}")
+    return f"{CLI_JAR.name} mtime={mtime_of(CLI_JAR)} sha256={sha256_file(CLI_JAR)}"
+
+
+def check_runtime_jars(spec_set: str, override: Path | None) -> str:
+    """The three jars that get dexed into every APK, and whether they predate the specs.
+
+    They are pulled by ``mvn dependency:copy-dependencies`` from the local Maven repository
+    (``/home/pedro/desenvolvimento/repository``, redefined in ``~/.m2/settings.xml`` — NOT
+    ``~/.m2/repository``). gh104 changes ``rvsec-core`` (ErrorDescription / ErrorCollector) and
+    the specs together: an ``rvsec-core.jar`` older than the newest ``.mop`` means the reactor was
+    not reinstalled after the spec change, so the APKs would carry the old message envelope while
+    the campaign claims the new one. Loud warning, not a failure — the operator may be running the
+    negative control on purpose.
+    """
+    parts = []
+    for name, path in RUNTIME_JARS.items():
+        if not path.is_file():
+            raise Failed(f"missing {name} jar at {path} — run `mvn clean install -DskipTests "
+                         f"-DskipMopAgent` at the rvsec reactor root")
+        parts.append(f"{name} mtime={mtime_of(path)} sha256={sha256_file(path)[:16]}…")
+
+    specs = specs_dir_for(spec_set, override)
+    mops = list(specs.glob("*.mop"))
+    if mops:
+        newest = max(mops, key=lambda p: p.stat().st_mtime)
+        core = RUNTIME_JARS["rvsec-core"]
+        if core.stat().st_mtime < newest.stat().st_mtime:
+            warn("*** rvsec-core.jar is OLDER than the newest .mop "
+                 f"({mtime_of(core)} < {newest.name} {mtime_of(newest)}) — the reactor was not "
+                 "rebuilt after the spec change; the woven APKs would carry the previous runtime")
+    return "  ".join(parts)
+
+
+def check_output_dir(output_dir: Path) -> str:
+    """The shard's output directory must not exist yet.
+
+    It doubles as the work dir (``rv_experiment/config.py:856``), and ``get_instrumented_apks()``
+    matches by file presence: a half-woven APK left by an earlier attempt is indistinguishable
+    from a complete one. Rollback is a fresh directory, never a resume.
+    """
+    if output_dir.exists():
+        raise Failed(f"{output_dir} already exists — this route requires a fresh directory")
+    if not output_dir.parent.is_dir():
+        raise Failed(f"{output_dir.parent} does not exist")
+    return f"{output_dir} is free"
+
+
+def check_shard_file(shard_file: Path, expected: int, apks_dir: Path) -> str:
+    """The shard list must name exactly the intended APKs, byte for byte.
+
+    Click only asserts the file exists. The parse is ``read_text().strip().splitlines()`` matched
+    by basename (``rv_experiment/config.py:584-586``), so a ``\\r``, a trailing space or a stray
+    blank line silently drops an APK and the shard finishes reporting success over a smaller
+    corpus.
+    """
+    if not shard_file.is_file():
+        raise Failed(f"missing {shard_file}")
+    raw = shard_file.read_bytes()
+    if b"\r" in raw:
+        raise Failed(f"{shard_file} contains CR bytes — LF only")
+    names = raw.decode("utf-8").strip().splitlines()
+    if len(names) != expected:
+        raise Failed(f"{shard_file} has {len(names)} entries, expected {expected}")
+    if len(set(names)) != expected:
+        raise Failed(f"{shard_file} has duplicate entries")
+    for name in names:
+        if name != name.strip():
+            raise Failed(f"{shard_file}: entry {name!r} has surrounding whitespace")
+        if not (apks_dir / name).is_file():
+            raise Failed(f"{shard_file}: {name} is not in {apks_dir}")
+    return f"{expected}/{expected} entries present in {apks_dir}"
+
+
+def check_variant() -> str:
+    """``dexlib2`` must resolve to the DEX-native instrumenter.
+
+    The CLI default is ``ajc`` (``rv_instrumentation/config.py:199-201``), so the variant is passed
+    explicitly on every real run; this asserts the name still dispatches where it is meant to.
+    """
+    from rv_instrumentation.factory import get_instrumenter
+    try:
+        get_instrumenter(VARIANT, None)
+    except ValueError as exc:
+        raise Failed(f"{VARIANT} does not resolve: {exc}") from exc
+    except Exception:
+        # Constructing the instrumenter with a null config is expected to fail somewhere inside
+        # it; what is under test is that dispatch reached the right class at all.
+        pass
+    from rv_instrumentation_dexlib2 import DexlibInstrumentation
+    return f"{VARIANT} -> {DexlibInstrumentation.__name__}"
+
+
+def _tool_version(command: list[str]) -> str:
+    try:
+        out = subprocess.run(command, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise Failed(f"cannot run {command[0]}: {exc}") from exc
+    if out.returncode != 0:
+        raise Failed(f"{' '.join(command)} exited {out.returncode}")
+    text = (out.stdout or out.stderr).strip()
+    return text.splitlines()[0] if text else "(no output)"
+
+
+def check_toolchain() -> str:
+    """``java`` and ``mvn`` must both be callable, and ``ANDROID_HOME`` must hold platforms.
+
+    The dexlib2 route runs on the host without Docker: ``java`` runs the weaver, ``mvn`` resolves
+    the runtime classpath via ``dependency:copy-dependencies``, and the Java CLI resolves d8 /
+    zipalign / apksigner from ``ANDROID_HOME`` itself.
+    """
+    java = _tool_version(["java", "-version"])
+    mvn = _tool_version(["mvn", "-v"])
+    android_home = os.environ.get("ANDROID_HOME")
+    if not android_home:
+        raise Failed("ANDROID_HOME is not set")
+    platforms = Path(android_home) / "platforms"
+    if not platforms.is_dir():
+        raise Failed(f"{platforms} does not exist")
+    n_platforms = len(list(platforms.iterdir()))
+    return f"{java} | {mvn} | ANDROID_HOME={android_home} ({n_platforms} platforms)"
+
+
+def _method_ids_sizes(apk: Path) -> dict[str, int]:
+    """``method_ids_size`` of every ``classes*.dex`` inside the APK, read straight from the zip."""
+    sizes = {}
+    with zipfile.ZipFile(apk) as zf:
+        for entry in zf.namelist():
+            if not (entry.startswith("classes") and entry.endswith(".dex")):
+                continue
+            with zf.open(entry) as handle:
+                header = handle.read(DEX_METHOD_IDS_OFFSET + 4)
+            if len(header) < DEX_METHOD_IDS_OFFSET + 4:
+                continue
+            (count,) = struct.unpack_from("<I", header, DEX_METHOD_IDS_OFFSET)
+            sizes[entry] = count
+    return sizes
+
+
+def check_method_ids(shard_file: Path, apks_dir: Path, margin: int) -> str:
+    """Warn about APKs too close to the DEX 64K method-reference cap to survive weaving.
+
+    Structural, not a weaver defect, and deterministic: an APK whose DEX already sits at the cap
+    cannot take the injected wrapper references and dies during the DEX *write*, after hours of
+    analysis. Study 03 lost exactly one APK this way (15 free slots, 84 wrappers needed) while
+    another passed with 184 free. The gh104 set generates a different number of wrappers, so this
+    frontier moves — hence a warning with the real numbers rather than a verdict.
+    """
+    if not shard_file.is_file():
+        raise Failed(f"missing {shard_file}")
+    names = shard_file.read_text(encoding="utf-8").strip().splitlines()
+    tight = []
+    worst_free = DEX_METHOD_IDS_LIMIT
+    worst_where = "-"
+    for name in names:
+        apk = apks_dir / name
+        if not apk.is_file():
+            raise Failed(f"{name} is not in {apks_dir}")
+        for entry, count in _method_ids_sizes(apk).items():
+            free = DEX_METHOD_IDS_LIMIT - count
+            if free < worst_free:
+                worst_free, worst_where = free, f"{name}:{entry}"
+            if free < margin:
+                tight.append(f"{name}:{entry} used={count} free={free}")
+    for line in tight:
+        warn(f"method_ids margin below {margin}: {line}")
+    return (f"{len(names)} apks scanned, {len(tight)} dex below margin {margin}; "
+            f"tightest {worst_where} free={worst_free}")
+
+
+# ---------------------------------------------------------------------------------------- main
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--shard-file", required=True, type=Path)
+    ap.add_argument("--output-dir", required=True, type=Path)
+    ap.add_argument("--expect", required=True, type=int,
+                    help="how many APKs the shard file must name")
+    ap.add_argument("--spec-set", default="jca_android",
+                    choices=["jca", "jca_android", "generic", "custom"])
+    ap.add_argument("--specs-dir", type=Path, default=None,
+                    help="override the spec directory (required for --spec-set custom)")
+    ap.add_argument("--expect-specs", type=int, default=None,
+                    help="assert the .mop count of the set (default: only print it)")
+    ap.add_argument("--apks-dir", type=Path, default=DEFAULT_APKS_DIR)
+    ap.add_argument("--methodid-margin", type=int, default=DEFAULT_METHODID_MARGIN,
+                    help="warn when 65536 - method_ids_size falls below this (default 200)")
+    args = ap.parse_args()
+
+    if args.spec_set == "custom" and args.specs_dir is None:
+        print("--spec-set custom requires --specs-dir", file=sys.stderr)
+        return 2
+
+    checks = [
+        ("RVSEC_HOME", check_rvsec_home),
+        ("spec set", lambda: check_specs(args.spec_set, args.specs_dir, args.expect_specs)),
+        ("predicates", lambda: check_no_predicates(args.spec_set, args.specs_dir)),
+        ("instr-cli jar", check_cli_jar),
+        ("runtime jars", lambda: check_runtime_jars(args.spec_set, args.specs_dir)),
+        ("output dir", lambda: check_output_dir(args.output_dir)),
+        ("shard file", lambda: check_shard_file(args.shard_file, args.expect, args.apks_dir)),
+        ("variant", check_variant),
+        ("toolchain", check_toolchain),
+        ("method_ids", lambda: check_method_ids(args.shard_file, args.apks_dir,
+                                                args.methodid_margin)),
+    ]
+
+    failures = 0
+    for name, fn in checks:
+        seen = len(WARNINGS)
+        try:
+            print(f"  PASS  {name:<14} {fn()}")
+        except Failed as exc:
+            print(f"  FAIL  {name:<14} {exc}")
+            failures += 1
+        for line in WARNINGS[seen:]:
+            print(f"  WARN  {name:<14} {line}")
+
+    print(f"\n{len(WARNINGS)} warning(s)")
+    print("PREFLIGHT PASSED" if not failures else f"PREFLIGHT FAILED ({failures})")
+    return 0 if not failures else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

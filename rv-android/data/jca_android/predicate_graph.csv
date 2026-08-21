@@ -87,10 +87,7 @@ SecretKeySpecSpec.mop,c1,condition,positive,,1,RANDOMIZED,byte[],,,,read:conditi
 SecretKeySpecSpec.mop,c3,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,orphan
 SecretKeySpecSpec.mop,match,@match,positive,,1,,SecretKeySpec,,,,bookkeeping:match,,,n/a
 SecretKeySpecSpec.mop,match,@match,positive,,1,GENERATED_KEY,SecretKeySpec,,,,write:acceptance,,,n/a
-SecureRandomSpec.mop,c2,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,member
-SecureRandomSpec.mop,c3,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,orphan
-SecureRandomSpec.mop,setSeed2,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,member
-SecureRandomSpec.mop,setSeed3,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,orphan
+SecureRandomSpec.mop,setSeed2,body,positive,,1,RANDOMIZED,byte[],,,,read:body,,,member
 SecureRandomSpec.mop,genSeed,body,positive,,1,RANDOMIZED,byte[],,,,write:body,,,member
 SecureRandomSpec.mop,next1,body,positive,,1,RANDOMIZED,int,,,,write:body,,,member
 SecureRandomSpec.mop,next2,body,positive,,1,RANDOMIZED,byte[],,,,write:body,,,member

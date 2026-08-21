@@ -49,6 +49,15 @@ _PRIMITIVE_ARRAY = re.compile(r"\b(?:byte|char|int|long|short|float|double|boole
 
 @dataclass(frozen=True)
 class ParamFinding:
+    """One specification whose generated header lost part of its parameter list.
+
+    Attributes:
+        spec_set: Specification set the `.mop` belongs to.
+        spec: Specification file stem, without the `.mop` suffix.
+        message: What was declared, what survived, and -- when the loss is the
+            primitive-array collapse -- the `Object` idiom that avoids it.
+    """
+
     spec_set: str
     spec: str
     message: str
@@ -60,6 +69,19 @@ class ParamFinding:
 
 @dataclass
 class ParamRun:
+    """Everything one G-PARAM run produced, skips included.
+
+    The three lists are disjoint and together account for every `.mop` visited,
+    which is what makes `total` a number a reader can check the gate against
+    rather than a number the gate reports about itself.
+
+    Attributes:
+        passed: `<set>/<spec>` of each specification whose header survived intact.
+        findings: One entry per specification whose header changed.
+        skipped: `(<set>/<spec>, reason)` for each specification the gate could
+            not compare -- most often because no monitor was generated for it.
+    """
+
     passed: list[str] = field(default_factory=list)
     findings: list[ParamFinding] = field(default_factory=list)
     skipped: list[tuple[str, str]] = field(default_factory=list)
@@ -70,11 +92,21 @@ class ParamRun:
 
 
 def read_header(path: Path) -> tuple[str, list[str]] | None:
-    """The specification name and its parameter list, comments and strings removed.
+    """Read the specification name and its parameter list, literals neutralised.
 
     Neutralising first matters here for a reason specific to this file: a `.rvm`
     keeps the specification's Javadoc, and a rule name inside a comment can look
     exactly like a header at the start of a line.
+
+    Args:
+        path: A `.mop` or a generated `.rvm`. Both carry the same header
+            construct, which is what makes the later comparison a comparison
+            rather than a reconstruction.
+
+    Returns:
+        The specification name and its parameters, each normalised to
+        `"<type> <name>"` with runs of whitespace collapsed, or None when the
+        file declares no header at all.
     """
     text = neutralize(path.read_text(encoding="utf-8"))
     for match in _HEADER.finditer(text):
@@ -88,7 +120,17 @@ def read_header(path: Path) -> tuple[str, list[str]] | None:
 
 
 def compare(spec_set: str, mop: Path, rvm: Path) -> ParamFinding | None:
-    """One specification's `.mop` header against the header the generator wrote."""
+    """Compare a specification's declared header against the generated one.
+
+    Args:
+        spec_set: Specification set the pair belongs to, carried into the finding.
+        mop: The source specification.
+        rvm: The `.rvm` the generator wrote for it.
+
+    Returns:
+        A finding naming the lost positions, or None when the two headers agree
+        or either file declares no header to compare.
+    """
     source = read_header(mop)
     generated = read_header(rvm)
     if source is None or generated is None:
@@ -113,12 +155,22 @@ def compare(spec_set: str, mop: Path, rvm: Path) -> ParamFinding | None:
 
 
 def run(specs_root: Path, monitors: Path, selection: str = "all") -> ParamRun:
-    """G-PARAM over the enumerated universe, skipping what was never generated.
+    """Run G-PARAM over the enumerated universe, skipping what was never generated.
 
     A specification with no generated monitor beside it is skipped and counted,
     never passed: the whole point of this gate is that a missing artifact is a
     finding about the generation, and the shape a missing artifact takes here is a
     skip with a reason rather than a silent success.
+
+    Args:
+        specs_root: Directory holding the specification sets, one per subdirectory.
+        monitors: Directory of generated `.rvm` files, looked up by specification
+            stem.
+        selection: `"all"` for the enumerated universe, or the name of one set.
+
+    Returns:
+        A ParamRun whose passed, findings and skipped lists together account for
+        every `.mop` visited.
     """
     names = SPECIFICATION_SETS if selection == "all" else (selection,)
     result = ParamRun()
@@ -143,6 +195,16 @@ def run(specs_root: Path, monitors: Path, selection: str = "all") -> ParamRun:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the gate from the command line and report its verdict.
+
+    Args:
+        argv: Command-line arguments, or None to read `sys.argv`.
+
+    Returns:
+        1 when any specification lost a parameter, 0 otherwise. This exit code is
+        the gate's verdict; the toolchain's own is 0 either way, which is the
+        reason this file exists.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--specs-root",

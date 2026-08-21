@@ -40,8 +40,8 @@ SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c3,Secret
 SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c4,SecretKeySpecSpec.mop:51
 SecretKeySpecSpec,SECRETKEYSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecretKeySpecSpec.mop:58
 SecureRandomSpec,SECURERANDOM-ALG-00,UnsafeAlgorithm,ALG,g4,SecureRandomSpec.mop:92
-SecureRandomSpec,SECURERANDOM-CONSTR-00,UnsatisfiedConstraint,CONSTR,setSeed3,SecureRandomSpec.mop:111
-SecureRandomSpec,SECURERANDOM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecureRandomSpec.mop:178
+SecureRandomSpec,SECURERANDOM-CONSTR-00,UnsatisfiedConstraint,CONSTR,setSeed2,SecureRandomSpec.mop:112
+SecureRandomSpec,SECURERANDOM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecureRandomSpec.mop:191
 SignatureSpec,SIGNATURE-ALG-00,UnsafeAlgorithm,ALG,i1,SignatureSpec.mop:72
 SignatureSpec,SIGNATURE-ALG-01,UnsafeAlgorithm,ALG,i2,SignatureSpec.mop:82
 SignatureSpec,SIGNATURE-ALG-02,UnsafeAlgorithm,ALG,i3,SignatureSpec.mop:92

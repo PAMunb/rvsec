@@ -82,7 +82,14 @@ _ERE_EMPTY = {"epsilon"}
 
 @dataclass(frozen=True)
 class Rule:
-    """One api30 rule, reduced to what an ordering comparison needs."""
+    """One api30 rule, reduced to what an ordering comparison needs.
+
+    Attributes:
+        name: The rule's file stem, which is the API class it governs.
+        events: Base event names of the `EVENTS` section, in declaration order.
+        aggregates: Aggregate name to its unexpanded definition (`"g1 | g2"`).
+        order: The `ORDER` clause joined into one line, aggregates unexpanded.
+    """
 
     name: str
     events: tuple[str, ...]
@@ -91,7 +98,16 @@ class Rule:
 
 
 def read_rule(path: Path) -> Rule:
-    """The rule's event alphabet, its aggregates and its `ORDER` expression."""
+    """Read a rule's event alphabet, its aggregates and its `ORDER` expression.
+
+    Args:
+        path: A generated api30 CrySL rule.
+
+    Returns:
+        A Rule carrying only the ordering-relevant sections. `CONSTRAINTS`,
+        `REQUIRES` and `ENSURES` are walked past and dropped -- they are the
+        predicate graph's subject, not this gate's.
+    """
     events: list[str] = []
     aggregates: dict[str, str] = {}
     order: list[str] = []
@@ -118,10 +134,16 @@ def read_rule(path: Path) -> Rule:
 
 
 def tokenize(text: str) -> list[str]:
-    """Identifiers and operators; `,` is dropped.
+    """Split an expression into identifiers and operators, dropping `,`.
 
     Sequence is written `a, b` in an `ORDER` and by juxtaposition in an `ere`, and
     the two mean the same thing, so one parser reads both once the comma is gone.
+
+    Args:
+        text: An `ORDER` clause, an `ere`, or one mapping row's `order_symbol`.
+
+    Returns:
+        The tokens in source order: identifiers and the operators `( ) | * + ?`.
     """
     tokens: list[str] = []
     for match in re.finditer(r"[A-Za-z_$][\w$]*|[()|*+?,]", text):
@@ -136,7 +158,23 @@ class ParseError(Exception):
 
 
 def parse_expression(text: str) -> tuple:
-    """`alt := cat ('|' cat)*`, `cat := postfix+`, `postfix := atom [*+?]*`."""
+    """Parse a regular expression into a syntax tree.
+
+    The grammar is `alt := cat ('|' cat)*`, `cat := postfix+`,
+    `postfix := atom [*+?]*` -- every form an `ORDER` and an `ere` share.
+
+    Args:
+        text: The expression, in either notation.
+
+    Returns:
+        A nested tuple headed by its node kind: `("sym", name)`, `("eps",)`,
+        `("cat", children)`, `("alt", branches)`, or
+        `("star" | "plus" | "opt", child)`.
+
+    Raises:
+        ParseError: When the expression is unbalanced, ends where a symbol was
+            expected, or places an operator in a symbol's position.
+    """
     tokens = tokenize(text)
     position = 0
 
@@ -197,6 +235,19 @@ def expand_aggregates(node: tuple, aggregates: dict[str, str], seen: frozenset =
     `Ins := Gets | Cons` over `Gets := g1 | g2 | gI` is two levels deep in the
     SecureRandom rule, and a cycle would be a defect in the oracle rather than
     input to trust, so the recursion carries the names it is already inside.
+
+    Args:
+        node: A tree from parse_expression.
+        aggregates: The rule's aggregate definitions, unexpanded.
+        seen: Aggregate names the recursion is already inside, for cycle detection.
+
+    Returns:
+        The same tree with every aggregate leaf replaced by its parsed and
+        expanded definition; leaves naming base events are returned untouched.
+
+    Raises:
+        ParseError: When an aggregate is defined in terms of itself, or when a
+            definition does not parse.
     """
     kind = node[0]
     if kind == "sym":
@@ -216,6 +267,15 @@ def expand_aggregates(node: tuple, aggregates: dict[str, str], seen: frozenset =
 
 
 def symbols_of(node: tuple) -> set[str]:
+    """Collect every leaf symbol of a parsed expression.
+
+    Args:
+        node: A tree from parse_expression, aggregates already expanded.
+
+    Returns:
+        The distinct symbol names. The empty word contributes none, so an
+        expression that only matches epsilon yields the empty set.
+    """
     kind = node[0]
     if kind == "sym":
         return {node[1]}
@@ -231,7 +291,14 @@ def symbols_of(node: tuple) -> set[str]:
 
 @dataclass
 class Nfa:
-    """A Thompson construction: epsilon moves plus one symbol move per edge."""
+    """A Thompson construction: epsilon moves plus one symbol move per edge.
+
+    Attributes:
+        transitions: Per state, the symbol-labelled moves out of it.
+        epsilons: Per state, the states reachable without consuming a symbol.
+        start: Index of the initial state.
+        accepting: Indices of the accepting states.
+    """
 
     transitions: list[dict[str, set[int]]] = field(default_factory=list)
     epsilons: list[set[int]] = field(default_factory=list)
@@ -239,17 +306,29 @@ class Nfa:
     accepting: set[int] = field(default_factory=set)
 
     def state(self) -> int:
+        """Add a fresh state and return its index."""
         self.transitions.append({})
         self.epsilons.append(set())
         return len(self.transitions) - 1
 
     def edge(self, source: int, symbol: str, target: int) -> None:
+        """Add a move from `source` to `target` labelled `symbol`."""
         self.transitions[source].setdefault(symbol, set()).add(target)
 
     def epsilon(self, source: int, target: int) -> None:
+        """Add a move from `source` to `target` that consumes nothing."""
         self.epsilons[source].add(target)
 
     def closure(self, states: frozenset[int]) -> frozenset[int]:
+        """Expand a state set along epsilon moves until it stops growing.
+
+        Args:
+            states: The states reached by consuming one symbol.
+
+        Returns:
+            Those states plus everything reachable from them without consuming
+            another, which is the subset construction's unit of work.
+        """
         stack = list(states)
         reached = set(states)
         while stack:
@@ -262,12 +341,22 @@ class Nfa:
 
 
 def nfa_of_expression(node: tuple, translate=None) -> Nfa:
-    """Thompson's construction over the expression, one fragment per node.
+    """Build an NFA from a parsed expression, one Thompson fragment per node.
 
-    `translate` maps a leaf symbol to the set of alphabet symbols that stand for
-    it -- the mapping's non-bijection, applied at the only place it matters. An
-    empty set is the `order-unmapped` erasure: the leaf becomes an epsilon move,
-    so the event disappears from the language instead of failing the comparison.
+    Args:
+        node: A tree from parse_expression, aggregates already expanded.
+        translate: Maps a leaf symbol to the set of alphabet symbols that stand
+            for it -- the mapping's non-bijection, applied at the only place it
+            matters. An empty set is the `order-unmapped` erasure: the leaf
+            becomes an epsilon move, so the event disappears from the language
+            instead of failing the comparison. None leaves symbols as they are.
+
+    Returns:
+        An NFA with a single start and a single accepting state.
+
+    Raises:
+        ParseError: When the tree carries a node kind the construction has no
+            fragment for.
     """
     nfa = Nfa()
 
@@ -323,7 +412,14 @@ def nfa_of_expression(node: tuple, translate=None) -> Nfa:
 
 @dataclass
 class Dfa:
-    """A total deterministic automaton: every state answers for every symbol."""
+    """A total deterministic automaton: every state answers for every symbol.
+
+    Attributes:
+        alphabet: The symbols every state has a row for, sorted.
+        transitions: Per state, one target per alphabet symbol.
+        accepting: Indices of the accepting states.
+        start: Index of the initial state.
+    """
 
     alphabet: tuple[str, ...]
     transitions: list[dict[str, int]]
@@ -332,11 +428,20 @@ class Dfa:
 
 
 def determinize(nfa: Nfa, alphabet: tuple[str, ...]) -> Dfa:
-    """Subset construction, with the dead state made explicit.
+    """Determinise an NFA by subset construction, dead state made explicit.
 
     Totality is not decoration here: an `fsm` accuses precisely by *not* having a
     transition, so the sink that a missing transition leads to is part of what is
     being compared.
+
+    Args:
+        nfa: The automaton to determinise.
+        alphabet: The symbols to build a row for. Both sides of a comparison are
+            determinised over the same one, which is what makes the product walk
+            in difference_witness well defined.
+
+    Returns:
+        A total DFA whose state 0 is the epsilon closure of the NFA's start.
     """
     start = nfa.closure(frozenset({nfa.start}))
     index = {start: 0}
@@ -362,11 +467,20 @@ def determinize(nfa: Nfa, alphabet: tuple[str, ...]) -> Dfa:
 
 
 def difference_witness(left: Dfa, right: Dfa) -> tuple[str, ...] | None:
-    """The shortest word the two disagree on, or None when they agree.
+    """Find the shortest word the two automata disagree on.
 
     Breadth-first over the product, so the word that comes back is the shortest
     one -- a three-symbol counterexample is something a reader can check against
     the rule by hand, and a thirty-symbol one is another opaque verdict.
+
+    Args:
+        left: One total DFA.
+        right: The other, determinised over the same alphabet.
+
+    Returns:
+        The shortest symbol sequence one accepts and the other rejects, or None
+        when the two accept the same language. An empty tuple means they already
+        disagree on the empty word.
     """
     alphabet = left.alphabet
     start = (left.start, right.start)
@@ -391,6 +505,16 @@ def difference_witness(left: Dfa, right: Dfa) -> tuple[str, ...] | None:
 
 
 def accepts(dfa: Dfa, word: tuple[str, ...]) -> bool:
+    """Run a word through a DFA and report whether it lands in an accepting state.
+
+    Args:
+        dfa: A total automaton from determinize.
+        word: The symbols to consume, in order.
+
+    Returns:
+        False as soon as a symbol falls outside the alphabet the automaton was
+        determinised over, since no state answers for it.
+    """
     state = dfa.start
     for symbol in word:
         if symbol not in dfa.alphabet:
@@ -404,6 +528,21 @@ def accepts(dfa: Dfa, word: tuple[str, ...]) -> bool:
 
 @dataclass(frozen=True)
 class MapRow:
+    """One association between a `.mop` event and the `ORDER` symbols it stands for.
+
+    Attributes:
+        spec: Specification stem the row belongs to.
+        mop_event: Event name as the `.mop` declares it.
+        order_symbol: The rule symbol, or an expression over rule symbols, the
+            event stands for. Empty when the row records an erasure.
+        symbol_kind: `event` or `aggregate` -- which side of the mapping's
+            non-bijection the row is on. Empty on an erasure row.
+        rule: File name of the api30 rule the specification is compared against.
+        disposition: `mapped` for an ordinary association; `order-unmapped`
+            erases the event from both languages before the comparison.
+        reason: Why the association or the erasure was decided, in prose.
+    """
+
     spec: str
     mop_event: str
     order_symbol: str
@@ -414,12 +553,21 @@ class MapRow:
 
 
 def read_map(path: Path) -> dict[str, list[MapRow]]:
-    """The versioned mapping, by specification.
+    """Read the versioned alphabet mapping, grouped by specification.
 
     The file carries a header comment enumerating what it covers and what is still
     owed, which is what makes its completeness checkable before the closing task
     claims it -- so the reader drops `#` lines rather than the file dropping the
     comment.
+
+    Args:
+        path: The mapping CSV. A missing file is not an error here: it makes
+            every specification skip with the reason, which is the honest answer
+            for a gate that never infers an association.
+
+    Returns:
+        Specification stem to its rows, in file order. Empty when the file does
+        not exist.
     """
     if not path.is_file():
         return {}
@@ -447,6 +595,18 @@ def read_map(path: Path) -> dict[str, list[MapRow]]:
 
 @dataclass(frozen=True)
 class OrderFinding:
+    """One specification whose automaton and whose rule order different languages.
+
+    Attributes:
+        spec_set: Specification set the `.mop` belongs to.
+        spec: Specification file stem.
+        message: The witness word and which of the two sides accepts it.
+        witness: The shortest disagreeing call sequence, as rule symbols. It is
+            carried apart from the message so a reader can replay it.
+        accepted_by: `the api30 ORDER` or `the specification` -- which side
+            admits the witness, and therefore which side is the accuser.
+    """
+
     spec_set: str
     spec: str
     message: str
@@ -456,6 +616,20 @@ class OrderFinding:
 
 @dataclass
 class OrderRun:
+    """Everything one G-ORDER run produced, skips included.
+
+    The three lists are disjoint and together account for every `.mop` visited.
+    Most of the enumerated universe lands in `skipped`, and that is the designed
+    outcome: a gate that answered green where it never compared anything would be
+    answering about files it never read (INV-INS-140).
+
+    Attributes:
+        passed: `<set>/<spec>` of each specification whose two languages agree.
+        findings: One entry per specification whose languages differ.
+        skipped: `(<set>/<spec>, reason)` for each specification the gate could
+            not decide.
+    """
+
     passed: list[str] = field(default_factory=list)
     findings: list[OrderFinding] = field(default_factory=list)
     skipped: list[tuple[str, str]] = field(default_factory=list)
@@ -466,6 +640,7 @@ class OrderRun:
 
 
 def _automaton_region(source):
+    """The parsed source's `automaton` region, or None when it declares none."""
     return next((region for region in source.regions if region.kind == "automaton"), None)
 
 
@@ -479,7 +654,26 @@ def _match_states(source) -> set[str]:
 
 
 def _fsm_nfa(source, text: str, translate) -> Nfa:
-    """The `fsm` as an NFA over the rule's alphabet, transition by transition."""
+    """Build the `fsm` as an NFA over the rule's alphabet, transition by transition.
+
+    The `fsm` states become NFA states one for one -- there is nothing to
+    construct, since an `fsm` is an automaton already. What the translation adds
+    is the mapping: an edge labelled by a `.mop` event becomes one edge per rule
+    symbol it stands for, or an epsilon move when the event is erased.
+
+    Args:
+        source: The parsed `.mop`, read for its `alias match…` accepting set.
+        text: The neutralised `fsm` block.
+        translate: Maps a `.mop` event to the rule symbols it stands for.
+
+    Returns:
+        An NFA whose start is the first state the block declares, JavaMOP's own
+        convention, and whose accepting set is what the match aliases name.
+
+    Raises:
+        ParseError: When the block declares no state, a transition targets a
+            state that is never declared, or an alias names one.
+    """
     states: dict[str, tuple[int, int]] = {}
     nfa = Nfa()
     declared_order: list[str] = []
@@ -529,13 +723,24 @@ def build_automata(
     rules_root: Path,
     mapping: dict[str, list[MapRow]],
 ) -> tuple[Dfa, Dfa] | str:
-    """The two languages of one specification, or the reason there is no pair.
+    """Build the two languages of one specification, or say why there is no pair.
 
-    Returns `(specified, ordered)` -- the `.mop` automaton and the rule's `ORDER`,
-    both determinised over the same alphabet, both total. Kept separate from the
-    verdict so a reader can ask either language a direct question: whether it
-    accepts `Ins nB nB` is exactly the SecureRandom case, and a gate that only ever
-    reported its own witness could not be checked against a known one.
+    Kept separate from the verdict so a reader can ask either language a direct
+    question: whether it accepts `Ins nB nB` is exactly the SecureRandom case, and
+    a gate that only ever reported its own witness could not be checked against a
+    known one.
+
+    Args:
+        mop: The specification to compare.
+        rules_root: Directory of generated api30 rules.
+        mapping: The alphabet mapping, by specification stem.
+
+    Returns:
+        `(specified, ordered)` -- the `.mop` automaton and the rule's `ORDER`,
+        both determinised over the same alphabet and both total -- or a string
+        naming the reason the pair could not be built. Every such string is a
+        skip reason, never a verdict: no rule, no mapping rows, an incomplete
+        mapping, an unreadable specification, an `ORDER` that does not parse.
     """
     spec = mop.stem
     rows = mapping.get(spec, [])
@@ -617,12 +822,22 @@ def check_specification(
     rules_root: Path,
     mapping: dict[str, list[MapRow]],
 ) -> OrderFinding | str | None:
-    """One specification: a finding, a skip reason, or None when the two agree.
+    """Decide one specification: a finding, a skip reason, or agreement.
 
     Every exit that is not a decision is a skip that says why. The gate is written
     to be run over the whole enumerated universe, most of which has no CrySL rule
     at all, and a gate that answered `green` there would be answering about files
     it never compared (INV-INS-140).
+
+    Args:
+        spec_set: Specification set the `.mop` belongs to, carried into findings.
+        mop: The specification to decide.
+        rules_root: Directory of generated api30 rules.
+        mapping: The alphabet mapping, by specification stem.
+
+    Returns:
+        An OrderFinding when the two languages differ, a string carrying the skip
+        reason when the comparison could not be built, or None when they agree.
     """
     built = build_automata(mop, rules_root, mapping)
     if isinstance(built, str):
@@ -651,7 +866,18 @@ def run(
     rules_root: Path = DEFAULT_RULES,
     map_path: Path = DEFAULT_MAP,
 ) -> OrderRun:
-    """G-ORDER over the enumerated universe, skipping what it cannot decide."""
+    """Run G-ORDER over the enumerated universe, skipping what it cannot decide.
+
+    Args:
+        specs_root: Directory holding the specification sets, one per subdirectory.
+        selection: `"all"` for the enumerated universe, or the name of one set.
+        rules_root: Directory of generated api30 rules.
+        map_path: The alphabet mapping CSV.
+
+    Returns:
+        An OrderRun whose passed, findings and skipped lists together account for
+        every `.mop` visited.
+    """
     mapping = read_map(map_path)
     names = SPECIFICATION_SETS if selection == "all" else (selection,)
     result = OrderRun()
@@ -679,6 +905,16 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the gate from the command line and report its verdict.
+
+    Args:
+        argv: Command-line arguments, or None to read `sys.argv`.
+
+    Returns:
+        1 when any specification's automaton and rule order different languages,
+        0 otherwise. A skip is not a failure: the reasons are printed, and the
+        count is what a reader checks the gate's coverage against.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--specs-root",

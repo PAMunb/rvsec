@@ -1,0 +1,5 @@
+# satisfying c2: the seed handed to the constructor was drawn from a SecureRandom
+bind buf = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r0
+r0.nextBytes(buf)
+new SecureRandom(buf) -> r

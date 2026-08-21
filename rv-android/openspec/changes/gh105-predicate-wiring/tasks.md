@@ -17,7 +17,10 @@ Subagent dispatch (docs/WORKFLOW.md §5):
   against them. 1 before 3-6; 2.1-2.6 AND 2.8 before Group 3 (3.x closes against the 2.8
   mapping); 2.11 MUST land before any `.mop` edit of Groups 3-6 — it snapshots the unmodified
   universe and archives the pre-change *specification-set directory* that task 8.4 diffs against;
-  2.7 lands with 4.1; 2.12 may run parallel to Group 3.
+  2.7 lands with 3.1 — the first migrated file is the trigger INV-INS-141 names, and it is
+  a Group-3 file, not 4.1 (rescheduled 2026-08-20, ratified by the researcher: leaving the
+  INV-INS-128 pytest red from 3.1 to 4.1 is the state D-13 exists to avoid);
+  2.12 may run parallel to Group 3.
   gh104's Group 10 runs in the joint experiment (`experimento-gh104/`) after BOTH changes
   land — its 10.1 checkpoint therefore reads the pytest 2.7 rewrites (INV-INS-141), which is
   the intended final state, not a conflict.
@@ -29,7 +32,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
   named tasks (`c3` by 3.1, `err2` by 3.5) so two parallel subagents cannot both claim the file.
 - Group 4 is ONE PASS PER FILE, not four sequential sweeps: each file's reads, writes,
   accepting-state calls, divergence hunks and trace pair move together, because they are the same
-  edit. 4.1+4.2+2.7 land as ONE atomic commit, before any other Group-4 file. 4.3 (reach probe)
+  edit. 4.1+4.2 land as ONE atomic commit, before any other Group-4 file. 4.3 (reach probe)
   gates entry into Group 5. Files 4.4-4.14 are per-file parallelizable across subagents.
 - Group 5 (wiring) is sequential by chain (topological order) and runs after Group 4 — 5.2/5.3
   consume the `ENCRYPTED` writes that the Cipher file pass relocates. Coupling exceptions: 5.10
@@ -128,7 +131,8 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `test_inv_ins_139_gparam`, `test_inv_ins_140_genericity` (no literal in the name — the
       universe grows in Group 5)
 - [ ] 2.7 Rescope G-PRED to the `jca` lock (INV-INS-141) — lands in the same commit as task
-      4.1. Collateral, all in the same commit: `gh104_gates.py` (`predicate_divergences` wiring,
+      3.1, the first migrated file, which is the trigger the invariant states. Collateral, all
+      in the same commit: `gh104_gates.py` (`predicate_divergences` wiring,
       the `accept_requires` flag computed at `:1189-1190`, the `PREDICATE_CALL` regex at `:516`
       — both hardcoded to `ExecutionContext`); the INV-INS-128 pytest
       (`test_gh104_specset_gates.py:91`) and the census constants above it at `:41-52`
@@ -161,7 +165,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       **specification-set directory** to `backup/gh105-preimage/jca_android/` — that is the
       `--a` side task 8.4 feeds to `gh104_diff_harness.py`, which takes `.mop` set directories
       and regenerates the monitors itself
-- [ ] 2.12 Run `/rv-doc-code scripts/gh105_predicate_graph.py`,
+- [x] 2.12 Run `/rv-doc-code scripts/gh105_predicate_graph.py`,
       `/rv-doc-code scripts/gh105_order_gate.py` and `/rv-doc-code scripts/gh105_param_gate.py`
 
 ## 3. F1 — The 17 orphan accusers (9 specs): fuse the twins, absorb the rest
@@ -203,7 +207,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 - [ ] 4.1 `CipherSpec` (3 reads / 12 writes / 1 accepting-state call), the first migrated file:
       `i2`'s key-origin trichotomy stays ONE composite site emitting at most one report per
       violated clause (INV-INS-133); the `ENCRYPTED` writes relocate here (5.3's `validateAbsent`
-      pair consumes them). Lands together with 2.7 (gate collateral) in one commit
+      pair consumes them). Lands with 4.2 in one commit
 - [ ] 4.2 Add the *not observed* code family to `jca_android/codes.csv` and emit it from the
       first three-valued read; extend `gh104_message_gate.py` (INV-INS-143) — same commit as 4.1
 - [ ] 4.3 **REACH PROBE — the change's blocking condition (design D-12), gates Group 5.** One

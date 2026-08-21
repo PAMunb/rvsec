@@ -513,8 +513,14 @@ class Allowlist:
 # G-2: the orphan split
 # --------------------------------------------------------------------------
 
+# Both substrates, because gh105 migrates the successor set one file at a time:
+# for the length of that change a set legitimately holds `ExecutionContext` sites
+# and `PredicateStore` sites at once, and a gate that knew only the first would
+# report the half it was taught about as the whole (INV-INS-141). The frozen `jca`
+# only ever holds the first, so nothing about its verdicts moves.
 PREDICATE_CALL = re.compile(
-    r"ExecutionContext\s*\.\s*instance\s*\(\s*\)\s*\.\s*validate\s*\(\s*Property\s*\.\s*(\w+)\s*,\s*(\w+)"
+    r"(?:ExecutionContext|PredicateStore)\s*\.\s*instance\s*\(\s*\)\s*\.\s*validate\s*"
+    r"\(\s*Property\s*\.\s*(\w+)\s*,\s*(\w+)"
 )
 
 
@@ -669,7 +675,13 @@ def classify_orphan(
         name = params[index].strip()
         return None if name in ("_", "") else name.split()[-1]
 
-    predicates = PREDICATE_CALL.findall(event.condition)
+    # The guard *and* the body. gh105's F2 pass moves every predicate read out of
+    # `condition(...)` and into the event body, where a failed read can accuse
+    # about what it saw instead of suppressing the transition (INV-INS-133). A
+    # classifier that read only the guard would call every migrated event an
+    # orphan without a clause -- the clause did not go away, it moved.
+    guard = f"{event.condition or ''}\n{event.body or ''}"
+    predicates = PREDICATE_CALL.findall(guard)
     consumed = {argument for _, argument in predicates}
     for predicate, argument in predicates:
         obj = crysl_object(argument)
@@ -681,7 +693,7 @@ def classify_orphan(
             verdict.update(
                 verdict="orphan-with-clause",
                 clause=f"{rule.path.name}:{line} {section} {clause}",
-                why=f"condition() tests Property.{predicate} on {argument} -> {obj}",
+                why=f"the event tests Property.{predicate} on {argument} -> {obj}",
             )
             return verdict
 
@@ -690,7 +702,7 @@ def classify_orphan(
     for argument in event.args:
         if argument in consumed or not re.fullmatch(r"\w+", argument):
             continue
-        if not re.search(rf"\b{re.escape(argument)}\b", event.condition):
+        if not re.search(rf"\b{re.escape(argument)}\b", guard):
             continue
         obj = crysl_object(argument)
         if obj is None:
@@ -1186,8 +1198,12 @@ def run_gates(
     set_name, set_dir = derive_set(monitor)
     specs = parse_set(set_dir) if set_dir else {}
     properties = parse_monitor(monitor)
+    # A set carries REQUIRES clauses when its specifications read predicates at
+    # all -- on either substrate, because gh105 replaces one with the other file by
+    # file and the flag must not flip halfway through the migration.
     accept_requires = bool(specs) and any(
-        "ExecutionContext" in mop.text for mop in specs.values()
+        "ExecutionContext" in mop.text or "PredicateStore" in mop.text
+        for mop in specs.values()
     )
 
     report: dict = {

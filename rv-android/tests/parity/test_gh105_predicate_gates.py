@@ -408,7 +408,11 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
     attribution -- which is why they are the first thing this change absorbs.
 
     The list is asserted by name because the group has one task per file, and a
-    census that only counted would not say which file moved.
+    census that only counted would not say which file moved. It moves as Group 3
+    lands, one file per commit:
+
+    * task 3.1 removed `SecureRandomSpec` whole -- `c3` and `setSeed3` fused into
+      their siblings, `g4` absorbed into the automaton -- taking the count to 14.
     """
     home = _rvsec_home()
     root = home / "rvsec/rvsec-mop/src/main/resources/jca_android"
@@ -428,11 +432,10 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
         "PBEParameterSpecSpec": ("c3",),
         "SSLContextSpec": ("unsafe_protocol",),
         "SecretKeySpecSpec": ("c3", "c4"),
-        "SecureRandomSpec": ("c3", "g4", "setSeed3"),
         "SignatureSpec": ("g3",),
         "TrustManagerFactorySpec": ("g3",),
     }
-    assert sum(len(events) for events in found.values()) == 17
+    assert sum(len(events) for events in found.values()) == 14
 
 
 def test_the_frozen_gcm_specification_is_read_in_both_broken_directions():
@@ -497,13 +500,18 @@ FixtureSpec(Collection c) {
 def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     """The counts this whole change is scoped against, re-derived from source.
 
-    27 reads, every one of them inside a `condition`; 49 writes; 25 accepting-state
-    calls; 9 removals. They are asserted here rather than trusted because every
-    later gate subtracts from them, and a census that drifts silently turns each
-    of those subtractions into a different number than the one that was planned.
+    The change was scoped against 27 reads, every one of them inside a
+    `condition`; 49 writes; 25 accepting-state calls; 9 removals. They are
+    asserted here rather than trusted because every later gate subtracts from
+    them, and a census that drifts silently turns each of those subtractions into
+    a different number than the one that was planned.
 
     The numbers move as the migration lands. When they do, this test is what says
-    which group moved them.
+    which group moved them:
+
+    * task 3.1 fused the two `SecureRandom` twin pairs. Four condition reads on
+      `RANDOMIZED` leave with the guards, one comes back in the fused
+      `setSeed2` body, and the total reads go 27 -> 24 with 23 still guards.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -519,7 +527,8 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 27
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 24
+    assert read_placement.get("condition", 0) == 23
     assert counts.get("write", 0) == 49
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 25
     assert counts.get("remove", 0) + counts.get("negate", 0) == 9
@@ -585,18 +594,23 @@ def test_the_graph_round_trips_over_an_unedited_tree():
 def test_the_graph_reproduces_the_measured_placement_census():
     """The placement distribution this change is scoped against.
 
-    27 reads, every one of them a guard inside `condition(...)`; 42 of 49 writes
-    in event bodies rather than at the acceptance point; 8 of the 9 removals in a
-    `@fail` handler, implementing an undo that no CrySL generation has. These are
-    the four numbers the migration drives to 0, 0, 8 and 1, and they are asserted
-    here so that each group's progress is a diff on this test rather than a claim.
+    The change opened with 27 reads, every one of them a guard inside
+    `condition(...)`; 42 of 49 writes in event bodies rather than at the
+    acceptance point; 8 of the 9 removals in a `@fail` handler, implementing an
+    undo that no CrySL generation has. These are the four numbers the migration
+    drives to 0, 0, 8 and 1, and they are asserted here so that each group's
+    progress is a diff on this test rather than a claim.
+
+    * task 3.1: 23 guards left, and the first body read in the set -- the fused
+      `setSeed2`, which reads the predicate where it can accuse about it.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
-    assert counts.get("read:condition-guard", 0) == 27
+    assert counts.get("read:condition-guard", 0) == 23
+    assert counts.get("read:body", 0) == 1
     assert counts.get("write:body", 0) == 42
     assert counts.get("write:acceptance", 0) == 7
     assert counts.get("remove:fail", 0) == 8
@@ -607,9 +621,13 @@ def test_the_graph_reproduces_the_measured_placement_census():
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
     """A site on an orphan event is a predicate read the ordering never reaches.
 
-    Eight of the seventeen orphans carry predicate sites, and those are the ones
+    Eight of the seventeen orphans carried predicate sites, and those are the ones
     whose fusion changes what the set accuses rather than only where it accuses
     from. Marking membership in the graph is what lets the difference be counted.
+
+    * task 3.1 took the two `SecureRandomSpec` rows out: `c3`'s read left with the
+      guard it was, and `setSeed3`'s moved into the fused `setSeed2` body, where
+      it is a member site and no longer an orphan one.
     """
     rows = read_graph(GRAPH)
     orphan_sites = {(row["file"], row["event"]) for row in rows if row["automaton_membership"] == "orphan"}
@@ -620,8 +638,6 @@ def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
         ("PBEKeySpecSpec.mop", "err3"),
         ("PBEParameterSpecSpec.mop", "c3"),
         ("SecretKeySpecSpec.mop", "c3"),
-        ("SecureRandomSpec.mop", "c3"),
-        ("SecureRandomSpec.mop", "setSeed3"),
     }
 
 
@@ -720,13 +736,14 @@ def _fixture_report(name: str):
     return report, source
 
 
-def test_gacc_reports_the_seventeen_orphans_of_the_derived_set():
-    """G-ACC over the set it governs, before the absorptions land.
+def test_gacc_counts_the_orphans_group_three_has_not_absorbed_yet():
+    """G-ACC over the set it governs, as Group 3 works through it.
 
-    Seventeen findings is the expected state at this point in the change, not a
+    A non-zero count is the expected state at this point in the change, not a
     failure of the gate: the gates are written before the edits that make them
     green, which is what lets each group's landing be measured as a drop in this
-    number rather than asserted.
+    number rather than asserted. Seventeen at the start; 14 after task 3.1 took
+    `SecureRandomSpec` whole. Task 3.7 closes it at zero.
     """
     root = _specs_root()
     report = analyze_set(root / "jca_android")
@@ -734,7 +751,7 @@ def test_gacc_reports_the_seventeen_orphans_of_the_derived_set():
 
     findings = gate_acc(report, sources)
     assert all(finding.gate == "G-ACC" for finding in findings)
-    assert len(findings) == 17
+    assert len(findings) == 14
 
 
 def test_gacc_reports_both_directions_and_the_duplicate_declaration():
@@ -757,15 +774,16 @@ def test_gacc_reports_both_directions_and_the_duplicate_declaration():
 def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     """INV-INS-133 over the set, before the reads move.
 
-    All 27 of them. The gate exists to make the migration's progress a number
-    that goes down, and to make it impossible for the 28th to arrive quietly.
+    All 27 of them when the change opened; 23 after task 3.1's fusions took four
+    guards out. The gate exists to make the migration's progress a number that
+    goes down, and to make it impossible for a new one to arrive quietly.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
 
     findings = gate_placement(report)
     guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
-    assert len(guards) == 27
+    assert len(guards) == 23
 
 
 def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():
