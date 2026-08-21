@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 79,
+    "structural_findings": 77,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -120,11 +120,6 @@
         "jca_android",
         "MessageDigestSpec.mop",
         "d3/DIGESTED"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "c1/SPECCED_KEY"
       ],
       [
         "jca_android",
@@ -373,11 +368,6 @@
       [
         "jca_android",
         "MessageDigestSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
         "ExecutionContext"
       ],
       [

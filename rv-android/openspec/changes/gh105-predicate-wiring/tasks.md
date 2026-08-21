@@ -235,8 +235,16 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 - [x] 4.5 `SecureRandomSpec` (4 reads / 6 writes / 1 call); the `end`-state `next2` omission is
       repaired here (6.3 carries the rest of the pointwise `Signature` work, this one rides its
       own file)
-- [ ] 4.6 `PBEKeySpecSpec` (4 reads / 1 write / 1 call); its `remove()` at `:74` is NOT touched
-      here — 6.4 translates it to `PredicateStore.negate`
+- [x] 4.6 `PBEKeySpecSpec` (measured census after task 3.5: 2 body reads / 1 write / 1 call /
+      1 removal). Its `remove()` — the `clearPassword` withdrawal, the set's one real `NEGATES`
+      translation — IS translated here to `PredicateStore.negate`, brought forward from 6.5
+      (researcher, 2026-08-21): the write it withdraws changes substrate in this pass, so
+      splitting the two would leave the predicate ensured on one store and withdrawn from the
+      other in between, and INV-INS-130 asks the migrated file to name no other substrate. The
+      `ENSURES` write stays in `c1`'s body with a recorded reason — api30 qualifies the clause
+      `after c1`, and an `ere` has no way to name the state after an event (its only alias is
+      `match`, over the accepting states, which here is the state after `c2`) — and rises to the
+      rule's arity
 - [ ] 4.7 `PBEParameterSpecSpec` (3 reads / 1 write / 1 call); the 3-arg `c2` read gains its
       accuser here (`randomized[salt]`)
 - [ ] 4.8 `GCMParameterSpecSpec` (2 reads / 1 write / 1 call); `c1`/`c2` gain their accusers
@@ -349,10 +357,12 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `KeyGeneratorSpec.mop:89`. They implement "undo the predicate when the automaton fails", a
       semantics no CrySL generation has, and couple typestate to predicate against the rule's
       own orthogonality
-- [ ] 6.5 Translate the ninth removal, `PBEKeySpecSpec.mop:74` (`clearPassword`, the one real
-      `NEGATES` clause), to `PredicateStore.negate`, object-scoped; record the
-      `SecretKey generatedKey[this,_] after d` NEGATES as `unclosable` — the set has no `destroy`
-      event, and inventing one would fabricate the evidence this change exists to remove
+- [ ] 6.5 Record the `SecretKey generatedKey[this,_] after d` NEGATES as `unclosable` — the set
+      has no `destroy` event, and inventing one would fabricate the evidence this change exists
+      to remove. The ninth removal (`PBEKeySpecSpec`, `clearPassword`, the one real `NEGATES`
+      clause) was translated to `PredicateStore.negate`, object-scoped, by task 4.6 — it moved
+      with the file pass that migrated the write it withdraws, so this task verifies it rather
+      than performing it
 - [ ] 6.6 `CipherSpec` `f1`/`f2` (pointcuts at `:135` and `:141`; the `event` declarations sit at
       `:134`/`:140`): both match the argument-less call — one call, two transitions; make the
       wider pointcut disjoint (two-events-same-call scenario)

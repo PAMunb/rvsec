@@ -3,7 +3,8 @@ package mop;
 import javax.crypto.spec.PBEKeySpec;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
@@ -15,8 +16,6 @@ import br.unb.cic.mop.Property;
  * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/PBEKeySpec.crysl
  */
 PBEKeySpecSpec(PBEKeySpec s) {
-
-        PBEKeySpec spec;
 
         // `f1` and `f2` are absorbed, not fused: each accuses a constructor the
         // rule FORBIDS outright, which is a report of its own and not the negation
@@ -62,14 +61,41 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // reports, and the `clearPassword()` that followed drew a fourth, because the
         // failing `c1` had never moved the monitor off `start`.
         //
+        // Two of the three tests are predicate reads and each carries a three-valued
+        // verdict, because the two accusing outcomes are different claims: VIOLATED
+        // is positive evidence that the array carries a randomisation predicate that
+        // was withdrawn, while NOT_OBSERVED says only that no randomised source of it
+        // was ever seen -- on Android as often a reach limit of the instrumentation as
+        // a misuse. Both messages already said the second thing; the split makes the
+        // code say what the message always meant.
+        //
         // The middle clause has no rule behind it and is kept unchanged. api30
         // REQUIRES `randomized[salt]` and says nothing about the password; the
         // CONSTRAINTS clause about the password is `neverTypeOf(password,
         // java.lang.String)`, which is not what PBEKEYSPEC-CONSTR-01 tests. That was
-        // the standing allow-list finding against `err2`, and the fusion moves the
+        // the standing allow-list finding against `err2`, and the fusion moved the
         // accusation without repairing it: dropping it or moving it to the salt
-        // changes what the set accuses, which is a behavioural change this task does
-        // not make. It is recorded in divergence_record.csv instead.
+        // changes what the set accuses, which is a behavioural change no task of this
+        // migration makes. It is recorded in divergence_record.csv instead. Reading it
+        // three-valued as well is a decision of its own (researcher, 2026-08-21): the
+        // site accuses the same constructions with the same message, and a site that
+        // cannot say which of the two verdicts it saw, next to a sibling that can,
+        // would be the odd one out for no reason the rule gives.
+        //
+        // Where the write lands, and why it stays here (INV-INS-134's recorded
+        // reason). api30 qualifies the clause -- `speccedKey[this, keylength] after
+        // c1` -- so the acceptance point is the state `c1` leads to. This file states
+        // its automaton as an `ere`, and the ERE plugin generates exactly one alias,
+        // `match`, over the accepting states: here that is the state after `c2`, which
+        // is where the rule NEGATES the predicate rather than ensuring it. Naming the
+        // post-`c1` state needs the `fsm` notation, and making it a `match` alias
+        // would also make the specification accept `c1` alone -- a sequence the rule's
+        // `ORDER c1, cP` rejects, measured against the gate's own DFA. Measured on the
+        // other side: no constructible program makes this transition fail for the
+        // object it binds, because the constructor returns a fresh object each call
+        // and `f1`/`f2` are loops, so the body and the state after it coincide on
+        // every trace. The write stays here with this reason recorded in
+        // predicate_graph.csv, at the rule's arity: the object and the key length.
         event c1 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
           call(public PBEKeySpec.new(char[], byte[], int, int)) &&
           args(password, salt, iterationCount, keyLength) {
@@ -79,26 +105,47 @@ PBEKeySpecSpec(PBEKeySpec s) {
                    "v=1 code=PBEKEYSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='" + iterationCount + "' exp='>= 10000' msg='the third argument should be >= 10000'"));
                conforms = false;
            }
-           if (!ExecutionContext.instance().validate(Property.RANDOMIZED, password)) {
+           PredicateVerdict randomisedPassword = PredicateStore.instance().validate(Property.RANDOMIZED, password);
+           if (randomisedPassword == PredicateVerdict.VIOLATED) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
-                   "v=1 code=PBEKEYSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'"));
+                   "v=1 code=PBEKEYSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument carries a randomization predicate the rule does not admit'"));
                conforms = false;
            }
-           if (!ExecutionContext.instance().validate(Property.RANDOMIZED, salt)) {
+           else if (randomisedPassword == PredicateVerdict.NOT_OBSERVED) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
-                   "v=1 code=PBEKEYSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument was not observed to come from a randomized source'"));
+                   "v=1 code=PBEKEYSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'"));
+               conforms = false;
+           }
+           PredicateVerdict randomisedSalt = PredicateStore.instance().validate(Property.RANDOMIZED, salt);
+           if (randomisedSalt == PredicateVerdict.VIOLATED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
+                   "v=1 code=PBEKEYSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument carries a randomization predicate the rule does not admit'"));
+               conforms = false;
+           }
+           else if (randomisedSalt == PredicateVerdict.NOT_OBSERVED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
+                   "v=1 code=PBEKEYSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument was not observed to come from a randomized source'"));
                conforms = false;
            }
            if (conforms) {
-               spec = s;
-               ExecutionContext.instance().setProperty(Property.SPECCED_KEY, spec);
+               PredicateStore.instance().ensure(Property.SPECCED_KEY, s, keyLength);
            }
         }
 
+        // The one real NEGATES clause of the set: `speccedKey[this, _] after cP`, at
+        // the event the rule names. It reaches the new substrate here rather than in
+        // its own later task, because the write it withdraws is in this file and moved
+        // in this pass: a translation split across two tasks would leave the predicate
+        // ensured on one substrate and withdrawn from the other, so the withdrawal
+        // would be a no-op in between (researcher, 2026-08-21). The store remembers
+        // the withdrawal instead of forgetting the entry, so a later read of a cleared
+        // spec answers VIOLATED rather than NOT_OBSERVED -- which is what the clause
+        // states. Nothing reads SPECCED_KEY in any set today, so the difference is
+        // recorded rather than measured.
         event c2 after(PBEKeySpec s):
 	      call(public void PBEKeySpec.clearPassword()) &&
           target(s) {
-            ExecutionContext.instance().remove(Property.SPECCED_KEY, s);
+            PredicateStore.instance().negate(Property.SPECCED_KEY, s);
         }
 
         // The Kleene groups are where `f1` and `f2` are absorbed. Erased before the
@@ -121,8 +168,10 @@ PBEKeySpecSpec(PBEKeySpec s) {
           __RESET;
         }
 
-        @match {
-          ExecutionContext.instance().setObjectAsInAcceptingState(spec);
-        }
+        // The `@match` handler that stood here held nothing but the accepting-state
+        // bookkeeping the new substrate does not offer and the set never read
+        // (INV-INS-147), and the `spec` field existed only to carry the object into
+        // it. Both go: the write the rule does ask for names the object the event
+        // already binds.
 
 }

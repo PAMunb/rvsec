@@ -559,6 +559,19 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       writes with a recorded reason, which is what INV-INS-134 asks of a write left
       off the acceptance point; task 5.5 owns them. The accepting-state calls go
       23 -> 22 (INV-INS-147).
+    * task 4.6 migrated `PBEKeySpecSpec`. The reads stay at 18 and the guards at 8 --
+      task 3.5 had already brought both of `c1`'s reads into its body when it fused the
+      three twins -- and the writes stay at 38, because the one write does not move:
+      api30 qualifies the clause `speccedKey[this, keylength] after c1`, the file states
+      its automaton as an `ere` whose only alias is `match` over the accepting states,
+      and here that is the state after `c2`, where the rule negates the predicate. The
+      write keeps its body placement with the reason recorded, and rises to the rule's
+      arity. Two numbers do move: the accepting-state calls go 22 -> 21, because the
+      `@match` handler held nothing else and goes with them (INV-INS-147), and the nine
+      removals stay nine while one of them changes species -- the `clearPassword`
+      withdrawal is the set's one real `NEGATES` translation and reaches the new store
+      here rather than at task 6.5, so that the predicate is not ensured on one
+      substrate and withdrawn from the other in between.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -577,7 +590,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 18
     assert read_placement.get("condition", 0) == 8
     assert counts.get("write", 0) == 38
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 22
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 21
     assert counts.get("remove", 0) + counts.get("negate", 0) == 9
 
 
@@ -681,6 +694,16 @@ def test_the_graph_reproduces_the_measured_placement_census():
       two rows that stay `write:body` are `next1` and `next3`, and they stay because
       their `reason` column is filled, not because the gate missed them. The
       bookkeeping calls go 23 -> 22.
+    * task 4.6: no placement moves again, for a reason of its own. `PBEKeySpecSpec`'s
+      two reads were already body reads after task 3.5, and its write stays in the body
+      with a recorded reason: api30 qualifies the clause `after c1`, and an `ere` has no
+      way to name the state that follows an event -- its only alias is `match` over the
+      accepting states, which here is the state after `c2`, where the rule negates the
+      predicate. So `write:body` stays 27, `write:acceptance` stays 11, and the guards
+      and body reads stay at 8 and 10. What moves is the bookkeeping, 22 -> 21, and the
+      species of one removal: `remove:body` becomes `negate:body`, the set's one real
+      `NEGATES` translation, brought forward from task 6.5 so that no window exists in
+      which the write is on one substrate and the withdrawal on the other.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -692,8 +715,8 @@ def test_the_graph_reproduces_the_measured_placement_census():
     assert counts.get("write:body", 0) == 27
     assert counts.get("write:acceptance", 0) == 11
     assert counts.get("remove:fail", 0) == 8
-    assert counts.get("remove:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 22
+    assert counts.get("negate:body", 0) == 1
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 21
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
