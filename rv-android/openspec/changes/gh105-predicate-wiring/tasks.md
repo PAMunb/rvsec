@@ -245,7 +245,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `after c1`, and an `ere` has no way to name the state after an event (its only alias is
       `match`, over the accepting states, which here is the state after `c2`) — and rises to the
       rule's arity
-- [ ] 4.7 `PBEParameterSpecSpec` (3 reads / 1 write / 1 call); the 3-arg `c2` read gains its
+- [x] 4.7 `PBEParameterSpecSpec` (3 reads / 1 write / 1 call); the 3-arg `c2` read gains its
       accuser here (`randomized[salt]`)
 - [ ] 4.8 `GCMParameterSpecSpec` (2 reads / 1 write / 1 call); `c1`/`c2` gain their accusers
       (`randomized[src]`)

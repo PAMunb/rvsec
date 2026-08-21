@@ -1,0 +1,11 @@
+# The three-argument constructor, which no trace of the corpus reached until now:
+# `PBEParameterSpec(salt, iterationCount, paramSpec)` is api30's `c2`, and the file
+# binds it in an event of its own. The count satisfies the CONSTRAINTS clause and
+# the salt does not satisfy `randomized[salt]` -- `bytes` is a plain byte[] that
+# nothing randomises -- so this is the violating half of the pair for that read.
+#
+# The third argument is bound silently: an AlgorithmParameterSpec has to exist for
+# the overload to resolve, and firing IvParameterSpec's own events would put a
+# second specification's reports in the envelope of a trace about this one.
+bind params = new IvParameterSpec(bytes(16))
+new PBEParameterSpec(bytes, 10000, params) -> spec

@@ -1,0 +1,10 @@
+# A three-argument construction whose salt is randomised and whose iteration count
+# is below the api30 CONSTRAINTS bound. The 2-argument sibling of this program
+# (PBEParameterSpecSpec-lowiter.txt) is accused; this one is the trace that shows
+# what the `c2` guard does with the same defect, and it is the trace that separates
+# the two dispositions the guard can receive.
+bind salt = bytes(16)
+bind params = new IvParameterSpec(bytes(16))
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(salt)
+new PBEParameterSpec(salt, 1000, params) -> spec

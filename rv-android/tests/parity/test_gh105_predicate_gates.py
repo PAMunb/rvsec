@@ -572,6 +572,15 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       withdrawal is the set's one real `NEGATES` translation and reaches the new store
       here rather than at task 6.5, so that the predicate is not ensured on one
       substrate and withdrawn from the other in between.
+    * task 4.7 migrated `PBEParameterSpecSpec`. The guards go 8 -> 7: `c2`'s read is the
+      first to leave `condition(...)` because the migration asked it to since task 4.1,
+      and it left with the CONSTRAINTS check that shared the guard with it, measured in
+      the generated monitor to suppress the transition ahead of `handleEvent`. The reads
+      stay at 18 and the writes at 38 -- the `ENSURES` write does not move, because
+      api30 states `preparedPBE[this]` with no `after L` and the acceptance point of an
+      `ere` is what `@match` names. The accepting-state calls go 21 -> 20, and the
+      predicate becomes the first of the nine `ENSURES`-only dead ends to carry its
+      deliberate-omission record (INV-INS-137), which is what closes its G-PRED2 row.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -588,9 +597,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 18
-    assert read_placement.get("condition", 0) == 8
+    assert read_placement.get("condition", 0) == 7
     assert counts.get("write", 0) == 38
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 21
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 20
     assert counts.get("remove", 0) + counts.get("negate", 0) == 9
 
 
@@ -704,19 +713,26 @@ def test_the_graph_reproduces_the_measured_placement_census():
       species of one removal: `remove:body` becomes `negate:body`, the set's one real
       `NEGATES` translation, brought forward from task 6.5 so that no window exists in
       which the write is on one substrate and the withdrawal on the other.
+    * task 4.7: the first placement move since task 4.1. `PBEParameterSpecSpec.c2`'s
+      read leaves `condition(...)` for its body, so the guards go 8 -> 7 and the body
+      reads 10 -> 11. The write does not move: api30 states `preparedPBE[this]` with no
+      `after L`, so its acceptance point is the accepting state, which in an `ere` is
+      what `@match` names -- `write:acceptance` stays 11 and `write:body` stays 27. The
+      bookkeeping goes 21 -> 20, and one row gains a `disposition` for the first time
+      in the graph's life: `omission`, for the predicate no rule of the oracle requires.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
-    assert counts.get("read:condition-guard", 0) == 8
-    assert counts.get("read:body", 0) == 10
+    assert counts.get("read:condition-guard", 0) == 7
+    assert counts.get("read:body", 0) == 11
     assert counts.get("write:body", 0) == 27
     assert counts.get("write:acceptance", 0) == 11
     assert counts.get("remove:fail", 0) == 8
     assert counts.get("negate:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 21
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 20
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
@@ -890,16 +906,18 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     three `PBEKeySpecSpec` twins; 11 after task 3.6 fused `PBEParameterSpecSpec`'s;
     8 after task 4.1 moved `CipherSpec.i2`'s three key-origin probes into the body,
     the first reads to move because the migration asked them to rather than because
-    a fusion took their event away. The gate exists to make the migration's progress
-    a number that goes down, and to make it impossible for a new one to arrive
-    quietly.
+    a fusion took their event away; 7 after task 4.7 moved `PBEParameterSpecSpec.c2`'s
+    read of the salt, the last guard read of that file and the one whose guard was
+    measured, in the generated monitor, to `return false` ahead of `handleEvent`. The
+    gate exists to make the migration's progress a number that goes down, and to make
+    it impossible for a new one to arrive quietly.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
 
     findings = gate_placement(report)
     guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
-    assert len(guards) == 8
+    assert len(guards) == 7
 
 
 def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():

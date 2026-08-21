@@ -1,0 +1,12 @@
+# The satisfying half of the three-argument pair: the salt comes out of
+# `SecureRandom.nextBytes`, which is what api30 `randomized[salt]` asks for, and
+# the count is at the bound. Nothing should be accused.
+#
+# This is also where the chain shows: `SecureRandomSpec.next2` writes RANDOMIZED
+# on the new substrate since task 4.5, so once this file's read moves to the same
+# substrate the verdict here is SATISFIED rather than NOT_OBSERVED.
+bind salt = bytes(16)
+bind params = new IvParameterSpec(bytes(16))
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(salt)
+new PBEParameterSpec(salt, 10000, params) -> spec

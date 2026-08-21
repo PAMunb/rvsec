@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 77,
+    "structural_findings": 74,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -33,11 +33,6 @@
         "jca_android",
         "MacSpec.mop",
         "i2/GENERATED_KEY"
-      ],
-      [
-        "jca_android",
-        "PBEParameterSpecSpec.mop",
-        "c2/RANDOMIZED"
       ],
       [
         "jca_android",
@@ -265,11 +260,6 @@
       ],
       [
         "jca_android",
-        "PBEParameterSpecSpec.mop",
-        "match/PREPARED_PBE"
-      ],
-      [
-        "jca_android",
         "SSLContextSpec.mop",
         "engine/GENERATE_SSL_ENGINE"
       ],
@@ -368,11 +358,6 @@
       [
         "jca_android",
         "MessageDigestSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "PBEParameterSpecSpec.mop",
         "ExecutionContext"
       ],
       [

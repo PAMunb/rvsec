@@ -38,8 +38,13 @@ PBEKeySpecSpec,PBEKEYSPEC-NOBS-00,UnsatisfiedConstraint,NOBS,c1,PBEKeySpecSpec.m
 PBEKeySpecSpec,PBEKEYSPEC-CONSTR-02,UnsatisfiedConstraint,CONSTR,c1,PBEKeySpecSpec.mop:121
 PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,UnsatisfiedConstraint,NOBS,c1,PBEKeySpecSpec.mop:126
 PBEKeySpecSpec,PBEKEYSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,PBEKeySpecSpec.mop:166
-PBEParameterSpecSpec,PBEPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,PBEParameterSpecSpec.mop:47
-PBEParameterSpecSpec,PBEPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,PBEParameterSpecSpec.mop:68
+PBEParameterSpecSpec,PBEPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,PBEParameterSpecSpec.mop:57
+PBEParameterSpecSpec,PBEPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,PBEParameterSpecSpec.mop:63
+PBEParameterSpecSpec,PBEPARAMETERSPEC-NOBS-00,UnsatisfiedConstraint,NOBS,c1,PBEParameterSpecSpec.mop:68
+PBEParameterSpecSpec,PBEPARAMETERSPEC-CONSTR-02,UnsatisfiedConstraint,CONSTR,c2,PBEParameterSpecSpec.mop:106
+PBEParameterSpecSpec,PBEPARAMETERSPEC-CONSTR-03,UnsatisfiedConstraint,CONSTR,c2,PBEParameterSpecSpec.mop:112
+PBEParameterSpecSpec,PBEPARAMETERSPEC-NOBS-01,UnsatisfiedConstraint,NOBS,c2,PBEParameterSpecSpec.mop:117
+PBEParameterSpecSpec,PBEPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,PBEParameterSpecSpec.mop:129
 SSLContextSpec,SSLCONTEXT-PROTO-00,UnsafeProtocol,PROTO,init,SSLContextSpec.mop:91
 SSLContextSpec,SSLCONTEXT-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SSLContextSpec.mop:118
 SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,SecretKeySpecSpec.mop:46
