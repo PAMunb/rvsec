@@ -8,9 +8,10 @@ uses wildcard imports (`java.util.*`), and wildcard method names (`add*`). Resul
 
 This design implements **decision A2** (subtype match at match-time via `FastHierarchy.canStoreType`),
 keeps the **output schema unchanged** (decision B), and scopes the change to **matching + rebuild +
-tests** (decision C). It builds on the `TargetMethod`/`MatchPolicy`/`TargetResolver`/`MopSpecsTargetSource`
+tests** — a scoping choice recorded here rather than as a lettered decision (an earlier draft called it
+"decision C"; no such decision was ever written, so the label is dropped). It builds on the `TargetMethod`/`MatchPolicy`/`TargetResolver`/`MopSpecsTargetSource`
 abstraction from gh60-targets-core (INV-ANA-33/35) and the Soot 4.7.1 baseline (INV-ANA-18). Full
-ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§14.
+ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§15.
 
 ## Architecture
 
@@ -86,7 +87,14 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
 - **Seeding the implicit `java.lang` package / repairing the `RandomStringPassword` false-negative**
   (D5, INV-ANA-40 scope boundary (c)). The repair needs owner visibility *plus* a STRICT policy for that
   target *plus* FQN parameter resolution; done piecemeal it degrades the `jca` measurement instead of
-  improving it. Deferred to its own change (task 5.6).
+  improving it. Deferred to its own change (task 5.6). **This is the one non-goal on the list that
+  leaves a High risk standing — RISK-013**: `RandomStringPasswordSpec` is 1 of the 23 `jca` specs and
+  contributes zero static targets, so every `cov_reaches_target` published from the frozen set was
+  computed over 22 of 23. Deferring the *measurement* repair is the right call (the half-repair is
+  measurably worse: 74 call sites, 17 woven, 57 false positives); deferring the *visibility* is not,
+  and this change does not — task 1.3(b) turns the silent drop into a logged skip, and task 1.5 asserts
+  it stays logged. Read this non-goal together with `risk-register.md` RISK-013 before treating it as
+  routine.
 - **Resolving pointcut parameter types to FQN** (`UsedJcaMethodsVisitor.getParams`). After this change an
   owner resolves (`java.util.Map`) while its parameters keep the simple names the pointcut wrote (`Map`,
   `Object`), because `getParams` consults only the explicit-import map. This is inert for matching — MOP
@@ -98,7 +106,14 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
   whose only pointcut is `staticinitialization(Owner+)` (`Collection_HashCode`,
   `Serializable_NoArgConstructor`, `URLConnection_OverrideGetPermission`) emit zero static targets, and
   the 3 constructor pointcuts `call(Owner.new(..))` (`ServerSocket.new` ×2, `TreeMap.new`) are not
-  extracted (Soot `<init>` mapping not implemented). Net static coverage is 24/27 specs; the runtime
+  extracted (Soot `<init>` mapping not implemented). **What is in scope is suppressing them.** The
+  javamop grammar routes `.new` through `MethodPointCut` (`aspectj.jj:1730-1737`: `"." <NEW>` sets
+  `owner = retType`, `name = "new"`), and nothing rejects it today — the corpus yields nothing only
+  because every `generic_new` import is an asterisk import, leaving the `imports` map empty. Register
+  wildcard packages without adding the skip and these pointcuts start emitting a `MopMethod` named
+  `new`, a target no Soot method can match, quietly breaking the 67/66 cardinality gate. So the Non-Goal
+  is the `new`→`<init>` *mapping*; the explicit skip in task 1.3(d) is a requirement.
+  Net static coverage is 24/27 specs; the runtime
   monitor still covers all 27. See INV-ANA-40 scope boundary.
 
 ## Decisions
@@ -149,8 +164,10 @@ part has no dot resolves to no class and no method, so those lines are counted i
 attribution is therefore **partial for `generic_new`**, i.e. exactly for the spec set gh69 enables. B
 still holds — the static layer should not grow per-spec keys — but the "attribution already lives at
 runtime" justification is weaker here than for `jca` and must not be cited as though it were complete. Adding a per-spec
-`targetSummary` to the JSON is unnecessary and the destructive variant would silently break the ape
-`opt*` parser. Alternative (additive `targetSummary`) rejected as unneeded complexity (P1).
+`targetSummary` to the JSON is unnecessary. The destructive variant would break the raw-JSON readers —
+and the sharpest of them is `derive_mop_artifact.py:422` (`method.get("reachesTarget") is True`), which
+degrades a rename to a silent `False`. An earlier draft cited the ape `opt*` parser here; that was
+wrong, since `MopData.java` reads the *derived* `*.mop.json` and never this artefact. Alternative (additive `targetSummary`) rejected as unneeded complexity (P1).
 
 **D4 — Name-pattern matching: trailing-`*` prefix semantics, including the bare `*`.** The wildcard
 method names in `generic_new` are **8** (verified by grep — the earlier "only 3" was wrong): `add*`,
@@ -282,6 +299,10 @@ an oversight.
   the IT on the real `RvsecAnalysisClient` scene before any sweep.
 - **`canStoreType` cost in the scan** → O(1) amortized in `FastHierarchy`; the scan already iterates all
   invokes. Measured in the IT.
+- **The reverse BFS inherits a much larger seed set** → `resolveInScene` iterates `Scene.v().getClasses()`, so a quasi-universal owner makes it seed with every matching library method
+  rather than the ~120 JCA ones, and `ReachabilityEngine.multiSourceBfs` runs from that. It is the
+  stage that grows least visibly, so the INV-ANA-42 cost bound and task 4.8 time the BFS alongside the
+  two match points.
 - **`resolveInScene` loses its `equals(fqn)` fast-reject** for subtype targets → it iterates
   `Scene.getClasses()` × methods × targets, and with `includeSubtypes` the per-pair cost rises from a
   string-equal to a `canStoreType`. Mitigated by ordering `nameMatches` before `canStoreType` (name

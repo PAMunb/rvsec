@@ -21,14 +21,19 @@ the cross-module rebuild and the external hierarchy API introduce.
 | Risk Level | Total | Open | Accepted | Largely mitigated | Closed by design |
 |------------|-------|------|----------|-------------------|------------------|
 | Critical | 0 | 0 | 0 | 0 | 0 |
-| High | 3 | 2 (001, 009) | 0 | 0 | 1 (011) |
-| Medium | 6 | 4 (002, 003, 007, 012) | 2 (004, 010) | 0 | 0 |
+| High | 5 | 2 (001, 009) | 2 (004, 013) | 0 | 1 (011) |
+| Medium | 5 | 4 (002, 003, 007, 012) | 1 (010) | 0 | 0 |
 | Low | 3 | 2 (005, 006) | 0 | 1 (008) | 0 |
-| **Total** | **12** | **8** | **2** | **1** | **1** |
+| **Total** | **13** | **8** | **3** | **1** | **1** |
 
-The count of 12 is unchanged; what changed on 2026-08-21 is that the Level column now means *inherent*
-risk consistently, and disposition moved to its own columns. Reading "Total 12" as a count of live risks
-was always wrong — four of the twelve are not open.
+The count went 12→**13** on 2026-08-21 with RISK-013, which is not a new finding but a
+**re-classification**: the `RandomStringPassword` static false-negative had been filed as scope
+boundary (c) of RISK-010, inheriting that risk's Effect of *Tolerable*. It is not tolerable — it
+corrupts the denominator of the frozen `jca` set, which is the published measurement ruler, and it
+does so **silently**. Filed under its own id at its own level, per the researcher's instruction of
+2026-08-21. What also changed on that date is that the Level column now means *inherent* risk
+consistently, and disposition moved to its own columns. Reading the total as a count of live risks
+was always wrong — five of the thirteen are not open.
 
 **Rubric (published 2026-08-21 — previously implicit and applied inconsistently).** Level = f(Probability,
 Effect), on *inherent* risk, before mitigation:
@@ -41,7 +46,7 @@ Effect), on *inherent* risk, before mitigation:
 
 Three prior assignments did not follow it and are reconciled below: RISK-009 (Moderate×Serious) was
 Medium while RISK-001 with the same pair was High — RISK-009 is raised to **High**; RISK-012
-(High×Tolerable) was Low while RISK-004/010 with the same pair were Medium — RISK-012 is raised to
+(High×Tolerable) was Low while RISK-010 with the same pair was Medium — RISK-012 is raised to
 **Medium**; RISK-011 (High×Serious) was Medium because the *post-decision* state was recorded in the
 Level column — its inherent level is **High**, carried in the table with Status "Closed by design". The
 Level column now always means inherent risk; the Status column carries the disposition.
@@ -51,7 +56,7 @@ Level column now always means inherent risk; the Status column carries the dispo
 | RISK-001 | Target super-type **phantom**/absent → `canStoreType` silent wrong `false` | Technology (external dep) | Moderate | Serious | **High** |
 | RISK-002 | JCA parity regression (INV-ANA-35 / `MopSpecsParityTest`) | Product (regression) | Low | Serious | **Medium** |
 | RISK-003 | Out-of-order rebuild links stale `.m2` extractor (fix never ships) | Tools (build coupling) | Moderate | Tolerable | **Medium** |
-| RISK-004 | Quasi-universal specs (`Object+`, `Iterable+`, `Comparable+`) inflate `reachesTarget` | Requirements (scope) | High | Tolerable | **Medium** |
+| RISK-004 | Quasi-universal targets saturate `reachesTarget` (measured); owner-filtering measured **not** to fix it | Requirements (scope) | High | Serious | **High** |
 | RISK-005 | `canStoreType` cost at **both** match points (scan **and** `resolveInScene`) | Technology (performance) | Low | Tolerable | **Low** |
 | RISK-006 | Owner unresolvable because its package is imported by no import of its own spec (was framed as "non-JDK owner") — **observed in the corpus**, repaired by task 1.0b | Technology (extractor) | Very Low | Tolerable | **Low** |
 | RISK-007 | Accidental output-schema change breaks the JSON consumers (3 Python readers; ape reads the *derived* artifact) | Product (interface) | Low | Serious | **Medium** |
@@ -59,7 +64,8 @@ Level column now always means inherent risk; the Status column carries the dispo
 | RISK-009 | Second match point left non-subtype-aware (bytecode-scan contract gap) | Product (architecture) | Moderate | Serious | **High** |
 | RISK-010 | Non-`call()` pointcuts uncovered: 3 `staticinitialization`-only specs + 3 ctor pointcuts yield no static targets | Requirements (coverage boundary) | High (certain) | Tolerable | **Medium** |
 | RISK-011 | Seeding the implicit `java.lang` package moves the frozen `jca` set and over-matches under LENIENT | Product (measurement integrity) | High if seeded | Serious | **High** |
-| RISK-012 | `rvsec-mop-extractor` has no test infrastructure — tasks 1.0/1.4–1.6 cannot run as written | Tools (build) | High (certain) | Tolerable | **Medium** |
+| RISK-012 | Java test infrastructure does not run: extractor has none (tasks 1.0/1.4–1.6) **and** the gator skips its own tests by default (`rvsec-gator/pom.xml:18`), yielding a false green | Tools (build) | High (certain) | Tolerable | **Medium** |
+| RISK-013 | `RandomStringPasswordSpec` contributes zero static targets to the frozen `jca` set, silently — the denominator of every published `cov_reaches_target` is computed over 22 of 23 specs | Product (measurement integrity) | High (certain) | Serious | **High** |
 
 ---
 
@@ -198,26 +204,79 @@ Level column now always means inherent risk; the Status column carries the dispo
 
 ---
 
-### RISK-004: Quasi-universal specs inflate `reachesTarget`
+### RISK-004: Quasi-universal targets saturate `reachesTarget` — measured, and owner-filtering does not fix it
 - **Category**: Requirements (scope boundary)
-- **Description**: Specs whose owner is `Object+`, `Iterable+`, or `Comparable+` will match a huge
-  fraction of call sites once subtype matching is on, driving `reachesTarget=true` almost everywhere.
-- **Probability**: High (these owners exist in `generic_new`) · **Effect**: Tolerable (it is *correct*
-  per the spec semantics; only affects downstream dataset interpretation) · **Level**: Medium
-- **Mitigation strategy**: Acceptance (documented scope decision)
-  - Per design Non-Goals and "Risks/Trade-offs": this inflation is **correct behavior** for this
-    matcher. Any dataset-level exclusion (drop quasi-universal owners from the dataset filter) is an
-    explicit **downstream concern** — the 400-APK sweep / dataset-definition change. Documented as an
-    Open Question that does **not** block this design.
-  - Guard against scope creep: do **not** add owner-blacklisting to the matcher in this change
-    (P1 simplicity; "No unilateral scope decisions" — defer to the downstream owner).
-- **Indicators**: presence of `Object+`/`Iterable+`/`Comparable+` in the extracted target set is
-  expected, not a defect; only flag if a reviewer mistakes the inflation for a matcher bug.
+- **Description**: Once subtype matching is on, the union of the 67 `generic_new` target pairs marks so
+  many call sites that `reachesTarget` collapses onto `reachable` — it stops meaning "reaches a monitored
+  operation" and starts meaning "is reachable at all". **Measured 2026-08-21** over 8 corpus APKs
+  (0.2–75 MB; 205,519 bodied methods, 827,443 call sites) via `dexdump -d` + an `android.jar` hierarchy
+  parse + reverse closure, with the direct axis calibrated against the real `directlyReachesTarget` in the
+  shipped `jca` `*.apk.json` files — exact on 7 of 8 APKs (`cryptoapp` 21 = 21), so the direct figures are
+  measurement, not estimate:
+
+  | signal | `jca` (measured, shipped) | `generic_new` (measured, repaired) |
+  |---|---|---|
+  | `directlyReachesTarget` | 0.0–0.3% of app methods | **2–12%** |
+  | `reachesTarget` | 11–47% | **84–94%** (rigorous lower bound) |
+
+  The `reachesTarget` lower bound **exceeds the anchor's own `reachable` fraction** on 4 of the 8 APKs
+  (mupen 93.8% > 82.4%; rcx 91.7% > 86.9%; flym 87.5% > 85.3%; quicknote 87.2% > 79.5%): the binding
+  constraint stops being the target set and becomes reachability itself. Raw scale: 34,411 of 827,443 call
+  sites (4.16%) match one of the 67 pairs, against 225 (0.027%) for `jca` — **153×**.
+
+  **The owners this risk used to name were the wrong ones.** Measured share of app methods marked directly,
+  per pair: `Object+` accounts for **0.02%** of all call sites and `Object+.notifyAll` marks **zero** methods
+  across the whole sample; `Comparable+.compareTo` is moderate (0.31%); `Iterable+` is wide through exactly
+  one of its two methods (`iterator` 1.84%, `listIterator` zero). The real vectors are `Collection+.add*`
+  (2.50%), `CharSequence+.equals` (2.10%), the `Iterator` family (1.88% × 4), `Iterable+.iterator` (1.84%),
+  `Collection+.iterator` (1.68%) and `Closeable+.close` (1.12%) — none of which this risk named. The first
+  two are wide for a **structural** reason rather than a semantic one: the extractor drops the
+  `!target(String)` / `target(ByteArrayInputStream)` residues, so the static target captures every
+  `String.equals` and every `close()` while the woven aspect fires on almost none of them. Over 3 APKs,
+  100% of `equals`/`hashCode` call sites on a `CharSequence` have receiver `java.lang.String` — the exact
+  type the spec excludes. This compounds with scope boundary (d).
+- **Probability**: High (measured, not predicted) · **Effect**: **Serious** (the transitive signal
+  degenerates, the previously accepted mitigation is refuted, and shipped code changes verdict) ·
+  **Level**: **High** (per the published rubric, High × Serious)
+- **Mitigation strategy**: Acceptance of the *matcher* behaviour, with the scope claim **corrected** — the
+  earlier "the downstream dataset change will filter the quasi-universal owners" is empirically refuted.
+  - **Refutation (measured)**: dropping 34 of the 67 pairs — the entire collection/iterator/CharSequence
+    family — does **not** move `reachesTarget` on any medium or large APK: quicknote 1752→1752,
+    geometerplus 1358→1358, rcx 2514→2513, flym 2247→2245, mupen 2342→2340. Only the tiny APKs react
+    (cryptoapp 65→57, t20kdc 116→10). The I/O residue alone (`InputStream+`, `OutputStream+`, `Reader+`,
+    `Writer+`, `Closeable+`) is already spread widely enough through the bundled libraries to reproduce the
+    saturation. **Owner blacklisting cannot repair the transitive signal**; at best it repairs
+    `directlyReachesTarget`, which does not need repairing.
+  - **What this change therefore delivers for `generic_new` is `directlyReachesTarget`.** Under `jca` that
+    field has an unusably small denominator (0–3% of methods, sometimes 0 or 1 method in a whole APK); under
+    `generic_new` it becomes 2–12% — a usable one. `reachesTarget` should be **declared degenerate** for this
+    spec set, not filtered. The two sets are complementary on the two axes rather than redundant: `jca`
+    discriminates transitively and is noise directly; `generic_new` is the reverse. This is a property of the
+    two API families, not a defect introduced here.
+  - Still guard against scope creep: do **not** add owner-blacklisting to the matcher (P1 simplicity) — now
+    for the stronger reason that it is **measured not to work**.
+  - The one narrowing that survives the union is `target()`-of-type, and only for two pairs
+    (`CharSequence+.equals`/`hashCode`, and the non-`java.io` part of `Closeable+.close`), worth 11–41% of
+    the direct seed over 3 APKs. That is a separate change — see scope boundary (d).
+- **Indicators**:
+  - `reachesTarget` ≈ `reachable` on the IT APK is **expected**, not a matcher defect.
+  - `directlyReachesTarget` failing to land in the 2–12% band **is** a defect signal — it is the field that
+    carries the deliverable, so task 4.3 should read it rather than `reachesTarget`.
+  - `aperv-tool` returning `hot` for every APK is the shipped-code symptom, not a tuning issue.
 - **Contingency**:
-  - **Trigger**: stakeholder requests dataset-level filtering during this change.
-  - **Actions**: record as the downstream sweep/dataset change; do not absorb it here.
-  - **Owner**: change author / downstream sweep owner.
-- **Status**: Open (accepted)
+  - **Trigger**: a consumer depends on `reachesTarget` discriminating under `generic_new`.
+  - **Actions**: move that consumer to `directlyReachesTarget`; do not attempt owner filtering.
+    **`aperv-tool` is already such a consumer and breaks in the same commit this change lands**:
+    `sa_methods_reaches_mop` degenerates toward `total_methods` as its count-model offset
+    (`static_artifact.py:13-17`), and the `hot`/`cold`/`unresolved` verdict (`static_artifact.py:288-296`)
+    collapses to `hot`. That is production code, not a future dataset filter, and needs its own decision
+    before or with Phase 4. The 2026-08-21 audit recorded this in the change log (item (i)) but the risk body
+    was never updated — it is now.
+  - **Owner**: change author (matcher) / `aperv-tool` owner (consumer).
+- **Evidence**: `docs/20260821_gh69_veredito_coringas.md` §4.3–§4.5 — commands, per-APK tables, the per-pair
+  ranking over 827,443 call sites, and the calibration of the measurement pipeline against the `jca` anchor.
+- **Status**: Open (accepted as matcher behaviour; **re-scoped 2026-08-21** — mitigation refuted, effect
+  raised to Serious, level Medium→High)
 
 ---
 
@@ -298,9 +357,23 @@ Level column now always means inherent risk; the Status column carries the dispo
     only boolean *values* of `reachesTarget`/`directlyReachesTarget` move.
   - **Gate**: in the IT, diff the **key-set** of a `generic_new` run against a `jca` run on the same
     APK — must be **identical**. This is a hard gate before archive.
+- **Consumer map is wider than `modules/` (added 2026-08-21)**: the three production readers named above
+  are complete *for `modules/`*, but six more read the raw JSON elsewhere and none were in the impact
+  analysis: `tests/parity/test_reachability_parity.py:158,165,166`,
+  `tests/parity/test_baseline_freshness.py:119,122`,
+  `tests/parity/test_historical_methods_coverage.py:134`, `tests/parity/test_gh60_sweep_delta.py:63-64`,
+  `docs/20260803_charac_static_corpus.py`, and
+  `experimento-comp162-ajc/scripts/{covadjust.py:97,analise.py:211}`. The consequential ones are the
+  **value**-stability gates: `test_reachability_parity.py:156` (`G_paridade_targets`) freezes the *set*
+  of signatures carrying `reachesTarget=true` against a committed baseline, and
+  `test_historical_methods_coverage.py:134` pins three methods at `directlyReachesTarget=true`.
+  INV-ANA-44 guarantees only **key-set** invariance; these two guard **values** — precisely what this
+  change moves. They run against the default `mopDir` (`jca`), so the JCA-untouched premise is what
+  keeps them green, and a JCA regression would surface here before it surfaced anywhere else.
 - **Indicators**: generic-vs-jca JSON key-set diff is empty; `static_analysis_parser.py` parses the
   generic output without error (now asserted by **task 4.4**, extended 2026-08-21 — the key-set diff alone
-  never covered it); `aperv-tool`'s `static_artifact.py` still resolves signatures on the generic output.
+  never covered it); `aperv-tool`'s `static_artifact.py` still resolves signatures on the generic output;
+  `tests/parity/test_reachability_parity.py` and `test_historical_methods_coverage.py` stay green.
 - **Contingency**:
   - **Trigger**: key-set diff non-empty, or a consumer fails to parse.
   - **Actions**: revert any writer-area edit; confirm the boolean-only change set; re-run the diff.
@@ -318,7 +391,10 @@ Level column now always means inherent risk; the Status column carries the dispo
   - **gh60-targets-core** is **archived** (`openspec/changes/archive/2026-06-17-gh60-targets-core`), and
     **INV-ANA-33 and INV-ANA-35 are present** in the synced `openspec/specs/analysis/spec.md`. The
     dangling-reference hazard this risk guarded against **no longer exists**.
-  - **gh66-gator-wtg-flowcontainer-perf** is **archived** (2026-06-18); **INV-ANA-39 is synced**.
+  - **gh66-gator-wtg-flowcontainer-perf** is **archived** (2026-06-18). Its *requirement* is synced
+    (`openspec/specs/analysis/spec.md:1369`), but **INV-ANA-39 has no normative bullet there** — it
+    survives only as four narrative/scenario citations, one of them the sub-lettered `INV-ANA-39c`
+    (`:1390`). See the sync anomaly below; this is the same defect, not a counter-example to it.
   - Two **later** changes archived after gh66 consumed higher invariant numbers: **gh70-wtg-reachability-sharing**
     (2026-06-18, INV-ANA-45) and **gh72-logcat-diagnostic-events** (2026-06-23, INV-ANA-46/47/48).
   - gh69 claims **INV-ANA-40..44**, which are **free** in the synced spec and claimed by **no** active
@@ -331,11 +407,11 @@ Level column now always means inherent risk; the Status column carries the dispo
      there: **INV-ANA-39** (gh66), **INV-ANA-45** (gh70) and **INV-ANA-55** (gh92, archived 2026-08-02).
      Separately, gh69 cites INV-ANA-17, INV-ANA-18 and BUG-INV-ANA-19 as though defined in the synced
      spec; there they exist only as narrative references, their normative bullets living in the gh51
-     archive. Whether gh69's own sync must wait on that backfill is the open question. Original note:
-     INV-ANA-45 does **not** appear in the synced `analysis/spec.md`
-     even though gh70 is archived; the synced inventory jumps **39 → 46, 47, 48**, skipping 45. gh69's
-     insertion of 40-44 is therefore **non-contiguous** (45 pending/absent above it, 46-48 taken). This
-     is a spec-inventory gap to **reconcile at gh69 sync**, not a blocker for gh69's own numbers.
+     archive. Whether gh69's own sync must wait on that backfill is the open question. gh69's insertion of 40-44 is
+     **non-contiguous** (39 and 45 absent below it, 46-48 taken above) but **collision-free**, so it is a
+     spec-inventory gap to reconcile at gh69 sync, not a blocker for gh69's own numbers. (An earlier
+     "Original note" here stated the jump as **39 → 46, 47, 48**; that was wrong and is deleted —
+     measured 2026-08-21, the normative bullets run `… 37, 38, 46, 47, 48 …`.)
   2. **Phase-6 slot re-check** — before `/opsx:archive`, re-confirm 40-44 are still free (no new change
      grabbed them in the interim) and that INV-ANA-33/35 are still present.
 - **Probability**: Low (the hard ordering dependency is already discharged; only a bookkeeping re-check
@@ -407,11 +483,13 @@ Level column now always means inherent risk; the Status column carries the dispo
   Net static coverage: 24/27 specs. The distinct-owner total is 23 (21 `call()` owners + `Serializable`/
   `URLConnection` from staticinit); of the 21 `call()` owners only **20** reach `forceResolveTargets`,
   since `TreeMap` occurs solely in the skipped constructor pointcut — that 20 is the number the task 4.3
-  gate asserts. (c) In `jca`/`jca_android`, `RandomStringPassword.mop` contributes zero static targets
-  because its owner `String` is never imported; the aspect weaves both pointcuts, so this is a real
-  static false-negative, documented here and repaired in its own change (see RISK-011, task 5.6).
+  gate asserts. (c) **Moved out of this risk on 2026-08-21.** The `jca`/`jca_android`
+  false-negative of `RandomStringPassword.mop` used to be carried here, and inherited this risk's
+  Effect of *Tolerable*. It is not tolerable — see **RISK-013 (High)**, which now owns it. This risk
+  keeps only the pointcut-shape boundary: staticinit-only specs and constructor pointcuts.
 - **Probability**: High (certain — structural) · **Effect**: Tolerable (bounded; quasi-universal owners
-  dominate `reachesTarget` anyway; runtime coverage unaffected) · **Level**: Medium
+  dominate `reachesTarget` anyway; runtime coverage unaffected) · **Level**: Medium — this rating
+  applies to the pointcut-shape boundary only, now that the `jca` false-negative has moved to RISK-013
 - **Mitigation strategy**: Acceptance (documented scope decision)
   - Documented in proposal (coverage boundary), design (Non-Goals), and INV-ANA-40 (scope boundary).
   - Task 1.3(d) logs+skips constructor pointcuts with a notice; task 1.4 asserts exactly 3 ctor-skip
@@ -441,14 +519,23 @@ Level column now always means inherent risk; the Status column carries the dispo
   of which only 17 correspond to the woven signatures (`valueOf(Object)` ×14, `toCharArray()` ×3); the
   other 57 are `valueOf(int)`/`valueOf(long)` in `toString`/log code. `reachesTarget` is transitive, so
   each false positive propagates to all its callers, and it feeds the coverage denominator (INV-ANA-15)
-  of the spec set that is the published measurement ruler. In 12 sampled APKs, 8 have ≥1 such call site.
+  of the spec set that is the published measurement ruler. Two distinct samples are quoted here and must
+  not be conflated: the 74/17/57 call-site breakdown was measured over **3** corpus APKs, while a
+  separate **12**-APK sample was used only to gauge how widespread the pattern is (8 of the 12 carry ≥1
+  such call site).
 - **Probability**: High **if** the seed ships · **Effect**: Serious (silently degrades published JCA
-  measurements) · **Level**: Medium — **retired by design decision, not by mitigation**
+  measurements) · **Level**: High — **retired by design decision, not by mitigation** (the Level column
+  is inherent risk, per the published rubric: High×Serious → High; the disposition lives in Status)
 - **Mitigation strategy**: Avoidance
   - D5 / INV-ANA-40 now forbid the seed: owner resolution comes only from imports the spec declares.
-    `generic_new` is unaffected — all six of its `java.lang`-owner specs carry `import java.lang.*;`.
+    `generic_new` is unaffected — all **seven** of its `java.lang`-owner specs carry `import java.lang.*;`
+    (`Object_MonitorOwner`, `Comparable_CompareToNull`, `Comparable_CompareToNullException`,
+    `CharSequence_UndefinedHashCode`, `Long_BadParsingArgs`, and — owner `Iterable` — `ListIterator_Set`
+    and `Map_UnsafeIterator`).
   - The false-negative it would have "fixed" is documented instead (INV-ANA-40 scope boundary (c)), with
-    its measurements, so the follow-up change does not have to re-derive them.
+    its measurements, so the follow-up change does not have to re-derive them. **That false-negative is
+    itself a High risk in its own right — RISK-013.** Avoiding the seed is correct and does not make the
+    hole benign: this risk says "do not half-repair it", RISK-013 says "the hole is grave". Both hold.
   - The real repair needs three things together — owner visibility (explicit import, an FQN-owner rule,
     or the seed) + a STRICT policy for that target + FQN parameter resolution in `getParams` — and is
     tracked as its own issue (task 5.6). Any one of the three alone makes the measurement worse.
@@ -464,18 +551,99 @@ Level column now always means inherent risk; the Status column carries the dispo
 
 ---
 
-### RISK-012: `rvsec-mop-extractor` has no test infrastructure
+### RISK-013: `RandomStringPasswordSpec` contributes zero static targets to the frozen `jca` set — silently
+- **Category**: Product (measurement integrity) — surfaced 2026-08-21 by the sibling session
+  (`docs/20260821_handoff_gh69_coringas.md`, there called N9), reproduced independently the same day.
+  **Promoted to its own id on 2026-08-21 by the researcher's instruction**, after having been filed as
+  scope boundary (c) of RISK-010 and inheriting that risk's Effect of *Tolerable*.
+- **Description**: `RandomStringPassword.mop` names its owner `String` and never imports it — implicit
+  in Java, not for the visitor. `UsedJcaMethodsVisitor:70-77` keys pointcut extraction on the explicit
+  import map and has **no `else` and no log**, so both of its pointcuts vanish without a trace. The
+  spec is 1 of the 23 in `jca` and 1 of the 23 in `jca_android`, and it is the **only** unresolved owner
+  in either set (enumerated over the 144 `jca` and 130 `jca_android` `call()` pointcuts). The woven
+  aspect carries both pointcuts — `rvsec/rvsec-mop/src/main/resources/jca/MultiSpec_1MonitorAspect.aj:874,879`,
+  the canonical 1042-line copy, verified 2026-08-21 (the ~40 generated copies elsewhere in the tree are
+  shorter and do not contain these lines). So the monitor advises call sites that the static layer never
+  marks as targets.
+
+  **What this costs, stated exactly.** The harm is in the reach denominator, not in the violation
+  counts. Across every campaign in the tree, 16 distinct specs appear in `errors.csv` and
+  `RandomStringPasswordSpec` is **not among them** — no published violation count is wrong. What *is*
+  wrong is that `cov_reaches_target` and `cov_directly_reaches_target` have been computed over
+  **22 of the 23** `jca` specs in every measurement ever published from that set: the 120 signatures /
+  68 pairs / 22 owners the extractor emits are the count *after* the two `String` pointcuts were
+  dropped. `jca` is the frozen ruler against which `jca_android` and the gh104 campaign are compared
+  (`experimento-gh104/CONTEXTO.md:159-161`), so the hole is in the instrument itself.
+
+  **Why the level is High and not Tolerable.** Three properties compound: (i) the failure is
+  **silent** — no log, no count, no gate ever reported it, and it took a targeted audit to find;
+  (ii) it is **structural and repeating** — any spec added later to `jca` whose owner is unimported
+  disappears the same way, and nothing in the pipeline would say so; (iii) it lands on the
+  **published measurement ruler**, not on a diagnostic. Probability × Effect under the register's own
+  rubric (High × Serious) gives **High**; filing it as *Tolerable* under RISK-010 is what kept it
+  invisible for the life of the project.
+- **Probability**: High (certain — structural, present in every run to date) · **Effect**: Serious
+  (silently understates the published `jca` reach denominator) · **Level**: **High**
+- **Mitigation strategy**: Acceptance for this change, with a **visibility** mitigation that this
+  change does deliver
+  - **What gh69 fixes**: the log-and-skip rule of INV-ANA-40 (task 1.3(b)) converts the silent drop
+    into a logged skip. After this change the extractor names `String` as a skipped owner instead of
+    swallowing it — property (i) above is discharged here, and it is the property that made the risk
+    grave rather than merely known.
+  - **What gh69 deliberately does NOT fix**: the measurement itself. Seeding the implicit `java.lang`
+    package alone would take `jca` 120→122 and `jca_android` 119→121 and, under LENIENT matching,
+    make `String#valueOf` match every overload — 74 call sites over 3 corpus APKs, 17 of them woven,
+    57 false positives propagated transitively (RISK-011). **The half-repair is worse than the hole.**
+  - **The full repair needs three things together** — owner visibility, a STRICT policy for that
+    target, and FQN parameter resolution in `getParams` — and is tracked as task 5.6.
+  - Task 1.5 asserts that `String` stays unresolved **and logged**, so the boundary cannot silently
+    close or silently widen.
+- **Indicators**: the extractor log names `String` among skipped owners for `jca`/`jca_android`;
+  `jca` stays at 120 signatures / 68 pairs / 22 owners and `jca_android` at 119/67/22; the follow-up
+  issue of task 5.6 exists and carries the 74/17/57 measurement.
+- **Contingency**:
+  - **Trigger**: a published result depends on the `jca` reach denominator being complete, or a new
+    spec is added to `jca`/`jca_android` whose owner is unimported.
+  - **Actions**: land the three-part repair of task 5.6 as one change, and re-run the `jca`
+    measurements it invalidates; never land the visibility half alone.
+  - **Owner**: follow-up change author (task 5.6).
+- **Status**: Open (accepted for this change — visibility mitigated here, measurement deferred to 5.6)
+
+---
+
+### RISK-012: the Java test infrastructure does not run — extractor has none, gator skips its own
 - **Category**: Tools (build)
-- **Description**: The module has no `src/test` directory and declares no test dependency (verified
-  2026-08-21). Tasks 1.4–1.6 assume `mvn test` works there, so implementation stops on the first task
-  that writes a unit test.
-- **Probability**: High (certain) · **Effect**: Tolerable (a one-line pom edit) · **Level**: Low
-- **Mitigation strategy**: Avoidance — task **1.0** declares the `junit` dependency (version inherited
-  from the root reactor `dependencyManagement`, junit 4.13.2; no local pin) and creates
-  `src/test/java` + `src/test/resources` before any test is written.
-- **Indicators**: `mvn -pl rvsec/rvsec-mop-extractor test` runs and reports tests (not "no tests").
+- **Description**: Two independent build traps, same shape and same phase.
+  **(a) Extractor has no test infrastructure**: `rvsec-mop-extractor` has no `src/test` directory and
+  declares no test dependency (verified 2026-08-21). Tasks 1.4–1.6 assume `mvn test` works there, so
+  implementation stops on the first task that writes a unit test.
+  **(b) The gator skips its own tests by default** (found 2026-08-21, and the sharper half): the gator
+  parent `rvsec/rvsec-android/rvsec-gator/pom.xml:18` sets `<skipTests>true</skipTests>`, overriding the
+  reactor root's `false` (`rvsec/pom.xml:21`) for `commons`, `sootandroid` and `client`. Failsafe honours
+  `skipTests` as well, so `-DskipITs=false` alone does **not** enable the ITs. Unlike (a), this one does
+  not stop anything — it produces a **false green**: `mvn ... test` prints `Tests are skipped.` and exits
+  BUILD SUCCESS, so every verification gate in this change would tick without executing. Measured from
+  the reactor root under JDK 21: with `-DskipTests=false`, `Tests run: 178, Failures: 0, Errors: 0,
+  Skipped: 0`; without it, zero. The line dates from `d94e33cc "starting rvsec-gator"` (2024-09-25),
+  when the module was freshly vendored and held no RV-Android test; the project's own gator tests
+  (gh27 2026-02-24, gh60 2026-05-25) were all born skipped, and no automated path runs them today
+  (CI `ci.yml:30` uses `-DskipTests`; its only `-DskipTests=false`, `:44`, is scoped to `-pl grammar-tests`).
+- **Probability**: High (certain — both verified in the tree) · **Effect**: Tolerable for (a), a
+  one-line pom edit; **Serious in kind** for (b), because a skipped gate is indistinguishable from a
+  passing one, but bounded because it is equally a one-line fix · **Level**: Medium
+- **Mitigation strategy**: Avoidance
+  - (a) Task **1.0** declares the `junit` dependency (version inherited from the root reactor
+    `dependencyManagement`, junit 4.13.2; no local pin) and creates `src/test/java` + `src/test/resources`
+    before any test is written.
+  - (b) Task **1.0c**: pass `-DskipTests=false` on every gator maven command (2.5 / 3.3 / 4.3-4.8 / 5.1 /
+    5.1b — already applied), **and** delete the `<skipTests>true</skipTests>` line so the trap does not
+    outlive this change. Removing it is safe: the suite is 178/178 green.
+- **Indicators**: `mvn -pl rvsec/rvsec-mop-extractor test` runs and reports tests (not "no tests"); every
+  gator test command reports a non-zero `Tests run:` count — a run that prints `Tests are skipped.` MUST
+  be treated as a failed gate, never as a pass.
 - **Contingency**: if the root `dependencyManagement` entry ever moves, pin `junit` locally at the same
-  version rather than diverging. **Owner**: implementer.
+  version rather than diverging. If deleting the gator `skipTests` line turns out to break an unrelated
+  build, fall back to the per-command override and open an issue. **Owner**: implementer.
 - **Status**: Open
 
 ---
@@ -511,6 +679,7 @@ Level column now always means inherent risk; the Status column carries the dispo
 
 | Date | Risk | Change |
 |------|------|--------|
+| 2026-08-21 | **RISK-013** | **Added by researcher instruction**, as a re-classification rather than a new finding. The `RandomStringPassword` static false-negative had been filed as scope boundary (c) of RISK-010 and inherited its Effect of *Tolerable*; that filing is what kept it invisible. It is now its own risk at **High** (High × Serious under the published rubric): the drop is silent (`UsedJcaMethodsVisitor:70-77` has no `else` and no log), structural and repeating for any future unimported owner, and it lands on the frozen `jca` set, so every published `cov_reaches_target` was computed over **22 of 23** specs. New measurement recorded so nobody re-derives it: across every campaign in the tree, 16 distinct specs appear in `errors.csv` and `RandomStringPasswordSpec` is not among them — the harm is in the reach denominator, not in the violation counts. The aspect citation was re-verified against the canonical 1042-line `rvsec/rvsec-mop/src/main/resources/jca/MultiSpec_1MonitorAspect.aj:874,879`. Implementation scope is unchanged: gh69 discharges the *silence* via the log-and-skip rule (task 1.3(b), asserted by 1.5); the measurement repair stays deferred to task 5.6. RISK-010 (c) and RISK-011 now cross-reference instead of owning it. Summary 12→13, High 4→5. |
 | 2026-06-17 | all | Register created at end of Design phase from `design.md` + `docs/20260617_sa_generic_new.md` §12/§14 |
 | 2026-06-17 | RISK-008 | Added (sync ordering gh60→gh69) from adversarial artifact validation `docs/20260617_sa_generic_new.md` §15 |
 | 2026-06-17 | RISK-008 / RISK-003 | Broadened to 3-way ordering gh60→gh66→gh69 + gh66 concurrent `FlowgraphRebuilder` edit overlap (per operator note: gh66 in-flight) |
@@ -518,9 +687,11 @@ Level column now always means inherent risk; the Status column carries the dispo
 | 2026-06-23 | RISK-005 | Broadened to cover `resolveInScene` (loss of `equals(fqn)` fast-reject), not just the bytecode scan. |
 | 2026-06-23 | RISK-007 | Reclassified Low→Medium for internal consistency with RISK-002 (both Low×Serious). |
 | 2026-06-23 | RISK-009 | Added: bytecode-scan/`ReachabilityEngine` contract gap (declared `Set<TargetMethod>` not propagated to the second match point) — from multi-LLM review, source-verified. |
+| 2026-07-06 | RISK-008 | Downgraded to **largely mitigated / near-closeable** (Prob. Moderate→Low, Status Open→Largely-mitigated; Level stays Low). Verified against repo: gh60 (INV-ANA-33/35) and gh66 (INV-ANA-39) are **archived and synced** into `analysis/spec.md` — the hard 3-way ordering constraint is discharged and the dangling-reference hazard no longer exists. gh69's INV-ANA-40..44 slots are **free** (no active claimant). Residual narrowed to: (a) Phase-6 re-check that 40-44 remain free and 33/35 remain present, and (b) reconcile the **gh70 INV-ANA-45 sync anomaly** (synced inventory jumps 39→46,47,48; 45 absent, 46-48 from gh70/gh72) so gh69's sync ends contiguous. Summary count unchanged (Level Low → Low). |
 | 2026-07-09 | RISK-010 | Added from multi-agent artifact validation (ground-truth pass over the 27 `.mop` files): 3 `staticinitialization`-only specs + 3 constructor pointcuts yield no static targets — accepted + documented in proposal/design/INV-ANA-40; tasks 1.3(d)/1.4 make the boundary observable. Summary 9→10 risks (Medium 5→6). |
 | 2026-07-09 | RISK-005 | Gate unified: indicator and trigger both ≤/> **2×** the JCA baseline (the looser "order of magnitude" phrasing superseded). |
 | 2026-07-09 | — | Validation corrections applied across artifacts: spec "Flags propagate" scenario no longer lists `MopSpecsTargetSource` among default-false call sites (contradicted INV-ANA-41); `java.lang` seeding re-justified as defense-in-depth (all current `java.lang`-owner specs carry explicit `import java.lang.*;` — the earlier "no explicit import" claim was refuted against the files); generic target-count acceptance strengthened from "N>0" to pin-exact-N (reference enumeration: 67 distinct call() pairs); task 2.1 drops the optional 5-arg overload (P3); D2 gains the FastHierarchy ordering requirement; task 5.2 smoke corpus switched to `rvsec-dataset`. Soot 4.7.1 claim re-verified CORRECT (pom.properties inside shipped `rvsec-gator.jar`). |
-| 2026-07-06 | RISK-008 | Downgraded to **largely mitigated / near-closeable** (Prob. Moderate→Low, Status Open→Largely-mitigated; Level stays Low). Verified against repo: gh60 (INV-ANA-33/35) and gh66 (INV-ANA-39) are **archived and synced** into `analysis/spec.md` — the hard 3-way ordering constraint is discharged and the dangling-reference hazard no longer exists. gh69's INV-ANA-40..44 slots are **free** (no active claimant). Residual narrowed to: (a) Phase-6 re-check that 40-44 remain free and 33/35 remain present, and (b) reconcile the **gh70 INV-ANA-45 sync anomaly** (synced inventory jumps 39→46,47,48; 45 absent, 46-48 from gh70/gh72) so gh69's sync ends contiguous. Summary count unchanged (Level Low → Low). |
-| 2026-08-21 | RISK-011 / RISK-012 / RISK-002 / RISK-003 / RISK-010 | Rigorous re-verification against the tree, prompted by the sibling session's handoff (`docs/20260821_handoff_gh69_coringas.md`) — every claim reproduced independently. (a) **RISK-011 added and retired by decision**: the `java.lang` seed in task 1.2 would have moved the frozen `jca` (120→122) / `jca_android` (119→121) sets via `RandomStringPassword.mop`'s unimported `String` owner, and under LENIENT the resulting `String#valueOf` target matches every overload (74 call sites over 3 corpus APKs, 17 legitimate). The seed is now forbidden by D5 / INV-ANA-40; `generic_new` does not need it (all **seven** `java.lang`-owner specs carry `import java.lang.*;` — the count was corrected from six on 2026-08-21, see the audit entry below). This **reverses** the 2026-07-09 entry above that had re-justified the seed. (b) **RISK-012 added**: the extractor module has no test infrastructure — new task 1.0. (c) **RISK-002 gate corrected**: `MopSpecsParityTest` is source-layer only (both sides call the same visitor) and cannot catch an extractor-side JCA regression; the literal 120/68/22 count is the gate. (d) **RISK-003**: `main.basedir` does not resolve in a standalone module build (literal `${main.basedir}` directory found in the tree) — tasks 4.1/4.2 now build from the reactor root with JDK 21. (e) **RISK-010**: gained scope boundary (c) (the `RandomStringPassword` false-negative) and the 21-vs-**20** owner correction for the task 4.3 gate (`TreeMap` appears only in the skipped constructor pointcut). Also corrected: 17 `new TargetMethod(` call sites (not ~14). Summary 10→12 risks (Medium 6→7, Low 3→4). |
+| 2026-08-21 | RISK-011 / RISK-012 / RISK-002 / RISK-003 / RISK-010 | Rigorous re-verification against the tree, prompted by the sibling session's handoff (`docs/20260821_handoff_gh69_coringas.md`) — every claim reproduced independently. (a) **RISK-011 added and retired by decision**: the `java.lang` seed in task 1.2 would have moved the frozen `jca` (120→122) / `jca_android` (119→121) sets via `RandomStringPassword.mop`'s unimported `String` owner, and under LENIENT the resulting `String#valueOf` target matches every overload (74 call sites over 3 corpus APKs, 17 legitimate). The seed is now forbidden by D5 / INV-ANA-40; `generic_new` does not need it (all **seven** `java.lang`-owner specs carry `import java.lang.*;` — the count was corrected from six on 2026-08-21, see the audit entry below). This **reverses** the 2026-07-09 entry above that had re-justified the seed. (b) **RISK-012 added**: the extractor module has no test infrastructure — new task 1.0. (c) **RISK-002 gate corrected**: `MopSpecsParityTest` is source-layer only (both sides call the same visitor) and cannot catch an extractor-side JCA regression; the literal 120/68/22 count is the gate. (d) **RISK-003**: `main.basedir` does not resolve in a standalone module build (literal `${main.basedir}` directory found in the tree) — tasks 4.1/4.2 now build from the reactor root with JDK 21. (e) **RISK-010**: gained scope boundary (c) (the `RandomStringPassword` false-negative) and the 21-vs-**20** owner correction for the task 4.3 gate (`TreeMap` appears only in the skipped constructor pointcut). Also corrected: 17 `new TargetMethod(` call sites (not ~14). Summary 10→12 risks. (An arithmetic slip in this row originally read "Medium 6→7, Low 3→4", which sums to 14, not 12, and contradicted the summary table; the rubric pass later in the same day settled the distribution at High 3 / Medium 6 / Low 3.) |
 | 2026-08-21 | all | **Consistency audit** (6 parallel verification agents against code + corpus + docs). Corrections: (a) `CharSequence_NotInSet.mop` declared owner `Set+` with no `java.util` import — the only unresolvable `generic_new` owner; repaired in **task 1.0b**, without which the 1.4 skip-count gate, the 4.3 20-owner gate and the 24/27 coverage figure were all false (RISK-006 promoted from hypothetical to observed). (b) **D2's ordering requirement dropped** — GATOR never calls `getOrMakeFastHierarchy`/`forceResolve` (SPARK materialises the hierarchy in the `cg` pack before any client analysis), so the requirement was unsatisfiable; and its premise was false, since `Scene.addClass` invalidates the cache via `modifyHierarchy()`. Replaced by resolve-then-obtain + never-cache + `releaseFastHierarchy()` for phantoms; INV-ANA-43 and task 4.3 updated. (c) **Task ordering fixed**: phase 2 compiles the gator against the new `MopMethod`, so the extractor install moved to **task 1.7**, ahead of it (the old list put it at 4.1, violating D6). (d) All Maven commands normalised to reactor-root + absolute paths (2.5's `cd ../rvsec/...` was a broken path; 2.5/3.3/5.1 were module-local, which breaks `main.basedir`); 4.2's `${main.basedir}` gate replaced by an mtime check, since three such directories already exist under `rvsec-gator/`. (e) **ITs never ran**: `<skipITs>true</skipITs>`, so `-DskipITs=false` added throughout and **task 5.1b** now runs `BaselineComparisonIT`, the JCA gate the spec named but no task executed. (f) Four orphan gates given tasks: RISK-005 timing (**4.8**), RISK-009 scan-only (**4.7**), RISK-007 parser smoke (**4.4**), RISK-002 end-to-end (**5.1b**). (g) INV-ANA-42's scenario contradicted its own body by forbidding the hybrid scan — rewritten. (h) **RISK-007 was wrong on both halves**: three independent Python readers of the raw JSON (incl. `aperv-tool`), and `MopData.java` reads the *derived* `*.mop.json`, not the GATOR output. (i) RISK-004 saturation shown to reach shipped code (`aperv-tool`'s hot/cold verdict and its count-model offset), not only a future dataset filter. (j) D3 gains the `generic_new` `[helper] :::` hole — runtime per-spec attribution is partial for exactly this spec set. (k) Rubric published and applied: RISK-009 Medium→High, RISK-011 Medium→High (Level now means inherent risk, Status carries disposition), RISK-012 Low→Medium. (l) `java.lang`-owner spec list corrected from six to seven. (m) Generic cardinality gate de-circularised: N fixed in advance (67 with a `+`-aware owner key, 66 without) instead of pinning whatever the implementation emits. (n) Citation fixes: `result_processor.py:402-435`→`:487-491`+`coverage.py:438-440,886-888`; `FlowgraphRebuilder.java:980`→`:1065`; `MultiSpec_1MonitorAspect.aj` given its full path; `20260611_sweep_generic_new_400.md` §11 does not exist (procedure is §5); `rvsec-dataset/apks_original/` is empty and the 219 figure is stale (182→181, Phase 10/11). Numbers re-verified and left unchanged: 27/89/71, 3+3 boundary cases, 8 wildcard patterns, jca 120/68/22, jca_android 119/67/22, 74/17/57, 17 `new TargetMethod(`. |
+| 2026-08-21 | RISK-007 / RISK-011 / RISK-012 / RISK-008 | **Second consistency audit** (5 parallel verification agents + empirical runs; the numeric backbone was re-derived and found exact, so no count changed). Corrections: (a) **RISK-012 broadened and is now the load-bearing build risk** — besides the extractor having no test infrastructure, the gator parent `rvsec-gator/pom.xml:18` sets `<skipTests>true</skipTests>`, which failsafe also honours, so `-DskipITs=false` alone never enabled the ITs and every gator test command in this change was a **false green**. Measured under JDK 21 from the reactor root: `-DskipTests=false` → `Tests run: 178, Failures: 0, Errors: 0, Skipped: 0`; without it, `Tests are skipped.` + BUILD SUCCESS. The line dates from the 2024-09-25 vendoring commit `d94e33cc`, predates every RV-Android test in the module, and no automated path (CI, `build.sh`, docker entrypoint, any README) runs those tests today. New task **1.0c** applies the override everywhere and deletes the line. (b) **RISK-007 consumer map widened**: six raw-JSON readers outside `modules/` were unlisted, including two **value**-stability gates — `tests/parity/test_reachability_parity.py:156` (`G_paridade_targets`) freezes the set of `reachesTarget=true` signatures against a baseline, and `test_historical_methods_coverage.py:134` pins three methods — which guard exactly what INV-ANA-44 does not (values, not keys). (c) **RISK-011 Level corrected in its body** from Medium to **High**, and **RISK-012 from Low to Medium**, matching the summary table and the rubric published earlier the same day; the bodies had never been updated. (d) RISK-011's "six" `java.lang`-owner specs → **seven** (last surviving instance), and its two samples (3 APKs for 74/17/57; 12 APKs for prevalence) disambiguated. (e) **RISK-008 de-contradicted**: it carried both "INV-ANA-39 is synced" and "39 has no bullet", plus an un-deleted "Original note" stating the jump as 39→46. Measured: the normative bullets run `… 37, 38, 46, 47, 48 …`; 39 is narrative-only, 45 and 55 absent. The two false statements are deleted. (f) Change-log arithmetic fixed ("Medium 6→7, Low 3→4" summed to 14, not 12) and this table re-sorted chronologically (the 2026-07-06 row sat after 2026-07-09). Delta-spec and task changes recorded in those artifacts: `## MODIFIED Requirements` added for `Target Method Source Abstraction`; `MopData.java` removed as the schema-safety consumer; scope boundary (d) added for the discarded `args()`/`target()`/`condition()` narrowing; the constructor skip reframed as a required guard; INV-ANA-42 gained an NFR04 cost bound that now includes `ReachabilityEngine.multiSourceBfs`. |
+| 2026-08-21 | RISK-004 | **Re-scoped after measurement** (6 parallel measurement agents; 8 corpus APKs, 205,519 methods, 827,443 call sites; pipeline calibrated against the shipped `jca` `*.apk.json`, exact on 7 of 8). The risk had never carried a single measured number — the wording was "a huge fraction", "almost everywhere" — while the false-*negative* it does **not** introduce (`RandomStringPassword`) had been measured to 74/17/57. Three corrections: (a) **the named owners were wrong** — `Object+` is 0.02% of call sites and `Object+.notifyAll` marks zero methods in the whole sample; `Comparable+.compareTo` is 0.31%; `Iterable+` is wide only through `iterator`. The real vectors are `Collection+.add*` (2.50%), `CharSequence+.equals` (2.10%), the `Iterator` family (1.88%), `Iterable+.iterator` (1.84%), `Collection+.iterator` (1.68%), `Closeable+.close` (1.12%), and the first two are wide structurally, because the extractor drops the `!target(String)` residue (compounds with scope boundary (d)). (b) **The saturation is now quantified**: `directlyReachesTarget` 0.0–0.3% → **2–12%**; `reachesTarget` 11–47% → **84–94%**, whose lower bound exceeds the anchor's own `reachable` fraction on 4 of 8 APKs — it collapses onto "is reachable". (c) **The accepted mitigation is empirically refuted**: dropping 34 of the 67 pairs does not move `reachesTarget` on any medium or large APK (quicknote 1752→1752, geometerplus 1358→1358, rcx 2514→2513, flym 2247→2245, mupen 2342→2340) — owner filtering cannot repair the transitive signal. Consequences recorded: the signal this change delivers for `generic_new` is **`directlyReachesTarget`**, with `reachesTarget` declared degenerate for that spec set (the two spec sets are complementary on the two axes); and `aperv-tool` — production code — changes verdict in the same commit (`static_artifact.py:13-17`, `:288-296`), which the 2026-08-21 audit had logged as item (i) but never written into the risk body. Effect Tolerable→**Serious**, Level Medium→**High** per the published rubric; summary distribution High 3→4, Medium 6→5 (total still 12). Evidence: `docs/20260821_gh69_veredito_coringas.md` §4.3–§4.5. |

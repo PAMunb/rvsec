@@ -36,14 +36,37 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
 ### Input
 - `mopDir: path` — JavaMOP spec directory, `jca` (exact, explicit imports) or `generic_new` (wildcard
   imports, `+` owners, wildcard method names). Source: `RVStaticAnalysisConfig.mop_dir` → `-clientParam mopDir=`.
+  **Reachability caveat**: no orchestrator path sets `mop_dir` today — neither `rv-experiment` nor
+  `rv-platform` passes it, so `RVStaticAnalysisConfig` always falls back to
+  `rvsec-mop/src/main/resources/jca` (`config.py:199-208`) and the static analysis runs against `jca`
+  regardless of `--specification-set`. `--specification-set generic` maps to `resources/generic` (118
+  synthetic `FSM*` specs), a different corpus, not to `generic_new`. This capability is therefore
+  exercised through `rv-static-analysis --mop-dir .../generic_new` directly; wiring spec-set → `mopDir`
+  is a sibling repair (`docs/20260821_plano_correcao_analise_estatica.md`, D2), not part of this change.
 - `Scene` — the Soot whole-program scene of the APK (call sites, declaring classes/types). Source: GATOR/Soot 4.7.1 (INV-ANA-18).
 
 ### Output
 - `TargetMethod{className, methodName, params, signature, policy, includeSubtypes, nameIsPattern}` —
   resolved by `MopSpecsTargetSource.load()` from `MopMethod`. Consumer: `TargetResolver.resolveInScene`.
 - `reachability[].methods[].{reachable, reachesTarget, directlyReachesTarget}: bool` — per-method flags
-  in the GATOR JSON. **Key set unchanged**; only values change. Consumer: `static_analysis_parser.py`
-  (Python boundary) and ape `MopData.java` (`opt*`-tolerant).
+  in the GATOR JSON. **Key set unchanged**; only values change. Consumers of this **raw** artefact are
+  three independent readers, none of which tolerates a key change: the Python boundary
+  `static_analysis_parser.py:98-99` (the single parse point in `rv-static-analysis`); the repo gate and
+  sweep scripts under `scripts/`; and `aperv-tool`, which parses `<apk>.json` itself and imports nothing
+  from `rv_static_analysis` (`analysis/static_artifact.py:261,270-271,293,359`;
+  `tools/aperv/derive_mop_artifact.py:421-422,1029,1158`). `derive_mop_artifact.py:422` is the least
+  forgiving — `method.get("reachesTarget") is True` turns a rename into a silent `False`, not an error.
+  The ape `MopData.java` is **not** a consumer of this artefact: it reads the *derived* `*.mop.json`,
+  where the key has already been renamed `reachesTarget` → `reachesMop`
+  (`derive_mop_artifact.py:1158`), and it hard-rejects any document without `formatVersion == 1`
+  (`<workspace-rv>/ape/src/main/java/com/android/commands/monkey/ape/utils/MopData.java:207-213`). Its
+  `opt*` tolerance is therefore no argument for schema safety here.
+  Beyond the readers, two **value**-stability gates already watch these booleans and are not part of
+  this change's own test plan: `tests/parity/test_reachability_parity.py:156` (`G_paridade_targets`)
+  freezes the *set* of signatures carrying `reachesTarget=true` against a committed baseline, and
+  `tests/parity/test_historical_methods_coverage.py:134` pins three methods at
+  `directlyReachesTarget=true`. Both run against the default `mopDir` (`jca`), so the JCA-untouched
+  premise of this capability is what keeps them green.
 
 ### Side-Effects
 - **[Soot Scene]**: each declared target owner FQN is force-resolved into the Scene at HIERARCHY level
@@ -95,7 +118,7 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   `call()` owners are JDK classes (`java.lang`/`util`/`io`/`net`), of which **20** carry non-constructor
   targets (`TreeMap` appears only in `call(TreeMap.new(Map))`); 23 owners exist in total counting the two
   `staticinitialization`-only owners `Serializable`/`URLConnection`, which are out of scope (see below).
-  An owner that cannot be resolved MUST be logged and skipped.
+  (The log-and-skip rule for an unresolvable owner is stated once, above.)
 
   **Scope boundary (documented static false-negatives, accepted):** this invariant covers `call(...)`
   pointcuts only. (a) Three specs whose ONLY pointcut is `staticinitialization(Owner+)` —
@@ -103,14 +126,36 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   contribute **zero** static targets (the pointcut never reaches `visit(MethodPointCut)`), so they can
   never set `reachesTarget` even though the runtime monitor fires on class-load. (b) Constructor
   pointcuts `call(Owner.new(..))` — `ServerSocket.new(int,int)`, `ServerSocket.new(int,int,InetAddress)`,
-  `TreeMap.new(Map)` — are NOT extracted (Soot represents constructors as `<init>`; no `new`→`<init>`
-  mapping in this change); both owning specs still emit targets via their other `call()` pointcuts.
+  `TreeMap.new(Map)` — MUST be logged and skipped, and the extractor MUST emit exactly **3** such skip
+  notices for `generic_new`, counted separately from unresolved-owner skips. This is a **required guard,
+  not a passive limitation**: the javamop grammar routes `Owner.new(..)` through `MethodPointCut`
+  (`javamop/src/main/javacc/javamop/parser/aspectj_parser/aspectj.jj:1730-1737`, where `"." <NEW>` sets
+  `owner = retType` and `name = "new"`), so nothing rejects it today — it yields nothing only because
+  every `generic_new` import is an asterisk import and the `imports` map is therefore empty. The moment
+  wildcard-package registration lands, these pointcuts would emit a `MopMethod` named `new`, which
+  matches no Soot method (constructors are `<init>`) and would silently inflate the cardinality gate
+  above. Mapping `new`→`<init>` is out of scope; suppressing the bogus target is not. Both owning specs
+  still emit targets via their other `call()` pointcuts.
   Net coverage: **24/27 specs** with ≥1 static target — a figure that holds only because
   `CharSequence_NotInSet.mop` is repaired within this change. Without the added `import java.util.*;` its
   owner `Set` resolves to nothing, the spec contributes zero targets, and net coverage is 23/27.
 
+  (d) **Pointcut narrowing is discarded — the one false-*positive* direction.** The extractor keys on
+  owner + method name only; the `&& args(...)`, `&& target(...)` and `&& condition(...)` conjuncts that
+  narrow a pointcut are dropped. Measured over `generic_new`: 40 of the 88 `call(` lines carry a `&&`
+  conjunct, 14 of them an `args(...)`. So `call(* Set+.add(..)) && args(CharSequence) && !args(String)
+  && !args(CharBuffer)` becomes the target `java.util.Set#add`, matching every `add` on every subtype of
+  `Set` — far wider than what the aspect weaves. This is accepted (matching is LENIENT by construction,
+  INV-ANA-35), but it MUST be read together with the quasi-universal owners (`Object+`, `Iterable+`):
+  the two compound, and the resulting saturation of `reachesTarget` is what the downstream dataset
+  change has to plan around. Boundaries (a)-(c) understate the true target set; (d) overstates it.
+
   (c) **`jca`/`jca_android`: `RandomStringPassword.mop` contributes zero static targets** and MUST keep
-  contributing zero under this capability. Its two pointcuts name the owner `String` while the spec
+  contributing zero under this capability. **This boundary carries RISK-013 (High)** — it is the one
+  entry in this list that damages the published measurement ruler rather than a diagnostic, because
+  `jca` is the frozen set: every `cov_reaches_target` published from it was computed over **22 of its
+  23 specs**. Read the rest of this paragraph as the statement of a grave, accepted debt, not of a
+  routine limitation. Its two pointcuts name the owner `String` while the spec
   imports only `java.util.stream.IntStream` and three `br.unb.cic.mop.*` packages — `java.lang.String`
   being implicit in Java but not for the visitor. It is the ONLY unresolved owner in either set
   (enumerated 2026-08-21 over the 144 `jca` and 130 `jca_android` `call()` pointcuts), and the woven
@@ -126,7 +171,12 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   signatures (`valueOf(Object)`, `toCharArray()`) — 57 false positives, propagated transitively through
   `reachesTarget`, on the spec set that is the published measurement ruler. The repair therefore needs
   owner visibility **plus** a STRICT policy for that target **plus** FQN parameter resolution, and is
-  deferred to its own change (tasks 5.6). Evidence: `docs/20260821_handoff_gh69_coringas.md`.
+  deferred to its own change (tasks 5.6). What this capability DOES discharge is the *silence*: the
+  log-and-skip rule stated above turns a drop that had no `else` and no log
+  (`UsedJcaMethodsVisitor:70-77`) into a named skip, so `String` MUST appear in the extractor's
+  skipped-owner log for `jca` and `jca_android`. That is the half of RISK-013 that made it grave —
+  a hole nothing reported, repeating for any future spec with an unimported owner. Evidence:
+  `docs/20260821_handoff_gh69_coringas.md`; risk body in `risk-register.md` RISK-013.
 
 - **INV-ANA-41**: `MopSpecsTargetSource.load()` MUST propagate `includeSubtypes` and `nameIsPattern`
   from each `MopMethod` to the corresponding `TargetMethod`. A target derived from a JCA spec (no `+`,
@@ -147,6 +197,17 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   match interface→interface (e.g. `java.util.List <: java.lang.Iterable`) so interface-typed call sites
   are covered. When `includeSubtypes=false`, both points MUST use the exact `equals(className) &&
   equals(methodName)` path unchanged.
+
+  **Cost bound (NFR04).** Widening the predicate removes the `equals(fqn)` fast-reject that
+  `resolveInScene` relies on today and enlarges the seed set it produces, so this capability MUST NOT
+  make the analysis materially slower: on the same APK, `TargetResolver.resolveInScene`, the direct
+  bytecode scan, **and** the reverse BFS that consumes the seed set
+  (`ReachabilityEngine.multiSourceBfs`) MUST each run within **2×** their `jca` baseline. The BFS is
+  named explicitly because it is the stage the change grows least visibly: `resolveInScene` iterates
+  `Scene.v().getClasses()`, so with `Collection+`/`Object+`/`Iterable+` its seed set goes from ~120 JCA
+  methods to every matching library method in the Scene, and the BFS input grows with it. The two
+  mandated mitigations are ordering `nameMatches` before `canStoreType` and caching the resolved
+  super-type `RefType` once per target.
 
 - **INV-ANA-43**: Before `FastHierarchy.canStoreType` is queried, each declared target owner FQN MUST
   be force-resolved into the Soot `Scene` at HIERARCHY level. Because GATOR runs Soot with
@@ -171,6 +232,55 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   the boolean values of `reachesTarget`/`directlyReachesTarget` differ. INV-ANA-35 (JCA byte-for-byte
   parity in `MopSpecsTargetSource.load()` vs the historical `loadMopSignatures`) MUST remain satisfied.
 
+## MODIFIED Requirements
+
+### Requirement: Target Method Source Abstraction (FR04)
+
+The GATOR analysis client MUST load methods of interest via a `TargetMethodSource` interface with at least two production implementations: `MopSpecsTargetSource` (loads from JavaMOP `.mop` specs via `JavamopFacade.listUsedMethods`) and `SignatureFileTargetSource` (loads from a plain-text file of Soot method signatures). The interface decouples target loading from JavaMOP, enabling use of GATOR for use cases outside RV-Android (taint sinks for auditing, custom method lists for papers, third-party toolchains).
+
+The `TargetMethod` POJO (in `presto.android.gui.clients.target`) carries `className: String`, `methodName: String`, `params: List<String>`, `signature: String`, `policy: MatchPolicy` where `MatchPolicy` is the enum `{ LENIENT, STRICT }`, and — added by this capability — `includeSubtypes: boolean` and `nameIsPattern: boolean`. The policy is populated by the source — it is NOT a CLI-level concern (INV-ANA-36).
+
+The three attributes are **orthogonal axes** and MUST NOT be collapsed into one another. `MatchPolicy` is *signature strictness* (`LENIENT` = class+name, `STRICT` = full signature). `includeSubtypes` is *owner matching* (exact FQN vs `FastHierarchy.canStoreType` against the declared super-type). `nameIsPattern` is *method-name matching* (exact vs trailing-`*` prefix). A `generic_new` owner is LENIENT + subtype + pattern; a JCA owner is LENIENT + exact + exact; a signature-file entry may be STRICT + exact + exact. Folding them into a single enum would explode to the cartesian product and break the `LENIENT`/`STRICT` semantics; see ADR 0004.
+
+`TargetMethod.equals`/`hashCode` MUST include `includeSubtypes` and `nameIsPattern`, so two targets differing only by a flag are not collapsed in a `Set<TargetMethod>`. The canonical constructor MUST carry both flags; per P3 there MUST NOT be a delegating overload that defaults them, and every call site MUST be migrated — `MopSpecsTargetSource` passes the real extracted flags, while `SignatureFileTargetSource` and all test call sites pass `false`/`false`, keeping the JCA and signature-file paths on exact matching (INV-ANA-35).
+
+`MopSpecsTargetSource` MUST resolve LENIENT (match by class+name only) to preserve compatibility with AspectJ pointcuts in `.mop` specs whose parameter lists contain wildcards (`init(int, Certificate, ..)`, `getInstance(String, Object+)`).
+
+`SignatureFileTargetSource` MUST resolve STRICT (full Soot signature match) for each non-wildcard entry. Entries whose parameter list is `(..)` or `(*)` resolve LENIENT for that entry only — wildcard syntax is opt-in per entry, not file-wide. STRICT and `includeSubtypes` is an unused combination in this capability: no signature-file entry declares a `+` owner, so the STRICT parameter-matching path in `TargetResolver.resolveInScene` is never reached with subtype matching on.
+
+The `SignatureFileTargetSource` parser MUST tolerate blank lines and lines beginning with `#` (comments), and MUST raise `IllegalArgumentException` (with line number) on any other malformed line.
+
+**Module**: rvsec-gator (`commons/target/TargetMethod.java`, `commons/target/TargetMethodSource.java`, `client/target/MopSpecsTargetSource.java`, `client/target/SignatureFileTargetSource.java`).
+
+#### Scenario: TargetMethodSource interface is the only entry point to target loading
+
+- **WHEN** `RvsecAnalysisClient.run()` needs to load methods of interest
+- **THEN** it MUST construct a `TargetMethodSource` (from CLI argument dispatch) and call `source.load()` to obtain `Set<TargetMethod>`
+- **AND** it MUST NOT call `JavamopFacade.listUsedMethods` directly (that call lives inside `MopSpecsTargetSource` only)
+
+#### Scenario: SignatureFileTargetSource parses comments, blanks, and signatures
+
+- **WHEN** `SignatureFileTargetSource.load()` is invoked on a file containing:
+  ```
+  # JCA crypto sinks
+  <javax.crypto.Cipher: void init(int,java.security.Key)>
+
+  <javax.crypto.Cipher: byte[] doFinal(byte[])>
+  # LENIENT wildcard
+  <javax.crypto.Cipher: void init(..)>
+  ```
+- **THEN** the returned set MUST contain exactly 3 `TargetMethod` instances
+- **AND** the first two MUST have `policy == STRICT`
+- **AND** the third MUST have `policy == LENIENT`
+- **AND** all three MUST have `includeSubtypes == false` and `nameIsPattern == false`
+
+#### Scenario: MopSpecsTargetSource is a thin wrapper over JavamopFacade
+
+- **WHEN** `MopSpecsTargetSource(Path.of("/m")).load()` is invoked
+- **THEN** it MUST delegate to `JavamopFacade.listUsedMethods(/m, false)`
+- **AND** it MUST convert each `MopMethod` to a `TargetMethod` with `policy == LENIENT`, **propagating `includeSubtypes` and `nameIsPattern` from the `MopMethod`** rather than defaulting them (INV-ANA-41)
+- **AND** the resulting `Set<TargetMethod>` MUST be equal in cardinality to the historical `Set<MopMethod>` produced by `loadMopSignatures` on the same input (INV-ANA-35)
+
 ## ADDED Requirements
 
 ### Requirement: Subtype/Wildcard-Aware Target Matching for Hierarchy-Declared Spec Sets (FR04, FR05, FR06)
@@ -194,7 +304,7 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 #### Scenario: Extractor loads targets from a wildcard/subtype generic spec
 - **WHEN** the extractor parses `generic_new/Collection_UnsynchronizedAddAll.mop` containing `import java.util.*;` and `call(boolean Collection+.addAll(..))`
 - **THEN** it MUST emit a `MopMethod` with `className="java.util.Collection"`, `methodName="addAll"`, and `includeSubtypes=true`
-- **AND** over all 27 `generic_new` specs the emitted target set MUST have cardinality > 0 (currently 0)
+- **AND** over all 27 `generic_new` specs the emitted target set MUST have the cardinality fixed in advance by INV-ANA-40 — **67** distinct `call()` pairs when the trailing `+` is part of the owner key, **66** when it is not (currently 0); asserting merely `> 0` is the pinned-to-whatever-is-emitted weakness that INV-ANA-40 forbids
 - **AND** the same extractor run on the 23 `jca` specs MUST still emit **exactly 120** targets (68 `(class, method)` pairs, 22 owners; `jca_android`: 119/67/22 — re-measured 2026-08-21), each with `includeSubtypes=false` and `nameIsPattern=false`
 - **AND** the `String` owner of `RandomStringPassword.mop` MUST remain unresolved, logged as a skipped owner (scope boundary (c)) — the implicit `java.lang` package MUST NOT be seeded to resolve it
 
@@ -236,14 +346,19 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 #### Scenario: Output schema unchanged across spec sets
 - **WHEN** GATOR writes the static-analysis JSON for an APK against `generic_new`
 - **THEN** the set of JSON keys MUST be identical to a `jca` run on the same APK (only `reachesTarget`/`directlyReachesTarget` boolean values differ)
-- **AND** the Python parser boundary (`static_analysis_parser.py`) and ape `MopData.java` MUST require no key-mapping change
+- **AND** the three raw-JSON readers — `static_analysis_parser.py`, the `scripts/` gates, and `aperv-tool` (`static_artifact.py` + `derive_mop_artifact.py`) — MUST require no key-mapping change; `derive_mop_artifact.py:422` is the one that would degrade a rename to a silent `False` rather than erroring, so it is the sharpest indicator
+- **AND** the ape `MopData.java` MUST NOT be cited as evidence of schema safety: it consumes the *derived* `*.mop.json` (key already renamed to `reachesMop`), not this artefact
 
 #### Scenario: Non-target call site stays unmatched — no subtype over-match (negative E2E)
-- **NOTE** `generic_new` includes `Object+` owners (`Object_MonitorOwner.mop`: `wait`/`notify`/`notifyAll`), so **every** call-site declaring type IS a subtype of some declared owner. Non-matches are therefore decided on the **method-name axis**, not the type axis. (The earlier `String.length()` "not a subtype" framing was incorrect: `String <: Object`.)
+Because `generic_new` declares `Object+` owners (`Object_MonitorOwner.mop`: `wait`/`notify`/`notifyAll`),
+**every** call-site declaring type is a subtype of some declared owner. A non-match is therefore decided
+on the **method-name axis**, never on the type axis — an earlier framing that called `String.length()`
+"not a subtype" was wrong, since `String <: Object`.
+
 - **WHEN** a method invokes a call site whose declaring type is a subtype of a declared owner but whose method name does NOT match that owner's declared pattern/name — e.g. `java.lang.String.length()` (`String <: Object+` but `length` ∉ {`wait`,`notify`,`notifyAll`}), or `java.util.ArrayList.remove(...)` against `Collection+.add*`
 - **THEN** the method MUST be reported `reachesTarget=false` and `directlyReachesTarget=false`
 - **AND** `nameMatches` MUST reject the name **before** `canStoreType` is consulted, so a non-matching name short-circuits regardless of subtype
-- **AND** subtype/pattern widening MUST introduce zero spurious positives on the IT APK: on a small APK with an enumerable set of target call sites, the `directlyReachesTarget=true` set MUST correspond to genuine subtype+name matches. Where exhaustive ground-truth labelling is impractical this is verified by **spot-checks + sampled inspection** (an honest, bounded criterion — not a completeness proof)
+- **AND** every `directlyReachesTarget=true` call site in a **sampled** subset of the IT APK MUST be a genuine subtype+name match. The criterion is deliberately bounded: exhaustive ground-truth labelling of an APK is impractical, so acceptance is a documented sample (every call site of at least two declared owners, plus ten randomly drawn positives) with zero misclassifications in that sample. This is a sampling gate, not a completeness proof, and MUST NOT be restated as "zero spurious positives" — a universal claim that no feasible check can discharge
 
 #### Scenario: JCA exact path preserved (parity)
 - **WHEN** the matcher resolves a JCA target such as `Cipher.getInstance(String)` (`includeSubtypes=false`)

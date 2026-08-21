@@ -17,7 +17,8 @@ boolean). This change makes the matcher correct; it does not by itself deliver t
 This is confirmed empirically: the `rvsec-mop-extractor` extracts **0 methods** from the 27
 `generic_new` specs versus **120** from `jca`; **27/27** generic specs use wildcard imports and
 **71/89** `call(...)` pointcuts use a `+` subtype owner. Full root-cause analysis and an adversarial
-validation are in `docs/20260617_sa_generic_new.md` (§1–§14) and `docs/20260611_sweep_generic_new_400.md`
+validation are in `docs/20260617_sa_generic_new.md` (§1–§15 — §15 is the adversarial validation of
+this change's own artefacts, added the same day) and `docs/20260611_sweep_generic_new_400.md`
 (§10 — the former §11 was folded into §10 when decision B was recorded, so cite §10 only; the Estágio A
 *procedure* is §5). The reachability sweep that stalled at 49/400 on the old sweep corpus waits on this
 fix; that corpus has since been superseded (see Impact).
@@ -33,7 +34,11 @@ fix; that corpus has since been superseded (see Impact).
   and preserve wildcard method names (`add*`) as a pattern rather than a literal. New `MopMethod`
   flags: `includeSubtypes`, `nameIsPattern`. **Coverage boundary (documented, accepted)**: only
   `call(...)` pointcuts are extracted — the 3 specs whose sole pointcut is `staticinitialization(Owner+)`
-  and the 3 constructor `call(Owner.new(..))` pointcuts remain without static targets (net 24/27 specs
+  and the 3 constructor `call(Owner.new(..))` pointcuts remain without static targets. The constructor
+  half is **an active guard, not a passive gap**: the javamop grammar routes `Owner.new(..)` through
+  `MethodPointCut` (`aspectj.jj:1730-1737`), so once wildcard packages are registered these pointcuts
+  would emit a `MopMethod` named `new` — matching no Soot method, since constructors are `<init>` — and
+  silently inflate the cardinality gate. Task 1.3(d) must skip them explicitly and log 3 notices (net 24/27 specs
   with ≥1 target; see design Non-Goals and INV-ANA-40 scope boundary). **That 24/27 depends on the
   one-line spec repair in task 1.0b**: `CharSequence_NotInSet.mop` declared owner `Set+` while importing
   only `java.io`/`java.lang`/`java.nio`, so under the import-driven resolution rule its owner resolved to
@@ -43,7 +48,12 @@ fix; that corpus has since been superseded (see Impact).
   `jca`/`jca_android` sets (120→122 / 119→121) by resolving `RandomStringPassword.mop`'s `String` owner
   into a LENIENT target that matches every `String.valueOf` overload — 74 call sites over 3 corpus APKs,
   17 of them woven. That false-negative is documented in scope boundary (c) and repaired in its own
-  change; evidence in `docs/20260821_handoff_gh69_coringas.md`.
+  change; evidence in `docs/20260821_handoff_gh69_coringas.md`. **It is a High risk, not a footnote —
+  `risk-register.md` RISK-013**: `RandomStringPasswordSpec` is 1 of the 23 `jca` specs, its two
+  pointcuts are woven and live, and it contributes zero static targets, so every `cov_reaches_target`
+  ever published from the frozen `jca` ruler was computed over **22 of 23** specs. What this change
+  does deliver against it is visibility — the log-and-skip rule makes `String` a named skipped owner
+  instead of a silent drop; the measurement repair stays in task 5.6.
 
 - **Matcher (`rvsec-gator`, `commons` + `client`)** — make target matching subtype/wildcard-aware
   via decision **A2**: carry `includeSubtypes` + name-pattern on `TargetMethod`, and at the two match
@@ -82,7 +92,11 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
 ### Modified Capabilities
 - `analysis`: the "Unified Static Analysis" requirement (FR04–FR06) — target matching gains
   subtype/wildcard awareness for spec sets that declare owners by hierarchy. New invariants
-  (INV-ANA-40+) for extractor extraction of wildcard/`+`/pattern owners, the A2 `canStoreType`
+  (INV-ANA-40+) for extractor extraction of wildcard/`+`/pattern owners, plus a `## MODIFIED Requirements`
+  block restating "Target Method Source Abstraction (FR04)" in full: `TargetMethod` gains
+  `includeSubtypes`/`nameIsPattern`, and the `MopSpecsTargetSource` thin-wrapper scenario now requires
+  propagating them rather than carrying `policy` alone. Without that block the synced spec would keep
+  claiming a five-field POJO and a policy-only conversion, the A2 `canStoreType`
   predicate at both match points, target-super-type Scene resolution with graceful degradation, and
   the output-schema-invariance guarantee. Builds on the `TargetMethod`/`MatchPolicy`/`TargetResolver`
   abstraction and INV-ANA-33/INV-ANA-35 introduced by **gh60-targets-core** (dependency, see Impact).
@@ -96,21 +110,36 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
   not two — `rv-static-analysis` through its single parser boundary (`static_analysis_parser.py:98-99`),
   the repo gate/sweep scripts under `scripts/`, and **`aperv-tool`**, which parses `<apk>.json` itself and
   imports nothing from `rv_static_analysis` (`analysis/static_artifact.py:261,270-271,293,359`;
-  `tools/aperv/derive_mop_artifact.py:421-422,1029,1158`). The ape `MopData.java` is **not** one of them:
+  `tools/aperv/derive_mop_artifact.py:421-422,1029,1158`). **Wider still (2026-08-21)**: those three are
+  complete only for `modules/`. Six further raw readers live elsewhere — `tests/parity/` (four files),
+  `docs/20260803_charac_static_corpus.py`, and `experimento-comp162-ajc/scripts/{covadjust,analise}.py`.
+  Two of them are **value**-stability gates on exactly the booleans this change moves:
+  `tests/parity/test_reachability_parity.py:156` (`G_paridade_targets`) freezes the *set* of signatures
+  carrying `reachesTarget=true` against a committed baseline, and
+  `tests/parity/test_historical_methods_coverage.py:134` pins three methods at
+  `directlyReachesTarget=true`. INV-ANA-44 promises key-set invariance; these guard values. Both run
+  against the default `mopDir` (`jca`), so the JCA-untouched premise is what keeps them green — and they
+  would catch a JCA regression before anything else does. The ape `MopData.java` is **not** one of them:
   it reads the *derived* `*.mop.json`, where the key has already been renamed `reachesTarget` →
   `reachesMop` (`derive_mop_artifact.py:1158`), and hard-rejects any document without `formatVersion == 1`
-  (`MopData.java:207-213`). So its `opt*` tolerance is no argument for schema safety here; the component
+  (`<workspace-rv>/ape/src/main/java/com/android/commands/monkey/ape/utils/MopData.java:207-213` — the
+  full path matters: no `MopData.java` exists anywhere under `rv-android` or `rvsec`). So its `opt*` tolerance is no argument for schema safety here; the component
   actually exposed to a GATOR key change is `derive_mop_artifact.py`, which is **not** tolerant
   (`method.get("reachesTarget") is True` at :422 degrades a rename to a silent `False`).
 - **Requirements**: FR04 (WTG), FR05 (GUI elements), FR06 (method reachability) — the reachability
   target-set computation. Relates to INV-ANA-15 (coverage denominator uses `reaches_target`),
   INV-ANA-18 (Soot 4.7.1), BUG-INV-ANA-19 (bytecode-scan complement gains the subtype predicate).
+  Note that of these, only INV-ANA-15 has a normative bullet in the synced `analysis/spec.md`; INV-ANA-17,
+  INV-ANA-18 and BUG-INV-ANA-19 survive there as narrative references only, their bullets living in the
+  gh51 archive. They are cited here as context, not as invariants this change can rely on being synced
+  (RISK-008).
 - **Dependency on gh60-targets-core** (issue #60, ARCHIVED 2026-06-17): the `TargetMethod`/`MatchPolicy`/
   `TargetResolver`/`MopSpecsTargetSource` abstraction and INV-ANA-33/35 are introduced there. The
   code is already in the gator source; this change extends it. INV-ANA-35 parity (JCA byte-for-byte)
   MUST be preserved.
   - **Sync/archive ordering — constraint now SATISFIED (as of 2026-07-06)**: gh60 (INV-ANA-33..38) and
-    gh66 `gator-wtg-flowcontainer-perf` (INV-ANA-39) are **already archived and synced** — the synced
+    gh66 `gator-wtg-flowcontainer-perf` are **already archived**, and gh60's invariants are synced
+    (gh66's INV-ANA-39 requirement is synced but its normative bullet is not — see RISK-008) — the synced
     `openspec/specs/analysis/spec.md` now contains INV-ANA-33/35, so this change's references resolve and
     the earlier "gh60 MUST sync first / dangling reference" hazard no longer applies. gh69 claims
     INV-ANA-40..44, which are **free** in the synced spec and unclaimed by any active change. Two residual
@@ -146,7 +175,12 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
   live in `head_apks/` (348), `built_apks/` (317) and `instrumented_apks/` (219) — and the "219 curated
   apps" figure is stale, the repo having re-frozen to 182 (Phase 10) and then 181 (Phase 11) on
   2026-07-14;
-  `docs/20260611_sweep_generic_new_400.md` remains the procedure reference. Caveat for that downstream
+  `docs/20260611_sweep_generic_new_400.md` remains the procedure reference. Two caveats on that corpus,
+  both verified 2026-08-21 and neither settled: its `ROADMAP.md` marks Phases 10 and 11 with an open
+  "⚠ M10/M11 desync follow-up", so 181 is a live figure rather than a frozen one; and its selection
+  criterion is **JCA** static reachability (the 23 `jca` specs), which means a corpus chosen for JCA
+  reachability would be handed to a generic experiment — a selection bias the downstream change must
+  confront, distinct from the already-noted fact that the ROADMAP is JCA-only. Caveat for that downstream
   change: with quasi-universal owners (`Object+`, `Iterable+`) `reachesTarget` saturates near-true across
   APKs, and decision B (no per-owner attribution in the JSON) means the dataset filter cannot statically
   discriminate universal from selective targets — the downstream change must plan around this (per-owner
