@@ -67,8 +67,6 @@ SSLContextSpec,init,Init,event,SSLContext.cryptsl,29,mapped,"the rule names one 
 SSLContextSpec,engine,Engine,aggregate,SSLContext.cryptsl,35,mapped,"`createSSLEngine(..)` is one event over both overloads, which is the aggregate whole"
 SecretKeySpecSpec,c1,c1,event,SecretKeySpec.cryptsl,17,mapped,
 SecretKeySpecSpec,c2,c2,event,SecretKeySpec.cryptsl,19,mapped,
-SecretKeySpecSpec,c3,c1,event,SecretKeySpec.cryptsl,17,mapped,"the accusing twin of c1 over the same two-argument constructor; task 3.4 fuses it"
-SecretKeySpecSpec,c4,c2,event,SecretKeySpec.cryptsl,19,mapped,"the accusing twin of c2, checking the length complement; 3.4's fused body keeps that check"
 SecureRandomSpec,c1,c1,event,SecureRandom.cryptsl,23,mapped,
 SecureRandomSpec,c2,c2,event,SecureRandom.cryptsl,25,mapped,
 SecureRandomSpec,g1,g1,event,SecureRandom.cryptsl,29,mapped,

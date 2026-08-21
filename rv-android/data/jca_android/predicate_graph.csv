@@ -81,8 +81,7 @@ SSLContextSpec.mop,fail,@fail,positive,,1,,SSLContext,,,,bookkeeping:fail,,,n/a
 SSLContextSpec.mop,match1,@match,positive,,1,,SSLContext,,,,bookkeeping:match,,,n/a
 SecretKeySpec.mop,e1,condition,positive,,1,GENERATED_KEY,SecretKey,,,,read:condition-guard,,,member
 SecretKeySpec.mop,e1,body,positive,,1,RANDOMIZED,byte[],,,,write:body,,,member
-SecretKeySpecSpec.mop,c1,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,member
-SecretKeySpecSpec.mop,c3,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,orphan
+SecretKeySpecSpec.mop,c1,body,positive,,1,RANDOMIZED,byte[],,,,read:body,,,member
 SecretKeySpecSpec.mop,match,@match,positive,,1,,SecretKeySpec,,,,bookkeeping:match,,,n/a
 SecretKeySpecSpec.mop,match,@match,positive,,1,GENERATED_KEY,SecretKeySpec,,,,write:acceptance,,,n/a
 SecureRandomSpec.mop,setSeed2,body,positive,,1,RANDOMIZED,byte[],,,,read:body,,,member

@@ -941,9 +941,18 @@ def constraint_rows(
                 ]
                 bound = re.search(r"(>=|<=|==|>|<)\s*(\d+)", clause)
                 for event in mop.events:
-                    if not event.condition:
+                    # The guard *and* the body, for the reason `_clause_family`
+                    # states above: gh105's fusions and F2 pass move a clause out
+                    # of `condition(...)` and into the event body, where failing it
+                    # accuses instead of suppressing the transition. A matcher that
+                    # read only the guard would call a migrated numeric bound
+                    # unbacked -- `SecretKeySpecSpec`'s `length(keyMaterial) >= off
+                    # + len` after gh105 task 3.4 -- when the clause is still
+                    # stated, one line further in.
+                    stated = f"{event.condition or ''}\n{event.body or ''}"
+                    if not stated.strip():
                         continue
-                    if bound and bound.group(0).replace(" ", "") in event.condition.replace(" ", ""):
+                    if bound and bound.group(0).replace(" ", "") in stated.replace(" ", ""):
                         row["verdict"] = "IGUAL"
                         row["mop_line"] = f"{mop.path.name}:{event.line}"
                         break
@@ -953,7 +962,7 @@ def constraint_rows(
                     binding = _argument_binding(mop, event, rule)
                     if not bound and operands and all(
                         name in binding
-                        and re.search(rf"\b{re.escape(binding[name])}\b", event.condition)
+                        and re.search(rf"\b{re.escape(binding[name])}\b", stated)
                         for name in operands
                     ):
                         row["verdict"] = "IGUAL"
