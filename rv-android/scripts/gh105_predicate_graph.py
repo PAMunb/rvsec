@@ -1039,6 +1039,47 @@ def gate_placement(report: SetReport) -> list[Finding]:
     return findings
 
 
+# INV-INS-130 states its own check: `grep -rlw 'ExecutionContext'` over the set,
+# returning nothing. The word boundary is the load-bearing part -- it catches a
+# fully-qualified `br.unb.cic.mop.ExecutionContext.instance()` as well as the
+# import line, and neither form is a substring of the other.
+_EXECUTION_CONTEXT = re.compile(r"\bExecutionContext\b")
+
+
+def gate_import(report: SetReport, sources: list[MopSource]) -> list[Finding]:
+    """INV-INS-130: no specification of the migrated set names `ExecutionContext`.
+
+    Read over the raw text, exactly as the invariant's `grep` is: a comment that
+    still tells its reader to reach for the old substrate is a file that has not
+    finished migrating, even when no code line does. The two counts are reported
+    apart anyway, because the code sites are the ones the F2 and F3 passes move
+    and the prose ones are the residue those passes leave behind.
+
+    The gate governs `jca_android` and nothing else. `jca` and the archived
+    `jca_android_bug_predicate` call `ExecutionContext` because that is what they
+    were frozen calling (INV-INS-132), and the 145 files of the two generic sets
+    call no substrate at all.
+    """
+    findings: list[Finding] = []
+    for source in sources:
+        mentions = len(_EXECUTION_CONTEXT.findall(source.text))
+        if not mentions:
+            continue
+        in_code = len(_EXECUTION_CONTEXT.findall(source.neutral))
+        findings.append(
+            Finding(
+                "INV-INS-130",
+                report.name,
+                source.path.name,
+                "ExecutionContext",
+                f"{mentions} whole-word mentions of `ExecutionContext` "
+                f"({in_code} in code, {mentions - in_code} in comments or strings); "
+                "the migrated set carries its predicate operations on `PredicateStore`",
+            )
+        )
+    return findings
+
+
 def gate_pred2(report: SetReport) -> list[Finding]:
     """G-PRED2 (INV-INS-137): the graph closes, or says in writing why it does not.
 
@@ -1268,15 +1309,15 @@ def run_gates(
 
         produced = gate_acc(report, sources) + gate_junction_rules(report, sources)
         if report.name == TARGET_SET:
-            produced += gate_placement(report) + gate_pred2(report)
+            produced += gate_placement(report) + gate_pred2(report) + gate_import(report, sources)
         else:
-            for gate in ("INV-INS-133", "INV-INS-134", "G-PRED2"):
+            for gate in ("INV-INS-130", "INV-INS-133", "INV-INS-134", "G-PRED2"):
                 run.gate_skips.append(
                     (
                         gate,
                         report.name,
-                        "the placement and closure contract governs the migrated set only; "
-                        f"`{report.name}` is frozen or predicate-free",
+                        "the import, placement and closure contract governs the migrated set "
+                        f"only; `{report.name}` is frozen or predicate-free",
                     )
                 )
             produced = [

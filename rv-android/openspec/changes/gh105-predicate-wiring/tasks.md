@@ -118,7 +118,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       artifact-only, never exit codes (INV-INS-139); fixtures for `byte[]`/`int[]`/`char[]`
       collapse and the `Object`-idiom pass, checked in as `.rvm` samples so the gate is testable
       before the first real generation
-- [ ] 2.6 Import-discipline gate (`grep -rlw 'ExecutionContext'` over `jca_android/*.mop` empty
+- [x] 2.6 Import-discipline gate (`grep -rlw 'ExecutionContext'` over `jca_android/*.mop` empty
       — INV-INS-130) and wire 2.1-2.5 into `tests/parity/test_gh105_predicate_gates.py` under
       the CI contract (`--import-mode=importlib -o "addopts="`), each gate registered against
       the 2.10 baseline — a forward dependency inside the group: the pytest wiring lands
@@ -142,7 +142,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       (`predicate-store`, `placement`, `junction`, `predicate-removal`) to `KINDS:46-55`**, or
       every Group 3-6 row fails `check()` with `unknown kind` (design D-11). The `err2`/`c3`
       allowlist rows are NOT here: they are owned by 3.1 and 3.5
-- [ ] 2.8 Create `data/jca_android/order_alphabet_map.csv` (schema + rows for the specs Groups 3
+- [x] 2.8 Create `data/jca_android/order_alphabet_map.csv` (schema + rows for the specs Groups 3
       and 5 touch first, enumerated in the file's header comment so completeness is checkable
       before 7.1 closes it)
 - [ ] 2.9 `scripts/gh105_order_gate.py` (G-ORDER): DFA equivalence under the 2.8 mapping,

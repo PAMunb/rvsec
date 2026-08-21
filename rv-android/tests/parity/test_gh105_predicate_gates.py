@@ -21,7 +21,9 @@ cases that motivated them rather than against a happy path:
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -33,6 +35,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 import gh105_param_gate  # noqa: E402
 from gh105_predicate_graph import (  # noqa: E402
     COLUMNS,
+    SPECIFICATION_SETS,
     SetReport,
     analyze_set,
     build_rows,
@@ -962,3 +965,195 @@ def test_gparam_is_green_over_the_set_as_it_stands():
     result = gh105_param_gate.run(_specs_root(), monitors, "jca_android")
     assert result.findings == []
     assert len(result.passed) == 23
+
+
+# ------------------------------------------------ the gates under the CI contract
+
+
+BASELINE = REPO / "data/jca_android/gate_baseline.json"
+
+# The gates of this change are written before the edits that make them green, so
+# CI cannot ask them for zero findings without leaving the suite red across most
+# of the change -- and a suite that is expected to be red stops being read
+# (design D-13). Each wrapper below asserts instead that the gate reports nothing
+# the recorded baseline does not already carry: a finding that leaves the
+# baseline as its group lands is progress, a finding that is not in it is a
+# regression, and the mechanism is deleted outright by task 7.6 once the gates
+# stand on their own. It is not `gate_allowlist.csv`, which records findings that
+# are deliberately permanent.
+
+
+@pytest.fixture(scope="module")
+def suite():
+    """One run of the whole structural suite, shared by every wrapper.
+
+    The run walks 214 files over five sets; running it once per assertion would
+    make the CI wiring cost more than everything it guards.
+    """
+    return run_gates(_specs_root(), "all", GRAPH, ALLOWLIST)
+
+
+def _recorded(gate: str) -> set[tuple[str, str, str]]:
+    """The baseline rows of one gate, or a declared skip until task 2.10 lands."""
+    if not BASELINE.is_file():
+        pytest.skip(
+            f"the expected baseline is written by task 2.10 and does not exist yet: {BASELINE}"
+        )
+    payload = json.loads(BASELINE.read_text(encoding="utf-8"))
+    return {tuple(row) for row in payload["gates"].get(gate, [])}
+
+
+def _no_regression(suite, gates: tuple[str, ...]) -> None:
+    """Every finding of `gates` is one the baseline already carries.
+
+    Keyed on set/file/subject and never on line numbers or message text, so a
+    reformatted file does not read as a new finding -- a gate that cries wolf on
+    formatting is a gate that gets muted.
+    """
+    recorded: set[tuple[str, str, str]] = set()
+    for gate in gates:
+        recorded |= _recorded(gate)
+    measured = {
+        (finding.spec_set, finding.file, finding.subject)
+        for finding in suite.findings
+        if finding.gate in gates
+    }
+    new = sorted(measured - recorded)
+    assert not new, f"{gates}: findings absent from the baseline at {BASELINE}: {new}"
+
+
+def test_inv_ins_130_import_discipline(suite):
+    """No `.mop` of the migrated set may name `ExecutionContext` (INV-INS-130).
+
+    The gate is the invariant's own check -- whole-word, so a fully-qualified use
+    is caught like an import -- and today it reports all 23 files of the set,
+    which is the state F2 and F3 exist to change. What is asserted here is that
+    the number only ever goes down.
+    """
+    findings = [finding for finding in suite.findings if finding.gate == "INV-INS-130"]
+    assert all(finding.spec_set == "jca_android" for finding in findings)
+
+    literal = {
+        path.name
+        for path in sorted((_specs_root() / "jca_android").glob("*.mop"))
+        if re.search(r"\bExecutionContext\b", path.read_text(encoding="utf-8"))
+    }
+    assert {finding.file for finding in findings} == literal, (
+        "the gate and the `grep -rlw` of INV-INS-130 must name the same files"
+    )
+    _no_regression(suite, ("INV-INS-130",))
+
+
+def test_inv_ins_133_no_condition_reads(suite):
+    """A predicate read belongs in the event body, never in `condition(...)`.
+
+    A false guard suppresses the transition, so an unobserved predicate is
+    accused as a wrong call sequence -- the mechanism behind the set's largest
+    published error category. Every read the gate still reports is a site whose
+    Group-4 file pass has not run.
+    """
+    findings = [finding for finding in suite.findings if finding.gate == "INV-INS-133"]
+    assert all(finding.spec_set == "jca_android" for finding in findings)
+    _no_regression(suite, ("INV-INS-133",))
+
+
+def test_inv_ins_134_write_placement(suite):
+    """A write sits at the rule's acceptance point, or records why it does not.
+
+    Not forbidden elsewhere -- unjustified elsewhere. The reason lives in the
+    graph, in the row's own `reason` column, where the next reader finds it
+    beside the site instead of in a commit message.
+    """
+    findings = [finding for finding in suite.findings if finding.gate == "INV-INS-134"]
+    assert all(finding.spec_set == "jca_android" for finding in findings)
+    _no_regression(suite, ("INV-INS-134",))
+
+
+def test_inv_ins_135_gacc(suite):
+    """G-ACC: every declared event is in the automaton, and every named one declared.
+
+    Both directions, because an accuser outside the ordering fires on a trace the
+    automaton never judged, and a transition labelled by an undeclared event can
+    never be taken. The 17 orphans of the derived set are Group 3's work; the
+    `generic` orphan is nobody's, and is reported informatively rather than
+    failing a run it does not belong to.
+    """
+    findings = [finding for finding in suite.findings if finding.gate == "G-ACC"]
+    assert all(finding.spec_set == "jca_android" for finding in findings)
+    assert any(finding.gate == "G-ACC" for finding in suite.informative)
+    _no_regression(suite, ("G-ACC",))
+
+
+def test_inv_ins_136_junction_rules(suite):
+    """The four junction rules, over the specifications they govern and no others.
+
+    Rules (a), (b) and (d) are gated here: a consumer event declared `creation`
+    accuses the conforming trace, a state without a benign self-loop fails a
+    disconnected join, and a specification parameter named inside a handler does
+    not compile. They key on the junction naming convention because a typestate
+    specification that has no transition for an event is doing its job.
+    """
+    junction_gates = ("INV-INS-136(a)", "INV-INS-136(b)", "INV-INS-136(d)")
+    findings = [finding for finding in suite.findings if finding.gate in junction_gates]
+    assert findings == [], (
+        "no junction specification exists yet; these are Group 5's, and a finding "
+        f"here means a rule fired on a typestate specification: {findings}"
+    )
+
+
+def test_inv_ins_137_gpred2(suite):
+    """G-PRED2: the graph closes, or names in writing the edge it cannot close.
+
+    Every read has a producer in the set or a disposition saying why none exists;
+    every write has a reader or a recorded omission. The gate is what stops the
+    change from ending with a store that is written and never consulted, which is
+    the state it started from.
+    """
+    findings = [finding for finding in suite.findings if finding.gate == "G-PRED2"]
+    assert all(finding.spec_set == "jca_android" for finding in findings)
+    _no_regression(suite, ("G-PRED2",))
+
+
+def test_inv_ins_139_gparam(suite):
+    """G-PARAM under CI: the header the specification declares is the header generated.
+
+    Artifact against artifact, never exit codes -- JavaMOP deletes a
+    primitive-array parameter and returns 0. Without generated monitors beside
+    the sources there is nothing to compare, and that is a skip with a reason:
+    counting a missing artifact as a pass would make the gate green exactly when
+    the generation failed hardest.
+    """
+    monitors = REPO / "results/gh51_e2e_test/monitors"
+    if not monitors.is_dir():
+        pytest.skip(f"no generated monitors to compare against: {monitors}")
+
+    result = gh105_param_gate.run(_specs_root(), monitors, "jca_android")
+    assert result.findings == []
+    assert result.passed, "a run that compared nothing is not a pass"
+
+
+def test_inv_ins_140_genericity(suite):
+    """Every gate degrades declaredly over a universe it enumerates.
+
+    Three claims, and they are one claim: the files are counted from the
+    directories rather than written down (this change adds junction
+    specifications, so any literal count would fail on the day the first one
+    lands); every file is either read or skipped with a reason, so the numbers
+    add up to the files that exist; and a gate that does not govern a set says so
+    with a reason instead of silently not running there.
+    """
+    enumerated = sum(
+        len(list((_specs_root() / name).glob("*.mop")))
+        for name in SPECIFICATION_SETS
+        if (_specs_root() / name).is_dir()
+    )
+    assert suite.universe == enumerated
+    assert suite.read + suite.skipped == enumerated
+
+    for report in suite.reports:
+        assert report.read + len(report.skipped) == report.total
+        assert all(reason for _, reason in report.skipped)
+
+    governed = {gate for gate, _, _ in suite.gate_skips}
+    assert governed == {"INV-INS-130", "INV-INS-133", "INV-INS-134", "G-PRED2"}
+    assert all(reason for _, _, reason in suite.gate_skips)

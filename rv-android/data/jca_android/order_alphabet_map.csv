@@ -1,0 +1,125 @@
+# The event-alphabet mapping G-ORDER decides under (INV-INS-138). One row per
+# (`.mop` event -> `ORDER` symbol) association, per specification. It is versioned
+# and revised with the specification that uses it: a mapping is a judgement about
+# what a pointcut captures, and a wrong one is a wrong verdict in both directions,
+# so it is never inferred. G-ORDER skips -- with the reason -- any specification
+# with no api30 rule or no rows here.
+#
+# The mapping is not a bijection, on purpose and in both directions. The `.mop`
+# separates overloads to bind arguments (`CipherSpec.i2` is one event over the six
+# `init(int, Key, ...)` overloads the rule names apart), and the rule aggregates
+# events the `.mop` keeps together (`SignatureSpec.update` is `Updates` whole).
+# `symbol_kind` says which side of that a row is on.
+#
+# `disposition = order-unmapped` is the exemption INV-INS-138 grants: the event has
+# no `ORDER` counterpart at all, and the gate erases it from BOTH languages before
+# deciding equivalence. That is what lets an absorbed accuser (`initError`,
+# `unsafe_protocol`, the invalid-algorithm twins) satisfy G-ACC by entering the
+# automaton without breaking the language comparison. It is a claim with a reason
+# attached, never a way to make a comparison come out right.
+#
+# Covered here (task 2.8) -- the specifications Groups 3 and 5 reach first:
+#   Group 3, the nine orphan-carrying specifications: IvParameterSpec,
+#   KeyPairGeneratorSpec, PBEKeySpecSpec, PBEParameterSpecSpec, SSLContextSpec,
+#   SecretKeySpecSpec, SecureRandomSpec, SignatureSpec, TrustManagerFactorySpec.
+#   Group 5, the pilot chain of task 5.1 (SecureRandom -> byte[] -> IvParameterSpec
+#   -> Cipher): CipherSpec. The other two links are already covered above.
+#
+# Still to map, and owned by task 7.1 (13 of the set's 23): CipherInputStreamSpec,
+# CipherOutputStreamSpec, DHGenParameterSpecSpec, GCMParameterSpecSpec,
+# HMACParameterSpecSpec, KeyGeneratorSpec, KeyManagerFactorySpec, KeyPairSpec,
+# KeyStoreSpec, MacSpec, MessageDigestSpec, SecretKeySpec, RandomStringPassword
+# (the last has no api30 rule and is a declared G-ORDER skip, not a missing row).
+#
+# Columns: `rule_line` points at the event declaration in
+# MetaCrySL/generated/api30/<rule>, which is the read-only oracle -- a mapping that
+# cannot name its line is a mapping nobody checked.
+spec,mop_event,order_symbol,symbol_kind,rule,rule_line,disposition,reason
+IvParameterSpec,c1,cons1,event,IvParameterSpec.cryptsl,15,mapped,
+IvParameterSpec,c2,cons2,event,IvParameterSpec.cryptsl,17,mapped,
+IvParameterSpec,c3,cons1,event,IvParameterSpec.cryptsl,15,mapped,"the accusing twin of c1 over the same `IvParameterSpec(byte[])` call, split only by the sign of its guard; task 3.3 fuses it into c1 and this row leaves with it"
+IvParameterSpec,c4,cons2,event,IvParameterSpec.cryptsl,17,mapped,"the accusing twin of c2 over the same three-argument call; not an exact complement (it ignores c2's offset/length constraints), so 3.3's fused body keeps both checks"
+KeyPairGeneratorSpec,g1,g1,event,KeyPairGenerator.cryptsl,17,mapped,
+KeyPairGeneratorSpec,g2,g2,event,KeyPairGenerator.cryptsl,19,mapped,
+KeyPairGeneratorSpec,g3,,,KeyPairGenerator.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; the rule states the algorithm in CONSTRAINTS, and an ORDER has no symbol for a call it rejects on a constraint"
+KeyPairGeneratorSpec,init1,i3,event,KeyPairGenerator.cryptsl,27,mapped,"`initialize(int)` is the rule's keySize branch"
+KeyPairGeneratorSpec,init2,i4,event,KeyPairGenerator.cryptsl,29,mapped,
+KeyPairGeneratorSpec,init3,i1,event,KeyPairGenerator.cryptsl,23,mapped,"`initialize(AlgorithmParameterSpec)` is the rule's params branch"
+KeyPairGeneratorSpec,init4,i2,event,KeyPairGenerator.cryptsl,25,mapped,
+KeyPairGeneratorSpec,initError,,,KeyPairGenerator.cryptsl,,order-unmapped,"an accuser over the same `initialize(int)` call as init1, outside the automaton today; task 3.6 absorbs it with benign self-loops and this exemption is what keeps the absorption invisible to the language comparison"
+KeyPairGeneratorSpec,gen,Generators,aggregate,KeyPairGenerator.cryptsl,37,mapped,"one event over both `generateKeyPair()` and `genKeyPair()`, which is the aggregate whole"
+PBEKeySpecSpec,f1,,,PBEKeySpec.cryptsl,,order-unmapped,"`PBEKeySpec(char[])` is a constructor the rule's EVENTS do not name at all; the event exists to accuse the forbidden overload, and a call outside the rule's alphabet has no ORDER symbol. Absorbed by task 3.5"
+PBEKeySpecSpec,f2,,,PBEKeySpec.cryptsl,,order-unmapped,"same as f1 for `PBEKeySpec(char[], byte[], int)`"
+PBEKeySpecSpec,c1,c1,event,PBEKeySpec.cryptsl,23,mapped,
+PBEKeySpecSpec,err1,c1,event,PBEKeySpec.cryptsl,23,mapped,"an accusing twin of c1 over the same four-argument constructor (iteration count); task 3.5 decomposes its check per clause into c1's body"
+PBEKeySpecSpec,err2,c1,event,PBEKeySpec.cryptsl,23,mapped,"an accusing twin of c1; its guard tests RANDOMIZED on `password` where the rule requires it of `salt` -- the standing allow-list row that 3.5 owns"
+PBEKeySpecSpec,err3,c1,event,PBEKeySpec.cryptsl,23,mapped,"an accusing twin of c1 (key length); fused with err2 into one arrow by task 3.5"
+PBEKeySpecSpec,c2,cP,event,PBEKeySpec.cryptsl,25,mapped,"`clearPassword()`, the rule's second and last ordered event"
+PBEParameterSpecSpec,c1,c1,event,PBEParameterSpec.cryptsl,15,mapped,
+PBEParameterSpecSpec,c2,c2,event,PBEParameterSpec.cryptsl,17,mapped,
+PBEParameterSpecSpec,c3,c1,event,PBEParameterSpec.cryptsl,15,mapped,"the accusing twin of c1 over the same two-argument constructor; task 3.6 fuses it, and the three-argument c2 keeps its accuser-less read until its Group-4 file pass"
+SSLContextSpec,g1,g1,event,SSLContext.cryptsl,23,mapped,
+SSLContextSpec,g2,g2,event,SSLContext.cryptsl,25,mapped,
+SSLContextSpec,unsafe_protocol,,,SSLContext.cryptsl,,order-unmapped,"the unsafe-protocol accuser over the same `getInstance(String)` call as g1; the protocol is a CONSTRAINTS matter and the ORDER has no symbol for a rejected one. Absorbed by task 3.6"
+SSLContextSpec,init,Init,event,SSLContext.cryptsl,29,mapped,"the rule names one init event, `init(kms, tms, _)`, and the `.mop` has one event for it"
+SSLContextSpec,engine,Engine,aggregate,SSLContext.cryptsl,35,mapped,"`createSSLEngine(..)` is one event over both overloads, which is the aggregate whole"
+SecretKeySpecSpec,c1,c1,event,SecretKeySpec.cryptsl,17,mapped,
+SecretKeySpecSpec,c2,c2,event,SecretKeySpec.cryptsl,19,mapped,
+SecretKeySpecSpec,c3,c1,event,SecretKeySpec.cryptsl,17,mapped,"the accusing twin of c1 over the same two-argument constructor; task 3.4 fuses it"
+SecretKeySpecSpec,c4,c2,event,SecretKeySpec.cryptsl,19,mapped,"the accusing twin of c2, checking the length complement; 3.4's fused body keeps that check"
+SecureRandomSpec,c1,c1,event,SecureRandom.cryptsl,23,mapped,
+SecureRandomSpec,c2,c2,event,SecureRandom.cryptsl,25,mapped,
+SecureRandomSpec,c3,c2,event,SecureRandom.cryptsl,25,mapped,"the negated twin of c2 over the same `SecureRandom(byte[])` call; it accuses nothing today -- its body only rebinds -- and task 3.1 fuses it into c2"
+SecureRandomSpec,g1,g1,event,SecureRandom.cryptsl,29,mapped,
+SecureRandomSpec,g2,g2,event,SecureRandom.cryptsl,31,mapped,
+SecureRandomSpec,g3,gI,event,SecureRandom.cryptsl,33,mapped,"`getInstanceStrong()`; the `.mop` numbers it g3 and the rule names it gI, which is exactly the kind of association that cannot be inferred from the name"
+SecureRandomSpec,g4,,,SecureRandom.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String, ..)` calls as g1/g2; task 3.1 absorbs it"
+SecureRandomSpec,setSeed1,s2,event,SecureRandom.cryptsl,43,mapped,"`setSeed(long)` is the rule's s2 -- the numbering is crossed against the `.mop`, which is why this row exists"
+SecureRandomSpec,setSeed2,s1,event,SecureRandom.cryptsl,41,mapped,"`setSeed(byte[])` is the rule's s1"
+SecureRandomSpec,setSeed3,s1,event,SecureRandom.cryptsl,41,mapped,"the accusing twin of setSeed2 over the same `setSeed(byte[])` call; task 3.1 fuses it"
+SecureRandomSpec,genSeed,gS,event,SecureRandom.cryptsl,39,mapped,
+SecureRandomSpec,next1,,,SecureRandom.cryptsl,,order-unmapped,"`nextInt(int)`. The rule's `ne` is `next(numB)` -- `next(int)`, the protected method -- and no rule event names `nextInt`. Mapping the two together would be an inference about which call the oracle meant, which INV-INS-138 forbids"
+SecureRandomSpec,next2,nB,event,SecureRandom.cryptsl,49,mapped,"`nextBytes(byte[])`. This is the anchored case: the rule's ORDER ends in `Ends*` while the automaton's end state omits next2, so a second `nextBytes()` is accused -- 12,400 events, 99.98 % of them in libraries"
+SecureRandomSpec,next3,,,SecureRandom.cryptsl,,order-unmapped,"`nextInt()` with no argument; the rule names no such event. Same reading as next1"
+SecureRandomSpec,ints,,,SecureRandom.cryptsl,,order-unmapped,"`ints(..)` returns an IntStream and the rule names no stream event; the site exists to mark the stream randomized, not to order anything"
+SignatureSpec,g1,g1,event,Signature.cryptsl,29,mapped,
+SignatureSpec,g2,g2,event,Signature.cryptsl,31,mapped,
+SignatureSpec,g3,,,Signature.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; absorbed by task 3.6"
+SignatureSpec,i1,i1,event,Signature.cryptsl,35,mapped,
+SignatureSpec,i2,i2,event,Signature.cryptsl,37,mapped,
+SignatureSpec,i3,i3,event,Signature.cryptsl,39,mapped,
+SignatureSpec,i4,i4,event,Signature.cryptsl,41,mapped,
+SignatureSpec,update,Updates,aggregate,Signature.cryptsl,55,mapped,"one `update(..)` event over all four overloads the rule names apart, which is the aggregate whole"
+SignatureSpec,s1,s1,event,Signature.cryptsl,57,mapped,
+SignatureSpec,s2,s2,event,Signature.cryptsl,59,mapped,
+SignatureSpec,v1,v1,event,Signature.cryptsl,63,mapped,
+SignatureSpec,v2,v2,event,Signature.cryptsl,65,mapped,
+TrustManagerFactorySpec,g1,g1,event,TrustManagerFactory.cryptsl,17,mapped,
+TrustManagerFactorySpec,g2,g2,event,TrustManagerFactory.cryptsl,19,mapped,
+TrustManagerFactorySpec,g3,,,TrustManagerFactory.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; task 3.2 absorbs it (co-emission signature 9,015/9,014)"
+TrustManagerFactorySpec,init,Init,aggregate,TrustManagerFactory.cryptsl,27,mapped,"one event over `init(KeyStore)` and `init(ManagerFactoryParameters)`, which is the aggregate whole"
+TrustManagerFactorySpec,gtm1,gtm,event,TrustManagerFactory.cryptsl,29,mapped,"the association is with `getTrustManagers()`; the pointcut declares the return type `KeyManager[]`, which is the binding defect task 6.2 repairs -- it changes what the event binds, not which rule event it is"
+CipherSpec,g1,g1,event,Cipher.cryptsl,53,mapped,
+CipherSpec,g2,g2,event,Cipher.cryptsl,55,mapped,
+CipherSpec,g3,,,Cipher.cryptsl,,order-unmapped,"the invalid-transformation accuser over the same `getInstance(String)` call as g1; the transformation is a CONSTRAINTS matter"
+CipherSpec,i1,i1,event,Cipher.cryptsl,59,mapped,"`init(int, Certificate, ..)` is one event over the rule's two certificate overloads"
+CipherSpec,i1,i2,event,Cipher.cryptsl,61,mapped,"the second half of the same pointcut: `init(encmode, cert, ranGen)`"
+CipherSpec,i2,i3,event,Cipher.cryptsl,63,mapped,"`init(int, Key, ..)` is one event over the rule's six key overloads (i3 to i8); the six rows are the non-bijection INV-INS-138 warns about"
+CipherSpec,i2,i4,event,Cipher.cryptsl,65,mapped,
+CipherSpec,i2,i5,event,Cipher.cryptsl,67,mapped,
+CipherSpec,i2,i6,event,Cipher.cryptsl,69,mapped,
+CipherSpec,i2,i7,event,Cipher.cryptsl,71,mapped,
+CipherSpec,i2,i8,event,Cipher.cryptsl,73,mapped,
+CipherSpec,u1,u1,event,Cipher.cryptsl,81,mapped,
+CipherSpec,u2,u2,event,Cipher.cryptsl,83,mapped,
+CipherSpec,u3,u3,event,Cipher.cryptsl,85,mapped,
+CipherSpec,u4,u4,event,Cipher.cryptsl,87,mapped,
+CipherSpec,u5,u5,event,Cipher.cryptsl,89,mapped,
+CipherSpec,wkb1,w,event,Cipher.cryptsl,111,mapped,"`wrap(Key)`; the rule binds the wrapped key and the `.mop` binds the returned bytes, which is a binding difference and not an ordering one"
+CipherSpec,f1,f1,event,Cipher.cryptsl,93,mapped,
+CipherSpec,f2,f2,event,Cipher.cryptsl,95,mapped,"`doFinal(..)` returning `byte[]` covers both of the rule's returning overloads"
+CipherSpec,f2,f4,event,Cipher.cryptsl,99,mapped,"the second half of the same pointcut: `doFinal(plainText, plain_off, len)`. The set declares no separate f4 event, which is why f4 is reachable only through this row"
+CipherSpec,f3,f3,event,Cipher.cryptsl,97,mapped,
+CipherSpec,f5,f5,event,Cipher.cryptsl,101,mapped,
+CipherSpec,f6,f6,event,Cipher.cryptsl,103,mapped,
+CipherSpec,f7,f7,event,Cipher.cryptsl,105,mapped,
