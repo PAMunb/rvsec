@@ -24,6 +24,12 @@ contradição entre a §5 e a §8 (que mandava editar uma spec principal), e o p
 de `static_analysis.py`. Mediu-se o que faltava: o conjunto `generic` tem **296 assinaturas / 284
 pares / 95 owners**, com interseção **zero** com o `jca`. Versão anterior em
 `backup/20260821_plano_correcao_analise_estatica.v4.md`.
+**Revisão 6** (mesmo dia): fechamento das lacunas que impediam o plano de servir de entrada para a
+change. Acrescentaram-se a §4.1 (complexidade, risco e critério de aceitação por item) e a §4.2, que
+corrige a afirmação mais errada da revisão anterior: **não falta teste do sentinela** — existem três
+camadas e nenhuma alcança o J1, e o módulo que as hospeda tem `skipTests=true` no pom. Declarou-se
+também o efeito colateral do reparo do `mop_dir` (um run `generic` passa de 120 para 296
+assinaturas).
 **Natureza**: Fase 0 do `docs/WORKFLOW.md` — material de referência, não artefato OpenSpec
 **Origem**: `docs/20260821_relatorio_analise_estatica_defeitos.md`
 **Supersede**: `docs/20260821_verificacao_relatorio_analise_estatica.md`
@@ -136,6 +142,13 @@ contorna: `scripts/static_analysis_sweep_generic.py:878-879` aceita `--mop-dir` 
 Formulação honesta do D2: **o dano observado em toda a história do projeto é zero; o `generic` e o
 `custom` são inutilizáveis para cobertura pelo caminho do `rv-experiment`, e o modo de falha é
 silencioso — uma coluna do `summary.csv` com um número plausível e errado.**
+
+**Efeito colateral do reparo, que precisa estar declarado antes da change abrir**: hoje todo run
+aponta o GATOR para 120 assinaturas, qualquer que seja o conjunto. Depois do reparo, um run
+`generic` passa a apontar para **296** — o custo da resolução de alvos e o conteúdo de
+`reachesTarget` no `.apk.json` mudam para esse conjunto. Não regride ninguém, porque nenhuma
+campanha roda `generic` pelo `rv-experiment`, mas é mudança de comportamento observável e o critério
+de aceitação tem de medi-la em vez de supô-la.
 
 > `openspec/specs/experiment/spec.md:67`, decisão 7 — *"**Specification set isolation.** Each
 > experiment uses exactly one specification set... **Specification sets are never mixed within a
@@ -320,6 +333,44 @@ O J1 é o único que exige rebuild do reator Java
 o commit que recopia os jars. A correção do comentário de `RvsecAnalysisClient.java:157-163` é parte
 do passo 5, não da §8.
 
+### 4.1 Complexidade, risco e critério de aceitação por item
+
+Esta é a tabela que a `tasks.md` da change consome. Complexidade é tamanho da edição; risco é o que
+pode dar errado *depois* de a edição estar certa.
+
+| # | Item | Complexidade | Risco | O que prova que está feito |
+|---|---|---|---|---|
+| 1 | exit code do CLI | trivial, 1 linha | **médio** — muda o código de saída do container | a tabela de orquestradores da §1 reconferida: gh104 indiferente, `restart_exited` só 137, smoke de 2026-06-04 passa a reprovar falha parcial |
+| 2 | fallback da raiz do SDK | trivial, 3 linhas | baixo — acrescenta caminho, não remove | as duas invocações da §7 rodam: sem `ANDROID_SDK_HOME` e com só `ANDROID_HOME`, o `gator` passa de `:64` |
+| 3 | parâmetro `apks` morto | trivial, 4 sítios | baixo — quebra em compilação/teste | `uv run pytest --import-mode=importlib -o "addopts=" tests/` verde em `rv-experiment` |
+| 4 | três frases documentais | trivial | nulo | `grep -r -- "--sdkpath"` não acha mais nos dois documentos vivos |
+| 5 | sentinela `complete` | média + rebuild do reator | **médio-alto** — ver §4.2 | os cinco APKs da §1 reprocessados deixariam de sair com `complete=true`; e o teste novo da §4.2 rodando **com os testes ligados** |
+| 6 | `mop_dir` do conjunto | média, dois lados | médio — ponto de escalonamento de trilha (§5) | asserção de `mop_dir` por conjunto nos quatro valores; e a medida do efeito colateral: run `generic` passa de 120 para 296 assinaturas |
+
+### 4.2 O item 5 já tem três camadas de teste, e nenhuma alcança o defeito
+
+Isto é o que a revisão 4 não dizia, e é a informação mais importante para quem implementar: **não é
+verdade que falta teste do sentinela.** Existem três, e todas passam enquanto o defeito existe.
+
+| Camada | O que assere | Por que não pega o J1 |
+|---|---|---|
+| `rvsec-gator/client/src/test/java/.../json/SentinelEmissionTest.java` | replica **em teste** a sequência do writer e injeta `RuntimeException` em cada fronteira de seção: abortou → sem sentinela | o J1 **não tem exceção**. É uma chamada de `write()` bem-sucedida, só que a pré-WTG. E o próprio cabeçalho do teste declara: *"What it does NOT test: the production `JsonReportWriter.write(...)` method itself"* |
+| `tests/parity/test_sentinel_emission.py` | roda o GATOR de ponta a ponta no `cryptoapp` e confere os bytes finais do arquivo | é um run **completo**: a segunda escrita sobrescreve a primeira, e o sentinela está no lugar certo. O caso do J1 é o run que nunca chega à segunda |
+| `modules/rv-static-analysis/tests/parser/test_sentinel.py` | quatro formas do lado do **parser** (presente/ausente/false/truncado) | testa quem lê, com fixtures sintéticas; não tem opinião sobre quem escreve |
+
+O buraco é preciso: **ninguém exercita a escrita pré-WTG isolada**, porque hoje ela não é
+isolável — só acontece dentro de um run que segue adiante. É o parâmetro `emitSentinel` do reparo
+que a torna testável pela primeira vez. O teste a acrescentar, então, não é "mais um teste do
+sentinela": é a chamada direta de `write(..., emitSentinel=false)` asserindo que o arquivo
+resultante **não contém** a chave `complete` — o caso que os cinco APKs do `SA_RERUN_gh91_wtg`
+provam existir em produção.
+
+**E ele não roda por padrão.** `rvsec/rvsec-android/rvsec-gator/pom.xml:18` fixa
+`<skipTests>true</skipTests>`, de modo que o módulo **compila** os testes e **não os executa**: o
+build do reator dá verde sem ter rodado nada. O critério de aceitação do item 5 tem de incluir a
+execução explícita com os testes ligados, senão o reparo entra sem prova — e essa é exatamente a
+armadilha que o `-DskipTests` do comando de build da §7 esconde.
+
 ---
 
 ## 5. Trilha e escopo da change
@@ -386,7 +437,7 @@ de `coverage.py:655-674`). Um diagnóstico futuro não pode assumir a causa.
 | `rv-static-analysis` | `config.py` (D2) |
 | `lib/gator/gator` | `:62-64` (D1/G1) — **editável, com precedente** (§1) |
 | árvore Java (reator `rvsec`) | `JsonReportWriter.java:111`, `RvsecAnalysisClient.java:157-170` (J1) |
-| Testes | teste do sentinela pós-WTG (INV-ANA-31, lado Java); asserção de `mop_dir` por conjunto (D2); os dois casos de `test_execution_controller.py` que passam `apks` |
+| Testes | ver §4.1 — a cobertura do sentinela **já existe em três camadas** e nenhuma delas alcança o J1; asserção de `mop_dir` por conjunto (D2); os dois casos de `test_execution_controller.py` que passam `apks` |
 | Docs | `docs/architecture/static-analysis.md` §3 (a afirmação de validação de `:85` que o `validate_on_init=False` desmente) e o registro do acoplamento `specification_set → mop_dir` |
 | OpenSpec | **nenhuma spec principal editada** — ver §5 |
 
