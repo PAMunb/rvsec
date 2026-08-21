@@ -54,6 +54,14 @@ Gates scoped away from a set say so, with the reason:
 - INV-INS-134 over `generic_new` — the import, placement and closure contract governs the migrated set only; `generic_new` is frozen or predicate-free
 - G-PRED2 over `generic_new` — the import, placement and closure contract governs the migrated set only; `generic_new` is frozen or predicate-free
 
+## Retired
+
+A gate a group has driven to zero. Its rows left the baseline, so it is expected to
+be silent from here on and its next finding is a regression rather than an
+expectation. `--write` carries these forward and never re-baselines them.
+
+- **G-ACC** — retired by task 3.7, 17 findings at the baseline. the 17 orphan accusers of jca_android, closed by Group 3: 12 negated twins fused into their siblings on 11 arrows, PBEKeySpecSpec.err1 fused on the same arrow as err2/err3, and 4 absorbed into their automata (SecureRandomSpec.g4 and PBEKeySpecSpec.f1/f2 with self-loops and an ORDER-unmapped row; KeyPairGeneratorSpec.initError as an Inits alternative mapped to i3). The gate is now expected to be silent over jca_android in both directions, so a finding it reports is a regression and not an expectation. The generic set's one orphan is informative and was never in this record.
+
 ## G-ORDER
 
 6 specifications equivalent to their api30 rule, 4 divergent, 204 skipped of 214 enumerated. Each divergence carries the shortest word the two languages disagree on:

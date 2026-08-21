@@ -13,93 +13,6 @@
     "order_skipped": 204
   },
   "gates": {
-    "G-ACC": [
-      [
-        "jca_android",
-        "IvParameterSpec.mop",
-        "c3"
-      ],
-      [
-        "jca_android",
-        "IvParameterSpec.mop",
-        "c4"
-      ],
-      [
-        "jca_android",
-        "KeyPairGeneratorSpec.mop",
-        "initError"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "err1"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "err2"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "err3"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "f1"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "f2"
-      ],
-      [
-        "jca_android",
-        "PBEParameterSpecSpec.mop",
-        "c3"
-      ],
-      [
-        "jca_android",
-        "SSLContextSpec.mop",
-        "unsafe_protocol"
-      ],
-      [
-        "jca_android",
-        "SecretKeySpecSpec.mop",
-        "c3"
-      ],
-      [
-        "jca_android",
-        "SecretKeySpecSpec.mop",
-        "c4"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "c3"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "g4"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "setSeed3"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
-        "g3"
-      ],
-      [
-        "jca_android",
-        "TrustManagerFactorySpec.mop",
-        "g3"
-      ]
-    ],
     "INV-INS-133": [
       [
         "jca_android",
@@ -770,5 +683,12 @@
         "order"
       ]
     ]
+  },
+  "retired": {
+    "G-ACC": {
+      "task": "3.7",
+      "was": 17,
+      "note": "the 17 orphan accusers of jca_android, closed by Group 3: 12 negated twins fused into their siblings on 11 arrows, PBEKeySpecSpec.err1 fused on the same arrow as err2/err3, and 4 absorbed into their automata (SecureRandomSpec.g4 and PBEKeySpecSpec.f1/f2 with self-loops and an ORDER-unmapped row; KeyPairGeneratorSpec.initError as an Inits alternative mapped to i3). The gate is now expected to be silent over jca_android in both directions, so a finding it reports is a regression and not an expectation. The generic set's one orphan is informative and was never in this record."
+    }
   }
 }

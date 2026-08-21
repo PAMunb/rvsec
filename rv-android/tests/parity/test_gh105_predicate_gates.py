@@ -772,18 +772,18 @@ def _fixture_report(name: str):
     return report, source
 
 
-def test_gacc_counts_the_orphans_group_three_has_not_absorbed_yet():
-    """G-ACC over the set it governs, as Group 3 works through it.
+def test_gacc_reports_nothing_over_the_derived_set():
+    """G-ACC over the set it governs, closed.
 
-    A non-zero count is the expected state at this point in the change, not a
-    failure of the gate: the gates are written before the edits that make them
-    green, which is what lets each group's landing be measured as a drop in this
-    number rather than asserted. Seventeen at the start; 14 after task 3.1 took
-    `SecureRandomSpec` whole; 13 after task 3.2 fused `TrustManagerFactorySpec.g3`
-    into `g1`; 11 after task 3.3 fused both `IvParameterSpec` twins; 9 after task
-    3.4 fused both `SecretKeySpecSpec` twins; 4 after task 3.5 took
-    `PBEKeySpecSpec` whole; zero after task 3.6 took the last four. Task 3.7 is
-    what retires the gate's baseline rows now that the count is nothing.
+    A non-zero count was the expected state while Group 3 ran: the gates are
+    written before the edits that make them green, which is what let each group's
+    landing be measured as a drop rather than asserted. Seventeen at the start; 14
+    after task 3.1 took `SecureRandomSpec` whole; 13 after task 3.2 fused
+    `TrustManagerFactorySpec.g3` into `g1`; 11 after task 3.3 fused both
+    `IvParameterSpec` twins; 9 after task 3.4 fused both `SecretKeySpecSpec`
+    twins; 4 after task 3.5 took `PBEKeySpecSpec` whole; zero after task 3.6 took
+    the last four. Task 3.7 retired the gate's baseline rows, so from here the
+    assertion is the literal zero and not a subset.
     """
     root = _specs_root()
     report = analyze_set(root / "jca_android")
@@ -1145,12 +1145,18 @@ def test_inv_ins_135_gacc(suite):
 
     Both directions, because an accuser outside the ordering fires on a trace the
     automaton never judged, and a transition labelled by an undeclared event can
-    never be taken. The 17 orphans of the derived set are Group 3's work; the
-    `generic` orphan is nobody's, and is reported informatively rather than
+    never be taken. The 17 orphans of the derived set were Group 3's work and task
+    3.7 retired the gate: its baseline rows are gone, so `_no_regression` now
+    compares against the empty set and the subset assertion *is* the zero
+    assertion. Both are written, because they say different things -- one that the
+    gate is silent, the other that the mechanism knows it is supposed to be.
+
+    The `generic` orphan is nobody's, and is reported informatively rather than
     failing a run it does not belong to.
     """
     findings = [finding for finding in suite.findings if finding.gate == "G-ACC"]
-    assert all(finding.spec_set == "jca_android" for finding in findings)
+    assert findings == []
+    assert not _recorded("G-ACC")
     assert any(finding.gate == "G-ACC" for finding in suite.informative)
     _no_regression(suite, ("G-ACC",))
 
@@ -1434,6 +1440,31 @@ def test_a_finding_outside_the_recorded_baseline_is_a_regression(measured, tmp_p
         _no_regression_over((gate,), keys - {tuple(rows[0])})
         with pytest.raises(AssertionError):
             _no_regression_over((gate,), keys)
+
+
+def test_a_retired_gate_leaves_the_baseline_and_stays_out(measured):
+    """Task 3.7 retired G-ACC, and `--write` must not put it back.
+
+    Retiring is a decision, not a measurement: the gate is expected to be silent
+    from here on, so its rows leave `gates` and its next finding is a regression.
+    A regeneration on a tree that had drifted would otherwise re-record whatever
+    the gate happened to report that day and quietly restore the expectation the
+    group removed -- the one failure the whole mechanism exists to prevent. So
+    `retire` carries the record forward and drops the gate from the fresh payload
+    whether or not it is reporting.
+    """
+    recorded = json.loads(BASELINE.read_text(encoding="utf-8"))
+    assert "G-ACC" not in recorded["gates"]
+    assert recorded["retired"]["G-ACC"]["task"] == "3.7"
+    assert recorded["retired"]["G-ACC"]["was"] == 17
+    assert recorded["retired"]["G-ACC"]["note"].strip()
+
+    # a fresh measurement that *did* report an orphan is still not re-baselined
+    fresh = {"gates": {"G-ACC": [["jca_android", "X.mop", "orphan"]], "K": [["s", "f", "x"]]}}
+    carried = gh105_gate_baseline.retire(fresh, recorded)
+    assert "G-ACC" not in carried["gates"]
+    assert carried["gates"]["K"] == [["s", "f", "x"]]
+    assert carried["retired"] == recorded["retired"]
 
 
 def test_the_baseline_carries_its_own_removal_order(measured):

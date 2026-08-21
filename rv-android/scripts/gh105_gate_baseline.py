@@ -16,6 +16,14 @@ pytest wrapper asserts *no regression against the recorded baseline*, not *zero
 findings*, and a group lands by removing its rows from this file. The number only
 goes down, and the day it goes up the suite says so.
 
+A gate whose findings a group has driven to zero is **retired**: its rows leave
+`gates` and its name enters `retired`, with the task that closed it. From then on
+the wrapper compares against nothing, so any finding that gate reports is a
+regression rather than an expectation. `--write` carries `retired` forward and
+refuses to re-baseline a retired gate -- regenerating the file on a tree that had
+drifted would otherwise quietly restore the expectation a group had removed, which
+is the one failure this whole mechanism exists to prevent.
+
 It is not `gate_allowlist.csv`. That file records findings that are deliberately
 permanent, each with the measurement and the reason behind it. This one records
 findings that are merely *not repaired yet*, and its whole purpose is to disappear.
@@ -98,6 +106,37 @@ def collect(
     }, run, order
 
 
+def retire(payload: dict, previous: dict) -> dict:
+    """Carry the retirements forward and drop the retired gates from the baseline.
+
+    A gate is retired by the task that closes its group -- G-ACC by task 3.7, once
+    the 17 orphan accusers are in their automata. Retiring is not the same as
+    repairing every row: it is the decision that the gate is now expected to be
+    silent, so its rows stop being recorded and its next finding is a regression.
+
+    Args:
+        payload: A fresh measurement from `collect`.
+        previous: The baseline currently on disk, or `{}` when there is none.
+
+    Returns:
+        The payload with the retired gates removed from `gates` and the record of
+        the retirements under `retired`. A retired gate that still reports is left
+        out of the baseline anyway and announced on stderr: the wrapper is then the
+        thing that fails, which is what a regression should do.
+    """
+    retired = dict(previous.get("retired", {}))
+    for gate, entry in sorted(retired.items()):
+        rows = payload["gates"].pop(gate, [])
+        if rows:
+            print(
+                f"  [{gate}] retired by task {entry.get('task', '?')} and still "
+                f"reporting {len(rows)} finding(s)",
+                file=sys.stderr,
+            )
+    payload["retired"] = retired
+    return payload
+
+
 def render_report(payload: dict, run, order) -> str:
     """The human half of the same measurement.
 
@@ -159,6 +198,22 @@ def render_report(payload: dict, run, order) -> str:
             continue
         seen.add((gate, spec_set))
         lines.append(f"- {gate} over `{spec_set}` — {reason}")
+    if payload.get("retired"):
+        lines += [
+            "",
+            "## Retired",
+            "",
+            "A gate a group has driven to zero. Its rows left the baseline, so it is expected to",
+            "be silent from here on and its next finding is a regression rather than an",
+            "expectation. `--write` carries these forward and never re-baselines them.",
+            "",
+        ]
+        for gate, entry in sorted(payload["retired"].items()):
+            lines.append(
+                f"- **{gate}** — retired by task {entry.get('task', '?')}, "
+                f"{entry.get('was', '?')} findings at the baseline. {entry.get('note', '')}"
+            )
+
     lines += [
         "",
         "## G-ORDER",
@@ -184,6 +239,12 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     payload, run, order = collect(arguments.specs_root)
+    previous = (
+        json.loads(arguments.baseline.read_text(encoding="utf-8"))
+        if arguments.baseline.is_file()
+        else {}
+    )
+    payload = retire(payload, previous)
 
     if arguments.write:
         arguments.baseline.parent.mkdir(parents=True, exist_ok=True)

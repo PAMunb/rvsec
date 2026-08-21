@@ -203,7 +203,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       accuses `InvalidKeySize` on its own); `SSLContextSpec`: fuse `unsafe_protocol`→`g1` and
       `SignatureSpec`: fuse `g3`→`g1` — both negated twins whose bodies only rebind a field,
       same treatment and same recorded residue as 3.2
-- [ ] 3.7 G-ACC green over `jca_android` (zero orphans, both directions), its baseline rows
+- [x] 3.7 G-ACC green over `jca_android` (zero orphans, both directions), its baseline rows
       retired; harness evidence committed for all 17
 
 ## 4. F2 — One pass per file: reads to body, writes to acceptance, bookkeeping out
