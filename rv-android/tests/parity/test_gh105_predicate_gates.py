@@ -581,6 +581,16 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       `ere` is what `@match` names. The accepting-state calls go 21 -> 20, and the
       predicate becomes the first of the nine `ENSURES`-only dead ends to carry its
       deliberate-omission record (INV-INS-137), which is what closes its G-PRED2 row.
+    * task 4.8 migrated `GCMParameterSpecSpec`. The guards go 7 -> 5: both of its reads
+      leave `condition(...)` at once, which is what makes this file the pass that ends
+      a mute specification rather than a mute event -- measured before the edit, both
+      events opened with `if (!(guard)) return false;` ahead of `handleEvent` and the
+      `fail` handler is unreachable (transition row {1, 2, 2}, monitor keyed on the
+      constructed object), so the file produced zero reports on eight constructions and
+      on all six of its corpus traces. The reads stay at 18 and the writes at 38 -- the
+      `ENSURES` write does not move, for the same reason as task 4.7's. The
+      accepting-state calls go 20 -> 19. No omission record here: `preparedGCM` is
+      required at Cipher.cryptsl:184, ledger clause #10, wired at task 5.8.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -597,9 +607,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 18
-    assert read_placement.get("condition", 0) == 7
+    assert read_placement.get("condition", 0) == 5
     assert counts.get("write", 0) == 38
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 20
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 19
     assert counts.get("remove", 0) + counts.get("negate", 0) == 9
 
 
@@ -720,19 +730,25 @@ def test_the_graph_reproduces_the_measured_placement_census():
       what `@match` names -- `write:acceptance` stays 11 and `write:body` stays 27. The
       bookkeeping goes 21 -> 20, and one row gains a `disposition` for the first time
       in the graph's life: `omission`, for the predicate no rule of the oracle requires.
+    * task 4.8: both of `GCMParameterSpecSpec`'s reads leave `condition(...)` for their
+      bodies, so the guards go 7 -> 5 and the body reads 11 -> 13. The write does not
+      move -- api30 states `preparedGCM[this]` with no `after L` -- so `write:acceptance`
+      stays 11 and `write:body` stays 27. The bookkeeping goes 20 -> 19. No row gains a
+      `disposition`: `preparedGCM` has a consumer in the oracle (Cipher.cryptsl:184,
+      ledger #10), so its G-PRED2 row closes by a read at task 5.8, not by a record.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
-    assert counts.get("read:condition-guard", 0) == 7
-    assert counts.get("read:body", 0) == 11
+    assert counts.get("read:condition-guard", 0) == 5
+    assert counts.get("read:body", 0) == 13
     assert counts.get("write:body", 0) == 27
     assert counts.get("write:acceptance", 0) == 11
     assert counts.get("remove:fail", 0) == 8
     assert counts.get("negate:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 20
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 19
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
@@ -908,16 +924,19 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     the first reads to move because the migration asked them to rather than because
     a fusion took their event away; 7 after task 4.7 moved `PBEParameterSpecSpec.c2`'s
     read of the salt, the last guard read of that file and the one whose guard was
-    measured, in the generated monitor, to `return false` ahead of `handleEvent`. The
-    gate exists to make the migration's progress a number that goes down, and to make
-    it impossible for a new one to arrive quietly.
+    measured, in the generated monitor, to `return false` ahead of `handleEvent`; 5
+    after task 4.8 moved both of `GCMParameterSpecSpec`'s, the pass in which the guard
+    was measured to silence not one event but the whole specification -- both events
+    guarded and the `fail` handler unreachable, so no program it could see drew a
+    report. The gate exists to make the migration's progress a number that goes down,
+    and to make it impossible for a new one to arrive quietly.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
 
     findings = gate_placement(report)
     guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
-    assert len(guards) == 7
+    assert len(guards) == 5
 
 
 def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():

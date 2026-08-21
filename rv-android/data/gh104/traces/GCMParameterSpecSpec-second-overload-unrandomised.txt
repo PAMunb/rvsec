@@ -1,0 +1,5 @@
+# The four-argument constructor -- api30's `c2`, the other alternative of the
+# rule's `Cons` -- over a plain byte[]. Same defect as
+# GCMParameterSpecSpec-unrandomised.txt at the sibling event, and the trace that
+# says whether the file treats the two overloads alike.
+new GCMParameterSpec(128, bytes, 0, 16) -> spec

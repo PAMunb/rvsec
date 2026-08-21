@@ -1,0 +1,6 @@
+# The two-argument constructor over a plain byte[]: the tag length is one api30
+# CONSTRAINTS admits and `randomized[src]` does not hold, because nothing
+# randomises `bytes`. This is the violating half of the pair for `c1`'s REQUIRES
+# read, and the corpus had no trace of it -- both GCM traces that existed
+# (GCMParameterSpecSpec.txt and -second-overload.txt) conform whole.
+new GCMParameterSpec(128, bytes) -> spec

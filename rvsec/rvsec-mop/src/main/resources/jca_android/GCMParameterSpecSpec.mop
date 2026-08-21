@@ -3,7 +3,8 @@ package mop;
 import javax.crypto.spec.GCMParameterSpec;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
@@ -20,31 +21,121 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
 
    List<Integer> validLengths = Arrays.asList(96, 104, 112, 120, 128);
 
+   // The two-argument constructor, api30's `c1`. Until this pass both of this
+   // file's events opened with a `condition(...)` that conjoined the rule's one
+   // CONSTRAINTS clause with the read of its one REQUIRES predicate, and a guard
+   // on a constructor event is not the harmless thing it looks like: measured in
+   // the generated monitor, `Prop_1_event_c1` opened with
+   // `if (!(validLengths.contains(tagLen) && <read>)) return false;` *ahead* of
+   // `handleEvent`, so a construction that broke either clause took no
+   // transition, reached no accepting state and was accused of nothing.
+   //
+   // Here that silence covered the whole specification rather than one event.
+   // The `fail` handler cannot make up for a suppressed transition, because it
+   // is unreachable by construction: the transition row is {1, 2, 2} for both
+   // events and the monitor is keyed on the constructed object, so a monitor
+   // receives at most one event and state 2 is never entered. Both events
+   // guarded, the ordering handler unreachable: every program this file could
+   // see produced zero reports. Measured on eight constructions over the whole
+   // ErrorCollector -- both overloads, both tag lengths, plain and randomised
+   // material -- all zero, and the four traces written for this pass are the
+   // corpus half of the same measurement.
+   //
+   // So the body says what the rule says. The tag length is a CONSTRAINTS clause
+   // and the source a REQUIRES predicate; neither may decide whether the
+   // constructor happened. Keeping the length as a guard is admitted for
+   // CONSTRAINTS checks in general, and was declined here for the reason task
+   // 4.7 declined it on the sibling file: it would leave the read this pass takes
+   // out of the guard sitting behind a second guard that suppresses the same
+   // transition, so the read would still not run on a construction with an
+   // unadmitted tag length.
+   //
+   // The source read is three-valued, and the two accusing outcomes are
+   // different claims. VIOLATED is positive evidence that the array carries a
+   // randomisation predicate that was withdrawn; NOT_OBSERVED says only that no
+   // randomised source of it was ever seen -- on Android as often a reach limit
+   // of the instrumentation as a misuse.
    event c1 after(int tagLen, byte[] src) returning(GCMParameterSpec s):
     call(public GCMParameterSpec.new(int, byte[])) &&
-    args(tagLen, src) &&
-    condition(
-      validLengths.contains(tagLen) &&
-      ExecutionContext.instance().validate(Property.RANDOMIZED, src)
-    )
-    {
-       spec = s;
+    args(tagLen, src) {
+       boolean conforms = true;
+       if (!validLengths.contains(tagLen)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
+               "v=1 code=GCMPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='" + tagLen + "' exp='a tag length api30 GCMParameterSpec.cryptsl admits' msg='the authentication tag length is not one the rule admits'"));
+           conforms = false;
+       }
+       PredicateVerdict randomisedSource = PredicateStore.instance().validate(Property.RANDOMIZED, src);
+       if (randomisedSource == PredicateVerdict.VIOLATED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
+               "v=1 code=GCMPARAMETERSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='a randomized byte[]' msg='the IV material carries a randomization predicate the rule does not admit'"));
+           conforms = false;
+       }
+       else if (randomisedSource == PredicateVerdict.NOT_OBSERVED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
+               "v=1 code=GCMPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='a randomized byte[]' msg='the IV material was not observed to come from a randomized source'"));
+           conforms = false;
+       }
+       if (conforms) {
+           spec = s;
+       }
     }
 
-     event c2 after(int tagLen, byte[] src, int offset, int len) returning(GCMParameterSpec s):
-      call(public GCMParameterSpec.new(int, byte[], int, int)) &&
-      args(tagLen, src, offset, len) &&
-      condition(
-        validLengths.contains(tagLen) &&
-        ExecutionContext.instance().validate(Property.RANDOMIZED, src) &&
-        offset >= 0 &&
-        len >= 0 &&
-        src.length >= offset + len
-      )
-      {
-         spec = s;
-      }
+   // The four-argument constructor, api30's `c2` and the other alternative of
+   // the rule's `Cons`. It carried the same guard as `c1` and three more
+   // conjuncts beside it -- `offset >= 0 && len >= 0 && src.length >= offset + len`
+   // -- which this pass deletes rather than moves. They translate no clause: the
+   // rule states one CONSTRAINTS clause, over the tag length, and says nothing
+   // about the offset or the length. And they cannot be false where they stood.
+   // The constructor's documented contract throws IllegalArgumentException for
+   // a negative offset, a negative length, or a sum past the end of the array,
+   // so an `after ... returning` advice never sees such a construction: measured
+   // on all three, each throws before any advice runs. Moving them to the body
+   // would have written two more codes with no execution path, accusing a
+   // program the platform itself forbids; the trace that would separate the two
+   // dispositions cannot be written at all, which is a statement about the
+   // program and not about the corpus.
+   //
+   // What remains is `c1`'s body over this overload's arguments, and it is the
+   // same rule read the same way: the same CONSTRAINTS clause over `tagLen`, the
+   // same REQUIRES predicate over `src`, each with a code of its own, because a
+   // code names a site and not a clause.
+   event c2 after(int tagLen, byte[] src, int offset, int len) returning(GCMParameterSpec s):
+     call(public GCMParameterSpec.new(int, byte[], int, int)) &&
+     args(tagLen, src, offset, len) {
+        boolean conforms = true;
+        if (!validLengths.contains(tagLen)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
+                "v=1 code=GCMPARAMETERSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='" + tagLen + "' exp='a tag length api30 GCMParameterSpec.cryptsl admits' msg='the authentication tag length is not one the rule admits'"));
+            conforms = false;
+        }
+        PredicateVerdict randomisedSource = PredicateStore.instance().validate(Property.RANDOMIZED, src);
+        if (randomisedSource == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
+                "v=1 code=GCMPARAMETERSPEC-CONSTR-03 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='a randomized byte[]' msg='the IV material carries a randomization predicate the rule does not admit'"));
+            conforms = false;
+        }
+        else if (randomisedSource == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
+                "v=1 code=GCMPARAMETERSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='a randomized byte[]' msg='the IV material was not observed to come from a randomized source'"));
+            conforms = false;
+        }
+        if (conforms) {
+            spec = s;
+        }
+     }
 
+   // `Cons` is the whole of the rule's ORDER, and `Cons := c1 | c2`: constructing
+   // a GCMParameterSpec is the entire ordering this specification observes. Two
+   // consequences the rest of the file depends on. Neither the tag length nor the
+   // source may govern a transition -- the first is a CONSTRAINTS clause and the
+   // second a REQUIRES predicate, and both are accused in the event bodies above.
+   // And the `@fail` handler below cannot fire: the transition row the generator
+   // derives is {1, 2, 2} for both events, and the monitor is keyed on the
+   // constructed object, so no monitor of this specification ever sees a second
+   // event and state 2 is never entered. That is recorded rather than repaired --
+   // the repair is to the automaton, and this pass moves no symbol: the file is
+   // one of the thirteen still absent from order_alphabet_map.csv, which task 7.1
+   // owns, so G-ORDER skips it in both directions.
    ere : c1 | c2
 
    @fail {
@@ -53,9 +144,24 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
       __RESET;
    }
 
+   // The one place the rule's `ENSURES preparedGCM[this]` may be written. api30
+   // states the clause without an `after L` qualification, so its acceptance
+   // point is the accepting state itself, which in an `ere` is exactly what
+   // `@match` names. The monitor field is what carries the object here: a
+   // handler sees no event arguments, and the field is bound only by the
+   // conforming branch of either constructor, so a construction that broke a
+   // clause reaches this handler with nothing bound and the call is a no-op.
+   //
+   // Unlike `preparedPBE`, this predicate is not a dead end and carries no
+   // deliberate-omission record: api30 requires it at Cipher.cryptsl:184,
+   // `part(1,"/",transformation) in {"GCM"} => preparedGCM[params]`, which is
+   // ledger clause #10 and is wired at task 5.8. The G-PRED2 finding on this
+   // write closes there, by a read, not here by a record.
+   //
+   // The accepting-state bookkeeping that stood beside this write is gone: the
+   // new substrate does not offer it, and the set never read it (INV-INS-147).
    @match {
-      ExecutionContext.instance().setProperty(Property.PREPARED_GCM, spec);
-      ExecutionContext.instance().setObjectAsInAcceptingState(spec);
+      PredicateStore.instance().ensure(Property.PREPARED_GCM, spec);
    }
 
 }

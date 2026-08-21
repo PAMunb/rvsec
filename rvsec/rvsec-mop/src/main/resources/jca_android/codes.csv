@@ -7,7 +7,13 @@ CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i2,CipherSpec.mop:137
 CipherSpec,CIPHER-ALG-01,UnsafeAlgorithm,ALG,i2,CipherSpec.mop:141
 CipherSpec,CIPHER-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherSpec.mop:300
 DHGenParameterSpecSpec,DHGENPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,DHGenParameterSpecSpec.mop:31
-GCMParameterSpecSpec,GCMPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,GCMParameterSpecSpec.mop:51
+GCMParameterSpecSpec,GCMPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,GCMParameterSpecSpec.mop:63
+GCMParameterSpecSpec,GCMPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,GCMParameterSpecSpec.mop:69
+GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,UnsatisfiedConstraint,NOBS,c1,GCMParameterSpecSpec.mop:74
+GCMParameterSpecSpec,GCMPARAMETERSPEC-CONSTR-02,UnsatisfiedConstraint,CONSTR,c2,GCMParameterSpecSpec.mop:107
+GCMParameterSpecSpec,GCMPARAMETERSPEC-CONSTR-03,UnsatisfiedConstraint,CONSTR,c2,GCMParameterSpecSpec.mop:113
+GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-01,UnsatisfiedConstraint,NOBS,c2,GCMParameterSpecSpec.mop:118
+GCMParameterSpecSpec,GCMPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,GCMParameterSpecSpec.mop:136
 HMACParameterSpecSpec,HMACPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,HMACParameterSpecSpec.mop:29
 IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,IvParameterSpec.mop:68
 IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,UnsatisfiedConstraint,NOBS,c1,IvParameterSpec.mop:72

@@ -247,7 +247,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       rule's arity
 - [x] 4.7 `PBEParameterSpecSpec` (3 reads / 1 write / 1 call); the 3-arg `c2` read gains its
       accuser here (`randomized[salt]`)
-- [ ] 4.8 `GCMParameterSpecSpec` (2 reads / 1 write / 1 call); `c1`/`c2` gain their accusers
+- [x] 4.8 `GCMParameterSpecSpec` (2 reads / 1 write / 1 call); `c1`/`c2` gain their accusers
       (`randomized[src]`)
 - [ ] 4.9 `MacSpec` (2 reads / 2 writes / 1 call); `i1`/`i2` read `generatedKey`, which the Mac
       rule does not require — they are **propagation**, MUST NOT gain an accuser, and are

@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 74,
+    "structural_findings": 71,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -13,43 +13,6 @@
     "order_skipped": 204
   },
   "gates": {
-    "INV-INS-133": [
-      [
-        "jca_android",
-        "GCMParameterSpecSpec.mop",
-        "c1/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "GCMParameterSpecSpec.mop",
-        "c2/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "MacSpec.mop",
-        "i1/GENERATED_KEY"
-      ],
-      [
-        "jca_android",
-        "MacSpec.mop",
-        "i2/GENERATED_KEY"
-      ],
-      [
-        "jca_android",
-        "RandomStringPassword.mop",
-        "gb/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "RandomStringPassword.mop",
-        "vo/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecretKeySpec.mop",
-        "e1/GENERATED_KEY"
-      ]
-    ],
     "INV-INS-134": [
       [
         "jca_android",
@@ -170,6 +133,33 @@
         "jca_android",
         "TrustManagerFactorySpec.mop",
         "init/GENERATED_TRUST_MANAGER"
+      ]
+    ],
+    "INV-INS-133": [
+      [
+        "jca_android",
+        "MacSpec.mop",
+        "i1/GENERATED_KEY"
+      ],
+      [
+        "jca_android",
+        "MacSpec.mop",
+        "i2/GENERATED_KEY"
+      ],
+      [
+        "jca_android",
+        "RandomStringPassword.mop",
+        "gb/RANDOMIZED"
+      ],
+      [
+        "jca_android",
+        "RandomStringPassword.mop",
+        "vo/RANDOMIZED"
+      ],
+      [
+        "jca_android",
+        "SecretKeySpec.mop",
+        "e1/GENERATED_KEY"
       ]
     ],
     "G-PRED2": [
@@ -313,11 +303,6 @@
       [
         "jca_android",
         "DHGenParameterSpecSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "GCMParameterSpecSpec.mop",
         "ExecutionContext"
       ],
       [

@@ -790,7 +790,17 @@ def _list_guarding(mop: MopSpec, rule: CryslRule, obj: str) -> tuple[str, list[s
     differently (`alg` against `randAlg`), so nothing here compares identifiers.
     """
     for event in mop.events:
-        if not event.calls or not event.condition:
+        if not event.calls:
+            continue
+        # The guard *and* the body, for the same reason the numeric-bound branch
+        # of `derive_constraint_rows` states: gh105's F2 pass moves a CONSTRAINTS
+        # clause out of `condition(...)` and into the event body, where failing it
+        # accuses instead of suppressing the transition. A matcher that read only
+        # the guard would call a migrated list membership unbacked twice over --
+        # once as a rule clause no guard reaches, once as a set list no clause
+        # backs -- when the clause is still stated, one line further in.
+        stated = f"{event.condition or ''}\n{event.body or ''}"
+        if not stated.strip():
             continue
         signature = _call_signature(event.calls[0])
         if signature is None:
@@ -811,7 +821,7 @@ def _list_guarding(mop: MopSpec, rule: CryslRule, obj: str) -> tuple[str, list[s
                 rf"ConscryptAliasTable\s*\.\s*matches\(\s*\"[^\"]*\"\s*,\s*"
                 rf"{re.escape(argument)}\s*(?:\.\w+\(\))?\s*,\s*(\w+)",
             ):
-                hit = re.search(pattern, event.condition)
+                hit = re.search(pattern, stated)
                 if hit and hit.group(1) in mop.lists:
                     return hit.group(1), mop.lists[hit.group(1)]
     return None
