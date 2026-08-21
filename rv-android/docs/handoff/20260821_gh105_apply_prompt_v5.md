@@ -229,28 +229,70 @@ veredito é commitado de qualquer jeito. Adiar a 4.1 não reduz risco: ela é pr
 
 ### O que a 4.1 pede, e o que precisa ser decidido antes de editar
 
-`CipherSpec` (3 leituras / 12 escritas / 1 chamada de estado de aceitação):
+`CipherSpec` (3 leituras / 12 escritas / 1 chamada de estado de aceitação). **Leia a regra
+`api30/Cipher.cryptsl` inteira antes de tocar o arquivo** — ela responde metade das perguntas
+que parecem de projeto.
 
-- **A tricotomia de origem de chave do `i2`** (`GENERATED_KEY` ‖ `GENERATED_PUBLIC_KEY` ‖
-  `GENERATED_PRIVATE_KEY`, hoje em `condition(...)`, `CipherSpec.mop:82-86`) vira **um** sítio
-  composto no corpo, sobre o `PredicateStore`, com veredito de três valores e no máximo um
-  relato por cláusula violada (INV-INS-133). É a primeira leitura de três valores do conjunto,
-  então é ela que obriga a 4.2.
-- **As 12 escritas** — `ENCRYPTED` em `u1`-`u5`, `f1`, `f2`, `f3`, `f5`, `f6`, `f7` (11) e
-  `WRAPPED_KEY` em `wkb1` (1) — mudam para o ponto de aceitação (INV-INS-134). **Decidir antes
-  de editar**: cada evento escreve um *cifrado diferente*; o `@match1` só vê o último. Ou o
-  ponto de aceitação recebe a coleção, ou cada escrita fica no corpo com `reason` registrado no
-  `predicate_graph.csv` (que o INV-INS-134 admite). A 5.3 consome essas escritas pelo
-  `validateAbsent`, então a forma escolhida tem que servir a ela.
-- **A chamada `setObjectAsInAcceptingState(cipher)`** do `@match1` sai (INV-INS-147).
-- **`ExecutionContext` sai do arquivo inteiro** (INV-INS-130) — são 17 menções hoje.
-- **Zero headroom de eventos** (INV-INS-145): `CipherSpec` está em 17/17 eventos. **Nenhuma
-  tarefa pode acrescentar evento ao `CipherSpec`**; toda ligação nova passa por junction spec ou
-  pelo store.
+**A leitura.** A tricotomia de origem de chave do `i2` (`GENERATED_KEY` ‖ `GENERATED_PUBLIC_KEY`
+‖ `GENERATED_PRIVATE_KEY`, hoje em `condition(...)`, `CipherSpec.mop:82-86`) vira **um** sítio
+composto no corpo, sobre o `PredicateStore`, com veredito de três valores e no máximo **um**
+relato por cláusula violada (INV-INS-133 diz "não um por sonda"). É a primeira leitura de três
+valores do conjunto, e é por isso que a 4.2 anda junto. A reescrita para a aridade real da regra
+— `generatedKey[key, part(0,"/",transformation)]`, aridade **2** — **não** é da 4.1: é da 5.6,
+que substitui a guarda do `i2` por leitura de store sem acrescentar evento nenhum.
+
+**As escritas — aqui está a decisão, e ela é mais estreita do que parece.** A regra tem **três**
+cláusulas `ENSURES`, não uma:
+
+```
+encrypted[pre_ciphertext, pre_plaintext] after updates;   <- cláusula com `after L`
+encrypted[cipherText, plainText];                          <- no ponto de aceitação
+encrypted[cipherBuffer, plainBuffer];                      <- no ponto de aceitação
+```
+
+O INV-INS-134 diz que o ponto de aceitação é "o handler `@match`, **ou os estados de uma
+cláusula `after L`**". Então a regra já reparte as 11 escritas de `ENCRYPTED`: as cinco de
+`u1`-`u5` pertencem ao estado depois de `updates` (o `s3` do `fsm`), e as seis de `f*`
+pertencem ao `end`. Não é "coleção no `@match1`". O que falta decidir é **como**, porque num
+handler de estado o par (cifrado, claro) não está em escopo — o `.mop` só o tem no corpo do
+evento. Três formas, e a escolha tem que servir ao `validateAbsent` da 5.3 (ledger #22/#23,
+`!encrypted[output1,_]` e `!encrypted[output2,_]` do `Mac`):
+
+- **(a) campos + handlers de estado.** `alias afterUpdates = s3` com `@afterUpdates`, e o
+  `@match1` já existente; cada corpo de evento só religa dois campos com o par, e os handlers
+  fazem o `ensure` de aridade 2. Fiel à letra do INV-INS-134. Custo: semântica "vence o último
+  par" — um `update` seguido de outro perde o primeiro, e o `Mac` da 5.3 pergunta sobre um
+  `byte[]` específico, então perder pares é perder detecção.
+- **(b) escrita no corpo com `reason` registrado.** O INV-INS-134 admite explicitamente: "uma
+  escrita mantida em outro lugar DEVE carregar uma razão registrada no `predicate_graph.csv`".
+  A razão aqui é forte e verificável: a predicate é **por par**, não por cipher, e um handler de
+  estado só consegue carregar um par. Custo: 11 linhas de razão, e o gate INV-INS-134 fica com
+  11 achados que só saem por razão registrada, nunca por relocação — a 4.15 tem que aceitar isso.
+- **(c) híbrido.** As cinco de `updates` ficam no corpo com razão (a regra literalmente diz que
+  a garantia vale *a cada* update), e as seis de `f*` sobem para o `@match1` a partir de campos,
+  porque o `doFinal` é terminal e "o último par" **é** o par.
+
+**A décima segunda escrita não tem cláusula nenhuma.** `wkb1` escreve `WRAPPED_KEY`, e a regra
+api30 do `Cipher` declara o evento `w: wrap(wrappedKey)` mas **não** o menciona em `ENSURES`.
+Não há cláusula para relocar: ou vira registro de omissão deliberada (INV-INS-137), ou fica com
+razão registrada. Decidir junto, não depois.
+
+**O resto da 4.1, que não é decisão:**
+- A chamada `setObjectAsInAcceptingState(cipher)` do `@match1` sai (INV-INS-147).
+- `ExecutionContext` sai do arquivo inteiro (INV-INS-130) — são 17 menções hoje.
+- **Zero headroom de eventos** (INV-INS-145): `CipherSpec` está em 17/17. **Nenhuma tarefa pode
+  acrescentar evento ao `CipherSpec`**; toda ligação nova passa por junction spec ou pelo store.
+  Isso vale para a decisão acima: nenhuma das três formas pode introduzir evento.
 
 A 4.2 acrescenta a **família de códigos *not observed*** ao `codes.csv` e estende o
 `gh104_message_gate.py` (INV-INS-143) — no **mesmo commit** que a 4.1, para que não exista estado
 intermediário em que o terceiro valor é computado e indistinguível rio abaixo.
+
+**Janela F2→F3 (design D-11/D-8)**: até o produtor de uma leitura aterrissar no Grupo 5, a
+leitura é `NOT_OBSERVED` em toda trace. Então **os pares de trace do Grupo 4 afirmam
+`NOT_OBSERVED`** — o lado "satisfaz" é impossível dentro da janela, e os pares
+`SATISFIED`/`VIOLATED` do INV-INS-144 aterrissam por cadeia no Grupo 5. Não tente escrever um
+par satisfaz/viola na 4.1; ele não existe ainda.
 
 Nota para as 4.4/4.6/4.10: os censos por arquivo em `tasks.md` são **pré-change**. Depois do
 Grupo 3, `IvParameterSpec` tem 2 leituras (não 4), `PBEKeySpecSpec` 2 (não 4) e
