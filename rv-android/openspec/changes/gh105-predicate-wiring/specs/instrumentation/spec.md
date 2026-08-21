@@ -269,7 +269,14 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
   or `g4`) maps to no `ORDER` symbol: its mapping row records the exemption, and
   the gate erases unmapped events from both languages before deciding equivalence — this is
   what lets an absorbed accuser satisfy G-ACC without breaking G-ORDER. A wrong mapping is a
-  wrong verdict in both directions.
+  wrong verdict in both directions. The gate MUST parse an `ORDER` under the CrySL grammar's own
+  precedence — `Sequence` (`,`) is the outermost production and therefore the *weakest* operator,
+  so `a, b | c` is `a, (b | c)` (`CrySL.xtext:103-120`) — and MUST NOT reuse the juxtaposition
+  precedence an `ere` needs, where concatenation binds tighter. The two readings agree on every
+  rule that parenthesises its alternations and disagree only on the one that does not, so the
+  defect presents as a single plausible witness rather than as a parse failure: it cost the
+  `CipherSpec` row a wrong witness, a wrong direction and a wrong accuser
+  (`data/gh105/evidence/f1-order-gate-precedence.md`, repaired at task 7.1).
 - **INV-INS-139**: The parameter list of every `.mop` MUST survive intact into its generated
   `.rvm` (G-PARAM), checked over every file of the enumerated universe by comparing the two headers. The check MUST read
   the generated artifact and MUST NOT trust exit codes: JavaMOP deletes the entire list for a

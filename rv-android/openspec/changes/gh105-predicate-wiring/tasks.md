@@ -371,7 +371,17 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 ## 7. F5 — Records, retirement, hardening
 
 - [ ] 7.1 Complete `order_alphabet_map.csv` for every spec Groups 1-6 touched; G-ORDER green or
-      declaredly skipped across `jca_android`
+      declaredly skipped across `jca_android`. **Repair the gate's `ORDER` parser first**: it
+      reads `,` as binding tighter than `|`, and `CrySL.xtext:103-120` binds them the other way
+      round (`Sequence` is the outermost production, so it is the weakest operator). `Cipher` is
+      the one api30 rule that tells the two parses apart, so the `CipherSpec` row is an artifact
+      of the gate: it reports `f2` accepted by the ORDER, where the faithful parse rejects a bare
+      `doFinal` and accepts `g1 i2 f2`, which the gate rejects. Measured delta: one witness,
+      inverted; counts unchanged at 6 passed / 4 findings / 13 skipped; no baseline `--write`
+      needed, since `gate_baseline.json` keys G-ORDER by `(set, file, "order")` and stores no
+      witness. The five-step checklist, the reproduction, and the real `CipherSpec` divergence
+      the repair uncovers (the `ere` accepts an unfinalised Cipher) are in
+      `data/gh105/evidence/f1-order-gate-precedence.md`
 - [ ] 7.2 `codes.csv` completeness pass: every accuser introduced in Groups 3-6 has its code;
       message gate green
 - [ ] 7.3 Retire `rvsec-mop-defsuses`: move to `backup/`, remove from `rvsec/rvsec/pom.xml:27`
