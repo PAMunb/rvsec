@@ -15,7 +15,7 @@ Impact (the experiment path cannot select `generic_new` today, and quasi-univers
 boolean). This change makes the matcher correct; it does not by itself deliver the generic dataset.
 
 This is confirmed empirically: the `rvsec-mop-extractor` extracts **0 methods** from the 27
-`generic_new` specs versus **120** from `jca`; **27/27** generic specs use wildcard imports and
+`generic_new` specs versus **120** from `jca`; **27/27** generic specs use wildcard imports and **Read those two numbers carefully — they are not the same unit** (re-derived 2026-08-21): the 120 counts *signatures* and **includes** constructor pointcuts; the 67 counts *(owner, method) pairs* and **excludes** them. Under one convention it is 120 vs **72** signatures, or **68 vs 69** pairs — essentially level. Sharper still: 18 of the `jca` 120 are constructor targets named `new`, which match no Soot method (constructors are `<init>`), so the frozen set carries **~102 live signatures / 57 live pairs** today. The repaired `generic_new` would therefore yield *more* live targets than the published ruler, not half as many. The headline "0 → N" claim is unaffected; the "much smaller than jca" reading is wrong.
 **71/89** `call(...)` pointcuts use a `+` subtype owner. Full root-cause analysis and an adversarial
 validation are in `docs/20260617_sa_generic_new.md` (§1–§15 — §15 is the adversarial validation of
 this change's own artefacts, added the same day) and `docs/20260611_sweep_generic_new_400.md`
@@ -77,6 +77,21 @@ fix; that corpus has since been superseded (see Impact).
   keep their shape; they only become *more correct* (more `true` on specs with `+`). Per-spec
   attribution stays at runtime (the `.mop` handlers log `RVSEC ... ::: <SpecName>` → `rv-coverage` →
   `errors.csv`); the static layer only needs the aggregated boolean (decision **B**).
+
+- **Reachability set consistency (`ReachabilityEngine`)** — `reachesTarget` MUST contain
+  `directlyReachesTarget`. That containment is definitional (a direct caller is a path of length 1) but
+  the tree violates it: 14 flags across 6 distinct methods in 2 APKs, out of the 269 `*.apk.json`
+  present. The cause is that one relation has two oracles and only one was repaired — the direct axis is
+  `call-graph callers ∪ bytecode scan` (the BUG-INV-ANA-19 repair for the app→library edges SPARK
+  quarantines), while the transitive axis is a reverse BFS over the call graph alone, which never got
+  that repair. The fix is to compute the direct set **first** and seed the reverse BFS with
+  `targets ∪ directTargetSet` (INV-ANA-64, design D8) — containment then holds by construction and
+  propagates to callers, which a post-hoc union of the two sets would not do. This is a **pre-existing**
+  defect, not one gh69 introduces; it is repaired here because gh69 amplifies it, taking the direct set
+  from 0.0–0.3% of app methods to 2–12% (RISK-004) and the scan-only share of it with it. It is
+  deliberately **not** enforced at the consumer: `JsonReportWriter` gains no gate and no abort, so a
+  residual case degrades to an unmarked ancestor (a transitive false negative) and the run continues.
+  No frozen gate moves — the `G_paridade_targets` fixture has zero violations today.
 
 - **Rebuild** — two JARs in order: `mvn install` the extractor first (it is a compile-scope
   dependency bundled into `rvsec-analysis-client.jar`), then rebuild the gator `client`.

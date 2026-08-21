@@ -59,6 +59,7 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
 | INV-ANA-42 (A2 predicate, both points + cascade) | `TargetMatching` in `TargetResolver.resolveInScene` + `ReachabilityEngine`/`findDirectTargetCallersByBytecodeScan` carrying `Set<TargetMethod>` (hybrid scan) | `TargetMatchingTest` (class→iface, **iface→iface `List<:Iterable`**, bare `*`); `RvsecAnalysisClient` IT |
 | INV-ANA-43 (Scene force-resolve + phantom-aware degrade) | `TargetMatching.forceResolveTargets` + `isPhantom`/`resolvingLevel` guard + degrade branch | `TargetMatchingTest` (absent type **and phantom owner** → equals + warn) |
 | INV-ANA-44 (schema invariance) | no JSON writer change; assert key-set equality | JSON key-set diff generic vs jca; `MopSpecsParityTest` (INV-ANA-35) |
+| INV-ANA-64 (`reaches ⊇ direct` by construction) | `ReachabilityEngine.run()`: compute `directTargetSet` first, then `multiSourceBfs(reversed, targets ∪ directTargetSet)`; `JsonReportWriter` untouched (no gate) | new cases in the existing `ReachabilityBfsTest` (scan-only caller marked; **its caller marked too** — the property post-hoc union misses; empty direct set ⇒ byte-identical to today) + the **already-existing** tripwire `test_reachability_parity.py:163`, whose "by construction" docstring this change finally makes true — **tasks 3.2b/3.2c** |
 | INV-ANA-40 JCA half (no drift on the frozen set) | extractor unchanged for exact-import owners; `java.lang` not seeded (D5) | literal count 120/68/22 (`jca`) and 119/67/22 (`jca_android`), flags false — **task 1.5 is the real JCA gate**, not `MopSpecsParityTest` |
 
 ## Goals / Non-Goals
@@ -237,6 +238,61 @@ re-deriving intent from string shape at every call site. If that future never ar
 `nameIsPattern` is a safe simplification — noted here so the P1 tension is a recorded decision rather than
 an oversight.
 
+**D8 — Restore `reaches ⊇ direct` (INV-ANA-64) by seeding the reverse BFS with the direct set, not by
+patching the sets afterwards.** The containment is definitional (a direct caller is a path of length 1), yet the tree
+violates it: measured over the 269 `*.apk.json` present, 14 flags across 6 distinct methods in 2 APKs
+carry `directlyReachesTarget=true` with `reachesTarget=false`. The cause is that **one relation has two
+oracles, and only one of them was repaired**. `directlyReachesTarget` is
+`findDirectTargetCallers(cg) ∪ findDirectTargetCallersByBytecodeScan(...)`, the union that repairs
+BUG-INV-ANA-19 (SPARK quarantines app→library invokes and omits the edges); `reachesTarget` is
+`multiSourceBfs(reversed(cg), targets)` — the call graph alone, which never received that repair.
+`complementWithCallbacks` does not close the hole either: it patches callbacks only, and only through
+call-graph edges. Of the 14, **12 sit on methods with `reachable=false`** — code SPARK never processed,
+which therefore has no vertex in the graph at all; the other 2 are in the graph with the specific edge
+missing.
+
+Three repairs were considered.
+
+*Post-hoc union* (`reachesTargetSet.addAll(directTargetSet)` after both are computed) is one line and
+restores the containment, but only asserts it: the callers of those methods stay `false`, so the
+transitive false negative survives. Rejected — it makes the invariant true without making it derived.
+
+*Graph repair* (have the scan return `(caller, target)` pairs and inject the missing edges into the
+JGraphT graph before any BFS) is the structurally pure option and yields **exactly the same `reaches`
+set** as the one adopted — the caller lands at distance 1, the reverse BFS picks it up and climbs
+identically. It costs a signature change, and because the scan keys on `class#name` (which collapses
+overloads) one scan hit would expand into N synthetic edges in a graph other code reads. Rejected on
+cost for zero difference in outcome (P1).
+
+*Seeding* is adopted: compute `directTargetSet` first, then
+`multiSourceBfs(reversed, targets ∪ directTargetSet)`. Containment holds by construction, propagation
+upward is correct, no signature changes, and `multiSourceBfs` already calls `graph.addVertex(seed)`
+before its visited check — with a comment describing precisely this case — so a seed with no
+call-graph vertex needs no new defensive code.
+
+**No enforcement gate.** The invariant is stated over the *construction*, not over the output, so it is
+verifiable by test without demanding a runtime check. `JsonReportWriter` is deliberately left untouched:
+aborting a long analysis over a residual method would trade slightly inconsistent data for no data. The
+residual that seeding cannot remove is an *ancestor* of a scan-discovered method that is itself absent
+from the call graph — a false negative on the transitive axis, never a violated containment.
+
+The containment was already asserted — `tests/parity/test_reachability_parity.py:163` calls itself an
+"Invariant by construction ... Tripwire if not". It is not, today, by construction: that test runs GATOR
+over `cryptoapp` alone and passes because that APK has zero violations, while the 6 that violate sit in
+`app.notesr_59` and `com.beemdevelopment.aegis_81`. So this decision does not introduce a contract; it
+delivers one that the test suite has been claiming for longer than it has been true. Note also that
+`ReachabilityEngine.run()` is Scene-bound (`Scene.v().getCallGraph()`), so the wiring itself is reachable
+only by IT — the synthetic-graph tests lock the composition semantics, not the call site.
+
+**Measurement cost: none.** The frozen fixture behind `G_paridade_targets`
+(`modules/rv-static-analysis/tests/resources/cryptoapp.apk.json`) has **zero** violations today
+(21 direct, 32 transitive), so the value-stability gate does not move; `BaselineComparisonIT` tolerates
+±10% on `reachesTarget` regardless. The defect predates this change — it is the unfinished half of
+BUG-INV-ANA-19 — but gh69 amplifies it: the direct set grows from 0.0–0.3% of app methods to 2–12%
+(RISK-004), and the scan-only share of it grows with it, so a defect that is 6 methods today would be
+projected (projection, not measurement) into the hundreds. That is why it is repaired here rather than
+deferred.
+
 ## API Design
 
 ### `boolean TargetMatching.matches(Type callSiteType, String callSiteName, TargetMethod t, FastHierarchy fh)`
@@ -320,7 +376,7 @@ an oversight.
 | Unit (matcher) | `canStoreType` class→iface, **iface→iface (`List<:Iterable` — the only case that distinguishes A2 from A1)**; name patterns `add*`…`write*` and bare `*`; non-trailing pattern → `equals`; absent-type **and phantom owner** degrade | JUnit on `TargetMatching` with a minimal Scene | ~7 |
 | Source | `MopSpecsTargetSource.load()` propagates flags (generic true / jca false) | `MopSpecsTargetSourceTest` (INV-ANA-41 — task 2.4b) | ~2 |
 | Parity | Source-layer parity only: `MopSpecsTargetSource.load` vs `JavamopFacade.listUsedMethods` on the same dir — **both sides run through the modified visitor**, so this test cannot catch an extractor-side JCA regression (its fixtures are `CipherSpec`/`MessageDigestSpec` only, no `String`). The JCA regression gate is the literal count in the extractor test | `MopSpecsParityTest` (INV-ANA-35) | existing |
-| Integration | 1 APK against generic_new: `reachesTarget>0`; `canStoreType` in real `RvsecAnalysisClient` scene; JSON key-set == jca run; **negative — a subtype-receiver call with a non-matching name (`ArrayList.remove` vs `add*`; `String.length` vs `Object+.wait/notify`) stays `reachesTarget=false` (name-axis, since `Object+` makes every type a subtype)**. All of these are failsafe `*IT` tests and are **skipped by default** (`client/pom.xml:18` sets `<skipITs>true</skipITs>`) — every IT command MUST pass `-DskipITs=false` | gator E2E on a small APK | ~3 |
+| Integration | 1 APK against generic_new: **`directlyReachesTarget` in the measured 2–12% band** (the load-bearing assertion — `reachesTarget` saturates at 84–94% under `generic_new` and passes trivially, RISK-004); `reachesTarget>0` kept as smoke only; `canStoreType` in real `RvsecAnalysisClient` scene; JSON key-set == jca run; **negative — a subtype-receiver call with a non-matching name (`ArrayList.remove` vs `add*`; `String.length` vs `Object+.wait/notify`) stays `reachesTarget=false` (name-axis, since `Object+` makes every type a subtype)**. All of these are failsafe `*IT` tests and are **skipped by default** (`client/pom.xml:18` sets `<skipITs>true</skipITs>`) — every IT command MUST pass `-DskipITs=false` | gator E2E on a small APK | ~3 |
 | Integration (JCA gate) | `BaselineComparisonIT` on `cryptoapp.apk` — the end-to-end half of the JCA regression gate named in INV-ANA-40's scope boundary. It exists (`client/src/test/java/presto/android/gui/clients/BaselineComparisonIT.java`) but no task ran it before; task 5.1b does | failsafe, `-DskipITs=false` | 1 |
 | Integration (scan-only) | A `generic_new` method reachable **only** via the direct bytecode scan (not via the SPARK call graph) reports `directlyReachesTarget=true` — the RISK-009 indicator, previously asserted by no test | failsafe, `-DskipITs=false` | 1 |
 | Performance | Wall-time of `resolveInScene` **and** of the bytecode scan, generic_new vs jca on the same APK, MUST be ≤ 2× the JCA baseline — the RISK-005 hard trigger, previously measured by no task | timed IT | 1 |

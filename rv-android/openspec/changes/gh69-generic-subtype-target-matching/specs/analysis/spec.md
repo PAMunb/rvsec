@@ -143,9 +143,26 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   (d) **Pointcut narrowing is discarded — the one false-*positive* direction.** The extractor keys on
   owner + method name only; the `&& args(...)`, `&& target(...)` and `&& condition(...)` conjuncts that
   narrow a pointcut are dropped. Measured over `generic_new`: 40 of the 88 `call(` lines carry a `&&`
-  conjunct, 14 of them an `args(...)`. So `call(* Set+.add(..)) && args(CharSequence) && !args(String)
-  && !args(CharBuffer)` becomes the target `java.util.Set#add`, matching every `add` on every subtype of
-  `Set` — far wider than what the aspect weaves. This is accepted (matching is LENIENT by construction,
+  conjunct, 14 of them an `args(...)`. Re-measured **by event** rather than by line (the right unit — a
+  conjunct routinely continues onto following lines): **55 of the 58 `call(` events, 95%**, carry some
+  discarded restriction.
+  **The `args()` axis recovers nothing, and the example this boundary used to give was the worst case to
+  pick.** Of the 22 events with `args(...)`, only **2** narrow a type rather than merely binding a
+  variable, and neither changes the resolved `SootMethod` set:
+  `call(* Set+.add(..)) && args(CharSequence) && !args(String) && !args(CharBuffer)` is a test on the
+  *argument at the call site*, which neither `resolveInScene` (which sees only `SootMethod`) nor the
+  extractor can apply — and the pair `(Collection+, add*)` from `Collection_UnsynchronizedAddAll` already
+  covers `Set.add` with no restriction at all, so the union erases any narrowing even in principle. The
+  other, `Collections.newSetFromMap`, has a single overload.
+  **Where the recoverable precision actually lives is `target()`-of-type**: 22 of its 57 occurrences name
+  a type (8 positive, 14 negated), and it is the only restriction class applicable at the layer where
+  matching happens — both `TargetResolver.resolveInScene` and the bytecode scan already hold the receiver
+  type. Two pairs survive the union: `CharSequence+.equals`/`hashCode` (whose `!target(String)` matters —
+  over 3 corpus APKs, **100%** of `equals`/`hashCode` call sites on a `CharSequence` have receiver
+  `java.lang.String`, so the static target is entirely false-positive there) and the non-`java.io` part of
+  `Closeable+.close`. Applying just those two shrinks the direct seed by 11–41% (measured: pindroid
+  153→119, lesserpad 37→22, moneytracker 171→152). That is a separate change, not this one.
+  This is accepted (matching is LENIENT by construction,
   INV-ANA-35), but it MUST be read together with the quasi-universal owners (`Object+`, `Iterable+`):
   the two compound, and the resulting saturation of `reachesTarget` is what the downstream dataset
   change has to plan around. Boundaries (a)-(c) understate the true target set; (d) overstates it.
@@ -231,6 +248,33 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   or removed keys. The key set of a `generic_new` run MUST be identical to that of a `jca` run; only
   the boolean values of `reachesTarget`/`directlyReachesTarget` differ. INV-ANA-35 (JCA byte-for-byte
   parity in `MopSpecsTargetSource.load()` vs the historical `loadMopSignatures`) MUST remain satisfied.
+
+- **INV-ANA-64**: `ReachabilityEngine.run()` MUST compute the direct-caller set **before** the
+  transitive one, and MUST seed the reverse BFS with `targets ∪ directTargetSet` rather than with
+  `targets` alone. The containment `reachesTarget ⊇ directlyReachesTarget` — definitional, since a
+  direct caller is a path of length 1 — then holds **by construction** for every method the call graph
+  contains. Rationale: the two fields are computed from two different oracles. `directlyReachesTarget`
+  is the union of the call-graph callers and the bytecode scan that repairs BUG-INV-ANA-19 (SPARK
+  quarantines app→library edges); `reachesTarget` is a reverse BFS over the call graph alone, which
+  never received that repair. Measured over the 269 `*.apk.json` in the tree: 14 flags across 6 distinct
+  methods in 2 APKs violate the containment today, and 12 of the 14 sit on methods with
+  `reachable=false` — methods SPARK never processed, so they carry no call-graph vertex at all.
+  `multiSourceBfs` already calls `graph.addVertex(seed)` before its visited check, so a seed absent
+  from the graph is supported without new defensive code.
+  **No consumer-side enforcement is added**: `JsonReportWriter` MUST NOT gate, assert, or abort on a
+  residual case, and the analysis MUST continue normally. The residual this seeding cannot remove is a
+  method the bytecode scan discovers whose *callers* are themselves absent from the call graph — that
+  yields an unmarked ancestor, i.e. a false negative on the transitive axis, never a violated
+  containment. Observability, if wanted, belongs in the existing `[ReachabilityEngine]` counter line,
+  not in a failing gate.
+  The containment is **already asserted** by `tests/parity/test_reachability_parity.py:163`
+  (`test_directly_reaches_target_is_subset_of_reaches_target`), whose docstring reads "Invariant by
+  construction: directly⊆reaches. Tripwire if not." That claim is **false today** and this invariant is
+  what makes it true: the tripwire runs GATOR fresh over `cryptoapp` with the `jca` specs, and passes
+  only because that one APK happens to have zero violations (21 direct, 32 transitive) — the 6 methods
+  that do violate live in `app.notesr_59` and `com.beemdevelopment.aegis_81`, which the tripwire never
+  sees. No new consumer-side assertion is required; what changes is that the existing one stops holding
+  by luck.
 
 ## MODIFIED Requirements
 
@@ -365,3 +409,16 @@ on the **method-name axis**, never on the type axis — an earlier framing that 
 - **THEN** matching MUST use exact `equals(className) && equals(methodName)` with no hierarchy query
 - **AND** `MopSpecsParityTest` MUST keep passing (INV-ANA-35, source-layer parity)
 - **AND** because that test compares `MopSpecsTargetSource.load()` against `JavamopFacade.listUsedMethods()` on the same directory — both sides running through the modified visitor — it CANNOT detect an extractor-side JCA regression; the load-bearing JCA gate is therefore the **literal count** asserted in the extractor test (120 targets / 68 pairs / 22 owners, all flags `false`), plus the `BaselineComparisonIT` on `cryptoapp.apk`
+
+#### Scenario: Bytecode-scan-only direct caller is also transitive (INV-ANA-64)
+
+- **WHEN** a method `m` of the app calls a target method `t` through an invoke that SPARK quarantines,
+  so the call graph carries no `m → t` edge and the bytecode scan is the only oracle that sees it
+- **THEN** `m` MUST appear in `directlyReachesTarget` (as today, via the scan)
+- **AND** `m` MUST also appear in `reachesTarget`, because the reverse BFS is seeded with
+  `targets ∪ directTargetSet` and `m` is therefore a seed
+- **AND** any caller of `m` that the call graph does contain MUST also appear in `reachesTarget`,
+  which post-hoc union of the two sets would not deliver
+- **AND** when `m` carries no call-graph vertex at all (measured: 12 of the 14 current violations),
+  `m` itself is still marked and only its unreachable ancestors stay unmarked — a false negative on the
+  transitive axis, not a containment violation, and the run MUST NOT fail
