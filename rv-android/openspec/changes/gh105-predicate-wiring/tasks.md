@@ -223,7 +223,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       pair consumes them). Lands with 4.2 in one commit
 - [x] 4.2 Add the *not observed* code family to `jca_android/codes.csv` and emit it from the
       first three-valued read; extend `gh104_message_gate.py` (INV-INS-143) — same commit as 4.1
-- [ ] 4.3 **REACH PROBE — the change's blocking condition (design D-12), gates Group 5.** One
+- [x] 4.3 **REACH PROBE — the change's blocking condition (design D-12), gates Group 5.** One
       `rv-experiment`/`rv-platform` run over a sample APK instrumented with the 4.1 monitors (the
       platform owns the emulator lifecycle; never a manual emulator command). One question: does
       any predicate-derived report reach `errors.csv` — a `VIOLATED` or a *not observed* code

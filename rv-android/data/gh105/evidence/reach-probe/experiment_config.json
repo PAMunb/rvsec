@@ -1,0 +1,42 @@
+{
+  "name": "gh105_reach_probe_b",
+  "description": "Experiment created via CLI interface",
+  "output_dir": "results/gh105_reach_probe_b",
+  "rvsec_root": null,
+  "tool_configs": [
+    {
+      "name": "aperv",
+      "variant": "sata_mop",
+      "parameters": {}
+    }
+  ],
+  "repetitions": 1,
+  "timeouts": [
+    300
+  ],
+  "no_window": true,
+  "device_port": null,
+  "generate_monitors": true,
+  "instrument_apks": true,
+  "instrumentation_variant": "dexlib2",
+  "run_static_analysis": true,
+  "run_execution": true,
+  "enable_quarantine": true,
+  "logcat_diagnostics": false,
+  "package_detector": false,
+  "specification_set": "jca_android",
+  "custom_specs_dir": null,
+  "custom_aspects_dir": null,
+  "apks_dir": "./apks_examples",
+  "apks_filter": null,
+  "analysis_timeout": null,
+  "jvm_memory": null,
+  "results_dir": "results/gh105_reach_probe_b",
+  "metadata": {
+    "created_via": "cli",
+    "tool_specifications": "aperv:sata_mop"
+  },
+  "created_at": "2026-08-21T08:56:30.820158",
+  "resume_mode": false,
+  "status_file": null
+}

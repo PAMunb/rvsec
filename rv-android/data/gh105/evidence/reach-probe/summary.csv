@@ -1,0 +1,2 @@
+apk,rep,timeout,tool,cov_act,cov_class,cov_method,cov_reachable,cov_reaches_target,cov_directly_reaches_target,mop_errors_total,mop_errors_unique
+cryptoapp.apk,1,300,aperv:sata_mop,100.0,68.75,53.77,85.45,43.75,23.81,11,10

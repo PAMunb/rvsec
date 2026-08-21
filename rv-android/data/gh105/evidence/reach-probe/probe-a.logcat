@@ -1,0 +1,30 @@
+--------- beginning of main
+--------- beginning of system
+--------- beginning of kernel
+08-21 08:53:52.249  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void <init>()>
+08-21 08:53:52.269  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>
+08-21 08:53:53.123  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+08-21 08:53:53.136  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: void <init>(br.unb.cic.cryptoapp.MainActivity)>
+08-21 08:53:54.839  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>
+08-21 08:53:54.839  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreen(java.lang.Class)>
+08-21 08:53:54.964  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void <init>()>
+08-21 08:53:54.968  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void onCreate(android.os.Bundle)>
+08-21 08:53:55.132  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void initializeViews()>
+08-21 08:53:55.132  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupTabLayout()>
+08-21 08:53:55.156  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void <init>(br.unb.cic.cryptoapp.generated.CryptographyActivity)>
+08-21 08:53:55.156  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupInputFields()>
+08-21 08:53:55.156  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void updateUIForTab()>
+08-21 08:53:55.156  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupSecretKeyUI()>
+08-21 08:53:55.157  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupAlgorithmSpinner(java.lang.String[])>
+08-21 08:53:55.157  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupModeRadioGroup()>
+08-21 08:53:55.157  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupExecuteButton()>
+08-21 08:53:55.157  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void <init>(br.unb.cic.cryptoapp.generated.CryptographyActivity)>
+08-21 08:53:56.670  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabUnselected(com.google.android.material.tabs.TabLayout$Tab)>
+08-21 08:53:56.671  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabSelected(com.google.android.material.tabs.TabLayout$Tab)>
+08-21 08:53:56.671  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: java.lang.String access$002(br.unb.cic.cryptoapp.generated.CryptographyActivity,java.lang.String)>
+08-21 08:53:56.671  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void access$100(br.unb.cic.cryptoapp.generated.CryptographyActivity)>
+08-21 08:53:56.714  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupKeyPairUI()>
+08-21 08:54:10.253  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>
+08-21 08:54:10.253  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void lambda$setupExecuteButton$0$CryptographyActivity(android.view.View)>
+08-21 08:54:10.253  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: boolean validateInputs()>
+08-21 08:54:15.375  3129  3129 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupHmacUI()>
