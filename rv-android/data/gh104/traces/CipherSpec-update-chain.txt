@@ -1,0 +1,13 @@
+# gh105 task 4.1: the update path, which is the only one that reaches the second
+# acceptance point. `updates` leads to s3, where the `after updates` clause of
+# api30 Cipher.cryptsl:189 is ensured, and the doFinal that follows reaches the
+# accepting state, where the other two clauses are. Neither write is visible in
+# an accusation until task 5.3 wires the `!encrypted` read of Mac, so what this
+# trace measures here is the ordering: the pre-image drops the init out of the
+# automaton and accuses the update, the successor accuses the init and lets the
+# rest of the sequence through.
+bind k = new SecretKeySpec(bytes, "AES")
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k)
+c.update(bytes)
+c.doFinal()

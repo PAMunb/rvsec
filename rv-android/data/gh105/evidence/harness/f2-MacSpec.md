@@ -1,0 +1,16 @@
+# MacSpec — differential harness
+
+- **A** `backup/gh105-preimage/jca_android`
+- **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
+- traces: 3
+
+| trace | class | A accuses | B accuses |
+|---|---|---|---|
+| `MacSpec-guard-on-field.txt` | unchanged | — | — |
+| `MacSpec-hmacpbesha1.txt` | unchanged | MacSpec.f1 | MacSpec.f1 |
+| `MacSpec.txt` | unchanged | — | — |
+
+## Envelopes
+
+- `MacSpec-hmacpbesha1.txt` (A) `spec=MacSpec,ev=f1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=f1 obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`
+- `MacSpec-hmacpbesha1.txt` (B) `spec=MacSpec,ev=f1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=f1 obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`

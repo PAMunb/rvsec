@@ -1,9 +1,11 @@
 spec,code,error_type,site_kind,event,file_line
 CipherInputStreamSpec,CIPHERINPUTSTREAM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherInputStreamSpec.mop:26
 CipherOutputStreamSpec,CIPHEROUTPUTSTREAM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherOutputStreamSpec.mop:26
-CipherSpec,CIPHER-ALG-00,UnsafeAlgorithm,ALG,i1,CipherSpec.mop:73
-CipherSpec,CIPHER-ALG-01,UnsafeAlgorithm,ALG,i2,CipherSpec.mop:88
-CipherSpec,CIPHER-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherSpec.mop:225
+CipherSpec,CIPHER-ALG-00,UnsafeAlgorithm,ALG,i1,CipherSpec.mop:89
+CipherSpec,CIPHER-CONSTR-00,UnsatisfiedConstraint,CONSTR,i2,CipherSpec.mop:133
+CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i2,CipherSpec.mop:137
+CipherSpec,CIPHER-ALG-01,UnsafeAlgorithm,ALG,i2,CipherSpec.mop:141
+CipherSpec,CIPHER-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherSpec.mop:300
 DHGenParameterSpecSpec,DHGENPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,DHGenParameterSpecSpec.mop:31
 GCMParameterSpecSpec,GCMPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,GCMParameterSpecSpec.mop:51
 HMACParameterSpecSpec,HMACPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,HMACParameterSpecSpec.mop:29

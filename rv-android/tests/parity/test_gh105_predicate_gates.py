@@ -534,6 +534,14 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       11 are still guards and 7 are body reads. The other three files of the task
       carry no predicate read: their guards read an algorithm allow-list, and a
       key size is not a predicate.
+    * task 4.1 migrated `CipherSpec`, the first file of the Group-4 pass. Its three
+      key-origin probes leave `condition(...)` for the body, so the reads stay at 18
+      and the guards go 11 -> 8 with 10 body reads. The writes go 49 -> 39: eleven
+      `ENCRYPTED` body writes become the two acceptance-point writes of `@match1`
+      and `@match2` -- one write site per acceptance point, which is the shape the
+      rule's three clauses have -- and the twelfth, `WRAPPED_KEY`, is deleted
+      because api30 names `wrap` in no ENSURES clause and no set reads the mark.
+      The accepting-state calls go 25 -> 24 (INV-INS-147).
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -550,9 +558,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 18
-    assert read_placement.get("condition", 0) == 11
-    assert counts.get("write", 0) == 49
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 25
+    assert read_placement.get("condition", 0) == 8
+    assert counts.get("write", 0) == 39
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 24
     assert counts.get("remove", 0) + counts.get("negate", 0) == 9
 
 
@@ -634,19 +642,26 @@ def test_the_graph_reproduces_the_measured_placement_census():
     * task 3.6: 11 guards left, and seven body reads -- the fused
       `PBEParameterSpecSpec.c1` is the seventh, reading the salt where it can
       accuse about it.
+    * task 4.1: 8 guards left and ten body reads, `CipherSpec.i2`'s three key-origin
+      probes being the three that moved. It is also the first task to move a write:
+      `write:body` goes 42 -> 30 and `write:acceptance` 7 -> 9, because the eleven
+      `ENCRYPTED` writes collapse into one site per acceptance point -- `@match1`
+      for the two clauses the accepting state ensures, `@match2` for the
+      `after updates` clause -- and the unclaused `WRAPPED_KEY` write is deleted.
+      The bookkeeping calls go 25 -> 24 with `CipherSpec`'s.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
-    assert counts.get("read:condition-guard", 0) == 11
-    assert counts.get("read:body", 0) == 7
-    assert counts.get("write:body", 0) == 42
-    assert counts.get("write:acceptance", 0) == 7
+    assert counts.get("read:condition-guard", 0) == 8
+    assert counts.get("read:body", 0) == 10
+    assert counts.get("write:body", 0) == 30
+    assert counts.get("write:acceptance", 0) == 9
     assert counts.get("remove:fail", 0) == 8
     assert counts.get("remove:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 25
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 24
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
@@ -817,8 +832,10 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     All 27 of them when the change opened; 23 after task 3.1's fusions took four
     guards out; 19 after task 3.3 fused the two `IvParameterSpec` pairs; 17 after
     task 3.4 fused the two `SecretKeySpecSpec` pairs; 13 after task 3.5 fused the
-    three `PBEKeySpecSpec` twins; 11 after task 3.6 fused `PBEParameterSpecSpec`'s.
-    The gate exists to make the migration's progress
+    three `PBEKeySpecSpec` twins; 11 after task 3.6 fused `PBEParameterSpecSpec`'s;
+    8 after task 4.1 moved `CipherSpec.i2`'s three key-origin probes into the body,
+    the first reads to move because the migration asked them to rather than because
+    a fusion took their event away. The gate exists to make the migration's progress
     a number that goes down, and to make it impossible for a new one to arrive
     quietly.
     """
@@ -827,7 +844,7 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
 
     findings = gate_placement(report)
     guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
-    assert len(guards) == 11
+    assert len(guards) == 8
 
 
 def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():
@@ -1476,3 +1493,71 @@ def test_the_baseline_carries_its_own_removal_order(measured):
     """
     assert measured["demolition_task"] == "7.6"
     assert "allow-list" in measured["what_this_is"]
+
+
+# --------------------------------------------------------------------- INV-INS-143
+
+
+def _message_gate_report(directory: Path) -> dict:
+    """The gh104 message gate over one specification-set directory."""
+    import gh104_message_gate
+
+    return gh104_message_gate.check(directory, _crysl_dir())
+
+
+def _crysl_dir() -> Path:
+    rules = (
+        Path(_rvsec_home()).parents[0] / "MetaCrySL/generated/api30"
+    )
+    if not rules.is_dir():
+        pytest.skip("the api30 oracle is not present beside the reactor")
+    return rules
+
+
+def test_inv_ins_143_the_not_observed_verdict_has_a_family_of_its_own(tmp_path):
+    """A NOT_OBSERVED report is not a violation report, and the codes say so.
+
+    The third verdict says the monitor never saw the producer -- on Android as
+    often a reach limit of the instrumentation as a misuse. Filed under the
+    violation family it would be counted as a misuse by everything downstream,
+    which reads the code out of the envelope and not the branch that emitted it.
+    So the gate holds the mapping in both directions: a site admitted by a
+    NOT_OBSERVED test carries a code of the not-observed family, and a site
+    admitted by a VIOLATED test carries one that is not.
+
+    The set is asserted clean *and* non-vacuous: a gate that skipped the property
+    would report the same empty findings as a gate that checked it, so the
+    absence of the skip line is the half of this test that proves it ran.
+    """
+    import shutil
+
+    specs = _specs_root() / "jca_android"
+    report = _message_gate_report(specs)
+    assert [f for f in report["findings"] if f["kind"] == "not-observed-family"] == []
+    assert not [reason for reason in report["skipped"] if reason.startswith("not-observed-family")]
+
+    # the same set with the code re-filed under the violation family: one finding,
+    # naming the site rather than the row, because the site is what a reader fixes
+    mutated = tmp_path / "jca_android"
+    shutil.copytree(specs, mutated)
+    codes = mutated / "codes.csv"
+    codes.write_text(
+        codes.read_text(encoding="utf-8").replace(
+            "CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,", "CIPHER-NOBS-00,UnsatisfiedConstraint,CONSTR,"
+        ),
+        encoding="utf-8",
+    )
+    findings = [f for f in _message_gate_report(mutated)["findings"] if f["kind"] == "not-observed-family"]
+    assert len(findings) == 1, findings
+    assert findings[0]["file"] == "CipherSpec.mop"
+
+
+def test_inv_ins_143_a_predicate_free_set_skips_the_family_check():
+    """INV-INS-140 over the new property: no three-valued read, declared skip.
+
+    `generic` calls no predicate substrate at all, so there is no branch to
+    classify. The gate says so and counts it, rather than reporting green by
+    vacuity -- which would be indistinguishable from a set whose codes are right.
+    """
+    report = _message_gate_report(_specs_root() / "generic")
+    assert any(reason.startswith("not-observed-family") for reason in report["skipped"])

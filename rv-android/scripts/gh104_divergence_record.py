@@ -61,7 +61,9 @@ KINDS = {
     "placement",         # a read leaves `condition(...)` for the body, or a write
                          # moves to the rule's acceptance point (INV-INS-133/134)
     "junction",          # a junction specification for a co-observable chain
-    "predicate-removal",  # a `remove`/`negate` site, or a `@fail` undo retired
+    "predicate-removal",  # a `remove`/`negate` site retired, a `@fail` undo retired,
+                         # or a write deleted because it translates no clause of
+                         # the rule and has no reader to lose
 }
 
 # Kinds that describe the set rather than a diff, so they carry no hunk key.

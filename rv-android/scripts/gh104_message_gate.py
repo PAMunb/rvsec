@@ -30,6 +30,19 @@ that reads perfectly well:
                             `exp` list it is accused of missing -- an accusation
                             that refutes itself in its own text.
 
+  not-observed-family       a three-valued predicate read reports NOT_OBSERVED
+                            -- "no producer of this object was ever seen" -- with
+                            a code family of its own, distinct from the violation
+                            codes (INV-INS-143). Folded into one family, a reach
+                            limit of the instrumentation is counted as a misuse,
+                            and the two are not the same claim: one says the
+                            program did something the rule forbids, the other
+                            says the monitor never saw the half of the program
+                            that would settle it. The branch a site sits in is
+                            read from the equality test on `PredicateVerdict`
+                            that admits it, and its family from the `site_kind`
+                            column the code already carries in `codes.csv`.
+
 On the frozen `jca` the envelope flag is zero by construction: every guard-on-
 field site there reports the same field it guards ("but found ." when the field
 is empty). Those nine sites are reported as `guard-on-field` notes, because they
@@ -77,6 +90,16 @@ ENVELOPE_VERSION = re.compile(r"(?<![\w.\-])v=\d+")
 # the message rather than as a literal of its own, so the bijection is read out
 # of the grammar the report actually uses.
 CODE_TOKEN = re.compile(r"\bcode=([A-Z0-9][A-Z0-9\-]*)")
+
+# The `site_kind` of the *not observed* code family. A code is `<SPEC>-<KIND>-<NN>`
+# and `codes.csv` carries the kind in its own column, so the family is read from
+# the row rather than parsed back out of the identifier.
+NOT_OBSERVED_KIND = "NOBS"
+
+# Only the equality form is read. `v != PredicateVerdict.SATISFIED` names a verdict
+# without saying which branch this site is, and a gate that guessed there would
+# report a finding the reader has to dismiss -- worse than reporting nothing.
+VERDICT_TEST = re.compile(r"==\s*(?:\w+\s*\.\s*)?PredicateVerdict\s*\.\s*(\w+)")
 STRING_LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"')
 FIELD_READ = re.compile(r"\b(current\w+)\b")
 GETTER_READ = re.compile(r"\b(\w+)\.get(\w+)\(\)")
@@ -136,6 +159,26 @@ def _nested_in_condition(mop: MopSpec, event: MopEvent, line: int) -> bool:
     return any(re.search(r"\bif\s*\(", text) for text in lines)
 
 
+def _verdict_branch(guard: str) -> str | None:
+    """Which three-valued verdict admits a report site, or None if it is not one.
+
+    Args:
+        guard: The site's admitting condition, as `_guard_text` renders it.
+
+    Returns:
+        `NOT_OBSERVED` when the guard tests for it, `VIOLATED` when it tests for
+        that instead, and None when the guard names no verdict by equality --
+        which is every site of a set that has no three-valued read, and every
+        ordinary `CONSTRAINTS` guard in a set that does.
+    """
+    names = VERDICT_TEST.findall(guard)
+    if "NOT_OBSERVED" in names:
+        return "NOT_OBSERVED"
+    if "VIOLATED" in names:
+        return "VIOLATED"
+    return None
+
+
 def _guard_text(mop: MopSpec, event: MopEvent | None, site: dict) -> str:
     """The condition that admits this site: the event's, plus any enclosing `if`."""
     parts = []
@@ -189,6 +232,7 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
         skipped.append(f"code-bijection: {codes_path} does not exist")
 
     site_codes: set[str] = set()
+    verdict_sites = 0
 
     for path in sorted(directory.glob("*.mop")):
         mop = parse_mop(path)
@@ -315,6 +359,44 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
                             }
                         )
                     site_codes.add(code)
+
+                # -- not-observed family --------------------------------
+                branch = _verdict_branch(guard)
+                if branch:
+                    verdict_sites += 1
+                    for code in sorted(emitted):
+                        family = (codes.get(code) or {}).get("site_kind", "").strip()
+                        if branch == "NOT_OBSERVED" and family != NOT_OBSERVED_KIND:
+                            findings.append(
+                                {
+                                    "kind": "not-observed-family",
+                                    "spec": mop.spec,
+                                    "file": path.name,
+                                    "line": site["line"],
+                                    "detail": f"`{code}` is emitted under a NOT_OBSERVED branch "
+                                    f"and codes.csv files it as `{family or 'nothing'}`, not "
+                                    f"`{NOT_OBSERVED_KIND}`; a verdict of "
+                                    "\"no producer was observed\" would be counted as a violation",
+                                }
+                            )
+                        elif branch != "NOT_OBSERVED" and family == NOT_OBSERVED_KIND:
+                            findings.append(
+                                {
+                                    "kind": "not-observed-family",
+                                    "spec": mop.spec,
+                                    "file": path.name,
+                                    "line": site["line"],
+                                    "detail": f"`{code}` belongs to the {NOT_OBSERVED_KIND} family "
+                                    f"and is emitted under a {branch} branch; the family exists to "
+                                    "keep the two apart",
+                                }
+                            )
+
+    if not verdict_sites:
+        skipped.append(
+            "not-observed-family: no report site is admitted by a `PredicateVerdict` "
+            "equality test, so the set carries no three-valued read"
+        )
 
     if codes:
         for code in sorted(set(codes) - site_codes):

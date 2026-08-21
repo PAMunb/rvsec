@@ -10,7 +10,8 @@ import java.security.cert.Certificate;
 import java.nio.ByteBuffer;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 import static br.unb.cic.mop.jca.util.Api30CipherTransformationUtil.*;
 
@@ -38,15 +39,31 @@ CipherSpec(Cipher c) {
         return value.replace("'", "\\'");
     }
 
-   Cipher cipher = null;
    String currentTransformation = "";
+
+   // api30 Cipher.cryptsl ensures `encrypted` over a *pair* -- the ciphertext and
+   // the plaintext it came from -- in three clauses: one `after updates`, and two
+   // at the accepting state. A handler sees no event parameter (it is generated as
+   // a no-argument method), so the pair travels in these fields: the event body
+   // stages it, and the handler that runs immediately after the transition writes
+   // it and clears the field. Staging rather than writing in the body is the point
+   // of the placement: an event body runs *before* the transition is decided, so a
+   // write there marks a ciphertext the automaton was about to reject.
+   //
+   // A staged pair is consumed by exactly one handler or discarded by @fail, so it
+   // is never written for a sequence the automaton did not accept, and never
+   // written twice: the generated dispatcher evaluates the state categories after
+   // every event, so each update runs its own handler with its own pair.
+   Object updatedCipherText = null;
+   Object updatedPlainText = null;
+   Object finalCipherText = null;
+   Object finalPlainText = null;
 
    event g1 after(String transformation) returning(Cipher c):
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
      condition(isValid(transformation)) {
        currentTransformation = transformation;
-       cipher = c;
    }
 
    event g2 after(String transformation, Object provider) returning(Cipher c):
@@ -54,7 +71,6 @@ CipherSpec(Cipher c) {
       args(transformation, provider) &&
       condition(isValid(transformation)) {
         currentTransformation = transformation;
-        cipher = c;
    }
 
 
@@ -75,15 +91,52 @@ CipherSpec(Cipher c) {
         }
     }
 
+   // The key-origin clause of the rule -- `generatedKey[key, part(0,"/",transformation)]`
+   // at Cipher.cryptsl:174 -- is one clause, and the set models the origin of a key
+   // as three producing predicates, so the three probes below are one composite
+   // read that emits at most one report (INV-INS-133), not three reads that could
+   // each accuse.
+   //
+   // The read is in the body and not in `condition(...)`, which is where it used to
+   // sit: a condition compiles to `if (!(guard)) return false;` ahead of the body
+   // and ahead of the transition, so a key whose origin the monitor never saw
+   // silently dropped this `init` out of the automaton and the following call was
+   // accused of a wrong call sequence -- a defect the program does not have. A
+   // failed REQUIRES is not a typestate failure; the transition is taken either way
+   // and the clause accuses on its own.
+   //
+   // The verdict is three-valued and the two outcomes are told apart in the report.
+   // VIOLATED is positive evidence -- the key carries a key-origin predicate that
+   // was withdrawn, or recorded with values the clause does not admit -- while
+   // NOT_OBSERVED says only that no producer of this key was ever observed, which
+   // on Android is as often a reach limit of the instrumentation as it is a misuse.
+   // Folding the two into one code would make the second unreadable as what it is.
    event i2 before(int mode, Key key, Cipher c):
      call(public void Cipher.init(int, Key,..)) &&
      args(mode, key, ..) &&
-     target(c) &&
-     condition(
-         ExecutionContext.instance().validate(Property.GENERATED_KEY, key)
-      || ExecutionContext.instance().validate(Property.GENERATED_PUBLIC_KEY, key)
-      || ExecutionContext.instance().validate(Property.GENERATED_PRIVATE_KEY, key)
-     ){
+     target(c) {
+        PredicateVerdict asSecretKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key);
+        PredicateVerdict asPublicKey = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, key);
+        PredicateVerdict asPrivateKey = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, key);
+        PredicateVerdict origin = PredicateVerdict.NOT_OBSERVED;
+        if (asSecretKey == PredicateVerdict.SATISFIED
+         || asPublicKey == PredicateVerdict.SATISFIED
+         || asPrivateKey == PredicateVerdict.SATISFIED) {
+            origin = PredicateVerdict.SATISFIED;
+        }
+        else if (asSecretKey == PredicateVerdict.VIOLATED
+              || asPublicKey == PredicateVerdict.VIOLATED
+              || asPrivateKey == PredicateVerdict.VIOLATED) {
+            origin = PredicateVerdict.VIOLATED;
+        }
+        if (origin == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
+                "v=1 code=CIPHER-CONSTR-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='the key given to Cipher.init carries a key-origin predicate the rule does not admit'"));
+        }
+        else if (origin == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
+                "v=1 code=CIPHER-NOBS-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'"));
+        }
         if (!isValid(c.getAlgorithm())) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
             "v=1 code=CIPHER-ALG-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedTransformations) + "' msg='expecting " + expectedTransformations + " but found " + c.getAlgorithm() + "'"));
@@ -94,81 +147,98 @@ CipherSpec(Cipher c) {
      call(public byte[] Cipher.update(byte[])) &&
      args(plainText) &&
      target(c) {
-        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+        updatedCipherText = cipherText;
+        updatedPlainText = plainText;
    }
 
    event u2 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.update(byte[], int, int)) &&
      args(plainText, prePlainTextOffset, prePlainTextLen) &&
      target(c) {
-        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+        updatedCipherText = cipherText;
+        updatedPlainText = plainText;
    }
 
    event u3 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, Cipher c):
      call(public int Cipher.update(byte[], int, int, byte[])) &&
      args(plainText, prePlainTextOffset, prePlainTextLen, cipherText) &&
      target(c) {
-       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+        updatedCipherText = cipherText;
+        updatedPlainText = plainText;
    }
 
    event u4 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, int outputOffset, Cipher c):
      call(public int Cipher.update(byte[], int, int, byte[], int)) &&
      args(plainText, prePlainTextOffset, prePlainTextLen, cipherText, outputOffset) &&
      target(c) {
-       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+        updatedCipherText = cipherText;
+        updatedPlainText = plainText;
    }
 
    event u5 after (ByteBuffer plainBuffer, ByteBuffer cipherBuffer, Cipher c):
      call(public int Cipher.update(ByteBuffer, ByteBuffer)) &&
      args(plainBuffer, cipherBuffer) &&
      target(c) {
-       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherBuffer);
+        updatedCipherText = cipherBuffer;
+        updatedPlainText = plainBuffer;
    }
 
+   // api30 Cipher.cryptsl declares `w: wrap(wrappedKey)` at :111 and names it in no
+   // ENSURES clause, so the rule ensures nothing here and this event stages no pair.
    event wkb1 after(Cipher c) returning(byte[] wrappedKeyBytes):
      call(byte[] Cipher.wrap(Key)) &&
      target(c) {
-        ExecutionContext.instance().setProperty(Property.WRAPPED_KEY, wrappedKeyBytes);
    }
 
+   // The three `doFinal` overloads below return the ciphertext without binding the
+   // plaintext -- `doFinal()` has none, and the pointcuts of `f2` and `f3` do not
+   // name it. The clause is arity 2, so the pair is staged with the position the
+   // pointcut does not observe left null rather than the write being dropped or
+   // silently narrowed to arity 1.
    event f1 after(Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.doFinal()) &&
      target(c) {
-      ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+      finalCipherText = cipherText;
+      finalPlainText = null;
    }
 
    event f2 after(Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.doFinal(..)) &&
      target(c) {
-       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+       finalCipherText = cipherText;
+       finalPlainText = null;
    }
 
    event f3 after(byte[] cipherText, int offset, Cipher c):
      call(public int Cipher.doFinal(byte[], int)) &&
      args(cipherText, offset) &&
      target(c) {
-       ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+       finalCipherText = cipherText;
+       finalPlainText = null;
    }
 
     event f5 after(byte[] plainText, int offset, int len, byte[] cipherText, Cipher c):
       call(public int Cipher.doFinal(byte[], int, int, byte[])) &&
       args(plainText, offset, len, cipherText) &&
       target(c) {
-         ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+         finalCipherText = cipherText;
+         finalPlainText = plainText;
     }
 
     event f6 after(byte[] plainText, int offset, int len, byte[] cipherText, int cipherOffset, Cipher c):
       call(public int Cipher.doFinal(byte[], int, int, byte[], int)) &&
       args(plainText, offset, len, cipherText, cipherOffset) &&
       target(c) {
-        ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherText);
+        finalCipherText = cipherText;
+        finalPlainText = plainText;
     }
 
     event f7 after(ByteBuffer plainTextBuffer, ByteBuffer cipherTextBuffer, Cipher c):
        call(public int Cipher.doFinal(ByteBuffer, ByteBuffer)) &&
        args(plainTextBuffer, cipherTextBuffer) &&
        target(c) {
-         ExecutionContext.instance().setProperty(Property.ENCRYPTED, cipherTextBuffer);
+         finalCipherText = cipherTextBuffer;
+         finalPlainText = plainTextBuffer;
     }
 
    fsm :
@@ -220,14 +290,35 @@ CipherSpec(Cipher c) {
      ]
 
    alias match1 = end
+   // The acceptance point of `encrypted[pre_ciphertext, pre_plaintext] after updates`
+   // (Cipher.cryptsl:189). An `after L` clause is ensured at the states L leads to,
+   // which for this automaton is s3, and that is as much an acceptance point as the
+   // accepting state is for the two unqualified clauses (INV-INS-134).
+   alias match2 = s3
 
    @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,
             "v=1 code=CIPHER-ORDER-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'"));
+        updatedCipherText = null;
+        updatedPlainText = null;
+        finalCipherText = null;
+        finalPlainText = null;
 	    __RESET;
    }
 
    @match1 {
-        ExecutionContext.instance().setObjectAsInAcceptingState(cipher);
+        if (finalCipherText != null) {
+            PredicateStore.instance().ensure(Property.ENCRYPTED, finalCipherText, finalPlainText);
+            finalCipherText = null;
+            finalPlainText = null;
+        }
+   }
+
+   @match2 {
+        if (updatedCipherText != null) {
+            PredicateStore.instance().ensure(Property.ENCRYPTED, updatedCipherText, updatedPlainText);
+            updatedCipherText = null;
+            updatedPlainText = null;
+        }
    }
 }

@@ -217,11 +217,11 @@ Subagent dispatch (docs/WORKFLOW.md §5):
      pairs land per chain in Group 5. Per-file census (reads/writes/accepting-state) is stated in
      each task so completeness is checkable by a third party. -->
 
-- [ ] 4.1 `CipherSpec` (3 reads / 12 writes / 1 accepting-state call), the first migrated file:
+- [x] 4.1 `CipherSpec` (3 reads / 12 writes / 1 accepting-state call), the first migrated file:
       `i2`'s key-origin trichotomy stays ONE composite site emitting at most one report per
       violated clause (INV-INS-133); the `ENCRYPTED` writes relocate here (5.3's `validateAbsent`
       pair consumes them). Lands with 4.2 in one commit
-- [ ] 4.2 Add the *not observed* code family to `jca_android/codes.csv` and emit it from the
+- [x] 4.2 Add the *not observed* code family to `jca_android/codes.csv` and emit it from the
       first three-valued read; extend `gh104_message_gate.py` (INV-INS-143) — same commit as 4.1
 - [ ] 4.3 **REACH PROBE — the change's blocking condition (design D-12), gates Group 5.** One
       `rv-experiment`/`rv-platform` run over a sample APK instrumented with the 4.1 monitors (the

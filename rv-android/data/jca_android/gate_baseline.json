@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 145,
+    "structural_findings": 86,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -16,21 +16,6 @@
     "INV-INS-133": [
       [
         "jca_android",
-        "CipherSpec.mop",
-        "i2/GENERATED_KEY"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "i2/GENERATED_PRIVATE_KEY"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "i2/GENERATED_PUBLIC_KEY"
-      ],
-      [
-        "jca_android",
         "GCMParameterSpecSpec.mop",
         "c1/RANDOMIZED"
       ],
@@ -38,26 +23,6 @@
         "jca_android",
         "GCMParameterSpecSpec.mop",
         "c2/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "IvParameterSpec.mop",
-        "c1/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "IvParameterSpec.mop",
-        "c2/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "IvParameterSpec.mop",
-        "c3/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "IvParameterSpec.mop",
-        "c4/RANDOMIZED"
       ],
       [
         "jca_android",
@@ -71,38 +36,8 @@
       ],
       [
         "jca_android",
-        "PBEKeySpecSpec.mop",
-        "c1/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "c1/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "err2/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "err3/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "PBEParameterSpecSpec.mop",
-        "c1/RANDOMIZED"
-      ],
-      [
-        "jca_android",
         "PBEParameterSpecSpec.mop",
         "c2/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "PBEParameterSpecSpec.mop",
-        "c3/RANDOMIZED"
       ],
       [
         "jca_android",
@@ -118,99 +53,9 @@
         "jca_android",
         "SecretKeySpec.mop",
         "e1/GENERATED_KEY"
-      ],
-      [
-        "jca_android",
-        "SecretKeySpecSpec.mop",
-        "c1/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecretKeySpecSpec.mop",
-        "c3/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "c2/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "c3/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "setSeed2/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "SecureRandomSpec.mop",
-        "setSeed3/RANDOMIZED"
       ]
     ],
     "INV-INS-134": [
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f1/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f2/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f3/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f5/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f6/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f7/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "u1/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "u2/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "u3/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "u4/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "u5/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "wkb1/WRAPPED_KEY"
-      ],
       [
         "jca_android",
         "KeyGeneratorSpec.mop",
@@ -366,67 +211,17 @@
       [
         "jca_android",
         "CipherSpec.mop",
-        "f1/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f2/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f3/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f5/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f6/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "f7/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
         "i2/GENERATED_PRIVATE_KEY"
       ],
       [
         "jca_android",
         "CipherSpec.mop",
-        "u1/ENCRYPTED"
+        "match1/ENCRYPTED"
       ],
       [
         "jca_android",
         "CipherSpec.mop",
-        "u2/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "u3/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "u4/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "u5/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "wkb1/WRAPPED_KEY"
+        "match2/ENCRYPTED"
       ],
       [
         "jca_android",
@@ -553,11 +348,6 @@
       [
         "jca_android",
         "CipherOutputStreamSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
         "ExecutionContext"
       ],
       [

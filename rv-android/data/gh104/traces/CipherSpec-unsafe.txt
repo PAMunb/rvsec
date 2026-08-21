@@ -1,4 +1,8 @@
-# violating branch: a transformation no table admits
+# violating branch: a transformation no table admits. The key is bound for the
+# same reason CipherSpec.txt binds one -- `c.init(1, null)` is an ambiguous call
+# javac rejects, and an unnamed overload is not a program the woven monitor can
+# see.
+bind k = new SecretKeySpec(bytes, "AES")
 Cipher.getInstance("DES") -> c
-c.init(1, null)
+c.init(1, k)
 c.doFinal(bytes)

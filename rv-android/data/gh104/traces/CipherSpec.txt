@@ -1,4 +1,12 @@
-# legitimate: a transformation CipherTransformationUtil.isValid accepts
+# legitimate: a transformation Api30CipherTransformationUtil.isValid accepts.
+# The key is bound rather than passed as `null`: `c.init(1, null)` does not
+# compile -- javac calls init(int,Key) and init(int,Certificate) ambiguous -- so
+# the seed's line named a program that cannot exist, and the harness, which
+# matches a pointcut against the argument's runtime type, answered by dispatching
+# to both overloads. The predicate guard used to hide the second dispatch by
+# returning false ahead of the transition; with the read in the body (gh105 task
+# 4.1) it stopped hiding it. Naming the overload is what a compiled call site does.
+bind k = new SecretKeySpec(bytes, "AES")
 Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
-c.init(1, null)
+c.init(1, k)
 c.doFinal(bytes)

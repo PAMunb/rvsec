@@ -1,20 +1,9 @@
 file,event,site_kind,polarity,guard,arity,predicate,position_types,splitter,clause,mechanism,verdict,disposition,reason,automaton_membership
-CipherSpec.mop,i2,condition,positive,,1,GENERATED_KEY,Key,,,,read:condition-guard,,,member
-CipherSpec.mop,i2,condition,positive,,1,GENERATED_PUBLIC_KEY,Key,,,,read:condition-guard,,,member
-CipherSpec.mop,i2,condition,positive,,1,GENERATED_PRIVATE_KEY,Key,,,,read:condition-guard,,,member
-CipherSpec.mop,u1,body,positive,,1,ENCRYPTED,byte[],,,,write:body,,,member
-CipherSpec.mop,u2,body,positive,,1,ENCRYPTED,byte[],,,,write:body,,,member
-CipherSpec.mop,u3,body,positive,,1,ENCRYPTED,byte[],,,,write:body,,,member
-CipherSpec.mop,u4,body,positive,,1,ENCRYPTED,byte[],,,,write:body,,,member
-CipherSpec.mop,u5,body,positive,,1,ENCRYPTED,ByteBuffer,,,,write:body,,,member
-CipherSpec.mop,wkb1,body,positive,,1,WRAPPED_KEY,byte[],,,,write:body,,,member
-CipherSpec.mop,f1,body,positive,,1,ENCRYPTED,byte[],,,,write:body,,,member
-CipherSpec.mop,f2,body,positive,,1,ENCRYPTED,byte[],,,,write:body,,,member
-CipherSpec.mop,f3,body,positive,,1,ENCRYPTED,byte[],,,,write:body,,,member
-CipherSpec.mop,f5,body,positive,,1,ENCRYPTED,byte[],,,,write:body,,,member
-CipherSpec.mop,f6,body,positive,,1,ENCRYPTED,byte[],,,,write:body,,,member
-CipherSpec.mop,f7,body,positive,,1,ENCRYPTED,ByteBuffer,,,,write:body,,,member
-CipherSpec.mop,match1,@match,positive,,1,,Cipher,,,,bookkeeping:match,,,n/a
+CipherSpec.mop,i2,body,positive,,1,GENERATED_KEY,Key,,"Cipher.cryptsl:174 generatedKey[key, part(0,""/"",transformation)]",store,read:body,,,member
+CipherSpec.mop,i2,body,positive,,1,GENERATED_PUBLIC_KEY,Key,,"Cipher.cryptsl:174 generatedKey[key, part(0,""/"",transformation)]",store,read:body,,,member
+CipherSpec.mop,i2,body,positive,,1,GENERATED_PRIVATE_KEY,Key,,"Cipher.cryptsl:174 generatedKey[key, part(0,""/"",transformation)]",store,read:body,,,member
+CipherSpec.mop,match1,@match,positive,,2,ENCRYPTED,Object|Object,,"Cipher.cryptsl:191,193 encrypted[cipherText, plainText] / encrypted[cipherBuffer, plainBuffer]",store,write:acceptance,,,n/a
+CipherSpec.mop,match2,@match,positive,,2,ENCRYPTED,Object|Object,,"Cipher.cryptsl:189 encrypted[pre_ciphertext, pre_plaintext] after updates",store,write:acceptance,,,n/a
 DHGenParameterSpecSpec.mop,match,@match,positive,,1,PREPARED_DH,DHGenParameterSpec,,,,write:acceptance,,,n/a
 DHGenParameterSpecSpec.mop,match,@match,positive,,1,,DHGenParameterSpec,,,,bookkeeping:match,,,n/a
 GCMParameterSpecSpec.mop,c1,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,member
