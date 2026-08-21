@@ -5,6 +5,7 @@
 **Procedência**: observados durante a sonda de alcance da gh105, evidência em
 `data/gh105/evidence/f2-reach-probe.md`
 **Status**: nenhum reparo feito; nenhuma issue aberta; nenhuma change criada
+**Eixo de avaliação**: eficácia de especificação no sentido de Legunsen et al. (ASE'16) — ver §6 e §11
 
 ---
 
@@ -468,6 +469,45 @@ run que se declara bem-sucedido, é da categoria mais cara: não custa tempo de 
 credibilidade de resultado, e o custo só aparece quando alguém pergunta por que a cobertura daquele
 braço ficou baixa.
 
+#### Por que isto é ameaça à validade, e não só defeito de pipeline
+
+A pergunta que este programa de pesquisa faz é a de Legunsen, Hassan, Xu, Roşu e Marinov,
+*How Good Are the Specs? A Study of the Bug-Finding Effectiveness of Existing Java API
+Specifications* (ASE'16) — o trabalho que fixou o método de avaliar especificações de verificação
+em tempo de execução pela sua eficácia empírica, e cuja linhagem o artigo do próprio grupo
+continua (Torres, Cavalcanti, Ribeiro, Bonifácio, Souza, **Legunsen**, *Runtime Verification of
+Crypto APIs: An Empirical Study*). Aquele estudo monitorou 199 especificações JavaMOP — 182
+escritas à mão e 17 mineradas — contra 200 projetos, inspecionou 652 violações das primeiras e
+200 das segundas, reportou 95 bugs dos quais 74 já foram corrigidos, e mediu taxas de falso
+alarme de **82,81 %** e **97,89 %**. A conclusão é que a tecnologia amadureceu no *custo* (sobrecarga
+média abaixo de 4,3×) mas não na *eficácia*: apenas 11 das 182 especificações escritas à mão
+levaram à descoberta de algum bug, e os autores encerram pedindo que a comunidade repense
+"spec finding" e "spec engineering".
+
+É nesse eixo — eficácia da especificação, não corretude do software sob teste — que os três
+defeitos deste relatório mordem, e é por isso que eles são mais caros do que o tamanho do reparo
+sugere. Numa avaliação de eficácia, uma execução sem violação é ambígua por natureza: ou a
+especificação não pegou nada, ou o teste nunca chegou à API monitorada. **O que desfaz essa
+ambiguidade é exatamente a medição de alcance** — `cov_reachable`, `cov_reaches_target`,
+`cov_directly_reaches_target` — que é o que D1 zera em silêncio e o que D2 calcula contra a
+régua errada.
+
+Concretamente, para os dois lados do juízo:
+
+* **D1 + D3** produzem uma execução com cobertura zerada e violações intactas. Lida de fora, ela
+  descreve um app que o testador não explorou. Se essa linha entrar numa tabela de eficácia, ela
+  empurra a conclusão para "a especificação não teve oportunidade" quando a oportunidade existiu
+  — 27 métodos foram cobertos e o `Cipher.init` foi alcançado.
+* **D2** desloca o denominador do alcance para um conjunto de alvos que não é o do experimento.
+  Numa comparação pareada em que o conjunto de especificações é *o único fator que varia* — que é
+  literalmente o desenho declarado da campanha gh104 (`experimento-gh104/manifest.json`) — medir o
+  alcance dos dois braços contra a mesma régua velha é defensável **se declarado**, e é o que a
+  decisão B4 fez. Não declarado, é o fator confundidor entrando pela porta que o desenho fechou.
+
+O ponto não é que os números de hoje estejam errados — a §3.3 mede que, neste corpus, D2 não muda
+nenhum veredito. É que a classe de erro é a que mais custa num estudo de eficácia: ela não produz
+um resultado obviamente quebrado, produz um resultado plausível com o denominador errado.
+
 Há também um custo imediato e datado: a campanha conjunta gh104+gh105 roda depois que as duas
 changes aterrissarem, com dois dos três braços (`aperv:mop_off_llm_off` e `aperv:mop_on_llm_off`)
 consumindo `mop_data: static_analysis` sobre `spec_set: jca_android`
@@ -497,8 +537,8 @@ todos do lado Python do orquestrador.
 
 **Uma**, com três tarefas. Os três compartilham módulo, tema e teste de aceitação — um run com
 análise estática pedida ou produz dado correto ou falha. Fatiar em três issues multiplica cerimônia
-sobre um reparo que cabe em ~50 linhas, o que é o anti-padrão que o `WORKFLOW.md` §3 nomeia
-explicitamente ("sledgehammer to crack a nut").
+sobre um reparo que cabe em ~50 linhas, e a tabela de seleção do `WORKFLOW.md` §3 é explícita em
+que contagem de arquivos não escolhe trilha.
 
 ### Qual trilha
 
@@ -637,3 +677,34 @@ Duas coisas que eu disse na conversa antes de conferir, e que a investigação d
 | `experimento-gh104/manifest.json` | `spec_set: jca_android`, dois braços com `mop_data: static_analysis` |
 | `openspec/specs/experiment/spec.md:207,225` | INV-EXP-16 |
 | `openspec/specs/analysis/spec.md:290-291,365-369,418,450` | contrato de `mop_dir`/`targets_file`, INV-ANA-33/35, política LENIENT |
+
+---
+
+## 11. Referências
+
+* Owolabi Legunsen, Wajih Ul Hassan, Xinyue Xu, Grigore Roşu, Darko Marinov.
+  **How Good Are the Specs? A Study of the Bug-Finding Effectiveness of Existing Java API
+  Specifications.** ASE'16, Singapura, setembro de 2016, p. 602-613.
+  DOI [10.1145/2970276.2970356](http://dx.doi.org/10.1145/2970276.2970356).
+  PDF local: `/home/pedro/Downloads/LegunsenETAL16SpecEval.pdf`.
+  199 especificações JavaMOP (182 escritas à mão, 17 mineradas) × 200 projetos; 18.065 testes
+  manuais e 2.135.081 gerados; sobrecarga média < 4,3×; 652 + 200 violações inspecionadas;
+  95 bugs reportados, 74 corrigidos; falso alarme de 82,81 % e 97,89 %. É o trabalho que define
+  o eixo de avaliação — *eficácia* da especificação, não eficiência do monitoramento — em que
+  este relatório situa o custo dos três defeitos (§6).
+
+* Pedro Torres, Ismael Cavalcanti, Marcelo Ribeiro, Rodrigo Bonifácio, Diego Souza, Owolabi
+  Legunsen. **Runtime Verification of Crypto APIs: An Empirical Study.** O artigo do próprio
+  grupo, na mesma linhagem. PDF local:
+  `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/ase-journal-jss-jca/main.pdf`
+  (registrado em `docs/20260421_problema_dex2jar.md:14`).
+
+**Nota sobre vocabulário.** A seção 3 do `docs/WORKFLOW.md` cita literatura de *spec-driven
+development* assistido por IA, onde "spec" nomeia o documento de requisitos que precede a geração
+de código. Não é o sentido em uso aqui. Neste projeto "especificação" é o objeto formal —
+`.mop`/`.rvm`, autômato paramétrico, monitor tecido — avaliado pela sua eficácia empírica em
+achar defeitos, no sentido de Legunsen et al. e, antes deles, de Robillard et al.: *"a way to use
+an API as asserted by the developer or analyst, and which encodes information about the behavior
+of a program when an API is used"*. As duas literaturas usam a mesma palavra para coisas
+diferentes; o `WORKFLOW.md` é autoridade sobre a cerimônia de trilha e não sobre o que uma
+especificação é neste sistema.
