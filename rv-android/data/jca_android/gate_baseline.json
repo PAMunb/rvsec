@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 86,
+    "structural_findings": 85,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -363,11 +363,6 @@
       [
         "jca_android",
         "HMACParameterSpecSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "IvParameterSpec.mop",
         "ExecutionContext"
       ],
       [

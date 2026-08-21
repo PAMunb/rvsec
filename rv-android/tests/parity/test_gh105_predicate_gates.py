@@ -542,6 +542,13 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       rule's three clauses have -- and the twelfth, `WRAPPED_KEY`, is deleted
       because api30 names `wrap` in no ENSURES clause and no set reads the mark.
       The accepting-state calls go 25 -> 24 (INV-INS-147).
+    * task 4.4 migrated `IvParameterSpec`. It moves no read and no write: task 3.3
+      had already brought both reads into their bodies when it fused the twins, and
+      `preparedIV[this]` is unqualified, so the rule's acceptance point is the
+      accepting state and the write was already in `@match`. What the file pass does
+      is change the substrate under all three sites and split the boolean read into
+      three verdicts, which the counts here cannot see. The one number it moves is
+      the accepting-state calls, 24 -> 23 (INV-INS-147).
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -560,7 +567,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 18
     assert read_placement.get("condition", 0) == 8
     assert counts.get("write", 0) == 39
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 24
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 23
     assert counts.get("remove", 0) + counts.get("negate", 0) == 9
 
 
@@ -649,6 +656,12 @@ def test_the_graph_reproduces_the_measured_placement_census():
       for the two clauses the accepting state ensures, `@match2` for the
       `after updates` clause -- and the unclaused `WRAPPED_KEY` write is deleted.
       The bookkeeping calls go 25 -> 24 with `CipherSpec`'s.
+    * task 4.4: no placement moves. `IvParameterSpec`'s two reads were already body
+      reads and its write already sat at the acceptance point, so the four numbers
+      this test drives stay where 4.1 left them; the bookkeeping calls go 24 -> 23.
+      A file pass that moves nothing is still a file pass: what it changes is the
+      substrate and the arity of the verdict, and the graph records that in the
+      `mechanism` column rather than in these counts.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -661,7 +674,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
     assert counts.get("write:acceptance", 0) == 9
     assert counts.get("remove:fail", 0) == 8
     assert counts.get("remove:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 24
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 23
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():

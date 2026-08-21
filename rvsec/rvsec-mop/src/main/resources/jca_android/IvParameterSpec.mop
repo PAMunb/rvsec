@@ -3,7 +3,8 @@ package mop;
 import javax.crypto.spec.IvParameterSpec;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
@@ -37,16 +38,39 @@ IvParameterSpecSpec(IvParameterSpec s) {
     // same predicate accuses about what it saw instead of deciding whether the call
     // happened.
     //
+    // The read of `randomized[iv]` (IvParameterSpec.cryptsl:28) lives in this body and
+    // not in `condition(...)`, for the reason the fusion above already paid for once:
+    // a condition compiles to `if (!(guard)) return false;` ahead of both the body and
+    // the transition. A failed REQUIRES is not a typestate failure -- the transition
+    // is taken either way and the clause accuses on its own (INV-INS-133).
+    //
+    // The verdict is three-valued and the two accusing outcomes are told apart in the
+    // report, because they are different claims. VIOLATED is positive evidence: the
+    // array carries a randomisation predicate that was withdrawn. NOT_OBSERVED says
+    // only that no randomised source of this array was ever observed, which on Android
+    // is as often a reach limit of the instrumentation as it is a misuse. Folding the
+    // two into one code would make the second unreadable as what it is.
+    //
     // The write stays where the guard put it: `spec` is bound only when the IV is
     // observed randomised, because `@match` turns `spec` into `preparedIV[this]` and
-    // CrySL ensures a predicate only for a use that satisfied the rule. An IV that
-    // failed the REQUIRES must not leave the constructor prepared.
+    // CrySL ensures a predicate only for a use that satisfied the rule. NOT_OBSERVED
+    // therefore does not prepare. That is the literal reading of the boolean this
+    // replaces; the alternative -- an unobserved randomisation preparing anyway, so a
+    // reach limit costs one report here instead of cascading into a second one
+    // downstream -- has nothing to be measured against yet, because no specification
+    // of the set reads PREPARED_IV. Whoever gives it a reader through the store owns
+    // that question.
     event c1 after(byte[] iv) returning(IvParameterSpec s):
       call(public IvParameterSpec.new(byte[])) &&
       args(iv) {
-        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, iv);
+        if (randomised == PredicateVerdict.VIOLATED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
-                "v=1 code=IVPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[]) was not observed to come from a randomized source'"));
+                "v=1 code=IVPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[]) carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
+                "v=1 code=IVPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='no randomized source of the iv given to IvParameterSpec(byte[]) was observed'"));
         }
         else {
             spec = s;
@@ -71,12 +95,22 @@ IvParameterSpecSpec(IvParameterSpec s) {
     // which is not what a structural fusion is for. api30's IvParameterSpec rule
     // states no CONSTRAINTS at all, so nothing in the oracle stands behind these
     // three either way.
+    //
+    // The read is the same clause as `c1`'s, at the same arity, over the same array:
+    // one predicate, two constructors that bind it. It gets codes of its own because a
+    // code names a site and not a clause -- `codes.csv` is keyed by event and file
+    // line, and the report has to say which constructor it is about.
     event c2 after(byte[] iv, int offset, int len) returning(IvParameterSpec s):
       call(public IvParameterSpec.new(byte[], int, int)) &&
       args(iv, offset, len) {
-        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, iv);
+        if (randomised == PredicateVerdict.VIOLATED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
-                "v=1 code=IVPARAMETERSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[], int, int) was not observed to come from a randomized source'"));
+                "v=1 code=IVPARAMETERSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[], int, int) carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
+                "v=1 code=IVPARAMETERSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='no randomized source of the iv given to IvParameterSpec(byte[], int, int) was observed'"));
         }
         else if (offset >= 0 && len >= 0 && iv.length >= offset + len) {
             spec = s;
@@ -91,9 +125,17 @@ IvParameterSpecSpec(IvParameterSpec s) {
       __RESET;
     }
 
+    // `preparedIV[this]` (IvParameterSpec.cryptsl:33) carries no `after L`
+    // qualification, so the rule's acceptance point is the accepting state and the
+    // write belongs in this handler (INV-INS-134) -- which is where it already sat.
+    // What leaves is the accepting-state bookkeeping that stood beside it: the new
+    // store does not offer it, and the set has no reader of it (INV-INS-147).
+    //
+    // `spec` is null in exactly the cases where the read did not answer SATISFIED, and
+    // `ensure` treats a null binding as a no-op, so the unprepared constructor needs no
+    // guard here.
     @match {
-      ExecutionContext.instance().setProperty(Property.PREPARED_IV, spec);
-      ExecutionContext.instance().setObjectAsInAcceptingState(spec);
+      PredicateStore.instance().ensure(Property.PREPARED_IV, spec);
     }
 
 }
