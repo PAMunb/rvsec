@@ -23,10 +23,8 @@ GCMParameterSpecSpec.mop,match,@match,positive,,1,PREPARED_GCM,GCMParameterSpec,
 GCMParameterSpecSpec.mop,match,@match,positive,,1,,GCMParameterSpec,,,,bookkeeping:match,,,n/a
 HMACParameterSpecSpec.mop,match,@match,positive,,1,,HMACParameterSpec,,,,bookkeeping:match,,,n/a
 HMACParameterSpecSpec.mop,match,@match,positive,,1,PREPARED_HMAC,HMACParameterSpec,,,,write:acceptance,,,n/a
-IvParameterSpec.mop,c1,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,member
-IvParameterSpec.mop,c2,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,member
-IvParameterSpec.mop,c3,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,orphan
-IvParameterSpec.mop,c4,condition,positive,,1,RANDOMIZED,byte[],,,,read:condition-guard,,,orphan
+IvParameterSpec.mop,c1,body,positive,,1,RANDOMIZED,byte[],,,,read:body,,,member
+IvParameterSpec.mop,c2,body,positive,,1,RANDOMIZED,byte[],,,,read:body,,,member
 IvParameterSpec.mop,match,@match,positive,,1,PREPARED_IV,IvParameterSpec,,,,write:acceptance,,,n/a
 IvParameterSpec.mop,match,@match,positive,,1,,IvParameterSpec,,,,bookkeeping:match,,,n/a
 KeyGeneratorSpec.mop,gk1,body,positive,,1,GENERATED_KEY,Key,,,,write:body,,,member

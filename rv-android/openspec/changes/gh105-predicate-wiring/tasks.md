@@ -187,7 +187,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       twice — the published co-emission signature 9,015/9,014). Record the fusion residue (a
       rejected algorithm never followed by an `init` goes unaccused) as a `divergence_record.csv`
       row; do NOT move the algorithm check into `g1` — that is a behavioural change, deferred
-- [ ] 3.3 `IvParameterSpec`: fuse `c3`→`c1` and `c4`→`c2` (twins; `c4` is not an exact
+- [x] 3.3 `IvParameterSpec`: fuse `c3`→`c1` and `c4`→`c2` (twins; `c4` is not an exact
       complement — it ignores `c2`'s offset/length constraints, so the fused body keeps both)
 - [ ] 3.4 `SecretKeySpecSpec`: fuse `c3`→`c1` and `c4`→`c2` (`c4` is the length complement)
 - [ ] 3.5 `PBEKeySpecSpec`: absorb `f1`, `f2`; fuse `err2` AND `err3` into `c1` (one arrow, two

@@ -1,0 +1,7 @@
+# the satisfying half of the c4->c2 fusion: the three-argument constructor over an
+# IV the SecureRandom filled. `bind iv = bytes(16)` is what makes the identity key
+# hold -- the same array is randomised by one call and read by the next.
+bind iv = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(iv)
+new IvParameterSpec(iv, 0, 16) -> spec

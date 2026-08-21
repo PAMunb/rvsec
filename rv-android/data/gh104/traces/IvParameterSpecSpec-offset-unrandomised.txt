@@ -1,0 +1,6 @@
+# the violating half: the three-argument constructor over an IV nothing randomised.
+# Before the fusion this was event c4, an orphan the `ere` never names; after it is
+# c2 accusing from its own body, and the offset/length half of the old guard --
+# which the constructor itself has already enforced by the time this advice runs --
+# no longer decides whether the call is observed at all.
+new IvParameterSpec(bytes(16), 0, 16) -> spec

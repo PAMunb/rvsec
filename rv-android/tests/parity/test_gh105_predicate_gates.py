@@ -417,6 +417,8 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
       census had listed `g3` as an absorption until that task read its body: it
       only rebinds `currentAlgorithmInstance`, which makes it a negated twin and
       not a report of its own (design.md census, corrected 2026-08-20).
+    * task 3.3 fused both `IvParameterSpec` twins -- `c3` into `c1` and `c4` into
+      `c2` -- taking it to 11 and removing the file from this list entirely.
     """
     home = _rvsec_home()
     root = home / "rvsec/rvsec-mop/src/main/resources/jca_android"
@@ -430,7 +432,6 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
         assert source.alphabet.undeclared == (), f"{path.name} names an undeclared event"
 
     assert found == {
-        "IvParameterSpec": ("c3", "c4"),
         "KeyPairGeneratorSpec": ("initError",),
         "PBEKeySpecSpec": ("f1", "f2", "err1", "err2", "err3"),
         "PBEParameterSpecSpec": ("c3",),
@@ -438,7 +439,7 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
         "SecretKeySpecSpec": ("c3", "c4"),
         "SignatureSpec": ("g3",),
     }
-    assert sum(len(events) for events in found.values()) == 13
+    assert sum(len(events) for events in found.values()) == 11
 
 
 def test_the_frozen_gcm_specification_is_read_in_both_broken_directions():
@@ -515,6 +516,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     * task 3.1 fused the two `SecureRandom` twin pairs. Four condition reads on
       `RANDOMIZED` leave with the guards, one comes back in the fused
       `setSeed2` body, and the total reads go 27 -> 24 with 23 still guards.
+    * task 3.3 fused the two `IvParameterSpec` twin pairs. The two twins' guards
+      leave with them and the two survivors read in their bodies, so the reads go
+      24 -> 22, of which 19 are still guards and 3 are body reads.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -530,8 +534,8 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 24
-    assert read_placement.get("condition", 0) == 23
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 22
+    assert read_placement.get("condition", 0) == 19
     assert counts.get("write", 0) == 49
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 25
     assert counts.get("remove", 0) + counts.get("negate", 0) == 9
@@ -606,14 +610,16 @@ def test_the_graph_reproduces_the_measured_placement_census():
 
     * task 3.1: 23 guards left, and the first body read in the set -- the fused
       `setSeed2`, which reads the predicate where it can accuse about it.
+    * task 3.3: 19 guards left, and three body reads -- the two fused
+      `IvParameterSpec` constructors joined `setSeed2`.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
-    assert counts.get("read:condition-guard", 0) == 23
-    assert counts.get("read:body", 0) == 1
+    assert counts.get("read:condition-guard", 0) == 19
+    assert counts.get("read:body", 0) == 3
     assert counts.get("write:body", 0) == 42
     assert counts.get("write:acceptance", 0) == 7
     assert counts.get("remove:fail", 0) == 8
@@ -631,12 +637,13 @@ def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
     * task 3.1 took the two `SecureRandomSpec` rows out: `c3`'s read left with the
       guard it was, and `setSeed3`'s moved into the fused `setSeed2` body, where
       it is a member site and no longer an orphan one.
+    * task 3.3 took the two `IvParameterSpec` rows out the same way: `c3` and `c4`
+      were both guard-only reads, and what survives is the one body read each of
+      `c1` and `c2` now carries.
     """
     rows = read_graph(GRAPH)
     orphan_sites = {(row["file"], row["event"]) for row in rows if row["automaton_membership"] == "orphan"}
     assert orphan_sites == {
-        ("IvParameterSpec.mop", "c3"),
-        ("IvParameterSpec.mop", "c4"),
         ("PBEKeySpecSpec.mop", "err2"),
         ("PBEKeySpecSpec.mop", "err3"),
         ("PBEParameterSpecSpec.mop", "c3"),
@@ -747,7 +754,8 @@ def test_gacc_counts_the_orphans_group_three_has_not_absorbed_yet():
     green, which is what lets each group's landing be measured as a drop in this
     number rather than asserted. Seventeen at the start; 14 after task 3.1 took
     `SecureRandomSpec` whole; 13 after task 3.2 fused `TrustManagerFactorySpec.g3`
-    into `g1`. Task 3.7 closes it at zero.
+    into `g1`; 11 after task 3.3 fused both `IvParameterSpec` twins. Task 3.7
+    closes it at zero.
     """
     root = _specs_root()
     report = analyze_set(root / "jca_android")
@@ -755,7 +763,7 @@ def test_gacc_counts_the_orphans_group_three_has_not_absorbed_yet():
 
     findings = gate_acc(report, sources)
     assert all(finding.gate == "G-ACC" for finding in findings)
-    assert len(findings) == 13
+    assert len(findings) == 11
 
 
 def test_gacc_reports_both_directions_and_the_duplicate_declaration():
@@ -779,15 +787,16 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     """INV-INS-133 over the set, before the reads move.
 
     All 27 of them when the change opened; 23 after task 3.1's fusions took four
-    guards out. The gate exists to make the migration's progress a number that
-    goes down, and to make it impossible for a new one to arrive quietly.
+    guards out; 19 after task 3.3 fused the two `IvParameterSpec` pairs. The gate
+    exists to make the migration's progress a number that goes down, and to make
+    it impossible for a new one to arrive quietly.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
 
     findings = gate_placement(report)
     guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
-    assert len(guards) == 23
+    assert len(guards) == 19
 
 
 def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():

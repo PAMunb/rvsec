@@ -7,9 +7,9 @@ CipherSpec,CIPHER-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherSpec.m
 DHGenParameterSpecSpec,DHGENPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,DHGenParameterSpecSpec.mop:31
 GCMParameterSpecSpec,GCMPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,GCMParameterSpecSpec.mop:51
 HMACParameterSpecSpec,HMACPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,HMACParameterSpecSpec.mop:29
-IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c3,IvParameterSpec.mop:48
-IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c4,IvParameterSpec.mop:56
-IvParameterSpecSpec,IVPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,IvParameterSpec.mop:63
+IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,IvParameterSpec.mop:48
+IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c2,IvParameterSpec.mop:78
+IvParameterSpecSpec,IVPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,IvParameterSpec.mop:89
 KeyGeneratorSpec,KEYGENERATOR-ALG-00,UnsafeAlgorithm,ALG,gk1,KeyGeneratorSpec.mop:76
 KeyGeneratorSpec,KEYGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyGeneratorSpec.mop:86
 KeyManagerFactorySpec,KEYMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,KeyManagerFactorySpec.mop:66

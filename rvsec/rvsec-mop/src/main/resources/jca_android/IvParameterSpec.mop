@@ -18,44 +18,70 @@ IvParameterSpecSpec(IvParameterSpec s) {
 
     IvParameterSpec spec;
 
+    // One event over `IvParameterSpec(byte[])`, where there used to be two split by
+    // the sign of a guard. The negated twin `c3` matched the same call with the same
+    // `args(iv)` and named no state in the `ere`, so it was one of the 17 orphan
+    // accusers this group removes (INV-INS-135). Its body did carry an accusation --
+    // IVPARAMETERSPEC-CONSTR-00, the rule's `randomized[iv]` REQUIRES read backwards
+    // -- but that accusation is not a report of its own: it is the exact negation of
+    // this event's guard, which is what makes the pair a twin and not an absorption
+    // candidate. Fusing keeps the report and drops the split.
+    //
+    // What the split cost is the transition, and a second report. The guard
+    // suppressed `c1` for precisely the calls `c3` accused, so an IV nobody had
+    // randomised built an IvParameterSpec the automaton never saw -- and `c3`'s own
+    // transition row sends every state to the fail state, so the same call also drew
+    // an IVPARAMETERSPEC-ORDER-00 about an ordering the rule accepts. Measured
+    // against the pre-image: two reports become one
+    // (data/gh105/evidence/f1-IvParameterSpec-report-count.md). Read in the body, the
+    // same predicate accuses about what it saw instead of deciding whether the call
+    // happened.
+    //
+    // The write stays where the guard put it: `spec` is bound only when the IV is
+    // observed randomised, because `@match` turns `spec` into `preparedIV[this]` and
+    // CrySL ensures a predicate only for a use that satisfied the rule. An IV that
+    // failed the REQUIRES must not leave the constructor prepared.
     event c1 after(byte[] iv) returning(IvParameterSpec s):
       call(public IvParameterSpec.new(byte[])) &&
-      args(iv) &&
-      condition(
-        ExecutionContext.instance().validate(Property.RANDOMIZED, iv)
-      ) {
-         spec = s;
+      args(iv) {
+        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
+                "v=1 code=IVPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[]) was not observed to come from a randomized source'"));
+        }
+        else {
+            spec = s;
+        }
     }
 
+    // The same fusion over the three-argument constructor, with one difference the
+    // census calls out: `c4` was not the exact complement of `c2`. `c2`'s guard was a
+    // conjunction of four things -- the `randomized[iv]` read and the three
+    // offset/length conditions -- and `c4` negated only the read. So the two events
+    // did not partition the calls: an IV that was randomised but whose offset and
+    // length did not fit matched neither, and the constructor passed unobserved. The
+    // fused body therefore keeps both checks rather than assuming complementarity,
+    // the read accusing and the offset/length half guarding the write.
+    //
+    // The offset/length half cannot be false here, which is why keeping it costs
+    // nothing: this is an `after ... returning` advice, and the constructor rejects
+    // each of the three conditions with an exception before it can return
+    // (`offset < 0`, `len < 0`, `iv.length - offset < len`; JDK 21
+    // java.base/javax/crypto/spec/IvParameterSpec.java:75-91). It is kept because
+    // dropping it would change what the specification claims about the constructor,
+    // which is not what a structural fusion is for. api30's IvParameterSpec rule
+    // states no CONSTRAINTS at all, so nothing in the oracle stands behind these
+    // three either way.
     event c2 after(byte[] iv, int offset, int len) returning(IvParameterSpec s):
       call(public IvParameterSpec.new(byte[], int, int)) &&
-      args(iv, offset, len) &&
-      condition(
-        ExecutionContext.instance().validate(Property.RANDOMIZED, iv) &&
-        offset >= 0 &&
-        len >= 0 &&
-        iv.length >= offset + len
-    ) {
-        spec = s;
+      args(iv, offset, len) {
+        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
+                "v=1 code=IVPARAMETERSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[], int, int) was not observed to come from a randomized source'"));
+        }
+        else if (offset >= 0 && len >= 0 && iv.length >= offset + len) {
+            spec = s;
+        }
     }
-
-    event c3 after(byte[] iv) returning(IvParameterSpec s):
-       call(public IvParameterSpec.new(byte[])) &&
-       args(iv) &&
-       condition(
-         !ExecutionContext.instance().validate(Property.RANDOMIZED, iv)
-       ) {
-       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
-           "v=1 code=IVPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[]) was not observed to come from a randomized source'"));
-    }
-
-    event c4 after(byte[] iv, int offset, int len) returning(IvParameterSpec s):
-       call(public IvParameterSpec.new(byte[], int, int)) &&
-       args(iv, offset, len) &&
-       condition(!ExecutionContext.instance().validate(Property.RANDOMIZED, iv)) {
-           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
-               "v=1 code=IVPARAMETERSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[], int, int) was not observed to come from a randomized source'"));
-       }
 
     ere : c1 | c2
 

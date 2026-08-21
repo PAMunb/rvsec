@@ -41,8 +41,6 @@
 spec,mop_event,order_symbol,symbol_kind,rule,rule_line,disposition,reason
 IvParameterSpec,c1,cons1,event,IvParameterSpec.cryptsl,15,mapped,
 IvParameterSpec,c2,cons2,event,IvParameterSpec.cryptsl,17,mapped,
-IvParameterSpec,c3,cons1,event,IvParameterSpec.cryptsl,15,mapped,"the accusing twin of c1 over the same `IvParameterSpec(byte[])` call, split only by the sign of its guard; task 3.3 fuses it into c1 and this row leaves with it"
-IvParameterSpec,c4,cons2,event,IvParameterSpec.cryptsl,17,mapped,"the accusing twin of c2 over the same three-argument call; not an exact complement (it ignores c2's offset/length constraints), so 3.3's fused body keeps both checks"
 KeyPairGeneratorSpec,g1,g1,event,KeyPairGenerator.cryptsl,17,mapped,
 KeyPairGeneratorSpec,g2,g2,event,KeyPairGenerator.cryptsl,19,mapped,
 KeyPairGeneratorSpec,g3,,,KeyPairGenerator.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; the rule states the algorithm in CONSTRAINTS, and an ORDER has no symbol for a call it rejects on a constraint"
