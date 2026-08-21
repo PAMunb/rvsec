@@ -337,9 +337,10 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
   with the first F1 fusion that deletes a cited event. The supersession also covers gh104's
   INV-INS-118 arithmetic: it counts the successor set at 21 specifications (seed minus the two
   files INV-INS-128 removes), while the tree holds 23 — both files present — and this change
-  wires sites in both (`RandomStringPassword.vo/gb` and `SecretKeySpec.e1` as `propagation`
-  records; `SecretKeySpec.mop` as the #32 producer); the 23-file count is the operative one for
-  `jca_android`.
+  wires sites in one of the two (`SecretKeySpec.e1` as a `propagation` record and
+  `SecretKeySpec.mop` as the #32 producer) while `RandomStringPassword.mop` stays in the set and
+  ends this change with no predicate site at all, its four deleted by task 4.11; the 23-file count
+  is the operative one for `jca_android`.
 - **INV-INS-142**: A predicate removal MUST translate a `NEGATES` clause of the rule, MUST name
   the object, and MUST occur at the clause's `after` event. The oracle has exactly two `NEGATES`
   clauses (`SecretKey: generatedKey[this,_] after d`; `PBEKeySpec: speccedKey[this,_] after cP`);
@@ -414,9 +415,10 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
 - **INV-INS-118** (restated, replacing the entry of the same number): every hunk between the
   frozen `jca` and the successor `jca_android` MUST carry a `divergence_record.csv` row keyed by
   that hunk, and the successor set holds **23** specifications — the tree's count, both
-  `RandomStringPassword.mop` and `SecretKeySpec.mop` present, each carrying wired sites after
-  this change. The 21-specification arithmetic of the original entry counted a removal that the
-  tree does not show.
+  `RandomStringPassword.mop` and `SecretKeySpec.mop` present. `SecretKeySpec.mop` carries a wired
+  site after this change and `RandomStringPassword.mop` carries none, its four deleted at task
+  4.11; membership is what the count asserts, not predicate sites. The 21-specification arithmetic
+  of the original entry counted a removal that the tree does not show.
 
 ## MODIFIED Requirements
 
@@ -674,15 +676,40 @@ clause of their rule gain their accuser in the same task that moves them; the re
 translate **no clause** MUST NOT gain one — `MacSpec.i1/i2` read `generatedKey`, which the Mac
 rule does not require (it requires `preparedHMAC` and `!encrypted`); `RandomStringPassword.vo/gb`
 have no rule at all; `SecretKeySpec.e1` guards a propagation write and the SecretKey rule has no
-`REQUIRES` section. Arming a propagation read fabricates a misuse class no rule describes. Of
-those that translate no clause, only the ones that **feed a write** are propagation, and those
-are recorded as `propagation` in `predicate_graph.csv`: `RandomStringPassword.vo` and `gb`
-establish `RANDOMIZED` on the string and on the char array, `SecretKeySpec.e1` establishes it on
-the key bytes. A read that translates no clause **and feeds no write** propagates nothing — it
-computes a verdict no site consumes, and its only remaining effect is the transition its guard
-suppresses — so it MUST be deleted rather than recorded: `MacSpec.i1/i2` are deleted by task 4.9
-(researcher, 2026-08-21), which measured that guard turning a program that breaks no clause into
-an `InvalidSequenceOfMethodCalls`. The real clauses are wired where they belong (F3).
+`REQUIRES` section. Arming a propagation read fabricates a misuse class no rule describes.
+
+Of those that translate no clause, a read is propagation only when it **feeds a write** and that
+write **carries the predicate across**, and only then is it recorded as `propagation` in
+`predicate_graph.csv`. `SecretKeySpec.e1` is the one that meets both: `SecretKey.getEncoded()`
+returns the key's own bytes, so `RANDOMIZED` on the key is `RANDOMIZED` on what it returns.
+
+A read that translates no clause **and feeds no write** propagates nothing — it computes a
+verdict no site consumes, and its only remaining effect is the transition its guard suppresses —
+so it MUST be deleted rather than recorded: `MacSpec.i1/i2` are deleted by task 4.9 (researcher,
+2026-08-21), which measured that guard turning a program that breaks no clause into an
+`InvalidSequenceOfMethodCalls`.
+
+A read whose write does **not** carry the predicate across MUST be deleted with that write, for
+the same reason and a sharper one: recording it as `propagation` would put the set's name on a
+fact the conversion does not support. `RandomStringPassword.vo/gb` are deleted with their two
+writes by task 4.11 (researcher, 2026-08-21) — this reverses the instruction that task carried.
+The file spans `Object` → `String` → `char[]` through `String.valueOf(Object)` and
+`String.toCharArray()`, and `String.valueOf(Object)` calls `Object.toString()`, which was measured
+over each of the three source types the set can hand it: a `byte[]` becomes its identity string
+(`[B@726f3b58`), the `SecureRandom` itself becomes the constant `SecureRandom`, and only an
+`Integer` becomes its own digits — and that one does not survive the new store, whose bound key is
+identity, because the box at the `ensure` and the box at the read are the same object only inside
+the `Integer` cache. So the two source types that propagate carry no randomness and the one that
+carries randomness does not propagate. Its only consumer is `PBEKeySpecSpec.c1`'s password read,
+which stands behind no clause either: api30 `PBEKeySpec.cryptsl` REQUIRES `randomized[salt]`, and
+its clause about the password is `neverTypeOf(password, java.lang.String)`. Measured on the frozen
+seed, the bridge is a false *negative* — a `PBEKeySpec` built from the `char[]` of `[B@6ae40994`
+is accepted as having a randomised password and nothing is reported. Deleting the four sites
+leaves the migrated tree's observable behaviour unchanged, because the bridge is already inert
+there: its reads are still on the old substrate while its producers moved at task 4.5. The file
+leaves `predicate_graph.csv` entirely, as `MacSpec` did at task 4.9.
+
+The real clauses are wired where they belong (F3).
 
 #### Scenario: Read moved from guard to body
 

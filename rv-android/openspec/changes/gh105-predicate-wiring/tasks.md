@@ -291,8 +291,36 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `SecretKeyFactory` has no `.mop` in the set, ledger #31 already disposes the chain as
       `unmonitored-consumer` at 5.10, and `PBEKeySpecSpec` already produces the predicate, so a
       second producer for a chain with no consumer at all would be a site with no purpose
-- [ ] 4.11 `RandomStringPassword` (2 reads / 2 writes / 0 calls); both reads are **propagation**
-      (no rule) — no accuser, recorded as such
+- [x] 4.11 `RandomStringPassword` (2 reads / 2 writes / 0 calls). **All four sites are deleted,
+      not migrated** — this reverses the instruction this task carried, which was to record the
+      two reads as `propagation`. Two researcher decisions, 2026-08-21, both measured before the
+      edit (finding 47). The file is the set's only dataflow bridge: it exists to carry
+      `RANDOMIZED` across `Object` → `String` → `char[]`, because `PBEKeySpecSpec.c1` is the only
+      read of that predicate over a `char[]` and nothing else in the set produces one.
+      **The bridge does not carry what it stamps.** `String.valueOf(Object)` calls
+      `Object.toString()`, measured over each of the three source types the set can hand it: a
+      `byte[]` becomes its identity string (`[B@726f3b58`), the `SecureRandom` itself becomes the
+      constant `SecureRandom`, and only an `Integer` becomes its own digits — and that one dies on
+      the new store, whose bound key is identity, since the box at the `ensure` and the box at the
+      read coincide only inside the `Integer` cache (−128..127), where `next1`'s value is the
+      *bound argument* rather than the random result. The two types that propagate carry no
+      randomness; the one that carries randomness does not propagate. On the frozen seed this is a
+      false **negative**, measured: a `PBEKeySpec` built from the `char[]` of `[B@6ae40994` draws
+      nothing at all. Deleting the four sites moves no observable behaviour of the migrated tree —
+      the bridge is already inert there, its reads on the old substrate while its producers moved
+      at 4.5 — so the pass costs the set nothing and stops it asserting a fact the conversion does
+      not support. The file keeps its two events, its `ere` and its empty `@match`, and leaves
+      `predicate_graph.csv` whole, as `MacSpec` did at 4.9. **The `@match` is NOT deleted**,
+      unlike 4.6 and 4.9: measured, the JavaMOP grammar requires at least one handler after the
+      `ere` (`RVParser.propertyHandler`; generation fails with `ParseException: Encountered
+      "<EOF>"`), so an empty handler is the only legal way to state an automaton with nothing to
+      report. No `codes.csv` line is added or moved: this file has none, and gains none, because
+      a propagation site never earns an accuser. The pass also repairs the harness it needed:
+      `TraceRunner.fitsPointcut` refused an `Integer` against every declared reference type, which
+      the assignability test below it already decides for the `initialize` case the docstring
+      cites, and which blocked the one pointcut of the set's 112 that declares `Object` — the
+      bridge's own. Measured inert: 0 outcome changes over the 92 committed traces on both
+      snapshots, with a new test pinning both directions
 - [ ] 4.12 `SecretKeySpec` (1 read / 1 write / 0 calls); `e1` is **propagation** (no `REQUIRES`
       section) — no accuser
 - [ ] 4.13 Write-only specs, batch A (11 writes / 6 calls): `SignatureSpec` (4 writes),

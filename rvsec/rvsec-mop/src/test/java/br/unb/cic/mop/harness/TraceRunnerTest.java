@@ -195,6 +195,45 @@ public class TraceRunnerTest {
         }
     }
 
+    /**
+     * An {@code Integer} argument matches a declared type that accepts it, and only such a type.
+     *
+     * <p>
+     * A trace has no way to say whether {@code 3072} was written as a primitive or as a box, so
+     * {@link #literal} produces an {@code Integer} either way and {@code fitsPointcut} decides
+     * which pointcut it fits. That decision used to be made by a blanket rule -- an
+     * {@code Integer} fits no reference type at all -- which is right for
+     * {@code initialize(AlgorithmParameterSpec)} and wrong for {@code String.valueOf(Object)},
+     * and the second is a pointcut the set actually declares. A line it refuses resolves to
+     * nothing, and an unreplayed line is reported as an unaccused one, which is the single
+     * reading this harness exists to prevent.
+     *
+     * <p>
+     * Both directions are pinned here because only one of them was ever wrong, and a repair that
+     * fixed the second by breaking the first would leave the same suite green.
+     */
+    @Test
+    public void anIntegerFitsAPointcutDeclaringObjectAndNotOneDeclaringAnUnrelatedType()
+            throws Exception {
+        try (TraceRunner runner = TraceRunner.of(monitorDir, workDir.resolve("control"))) {
+            TraceRunner.Outcome bridge =
+                    runner.replay(tracesDir.resolve("RandomStringPasswordSpec-int-route.txt"));
+            assertEquals("String.valueOf(Object) must resolve for an Integer argument; an "
+                    + "unresolved line here reads as 'not accused' and means 'not replayed': "
+                    + bridge.unresolved, 0, bridge.unresolved.size());
+
+            TraceRunner.Outcome keySize =
+                    runner.replay(tracesDir.resolve("KeyPairGeneratorSpec-rsa3072.txt"));
+            assertTrue("initialize(3072) must reach the int events and not "
+                    + "initialize(AlgorithmParameterSpec): " + keySize.accusingEvents,
+                    keySize.accusingEvents.stream()
+                            .noneMatch(event -> event.endsWith(".init3")
+                                    || event.endsWith(".init4")));
+            assertEquals("and it must resolve: " + keySize.unresolved,
+                    0, keySize.unresolved.size());
+        }
+    }
+
     private static List<Path> traces() throws Exception {
         try (Stream<Path> list = Files.list(tracesDir)) {
             return list.filter(path -> path.toString().endsWith(".txt")).sorted()

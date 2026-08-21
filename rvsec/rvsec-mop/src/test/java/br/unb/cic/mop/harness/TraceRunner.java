@@ -434,6 +434,21 @@ public final class TraceRunner implements AutoCloseable {
      * of which is an orphan that accuses on sight. Matching without the types fires the wrong
      * one. A {@code null} argument matches any reference type, as the weaver's static typing
      * would.
+     *
+     * <p>
+     * The discrimination between those two is done by the assignability test at the end, and
+     * only by it. A blanket rule stood in front of that test -- an {@code Integer} argument was
+     * refused against every declared reference type -- on the strength of the same
+     * {@code initialize} example, which the assignability test already decides:
+     * {@code AlgorithmParameterSpec} is not assignable from {@code Integer}. The blanket rule
+     * therefore changed the outcome only where the declared type genuinely does accept an
+     * {@code Integer} -- {@code Object}, {@code Number}, {@code Integer}, {@code Comparable},
+     * {@code Serializable} -- and in the whole {@code jca_android} set exactly one pointcut of
+     * the 112 declares such a type: {@code RandomStringPasswordSpec.vo}'s
+     * {@code String.valueOf(Object)}. So the rule protected nothing and blocked the one
+     * conversion the set exists to model, making a replayable program report "not accused" for
+     * the one reason this class must never report it: it was not replayed. Removing it moves no
+     * outcome of the 92 committed traces on either snapshot of the differential comparison.
      */
     private boolean fitsPointcut(Pointcut pointcut, Object[] arguments) {
         for (int index = 0; index < pointcut.paramTypes.size() && index < arguments.length;
@@ -462,9 +477,6 @@ public final class TraceRunner implements AutoCloseable {
                     return false;
                 }
                 continue;
-            }
-            if (argument instanceof Integer) {
-                return false;
             }
             if (owner != null && !owner.isInstance(argument)) {
                 return false;

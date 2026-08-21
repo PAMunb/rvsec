@@ -10,7 +10,7 @@ regression lands as a finding nobody recorded. Task 7.6 deletes the mechanism on
 | set | files | read | skipped | predicate sites |
 |---|---|---|---|---|
 | `jca` | 23 | 22 | 1 | 106 |
-| `jca_android` | 23 | 23 | 0 | 77 |
+| `jca_android` | 23 | 23 | 0 | 73 |
 | `jca_android_bug_predicate` | 23 | 22 | 1 | 147 |
 | `generic` | 118 | 118 | 0 | 0 |
 | `generic_new` | 27 | 27 | 0 | 0 |
@@ -27,10 +27,10 @@ Every skipped file carries its reason:
 |---|---|
 | G-ORDER | 4 |
 | G-PRED2 | 23 |
-| INV-INS-130 | 15 |
-| INV-INS-133 | 3 |
-| INV-INS-134 | 22 |
-| **failing total** | **67** |
+| INV-INS-130 | 14 |
+| INV-INS-133 | 1 |
+| INV-INS-134 | 20 |
+| **failing total** | **62** |
 
 Informative (reported in sets these gates do not govern): 21. Allow-listed (permanent, with reasons): 0.
 

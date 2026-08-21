@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 63,
+    "structural_findings": 58,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -71,16 +71,6 @@
       ],
       [
         "jca_android",
-        "RandomStringPassword.mop",
-        "gb/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "RandomStringPassword.mop",
-        "vo/RANDOMIZED"
-      ],
-      [
-        "jca_android",
         "SSLContextSpec.mop",
         "engine/GENERATE_SSL_ENGINE"
       ],
@@ -126,16 +116,6 @@
       ]
     ],
     "INV-INS-133": [
-      [
-        "jca_android",
-        "RandomStringPassword.mop",
-        "gb/RANDOMIZED"
-      ],
-      [
-        "jca_android",
-        "RandomStringPassword.mop",
-        "vo/RANDOMIZED"
-      ],
       [
         "jca_android",
         "SecretKeySpec.mop",
@@ -308,11 +288,6 @@
       [
         "jca_android",
         "MessageDigestSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "RandomStringPassword.mop",
         "ExecutionContext"
       ],
       [

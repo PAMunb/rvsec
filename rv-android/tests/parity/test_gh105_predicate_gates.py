@@ -611,6 +611,16 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       second window at `CipherSpec.i2` and deliberately stays below the rule's arity to do it
       (researcher, 2026-08-21; INV-INS-134's recorded-reason clause, the reason in
       `predicate_graph.csv`).
+    * task 4.11 deleted all four sites of `RandomStringPassword`, so three numbers move at
+      once: the reads go 16 -> 14, the guard reads 3 -> 1, and the writes 36 -> 34. Nothing
+      is relocated. The file is the set's only dataflow bridge and it translates no rule, so
+      the reads' whole justification was that they govern the writes and the writes' whole
+      justification was that they feed `PBEKeySpecSpec.c1`. Measured, the bridge does not
+      carry the predicate it stamps: `String.valueOf(Object)` calls `Object.toString()`, so a
+      `byte[]` arrives as its identity string and the `SecureRandom` as a constant, while the
+      one faithful conversion -- an `Integer` -- does not survive a store keyed by identity
+      outside the `Integer` cache. The accepting-state calls stay at 17 and the removals at 8:
+      the empty `@match` stays, because the JavaMOP grammar requires a handler after the `ere`.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -626,9 +636,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 16
-    assert read_placement.get("condition", 0) == 3
-    assert counts.get("write", 0) == 36
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 14
+    assert read_placement.get("condition", 0) == 1
+    assert counts.get("write", 0) == 34
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 17
     assert counts.get("remove", 0) + counts.get("negate", 0) == 8
 
@@ -774,15 +784,23 @@ def test_the_graph_reproduces_the_measured_placement_census():
       records that it tests `randomized` where the rule requires `preparedKeyMaterial` (ledger
       #32, un-conflated at 5.10+6.1), and the write's `reason` records that it stays at arity 1
       until task 5.6 moves its consumer.
+    * task 4.11: the second file to leave the graph whole rather than be re-classified, and for
+      a reason the `MacSpec` precedent did not cover. The set goes 77 rows to 73: the guards go
+      3 -> 1 and `write:body` 25 -> 23, all four rows deleted together. `MacSpec`'s reads went
+      because they fed no write; these feed one, and go because the write does not carry the
+      predicate across -- `String.valueOf(Object)` hands `Object.toString()` a `byte[]` and gets
+      its identity string back. Recording them as `propagation` would have entered a claim the
+      conversion does not support into the graph. Nothing else moves: `read:body` stays 13,
+      `write:acceptance` 11, `remove:fail` 7, `negate:body` 1 and the bookkeeping 17.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
-    assert counts.get("read:condition-guard", 0) == 3
+    assert counts.get("read:condition-guard", 0) == 1
     assert counts.get("read:body", 0) == 13
-    assert counts.get("write:body", 0) == 25
+    assert counts.get("write:body", 0) == 23
     assert counts.get("write:acceptance", 0) == 11
     assert counts.get("remove:fail", 0) == 7
     assert counts.get("negate:body", 0) == 1
@@ -974,14 +992,18 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     were not inert -- one of them turned a program that breaks no clause into an
     `InvalidSequenceOfMethodCalls` and hid the algorithm accusation behind the same
     suppressed transition. Still 3 after task 4.10, which moved a read that was already in its
-    body: this gate counts guards, and that pass moved a store, not a placement.
+    body: this gate counts guards, and that pass moved a store, not a placement. 1 after task
+    4.11, which took `RandomStringPassword`'s two guards out the way task 4.9 took `MacSpec`'s
+    -- by deletion, not relocation -- but on a different ground: these two do govern writes,
+    and the writes went with them because the conversion they span does not carry the predicate
+    they stamp. The one guard left is `SecretKeySpec.e1`, which task 4.12 moves.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
 
     findings = gate_placement(report)
     guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
-    assert len(guards) == 3
+    assert len(guards) == 1
 
 
 def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():
