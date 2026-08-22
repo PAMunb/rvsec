@@ -621,6 +621,17 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       one faithful conversion -- an `Integer` -- does not survive a store keyed by identity
       outside the `Integer` cache. The accepting-state calls stay at 17 and the removals at 8:
       the empty `@match` stays, because the JavaMOP grammar requires a handler after the `ere`.
+    * task 4.12 moved `SecretKeySpec.e1`, and the only number it moves is the one this census
+      exists for: the guard reads go 1 -> 0, and the set has none left. The reads stay 14, the
+      writes 34, the accepting-state calls 17 and the removals 8 -- the read stays a read and
+      the write stays a write, both of them relocated rather than added or deleted. What the
+      relocation buys is measured over the whole `ErrorCollector`: a key built from randomised
+      material hands its encoding on as randomised for the first time, one report to none,
+      because `getEncoded()` returns a fresh clone and this event is the only thing in the set
+      that carries the predicate across that copy. What it costs is a window against the two
+      producers of `generatedKey` that task 4.14 still owns, and that window is measured too --
+      it changes no report, because the write it suppresses went to a store no reader of
+      `randomized` has used since task 4.4.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -637,7 +648,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 14
-    assert read_placement.get("condition", 0) == 1
+    assert read_placement.get("condition", 0) == 0
     assert counts.get("write", 0) == 34
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 17
     assert counts.get("remove", 0) + counts.get("negate", 0) == 8
@@ -792,16 +803,27 @@ def test_the_graph_reproduces_the_measured_placement_census():
       its identity string back. Recording them as `propagation` would have entered a claim the
       conversion does not support into the graph. Nothing else moves: `read:body` stays 13,
       `write:acceptance` 11, `remove:fail` 7, `negate:body` 1 and the bookkeeping 17.
+    * task 4.12 relocated both sites of `SecretKeySpec`, so two pairs move together:
+      `read:condition-guard` goes 1 -> 0 -- the set's last one -- and `read:body` 13 -> 14,
+      while `write:body` goes 23 -> 22 and `write:acceptance` 11 -> 12. The read gains a
+      `disposition` of `propagation`, the second row of the graph to carry one: api30
+      SecretKey states an ENSURES and no REQUIRES, so it translates no clause and accuses
+      nothing, and it is recorded rather than deleted because it feeds a write that does carry
+      the predicate across -- both conditions of the delta's rule, which `MacSpec` failed on the
+      first and `RandomStringPassword` on the second. The write goes to `@match` because the
+      clause's `after ge` and the `ere`'s accepting state are the same state here, read off the
+      generated monitor's transition row. The bookkeeping stays 17, the removals 7 and the
+      `negate` 1: this file had none of them and gains none.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
     for row in rows:
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
-    assert counts.get("read:condition-guard", 0) == 1
-    assert counts.get("read:body", 0) == 13
-    assert counts.get("write:body", 0) == 23
-    assert counts.get("write:acceptance", 0) == 11
+    assert counts.get("read:condition-guard", 0) == 0
+    assert counts.get("read:body", 0) == 14
+    assert counts.get("write:body", 0) == 22
+    assert counts.get("write:acceptance", 0) == 12
     assert counts.get("remove:fail", 0) == 7
     assert counts.get("negate:body", 0) == 1
     assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 17
@@ -996,14 +1018,21 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     4.11, which took `RandomStringPassword`'s two guards out the way task 4.9 took `MacSpec`'s
     -- by deletion, not relocation -- but on a different ground: these two do govern writes,
     and the writes went with them because the conversion they span does not carry the predicate
-    they stamp. The one guard left is `SecretKeySpec.e1`, which task 4.12 moves.
+    they stamp. 0 after task 4.12, which moved
+    `SecretKeySpec.e1` into its body: the last guard read of the set, and the one with the
+    least to lose by moving, since it accuses nothing either way. What its guard cost was not
+    a report but a transition -- a key whose origin the monitor had not observed left the
+    automaton instead of simply not propagating -- and what the read now decides is one thing
+    only: whether there is anything to carry. This gate has nothing left to count, and the
+    value of that is that a new guard arriving anywhere in the set can no longer hide inside a
+    non-zero number.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
 
     findings = gate_placement(report)
     guards = [finding for finding in findings if finding.gate == "INV-INS-133"]
-    assert len(guards) == 1
+    assert len(guards) == 0
 
 
 def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():

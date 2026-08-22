@@ -675,13 +675,19 @@ one — `RandomStringPassword.vo/gb`, `SecretKeySpec.e1`). Of the nine, the read
 clause of their rule gain their accuser in the same task that moves them; the reads that
 translate **no clause** MUST NOT gain one — `MacSpec.i1/i2` read `generatedKey`, which the Mac
 rule does not require (it requires `preparedHMAC` and `!encrypted`); `RandomStringPassword.vo/gb`
-have no rule at all; `SecretKeySpec.e1` guards a propagation write and the SecretKey rule has no
-`REQUIRES` section. Arming a propagation read fabricates a misuse class no rule describes.
+have no rule at all; `SecretKeySpec.e1` governs a propagation write — from its body since task
+4.12 — and the SecretKey rule has no `REQUIRES` section. Arming a propagation read fabricates a misuse class no rule describes.
 
 Of those that translate no clause, a read is propagation only when it **feeds a write** and that
 write **carries the predicate across**, and only then is it recorded as `propagation` in
 `predicate_graph.csv`. `SecretKeySpec.e1` is the one that meets both: `SecretKey.getEncoded()`
 returns the key's own bytes, so `RANDOMIZED` on the key is `RANDOMIZED` on what it returns.
+Measured at task 4.12, the carrying is not incidental but the whole reason the event exists:
+`getEncoded()` returns a fresh clone on every call, so a store keyed on object identity cannot
+see the material through the copy, and no other site of the set writes about the returned array.
+The same measurement bounds what the read may do — it governs the write and reports nothing, so
+`NOT_OBSERVED` and `VIOLATED` are indistinguishable there, and the write stays conditional
+because an unconditional one was measured to hand a hard-coded key's encoding on as randomised.
 
 A read that translates no clause **and feeds no write** propagates nothing — it computes a
 verdict no site consumes, and its only remaining effect is the transition its guard suppresses —

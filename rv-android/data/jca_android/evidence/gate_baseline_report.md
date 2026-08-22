@@ -27,10 +27,9 @@ Every skipped file carries its reason:
 |---|---|
 | G-ORDER | 4 |
 | G-PRED2 | 23 |
-| INV-INS-130 | 14 |
-| INV-INS-133 | 1 |
-| INV-INS-134 | 20 |
-| **failing total** | **62** |
+| INV-INS-130 | 13 |
+| INV-INS-134 | 19 |
+| **failing total** | **59** |
 
 Informative (reported in sets these gates do not govern): 21. Allow-listed (permanent, with reasons): 0.
 

@@ -321,8 +321,38 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       cites, and which blocked the one pointcut of the set's 112 that declares `Object` — the
       bridge's own. Measured inert: 0 outcome changes over the 92 committed traces on both
       snapshots, with a new test pinning both directions
-- [ ] 4.12 `SecretKeySpec` (1 read / 1 write / 0 calls); `e1` is **propagation** (no `REQUIRES`
-      section) — no accuser
+- [x] 4.12 `SecretKeySpec` (1 read / 1 write / 0 calls); `e1` is **propagation** (no `REQUIRES`
+      section) — no accuser. The set's **last** `condition(...)` read, so INV-INS-133 reaches zero
+      here. Three researcher decisions, 2026-08-21, each measured before the edit over the whole
+      `ErrorCollector` across six trees — three real and three written inline between the starting
+      tree's own dispatchers (learning 51), a simulation afterwards confirmed configuration by
+      configuration against the real migrated tree. **The read stays, governing the write.** api30
+      SecretKey states `ENSURES preparedKeyMaterial[keyMaterial] after ge` and no `REQUIRES`
+      section at all, so the literal shape would delete the read and make the write
+      unconditional; measured, that does close the `KeyGenerator` chain immediately and **loses a
+      true accusation** — a hard-coded key's encoding is handed on as randomised and the IV built
+      from it stops being accused. Deleting both sites, the disposition of 4.9 and 4.11, was
+      measured too: nothing closes, and the set loses its only bridge from a key to its encoding.
+      **What the pass buys** is the chain from `SecretKeySpecSpec`: `getEncoded()` returns a fresh
+      clone on every call, measured, so no identity-keyed store can see the material through the
+      copy and this event is the only thing in the set that bridges it — key material an observed
+      `SecureRandom` filled now reaches `IvParameterSpec` as randomised for the first time, one
+      report to none. **What it costs** is a window against the other two producers of
+      `generatedKey` (`KeyGeneratorSpec.mop:80`, `KeyStoreSpec.mop:83`), which task 4.14 owns —
+      and that window is measured to change no report at all, because the write it suppresses went
+      to a store no reader of `randomized` has used since task 4.4. It is the tenth `introduced`
+      row of the harness and the first that is a window rather than a repair, and the report says
+      so. The write sits in `@match`: the clause's `after ge` states and the `ere`'s accepting
+      states are the same single state here, read off the generated monitor's transition row
+      `{0, 1}`, so both routes INV-INS-134 admits name the same handler, reached through a staged
+      field because a handler sees no event parameter. The `randomized` × `preparedKeyMaterial`
+      conflation is ledger #32, recorded and not repaired — 5.10 with 6.1 owns it, exactly as task
+      4.10 recorded it at the reading end, and renaming it here alone would leave this producer
+      writing what none of the seven migrated readers of `randomized` over a `byte[]` ask for.
+      Arity needs no exception: the clause is one-place and the readers read one-place. Three
+      traces committed — `-encoded-iv` is the chain that closes, `-keygen-iv` the window,
+      `-hardcoded-iv` the violating control that decided the disposition — each replayed on all
+      three snapshots. `codes.csv` gains nothing: a propagation site never earns an accuser
 - [ ] 4.13 Write-only specs, batch A (11 writes / 6 calls): `SignatureSpec` (4 writes),
       `MessageDigestSpec` (3), `SSLContextSpec` (2), `KeyPairSpec` (2). Seven of these eleven
       sites belong to `ENSURES`-only dead ends and carry a deliberate-omission record for their
@@ -435,7 +465,14 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       with the file pass that migrated the write it withdraws, so this task verifies it rather
       than performing it. By the same criterion task 4.9 deleted the `@fail` removal at
       `MacSpec.mop:99` together with the two `GENERATED_MAC` writes it withdrew, leaving 6.4 with
-      seven of the eight; verify that one here as well
+      seven of the eight; verify that one here as well. Task 4.12 measured what this record should
+      state about the absent `destroy` event, and deliberately did not write it here: `destroy()`
+      throws `DestroyFailedException` on both `SecretKey` implementations the set can observe —
+      the `SecretKeySpec` its own file constructs and the one `KeyGenerator.generateKey()`
+      returns, which is the same class — so an `after ... returning` advice over it would have no
+      execution path even if the event were declared, the position `SECRETKEYSPEC-CONSTR-01` is
+      already in. Declaring it would also add a symbol to an automaton whose `ORDER` mapping task
+      7.1 still owns: `SecretKeySpec` is one of the thirteen unmapped specifications
 - [ ] 6.6 `CipherSpec` `f1`/`f2` (pointcuts at `:135` and `:141`; the `event` declarations sit at
       `:134`/`:140`): both match the argument-less call — one call, two transitions; make the
       wider pointcut disjoint (two-events-same-call scenario)

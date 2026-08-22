@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 58,
+    "structural_findings": 55,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -81,11 +81,6 @@
       ],
       [
         "jca_android",
-        "SecretKeySpec.mop",
-        "e1/RANDOMIZED"
-      ],
-      [
-        "jca_android",
         "SignatureSpec.mop",
         "s1/SIGNED"
       ],
@@ -113,13 +108,6 @@
         "jca_android",
         "TrustManagerFactorySpec.mop",
         "init/GENERATED_TRUST_MANAGER"
-      ]
-    ],
-    "INV-INS-133": [
-      [
-        "jca_android",
-        "SecretKeySpec.mop",
-        "e1/GENERATED_KEY"
       ]
     ],
     "G-PRED2": [
@@ -293,11 +281,6 @@
       [
         "jca_android",
         "SSLContextSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "SecretKeySpec.mop",
         "ExecutionContext"
       ],
       [
