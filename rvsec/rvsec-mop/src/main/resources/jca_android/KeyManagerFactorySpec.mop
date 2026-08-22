@@ -7,6 +7,7 @@ import java.security.KeyStore;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -38,6 +39,8 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     // and cleared the moment it is used or the sequence is rejected.
     KeyManagerFactory initialisedFactory = null;
 
+    String expectedGeneratedKeyStore = "a KeyStore this instrumentation observed being loaded";
+
     event g1 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
@@ -59,13 +62,70 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         currentAlgorithmInstance = alg;
     }
 
-    event init before(KeyManagerFactory k):
+    // `generatedKeyStore[keyStore]` (KeyManagerFactory.cryptsl:46, ledger clause #14) is read
+    // here, in the only event of this file that a key store ever reaches.
+    //
+    // The event stands for the rule's `i1` and `i2` at once -- api30 declares
+    // `i1: init(keyStore, password)`, `i2: init(params)` and `Init := i1 | i2` -- and the two
+    // overloads have different arities, so no named position exists in both signatures. What
+    // does exist is the position they share: each has a first argument, so `args(arg, ..)`
+    // binds it in both and the body discriminates by runtime type. That is the fusion idiom
+    // this change already states for a varying argument, used under the condition it states:
+    // the bound position is the zeroth, which every fused signature has, so no overload drops
+    // out of the automaton. The two alternatives were measured and both cost more. Splitting
+    // the event into the rule's own `i1`/`i2` grows the alphabet of two mirror automata, makes
+    // the ordering map be rewritten for the sibling file, and changes the `ev=` field of an
+    // ORDER code that is already published -- and it puts the algorithm accusation below in two
+    // places. A separate consumer specification was the other, and the file of this set that
+    // carries one says in its own header that a separate specification is the last resort,
+    // taken because `CipherSpec` had no event left to spend; this file declares five events and
+    // has no ceiling (researcher decision, 2026-08-22).
+    //
+    // The wildcard lives in `args` and not in the `call(...)` signatures, which are written out
+    // in full. That is the distinction the trace harness makes: its resolver walks the declared
+    // parameter types of the call and stops at the first that is a wildcard, so a wildcard in
+    // the signature would make every `init` fit this pointcut.
+    //
+    // Reading a null argument is deliberate, not an oversight (researcher decision,
+    // 2026-08-22). Measured on Temurin 21: `kmf.init(store, pw)` on a store that was never
+    // loaded raises `KeyStoreException: initialization failed`, so a key store that arrives
+    // here was loaded -- but a null one arrives freely, and the sibling `TrustManagerFactory`
+    // takes null as its documented default-truststore route. The store answers NOT_OBSERVED for
+    // a null object, and that is what the rule states: the clause requires a key store this
+    // instrumentation saw generated, and no argument is not one. A guard on null would fold
+    // "the program handed over no key store" into silence, which is the shape of suppression
+    // this change exists to remove.
+    //
+    // The imprecision that buys, stated rather than hidden: a null carries no runtime type, so
+    // `init((ManagerFactoryParameters) null)` -- the rule's `i2` with a null argument, a call no
+    // program of the corpus makes -- is read as if it were `i1`. Discriminating them would need
+    // the join point's static signature, which an event body does not see.
+    //
+    // The read is three-valued and its two accusing outcomes carry different codes, as at every
+    // other read of this set. VIOLATED has no program that produces it today: the predicate is
+    // written at arity 1 by `KeyStoreSpec` and withdrawn nowhere, so the store can only answer
+    // SATISFIED or NOT_OBSERVED. The branch is written anyway, and this is the record of why
+    // rather than a claim that it fires -- a predicate gains a withdrawal the day some rule's
+    // NEGATES clause is wired to it, and a read that had folded VIOLATED into NOT_OBSERVED
+    // would then report a withdrawn key store as an unobserved one.
+    event init before(Object arg, KeyManagerFactory k):
        ( call(public void KeyManagerFactory.init(KeyStore, char[])) ||
          call(public void KeyManagerFactory.init(ManagerFactoryParameters))
-       ) && target(k) {
+       ) && args(arg, ..) && target(k) {
         if (!ConscryptAliasTable.matches("KeyManagerFactory", k.getAlgorithm(), safeAlgorithms)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyManagerFactorySpec", "" + __LOC,
                 "v=1 code=KEYMANAGERFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
+        }
+        if (arg == null || arg instanceof KeyStore) {
+            PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_KEY_STORE, arg);
+            if (generated == PredicateVerdict.VIOLATED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
+                    "v=1 code=KEYMANAGERFACTORY-CONSTR-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='the KeyStore given to KeyManagerFactory.init carries a generation predicate the rule does not admit'"));
+            }
+            else if (generated == PredicateVerdict.NOT_OBSERVED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
+                    "v=1 code=KEYMANAGERFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='no loading of the KeyStore given to KeyManagerFactory.init was observed'"));
+            }
         }
        initialisedFactory = k;
     }

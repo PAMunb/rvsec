@@ -707,10 +707,39 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `disposition=omission` from tasks 4.13 and 4.14, and the two stream predicates have no write
       and need none. This task measured that and states it rather than adding a row.
       Evidence: `data/gh105/evidence/f3-RandomizedHubAndGuardedPrepared.md` (with 5.4 and 5.5, one commit)
-- [ ] 5.9 TLS chain (ledger #14, #36, #28, #29): `generatedKeyStore` →
+- [x] 5.9 TLS chain (ledger #14, #36, #28, #29): `generatedKeyStore` →
       `KeyManagerFactory`/`TrustManagerFactory`; `generatedKeyManager[kms]` /
       `generatedTrustManager[tms]` → `SSLContext.init` (bound-first API — `kms`/`tms` are
-      reference arrays a varargs head would spread). Pairs with 6.2's pointcut repair
+      reference arrays a varargs head would spread). Pairs with 6.2's pointcut repair.
+      **Four reads, no new event and no new file**, which is the batch's strongest structural
+      claim: each read binds its argument by adding an `args(...)` clause to a pointcut that was
+      already there, so no alphabet grows, no `fsm` changes, `order_alphabet_map.csv` needs no
+      row, `gate_allowlist.csv` stays at 14, the universe stays at 215 and every `gh104_gates.py`
+      counter is identical before and after. `KeyStoreSpec.mop` is not edited at all — its
+      G-PRED2 finding closes because a reader appeared elsewhere, which is what the closure gate
+      measures. The `init` of both factories is one event standing for the rule's `i1` and `i2`
+      at once and bound nothing; the position the fused overloads share is the zeroth, so
+      `args(arg, ..)` (KeyManagerFactory, arities 2 and 1) and `args(arg)` (TrustManagerFactory,
+      both 1) bind it as `Object` and the body discriminates by `instanceof`. Splitting into the
+      rule's own `i1`/`i2` and adding a separate consumer specification were both triaged with
+      `javamop` and both generate; they were rejected on collateral — the split moves the `ev=`
+      of a published ORDER code and rewrites an ordering map, and a separate specification is
+      the last resort this set takes only where an alphabet has no headroom.
+      **The measurements decided three things and dissolved nothing.** The chain composes end to
+      end on Temurin 21, and unlike clause #5 the platform does *not* already refuse what these
+      clauses accuse: `ctx.init(null, null, null)` runs, and so does the trust-all manager. A
+      null argument is therefore read and not exempted (researcher decision), which is why six
+      previously silent corpus traces gain a `NOBS` report and four new traces were written so
+      the conforming chain is witnessed silent and the accusing case — `tmf.init(unloadedStore)`,
+      which this platform *runs* where its `KeyManagerFactory` counterpart throws — is witnessed
+      accusing. Both factories allocate a fresh array per call, so the predicate travels with the
+      array the call returned and a copy loses it; that reach limit is named, not hidden.
+      **The baseline moves for the first time since Group 5 began**: three `repaired` G-PRED2
+      lines, findings 4 → 1. The `omission` records on the two `[this] after Init` halves are
+      kept and extended rather than retired — the gate accumulates by predicate name over the
+      whole set and stops asking, but what they state is still true, since `SSLContext` reads the
+      array and never the factory. Ledger #30 (`randomized[sr]`) stays `vacuous`: `Init` binds
+      `sr` in no event. Evidence: `data/gh105/evidence/f3-TLSChain.md` (with 6.2, one commit)
 - [ ] 5.10 Leaf clause and the record pass: `preparedKeyMaterial[keyMaterial]` (#32 — consumer
       `SecretKeySpecSpec`, producer `SecretKeySpec.mop` `getEncoded`), un-conflated with 6.1 in
       the same commit; then the 10 non-wireable clauses recorded with their category, each
@@ -745,9 +774,32 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       commit: the reads at `SecretKeySpecSpec.mop:25,42` (`validate(RANDOMIZED, keyMaterial)`)
       move to `PREPARED_KEY_MATERIAL` together with the write, or the repaired producer leaves
       the consumer reading a never-written predicate. Lands with 5.10
-- [ ] 6.2 `TrustManagerFactorySpec.mop:74-78` wrong property + `KeyManager[]` return pointcut +
-      `TrustManager[][]` parameter; the `remove(GENERATED_TRUST_MANAGERS)` of a never-written
-      property goes with it. Pairs with 5.9
+- [x] 6.2 `TrustManagerFactorySpec.mop` `gtm1`: `KeyManager[]` return pointcut +
+      `TrustManager[][]` parameter + a target bound to a name the specification does not declare.
+      Pairs with 5.9. Two of the four defects the task named had already travelled with task
+      4.14 under decision 11's criterion — the wrong property (the seed wrote the neighbouring
+      rule's `GENERATED_KEY_MANAGERS`) and the `remove(GENERATED_TRUST_MANAGERS)` of a property
+      no site of any set writes — so what remained here is the pointcut, and the three remaining
+      defects were three faces of one fact: **the advice had no execution path at all**.
+      It had to be repaired in this commit and not the next, because ledger #29 is wired in this
+      commit: measured against a producer that never runs, every read would have answered
+      `NOT_OBSERVED` for a reason that has nothing to do with the wiring.
+      **What the repair makes live, stated in full rather than discovered later**: the write
+      happens, so an `SSLContext.init` receiving this array reads `SATISFIED`; and a second
+      `getTrustManagers()` on one factory now draws `TRUSTMANAGERFACTORY-ORDER-00`, because the
+      transition row sends `gtm1` from the accepting state to `start`, where the event is not
+      declared. That accusation is faithful — api30 orders `Gets, Init, gtm?` and the `?` refuses
+      the repetition too — and symmetric, since `KeyManagerFactorySpec.gkm1` declares the right
+      return type, has always been live and has always behaved this way; the repair restores two
+      mirror specifications to being mirrors (researcher decision, 2026-08-22).
+      **The harness proves the repair from the trace side, in the column that recorded the
+      defect**: `tmf.getTrustManagers()` used to resolve to no pointcut on either snapshot and
+      now resolves on this one, so `TrustManagerFactorySpec.txt` goes from two unresolved lines
+      to one. The `g1 i1 gtm` ordering divergence and the placement of the body write are
+      untouched and stay with task 7.1; this batch edits no `fsm`. The `order_alphabet_map.csv`
+      row keeps its symbol, its reason rewritten to say the repair changed what the event binds
+      and whether it runs, never which rule event it is.
+      Evidence: `data/gh105/evidence/f3-TLSChain.md` (with 5.9, one commit)
 - [ ] 6.3 `SignatureSpec`: `verified` marked on the `boolean` instead of the `byte[]`; `sign()`
       pointcuts declaring `public byte`
 - [ ] 6.4 **Verify** the 8 `@fail` removals of INV-INS-142 are gone; this task performs none of

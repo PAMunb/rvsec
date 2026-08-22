@@ -767,6 +767,20 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       to what api30 states, which this census does not count and
       `test_the_graph_reproduces_the_measured_placement_census` does not either; the
       `predicate_graph.csv` rows carry it.
+
+      Batch B4 (tasks 5.9 and 6.2, the TLS chain) moves `read` from 32 to 36, so the sum
+      asserted below goes from 33 to 37. Four sites, all in event bodies of events that
+      already existed: `generatedKeyStore[keyStore]` at `KeyManagerFactorySpec.init` and at
+      `TrustManagerFactorySpec.init` (ledger #14 and #36), and `generatedKeyManager[kms]`
+      and `generatedTrustManager[tms]` at `SSLContextSpec.init` (#28 and #29). Every one of
+      the four is bound by adding an `args(...)` clause to a pointcut that was already
+      there, so `write` stays 31, `accepting-state` stays 0, `negate` stays 1, and no
+      specification of the set gains or loses an event -- which is the batch's strongest
+      structural claim and the reason its three sibling file counts do not move either.
+
+      Task 6.2 travels in the same batch and touches none of these numbers: it repairs the
+      three defects that kept `TrustManagerFactorySpec.gtm1` from ever firing, which changes
+      what a write binds and whether it runs, not how many sites there are.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -782,7 +796,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 33
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 37
     assert read_placement.get("condition", 0) == 0
     assert counts.get("write", 0) == 31
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
@@ -804,6 +818,15 @@ def test_the_predicate_free_sets_read_as_predicate_free():
     needed binding went into the junction specification that already exists -- so
     the enumerated universe stays at 215 and the file counts of the three sibling
     suites stay where they are.
+
+    Batch B4 (tasks 5.9 and 6.2) does not move it either, and for a stronger reason:
+    it adds no event and no file. Its four reads bind their arguments by adding an
+    `args(...)` clause to pointcuts that already existed, so the enumerated universe
+    stays at 215, `test_gparam_is_green_over_the_set_as_it_stands` stays at 23 files,
+    and `test_conformance_record_covers_all_twenty_three` stays at 23 rows. A separate
+    consumer specification was one of the three ways the batch could have bound those
+    arguments, and it was the one that would have moved these numbers; it was measured
+    against the other two and rejected (researcher decision, 2026-08-22).
     """
     home = _rvsec_home()
     root = home / "rvsec/rvsec-mop/src/main/resources"
@@ -1063,6 +1086,22 @@ def test_the_graph_reproduces_the_measured_placement_census():
       The two `MacSpec.match/MACED` rows are indistinguishable in every column this reader
       computes, so they carry identical manual text on purpose: a swap between them on a
       re-emit is a no-op (finding 81).
+
+      Batch B4 (tasks 5.9 and 6.2) moves `read:body` from 28 to 32 and moves nothing else.
+      The four rows are the TLS chain's: `KeyManagerFactorySpec.init/GENERATED_KEY_STORE`,
+      `TrustManagerFactorySpec.init/GENERATED_KEY_STORE`,
+      `SSLContextSpec.init/GENERATED_KEY_MANAGERS` and
+      `SSLContextSpec.init/GENERATED_TRUST_MANAGER`. `write:body` stays 5 and
+      `write:acceptance` stays 26 because the batch adds no write at all -- it closes three
+      G-PRED2 findings by giving three existing writes a reader, not by moving them. The two
+      body writes that stay are still `gkm1` and `gtm1`, whose placement belongs to task 7.1
+      and whose recorded reasons this batch updates rather than retires.
+
+      `read:condition-guard` stays 0, which for this batch means something specific: two of
+      the four reads sit behind an `instanceof` test in the body, because their event is a
+      fusion of two overloads and the argument is bound as `Object`. That test discriminates
+      which overload ran; it is not a `condition(...)` guard and it suppresses no transition,
+      which is the distinction INV-INS-133 is about.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1070,7 +1109,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
-    assert counts.get("read:body", 0) == 28
+    assert counts.get("read:body", 0) == 32
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one

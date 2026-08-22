@@ -44,8 +44,10 @@ KeyGeneratorSpec,KEYGENERATOR-CONSTR-02,UnsatisfiedConstraint,CONSTR,initRandomS
 KeyGeneratorSpec,KEYGENERATOR-NOBS-02,UnsatisfiedConstraint,NOBS,initRandomSpec,KeyGeneratorSpec.mop:145
 KeyGeneratorSpec,KEYGENERATOR-ALG-00,UnsafeAlgorithm,ALG,gk1,KeyGeneratorSpec.mop:154
 KeyGeneratorSpec,KEYGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyGeneratorSpec.mop:164
-KeyManagerFactorySpec,KEYMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,KeyManagerFactorySpec.mop:67
-KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:122
+KeyManagerFactorySpec,KEYMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,KeyManagerFactorySpec.mop:116
+KeyManagerFactorySpec,KEYMANAGERFACTORY-CONSTR-00,UnsatisfiedConstraint,CONSTR,init,KeyManagerFactorySpec.mop:122
+KeyManagerFactorySpec,KEYMANAGERFACTORY-NOBS-00,UnsatisfiedConstraint,NOBS,init,KeyManagerFactorySpec.mop:126
+KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:182
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-KEYSIZE-00,InvalidKeySize,KEYSIZE,initError,KeyPairGeneratorSpec.mop:132
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairGeneratorSpec.mop:159
 KeyPairSpec,KEYPAIR-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:59
@@ -76,8 +78,12 @@ PBEParameterSpecSpec,PBEPARAMETERSPEC-CONSTR-02,UnsatisfiedConstraint,CONSTR,c2,
 PBEParameterSpecSpec,PBEPARAMETERSPEC-CONSTR-03,UnsatisfiedConstraint,CONSTR,c2,PBEParameterSpecSpec.mop:112
 PBEParameterSpecSpec,PBEPARAMETERSPEC-NOBS-01,UnsatisfiedConstraint,NOBS,c2,PBEParameterSpecSpec.mop:117
 PBEParameterSpecSpec,PBEPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,PBEParameterSpecSpec.mop:129
-SSLContextSpec,SSLCONTEXT-PROTO-00,UnsafeProtocol,PROTO,init,SSLContextSpec.mop:95
-SSLContextSpec,SSLCONTEXT-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SSLContextSpec.mop:141
+SSLContextSpec,SSLCONTEXT-PROTO-00,UnsafeProtocol,PROTO,init,SSLContextSpec.mop:141
+SSLContextSpec,SSLCONTEXT-CONSTR-00,UnsatisfiedConstraint,CONSTR,init,SSLContextSpec.mop:146
+SSLContextSpec,SSLCONTEXT-NOBS-00,UnsatisfiedConstraint,NOBS,init,SSLContextSpec.mop:150
+SSLContextSpec,SSLCONTEXT-CONSTR-01,UnsatisfiedConstraint,CONSTR,init,SSLContextSpec.mop:155
+SSLContextSpec,SSLCONTEXT-NOBS-01,UnsatisfiedConstraint,NOBS,init,SSLContextSpec.mop:159
+SSLContextSpec,SSLCONTEXT-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SSLContextSpec.mop:205
 SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,SecretKeySpecSpec.mop:69
 SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,UnsatisfiedConstraint,NOBS,c1,SecretKeySpecSpec.mop:74
 SecretKeySpecSpec,SECRETKEYSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c2,SecretKeySpecSpec.mop:109
@@ -99,5 +105,7 @@ SignatureSpec,SIGNATURE-ALG-03,UnsafeAlgorithm,ALG,i4,SignatureSpec.mop:179
 SignatureSpec,SIGNATURE-CONSTR-02,UnsatisfiedConstraint,CONSTR,i4,SignatureSpec.mop:184
 SignatureSpec,SIGNATURE-NOBS-02,UnsatisfiedConstraint,NOBS,i4,SignatureSpec.mop:188
 SignatureSpec,SIGNATURE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SignatureSpec.mop:264
-TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,TrustManagerFactorySpec.mop:92
-TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:147
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,TrustManagerFactorySpec.mop:120
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-CONSTR-00,UnsatisfiedConstraint,CONSTR,init,TrustManagerFactorySpec.mop:126
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,UnsatisfiedConstraint,NOBS,init,TrustManagerFactorySpec.mop:130
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:199

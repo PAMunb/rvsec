@@ -1,0 +1,31 @@
+# The TLS chain end to end, and the silent control of task 5.9: a key store that was really
+# loaded, handed to both factories, whose manager arrays are handed to SSLContext.init. Four
+# predicate clauses of api30 meet here -- generatedKeyStore[keyStore] at each factory's init
+# (ledger #14 and #36), generatedKeyManager[kms] and generatedTrustManager[tms] at the context's
+# init (#28 and #29) -- and a conforming program has to be silent on all four.
+#
+# Measured on Temurin 21 before the reads were written, because having a `.mop` at both ends is
+# necessary and not sufficient: this composition runs to completion. `kmf.init(loadedStore, pw)`
+# and `tmf.init(loadedStore)` succeed, `getKeyManagers()`/`getTrustManagers()` return real
+# arrays, and `ctx.init(kms, tms, null)` accepts them. Both factories allocate a FRESH array on
+# every call, so the predicate travels with the array this call returned; the trace names each
+# one so the same object reaches the consumer.
+#
+# On the harness grammar, which is why the load and the two inits appear twice: a line without
+# `-> x` dispatches the advices and does not perform the call, and a `bind` line performs the
+# call and dispatches nothing. The factories have to be really initialised, because
+# `getKeyManagers()` raises IllegalStateException before an init -- measured -- and that line
+# does perform, since the array it produces is what the consumer must receive.
+KeyStore.getInstance("PKCS12") -> ks
+bind ready = ks.load(null)
+ks.load(null)
+KeyManagerFactory.getInstance("PKIX") -> kmf
+bind kmready = kmf.init(ks, chars)
+kmf.init(ks, chars)
+kmf.getKeyManagers() -> kms
+TrustManagerFactory.getInstance("PKIX") -> tmf
+bind tmready = tmf.init(ks)
+tmf.init(ks)
+tmf.getTrustManagers() -> tms
+SSLContext.getInstance("TLSv1.2") -> ctx
+ctx.init(kms, tms, null)

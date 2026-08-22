@@ -5,7 +5,7 @@
     "universe": 215,
     "read": 213,
     "skipped": 2,
-    "structural_findings": 4,
+    "structural_findings": 1,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -16,23 +16,8 @@
     "G-PRED2": [
       [
         "jca_android",
-        "KeyManagerFactorySpec.mop",
-        "gkm1/GENERATED_KEY_MANAGERS"
-      ],
-      [
-        "jca_android",
-        "KeyStoreSpec.mop",
-        "match/GENERATED_KEY_STORE"
-      ],
-      [
-        "jca_android",
         "PBEKeySpecSpec.mop",
         "c1/SPECCED_KEY"
-      ],
-      [
-        "jca_android",
-        "TrustManagerFactorySpec.mop",
-        "gtm1/GENERATED_TRUST_MANAGER"
       ]
     ],
     "G-ORDER": [

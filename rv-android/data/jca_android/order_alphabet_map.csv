@@ -94,7 +94,7 @@ SignatureSpec,v2,v2,event,Signature.cryptsl,65,mapped,
 TrustManagerFactorySpec,g1,g1,event,TrustManagerFactory.cryptsl,17,mapped,
 TrustManagerFactorySpec,g2,g2,event,TrustManagerFactory.cryptsl,19,mapped,
 TrustManagerFactorySpec,init,Init,aggregate,TrustManagerFactory.cryptsl,27,mapped,"one event over `init(KeyStore)` and `init(ManagerFactoryParameters)`, which is the aggregate whole"
-TrustManagerFactorySpec,gtm1,gtm,event,TrustManagerFactory.cryptsl,29,mapped,"the association is with `getTrustManagers()`; the pointcut declares the return type `KeyManager[]`, which is the binding defect task 6.2 repairs -- it changes what the event binds, not which rule event it is"
+TrustManagerFactorySpec,gtm1,gtm,event,TrustManagerFactory.cryptsl,29,mapped,"the association is with `getTrustManagers()`. Task 6.2 repaired the three defects that kept this event from ever firing -- the return type declared `KeyManager[]` where the API returns `TrustManager[]`, the parameter declared `TrustManager[][]`, and the target bound to a name the specification does not declare -- and none of them changed which rule event this is, only what it binds and whether it runs. The symbol is unchanged and so is this row; the `g1 i1 gtm` divergence the gate reports against this specification is the automatons and stays with task 7.1"
 CipherSpec,g1,g1,event,Cipher.cryptsl,53,mapped,
 CipherSpec,g2,g2,event,Cipher.cryptsl,55,mapped,
 CipherSpec,g3,,,Cipher.cryptsl,,order-unmapped,"the invalid-transformation accuser over the same `getInstance(String)` call as g1; the transformation is a CONSTRAINTS matter"
