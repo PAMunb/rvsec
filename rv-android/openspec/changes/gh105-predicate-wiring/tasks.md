@@ -479,10 +479,41 @@ Subagent dispatch (docs/WORKFLOW.md §5):
      event; every new Cipher binding routes through a junction spec or the store. Cipher
      alphabet: generate in the real pipeline, record heap. -->
 
-- [ ] 5.1 Pilot chain in production: `IvChainJunction.mop` (`SecureRandom → byte[](Object idiom)
+- [x] 5.1 Pilot chain in production: `IvChainJunction.mop` (`SecureRandom → byte[](Object idiom)
       → IvParameterSpec → Cipher`), ledger #9/#12; rules INV-INS-136(a-d) green under 2.4;
       G-PARAM green; the pilot's four fixture traces become committed pairs, including the
-      rule-violating negative fixtures for (a), (b), (d)
+      rule-violating negative fixtures for (a), (b), (d).
+      **Executed as mechanism A (the store), not B**, on three measurements and four ratified
+      decisions (2026-08-22). Ledger #12 (`randomized[iv]`) was already wired store-side by task
+      4.4 with its producer at 4.5, so a junction accuser at the wrapping event would be a second
+      accuser of one clause, which the ledger forbids; only #9 had a producer and no reader. The
+      pilot's `fsm` draws six INV-INS-136(b) findings under the gate as written — the gate demands
+      totality over the alphabet where the invariant asks only for the states a disconnected join
+      can reach — and made total its fail state is unreachable in the generated transition table
+      (`Prop_1_transition_use` sends state 0 to state 0), so a gate-conformant junction cannot
+      accuse through `@fail` at all. And a junction with no store call yields no
+      `predicate_graph.csv` row, because rows are derived from the `PredicateStore` call text, so
+      it closes no G-PRED2 line. The file is separate from `CipherSpec` because the clause binds
+      `params`, `i2` stands for the rule's i3–i8 under `args(mode, key, ..)` and binds no third
+      argument, narrowing it would drop the two-argument initialisations out of the automaton, and
+      the alphabet is at 17 of 17 (INV-INS-145). It states no ORDER of its own, so `ere : use*`
+      never fails and no ORDER code exists; the four gh104 structural findings that follow from
+      that are allow-listed on the `SecretKeySpec` precedent, with the difference recorded — those
+      are legacy artefacts, these are the design.
+      **The pilot's fixtures do not transfer, and the count in this task was wrong**: the pilot
+      has three drivers of three scenarios each and four spec variants (E1–E4), not four traces;
+      rule (c) fails at generation and rule (d) at monitor-compile time, so neither has a trace
+      fixture at all; and with #9 wired store-side, (a) and (b) have no subject in this pass.
+      What is committed instead is a satisfy/violate pair plus a guard-false control, all three
+      replaying whole against the pre-image, the edited tree and the frozen snapshot: the
+      unprepared trace goes from 1 report to 2, the decrypt trace stays at 1, and the conforming
+      trace stays silent. The guarded clause's antecedent is evaluated in the event body ahead of
+      the read, which makes this the first row of `predicate_graph.csv` to carry a `guard`.
+      Cost declared: the cascade `IvParameterSpec.mop` named at task 4.4 as its open question —
+      `@match` there prepares only on SATISFIED, so one reach limit on the iv is now reported
+      twice, at the construction and at the init. The alternative, preparing on NOT_OBSERVED, was
+      put to the researcher and refused as a behavioural change to a ratified decision.
+      Evidence: `data/gh105/evidence/f3-IvChainJunction.md`
 - [ ] 5.2 `Mac` chain, positive: `preparedHMAC[params]` (ledger #21 — the rule's real clause;
       Mac does not require `generatedKey`, so 4.9's propagation reads are re-derived here)
 - [ ] 5.3 `Mac` chain, negated: `!encrypted[output1,_]` and `!encrypted[output2,_]` (ledger
