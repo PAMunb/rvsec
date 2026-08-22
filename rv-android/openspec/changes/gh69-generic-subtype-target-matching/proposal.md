@@ -180,9 +180,16 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
   imports, no `+` owners, no wildcard method names; they *do* use `*` as a return-type wildcard in 356 of
   436 `call()` pointcuts, which the extractor ignores since it keys on owner+method), not to `generic_new`. This change is verified through `rv-static-analysis --mop-dir
   .../generic_new` directly (tasks 4.3/5.2, procedure in `docs/20260611_sweep_generic_new_400.md`), which
-  is unaffected. Wiring the spec-set → `mopDir` selection is the sibling orchestrator repair tracked in
-  `docs/20260821_plano_correcao_analise_estatica.md` (D2) and is a precondition for the downstream
-  generic experiment, not for this change.
+  is unaffected. Wiring the spec-set → `mopDir` selection is the sibling orchestrator repair. It is
+  tracked in `docs/20260821_plano_correcao_analise_estatica.md` (D2) — an **untracked** document — but the
+  vehicle that actually implements it is **issue #104, task 10.0** (`tasks/E10-integration.md:7`, open as of
+  2026-08-21, first in its group): "`get_static_analysis_config()` passes the resolved set directory as
+  `mop_dir` — today `RVStaticAnalysisConfig` defaults it to `resources/jca` (`rv_static_analysis/config.py:198-207`)".
+  The coupling is one-directional and narrow: **gh69 does not depend on it to be implemented, verified or
+  archived** — every gate here runs through `--mop-dir` directly — but the *product* of gh69 stays
+  unreachable from `rv-experiment`/`rv-platform` until that task lands. Conversely gh104 task 10.0 does not
+  depend on anything in gh69: without gh69 it selects `generic_new` and gets 0 targets, which is the present
+  defect, not a new one. Neither change registered the other before 2026-08-21.
 - **Downstream (out of scope)**: the `generic_new` reachability sweep and the generic dataset definition
   are a separate later change. **Corpus updated 2026-07-09, re-verified 2026-08-21**: the generic
   experiment will draw APKs from the new dataset repo (`rvsec-dataset`), superseding the 400-APK sweep
