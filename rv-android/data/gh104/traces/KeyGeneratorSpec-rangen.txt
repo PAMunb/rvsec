@@ -1,0 +1,12 @@
+# api30 KeyGenerator REQUIRES `randomized[ranGen]` (KeyGenerator.cryptsl:60, ledger clause
+# #13) over the SecureRandom its i2, i4 and i5 bind. This is the conforming half: an
+# observed generator, an algorithm and key size the CONSTRAINTS admit, and the sequence the
+# rule's `Gets, Inits?, gk` accepts.
+#
+# The event carrying the read is `initRandom`, split out of the merged `init` by task 5.5
+# because `init` stood for all five overloads and bound none of their arguments. The split
+# splits no ordering claim: both symbols are `Inits` in the rule.
+SecureRandom.getInstance("SHA1PRNG") -> r
+KeyGenerator.getInstance("AES") -> kg
+kg.init(256, r)
+kg.generateKey() -> k

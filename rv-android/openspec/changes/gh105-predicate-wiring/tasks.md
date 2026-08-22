@@ -577,14 +577,54 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       imprecision is the oracle's; the rule's third clause, `encrypted[cipherBuffer, plainBuffer]`,
       has no write in the set, so a Mac over that buffer is not caught.
       Evidence: `data/gh105/evidence/f3-MacChain.md` (with task 5.2, one commit)
-- [ ] 5.4 `randomized` hub A (ledger #11, #24, #25): `GCMParameterSpec` `randomized[src]`,
+- [x] 5.4 `randomized` hub A (ledger #11, #24, #25): `GCMParameterSpec` `randomized[src]`,
       `PBEKeySpec` and `PBEParameterSpec` salts; junction where co-observable, store where not,
-      mechanism recorded per chain in `predicate_graph.csv`
-- [ ] 5.5 `randomized` hub B (ledger #13, #33, #6, #30): `KeyGenerator` (**not**
+      mechanism recorded per chain in `predicate_graph.csv`.
+      **All three were already wired, and the task's work turned out to be elsewhere.**
+      `GCMParameterSpecSpec.c1/c2`, `PBEKeySpecSpec.c1` and `PBEParameterSpecSpec.c1/c2` have read
+      `RANDOMIZED` off the store since the Group 4 file passes (4.6, 4.7, 4.8), all by mechanism A;
+      the identity that closes the chains was measured rather than assumed — `nextBytes` fills the
+      caller's array, so the object the constructor receives is the one `SecureRandomSpec.@match2`
+      marked (achado 73).
+      What the pass did instead was **delete a read**: `PBEKeySpecSpec.c1` also read `randomized`
+      over the `password`, a clause api30 does not state. Measured against the oracle, `randomized`
+      is ENSURED over four objects only (`this` at SecureRandom, `genSeed`, `next`, `numB`), none of
+      them a `char[]`, and none of the set's six writes binds one either — so the read could answer
+      only NOT_OBSERVED, and `PBEKEYSPEC-NOBS-00` fired at every construction of a PBEKeySpec, the
+      conforming ones included. It also cleared the flag gating the `speccedKey` write, so that
+      write had never run for any program in any set. The read and its two codes are gone
+      (researcher decision, 2026-08-22); the sibling codes keep their numbers, because a code is an
+      identifier in measurements already published. Measured: `PBEKeySpecSpec-conforming.txt` and
+      `-salt-only.txt` both go silent, and the two `RandomStringPasswordSpec` traces leave the
+      harness's `introduced` class, taking it from 9 to 8.
+      Evidence: `data/gh105/evidence/f3-RandomizedHubAndGuardedPrepared.md` (with 5.5 and 5.8, one commit)
+- [x] 5.5 `randomized` hub B (ledger #13, #33, #6, #30): `KeyGenerator` (**not**
       KeyPairGenerator), `SecureRandom` self-chain, `Cipher.init` `ranGen` (store-side — zero
       CipherSpec events); `SSLContext randomized[sr]` (#30) recorded `vacuous` — `Init:
       init(kms, tms, _)` binds `sr` in no event, so it can have no read site; drop the autoboxed
-      argument writes (`SecureRandomSpec.next1/next3` mark the int argument today)
+      argument writes (`SecureRandomSpec.next1/next3` mark the int argument today).
+      **Zero CipherSpec events held, and the site count did not.** #6 and #13 cost seven events
+      between them, and the number is the measurement's rather than the clause's: api30 binds
+      `ranGen` in four `Cipher.init` overloads and three `KeyGenerator.init` overloads, and all
+      three shorter statements of the pointcut fail. A disjunction of the signatures makes javamop
+      write `null` to stderr and emit no aspect at all, though every `.rvm` of the set generates
+      first — bisected against the HEAD set and the pre-image, which generate clean. The one-event
+      `args(.., ranGen)` form generates and, measured on three probe traces against the monitor it
+      produces, matches every `init` whatever the last argument's type, binds no SecureRandom and
+      answers NOT_OBSERVED for all of them, including an `init` whose SecureRandom had just been
+      observed — an accuser of everything that passes through it. And a wildcard in a middle
+      position generates a correct aspect, since AspectJ resolves the signature statically, but
+      defeats `TraceRunner.fitsPointcut`, which accepts any call from the first wildcard onward:
+      measured on the corpus, task 5.1's conforming traces drew a report they must not draw. A
+      wildcard is safe only after every discriminating type. The four Cipher reads live in
+      `IvChainJunction.mop`, which gains no `CipherSpec` event; the three KeyGenerator reads are a
+      **split** of the merged `init`, which stood for all five overloads and bound none of their
+      arguments, so the clause had no site at all — the `ere` accepts any of the four symbols
+      wherever it accepted the merged one, and no ordering claim moves.
+      #33's constructor half went to `SecureRandomSpec.c2`, the site task 3.1 named as this task's
+      in the file itself, and needed no new trace: `SecureRandomSpec-seeded-constructor.txt` and
+      `-unrandomised-constructor.txt` were already in the corpus and separate the verdicts.
+      Evidence: `data/gh105/evidence/f3-RandomizedHubAndGuardedPrepared.md` (with 5.4 and 5.8, one commit)
 - [ ] 5.6 `generated*key` family A (ledger #5, #15, #16): producers at acceptance
       (`KeyGenerator`, `KeyPairGenerator`, `SecretKeyFactory`, `KeyStore`); consumer
       `Cipher.init` `generatedKey[key, part(0,"/",transformation)]` (arity-2, splitter applied
@@ -597,7 +637,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `generatedPrivkey[priv]`/`generatedPubkey[pub]` (Signature's own clauses — not
       `generatedKey`); the Cipher negated `!macced` (#8) via `validateAbsent`, with the `MACED`
       producer write added at the Mac rule's acceptance point (zero sites today)
-- [ ] 5.8 `prepared*` guarded clauses (ledger #10, #17, #20): `preparedGCM` (`{GCM} =>`, guard
+- [x] 5.8 `prepared*` guarded clauses (ledger #10, #17, #20): `preparedGCM` (`{GCM} =>`, guard
       evaluated in the body before the read) and `preparedDH` (`KeyPairGenerator {DH} =>`);
       `preparedEC` (#20) recorded `unclosable` — no producing rule exists; deliberate-omission
       records for the **9 in-set ENSURES-only dead ends** (`preparedPBE`, `generatedSSLContext`,
@@ -605,7 +645,29 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `cipheredInputStream`, `cipheredOutputStream`): no fabricated read for any, no fabricated
       write for the two stream predicates that have none, and the eleven existing write sites of
       the other seven were already placed by Group 4 — ten by 4.13/4.14, and
-      `PBEParameterSpecSpec.mop:62` by its own file pass 4.7
+      `PBEParameterSpecSpec.mop:62` by its own file pass 4.7.
+      **#10 was wired and #17 was not, and the ledger had #17 in the wrong column.** `preparedGCM`
+      binds the same `params` at the same join point as clause #9, so it is a second read in
+      `IvChainJunction`'s `use` body rather than a file of its own — a second specification over that
+      call would put a second monitor on it to ask about the same object — and the universe of
+      enumerated `.mop` stays at 215. Its G-PRED2 line closes by that read, which is what
+      `GCMParameterSpecSpec.mop` predicted in a comment at task 4.8.
+      `preparedDH` (#17) is the ledger's second `unreachable-composition`, after clause #21: both
+      ends have a `.mop` and no program can compose them. `DHGenParameterSpec` is the only producer
+      of the predicate in the whole api30 oracle — `AlgorithmParameters` requires it and ensures
+      `preparedAlg` instead — and measured on Temurin 21,
+      `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))` raises
+      `InvalidAlgorithmParameterException: Inappropriate parameter type`, while the same object into
+      `AlgorithmParameterGenerator.getInstance("DH").init(...)` — the consumer the class exists for,
+      with no `.mop` in this set — runs. A DH key pair is initialised from a `DHParameterSpec`, which
+      no rule ensures. A read at `KeyPairGeneratorSpec.init3/init4` would accuse every conforming DH
+      program of a preparation it has no way to obtain, so the producer's write carries a
+      deliberate-omission record instead and its G-PRED2 line closes the way `PREPARED_HMAC`'s did
+      (researcher decision, 2026-08-22). The gate goes from six findings to four.
+      The **nine ENSURES-only dead ends were already disposed of**: the seven with writes carry
+      `disposition=omission` from tasks 4.13 and 4.14, and the two stream predicates have no write
+      and need none. This task measured that and states it rather than adding a row.
+      Evidence: `data/gh105/evidence/f3-RandomizedHubAndGuardedPrepared.md` (with 5.4 and 5.5, one commit)
 - [ ] 5.9 TLS chain (ledger #14, #36, #28, #29): `generatedKeyStore` →
       `KeyManagerFactory`/`TrustManagerFactory`; `generatedKeyManager[kms]` /
       `generatedTrustManager[tms]` → `SSLContext.init` (bound-first API — `kms`/`tms` are

@@ -1,0 +1,23 @@
+# The accusing half of the pair for clause #6, and the only way a trace can produce a
+# SecureRandom this set has not marked: an algorithm the rule's CONSTRAINTS reject. api30
+# admits `randAlg in {"SHA1PRNG"}` only, so `SecureRandom.getInstance("NativePRNG")` draws
+# `g4`, which the automaton keeps at `start` -- the `@match1` alias is `init` -- so
+# `randomized[this]` is never written for that object and the read at the init answers
+# NOT_OBSERVED.
+#
+# Two SecureRandoms in one loader, which is what makes the probe auditable: `r` is observed
+# and randomises the key material, `bad` is not and is the one handed to `init`. The
+# SECURERANDOM-ALG-00 beside the junction report is the constraint that rejects the
+# algorithm, reported once by the specification that owns it.
+#
+# In the field the same verdict has a second and more common cause, which no trace of this
+# corpus can carry: an application whose SecureRandom comes from a library the
+# instrumentation never wove. That is why the verdict is NOT_OBSERVED and not VIOLATED.
+bind km = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+SecureRandom.getInstance("NativePRNG") -> bad
+new SecretKeySpec(km, "AES") -> k
+Cipher.getInstance("AES/ECB/PKCS5Padding") -> c
+c.init(1, k, bad)
+c.doFinal(bytes)

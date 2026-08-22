@@ -1,6 +1,9 @@
 package mop;
 
+import java.security.AlgorithmParameters;
 import java.security.Key;
+import java.security.cert.Certificate;
+import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
 import java.util.List;
@@ -16,18 +19,32 @@ import br.unb.cic.mop.jca.util.CipherTransformationUtil;
 /**
  * IvChainJunctionSpec
  *
- * The consumer half of the IV chain: api30 Cipher's guarded clause
- * `part(1,"/",transformation) in {CBC, CTS, CTR, CFB, PCBC, OFB} && encmode == 1
- * => preparedIV[params]` (Cipher.cryptsl:182, ledger clause #9).
+ * The three REQUIRES clauses of api30's `Cipher` whose argument `CipherSpec` cannot
+ * bind, each read here against the store:
  *
- * This file exists because `CipherSpec` cannot hold the read. The clause binds
+ *   #9  `part(1,"/",transformation) in {CBC, CTS, CTR, CFB, PCBC, OFB} && encmode == 1
+ *        => preparedIV[params]`   (Cipher.cryptsl:182, task 5.1)
+ *   #10 `part(1,"/",transformation) in {GCM} => preparedGCM[params]`
+ *                                  (Cipher.cryptsl:184, task 5.8)
+ *   #6  `randomized[ranGen]`      (Cipher.cryptsl:176, task 5.5, one site per overload)
+ *
+ * The name is the one task 5.1 gave the file when it held only the IV chain, and it is
+ * kept deliberately now that it holds three clauses over two of `Cipher.init`'s
+ * arguments. Renaming would rewrite three committed traces, the published harness
+ * report `data/gh105/evidence/harness/f2-IvChainJunctionSpec.md` and the evidence of
+ * task 5.1 -- twenty-three files, several of them measurements already published --
+ * and a file name is not what those measurements are about (researcher decision,
+ * 2026-08-22). What the file is, is stated here.
+ *
+ * This file exists because `CipherSpec` cannot hold the reads. The clause binds
  * `params`, and `CipherSpec.i2` is declared `call(public void Cipher.init(int, Key, ..))
  * && args(mode, key, ..)` -- one event standing for the rule's i3 to i8, which does not
  * bind the third argument. Narrowing `i2` to bind it would drop the two-argument
  * initialisations out of the automaton, and adding an event is not available either:
  * `CipherSpec` declares exactly 17, which is the generator's ceiling (INV-INS-145,
  * n=18 raises StackOverflowError in the enable-set parser at any heap). A separate
- * specification is the only site left where the third argument can be bound.
+ * specification is the only site left where the third and fourth arguments can be
+ * bound.
  *
  * It is not a chain junction in the sense of INV-INS-136, and the name is kept because
  * the chain may yet become one. Mechanism B carries identity through the runtime's own
@@ -52,6 +69,10 @@ IvChainJunctionSpec(Cipher c) {
     List<String> ivModes = Arrays.asList("CBC", "CTS", "CTR", "CFB", "PCBC", "OFB");
 
     String expectedPreparedIv = "an IvParameterSpec built over an observed randomized iv";
+
+    String expectedPreparedGcm = "a GCMParameterSpec built over an observed randomized source";
+
+    String expectedRandomGen = "a SecureRandom this instrumentation observed being constructed";
 
     // The envelope's quoting rule (gh104 design D-3), the same three lines every
     // reporting specification of the set carries.
@@ -118,15 +139,149 @@ IvChainJunctionSpec(Cipher c) {
                     "v=1 code=IVCHAINJUNCTION-NOBS-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedIv) + "' msg='no preparation of the AlgorithmParameterSpec given to Cipher.init was observed'"));
             }
         }
+
+        // The rule's second guarded clause over the same argument:
+        // `part(1,"/",transformation) in {GCM} => preparedGCM[params]`
+        // (Cipher.cryptsl:184, ledger clause #10). It reads the same `params` at the
+        // same join point as the clause above, which is why it is a second read in
+        // this body and not a file of its own: the two clauses share the pointcut
+        // exactly, and a second specification over the same call would put a second
+        // monitor on it to ask about the same object.
+        //
+        // The antecedent is narrower than the IV one -- no `encmode` conjunct -- so a
+        // GCM decrypt is required to carry a prepared spec just as an encrypt is,
+        // which is what the rule states and is not this file's inference. The mode is
+        // split off `c.getAlgorithm()` a second time rather than shared with the read
+        // above, because the two antecedents are two claims and folding them into one
+        // local would make a future edit to either silently move the other.
+        //
+        // Measured before this read was written: the chain composes.
+        // `Cipher.getInstance("AES/GCM/NoPadding").init(1, key, new GCMParameterSpec(128, iv))`
+        // followed by `doFinal` runs to completion on a JVM, so a program can put the
+        // producer (`GCMParameterSpecSpec.@match`, arity 1) and this consumer end to
+        // end -- which is the measurement clause #21 failed and #17 failed with it.
+        boolean gcmRequired = operationMode != null
+            && "GCM".equals(operationMode.trim().toUpperCase(Locale.ROOT));
+        if (gcmRequired) {
+            PredicateVerdict prepared = PredicateStore.instance().validate(Property.PREPARED_GCM, params);
+            if (prepared == PredicateVerdict.VIOLATED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                    "v=1 code=IVCHAINJUNCTION-CONSTR-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedGcm) + "' msg='the AlgorithmParameterSpec given to Cipher.init carries a preparation predicate the rule does not admit'"));
+            }
+            else if (prepared == PredicateVerdict.NOT_OBSERVED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                    "v=1 code=IVCHAINJUNCTION-NOBS-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedGcm) + "' msg='no preparation of the AlgorithmParameterSpec given to Cipher.init was observed'"));
+            }
+        }
     }
 
-    // `use*` accepts every sequence of the one event it declares, which is the whole
-    // claim this file makes about ordering: none. The ordering of `Cipher` is
-    // `CipherSpec`'s, stated against the rule's own ORDER, and a second automaton over
+    // `randomized[ranGen]` (Cipher.cryptsl:176, ledger clause #6) -- the rule's only
+    // unguarded REQUIRES over an argument `CipherSpec` cannot bind. api30 binds `ranGen` in
+    // i2, i6, i7 and i8, and this file writes one event per overload, which is more events
+    // than the clause looks like it needs. Three shorter statements were measured first and
+    // all three are worse:
+    //
+    //   * a disjunction of the four signatures, `(call(A) && args(..) || call(B) && args(..))`,
+    //     makes javamop write `null` to stderr and emit no aspect at all -- every `.rvm` of
+    //     the set generates first, so the failure reads as an environment fault and is not
+    //     one. Bisected against the HEAD set and the pre-image, which generate clean;
+    //   * the one-event form `call(...init(..)) && args(.., ranGen)` generates, and is worse
+    //     than wrong: on three probe traces it matched every `init` whatever the last
+    //     argument's type, bound no SecureRandom, and answered NOT_OBSERVED for all of them
+    //     -- including an `init` whose SecureRandom had just been observed. That is an
+    //     accuser of everything that passes through it, the defect achado 74 names;
+    //   * a wildcard in a middle position, `init(int, *, SecureRandom)`, generates a correct
+    //     aspect -- AspectJ resolves the signature statically -- but the trace harness's
+    //     resolver accepts any call from the first wildcard onward, so the conforming traces
+    //     of task 5.1 drew a report they must not draw. Measured on the corpus. A wildcard is
+    //     safe only after every discriminating type, which is why `use` above may keep its
+    //     trailing `..`.
+    //
+    // So the argument positions are written out, one event each, and the four bodies are the
+    // same read. Two sites for one clause is the shape `IvParameterSpec.c1/c2` and
+    // `GCMParameterSpecSpec.c1/c2` already carry; four is that shape and the rule's own
+    // event list, which names four.
+    //
+    // These events overlap with `use` on i6 -- one call matching both -- and that is
+    // harmless: each asks about a different argument, and this file's `ere` accuses no
+    // ordering. The producer is `SecureRandomSpec.@match1`, `randomized[this] after Ins`, so
+    // the object carries the predicate by identity from its own construction; measured,
+    // `init(mode, key, sr)` and `init(mode, key, params, sr)` both run to completion.
+    // NOT_OBSERVED is the reach limit and not a misuse: an application whose SecureRandom
+    // comes from a framework the instrumentation never wove reaches the read with nothing
+    // written, and that is a different claim from VIOLATED.
+
+    // the rule's i8.
+    event useRandomKey before(SecureRandom ranGen, Cipher c):
+      call(public void Cipher.init(int, Key, SecureRandom)) &&
+      args(*, *, ranGen) &&
+      target(c) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, ranGen);
+        if (randomised == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-CONSTR-02 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-NOBS-02 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'"));
+        }
+    }
+
+    // the rule's i2, over a Certificate.
+    event useRandomCert before(SecureRandom ranGen, Cipher c):
+      call(public void Cipher.init(int, Certificate, SecureRandom)) &&
+      args(*, *, ranGen) &&
+      target(c) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, ranGen);
+        if (randomised == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-CONSTR-03 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-NOBS-03 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'"));
+        }
+    }
+
+    // the rule's i6.
+    event useRandomSpec before(SecureRandom ranGen, Cipher c):
+      call(public void Cipher.init(int, Key, AlgorithmParameterSpec, SecureRandom)) &&
+      args(*, *, *, ranGen) &&
+      target(c) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, ranGen);
+        if (randomised == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-CONSTR-04 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-NOBS-04 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'"));
+        }
+    }
+
+    // the rule's i7.
+    event useRandomParams before(SecureRandom ranGen, Cipher c):
+      call(public void Cipher.init(int, Key, AlgorithmParameters, SecureRandom)) &&
+      args(*, *, *, ranGen) &&
+      target(c) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, ranGen);
+        if (randomised == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-CONSTR-05 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-NOBS-05 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'"));
+        }
+    }
+
+    // The `ere` accepts every sequence of the five events this file declares, which
+    // is the whole claim this file makes about ordering: none. The ordering of `Cipher`
+    // is `CipherSpec`'s, stated against the rule's own ORDER, and a second automaton over
     // a subset of the same calls could only accuse the same program twice. The `fail`
     // state is therefore unreachable by construction -- measured on the generated
-    // monitor, whose `transition_use` sends state 0 to state 0 -- and the file carries
-    // no ORDER code, because there is no site that could emit one. G-ORDER skips this
+    // monitor, whose transition rows send state 0 to state 0 for both symbols -- and the
+    // file carries no ORDER code, because there is no site that could emit one. G-ORDER skips this
     // file declaredly, for want of a row in `order_alphabet_map.csv`, and the skip is
     // right here rather than concealing: no api30 rule states an ORDER this file
     // translates, so there is nothing for the gate to compare against.
@@ -144,7 +299,7 @@ IvChainJunctionSpec(Cipher c) {
     // Nothing may be written between the `ere` line and the first `@handler`: the lint
     // reads whatever sits there as part of the expression, and a comment block becomes
     // sixty undeclared symbols and one unbalanced brace.
-    ere : use*
+    ere : (use | useRandomKey | useRandomCert | useRandomSpec | useRandomParams)*
 
     @match {
     }

@@ -105,17 +105,26 @@ PBEKeySpecSpec(PBEKeySpec s) {
                    "v=1 code=PBEKEYSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='" + iterationCount + "' exp='>= 10000' msg='the third argument should be >= 10000'"));
                conforms = false;
            }
-           PredicateVerdict randomisedPassword = PredicateStore.instance().validate(Property.RANDOMIZED, password);
-           if (randomisedPassword == PredicateVerdict.VIOLATED) {
-               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
-                   "v=1 code=PBEKEYSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument carries a randomization predicate the rule does not admit'"));
-               conforms = false;
-           }
-           else if (randomisedPassword == PredicateVerdict.NOT_OBSERVED) {
-               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
-                   "v=1 code=PBEKEYSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'"));
-               conforms = false;
-           }
+           // The read of `randomized[password]` that stood here is gone, and what it was
+           // is worth stating because it was the file's loudest report. api30 REQUIRES
+           // `randomized[salt]` and nothing about the password -- its only CONSTRAINTS
+           // clause about it is `neverTypeOf(password, java.lang.String)`, a different
+           // claim -- so the read translated no clause. Measured against the oracle and
+           // against the set: `randomized` is ENSURED over four objects only
+           // (`this` at SecureRandom, `genSeed`, `next`, `numB`), none of them a
+           // `char[]`, and none of the set's six writes of RANDOMIZED binds one either.
+           // The read could therefore answer only NOT_OBSERVED, on every program, so
+           // PBEKEYSPEC-NOBS-00 fired at every construction of a PBEKeySpec, the
+           // conforming ones included -- and, because it cleared `conforms`, the
+           // `speccedKey` write below never ran at all. It was a false accuser of the
+           // shape the change is here to remove, not a reach limit
+           // (researcher decision, 2026-08-22).
+           //
+           // The two codes it emitted, PBEKEYSPEC-CONSTR-01 and PBEKEYSPEC-NOBS-00,
+           // leave `codes.csv` with it. The siblings that outlive them keep their
+           // numbers: a code is an identifier in measurements already published, and
+           // renumbering CONSTR-02 and NOBS-01 down would rewrite what the gh104
+           // campaign reported about a site that did not change.
            PredicateVerdict randomisedSalt = PredicateStore.instance().validate(Property.RANDOMIZED, salt);
            if (randomisedSalt == PredicateVerdict.VIOLATED) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,

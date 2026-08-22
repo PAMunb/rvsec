@@ -687,6 +687,53 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       and #23 with the returned half of #22 because `MacSpec.f1` binds an array the JCA
       allocates fresh, where `validateAbsent` could answer only SATISFIED. The writes stay
       at 30 and the withdrawal at 1: neither task writes or withdraws a predicate.
+
+      Batch B2 -- tasks 5.4, 5.5 and 5.8 -- moves the reads from 16 to 24 and the writes
+      from 30 to 28, and every one of the moves is a clause of the ledger. Nine reads
+      arrive, over four clauses: clause #10 (`{GCM} => preparedGCM[params]`) as a second
+      read in `IvChainJunction`'s `use` body, which shares its pointcut exactly; clause #6
+      (`randomized[ranGen]`) in four new events of that file, over the SecureRandom
+      `CipherSpec` cannot bind; clause #13 in three new events of `KeyGeneratorSpec`, split
+      out of the merged `init` that bound none of the five overloads' arguments; and the
+      constructor's half of clause #33 in `SecureRandomSpec.c2`, the site task 3.1 named
+      as 5.5's when it wired `setSeed2`.
+
+      Seven sites for two clauses is the measurement's count and not the clause's, and the
+      three shorter statements that were tried first are recorded in the two files at
+      length. A disjunction of the signatures makes javamop write `null` to stderr and emit
+      no aspect at all, though every `.rvm` generates first. The one-event
+      `args(.., ranGen)` form generates and matches every `init` whatever the last
+      argument's type, binding no SecureRandom and answering NOT_OBSERVED for all of them.
+      A wildcard in a middle position generates a correct aspect -- AspectJ resolves the
+      signature statically -- but defeats the trace harness's resolver, which accepts any
+      call from the first wildcard onward, so the conforming traces of task 5.1 drew a
+      report they must not draw. A wildcard is safe only after every discriminating type,
+      which is why the read at `use` may keep its trailing `..`.
+
+      One read leaves, and it is the only read this change has deleted. `PBEKeySpecSpec.c1`
+      read `randomized` over the `password`: api30 requires the predicate over the salt and
+      states nothing about the password. Measured against the oracle, `randomized` is
+      ENSURED over four objects only -- `this` at SecureRandom, `genSeed`, `next`, `numB` --
+      and none is a `char[]`, nor does any of the set's writes bind one, so the read could
+      answer only NOT_OBSERVED and fired at every construction of a PBEKeySpec, the
+      conforming ones included. It also cleared the flag gating the `speccedKey` write, so
+      that write had never run for any program.
+
+      Two writes leave, `SecureRandomSpec.next1` and `next3`. They stood in for
+      `randomized[numB]` over `next(int)`, an event neither `nextInt` overload is, and
+      order_alphabet_map.csv:79,81 already recorded that pairing either with `ne` would be
+      an inference INV-INS-138 forbids. A write that translates no clause is deleted rather
+      than recorded, and an autoboxed `int` could carry a predicate to a later
+      identity-keyed read only inside the Integer cache in any case. The two events stay in
+      the automaton, marking nothing, as `ints` and `CipherSpec.wkb1` already do.
+
+      Clause #17 adds no site and is recorded instead, for a reason clause #21 established
+      and this batch confirms is not rare: the two ends have a `.mop` each and the platform
+      refuses the composition. `DHGenParameterSpec` is the only producer of `preparedDH` in
+      the oracle, and measured on Temurin 21,
+      `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))`
+      raises InvalidAlgorithmParameterException: Inappropriate parameter type. Clause #20
+      (`preparedEC`) has no producing rule anywhere and is recorded `unclosable`.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -702,9 +749,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 16
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 24
     assert read_placement.get("condition", 0) == 0
-    assert counts.get("write", 0) == 30
+    assert counts.get("write", 0) == 28
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
     assert counts.get("remove", 0) + counts.get("negate", 0) == 1
 
@@ -917,6 +964,40 @@ def test_the_graph_reproduces_the_measured_placement_census():
       (Mac.cryptsl:82). Task 5.2 adds no row at all -- ledger #21 is recorded as a
       deliberate omission on the producer's own row, `HMACParameterSpecSpec.mop/match`,
       which is how its G-PRED2 line closes without a reader.
+    * batch B2 -- tasks 5.4, 5.5 and 5.8 -- takes the graph to 53 rows and moves two
+      numbers: `read:body` 15 -> 23 and `write:body` 7 -> 5. Nine rows arrive and three
+      leave, and each is a clause of the ledger resolved.
+      Arriving: `IvChainJunction.mop/use/PREPARED_GCM` (clause #10), the second row of the
+      graph to carry a `guard` and the first to share an event with another read -- it has
+      the same pointcut as clause #9's row, which is why it is a read in that body and not
+      a file of its own; four `IvChainJunction.mop/useRandom*/RANDOMIZED` rows (#6), one
+      per `init` overload api30 binds `ranGen` in, two of which `use` does not match at all;
+      three `KeyGeneratorSpec.mop/initRandom*/RANDOMIZED` rows (#13), split out of the
+      merged `init` and not added to it; and `SecureRandomSpec.mop/c2/RANDOMIZED` (#33),
+      the constructor's half of the self-chain, which task 3.1 named as 5.5's when it wired
+      `setSeed2`'s half. One site per overload is what the generator and the trace harness
+      between them will carry: a disjunction of signatures emits no aspect, an
+      `args(.., ranGen)` catch-all accuses every `init` that passes through it, and a
+      middle wildcard defeats the harness's resolver -- all three measured, and recorded in
+      the `reason` column of each row.
+      Leaving: `PBEKeySpecSpec.mop/c1/RANDOMIZED` over the `char[]`, the graph's row whose
+      `clause` column was empty because there was no clause -- the read fired at every
+      construction of a PBEKeySpec and cleared the flag that gated the `speccedKey` write,
+      so that write had never run for any program; and `SecureRandomSpec.mop/next1` and
+      `next3`, the two other rows with an empty `clause`, stand-ins for `randomized[numB]`
+      over an event neither `nextInt` overload is. After this batch one row of the graph
+      still has an empty `clause` column, and it is not this batch's: `SecretKeySpec.mop/e1`,
+      the propagation read task 4.12 recorded, whose rule states an ENSURES and no REQUIRES
+      section at all.
+      One row gains `omission`, taking the deliberate-omission records from nine to ten:
+      `DHGenParameterSpecSpec.mop/match/PREPARED_DH`, ledger #17, which has a `.mop` at
+      both ends and no program that can compose them -- measured,
+      `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))`
+      raises InvalidAlgorithmParameterException, and this rule is the oracle's only
+      producer of the predicate. Its G-PRED2 line closes by that record, the way #21's did;
+      `GCMParameterSpecSpec`'s closes by a read. The gate goes from six findings to four.
+      Nothing else moves: `write:acceptance` stays 23, the `negate` 1, the `read-absent` 1,
+      and the bookkeeping and removals stay at zero.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -924,13 +1005,13 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
-    assert counts.get("read:body", 0) == 15
+    assert counts.get("read:body", 0) == 23
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one
     # cannot arrive uncounted.
     assert counts.get("read-absent:body", 0) == 1
-    assert counts.get("write:body", 0) == 7
+    assert counts.get("write:body", 0) == 5
     assert counts.get("write:acceptance", 0) == 23
     assert counts.get("remove:fail", 0) == 0
     assert counts.get("negate:body", 0) == 1

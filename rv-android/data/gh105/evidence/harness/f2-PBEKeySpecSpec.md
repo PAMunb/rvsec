@@ -2,19 +2,22 @@
 
 - **A** `backup/gh105-preimage/jca_android`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
-- traces: 6
+- traces: 7
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `PBEKeySpecSpec-conforming.txt` | removed | PBEKeySpecSpec.err2, PBEKeySpecSpec.c2 | — |
 | `PBEKeySpecSpec-forbidden-then-clear.txt` | unchanged | PBEKeySpecSpec.f1, PBEKeySpecSpec.c2 | PBEKeySpecSpec.f1, PBEKeySpecSpec.c2 |
 | `PBEKeySpecSpec-forbidden.txt` | unchanged | PBEKeySpecSpec.f1 | PBEKeySpecSpec.f1 |
 | `PBEKeySpecSpec-forbidden3.txt` | unchanged | PBEKeySpecSpec.f2 | PBEKeySpecSpec.f2 |
 | `PBEKeySpecSpec-lowiter.txt` | moved | PBEKeySpecSpec.err1, PBEKeySpecSpec.err2, PBEKeySpecSpec.err3 | PBEKeySpecSpec.c1 |
-| `PBEKeySpecSpec-salt-only.txt` | moved | PBEKeySpecSpec.err2, PBEKeySpecSpec.c2 | PBEKeySpecSpec.c1 |
+| `PBEKeySpecSpec-salt-only.txt` | removed | PBEKeySpecSpec.err2, PBEKeySpecSpec.c2 | — |
 | `PBEKeySpecSpec.txt` | moved | PBEKeySpecSpec.err2, PBEKeySpecSpec.err3, PBEKeySpecSpec.c2 | PBEKeySpecSpec.c1 |
 
 ## Envelopes
 
+- `PBEKeySpecSpec-conforming.txt` (A) `spec=PBEKeySpecSpec,ev=err2,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-01 ev=err2 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
+- `PBEKeySpecSpec-conforming.txt` (A) `spec=PBEKeySpecSpec,ev=c2,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-01 ev=err2 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
 - `PBEKeySpecSpec-forbidden-then-clear.txt` (A) `spec=PBEKeySpecSpec,ev=f1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=PBEKEYSPEC-ORDER-00 ev=f1 obj=PBEKeySpec val='' exp='' msg='the observed call sequence is not one PBEKeySpecSpec accepts'`
 - `PBEKeySpecSpec-forbidden-then-clear.txt` (A) `spec=PBEKeySpecSpec,ev=c2,type=InvalidSequenceOfMethodCalls,msg=v=1 code=PBEKEYSPEC-ORDER-00 ev=c2 obj=PBEKeySpec val='' exp='' msg='the observed call sequence is not one PBEKeySpecSpec accepts'`
 - `PBEKeySpecSpec-forbidden-then-clear.txt` (B) `spec=PBEKeySpecSpec,ev=f1,type=ForbiddenMethod,msg=v=1 code=PBEKEYSPEC-FORB-00 ev=f1 obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[]) is forbidden by api30 PBEKeySpec.cryptsl'`
@@ -26,11 +29,10 @@
 - `PBEKeySpecSpec-lowiter.txt` (A) `spec=PBEKeySpecSpec,ev=err1,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-00 ev=err1 obj=PBEKeySpec val='1000' exp='>= 10000' msg='the third argument should be >= 10000'`
 - `PBEKeySpecSpec-lowiter.txt` (A) `spec=PBEKeySpecSpec,ev=err2,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-01 ev=err2 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
 - `PBEKeySpecSpec-lowiter.txt` (A) `spec=PBEKeySpecSpec,ev=err3,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-01 ev=err2 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
-- `PBEKeySpecSpec-lowiter.txt` (B) `spec=PBEKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-NOBS-00 ev=c1 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
+- `PBEKeySpecSpec-lowiter.txt` (B) `spec=PBEKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-NOBS-01 ev=c1 obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument was not observed to come from a randomized source'`
 - `PBEKeySpecSpec-salt-only.txt` (A) `spec=PBEKeySpecSpec,ev=err2,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-01 ev=err2 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
 - `PBEKeySpecSpec-salt-only.txt` (A) `spec=PBEKeySpecSpec,ev=c2,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-01 ev=err2 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
-- `PBEKeySpecSpec-salt-only.txt` (B) `spec=PBEKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-NOBS-00 ev=c1 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
 - `PBEKeySpecSpec.txt` (A) `spec=PBEKeySpecSpec,ev=err2,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-01 ev=err2 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
 - `PBEKeySpecSpec.txt` (A) `spec=PBEKeySpecSpec,ev=err3,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-01 ev=err2 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
 - `PBEKeySpecSpec.txt` (A) `spec=PBEKeySpecSpec,ev=c2,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-CONSTR-01 ev=err2 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
-- `PBEKeySpecSpec.txt` (B) `spec=PBEKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-NOBS-00 ev=c1 obj=PBEKeySpec val='' exp='a randomized char[]' msg='the first argument was not observed to come from a randomized source'`
+- `PBEKeySpecSpec.txt` (B) `spec=PBEKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=PBEKEYSPEC-NOBS-01 ev=c1 obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument was not observed to come from a randomized source'`

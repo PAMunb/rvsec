@@ -1,0 +1,24 @@
+# The GCM chain observed at both ends, conforming. api30 Cipher REQUIRES
+# `part(1,"/",transformation) in {"GCM"} => preparedGCM[params]` (Cipher.cryptsl:184,
+# ledger clause #10) and api30 GCMParameterSpec ENSURES `preparedGCM[this]`
+# (GCMParameterSpec.cryptsl:39). Nothing here is a defect: the IV material comes from an
+# observed SecureRandom, the tag length is one the rule's CONSTRAINTS admit, and the
+# GCMParameterSpec is built over that material before the Cipher is initialised with it.
+#
+# The composition was measured on a JVM before this trace was written -- the JCA accepts a
+# GCMParameterSpec at `Cipher.init` under an AES/GCM transformation and the doFinal runs --
+# which is the check clause #21 taught the change to make before writing a read.
+#
+# The key is observed too, and deliberately: `CipherSpec.i2` reads the key-origin clause on
+# the same call, so a key bound silently would draw CIPHER-NOBS-00 and the trace would stop
+# being about clause #10.
+bind iv = bytes(12)
+bind km = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new GCMParameterSpec(128, iv) -> spec
+Cipher.getInstance("AES/GCM/NoPadding") -> c
+c.init(1, k, spec)
+c.doFinal(bytes)

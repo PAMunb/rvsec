@@ -1,0 +1,15 @@
+# api30 Cipher REQUIRES `randomized[ranGen]` (Cipher.cryptsl:176, ledger clause #6),
+# unguarded, over the SecureRandom the rule's i2, i6, i7 and i8 bind. The conforming half:
+# the generator handed to `init` is one whose construction this instrumentation observed,
+# so `SecureRandomSpec.@match1` has written `randomized[this]` for it by identity.
+#
+# The transformation is ECB on purpose. It names no mode clause #9 lists and takes no
+# AlgorithmParameterSpec, so the only clause this trace exercises at the init is #6 --
+# `use` does not even match this overload.
+bind km = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+new SecretKeySpec(km, "AES") -> k
+Cipher.getInstance("AES/ECB/PKCS5Padding") -> c
+c.init(1, k, r)
+c.doFinal(bytes)

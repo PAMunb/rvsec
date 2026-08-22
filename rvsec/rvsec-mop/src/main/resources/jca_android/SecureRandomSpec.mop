@@ -69,12 +69,33 @@ SecureRandomSpec(SecureRandom r) {
     // state to `fail`: a seed nobody had randomised was reported as a wrong call
     // sequence. Neither half accused anything of its own -- both only rebound `sr`
     // -- so removing the guard changes no reported constraint and removes the
-    // spurious ordering report. The rule's `randomized[seed]` REQUIRES is a real
-    // clause and is wired, with its own accuser, at task 5.5.
+    // spurious ordering report.
+    //
+    // This is the constructor's half of `randomized[seed]` (SecureRandom.cryptsl:66,
+    // ledger clause #33), the self-chain: the rule binds `seed` in two events, `s1:
+    // setSeed(seed)` and `c2: SecureRandom(seed)`, and task 3.1 wired `setSeed2`'s half
+    // and named this one as 5.5's in as many words. One clause, two binding sites, one
+    // accuser at each -- the shape `IvParameterSpec.c1/c2` and
+    // `PBEParameterSpecSpec.c1/c2` already carry, and not a second accuser of one site.
+    //
+    // The producing site is another SecureRandom's `@match2` write over `generateSeed`
+    // or `nextBytes`, so what this read asks is whether the array seeding this generator
+    // came out of one the instrumentation watched. `new SecureRandom(sr.generateSeed(32))`
+    // composes -- measured -- and answers SATISFIED; a literal seed answers NOT_OBSERVED,
+    // which is the reach limit stated as such and not as a wrong call sequence.
     event c2 after(byte[] seed) returning(SecureRandom r):
       call(public SecureRandom.new(byte[])) &&
       args(seed) {
          sr = r;
+         PredicateVerdict randomisedSeed = PredicateStore.instance().validate(Property.RANDOMIZED, seed);
+         if (randomisedSeed == PredicateVerdict.VIOLATED) {
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "" + __LOC,
+                 "v=1 code=SECURERANDOM-CONSTR-01 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='the byte array given to the constructor carries a randomization predicate the rule does not admit'"));
+         }
+         else if (randomisedSeed == PredicateVerdict.NOT_OBSERVED) {
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "" + __LOC,
+                 "v=1 code=SECURERANDOM-NOBS-01 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='the constructor expects a byte array observed to come from a randomized source'"));
+         }
     }
 
 
@@ -165,33 +186,27 @@ SecureRandomSpec(SecureRandom r) {
 
     // The rule's fourth ENSURES clause is `randomized[numB]`, over the argument of
     // `ne: next(numB)`. `next(int)` is protected in java.util.Random, so no
-    // application calls it, and this file answers the clause with two stand-ins
-    // whose relation to it the specification itself has never settled: `next1`
-    // marks the *argument* of `nextInt(int)`, `next3` marks the *return* of
-    // `nextInt()`. `order_alphabet_map.csv:79,81` already decided the ORDER half of
-    // that question at task 2.8 -- both rows are ORDER-unmapped, because pairing
-    // either with `ne` would be an inference about which call the oracle meant, and
-    // INV-INS-138 forbids inferring one.
+    // application calls it, and this file used to answer the clause with two stand-ins
+    // whose relation to it the specification never settled: `next1` marked the
+    // *argument* of `nextInt(int)`, `next3` the *return* of `nextInt()`.
+    // `order_alphabet_map.csv:79,81` already decided the ORDER half of that question at
+    // task 2.8 -- both rows are ORDER-unmapped, because pairing either with `ne` would
+    // be an inference about which call the oracle meant, and INV-INS-138 forbids
+    // inferring one.
     //
-    // So these two writes stay in the event body, with their reason recorded in
-    // `predicate_graph.csv`: they are not the translation of a clause this file can
-    // point at, and moving them to an acceptance point would claim a placement that
-    // no clause justifies. Task 5.5 resolves the clause with the rest of the
-    // `randomized` hub and drops them.
+    // Both writes are gone. A write that translates no clause is deleted rather than
+    // recorded, and neither could have carried a predicate anywhere in any case: the
+    // store keys the bound object by identity and an `int` is autoboxed at the call, so
+    // a predicate over a boxed primitive survives to a later read only inside the
+    // `Integer` cache (-128..127), where equal small values genuinely are one object.
+    // The two events stay -- they are in the automaton, and removing them would make
+    // the calls unmodelled rather than unmarked, which is the disposition `ints` below
+    // and `CipherSpec.wkb1` already carry.
     //
-    // The migration alone already narrows what they can do, and the narrowing is
-    // worth stating because nothing measures it: `PredicateStore` keys the bound
-    // object by identity, where the substrate this file leaves keyed it by `equals`,
-    // and an `int` is autoboxed at the call. A predicate over a boxed primitive therefore only
-    // survives to a later read inside the `Integer` cache (-128..127), where equal
-    // small values genuinely are one object. This is the write-side unsoundness the
-    // delta's "inexpressible predicate" rule names; the only structural consumer is
-    // `RandomStringPassword.vo`, a propagation read with no accuser.
     event next1 before(SecureRandom r, int randIntInRange):
       call(public int SecureRandom.nextInt(int))
       && args(randIntInRange)
       && target(r) {
-         PredicateStore.instance().ensure(Property.RANDOMIZED, randIntInRange);
     }
 
     // `randomized[next]` (SecureRandom.cryptsl, ENSURES) over the array
@@ -212,12 +227,9 @@ SecureRandomSpec(SecureRandom r) {
          stagedNextBytes = bytes;
     }
 
-    // The second stand-in for `randomized[numB]` -- see the note on `next1`, which
-    // carries the reasoning for both.
     event next3 after(SecureRandom r) returning(int randInt) :
       call(public int SecureRandom.nextInt())
       && target(r) {
-         PredicateStore.instance().ensure(Property.RANDOMIZED, randInt);
     }
 
     // api30 SecureRandom.cryptsl declares no stream event at all, so this event

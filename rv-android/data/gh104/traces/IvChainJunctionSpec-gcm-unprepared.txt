@@ -1,0 +1,19 @@
+# The violating half of the pair for clause #10: the same call sequence, over IV material
+# no SecureRandom produced. It measures the cascade the GCM chain has and the IV chain
+# already had -- `GCMParameterSpecSpec.c1` stages `spec` only for a construction whose own
+# `randomized[src]` read answered SATISFIED, so an unrandomised source produces no
+# preparation, and the reach limit is reported twice: GCMPARAMETERSPEC-NOBS-00 at the
+# construction and IVCHAINJUNCTION-NOBS-01 at the init.
+#
+# This trace and IvChainJunctionSpec-gcm.txt differ in one thing -- whether `iv` passed
+# through nextBytes -- and they run in the same loader. That is what makes the probe
+# auditable: if both accused, the read would be ignoring the clause it says it translates.
+bind iv = bytes(12)
+bind km = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+new SecretKeySpec(km, "AES") -> k
+new GCMParameterSpec(128, iv) -> spec
+Cipher.getInstance("AES/GCM/NoPadding") -> c
+c.init(1, k, spec)
+c.doFinal(bytes)

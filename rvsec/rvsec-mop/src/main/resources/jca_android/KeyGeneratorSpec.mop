@@ -7,6 +7,7 @@ import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -61,13 +62,81 @@ KeyGeneratorSpec(KeyGenerator k) {
         currentAlgorithmInstance = alg;
     }
 
+    // The two `init` overloads the rule's `Inits` names that take no SecureRandom --
+    // i1 and i3. The three that do take one moved to the `initRandom*` events below,
+    // `randomized[ranGen]` needs the argument bound and this event bound nothing.
+    // Both symbols stand for the same thing in the rule's ORDER (`Gets, Inits?, gk`
+    // puts i1 to i5 in one alternation), so splitting the event splits no ordering
+    // claim: the `ere` accepts either symbol wherever it accepted the merged one.
     event init before(KeyGenerator k):
        ( call(public void KeyGenerator.init(int)) ||
-         call(public void KeyGenerator.init(int, SecureRandom)) ||
-         call(public void KeyGenerator.init(AlgorithmParameterSpec)) ||
-         call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) ||
-         call(public void KeyGenerator.init(SecureRandom))
+         call(public void KeyGenerator.init(AlgorithmParameterSpec))
        ) && target(k) {  }
+
+    // `randomized[ranGen]` (KeyGenerator.cryptsl:60, ledger clause #13) at the three `init`
+    // overloads that bind a SecureRandom -- the rule's i2, i4 and i5 -- one event each. The
+    // shorter statements were measured and all fail: a disjunction of the three signatures
+    // makes javamop emit no aspect at all; `args(.., ranGen)` generates but matches every
+    // `init` whatever the last argument, binding no SecureRandom and answering NOT_OBSERVED
+    // for all of them; and a middle wildcard, `init(*, SecureRandom)`, generates a correct
+    // aspect but defeats the trace harness's resolver, which accepts any call from the first
+    // wildcard onward. `IvChainJunction.mop` carries the same three measurements at length.
+    //
+    // The reads are in the bodies and not in a `condition(...)`: a false guard would suppress
+    // the transition and turn "this generator's randomness source was never observed" into a
+    // wrong-call-sequence report (INV-INS-133). The producer is `SecureRandomSpec.@match1`,
+    // `randomized[this] after Ins`; measured, `KeyGenerator.init(128, sr)` and
+    // `KeyGenerator.init(sr)` both run to completion over an observed SecureRandom. The
+    // verdict is three-valued because VIOLATED is positive evidence of a withdrawn
+    // randomisation while NOT_OBSERVED is as often a reach limit as a misuse.
+
+    // the rule's i5.
+    event initRandom before(KeyGenerator k, SecureRandom ranGen):
+      call(public void KeyGenerator.init(SecureRandom)) &&
+      args(ranGen) &&
+      target(k) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, ranGen);
+        if (randomised == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYGENERATOR-CONSTR-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='the SecureRandom given to init() carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYGENERATOR-NOBS-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='init() expects a SecureRandom observed to come from an observed construction'"));
+        }
+    }
+
+    // the rule's i2.
+    event initRandomSize before(KeyGenerator k, SecureRandom ranGen):
+      call(public void KeyGenerator.init(int, SecureRandom)) &&
+      args(*, ranGen) &&
+      target(k) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, ranGen);
+        if (randomised == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYGENERATOR-CONSTR-01 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='the SecureRandom given to init() carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYGENERATOR-NOBS-01 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='init() expects a SecureRandom observed to come from an observed construction'"));
+        }
+    }
+
+    // the rule's i4.
+    event initRandomSpec before(KeyGenerator k, SecureRandom ranGen):
+      call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) &&
+      args(*, ranGen) &&
+      target(k) {
+        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, ranGen);
+        if (randomised == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYGENERATOR-CONSTR-02 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='the SecureRandom given to init() carries a randomization predicate the rule does not admit'"));
+        }
+        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYGENERATOR-NOBS-02 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='init() expects a SecureRandom observed to come from an observed construction'"));
+        }
+    }
 
     event gk1 after(KeyGenerator k) returning(SecretKey key):
       call(public SecretKey KeyGenerator.generateKey())
@@ -79,7 +148,7 @@ KeyGeneratorSpec(KeyGenerator k) {
         generatedKey = key;
     }
 
-    ere : (g3* g1+ | g3* g2+) ((init gk1) | gk1)
+    ere : (g3* g1+ | g3* g2+) (((init | initRandom | initRandomSize | initRandomSpec) gk1) | gk1)
 
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,

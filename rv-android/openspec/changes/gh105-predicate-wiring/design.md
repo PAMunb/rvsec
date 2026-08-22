@@ -464,7 +464,7 @@ Every F3/record task resolves against this table, not against family names.
 | 14 | KeyManagerFactory | `generatedKeyStore[keyStore]` | | | yes | wire | 5.9 |
 | 15 | KeyPair | `generatedPrivkey[consPriv]` | | | yes | wire | 5.6 |
 | 16 | KeyPair | `generatedPubkey[consPub]` | | | yes | wire | 5.6 |
-| 17 | KeyPairGenerator | `{DH} => preparedDH[params]` | | G | yes | wire | 5.8 |
+| 17 | KeyPairGenerator | `{DH} => preparedDH[params]` | | G | wireable, **not composable** | record `unreachable-composition` — the JCA refuses the only producing type at this call | 5.8 |
 | 18 | KeyPairGenerator | `{DSA} => preparedDSA[params]` | | G | no (no producer .mop) | record `unmonitored-producer` | 5.10 |
 | 19 | KeyPairGenerator | `{RSA} => preparedRSA[params]` | | G | no (no producer .mop) | record `unmonitored-producer` | 5.10 |
 | 20 | KeyPairGenerator | `{EC} => preparedEC[params]` | | G | non-connectable | record `unclosable` (no producing rule) | 5.8 |
@@ -486,7 +486,7 @@ Every F3/record task resolves against this table, not against family names.
 | 36 | TrustManagerFactory | `generatedKeyStore[keyStore]` | | | yes | wire | 5.9 |
 
 Totals: 25 wireable (incl. the 3 negated and the 1 vacuous), 10 non-wireable records,
-1 `unclosable` (`preparedEC`). Of the 25 wireable, **22 are wired**; the vacuous #30 is
+1 `unclosable` (`preparedEC`). Of the 25 wireable, **21 are wired**; the vacuous #30 is
 **recorded**, never wired — no event binds `sr`, so it can have no read site — and tasks 5.2 and
 5.3 moved two more out of the wired column on measurement (2026-08-22): #23 joins #30 as
 `vacuous`, because `output2` is bound only as an array the JCA allocates fresh and
@@ -498,6 +498,19 @@ a JVM no `Mac` of the rule's twelve-algorithm allow-list accepts its type. **Hav
 both ends is necessary and not sufficient**, and every remaining task of Group 5 should measure the
 composition rather than the two ends. The measurements are in
 `data/gh105/evidence/f3-MacChain.md`.
+Task 5.8 (2026-08-22) found the third such clause, which is why that rule is now stated as a rule rather
+than as an observation about `Mac`. **#17 leaves the wired column for the same record**:
+`DHGenParameterSpec` is the only rule of the whole api30 oracle that ENSURES `preparedDH` --
+`AlgorithmParameters` requires the predicate and ensures `preparedAlg` instead -- and the JCA will not put
+that object into the consuming call. Measured on Temurin 21,
+`KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))` raises
+`InvalidAlgorithmParameterException: Inappropriate parameter type`, while the same object into
+`AlgorithmParameterGenerator.getInstance("DH").init(...)` -- the consumer the class exists for, and one
+with no `.mop` in this set -- runs; a DH key pair is initialised from a `DHParameterSpec`, which no rule
+ensures. A read at `KeyPairGeneratorSpec.init3/init4` would therefore answer NOT_OBSERVED for every
+conforming DH program, of a preparation the program has no way to obtain. Recorded, not wired (researcher
+decision, 2026-08-22), which retires the producer's G-PRED2 line the way #21's did. The measurements are in
+`data/gh105/evidence/f3-RandomizedHubAndGuardedPrepared.md`.
 
 Dead-end `ENSURES`-only predicates are never required by any rule. The oracle has 12; **9 have
 their producing rule's `.mop` in the set** and are the ones this change must dispose of:

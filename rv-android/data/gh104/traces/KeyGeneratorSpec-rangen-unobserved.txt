@@ -1,0 +1,10 @@
+# The accusing half for clause #13, by the same route as
+# IvChainJunctionSpec-rangen-unobserved.txt: a `getInstance` the rule's CONSTRAINTS reject
+# leaves the SecureRandom automaton at `start`, `@match1` never runs, and no
+# `randomized[this]` is written for the object. The read at `initRandom` answers
+# NOT_OBSERVED and draws KEYGENERATOR-NOBS-00; SECURERANDOM-ALG-00 beside it is the
+# constraint that rejected the algorithm, reported by the specification that owns it.
+SecureRandom.getInstance("NativePRNG") -> bad
+KeyGenerator.getInstance("AES") -> kg
+kg.init(256, bad)
+kg.generateKey() -> k

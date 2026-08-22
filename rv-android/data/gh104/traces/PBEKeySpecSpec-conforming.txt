@@ -1,0 +1,15 @@
+# A PBEKeySpec that api30 accepts whole: the four-argument constructor, an iteration count
+# at or above the rule's 10000, and a salt an observed SecureRandom produced.
+#
+# The corpus had no such trace, and it could not have had one that stayed silent. Until
+# task 5.4 this file also read `randomized` over the `password`, a clause api30 does not
+# state and no rule of the oracle ensures over a `char[]` -- so PBEKEYSPEC-NOBS-00 fired at
+# every construction, this one included, and, because that read cleared the same `conforms`
+# flag that gates the `speccedKey` write, `SPECCED_KEY` was never written for any program
+# at all. This trace measures both halves of that repair: the file goes silent here, and
+# the write below it starts happening.
+bind salt = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(salt)
+new PBEKeySpec(chars, salt, 10000, 256) -> spec
+spec.clearPassword()

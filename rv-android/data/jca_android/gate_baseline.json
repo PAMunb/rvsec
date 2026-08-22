@@ -5,7 +5,7 @@
     "universe": 215,
     "read": 213,
     "skipped": 2,
-    "structural_findings": 6,
+    "structural_findings": 4,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -14,16 +14,6 @@
   },
   "gates": {
     "G-PRED2": [
-      [
-        "jca_android",
-        "DHGenParameterSpecSpec.mop",
-        "match/PREPARED_DH"
-      ],
-      [
-        "jca_android",
-        "GCMParameterSpecSpec.mop",
-        "match/PREPARED_GCM"
-      ],
       [
         "jca_android",
         "KeyManagerFactorySpec.mop",

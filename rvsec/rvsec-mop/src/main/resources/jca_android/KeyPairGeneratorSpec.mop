@@ -84,6 +84,36 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       target(k) &&
       condition(algorithm != null && validate(keySize)) { }
 
+    // `init3` and `init4` bind the `params` of api30's four guarded REQUIRES clauses --
+    // `{DH} => preparedDH[params]`, `{DSA} => preparedDSA[params]`,
+    // `{RSA} => preparedRSA[params]` and `{EC} => preparedEC[params]`
+    // (KeyPairGenerator.cryptsl:58-64, ledger #17, #18, #19, #20) -- and read none of
+    // them. Each of the four is recorded, and the reasons are three different ones:
+    //
+    // `preparedDSA` and `preparedRSA` have no producing rule with a `.mop` in this set,
+    // so there is nothing to read: `unmonitored-producer`, recorded with the other
+    // non-wireable clauses at task 5.10.
+    //
+    // `preparedEC` has no producing rule anywhere in the oracle -- api30 states it in
+    // this REQUIRES and in no ENSURES of any rule -- so no site could ever write it and
+    // a read here could only ever answer NOT_OBSERVED. `unclosable`.
+    //
+    // `preparedDH` is the one whose two ends both have a `.mop`, and the composition is
+    // still out of reach. Its only producing rule in the whole oracle is
+    // `DHGenParameterSpec` (`AlgorithmParameters` requires the predicate and ensures
+    // something else), and the JCA refuses to put that object into this call: measured
+    // on a JVM, `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))`
+    // raises `InvalidAlgorithmParameterException: Inappropriate parameter type`, while
+    // the same object into `AlgorithmParameterGenerator.getInstance("DH").init(...)`
+    // -- the consumer the class is for, and one with no `.mop` in this set -- runs. A
+    // DH key pair is initialised from a `DHParameterSpec`, which no rule ensures.
+    //
+    // So a read here would accuse every conforming DH program of an unobserved
+    // preparation it has no way to obtain. `unreachable-composition`, the disposition
+    // clause #21 established at task 5.2 -- having a `.mop` at both ends is necessary
+    // and not sufficient -- and it is why `DHGenParameterSpecSpec`'s write carries a
+    // deliberate-omission record instead of a reader (INV-INS-137, researcher decision
+    // 2026-08-22).
     event init3 after(AlgorithmParameterSpec params, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) &&
       args(params) &&
