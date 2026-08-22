@@ -670,6 +670,13 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       guards and the accepting-state calls at 0, the writes at 30, the single withdrawal
       -- and retired the three placement gates in `gate_baseline.json`, so that a
       regeneration can no longer re-record what tasks 4.12 and 4.14 removed.
+    * task 5.1 moves the reads, 14 -> 15, and moves nothing else. It is the first task of
+      the change that adds a specification instead of editing one: `IvChainJunction.mop`
+      carries the consumer read of api30 Cipher's guarded `preparedIV[params]` clause,
+      which had a producer in the set since task 4.4 and no reader. The writes stay at
+      30 because the file writes nothing -- the rule states no ENSURES clause it could
+      translate -- and the guards stay at 0 because the clause's antecedent is evaluated
+      in the event body ahead of the read, not in a `condition(...)`.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -685,7 +692,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 14
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 15
     assert read_placement.get("condition", 0) == 0
     assert counts.get("write", 0) == 30
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
@@ -886,6 +893,13 @@ def test_the_graph_reproduces_the_measured_placement_census():
     * task 4.15 moved no row of the graph. It has no `.mop` edit and no `--emit`: what it
       did was read these counts back off the file and retire the gates that measure them,
       so the graph and this census still meet at 45 rows.
+    * task 5.1 adds the graph's 46th row and moves one number: `read:body` 14 -> 15. The
+      row is `IvChainJunction.mop/use`, the consumer read of api30 Cipher.cryptsl:182,
+      and it is the first row of the graph to carry a `guard` -- the clause is an
+      implication, and its antecedent is evaluated in the event body ahead of the read
+      rather than in a `condition(...)`, which is what INV-INS-133 asks of the eight
+      guarded clauses. Nothing else moves: the file writes no predicate, withdraws none,
+      and calls no bookkeeping.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -893,7 +907,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
-    assert counts.get("read:body", 0) == 14
+    assert counts.get("read:body", 0) == 15
     assert counts.get("write:body", 0) == 7
     assert counts.get("write:acceptance", 0) == 23
     assert counts.get("remove:fail", 0) == 0
@@ -1318,6 +1332,17 @@ def test_gparam_is_green_over_the_set_as_it_stands():
     The gate is written before the first one exists, so this assertion is what
     says the gate is quiet on the tree it will guard -- and the day it goes red is
     the day a junction specification was written the wrong way.
+
+    The skip is asserted and not merely tolerated. `results/gh51_e2e_test/monitors`
+    is a committed fixture generated before this change, so a specification the
+    change adds has no `.rvm` there and the gate passes over it declaredly --
+    which would quietly empty the promise above for exactly the files it was
+    written for. Naming the skipped file keeps the census honest: 23 compared, one
+    skipped for want of a generated artifact, and a second unmonitored file breaks
+    this test instead of disappearing into the count. `IvChainJunction.mop`
+    (task 5.1) declares one parameter, `Cipher c`, and no array; that it slices by
+    it was read off the generated monitor's `IvChainJunctionSpec_c_Map` rather than
+    inferred from this gate.
     """
     monitors = REPO / "results/gh51_e2e_test/monitors"
     if not monitors.is_dir():
@@ -1326,6 +1351,7 @@ def test_gparam_is_green_over_the_set_as_it_stands():
     result = gh105_param_gate.run(_specs_root(), monitors, "jca_android")
     assert result.findings == []
     assert len(result.passed) == 23
+    assert [name for name, _ in result.skipped] == ["jca_android/IvChainJunction"]
 
 
 # ------------------------------------------------ the gates under the CI contract

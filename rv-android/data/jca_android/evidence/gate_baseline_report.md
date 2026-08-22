@@ -10,11 +10,11 @@ regression lands as a finding nobody recorded. Task 7.6 deletes the mechanism on
 | set | files | read | skipped | predicate sites |
 |---|---|---|---|---|
 | `jca` | 23 | 22 | 1 | 106 |
-| `jca_android` | 23 | 23 | 0 | 45 |
+| `jca_android` | 24 | 24 | 0 | 46 |
 | `jca_android_bug_predicate` | 23 | 22 | 1 | 147 |
 | `generic` | 118 | 118 | 0 | 0 |
 | `generic_new` | 27 | 27 | 0 | 0 |
-| **total** | **214** | **212** | **2** | | 
+| **total** | **215** | **213** | **2** | | 
 
 Every skipped file carries its reason:
 
@@ -26,8 +26,8 @@ Every skipped file carries its reason:
 | gate | findings |
 |---|---|
 | G-ORDER | 4 |
-| G-PRED2 | 10 |
-| **failing total** | **14** |
+| G-PRED2 | 9 |
+| **failing total** | **13** |
 
 Informative (reported in sets these gates do not govern): 21. Allow-listed (permanent, with reasons): 0.
 
@@ -63,7 +63,7 @@ expectation. `--write` carries these forward and never re-baselines them.
 
 ## G-ORDER
 
-6 specifications equivalent to their api30 rule, 4 divergent, 204 skipped of 214 enumerated. Each divergence carries the shortest word the two languages disagree on:
+6 specifications equivalent to their api30 rule, 4 divergent, 205 skipped of 215 enumerated. Each divergence carries the shortest word the two languages disagree on:
 
 - `jca_android/CipherSpec` — `f2` is accepted by the api30 ORDER and rejected by the specification
 - `jca_android/SSLContextSpec` — `g1 Init se1 se1` is accepted by the specification and rejected by the api30 ORDER

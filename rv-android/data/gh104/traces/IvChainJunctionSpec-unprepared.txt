@@ -1,0 +1,22 @@
+# The violating side of clause #9: the same program with the one line that randomises the
+# iv removed. `IvParameterSpec.@match` writes `preparedIV[this]` only for a construction
+# whose `randomized[iv]` read answered SATISFIED, so nothing prepares this spec and the
+# Cipher read finds no entry for it.
+#
+# The verdict is NOT_OBSERVED and not VIOLATED, and that is the whole truth about this
+# predicate: `PREPARED_IV` is written at arity 1 and negated nowhere in the set, so there
+# is no program that can make `validate` answer VIOLATED for it. The pair's violating side
+# is therefore the not-observed one, declared rather than manufactured.
+#
+# This trace is also where the cascade the IvParameterSpec file predicted at task 4.4 gets
+# measured: one reach limit on the iv now costs two reports, IVPARAMETERSPEC-NOBS-00 at the
+# construction and IVCHAIN-NOBS-00 at the init.
+bind iv = bytes(16)
+bind km = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k, spec)
+c.doFinal(bytes)

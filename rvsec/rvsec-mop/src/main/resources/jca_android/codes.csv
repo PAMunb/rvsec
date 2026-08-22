@@ -15,6 +15,8 @@ GCMParameterSpecSpec,GCMPARAMETERSPEC-CONSTR-03,UnsatisfiedConstraint,CONSTR,c2,
 GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-01,UnsatisfiedConstraint,NOBS,c2,GCMParameterSpecSpec.mop:118
 GCMParameterSpecSpec,GCMPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,GCMParameterSpecSpec.mop:136
 HMACParameterSpecSpec,HMACPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,HMACParameterSpecSpec.mop:29
+IvChainJunctionSpec,IVCHAINJUNCTION-CONSTR-00,UnsatisfiedConstraint,CONSTR,use,IvChainJunction.mop:113
+IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-00,UnsatisfiedConstraint,NOBS,use,IvChainJunction.mop:117
 IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,IvParameterSpec.mop:68
 IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,UnsatisfiedConstraint,NOBS,c1,IvParameterSpec.mop:72
 IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c2,IvParameterSpec.mop:108

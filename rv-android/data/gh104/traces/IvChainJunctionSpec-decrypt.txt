@@ -1,0 +1,17 @@
+# The guard control. Clause #9 is an implication, and its antecedent has two conjuncts:
+# the mode must be one of {CBC,CTS,CTR,CFB,PCBC,OFB} *and* `encmode == 1`. This trace is
+# IvChainJunctionSpec-unprepared.txt with `encmode` at 2, so the antecedent is false and
+# the rule requires nothing of `params`.
+#
+# It is the control the sonda discipline asks for: the unprepared trace above must accuse
+# and this one must not, in the same loader, for the guard to be measuring anything. If
+# both accused, the read would be ignoring the clause it claims to translate.
+bind iv = bytes(16)
+bind km = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(2, k, spec)
+c.doFinal(bytes)

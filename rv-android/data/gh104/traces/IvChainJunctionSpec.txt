@@ -1,0 +1,24 @@
+# The IV chain observed at both ends, conforming. api30 Cipher REQUIRES
+# `part(1,"/",transformation) in {CBC,CTS,CTR,CFB,PCBC,OFB} && encmode == 1 =>
+# preparedIV[params]` (Cipher.cryptsl:182, ledger clause #9), and api30 IvParameterSpec
+# ENSURES `preparedIV[this]` (IvParameterSpec.cryptsl:33). Nothing here is a defect: the
+# iv comes from an observed SecureRandom, the IvParameterSpec is built over it, and the
+# Cipher is initialised for encryption under a transformation whose mode the clause names.
+#
+# The key is observed too, and deliberately: `CipherSpec.i2` reads the key-origin clause
+# on the same call, so a key bound silently would draw CIPHER-NOBS-00 and the trace would
+# stop being about clause #9. This is the shape SecretKeySpecSpec-cipher-chain.txt pinned
+# at task 4.10.
+#
+# The two `nextBytes` calls on one SecureRandom are a sequence api30 accepts -- ORDER ends
+# in `Ends*` -- and the `end` state carries `next2` since task 4.5.
+bind iv = bytes(16)
+bind km = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k, spec)
+c.doFinal(bytes)

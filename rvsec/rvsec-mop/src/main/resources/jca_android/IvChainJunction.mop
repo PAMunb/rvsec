@@ -1,0 +1,151 @@
+package mop;
+
+import java.security.Key;
+import java.security.spec.AlgorithmParameterSpec;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import javax.crypto.Cipher;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.CipherTransformationUtil;
+
+/**
+ * IvChainJunctionSpec
+ *
+ * The consumer half of the IV chain: api30 Cipher's guarded clause
+ * `part(1,"/",transformation) in {CBC, CTS, CTR, CFB, PCBC, OFB} && encmode == 1
+ * => preparedIV[params]` (Cipher.cryptsl:182, ledger clause #9).
+ *
+ * This file exists because `CipherSpec` cannot hold the read. The clause binds
+ * `params`, and `CipherSpec.i2` is declared `call(public void Cipher.init(int, Key, ..))
+ * && args(mode, key, ..)` -- one event standing for the rule's i3 to i8, which does not
+ * bind the third argument. Narrowing `i2` to bind it would drop the two-argument
+ * initialisations out of the automaton, and adding an event is not available either:
+ * `CipherSpec` declares exactly 17, which is the generator's ceiling (INV-INS-145,
+ * n=18 raises StackOverflowError in the enable-set parser at any heap). A separate
+ * specification is the only site left where the third argument can be bound.
+ *
+ * It is not a chain junction in the sense of INV-INS-136, and the name is kept because
+ * the chain may yet become one. Mechanism B carries identity through the runtime's own
+ * parametric slicing, which is worth its cost when the chain's links are otherwise
+ * unobservable -- but this chain's first link is already carried by the store: task 4.4
+ * put `randomized[iv]` (clause #12) in `IvParameterSpec.c1/c2` and task 4.5 put its
+ * producer in `SecureRandomSpec.@match2`. A junction over `gen`/`mk` here would be a
+ * second accuser of a clause that already has one, which the ledger forbids. So this
+ * file wires the one link that has no reader, and clause #12 stays where Group 4 put it.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/Cipher.crysl
+ */
+IvChainJunctionSpec(Cipher c) {
+
+    // `part(1,"/",transformation) in {...}` of the clause's antecedent, transcribed
+    // from Cipher.cryptsl:182. It is a list here and not a call into
+    // Api30CipherTransformationUtil because that class answers a different question:
+    // whether the whole transformation is one the rule admits. This clause asks only
+    // which mode was named, and admits modes the CONSTRAINTS may reject -- an
+    // unsupported mode is a separate report from `CipherSpec`, not a reason to stop
+    // requiring an IV.
+    List<String> ivModes = Arrays.asList("CBC", "CTS", "CTR", "CFB", "PCBC", "OFB");
+
+    String expectedPreparedIv = "an IvParameterSpec built over an observed randomized iv";
+
+    // The envelope's quoting rule (gh104 design D-3), the same three lines every
+    // reporting specification of the set carries.
+    private String q(String s) {
+        if (s == null) {
+            return "";
+        }
+        String value = s.length() > 512 ? s.substring(0, 512) : s;
+        return value.replace("'", "\\'");
+    }
+
+    // The clause is an implication, so the antecedent decides whether anything is
+    // required at all, and it is evaluated in the body before the read (INV-INS-133,
+    // design D-4: the 8 guarded clauses evaluate their guard in the body). A false
+    // antecedent must leave no trace -- not a silent verdict, not a suppressed
+    // transition -- because the rule asks nothing of `params` there.
+    //
+    // `part(1,"/",transformation)` is read off `c.getAlgorithm()`, which returns the
+    // transformation string `getInstance` was given, verbatim. Two things make that
+    // safe to split: `getInstance` rejects a malformed transformation before any
+    // Cipher exists (`Cipher.getInstance("AES/")` raises NoSuchAlgorithmException,
+    // "Invalid transformation format"), so what reaches `init` was already accepted;
+    // and the advice is `before`, on an object `getInstance` returned. The comparison
+    // folds case because the rule's own value comparisons do.
+    //
+    // The read is three-valued and the two accusing outcomes carry different codes,
+    // as they do at the thirteen other reads of the set. What differs here is that
+    // VIOLATED has no program that can produce it *today*: `PREPARED_IV` is written
+    // at arity 1 by `IvParameterSpec.@match` and negated nowhere, so `validate` can
+    // only answer SATISFIED or NOT_OBSERVED for it. The branch is written anyway,
+    // and this is the record of why rather than a claim that it fires: a predicate
+    // gains a `negate` the day some rule's NEGATES clause is wired to it, and a read
+    // that had silently folded VIOLATED into NOT_OBSERVED would then report a
+    // withdrawn preparation as an unobserved one.
+    //
+    // What this read costs is a cascade, and it is the question `IvParameterSpec.mop`
+    // left open at task 4.4 in as many words -- "whoever gives it a reader through the
+    // store owns that question". `@match` there writes `preparedIV[this]` only for a
+    // construction whose own `randomized[iv]` read answered SATISFIED, so an iv the
+    // instrumentation never saw randomised produces no preparation, and the same reach
+    // limit is now reported twice: IVPARAMETERSPEC-NOBS-00 at the construction and
+    // IVCHAINJUNCTION-NOBS-00 here. Measured on the pair: the unprepared trace goes
+    // from one report to two, and the conforming trace stays silent. The alternative --
+    // preparing on NOT_OBSERVED so the limit costs one report instead of two -- would
+    // make an IvParameterSpec of unknown origin satisfy this clause, which is a
+    // behavioural change to a ratified decision and not this task's to make.
+    event use before(int encmode, AlgorithmParameterSpec params, Cipher c):
+      call(public void Cipher.init(int, Key, AlgorithmParameterSpec, ..)) &&
+      args(encmode, *, params, ..) &&
+      target(c) {
+        String transformation = c.getAlgorithm();
+        String operationMode = CipherTransformationUtil.mode(transformation);
+        boolean ivRequired = encmode == 1
+            && operationMode != null
+            && ivModes.contains(operationMode.trim().toUpperCase(Locale.ROOT));
+        if (ivRequired) {
+            PredicateVerdict prepared = PredicateStore.instance().validate(Property.PREPARED_IV, params);
+            if (prepared == PredicateVerdict.VIOLATED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                    "v=1 code=IVCHAINJUNCTION-CONSTR-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedIv) + "' msg='the AlgorithmParameterSpec given to Cipher.init carries a preparation predicate the rule does not admit'"));
+            }
+            else if (prepared == PredicateVerdict.NOT_OBSERVED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                    "v=1 code=IVCHAINJUNCTION-NOBS-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedIv) + "' msg='no preparation of the AlgorithmParameterSpec given to Cipher.init was observed'"));
+            }
+        }
+    }
+
+    // `use*` accepts every sequence of the one event it declares, which is the whole
+    // claim this file makes about ordering: none. The ordering of `Cipher` is
+    // `CipherSpec`'s, stated against the rule's own ORDER, and a second automaton over
+    // a subset of the same calls could only accuse the same program twice. The `fail`
+    // state is therefore unreachable by construction -- measured on the generated
+    // monitor, whose `transition_use` sends state 0 to state 0 -- and the file carries
+    // no ORDER code, because there is no site that could emit one. G-ORDER skips this
+    // file declaredly, for want of a row in `order_alphabet_map.csv`, and the skip is
+    // right here rather than concealing: no api30 rule states an ORDER this file
+    // translates, so there is nothing for the gate to compare against.
+    //
+    // The `@match` below is empty on purpose, and it is there because JavaMOP requires
+    // at least one handler -- a specification whose `ere` is followed directly by the
+    // closing brace does not parse. Nor may a brace be written unmatched in prose here:
+    // the lint balances them over the whole file, comments included, so the sentence
+    // above says "closing brace" where it wants to show one. The accusation belongs in
+    // the event body, where `params` is in
+    // scope: a handler is generated as a no-argument method and sees no event parameter
+    // (INV-INS-136(d)). And there is nothing for the accepting state to ensure, because
+    // the rule states no ENSURES clause this file could translate.
+    //
+    // Nothing may be written between the `ere` line and the first `@handler`: the lint
+    // reads whatever sits there as part of the expression, and a comment block becomes
+    // sixty undeclared symbols and one unbalanced brace.
+    ere : use*
+
+    @match {
+    }
+}
