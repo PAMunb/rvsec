@@ -1,0 +1,13 @@
+SPEC java.lang.StringBuilder
+
+OBJECTS
+  java.lang.String s;
+  java.lang.String out;
+
+EVENTS
+  con: StringBuilder(s);
+  a: append(s);
+  t: out = toString();
+
+ORDER
+  con, (a, t) | (a, a)

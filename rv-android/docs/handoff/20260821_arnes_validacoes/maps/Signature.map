@@ -1,0 +1,14 @@
+spec: SignatureSpec
+rule: Signature.crysl
+creation: g1 g2
+g1 -> java.security.Signature.getInstance(java.lang.String)
+g2 -> java.security.Signature.getInstance(java.lang.String, AnyType)
+i1 -> java.security.Signature.initSign(java.security.PrivateKey)
+i2 -> java.security.Signature.initSign(java.security.PrivateKey, AnyType)
+i3 -> java.security.Signature.initVerify(java.security.cert.Certificate)
+i4 -> java.security.Signature.initVerify(java.security.PublicKey)
+update -> java.security.Signature.update(byte) | java.security.Signature.update(byte[]) | java.security.Signature.update(byte[], int, int) | java.security.Signature.update(java.nio.ByteBuffer)
+s1 -> java.security.Signature.sign()
+s2 -> java.security.Signature.sign(byte[], int, int)
+v1 -> java.security.Signature.verify(byte[])
+v2 -> java.security.Signature.verify(byte[], int, int)

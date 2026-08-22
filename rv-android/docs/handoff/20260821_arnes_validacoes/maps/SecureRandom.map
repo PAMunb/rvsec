@@ -1,0 +1,17 @@
+spec: SecureRandomSpec
+rule: SecureRandom.crysl
+creation: c1 c2 g1 g2 g3 g4
+crysl-erase: java.security.SecureRandom.next(int)
+c1 -> java.security.SecureRandom()
+c2 -> java.security.SecureRandom(byte[])
+g1 -> java.security.SecureRandom.getInstance(java.lang.String)
+g2 -> java.security.SecureRandom.getInstance(java.lang.String, AnyType)
+g3 -> java.security.SecureRandom.getInstanceStrong()
+g4 -> EPSILON
+setSeed1 -> java.security.SecureRandom.setSeed(long)
+setSeed2 -> java.security.SecureRandom.setSeed(byte[])
+genSeed -> java.security.SecureRandom.generateSeed(int)
+next1 -> EPSILON
+next2 -> java.security.SecureRandom.nextBytes(byte[])
+next3 -> EPSILON
+ints -> EPSILON

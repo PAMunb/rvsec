@@ -1,0 +1,43 @@
+package mop;
+
+import java.security.MessageDigest;
+import java.util.Arrays;
+import java.util.List;
+
+GuardFieldSpec(MessageDigest md) {
+
+   List<String> algorithms = Arrays.asList("SHA-256", "SHA-512");
+   String currentAlgorithmInstance = "";
+
+   // replica exata da forma do MessageDigestSpec: g1 guarda no argumento, g4 no campo
+   event g1 after(String alg) returning(MessageDigest md):
+     call(public static MessageDigest MessageDigest.getInstance(String))
+     && args(alg) && condition(algorithms.contains(alg)) {
+        System.out.println("[EV] g1 monitor=" + System.identityHashCode(this) + " alg=" + alg
+            + " campoAntes='" + currentAlgorithmInstance + "'");
+        currentAlgorithmInstance = alg;
+   }
+
+   event g4 after(String alg) returning(MessageDigest md):
+     call(public static MessageDigest MessageDigest.getInstance(String))
+     && args(alg) && condition(!algorithms.contains(currentAlgorithmInstance)) {
+        System.out.println("[EV] g4 monitor=" + System.identityHashCode(this) + " alg=" + alg
+            + " campoAntes='" + currentAlgorithmInstance + "'");
+        currentAlgorithmInstance = alg;
+   }
+
+   event d after(MessageDigest md) returning(byte[] out):
+     call(public byte[] MessageDigest.digest()) && target(md) {
+        System.out.println("[EV] d  monitor=" + System.identityHashCode(this));
+   }
+
+   ere : g4* g1 d
+
+   @fail {
+      System.out.println("[FAIL ] monitor=" + System.identityHashCode(this) + " ev=" + __EVENTNAME);
+      __RESET;
+   }
+   @match {
+      System.out.println("[MATCH] monitor=" + System.identityHashCode(this) + " ev=" + __EVENTNAME);
+   }
+}

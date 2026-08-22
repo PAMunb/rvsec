@@ -1,0 +1,11 @@
+spec: MessageDigestSpec
+rule: MessageDigest.crysl
+creation: g1 g2 g3 g4
+g1 -> java.security.MessageDigest.getInstance(java.lang.String)
+g2 -> java.security.MessageDigest.getInstance(java.lang.String, AnyType)
+g3 -> java.security.MessageDigest.getInstance(java.lang.String, AnyType)
+g4 -> EPSILON
+update -> java.security.MessageDigest.update(byte) | java.security.MessageDigest.update(byte[]) | java.security.MessageDigest.update(byte[], int, int) | java.security.MessageDigest.update(java.nio.ByteBuffer)
+d1 -> java.security.MessageDigest.digest()
+d2 -> java.security.MessageDigest.digest(byte[])
+d3 -> java.security.MessageDigest.digest(byte[], int, int)

@@ -1,0 +1,51 @@
+package mop;
+
+import javax.crypto.spec.GCMParameterSpec;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
+
+GCMParameterSpecSpec(GCMParameterSpec s) {
+
+    GCMParameterSpec spec;
+    creation event c1 after(int tLen, byte[] src)returning(GCMParameterSpec s) :call(public GCMParameterSpec.new(int, byte[])) && args(tLen, src){
+        boolean conforms = true;
+        if (!(java.util.Arrays.asList(128, 120, 96, 112, 104).contains(tLen))) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC, "v=1 code=GCMPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='" + tLen + "' exp='one of {128, 120, 96, 112, 104}' msg='expecting one of {128, 120, 96, 112, 104} but found " + tLen + "'"));
+            conforms = false;
+        }
+        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, src)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC, "v=1 code=GCMPARAMETERSPEC-REQ-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='randomized[src]' msg='the rule requires randomized[src]'"));
+            conforms = false;
+        }
+        if (conforms) {
+            spec = s;
+        }
+    }
+    creation event c2 after(int tLen, byte[] src, int offset, int len)returning(GCMParameterSpec s) :call(public GCMParameterSpec.new(int, byte[], int, int)) && args(tLen, src, offset, len){
+        boolean conforms = true;
+        if (!(java.util.Arrays.asList(128, 120, 96, 112, 104).contains(tLen))) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC, "v=1 code=GCMPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='" + tLen + "' exp='one of {128, 120, 96, 112, 104}' msg='expecting one of {128, 120, 96, 112, 104} but found " + tLen + "'"));
+            conforms = false;
+        }
+        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, src)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC, "v=1 code=GCMPARAMETERSPEC-REQ-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='randomized[src]' msg='the rule requires randomized[src]'"));
+            conforms = false;
+        }
+        if (conforms) {
+            spec = s;
+        }
+    }
+    ere: (c1 | c2)
+    @fail
+        {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "GCMParameterSpecSpec", "" + __LOC, "v=1 code=GCMPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='' msg='the observed call sequence is not one GCMParameterSpecSpec accepts'"));
+            __RESET;
+        }
+    @match
+        {
+            ExecutionContext.instance().setProperty(Property.PREPARED_GCM, spec);
+            ExecutionContext.instance().setObjectAsInAcceptingState(spec);
+        }
+}
+

@@ -1,0 +1,8 @@
+spec: KeyGeneratorSpec
+rule: KeyGenerator.crysl
+creation: g1 g2 g3
+g1 -> javax.crypto.KeyGenerator.getInstance(java.lang.String)
+g2 -> javax.crypto.KeyGenerator.getInstance(java.lang.String, AnyType)
+g3 -> EPSILON
+init -> javax.crypto.KeyGenerator.init(int) | javax.crypto.KeyGenerator.init(int, java.security.SecureRandom) | javax.crypto.KeyGenerator.init(java.security.spec.AlgorithmParameterSpec) | javax.crypto.KeyGenerator.init(java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom) | javax.crypto.KeyGenerator.init(java.security.SecureRandom)
+gk1 -> javax.crypto.KeyGenerator.generateKey()

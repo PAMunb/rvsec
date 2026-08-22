@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec</artifactId>
+		<version>0.9.3-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>rvsec-crysl</artifactId>
+	<packaging>pom</packaging>
+	<name>RVSec CrySL conformance</name>
+
+	<properties>
+		<!-- O reator pina Guava 19.0 por causa do Soot; este componente nao usa Soot e o
+		     CrySLParser 4.0.6 traz Guava 33.5.0-jre. A propriedade e herdada por valor,
+		     entao sobrescrever aqui basta: o dependencyManagement da raiz e property-driven. -->
+		<guava.version>33.5.0-jre</guava.version>
+		<crysl.version>4.0.6</crysl.version>
+		<gson.version>2.13.1</gson.version>
+	</properties>
+
+	<modules>
+		<module>rvsec-crysl-core</module>
+		<module>rvsec-crysl-mop</module>
+		<module>rvsec-crysl-crysl</module>
+	</modules>
+</project>

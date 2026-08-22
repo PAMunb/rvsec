@@ -1,0 +1,38 @@
+package mop;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+
+CoFireSpec(KeyGenerator k) {
+
+   String seen = "";
+
+   creation event g after(String alg) returning(KeyGenerator k):
+     call(public static KeyGenerator KeyGenerator.getInstance(String)) &&
+     args(alg) {
+        System.out.println("[EV] g  monitor=" + System.identityHashCode(this) + " kg=" + System.identityHashCode(k));
+   }
+
+   creation event h after(String alg) returning(KeyGenerator k):
+     call(public static KeyGenerator KeyGenerator.getInstance(String)) &&
+     args(alg) {
+        System.out.println("[EV] h  monitor=" + System.identityHashCode(this) + " kg=" + System.identityHashCode(k));
+   }
+
+   event gk after(KeyGenerator k) returning(SecretKey key):
+     call(public SecretKey KeyGenerator.generateKey()) &&
+     target(k) {
+        System.out.println("[EV] gk monitor=" + System.identityHashCode(this) + " kg=" + System.identityHashCode(k));
+   }
+
+   ere : g h gk
+
+   @fail {
+      System.out.println("[FAIL ] monitor=" + System.identityHashCode(this) + " ev=" + __EVENTNAME);
+      __RESET;
+   }
+
+   @match {
+      System.out.println("[MATCH] monitor=" + System.identityHashCode(this) + " ev=" + __EVENTNAME);
+   }
+}

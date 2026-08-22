@@ -1,0 +1,62 @@
+package mop;
+
+import javax.crypto.Cipher;
+import java.security.Key;
+
+SwapProbeSpec(Cipher c) {
+
+   creation event g1 after(String t) returning(Cipher c):
+     call(public static Cipher Cipher.getInstance(String)) &&
+     args(t) {
+        System.out.println("[EV] g1");
+   }
+
+   event i2 after(Cipher c, int mode, Key k):
+     call(public void Cipher.init(int, java.security.Key)) &&
+     args(mode, k) && target(c) {
+        System.out.println("[EV] i2");
+   }
+
+   event u1 after(Cipher c) returning(byte[] part):
+     call(public byte[] Cipher.update(byte[])) &&
+     target(c) {
+        System.out.println("[EV] u1");
+   }
+
+   event f2 after(Cipher c) returning(byte[] ct):
+     call(public byte[] Cipher.doFinal(..)) &&
+     target(c) {
+        System.out.println("[EV] f2");
+   }
+
+   event f1 after(Cipher c) returning(byte[] ct):
+     call(public byte[] Cipher.doFinal()) &&
+     target(c) {
+        System.out.println("[EV] f1");
+   }
+
+   fsm :
+     start [
+       g1 -> s1
+     ]
+     s1 [
+       i2 -> s2
+     ]
+     s2 [
+       f2 -> end
+       u1 -> s3
+     ]
+     s3 [
+       f1 -> end
+       f2 -> end
+     ]
+     end [
+       f2 -> end
+       u1 -> s3
+     ]
+
+   alias match1 = end
+
+   @fail  { System.out.println("   >>> [FAIL ] ev=" + __EVENTNAME); __RESET; }
+   @match1 { System.out.println("   >>> [MATCH] ev=" + __EVENTNAME); }
+}

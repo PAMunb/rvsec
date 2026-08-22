@@ -1,0 +1,2190 @@
+[
+  {
+    "kind": "mop",
+    "source": "CipherInputStreamSpec.mop",
+    "spec": "CipherInputStreamSpec",
+    "params": [],
+    "events": [
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public CipherInputStream.new(InputStream, Cipher))",
+        "purePointcut": "call(public CipherInputStream.new(InputStream, Cipher))",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public CipherInputStream.new(InputStream, Cipher)"
+        ]
+      },
+      {
+        "id": "r1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int CipherInputStream.read()) || call(public int CipherInputStream.read(byte[]))",
+        "purePointcut": "call(public int CipherInputStream.read()) || call(public int CipherInputStream.read(byte[]))",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public int CipherInputStream.read()",
+          "call public int CipherInputStream.read(byte[])"
+        ]
+      },
+      {
+        "id": "r2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int CipherInputStream.read(byte[], int, int)) \u0026\u0026 args(arr, offset, len)",
+        "purePointcut": "call(public int CipherInputStream.read(byte[], int, int)) \u0026\u0026 args(arr, offset, len)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public int CipherInputStream.read(byte[], int, int)"
+        ]
+      },
+      {
+        "id": "cl1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void CipherInputStream.close())",
+        "purePointcut": "call(public void CipherInputStream.close())",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void CipherInputStream.close()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " c1 (r1 | r2)+ cl1\n\n    ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"CipherInputStreamSpec\", \"\" + __LOC, \"v\u003d1 code\u003dCIPHERINPUTSTREAM-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dCipherInputStream val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one CipherInputStreamSpec accepts\u0027\"));\n    __RESET;\n}"
+        }
+      }
+    ],
+    "declarations": []
+  },
+  {
+    "kind": "mop",
+    "source": "CipherOutputStreamSpec.mop",
+    "spec": "CipherOutputStreamSpec",
+    "params": [],
+    "events": [
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public CipherOutputStream.new(OutputStream, Cipher))",
+        "purePointcut": "call(public CipherOutputStream.new(OutputStream, Cipher))",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public CipherOutputStream.new(OutputStream, Cipher)"
+        ]
+      },
+      {
+        "id": "w1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void CipherOutputStream.write(int)) || call(public void CipherOutputStream.write(byte[]))",
+        "purePointcut": "call(public void CipherOutputStream.write(int)) || call(public void CipherOutputStream.write(byte[]))",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void CipherOutputStream.write(int)",
+          "call public void CipherOutputStream.write(byte[])"
+        ]
+      },
+      {
+        "id": "w2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void CipherOutputStream.write(byte[], int, int)) \u0026\u0026 args(b, off, len)",
+        "purePointcut": "call(public void CipherOutputStream.write(byte[], int, int)) \u0026\u0026 args(b, off, len)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void CipherOutputStream.write(byte[], int, int)"
+        ]
+      },
+      {
+        "id": "fl",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void CipherOutputStream.flush())",
+        "purePointcut": "call(public void CipherOutputStream.flush())",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void CipherOutputStream.flush()"
+        ]
+      },
+      {
+        "id": "cl",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void CipherOutputStream.close())",
+        "purePointcut": "call(public void CipherOutputStream.close())",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void CipherOutputStream.close()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " c1 (w1 | w2 | fl)+ cl\n\n    ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"CipherOutputStreamSpec\", \"\" + __LOC, \"v\u003d1 code\u003dCIPHEROUTPUTSTREAM-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dCipherOutputStream val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one CipherOutputStreamSpec accepts\u0027\"));\n    __RESET;\n}"
+        }
+      }
+    ],
+    "declarations": []
+  },
+  {
+    "kind": "mop",
+    "source": "CipherSpec.mop",
+    "spec": "CipherSpec",
+    "params": [
+      {
+        "type": "Cipher",
+        "name": "c"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static Cipher Cipher.getInstance(String)) \u0026\u0026 args(transformation) \u0026\u0026 condition(isValid(transformation))",
+        "purePointcut": "call(public static Cipher Cipher.getInstance(String)) \u0026\u0026 args(transformation)",
+        "condition": "isValid(transformation)",
+        "hasReturning": true,
+        "body": "{\n    currentTransformation \u003d transformation;\n}",
+        "callSignatures": [
+          "call public static Cipher Cipher.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static Cipher Cipher.getInstance(String, Object+)) \u0026\u0026 args(transformation, provider) \u0026\u0026 condition(isValid(transformation))",
+        "purePointcut": "call(public static Cipher Cipher.getInstance(String, Object+)) \u0026\u0026 args(transformation, provider)",
+        "condition": "isValid(transformation)",
+        "hasReturning": true,
+        "body": "{\n    currentTransformation \u003d transformation;\n}",
+        "callSignatures": [
+          "call public static Cipher Cipher.getInstance(String, Object+)"
+        ]
+      },
+      {
+        "id": "g3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static Cipher Cipher.getInstance(String)) \u0026\u0026 args(transformation) \u0026\u0026 condition(!isValid(transformation))",
+        "purePointcut": "call(public static Cipher Cipher.getInstance(String)) \u0026\u0026 args(transformation)",
+        "condition": "!isValid(transformation)",
+        "hasReturning": true,
+        "body": "{\n    currentTransformation \u003d transformation;\n}",
+        "callSignatures": [
+          "call public static Cipher Cipher.getInstance(String)"
+        ]
+      },
+      {
+        "id": "i1",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void Cipher.init(int, Certificate, ..)) \u0026\u0026 args(mode, cert, ..) \u0026\u0026 target(c)",
+        "purePointcut": "call(public void Cipher.init(int, Certificate, ..)) \u0026\u0026 args(mode, cert, ..) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    if (!isValid(c.getAlgorithm())) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"CipherSpec\", \"\" + __LOC, \"v\u003d1 code\u003dCIPHER-ALG-00 ev\u003d\" + __EVENTNAME + \" obj\u003dCipher val\u003d\u0027\" + q(c.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(expectedTransformations) + \"\u0027 msg\u003d\u0027expecting \" + expectedTransformations + \" but found \" + c.getAlgorithm() + \"\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call public void Cipher.init(int, Certificate, ..)"
+        ]
+      },
+      {
+        "id": "i2",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void Cipher.init(int, Key, ..)) \u0026\u0026 args(mode, key, ..) \u0026\u0026 target(c)",
+        "purePointcut": "call(public void Cipher.init(int, Key, ..)) \u0026\u0026 args(mode, key, ..) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    PredicateVerdict asSecretKey \u003d PredicateStore.instance().validate(Property.GENERATED_KEY, key);\n    PredicateVerdict asPublicKey \u003d PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, key);\n    PredicateVerdict asPrivateKey \u003d PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, key);\n    PredicateVerdict origin \u003d PredicateVerdict.NOT_OBSERVED;\n    if (asSecretKey \u003d\u003d PredicateVerdict.SATISFIED || asPublicKey \u003d\u003d PredicateVerdict.SATISFIED || asPrivateKey \u003d\u003d PredicateVerdict.SATISFIED) {\n        origin \u003d PredicateVerdict.SATISFIED;\n    } else if (asSecretKey \u003d\u003d PredicateVerdict.VIOLATED || asPublicKey \u003d\u003d PredicateVerdict.VIOLATED || asPrivateKey \u003d\u003d PredicateVerdict.VIOLATED) {\n        origin \u003d PredicateVerdict.VIOLATED;\n    }\n    if (origin \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"CipherSpec\", \"\" + __LOC, \"v\u003d1 code\u003dCIPHER-CONSTR-00 ev\u003d\" + __EVENTNAME + \" obj\u003dCipher val\u003d\u0027\u0027 exp\u003d\u0027a key produced by one of the generators the rule names\u0027 msg\u003d\u0027the key given to Cipher.init carries a key-origin predicate the rule does not admit\u0027\"));\n    } else if (origin \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"CipherSpec\", \"\" + __LOC, \"v\u003d1 code\u003dCIPHER-NOBS-00 ev\u003d\" + __EVENTNAME + \" obj\u003dCipher val\u003d\u0027\u0027 exp\u003d\u0027a key produced by one of the generators the rule names\u0027 msg\u003d\u0027no generator of the key given to Cipher.init was observed\u0027\"));\n    }\n    if (!isValid(c.getAlgorithm())) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"CipherSpec\", \"\" + __LOC, \"v\u003d1 code\u003dCIPHER-ALG-01 ev\u003d\" + __EVENTNAME + \" obj\u003dCipher val\u003d\u0027\" + q(c.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(expectedTransformations) + \"\u0027 msg\u003d\u0027expecting \" + expectedTransformations + \" but found \" + c.getAlgorithm() + \"\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call public void Cipher.init(int, Key, ..)"
+        ]
+      },
+      {
+        "id": "u1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public byte[] Cipher.update(byte[])) \u0026\u0026 args(plainText) \u0026\u0026 target(c)",
+        "purePointcut": "call(public byte[] Cipher.update(byte[])) \u0026\u0026 args(plainText) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    updatedCipherText \u003d cipherText;\n    updatedPlainText \u003d plainText;\n}",
+        "callSignatures": [
+          "call public byte[] Cipher.update(byte[])"
+        ]
+      },
+      {
+        "id": "u2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public byte[] Cipher.update(byte[], int, int)) \u0026\u0026 args(plainText, prePlainTextOffset, prePlainTextLen) \u0026\u0026 target(c)",
+        "purePointcut": "call(public byte[] Cipher.update(byte[], int, int)) \u0026\u0026 args(plainText, prePlainTextOffset, prePlainTextLen) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    updatedCipherText \u003d cipherText;\n    updatedPlainText \u003d plainText;\n}",
+        "callSignatures": [
+          "call public byte[] Cipher.update(byte[], int, int)"
+        ]
+      },
+      {
+        "id": "u3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int Cipher.update(byte[], int, int, byte[])) \u0026\u0026 args(plainText, prePlainTextOffset, prePlainTextLen, cipherText) \u0026\u0026 target(c)",
+        "purePointcut": "call(public int Cipher.update(byte[], int, int, byte[])) \u0026\u0026 args(plainText, prePlainTextOffset, prePlainTextLen, cipherText) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    updatedCipherText \u003d cipherText;\n    updatedPlainText \u003d plainText;\n}",
+        "callSignatures": [
+          "call public int Cipher.update(byte[], int, int, byte[])"
+        ]
+      },
+      {
+        "id": "u4",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int Cipher.update(byte[], int, int, byte[], int)) \u0026\u0026 args(plainText, prePlainTextOffset, prePlainTextLen, cipherText, outputOffset) \u0026\u0026 target(c)",
+        "purePointcut": "call(public int Cipher.update(byte[], int, int, byte[], int)) \u0026\u0026 args(plainText, prePlainTextOffset, prePlainTextLen, cipherText, outputOffset) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    updatedCipherText \u003d cipherText;\n    updatedPlainText \u003d plainText;\n}",
+        "callSignatures": [
+          "call public int Cipher.update(byte[], int, int, byte[], int)"
+        ]
+      },
+      {
+        "id": "u5",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int Cipher.update(ByteBuffer, ByteBuffer)) \u0026\u0026 args(plainBuffer, cipherBuffer) \u0026\u0026 target(c)",
+        "purePointcut": "call(public int Cipher.update(ByteBuffer, ByteBuffer)) \u0026\u0026 args(plainBuffer, cipherBuffer) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    updatedCipherText \u003d cipherBuffer;\n    updatedPlainText \u003d plainBuffer;\n}",
+        "callSignatures": [
+          "call public int Cipher.update(ByteBuffer, ByteBuffer)"
+        ]
+      },
+      {
+        "id": "wkb1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(byte[] Cipher.wrap(Key)) \u0026\u0026 target(c)",
+        "purePointcut": "call(byte[] Cipher.wrap(Key)) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n}",
+        "callSignatures": [
+          "call byte[] Cipher.wrap(Key)"
+        ]
+      },
+      {
+        "id": "f1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public byte[] Cipher.doFinal()) \u0026\u0026 target(c)",
+        "purePointcut": "call(public byte[] Cipher.doFinal()) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    finalCipherText \u003d cipherText;\n    finalPlainText \u003d null;\n}",
+        "callSignatures": [
+          "call public byte[] Cipher.doFinal()"
+        ]
+      },
+      {
+        "id": "f2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public byte[] Cipher.doFinal(..)) \u0026\u0026 target(c)",
+        "purePointcut": "call(public byte[] Cipher.doFinal(..)) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    finalCipherText \u003d cipherText;\n    finalPlainText \u003d null;\n}",
+        "callSignatures": [
+          "call public byte[] Cipher.doFinal(..)"
+        ]
+      },
+      {
+        "id": "f3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int Cipher.doFinal(byte[], int)) \u0026\u0026 args(cipherText, offset) \u0026\u0026 target(c)",
+        "purePointcut": "call(public int Cipher.doFinal(byte[], int)) \u0026\u0026 args(cipherText, offset) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    finalCipherText \u003d cipherText;\n    finalPlainText \u003d null;\n}",
+        "callSignatures": [
+          "call public int Cipher.doFinal(byte[], int)"
+        ]
+      },
+      {
+        "id": "f5",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int Cipher.doFinal(byte[], int, int, byte[])) \u0026\u0026 args(plainText, offset, len, cipherText) \u0026\u0026 target(c)",
+        "purePointcut": "call(public int Cipher.doFinal(byte[], int, int, byte[])) \u0026\u0026 args(plainText, offset, len, cipherText) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    finalCipherText \u003d cipherText;\n    finalPlainText \u003d plainText;\n}",
+        "callSignatures": [
+          "call public int Cipher.doFinal(byte[], int, int, byte[])"
+        ]
+      },
+      {
+        "id": "f6",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int Cipher.doFinal(byte[], int, int, byte[], int)) \u0026\u0026 args(plainText, offset, len, cipherText, cipherOffset) \u0026\u0026 target(c)",
+        "purePointcut": "call(public int Cipher.doFinal(byte[], int, int, byte[], int)) \u0026\u0026 args(plainText, offset, len, cipherText, cipherOffset) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    finalCipherText \u003d cipherText;\n    finalPlainText \u003d plainText;\n}",
+        "callSignatures": [
+          "call public int Cipher.doFinal(byte[], int, int, byte[], int)"
+        ]
+      },
+      {
+        "id": "f7",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int Cipher.doFinal(ByteBuffer, ByteBuffer)) \u0026\u0026 args(plainTextBuffer, cipherTextBuffer) \u0026\u0026 target(c)",
+        "purePointcut": "call(public int Cipher.doFinal(ByteBuffer, ByteBuffer)) \u0026\u0026 args(plainTextBuffer, cipherTextBuffer) \u0026\u0026 target(c)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    finalCipherText \u003d cipherTextBuffer;\n    finalPlainText \u003d plainTextBuffer;\n}",
+        "callSignatures": [
+          "call public int Cipher.doFinal(ByteBuffer, ByteBuffer)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "fsm",
+        "text": "\n     start [\n        g3 -\u003e unsafeAlg\n        g1 -\u003e s1\n        g2 -\u003e s1\n     ]\n     unsafeAlg [\n        g3 -\u003e unsafeAlg\n        g1 -\u003e s1\n        g2 -\u003e s1\n     ]\n     s1 [\n       i1 -\u003e s2\n       i2 -\u003e s2\n     ]\n     s2 [\n       wkb1 -\u003e end\n       f2   -\u003e end\n       f5   -\u003e end\n       f6   -\u003e end\n       f7   -\u003e end\n       u1   -\u003e s3\n       u2   -\u003e s3\n       u3   -\u003e s3\n       u4   -\u003e s3\n       u5   -\u003e s3\n     ]\n     s3 [\n       f1 -\u003e end\n       f2 -\u003e end\n       f3 -\u003e end\n       f5 -\u003e end\n       f6 -\u003e end\n       f7 -\u003e end\n     ]\n     end [\n        wkb1 -\u003e end\n        f2   -\u003e end\n        f5   -\u003e end\n        f6   -\u003e end\n        f7   -\u003e end\n        u1   -\u003e s3\n        u2   -\u003e s3\n        u3   -\u003e s3\n        u4   -\u003e s3\n        u5   -\u003e s3\n     ]\n\n   alias match1 \u003d end\n               alias match2 \u003d s3\n\n   ",
+        "handlers": {
+          "match2": "{\n    if (updatedCipherText !\u003d null) {\n        PredicateStore.instance().ensure(Property.ENCRYPTED, updatedCipherText, updatedPlainText);\n        updatedCipherText \u003d null;\n        updatedPlainText \u003d null;\n    }\n}",
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"CipherSpec\", \"\" + __LOC, \"v\u003d1 code\u003dCIPHER-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dCipher val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one CipherSpec accepts\u0027\"));\n    updatedCipherText \u003d null;\n    updatedPlainText \u003d null;\n    finalCipherText \u003d null;\n    finalPlainText \u003d null;\n    __RESET;\n}",
+          "match1": "{\n    if (finalCipherText !\u003d null) {\n        PredicateStore.instance().ensure(Property.ENCRYPTED, finalCipherText, finalPlainText);\n        finalCipherText \u003d null;\n        finalPlainText \u003d null;\n    }\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "String expectedTransformations \u003d \"a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl)\";",
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "String currentTransformation \u003d \"\";",
+      "Object updatedCipherText \u003d null;",
+      "Object updatedPlainText \u003d null;",
+      "Object finalCipherText \u003d null;",
+      "Object finalPlainText \u003d null;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "DHGenParameterSpecSpec.mop",
+    "spec": "DHGenParameterSpecSpec",
+    "params": [
+      {
+        "type": "DHGenParameterSpec",
+        "name": "s"
+      }
+    ],
+    "events": [
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public DHGenParameterSpec.new(int, int)) \u0026\u0026 args(primeSize, exponentSize) \u0026\u0026 condition(exponentSize \u003c primeSize)",
+        "purePointcut": "call(public DHGenParameterSpec.new(int, int)) \u0026\u0026 args(primeSize, exponentSize)",
+        "condition": "exponentSize \u003c primeSize",
+        "hasReturning": true,
+        "body": "{\n    spec \u003d s;\n}",
+        "callSignatures": [
+          "call public DHGenParameterSpec.new(int, int)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " c1\n\n   ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"DHGenParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dDHGENPARAMETERSPEC-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dDHGenParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one DHGenParameterSpecSpec accepts\u0027\"));\n    __RESET;\n}",
+          "match": "{\n    ExecutionContext.instance().setProperty(Property.PREPARED_DH, spec);\n    ExecutionContext.instance().setObjectAsInAcceptingState(spec);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "DHGenParameterSpec spec;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "GCMParameterSpecSpec.mop",
+    "spec": "GCMParameterSpecSpec",
+    "params": [
+      {
+        "type": "GCMParameterSpec",
+        "name": "s"
+      }
+    ],
+    "events": [
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public GCMParameterSpec.new(int, byte[])) \u0026\u0026 args(tagLen, src)",
+        "purePointcut": "call(public GCMParameterSpec.new(int, byte[])) \u0026\u0026 args(tagLen, src)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    boolean conforms \u003d true;\n    if (!validLengths.contains(tagLen)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"GCMParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dGCMPARAMETERSPEC-CONSTR-00 ev\u003d\" + __EVENTNAME + \" obj\u003dGCMParameterSpec val\u003d\u0027\" + tagLen + \"\u0027 exp\u003d\u0027a tag length api30 GCMParameterSpec.cryptsl admits\u0027 msg\u003d\u0027the authentication tag length is not one the rule admits\u0027\"));\n        conforms \u003d false;\n    }\n    PredicateVerdict randomisedSource \u003d PredicateStore.instance().validate(Property.RANDOMIZED, src);\n    if (randomisedSource \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"GCMParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dGCMPARAMETERSPEC-CONSTR-01 ev\u003d\" + __EVENTNAME + \" obj\u003dGCMParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the IV material carries a randomization predicate the rule does not admit\u0027\"));\n        conforms \u003d false;\n    } else if (randomisedSource \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"GCMParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dGCMPARAMETERSPEC-NOBS-00 ev\u003d\" + __EVENTNAME + \" obj\u003dGCMParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the IV material was not observed to come from a randomized source\u0027\"));\n        conforms \u003d false;\n    }\n    if (conforms) {\n        spec \u003d s;\n    }\n}",
+        "callSignatures": [
+          "call public GCMParameterSpec.new(int, byte[])"
+        ]
+      },
+      {
+        "id": "c2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public GCMParameterSpec.new(int, byte[], int, int)) \u0026\u0026 args(tagLen, src, offset, len)",
+        "purePointcut": "call(public GCMParameterSpec.new(int, byte[], int, int)) \u0026\u0026 args(tagLen, src, offset, len)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    boolean conforms \u003d true;\n    if (!validLengths.contains(tagLen)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"GCMParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dGCMPARAMETERSPEC-CONSTR-02 ev\u003d\" + __EVENTNAME + \" obj\u003dGCMParameterSpec val\u003d\u0027\" + tagLen + \"\u0027 exp\u003d\u0027a tag length api30 GCMParameterSpec.cryptsl admits\u0027 msg\u003d\u0027the authentication tag length is not one the rule admits\u0027\"));\n        conforms \u003d false;\n    }\n    PredicateVerdict randomisedSource \u003d PredicateStore.instance().validate(Property.RANDOMIZED, src);\n    if (randomisedSource \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"GCMParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dGCMPARAMETERSPEC-CONSTR-03 ev\u003d\" + __EVENTNAME + \" obj\u003dGCMParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the IV material carries a randomization predicate the rule does not admit\u0027\"));\n        conforms \u003d false;\n    } else if (randomisedSource \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"GCMParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dGCMPARAMETERSPEC-NOBS-01 ev\u003d\" + __EVENTNAME + \" obj\u003dGCMParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the IV material was not observed to come from a randomized source\u0027\"));\n        conforms \u003d false;\n    }\n    if (conforms) {\n        spec \u003d s;\n    }\n}",
+        "callSignatures": [
+          "call public GCMParameterSpec.new(int, byte[], int, int)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " c1 | c2\n\n   ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"GCMParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dGCMPARAMETERSPEC-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dGCMParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one GCMParameterSpecSpec accepts\u0027\"));\n    __RESET;\n}",
+          "match": "{\n    PredicateStore.instance().ensure(Property.PREPARED_GCM, spec);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "GCMParameterSpec spec;",
+      "List\u003cInteger\u003e validLengths \u003d Arrays.asList(96, 104, 112, 120, 128);"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "HMACParameterSpecSpec.mop",
+    "spec": "HMACParameterSpecSpec",
+    "params": [
+      {
+        "type": "HMACParameterSpec",
+        "name": "hmacParameterSpec"
+      }
+    ],
+    "events": [
+      {
+        "id": "c",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public HMACParameterSpec.new(int))",
+        "purePointcut": "call(public HMACParameterSpec.new(int))",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    spec \u003d s;\n}",
+        "callSignatures": [
+          "call public HMACParameterSpec.new(int)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " c\n\n   ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"HMACParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dHMACPARAMETERSPEC-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dHMACParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one HMACParameterSpecSpec accepts\u0027\"));\n    __RESET;\n}",
+          "match": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(spec);\n    ExecutionContext.instance().setProperty(Property.PREPARED_HMAC, spec);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "HMACParameterSpec spec;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "IvParameterSpec.mop",
+    "spec": "IvParameterSpecSpec",
+    "params": [
+      {
+        "type": "IvParameterSpec",
+        "name": "s"
+      }
+    ],
+    "events": [
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public IvParameterSpec.new(byte[])) \u0026\u0026 args(iv)",
+        "purePointcut": "call(public IvParameterSpec.new(byte[])) \u0026\u0026 args(iv)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    PredicateVerdict randomised \u003d PredicateStore.instance().validate(Property.RANDOMIZED, iv);\n    if (randomised \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"IvParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dIVPARAMETERSPEC-CONSTR-00 ev\u003d\" + __EVENTNAME + \" obj\u003dIvParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the iv given to IvParameterSpec(byte[]) carries a randomization predicate the rule does not admit\u0027\"));\n    } else if (randomised \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"IvParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dIVPARAMETERSPEC-NOBS-00 ev\u003d\" + __EVENTNAME + \" obj\u003dIvParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027no randomized source of the iv given to IvParameterSpec(byte[]) was observed\u0027\"));\n    } else {\n        spec \u003d s;\n    }\n}",
+        "callSignatures": [
+          "call public IvParameterSpec.new(byte[])"
+        ]
+      },
+      {
+        "id": "c2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public IvParameterSpec.new(byte[], int, int)) \u0026\u0026 args(iv, offset, len)",
+        "purePointcut": "call(public IvParameterSpec.new(byte[], int, int)) \u0026\u0026 args(iv, offset, len)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    PredicateVerdict randomised \u003d PredicateStore.instance().validate(Property.RANDOMIZED, iv);\n    if (randomised \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"IvParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dIVPARAMETERSPEC-CONSTR-01 ev\u003d\" + __EVENTNAME + \" obj\u003dIvParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the iv given to IvParameterSpec(byte[], int, int) carries a randomization predicate the rule does not admit\u0027\"));\n    } else if (randomised \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"IvParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dIVPARAMETERSPEC-NOBS-01 ev\u003d\" + __EVENTNAME + \" obj\u003dIvParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027no randomized source of the iv given to IvParameterSpec(byte[], int, int) was observed\u0027\"));\n    } else if (offset \u003e\u003d 0 \u0026\u0026 len \u003e\u003d 0 \u0026\u0026 iv.length \u003e\u003d offset + len) {\n        spec \u003d s;\n    }\n}",
+        "callSignatures": [
+          "call public IvParameterSpec.new(byte[], int, int)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " c1 | c2\n\n    ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"IvParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dIVPARAMETERSPEC-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dIvParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one IvParameterSpecSpec accepts\u0027\"));\n    __RESET;\n}",
+          "match": "{\n    PredicateStore.instance().ensure(Property.PREPARED_IV, spec);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "IvParameterSpec spec;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "KeyGeneratorSpec.mop",
+    "spec": "KeyGeneratorSpec",
+    "params": [
+      {
+        "type": "KeyGenerator",
+        "name": "k"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyGenerator KeyGenerator.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(ConscryptAliasTable.matches(\"KeyGenerator\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static KeyGenerator KeyGenerator.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "ConscryptAliasTable.matches(\"KeyGenerator\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    keyGenerator \u003d k;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static KeyGenerator KeyGenerator.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyGenerator KeyGenerator.getInstance(String, Object+)) \u0026\u0026 args(alg, provider) \u0026\u0026 condition(ConscryptAliasTable.matches(\"KeyGenerator\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static KeyGenerator KeyGenerator.getInstance(String, Object+)) \u0026\u0026 args(alg, provider)",
+        "condition": "ConscryptAliasTable.matches(\"KeyGenerator\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    keyGenerator \u003d k;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static KeyGenerator KeyGenerator.getInstance(String, Object+)"
+        ]
+      },
+      {
+        "id": "g3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyGenerator KeyGenerator.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(!ConscryptAliasTable.matches(\"KeyGenerator\", currentAlgorithmInstance, safeAlgorithms))",
+        "purePointcut": "call(public static KeyGenerator KeyGenerator.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "!ConscryptAliasTable.matches(\"KeyGenerator\", currentAlgorithmInstance, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static KeyGenerator KeyGenerator.getInstance(String)"
+        ]
+      },
+      {
+        "id": "init",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "(call(public void KeyGenerator.init(int)) || call(public void KeyGenerator.init(int, SecureRandom)) || call(public void KeyGenerator.init(AlgorithmParameterSpec)) || call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) || call(public void KeyGenerator.init(SecureRandom))) \u0026\u0026 target(k)",
+        "purePointcut": "(call(public void KeyGenerator.init(int)) || call(public void KeyGenerator.init(int, SecureRandom)) || call(public void KeyGenerator.init(AlgorithmParameterSpec)) || call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) || call(public void KeyGenerator.init(SecureRandom))) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void KeyGenerator.init(int)",
+          "call public void KeyGenerator.init(int, SecureRandom)",
+          "call public void KeyGenerator.init(AlgorithmParameterSpec)",
+          "call public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)",
+          "call public void KeyGenerator.init(SecureRandom)"
+        ]
+      },
+      {
+        "id": "gk1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public SecretKey KeyGenerator.generateKey()) \u0026\u0026 target(k)",
+        "purePointcut": "call(public SecretKey KeyGenerator.generateKey()) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"KeyGenerator\", k.getAlgorithm(), safeAlgorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"KeyGeneratorSpec\", \"\" + __LOC, \"v\u003d1 code\u003dKEYGENERATOR-ALG-00 ev\u003d\" + __EVENTNAME + \" obj\u003dKeyGenerator val\u003d\u0027\" + q(k.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", safeAlgorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", safeAlgorithms) + \" but found \" + k.getAlgorithm() + \"\u0027\"));\n    }\n    generatedKey \u003d key;\n    ExecutionContext.instance().setProperty(Property.GENERATED_KEY, generatedKey);\n}",
+        "callSignatures": [
+          "call public SecretKey KeyGenerator.generateKey()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " (g3* g1+ | g3* g2+) ((init gk1) | gk1)\n\n    ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"KeyGeneratorSpec\", \"\" + __LOC, \"v\u003d1 code\u003dKEYGENERATOR-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dKeyGenerator val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one KeyGeneratorSpec accepts\u0027\"));\n    ExecutionContext.instance().unsetObjectAsInAcceptingState(keyGenerator);\n    ExecutionContext.instance().remove(Property.GENERATED_KEY, generatedKey);\n    __RESET;\n}",
+          "match": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(keyGenerator);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "List\u003cString\u003e safeAlgorithms \u003d Arrays.asList(\"ChaCha20\", \"ARC4\", \"HmacSHA224\", \"DESede\", \"HmacSHA256\", \"HmacMD5\", \"HmacSHA1\", \"HmacSHA512\", \"AES\", \"BLOWFISH\", \"HmacSHA384\");",
+      "String currentAlgorithmInstance \u003d \"\";",
+      "KeyGenerator keyGenerator \u003d null;",
+      "Key generatedKey;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "KeyManagerFactorySpec.mop",
+    "spec": "KeyManagerFactorySpec",
+    "params": [
+      {
+        "type": "KeyManagerFactory",
+        "name": "k"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyManagerFactory KeyManagerFactory.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(ConscryptAliasTable.matches(\"KeyManagerFactory\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static KeyManagerFactory KeyManagerFactory.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "ConscryptAliasTable.matches(\"KeyManagerFactory\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    keyManagerFactory \u003d k;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static KeyManagerFactory KeyManagerFactory.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..)) \u0026\u0026 args(alg, *) \u0026\u0026 condition(ConscryptAliasTable.matches(\"KeyManagerFactory\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..)) \u0026\u0026 args(alg, *)",
+        "condition": "ConscryptAliasTable.matches(\"KeyManagerFactory\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    keyManagerFactory \u003d k;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..)"
+        ]
+      },
+      {
+        "id": "g3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyManagerFactory KeyManagerFactory.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(!ConscryptAliasTable.matches(\"KeyManagerFactory\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static KeyManagerFactory KeyManagerFactory.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "!ConscryptAliasTable.matches(\"KeyManagerFactory\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static KeyManagerFactory KeyManagerFactory.getInstance(String)"
+        ]
+      },
+      {
+        "id": "init",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "(call(public void KeyManagerFactory.init(KeyStore, char[])) || call(public void KeyManagerFactory.init(ManagerFactoryParameters))) \u0026\u0026 target(k)",
+        "purePointcut": "(call(public void KeyManagerFactory.init(KeyStore, char[])) || call(public void KeyManagerFactory.init(ManagerFactoryParameters))) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"KeyManagerFactory\", k.getAlgorithm(), safeAlgorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"KeyManagerFactorySpec\", \"\" + __LOC, \"v\u003d1 code\u003dKEYMANAGERFACTORY-ALG-00 ev\u003d\" + __EVENTNAME + \" obj\u003dKeyManagerFactory val\u003d\u0027\" + q(k.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", safeAlgorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", safeAlgorithms) + \" but found \" + k.getAlgorithm() + \"\u0027\"));\n    }\n    ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManagerFactory);\n}",
+        "callSignatures": [
+          "call public void KeyManagerFactory.init(KeyStore, char[])",
+          "call public void KeyManagerFactory.init(ManagerFactoryParameters)"
+        ]
+      },
+      {
+        "id": "gkm1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public KeyManager[] KeyManagerFactory.getKeyManagers()) \u0026\u0026 target(k)",
+        "purePointcut": "call(public KeyManager[] KeyManagerFactory.getKeyManagers()) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManager);\n}",
+        "callSignatures": [
+          "call public KeyManager[] KeyManagerFactory.getKeyManagers()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "fsm",
+        "text": "\n      start [\n        g3 -\u003e unsafeAlg\n        g1 -\u003e waitingInit\n        g2 -\u003e waitingInit\n      ]\n      unsafeAlg [\n        g3 -\u003e unsafeAlg\n        g1 -\u003e waitingInit\n        g2 -\u003e waitingInit\n      ]\n      waitingInit [\n        init -\u003e final\n      ]\n      final [\n        g1   -\u003e waitingInit\n        g2   -\u003e waitingInit\n        gkm1 -\u003e start\n      ]\n\n    alias match1 \u003d final\n\n    ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"KeyManagerFactorySpec\", \"\" + __LOC, \"v\u003d1 code\u003dKEYMANAGERFACTORY-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dKeyManagerFactory val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one KeyManagerFactorySpec accepts\u0027\"));\n    ExecutionContext.instance().unsetObjectAsInAcceptingState(keyManagerFactory);\n    ExecutionContext.instance().remove(Property.GENERATED_KEY_MANAGERS);\n    __RESET;\n}",
+          "match1": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(keyManagerFactory);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "List\u003cString\u003e safeAlgorithms \u003d Arrays.asList(\"PKIX\");",
+      "String currentAlgorithmInstance \u003d \"\";",
+      "KeyManagerFactory keyManagerFactory \u003d null;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "KeyPairGeneratorSpec.mop",
+    "spec": "KeyPairGeneratorSpec",
+    "params": [
+      {
+        "type": "KeyPairGenerator",
+        "name": "k"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(ConscryptAliasTable.matches(\"KeyPairGenerator\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "ConscryptAliasTable.matches(\"KeyPairGenerator\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    kpg \u003d k;\n    algorithm \u003d alg;\n}",
+        "callSignatures": [
+          "call public static KeyPairGenerator KeyPairGenerator.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, String)) \u0026\u0026 args(alg, provider) \u0026\u0026 condition(ConscryptAliasTable.matches(\"KeyPairGenerator\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, String)) \u0026\u0026 args(alg, provider)",
+        "condition": "ConscryptAliasTable.matches(\"KeyPairGenerator\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    kpg \u003d k;\n    algorithm \u003d alg;\n}",
+        "callSignatures": [
+          "call public static KeyPairGenerator KeyPairGenerator.getInstance(String, String)"
+        ]
+      },
+      {
+        "id": "g3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(!ConscryptAliasTable.matches(\"KeyPairGenerator\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "!ConscryptAliasTable.matches(\"KeyPairGenerator\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    algorithm \u003d alg;\n}",
+        "callSignatures": [
+          "call public static KeyPairGenerator KeyPairGenerator.getInstance(String)"
+        ]
+      },
+      {
+        "id": "init1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void KeyPairGenerator.initialize(int)) \u0026\u0026 args(keySize) \u0026\u0026 target(k) \u0026\u0026 condition(algorithm !\u003d null \u0026\u0026 validate(keySize))",
+        "purePointcut": "call(public void KeyPairGenerator.initialize(int)) \u0026\u0026 args(keySize) \u0026\u0026 target(k)",
+        "condition": "algorithm !\u003d null \u0026\u0026 validate(keySize)",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void KeyPairGenerator.initialize(int)"
+        ]
+      },
+      {
+        "id": "init2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void KeyPairGenerator.initialize(int, SecureRandom)) \u0026\u0026 args(keySize, random) \u0026\u0026 target(k) \u0026\u0026 condition(algorithm !\u003d null \u0026\u0026 validate(keySize))",
+        "purePointcut": "call(public void KeyPairGenerator.initialize(int, SecureRandom)) \u0026\u0026 args(keySize, random) \u0026\u0026 target(k)",
+        "condition": "algorithm !\u003d null \u0026\u0026 validate(keySize)",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void KeyPairGenerator.initialize(int, SecureRandom)"
+        ]
+      },
+      {
+        "id": "init3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) \u0026\u0026 args(params) \u0026\u0026 target(k)",
+        "purePointcut": "call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) \u0026\u0026 args(params) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void KeyPairGenerator.initialize(AlgorithmParameterSpec)"
+        ]
+      },
+      {
+        "id": "init4",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)) \u0026\u0026 args(params, random) \u0026\u0026 target(k)",
+        "purePointcut": "call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)) \u0026\u0026 args(params, random) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)"
+        ]
+      },
+      {
+        "id": "initError",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void KeyPairGenerator.initialize(int)) \u0026\u0026 args(keySize) \u0026\u0026 target(k) \u0026\u0026 condition(algorithm !\u003d null \u0026\u0026 !validate(keySize))",
+        "purePointcut": "call(public void KeyPairGenerator.initialize(int)) \u0026\u0026 args(keySize) \u0026\u0026 target(k)",
+        "condition": "algorithm !\u003d null \u0026\u0026 !validate(keySize)",
+        "hasReturning": false,
+        "body": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, \"KeyPairGeneratorSpec\", \"\" + __LOC, \"v\u003d1 code\u003dKEYPAIRGENERATOR-KEYSIZE-00 ev\u003d\" + __EVENTNAME + \" obj\u003dKeyPairGenerator val\u003d\u0027\" + keySize + \"\u0027 exp\u003d\u0027the key size api30 KeyPairGenerator.cryptsl declares for \" + q(k.getAlgorithm()) + \"\u0027 msg\u003d\u0027invalid key size for algorithm \" + k.getAlgorithm() + \"\u0027\"));\n}",
+        "callSignatures": [
+          "call public void KeyPairGenerator.initialize(int)"
+        ]
+      },
+      {
+        "id": "gen",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "(call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) \u0026\u0026 target(k)",
+        "purePointcut": "(call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    kp \u003d keyPair;\n    ExecutionContext.instance().setProperty(Property.GENERATED_KEY_PAIR, kp);\n}",
+        "callSignatures": [
+          "call public KeyPair KeyPairGenerator.generateKeyPair()",
+          "call public KeyPair KeyPairGenerator.genKeyPair()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " (g3* g1 | g3* g2) (init1 | init2 | init3 | init4 | initError) gen\n\n    ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"KeyPairGeneratorSpec\", \"\" + __LOC, \"v\u003d1 code\u003dKEYPAIRGENERATOR-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dKeyPairGenerator val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one KeyPairGeneratorSpec accepts\u0027\"));\n    ExecutionContext.instance().remove(Property.GENERATED_KEY_PAIR, kp);\n}",
+          "match": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(kpg);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "List\u003cString\u003e safeAlgorithms \u003d Arrays.asList(\"DSA\", \"DH\", \"RSA\", \"EC\");",
+      "KeyPairGenerator kpg \u003d null;",
+      "KeyPair kp;",
+      "String algorithm;",
+      "private boolean validate(int keySize) {\n    switch(ConscryptAliasTable.canonical(\"KeyPairGenerator\", algorithm).toUpperCase()) {\n        case \"RSA\":\n            return Arrays.asList(4096, 2048).contains(keySize);\n        case \"DSA\":\n            return keySize \u003d\u003d 2048;\n        case \"DH\":\n            return keySize \u003d\u003d 2048;\n        case \"EC\":\n            return keySize \u003d\u003d 256;\n    }\n    return false;\n}"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "KeyPairSpec.mop",
+    "spec": "KeyPairSpec",
+    "params": [
+      {
+        "type": "KeyPair",
+        "name": "keyPair"
+      }
+    ],
+    "events": [
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public KeyPair.new(PublicKey, PrivateKey)) \u0026\u0026 args(publicKey, privateKey)",
+        "purePointcut": "call(public KeyPair.new(PublicKey, PrivateKey)) \u0026\u0026 args(publicKey, privateKey)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    keyPair \u003d kp;\n}",
+        "callSignatures": [
+          "call public KeyPair.new(PublicKey, PrivateKey)"
+        ]
+      },
+      {
+        "id": "gpu",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public PublicKey KeyPair.getPublic()) \u0026\u0026 target(keyPair)",
+        "purePointcut": "call(public PublicKey KeyPair.getPublic()) \u0026\u0026 target(keyPair)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.GENERATED_PUBLIC_KEY, publicKey);\n}",
+        "callSignatures": [
+          "call public PublicKey KeyPair.getPublic()"
+        ]
+      },
+      {
+        "id": "gpr",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public PrivateKey KeyPair.getPrivate()) \u0026\u0026 target(keyPair)",
+        "purePointcut": "call(public PrivateKey KeyPair.getPrivate()) \u0026\u0026 target(keyPair)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.GENERATED_PUBLIC_KEY, privateKey);\n}",
+        "callSignatures": [
+          "call public PrivateKey KeyPair.getPrivate()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " c1 (gpu | gpr)*\n\n    ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"KeyPairSpec\", \"\" + __LOC, \"v\u003d1 code\u003dKEYPAIR-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dKeyPair val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one KeyPairSpec accepts\u0027\"));\n    __RESET;\n}",
+          "match": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(keyPair);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "KeyPair keyPair \u003d null;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "KeyStoreSpec.mop",
+    "spec": "KeyStoreSpec",
+    "params": [
+      {
+        "type": "KeyStore",
+        "name": "ks"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyStore KeyStore.getInstance(String)) \u0026\u0026 args(ksType) \u0026\u0026 condition(ConscryptAliasTable.matches(\"KeyStore\", ksType, types))",
+        "purePointcut": "call(public static KeyStore KeyStore.getInstance(String)) \u0026\u0026 args(ksType)",
+        "condition": "ConscryptAliasTable.matches(\"KeyStore\", ksType, types)",
+        "hasReturning": true,
+        "body": "{\n    keyStore \u003d k;\n    currentKSType \u003d ksType;\n}",
+        "callSignatures": [
+          "call public static KeyStore KeyStore.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static KeyStore KeyStore.getInstance(String)) \u0026\u0026 args(ksType) \u0026\u0026 condition(!ConscryptAliasTable.matches(\"KeyStore\", ksType, types))",
+        "purePointcut": "call(public static KeyStore KeyStore.getInstance(String)) \u0026\u0026 args(ksType)",
+        "condition": "!ConscryptAliasTable.matches(\"KeyStore\", ksType, types)",
+        "hasReturning": true,
+        "body": "{\n    currentKSType \u003d ksType;\n}",
+        "callSignatures": [
+          "call public static KeyStore KeyStore.getInstance(String)"
+        ]
+      },
+      {
+        "id": "load",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void KeyStore.load(..)) \u0026\u0026 target(k)",
+        "purePointcut": "call(public void KeyStore.load(..)) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.GENERATED_KEY_STORE, keyStore);\n}",
+        "callSignatures": [
+          "call public void KeyStore.load(..)"
+        ]
+      },
+      {
+        "id": "store",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void KeyStore.store(..)) \u0026\u0026 target(k)",
+        "purePointcut": "call(public void KeyStore.store(..)) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void KeyStore.store(..)"
+        ]
+      },
+      {
+        "id": "ge1",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public Entry KeyStore.getEntry(String, ProtectionParameter)) \u0026\u0026 target(k)",
+        "purePointcut": "call(public Entry KeyStore.getEntry(String, ProtectionParameter)) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public Entry KeyStore.getEntry(String, ProtectionParameter)"
+        ]
+      },
+      {
+        "id": "se1",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void KeyStore.setEntry(String, Entry, ProtectionParameter)) \u0026\u0026 target(k)",
+        "purePointcut": "call(public void KeyStore.setEntry(String, Entry, ProtectionParameter)) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void KeyStore.setEntry(String, Entry, ProtectionParameter)"
+        ]
+      },
+      {
+        "id": "gk1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public Key KeyStore.getKey(String, char[])) \u0026\u0026 target(k)",
+        "purePointcut": "call(public Key KeyStore.getKey(String, char[])) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"KeyStore\", k.getType(), types)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeyStoreType, \"KeyStoreSpec\", \"\" + __LOC, \"v\u003d1 code\u003dKEYSTORE-KSTYPE-00 ev\u003d\" + __EVENTNAME + \" obj\u003dKeyStore val\u003d\u0027\" + q(k.getType()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", types)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", types) + \" but found \" + k.getType() + \"\u0027\"));\n    }\n    generatedKey \u003d key;\n    ExecutionContext.instance().setProperty(Property.GENERATED_KEY, generatedKey);\n}",
+        "callSignatures": [
+          "call public Key KeyStore.getKey(String, char[])"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " (g2* g1 load (((ge1 gk1) | gk1) | (se1 store))*)+\n\n    ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"KeyStoreSpec\", \"\" + __LOC, \"v\u003d1 code\u003dKEYSTORE-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dKeyStore val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one KeyStoreSpec accepts\u0027\"));\n    ExecutionContext.instance().unsetObjectAsInAcceptingState(keyStore);\n    ExecutionContext.instance().remove(Property.GENERATED_KEY, generatedKey);\n    ExecutionContext.instance().remove(Property.GENERATED_KEY_STORE, keyStore);\n    __RESET;\n}",
+          "match": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(keyStore);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "List\u003cString\u003e types \u003d Arrays.asList(\"AndroidKeyStore\", \"PKCS12\", \"BKS\", \"BouncyCastle\", \"AndroidCAStore\");",
+      "String currentKSType \u003d \"\";",
+      "KeyStore keyStore \u003d null;",
+      "Key generatedKey \u003d null;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "MacSpec.mop",
+    "spec": "MacSpec",
+    "params": [
+      {
+        "type": "Mac",
+        "name": "m"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static Mac Mac.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(ConscryptAliasTable.matches(\"Mac\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static Mac Mac.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "ConscryptAliasTable.matches(\"Mac\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    mac \u003d m;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static Mac Mac.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static Mac Mac.getInstance(String, String)) \u0026\u0026 args(alg, provider) \u0026\u0026 condition(ConscryptAliasTable.matches(\"Mac\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static Mac Mac.getInstance(String, String)) \u0026\u0026 args(alg, provider)",
+        "condition": "ConscryptAliasTable.matches(\"Mac\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    mac \u003d m;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static Mac Mac.getInstance(String, String)"
+        ]
+      },
+      {
+        "id": "g3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static Mac Mac.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(!ConscryptAliasTable.matches(\"Mac\", alg, safeAlgorithms))",
+        "purePointcut": "call(public static Mac Mac.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "!ConscryptAliasTable.matches(\"Mac\", alg, safeAlgorithms)",
+        "hasReturning": true,
+        "body": "{\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static Mac Mac.getInstance(String)"
+        ]
+      },
+      {
+        "id": "i1",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void Mac.init(java.security.Key)) \u0026\u0026 args(key) \u0026\u0026 target(m) \u0026\u0026 condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key))",
+        "purePointcut": "call(public void Mac.init(java.security.Key)) \u0026\u0026 args(key) \u0026\u0026 target(m)",
+        "condition": "ExecutionContext.instance().validate(Property.GENERATED_KEY, key)",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"Mac\", m.getAlgorithm(), safeAlgorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"MacSpec\", \"\" + __LOC, \"v\u003d1 code\u003dMAC-ALG-00 ev\u003d\" + __EVENTNAME + \" obj\u003dMac val\u003d\u0027\" + q(m.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", safeAlgorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", safeAlgorithms) + \" but found \" + m.getAlgorithm() + \"\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call public void Mac.init(java.security.Key)"
+        ]
+      },
+      {
+        "id": "i2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) \u0026\u0026 args(key, params) \u0026\u0026 target(m) \u0026\u0026 condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, key))",
+        "purePointcut": "call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) \u0026\u0026 args(key, params) \u0026\u0026 target(m)",
+        "condition": "ExecutionContext.instance().validate(Property.GENERATED_KEY, key)",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"Mac\", m.getAlgorithm(), safeAlgorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"MacSpec\", \"\" + __LOC, \"v\u003d1 code\u003dMAC-ALG-01 ev\u003d\" + __EVENTNAME + \" obj\u003dMac val\u003d\u0027\" + q(m.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", safeAlgorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", safeAlgorithms) + \" but found \" + m.getAlgorithm() + \"\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)"
+        ]
+      },
+      {
+        "id": "update",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void Mac.update(..)) \u0026\u0026 target(m)",
+        "purePointcut": "call(public void Mac.update(..)) \u0026\u0026 target(m)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void Mac.update(..)"
+        ]
+      },
+      {
+        "id": "f1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "(call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) \u0026\u0026 target(m)",
+        "purePointcut": "(call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) \u0026\u0026 target(m)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);\n}",
+        "callSignatures": [
+          "call byte[] Mac.doFinal(byte[])",
+          "call byte[] Mac.doFinal()"
+        ]
+      },
+      {
+        "id": "f2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(void Mac.doFinal(byte[], int)) \u0026\u0026 args(output, outOffset) \u0026\u0026 target(m)",
+        "purePointcut": "call(void Mac.doFinal(byte[], int)) \u0026\u0026 args(output, outOffset) \u0026\u0026 target(m)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output);\n}",
+        "callSignatures": [
+          "call void Mac.doFinal(byte[], int)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " (g3* g1 | g3* g2) (i1 | i2) ((f1 | f2) | (update* (f1 | f2)))\n\n        ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"MacSpec\", \"\" + __LOC, \"v\u003d1 code\u003dMAC-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dMac val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one MacSpec accepts\u0027\"));\n    ExecutionContext.instance().remove(Property.GENERATED_MAC);\n    __RESET;\n}",
+          "match": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(mac);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "List\u003cString\u003e safeAlgorithms \u003d Arrays.asList(\"PBEwithHmacSHA256\", \"PBEwithHmacSHA1\", \"HmacSHA224\", \"HmacSHA256\", \"HmacMD5\", \"HmacSHA512\", \"PBEwithHmacSHA512\", \"HmacSHA384\", \"PBEwithHmacSHA384\", \"PBEwithHmacSHA224\", \"PBEwithHmacSHA\", \"HmacSHA1\");",
+      "String currentAlgorithmInstance \u003d \"\";",
+      "Mac mac \u003d null;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "MessageDigestSpec.mop",
+    "spec": "MessageDigestSpec",
+    "params": [
+      {
+        "type": "MessageDigest",
+        "name": "digest"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static MessageDigest MessageDigest.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(ConscryptAliasTable.matches(\"MessageDigest\", alg, algorithms))",
+        "purePointcut": "call(public static MessageDigest MessageDigest.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "ConscryptAliasTable.matches(\"MessageDigest\", alg, algorithms)",
+        "hasReturning": true,
+        "body": "{\n    md \u003d digest;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static MessageDigest MessageDigest.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static MessageDigest MessageDigest.getInstance(String, String)) \u0026\u0026 args(alg, provider) \u0026\u0026 condition(ConscryptAliasTable.matches(\"MessageDigest\", alg, algorithms))",
+        "purePointcut": "call(public static MessageDigest MessageDigest.getInstance(String, String)) \u0026\u0026 args(alg, provider)",
+        "condition": "ConscryptAliasTable.matches(\"MessageDigest\", alg, algorithms)",
+        "hasReturning": true,
+        "body": "{\n    md \u003d digest;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static MessageDigest MessageDigest.getInstance(String, String)"
+        ]
+      },
+      {
+        "id": "g3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static MessageDigest MessageDigest.getInstance(String, Provider)) \u0026\u0026 args(alg, provider) \u0026\u0026 condition(ConscryptAliasTable.matches(\"MessageDigest\", alg, algorithms))",
+        "purePointcut": "call(public static MessageDigest MessageDigest.getInstance(String, Provider)) \u0026\u0026 args(alg, provider)",
+        "condition": "ConscryptAliasTable.matches(\"MessageDigest\", alg, algorithms)",
+        "hasReturning": true,
+        "body": "{\n    md \u003d digest;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static MessageDigest MessageDigest.getInstance(String, Provider)"
+        ]
+      },
+      {
+        "id": "g4",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static MessageDigest MessageDigest.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(!ConscryptAliasTable.matches(\"MessageDigest\", currentAlgorithmInstance, algorithms))",
+        "purePointcut": "call(public static MessageDigest MessageDigest.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "!ConscryptAliasTable.matches(\"MessageDigest\", currentAlgorithmInstance, algorithms)",
+        "hasReturning": true,
+        "body": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"MessageDigestSpec\", \"\" + __LOC, \"v\u003d1 code\u003dMESSAGEDIGEST-ALG-02 ev\u003d\" + __EVENTNAME + \" obj\u003dMessageDigest val\u003d\u0027\" + q(alg) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", algorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", algorithms) + \" but found \" + alg + \"\u0027\"));\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static MessageDigest MessageDigest.getInstance(String)"
+        ]
+      },
+      {
+        "id": "update",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(void MessageDigest.update(..)) \u0026\u0026 target(digest)",
+        "purePointcut": "call(void MessageDigest.update(..)) \u0026\u0026 target(digest)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"MessageDigest\", digest.getAlgorithm(), algorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"MessageDigestSpec\", \"\" + __LOC, \"v\u003d1 code\u003dMESSAGEDIGEST-ALG-00 ev\u003d\" + __EVENTNAME + \" obj\u003dMessageDigest val\u003d\u0027\" + q(digest.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", algorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", algorithms) + \" but found \" + digest.getAlgorithm() + \"\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call void MessageDigest.update(..)"
+        ]
+      },
+      {
+        "id": "d1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public byte[] MessageDigest.digest()) \u0026\u0026 target(digest)",
+        "purePointcut": "call(public byte[] MessageDigest.digest()) \u0026\u0026 target(digest)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.DIGESTED, out);\n}",
+        "callSignatures": [
+          "call public byte[] MessageDigest.digest()"
+        ]
+      },
+      {
+        "id": "d2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public byte[] MessageDigest.digest(byte[])) \u0026\u0026 target(digest)",
+        "purePointcut": "call(public byte[] MessageDigest.digest(byte[])) \u0026\u0026 target(digest)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"MessageDigest\", digest.getAlgorithm(), algorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"MessageDigestSpec\", \"\" + __LOC, \"v\u003d1 code\u003dMESSAGEDIGEST-ALG-01 ev\u003d\" + __EVENTNAME + \" obj\u003dMessageDigest val\u003d\u0027\" + q(digest.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", algorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", algorithms) + \" but found \" + digest.getAlgorithm() + \"\u0027\"));\n    }\n    ExecutionContext.instance().setProperty(Property.DIGESTED, out);\n}",
+        "callSignatures": [
+          "call public byte[] MessageDigest.digest(byte[])"
+        ]
+      },
+      {
+        "id": "d3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int MessageDigest.digest(byte[], int, int)) \u0026\u0026 args(out, offset, len) \u0026\u0026 target(digest)",
+        "purePointcut": "call(public int MessageDigest.digest(byte[], int, int)) \u0026\u0026 args(out, offset, len) \u0026\u0026 target(digest)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.DIGESTED, out);\n}",
+        "callSignatures": [
+          "call public int MessageDigest.digest(byte[], int, int)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " (g4* g1 | g4* g2 | g4* g3) (d2 | (update+ (d1 | d2 | d3)))+\n\n\t",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"MessageDigestSpec\", \"\" + __LOC, \"v\u003d1 code\u003dMESSAGEDIGEST-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dMessageDigest val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one MessageDigestSpec accepts\u0027\"));\n    ExecutionContext.instance().unsetObjectAsInAcceptingState(md);\n    __RESET;\n}",
+          "match": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(md);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "List\u003cString\u003e algorithms \u003d Arrays.asList(\"MD5\", \"SHA-224\", \"SHA-256\", \"SHA-1\", \"SHA-512\", \"SHA-384\");",
+      "MessageDigest md \u003d null;",
+      "String currentAlgorithmInstance \u003d \"\";"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "PBEKeySpecSpec.mop",
+    "spec": "PBEKeySpecSpec",
+    "params": [
+      {
+        "type": "PBEKeySpec",
+        "name": "s"
+      }
+    ],
+    "events": [
+      {
+        "id": "f1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public PBEKeySpec.new(char[])) \u0026\u0026 args(password)",
+        "purePointcut": "call(public PBEKeySpec.new(char[])) \u0026\u0026 args(password)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, \"PBEKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEKEYSPEC-FORB-00 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEKeySpec val\u003d\u0027\u0027 exp\u003d\u0027PBEKeySpec(char[], byte[], int, int)\u0027 msg\u003d\u0027PBEKeySpec(char[]) is forbidden by api30 PBEKeySpec.cryptsl\u0027\"));\n}",
+        "callSignatures": [
+          "call public PBEKeySpec.new(char[])"
+        ]
+      },
+      {
+        "id": "f2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public PBEKeySpec.new(char[], byte[], int)) \u0026\u0026 args(password, salt, keyLength)",
+        "purePointcut": "call(public PBEKeySpec.new(char[], byte[], int)) \u0026\u0026 args(password, salt, keyLength)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, \"PBEKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEKEYSPEC-FORB-01 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEKeySpec val\u003d\u0027\u0027 exp\u003d\u0027PBEKeySpec(char[], byte[], int, int)\u0027 msg\u003d\u0027PBEKeySpec(char[], byte[], int) is forbidden by api30 PBEKeySpec.cryptsl\u0027\"));\n}",
+        "callSignatures": [
+          "call public PBEKeySpec.new(char[], byte[], int)"
+        ]
+      },
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public PBEKeySpec.new(char[], byte[], int, int)) \u0026\u0026 args(password, salt, iterationCount, keyLength)",
+        "purePointcut": "call(public PBEKeySpec.new(char[], byte[], int, int)) \u0026\u0026 args(password, salt, iterationCount, keyLength)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    boolean conforms \u003d true;\n    if (iterationCount \u003c 10000) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEKEYSPEC-CONSTR-00 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEKeySpec val\u003d\u0027\" + iterationCount + \"\u0027 exp\u003d\u0027\u003e\u003d 10000\u0027 msg\u003d\u0027the third argument should be \u003e\u003d 10000\u0027\"));\n        conforms \u003d false;\n    }\n    PredicateVerdict randomisedPassword \u003d PredicateStore.instance().validate(Property.RANDOMIZED, password);\n    if (randomisedPassword \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEKEYSPEC-CONSTR-01 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEKeySpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized char[]\u0027 msg\u003d\u0027the first argument carries a randomization predicate the rule does not admit\u0027\"));\n        conforms \u003d false;\n    } else if (randomisedPassword \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEKEYSPEC-NOBS-00 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEKeySpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized char[]\u0027 msg\u003d\u0027the first argument was not observed to come from a randomized source\u0027\"));\n        conforms \u003d false;\n    }\n    PredicateVerdict randomisedSalt \u003d PredicateStore.instance().validate(Property.RANDOMIZED, salt);\n    if (randomisedSalt \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEKEYSPEC-CONSTR-02 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEKeySpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the second argument carries a randomization predicate the rule does not admit\u0027\"));\n        conforms \u003d false;\n    } else if (randomisedSalt \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEKEYSPEC-NOBS-01 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEKeySpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the second argument was not observed to come from a randomized source\u0027\"));\n        conforms \u003d false;\n    }\n    if (conforms) {\n        PredicateStore.instance().ensure(Property.SPECCED_KEY, s, keyLength);\n    }\n}",
+        "callSignatures": [
+          "call public PBEKeySpec.new(char[], byte[], int, int)"
+        ]
+      },
+      {
+        "id": "c2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void PBEKeySpec.clearPassword()) \u0026\u0026 target(s)",
+        "purePointcut": "call(public void PBEKeySpec.clearPassword()) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    PredicateStore.instance().negate(Property.SPECCED_KEY, s);\n}",
+        "callSignatures": [
+          "call public void PBEKeySpec.clearPassword()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " (f1 | f2)* c1 (f1 | f2)* c2 (f1 | f2)*\n\n        ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"PBEKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEKEYSPEC-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEKeySpec val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one PBEKeySpecSpec accepts\u0027\"));\n    __RESET;\n}"
+        }
+      }
+    ],
+    "declarations": []
+  },
+  {
+    "kind": "mop",
+    "source": "PBEParameterSpecSpec.mop",
+    "spec": "PBEParameterSpecSpec",
+    "params": [
+      {
+        "type": "PBEParameterSpec",
+        "name": "s"
+      }
+    ],
+    "events": [
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public PBEParameterSpec.new(byte[], int)) \u0026\u0026 args(salt, iterationCount)",
+        "purePointcut": "call(public PBEParameterSpec.new(byte[], int)) \u0026\u0026 args(salt, iterationCount)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    boolean conforms \u003d true;\n    if (iterationCount \u003c 10000) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEPARAMETERSPEC-CONSTR-00 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEParameterSpec val\u003d\u0027\" + iterationCount + \"\u0027 exp\u003d\u0027\u003e\u003d 10000\u0027 msg\u003d\u0027the iteration count should be \u003e\u003d 10000\u0027\"));\n        conforms \u003d false;\n    }\n    PredicateVerdict randomisedSalt \u003d PredicateStore.instance().validate(Property.RANDOMIZED, salt);\n    if (randomisedSalt \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEPARAMETERSPEC-CONSTR-01 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the salt carries a randomization predicate the rule does not admit\u0027\"));\n        conforms \u003d false;\n    } else if (randomisedSalt \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEPARAMETERSPEC-NOBS-00 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the salt was not observed to come from a randomized source\u0027\"));\n        conforms \u003d false;\n    }\n    if (conforms) {\n        spec \u003d s;\n    }\n}",
+        "callSignatures": [
+          "call public PBEParameterSpec.new(byte[], int)"
+        ]
+      },
+      {
+        "id": "c2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) \u0026\u0026 args(salt, iterationCount, paramSpec)",
+        "purePointcut": "call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) \u0026\u0026 args(salt, iterationCount, paramSpec)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    boolean conforms \u003d true;\n    if (iterationCount \u003c 10000) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEPARAMETERSPEC-CONSTR-02 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEParameterSpec val\u003d\u0027\" + iterationCount + \"\u0027 exp\u003d\u0027\u003e\u003d 10000\u0027 msg\u003d\u0027the iteration count should be \u003e\u003d 10000\u0027\"));\n        conforms \u003d false;\n    }\n    PredicateVerdict randomisedSalt \u003d PredicateStore.instance().validate(Property.RANDOMIZED, salt);\n    if (randomisedSalt \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEPARAMETERSPEC-CONSTR-03 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the salt carries a randomization predicate the rule does not admit\u0027\"));\n        conforms \u003d false;\n    } else if (randomisedSalt \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"PBEParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEPARAMETERSPEC-NOBS-01 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the salt was not observed to come from a randomized source\u0027\"));\n        conforms \u003d false;\n    }\n    if (conforms) {\n        spec \u003d s;\n    }\n}",
+        "callSignatures": [
+          "call public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " c1 | c2\n\n        ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"PBEParameterSpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dPBEPARAMETERSPEC-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dPBEParameterSpec val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one PBEParameterSpecSpec accepts\u0027\"));\n    __RESET;\n}",
+          "match": "{\n    PredicateStore.instance().ensure(Property.PREPARED_PBE, spec);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "PBEParameterSpec spec;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "RandomStringPassword.mop",
+    "spec": "RandomStringPasswordSpec",
+    "params": [
+      {
+        "type": "String",
+        "name": "str"
+      }
+    ],
+    "events": [
+      {
+        "id": "vo",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static String String.valueOf(Object)) \u0026\u0026 args(obj) \u0026\u0026 condition(ExecutionContext.instance().validate(Property.RANDOMIZED, obj))",
+        "purePointcut": "call(public static String String.valueOf(Object)) \u0026\u0026 args(obj)",
+        "condition": "ExecutionContext.instance().validate(Property.RANDOMIZED, obj)",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.RANDOMIZED, s);\n}",
+        "callSignatures": [
+          "call public static String String.valueOf(Object)"
+        ]
+      },
+      {
+        "id": "gb",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public char[] String.toCharArray()) \u0026\u0026 target(s) \u0026\u0026 condition(ExecutionContext.instance().validate(Property.RANDOMIZED, s))",
+        "purePointcut": "call(public char[] String.toCharArray()) \u0026\u0026 target(s)",
+        "condition": "ExecutionContext.instance().validate(Property.RANDOMIZED, s)",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.RANDOMIZED, chars);\n}",
+        "callSignatures": [
+          "call public char[] String.toCharArray()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " vo gb\n\n    ",
+        "handlers": {
+          "match": "{\n}"
+        }
+      }
+    ],
+    "declarations": []
+  },
+  {
+    "kind": "mop",
+    "source": "SSLContextSpec.mop",
+    "spec": "SSLContextSpec",
+    "params": [
+      {
+        "type": "SSLContext",
+        "name": "ctx"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static SSLContext SSLContext.getInstance(String)) \u0026\u0026 args(protocol)",
+        "purePointcut": "call(public static SSLContext SSLContext.getInstance(String)) \u0026\u0026 args(protocol)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    context \u003d ctx;\n    currentProtocol \u003d protocol;\n}",
+        "callSignatures": [
+          "call public static SSLContext SSLContext.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static SSLContext SSLContext.getInstance(String, String)) \u0026\u0026 args(protocol, provider) \u0026\u0026 condition(ConscryptAliasTable.matches(\"SSLContext\", protocol, protocols))",
+        "purePointcut": "call(public static SSLContext SSLContext.getInstance(String, String)) \u0026\u0026 args(protocol, provider)",
+        "condition": "ConscryptAliasTable.matches(\"SSLContext\", protocol, protocols)",
+        "hasReturning": true,
+        "body": "{\n    context \u003d ctx;\n    currentProtocol \u003d protocol;\n}",
+        "callSignatures": [
+          "call public static SSLContext SSLContext.getInstance(String, String)"
+        ]
+      },
+      {
+        "id": "init",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)) \u0026\u0026 target(ctx)",
+        "purePointcut": "call(public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)) \u0026\u0026 target(ctx)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"SSLContext\", ctx.getProtocol(), protocols)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, \"SSLContextSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSSLCONTEXT-PROTO-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSSLContext val\u003d\u0027\" + q(ctx.getProtocol()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", protocols)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", protocols) + \" but found \" + ctx.getProtocol() + \"\u0027\"));\n    }\n    ExecutionContext.instance().setProperty(Property.GENERATE_SSL_CONTEXT, context);\n}",
+        "callSignatures": [
+          "call public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)"
+        ]
+      },
+      {
+        "id": "engine",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void SSLContext.createSSLEngine(..)) \u0026\u0026 target(ctx)",
+        "purePointcut": "call(public void SSLContext.createSSLEngine(..)) \u0026\u0026 target(ctx)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.GENERATE_SSL_ENGINE, eng);\n}",
+        "callSignatures": [
+          "call public void SSLContext.createSSLEngine(..)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "fsm",
+        "text": "\n    start [\n      g1 -\u003e s1\n      g2 -\u003e s1\n    ]\n    s1 [\n      init -\u003e end\n    ]\n    end [\n      engine -\u003e end\n    ]\n\n  alias match1 \u003d end\n\n  ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"SSLContextSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSSLCONTEXT-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSSLContext val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one SSLContextSpec accepts\u0027\"));\n    ExecutionContext.instance().unsetObjectAsInAcceptingState(context);\n    __RESET;\n}",
+          "match1": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(context);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "List\u003cString\u003e protocols \u003d Arrays.asList(\"Default\", \"TLSv1.2\", \"TLSv1.1\", \"SSL\", \"TLSv1\", \"TLS\", \"TLSv1.3\");",
+      "String currentProtocol \u003d \"\";",
+      "SSLContext context;",
+      "SSLEngine engine;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "SecretKeySpec.mop",
+    "spec": "SecretKeySpec",
+    "params": [
+      {
+        "type": "SecretKey",
+        "name": "secretKey"
+      }
+    ],
+    "events": [
+      {
+        "id": "e1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public byte[] SecretKey.getEncoded()) \u0026\u0026 target(secretKey) \u0026\u0026 condition(ExecutionContext.instance().validate(Property.GENERATED_KEY, secretKey))",
+        "purePointcut": "call(public byte[] SecretKey.getEncoded()) \u0026\u0026 target(secretKey)",
+        "condition": "ExecutionContext.instance().validate(Property.GENERATED_KEY, secretKey)",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.RANDOMIZED, key);\n}",
+        "callSignatures": [
+          "call public byte[] SecretKey.getEncoded()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " e1*\n\n   ",
+        "handlers": {
+          "match": "{\n}"
+        }
+      }
+    ],
+    "declarations": []
+  },
+  {
+    "kind": "mop",
+    "source": "SecretKeySpecSpec.mop",
+    "spec": "SecretKeySpecSpec",
+    "params": [
+      {
+        "type": "SecretKeySpec",
+        "name": "secretKeySpec"
+      }
+    ],
+    "events": [
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public SecretKeySpec.new(byte[], String)) \u0026\u0026 args(keyMaterial, keyAlgorithm)",
+        "purePointcut": "call(public SecretKeySpec.new(byte[], String)) \u0026\u0026 args(keyMaterial, keyAlgorithm)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    if (!ExecutionContext.instance().validate(Property.RANDOMIZED, keyMaterial)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"SecretKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSECRETKEYSPEC-CONSTR-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSecretKeySpec val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the keyMaterial given to SecretKeySpec(byte[], String) was not observed to come from a randomized source\u0027\"));\n    } else {\n        spec \u003d secretKeySpec;\n    }\n}",
+        "callSignatures": [
+          "call public SecretKeySpec.new(byte[], String)"
+        ]
+      },
+      {
+        "id": "c2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public SecretKeySpec.new(byte[], int, int, String)) \u0026\u0026 args(keyMaterial, offset, len, keyAlgorithm)",
+        "purePointcut": "call(public SecretKeySpec.new(byte[], int, int, String)) \u0026\u0026 args(keyMaterial, offset, len, keyAlgorithm)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    if (keyMaterial.length \u003c offset + len) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"SecretKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSECRETKEYSPEC-CONSTR-01 ev\u003d\" + __EVENTNAME + \" obj\u003dSecretKeySpec val\u003d\u0027\" + keyMaterial.length + \"\u0027 exp\u003d\u0027at least offset + len\u0027 msg\u003d\u0027keyMaterial.length is smaller than offset + len\u0027\"));\n    } else {\n        spec \u003d secretKeySpec;\n    }\n}",
+        "callSignatures": [
+          "call public SecretKeySpec.new(byte[], int, int, String)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " c1 | c2\n\n   ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"SecretKeySpecSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSECRETKEYSPEC-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSecretKeySpec val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one SecretKeySpecSpec accepts\u0027\"));\n    __RESET;\n}",
+          "match": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(spec);\n    ExecutionContext.instance().setProperty(Property.GENERATED_KEY, spec);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "SecretKeySpec spec;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "SecureRandomSpec.mop",
+    "spec": "SecureRandomSpec",
+    "params": [
+      {
+        "type": "SecureRandom",
+        "name": "r"
+      }
+    ],
+    "events": [
+      {
+        "id": "c1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public SecureRandom.new())",
+        "purePointcut": "call(public SecureRandom.new())",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    sr \u003d r;\n}",
+        "callSignatures": [
+          "call public SecureRandom.new()"
+        ]
+      },
+      {
+        "id": "c2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public SecureRandom.new(byte[])) \u0026\u0026 args(seed)",
+        "purePointcut": "call(public SecureRandom.new(byte[])) \u0026\u0026 args(seed)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    sr \u003d r;\n}",
+        "callSignatures": [
+          "call public SecureRandom.new(byte[])"
+        ]
+      },
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static SecureRandom SecureRandom.getInstance(String)) \u0026\u0026 args(alg) \u0026\u0026 condition(ConscryptAliasTable.matches(\"SecureRandom\", alg, algorithms))",
+        "purePointcut": "call(public static SecureRandom SecureRandom.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "ConscryptAliasTable.matches(\"SecureRandom\", alg, algorithms)",
+        "hasReturning": true,
+        "body": "{\n    sr \u003d r;\n}",
+        "callSignatures": [
+          "call public static SecureRandom SecureRandom.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static SecureRandom SecureRandom.getInstance(String, ..)) \u0026\u0026 args(alg, *) \u0026\u0026 condition(ConscryptAliasTable.matches(\"SecureRandom\", alg, algorithms))",
+        "purePointcut": "call(public static SecureRandom SecureRandom.getInstance(String, ..)) \u0026\u0026 args(alg, *)",
+        "condition": "ConscryptAliasTable.matches(\"SecureRandom\", alg, algorithms)",
+        "hasReturning": true,
+        "body": "{\n    sr \u003d r;\n}",
+        "callSignatures": [
+          "call public static SecureRandom SecureRandom.getInstance(String, ..)"
+        ]
+      },
+      {
+        "id": "g3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static SecureRandom SecureRandom.getInstanceStrong())",
+        "purePointcut": "call(public static SecureRandom SecureRandom.getInstanceStrong())",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    sr \u003d r;\n}",
+        "callSignatures": [
+          "call public static SecureRandom SecureRandom.getInstanceStrong()"
+        ]
+      },
+      {
+        "id": "g4",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static SecureRandom SecureRandom.getInstance(String, ..)) \u0026\u0026 args(alg) \u0026\u0026 condition(!ConscryptAliasTable.matches(\"SecureRandom\", alg, algorithms))",
+        "purePointcut": "call(public static SecureRandom SecureRandom.getInstance(String, ..)) \u0026\u0026 args(alg)",
+        "condition": "!ConscryptAliasTable.matches(\"SecureRandom\", alg, algorithms)",
+        "hasReturning": true,
+        "body": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"SecureRandomSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSECURERANDOM-ALG-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSecureRandom val\u003d\u0027\" + q(alg) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", algorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", algorithms) + \" but found \" + alg + \"\u0027\"));\n}",
+        "callSignatures": [
+          "call public static SecureRandom SecureRandom.getInstance(String, ..)"
+        ]
+      },
+      {
+        "id": "setSeed1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void SecureRandom.setSeed(long)) \u0026\u0026 target(r)",
+        "purePointcut": "call(public void SecureRandom.setSeed(long)) \u0026\u0026 target(r)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void SecureRandom.setSeed(long)"
+        ]
+      },
+      {
+        "id": "setSeed2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public void SecureRandom.setSeed(byte[])) \u0026\u0026 args(seed) \u0026\u0026 target(r)",
+        "purePointcut": "call(public void SecureRandom.setSeed(byte[])) \u0026\u0026 args(seed) \u0026\u0026 target(r)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    PredicateVerdict randomised \u003d PredicateStore.instance().validate(Property.RANDOMIZED, seed);\n    if (randomised \u003d\u003d PredicateVerdict.VIOLATED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"SecureRandomSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSECURERANDOM-CONSTR-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSecureRandom val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027the byte array given to setSeed() carries a randomization predicate the rule does not admit\u0027\"));\n    } else if (randomised \u003d\u003d PredicateVerdict.NOT_OBSERVED) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, \"SecureRandomSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSECURERANDOM-NOBS-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSecureRandom val\u003d\u0027\u0027 exp\u003d\u0027a randomized byte[]\u0027 msg\u003d\u0027setSeed() expects a byte array observed to come from a randomized source\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call public void SecureRandom.setSeed(byte[])"
+        ]
+      },
+      {
+        "id": "genSeed",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public byte[] SecureRandom.generateSeed(int)) \u0026\u0026 target(r)",
+        "purePointcut": "call(public byte[] SecureRandom.generateSeed(int)) \u0026\u0026 target(r)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    stagedGeneratedSeed \u003d seed;\n}",
+        "callSignatures": [
+          "call public byte[] SecureRandom.generateSeed(int)"
+        ]
+      },
+      {
+        "id": "next1",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public int SecureRandom.nextInt(int)) \u0026\u0026 args(randIntInRange) \u0026\u0026 target(r)",
+        "purePointcut": "call(public int SecureRandom.nextInt(int)) \u0026\u0026 args(randIntInRange) \u0026\u0026 target(r)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    PredicateStore.instance().ensure(Property.RANDOMIZED, randIntInRange);\n}",
+        "callSignatures": [
+          "call public int SecureRandom.nextInt(int)"
+        ]
+      },
+      {
+        "id": "next2",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void SecureRandom.nextBytes(byte[])) \u0026\u0026 args(bytes) \u0026\u0026 target(r)",
+        "purePointcut": "call(public void SecureRandom.nextBytes(byte[])) \u0026\u0026 args(bytes) \u0026\u0026 target(r)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    stagedNextBytes \u003d bytes;\n}",
+        "callSignatures": [
+          "call public void SecureRandom.nextBytes(byte[])"
+        ]
+      },
+      {
+        "id": "next3",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int SecureRandom.nextInt()) \u0026\u0026 target(r)",
+        "purePointcut": "call(public int SecureRandom.nextInt()) \u0026\u0026 target(r)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    PredicateStore.instance().ensure(Property.RANDOMIZED, randInt);\n}",
+        "callSignatures": [
+          "call public int SecureRandom.nextInt()"
+        ]
+      },
+      {
+        "id": "ints",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public IntStream SecureRandom.ints(..)) \u0026\u0026 target(r)",
+        "purePointcut": "call(public IntStream SecureRandom.ints(..)) \u0026\u0026 target(r)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public IntStream SecureRandom.ints(..)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "fsm",
+        "text": "\n      start [\n         c1 -\u003e init\n         c2 -\u003e init\n         g1 -\u003e init\n         g2 -\u003e init\n         g3 -\u003e init\n         g4 -\u003e start\n      ]\n      init [\n         c1       -\u003e init\n         g4       -\u003e init\n         genSeed  -\u003e end\n         setSeed1 -\u003e end\n         setSeed2 -\u003e end\n         next1    -\u003e end\n         next2    -\u003e end\n         next3    -\u003e end\n         ints     -\u003e end\n      ]\n      end [\n         g4       -\u003e end\n         genSeed  -\u003e end\n         setSeed1 -\u003e end\n         setSeed2 -\u003e end\n         next1    -\u003e end\n         next2    -\u003e end\n         next3    -\u003e end\n         ints     -\u003e end\n      ]\n\n            alias match1 \u003d init\n            alias match2 \u003d end\n\n    ",
+        "handlers": {
+          "match2": "{\n    if (stagedGeneratedSeed !\u003d null) {\n        PredicateStore.instance().ensure(Property.RANDOMIZED, stagedGeneratedSeed);\n        stagedGeneratedSeed \u003d null;\n    }\n    if (stagedNextBytes !\u003d null) {\n        PredicateStore.instance().ensure(Property.RANDOMIZED, stagedNextBytes);\n        stagedNextBytes \u003d null;\n    }\n}",
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"SecureRandomSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSECURERANDOM-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSecureRandom val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one SecureRandomSpec accepts\u0027\"));\n    stagedGeneratedSeed \u003d null;\n    stagedNextBytes \u003d null;\n    __RESET;\n}",
+          "match1": "{\n    PredicateStore.instance().ensure(Property.RANDOMIZED, sr);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "SecureRandom sr;",
+      "List\u003cString\u003e algorithms \u003d Arrays.asList(\"SHA1PRNG\");",
+      "byte[] stagedGeneratedSeed \u003d null;",
+      "byte[] stagedNextBytes \u003d null;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "SignatureSpec.mop",
+    "spec": "SignatureSpec",
+    "params": [
+      {
+        "type": "Signature",
+        "name": "s"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static Signature Signature.getInstance(String)) \u0026\u0026 args(alg)",
+        "purePointcut": "call(public static Signature Signature.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    signature \u003d s;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static Signature Signature.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static Signature Signature.getInstance(String, String)) \u0026\u0026 args(alg, provider) \u0026\u0026 condition(ConscryptAliasTable.matches(\"Signature\", alg, algorithms))",
+        "purePointcut": "call(public static Signature Signature.getInstance(String, String)) \u0026\u0026 args(alg, provider)",
+        "condition": "ConscryptAliasTable.matches(\"Signature\", alg, algorithms)",
+        "hasReturning": true,
+        "body": "{\n    signature \u003d s;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static Signature Signature.getInstance(String, String)"
+        ]
+      },
+      {
+        "id": "i1",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void Signature.initSign(PrivateKey)) \u0026\u0026 args(privateKey) \u0026\u0026 target(s)",
+        "purePointcut": "call(public void Signature.initSign(PrivateKey)) \u0026\u0026 args(privateKey) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"Signature\", s.getAlgorithm(), algorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"SignatureSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSIGNATURE-ALG-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSignature val\u003d\u0027\" + q(s.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", algorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", algorithms) + \" but found \" + s.getAlgorithm() + \"\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call public void Signature.initSign(PrivateKey)"
+        ]
+      },
+      {
+        "id": "i2",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void Signature.initSign(PrivateKey, SecureRandom)) \u0026\u0026 args(privateKey, random) \u0026\u0026 target(s)",
+        "purePointcut": "call(public void Signature.initSign(PrivateKey, SecureRandom)) \u0026\u0026 args(privateKey, random) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"Signature\", s.getAlgorithm(), algorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"SignatureSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSIGNATURE-ALG-01 ev\u003d\" + __EVENTNAME + \" obj\u003dSignature val\u003d\u0027\" + q(s.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", algorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", algorithms) + \" but found \" + s.getAlgorithm() + \"\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call public void Signature.initSign(PrivateKey, SecureRandom)"
+        ]
+      },
+      {
+        "id": "i3",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void Signature.initVerify(Certificate)) \u0026\u0026 args(cert) \u0026\u0026 target(s)",
+        "purePointcut": "call(public void Signature.initVerify(Certificate)) \u0026\u0026 args(cert) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"Signature\", s.getAlgorithm(), algorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"SignatureSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSIGNATURE-ALG-02 ev\u003d\" + __EVENTNAME + \" obj\u003dSignature val\u003d\u0027\" + q(s.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", algorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", algorithms) + \" but found \" + s.getAlgorithm() + \"\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call public void Signature.initVerify(Certificate)"
+        ]
+      },
+      {
+        "id": "i4",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void Signature.initVerify(PublicKey)) \u0026\u0026 args(key) \u0026\u0026 target(s)",
+        "purePointcut": "call(public void Signature.initVerify(PublicKey)) \u0026\u0026 args(key) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"Signature\", s.getAlgorithm(), algorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"SignatureSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSIGNATURE-ALG-03 ev\u003d\" + __EVENTNAME + \" obj\u003dSignature val\u003d\u0027\" + q(s.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", algorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", algorithms) + \" but found \" + s.getAlgorithm() + \"\u0027\"));\n    }\n}",
+        "callSignatures": [
+          "call public void Signature.initVerify(PublicKey)"
+        ]
+      },
+      {
+        "id": "update",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "call(public void Signature.update(..)) \u0026\u0026 target(s)",
+        "purePointcut": "call(public void Signature.update(..)) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n}",
+        "callSignatures": [
+          "call public void Signature.update(..)"
+        ]
+      },
+      {
+        "id": "s1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public byte[] Signature.sign()) \u0026\u0026 target(s)",
+        "purePointcut": "call(public byte[] Signature.sign()) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.SIGNED, output);\n}",
+        "callSignatures": [
+          "call public byte[] Signature.sign()"
+        ]
+      },
+      {
+        "id": "s2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public int Signature.sign(byte[], int, int)) \u0026\u0026 args(output, offset, len) \u0026\u0026 target(s)",
+        "purePointcut": "call(public int Signature.sign(byte[], int, int)) \u0026\u0026 args(output, offset, len) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.SIGNED, output);\n}",
+        "callSignatures": [
+          "call public int Signature.sign(byte[], int, int)"
+        ]
+      },
+      {
+        "id": "v1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public boolean Signature.verify(byte[])) \u0026\u0026 args(sign) \u0026\u0026 target(s)",
+        "purePointcut": "call(public boolean Signature.verify(byte[])) \u0026\u0026 args(sign) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.VERIFIED, signed);\n}",
+        "callSignatures": [
+          "call public boolean Signature.verify(byte[])"
+        ]
+      },
+      {
+        "id": "v2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public boolean Signature.verify(byte[], int, int)) \u0026\u0026 args(sign, offset, len) \u0026\u0026 target(s)",
+        "purePointcut": "call(public boolean Signature.verify(byte[], int, int)) \u0026\u0026 args(sign, offset, len) \u0026\u0026 target(s)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.VERIFIED, signed);\n}",
+        "callSignatures": [
+          "call public boolean Signature.verify(byte[], int, int)"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "ere",
+        "text": " (g1 | g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )\n\n       ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"SignatureSpec\", \"\" + __LOC, \"v\u003d1 code\u003dSIGNATURE-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dSignature val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one SignatureSpec accepts\u0027\"));\n    __RESET;\n}",
+          "match": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(signature);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "List\u003cString\u003e algorithms \u003d Arrays.asList(\"NONEwithRSA\", \"SHA1withDSA\", \"SHA224withECDSA\", \"MD5withRSA\", \"SHA256withDSA\", \"SHA384withRSA/PSS\", \"DSAwithSHA1\", \"SHA384withRSA\", \"SHA512withRSA/PSS\", \"SHA1withRSA/PSS\", \"SHA512withRSA\", \"SHA1withRSA\", \"NONEwithDSA\", \"SHA256withRSA/PSS\", \"SHA224withRSA/PSS\", \"SHA256withRSA\", \"DSA\", \"SHA224withRSA\", \"SHA224withDSA\", \"DSS\", \"SHA1withECDSA\", \"SHA256withECDSA\", \"SHA384withECDSA\", \"SHA512withECDSA\");",
+      "String currentAlgorithmInstance \u003d \"\";",
+      "Signature signature \u003d null;"
+    ]
+  },
+  {
+    "kind": "mop",
+    "source": "TrustManagerFactorySpec.mop",
+    "spec": "TrustManagerFactorySpec",
+    "params": [
+      {
+        "type": "TrustManagerFactory",
+        "name": "mf"
+      }
+    ],
+    "events": [
+      {
+        "id": "g1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static TrustManagerFactory TrustManagerFactory.getInstance(String)) \u0026\u0026 args(alg)",
+        "purePointcut": "call(public static TrustManagerFactory TrustManagerFactory.getInstance(String)) \u0026\u0026 args(alg)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    trustManagerFactory \u003d mf;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static TrustManagerFactory TrustManagerFactory.getInstance(String)"
+        ]
+      },
+      {
+        "id": "g2",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..)) \u0026\u0026 args(alg, *) \u0026\u0026 condition(ConscryptAliasTable.matches(\"TrustManagerFactory\", alg, algorithms))",
+        "purePointcut": "call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..)) \u0026\u0026 args(alg, *)",
+        "condition": "ConscryptAliasTable.matches(\"TrustManagerFactory\", alg, algorithms)",
+        "hasReturning": true,
+        "body": "{\n    trustManagerFactory \u003d mf;\n    currentAlgorithmInstance \u003d alg;\n}",
+        "callSignatures": [
+          "call public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..)"
+        ]
+      },
+      {
+        "id": "init",
+        "pos": "before",
+        "creation": false,
+        "pointcut": "(call(public void TrustManagerFactory.init(KeyStore)) || call(public void TrustManagerFactory.init(ManagerFactoryParameters))) \u0026\u0026 target(mf)",
+        "purePointcut": "(call(public void TrustManagerFactory.init(KeyStore)) || call(public void TrustManagerFactory.init(ManagerFactoryParameters))) \u0026\u0026 target(mf)",
+        "condition": "",
+        "hasReturning": false,
+        "body": "{\n    if (!ConscryptAliasTable.matches(\"TrustManagerFactory\", mf.getAlgorithm(), algorithms)) {\n        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, \"TrustManagerFactorySpec\", \"\" + __LOC, \"v\u003d1 code\u003dTRUSTMANAGERFACTORY-ALG-00 ev\u003d\" + __EVENTNAME + \" obj\u003dTrustManagerFactory val\u003d\u0027\" + q(mf.getAlgorithm()) + \"\u0027 exp\u003d\u0027\" + q(String.join(\",\", algorithms)) + \"\u0027 msg\u003d\u0027expecting one of \" + String.join(\",\", algorithms) + \" but found \" + mf.getAlgorithm() + \"\u0027\"));\n    }\n    ExecutionContext.instance().setProperty(Property.GENERATED_TRUST_MANAGER, trustManagerFactory);\n}",
+        "callSignatures": [
+          "call public void TrustManagerFactory.init(KeyStore)",
+          "call public void TrustManagerFactory.init(ManagerFactoryParameters)"
+        ]
+      },
+      {
+        "id": "gtm1",
+        "pos": "after",
+        "creation": false,
+        "pointcut": "call(public KeyManager[] TrustManagerFactory.getTrustManagers()) \u0026\u0026 target(k)",
+        "purePointcut": "call(public KeyManager[] TrustManagerFactory.getTrustManagers()) \u0026\u0026 target(k)",
+        "condition": "",
+        "hasReturning": true,
+        "body": "{\n    ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, trustManager);\n}",
+        "callSignatures": [
+          "call public KeyManager[] TrustManagerFactory.getTrustManagers()"
+        ]
+      }
+    ],
+    "properties": [
+      {
+        "formalism": "fsm",
+        "text": "\n      start [\n        g1 -\u003e waitingInit\n        g2 -\u003e waitingInit\n      ]\n      waitingInit [\n        init -\u003e final\n      ]\n      final [\n        g1   -\u003e waitingInit\n        g2   -\u003e waitingInit\n        gtm1 -\u003e start\n      ]\n\n    alias match1 \u003d final\n\n    ",
+        "handlers": {
+          "fail": "{\n    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, \"TrustManagerFactorySpec\", \"\" + __LOC, \"v\u003d1 code\u003dTRUSTMANAGERFACTORY-ORDER-00 ev\u003d\" + __EVENTNAME + \" obj\u003dTrustManagerFactory val\u003d\u0027\u0027 exp\u003d\u0027\u0027 msg\u003d\u0027the observed call sequence is not one TrustManagerFactorySpec accepts\u0027\"));\n    ExecutionContext.instance().unsetObjectAsInAcceptingState(trustManagerFactory);\n    ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGER);\n    ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGERS);\n    __RESET;\n}",
+          "match1": "{\n    ExecutionContext.instance().setObjectAsInAcceptingState(trustManagerFactory);\n}"
+        }
+      }
+    ],
+    "declarations": [
+      "private String q(String s) {\n    if (s \u003d\u003d null) {\n        return \"\";\n    }\n    String value \u003d s.length() \u003e 512 ? s.substring(0, 512) : s;\n    return value.replace(\"\u0027\", \"\\\\\u0027\");\n}",
+      "List\u003cString\u003e algorithms \u003d Arrays.asList(\"PKIX\");",
+      "String currentAlgorithmInstance \u003d \"\";",
+      "TrustManagerFactory trustManagerFactory \u003d null;"
+    ]
+  }
+]

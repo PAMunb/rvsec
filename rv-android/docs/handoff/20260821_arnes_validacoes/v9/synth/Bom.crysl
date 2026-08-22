@@ -1,0 +1,17 @@
+SPEC java.security.MessageDigest
+
+OBJECTS
+  java.lang.String digestAlg;
+  byte[] out;
+
+EVENTS
+  g1: getInstance(digestAlg);
+  g2: getInstance(digestAlg, _);
+  Gets := g1 | g2;
+  d1: out = digest();
+
+ORDER
+  Gets, d1
+
+ENSURES
+  digested[out] after Gets;

@@ -1,0 +1,52 @@
+package mop;
+
+import javax.crypto.spec.PBEParameterSpec;
+import java.security.spec.AlgorithmParameterSpec;
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
+
+PBEParameterSpecSpec(PBEParameterSpec s) {
+
+    PBEParameterSpec spec;
+    creation event c1 after(byte[] salt, int iterationCount)returning(PBEParameterSpec s) :call(public PBEParameterSpec.new(byte[], int)) && args(salt, iterationCount){
+        boolean conforms = true;
+        if (!(iterationCount >= 10000)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC, "v=1 code=PBEPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='" + iterationCount + "' exp='iterationCount >= 10000' msg='expecting iterationCount >= 10000 but found " + iterationCount + "'"));
+            conforms = false;
+        }
+        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, salt)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC, "v=1 code=PBEPARAMETERSPEC-REQ-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='randomized[salt]' msg='the rule requires randomized[salt]'"));
+            conforms = false;
+        }
+        if (conforms) {
+            spec = s;
+        }
+    }
+    creation event c2 after(byte[] salt, int iterationCount, AlgorithmParameterSpec paramSpec)returning(PBEParameterSpec s) :call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) && args(salt, iterationCount, paramSpec){
+        boolean conforms = true;
+        if (!(iterationCount >= 10000)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC, "v=1 code=PBEPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='" + iterationCount + "' exp='iterationCount >= 10000' msg='expecting iterationCount >= 10000 but found " + iterationCount + "'"));
+            conforms = false;
+        }
+        if (!ExecutionContext.instance().validate(Property.RANDOMIZED, salt)) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC, "v=1 code=PBEPARAMETERSPEC-REQ-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='randomized[salt]' msg='the rule requires randomized[salt]'"));
+            conforms = false;
+        }
+        if (conforms) {
+            spec = s;
+        }
+    }
+    ere: (c1 | c2)
+    @fail
+        {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpecSpec", "" + __LOC, "v=1 code=PBEPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='' msg='the observed call sequence is not one PBEParameterSpecSpec accepts'"));
+            __RESET;
+        }
+    @match
+        {
+            ExecutionContext.instance().setProperty(Property.PREPARED_PBE, spec);
+            ExecutionContext.instance().setObjectAsInAcceptingState(spec);
+        }
+}
+

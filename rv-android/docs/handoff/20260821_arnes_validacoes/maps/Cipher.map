@@ -1,0 +1,21 @@
+spec: CipherSpec
+rule: Cipher.crysl
+creation: g1 g2 g3
+accepting: end
+g1 -> javax.crypto.Cipher.getInstance(java.lang.String)
+g2 -> javax.crypto.Cipher.getInstance(java.lang.String, AnyType)
+g3 -> EPSILON
+i1 -> javax.crypto.Cipher.init(int, java.security.cert.Certificate) | javax.crypto.Cipher.init(int, java.security.cert.Certificate, java.security.SecureRandom)
+i2 -> javax.crypto.Cipher.init(int, java.security.Key) | javax.crypto.Cipher.init(int, java.security.Key, java.security.AlgorithmParameters) | javax.crypto.Cipher.init(int, java.security.Key, java.security.AlgorithmParameters, java.security.SecureRandom) | javax.crypto.Cipher.init(int, java.security.Key, java.security.SecureRandom) | javax.crypto.Cipher.init(int, java.security.Key, java.security.spec.AlgorithmParameterSpec) | javax.crypto.Cipher.init(int, java.security.Key, java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom)
+u1 -> javax.crypto.Cipher.update(byte[])
+u2 -> javax.crypto.Cipher.update(byte[], int, AnyType)
+u3 -> javax.crypto.Cipher.update(byte[], int, int, byte[])
+u4 -> javax.crypto.Cipher.update(byte[], int, int, byte[], int)
+u5 -> javax.crypto.Cipher.update(java.nio.ByteBuffer, java.nio.ByteBuffer)
+wkb1 -> javax.crypto.Cipher.wrap(java.security.Key)
+f1 -> javax.crypto.Cipher.doFinal()
+f2 -> javax.crypto.Cipher.doFinal() | javax.crypto.Cipher.doFinal(byte[]) | javax.crypto.Cipher.doFinal(byte[], int, int)
+f3 -> javax.crypto.Cipher.doFinal(byte[], int)
+f5 -> javax.crypto.Cipher.doFinal(byte[], int, int, byte[])
+f6 -> javax.crypto.Cipher.doFinal(byte[], int, int, byte[], int)
+f7 -> javax.crypto.Cipher.doFinal(java.nio.ByteBuffer, java.nio.ByteBuffer)

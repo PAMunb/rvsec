@@ -1,0 +1,25 @@
+package mop;
+
+import javax.crypto.Cipher;
+import java.security.Key;
+OrderProbeSpec(Cipher c) {
+	creation event g1(String t, Cipher c){
+		System.out.println("[EV] g1");
+	}
+	event i2(Cipher c, int mode, Key k){
+		System.out.println("[EV] i2");
+	}
+	event f1(Cipher c, byte[] ct){
+		System.out.println("[EV] f1   <-- declarado PRIMEIRO");
+	}
+	event f2(Cipher c, byte[] ct){
+		System.out.println("[EV] f2   <-- declarado DEPOIS");
+	}
+	ere:  g1 i2 (f1 | f2)*
+
+	@fail
+	{
+		System.out.println("[FAIL ] ev=" + __EVENTNAME);
+		__RESET;
+	}
+}
