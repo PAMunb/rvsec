@@ -1,0 +1,33 @@
+# The declared cost of wiring ledger clause #22, witnessed. api30 Cipher ENSURES
+# `encrypted[cipherText, plainText]` (Cipher.cryptsl:191) with no guard on `encmode`, so a Cipher
+# initialised for decryption that reaches its accepting state marks its output the same way an
+# encrypting one does. A Mac that writes its tag into that output is therefore accused of writing
+# into ciphertext, although the buffer holds the plaintext that came back out.
+#
+# The imprecision is the oracle's, not this set's: `CipherSpec.@match1` translates the clause as
+# the rule states it. Recorded here so the report has a witness rather than a claim.
+#
+# The whole program is performed, not just dispatched, because the accusation depends on one
+# array object reaching two specifications. That makes the sizes load-bearing and they were
+# measured, not reasoned about: 32 plaintext bytes encrypt to 48 under PKCS5Padding, decrypt back
+# to 32, and HmacSHA256 has a 32-byte tag, so `doFinal(pt, 0)` fits exactly. An earlier version of
+# this trace decrypted a buffer of zeros directly and raised BadPaddingException, which left the
+# harness with a null array and no accusation at all -- a trace must describe a program that runs.
+bind km = bytes(32)
+bind iv = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k, spec) -> ready
+c.doFinal(bytes(32)) -> ct
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> d
+d.init(2, k, spec) -> dready
+d.doFinal(ct) -> pt
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> mackey
+Mac.getInstance("HmacSHA256") -> m
+m.init(mackey)
+m.doFinal(pt, 0)

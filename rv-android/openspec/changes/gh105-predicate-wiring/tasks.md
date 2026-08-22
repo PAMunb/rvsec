@@ -443,7 +443,9 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       refusing G-ACC — the one failure the mechanism exists to prevent (`8fdf73fd`). All three
       are now retired with `task: "4.15"`, `was:` the count each reported on the unmodified tree
       (27, 42, 23) and a note naming the pass that closed it. G-PRED2 is deliberately left in
-      `gates`: its ten rows are Group 5's live expectation and task 5.11 closes them.
+      `gates`: its rows are Group 5's live expectation and task 5.11 closes them. (The count
+      written here as "ten" was wrong when 4.15 wrote it — the baseline and the gate both held
+      **nine** — and tasks 5.2 and 5.3 took it to **six**, so no literal is recorded in its place.)
       Collateral: `test_a_retired_gate_leaves_the_baseline_and_stays_out` now asserts all four
       retirements plus the negative half; three wrapper docstrings that stated numbers the tree
       contradicts were corrected; the three censuses gained the line saying this task moved no
@@ -514,11 +516,67 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       twice, at the construction and at the init. The alternative, preparing on NOT_OBSERVED, was
       put to the researcher and refused as a behavioural change to a ratified decision.
       Evidence: `data/gh105/evidence/f3-IvChainJunction.md`
-- [ ] 5.2 `Mac` chain, positive: `preparedHMAC[params]` (ledger #21 — the rule's real clause;
-      Mac does not require `generatedKey`, so 4.9's propagation reads are re-derived here)
-- [ ] 5.3 `Mac` chain, negated: `!encrypted[output1,_]` and `!encrypted[output2,_]` (ledger
-      #22/#23 — two sites, one predicate) via `validateAbsent` (INV-INS-146); producer = the
-      Cipher `ENCRYPTED` writes 4.1 relocated to acceptance
+- [x] 5.2 `Mac` chain, positive: `preparedHMAC[params]` (ledger #21 — the rule's real clause;
+      Mac does not require `generatedKey`, confirmed against `Mac.cryptsl`: it appears in no
+      REQUIRES, no CONSTRAINTS and no ENSURES).
+      **Recorded, not wired** (researcher decision, 2026-08-22), on three measurements. The site
+      exists — `MacSpec.i2` binds `params` directly, so the separate-file question task 5.1 had to
+      answer does not recur — but no program can compose the clause's two ends. The producing
+      class is `javax.xml.crypto.dsig.spec.HMACParameterSpec`, of the `java.xml.crypto` module,
+      and the api30 `android.jar` carries `javax/crypto/Mac` and `javax/crypto/spec/PBEParameterSpec`
+      and **no entry whatever under `javax/xml/crypto`**: on the platform this set targets the
+      producer cannot be loaded. On a JVM, where it can, no `Mac` accepts it — measured over the
+      twelve algorithms of the rule's own allow-list on Temurin 21, the six `Hmac*` answer "HMAC
+      does not use parameters" to every parameter object, the five `PBEwithHmac*` take
+      `PBEParameterSpec` only, and `PBEwithHmacSHA`, which the allow-list names, does not exist.
+      `i2` is an `after` advice, which is after-finally, so the only program that could reach a
+      read with the predicate present is one raising `InvalidAlgorithmParameterException` at that
+      call. A read would answer `NOT_OBSERVED` on every conforming two-argument `init`, the shape
+      of the seventeen orphan accusers Group 3 removed. The record is carried by the producer's own
+      row in `predicate_graph.csv` at `disposition=omission`, which is how its G-PRED2 line closes
+      **without a reader** — the first time in this change that a recorded clause retires a gate
+      line. This task adds no graph row and no code.
+      **The task statement was wrong in two labels**: it calls 4.9's deleted reads "propagation
+      reads", which 4.9's own evidence had already corrected, and "re-derived" suggests
+      restoration; nothing was restored, and the pass reads a different predicate at a different
+      event on a different object — or rather, reads nothing at all.
+      **Found and recorded, not repaired**: `HMACParameterSpecSpec.mop` instruments a class absent
+      from Android, so one of the set's 24 specifications cannot fire in any APK. Recorded in
+      `conformance_record.csv`; whether it should leave the set is a change of scope.
+      Evidence: `data/gh105/evidence/f3-MacChain.md` (with task 5.3, one commit)
+- [x] 5.3 `Mac` chain, negated: `!encrypted[output1,_]` and `!encrypted[output2,_]` (ledger
+      #22/#23) via `validateAbsent` (INV-INS-146); producer = the Cipher `ENCRYPTED` writes 4.1
+      relocated to acceptance.
+      **"Two sites, one predicate" was the wrong count**: the two clauses have one realisable site
+      between them, and the `.mop` alphabet does not map to the rule's by name. `MacSpec.f1` merges
+      api30's `f1: output1 = doFinal()` and `f2: output2 = doFinal(input)` under one pointcut
+      disjunction and binds the array the call **returns**, which the JCA allocates fresh every
+      time — measured on Temurin 21 over HmacSHA1, HmacSHA256 and HmacSHA512, a returned tag is
+      never the ciphertext object beside it. Since `validateAbsent` never answers `NOT_OBSERVED`
+      (absence is conformance), a read there could answer only `SATISFIED`: a site with no path to
+      an accusation, which decision 19 deletes rather than writes. So **#23 is recorded vacuous in
+      full, with the returned half of #22**, and #22 keeps its second site: `MacSpec.f2`, which is
+      api30's **`f3: doFinal(output1, outOffset)`** — the one event of the rule whose `byte[]` the
+      caller owns.
+      **The site did not match, and the repair travels with the clause** (researcher decision,
+      2026-08-22, on the 6.2↔5.9 precedent). The event declared `target(m)` while naming no `m`
+      among its formals — the empty-binding broadcast of `conformance_record.csv:67` item (c) — so
+      the generator gave it the specification's parameterless map and it landed on a root monitor
+      that had seen no `getInstance`, which the `ere` rejects. **It was therefore a false accuser**:
+      measured on the three traces this task adds, against the pre-image, this tree and the frozen
+      control alike, all three drew `MAC-ORDER-00` at this event, the conforming one included.
+      After the repair `MacSpec__Map` is gone from the generated monitor, `MacSpec_f2Event` takes
+      `Mac m`, and the conforming trace is silent. No trace of the existing corpus reaches this
+      event, so the repair moves nothing already measured.
+      Delivered: the set's **first `validateAbsent`** and first `polarity=negated` row, with
+      `MAC-CONSTR-00`. The verdict is two-valued by construction, so no NOBS code stands beside it
+      and its absence is not an omission under INV-INS-143.
+      **Cost declared**: `Cipher.cryptsl` states `encrypted[cipherText, plainText]` with no guard
+      on `encmode`, so a decrypting Cipher marks its output the same way and a Mac writing into it
+      is accused although nothing was destroyed. `MacSpec-decrypt-buffer.txt` witnesses it. The
+      imprecision is the oracle's; the rule's third clause, `encrypted[cipherBuffer, plainBuffer]`,
+      has no write in the set, so a Mac over that buffer is not caught.
+      Evidence: `data/gh105/evidence/f3-MacChain.md` (with task 5.2, one commit)
 - [ ] 5.4 `randomized` hub A (ledger #11, #24, #25): `GCMParameterSpec` `randomized[src]`,
       `PBEKeySpec` and `PBEParameterSpec` salts; junction where co-observable, store where not,
       mechanism recorded per chain in `predicate_graph.csv`

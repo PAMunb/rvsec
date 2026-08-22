@@ -468,9 +468,9 @@ Every F3/record task resolves against this table, not against family names.
 | 18 | KeyPairGenerator | `{DSA} => preparedDSA[params]` | | G | no (no producer .mop) | record `unmonitored-producer` | 5.10 |
 | 19 | KeyPairGenerator | `{RSA} => preparedRSA[params]` | | G | no (no producer .mop) | record `unmonitored-producer` | 5.10 |
 | 20 | KeyPairGenerator | `{EC} => preparedEC[params]` | | G | non-connectable | record `unclosable` (no producing rule) | 5.8 |
-| 21 | Mac | `preparedHMAC[params]` | | | yes | wire (Mac's clause — Mac does not require `generatedKey`) | 5.2 |
-| 22 | Mac | `!encrypted[output1, _]` | N | | yes | wire — `validateAbsent` (researcher 2026-08-20) | 5.3 |
-| 23 | Mac | `!encrypted[output2, _]` | N | | yes | wire — `validateAbsent` (two sites, one predicate) | 5.3 |
+| 21 | Mac | `preparedHMAC[params]` | | | wireable, **not composable** | record `unreachable-composition` — the site exists and no program can reach it (5.2) | 5.2 |
+| 22 | Mac | `!encrypted[output1, _]` | N | | yes | wired — `validateAbsent` at `MacSpec.f2` (api30's `f3`), with the binding repair; the returned half recorded vacuous | 5.3 |
+| 23 | Mac | `!encrypted[output2, _]` | N | | yes (vacuous) | record `vacuous` — `output2` is bound only as a returned array, which the JCA allocates fresh | 5.3 |
 | 24 | PBEKeySpec | `randomized[salt]` | | | yes | wire | 5.4 |
 | 25 | PBEParameterSpec | `randomized[salt]` | | | yes | wire | 5.4 |
 | 26 | PKIXBuilderParameters | `generatedKeyStore[keyStore]` | | | no (no consumer .mop) | record `unmonitored-consumer` | 5.10 |
@@ -486,8 +486,18 @@ Every F3/record task resolves against this table, not against family names.
 | 36 | TrustManagerFactory | `generatedKeyStore[keyStore]` | | | yes | wire | 5.9 |
 
 Totals: 25 wireable (incl. the 3 negated and the 1 vacuous), 10 non-wireable records,
-1 `unclosable` (`preparedEC`). Of the 25 wireable, **24 are wired**; the vacuous #30 is
-**recorded**, never wired — no event binds `sr`, so it can have no read site.
+1 `unclosable` (`preparedEC`). Of the 25 wireable, **22 are wired**; the vacuous #30 is
+**recorded**, never wired — no event binds `sr`, so it can have no read site — and tasks 5.2 and
+5.3 moved two more out of the wired column on measurement (2026-08-22): #23 joins #30 as
+`vacuous`, because `output2` is bound only as an array the JCA allocates fresh and
+`validateAbsent` never answers `NOT_OBSERVED`, so a read there could answer only `SATISFIED`; and
+#21 is a **third kind of record**, which this ledger did not have a column for. Its producer and
+its consumer both have a `.mop` in the set — the ledger's own wireability test — and the platform
+still refuses the composition: the producing class is absent from the api30 `android.jar`, and on
+a JVM no `Mac` of the rule's twelve-algorithm allow-list accepts its type. **Having a `.mop` at
+both ends is necessary and not sufficient**, and every remaining task of Group 5 should measure the
+composition rather than the two ends. The measurements are in
+`data/gh105/evidence/f3-MacChain.md`.
 
 Dead-end `ENSURES`-only predicates are never required by any rule. The oracle has 12; **9 have
 their producing rule's `.mop` in the set** and are the ones this change must dispose of:

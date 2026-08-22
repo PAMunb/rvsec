@@ -677,6 +677,16 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       30 because the file writes nothing -- the rule states no ENSURES clause it could
       translate -- and the guards stay at 0 because the clause's antecedent is evaluated
       in the event body ahead of the read, not in a `condition(...)`.
+    * tasks 5.2 and 5.3 move the reads once between them, 15 -> 16, and the one that moves
+      it is 5.3. The read is `MacSpec.f2`, and it is the set's first `validateAbsent`:
+      api30 Mac `!encrypted[output1, _]` (Mac.cryptsl:82, ledger #22), which absence
+      satisfies, so it lands in the `read-absent` half of this sum rather than the `read`
+      half. The other three clauses of the two tasks add no site at all and are recorded
+      instead: #21 because the platform cannot compose its ends -- the api30 android.jar
+      has no `javax/xml/crypto` for the producing class and no `Mac` accepts the type --
+      and #23 with the returned half of #22 because `MacSpec.f1` binds an array the JCA
+      allocates fresh, where `validateAbsent` could answer only SATISFIED. The writes stay
+      at 30 and the withdrawal at 1: neither task writes or withdraws a predicate.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -692,7 +702,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 15
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 16
     assert read_placement.get("condition", 0) == 0
     assert counts.get("write", 0) == 30
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
@@ -900,6 +910,13 @@ def test_the_graph_reproduces_the_measured_placement_census():
       rather than in a `condition(...)`, which is what INV-INS-133 asks of the eight
       guarded clauses. Nothing else moves: the file writes no predicate, withdraws none,
       and calls no bookkeeping.
+    * task 5.3 adds the graph's 47th row and moves no number of this census, which is why
+      the `read-absent:body` assertion below was added rather than an existing count
+      changed. The row is `MacSpec.f2/ENCRYPTED`, the set's first `polarity=negated` row
+      and its first `validateAbsent`: api30 Mac `!encrypted[output1, _]`
+      (Mac.cryptsl:82). Task 5.2 adds no row at all -- ledger #21 is recorded as a
+      deliberate omission on the producer's own row, `HMACParameterSpecSpec.mop/match`,
+      which is how its G-PRED2 line closes without a reader.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -908,6 +925,11 @@ def test_the_graph_reproduces_the_measured_placement_census():
 
     assert counts.get("read:condition-guard", 0) == 0
     assert counts.get("read:body", 0) == 15
+    # The negated clauses read through `validateAbsent`, which the graph records as its
+    # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
+    # 5.3 put the set's first one there, and the assertion exists so that the next one
+    # cannot arrive uncounted.
+    assert counts.get("read-absent:body", 0) == 1
     assert counts.get("write:body", 0) == 7
     assert counts.get("write:acceptance", 0) == 23
     assert counts.get("remove:fail", 0) == 0

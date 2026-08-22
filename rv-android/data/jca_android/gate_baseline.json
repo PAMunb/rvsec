@@ -5,7 +5,7 @@
     "universe": 215,
     "read": 213,
     "skipped": 2,
-    "structural_findings": 9,
+    "structural_findings": 6,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -16,16 +16,6 @@
     "G-PRED2": [
       [
         "jca_android",
-        "CipherSpec.mop",
-        "match1/ENCRYPTED"
-      ],
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "match2/ENCRYPTED"
-      ],
-      [
-        "jca_android",
         "DHGenParameterSpecSpec.mop",
         "match/PREPARED_DH"
       ],
@@ -33,11 +23,6 @@
         "jca_android",
         "GCMParameterSpecSpec.mop",
         "match/PREPARED_GCM"
-      ],
-      [
-        "jca_android",
-        "HMACParameterSpecSpec.mop",
-        "match/PREPARED_HMAC"
       ],
       [
         "jca_android",

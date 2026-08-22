@@ -31,9 +31,10 @@ KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDE
 KeyPairSpec,KEYPAIR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairSpec.mop:82
 KeyStoreSpec,KEYSTORE-KSTYPE-00,InvalidKeyStoreType,KSTYPE,gk1,KeyStoreSpec.mop:82
 KeyStoreSpec,KEYSTORE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyStoreSpec.mop:91
-MacSpec,MAC-ALG-00,UnsafeAlgorithm,ALG,i1,MacSpec.mop:98
-MacSpec,MAC-ALG-01,UnsafeAlgorithm,ALG,i2,MacSpec.mop:111
-MacSpec,MAC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,MacSpec.mop:171
+MacSpec,MAC-ALG-00,UnsafeAlgorithm,ALG,i1,MacSpec.mop:102
+MacSpec,MAC-ALG-01,UnsafeAlgorithm,ALG,i2,MacSpec.mop:143
+MacSpec,MAC-CONSTR-00,UnsatisfiedConstraint,CONSTR,f2,MacSpec.mop:216
+MacSpec,MAC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,MacSpec.mop:243
 MessageDigestSpec,MESSAGEDIGEST-ALG-00,UnsafeAlgorithm,ALG,update,MessageDigestSpec.mop:82
 MessageDigestSpec,MESSAGEDIGEST-ALG-01,UnsafeAlgorithm,ALG,d2,MessageDigestSpec.mop:114
 MessageDigestSpec,MESSAGEDIGEST-ALG-02,UnsafeAlgorithm,ALG,g4,MessageDigestSpec.mop:70

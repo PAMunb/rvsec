@@ -1,0 +1,24 @@
+# Conforming counterpart of MacSpec-encrypted-buffer.txt: the same Mac, the same event, and a
+# buffer that no Cipher ever wrote. api30 Mac `!encrypted[output1, _]` (Mac.cryptsl:82) is
+# satisfied by absence, so this trace must stay silent about the clause.
+#
+# It keeps the Cipher prefix so that the only difference between the pair is which array reaches
+# `doFinal(byte[], int)` -- the ciphertext the acceptance point marked, or a buffer allocated
+# beside it. A pair that also differed in whether a Cipher ran at all would not isolate the
+# clause.
+bind km = bytes(32)
+bind iv = bytes(16)
+bind buf = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k, spec) -> ready
+c.doFinal(bytes) -> ct
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> mackey
+Mac.getInstance("HmacSHA256") -> m
+m.init(mackey)
+m.doFinal(buf, 0)

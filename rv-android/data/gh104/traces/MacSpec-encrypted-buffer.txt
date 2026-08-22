@@ -1,0 +1,34 @@
+# Violates api30 Mac `!encrypted[output1, _]` (Mac.cryptsl:82, ledger clause #22): the tag is
+# written into the very buffer that holds the ciphertext, so the authenticated bytes are
+# destroyed and what is authenticated is whatever the buffer held before.
+#
+# `output1` is bound by two events of the rule -- `f1: output1 = doFinal()`, where it is the
+# returned array, and `f3: doFinal(output1, outOffset)`, where it is the caller's buffer. Only
+# the second can carry a predicate the Cipher wrote, because the JCA allocates the returned tag
+# fresh on every call; measured on Temurin 21 over HmacSHA1/SHA256/SHA512, the returned array is
+# never the ciphertext object. `MacSpec.f2` is the event of that second site.
+#
+# The two arrowed lines are the first in this corpus: a line without `-> x` dispatches the
+# advices and does not perform the call, so a Cipher whose `doFinal` is never performed produces
+# no array and `finalCipherText` stays null, leaving `@match1` with nothing to write. Here the
+# init and the doFinal are performed, so `ct` is the real ciphertext object the acceptance point
+# marks -- and it is the same object the Mac then writes into.
+#
+# Sizes are not incidental: `bytes` is 16 bytes, PKCS5Padding takes that to 32, and HmacSHA256
+# has a 32-byte tag. Measured: `doFinal(ct, 0)` succeeds at 32 and raises ShortBufferException
+# under HmacSHA512, whose tag is 64. The trace describes a program that runs.
+bind km = bytes(32)
+bind iv = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k, spec) -> ready
+c.doFinal(bytes) -> ct
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> mackey
+Mac.getInstance("HmacSHA256") -> m
+m.init(mackey)
+m.doFinal(ct, 0)

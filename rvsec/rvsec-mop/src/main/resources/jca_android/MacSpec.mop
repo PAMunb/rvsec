@@ -5,6 +5,9 @@ import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
 
 MacSpec(Mac m) {
     // The envelope's quoting rule (design D-3): a null value is the empty string,
@@ -87,9 +90,10 @@ MacSpec(Mac m) {
         // `MAC-ALG-00` lives in this body and this body did not run. After the
         // deletion the first is silent and the second reports the algorithm.
         //
-        // The rule's real clauses reach this same event at tasks 5.2 and 5.3, where
-        // they arrive as reads of `preparedHMAC` and as absence checks on
-        // `encrypted`, each with an accuser of its own.
+        // None of the rule's three clauses reaches this event. `preparedHMAC` binds
+        // `params`, which the one-argument overload does not have; the two negated
+        // `encrypted` clauses bind the `doFinal` outputs. This event translates no
+        // clause of the rule and holds no predicate site.
         event i1 before(java.security.Key key, Mac m):
           call(public void Mac.init(java.security.Key)) &&
           args(key) &&
@@ -101,8 +105,36 @@ MacSpec(Mac m) {
         }
 
         // The other alternative of `Inits`, taking parameters beside the key. It
-        // carried the same read on the same key and loses it for the same reason;
-        // the `params` it binds is what task 5.2 reads `preparedHMAC` on.
+        // carried the same read on the same key and loses it for the same reason.
+        //
+        // The `params` it binds is the subject of api30 Mac `preparedHMAC[params]`
+        // (Mac.cryptsl:80, ledger clause #21), and that clause is recorded here
+        // rather than read: the platform cannot compose its two ends. Three
+        // measurements, in the order that decided it.
+        //
+        // The producer is `javax.xml.crypto.dsig.spec.HMACParameterSpec`
+        // (HMACParameterSpec.cryptsl:21, realised by HMACParameterSpecSpec.mop),
+        // an XML-DSig class of the `java.xml.crypto` module. The api30 android.jar
+        // holds `javax/crypto/Mac` and `javax/crypto/spec/PBEParameterSpec` and no
+        // entry at all under `javax/xml/crypto`, so on the platform this set
+        // targets the producing class cannot be loaded and the predicate can never
+        // be written.
+        //
+        // On a JVM, where it can be loaded, no `Mac` accepts it. Measured over the
+        // twelve algorithms of the rule's own CONSTRAINTS allow-list on Temurin 21:
+        // the six `Hmac*` reject every parameter object with "HMAC does not use
+        // parameters"; the five `PBEwithHmac*` accept `PBEParameterSpec` only and
+        // answer "PBEParameterSpec type required" to this one; and
+        // `PBEwithHmacSHA`, which the allow-list names, does not exist.
+        //
+        // The advice is `after`, which is after-finally, so it runs on the throwing
+        // call too -- the only program that could reach a read here with the
+        // predicate present is one that raises InvalidAlgorithmParameterException at
+        // this very line. Writing the read would therefore accuse `NOT_OBSERVED` on
+        // every conforming two-argument `init` in the world, which is the shape of
+        // the seventeen orphan accusers Group 3 removed. Recorded in
+        // predicate_graph.csv against the producer's row, not read (researcher
+        // decision, 2026-08-22).
         event i2 after(java.security.Key key, java.security.spec.AlgorithmParameterSpec params, Mac m):
           call(public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) &&
           args(key, params) &&
@@ -133,17 +165,57 @@ MacSpec(Mac m) {
         // the clause states. Relocating this write would have handed that one edge
         // a second producer, at an arity that cannot answer it.
         //
-        // The `returning` and `args` bindings stay as they are: they are what task
-        // 5.7 writes from, and this pass moves no symbol of the alphabet.
+        // The `returning` binding stays as it is: it is what task 5.7 writes from,
+        // and this pass moves no symbol of the alphabet.
+        //
+        // This event is where the rule's two negated clauses would seem to belong,
+        // and it carries neither. It merges the rule's `f1: output1 = doFinal()`
+        // and `f2: output2 = doFinal(input)` under one pointcut disjunction, and in
+        // both the array it binds is the one the call returns. The JCA allocates
+        // that array fresh on every invocation -- measured on Temurin 21 over
+        // HmacSHA1, HmacSHA256 and HmacSHA512, the returned tag is never the same
+        // object as a ciphertext produced beside it -- so no Cipher acceptance
+        // point can ever have marked it. `validateAbsent` never answers
+        // NOT_OBSERVED, absence being conformance for a negated clause, so a read
+        // placed here could only ever answer SATISFIED. It would be a site with no
+        // path to an accusation, which decision 19 deletes rather than writes.
+        // Clause #23 (`!encrypted[output2, _]`) has no other site and is recorded
+        // vacuous in full; clause #22 keeps its second site, below.
         event f1 after(Mac m) returning(byte[] output):
           (call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) &&
           target(m){
         }
 
-        event f2 after(byte[] output, int outOffset):
+        // api30's `f3: doFinal(output1, outOffset)` (Mac.cryptsl:59), the only
+        // event of the rule whose `byte[]` the caller owns: the tag is written into
+        // a buffer the program already had. That makes it the one site where
+        // `!encrypted[output1, _]` (Mac.cryptsl:82, ledger clause #22) can be
+        // violated -- a program that hands its ciphertext to this call destroys the
+        // bytes it means to authenticate, and authenticates whatever they were.
+        //
+        // The `Mac m` formal is a repair, not a binding this pass moved. The event
+        // declared `target(m)` while naming no `m` among its formals, which is the
+        // empty-binding broadcast recorded at conformance_record.csv:67 item (c):
+        // the generator gives such an event the specification's parameterless map,
+        // so it lands on a root monitor that has seen no `getInstance` and no
+        // `init` and is therefore rejected by the `ere`. Measured on the three
+        // traces this pass adds, against the pre-image, this tree and the frozen
+        // control alike: every one of them drew `MAC-ORDER-00` at this event,
+        // including the conforming one. The repair travels with the clause because
+        // without it the read has no object to read and the accusation it produces
+        // could not be told apart from the spurious ordering report already there
+        // -- the same coupling task 6.2 has with task 5.9.
+        //
+        // The verdict is two-valued by construction, so there is no NOBS code
+        // beside this one and its absence is not an omission under INV-INS-143.
+        event f2 after(byte[] output, int outOffset, Mac m):
           call(void Mac.doFinal(byte[], int)) &&
           args(output, outOffset) &&
           target(m){
+            if (PredicateStore.instance().validateAbsent(Property.ENCRYPTED, output) == PredicateVerdict.VIOLATED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-CONSTR-00 ev=" + __EVENTNAME + " obj=Mac val='encrypted' exp='not encrypted' msg='the buffer the mac is written into already holds ciphertext'"));
+            }
         }
 
         // `g3` is the unsafe-algorithm `getInstance`, and `g3*` is followed by a
