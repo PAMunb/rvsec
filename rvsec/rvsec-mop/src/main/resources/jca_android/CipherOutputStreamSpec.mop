@@ -5,7 +5,6 @@ import java.io.OutputStream;
 import javax.crypto.Cipher;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
 import br.unb.cic.mop.Property;
 
 CipherOutputStreamSpec() {

@@ -6,7 +6,7 @@ import javax.net.ssl.KeyManager;
 import java.security.KeyStore;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -33,13 +33,15 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
 
     List<String> safeAlgorithms = Arrays.asList("PKIX");
     String currentAlgorithmInstance = "";
-    KeyManagerFactory keyManagerFactory = null;
+
+    // Staged by `init` for the acceptance-point handler, which sees no event parameter,
+    // and cleared the moment it is used or the sequence is rejected.
+    KeyManagerFactory initialisedFactory = null;
 
     event g1 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
       && condition(ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms)) {
-        keyManagerFactory = k;
         currentAlgorithmInstance = alg;
     }
 
@@ -47,7 +49,6 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..))
       && args(alg, *)
       && condition(ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms)) {
-        keyManagerFactory = k;
         currentAlgorithmInstance = alg;
     }
 
@@ -66,13 +67,33 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyManagerFactorySpec", "" + __LOC,
                 "v=1 code=KEYMANAGERFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
         }
-       ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManagerFactory);
+       initialisedFactory = k;
     }
 
+    // `generatedKeyManager[kms]` (KeyManagerFactory.cryptsl:53), and the one write of this
+    // file that INV-INS-134 does not place at the acceptance point. The reason is recorded
+    // in predicate_graph.csv and it is the automaton, not the clause: the rule orders
+    // `Gets, Init, gkm?`, so a program that takes its key managers is still accepting, but
+    // the `fsm` sends `gkm1 -> start`. Read off the generated monitor, the transition row
+    // is {3, 3, 0, 3} and the match category is `nextstate == 2`, so this event leaves the
+    // accepting state and an acceptance-point write would never run at all -- measured,
+    // `validate(GENERATED_KEY_MANAGERS, kms)` answers NOT_OBSERVED under that placement
+    // and SATISFIED under this one. That is the predicate ledger #14's neighbour #28, the
+    // one `SSLContext.init` reads at task 5.9, so the write has to happen.
+    //
+    // The divergence itself is the mirror of the one G-ORDER already reports against
+    // `TrustManagerFactorySpec` (`g1 i1 gtm`), and G-ORDER cannot see this one because
+    // `KeyManagerFactorySpec` has no rows in order_alphabet_map.csv and is skipped
+    // declaredly. Task 7.1 maps every specification Groups 1-6 touched, this one included,
+    // and the gate will raise it there; the write moves to the acceptance point with the
+    // repair.
+    //
+    // The cost of the placement, stated in full: after a `gkm` the automaton refuses and
+    // the rule accepts, this body marks an array the automaton did not accept.
     event gkm1 after(KeyManagerFactory k) returning(KeyManager[] keyManager):
       call(public KeyManager[] KeyManagerFactory.getKeyManagers())
       && target(k) {
-        ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, keyManager);
+        PredicateStore.instance().ensure(Property.GENERATED_KEY_MANAGERS, keyManager);
     }
 
     fsm :
@@ -100,13 +121,23 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC,
             "v=1 code=KEYMANAGERFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='' exp='' msg='the observed call sequence is not one KeyManagerFactorySpec accepts'"));
-        ExecutionContext.instance().unsetObjectAsInAcceptingState(keyManagerFactory);
-        ExecutionContext.instance().remove(Property.GENERATED_KEY_MANAGERS);
+        initialisedFactory = null;
 
         __RESET;
     }
 
+    // The acceptance point of `generatedKeyManager[this] after Init`, where the two routes
+    // INV-INS-134 admits are the same handler: `init` has the transition row {3, 2, 3, 3}
+    // and the match category is `nextstate == 2`, so the state the Init leads to and the
+    // accepting state are one state, and `init` is the only event that reaches it.
+    //
+    // No rule of api30 requires this half of the clause -- `SSLContext` asks for
+    // `generatedKeyManager[kms]`, over the array, never over the factory -- so the site
+    // carries a deliberate-omission record (INV-INS-137) and no read is fabricated for it.
     @match1 {
-       ExecutionContext.instance().setObjectAsInAcceptingState(keyManagerFactory);
+       if (initialisedFactory != null) {
+           PredicateStore.instance().ensure(Property.GENERATED_KEY_MANAGERS, initialisedFactory);
+           initialisedFactory = null;
+       }
     }
 }

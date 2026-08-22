@@ -2,11 +2,12 @@
 
 - **A** `backup/gh105-preimage/jca_android`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
-- traces: 4
+- traces: 5
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
 | `KeyStoreSpec-androidkeystore.txt` | unchanged | — | — |
+| `KeyStoreSpec-getkey-iv.txt` | unchanged | — | — |
 | `KeyStoreSpec-guard-on-field.txt` | unchanged | KeyStoreSpec.load, KeyStoreSpec.gk1 | KeyStoreSpec.load, KeyStoreSpec.gk1 |
 | `KeyStoreSpec-jks.txt` | unchanged | KeyStoreSpec.load, KeyStoreSpec.gk1 | KeyStoreSpec.load, KeyStoreSpec.gk1 |
 | `KeyStoreSpec.txt` | unchanged | — | — |

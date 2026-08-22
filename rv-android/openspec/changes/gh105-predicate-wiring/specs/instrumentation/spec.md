@@ -346,9 +346,14 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
   clauses (`SecretKey: generatedKey[this,_] after d`; `PBEKeySpec: speccedKey[this,_] after cP`);
   only the second has a corresponding event in the set. The eight `@fail` removals — "undo the
   predicate when the automaton fails", a semantics no CrySL generation has — MUST be removed,
-  each with its harness-measured delta. One of the eight (`MacSpec.mop:99`) is deleted by the
-  file pass that deletes the write it withdraws (task 4.9), by the precedent of the
-  `clearPassword` removal at 4.6; task 6.4 performs the remaining seven.
+  each with its harness-measured delta, and each MUST leave with the file pass that migrates or
+  deletes the write it withdraws, by the precedent of the `clearPassword` removal at task 4.6.
+  One of the eight (`MacSpec.mop:99`) went with the writes it withdrew at task 4.9; the
+  remaining seven went at task 4.14 with the seven writes that pass migrated, because
+  `PredicateStore` offers no removal at all (INV-INS-131 forbids it the object-blind
+  `remove(Property)`) — so a removal left behind is a no-op on a store nothing writes, which is
+  dead code and holds INV-INS-130 off zero for its file. Task 6.4 therefore **verifies** the
+  count is zero rather than performing any deletion, the shape task 6.5 already has.
 - **INV-INS-143**: The *not observed* verdict MUST reach the violation-report envelope with its
   own `codes.csv` code family, distinct from the violation codes, in the same task that
   introduces the first three-valued read — so no intermediate state exists where the third value

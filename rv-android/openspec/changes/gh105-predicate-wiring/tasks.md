@@ -381,10 +381,45 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       null, so the chain had no committed witness — measured, zero of the 97 committed traces
       change and `TraceRunnerTest` stays at its two pre-existing failures. Evidence:
       `data/gh105/evidence/f2-write-only-batch-a.md`
-- [ ] 4.14 Write-only specs, batch B (10 writes / 11 calls): `KeyStoreSpec` (2),
+- [x] 4.14 Write-only specs, batch B (10 writes / 11 calls): `KeyStoreSpec` (2),
       `KeyManagerFactorySpec` (2), `TrustManagerFactorySpec` (2), `KeyGeneratorSpec` (1),
       `KeyPairGeneratorSpec` (1), `DHGenParameterSpecSpec` (1), `HMACParameterSpecSpec` (1).
-      Their `@fail` removals are NOT touched here — 6.4 owns all eight
+      The last seven files of the group, and the pass that takes three counters to zero: the
+      accepting-state calls (INV-INS-147, the last 11 of 25), the `ExecutionContext` mentions
+      (INV-INS-130, these seven plus two dangling imports in `CipherInputStreamSpec` and
+      `CipherOutputStreamSpec` that no 4.x task covered), and the `@fail` removals. Like task
+      4.13 no file declares a read, so the question is again who reads the write; unlike 4.13
+      the answer is rarely nobody — two writes have a live reader (`CipherSpec.i2`,
+      `SecretKeySpec.e1`), five have one scheduled (ledger #14/#36 and #28/#29 at 5.9, #17 at
+      5.8, #21 at 5.2), and three are dead ends. Eight writes go to the acceptance point; the
+      three `after L` clauses land on the same state as their `@match`, so the handler is both
+      routes at once. **Two stay in the event body with a recorded reason** —
+      `KeyManagerFactorySpec.gkm1` and `TrustManagerFactorySpec.gtm1`, whose transition rows
+      ({3,3,0,3} and {3,0,3,3}) leave the accepting state for `start`, so an acceptance-point
+      write would not merely be worse, it would never run: measured, `validate` answers
+      NOT_OBSERVED under that placement and SATISFIED under this one, and it is exactly what
+      ledger #28 reads at 5.9. Task 7.1 owns the automaton and both writes move with it. The
+      probe row that decided the other eight points the opposite way from task 4.13's: the
+      acceptance point is reachable on the common route (rows A and B both reach zero reports),
+      and the one program the placements separate is one the rule itself rejects — two
+      `generateKey()` on one generator — where the acceptance point is what CrySL states and
+      the extra report is true. **The F2 window task 4.12 opened is closed and witnessed at both
+      producers**: `SecretKeySpec-keygen-iv.txt` leaves `introduced` for `unchanged` and the
+      harness goes 10 `introduced` to 9, while `KeyStore.getKey()` — which had no witness —
+      gains `KeyStoreSpec-getkey-iv.txt`, measured on the seed before the edit and replayed on
+      all three snapshots. Six researcher decisions (2026-08-22). The seven `@fail` removals
+      travel here instead of 6.4 by decision 11's criterion (each undoes a write this task
+      migrates, as at 4.6 and 4.9): `PredicateStore` offers no removal, no reader of any
+      predicate remains on the old substrate so deleting them changes no report, and leaving
+      them would keep INV-INS-130 off zero and block 4.15. `gtm1` writes `GENERATED_TRUST_MANAGER`
+      as its clause names instead of the neighbouring rule's constant, which costs nothing
+      measured — no set reads either, and the advice has no execution path at all, its pointcut
+      declaring `getTrustManagers()` returning `KeyManager[]` (gh104 8.7, task 6.2's). Three
+      deliberate-omission records, per site: `generatedKeypair` — the eleventh and last of the
+      sites `design.md` lists for its seven dead-end predicates, after which every one is
+      disposed of — and the two `[this] after Init` halves the oracle ensures on the factory and
+      no rule asks for there. Evidence:
+      `data/gh105/evidence/f2-write-only-batch-b.md`
 - [ ] 4.15 Placement gates green, baselines retired: zero `condition` reads in `jca_android`
       (INV-INS-133), `test_inv_ins_134_write_placement` green — every write at acceptance or
       carrying its recorded `reason` in `predicate_graph.csv`, import-discipline green
@@ -486,14 +521,20 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       property goes with it. Pairs with 5.9
 - [ ] 6.3 `SignatureSpec`: `verified` marked on the `boolean` instead of the `byte[]`; `sign()`
       pointcuts declaring `public byte`
-- [ ] 6.4 Delete the 7 `@fail` removals this task still owns (INV-INS-142 counts eight; 4.9 took
-      `MacSpec.mop:99` with the write it withdrew), one harness delta each — the sites, re-read
-      from the tree on 2026-08-21 because Group 3 moved two of them, are
-      `TrustManagerFactorySpec.mop:124,125` (was `:100,101`), `KeyStoreSpec.mop:92,93`,
-      `KeyManagerFactorySpec.mop:104`, `KeyPairGeneratorSpec.mop:133` (was `:119`),
-      `KeyGeneratorSpec.mop:89`. They implement "undo the predicate when the automaton fails", a
-      semantics no CrySL generation has, and couple typestate to predicate against the rule's
-      own orthogonality
+- [ ] 6.4 **Verify** the 8 `@fail` removals of INV-INS-142 are gone; this task performs none of
+      them. They implement "undo the predicate when the automaton fails", a semantics no CrySL
+      generation has, and couple typestate to predicate against the rule's own orthogonality —
+      and every one of them left with the file pass that migrated the write it withdrew, which
+      is decision 11's criterion and the shape task 6.5 already has for tasks 4.6 and 4.9. Task
+      4.9 took `MacSpec.mop:99`; task 4.14 took the remaining seven
+      (`TrustManagerFactorySpec.mop:124,125`, `KeyStoreSpec.mop:92,93`,
+      `KeyManagerFactorySpec.mop:104`, `KeyPairGeneratorSpec.mop:133`,
+      `KeyGeneratorSpec.mop:89`) because `PredicateStore` offers no removal at all — INV-INS-131
+      forbids it the object-blind `remove(Property)` — so leaving them would have made them
+      no-ops on a store nothing writes and would have kept INV-INS-130 off zero, blocking task
+      4.15. Measured there: no reader of any predicate remains on the old substrate in
+      `jca_android`, so their deletion changed no report (researcher decision, 2026-08-22).
+      Verify the count is zero and that each deletion carries its `divergence_record.csv` hunk
 - [ ] 6.5 Record the `SecretKey generatedKey[this,_] after d` NEGATES as `unclosable` — the set
       has no `destroy` event, and inventing one would fabricate the evidence this change exists
       to remove. The ninth removal (`PBEKeySpecSpec`, `clearPassword`, the one real `NEGATES`
@@ -527,7 +568,20 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       needed, since `gate_baseline.json` keys G-ORDER by `(set, file, "order")` and stores no
       witness. The five-step checklist, the reproduction, and the real `CipherSpec` divergence
       the repair uncovers (the `ere` accepts an unfinalised Cipher) are in
-      `data/gh105/evidence/f1-order-gate-precedence.md`
+      `data/gh105/evidence/f1-order-gate-precedence.md`.
+      **Task 4.14 feeds this task a divergence the gate cannot currently see.**
+      `KeyManagerFactorySpec` has no rows in `order_alphabet_map.csv`, so G-ORDER skips it
+      declaredly — and `g1 init gkm1` is accepted by the api30 ORDER (`Gets, Init, gkm?`) and
+      rejected by the `fsm`, whose `gkm1` row {3, 3, 0, 3} leaves the accepting state (2) for
+      `start` (0) against a match category of `nextstate == 2`. It is the exact mirror of the
+      `g1 i1 gtm` divergence the gate already reports against `TrustManagerFactorySpec`, and
+      `conformance_record.csv` was read before calling it new: its three `KeyManagerFactorySpec`
+      rows are about the algorithm allow-list, the deferred `neverTypeOf` constant and the 8.16
+      guard-on-field repair. Mapping the file here will raise it. Two writes move to their
+      acceptance point when the two automata are repaired — `KeyManagerFactorySpec.gkm1` and
+      `TrustManagerFactorySpec.gtm1`, both kept in the event body by task 4.14 with the reason
+      recorded in `predicate_graph.csv` precisely because these rows make the acceptance point
+      unreachable
 - [ ] 7.2 `codes.csv` completeness pass: every accuser introduced in Groups 3-6 has its code;
       message gate green
 - [ ] 7.3 Retire `rvsec-mop-defsuses`: move to `backup/`, remove from `rvsec/rvsec/pom.xml:27`

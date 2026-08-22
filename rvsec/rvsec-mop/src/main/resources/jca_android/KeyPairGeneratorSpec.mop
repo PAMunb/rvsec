@@ -6,7 +6,7 @@ import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -33,8 +33,9 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
 
     List<String> safeAlgorithms = Arrays.asList("DSA", "DH", "RSA", "EC");
 
-    KeyPairGenerator kpg = null;
-    KeyPair kp;
+    // Staged by `gen` for the acceptance-point handler, which sees no event parameter, and
+    // cleared the moment it is used or the sequence is rejected.
+    KeyPair kp = null;
     String algorithm;
 
     private boolean validate(int keySize) {
@@ -51,7 +52,6 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
       args(alg) &&
       condition(ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
-        kpg = k;
         algorithm = alg;
     }
 
@@ -59,7 +59,6 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, String)) &&
       args(alg, provider) &&
       condition(ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
-        kpg = k;
         algorithm = alg;
     }
 
@@ -108,7 +107,6 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       (call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) &&
       target(k) {
        kp = keyPair;
-       ExecutionContext.instance().setProperty(Property.GENERATED_KEY_PAIR, kp);
     }
 
     // `initError` is absorbed rather than fused: it accuses a key size the rule's
@@ -130,11 +128,29 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     @fail {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,
           "v=1 code=KEYPAIRGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='' exp='' msg='the observed call sequence is not one KeyPairGeneratorSpec accepts'"));
-      ExecutionContext.instance().remove(Property.GENERATED_KEY_PAIR, kp);
+      kp = null;
     }
 
+    // The acceptance point of `generatedKeypair[kp, alg]`. The clause carries no `after L`,
+    // so it is established at the accepting state; read off the generated monitor, `gen`
+    // has the transition row {4, 4, 3, 4, 4} and the match category is `nextstate == 3`,
+    // so `gen` is the only event that reaches this handler.
+    //
+    // `generatedKeypair` is required by no rule of api30 -- it is the last of the seven
+    // dead-end predicates design.md counts over eleven sites, and this is that eleventh
+    // site. The write is relocated as the clause asks and carries a deliberate-omission
+    // record for its absent reader (INV-INS-137); no read is fabricated for it. The other
+    // half of the clause, `generatedKeypair[this, _] after co` (KeyPair.cryptsl:39), has
+    // no site at all in `KeyPairSpec.c1`; task 4.13 measured it and routed the record to
+    // task 5.10, because a clause without a site has no row in this inventory of sites.
+    //
+    // The arity stays at one place where the rule writes two, under INV-INS-134's arity
+    // exception -- there is no consumer to move with it, here or at task 5.6.
     @match {
-       ExecutionContext.instance().setObjectAsInAcceptingState(kpg);
+       if (kp != null) {
+           PredicateStore.instance().ensure(Property.GENERATED_KEY_PAIR, kp);
+           kp = null;
+       }
     }
 
 }

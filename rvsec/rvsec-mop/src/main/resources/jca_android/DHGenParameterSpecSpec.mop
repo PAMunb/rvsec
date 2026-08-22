@@ -3,7 +3,7 @@ package mop;
 import javax.crypto.spec.DHGenParameterSpec;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 
 /**
@@ -34,8 +34,7 @@ DHGenParameterSpecSpec(DHGenParameterSpec s) {
    }
 
    @match {
-      ExecutionContext.instance().setProperty(Property.PREPARED_DH, spec);
-      ExecutionContext.instance().setObjectAsInAcceptingState(spec);
+      PredicateStore.instance().ensure(Property.PREPARED_DH, spec);
    }
 
 }

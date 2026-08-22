@@ -3,7 +3,7 @@ package mop;
 import javax.xml.crypto.dsig.spec.HMACParameterSpec;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 
 /**
@@ -32,8 +32,7 @@ HMACParameterSpecSpec(HMACParameterSpec hmacParameterSpec) {
    }
 
    @match {
-      ExecutionContext.instance().setObjectAsInAcceptingState(spec);
-      ExecutionContext.instance().setProperty(Property.PREPARED_HMAC, spec);
+      PredicateStore.instance().ensure(Property.PREPARED_HMAC, spec);
    }
 
 }

@@ -6,7 +6,7 @@ import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -34,15 +34,16 @@ KeyGeneratorSpec(KeyGenerator k) {
     List<String> safeAlgorithms = Arrays.asList("ChaCha20", "ARC4", "HmacSHA224", "DESede", "HmacSHA256",
         "HmacMD5", "HmacSHA1", "HmacSHA512", "AES", "BLOWFISH", "HmacSHA384");
     String currentAlgorithmInstance = "";
-    KeyGenerator keyGenerator = null;
 
-    Key generatedKey;
+    // Staged by `gk1` for the acceptance-point handler, which sees no event parameter, and
+    // cleared the moment it is used or the sequence is rejected. Declared `SecretKey`,
+    // which is what `gk: key = generateKey()` binds and what the pointcut returns.
+    SecretKey generatedKey = null;
 
     event g1 after(String alg) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String))
       && args(alg)
       && condition(ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms)) {
-        keyGenerator = k;
         currentAlgorithmInstance = alg;
     }
 
@@ -50,7 +51,6 @@ KeyGeneratorSpec(KeyGenerator k) {
       call(public static KeyGenerator KeyGenerator.getInstance(String, Object+))
       && args(alg, provider)
       && condition(ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms)) {
-        keyGenerator = k;
         currentAlgorithmInstance = alg;
     }
 
@@ -77,7 +77,6 @@ KeyGeneratorSpec(KeyGenerator k) {
                 "v=1 code=KEYGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
         }
         generatedKey = key;
-        ExecutionContext.instance().setProperty(Property.GENERATED_KEY, generatedKey);
     }
 
     ere : (g3* g1+ | g3* g2+) ((init gk1) | gk1)
@@ -85,13 +84,31 @@ KeyGeneratorSpec(KeyGenerator k) {
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,
             "v=1 code=KEYGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'"));
-        ExecutionContext.instance().unsetObjectAsInAcceptingState(keyGenerator);
-        ExecutionContext.instance().remove(Property.GENERATED_KEY, generatedKey);
+        generatedKey = null;
 
         __RESET;
     }
 
+    // The acceptance point of `generatedKey[key, alg]`. The clause carries no `after L`,
+    // so it is established at the accepting state; read off the generated monitor, `gk1`
+    // has the transition row {5, 5, 1, 1, 1, 5} and the match category is
+    // `nextstate == 1`, so `gk1` is the only event that reaches this handler and the
+    // staged key is always the one the accepted sequence produced.
+    //
+    // What the acceptance point buys over the event body is measurable and is the reason
+    // the default of INV-INS-134 is kept here: a program that calls `generateKey()` twice
+    // on one generator writes a sequence both the rule (`Gets, Inits?, gk`) and the
+    // automaton reject, and a body write would still mark the second key as having an
+    // observed origin. Here it does not, and the consumer says so.
+    //
+    // The arity stays at one place where api30 writes `generatedKey[key, alg]`, under
+    // INV-INS-134's arity exception: both migrated readers still read one place, and
+    // `validate` compares the value tuple, so a two-place write alone would answer
+    // VIOLATED about a conforming program. Task 5.6 raises producer and consumer together.
     @match {
-       ExecutionContext.instance().setObjectAsInAcceptingState(keyGenerator);
+       if (generatedKey != null) {
+           PredicateStore.instance().ensure(Property.GENERATED_KEY, generatedKey);
+           generatedKey = null;
+       }
     }
 }

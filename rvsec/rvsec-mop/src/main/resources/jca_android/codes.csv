@@ -1,6 +1,6 @@
 spec,code,error_type,site_kind,event,file_line
-CipherInputStreamSpec,CIPHERINPUTSTREAM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherInputStreamSpec.mop:26
-CipherOutputStreamSpec,CIPHEROUTPUTSTREAM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherOutputStreamSpec.mop:26
+CipherInputStreamSpec,CIPHERINPUTSTREAM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherInputStreamSpec.mop:25
+CipherOutputStreamSpec,CIPHEROUTPUTSTREAM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherOutputStreamSpec.mop:25
 CipherSpec,CIPHER-ALG-00,UnsafeAlgorithm,ALG,i1,CipherSpec.mop:89
 CipherSpec,CIPHER-CONSTR-00,UnsatisfiedConstraint,CONSTR,i2,CipherSpec.mop:133
 CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i2,CipherSpec.mop:137
@@ -21,14 +21,14 @@ IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c2,Iv
 IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-01,UnsatisfiedConstraint,NOBS,c2,IvParameterSpec.mop:112
 IvParameterSpecSpec,IVPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,IvParameterSpec.mop:123
 KeyGeneratorSpec,KEYGENERATOR-ALG-00,UnsafeAlgorithm,ALG,gk1,KeyGeneratorSpec.mop:76
-KeyGeneratorSpec,KEYGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyGeneratorSpec.mop:86
-KeyManagerFactorySpec,KEYMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,KeyManagerFactorySpec.mop:66
-KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:101
-KeyPairGeneratorSpec,KEYPAIRGENERATOR-KEYSIZE-00,InvalidKeySize,KEYSIZE,initError,KeyPairGeneratorSpec.mop:103
-KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairGeneratorSpec.mop:131
+KeyGeneratorSpec,KEYGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyGeneratorSpec.mop:85
+KeyManagerFactorySpec,KEYMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,KeyManagerFactorySpec.mop:67
+KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:122
+KeyPairGeneratorSpec,KEYPAIRGENERATOR-KEYSIZE-00,InvalidKeySize,KEYSIZE,initError,KeyPairGeneratorSpec.mop:102
+KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairGeneratorSpec.mop:129
 KeyPairSpec,KEYPAIR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairSpec.mop:82
-KeyStoreSpec,KEYSTORE-KSTYPE-00,InvalidKeyStoreType,KSTYPE,gk1,KeyStoreSpec.mop:79
-KeyStoreSpec,KEYSTORE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyStoreSpec.mop:89
+KeyStoreSpec,KEYSTORE-KSTYPE-00,InvalidKeyStoreType,KSTYPE,gk1,KeyStoreSpec.mop:82
+KeyStoreSpec,KEYSTORE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyStoreSpec.mop:91
 MacSpec,MAC-ALG-00,UnsafeAlgorithm,ALG,i1,MacSpec.mop:98
 MacSpec,MAC-ALG-01,UnsafeAlgorithm,ALG,i2,MacSpec.mop:111
 MacSpec,MAC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,MacSpec.mop:171
@@ -67,4 +67,4 @@ SignatureSpec,SIGNATURE-ALG-02,UnsafeAlgorithm,ALG,i3,SignatureSpec.mop:114
 SignatureSpec,SIGNATURE-ALG-03,UnsafeAlgorithm,ALG,i4,SignatureSpec.mop:124
 SignatureSpec,SIGNATURE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SignatureSpec.mop:200
 TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,TrustManagerFactorySpec.mop:92
-TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:121
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:147

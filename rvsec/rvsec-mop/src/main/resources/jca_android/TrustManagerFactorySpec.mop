@@ -7,12 +7,12 @@ import java.security.KeyStore;
 import javax.net.ssl.KeyManager;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
- * KeyManagerFactory
+ * TrustManagerFactorySpec
  *
  * A JavaMOP specification of the correct usage of the
  * javax.net.ssl.TrustManagerFactory class.
@@ -35,7 +35,9 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     List<String> algorithms = Arrays.asList("PKIX");
     String currentAlgorithmInstance = "";
 
-    TrustManagerFactory trustManagerFactory = null;
+    // Staged by `init` for the acceptance-point handler, which sees no event parameter,
+    // and cleared the moment it is used or the sequence is rejected.
+    TrustManagerFactory initialisedFactory = null;
 
     // One event over `getInstance(String)`, where there used to be two split by the
     // sign of a guard. The negated twin `g3` matched the same call and named no
@@ -72,7 +74,6 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     event g1 after(String alg) returning(TrustManagerFactory mf):
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String))
       && args(alg) {
-        trustManagerFactory = mf;
         currentAlgorithmInstance = alg;
     }
 
@@ -80,7 +81,6 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..))
       && args(alg, *)
       && condition(ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms)) {
-        trustManagerFactory = mf;
         currentAlgorithmInstance = alg;
     }
 
@@ -92,13 +92,39 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "TrustManagerFactorySpec", "" + __LOC,
                 "v=1 code=TRUSTMANAGERFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + mf.getAlgorithm() + "'"));
         }
-       ExecutionContext.instance().setProperty(Property.GENERATED_TRUST_MANAGER, trustManagerFactory);
+       initialisedFactory = mf;
     }
 
+    // `generatedTrustManager[tms]` (TrustManagerFactory.cryptsl:49). Two things about this
+    // site are recorded rather than repaired, and one is changed.
+    //
+    // Changed: the predicate written. The seed wrote GENERATED_KEY_MANAGERS here, which is
+    // the neighbouring rule's, and the file's own header carried the same copy. The clause
+    // names `generatedTrustManager`, and the consumer task 5.9 wires -- `SSLContext.init`,
+    // ledger #29 -- asks for that one. Measured, the correction costs nothing on any tree:
+    // no specification of the set reads either constant today, and this advice does not
+    // run at all.
+    //
+    // Recorded, not repaired (1): the advice has no execution path. The pointcut declares
+    // `getTrustManagers()` returning `KeyManager[]` where the API returns `TrustManager[]`,
+    // and both weavers match the return type exactly, so the advice is generated and never
+    // fires -- the harness shows it from the trace side too, `tmf.getTrustManagers()`
+    // resolving to no pointcut. That is gh104 8.7, already in conformance_record.csv with
+    // the third defect a revival has to fix (`gtm1` binds `k` where the specification
+    // declares `mf`, which sends the event to the empty parameter slice). Task 6.2 owns it.
+    //
+    // Recorded, not repaired (2): the placement. The clause carries no `after L`, so
+    // INV-INS-134 sends it to the accepting state, but the transition row for `gtm1` is
+    // {3, 0, 3, 3} against a match category of `nextstate == 1` -- the event leaves the
+    // accepting state for `start`, so an acceptance-point write would never run. That is
+    // the `g1 i1 gtm` divergence G-ORDER already reports: the rule orders `Gets, Init,
+    // gtm?` and accepts the word the automaton rejects. Task 7.1 owns the automaton, and
+    // the write moves to the acceptance point with it. The reason is in
+    // predicate_graph.csv.
     event gtm1 after(TrustManagerFactory k) returning(TrustManager[][] trustManager):
       call(public KeyManager[] TrustManagerFactory.getTrustManagers())
       && target(k) {
-        ExecutionContext.instance().setProperty(Property.GENERATED_KEY_MANAGERS, trustManager);
+        PredicateStore.instance().ensure(Property.GENERATED_TRUST_MANAGER, trustManager);
     }
 
     fsm :
@@ -120,15 +146,24 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC,
             "v=1 code=TRUSTMANAGERFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='' exp='' msg='the observed call sequence is not one TrustManagerFactorySpec accepts'"));
-        ExecutionContext.instance().unsetObjectAsInAcceptingState(trustManagerFactory);
-        ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGER);
-        ExecutionContext.instance().remove(Property.GENERATED_TRUST_MANAGERS);
+        initialisedFactory = null;
 
         __RESET;
     }
 
+    // The acceptance point of `generatedTrustManager[this] after Init`, where the two
+    // routes INV-INS-134 admits are the same handler: `init` has the transition row
+    // {3, 3, 1, 3} and the match category is `nextstate == 1`, so the state the Init leads
+    // to and the accepting state are one state, and `init` is the only event reaching it.
+    //
+    // No rule of api30 requires this half of the clause -- `SSLContext` asks for
+    // `generatedTrustManager[tms]`, over the array, never over the factory -- so the site
+    // carries a deliberate-omission record (INV-INS-137) and no read is fabricated for it.
     @match1 {
-       ExecutionContext.instance().setObjectAsInAcceptingState(trustManagerFactory);
+       if (initialisedFactory != null) {
+           PredicateStore.instance().ensure(Property.GENERATED_TRUST_MANAGER, initialisedFactory);
+           initialisedFactory = null;
+       }
     }
     
 }

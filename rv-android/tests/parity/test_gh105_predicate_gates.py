@@ -645,6 +645,26 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       `verified`, `digested`, `generatedSSLContext` or `generatedSSLEngine` -- and each
       carries a deliberate-omission record; the other two, `KeyPairSpec`'s, have a live
       reader at `CipherSpec.i2` and close a chain, measured one report to none.
+    * task 4.14 migrated the seven remaining files -- `KeyStoreSpec`,
+      `KeyGeneratorSpec`, `KeyManagerFactorySpec`, `TrustManagerFactorySpec`,
+      `KeyPairGeneratorSpec`, `DHGenParameterSpecSpec` and `HMACParameterSpecSpec` --
+      and it is the pass that takes two of these five numbers to zero. The
+      accepting-state calls go 11 -> 0: these seven files held the last of the 25 the
+      change was scoped against, so INV-INS-147 is met and this counter never moves
+      again. The removals go 8 -> 1, and the one left is the `PBEKeySpecSpec`
+      `clearPassword` withdrawal task 4.6 translated to `negate`, which is the set's
+      only real `NEGATES` clause; the seven `@fail` removals task 6.4 owned travel here
+      instead, because each undoes a write this same task migrates -- the criterion of
+      tasks 4.6 and 4.9 -- and because `PredicateStore` offers no removal, so leaving
+      them would make them no-ops on a store nothing writes and would keep INV-INS-130
+      off zero (researcher decision, 2026-08-22).
+      The reads stay at 14 and the guards at 0: not one of the seven declares a read,
+      which makes this the second pass in a row whose question is who reads the write.
+      The writes stay at 30, because all ten sites are relocated and none is deleted or
+      merged -- eight to the acceptance point and two kept in the event body with a
+      recorded reason, `KeyManagerFactorySpec.gkm1` and `TrustManagerFactorySpec.gtm1`,
+      whose events leave the accepting state for `start` so that an acceptance-point
+      write would never run at all.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -663,8 +683,8 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 14
     assert read_placement.get("condition", 0) == 0
     assert counts.get("write", 0) == 30
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 11
-    assert counts.get("remove", 0) + counts.get("negate", 0) == 8
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
+    assert counts.get("remove", 0) + counts.get("negate", 0) == 1
 
 
 def test_the_predicate_free_sets_read_as_predicate_free():
@@ -840,6 +860,24 @@ def test_the_graph_reproduces_the_measured_placement_census():
       optional and the accepting state is therefore unreachable on the route by which a
       program obtains a KeyPair. `read:body` stays 14, the removals 7 and the `negate` 1:
       none of the four files carries a read or a withdrawal.
+    * task 4.14 relocated ten writes across seven files, and the graph shrinks again:
+      `write:body` goes 13 -> 7 and `write:acceptance` 17 -> 23, which is six sites
+      leaving the body against six arriving at an acceptance point -- one for one here,
+      because no two of the six share a handler. The bookkeeping goes 11 -> 0 and
+      `remove:fail` 7 -> 0, so the set goes 63 rows to 45 and two whole verdict families
+      disappear from the graph. Three rows gain `omission`, taking the graph from six
+      deliberate-omission records to nine: `generatedKeypair`, which no rule of the
+      oracle requires and which is the last of the seven dead-end predicates design.md
+      counts over eleven sites, and the two `[this] after Init` halves of
+      `generatedKeyManager` and `generatedTrustManager`, which the oracle ensures over
+      the factory and which no rule asks for there -- their `[kms]`/`[tms]` siblings, the
+      ones `SSLContext` reads at task 5.9, are separate sites and carry no record.
+      The two rows that stay `write:body` do so with a recorded reason, and the reason is
+      the automaton in both: `gkm1` and `gtm1` have transition rows that leave the
+      accepting state for `start`, so an acceptance-point write would never run --
+      measured, `validate` answers NOT_OBSERVED under that placement and SATISFIED under
+      this one. `read:body` stays 14 and the `negate` 1: none of the seven files carries
+      a read, and the one withdrawal is elsewhere.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -848,11 +886,11 @@ def test_the_graph_reproduces_the_measured_placement_census():
 
     assert counts.get("read:condition-guard", 0) == 0
     assert counts.get("read:body", 0) == 14
-    assert counts.get("write:body", 0) == 13
-    assert counts.get("write:acceptance", 0) == 17
-    assert counts.get("remove:fail", 0) == 7
+    assert counts.get("write:body", 0) == 7
+    assert counts.get("write:acceptance", 0) == 23
+    assert counts.get("remove:fail", 0) == 0
     assert counts.get("negate:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 11
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 0
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
@@ -1054,7 +1092,13 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     non-zero number. Still 0 after task 4.13, and that is worth writing down rather than
     passing over: the four files it migrated carry eleven writes and not one read, so this
     gate had nothing to count before the pass and nothing after it. A task that moves no
-    guard says so.
+    guard says so. Still 0 after task 4.14, for the same reason and over seven files
+    rather than four: none of the seven declares a predicate read at all, so the pass
+    moved ten writes and no guard. What that pass did take to zero are the two counters
+    the other censuses hold -- the accepting-state calls (INV-INS-147) and the `@fail`
+    removals -- and the invariant this gate's neighbour checks, INV-INS-130, which the
+    seven files plus two dangling imports in `CipherInputStreamSpec` and
+    `CipherOutputStreamSpec` had been holding off zero.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
@@ -1072,17 +1116,25 @@ def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():
     `CipherInputStream` has been initialised and has not yet encrypted anything.
     What the gate demands is the reason, written where the next reader will find
     it.
+
+    The direction is asserted by taking a reason away and putting it back, not by
+    adding one to the live set. Since task 4.14 every `write:body` row of
+    `jca_android` carries its reason and the gate reports nothing, so a test that
+    only added a reason would compare zero against zero and pass whatever the gate
+    did.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
 
-    before = len([finding for finding in gate_placement(report) if finding.gate == "INV-INS-134"])
-    for row in report.rows:
-        if row["verdict"] == "write:body":
-            row["reason"] = "recorded for the test"
-            break
-    after = len([finding for finding in gate_placement(report) if finding.gate == "INV-INS-134"])
-    assert after == before - 1
+    kept = next(row for row in report.rows if row["verdict"] == "write:body" and row["reason"])
+    with_reason = len([f for f in gate_placement(report) if f.gate == "INV-INS-134"])
+
+    reason, kept["reason"] = kept["reason"], ""
+    without_reason = len([f for f in gate_placement(report) if f.gate == "INV-INS-134"])
+    assert without_reason == with_reason + 1
+
+    kept["reason"] = reason
+    assert len([f for f in gate_placement(report) if f.gate == "INV-INS-134"]) == with_reason
 
 
 def test_gpred2_closes_a_read_whose_producer_is_recorded_as_absent():

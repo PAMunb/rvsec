@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 30,
+    "structural_findings": 10,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -13,48 +13,6 @@
     "order_skipped": 204
   },
   "gates": {
-    "INV-INS-134": [
-      [
-        "jca_android",
-        "KeyGeneratorSpec.mop",
-        "gk1/GENERATED_KEY"
-      ],
-      [
-        "jca_android",
-        "KeyManagerFactorySpec.mop",
-        "gkm1/GENERATED_KEY_MANAGERS"
-      ],
-      [
-        "jca_android",
-        "KeyManagerFactorySpec.mop",
-        "init/GENERATED_KEY_MANAGERS"
-      ],
-      [
-        "jca_android",
-        "KeyPairGeneratorSpec.mop",
-        "gen/GENERATED_KEY_PAIR"
-      ],
-      [
-        "jca_android",
-        "KeyStoreSpec.mop",
-        "gk1/GENERATED_KEY"
-      ],
-      [
-        "jca_android",
-        "KeyStoreSpec.mop",
-        "load/GENERATED_KEY_STORE"
-      ],
-      [
-        "jca_android",
-        "TrustManagerFactorySpec.mop",
-        "gtm1/GENERATED_KEY_MANAGERS"
-      ],
-      [
-        "jca_android",
-        "TrustManagerFactorySpec.mop",
-        "init/GENERATED_TRUST_MANAGER"
-      ]
-    ],
     "G-PRED2": [
       [
         "jca_android",
@@ -93,18 +51,8 @@
       ],
       [
         "jca_android",
-        "KeyManagerFactorySpec.mop",
-        "init/GENERATED_KEY_MANAGERS"
-      ],
-      [
-        "jca_android",
-        "KeyPairGeneratorSpec.mop",
-        "gen/GENERATED_KEY_PAIR"
-      ],
-      [
-        "jca_android",
         "KeyStoreSpec.mop",
-        "load/GENERATED_KEY_STORE"
+        "match/GENERATED_KEY_STORE"
       ],
       [
         "jca_android",
@@ -114,59 +62,7 @@
       [
         "jca_android",
         "TrustManagerFactorySpec.mop",
-        "gtm1/GENERATED_KEY_MANAGERS"
-      ],
-      [
-        "jca_android",
-        "TrustManagerFactorySpec.mop",
-        "init/GENERATED_TRUST_MANAGER"
-      ]
-    ],
-    "INV-INS-130": [
-      [
-        "jca_android",
-        "CipherInputStreamSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "CipherOutputStreamSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "DHGenParameterSpecSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "HMACParameterSpecSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "KeyGeneratorSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "KeyManagerFactorySpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "KeyPairGeneratorSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "KeyStoreSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "TrustManagerFactorySpec.mop",
-        "ExecutionContext"
+        "gtm1/GENERATED_TRUST_MANAGER"
       ]
     ],
     "G-ORDER": [
