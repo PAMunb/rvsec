@@ -7,7 +7,7 @@ import java.security.SecureRandom;
 import java.security.cert.Certificate;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -39,7 +39,14 @@ SignatureSpec(Signature s) {
             "SHA1withECDSA", "SHA256withECDSA", "SHA384withECDSA", "SHA512withECDSA");
        String currentAlgorithmInstance = "";
 
-       Signature signature = null;
+       // api30 Signature.cryptsl states four ENSURES clauses over two objects: the
+       // signature `Signs` produces and the signature `Verifies` was given. Neither is
+       // reachable from a handler -- a handler sees no event parameter -- so each event
+       // stages what its clause names and the acceptance handler consumes it. The field
+       // is cleared when consumed, so a call whose event did not fire leaves no marking
+       // behind for the next one.
+       byte[] stagedSigned = null;
+       byte[] stagedVerified = null;
 
        // One event over `getInstance(String)`, where there used to be two split by
        // the sign of a guard. The negated twin `g3` matched the same call with the
@@ -69,7 +76,6 @@ SignatureSpec(Signature s) {
        event g1 after(String alg) returning(Signature s):
          call(public static Signature Signature.getInstance(String)) &&
          args(alg) {
-           signature = s;
            currentAlgorithmInstance = alg;
        }
 
@@ -77,7 +83,6 @@ SignatureSpec(Signature s) {
          call(public static Signature Signature.getInstance(String, String)) &&
          args(alg, provider) &&
          condition(ConscryptAliasTable.matches("Signature", alg, algorithms)) {
-           signature = s;
            currentAlgorithmInstance = alg;
        }
 
@@ -127,10 +132,22 @@ SignatureSpec(Signature s) {
 
         }
 
+       // `signed[out, inpb] after Signs` (Signature.cryptsl:87, with :89 and :91 naming
+       // the same `out` against the other two input shapes). The clause carries an
+       // `after L`, so its acceptance point is the states `Signs` leads to; read off the
+       // generated monitor, `s1` and `s2` both land in state 1 and the match category is
+       // `nextstate == 1 || nextstate == 4`, so those states are inside the accepting set
+       // and `@match` is the acceptance point for this clause as well as for `verified`.
+       //
+       // The clause is two-place -- the signature and the input it was computed over --
+       // and this site writes one place. The arity stays where the seed had it and the
+       // reason is recorded in `predicate_graph.csv`: no rule of api30 requires `signed`,
+       // so there is no consumer whose arity this write has to meet, and raising it alone
+       // would be a claim about a chain that does not exist.
        event s1 after(Signature s) returning(byte[] output):
          call(public byte[] Signature.sign()) &&
          target(s) {
-           ExecutionContext.instance().setProperty(Property.SIGNED, output);
+           stagedSigned = output;
        }
 
 
@@ -138,14 +155,27 @@ SignatureSpec(Signature s) {
          call(public int Signature.sign(byte[], int, int)) &&
          args(output, offset, len) &&
          target(s) {
-           ExecutionContext.instance().setProperty(Property.SIGNED, output);
+           stagedSigned = output;
        }
 
+       // `verified[sign]` (Signature.cryptsl:93). The clause names the *signature the
+       // call was given*, and the seed wrote the *boolean the call returned* -- a
+       // divergence repaired here rather than recorded, because the two are measurably
+       // different objects and one of them is not about this program at all: an
+       // identity-keyed store handed `Boolean.TRUE` marks the JVM-wide cached instance,
+       // so `validate(VERIFIED, <any other true>)` answers SATISFIED. Measured, the
+       // repair costs nothing either way -- no rule of api30 requires `verified`, so
+       // both forms are read by nobody -- and what it buys is that the site is the
+       // literal transcription of the clause and its omission record has one thing to
+       // say instead of two.
+       //
+       // The clause carries no `after L`, so its acceptance point is the accepting state,
+       // which in an `ere` is what `@match` names (INV-INS-134).
        event v1 after(byte[] sign, Signature s) returning(boolean signed):
          call(public boolean Signature.verify(byte[])) &&
          args(sign) &&
          target(s) {
-           ExecutionContext.instance().setProperty(Property.VERIFIED, signed);
+           stagedVerified = sign;
        }
 
 
@@ -153,19 +183,36 @@ SignatureSpec(Signature s) {
          call(public boolean Signature.verify(byte[], int, int)) &&
          args(sign, offset, len) &&
          target(s) {
-            ExecutionContext.instance().setProperty(Property.VERIFIED, signed);
+            stagedVerified = sign;
        }
 
+       // Both ENSURES objects are consumed at the accepting state, and neither predicate
+       // has a reader: `signed` and `verified` appear in the api30 oracle only here, as
+       // this rule's own ENSURES, so they are two of the dead ends this change disposes
+       // of by recording the omission rather than by fabricating a consumer
+       // (INV-INS-137). What leaves the handlers besides is the accepting-state
+       // bookkeeping: the new store does not offer it and the set never read it back
+       // (INV-INS-147), which is also why the `Signature signature` field is gone -- that
+       // call was the only thing that read it.
        ere: (g1 | g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )
 
        @fail {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC,
               "v=1 code=SIGNATURE-ORDER-00 ev=" + __EVENTNAME + " obj=Signature val='' exp='' msg='the observed call sequence is not one SignatureSpec accepts'"));
+          stagedSigned = null;
+          stagedVerified = null;
           __RESET;
        }
 
        @match {
-          ExecutionContext.instance().setObjectAsInAcceptingState(signature);
+          if (stagedSigned != null) {
+              PredicateStore.instance().ensure(Property.SIGNED, stagedSigned);
+              stagedSigned = null;
+          }
+          if (stagedVerified != null) {
+              PredicateStore.instance().ensure(Property.VERIFIED, stagedVerified);
+              stagedVerified = null;
+          }
        }
 
 }

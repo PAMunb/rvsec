@@ -632,6 +632,19 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       producers of `generatedKey` that task 4.14 still owns, and that window is measured too --
       it changes no report, because the write it suppresses went to a store no reader of
       `randomized` has used since task 4.4.
+    * task 4.13 migrated the four write-only files -- `SignatureSpec`,
+      `MessageDigestSpec`, `SSLContextSpec` and `KeyPairSpec` -- and two of these five
+      numbers move. The writes go 34 -> 30, which is eleven sites becoming seven: four
+      `SignatureSpec` bodies collapse into two acceptance writes and three
+      `MessageDigestSpec` bodies into one, because a handler writes once for the clause
+      however many events stage it. The accepting-state calls go 17 -> 11, the largest
+      single drop of the group, and the six are all of that bookkeeping these four files
+      had. The reads stay at 14 and the guards at 0: not one of the four declares a read,
+      which is what made the pass a question about readers rather than about accusers.
+      Nine of the eleven sites are dead ends -- no rule of api30 requires `signed`,
+      `verified`, `digested`, `generatedSSLContext` or `generatedSSLEngine` -- and each
+      carries a deliberate-omission record; the other two, `KeyPairSpec`'s, have a live
+      reader at `CipherSpec.i2` and close a chain, measured one report to none.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -649,8 +662,8 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
 
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 14
     assert read_placement.get("condition", 0) == 0
-    assert counts.get("write", 0) == 34
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 17
+    assert counts.get("write", 0) == 30
+    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 11
     assert counts.get("remove", 0) + counts.get("negate", 0) == 8
 
 
@@ -814,6 +827,19 @@ def test_the_graph_reproduces_the_measured_placement_census():
       clause's `after ge` and the `ere`'s accepting state are the same state here, read off the
       generated monitor's transition row. The bookkeeping stays 17, the removals 7 and the
       `negate` 1: this file had none of them and gains none.
+    * task 4.13 relocated eleven writes across four files, and the graph shows the move as
+      a shrink: `write:body` goes 22 -> 13 and `write:acceptance` 12 -> 17, which is nine
+      sites leaving the body against five arriving at an acceptance point, because a
+      handler carries one row per predicate however many events stage it. The bookkeeping
+      goes 17 -> 11 with the six accepting-state calls these files had, and the set goes
+      73 rows to 63. Five rows gain `omission` -- `signed`, `verified`, `digested`,
+      `generatedSSLContext`, `generatedSSLEngine`, none of them required by any rule of
+      the oracle -- which takes the graph from one deliberate-omission record to six.
+      Two rows do not move placement at all: `KeyPairSpec`'s two writes stay `write:body`
+      with a recorded reason, because the `ere` demands the constructor api30 marks
+      optional and the accepting state is therefore unreachable on the route by which a
+      program obtains a KeyPair. `read:body` stays 14, the removals 7 and the `negate` 1:
+      none of the four files carries a read or a withdrawal.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -822,11 +848,11 @@ def test_the_graph_reproduces_the_measured_placement_census():
 
     assert counts.get("read:condition-guard", 0) == 0
     assert counts.get("read:body", 0) == 14
-    assert counts.get("write:body", 0) == 22
-    assert counts.get("write:acceptance", 0) == 12
+    assert counts.get("write:body", 0) == 13
+    assert counts.get("write:acceptance", 0) == 17
     assert counts.get("remove:fail", 0) == 7
     assert counts.get("negate:body", 0) == 1
-    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 17
+    assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 11
 
 
 def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
@@ -1025,7 +1051,10 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     automaton instead of simply not propagating -- and what the read now decides is one thing
     only: whether there is anything to carry. This gate has nothing left to count, and the
     value of that is that a new guard arriving anywhere in the set can no longer hide inside a
-    non-zero number.
+    non-zero number. Still 0 after task 4.13, and that is worth writing down rather than
+    passing over: the four files it migrated carry eleven writes and not one read, so this
+    gate had nothing to count before the pass and nothing after it. A task that moves no
+    guard says so.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))

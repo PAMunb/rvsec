@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
@@ -661,6 +662,7 @@ public final class TraceRunner implements AutoCloseable {
                 }
             }
             if (chosen != null) {
+                chosen = onPublicOwner(chosen);
                 chosen.setAccessible(true);
                 return chosen.invoke(receiver, adapt(chosen.getParameterTypes(), arguments));
             }
@@ -668,6 +670,57 @@ public final class TraceRunner implements AutoCloseable {
             // the platform refused the call; the binding stays null and the line is recorded
         }
         return null;
+    }
+
+    /**
+     * The same method, re-looked-up on a public owner when the runtime class is not public.
+     *
+     * <p>
+     * {@code getMethods()} answers with the {@code Method} of the class that declares the
+     * override, and several JCA factories hand back a package-private delegate:
+     * {@code KeyPairGenerator.getInstance("RSA")} is a {@code KeyPairGenerator$Delegate}, which
+     * overrides {@code generateKeyPair()}. {@code setAccessible} on that {@code Method} throws
+     * {@code InaccessibleObjectException} -- {@code java.base} does not open
+     * {@code java.security} to the unnamed module -- the call is refused, and the binding
+     * silently becomes {@code null}. A trace that names a real key pair then replays with a
+     * null key and measures nothing, which is worse than failing: the line is not recorded as
+     * unresolved, because {@code bind} lines never are.
+     *
+     * <p>
+     * Looking the same signature up on the nearest public supertype gives a {@code Method}
+     * whose declaring class is exported, and virtual dispatch still runs the delegate's body.
+     * Measured on this JVM, {@code KeyPairGenerator} is the only factory of the set the defect
+     * reaches, and only on the two methods its delegate overrides; the non-public delegates of
+     * {@code MessageDigest} and {@code Signature} override none of the methods the corpus
+     * calls, so they resolved to a public owner already.
+     */
+    private static Method onPublicOwner(Method method) {
+        if (Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
+            return method;
+        }
+        for (Class<?> owner = method.getDeclaringClass(); owner != null;
+                owner = owner.getSuperclass()) {
+            for (Class<?> face : owner.getInterfaces()) {
+                if (!Modifier.isPublic(face.getModifiers())) {
+                    continue;
+                }
+                try {
+                    return face.getMethod(method.getName(), method.getParameterTypes());
+                } catch (NoSuchMethodException ignored) {
+                    // the interface does not declare it; try the next one
+                }
+            }
+            Class<?> parent = owner.getSuperclass();
+            if (parent == null || !Modifier.isPublic(parent.getModifiers())) {
+                continue;
+            }
+            try {
+                return parent.getMethod(method.getName(), method.getParameterTypes());
+            } catch (NoSuchMethodException ignored) {
+                // keep climbing
+            }
+        }
+        return method;
     }
 
     /** Whether an overload's declared parameters accept these arguments as they stand. */

@@ -1,0 +1,20 @@
+# The route by which a program actually obtains a KeyPair, and the reason the two writes
+# of this file stay in the event body with a recorded reason (INV-INS-134).
+#
+# api30 KeyPair orders `co?, (pu*, pr*)*` -- the constructor is OPTIONAL -- but the `ere`
+# is `c1 (gpu | gpr)*` and demands it. A pair that came out of KeyPairGenerator was never
+# constructed by a monitored call, so `gpu` fires from the start state and the automaton
+# goes to `fail`: the accepting state is unreachable on this route, and a write placed at
+# `@match` would never happen for the pairs almost every program has.
+#
+# The KEYPAIR-ORDER-00 in this trace is that divergence, not a defect of the program, and
+# it is not this pass's to repair: KeyPairSpec is one of the specifications task 7.1 still
+# has to map, so G-ORDER skips it today and would not have checked a change to the `ere`.
+# What this pass owes is that the CIPHER-NOBS-00 beside it goes away -- the chain closes
+# here too, which is exactly what an acceptance-point write would have cost.
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(2048)
+kpg.generateKeyPair() -> kp
+kp.getPublic() -> pub
+Cipher.getInstance("RSA/ECB/PKCS1Padding") -> c
+c.init(1, pub)

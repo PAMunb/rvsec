@@ -7,7 +7,7 @@ import javax.net.ssl.TrustManager;
 import java.security.SecureRandom;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -38,7 +38,11 @@ SSLContextSpec(SSLContext ctx) {
 
    SSLContext context;
 
-   SSLEngine engine;
+   // `generatedSSLEngine[eng]` is over the engine the call returns, which a handler
+   // cannot reach -- a handler sees no event parameter -- so the event stages it and the
+   // acceptance handler consumes it, clearing the field. The `SSLEngine engine` field the
+   // seed declared beside this one is gone: nothing ever assigned it.
+   SSLEngine stagedEngine = null;
 
    // One event over `getInstance(String)`, where there used to be two split by the
    // sign of a guard. The negated twin `unsafe_protocol` matched the same call with
@@ -91,15 +95,34 @@ SSLContextSpec(SSLContext ctx) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, "SSLContextSpec", "" + __LOC,
             "v=1 code=SSLCONTEXT-PROTO-00 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(String.join(",", protocols)) + "' msg='expecting one of " + String.join(",", protocols) + " but found " + ctx.getProtocol() + "'"));
        }
-       ExecutionContext.instance().setProperty(Property.GENERATE_SSL_CONTEXT, context);
    }
 
    event engine after(SSLContext ctx) returning(SSLEngine eng) :
      call(public void SSLContext.createSSLEngine(..)) &&
      target(ctx) {
-       ExecutionContext.instance().setProperty(Property.GENERATE_SSL_ENGINE, eng);
+       stagedEngine = eng;
    }
 
+  // The two ENSURES clauses of api30 SSLContext.cryptsl name the same acceptance point.
+  // `generatedSSLContext[this] after Init` (:57) carries an `after L`, and `Init` leads to
+  // `end`; `generatedSSLEngine[eng]` (:59) carries none, so its acceptance point is the
+  // accepting state, which the alias below names -- and that is `end` too. Read off the
+  // generated monitor, `init` and `engine` both land in state 1 and the match category is
+  // `nextstate == 1`, so both routes INV-INS-134 admits name `@match1`.
+  //
+  // Neither predicate has a reader: both appear in the oracle only here, as this rule's
+  // own ENSURES, so they are two of the dead ends this change disposes of by recording
+  // the omission rather than by fabricating a consumer (INV-INS-137).
+  //
+  // The context reaches the handler through the monitor field rather than through a
+  // staged one, because `g1`/`g2` bind it and `end` is unreachable without them. What
+  // leaves the two handlers is the accepting-state bookkeeping -- the new store does not
+  // offer it and the set never read it back (INV-INS-147).
+  //
+  // The ordering divergence this automaton carries against the rule's `Gets, Init,
+  // Engine?` -- the `end` state admits a second `engine`, which G-ORDER reports as
+  // `g1 Init se1 se1` -- is one of the four open ones and belongs to task 7.1. This pass
+  // does not touch the `fsm`.
   fsm:
     start [
       g1 -> s1
@@ -117,12 +140,16 @@ SSLContextSpec(SSLContext ctx) {
   @fail {
     ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC,
         "v=1 code=SSLCONTEXT-ORDER-00 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='' msg='the observed call sequence is not one SSLContextSpec accepts'"));
-    ExecutionContext.instance().unsetObjectAsInAcceptingState(context);
+    stagedEngine = null;
     __RESET;
   }
 
   @match1 {
-     ExecutionContext.instance().setObjectAsInAcceptingState(context);
+     PredicateStore.instance().ensure(Property.GENERATE_SSL_CONTEXT, context);
+     if (stagedEngine != null) {
+         PredicateStore.instance().ensure(Property.GENERATE_SSL_ENGINE, stagedEngine);
+         stagedEngine = null;
+     }
   }
   
 }

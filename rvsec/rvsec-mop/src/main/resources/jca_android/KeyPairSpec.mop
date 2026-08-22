@@ -5,7 +5,7 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 
 /**
@@ -18,26 +18,64 @@ import br.unb.cic.mop.Property;
  */
 KeyPairSpec(KeyPair keyPair) {
 
-    KeyPair keyPair = null;
-
+    // api30 KeyPair.cryptsl also states `generatedKeypair[this, _] after co`, and this
+    // file has no write for it. None is fabricated here: the predicate is required by no
+    // rule, its other producer is `KeyPairGeneratorSpec` (task 4.14), and a clause with no
+    // site has no row in the site inventory to carry a record. The record belongs to task
+    // 5.10, which this pass feeds rather than duplicating.
     event c1 after(PublicKey publicKey, PrivateKey privateKey) returning(KeyPair kp):
       call(public KeyPair.new(PublicKey, PrivateKey))
       && args(publicKey, privateKey) {
-        keyPair = kp;
     }
 
+    // `generatedPubkey[retPub] after pu` (KeyPair.cryptsl:41), read by `CipherSpec.i2`
+    // since task 4.1 -- so this is one of the two sites of this pass that closes a chain
+    // rather than recording a dead end.
+    //
+    // The write stays in the event body, against the default of INV-INS-134, and the
+    // reason is recorded in `predicate_graph.csv`. The rule orders `co?, (pu*, pr*)*`
+    // with the constructor OPTIONAL; the `ere` below demands it. A program almost never
+    // constructs the `KeyPair` it reads from -- it gets one out of
+    // `KeyPairGenerator.generateKeyPair()`, a call this specification does not observe --
+    // so `gpu` fires from the start state, the transition row `{2, 1, 2}` sends it to the
+    // fail state, and the accepting state is never reached. Measured over the whole
+    // ErrorCollector: an acceptance-point write leaves that program with the key origin
+    // still unobserved at `Cipher.init`, which is the very report this pass exists to
+    // remove. Repairing the `ere` instead is task 7.1's -- `KeyPairSpec` is one of the
+    // specifications `order_alphabet_map.csv` does not map, so G-ORDER skips it today and
+    // would not check a change to the automaton. When 7.1 lands, this write moves to
+    // `@match`.
     event gpu after(KeyPair keyPair) returning(PublicKey publicKey):
       call(public PublicKey KeyPair.getPublic()) &&
       target(keyPair) {
-        ExecutionContext.instance().setProperty(Property.GENERATED_PUBLIC_KEY, publicKey);
+        PredicateStore.instance().ensure(Property.GENERATED_PUBLIC_KEY, publicKey);
     }
 
+    // `generatedPrivkey[retPriv] after pr` (KeyPair.cryptsl:43) -- and the seed wrote the
+    // private key under `GENERATED_PUBLIC_KEY`, which is the defect task 6.1 names. It is
+    // repaired here, with the write, and not recorded like the `preparedKeyMaterial`
+    // conflation was, because the argument that kept that one recorded does not hold:
+    // measured, renaming this write closes exactly the same chain it closed before, since
+    // `CipherSpec.i2` reads the three key-origin predicates as one disjunction. What the
+    // seed's name costs is downstream. Task 5.7 wires Signature's `generatedPrivkey[priv]`
+    // and `generatedPubkey[pub]`, and it runs before 6.1: measured on the store, a private
+    // key marked as public answers NOT_OBSERVED to `initSign(priv)` -- a report about a
+    // conforming program -- and SATISFIED to `generatedPubkey`, which is a private key
+    // answering the public key's clause. The read side of `GENERATED_PRIVATE_KEY` already
+    // exists; this is the write that was missing.
+    //
+    // Same body placement as `gpu`, for the same recorded reason.
     event gpr after(KeyPair keyPair) returning(PrivateKey privateKey):
       call(public PrivateKey KeyPair.getPrivate()) &&
       target(keyPair) {
-        ExecutionContext.instance().setProperty(Property.GENERATED_PUBLIC_KEY, privateKey);
+        PredicateStore.instance().ensure(Property.GENERATED_PRIVATE_KEY, privateKey);
     }
 
+    // The `KeyPair keyPair` field is gone with the accepting-state bookkeeping that was
+    // the only thing reading it: the new store does not offer that bookkeeping and the set
+    // never read it back (INV-INS-147). `@match` is left empty rather than deleted --
+    // an `ere` names its accepting category whether or not a handler uses it, and the
+    // write returns here at task 7.1.
     ere: c1 (gpu | gpr)*
 
     @fail {
@@ -47,7 +85,6 @@ KeyPairSpec(KeyPair keyPair) {
     }
 
     @match {
-        ExecutionContext.instance().setObjectAsInAcceptingState(keyPair);
     }
 
 

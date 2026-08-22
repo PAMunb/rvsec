@@ -1,0 +1,24 @@
+# The chain this pass closes, observed at both ends: a public key the program took out of
+# a KeyPair reaches Cipher.init, which asks where the key came from.
+#
+# api30 KeyPair ENSURES generatedPubkey[retPub] after pu (KeyPair.cryptsl:41), and api30
+# Cipher REQUIRES an origin for the key given to init -- ledger clause #5, read at
+# CipherSpec.i2 since task 4.1. Nothing here is a defect: the pair is real, the program
+# constructs the KeyPair it then reads from, and the transformation is one the api30
+# table admits.
+#
+# Measured before the edit: the read moved to the new store at task 4.1 and this producer
+# had not, so the read answered NOT_OBSERVED -- indistinguishable from a key that came
+# from nowhere -- and this conforming program drew CIPHER-NOBS-00. With the write on the
+# same store the read answers SATISFIED and the trace is silent.
+#
+# The four `bind` lines produce a real key pair without firing anything: what the trace
+# measures is the monitored `new KeyPair(...)`, not the generator that supplied the halves.
+bind kpg = KeyPairGenerator.getInstance("RSA")
+bind kp0 = kpg.generateKeyPair()
+bind pub0 = kp0.getPublic()
+bind priv0 = kp0.getPrivate()
+new KeyPair(pub0, priv0) -> kp
+kp.getPublic() -> pub
+Cipher.getInstance("RSA/ECB/PKCS1Padding") -> c
+c.init(1, pub)

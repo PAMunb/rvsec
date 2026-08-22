@@ -1,0 +1,18 @@
+# The private half of the same chain, and the witness of the property repair.
+#
+# api30 KeyPair ENSURES generatedPrivkey[retPriv] after pr (KeyPair.cryptsl:43). The seed
+# wrote GENERATED_PUBLIC_KEY here -- over a PrivateKey -- which is the defect task 6.1
+# names and this pass repairs, because task 5.7 wires Signature's generatedPrivkey[priv]
+# before task 6.1 runs and would otherwise measure against a producer known to be wrong.
+#
+# Nothing here is a defect: a decryption is initialised with the private half of a pair
+# the program constructed. Measured before the edit, it drew CIPHER-NOBS-00 for the same
+# reason the public half did -- producer and consumer on different stores.
+bind kpg = KeyPairGenerator.getInstance("RSA")
+bind kp0 = kpg.generateKeyPair()
+bind pub0 = kp0.getPublic()
+bind priv0 = kp0.getPrivate()
+new KeyPair(pub0, priv0) -> kp
+kp.getPrivate() -> priv
+Cipher.getInstance("RSA/ECB/PKCS1Padding") -> c
+c.init(2, priv)

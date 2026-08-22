@@ -5,7 +5,7 @@
     "universe": 214,
     "read": 212,
     "skipped": 2,
-    "structural_findings": 55,
+    "structural_findings": 30,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -36,16 +36,6 @@
       ],
       [
         "jca_android",
-        "KeyPairSpec.mop",
-        "gpr/GENERATED_PUBLIC_KEY"
-      ],
-      [
-        "jca_android",
-        "KeyPairSpec.mop",
-        "gpu/GENERATED_PUBLIC_KEY"
-      ],
-      [
-        "jca_android",
         "KeyStoreSpec.mop",
         "gk1/GENERATED_KEY"
       ],
@@ -53,51 +43,6 @@
         "jca_android",
         "KeyStoreSpec.mop",
         "load/GENERATED_KEY_STORE"
-      ],
-      [
-        "jca_android",
-        "MessageDigestSpec.mop",
-        "d1/DIGESTED"
-      ],
-      [
-        "jca_android",
-        "MessageDigestSpec.mop",
-        "d2/DIGESTED"
-      ],
-      [
-        "jca_android",
-        "MessageDigestSpec.mop",
-        "d3/DIGESTED"
-      ],
-      [
-        "jca_android",
-        "SSLContextSpec.mop",
-        "engine/GENERATE_SSL_ENGINE"
-      ],
-      [
-        "jca_android",
-        "SSLContextSpec.mop",
-        "init/GENERATE_SSL_CONTEXT"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
-        "s1/SIGNED"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
-        "s2/SIGNED"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
-        "v1/VERIFIED"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
-        "v2/VERIFIED"
       ],
       [
         "jca_android",
@@ -111,11 +56,6 @@
       ]
     ],
     "G-PRED2": [
-      [
-        "jca_android",
-        "CipherSpec.mop",
-        "i2/GENERATED_PRIVATE_KEY"
-      ],
       [
         "jca_android",
         "CipherSpec.mop",
@@ -168,53 +108,8 @@
       ],
       [
         "jca_android",
-        "MessageDigestSpec.mop",
-        "d1/DIGESTED"
-      ],
-      [
-        "jca_android",
-        "MessageDigestSpec.mop",
-        "d2/DIGESTED"
-      ],
-      [
-        "jca_android",
-        "MessageDigestSpec.mop",
-        "d3/DIGESTED"
-      ],
-      [
-        "jca_android",
         "PBEKeySpecSpec.mop",
         "c1/SPECCED_KEY"
-      ],
-      [
-        "jca_android",
-        "SSLContextSpec.mop",
-        "engine/GENERATE_SSL_ENGINE"
-      ],
-      [
-        "jca_android",
-        "SSLContextSpec.mop",
-        "init/GENERATE_SSL_CONTEXT"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
-        "s1/SIGNED"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
-        "s2/SIGNED"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
-        "v1/VERIFIED"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
-        "v2/VERIFIED"
       ],
       [
         "jca_android",
@@ -265,27 +160,7 @@
       ],
       [
         "jca_android",
-        "KeyPairSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
         "KeyStoreSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "MessageDigestSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "SSLContextSpec.mop",
-        "ExecutionContext"
-      ],
-      [
-        "jca_android",
-        "SignatureSpec.mop",
         "ExecutionContext"
       ],
       [

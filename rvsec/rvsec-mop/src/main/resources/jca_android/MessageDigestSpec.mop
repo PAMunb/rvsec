@@ -5,7 +5,7 @@ import java.security.MessageDigest;
 import java.util.List;
 
 import br.unb.cic.mop.eh.*;
-import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -26,7 +26,12 @@ MessageDigestSpec(MessageDigest digest) {
     }
 
     List<String> algorithms = Arrays.asList("MD5", "SHA-224", "SHA-256", "SHA-1", "SHA-512", "SHA-384");
-    MessageDigest md = null;
+    // api30 MessageDigest.cryptsl states `digested[out, _]` and `digested[out, inbytearr]`
+    // over the array the digest events produce, and a handler sees no event parameter, so
+    // the three events stage the array and the acceptance handler consumes it. Cleared on
+    // consumption, so an event whose digest the automaton did not accept leaves no
+    // marking behind for the next one.
+    byte[] stagedDigested = null;
 	String currentAlgorithmInstance = "";
 
 	/*
@@ -34,26 +39,22 @@ MessageDigestSpec(MessageDigest digest) {
 	is only actually executed during the encryption phase (i.e., in calls to digest() and update(), in the case of MD.)
 	Therefore, during the getInstance sub-graph, we only need to keep track of what is the latest algorithm that has
 	been instantiated.
-	We can use ExecutionContext to keep track of a propety UNSAFE_ALGORITHM, but it is working as is.
 	 */
 	event g1 after(String alg) returning(MessageDigest digest):
 	  call(public static MessageDigest MessageDigest.getInstance(String))
 	  && args(alg) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
-	  md = digest;
 	  currentAlgorithmInstance = alg;
 	}
 
 	event g2 after(String alg, String provider) returning(MessageDigest digest):
       call(public static MessageDigest MessageDigest.getInstance(String, String))
       && args(alg, provider) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
-      md = digest;
 	  currentAlgorithmInstance = alg;
     }
 
     event g3 after(String alg, Provider provider) returning(MessageDigest digest):
       call(public static MessageDigest MessageDigest.getInstance(String, Provider))
       && args(alg, provider) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
-        md = digest;
     	currentAlgorithmInstance = alg;
     }
 
@@ -84,10 +85,23 @@ MessageDigestSpec(MessageDigest digest) {
 		}
 	  }
 
+	/*
+	`digested[out, _]` (MessageDigest.cryptsl:73) and `digested[out, inbytearr]` (:75).
+	Neither clause carries an `after L`, so the acceptance point of both is the accepting
+	state, which in an `ere` is what `@match` names (INV-INS-134). Read off the generated
+	monitor, the three digest events all land in state 2 and the match category is
+	`nextstate == 2`, so the three sites share one acceptance point.
+
+	The first clause is two-place with the second place anonymous, and a projection onto
+	`out` is exactly what it asks -- the same reading `MACED` carries for `macced[M, D]`.
+	The second clause names both places, and this site writes one. The arity stays where
+	the seed had it, with the reason recorded in `predicate_graph.csv`: no rule of api30
+	requires `digested`, so there is no consumer whose arity this write has to meet.
+	 */
 	event d1 after(MessageDigest digest) returning(byte[] out):
 	 call(public byte[] MessageDigest.digest()) &&
 	 target(digest) {
-	    ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+	    stagedDigested = out;
 	}
 
 	/*
@@ -101,30 +115,44 @@ MessageDigestSpec(MessageDigest digest) {
 		     __LOC,
        "v=1 code=MESSAGEDIGEST-ALG-01 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(digest.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + digest.getAlgorithm() + "'"));
 		}
-    	ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+    	stagedDigested = out;
     }
 
     event d3 after(byte[] out, int offset, int len, MessageDigest digest):
      call(public int MessageDigest.digest(byte[], int, int)) &&
      args(out, offset, len) &&
      target(digest) {
-       ExecutionContext.instance().setProperty(Property.DIGESTED, out);
+       stagedDigested = out;
     }
 
 	/*
 	Allowing g3 followed by g1 or g2 will eliminate the Invalid SequenceOfMethodCalls false positive in
 	bench02.BrokenHashABPSCase1
 	*/
+	/*
+	`digested` is required by no rule of the api30 oracle -- it appears there only as this
+	rule's own ENSURES, and the `digestedInputStream`/`digestedOutputStream` the stream
+	rules ensure are different predicates -- so it is one of the dead ends this change
+	disposes of by recording the omission rather than by fabricating a consumer
+	(INV-INS-137).
+
+	What leaves the two handlers besides is the accepting-state bookkeeping: the new store
+	does not offer it and the set never read it back (INV-INS-147). That is also why the
+	`MessageDigest md` field is gone -- those two calls were the only things that read it.
+	 */
 	ere : (g4* g1 | g4* g2 | g4* g3) (d2 | (update+ (d1 | d2 | d3)))+
 
 	@fail {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC,
                "v=1 code=MESSAGEDIGEST-ORDER-00 ev=" + __EVENTNAME + " obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'"));
-           ExecutionContext.instance().unsetObjectAsInAcceptingState(md);
+           stagedDigested = null;
            __RESET;
 	}
 
 	@match {
-           ExecutionContext.instance().setObjectAsInAcceptingState(md);
+           if (stagedDigested != null) {
+               PredicateStore.instance().ensure(Property.DIGESTED, stagedDigested);
+               stagedDigested = null;
+           }
 	}
 }

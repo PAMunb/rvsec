@@ -353,10 +353,34 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       traces committed — `-encoded-iv` is the chain that closes, `-keygen-iv` the window,
       `-hardcoded-iv` the violating control that decided the disposition — each replayed on all
       three snapshots. `codes.csv` gains nothing: a propagation site never earns an accuser
-- [ ] 4.13 Write-only specs, batch A (11 writes / 6 calls): `SignatureSpec` (4 writes),
-      `MessageDigestSpec` (3), `SSLContextSpec` (2), `KeyPairSpec` (2). Seven of these eleven
+- [x] 4.13 Write-only specs, batch A (11 writes / 6 calls): `SignatureSpec` (4 writes),
+      `MessageDigestSpec` (3), `SSLContextSpec` (2), `KeyPairSpec` (2). **Nine** of these eleven
       sites belong to `ENSURES`-only dead ends and carry a deliberate-omission record for their
-      absent reader (INV-INS-137); no read is fabricated for any of them
+      absent reader (INV-INS-137); no read is fabricated for any of them. The "seven" this task
+      carried was `design.md`'s count of seven dead-end **predicates** over eleven **sites**
+      spanning five files (`SignatureSpec` 4, `MessageDigestSpec` 3, `SSLContextSpec` 2,
+      `PBEParameterSpecSpec` 1 at task 4.7, `KeyPairGeneratorSpec` 1 at task 4.14), pinned by
+      mistake to this task's own, different eleven; the design is right and the task was wrong.
+      Measured: no rule of api30 requires `signed`, `verified`, `digested`, `generatedSSLContext`
+      or `generatedSSLEngine`, and no `.mop` of any set reads the five `Property` constants —
+      the only non-write occurrence anywhere is an unmaintained 2026-08-08 audit driver. The
+      other two sites, `KeyPairSpec.gpu`/`gpr`, have a live reader (`CipherSpec.i2`, on the new
+      store since 4.1) and close a chain: measured over the whole `ErrorCollector`, one
+      `CIPHER-NOBS-00` to none. Three researcher decisions (2026-08-22). The two `KeyPairSpec`
+      writes stay in the **event body** with a recorded reason, because the `ere` demands the
+      constructor api30 marks optional (`co?, (pu*, pr*)*`) and the accepting state is therefore
+      unreachable on the route by which a program obtains a KeyPair — measured, an
+      acceptance-point write leaves that program at 2 reports instead of 1; the automaton repair
+      is task 7.1's and is already recorded as measured-not-repaired at 668 corpus rows over 8
+      apps (gh104 8.12(f)), and the writes move to `@match` when it lands. `gpr` writes
+      `GENERATED_PRIVATE_KEY` as its clause names, taking the first half of task 6.1 with it.
+      `v1`/`v2` write the `byte[]` that `verified[sign]` names instead of the returned boolean,
+      which an identity-keyed store would have recorded against the JVM-wide `Boolean.TRUE`.
+      The `TraceRunner.produce()` repair rides with this task, in the shape of decision 31: a
+      non-public `KeyPairGenerator$Delegate` made every `generateKeyPair()` binding silently
+      null, so the chain had no committed witness — measured, zero of the 97 committed traces
+      change and `TraceRunnerTest` stays at its two pre-existing failures. Evidence:
+      `data/gh105/evidence/f2-write-only-batch-a.md`
 - [ ] 4.14 Write-only specs, batch B (10 writes / 11 calls): `KeyStoreSpec` (2),
       `KeyManagerFactorySpec` (2), `TrustManagerFactorySpec` (2), `KeyGeneratorSpec` (1),
       `KeyPairGeneratorSpec` (1), `DHGenParameterSpecSpec` (1), `HMACParameterSpecSpec` (1).
@@ -427,7 +451,13 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `SecretKeySpecSpec`, producer `SecretKeySpec.mop` `getEncoded`), un-conflated with 6.1 in
       the same commit; then the 10 non-wireable clauses recorded with their category, each
       exactly once, here (ledger #1, #2, #3, #4, #7, #18, #19, #26, #27, #31 — the ledger's task
-      column is the single source)
+      column is the single source). Task 4.13 also feeds this task a record it measured and
+      deliberately did not duplicate: api30 `KeyPair.cryptsl:39` states
+      `generatedKeypair[this, _] after co` and `KeyPairSpec.c1` has no write for it. None was
+      fabricated (researcher decision, 2026-08-22) — the predicate is required by no rule of the
+      oracle, its other producing site is `KeyPairGeneratorSpec.mop:111` (task 4.14), and a
+      clause with no site has no row in `predicate_graph.csv` to carry the record, because that
+      inventory is of sites. Record it here, the way task 4.12 fed task 6.5
 - [ ] 5.11 Closure sweep over **all 21 written `Property` values**, not only the named ones:
       every write has its reader or its deliberate-omission record, and the read-only gap
       (`GENERATED_PRIVATE_KEY`, resolved by 6.1's producer repair) closes. G-PRED2 green — 24
@@ -438,9 +468,15 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 
 <!-- Per task: the repair + trace pair + harness delta + divergence_record.csv hunks. -->
 
-- [ ] 6.1 `KeyPairSpec.mop:38` writes the private key under `GENERATED_PUBLIC_KEY` (this defect
-      is why `GENERATED_PRIVATE_KEY` is read at `CipherSpec.mop:85` and written nowhere — the
-      repair closes the set's one read-only property); `SecretKeySpec.mop:26`
+- [ ] 6.1 The `KeyPairSpec.mop:38` half of this task is **done, by task 4.13**: the private key
+      now writes `GENERATED_PRIVATE_KEY` as `generatedPrivkey[retPriv] after pr` names it, and
+      the set's one read-only property is closed — `gh105_gate_baseline.py` reports
+      `[G-PRED2] repaired jca_android/CipherSpec.mop i2/GENERATED_PRIVATE_KEY`. It was repaired
+      with the store move rather than deferred here because task **5.7 runs before this one** and
+      wires Signature's `generatedPrivkey[priv]`, which would otherwise be measured against a
+      producer known to be wrong: a private key marked as public answers NOT_OBSERVED to
+      `initSign(priv)` about a conforming program, and SATISFIED to `generatedPubkey`. What
+      remains here is `SecretKeySpec.mop:26`
       `preparedKeyMaterial ≡ RANDOMIZED` conflation — producer AND consumer halves in the same
       commit: the reads at `SecretKeySpecSpec.mop:25,42` (`validate(RANDOMIZED, keyMaterial)`)
       move to `PREPARED_KEY_MATERIAL` together with the write, or the repaired producer leaves
