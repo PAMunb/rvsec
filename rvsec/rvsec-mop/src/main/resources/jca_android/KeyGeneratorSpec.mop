@@ -41,6 +41,15 @@ KeyGeneratorSpec(KeyGenerator k) {
     // which is what `gk: key = generateKey()` binds and what the pointcut returns.
     SecretKey generatedKey = null;
 
+    // The second place of `generatedKey[key, alg]`. The rule binds `alg` at `getInstance`,
+    // so the value is the string this generator was asked for. It is staged rather than
+    // read out of `currentAlgorithmInstance` in the handler, for the reason every staged
+    // value of this set carries: a value the automaton refused must not be carried into
+    // the next accepting state, and the field the `getInstance` events write is never
+    // cleared. On the accepted route the two coincide -- `g3*` is a prefix and the `g1`
+    // or `g2` that follows it rebinds -- and staging is what keeps them coinciding.
+    String generatedKeyAlgorithm = null;
+
     event g1 after(String alg) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String))
       && args(alg)
@@ -146,6 +155,7 @@ KeyGeneratorSpec(KeyGenerator k) {
                 "v=1 code=KEYGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
         }
         generatedKey = key;
+        generatedKeyAlgorithm = currentAlgorithmInstance;
     }
 
     ere : (g3* g1+ | g3* g2+) (((init | initRandom | initRandomSize | initRandomSpec) gk1) | gk1)
@@ -154,6 +164,7 @@ KeyGeneratorSpec(KeyGenerator k) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,
             "v=1 code=KEYGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'"));
         generatedKey = null;
+        generatedKeyAlgorithm = null;
 
         __RESET;
     }
@@ -170,14 +181,26 @@ KeyGeneratorSpec(KeyGenerator k) {
     // automaton reject, and a body write would still mark the second key as having an
     // observed origin. Here it does not, and the consumer says so.
     //
-    // The arity stays at one place where api30 writes `generatedKey[key, alg]`, under
-    // INV-INS-134's arity exception: both migrated readers still read one place, and
-    // `validate` compares the value tuple, so a two-place write alone would answer
-    // VIOLATED about a conforming program. Task 5.6 raises producer and consumer together.
+    // The write is at the arity the rule states: `generatedKey[key, alg]`, two places,
+    // the key and the algorithm it was generated under. It stood at one place until this
+    // pass, with the recorded reason that `validate` compares the value tuple and a
+    // two-place write read by a one-place `validate` answers VIOLATED -- positive evidence
+    // of a misuse -- about a conforming program. Both readers rise in this same commit:
+    // `CipherSpec.i2`, which applies the rule's own splitter to the transformation, and
+    // `SecretKeySpec.e1`, which asks with the key's own algorithm.
+    //
+    // What the second place buys, measured: the JCA refuses a key whose algorithm differs
+    // from the Cipher's -- `Cipher.getInstance("AES/CBC/PKCS5Padding").init(1, hmacKey)`
+    // raises `InvalidKeyException: Wrong algorithm: AES or Rijndael required` -- so the
+    // VIOLATED branch of the consumer has no execution path the platform admits, and what
+    // the arity actually protects is the SATISFIED one: an AES key answers the AES cipher
+    // and only it. The reach limit stays distinguishable, which is the whole point of the
+    // three-valued read.
     @match {
        if (generatedKey != null) {
-           PredicateStore.instance().ensure(Property.GENERATED_KEY, generatedKey);
+           PredicateStore.instance().ensure(Property.GENERATED_KEY, generatedKey, generatedKeyAlgorithm);
            generatedKey = null;
+           generatedKeyAlgorithm = null;
        }
     }
 }

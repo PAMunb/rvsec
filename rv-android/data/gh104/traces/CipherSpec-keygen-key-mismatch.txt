@@ -1,0 +1,22 @@
+# The other side of clause #5's second place, and the program the arity exists to tell apart:
+# a key generated for HmacSHA256 handed to an AES Cipher. At arity 1 the read answered
+# SATISFIED -- an origin was observed, and that was all it could say. At the arity api30 states
+# it answers VIOLATED, because the key carries `generatedKey` with a value the clause does not
+# admit, and CIPHER-CONSTR-00 is that report.
+#
+# The program is one the platform refuses. Measured on Temurin 21,
+# `Cipher.getInstance("AES/CBC/PKCS5Padding").init(1, hmacKey)` raises
+# `InvalidKeyException: Wrong algorithm: AES or Rijndael required`, and the same holds for a
+# DESede key into AES, an AES key into RSA, and an RSA private key into AES. The advice at
+# `i2` is `before`, so the read runs and the report is drawn on the call that then throws.
+#
+# That is why the second place is measured as protecting the SATISFIED answer rather than as
+# finding new defects: the VIOLATED branch has no execution path the JCA lets a program
+# complete. The trace is here so the branch is exercised rather than asserted, and
+# `c.init(1, key)` dispatches without performing, which is how a trace can describe the
+# monitor's view of a call the platform would reject.
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> key
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, key)
+c.doFinal(bytes)

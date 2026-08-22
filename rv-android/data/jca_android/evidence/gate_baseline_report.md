@@ -10,7 +10,7 @@ regression lands as a finding nobody recorded. Task 7.6 deletes the mechanism on
 | set | files | read | skipped | predicate sites |
 |---|---|---|---|---|
 | `jca` | 23 | 22 | 1 | 106 |
-| `jca_android` | 24 | 24 | 0 | 53 |
+| `jca_android` | 24 | 24 | 0 | 65 |
 | `jca_android_bug_predicate` | 23 | 22 | 1 | 147 |
 | `generic` | 118 | 118 | 0 | 0 |
 | `generic_new` | 27 | 27 | 0 | 0 |

@@ -1,0 +1,27 @@
+# api30 KeyPair REQUIRES generatedPrivkey[consPriv] and generatedPubkey[consPub]
+# (KeyPair.cryptsl:32,34, ledger clauses #15 and #16), wired at task 5.6 in the constructor
+# event. This is the conforming case: both halves handed to `new KeyPair(...)` were read off a
+# pair the monitor observed, so both reads answer SATISFIED and the trace draws neither
+# KEYPAIR-NOBS code.
+#
+# It is the counterpart of KeyPairSpec-public-cipher.txt and -private-cipher.txt, which take
+# their halves from `bind` lines -- the harness performs those calls and dispatches nothing --
+# so in both of those the constructor's reads answer NOT_OBSERVED, honestly: nothing the
+# monitor saw produced them. Here the two `getPublic`/`getPrivate` calls are dispatched, so
+# KeyPairSpec.gpu and gpr write the predicates the constructor then reads.
+#
+# The producer's placement is what makes this work at all. `gpu` and `gpr` write in the event
+# body, and the pair they are called on came out of KeyPairGenerator rather than a monitored
+# constructor, so KeyPairSpec's own `ere` sends them to the fail state -- the KEYPAIR-ORDER-00
+# recorded at task 4.13 and owned by 7.1. An acceptance-point write would leave this trace with
+# both halves unobserved and the conforming constructor accused twice.
+#
+# Measured on Temurin 21: getPublic() and getPrivate() return the same object on every call,
+# and `new KeyPair(pub, priv)` stores the halves without copying, so identity survives the
+# constructor and the read asks about the objects the writes marked.
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(2048)
+kpg.generateKeyPair() -> kp0
+kp0.getPublic() -> pub0
+kp0.getPrivate() -> priv0
+new KeyPair(pub0, priv0) -> kp

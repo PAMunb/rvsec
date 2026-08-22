@@ -1,0 +1,23 @@
+# api30 Signature REQUIRES generatedPubkey[pub] (Signature.cryptsl:82, ledger clause #35),
+# wired at task 5.7. The verifying half of SignatureSpec-generated-privkey.txt, and the one
+# that separates the two key-half predicates: the public key reaches initVerify(PublicKey),
+# which is the rule's i4, and the private-key clause is not asked here.
+#
+# The producer is KeyPairSpec.gpu. The same KEYPAIR-ORDER-00 appears for the same recorded
+# reason as in the private-half trace.
+#
+# The trace stops at `update` and states no `verify`, which is deliberate and measured. A
+# `verify` line without `-> x` dispatches the advices without performing the call, and
+# `SignatureSpec.v1` is declared `returning(boolean signed)`: the harness hands the advice a
+# null for a call it did not perform, and a null cannot be unboxed into a primitive, so the
+# line raises IllegalArgumentException and lands in `unresolved` instead of being replayed.
+# Nothing is lost by stopping here: the clause this trace measures is read in the body of `i4`,
+# which fires on the `initVerify` above, and `g1 i4 update` is a prefix the `ere` accepts, so no
+# ordering report stands in for the missing tail.
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(2048)
+kpg.generateKeyPair() -> kp
+kp.getPublic() -> pub
+Signature.getInstance("SHA256withRSA") -> s
+s.initVerify(pub)
+s.update(bytes)

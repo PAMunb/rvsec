@@ -8,6 +8,7 @@ import java.security.cert.Certificate;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -38,6 +39,10 @@ SignatureSpec(Signature s) {
             "SHA224withRSA/PSS", "SHA256withRSA", "DSA", "SHA224withRSA", "SHA224withDSA", "DSS",
             "SHA1withECDSA", "SHA256withECDSA", "SHA384withECDSA", "SHA512withECDSA");
        String currentAlgorithmInstance = "";
+
+       String expectedPrivateKey = "a private key produced by one of the generators the rule names";
+
+       String expectedPublicKey = "a public key produced by one of the generators the rule names";
 
        // api30 Signature.cryptsl states four ENSURES clauses over two objects: the
        // signature `Signs` produces and the signature `Verifies` was given. Neither is
@@ -86,6 +91,38 @@ SignatureSpec(Signature s) {
            currentAlgorithmInstance = alg;
        }
 
+       // api30 Signature states two REQUIRES clauses and this file read neither until
+       // this pass: `generatedPrivkey[priv]` (Signature.cryptsl:80, ledger #34) over the
+       // key `initSign` is given, and `generatedPubkey[pub]` (:82, ledger #35) over the
+       // key `initVerify` is given. They are the rule's own clauses -- not `generatedKey`,
+       // which api30's Signature never mentions -- so a secret key has no business
+       // answering them, and the three reads below name the two key-half predicates only.
+       //
+       // Three sites for two clauses, because the rule binds `priv` in both `i1` and `i2`
+       // and `pub` in `i4`. `i3` reads nothing: it binds a `Certificate`, which is the
+       // rule's `cert`, and api30 states no clause over it -- the public half inside a
+       // certificate is never handed to this call as a `PublicKey`, so there is no object
+       // here the clause is about. That asymmetry is the oracle's and is recorded, not
+       // repaired.
+       //
+       // The reads are in the bodies, never in `condition(...)`: a guard would suppress
+       // the transition and turn "this key's origin was not observed" into a
+       // wrong-call-sequence report about a program whose sequence the rule accepts
+       // (INV-INS-133). Each carries its own pair of codes, VIOLATED and NOT_OBSERVED
+       // apart, because the first is positive evidence and the second is as often a reach
+       // limit of the instrumentation as it is a misuse.
+       //
+       // Measured before the reads were written: the chain composes end to end.
+       // `KeyPairGenerator.getInstance("RSA").generateKeyPair()`, then `getPrivate()` into
+       // `initSign` and `getPublic()` into `initVerify`, signs and verifies on Temurin 21,
+       // and the producer is `KeyPairSpec.gpu`/`gpr`, which mark the halves by identity in
+       // the event body -- the placement that makes them reachable for a pair the program
+       // did not construct itself. `KeyStoreSpec` is the second producer of the private
+       // half, wired in this same commit.
+       //
+       // The corpus had no trace that could measure this: all seven Signature traces pass
+       // `null` to `initSign`/`initVerify`, and a null bound object reads NOT_OBSERVED. The
+       // three traces this pass adds are what separate the verdicts.
        event i1 before(PrivateKey privateKey, Signature s):
          call(public void Signature.initSign(PrivateKey)) &&
          args(privateKey) &&
@@ -93,6 +130,15 @@ SignatureSpec(Signature s) {
            if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                   "v=1 code=SIGNATURE-ALG-00 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
+           }
+           PredicateVerdict origin = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, privateKey);
+           if (origin == PredicateVerdict.VIOLATED) {
+              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+                  "v=1 code=SIGNATURE-CONSTR-00 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPrivateKey) + "' msg='the private key given to initSign carries a key-origin predicate the rule does not admit'"));
+           }
+           else if (origin == PredicateVerdict.NOT_OBSERVED) {
+              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+                  "v=1 code=SIGNATURE-NOBS-00 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPrivateKey) + "' msg='no generator of the private key given to initSign was observed'"));
            }
         }
 
@@ -103,6 +149,15 @@ SignatureSpec(Signature s) {
               if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                    "v=1 code=SIGNATURE-ALG-01 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
+        }
+              PredicateVerdict origin = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, privateKey);
+              if (origin == PredicateVerdict.VIOLATED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+                   "v=1 code=SIGNATURE-CONSTR-01 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPrivateKey) + "' msg='the private key given to initSign carries a key-origin predicate the rule does not admit'"));
+        }
+              else if (origin == PredicateVerdict.NOT_OBSERVED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+                   "v=1 code=SIGNATURE-NOBS-01 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPrivateKey) + "' msg='no generator of the private key given to initSign was observed'"));
         }
         }
 
@@ -123,6 +178,15 @@ SignatureSpec(Signature s) {
               if (!ConscryptAliasTable.matches("Signature", s.getAlgorithm(), algorithms)) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SignatureSpec", "" + __LOC,
                    "v=1 code=SIGNATURE-ALG-03 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + s.getAlgorithm() + "'"));
+        }
+              PredicateVerdict origin = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, key);
+              if (origin == PredicateVerdict.VIOLATED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+                   "v=1 code=SIGNATURE-CONSTR-02 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPublicKey) + "' msg='the public key given to initVerify carries a key-origin predicate the rule does not admit'"));
+        }
+              else if (origin == PredicateVerdict.NOT_OBSERVED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+                   "v=1 code=SIGNATURE-NOBS-02 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPublicKey) + "' msg='no generator of the public key given to initVerify was observed'"));
         }
         }
 

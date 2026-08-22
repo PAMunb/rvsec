@@ -1,0 +1,25 @@
+# The incremental half of MacSpec-mac-then-encrypt.txt, and the reason task 5.7 splits the
+# Mac rule's `Updates` into argument-binding siblings instead of writing only at doFinal.
+#
+# api30 ENSURES `macced[output1, pre_input]` (Mac.cryptsl:91) over the array `update` was
+# given, and a program that authenticates by update and then encrypts the same array commits
+# exactly the misuse `!macced[_, plainText]` names -- written one call differently. The
+# aggregate `update(..)` pointcut this file carried bound no argument, so there was no array
+# for the clause to be about (finding 74); `updateBytes` binds it.
+#
+# The staged array is written at the acceptance point with the one the final contributes, so
+# an incremental run that the automaton rejects marks nothing.
+bind pt = bytes(16)
+bind km = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+new SecretKeySpec(km, "AES") -> k
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> mackey
+Mac.getInstance("HmacSHA256") -> m
+m.init(mackey)
+m.update(pt)
+m.doFinal() -> tag
+Cipher.getInstance("AES/ECB/PKCS5Padding") -> c
+c.init(1, k)
+c.doFinal(pt)

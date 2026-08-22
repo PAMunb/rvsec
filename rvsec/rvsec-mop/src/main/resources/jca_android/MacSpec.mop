@@ -1,7 +1,10 @@
 package mop;
 
 import javax.crypto.Mac;
+import java.nio.ByteBuffer;
 import java.security.spec.AlgorithmParameterSpec;
+import java.util.ArrayList;
+import java.util.List;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
@@ -38,6 +41,21 @@ MacSpec(Mac m) {
         // that no site reads is a separate repair. Recorded, not made, alongside
         // the ordering finding above the `ere` below.
         String currentAlgorithmInstance = "";
+
+        // The data this Mac authenticated, held from the events that bind it to the
+        // handler that writes about it. api30 ENSURES `macced[M, D]` -- M is the MAC of
+        // D -- and `Property.MACED` holds the second place, the data, which is the place
+        // Cipher's `!macced[_, plainText]` quantifies over. A handler sees no event
+        // parameter, so what the events observe has to travel in fields.
+        //
+        // Two fields and not one because a Mac may be fed incrementally and then closed:
+        // `update(...)` contributes data and `doFinal(input)` contributes its own, and a
+        // program that does both authenticated both arrays. The update field is a list
+        // rather than a single value for the same reason -- `update+` is in the rule's
+        // ORDER, so a run may contribute several arrays before the final.
+        List<Object> maccedByUpdate = new ArrayList<Object>();
+
+        Object maccedByFinal = null;
 
         event g1 after(String alg) returning(Mac m):
           call(public static Mac Mac.getInstance(String)) &&
@@ -145,8 +163,62 @@ MacSpec(Mac m) {
             }
         }
 
+        // api30's `Updates`, which the rule states as four events and this file observed
+        // as one, `update(..)`, binding nothing. That was enough while the file wrote no
+        // predicate; it is not enough now, because `macced[output1, pre_input]`
+        // (Mac.cryptsl:91) is about the array the call was given and a pointcut that binds
+        // no argument has no array to be about (finding 74).
+        //
+        // So the aggregate splits into siblings, one per overload whose argument the
+        // clause names, with every type written out. The three shorter statements were
+        // measured on this set and all fail: a disjunction of the signatures makes javamop
+        // emit no aspect at all, `args(.., input)` matches every `update` whatever the
+        // argument's type and binds nothing, and a wildcard in a middle position generates
+        // a correct aspect but defeats the trace harness's resolver, which accepts any
+        // call from the first wildcard onward (finding 79). A trailing wildcard after
+        // every discriminating type is safe, which is why `updateRange` may keep `args`
+        // positions it does not read.
+        //
+        // The split adds symbols and moves no ordering claim: the rule puts u1 to u4 in
+        // one alternation, `Updates`, so the `ere` accepts each sibling exactly where it
+        // accepted the aggregate. The aggregate itself stays, and keeps its name, for the
+        // one overload whose argument the rule does not name in any ENSURES.
+        //
+        // `macced[output1, inp]` (Mac.cryptsl:89) is the rule's third clause and gains no
+        // site. `inp` is a primitive `byte`: a write would box it, the store is keyed by
+        // object identity, and no `Cipher` takes a `byte` as its plaintext -- so no read
+        // of the consuming clause could ever meet what a write here recorded. Vacuous,
+        // recorded rather than written, on the ground decision 19 states.
         event update after(Mac m):
-          call(public void Mac.update(..)) &&
+          call(public void Mac.update(byte)) &&
+          target(m) { }
+
+        // api30's u2 and u4, which the rule declares twice over the same signature.
+        event updateBytes after(byte[] input, Mac m):
+          call(public void Mac.update(byte[])) &&
+          args(input) &&
+          target(m) {
+            maccedByUpdate.add(input);
+        }
+
+        // api30's u3, `update(pre_input, offset, len)`. The clause names the array and not
+        // the window, so the two int positions are bound and unread.
+        event updateRange after(byte[] input, int offset, int len, Mac m):
+          call(public void Mac.update(byte[], int, int)) &&
+          args(input, offset, len) &&
+          target(m) {
+            maccedByUpdate.add(input);
+        }
+
+        // `Mac.update(ByteBuffer)` is an overload of the API that api30 does not declare:
+        // the rule's `Updates` names four events and none of them is this one, so there is
+        // no clause here and the event stages nothing. It is declared all the same, because
+        // the aggregate pointcut this split replaced did match it, and dropping it would
+        // quietly narrow what the automaton observes -- a change to the alphabet that no
+        // clause asks for. It stands where the aggregate stood.
+        event updateBuffer after(ByteBuffer input, Mac m):
+          call(public void Mac.update(ByteBuffer)) &&
+          args(input) &&
           target(m) { }
 
         // api30's `Finals`. Both of these events established a one-place
@@ -181,9 +253,25 @@ MacSpec(Mac m) {
         // path to an accusation, which decision 19 deletes rather than writes.
         // Clause #23 (`!encrypted[output2, _]`) has no other site and is recorded
         // vacuous in full; clause #22 keeps its second site, below.
+        // api30's `f1: output1 = doFinal()`, the overload that authenticates only what
+        // `update` already contributed. It binds no data of its own, so it stages none;
+        // what the run authenticated is in the update field.
         event f1 after(Mac m) returning(byte[] output):
-          (call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) &&
+          call(byte[] Mac.doFinal()) &&
           target(m){
+        }
+
+        // api30's `f2: output2 = doFinal(input)`, and the site of
+        // `macced[output2, input]` (Mac.cryptsl:93). It splits off the disjunction it
+        // shared with `f1` for the reason the `update` family split: the clause is about
+        // the array the call was given, and the merged pointcut bound no argument. Same
+        // ordering claim -- the rule puts both in `FinalsWU`, and the `ere` accepts either
+        // symbol wherever it accepted the merged one.
+        event f1Input after(byte[] input, Mac m) returning(byte[] output):
+          call(byte[] Mac.doFinal(byte[])) &&
+          args(input) &&
+          target(m){
+            maccedByFinal = input;
         }
 
         // api30's `f3: doFinal(output1, outOffset)` (Mac.cryptsl:59), the only
@@ -229,7 +317,7 @@ MacSpec(Mac m) {
         // pass moves no symbol, and this file is one of the thirteen still absent
         // from order_alphabet_map.csv, which task 7.1 owns, so G-ORDER skips it in
         // both directions.
-        ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f2) | (update* (f1 | f2)))
+        ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f1Input | f2) | ((update | updateBytes | updateRange | updateBuffer)* (f1 | f1Input | f2)))
 
         @fail {
             // The withdrawal that stood in this handler went with the write it
@@ -242,7 +330,46 @@ MacSpec(Mac m) {
             // other seven remain 6.4's.
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
                 "v=1 code=MAC-ORDER-00 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'"));
+            maccedByUpdate.clear();
+            maccedByFinal = null;
             __RESET;
+        }
+
+        // The acceptance point of `macced[output1, pre_input]` (Mac.cryptsl:91) and
+        // `macced[output2, input]` (Mac.cryptsl:93), and the handler task 4.9 deleted
+        // whole -- it had nothing left to do once the accepting-state bookkeeping went
+        // (INV-INS-147), and it comes back because this pass gives it a clause to write.
+        // Neither clause carries an `after L`, so the acceptance point is the accepting
+        // state itself, which in an `ere` is what `@match` names (INV-INS-134).
+        //
+        // What the acceptance point buys over the event bodies is the same thing it buys
+        // everywhere in this set, and here it is worth naming: `macced` says a program
+        // authenticated this data, and a `doFinal` the automaton rejects -- one on a Mac
+        // that was never initialised, for instance -- authenticated nothing. A body write
+        // would mark the array anyway, and `Cipher`'s `!macced` would then refuse to
+        // encrypt data no Mac ever covered.
+        //
+        // The two places of the clause are not both recorded, and that is by construction
+        // rather than by omission: `Property.MACED` holds the second place, the data,
+        // because that is the place the only consumer quantifies over --
+        // `Cipher: !macced[_, plainText]` leaves the first anonymous. The tag itself is
+        // marked by nothing, and no rule asks about it.
+        //
+        // Measured before the write was made: the composition is real and it is the one
+        // the negated clause names. `mac.doFinal(data)` followed by
+        // `cipher.doFinal(data)` over the *same array object* runs to completion on
+        // Temurin 21 -- mac-then-encrypt, which api30 forbids -- and the tag `doFinal`
+        // returns is never the same object as the ciphertext beside it, so marking the
+        // data cannot be confused with marking the output.
+        @match {
+            for (Object authenticated : maccedByUpdate) {
+                PredicateStore.instance().ensure(Property.MACED, authenticated);
+            }
+            maccedByUpdate.clear();
+            if (maccedByFinal != null) {
+                PredicateStore.instance().ensure(Property.MACED, maccedByFinal);
+                maccedByFinal = null;
+            }
         }
 
 }

@@ -1,0 +1,21 @@
+# api30 Cipher REQUIRES generatedKey[key, part(0,"/",transformation)] (Cipher.cryptsl:174,
+# ledger clause #5), raised to the rule's two places at task 5.6. The corpus observed that
+# chain through SecretKeySpec (SecretKeySpecSpec-cipher-chain.txt) and through KeyPair
+# (KeyPairSpec-public-cipher.txt) and not through the producer most programs actually use.
+# This is that one: KeyGenerator.generateKey() into Cipher.init.
+#
+# Nothing here is a defect. The generator is asked for an algorithm the rule's allow-list
+# names, the key is generated, and the transformation's first component is the same "AES" the
+# generator was asked for -- so the two places of the clause agree and the read answers
+# SATISFIED. It is the trace that shows the second place does not cost a conforming program a
+# report: at arity 1 this read already answered SATISFIED, and it must still.
+#
+# Measured on Temurin 21: KeyGenerator.getInstance("AES").generateKey() returns a key whose
+# getAlgorithm() is "AES", and Cipher.getInstance("AES/CBC/PKCS5Padding").getAlgorithm()
+# returns the transformation verbatim, whose part(0,"/") is "AES".
+KeyGenerator.getInstance("AES") -> kg
+kg.init(256)
+kg.generateKey() -> key
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, key)
+c.doFinal(bytes)

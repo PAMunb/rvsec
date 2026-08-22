@@ -1,0 +1,31 @@
+# Violates api30 Cipher `!macced[_, plainText]` (Cipher.cryptsl:180, ledger clause #8): the
+# program authenticates a plaintext and then encrypts the very same array -- mac-then-encrypt,
+# which the rule forbids. Wired at task 5.7, with the producer at MacSpec's acceptance point
+# and the consumer in IvChainJunction.mop, which is where `Cipher.doFinal(byte[])` can be bound
+# at all (CipherSpec is at 17 of 17 events, INV-INS-145).
+#
+# `pt` is bound with `bind` and not written as the `bytes` placeholder, and that is the whole
+# mechanism of the trace: `bytes` allocates a fresh array at every occurrence, so a trace that
+# wrote it twice would name two different objects and an identity-keyed store would answer
+# SATISFIED at the Cipher -- the trace would pass while describing a program that does not.
+# `bind pt = bytes(16)` names one array that both calls receive.
+#
+# The Mac side must be accepted for the predicate to be written: the write is at the acceptance
+# point, so a doFinal the automaton rejects authenticates nothing and marks nothing. Here
+# getInstance, init and doFinal are the rule's Gets, Inits, Finals in order.
+#
+# Measured on Temurin 21: m.doFinal(pt) followed by c.doFinal(pt) over the same array runs to
+# completion, and the tag doFinal returns is never the same object as the ciphertext.
+bind pt = bytes(16)
+bind km = bytes(32)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+new SecretKeySpec(km, "AES") -> k
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> mackey
+Mac.getInstance("HmacSHA256") -> m
+m.init(mackey)
+m.doFinal(pt) -> tag
+Cipher.getInstance("AES/ECB/PKCS5Padding") -> c
+c.init(1, k)
+c.doFinal(pt)

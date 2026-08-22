@@ -13,6 +13,7 @@ import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.CipherTransformationUtil;
 import static br.unb.cic.mop.jca.util.Api30CipherTransformationUtil.*;
 
 
@@ -111,11 +112,32 @@ CipherSpec(Cipher c) {
    // NOT_OBSERVED says only that no producer of this key was ever observed, which
    // on Android is as often a reach limit of the instrumentation as it is a misuse.
    // Folding the two into one code would make the second unreadable as what it is.
+   //
+   // The `generatedKey` probe reads the clause at the arity the rule states, with the
+   // splitter applied here rather than in the store: api30 writes
+   // `generatedKey[key, part(0,"/",transformation)]`, and the oracle's splitters are the
+   // caller's to apply, because the caller is the side that holds the clause. The
+   // transformation is read off `c.getAlgorithm()`, which returns verbatim what
+   // `getInstance` was given; `alg` is total on it -- a transformation with no `/` is its
+   // own algorithm -- so unlike `mode` it cannot fail on a malformed string, and
+   // `getInstance` had already rejected one before any Cipher existed.
+   //
+   // The three producers rise to two places in this same commit (`KeyGeneratorSpec`,
+   // `SecretKeySpecSpec`, `KeyStoreSpec`); the two key-half probes stay at one, because
+   // `generatedPrivkey[key]` and `generatedPubkey[key]` are one-place in every rule that
+   // ensures them. Measured on the platform, the second place protects the SATISFIED
+   // answer rather than producing new accusations: the JCA refuses a key whose algorithm
+   // differs from the Cipher's, with `InvalidKeyException`, before this program can go
+   // wrong in any way this clause would name -- so the VIOLATED branch has no execution
+   // path the platform admits, and it is written for the reason its siblings are, that a
+   // read which folded VIOLATED into NOT_OBSERVED would misreport the day some rule's
+   // NEGATES clause withdraws a key origin.
    event i2 before(int mode, Key key, Cipher c):
      call(public void Cipher.init(int, Key,..)) &&
      args(mode, key, ..) &&
      target(c) {
-        PredicateVerdict asSecretKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key);
+        PredicateVerdict asSecretKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key,
+            CipherTransformationUtil.alg(c.getAlgorithm()));
         PredicateVerdict asPublicKey = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, key);
         PredicateVerdict asPrivateKey = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, key);
         PredicateVerdict origin = PredicateVerdict.NOT_OBSERVED;
@@ -217,10 +239,39 @@ CipherSpec(Cipher c) {
        finalPlainText = null;
    }
 
+    // The two `doFinal` overloads of this file that bind the rule's `plainText`, and
+    // therefore the two sites of `!macced[_, plainText]` (Cipher.cryptsl:180, ledger
+    // clause #8) that `CipherSpec` can carry. The rule forbids encrypting data that was
+    // already authenticated -- mac-then-encrypt -- and the read is `validateAbsent`,
+    // whose table is inverted: absence is the conforming case, so it never answers
+    // NOT_OBSERVED and there is no NOBS code beside these two (INV-INS-146). Reading a
+    // negated clause through `validate` would report *not observed* on every conforming
+    // `doFinal` in the world, which is backwards.
+    //
+    // The rule's own `f2` and `f4` bind `plainText` too, and this file cannot: its `f2`
+    // is `doFinal(..)` over three overloads at once, and splitting it is not available at
+    // 17 of 17 events (INV-INS-145, n=18 raises StackOverflowError in the enable-set
+    // parser at any heap). Those two overloads -- the dominant way a program encrypts --
+    // are read in `IvChainJunction.mop`, which is the file that exists for exactly this:
+    // binding an argument of a `Cipher` call that `CipherSpec` has no room to bind.
+    //
+    // `f7` binds a `ByteBuffer` plaintext and gains no read. No site of the set can mark
+    // a `ByteBuffer` under this predicate -- api30's `Mac` declares no `ByteBuffer`
+    // event, so the producer has nothing to write about one -- and `validateAbsent` never
+    // answers NOT_OBSERVED, so a read there could answer only SATISFIED. It would be a
+    // site with no path to an accusation, which decision 19 records rather than writes.
+    //
+    // The read does not guard the staging below it. A failed REQUIRES is not a typestate
+    // failure and it is not a reason to stop recording what this call encrypted: the
+    // `encrypted` clause is the rule's ENSURES and it holds whatever the answer here is.
     event f5 after(byte[] plainText, int offset, int len, byte[] cipherText, Cipher c):
       call(public int Cipher.doFinal(byte[], int, int, byte[])) &&
       args(plainText, offset, len, cipherText) &&
       target(c) {
+         if (PredicateStore.instance().validateAbsent(Property.MACED, plainText) == PredicateVerdict.VIOLATED) {
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
+                 "v=1 code=CIPHER-CONSTR-01 ev=" + __EVENTNAME + " obj=Cipher val='macced' exp='not macced' msg='the plaintext given to doFinal was already authenticated by a Mac'"));
+         }
          finalCipherText = cipherText;
          finalPlainText = plainText;
     }
@@ -229,6 +280,10 @@ CipherSpec(Cipher c) {
       call(public int Cipher.doFinal(byte[], int, int, byte[], int)) &&
       args(plainText, offset, len, cipherText, cipherOffset) &&
       target(c) {
+        if (PredicateStore.instance().validateAbsent(Property.MACED, plainText) == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
+                "v=1 code=CIPHER-CONSTR-02 ev=" + __EVENTNAME + " obj=Cipher val='macced' exp='not macced' msg='the plaintext given to doFinal was already authenticated by a Mac'"));
+        }
         finalCipherText = cipherText;
         finalPlainText = plainText;
     }

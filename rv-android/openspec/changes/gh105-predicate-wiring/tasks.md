@@ -625,18 +625,57 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       in the file itself, and needed no new trace: `SecureRandomSpec-seeded-constructor.txt` and
       `-unrandomised-constructor.txt` were already in the corpus and separate the verdicts.
       Evidence: `data/gh105/evidence/f3-RandomizedHubAndGuardedPrepared.md` (with 5.4 and 5.8, one commit)
-- [ ] 5.6 `generated*key` family A (ledger #5, #15, #16): producers at acceptance
-      (`KeyGenerator`, `KeyPairGenerator`, `SecretKeyFactory`, `KeyStore`); consumer
+- [x] 5.6 `generated*key` family A (ledger #5, #15, #16): producers at acceptance; consumer
       `Cipher.init` `generatedKey[key, part(0,"/",transformation)]` (arity-2, splitter applied
       by the caller, store read replacing the `i2` guard — zero new events); `KeyPair`
-      `generatedPrivkey`/`generatedPubkey`. The producer list includes `SecretKeySpecSpec`'s
-      `@match` write, which task 4.10 migrated to the new store at arity 1 with a recorded reason:
-      it rises to the rule's `generatedKey[this, alg]` here, in the same commit as the consumer,
-      because the two arities must move together or the read returns `VIOLATED` on a conforming key
-- [ ] 5.7 `generated*key` family B (ledger #34, #35, #8): `Signature`
+      `generatedPrivkey`/`generatedPubkey`. **Two of the four producers this task named do not
+      exist as it named them, and the tree wins.** There is no `SecretKeyFactorySpec.mop` — the
+      set has 24 files and none is that one, which task 4.10 had already recorded — and
+      `KeyPairGenerator` produces `generatedKeypair[kp, alg]`, a different predicate that #5, #15
+      and #16 do not read; its write has been at the acceptance point since 4.14 and is a dead
+      end. The producers of `GENERATED_KEY` are **three**: `KeyGeneratorSpec`, `SecretKeySpecSpec`
+      and `KeyStoreSpec`, and all three rise to the rule's arity in this commit with **both**
+      readers — `CipherSpec.i2` and, the one this task did not name, `SecretKeySpec.e1`. That
+      second reader translates no clause and governs a write instead of a report, so left at
+      arity 1 it would answer `VIOLATED` for every observed key, stage nothing, and break the
+      set's only dataflow bridge **in silence**. `KeyStore` writes `generatedKey[key, _]`, whose
+      second place is the oracle's anonymous variable; the store has no wildcard, so the site
+      writes the key's own algorithm and the departure is recorded (researcher decision,
+      2026-08-22). What licenses it is measured: the JCA itself refuses with `InvalidKeyException`
+      every key whose algorithm differs from the Cipher's, so no execution distinguishes the two,
+      and the same measurement says the arity's `VIOLATED` branch has no execution path the
+      platform lets a program complete — what the second place protects is the `SATISFIED` one.
+      Measured too, and the reason `KeyStoreSpec` must write at all: `getKey` returns a *fresh*
+      key object, so an identity-keyed store cannot carry a predicate through a key store.
+      #15 and #16 are the constructor's own REQUIRES and `KeyPairSpec.c1` carried no site for
+      them; it gains two reads and four codes. `KeyStore`'s `generatedPrivkey[key]` gains its
+      first site in the set, guarded by `instanceof PrivateKey`; its `generatedPubkey[key]` gains
+      none and is recorded — `getKey` never returns a `PublicKey`.
+      Evidence: `data/gh105/evidence/f3-GeneratedKeyFamily.md` (with 5.7, one commit)
+- [x] 5.7 `generated*key` family B (ledger #34, #35, #8): `Signature`
       `generatedPrivkey[priv]`/`generatedPubkey[pub]` (Signature's own clauses — not
       `generatedKey`); the Cipher negated `!macced` (#8) via `validateAbsent`, with the `MACED`
-      producer write added at the Mac rule's acceptance point (zero sites today)
+      producer write added at the Mac rule's acceptance point (zero sites today).
+      #34 and #35 take three sites, not two: the rule binds `priv` in both `i1` and `i2` and
+      `pub` in `i4`. `i3` gains none — it binds a `Certificate`, which api30 states no clause
+      over, and that asymmetry is the oracle's and is recorded.
+      #8 takes **four** sites and needed a producer built from nothing. On the consuming side
+      `CipherSpec.f5` and `f6` bind the rule's `plainText` and read it there, while the two
+      overloads almost every program uses fall into `CipherSpec.f2`, which is
+      `call(public byte[] Cipher.doFinal(..))` over three overloads and binds no argument;
+      splitting it is not available at 17 of 17 events (INV-INS-145), so they became two events
+      of `IvChainJunction.mop` — no new `.mop`, the universe stays at 215. `f7` binds a
+      `ByteBuffer` and gains no read: no site of the set can mark one, and `validateAbsent` never
+      answers `NOT_OBSERVED`, so it could answer only `SATISFIED`.
+      On the producing side `MacSpec` had zero sites **and no `@match`** — task 4.9 deleted the
+      handler whole — so it comes back with a clause to write, and the events that bind the data
+      had to be created: the aggregate `update(..)` and the merged `doFinal` bound no argument,
+      which is finding 74. One event per overload with types written out (finding 79), plus an
+      `update(ByteBuffer)` sibling that carries no clause and exists so the split narrows no
+      alphabet the aggregate covered. The rule's third clause, `macced[output1, inp]`, gains no
+      site: `inp` is a primitive `byte`, a write would box it, the store is keyed by identity,
+      and no `Cipher` takes a `byte` as its plaintext.
+      Evidence: `data/gh105/evidence/f3-GeneratedKeyFamily.md` (with 5.6, one commit)
 - [x] 5.8 `prepared*` guarded clauses (ledger #10, #17, #20): `preparedGCM` (`{GCM} =>`, guard
       evaluated in the body before the read) and `preparedDH` (`KeyPairGenerator {DH} =>`);
       `preparedEC` (#20) recorded `unclosable` — no producing rule exists; deliberate-omission

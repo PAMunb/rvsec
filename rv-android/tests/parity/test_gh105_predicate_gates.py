@@ -734,6 +734,39 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))`
       raises InvalidAlgorithmParameterException: Inappropriate parameter type. Clause #20
       (`preparedEC`) has no producing rule anywhere and is recorded `unclosable`.
+
+      Batch B3 (tasks 5.6 and 5.7) moves three of these five numbers, and each of them by
+      a count this docstring names so the next batch cannot move one silently.
+
+      `read` goes from 24 to 28. Five reads arrive: ledger clauses #15 and #16 in
+      `KeyPairSpec.c1`, the constructor's own `generatedPrivkey[consPriv]` and
+      `generatedPubkey[consPub]`, which the file carried no site for; and clauses #34 and
+      #35 in `SignatureSpec`, over three sites, because the rule binds `priv` in both `i1`
+      and `i2` and `pub` in `i4`. `i3` gains none: it binds a Certificate, which api30
+      states no clause over.
+
+      `read-absent` goes from 1 to 5. Ledger clause #8, `!macced[_, plainText]`, is read at
+      the four sites of the set that bind the rule's `plainText`: `CipherSpec.f5` and `f6`,
+      and `IvChainJunction.finalInput` and `finalRange`, which take the two overloads
+      `CipherSpec.f2` merges without binding an argument and that it cannot be split into
+      at 17 of 17 events (INV-INS-145). `CipherSpec.f7` binds a ByteBuffer and gains no
+      read: no site of the set can mark one under this predicate, so it could answer only
+      SATISFIED.
+
+      `write` goes from 28 to 31. `MacSpec` gains two -- the acceptance point of
+      `macced[output1, pre_input]` and `macced[output2, input]`, where the set had zero
+      sites of the predicate -- and `KeyStoreSpec` one, `generatedPrivkey[key]`
+      (KeyStore.cryptsl:99), guarded by `instanceof PrivateKey`. Three clauses gain no site
+      and are recorded instead: `macced[output1, inp]` binds a primitive byte, which boxes
+      and which no Cipher takes as a plaintext; `generatedPubkey[key]` at KeyStore has no
+      execution path, `getKey` never returning a PublicKey; and `generatedKeypair[this, _]`
+      is still task 5.10's.
+
+      The other two numbers do not move and that is also a claim: `condition` stays 0, and
+      `negate` stays 1 -- the batch withdraws no predicate. The arity of five sites rises
+      to what api30 states, which this census does not count and
+      `test_the_graph_reproduces_the_measured_placement_census` does not either; the
+      `predicate_graph.csv` rows carry it.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -749,9 +782,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 24
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 33
     assert read_placement.get("condition", 0) == 0
-    assert counts.get("write", 0) == 28
+    assert counts.get("write", 0) == 31
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
     assert counts.get("remove", 0) + counts.get("negate", 0) == 1
 
@@ -763,6 +796,14 @@ def test_the_predicate_free_sets_read_as_predicate_free():
     in one of them would be finding it in a file where the answer is known, which
     is the cheapest possible way to catch a pattern that has started matching too
     much.
+
+    Batch B3 (tasks 5.6 and 5.7) does not move this number, and that is worth
+    stating rather than leaving to be inferred from the diff: the batch adds seven
+    write sites, thirteen read sites and six events, and every one of them lands in
+    `jca_android`. It creates no `.mop` -- the two `Cipher.doFinal` overloads that
+    needed binding went into the junction specification that already exists -- so
+    the enumerated universe stays at 215 and the file counts of the three sibling
+    suites stay where they are.
     """
     home = _rvsec_home()
     root = home / "rvsec/rvsec-mop/src/main/resources"
@@ -998,6 +1039,30 @@ def test_the_graph_reproduces_the_measured_placement_census():
       `GCMParameterSpecSpec`'s closes by a read. The gate goes from six findings to four.
       Nothing else moves: `write:acceptance` stays 23, the `negate` 1, the `read-absent` 1,
       and the bookkeeping and removals stay at zero.
+
+      Batch B3 (tasks 5.6 and 5.7) moves three of them, and the two it does not move are
+      the load-bearing ones.
+
+      `read:body` goes from 23 to 28, for the five reads the reader census names: ledger
+      clauses #15 and #16 at `KeyPairSpec.c1`, and #34 and #35 at `SignatureSpec.i1`, `i2`
+      and `i4`.
+
+      `read-absent:body` goes from 1 to 5, which is the assertion below doing the job it
+      was written for. Clause #8 is the set's second negated clause to be wired and it
+      arrives at four sites at once -- `CipherSpec.f5`, `f6`, and `IvChainJunction`'s
+      `finalInput` and `finalRange`.
+
+      `write:acceptance` goes from 23 to 26: two at `MacSpec.match`, the acceptance point
+      of `macced` recreated with the handler task 4.9 deleted whole, and one at
+      `KeyStoreSpec.match` for `generatedPrivkey[key]`.
+
+      `write:body` stays 5 and `read:condition-guard` stays 0, and those two are the claim
+      this batch most has to make: it adds seven write sites and thirteen read sites and
+      puts none of them off the acceptance point or inside a guard. `negate:body` stays 1.
+
+      The two `MacSpec.match/MACED` rows are indistinguishable in every column this reader
+      computes, so they carry identical manual text on purpose: a swap between them on a
+      re-emit is a no-op (finding 81).
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1005,14 +1070,14 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
-    assert counts.get("read:body", 0) == 23
+    assert counts.get("read:body", 0) == 28
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one
     # cannot arrive uncounted.
-    assert counts.get("read-absent:body", 0) == 1
+    assert counts.get("read-absent:body", 0) == 5
     assert counts.get("write:body", 0) == 5
-    assert counts.get("write:acceptance", 0) == 23
+    assert counts.get("write:acceptance", 0) == 26
     assert counts.get("remove:fail", 0) == 0
     assert counts.get("negate:body", 0) == 1
     assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 0

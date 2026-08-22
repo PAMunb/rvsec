@@ -27,6 +27,8 @@ import br.unb.cic.mop.jca.util.CipherTransformationUtil;
  *   #10 `part(1,"/",transformation) in {GCM} => preparedGCM[params]`
  *                                  (Cipher.cryptsl:184, task 5.8)
  *   #6  `randomized[ranGen]`      (Cipher.cryptsl:176, task 5.5, one site per overload)
+ *   #8  `!macced[_, plainText]`   (Cipher.cryptsl:180, task 5.7, the two `doFinal`
+ *                                  overloads `CipherSpec.f2` merges without binding)
  *
  * The name is the one task 5.1 gave the file when it held only the IV chain, and it is
  * kept deliberately now that it holds three clauses over two of `Cipher.init`'s
@@ -73,6 +75,8 @@ IvChainJunctionSpec(Cipher c) {
     String expectedPreparedGcm = "a GCMParameterSpec built over an observed randomized source";
 
     String expectedRandomGen = "a SecureRandom this instrumentation observed being constructed";
+
+    String expectedUnmacced = "a plaintext no observed Mac has authenticated";
 
     // The envelope's quoting rule (gh104 design D-3), the same three lines every
     // reporting specification of the set carries.
@@ -299,7 +303,53 @@ IvChainJunctionSpec(Cipher c) {
     // Nothing may be written between the `ere` line and the first `@handler`: the lint
     // reads whatever sits there as part of the expression, and a comment block becomes
     // sixty undeclared symbols and one unbalanced brace.
-    ere : (use | useRandomKey | useRandomCert | useRandomSpec | useRandomParams)*
+    // `!macced[_, plainText]` (Cipher.cryptsl:180, ledger clause #8) at the two `doFinal`
+    // overloads api30 binds `plainText` in and `CipherSpec` cannot: its `f2` is declared
+    // `call(public byte[] Cipher.doFinal(..))` and stands for the rule's `f2` and `f4` at
+    // once, binding no argument, and narrowing it would drop `doFinal()` out of the
+    // automaton while splitting it is not available at 17 of 17 events (INV-INS-145).
+    // `f5`, `f6` and `f7` do bind it, so `CipherSpec` carries those sites itself; these
+    // two are the ones with nowhere else to go, and they are the ones almost every
+    // program uses.
+    //
+    // One event per overload with every type written out, which is this file's own
+    // discipline and the measurement behind it is in the `useRandom*` block above: a
+    // disjunction of the signatures makes javamop emit no aspect at all, a trailing
+    // `args(.., x)` binds nothing and accuses everything that passes through it, and a
+    // wildcard before a discriminating type defeats the trace harness's resolver. The
+    // trailing wildcards in `finalRange` sit after the discriminating `byte[]`, which is
+    // where a wildcard is safe.
+    //
+    // `validateAbsent` and not `validate`: the clause is negated, so absence is the
+    // conforming case and the read never answers NOT_OBSERVED (INV-INS-146). There is no
+    // NOBS code for either site, and that absence is not an omission.
+    //
+    // Measured before the reads were written -- the composition is real, and it is the
+    // misuse the clause names rather than an artefact: `mac.doFinal(data)` followed by
+    // `cipher.doFinal(data)` over the same array object runs to completion on Temurin 21.
+    // The producer is `MacSpec.@match`, wired in this same commit at the arity the
+    // consumer asks for, over the data rather than over the tag.
+    event finalInput after(byte[] plainText, Cipher c):
+      call(public byte[] Cipher.doFinal(byte[])) &&
+      args(plainText) &&
+      target(c) {
+        if (PredicateStore.instance().validateAbsent(Property.MACED, plainText) == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-CONSTR-06 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedUnmacced) + "' msg='the plaintext given to Cipher.doFinal was already authenticated by a Mac'"));
+        }
+    }
+
+    event finalRange after(byte[] plainText, Cipher c):
+      call(public byte[] Cipher.doFinal(byte[], int, int)) &&
+      args(plainText, *, *) &&
+      target(c) {
+        if (PredicateStore.instance().validateAbsent(Property.MACED, plainText) == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                "v=1 code=IVCHAINJUNCTION-CONSTR-07 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedUnmacced) + "' msg='the plaintext given to Cipher.doFinal was already authenticated by a Mac'"));
+        }
+    }
+
+    ere : (use | useRandomKey | useRandomCert | useRandomSpec | useRandomParams | finalInput | finalRange)*
 
     @match {
     }

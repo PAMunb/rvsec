@@ -6,6 +6,7 @@ import java.security.PublicKey;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
@@ -23,9 +24,54 @@ KeyPairSpec(KeyPair keyPair) {
     // rule, its other producer is `KeyPairGeneratorSpec` (task 4.14), and a clause with no
     // site has no row in the site inventory to carry a record. The record belongs to task
     // 5.10, which this pass feeds rather than duplicating.
+    //
+    // What this event gains is the rule's own REQUIRES, both of them:
+    // `generatedPrivkey[consPriv]` and `generatedPubkey[consPub]` (KeyPair.cryptsl:32,34,
+    // ledger clauses #15 and #16). They are the constructor's clauses -- what a program
+    // may hand to `new KeyPair(...)` -- and they are separate reports over separate
+    // objects, so they carry a code each rather than being folded into one composite the
+    // way `CipherSpec.i2` folds the three key-origin predicates behind one clause.
+    //
+    // The reads are in the body, not in `condition(...)`: a false guard compiles to
+    // `if (!(guard)) return false;` ahead of the transition, so a key pair whose halves
+    // the monitor never saw would drop the constructor out of the automaton and the
+    // `getPublic` that follows would be accused of a wrong call sequence (INV-INS-133).
+    // A failed REQUIRES is not a typestate failure.
+    //
+    // Measured before the reads were written -- the composition is real and the identity
+    // survives it: `new KeyPair(kp.getPublic(), kp.getPrivate())` over a generated pair
+    // runs, `getPublic()` and `getPrivate()` return the same object on every call, and the
+    // constructor stores the halves without copying, so what `gpu`/`gpr` marked is what
+    // this read asks about. Both halves are also produced by `KeyStoreSpec` for a private
+    // key, which task 5.6 wired in the same commit. `KeyPairSpec-public-cipher.txt` and
+    // `-private-cipher.txt` are the corpus traces that reach this event, and both take
+    // their halves from `bind` lines, which the harness performs without dispatching -- so
+    // both answer NOT_OBSERVED here, honestly: nothing the monitor saw produced them.
+    //
+    // Arity one on both, which is what the oracle writes: `generatedPrivkey` and
+    // `generatedPubkey` are one-place in every rule that ensures them -- KeyPair itself,
+    // KeyStore, and nothing else -- so there is no arity to move here.
     event c1 after(PublicKey publicKey, PrivateKey privateKey) returning(KeyPair kp):
       call(public KeyPair.new(PublicKey, PrivateKey))
       && args(publicKey, privateKey) {
+        PredicateVerdict privOrigin = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, privateKey);
+        if (privOrigin == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairSpec", "" + __LOC,
+                "v=1 code=KEYPAIR-CONSTR-00 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='a private key produced by one of the generators the rule names' msg='the private key given to the KeyPair constructor carries a key-origin predicate the rule does not admit'"));
+        }
+        else if (privOrigin == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairSpec", "" + __LOC,
+                "v=1 code=KEYPAIR-NOBS-00 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to the KeyPair constructor was observed'"));
+        }
+        PredicateVerdict pubOrigin = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, publicKey);
+        if (pubOrigin == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairSpec", "" + __LOC,
+                "v=1 code=KEYPAIR-CONSTR-01 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='a public key produced by one of the generators the rule names' msg='the public key given to the KeyPair constructor carries a key-origin predicate the rule does not admit'"));
+        }
+        else if (pubOrigin == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairSpec", "" + __LOC,
+                "v=1 code=KEYPAIR-NOBS-01 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='a public key produced by one of the generators the rule names' msg='no generator of the public key given to the KeyPair constructor was observed'"));
+        }
     }
 
     // `generatedPubkey[retPub] after pu` (KeyPair.cryptsl:41), read by `CipherSpec.i2`

@@ -1,0 +1,26 @@
+# api30 Signature REQUIRES generatedPrivkey[priv] (Signature.cryptsl:80, ledger clause #34),
+# wired at task 5.7, and this is the conforming half: the private key handed to initSign came
+# out of a KeyPair the monitor observed being read.
+#
+# The corpus had nothing that could measure this clause. All seven Signature traces pass `null`
+# to initSign/initVerify -- a null bound object reads NOT_OBSERVED whatever the store holds --
+# so before this trace the read had no SATISFIED case to be checked against.
+#
+# The producer is KeyPairSpec.gpr, `generatedPrivkey[retPriv] after pr` (KeyPair.cryptsl:43),
+# whose write stands in the event body rather than at the acceptance point. This trace is why
+# that placement matters: the pair came out of KeyPairGenerator and was never constructed by a
+# monitored `new KeyPair`, so KeyPairSpec's `ere` -- `c1 (gpu | gpr)*`, with the constructor
+# mandatory where the rule makes it optional -- sends `gpr` to the fail state. The KEYPAIR-ORDER-00
+# in this trace is that divergence, measured and recorded at task 4.13 and owned by task 7.1;
+# an acceptance-point write would leave this conforming signature accused of an unobserved key.
+#
+# Measured on Temurin 21: getInstance("RSA").initialize(2048).generateKeyPair(), then
+# getPrivate() into initSign("SHA256withRSA"), update and sign, runs to completion.
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(2048)
+kpg.generateKeyPair() -> kp
+kp.getPrivate() -> priv
+Signature.getInstance("SHA256withRSA") -> s
+s.initSign(priv)
+s.update(bytes)
+s.sign() -> out
