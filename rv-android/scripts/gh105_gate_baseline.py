@@ -109,10 +109,13 @@ def collect(
 def retire(payload: dict, previous: dict) -> dict:
     """Carry the retirements forward and drop the retired gates from the baseline.
 
-    A gate is retired by the task that closes its group -- G-ACC by task 3.7, once
-    the 17 orphan accusers are in their automata. Retiring is not the same as
-    repairing every row: it is the decision that the gate is now expected to be
-    silent, so its rows stop being recorded and its next finding is a regression.
+    Retiring is not the same as repairing every row: it is the decision that the
+    gate is now expected to be silent, so its rows stop being recorded and its next
+    finding is a regression. Task 3.7 retired G-ACC once the 17 orphan accusers were
+    in their automata; task 4.15 retired the three placement gates -- INV-INS-133,
+    INV-INS-134 and INV-INS-130 -- which the Group-4 file passes had driven to zero.
+    The decision and the repair need not be the same task, and here they were not:
+    each `retired` entry names the pass that closed it.
 
     Args:
         payload: A fresh measurement from `collect`.

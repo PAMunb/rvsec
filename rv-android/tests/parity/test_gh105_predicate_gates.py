@@ -665,6 +665,11 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       recorded reason, `KeyManagerFactorySpec.gkm1` and `TrustManagerFactorySpec.gtm1`,
       whose events leave the accepting state for `start` so that an acceptance-point
       write would never run at all.
+    * task 4.15 moved none of these five numbers, and that is what it was for: it edits
+      no `.mop` at all. It read each of them back off the tree -- the reads at 14, the
+      guards and the accepting-state calls at 0, the writes at 30, the single withdrawal
+      -- and retired the three placement gates in `gate_baseline.json`, so that a
+      regeneration can no longer re-record what tasks 4.12 and 4.14 removed.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -878,6 +883,9 @@ def test_the_graph_reproduces_the_measured_placement_census():
       measured, `validate` answers NOT_OBSERVED under that placement and SATISFIED under
       this one. `read:body` stays 14 and the `negate` 1: none of the seven files carries
       a read, and the one withdrawal is elsewhere.
+    * task 4.15 moved no row of the graph. It has no `.mop` edit and no `--emit`: what it
+      did was read these counts back off the file and retire the gates that measure them,
+      so the graph and this census still meet at 45 rows.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1098,7 +1106,10 @@ def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
     the other censuses hold -- the accepting-state calls (INV-INS-147) and the `@fail`
     removals -- and the invariant this gate's neighbour checks, INV-INS-130, which the
     seven files plus two dangling imports in `CipherInputStreamSpec` and
-    `CipherOutputStreamSpec` had been holding off zero.
+    `CipherOutputStreamSpec` had been holding off zero. Still 0 after task 4.15, which
+    moved no guard because it edits no specification: it confirmed the zero and retired
+    the gate, so this count is not a baseline any more and the next finding is a
+    regression.
     """
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
@@ -1383,9 +1394,16 @@ def test_inv_ins_130_import_discipline(suite):
     """No `.mop` of the migrated set may name `ExecutionContext` (INV-INS-130).
 
     The gate is the invariant's own check -- whole-word, so a fully-qualified use
-    is caught like an import -- and today it reports all 23 files of the set,
-    which is the state F2 and F3 exist to change. What is asserted here is that
-    the number only ever goes down.
+    is caught like an import, and a mention in a comment or a string counts like
+    one in code. It opened this change reporting all 23 files of the set and
+    reports none: task 4.14 took the last seven plus the two dangling imports of
+    `CipherInputStreamSpec` and `CipherOutputStreamSpec`, and task 4.15 retired
+    the gate. `_no_regression` therefore compares against the empty set and the
+    subset assertion *is* the zero assertion.
+
+    The literal `grep -rlw` beside it is not redundant with the gate: it is what
+    says the gate and the invariant still name the same files, so a gate that
+    stopped looking would fail here rather than read as green.
     """
     findings = [finding for finding in suite.findings if finding.gate == "INV-INS-130"]
     assert all(finding.spec_set == "jca_android" for finding in findings)
@@ -1406,8 +1424,12 @@ def test_inv_ins_133_no_condition_reads(suite):
 
     A false guard suppresses the transition, so an unobserved predicate is
     accused as a wrong call sequence -- the mechanism behind the set's largest
-    published error category. Every read the gate still reports is a site whose
-    Group-4 file pass has not run.
+    published error category. The gate opened this change with 27 such reads and
+    reports none: Group 3 fused 16 away with their guarded twins, the Group-4
+    passes relocated seven and deleted four that governed nothing any api30 rule
+    asks for, and task 4.12 moved the last one. Task 4.15 retired the gate, so
+    the comparison is against the empty set and a guard reported here now is a
+    new one rather than a leftover.
     """
     findings = [finding for finding in suite.findings if finding.gate == "INV-INS-133"]
     assert all(finding.spec_set == "jca_android" for finding in findings)
@@ -1419,7 +1441,12 @@ def test_inv_ins_134_write_placement(suite):
 
     Not forbidden elsewhere -- unjustified elsewhere. The reason lives in the
     graph, in the row's own `reason` column, where the next reader finds it
-    beside the site instead of in a commit message.
+    beside the site instead of in a commit message. The gate opened this change
+    with 42 unaccounted writes and reports none, which is not the same as having
+    no writes in event bodies: seven sites still sit in one, each with its reason
+    recorded. Task 4.14 cleared the last eight and task 4.15 retired the gate, so
+    a write Group 5 or 6 places off the acceptance point without a reason is a
+    regression and not an expectation.
     """
     findings = [finding for finding in suite.findings if finding.gate == "INV-INS-134"]
     assert all(finding.spec_set == "jca_android" for finding in findings)
@@ -1740,8 +1767,16 @@ def test_a_finding_outside_the_recorded_baseline_is_a_regression(measured, tmp_p
             _no_regression_over((gate,), keys)
 
 
+RETIREMENTS = {
+    "G-ACC": ("3.7", 17),
+    "INV-INS-133": ("4.15", 27),
+    "INV-INS-134": ("4.15", 42),
+    "INV-INS-130": ("4.15", 23),
+}
+
+
 def test_a_retired_gate_leaves_the_baseline_and_stays_out(measured):
-    """Task 3.7 retired G-ACC, and `--write` must not put it back.
+    """Four gates are retired, and `--write` must not put any of them back.
 
     Retiring is a decision, not a measurement: the gate is expected to be silent
     from here on, so its rows leave `gates` and its next finding is a regression.
@@ -1750,17 +1785,31 @@ def test_a_retired_gate_leaves_the_baseline_and_stays_out(measured):
     group removed -- the one failure the whole mechanism exists to prevent. So
     `retire` carries the record forward and drops the gate from the fresh payload
     whether or not it is reporting.
+
+    Task 3.7 retired G-ACC with the 17 orphans. Task 4.15 retired the three
+    placement gates, which reached zero in passes that were not its own: the 27
+    guard reads at task 4.12, the 42 unaccounted writes and the 23 files naming
+    the old substrate at task 4.14. The `was` counts are what each gate reported
+    on the unmodified tree, not what it reports now, which is nothing.
+
+    G-PRED2 is deliberately *not* here. Its ten rows are writes whose consumers
+    Group 5 has still to wire, so they are a live expectation and belong in
+    `gates`; the sweep at task 5.11 is what closes them.
     """
     recorded = json.loads(BASELINE.read_text(encoding="utf-8"))
-    assert "G-ACC" not in recorded["gates"]
-    assert recorded["retired"]["G-ACC"]["task"] == "3.7"
-    assert recorded["retired"]["G-ACC"]["was"] == 17
-    assert recorded["retired"]["G-ACC"]["note"].strip()
+    assert set(recorded["retired"]) == set(RETIREMENTS)
+    for gate, (task, was) in RETIREMENTS.items():
+        assert gate not in recorded["gates"], gate
+        assert recorded["retired"][gate]["task"] == task
+        assert recorded["retired"][gate]["was"] == was
+        assert recorded["retired"][gate]["note"].strip()
+    assert "G-PRED2" in recorded["gates"]
 
-    # a fresh measurement that *did* report an orphan is still not re-baselined
-    fresh = {"gates": {"G-ACC": [["jca_android", "X.mop", "orphan"]], "K": [["s", "f", "x"]]}}
+    # a fresh measurement that *did* report on every retired gate is still not re-baselined
+    fresh = {"gates": {gate: [["jca_android", "X.mop", "finding"]] for gate in RETIREMENTS}}
+    fresh["gates"]["K"] = [["s", "f", "x"]]
     carried = gh105_gate_baseline.retire(fresh, recorded)
-    assert "G-ACC" not in carried["gates"]
+    assert not set(carried["gates"]) & set(RETIREMENTS)
     assert carried["gates"]["K"] == [["s", "f", "x"]]
     assert carried["retired"] == recorded["retired"]
 

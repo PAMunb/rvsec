@@ -93,6 +93,21 @@
       "task": "3.7",
       "was": 17,
       "note": "the 17 orphan accusers of jca_android, closed by Group 3: 12 negated twins fused into their siblings on 11 arrows, PBEKeySpecSpec.err1 fused on the same arrow as err2/err3, and 4 absorbed into their automata (SecureRandomSpec.g4 and PBEKeySpecSpec.f1/f2 with self-loops and an ORDER-unmapped row; KeyPairGeneratorSpec.initError as an Inits alternative mapped to i3). The gate is now expected to be silent over jca_android in both directions, so a finding it reports is a regression and not an expectation. The generic set's one orphan is informative and was never in this record."
+    },
+    "INV-INS-133": {
+      "task": "4.15",
+      "was": 27,
+      "note": "the 27 predicate reads jca_android evaluated inside condition(...), driven to zero by task 4.12, which moved the last of them -- SecretKeySpec.e1 -- into its event body. Group 3 took 16 of the 27 away by fusing the guarded twins; the Group-4 file passes relocated the rest, and tasks 4.9 and 4.11 deleted four whose reads governed nothing any api30 rule asks for. Every read this change still adds belongs in a body by INV-INS-133, so a guard reported here from now on is a new one and not a leftover."
+    },
+    "INV-INS-134": {
+      "task": "4.15",
+      "was": 42,
+      "note": "the 42 predicate writes placed away from their rule's acceptance point with no recorded reason, driven to zero by task 4.14, which cleared the last eight over six files: six moved to the acceptance point, and two -- KeyManagerFactorySpec.gkm1 and TrustManagerFactorySpec.gtm1, whose transitions leave the accepting state for start, so an acceptance-point write would never run -- stayed in the event body and gained the reason the gate reads. The gate was never a ban on writing in the body: seven sites still do, each with its reason in the predicate_graph.csv row beside it. Retiring it says the accounting is complete, not that the sites are gone -- a write Group 5 or 6 adds off the acceptance point with no reason is a regression."
+    },
+    "INV-INS-130": {
+      "task": "4.15",
+      "was": 23,
+      "note": "the 23 specifications of jca_android that named ExecutionContext, driven to zero by task 4.14: the seven files of its batch plus the two dangling imports left in CipherInputStreamSpec and CipherOutputStreamSpec, which had no use at all. The check is a whole-word grep over the set and counts mentions in comments and strings too, so the migration is complete in prose as well as in code. No specification of the set may name the old substrate again."
     }
   }
 }

@@ -420,12 +420,51 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       disposed of — and the two `[this] after Init` halves the oracle ensures on the factory and
       no rule asks for there. Evidence:
       `data/gh105/evidence/f2-write-only-batch-b.md`
-- [ ] 4.15 Placement gates green, baselines retired: zero `condition` reads in `jca_android`
+- [x] 4.15 Placement gates green, baselines retired: zero `condition` reads in `jca_android`
       (INV-INS-133), `test_inv_ins_134_write_placement` green — every write at acceptance or
       carrying its recorded `reason` in `predicate_graph.csv`, import-discipline green
       (INV-INS-130), zero `set/unsetObjectAsInAcceptingState` in the set (INV-INS-147, all 25
-      gone), trace pair committed per moved read
-- [ ] 4.16 Run `/rv-test-run tests/parity` (gh104 + gh105 gates together)
+      gone), trace pair committed per moved read.
+      Every one of the five was already satisfied when the task opened, by tasks 4.12 and 4.14
+      and not by this one, and each was re-derived from the tree rather than read off a gate:
+      the guards and the accepting-state calls by `grep` over the 23 `.mop` files beside the
+      gate that counts them, the seven surviving `write:body` rows by checking each carries a
+      non-empty `reason`, and the trace pairs by naming, per moved read, the committed trace
+      that satisfies it and the one where it is not observed. Thirteen of the fourteen reads
+      have such a pair; the fourteenth is `PBEKeySpecSpec.c1`'s `randomized[password]`, whose
+      satisfying side no trace can express — the `String.valueOf(Object)` → `toCharArray()`
+      chain the `TraceRunner` cannot replay, measured at task 3.5, and whose only producer task
+      4.11 then deleted. That is a recorded absence, not an unchecked item.
+      What the checking found to *do* was the second half of the title. Three gates had reached
+      zero and their keys had simply vanished from `gate_baseline.json`, because `--write`
+      records what a gate reports; none of them had entered `retired`. Measured by handing
+      `retire()` a payload that pretends each gate found something, a regeneration on a drifted
+      tree would have silently re-recorded INV-INS-133, INV-INS-134 and INV-INS-130 while
+      refusing G-ACC — the one failure the mechanism exists to prevent (`8fdf73fd`). All three
+      are now retired with `task: "4.15"`, `was:` the count each reported on the unmodified tree
+      (27, 42, 23) and a note naming the pass that closed it. G-PRED2 is deliberately left in
+      `gates`: its ten rows are Group 5's live expectation and task 5.11 closes them.
+      Collateral: `test_a_retired_gate_leaves_the_baseline_and_stays_out` now asserts all four
+      retirements plus the negative half; three wrapper docstrings that stated numbers the tree
+      contradicts were corrected; the three censuses gained the line saying this task moved no
+      counter. No `.mop` was edited, so there is no divergence hunk, no new trace and no graph
+      row. Evidence: `data/gh105/evidence/f2-placement-gates-retired.md`
+- [x] 4.16 Run `/rv-test-run tests/parity` (gh104 + gh105 gates together).
+      152 passed, 3 failed over the 155 tests the directory collects — the four gate suites are
+      only 94 of them. The three reds are pre-existing and none is this change's, which was
+      measured and not argued: the four files task 4.15 edits were reverted to `HEAD`, the same
+      selection re-run, and the same three failed with the same messages.
+      `test_baseline_freshness` (the GATOR jar is newer than the `cryptoapp.apk.json` baseline —
+      gh60 task 11.8), `test_no_legacy_mop` (six `reachesMop` occurrences in
+      `modules/aperv-tool/`) and `test_sentinel_emission` (`StaticAnalysisParser.parse_file()`
+      takes 2 positional arguments and the test passes 3).
+      The run also measures defect D1 of
+      `docs/20260821_relatorio_analise_estatica_defeitos.md` from a new angle: **without**
+      `ANDROID_SDK_HOME` exported the same suite reads *3 failed, 145 passed, 7 errors*, the
+      extra eight being `KeyError: 'ANDROID_SDK_HOME'` in `test_reachability_parity`,
+      `test_sentinel_emission` and `test_signature_file_subset`. Exporting it turns eight of the
+      nine green. The default reading of `tests/parity` is therefore the harsher one, and that is
+      worth knowing before anyone reads a red as a regression
 
 ## 5. F3 — Wire the 24 wired REQUIRES clauses, record the rest (topological)
 
