@@ -1192,7 +1192,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       because 0 of its 23 files write the `v=1` envelope marker (against 22 of `jca_android`'s
       24), so `ErrorSummary`'s new `code`/`event` fields are a constant for every `jca` report.
       Evidence: `data/gh105/evidence/f5-FreezeProof.md`
-- [ ] 8.3 C5 ground truth, as an **oracle comparison, not a replay**: the corpus at
+- [x] 8.3 C5 ground truth, as an **oracle comparison, not a replay**: the corpus at
       `../../ase-journal/dataset/results/errors_unit_tests.csv` (sibling repository, read-only
       per gh89) is a 299-row aggregate of already-reported errors — columns
       `apk,rep,timeout,tool,time,spec,class,method,message,unique_msg` — not traces the harness
@@ -1200,7 +1200,17 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       accuse the misuse this row records, and does it stop accusing what the repairs declared
       spurious? The replayable bench is `rvsec/rvsec-agent/src/test`, which weaves the **frozen
       `jca`** (`rvsec-agent/pom.xml:106`) — so it validates the seed, not the successor, and is
-      cited here to say why it is not the instrument. Commit the verdict table
+      cited here to say why it is not the instrument. Commit the verdict table.
+      298 data rows, 32 APKs, 23 message families, **212 (71.1 %) carrying the word `unknown`**.
+      The instrument is the corrected set's accusing code interrogated directly — the `.mop`, the
+      `codes.csv`, and a Java probe on the harness's own classpath — because 8.4 measured that the
+      harness reports one envelope per accusing event and would undercount. Of the 86 legible
+      rows: 56 are no longer accused (each against a recorded api30 clause), 6 still are, 19 keep
+      the half the rule states, and 1 inverts. All 13 specifications keep an `ORDER` code, so the
+      212 `unknown` rows stay accusable — and can no longer say `unknown`, since every accusation
+      carries the `v=1` envelope (G-CONF 0). One widening is recorded and not repaired:
+      `AES/ECB/PKCS5Padding` is admitted by the api30 rule and was not by the seed.
+      Evidence: `data/gh105/evidence/f5-GroundTruthC5.md`
 - [x] 8.4 Full harness differential over `data/gh104/traces/`: `--a
       backup/gh105-preimage/jca_android/` (the specification-set directory 2.11 archived) versus
       the edited set; `gh104_diff_harness.py` regenerates both monitor trees itself. Every

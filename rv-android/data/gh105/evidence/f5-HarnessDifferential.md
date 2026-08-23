@@ -210,5 +210,35 @@ quem introduziu as 17 linhas. Ou seja: `f010cb92` commitou relatórios que a ár
 próprio estado, não produz. A regra vale — *quando o artefato discordar da árvore, a árvore
 ganha* —, e os dez relatórios são substituídos pelo que o harness produz hoje.
 
+### O mecanismo, que vale mais que o reparo
+
+`TraceRunner.envelope(...)` devolve **um** envelope por evento acusador, e escolhe-o assim:
+
+```java
+private String envelope(Set<ErrorDescription> errors, String spec, String event) {
+    for (ErrorDescription error : errors) {
+        if (spec.equals(error.getSpec())) { return "spec=… ,ev=" + event + ",type=" + …; }
+    }
+```
+
+O laço varre **o conjunto acumulado do trace inteiro** e devolve o primeiro cujo `spec` bate — que
+não é necessariamente o que este evento acabou de levantar. Duas consequências, ambas medidas:
+
+1. **Quando um corpo de evento levanta duas acusações, só uma aparece.** Provado com uma sonda
+   sobre o mesmo classpath: o `ErrorCollector` fica com as duas (`tamanho=2`) e itera
+   `SSLCONTEXT-NOBS-01` antes de `SSLCONTEXT-PROTO-00`. O relatório mostra a primeira.
+2. **Quando um evento anterior do mesmo `spec` já deixou uma acusação no conjunto, um evento
+   posterior pode exibir a mensagem dela** — que é exatamente a forma das 17 linhas: uma acusação
+   rotulada `ev=f1` com o envelope carimbado `ev=i2`.
+
+O rótulo `ev=` de fora do envelope (`spec=…,ev=f1,…`) é do evento certo — é escrito pelo
+`TraceRunner` a partir de `monitorCall.eventId`. O `ev=` de dentro vem da mensagem escolhida.
+Quando os dois discordam, é este mecanismo, e não a especificação.
+
+**Nada disto move a classificação.** `classify` compara conjuntos de **eventos acusadores**, que
+o `TraceRunner` monta a partir de `accusingEvents`, e não os envelopes: os `61/31/32/7` e as 130
+atribuições acima são sobre a acusação, não sobre a mensagem. O que o mecanismo afeta é a leitura
+de *qual código* uma acusação emitiu — e é por isso que a tarefa 8.3 não lê os veredictos daqui.
+
 **É o item 26 outra vez, de outro ângulo**: as quatro suítes estavam verdes com os relatórios
 errados commitados, porque nenhuma delas compara relatório regenerado com relatório commitado.
