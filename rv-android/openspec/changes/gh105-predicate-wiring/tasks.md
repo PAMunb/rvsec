@@ -868,8 +868,28 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       row keeps its symbol, its reason rewritten to say the repair changed what the event binds
       and whether it runs, never which rule event it is.
       Evidence: `data/gh105/evidence/f3-TLSChain.md` (with 5.9, one commit)
-- [ ] 6.3 `SignatureSpec`: `verified` marked on the `boolean` instead of the `byte[]`; `sign()`
-      pointcuts declaring `public byte`
+- [x] 6.3 `SignatureSpec`: `verified` marked on the `boolean` instead of the `byte[]`; `sign()`
+      pointcuts declaring `public byte`. **Both halves were already repaired when this task was
+      reached, each by the pass that owned the file at the time, and this task verifies rather
+      than performs — the same shape tasks 6.4 and 6.5 took, by the same criterion (decision
+      11).** The `sign()` return types left in `bc5e3e09`, a gh104 structural pass that predates
+      this change: `public byte Signature.sign()` became `public byte[]` and
+      `public byte Signature.sign(byte[], int, int)` became `public int`. The `verified` argument
+      left in `bd25a3aa`, the Group 4 file pass, and `predicate_graph.csv` already credits it in
+      writing on the `VERIFIED` row — "the clause names the signature the call was given and the
+      seed wrote the boolean it returned … (researcher decision, task 4.13)".
+      **The three verifications are measured, not read**: zero `public byte ` without brackets
+      across the 24 `.mop` of `jca_android`; `stagedVerified = sign` at `SignatureSpec.mop:242`
+      and `:250`, with the `boolean signed` of `:238`/`:246` used in no body; and the graph row
+      carrying `position_types=byte[]` with `disposition=omission`, which is why neither form
+      ever moved a gate finding — no api30 rule requires `verified`.
+      **One correction to this statement, the same one task 6.4 carries**: the anchors it names
+      resolve in the frozen `jca` (`jca/SignatureSpec.mop:99,106`) and in the archived
+      `jca_android_bug_predicate` (`:120,127`), not in the tree. Worth recording, because nobody
+      had: in the frozen set `call(public byte Signature.sign())` matches no call at all —
+      `Signature.sign()` returns `byte[]` — so `s1` and `s2` are non-existent producers there
+      (finding 95). `jca` is frozen against its published measurements and this change does not
+      touch it. Evidence: `data/gh105/evidence/f3-DoFinalDisjoint.md` (with 6.6 and 6.7, one commit)
 - [x] 6.4 **Verify** the 8 `@fail` removals of INV-INS-142 are gone; this task performs none of
       them. They implement "undo the predicate when the automaton fails", a semantics no CrySL
       generation has, and couple typestate to predicate against the rule's own orthogonality —
@@ -924,10 +944,59 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       and in `data/gh105/evidence/f3-PreparedKeyMaterial.md` §6, carrying task 4.12's measurement
       rather than re-deriving it.
       Evidence: `data/gh105/evidence/f3-PreparedKeyMaterial.md` (with 5.10 and 6.1, one commit)
-- [ ] 6.6 `CipherSpec` `f1`/`f2` (pointcuts at `:135` and `:141`; the `event` declarations sit at
+- [x] 6.6 `CipherSpec` `f1`/`f2` (pointcuts at `:135` and `:141`; the `event` declarations sit at
       `:134`/`:140`): both match the argument-less call — one call, two transitions; make the
-      wider pointcut disjoint (two-events-same-call scenario)
-- [ ] 6.7 Trace pairs, harness deltas and `divergence_record.csv` hunks for all of Group 6
+      wider pointcut disjoint (two-events-same-call scenario).
+      **The line anchors are the pre-image's**; in the tree the declarations sit at `:220`/`:227`
+      and the pointcuts at `:221`/`:228`. **The repair is `doFinal(byte[], ..)` on `f2`**, and
+      what decides that form is `order_alphabet_map.csv`, which already attributed `f1` to the
+      rule's `f1` (`Cipher.cryptsl:93`, the argument-less overload) and `f2` to its `f2` and `f4`
+      (`:95`, `:99`, the two that take one) and whose note already said "both of the rule's
+      returning overloads" while the pointcut covered three. Coverage is preserved, the two are
+      disjoint, and **no alphabet is spent**: 17 events before and after, which matters because
+      splitting `f2` into one event per overload stays unavailable (INV-INS-145).
+      **Measured over the corpus: 128 of 128 traces unchanged**, including the only one with an
+      argument-less `doFinal` — `CipherSpec-update-chain.txt`, where the call follows an `update`,
+      so the monitor sits in `s3`, `f1` runs first and `s3 -> end -> end` is accepted at both
+      steps. The defect was silent everywhere the corpus went. It is audible only on the path
+      without an `update`, which the corpus did not cover: `s2` has a transition for `f2` and none
+      for `f1`. The probe written for it, run against the control first, goes from three accusers
+      (`i2` NOBS, `f1` ORDER, `f2` ORDER — the second from the start state its own `__RESET` left
+      the monitor in) to two. **Both snapshots are right to accuse**: `FINWOU := f2 | f4 | f5 | f6
+      | f7` excludes the rule's `f1`, so a bare `doFinal()` after an init is outside the `ORDER`
+      and the `fsm` states that faithfully; the repair trades two reports for one, not one for
+      none. The probe entered the corpus as `data/gh104/traces/CipherSpec-nofinal-arg.txt`
+      (researcher decision, 2026-08-22), on the B5 precedent and after measuring that no assertion
+      of the four suites counts trace files. This batch edits no `fsm`: the G-ORDER `f2`
+      divergence stays with task 7.1, and `gate_baseline.json` does not move.
+      **The repair unblocks something a neighbouring file recorded as impossible, and that is
+      recorded rather than taken**: `IvChainJunction.mop` justified carrying the two clause-#8
+      reads by saying `CipherSpec.f2` binds no argument "and narrowing it would drop `doFinal()`
+      out of the automaton". Measured, the second half is imprecise — narrowing removes `doFinal()`
+      from `s2` only, a transition the `ORDER` never granted — and the first stops holding, since
+      the two remaining overloads share a `byte[]` in the first position and `args(plainText, ..)`
+      would bind it. Moving those reads would retire `IVCHAINJUNCTION-CONSTR-06` and `-07` and is
+      behavioural change this batch does not measure, so both comments were rewritten to say the
+      placement is a choice and not an impossibility (researcher decision, 2026-08-22).
+      Evidence: `data/gh105/evidence/f3-DoFinalDisjoint.md` (with 6.3 and 6.7, one commit)
+- [x] 6.7 Trace pairs, harness deltas and `divergence_record.csv` hunks for all of Group 6.
+      **The accounting for 6.3 and 6.6, which is why the three are one batch and one commit.**
+      Harness against the pre-image over 129 traces: **60 unchanged · 31 moved · 31 introduced ·
+      7 removed** — `moved` rises by exactly the new probe and no earlier trace changes class;
+      `git diff --stat -- data/gh105/evidence/harness/` names one file, `f2-CipherSpec.md`; and
+      `unresolved` stays at six lines in four files, all pre-existing. `codes.csv` reanchored by
+      script over the whole file: **5 of 112** rows moved, all by displacement from this batch's
+      comments (`CIPHER-CONSTR-01` `:272→:293`, `CIPHER-CONSTR-02` `:284→:305`, `CIPHER-ORDER-00`
+      `:355→:376`, `IVCHAINJUNCTION-CONSTR-06` `:337→:342`, `-07` `:347→:352`) and **no
+      pre-existing drift**, the B6 sweep having taken it. `divergence_record.csv`: **278 hunks,
+      all recorded, zero stale**, 283 rows before and after — three hunks re-keyed and three left,
+      one for one (`465872e781b7` absorbs `91c25b291fdb`; `f535aef55279` absorbs `95a6e30dc89e`;
+      `f44aff070792` absorbs `a42232d095f8`), appended at the end rather than reordered.
+      `predicate_graph.csv` does not move — neither `f1` nor `f2` has a row, since they stage into
+      a field and the write stands at `@match1` — and the round-trip was taken (copy, `--emit`,
+      `diff`) and is identical at 70 rows. `order_alphabet_map.csv` changes one note and no
+      symbol. Both per-batch census paragraphs are written and both say nothing moved, which is
+      what rule 16 asks for. Evidence: `data/gh105/evidence/f3-DoFinalDisjoint.md`
 
 ## 7. F5 — Records, retirement, hardening
 

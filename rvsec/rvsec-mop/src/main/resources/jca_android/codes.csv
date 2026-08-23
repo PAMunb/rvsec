@@ -5,9 +5,9 @@ CipherSpec,CIPHER-ALG-00,UnsafeAlgorithm,ALG,i1,CipherSpec.mop:90
 CipherSpec,CIPHER-CONSTR-00,UnsatisfiedConstraint,CONSTR,i2,CipherSpec.mop:155
 CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i2,CipherSpec.mop:159
 CipherSpec,CIPHER-ALG-01,UnsafeAlgorithm,ALG,i2,CipherSpec.mop:163
-CipherSpec,CIPHER-CONSTR-01,UnsatisfiedConstraint,CONSTR,f5,CipherSpec.mop:272
-CipherSpec,CIPHER-CONSTR-02,UnsatisfiedConstraint,CONSTR,f6,CipherSpec.mop:284
-CipherSpec,CIPHER-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherSpec.mop:355
+CipherSpec,CIPHER-CONSTR-01,UnsatisfiedConstraint,CONSTR,f5,CipherSpec.mop:293
+CipherSpec,CIPHER-CONSTR-02,UnsatisfiedConstraint,CONSTR,f6,CipherSpec.mop:305
+CipherSpec,CIPHER-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherSpec.mop:376
 DHGenParameterSpecSpec,DHGENPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,DHGenParameterSpecSpec.mop:31
 GCMParameterSpecSpec,GCMPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,GCMParameterSpecSpec.mop:63
 GCMParameterSpecSpec,GCMPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,GCMParameterSpecSpec.mop:69
@@ -29,8 +29,8 @@ IvChainJunctionSpec,IVCHAINJUNCTION-CONSTR-04,UnsatisfiedConstraint,CONSTR,useRa
 IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-04,UnsatisfiedConstraint,NOBS,useRandomSpec,IvChainJunction.mop:261
 IvChainJunctionSpec,IVCHAINJUNCTION-CONSTR-05,UnsatisfiedConstraint,CONSTR,useRandomParams,IvChainJunction.mop:273
 IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-05,UnsatisfiedConstraint,NOBS,useRandomParams,IvChainJunction.mop:277
-IvChainJunctionSpec,IVCHAINJUNCTION-CONSTR-06,UnsatisfiedConstraint,CONSTR,finalInput,IvChainJunction.mop:337
-IvChainJunctionSpec,IVCHAINJUNCTION-CONSTR-07,UnsatisfiedConstraint,CONSTR,finalRange,IvChainJunction.mop:347
+IvChainJunctionSpec,IVCHAINJUNCTION-CONSTR-06,UnsatisfiedConstraint,CONSTR,finalInput,IvChainJunction.mop:342
+IvChainJunctionSpec,IVCHAINJUNCTION-CONSTR-07,UnsatisfiedConstraint,CONSTR,finalRange,IvChainJunction.mop:352
 IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,IvParameterSpec.mop:68
 IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,UnsatisfiedConstraint,NOBS,c1,IvParameterSpec.mop:72
 IvParameterSpecSpec,IVPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c2,IvParameterSpec.mop:108

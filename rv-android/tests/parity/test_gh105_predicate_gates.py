@@ -808,6 +808,20 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       and not a coincidence. What the sweep enumerated is one level up: the 31 writes name
       **22** distinct `Property` values, one more than the 21 the change opened with,
       because task 5.10 renamed a write rather than adding one.
+
+      Batch B7 (tasks 6.3, 6.6 and 6.7) moves none of the five either, and for a reason
+      worth telling apart from B6's: this batch *does* edit a `.mop`, and what it edits is
+      not a predicate operation. Task 6.6 narrows the `CipherSpec.f2` pointcut from
+      `doFinal(..)` to `doFinal(byte[], ..)` so that it stops matching the argument-less
+      call `f1` already matched -- a pointcut signature, not a read, a write or a
+      withdrawal. Task 6.3 performs nothing at all, because both halves of its statement
+      were already repaired before it was reached: the `sign()` return types by the gh104
+      structural pass and the `verified` argument by task 4.13, the file pass that migrated
+      this specification. So `write` stays 31, `read`+`read-absent` stays 38, `condition`
+      stays 0, `negate` stays 1, and the 22 distinct `Property` values stay 22 -- finding
+      105 asks for that last one to be recounted after every rename, and this batch renames
+      nothing. What the batch does move is the trace corpus, from 128 files to 129, which
+      no assertion of this suite counts and the harness evidence carries instead.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -1162,6 +1176,13 @@ def test_the_graph_reproduces_the_measured_placement_census():
       and no census in this file is keyed on that column, by design: a disposition is the
       reason an edge stays open, and counting reasons would make the record argue with
       itself. It is G-PRED2 that reads the column, and the closure drove it to zero.
+
+      Batch B7 (tasks 6.3, 6.6 and 6.7) leaves all eight counts where B6 left them and the
+      graph at its 70 rows. Neither `CipherSpec.f1` nor `f2` has a row in this file -- they
+      stage the pair into a field and the write stands at `@match1` -- so narrowing `f2`'s
+      pointcut has nothing here to move, and task 6.3 edits no site at all. The claim was
+      checked the way finding 81 asks: the graph was copied, re-emitted from the edited set
+      and diffed back, and the two files are identical.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}

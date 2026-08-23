@@ -304,10 +304,15 @@ IvChainJunctionSpec(Cipher c) {
     // reads whatever sits there as part of the expression, and a comment block becomes
     // sixty undeclared symbols and one unbalanced brace.
     // `!macced[_, plainText]` (Cipher.cryptsl:180, ledger clause #8) at the two `doFinal`
-    // overloads api30 binds `plainText` in and `CipherSpec` cannot: its `f2` is declared
-    // `call(public byte[] Cipher.doFinal(..))` and stands for the rule's `f2` and `f4` at
-    // once, binding no argument, and narrowing it would drop `doFinal()` out of the
-    // automaton while splitting it is not available at 17 of 17 events (INV-INS-145).
+    // overloads api30 binds `plainText` in and `CipherSpec` does not: its `f2` is declared
+    // `call(public byte[] Cipher.doFinal(byte[], ..))` and stands for the rule's `f2` and
+    // `f4` at once, binding no argument, and splitting it into one event per overload is
+    // not available at 17 of 17 events (INV-INS-145). Those two overloads share a `byte[]`
+    // in the first position, so since the pointcut was made disjoint from `f1` an
+    // `args(plainText, ..)` over there would bind the plaintext: these two sites live
+    // here by choice and no longer by impossibility. The choice is that moving them would
+    // retire IVCHAINJUNCTION-CONSTR-06 and -07 and change which specification reports a
+    // misuse that neither placement stops reporting.
     // `f5`, `f6` and `f7` do bind it, so `CipherSpec` carries those sites itself; these
     // two are the ones with nowhere else to go, and they are the ones almost every
     // program uses.

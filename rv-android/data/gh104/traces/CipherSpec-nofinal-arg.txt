@@ -1,0 +1,18 @@
+# gh105 task 6.6: the path where the two-events-one-call defect is audible. `f2` was
+# declared `doFinal(..)`, and `(..)` matches an empty argument list, so a single
+# `c.doFinal()` fired both `f1` and `f2`. On the update path the duplication is silent
+# -- `f1` runs first and `s3 -> end -> end` is accepted at both steps, which is why
+# CipherSpec-update-chain.txt shows nothing -- and the corpus had no trace of the path
+# without an update, which is this one.
+#
+# The sequence is not conforming and both snapshots are right to say so: api30's
+# `FINWOU := f2 | f4 | f5 | f6 | f7` excludes the rule's `f1`, so `Gets, Inits+` followed
+# by a bare `doFinal()` is outside the ORDER, and the `fsm` states it faithfully by
+# leaving `f1` off `s2`. What the repair changes is how many times the set says it: the
+# pre-image draws CIPHER-ORDER-00 at `f1` and again at `f2` -- the second from the start
+# state its own __RESET left the monitor in -- and the successor draws it once, at `f1`.
+# CIPHER-NOBS-00 stands on both sides and is about the key, not the ordering.
+bind k = new SecretKeySpec(bytes, "AES")
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k)
+c.doFinal()

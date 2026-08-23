@@ -113,7 +113,7 @@ CipherSpec,u4,u4,event,Cipher.cryptsl,87,mapped,
 CipherSpec,u5,u5,event,Cipher.cryptsl,89,mapped,
 CipherSpec,wkb1,w,event,Cipher.cryptsl,111,mapped,"`wrap(Key)`; the rule binds the wrapped key and the `.mop` binds the returned bytes, which is a binding difference and not an ordering one"
 CipherSpec,f1,f1,event,Cipher.cryptsl,93,mapped,
-CipherSpec,f2,f2,event,Cipher.cryptsl,95,mapped,"`doFinal(..)` returning `byte[]` covers both of the rule's returning overloads"
+CipherSpec,f2,f2,event,Cipher.cryptsl,95,mapped,"`doFinal(byte[], ..)` returning `byte[]` covers both of the rule's returning overloads that take an argument. Task 6.6 narrowed it off `doFinal()`, which is the rule's f1 and this file's; the two events used to match that one call between them, and the pointcut now says what this row already claimed"
 CipherSpec,f2,f4,event,Cipher.cryptsl,99,mapped,"the second half of the same pointcut: `doFinal(plainText, plain_off, len)`. The set declares no separate f4 event, which is why f4 is reachable only through this row"
 CipherSpec,f3,f3,event,Cipher.cryptsl,97,mapped,
 CipherSpec,f5,f5,event,Cipher.cryptsl,101,mapped,

@@ -653,7 +653,11 @@ record, labeled `FEN-PBK-RESIDUO` in the Phase-0 plan).
 - **WHEN** two pointcuts in one specification both match a single call, as an argument-less
   signature and the same signature with `(..)` do
 - **THEN** the specification MUST be treated as defective, because one call takes two transitions
-- **AND** the narrower pointcut MUST be made disjoint from the wider one
+- **AND** the **wider** pointcut MUST be made disjoint from the narrower one, which is the only
+  side that can move: the narrow one is an exact signature and admits no further narrowing.
+  `CipherSpec.f2` was made `doFinal(byte[], ..)` this way, leaving the argument-less call to `f1`
+- **AND** the repair MUST NOT spend alphabet: splitting the wider event into one per overload is
+  what INV-INS-145 makes unavailable, and restricting its signature is what does not
 
 ## ADDED Requirements
 

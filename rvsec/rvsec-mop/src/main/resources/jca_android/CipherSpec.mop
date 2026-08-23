@@ -212,11 +212,25 @@ CipherSpec(Cipher c) {
      target(c) {
    }
 
-   // The three `doFinal` overloads below return the ciphertext without binding the
+   // The three `doFinal` events below return the ciphertext without binding the
    // plaintext -- `doFinal()` has none, and the pointcuts of `f2` and `f3` do not
    // name it. The clause is arity 2, so the pair is staged with the position the
    // pointcut does not observe left null rather than the write being dropped or
    // silently narrowed to arity 1.
+   //
+   // `f1` and `f2` are disjoint by signature, and they have to be: `(..)` matches an
+   // empty argument list too, so a single `doFinal()` used to take two transitions.
+   // Measured over the corpus, the duplication was silent on the update path -- `f1`
+   // runs first and `s3 -> end -> end` is accepted at both steps -- and audible on the
+   // path without one, where a single call drew CIPHER-ORDER-00 twice against a rule
+   // that turns it down once. `doFinal(byte[], ..)` leaves the argument-less signature
+   // to `f1` and keeps the two overloads api30 binds `plainText` in, which is what
+   // `order_alphabet_map.csv` already attributes to each event: `f1` to the rule's `f1`
+   // (Cipher.cryptsl:93) and `f2` to its `f2` and `f4` (:95 and :99). What the narrowing
+   // takes away from `s2` is a transition the ORDER never granted -- `FINWOU` is
+   // `f2 | f4 | f5 | f6 | f7` and excludes the rule's `f1` -- so `doFinal()` straight
+   // after an init stays a sequence this automaton is right to reject, and now says so
+   // once instead of twice.
    event f1 after(Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.doFinal()) &&
      target(c) {
@@ -225,7 +239,7 @@ CipherSpec(Cipher c) {
    }
 
    event f2 after(Cipher c) returning(byte[] cipherText):
-     call(public byte[] Cipher.doFinal(..)) &&
+     call(public byte[] Cipher.doFinal(byte[], ..)) &&
      target(c) {
        finalCipherText = cipherText;
        finalPlainText = null;
@@ -248,12 +262,19 @@ CipherSpec(Cipher c) {
     // negated clause through `validate` would report *not observed* on every conforming
     // `doFinal` in the world, which is backwards.
     //
-    // The rule's own `f2` and `f4` bind `plainText` too, and this file cannot: its `f2`
-    // is `doFinal(..)` over three overloads at once, and splitting it is not available at
-    // 17 of 17 events (INV-INS-145, n=18 raises StackOverflowError in the enable-set
-    // parser at any heap). Those two overloads -- the dominant way a program encrypts --
-    // are read in `IvChainJunction.mop`, which is the file that exists for exactly this:
-    // binding an argument of a `Cipher` call that `CipherSpec` has no room to bind.
+    // The rule's own `f2` and `f4` bind `plainText` too, and this file does not: its
+    // `f2` is `doFinal(byte[], ..)` over those two overloads at once and binds no
+    // argument of its own. Since the pointcut stopped covering `doFinal()` the two share
+    // a `byte[]` in the first position, so an `args(plainText, ..)` here would bind it:
+    // the placement of those two reads is a choice from now on and not an impossibility.
+    // The choice is to leave them where they are -- moving them would retire two
+    // accusers and change which specification reports a misuse that neither placement
+    // stops reporting -- and splitting `f2` into one event per overload is still
+    // unavailable at 17 of 17 events (INV-INS-145, n=18 raises StackOverflowError in the
+    // enable-set parser at any heap). So those two overloads -- the dominant way a
+    // program encrypts -- are read in `IvChainJunction.mop`, which is the file that
+    // exists for exactly this: binding an argument of a `Cipher` call that `CipherSpec`
+    // has no room to bind.
     //
     // `f7` binds a `ByteBuffer` plaintext and gains no read. No site of the set can mark
     // a `ByteBuffer` under this predicate -- api30's `Mac` declares no `ByteBuffer`
