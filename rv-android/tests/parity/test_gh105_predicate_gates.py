@@ -781,6 +781,23 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       Task 6.2 travels in the same batch and touches none of these numbers: it repairs the
       three defects that kept `TrustManagerFactorySpec.gtm1` from ever firing, which changes
       what a write binds and whether it runs, not how many sites there are.
+
+      Batch B5 (tasks 5.10, 6.1 and 6.5) moves `read` from 36 to 37, so the sum asserted
+      below goes from 37 to 38, and moves nothing else. The one new site is
+      `preparedKeyMaterial[keyMaterial]` at `SecretKeySpecSpec.c2`, the four-argument
+      constructor: api30 binds `keyMaterial` in both events of `Cons := c1 | c2` and states
+      one REQUIRES over it, so the obligation is the constructor's and not one overload's,
+      and task 4.10 had deferred the site here rather than adding a second conflated one.
+      Like B4's four, it is bound by an event that already existed, so no alphabet grows.
+
+      The un-conflation this batch performs moves no count at all, and that is the claim
+      worth writing down: `SecretKeySpec.@match` and `SecretKeySpecSpec.c1` change which
+      predicate they name -- `randomized` to `preparedKeyMaterial`, ledger clause #32 -- and
+      a census of operations cannot see a rename. What it changes is measured in the harness
+      and in `predicate_graph.csv`, not here. `write` stays 31, `condition` stays 0,
+      `accepting-state` stays 0, and `negate` stays 1: task 6.5 verifies the one real
+      NEGATES translation rather than performing it, and verifying it is exactly the
+      assertion that this number did not move.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -796,7 +813,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
             if site.operation.startswith("read"):
                 read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 37
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 38
     assert read_placement.get("condition", 0) == 0
     assert counts.get("write", 0) == 31
     assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
@@ -827,6 +844,13 @@ def test_the_predicate_free_sets_read_as_predicate_free():
     consumer specification was one of the three ways the batch could have bound those
     arguments, and it was the one that would have moved these numbers; it was measured
     against the other two and rejected (researcher decision, 2026-08-22).
+
+    Batch B5 (tasks 5.10, 6.1 and 6.5) does not move it either, and for the same reason
+    as B4: no file and no event. Its whole substance is a rename of one predicate on two
+    sites that already existed and one read added to an event that already existed, so
+    the enumerated universe stays at 215 and the sibling file counts stay at 23. What
+    the batch does move is the trace corpus, from 126 files to 128, which no assertion
+    of this suite counts and the harness evidence carries instead.
     """
     home = _rvsec_home()
     root = home / "rvsec/rvsec-mop/src/main/resources"
@@ -1102,6 +1126,24 @@ def test_the_graph_reproduces_the_measured_placement_census():
       fusion of two overloads and the argument is bound as `Object`. That test discriminates
       which overload ran; it is not a `condition(...)` guard and it suppresses no transition,
       which is the distinction INV-INS-133 is about.
+
+      Batch B5 (tasks 5.10, 6.1 and 6.5) moves `read:body` from 32 to 33 and moves nothing
+      else. The row that arrives is `SecretKeySpecSpec.c2/PREPARED_KEY_MATERIAL`, the read
+      the four-argument constructor gains; task 4.10 had deferred it here rather than adding
+      a second site to a clause it knew was conflated.
+
+      Two rows change their `predicate` column without changing any count, and that is the
+      un-conflation of ledger clause #32: `SecretKeySpec.@match` writes
+      `PREPARED_KEY_MATERIAL` where it wrote `RANDOMIZED`, and `SecretKeySpecSpec.c1` reads
+      it where it read `RANDOMIZED`. A census keyed on `verdict` cannot see a rename, so the
+      whole of what this batch is about is invisible here on purpose -- it is measured in
+      the harness and carried in the `clause` and `reason` columns, where the two rows had
+      recorded the conflation since tasks 4.10 and 4.12 and now record its repair.
+
+      `write:acceptance` stays 26 and `negate:body` stays 1. The second of those is task
+      6.5's verification rather than task 6.5's work: the one real NEGATES clause of the set
+      was translated by task 4.6 with the write it withdraws, and the assertion that the
+      number did not move is what verifying it amounts to.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1109,7 +1151,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
-    assert counts.get("read:body", 0) == 32
+    assert counts.get("read:body", 0) == 33
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one

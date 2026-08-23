@@ -479,14 +479,14 @@ Every F3/record task resolves against this table, not against family names.
 | 29 | SSLContext | `generatedTrustManager[tms]` | | | yes | wire (bound-first API) | 5.9 |
 | 30 | SSLContext | `randomized[sr]` | | | yes (vacuous) | record `vacuous` — `Init: init(kms, tms, _)` binds `sr` in no event | 5.5 |
 | 31 | SecretKeyFactory | `speccedKey[keySpec, _]` | | | no (no consumer .mop) | record `unmonitored-consumer` (PBEKeySpec and SecretKeySpec are its producers) | 5.10 |
-| 32 | SecretKeySpec | `preparedKeyMaterial[keyMaterial]` | | | yes | wire — un-conflate from `RANDOMIZED` with 6.1, same commit | 5.10+6.1 |
+| 32 | SecretKeySpec | `preparedKeyMaterial[keyMaterial]` | | | yes | **wired** — un-conflated from `RANDOMIZED`, producer and consumer in one commit, plus the read the four-argument overload lacked | 5.10+6.1 |
 | 33 | SecureRandom | `randomized[seed]` | | | yes | wire (self-chain) | 5.5 |
 | 34 | Signature | `generatedPrivkey[priv]` | | | yes | wire (Signature's clauses — not `generatedKey`) | 5.7 |
 | 35 | Signature | `generatedPubkey[pub]` | | | yes | wire | 5.7 |
 | 36 | TrustManagerFactory | `generatedKeyStore[keyStore]` | | | yes | wire | 5.9 |
 
 Totals: 25 wireable (incl. the 3 negated and the 1 vacuous), 10 non-wireable records,
-1 `unclosable` (`preparedEC`). Of the 25 wireable, **21 are wired**; the vacuous #30 is
+1 `unclosable` (`preparedEC`). Of the 25 wireable, **22 are wired**; the vacuous #30 is
 **recorded**, never wired — no event binds `sr`, so it can have no read site — and tasks 5.2 and
 5.3 moved two more out of the wired column on measurement (2026-08-22): #23 joins #30 as
 `vacuous`, because `output2` is bound only as an array the JCA allocates fresh and
@@ -511,6 +511,20 @@ ensures. A read at `KeyPairGeneratorSpec.init3/init4` would therefore answer NOT
 conforming DH program, of a preparation the program has no way to obtain. Recorded, not wired (researcher
 decision, 2026-08-22), which retires the producer's G-PRED2 line the way #21's did. The measurements are in
 `data/gh105/evidence/f3-RandomizedHubAndGuardedPrepared.md`.
+
+Task 5.10 (2026-08-22) wired the last of them, #32, and the ledger owes one correction its
+wireability column could not carry. **A clause can be wireable, composable and still change what
+the set accuses at scale**, because a predicate the oracle ensures at exactly two events is
+narrower than the idiom the corpus was written in. `preparedKeyMaterial` is ENSURED by
+`Key.getEncoded()` and `SecretKey.getEncoded()` and by nothing else in the whole of api30, so a
+`SecretKeySpec` built from a `SecureRandom`'s output does not satisfy its own REQUIRES, and — the
+ENSURES being conditional on the rule holding — it ensures no `generatedKey` either, so every
+`Cipher.init` downstream of it is accused too. Measured: 18 of the 128 corpus traces change, 11 of
+them through that cascade. Every report is one api30 states, and the three ways of not paying the
+cost were measured and declined (evidence: `data/gh105/evidence/f3-PreparedKeyMaterial.md`).
+The lesson for the tasks still open is the third face of "necessary and not sufficient": having a
+`.mop` at both ends and a program that composes still does not tell you **how much** the wiring
+moves — measure the corpus before deciding, not the two ends.
 
 Dead-end `ENSURES`-only predicates are never required by any rule. The oracle has 12; **9 have
 their producing rule's `.mop` in the set** and are the ones this change must dispose of:

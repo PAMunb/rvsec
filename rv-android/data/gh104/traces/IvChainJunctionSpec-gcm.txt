@@ -1,7 +1,11 @@
 # The GCM chain observed at both ends, conforming. api30 Cipher REQUIRES
 # `part(1,"/",transformation) in {"GCM"} => preparedGCM[params]` (Cipher.cryptsl:184,
 # ledger clause #10) and api30 GCMParameterSpec ENSURES `preparedGCM[this]`
-# (GCMParameterSpec.cryptsl:39). Nothing here is a defect: the IV material comes from an
+# (GCMParameterSpec.cryptsl:39). The GCM chain this trace is about breaks no clause and
+# still says nothing; what it gained at task 5.10 is a report about a clause it was never
+# about, because its key is a SecretKeySpec built from SecureRandom bytes and api30
+# REQUIRES `preparedKeyMaterial` there. Of the original note --
+# the IV material comes from an
 # observed SecureRandom, the tag length is one the rule's CONSTRAINTS admit, and the
 # GCMParameterSpec is built over that material before the Cipher is initialised with it.
 #

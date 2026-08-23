@@ -740,7 +740,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       whole set and stops asking, but what they state is still true, since `SSLContext` reads the
       array and never the factory. Ledger #30 (`randomized[sr]`) stays `vacuous`: `Init` binds
       `sr` in no event. Evidence: `data/gh105/evidence/f3-TLSChain.md` (with 6.2, one commit)
-- [ ] 5.10 Leaf clause and the record pass: `preparedKeyMaterial[keyMaterial]` (#32 — consumer
+- [x] 5.10 Leaf clause and the record pass: `preparedKeyMaterial[keyMaterial]` (#32 — consumer
       `SecretKeySpecSpec`, producer `SecretKeySpec.mop` `getEncoded`), un-conflated with 6.1 in
       the same commit; then the 10 non-wireable clauses recorded with their category, each
       exactly once, here (ledger #1, #2, #3, #4, #7, #18, #19, #26, #27, #31 — the ledger's task
@@ -750,7 +750,36 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       fabricated (researcher decision, 2026-08-22) — the predicate is required by no rule of the
       oracle, its other producing site is `KeyPairGeneratorSpec.mop:111` (task 4.14), and a
       clause with no site has no row in `predicate_graph.csv` to carry the record, because that
-      inventory is of sites. Record it here, the way task 4.12 fed task 6.5
+      inventory is of sites. Record it here, the way task 4.12 fed task 6.5.
+      **The wiring cost no symbol and the collateral is the whole of what this task bought.**
+      Both sites already bound the `byte[]` and `PREPARED_KEY_MATERIAL` already existed in the
+      enum, so no alphabet, no `fsm`, no allow-list row and no file moved. What moved is what the
+      set accuses: `preparedKeyMaterial` is ENSURED by `Key.getEncoded()` and
+      `SecretKey.getEncoded()` and by nothing else in the oracle, so the idiom the corpus is
+      built on — a `byte[]` an observed `SecureRandom` filled, handed to the constructor — does
+      not satisfy the clause, and the one that does is `generateKey()` then `getEncoded()` then
+      the constructor. Measured against the tree before the batch: **18 of 128 traces change** —
+      15 draw `SECRETKEYSPEC-NOBS-00`, 11 draw `CIPHER-NOBS-00` downstream because a construction
+      that breaks the clause ensures no `generatedKey`, 4 draw `IVPARAMETERSPEC-NOBS-00` because
+      an encoding is no longer randomised bytes, and 1 draws the new `c2` site. Every one is what
+      api30 states; eight trace headers that claimed conformance were corrected rather than the
+      traces changed, and `SecretKeySpecSpec-prepared-material.txt` was written as the conforming
+      chain the corpus lacked (silent on both sides). Three alternatives were measured and
+      declined: moving half trades one G-PRED2 finding for another; suppressing the downstream
+      cascade changes the same 18 traces and costs the conditional ENSURES that CrySL states;
+      deferring leaves this change's own object unrepaired (researcher decision, 2026-08-22).
+      **The four-argument overload gains the read task 4.10 deferred here** (decision above):
+      api30 binds `keyMaterial` in both events of `Cons := c1 | c2` under one REQUIRES, so the
+      obligation is the constructor's; two new codes, `SECRETKEYSPEC-CONSTR-02` and
+      `SECRETKEYSPEC-NOBS-01`, new numbers because a code names a site.
+      **The G-PRED2 line does not close here, by decision.** `unmonitored-consumer` is a *read*
+      disposition (`gh105_predicate_graph.py:1189`); the write-side `omission` that would close
+      `PBEKeySpecSpec c1/SPECCED_KEY` is task 5.11's, and it has to travel with the gate's
+      retirement, because `gh105_gate_baseline.py:75-84` builds `gates` from findings alone — a
+      gate driven to zero loses its baseline key and turns
+      `test_a_retired_gate_leaves_the_baseline_and_stays_out` red. #31's *clause* is recorded here
+      (`PBEKeySpecSpec.mop` `c2` comment, `predicate_graph.csv` `reason`, evidence).
+      Evidence: `data/gh105/evidence/f3-PreparedKeyMaterial.md` (with 6.1 and 6.5, one commit)
 - [ ] 5.11 Closure sweep over **all 21 written `Property` values**, not only the named ones:
       every write has its reader or its deliberate-omission record, and the read-only gap
       (`GENERATED_PRIVATE_KEY`, resolved by 6.1's producer repair) closes. G-PRED2 green — 24
@@ -761,7 +790,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 
 <!-- Per task: the repair + trace pair + harness delta + divergence_record.csv hunks. -->
 
-- [ ] 6.1 The `KeyPairSpec.mop:38` half of this task is **done, by task 4.13**: the private key
+- [x] 6.1 The `KeyPairSpec.mop:38` half of this task is **done, by task 4.13**: the private key
       now writes `GENERATED_PRIVATE_KEY` as `generatedPrivkey[retPriv] after pr` names it, and
       the set's one read-only property is closed — `gh105_gate_baseline.py` reports
       `[G-PRED2] repaired jca_android/CipherSpec.mop i2/GENERATED_PRIVATE_KEY`. It was repaired
@@ -771,9 +800,23 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `initSign(priv)` about a conforming program, and SATISFIED to `generatedPubkey`. What
       remains here is `SecretKeySpec.mop:26`
       `preparedKeyMaterial ≡ RANDOMIZED` conflation — producer AND consumer halves in the same
-      commit: the reads at `SecretKeySpecSpec.mop:25,42` (`validate(RANDOMIZED, keyMaterial)`)
-      move to `PREPARED_KEY_MATERIAL` together with the write, or the repaired producer leaves
-      the consumer reading a never-written predicate. Lands with 5.10
+      commit: the read moves to `PREPARED_KEY_MATERIAL` together with the write, or the repaired
+      producer leaves the consumer reading a never-written predicate. Landed with 5.10.
+      **The task statement named two reads and the tree had one.** `SecretKeySpecSpec.mop:25,42`
+      are seed anchors; after the fusion of task 3.4 and the store move of task 4.10 there is a
+      single `validate(RANDOMIZED, keyMaterial)`, in `c1`. The second site the statement was
+      reaching for is the four-argument `c2`, which had no read at all and gains one here under
+      task 5.10's decision, so the arithmetic comes out at two reads either way — for a different
+      reason than the statement gave.
+      **A second thing the batch discharged and this statement did not foresee**: the guard at
+      `SecretKeySpec.e1` kept its read, but not for the reason task 4.12 recorded. That reason
+      was about `randomized` and is spent once the write names `preparedKeyMaterial`; measured
+      over 128 traces, guarded and unguarded are indistinguishable everywhere but on the one
+      trace written to tell them apart. The reason it stays is now laundering — without it, a key
+      the set never observed hands its encoding on as prepared material and a second
+      `SecretKeySpec` built from it goes silent (`SecretKeySpec-laundered-material.txt`;
+      researcher decision, 2026-08-22).
+      Evidence: `data/gh105/evidence/f3-PreparedKeyMaterial.md` (with 5.10 and 6.5, one commit)
 - [x] 6.2 `TrustManagerFactorySpec.mop` `gtm1`: `KeyManager[]` return pointcut +
       `TrustManager[][]` parameter + a target bound to a name the specification does not declare.
       Pairs with 5.9. Two of the four defects the task named had already travelled with task
@@ -816,7 +859,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       4.15. Measured there: no reader of any predicate remains on the old substrate in
       `jca_android`, so their deletion changed no report (researcher decision, 2026-08-22).
       Verify the count is zero and that each deletion carries its `divergence_record.csv` hunk
-- [ ] 6.5 Record the `SecretKey generatedKey[this,_] after d` NEGATES as `unclosable` — the set
+- [x] 6.5 Record the `SecretKey generatedKey[this,_] after d` NEGATES as `unclosable` — the set
       has no `destroy` event, and inventing one would fabricate the evidence this change exists
       to remove. The ninth removal (`PBEKeySpecSpec`, `clearPassword`, the one real `NEGATES`
       clause) was translated to `PredicateStore.negate`, object-scoped, by task 4.6 — it moved
@@ -830,7 +873,17 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       returns, which is the same class — so an `after ... returning` advice over it would have no
       execution path even if the event were declared, the position `SECRETKEYSPEC-CONSTR-01` is
       already in. Declaring it would also add a symbol to an automaton whose `ORDER` mapping task
-      7.1 still owns: `SecretKeySpec` is one of the thirteen unmapped specifications
+      7.1 still owns: `SecretKeySpec` is one of the thirteen unmapped specifications.
+      **All three verifications are green, and each was measured rather than read.** The ninth
+      removal is `PredicateStore.negate(Property.SPECCED_KEY, s)` at the `c2` the rule names,
+      object-scoped, put there by task 4.6 — and the assertion that verifies it is that the
+      number did not move: `negate:body == 1` in the graph census and `remove + negate == 1` in
+      the reader census, both unchanged across this batch. The `MacSpec.mop:99` removal is gone:
+      `grep -c "remove(" MacSpec.mop` is zero and the file's `@fail` carries no withdrawal. The
+      `unclosable` record for the absent `destroy` event is written in `SecretKeySpec.mop:67-75`
+      and in `data/gh105/evidence/f3-PreparedKeyMaterial.md` §6, carrying task 4.12's measurement
+      rather than re-deriving it.
+      Evidence: `data/gh105/evidence/f3-PreparedKeyMaterial.md` (with 5.10 and 6.1, one commit)
 - [ ] 6.6 `CipherSpec` `f1`/`f2` (pointcuts at `:135` and `:141`; the `event` declarations sit at
       `:134`/`:140`): both match the argument-less call — one call, two transitions; make the
       wider pointcut disjoint (two-events-same-call scenario)

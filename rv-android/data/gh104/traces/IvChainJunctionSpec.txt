@@ -1,7 +1,12 @@
 # The IV chain observed at both ends, conforming. api30 Cipher REQUIRES
 # `part(1,"/",transformation) in {CBC,CTS,CTR,CFB,PCBC,OFB} && encmode == 1 =>
 # preparedIV[params]` (Cipher.cryptsl:182, ledger clause #9), and api30 IvParameterSpec
-# ENSURES `preparedIV[this]` (IvParameterSpec.cryptsl:33). Nothing here is a defect: the
+# ENSURES `preparedIV[this]` (IvParameterSpec.cryptsl:33). The IV chain this trace is
+# about breaks no clause and still says nothing; what it gained at task 5.10 is a report
+# about a clause it was never about, because its key is a SecretKeySpec built from
+# SecureRandom bytes and api30 REQUIRES `preparedKeyMaterial` there. Of the original
+# note --
+# the
 # iv comes from an observed SecureRandom, the IvParameterSpec is built over it, and the
 # Cipher is initialised for encryption under a transformation whose mode the clause names.
 #

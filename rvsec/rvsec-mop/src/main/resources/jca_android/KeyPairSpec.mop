@@ -20,10 +20,15 @@ import br.unb.cic.mop.Property;
 KeyPairSpec(KeyPair keyPair) {
 
     // api30 KeyPair.cryptsl also states `generatedKeypair[this, _] after co`, and this
-    // file has no write for it. None is fabricated here: the predicate is required by no
-    // rule, its other producer is `KeyPairGeneratorSpec` (task 4.14), and a clause with no
-    // site has no row in the site inventory to carry a record. The record belongs to task
-    // 5.10, which this pass feeds rather than duplicating.
+    // file has no write for it. None is fabricated, and task 5.10 has now made the record
+    // this pass fed it: the predicate is required by no rule of the whole oracle, so a
+    // write here would produce something nothing can consume; its other producing site is
+    // `KeyPairGeneratorSpec.mop` (task 4.14), which already carries a deliberate-omission
+    // record for it; and a clause with no site has no row in `predicate_graph.csv` to
+    // carry a record of its own, because that inventory is of sites and not of clauses.
+    // The record therefore lives in the change's ledger and in
+    // data/gh105/evidence/f3-PreparedKeyMaterial.md, which is where a clause without a
+    // site can be written down at all (researcher decision, 2026-08-22).
     //
     // What this event gains is the rule's own REQUIRES, both of them:
     // `generatedPrivkey[consPriv]` and `generatedPubkey[consPub]` (KeyPair.cryptsl:32,34,

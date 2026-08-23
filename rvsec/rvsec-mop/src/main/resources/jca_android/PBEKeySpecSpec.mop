@@ -151,6 +151,16 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // spec answers VIOLATED rather than NOT_OBSERVED -- which is what the clause
         // states. Nothing reads SPECCED_KEY in any set today, so the difference is
         // recorded rather than measured.
+        //
+        // Why nothing reads it, written down here because this is where the predicate
+        // is produced. api30 states `speccedKey[keySpec, _]` as the one REQUIRES of
+        // `SecretKeyFactory`, and that rule has no `.mop` in this set -- ledger clause
+        // #31, `unmonitored-consumer`, recorded at task 5.10. Both of the oracle's
+        // producers of the predicate are here (`PBEKeySpec` in this file and
+        // `SecretKeySpec`, which deliberately does not write it, SecretKeySpecSpec.mop),
+        // and neither has anywhere to send it. No consumer is fabricated to give the
+        // write a reader, and the write stays because deleting a faithful translation of
+        // a clause the oracle states would be the fabrication running the other way.
         event c2 after(PBEKeySpec s):
 	      call(public void PBEKeySpec.clearPassword()) &&
           target(s) {
