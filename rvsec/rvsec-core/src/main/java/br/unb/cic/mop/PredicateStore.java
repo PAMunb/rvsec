@@ -5,10 +5,12 @@ import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The predicate substrate of the {@code jca_android} specification set: it records the
@@ -73,9 +75,50 @@ public final class PredicateStore {
 	 * "the producer was not instrumented" and stays silent, whereas a withdrawn predicate is
 	 * positive evidence and must accuse.
 	 */
+	/** The state every withdrawal swaps in: nothing recorded, and positively withdrawn. */
+	private static final State NEGATED = new State(true, Collections.<ValueTuple>emptySet());
+
 	private static final class Entry {
-		private final Set<ValueTuple> tuples = Collections.newSetFromMap(new ConcurrentHashMap<ValueTuple, Boolean>());
-		private volatile boolean negated;
+		/**
+		 * The two facts an entry carries, held as one value behind one reference.
+		 *
+		 * <p>
+		 * Whether the predicate was withdrawn and which argument lists were recorded have to
+		 * be read together or not at all. As two fields they cannot be, however they are
+		 * ordered: a reader that samples {@code negated} and then {@code tuples} can be
+		 * descheduled between the two reads and land on a pair that never existed at any one
+		 * instant. The pair it lands on is {@code negated == false} with no tuples, which
+		 * {@link #validate} reads as {@code NOT_OBSERVED} -- the one answer that suppresses
+		 * an accusation about an object the store positively knows something about. A single
+		 * volatile reference to an immutable state makes every read a snapshot.
+		 */
+		private final AtomicReference<State> state = new AtomicReference<State>(State.EMPTY);
+	}
+
+	/**
+	 * One entry's whole content: withdrawn or not, and the argument lists recorded so far.
+	 *
+	 * <p>
+	 * Immutable, so a reader that holds one never sees it change under itself. {@code ensure}
+	 * copies on write; the sets are one to three tuples in every clause of the oracle, so the
+	 * copy is cheaper than the lock that would be needed to avoid it.
+	 */
+	private static final class State {
+		private static final State EMPTY = new State(false, Collections.<ValueTuple>emptySet());
+
+		private final boolean negated;
+		private final Set<ValueTuple> tuples;
+
+		private State(boolean negated, Set<ValueTuple> tuples) {
+			this.negated = negated;
+			this.tuples = tuples;
+		}
+
+		private State withTuple(ValueTuple tuple) {
+			Set<ValueTuple> next = new HashSet<ValueTuple>(tuples);
+			next.add(tuple);
+			return new State(false, Collections.unmodifiableSet(next));
+		}
 	}
 
 	/**
@@ -249,8 +292,15 @@ public final class PredicateStore {
 		}
 		purge();
 		Entry entry = entryFor(bound, p, true);
-		entry.negated = false;
-		entry.tuples.add(new ValueTuple(values));
+		// Read-modify-write under a compare-and-set loop, because two threads ensuring
+		// different argument lists for one object must not lose either. The swap is a
+		// single reference write, so a concurrent reader sees the state before it or the
+		// state after it and never a half of each.
+		ValueTuple tuple = new ValueTuple(values);
+		State current;
+		do {
+			current = entry.state.get();
+		} while (!entry.state.compareAndSet(current, current.withTuple(tuple)));
 	}
 
 	/**
@@ -271,8 +321,9 @@ public final class PredicateStore {
 		}
 		purge();
 		Entry entry = entryFor(bound, p, true);
-		entry.tuples.clear();
-		entry.negated = true;
+		// A withdrawal discards whatever was recorded, so it needs no read of the old
+		// state: one unconditional swap to the withdrawn state, which a reader sees whole.
+		entry.state.set(NEGATED);
 	}
 
 	/**
@@ -295,13 +346,15 @@ public final class PredicateStore {
 		if (entry == null) {
 			return PredicateVerdict.NOT_OBSERVED;
 		}
-		if (entry.negated) {
+		// One read. Every question below is asked of the same instant.
+		State state = entry.state.get();
+		if (state.negated) {
 			return PredicateVerdict.VIOLATED;
 		}
-		if (entry.tuples.isEmpty()) {
+		if (state.tuples.isEmpty()) {
 			return PredicateVerdict.NOT_OBSERVED;
 		}
-		return entry.tuples.contains(new ValueTuple(values))
+		return state.tuples.contains(new ValueTuple(values))
 				? PredicateVerdict.SATISFIED
 				: PredicateVerdict.VIOLATED;
 	}
@@ -336,7 +389,11 @@ public final class PredicateStore {
 		}
 		purge();
 		Entry entry = entryFor(bound, p, false);
-		if (entry == null || entry.negated || entry.tuples.isEmpty()) {
+		if (entry == null) {
+			return PredicateVerdict.SATISFIED;
+		}
+		State state = entry.state.get();
+		if (state.negated || state.tuples.isEmpty()) {
 			return PredicateVerdict.SATISFIED;
 		}
 		return PredicateVerdict.VIOLATED;

@@ -70,7 +70,14 @@ DEFAULT_RULES = Path(
     "/MetaCrySL/generated/api30"
 )
 
-DEFAULT_MAP = Path("data/jca_android/order_alphabet_map.csv")
+# Both data paths are anchored to this file, not to the working directory. A
+# relative default makes the gate answer "0 of 24 compared, every specification
+# skipped for want of mapping rows" from any other cwd, and exit 0 saying it --
+# a mis-pathed CSV would be indistinguishable from a genuinely unmapped
+# specification, which is the one confusion this gate exists to prevent.
+REPO = Path(__file__).resolve().parents[1]
+
+DEFAULT_MAP = REPO / "data/jca_android/order_alphabet_map.csv"
 
 # A divergence this gate reports may be one the set is keeping on purpose: the
 # rule orders a symbol no monitored program can produce, or the specification is
@@ -78,7 +85,7 @@ DEFAULT_MAP = Path("data/jca_android/order_alphabet_map.csv")
 # and the difference from a recorded expectation is the whole point -- a row of
 # `gate_allowlist.csv` names the witness, the reason, and the task that decided
 # it, so the finding stays visible and stays owned.
-DEFAULT_ALLOWLIST = Path("data/jca_android/gate_allowlist.csv")
+DEFAULT_ALLOWLIST = REPO / "data/jca_android/gate_allowlist.csv"
 
 _SECTION = re.compile(
     r"^\s*(SPEC|OBJECTS|EVENTS|ORDER|CONSTRAINTS|REQUIRES|ENSURES|NEGATES|FORBIDDEN)\b"
@@ -696,7 +703,18 @@ class OrderRun:
         )
 
 
-def read_allowlist(path: Path) -> set[tuple[str, str, str]]:
+# The witness word of the empty sequence. A row has to say *something* there, and
+# the empty string already means "this row names no witness", so the empty word
+# gets a token of its own.
+EMPTY_WITNESS = "<empty>"
+
+
+def witness_word(witness: tuple[str, ...]) -> str:
+    """The witness as one comparable word, with the empty sequence spelled out."""
+    return " ".join(witness) or EMPTY_WITNESS
+
+
+def read_allowlist(path: Path) -> set[tuple[str, str, str, str]]:
     """The ordering divergences `gate_allowlist.csv` records as deliberate.
 
     A row with an empty `reason` allows nothing. That is not defensive coding: it
@@ -705,35 +723,49 @@ def read_allowlist(path: Path) -> set[tuple[str, str, str]]:
     is a decision, and a decision with no reason written down is the thing task
     7.6 removed. `gh104_gates.py` reads its own allow-list the same way.
 
+    A row with an empty `witness` allows nothing either, and for a sharper reason.
+    Keyed on the specification alone, a row that forgives one measured divergence
+    forgives every future one of the same specification -- nine of the twenty-two
+    compared specifications would stop being guarded the moment their row landed.
+    The witness is what makes the row about the divergence it was written for.
+
     Args:
         path: The allow-list CSV. Rows of other gates are ignored here.
 
     Returns:
-        `(set, spec, event_or_state)` for each G-ORDER row that carries a reason,
-        or the empty set when the file does not exist.
+        `(set, spec, event_or_state, witness)` for each G-ORDER row that carries
+        both a reason and a witness, or the empty set when the file does not
+        exist.
     """
     if not path.is_file():
         return set()
-    allowed: set[tuple[str, str, str]] = set()
+    allowed: set[tuple[str, str, str, str]] = set()
     with path.open(newline="", encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
-            if row["gate"] != "G-ORDER" or not row["reason"].strip():
+            witness = (row.get("witness") or "").strip()
+            if row["gate"] != "G-ORDER" or not row["reason"].strip() or not witness:
                 continue
-            allowed.add((row["set"], row["spec"], row["event_or_state"]))
+            allowed.add((row["set"], row["spec"], row["event_or_state"], witness))
     return allowed
 
 
-def _is_allowed(finding: OrderFinding, allowed: set[tuple[str, str, str]]) -> bool:
-    """Whether the allow-list covers this specification's ordering divergence.
+def _is_allowed(finding: OrderFinding, allowed: set[tuple[str, str, str, str]]) -> bool:
+    """Whether the allow-list covers *this* ordering divergence.
 
     Two widths, and no more: the row names one specification, or it names every
     ordering divergence of one set (`*, *`). There is no third width, because the
     subject of a G-ORDER row is the constant `order` -- a per-event allowance
     would be a key this gate never produces.
+
+    In both widths the witness has to match. A specification whose divergence was
+    forgiven may diverge again for another reason, and that second divergence is
+    a finding: the row was a decision about one counterexample, not a licence for
+    the specification's whole language.
     """
+    word = witness_word(finding.witness)
     candidates = {
-        (finding.spec_set, finding.spec, "order"),
-        (finding.spec_set, "*", "*"),
+        (finding.spec_set, finding.spec, "order", word),
+        (finding.spec_set, "*", "*", word),
     }
     return bool(candidates & allowed)
 
@@ -997,6 +1029,14 @@ def run(
         account for every `.mop` visited.
     """
     mapping = read_map(map_path)
+    # An absent mapping file and a specification with no rows in it are two
+    # different facts, and `read_map` returns `{}` for both. The distinction is
+    # made here, once, so that every skip reason says which of the two it is.
+    map_absent = (
+        None
+        if map_path.is_file()
+        else f"the alphabet mapping {map_path} does not exist"
+    )
     # The subject column of a G-ORDER row is the constant `order`: the finding is
     # about the specification's whole language, not about one event of it.
     allowed = read_allowlist(allowlist_path)
@@ -1005,6 +1045,10 @@ def run(
     for name in names:
         set_dir = specs_root / name
         if not set_dir.is_dir():
+            # Recorded rather than dropped: a set the caller named and the tree
+            # does not have is exactly the kind of silent nothing the
+            # skip-and-count contract is written against.
+            result.skipped.append((name, f"no directory {set_dir}"))
             continue
         for mop in sorted(set_dir.glob("*.mop")):
             # The mapping is `jca_android`'s. `jca` is frozen and the archived set
@@ -1018,7 +1062,7 @@ def run(
                     )
                 )
                 continue
-            outcome = check_specification(name, mop, rules_root, mapping)
+            outcome = map_absent or check_specification(name, mop, rules_root, mapping)
             if outcome is None:
                 result.passed.append(f"{name}/{mop.stem}")
             elif isinstance(outcome, str):
@@ -1038,8 +1082,12 @@ def main(argv: list[str] | None = None) -> int:
 
     Returns:
         1 when any specification's automaton and rule order different languages,
-        0 otherwise. A skip is not a failure: the reasons are printed, and the
-        count is what a reader checks the gate's coverage against.
+        2 when the run compared nothing at all, 0 otherwise. A skip is not a
+        failure: the reasons are printed, and the count is what a reader checks
+        the gate's coverage against. Comparing *nothing* is a different thing --
+        a typo in `--sets`, a mis-pathed CSV or an absent tree all produce a
+        clean "0 failed", and a gate that reports success for a comparison it
+        never made is worse than no gate.
     """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -1109,6 +1157,13 @@ def main(argv: list[str] | None = None) -> int:
         for spec, reason in result.skipped:
             print(f"  skipped {spec}: {reason}")
 
+    if not (result.passed or result.findings or result.allowed):
+        print(
+            "G-ORDER compared no specification at all -- check `--sets`, `--map` "
+            "and `--specs-root`; the skip reasons above say which",
+            file=sys.stderr,
+        )
+        return 2
     return 1 if result.findings else 0
 
 

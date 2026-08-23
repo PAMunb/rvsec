@@ -1951,7 +1951,17 @@ def _rules_root() -> Path:
 
 
 def _order_run():
-    return gh105_order_gate.run(_specs_root(), "jca_android", _rules_root(), ORDER_MAP)
+    """G-ORDER over the migrated set, with every path pinned to this repository.
+
+    The allow-list is passed explicitly for the same reason `ORDER_MAP` is: the
+    gate's default is anchored to the script's own tree, and a run that let it
+    default would still be reading the right file today and the wrong one the day
+    the default moves. Pinning both here keeps the assertion about the recorded
+    divergences, not about where the gate happens to look for them.
+    """
+    return gh105_order_gate.run(
+        _specs_root(), "jca_android", _rules_root(), ORDER_MAP, ALLOWLIST
+    )
 
 
 def test_the_order_grammar_is_read_with_sequence_weakest():

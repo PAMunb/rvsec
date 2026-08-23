@@ -274,4 +274,53 @@ public class PredicateStoreTest {
 		}
 		assertEquals(threads * perThread, total);
 	}
+
+	@Test
+	public void aReaderOfAnObjectBeingRewrittenNeverSeesNotObserved() throws Exception {
+		// The test above gives every thread its own subject, so it never exercises two
+		// threads over ONE object -- which is the case the woven advice actually
+		// produces when a single Cipher or SecureRandom is shared. What must never
+		// happen there is a reader landing between the two statements of `ensure` or
+		// `negate` and getting NOT_OBSERVED for an object the store positively knows
+		// something about: that answer suppresses an accusation, while both SATISFIED
+		// and VIOLATED merely pick one side of the write.
+		final Object subject = new Object();
+		final int rounds = 20000;
+		store.ensure(Property.RANDOMIZED, subject, "seed");
+
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		Callable<Integer> writer = new Callable<Integer>() {
+			@Override
+			public Integer call() {
+				for (int i = 0; i < rounds; i++) {
+					store.negate(Property.RANDOMIZED, subject);
+					store.ensure(Property.RANDOMIZED, subject, "seed");
+				}
+				return Integer.valueOf(0);
+			}
+		};
+		Callable<Integer> reader = new Callable<Integer>() {
+			@Override
+			public Integer call() {
+				int notObserved = 0;
+				for (int i = 0; i < rounds; i++) {
+					if (store.validate(Property.RANDOMIZED, subject, "SEED") == PredicateVerdict.NOT_OBSERVED) {
+						notObserved++;
+					}
+				}
+				return Integer.valueOf(notObserved);
+			}
+		};
+
+		List<Callable<Integer>> work = new ArrayList<Callable<Integer>>();
+		work.add(writer);
+		work.add(reader);
+		List<Future<Integer>> results = pool.invokeAll(work);
+		pool.shutdown();
+		assertTrue(pool.awaitTermination(30L, TimeUnit.SECONDS));
+
+		assertEquals(0, results.get(0).get().intValue());
+		assertEquals("a reader saw NOT_OBSERVED for an object the store was rewriting", 0,
+				results.get(1).get().intValue());
+	}
 }

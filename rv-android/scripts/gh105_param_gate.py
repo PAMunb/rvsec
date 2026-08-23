@@ -190,6 +190,10 @@ def run(specs_root: Path, monitors: Path, selection: str = "all") -> ParamRun:
     for name in names:
         set_dir = specs_root / name
         if not set_dir.is_dir():
+            # A set the caller named and the tree does not have is a skip with a
+            # reason, not a silent nothing -- the same contract the per-file
+            # skips above follow.
+            result.skipped.append((name, f"no directory {set_dir}"))
             continue
         for mop in sorted(set_dir.glob("*.mop")):
             rvm = monitors / f"{mop.stem}.rvm"
@@ -221,9 +225,11 @@ def main(argv: list[str] | None = None) -> int:
         argv: Command-line arguments, or None to read `sys.argv`.
 
     Returns:
-        1 when any specification lost a parameter, 0 otherwise. This exit code is
-        the gate's verdict; the toolchain's own is 0 either way, which is the
-        reason this file exists.
+        1 when any specification lost a parameter, 2 when the run compared
+        nothing at all, 0 otherwise. This exit code is the gate's verdict; the
+        toolchain's own is 0 either way, which is the reason this file exists --
+        and a clean "0 failed" over an empty comparison would reintroduce
+        exactly the silence this gate was written against.
     """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -265,6 +271,13 @@ def main(argv: list[str] | None = None) -> int:
         for finding in result.findings:
             print(f"  [G-PARAM] {finding.spec_set}/{finding.spec}: {finding.message}")
 
+    if not (result.passed or result.findings):
+        print(
+            "G-PARAM compared no specification at all -- check `--sets`, "
+            "`--monitors` and `--specs-root`; the skip reasons above say which",
+            file=sys.stderr,
+        )
+        return 2
     return 1 if result.findings else 0
 
 

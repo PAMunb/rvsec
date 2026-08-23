@@ -1197,7 +1197,12 @@ SPECIFICATION_SETS = (
     "generic_new",
 )
 
-DEFAULT_GRAPH = Path("data/jca_android/predicate_graph.csv")
+# Anchored to this file rather than to the working directory: a relative default
+# makes `--emit` write the judgment record into whatever directory the caller
+# happened to be in, and makes every read of it come back empty.
+REPO = Path(__file__).resolve().parents[1]
+
+DEFAULT_GRAPH = REPO / "data/jca_android/predicate_graph.csv"
 
 
 def _resolve_sets(root: Path, selection: str) -> list[Path]:
@@ -1853,7 +1858,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--allowlist",
         type=Path,
-        default=Path("data/jca_android/gate_allowlist.csv"),
+        default=REPO / "data/jca_android/gate_allowlist.csv",
         help="findings recorded as deliberately permanent",
     )
     parser.add_argument("--json", action="store_true", help="machine-readable report")
@@ -1867,7 +1872,18 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     if arguments.emit:
-        emitted = analyze_set(arguments.specs_root / "jca_android")
+        # `--emit` rewrites the judgment record. Emitting from a root without the
+        # migrated set would truncate it to its header -- destroying exactly what
+        # `carry_judgments` exists to preserve -- so the absence is refused.
+        target_dir = arguments.specs_root / TARGET_SET
+        if not target_dir.is_dir():
+            print(
+                f"--emit needs the `{TARGET_SET}` set and {target_dir} is absent; "
+                "refusing to rewrite the judgment record with an empty graph",
+                file=sys.stderr,
+            )
+            return 2
+        emitted = analyze_set(target_dir)
         write_graph(
             arguments.graph,
             carry_judgments(list(emitted.rows), read_graph(arguments.graph)),
