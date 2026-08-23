@@ -1169,13 +1169,29 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 
 ## 8. Verification
 
-- [ ] 8.1 Full gate suite over the enumerated universe: G-ORDER, G-PRED2, G-ACC, G-PARAM,
+- [x] 8.1 Full gate suite over the enumerated universe: G-ORDER, G-PRED2, G-ACC, G-PARAM,
       junction rules, import discipline, genericity (skip-and-count report committed); gh104
-      gates still green, `test_jca_android_hunks_all_recorded` included
-- [ ] 8.2 Freeze proof: `jca/` and `ExecutionContext.java` byte-identical (zero-diff — no
+      gates still green, `test_jca_android_hunks_all_recorded` included.
+      Measured over 215 `.mop` in five sets: G-ORDER 13/0/9 allow-listed/193 skipped, every skip
+      with a written reason; the graph gate 213 read, 2 skipped, 0 failing, 21 informative G-ACC
+      findings **none of which is in `jca_android`**; the four migrated-set-only gates declare
+      16 skips over the four sets they do not govern. G-PARAM closes over **24 of 24** rather
+      than the suite's 23, by preserving the `.rvm` between the javamop and rv-monitor steps —
+      the suite's single skip is an artefact of the pre-change fixture under
+      `results/gh51_e2e_test/monitors`, not of the specification.
+      Evidence: `data/gh105/evidence/f5-GateSuiteOverTheUniverse.md`
+- [x] 8.2 Freeze proof: `jca/` and `ExecutionContext.java` byte-identical (zero-diff — no
       annotation, no whitespace), `FROZEN_PATHS` covers the file, `test_property_append_only`
       green. Run it with `RVSEC_HOME` set — the gh101 freeze gate `pytest.skip`s without it
-      (`test_gh101_specset_gates.py:59-60`), and a skipped freeze gate is not a freeze proof
+      (`test_gh101_specset_gates.py:59-60`), and a skipped freeze gate is not a freeze proof.
+      `git diff 7e7acb69` is empty on all three frozen paths and the working tree is clean on
+      them; the suite runs 6 passed, **0 skipped**. One measured gap is recorded and, by
+      researcher decision (2026-08-23), not gated: the 23 frozen `.mop` import
+      `br.unb.cic.mop.eh.*`, which changed since the base commit and is covered by neither
+      `FROZEN_PATHS` nor an append-only test — it is observationally neutral for the frozen set
+      because 0 of its 23 files write the `v=1` envelope marker (against 22 of `jca_android`'s
+      24), so `ErrorSummary`'s new `code`/`event` fields are a constant for every `jca` report.
+      Evidence: `data/gh105/evidence/f5-FreezeProof.md`
 - [ ] 8.3 C5 ground truth, as an **oracle comparison, not a replay**: the corpus at
       `../../ase-journal/dataset/results/errors_unit_tests.csv` (sibling repository, read-only
       per gh89) is a 299-row aggregate of already-reported errors — columns
@@ -1185,10 +1201,18 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       spurious? The replayable bench is `rvsec/rvsec-agent/src/test`, which weaves the **frozen
       `jca`** (`rvsec-agent/pom.xml:106`) — so it validates the seed, not the successor, and is
       cited here to say why it is not the instrument. Commit the verdict table
-- [ ] 8.4 Full harness differential over `data/gh104/traces/`: `--a
+- [x] 8.4 Full harness differential over `data/gh104/traces/`: `--a
       backup/gh105-preimage/jca_android/` (the specification-set directory 2.11 archived) versus
       the edited set; `gh104_diff_harness.py` regenerates both monitor trees itself. Every
-      `introduced`/`removed`/`moved` classification traces to a task
+      `introduced`/`removed`/`moved` classification traces to a task.
+      131 traces, 61 unchanged / 31 moved / 32 introduced / 7 removed; the 70 non-`unchanged`
+      classifications carry 130 accusation deltas and **all 130 are attributed**, none of them to
+      a gh104 task — checked against the sources, because the shared `divergence_record.csv`
+      task column mixes both changes. Three of the 70 are knock-on effects and are named as
+      such. Determinism was measured (two cached runs plus one full regeneration, byte-identical),
+      which also surfaced that ten committed `f2-*.md` reports carried 17 envelope lines the tree
+      does not produce; they are regenerated here.
+      Evidence: `data/gh105/evidence/f5-HarnessDifferential.md`
 - [ ] 8.5 Device smoke test (one mini run, before the joint experiment; via
       `rv-experiment`/`rv-platform` only — the platform manages the entire emulator lifecycle,
       never a manually managed emulator): a sample APK instrumented with the wired set — (a) R4
