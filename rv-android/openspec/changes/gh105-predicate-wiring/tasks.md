@@ -1000,18 +1000,28 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 
 ## 7. F5 — Records, retirement, hardening
 
-- [ ] 7.1 Complete `order_alphabet_map.csv` for every spec Groups 1-6 touched; G-ORDER green or
+- [x] 7.1 Complete `order_alphabet_map.csv` for every spec Groups 1-6 touched; G-ORDER green or
       declaredly skipped across `jca_android`. **Repair the gate's `ORDER` parser first**: it
       reads `,` as binding tighter than `|`, and `CrySL.xtext:103-120` binds them the other way
       round (`Sequence` is the outermost production, so it is the weakest operator). `Cipher` is
       the one api30 rule that tells the two parses apart, so the `CipherSpec` row is an artifact
       of the gate: it reports `f2` accepted by the ORDER, where the faithful parse rejects a bare
       `doFinal` and accepts `g1 i2 f2`, which the gate rejects. Measured delta: one witness,
-      inverted; counts unchanged at 6 passed / 4 findings / 13 skipped; no baseline `--write`
-      needed, since `gate_baseline.json` keys G-ORDER by `(set, file, "order")` and stores no
-      witness. The five-step checklist, the reproduction, and the real `CipherSpec` divergence
-      the repair uncovers (the `ere` accepts an unfinalised Cipher) are in
-      `data/gh105/evidence/f1-order-gate-precedence.md`.
+      inverted; counts unchanged at 6 passed / 4 findings / 14 skipped (the evidence says 13,
+      having been written before Group 5 added `IvChainJunction`). The five-step checklist, the
+      reproduction, and the real `CipherSpec` divergence the repair uncovers (the `ere` accepts
+      an unfinalised Cipher) are in `data/gh105/evidence/f1-order-gate-precedence.md`.
+      **Measured, and it decided the mapping:** completing the file takes G-ORDER from
+      6/4/14 to 13 passed / 9 findings / 2 declared skips. Twelve specifications translate an
+      api30 rule and were mapped (61 rows); two translate none and can never gain a row, so the
+      skip is prose in the file's header. Five pass at once; seven divergences the skips had
+      been hiding are raised and recorded in `gate_baseline.json`, which grows from 4 rows to 9
+      after the two repairs below — so a `--write` *is* run, preserving `retired`.
+      **The oracle is not unanimous, and the researcher decided it (2026-08-23):** the gate
+      follows `CrySL.xtext`, while `MetaCrySL/src/lang/crysl/ConcreteSyntax.rsc:67-68` — the
+      Rascal grammar of the generator that produced `generated/api30/` — binds `,` the other
+      way. Cipher is the only rule where the choice changes the language. Recorded in
+      `data/gh105/evidence/f3-OrderMapComplete.md` §1.
       **Task 4.14 feeds this task a divergence the gate cannot currently see.**
       `KeyManagerFactorySpec` has no rows in `order_alphabet_map.csv`, so G-ORDER skips it
       declaredly — and `g1 init gkm1` is accepted by the api30 ORDER (`Gets, Init, gkm?`) and
@@ -1020,14 +1030,32 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `g1 i1 gtm` divergence the gate already reports against `TrustManagerFactorySpec`, and
       `conformance_record.csv` was read before calling it new: its three `KeyManagerFactorySpec`
       rows are about the algorithm allow-list, the deferred `neverTypeOf` constant and the 8.16
-      guard-on-field repair. Mapping the file here will raise it. Two writes move to their
+      guard-on-field repair. Mapping the file here will raise it. Two writes reach their
       acceptance point when the two automata are repaired — `KeyManagerFactorySpec.gkm1` and
       `TrustManagerFactorySpec.gtm1`, both kept in the event body by task 4.14 with the reason
       recorded in `predicate_graph.csv` precisely because these rows make the acceptance point
-      unreachable
-- [ ] 7.2 `codes.csv` completeness pass: every accuser introduced in Groups 3-6 has its code;
-      message gate green
-- [ ] 7.3 Retire `rvsec-mop-defsuses`: move to `backup/`, remove from `rvsec/rvsec/pom.xml:27`
+      unreachable.
+      **Measured: they reach it without moving.** The repair is `gkm1 -> taken` and
+      `gtm1 -> taken`, a second accepting state that declares no event, which is what the rule's
+      `gkm?` states — optional and terminal at once. `-> final`, the self-loop this task's
+      wording implies, was measured first and rejected: it closes the reported witness and opens
+      `g1 i1 g1 i1`, and it makes the set accept `g1 i1 gkm gkm`, which the `?` refuses, so it
+      would have silenced an accusation the file's own comment had already called faithful. With
+      the edge repaired the event's transition lands on the accepting state, so the body write
+      runs where the clause asks and nothing moves; what keeps it out of the `@match2` handler
+      is the array, since a handler sees no parameter of the event it follows. Over the
+      131-trace corpus the repair moves nothing, and `gh104_gates.py` is unchanged in all nine
+      counts
+- [x] 7.2 `codes.csv` completeness pass: every accuser introduced in Groups 3-6 has its code;
+      message gate green.
+      **Measured satisfied before it was executed** (batch B8): 112 accusers against 112 codes,
+      zero accuser without a code, zero orphan code, zero derived `file_line` anchor, message
+      gate green. What the task delivered instead is the gate the anchors never had: a
+      `code-anchor` check in `gh104_message_gate.py`, asked for by batches B6 and B7, which found
+      six drifted anchors and moved five respectively — both times only because someone
+      re-anchored the whole file by script. It caught its first drift on the pass that added it:
+      task 7.1's edits moved two `@fail` sites, and the two `codes.csv` rows were re-anchored
+- [x] 7.3 Retire `rvsec-mop-defsuses`: move to `backup/`, remove from `rvsec/rvsec/pom.xml:27`
       `<modules>` (the only pom that lists it), grep for dangling references (documentation
       survivors updated or exempted declaredly — module CLAUDE.md rows,
       `scripts/check_no_legacy_mop.py` skip list, the retired copy under `backup/` that the move

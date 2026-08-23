@@ -17,9 +17,13 @@
 # carries an accusation of its own, so the set would lose a report by deleting it
 # (`SecureRandomSpec.g4`, `PBEKeySpecSpec.f1` and `f2`) -- satisfy G-ACC by entering
 # the automaton without breaking the language comparison. It is a claim with a reason
-# attached, never a way to make a comparison come out right. A negated twin gets no
-# row at all: it is fused into its sibling and stops existing as an event
-# (design.md census, corrected 2026-08-20).
+# attached, never a way to make a comparison come out right. A negated twin that Group 3
+# fused into its sibling gets no row: it stopped existing as an event (design.md census,
+# corrected 2026-08-20). The twins the fusion did not reach are still events and still
+# need a row -- `KeyStoreSpec.g2`, `KeyGeneratorSpec.g3`, `MacSpec.g3`,
+# `KeyManagerFactorySpec.g3` -- and `order-unmapped` is what they get, for the reason
+# every one of them carries: the rejected call is the same call as the accepted one, and
+# what rejects it is a CONSTRAINTS clause, which an ORDER has no symbol for.
 #
 # Not every absorbed accuser needs the exemption. `KeyPairGeneratorSpec.initError`
 # is absorbed and yet `mapped`, to `i3`, because the rule's `i3: initialize(keySize)`
@@ -34,11 +38,32 @@
 #   Group 5, the pilot chain of task 5.1 (SecureRandom -> byte[] -> IvParameterSpec
 #   -> Cipher): CipherSpec. The other two links are already covered above.
 #
-# Still to map, and owned by task 7.1 (13 of the set's 23): CipherInputStreamSpec,
-# CipherOutputStreamSpec, DHGenParameterSpecSpec, GCMParameterSpecSpec,
-# HMACParameterSpecSpec, KeyGeneratorSpec, KeyManagerFactorySpec, KeyPairSpec,
-# KeyStoreSpec, MacSpec, MessageDigestSpec, SecretKeySpec, RandomStringPassword
-# (the last has no api30 rule and is a declared G-ORDER skip, not a missing row).
+# Mapped at task 7.1, which completed the file -- the twelve specifications left over
+# once Groups 3 and 5 had taken theirs: CipherInputStreamSpec, CipherOutputStreamSpec,
+# DHGenParameterSpecSpec, GCMParameterSpecSpec, HMACParameterSpecSpec, KeyGeneratorSpec,
+# KeyManagerFactorySpec, KeyPairSpec, KeyStoreSpec, MacSpec, MessageDigestSpec,
+# SecretKeySpec. Two of them had grown events since the census that named them:
+# KeyGeneratorSpec went from 5 to 8 and MacSpec from 8 to 12.
+#
+# Two of the set's 24 specifications are declared G-ORDER skips rather than missing
+# rows, and a declared skip is prose here and never a data row: `read_map` groups by
+# specification and `build_automata` skips on `if not rows`, so any row at all -- even
+# an empty one -- would take the file out of the skip and make the gate look for a rule
+# that does not exist.
+#
+#   RandomStringPassword  api30 states no RandomStringPassword.cryptsl. The file is the
+#     set's dataflow bridge over `String.valueOf(Object)` and `String.toCharArray()`,
+#     two JDK conversions no CrySL rule of the oracle orders. Its `ere : vo gb` is a
+#     claim about a conversion, not about an API's typestate, and there is nothing to
+#     compare it against.
+#
+#   IvChainJunction  api30 states no IvChainJunction.cryptsl. The file reads three of
+#     `Cipher.cryptsl`'s REQUIRES clauses over arguments CipherSpec cannot bind, and it
+#     is deliberately not a second statement of Cipher's ordering: its `ere` accepts
+#     every sequence of its own events, which is the whole claim it makes about order --
+#     none. Mapping it to Cipher.cryptsl would compare Cipher's ORDER against a free
+#     star over a subset of Cipher's calls, which diverges by construction and would
+#     report an ordering defect against a file that states no ordering.
 #
 # Columns: `rule_line` points at the event declaration in
 # MetaCrySL/generated/api30/<rule>, which is the read-only oracle -- a mapping that
@@ -119,3 +144,64 @@ CipherSpec,f3,f3,event,Cipher.cryptsl,97,mapped,
 CipherSpec,f5,f5,event,Cipher.cryptsl,101,mapped,
 CipherSpec,f6,f6,event,Cipher.cryptsl,103,mapped,
 CipherSpec,f7,f7,event,Cipher.cryptsl,105,mapped,
+CipherInputStreamSpec,c1,c2,event,CipherInputStream.cryptsl,21,mapped,"the pointcut is `call(public CipherInputStream.new(InputStream, Cipher))`, which is the rule's two-argument constructor and only that. The rule's `c1: CipherInputStream(is)` is the one-argument constructor, which android-30's `javax/crypto/CipherInputStream` declares `protected`; the pointcut asks for `public` and no application call site can reach the other one"
+CipherInputStreamSpec,r1,r1,event,CipherInputStream.cryptsl,25,mapped,"one event over `read()` and `read(byte[])`, which the rule names apart as r1 and r2"
+CipherInputStreamSpec,r1,r2,event,CipherInputStream.cryptsl,27,mapped,the second half of the same pointcut: `r2: read(b)`
+CipherInputStreamSpec,r2,r3,event,CipherInputStream.cryptsl,29,mapped,"`read(byte[], int, int)` is the rule's r3; the numbering is crossed against the `.mop`, whose r2 is the three-argument overload"
+CipherInputStreamSpec,cl1,c,event,CipherInputStream.cryptsl,33,mapped,
+CipherOutputStreamSpec,c1,c2,event,CipherOutputStream.cryptsl,23,mapped,"the pointcut is `call(public CipherOutputStream.new(OutputStream, Cipher))`. The rule's `c1: CipherOutputStream(os)` is the one-argument constructor, `protected` in android-30's `javax/crypto/CipherOutputStream`, and the pointcut asks for `public`"
+CipherOutputStreamSpec,w1,w1,event,CipherOutputStream.cryptsl,27,mapped,"`write(int)`; the rule's `w1: write(b)` is over the object declared `int b` (CipherOutputStream.cryptsl:15), which is the integer overload"
+CipherOutputStreamSpec,w1,w2,event,CipherOutputStream.cryptsl,29,mapped,"the second half of the same pointcut: `write(byte[])`, which the rule writes `w2: write(byte)` over the object declared `byte[] byte` (CipherOutputStream.cryptsl:9) -- the object's name is the type of the other one, and reading it as the integer overload would cross this row with w1"
+CipherOutputStreamSpec,w2,w3,event,CipherOutputStream.cryptsl,31,mapped,"`write(byte[], int, int)` is the rule's w3"
+CipherOutputStreamSpec,fl,,,CipherOutputStream.cryptsl,,order-unmapped,"`flush()`. The rule's EVENTS declare no flush event at all -- `Constructs`, `Writes := w1 | w2 | w3` and `c` are the whole alphabet -- so the call is outside the rule's alphabet and has no ORDER symbol. Same reading as PBEKeySpecSpec.f1. The erasure exposes a divergence rather than hiding one: the `ere` puts `fl` inside the mandatory `(w1 | w2 | fl)+`, so a stream that only flushes reaches `cl`"
+CipherOutputStreamSpec,cl,c,event,CipherOutputStream.cryptsl,35,mapped,
+DHGenParameterSpecSpec,c1,c1,event,DHGenParameterSpec.cryptsl,13,mapped,"the rule declares one event and the `.mop` one; the `condition(exponentSize < primeSize)` is a guard over the same call, not a second symbol"
+GCMParameterSpecSpec,c1,c1,event,GCMParameterSpec.cryptsl,17,mapped,
+GCMParameterSpecSpec,c2,c2,event,GCMParameterSpec.cryptsl,19,mapped,
+HMACParameterSpecSpec,c,c1,event,HMACParameterSpec.cryptsl,11,mapped,"`new HMACParameterSpec(int)`; the `.mop` names the event `c` and the rule `c1`, an association the names do not give"
+KeyGeneratorSpec,g1,g1,event,KeyGenerator.cryptsl,19,mapped,`getInstance(String)` on the accepted-algorithm branch
+KeyGeneratorSpec,g2,g2,event,KeyGenerator.cryptsl,21,mapped,"`getInstance(String, Object+)` covers both provider overloads, which is the rule's `getInstance(alg, _)`"
+KeyGeneratorSpec,g3,,,KeyGenerator.cryptsl,,order-unmapped,the rejected-algorithm twin over the same `getInstance(String)` call as g1; the rule states the algorithm in CONSTRAINTS (:45) and an ORDER has no symbol for a call it rejects on a constraint
+KeyGeneratorSpec,init,i1,event,KeyGenerator.cryptsl,25,mapped,`init(int)` is the rule's keySize branch; this one event is also the rule's i3
+KeyGeneratorSpec,init,i3,event,KeyGenerator.cryptsl,29,mapped,the second half of the same pointcut: `init(AlgorithmParameterSpec)` is the rule's params branch
+KeyGeneratorSpec,initRandom,i5,event,KeyGenerator.cryptsl,33,mapped,`init(SecureRandom)`; split off the merged init event so `randomized[ranGen]` has the argument bound
+KeyGeneratorSpec,initRandomSize,i2,event,KeyGenerator.cryptsl,27,mapped,"`init(int, SecureRandom)`"
+KeyGeneratorSpec,initRandomSpec,i4,event,KeyGenerator.cryptsl,31,mapped,"`init(AlgorithmParameterSpec, SecureRandom)`"
+KeyGeneratorSpec,gk1,gk,event,KeyGenerator.cryptsl,37,mapped,`generateKey()`
+KeyManagerFactorySpec,g1,g1,event,KeyManagerFactory.cryptsl,19,mapped,
+KeyManagerFactorySpec,g2,g2,event,KeyManagerFactory.cryptsl,21,mapped,
+KeyManagerFactorySpec,g3,,,KeyManagerFactory.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; the rule states `algo in {PKIX}` in CONSTRAINTS, and an ORDER has no symbol for a call it rejects on a constraint. Same reading as KeyPairGeneratorSpec.g3 and CipherSpec.g3"
+KeyManagerFactorySpec,init,Init,aggregate,KeyManagerFactory.cryptsl,29,mapped,"one event over `init(KeyStore, char[])` and `init(ManagerFactoryParameters)`, which is the rule's `Init := i1 | i2` whole; the same shape as TrustManagerFactorySpec.init"
+KeyManagerFactorySpec,gkm1,gkm,event,KeyManagerFactory.cryptsl,31,mapped,`kms = getKeyManagers()`; the `.mop` numbers it gkm1 and the rule gkm
+KeyPairSpec,c1,co,event,KeyPair.cryptsl,17,mapped,"`new KeyPair(PublicKey, PrivateKey)` is the rule's `co: KeyPair(consPub, consPriv)`; the two REQUIRES the body reads are CONSTRAINTS-side clauses and cost no symbol"
+KeyPairSpec,gpu,pu,event,KeyPair.cryptsl,19,mapped,
+KeyPairSpec,gpr,pr,event,KeyPair.cryptsl,21,mapped,
+KeyStoreSpec,g1,g1,event,KeyStore.cryptsl,45,mapped,`getInstance(String)` on the accepted-type branch; the rule's g1 is the one-argument overload
+KeyStoreSpec,g2,,,KeyStore.cryptsl,,order-unmapped,"the rejected-type twin over the same `getInstance(String)` call as g1 -- the pointcut is the same one-argument overload under the negated `ConscryptAliasTable.matches` guard, so this is NOT the rule's g2, which is `getInstance(keyStoreAlg, _)`. The type is a CONSTRAINTS clause (`keyStoreAlg in {..}`, :89) and an ORDER has no symbol for a call it rejects on a constraint"
+KeyStoreSpec,load,Loads,aggregate,KeyStore.cryptsl,55,mapped,"one `load(..)` event over both `load(InputStream, char[])` and `load(LoadStoreParameter)`, which is the aggregate whole"
+KeyStoreSpec,store,Stores,aggregate,KeyStore.cryptsl,61,mapped,"one `store(..)` event over both `store(LoadStoreParameter)` and `store(OutputStream, char[])`, which is the aggregate whole"
+KeyStoreSpec,ge1,gE,event,KeyStore.cryptsl,63,mapped,"`getEntry(String, ProtectionParameter)`"
+KeyStoreSpec,se1,sE,event,KeyStore.cryptsl,65,mapped,"`setEntry(String, Entry, ProtectionParameter)`"
+KeyStoreSpec,gk1,gk,event,KeyStore.cryptsl,75,mapped,"`getKey(String, char[])`; the `.mop` binds the returned Key, which is what the rule's `key = getKey(..)` binds"
+MacSpec,g1,g1,event,Mac.cryptsl,33,mapped,"`getInstance(String)`. The rule declares g1 and g2 over the same signature `getInstance(macAlg)`, and so does the source it is generated from (MetaCrySL samples/jca/base/Mac.cryptsl:17-18, whose OBJECTS carry no provider), so the two declarations cannot be told apart by their text. The association is by declaration order against the API's two String-taking overloads -- a judgement, which is why this row carries a reason"
+MacSpec,g2,g2,event,Mac.cryptsl,35,mapped,"`getInstance(String, String)`, the provider overload; see the g1 row for why the rule's two declarations read alike. `getInstance(String, Provider)` exists on android-30 and neither side declares it"
+MacSpec,g3,,,Mac.cryptsl,,order-unmapped,the unsafe-algorithm accuser over the same `getInstance(String)` call as g1; `macAlg in {..}` is a CONSTRAINTS clause (Mac.cryptsl:71) and an ORDER has no symbol for a call it rejects on a constraint. Same reading as CipherSpec.g3 and KeyPairGeneratorSpec.g3. The erasure is also what makes the `ere`'s `g3* g1 | g3* g2` prefix read as the rule's `Gets`
+MacSpec,i1,i1,event,Mac.cryptsl,39,mapped,`init(Key)`
+MacSpec,i2,i2,event,Mac.cryptsl,41,mapped,"`init(Key, AlgorithmParameterSpec)`"
+MacSpec,update,u1,event,Mac.cryptsl,45,mapped,`update(byte)`; the rule's `u1: update(inp)` is over the primitive `byte inp` (Mac.cryptsl:9). The `.mop` keeps the name `update` for this one overload after the aggregate split
+MacSpec,updateBytes,u2,event,Mac.cryptsl,47,mapped,"`update(byte[])`. The rule declares that signature twice, as u2 and u4, and its source does too (samples/jca/base/Mac.cryptsl:26,28), so this one event stands for both symbols and no other event can claim u4"
+MacSpec,updateBytes,u4,event,Mac.cryptsl,51,mapped,the rule's second declaration of `update(pre_input)`; see the u2 row
+MacSpec,updateRange,u3,event,Mac.cryptsl,49,mapped,"`update(byte[], int, int)`"
+MacSpec,updateBuffer,,,Mac.cryptsl,,order-unmapped,"`update(ByteBuffer)` is an overload android-30 declares and api30 does not: `Updates` names four events and none of them is this one. The event stands so the aggregate split does not narrow what the automaton observes, and a call outside the rule's alphabet has no ORDER symbol"
+MacSpec,f1,f1,event,Mac.cryptsl,55,mapped,"`doFinal()` returning `byte[]`, the rule's `f1: output1 = doFinal()`"
+MacSpec,f1Input,f2,event,Mac.cryptsl,57,mapped,"`doFinal(byte[])` is the rule's f2; the numbering is crossed against the `.mop`, whose f2 is the rule's f3"
+MacSpec,f2,f3,event,Mac.cryptsl,59,mapped,"`doFinal(byte[], int)` is the rule's `f3: doFinal(output1, outOffset)`, the overload that writes the tag into a buffer the caller owns"
+MessageDigestSpec,g1,g1,event,MessageDigest.cryptsl,29,mapped,`getInstance(String)` on the accepted-algorithm branch
+MessageDigestSpec,g2,g2,event,MessageDigest.cryptsl,31,mapped,"`getInstance(String, String)`; the rule's g2 is `getInstance(digestAlg, _)`, one symbol over both provider overloads"
+MessageDigestSpec,g3,g2,event,MessageDigest.cryptsl,31,mapped,"`getInstance(String, Provider)`, the other half of the rule's `_`; two `.mop` events stand for the one symbol"
+MessageDigestSpec,g4,,,MessageDigest.cryptsl,,order-unmapped,"the rejected-algorithm accuser over the same `getInstance(String)` call as g1; it carries MESSAGEDIGEST-ALG-02 in its own body, so deleting it would lose a report, and the rule states the algorithm in CONSTRAINTS (:63), not in ORDER"
+MessageDigestSpec,update,Updates,aggregate,MessageDigest.cryptsl,43,mapped,"one `update(..)` event over all four overloads the rule names apart, which is the aggregate whole"
+MessageDigestSpec,d1,d1,event,MessageDigest.cryptsl,45,mapped,`digest()`
+MessageDigestSpec,d2,d2,event,MessageDigest.cryptsl,47,mapped,"`digest(byte[])`, the rule's DWOU"
+MessageDigestSpec,d3,d3,event,MessageDigest.cryptsl,49,mapped,"`digest(byte[], int, int)`"
+SecretKeySpec,e1,ge,event,SecretKey.cryptsl,15,mapped,"this specification translates `SecretKey.cryptsl`, not `SecretKeySpec.cryptsl` -- its object is `javax.crypto.SecretKey` and its one event is `getEncoded()`, the rule's `ge`. The sibling `SecretKeySpecSpec` is the one mapped to `SecretKeySpec.cryptsl`"

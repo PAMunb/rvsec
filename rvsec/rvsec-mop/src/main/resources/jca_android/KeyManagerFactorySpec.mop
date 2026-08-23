@@ -130,26 +130,16 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
        initialisedFactory = k;
     }
 
-    // `generatedKeyManager[kms]` (KeyManagerFactory.cryptsl:53), and the one write of this
-    // file that INV-INS-134 does not place at the acceptance point. The reason is recorded
-    // in predicate_graph.csv and it is the automaton, not the clause: the rule orders
-    // `Gets, Init, gkm?`, so a program that takes its key managers is still accepting, but
-    // the `fsm` sends `gkm1 -> start`. Read off the generated monitor, the transition row
-    // is {3, 3, 0, 3} and the match category is `nextstate == 2`, so this event leaves the
-    // accepting state and an acceptance-point write would never run at all -- measured,
-    // `validate(GENERATED_KEY_MANAGERS, kms)` answers NOT_OBSERVED under that placement
-    // and SATISFIED under this one. That is the predicate ledger #14's neighbour #28, the
-    // one `SSLContext.init` reads at task 5.9, so the write has to happen.
+    // `generatedKeyManager[kms]` (KeyManagerFactory.cryptsl:53), the predicate ledger #14's
+    // neighbour #28 and the one `SSLContext.init` reads at task 5.9.
     //
-    // The divergence itself is the mirror of the one G-ORDER already reports against
-    // `TrustManagerFactorySpec` (`g1 i1 gtm`), and G-ORDER cannot see this one because
-    // `KeyManagerFactorySpec` has no rows in order_alphabet_map.csv and is skipped
-    // declaredly. Task 7.1 maps every specification Groups 1-6 touched, this one included,
-    // and the gate will raise it there; the write moves to the acceptance point with the
-    // repair.
-    //
-    // The cost of the placement, stated in full: after a `gkm` the automaton refuses and
-    // the rule accepts, this body marks an array the automaton did not accept.
+    // The write is at the acceptance point, in the sense the monitor has one: `gkm1` carries
+    // the transition row {4, 4, 4, 2, 4} and lands on state 2, which is `@match2`, read off
+    // the generated monitor, so this body runs on the transition that accepts. What keeps it
+    // out of the `@match2` handler is the array and nothing else -- a handler sees no
+    // parameter of the event it follows, and `kms` is the parameter, where
+    // `initialisedFactory` is a field `@match1` can reach. The record is in
+    // predicate_graph.csv.
     event gkm1 after(KeyManagerFactory k) returning(KeyManager[] keyManager):
       call(public KeyManager[] KeyManagerFactory.getKeyManagers())
       && target(k) {
@@ -171,12 +161,13 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         init -> final
       ]
       final [
-        g1   -> waitingInit
-        g2   -> waitingInit
-        gkm1 -> start
+        gkm1 -> taken
+      ]
+      taken [
       ]
 
     alias match1 = final
+    alias match2 = taken
 
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC,
@@ -187,8 +178,8 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     }
 
     // The acceptance point of `generatedKeyManager[this] after Init`, where the two routes
-    // INV-INS-134 admits are the same handler: `init` has the transition row {3, 2, 3, 3}
-    // and the match category is `nextstate == 2`, so the state the Init leads to and the
+    // INV-INS-134 admits are the same handler: `init` has the transition row {4, 3, 4, 4, 4}
+    // and the match category is `nextstate == 3`, so the state the Init leads to and the
     // accepting state are one state, and `init` is the only event that reaches it.
     //
     // No rule of api30 requires this half of the clause -- `SSLContext` asks for
@@ -199,5 +190,15 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
            PredicateStore.instance().ensure(Property.GENERATED_KEY_MANAGERS, initialisedFactory);
            initialisedFactory = null;
        }
+    }
+
+    // The second accepting state, which is what makes the rule's `gkm?` optional and terminal
+    // at once: api30 accepts a factory whose key managers were taken, and the `?` refuses a
+    // second taking, so `taken` accepts and declares no event of its own. An alias is how this
+    // file says a state accepts -- it is also what G-ORDER reads to decide equivalence -- and
+    // the handler is empty because there is nothing left to write: the clause's write over the
+    // factory is `@match1`'s, and the one over the array is in the `gkm1` body, which is the
+    // only place the array is visible.
+    @match2 {
     }
 }

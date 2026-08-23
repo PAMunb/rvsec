@@ -1,0 +1,16 @@
+# The probe of task 7.1's `gkm1 -> final` repair: a conforming program that reads its key
+# managers twice. The api30 ORDER is `Gets, Init, gkm?`, which accepts it -- `gkm` is
+# terminal and optional, not exclusive -- while the `fsm` sent `gkm1 -> start`, so the
+# second call had no transition and the program was accused of a sequence violation.
+#
+# The key store is really loaded, as in KeyManagerFactorySpec-loaded-keystore.txt, so that
+# `generatedKeyStore[keyStore]` stays quiet and the ordering accusation is the only thing
+# this trace can report. Nothing else in the corpus takes the managers twice, which is why
+# the repair moves this file and no other.
+KeyStore.getInstance("PKCS12") -> ks
+bind ready = ks.load(null)
+ks.load(null)
+KeyManagerFactory.getInstance("PKIX") -> kmf
+kmf.init(ks, chars)
+kmf.getKeyManagers()
+kmf.getKeyManagers()

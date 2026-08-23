@@ -150,14 +150,14 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // runs, and every read would have answered NOT_OBSERVED for a reason that had nothing to do
     // with the wiring.
     //
-    // What the repair makes live, stated in full rather than discovered later. The write now
+    // What the repair makes live, stated in full rather than discovered later. The write
     // happens, so a `SSLContext.init` that receives this array reads SATISFIED. And a second
-    // `getTrustManagers()` on one factory now draws TRUSTMANAGERFACTORY-ORDER-00, because the
-    // transition below leaves the accepting state for `start`, where the event is not declared.
-    // That accusation is faithful: api30 orders `Gets, Init, gtm?` and the `?` refuses the
-    // repetition too. It is also symmetric -- `KeyManagerFactorySpec.gkm1` declares the right
-    // return type, has always been live, and has always behaved this way -- so the repair
-    // restores two mirror specifications to being mirrors (researcher decision, 2026-08-22).
+    // `getTrustManagers()` on one factory draws TRUSTMANAGERFACTORY-ORDER-00, because the
+    // transition below leads to a state where the event is not declared. That accusation is
+    // faithful: api30 orders `Gets, Init, gtm?` and the `?` refuses the repetition too. It is
+    // also symmetric -- `KeyManagerFactorySpec.gkm1` declares the right return type, has always
+    // been live, and has always behaved this way -- so the repair restores two mirror
+    // specifications to being mirrors (researcher decision, 2026-08-22).
     //
     // Measured on Temurin 21 before the write was relied on: `getTrustManagers()` raises
     // `IllegalStateException` before an `init`, so this event can only fire after one; and it
@@ -166,13 +166,11 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // `SSLContext.init` reaches the read with nothing written, which is a reach limit and is
     // reported as one.
     //
-    // Recorded, not repaired: the placement. The clause carries no `after L`, so INV-INS-134
-    // sends it to the accepting state, but the transition row for `gtm1` is {3, 0, 3, 3}
-    // against a match category of `nextstate == 1` -- the event leaves the accepting state for
-    // `start`, so an acceptance-point write would never run. That is the `g1 i1 gtm` divergence
-    // G-ORDER already reports: the rule accepts the word the automaton refuses to end on. Task
-    // 7.1 owns the automaton, and the write moves to the acceptance point with it. The reason
-    // is in predicate_graph.csv.
+    // The placement. The clause carries no `after L`, so INV-INS-134 sends it to the accepting
+    // state, and that is where it runs: the transition row for `gtm1` is {4, 2, 4, 4, 4}, which
+    // lands on state 2 -- `@match2` -- so this body executes on the transition that accepts.
+    // What keeps it out of the `@match2` handler is the array -- a handler sees no parameter of
+    // the event it follows -- and the reason is in predicate_graph.csv.
     event gtm1 after(TrustManagerFactory mf) returning(TrustManager[] trustManager):
       call(public TrustManager[] TrustManagerFactory.getTrustManagers())
       && target(mf) {
@@ -188,12 +186,13 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
         init -> final
       ]
       final [
-        g1   -> waitingInit
-        g2   -> waitingInit
-        gtm1 -> start
+        gtm1 -> taken
+      ]
+      taken [
       ]
 
     alias match1 = final
+    alias match2 = taken
 
     @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC,
@@ -205,7 +204,7 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
 
     // The acceptance point of `generatedTrustManager[this] after Init`, where the two
     // routes INV-INS-134 admits are the same handler: `init` has the transition row
-    // {3, 3, 1, 3} and the match category is `nextstate == 1`, so the state the Init leads
+    // {4, 4, 4, 1, 4} and the match category is `nextstate == 1`, so the state the Init leads
     // to and the accepting state are one state, and `init` is the only event reaching it.
     //
     // No rule of api30 requires this half of the clause -- `SSLContext` asks for
@@ -216,6 +215,15 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
            PredicateStore.instance().ensure(Property.GENERATED_TRUST_MANAGER, initialisedFactory);
            initialisedFactory = null;
        }
+    }
+
+    // The second accepting state, the mirror of `KeyManagerFactorySpec.taken`: api30 orders
+    // `Gets, Init, gtm?`, so a factory whose trust managers were taken accepts and a second
+    // taking is refused. An alias is how this file says a state accepts, and G-ORDER reads it
+    // to decide equivalence. The handler is empty because there is nothing left to write --
+    // the write over the factory is `@match1`'s and the one over the array is in the `gtm1`
+    // body, the only place the array is visible.
+    @match2 {
     }
     
 }

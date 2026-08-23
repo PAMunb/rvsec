@@ -93,7 +93,9 @@ Groups 3 to 6 reaches it. Repairing it means fusing it into `g1` and deleting `u
 changes what the set accuses rather than where it accuses from. **Decision: record it here and
 leave it**, the same disposition the `g2` guards of `TrustManagerFactorySpec`, `SignatureSpec`
 and `SSLContextSpec` received. It deserves a task of its own whenever someone decides to move
-it, and G-ORDER already reports `CipherSpec` as divergent (on a different witness, `f2` alone).
+it, and G-ORDER already reports `CipherSpec` as divergent (on a different witness: `g1 i1 u1`,
+a Cipher left unfinalised, which task 7.1 corrected from the `f2` this file first cited — that
+one was an artifact of the gate's own precedence, not of the specification).
 
 ## Finding: three corpus traces named a program that does not compile
 

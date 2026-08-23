@@ -134,23 +134,23 @@ def read_rule(path: Path) -> Rule:
 
 
 def tokenize(text: str) -> list[str]:
-    """Split an expression into identifiers and operators, dropping `,`.
+    """Split an expression into identifiers and operators, comma included.
 
     Sequence is written `a, b` in an `ORDER` and by juxtaposition in an `ere`, and
-    the two mean the same thing, so one parser reads both once the comma is gone.
+    the two mean the same thing but do not bind the same way: `CrySL.xtext:103-120`
+    makes `Sequence` the outermost production, so the comma is weaker than `|`,
+    while juxtaposition in an `ere` is tighter than `|` as in any regular
+    expression. One parser still reads both notations -- it keeps the two
+    spellings apart instead of erasing the comma into juxtaposition, which is what
+    made `a, b | c` parse as `(a b) | c` instead of `a, (b | c)`.
 
     Args:
         text: An `ORDER` clause, an `ere`, or one mapping row's `order_symbol`.
 
     Returns:
-        The tokens in source order: identifiers and the operators `( ) | * + ?`.
+        The tokens in source order: identifiers and the operators `( ) | * + ? ,`.
     """
-    tokens: list[str] = []
-    for match in re.finditer(r"[A-Za-z_$][\w$]*|[()|*+?,]", text):
-        token = match.group(0)
-        if token != ",":
-            tokens.append(token)
-    return tokens
+    return [match.group(0) for match in re.finditer(r"[A-Za-z_$][\w$]*|[()|*+?,]", text)]
 
 
 class ParseError(Exception):
@@ -160,8 +160,12 @@ class ParseError(Exception):
 def parse_expression(text: str) -> tuple:
     """Parse a regular expression into a syntax tree.
 
-    The grammar is `alt := cat ('|' cat)*`, `cat := postfix+`,
-    `postfix := atom [*+?]*` -- every form an `ORDER` and an `ere` share.
+    The grammar is `seq := alt (',' alt)*`, `alt := cat ('|' cat)*`,
+    `cat := postfix+`, `postfix := atom [*+?]*` -- every form an `ORDER` and an
+    `ere` share, with each notation's own sequence operator at its own strength:
+    the `ORDER`'s comma weakest, per `CrySL.xtext:103-120`, and the `ere`'s
+    juxtaposition tightest. An `ere` never carries a comma and an `ORDER` never
+    juxtaposes, so neither notation is read under the other's precedence.
 
     Args:
         text: The expression, in either notation.
@@ -181,6 +185,14 @@ def parse_expression(text: str) -> tuple:
     def peek() -> str | None:
         return tokens[position] if position < len(tokens) else None
 
+    def parse_seq() -> tuple:
+        nonlocal position
+        items = [parse_alt()]
+        while peek() == ",":
+            position += 1
+            items.append(parse_alt())
+        return items[0] if len(items) == 1 else ("cat", tuple(items))
+
     def parse_alt() -> tuple:
         branches = [parse_cat()]
         while peek() == "|":
@@ -192,7 +204,7 @@ def parse_expression(text: str) -> tuple:
     def parse_cat() -> tuple:
         nonlocal position
         items: list[tuple] = []
-        while peek() is not None and peek() not in ("|", ")"):
+        while peek() is not None and peek() not in ("|", ")", ","):
             items.append(parse_postfix())
         if not items:
             return ("eps",)
@@ -213,17 +225,17 @@ def parse_expression(text: str) -> tuple:
             raise ParseError("the expression ends where a symbol was expected")
         if token == "(":
             position += 1
-            node = parse_alt()
+            node = parse_seq()
             if peek() != ")":
                 raise ParseError("an unclosed `(` in the expression")
             position += 1
             return node
-        if token in ("|", "*", "+", "?", ")"):
+        if token in ("|", "*", "+", "?", ")", ","):
             raise ParseError(f"`{token}` where a symbol was expected")
         position += 1
         return ("eps",) if token in _ERE_EMPTY else ("sym", token)
 
-    node = parse_alt()
+    node = parse_seq()
     if position != len(tokens):
         raise ParseError(f"`{tokens[position]}` left over at the end of the expression")
     return node

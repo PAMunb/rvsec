@@ -25,8 +25,8 @@ Every skipped file carries its reason:
 
 | gate | findings |
 |---|---|
-| G-ORDER | 4 |
-| **failing total** | **4** |
+| G-ORDER | 9 |
+| **failing total** | **9** |
 
 Informative (reported in sets these gates do not govern): 21. Allow-listed (permanent, with reasons): 0.
 
@@ -63,9 +63,14 @@ expectation. `--write` carries these forward and never re-baselines them.
 
 ## G-ORDER
 
-6 specifications equivalent to their api30 rule, 4 divergent, 205 skipped of 215 enumerated. Each divergence carries the shortest word the two languages disagree on:
+13 specifications equivalent to their api30 rule, 9 divergent, 193 skipped of 215 enumerated. Each divergence carries the shortest word the two languages disagree on:
 
-- `jca_android/CipherSpec` — `f2` is accepted by the api30 ORDER and rejected by the specification
+- `jca_android/CipherInputStreamSpec` — `c1 r1 c` is accepted by the api30 ORDER and rejected by the specification
+- `jca_android/CipherOutputStreamSpec` — `c2 c` is accepted by the specification and rejected by the api30 ORDER
+- `jca_android/CipherSpec` — `g1 i1 u1` is accepted by the specification and rejected by the api30 ORDER
+- `jca_android/KeyGeneratorSpec` — `g1 g1 gk` is accepted by the specification and rejected by the api30 ORDER
+- `jca_android/KeyPairSpec` — `the empty sequence` is accepted by the api30 ORDER and rejected by the specification
+- `jca_android/KeyStoreSpec` — `g2 l1` is accepted by the api30 ORDER and rejected by the specification
 - `jca_android/SSLContextSpec` — `g1 Init se1 se1` is accepted by the specification and rejected by the api30 ORDER
+- `jca_android/SecretKeySpec` — `d` is accepted by the api30 ORDER and rejected by the specification
 - `jca_android/SecureRandomSpec` — `c1 c1` is accepted by the specification and rejected by the api30 ORDER
-- `jca_android/TrustManagerFactorySpec` — `g1 i1 gtm` is accepted by the api30 ORDER and rejected by the specification

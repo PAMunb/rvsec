@@ -1,0 +1,14 @@
+# The twin of the KeyManagerFactory probe, over the same defect written twice: `gtm1 ->
+# start` left the accepting state, so a program that reads its trust managers twice was
+# accused where the api30 ORDER (`Gets, Init, gtm?`) accepts it.
+#
+# The key store is really loaded, as in TrustManagerFactorySpec-loaded-keystore.txt, so
+# `generatedKeyStore[keyStore]` stays quiet and TRUSTMANAGERFACTORY-ORDER-00 is the only
+# report this trace can carry.
+KeyStore.getInstance("PKCS12") -> ks
+bind ready = ks.load(null)
+ks.load(null)
+TrustManagerFactory.getInstance("PKIX") -> tmf
+tmf.init(ks)
+tmf.getTrustManagers()
+tmf.getTrustManagers()

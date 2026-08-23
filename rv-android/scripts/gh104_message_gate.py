@@ -15,6 +15,15 @@ that reads perfectly well:
                             code that names no site is a dead identifier in the
                             corpus; a site with no code cannot be counted.
 
+  code-anchor               the `file_line` column of each `codes.csv` row against
+                            the line the code is actually emitted from. The anchor
+                            is what a reader follows from a report back to the
+                            site that made it, and nothing else in the tree checks
+                            it: two passes of this change found it drifted -- six
+                            rows in one, five in the next -- and both times only
+                            because someone re-anchored the whole file by script.
+                            An anchor no gate checks is an anchor that drifts.
+
   wrong-error-type          the `ErrorType` of a site against the CrySL clause
                             family behind its event. A `FORBIDDEN` clause is not
                             a sequencing failure, so a site that reports
@@ -356,6 +365,19 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
                                 "file": path.name,
                                 "line": site["line"],
                                 "detail": f"`{code}` is emitted by more than one report site",
+                            }
+                        )
+                    anchor = (codes.get(code) or {}).get("file_line", "").strip()
+                    here = f"{path.name}:{site['line']}"
+                    if code in codes and anchor != here:
+                        findings.append(
+                            {
+                                "kind": "code-anchor",
+                                "spec": mop.spec,
+                                "file": path.name,
+                                "line": site["line"],
+                                "detail": f"`{code}` is emitted here and codes.csv anchors it at "
+                                f"`{anchor or 'nothing'}`",
                             }
                         )
                     site_codes.add(code)

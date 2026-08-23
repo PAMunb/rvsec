@@ -8,15 +8,40 @@
     "structural_findings": 0,
     "informative": 21,
     "allow_listed": 0,
-    "order_passed": 6,
-    "order_failed": 4,
-    "order_skipped": 205
+    "order_passed": 13,
+    "order_failed": 9,
+    "order_skipped": 193
   },
   "gates": {
     "G-ORDER": [
       [
         "jca_android",
+        "CipherInputStreamSpec.mop",
+        "order"
+      ],
+      [
+        "jca_android",
+        "CipherOutputStreamSpec.mop",
+        "order"
+      ],
+      [
+        "jca_android",
         "CipherSpec.mop",
+        "order"
+      ],
+      [
+        "jca_android",
+        "KeyGeneratorSpec.mop",
+        "order"
+      ],
+      [
+        "jca_android",
+        "KeyPairSpec.mop",
+        "order"
+      ],
+      [
+        "jca_android",
+        "KeyStoreSpec.mop",
         "order"
       ],
       [
@@ -26,12 +51,12 @@
       ],
       [
         "jca_android",
-        "SecureRandomSpec.mop",
+        "SecretKeySpec.mop",
         "order"
       ],
       [
         "jca_android",
-        "TrustManagerFactorySpec.mop",
+        "SecureRandomSpec.mop",
         "order"
       ]
     ]

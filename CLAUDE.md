@@ -9,8 +9,8 @@ Aggregator / build orchestration for pre-processing (monitor generation) and run
 ## Reactor build order
 ```
 rv-monitor  →  javamop  →  mop-maven-plugin  →  rvsec
-                                                  (rvsec-mop, rvsec-mop-extractor, rvsec-mop-defsuses,
-                                                   rvsec-core, rvsec-logger-csv, rvsec-agent, rvsec-android)
+                                                  (rvsec-mop, rvsec-mop-extractor, rvsec-core,
+                                                   rvsec-logger-csv, rvsec-agent, rvsec-android)
 ```
 `rv-android` is commented out of `<modules>` — it is a sibling Python/Android project, not part of this Java reactor. See `rv-android/modules/*/CLAUDE.md` for its docs.
 

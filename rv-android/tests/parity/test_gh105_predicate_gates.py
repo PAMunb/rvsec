@@ -809,6 +809,13 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       **22** distinct `Property` values, one more than the 21 the change opened with,
       because task 5.10 renamed a write rather than adding one.
 
+      Batch B8 (tasks 7.1, 7.2 and 7.3) moves none of them either. It edits two `.mop`, but
+      what it edits there is the `fsm` and the handlers around two existing writes, and a
+      census of predicate operations cannot see a transition table: `write` stays 31,
+      `read`+`read-absent` stays 38, `condition` stays 0, `negate` stays 1, and the 22 distinct
+      `Property` values stay 22. The `@match2` handler each of the two files gains writes
+      nothing, which is what makes it invisible here and is stated in the file itself.
+
       Batch B7 (tasks 6.3, 6.6 and 6.7) moves none of the five either, and for a reason
       worth telling apart from B6's: this batch *does* edit a `.mop`, and what it edits is
       not a predicate operation. Task 6.6 narrows the `CipherSpec.f2` pointcut from
@@ -1183,6 +1190,17 @@ def test_the_graph_reproduces_the_measured_placement_census():
       pointcut has nothing here to move, and task 6.3 edits no site at all. The claim was
       checked the way finding 81 asks: the graph was copied, re-emitted from the edited set
       and diffed back, and the two files are identical.
+
+      Batch B8 (tasks 7.1, 7.2 and 7.3) edits two `.mop` and still moves nothing here, which
+      is the point of recording it. `gkm1` and `gtm1` keep their `write:body`, so `write:body`
+      stays 5 and `write:acceptance` stays 26: what task 7.1 repaired is the automaton around
+      those two writes, not their placement. The transition now lands on an accepting state --
+      `@match2`, the second alias each file gains -- so the body write runs where the clause
+      asks, and the two rows record that in their `reason` where they used to record the
+      opposite. What keeps the write out of the handler is unchanged and is not a placement
+      decision at all: a handler sees no parameter of the event it follows, and the predicate
+      is over the array the event returns. The graph keeps its 70 rows, and the round trip was
+      re-checked the way finding 81 asks.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1892,17 +1910,45 @@ def _order_run():
     return gh105_order_gate.run(_specs_root(), "jca_android", _rules_root(), ORDER_MAP)
 
 
-def test_the_order_grammar_is_read_with_alternation_weakest():
-    """`a, b | c` is `(a, b) | c`, and the Cipher rule depends on it.
+def test_the_order_grammar_is_read_with_sequence_weakest():
+    """`a, b | c` is `a, (b | c)`, and the Cipher rule depends on it.
 
-    Its ORDER is `Gets, Inits+, w+ | (FINWOU | (updates+, DOFINALS))+`: read with
-    the wrong precedence the whole right-hand side would sit inside the sequence,
-    and the gate would report a divergence that is an artifact of its own parser.
+    `CrySL.xtext:103-120` makes `Sequence` the outermost production and
+    `Alternative` the tighter one, which is the opposite of the regular-expression
+    convention the `ere` follows. Cipher is the one rule of the api30 oracle that
+    tells the two apart: its ORDER is
+    `Gets, Inits+, w+ | (FINWOU | (updates+, DOFINALS))+`, and read as a regular
+    expression the right-hand branch stands alone, so a program could finalise
+    having never called `getInstance` -- while `g1 i2 f2`, the canonical use, would
+    be rejected. The gate read it that way until task 7.1, and reported a
+    divergence that was an artifact of its own parser.
     """
     parsed = gh105_order_gate.parse_expression("a, b | c")
-    assert parsed[0] == "alt"
-    assert parsed[1][0] == ("cat", (("sym", "a"), ("sym", "b")))
-    assert parsed[1][1] == ("sym", "c")
+    assert parsed == ("cat", (("sym", "a"), ("alt", (("sym", "b"), ("sym", "c")))))
+    # The `ere` spells sequence by juxtaposition, where the precedence is the other
+    # way round -- one parser, two notations, neither read under the other's rules.
+    assert gh105_order_gate.parse_expression("a b | c") == (
+        "alt", (("cat", (("sym", "a"), ("sym", "b"))), ("sym", "c"))
+    )
+
+
+def test_the_canonical_cipher_use_is_accepted_by_the_api30_order():
+    """`g1 i2 f2` -- getInstance, init, doFinal -- is what the rule is for.
+
+    It is the regression the precedence repair exists to catch: under the old
+    parse the Cipher ORDER rejected it, because `Gets` and `Inits+` sat in a
+    branch the finalising path did not have to pass through.
+    """
+    rule = gh105_order_gate.read_rule(_rules_root() / "Cipher.cryptsl")
+    order = gh105_order_gate.expand_aggregates(
+        gh105_order_gate.parse_expression(rule.order), rule.aggregates
+    )
+    alphabet = tuple(sorted(gh105_order_gate.symbols_of(order)))
+    automaton = gh105_order_gate.determinize(
+        gh105_order_gate.nfa_of_expression(order), alphabet
+    )
+    assert gh105_order_gate.accepts(automaton, ("g1", "i2", "f2"))
+    assert not gh105_order_gate.accepts(automaton, ("f2",))
 
 
 def test_an_aggregate_is_expanded_through_every_level_it_names():
@@ -1989,16 +2035,22 @@ def test_an_absorbed_accuser_is_erased_from_both_languages():
 def test_a_specification_without_a_mapping_is_skipped_and_never_inferred(tmp_path):
     """A missing association is a skip with a reason, not a guess.
 
-    Two ways to have none: a specification with no rows at all (13 of the set
-    today, owed to task 7.1), and a specification whose rows stop short of an
-    event its automaton names. The second is the dangerous one -- there is enough
-    of a mapping to produce a verdict, and the verdict would be about an alphabet
-    nobody finished writing down.
+    Two ways to have none: a specification with no rows at all, and a specification
+    whose rows stop short of an event its automaton names. The second is the
+    dangerous one -- there is enough of a mapping to produce a verdict, and the
+    verdict would be about an alphabet nobody finished writing down.
+
+    Task 7.1 took the first kind from 13 specifications to 2, which is the whole of
+    the census this test used to sample from: it mapped the twelve that translate an
+    api30 rule, and what is left are the two that translate none -- RandomStringPassword,
+    a bridge over two JDK string conversions, and IvChainJunction, a junction file whose
+    `ere` states no ordering at all. Neither can ever gain a row, so the sample here is
+    the set's permanent one rather than a backlog.
     """
     result = _order_run()
     skipped = dict(result.skipped)
-    assert "jca_android/MacSpec" in skipped
-    assert "no rows in the alphabet mapping" in skipped["jca_android/MacSpec"]
+    assert set(skipped) == {"jca_android/RandomStringPassword", "jca_android/IvChainJunction"}
+    assert "no rows in the alphabet mapping" in skipped["jca_android/IvChainJunction"]
 
     partial = tmp_path / "order_alphabet_map.csv"
     partial.write_text(
@@ -2034,7 +2086,13 @@ def test_inv_ins_138_gorder(suite):
     """G-ORDER under CI: no ordering divergence the baseline does not carry.
 
     The gate is written before the repairs that make it green (D-13), so what is
-    asserted is that the four measured divergences do not become five. It also
+    asserted is that the measured divergences do not gain one. There are nine as of
+    task 7.1, which is where the number came from: mapping the twelve unmapped
+    specifications raised seven divergences that the skips had been hiding, and
+    repairing the KeyManagerFactory and TrustManagerFactory automata closed two --
+    4 + 7 - 2. Six of the seven are laxities of the specification against its rule and
+    one, CipherInputStreamSpec, is the rule ordering a constructor android-30 declares
+    `protected`. It also
     asserts the shape of the run itself: every specification is decided or skipped
     with a reason, and the counts add up to the files that exist (INV-INS-140).
     """

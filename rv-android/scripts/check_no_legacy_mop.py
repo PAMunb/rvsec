@@ -44,8 +44,7 @@ Allowlist (case-sensitive paths)
     openspec/                                          (SDD artifacts describe the rename history)
     docs/                                              (planning + retrospective notes)
     .planning/                                         (GSD scratchpad)
-    rvsec-mop/, rvsec-mop-extractor/, rvsec-mop-defsuses/
-                                                       (upstream modules — out of gh60 scope)
+    rvsec-mop/, rvsec-mop-extractor/                   (upstream modules — out of gh60 scope)
     rvsec-android/rvsec-gator/client/src/main/java/presto/android/gui/clients/target/MopSpecsTargetSource.java
     rvsec-android/rvsec-gator/client/src/test/java/presto/android/gui/clients/BytecodeScanMatchTest.java
     rvsec-android/rvsec-gator/client/src/test/java/presto/android/gui/clients/MopSignatureLoaderTest.java
@@ -125,7 +124,6 @@ ALLOWLIST_DIR_SUBSTRINGS = (
     "/rv-agent/",                      # deprecated module, per CLAUDE.md + memory
     "/rvsec-mop/",
     "/rvsec-mop-extractor/",
-    "/rvsec-mop-defsuses/",
     "/openspec/",
     "/docs/",
     "/.planning/",

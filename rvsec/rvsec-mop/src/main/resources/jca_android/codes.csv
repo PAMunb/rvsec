@@ -47,7 +47,7 @@ KeyGeneratorSpec,KEYGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,
 KeyManagerFactorySpec,KEYMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,KeyManagerFactorySpec.mop:116
 KeyManagerFactorySpec,KEYMANAGERFACTORY-CONSTR-00,UnsatisfiedConstraint,CONSTR,init,KeyManagerFactorySpec.mop:122
 KeyManagerFactorySpec,KEYMANAGERFACTORY-NOBS-00,UnsatisfiedConstraint,NOBS,init,KeyManagerFactorySpec.mop:126
-KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:182
+KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:173
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-KEYSIZE-00,InvalidKeySize,KEYSIZE,initError,KeyPairGeneratorSpec.mop:132
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairGeneratorSpec.mop:159
 KeyPairSpec,KEYPAIR-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:64
@@ -110,4 +110,4 @@ SignatureSpec,SIGNATURE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,Signat
 TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,TrustManagerFactorySpec.mop:120
 TrustManagerFactorySpec,TRUSTMANAGERFACTORY-CONSTR-00,UnsatisfiedConstraint,CONSTR,init,TrustManagerFactorySpec.mop:126
 TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,UnsatisfiedConstraint,NOBS,init,TrustManagerFactorySpec.mop:130
-TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:199
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:198
