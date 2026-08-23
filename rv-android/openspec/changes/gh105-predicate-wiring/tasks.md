@@ -1223,7 +1223,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       which also surfaced that ten committed `f2-*.md` reports carried 17 envelope lines the tree
       does not produce; they are regenerated here.
       Evidence: `data/gh105/evidence/f5-HarnessDifferential.md`
-- [ ] 8.5 Device smoke test (one mini run, before the joint experiment; via
+- [x] 8.5 Device smoke test (one mini run, before the joint experiment; via
       `rv-experiment`/`rv-platform` only — the platform manages the entire emulator lifecycle,
       never a manually managed emulator): a sample APK instrumented with the wired set — (a) R4
       probe: record whether `OpenSSLRSAPublicKey`/`BCRSAPublicKey` `equals` is value- or
@@ -1232,7 +1232,24 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `CipherSpec` co-fire on the same `Cipher.init` joinpoint is observed and its report counts
       committed — the junction's own spec name opens a new unique-misuse bucket at the same
       `(class, method)` (design Risks; the Phase-0 pilot's third untested item). The blocking
-      condition was already answered at 4.3; this run measures what only a wired chain can show
+      condition was already answered at 4.3; this run measures what only a wired chain can show.
+      Four passes over `cryptoapp.apk` through the dexlib2 host path (monkey 120 s, ape 300 s,
+      monkey 2×300 s, droidbot dfs_greedy 300 s), 126 advices woven, 0 plans skipped, **12
+      violations, seven of them predicate reads on the new store** (`*-NOBS-*`), every one
+      carrying the `v=1` envelope. (a) is answered more strongly than the probe would have:
+      `AndroidKeyStorePublicKey.equals` **is** value-based, and `PredicateStore` never consults
+      `equals` on the bound object — `BoundKey` hashes with `System.identityHashCode` and
+      compares with `==` — so the R4 answer cannot change a verdict. (b) and (c) are proved
+      structurally in the woven bytecode: 4 `invoke-static IvChainJunctionSpec_useEvent(I,
+      AlgorithmParameterSpec, Cipher)` in application classes with the parameter list intact (the
+      D-10 collapse does not occur on the host path), each immediately followed by
+      `CipherSpec_i2Event` before the same `Cipher.init` call. The dynamic firing was not reached:
+      the junction sits on the CBC/IV branch of `encryptWithSecretKey`, the method ran (pass 1
+      covered it and `CipherSpec` accused there) but through its two-argument branch, and no tool
+      flipped the app's mode radio group. Recorded as a reach limit of random exploration over
+      this APK, not as a result.
+      Evidence: `data/gh105/evidence/f5-DeviceSmokeTest.md`, logcats under
+      `data/gh105/evidence/smoke/`
 - [ ] 8.6 Run `/rv-qa-lint-fix` over everything the change touched since 7.5 (the rv-sdd
       schema's final sequence: lint-fix → verify → code-reviewer), then `/rv-verify` (tests +
       lint + types) and `uv run pytest tests/parity --import-mode=importlib -o "addopts="`

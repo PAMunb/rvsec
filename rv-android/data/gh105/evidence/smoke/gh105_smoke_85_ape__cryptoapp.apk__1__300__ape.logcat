@@ -1,0 +1,146 @@
+--------- beginning of main
+--------- beginning of system
+08-23 10:04:35.125   495   926 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:04:35.125   495   926 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@b3e823c
+08-23 10:04:35.677   495   515 W ActivityManager: setHasOverlayUi called on unknown pid: 927
+--------- beginning of kernel
+08-23 10:04:35.975   495   926 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:04:35.978   495  1478 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@59de159
+08-23 10:04:37.540   495   843 W ActivityManager: Unable to start service Intent { act=com.android.vending.contentfilters.IContentFiltersService.BIND pkg=com.android.vending } U=0: not found
+08-23 10:04:37.655   495  1998 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:04:37.658   495  1998 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@fb180a6
+08-23 10:04:37.686   495  2002 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:37.689   495  1511 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:38.817  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void <init>()>
+08-23 10:04:38.839  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>
+08-23 10:04:39.390   495   987 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:39.427  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+08-23 10:04:39.432  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: void <init>(br.unb.cic.cryptoapp.MainActivity)>
+08-23 10:04:39.436   495   987 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:39.457   495   987 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:39.519   495   898 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:39.521   495   987 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:39.522   495   987 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:39.692   495   926 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:41.132  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>
+08-23 10:04:41.132  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreen(java.lang.Class)>
+08-23 10:04:41.262  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void <init>()>
+08-23 10:04:41.270  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void onCreate(android.os.Bundle)>
+08-23 10:04:41.380  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void initializeViews()>
+08-23 10:04:41.380  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupTabLayout()>
+08-23 10:04:41.388  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void <init>(br.unb.cic.cryptoapp.generated.CryptographyActivity)>
+08-23 10:04:41.388  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupInputFields()>
+08-23 10:04:41.388  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void updateUIForTab()>
+08-23 10:04:41.389  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupSecretKeyUI()>
+08-23 10:04:41.389  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupAlgorithmSpinner(java.lang.String[])>
+08-23 10:04:41.389  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupModeRadioGroup()>
+08-23 10:04:41.389  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupExecuteButton()>
+08-23 10:04:41.389  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void <init>(br.unb.cic.cryptoapp.generated.CryptographyActivity)>
+08-23 10:04:42.455   495   510 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:42.462   495   926 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:42.473   495   926 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:42.474   495   510 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:43.003   495   988 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2497 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:04:44.164   495  2832 W ActivityManager: Unable to start service Intent { act=com.google.android.c2dm.intent.REGISTRATION pkg=com.google.android.apps.maps } U=0: not found
+08-23 10:04:59.918  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabUnselected(com.google.android.material.tabs.TabLayout$Tab)>
+08-23 10:04:59.918  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabSelected(com.google.android.material.tabs.TabLayout$Tab)>
+08-23 10:04:59.919  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: java.lang.String access$002(br.unb.cic.cryptoapp.generated.CryptographyActivity,java.lang.String)>
+08-23 10:04:59.919  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void access$100(br.unb.cic.cryptoapp.generated.CryptographyActivity)>
+08-23 10:04:59.922  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupKeyPairUI()>
+08-23 10:05:01.297  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>
+08-23 10:05:01.297  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void lambda$setupExecuteButton$0$CryptographyActivity(android.view.View)>
+08-23 10:05:01.297  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: boolean validateInputs()>
+08-23 10:05:10.727   495  2000 W ActivityManager: Scheduling restart of crashed service com.google.android.projection.gearhead/com.google.android.apps.auto.carservice.service.impl.GearheadCarStartupService in 1000ms for connection
+08-23 10:05:10.748   495  2001 W ActivityManager: Failure disconnecting service com.google.android.projection.gearhead/com.google.android.gearhead.service.SharedService to connection android.os.BinderProxy@b6c7905 (in com.google.android.projection.gearhead:shared)
+08-23 10:05:10.748   495  2001 W ActivityManager: android.os.DeadObjectException
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at android.os.BinderProxy.transactNative(Native Method)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at android.os.BinderProxy.transact(BinderProxy.java:540)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at android.app.IServiceConnection$Stub$Proxy.connected(IServiceConnection.java:129)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at com.android.server.am.ActiveServices.bringDownServiceLocked(ActiveServices.java:3289)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at com.android.server.am.ActiveServices.bringDownServiceIfNeededLocked(ActiveServices.java:3270)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at com.android.server.am.ActiveServices.removeConnectionLocked(ActiveServices.java:3566)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at com.android.server.am.ActiveServices.killServicesLocked(ActiveServices.java:3947)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at com.android.server.am.ActivityManagerService.cleanUpApplicationRecordLocked(ActivityManagerService.java:14771)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at com.android.server.am.ActivityManagerService.handleAppDiedLocked(ActivityManagerService.java:3772)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at com.android.server.am.ActivityManagerService.appDiedLocked(ActivityManagerService.java:3926)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at com.android.server.am.ActivityManagerService$AppDeathRecipient.binderDied(ActivityManagerService.java:1601)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at android.os.IBinder$DeathRecipient.binderDied(IBinder.java:305)
+08-23 10:05:10.748   495  2001 W ActivityManager: 	at android.os.BinderProxy.sendDeathNotice(BinderProxy.java:654)
+08-23 10:05:25.019  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupHashUI()>
+08-23 10:05:25.317  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupHmacUI()>
+08-23 10:05:35.885   495   522 W ActivityManager: Slow operation: 214ms so far, now at startProcess: returned from zygote!
+08-23 10:05:35.885   495   522 W ActivityManager: Slow operation: 214ms so far, now at startProcess: done updating battery stats
+08-23 10:05:35.885   495   522 W ActivityManager: Slow operation: 214ms so far, now at startProcess: building log message
+08-23 10:05:35.885   495   522 W ActivityManager: Slow operation: 214ms so far, now at startProcess: starting to update pids map
+08-23 10:05:35.885   495   522 W ActivityManager: Slow operation: 214ms so far, now at startProcess: done updating pids map
+08-23 10:05:41.164   495   495 W ActivityManager: type=1400 audit(0.0:30): avc: denied { getpgid } for scontext=u:r:system_server:s0 tcontext=u:r:app_zygote:s0:c512,c768 tclass=process permissive=0
+08-23 10:05:46.533  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeOperation()>
+08-23 10:05:46.533  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeHmacOperation()>
+08-23 10:05:46.556  4443  4443 V RVSEC   : SecretKeySpecSpec,br.unb.cic.cryptoapp.generated.CryptographyActivity,CryptographyActivity,executeHmacOperation,CryptographyActivity.java:604,UnsatisfiedConstraint,v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='' exp='prepared key material' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to have been prepared by a Key.getEncoded()'
+08-23 10:06:17.962   495   565 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.drive.ApiService.RESET_AFTER_BOOT flg=0x4 cmp=com.google.android.gms/.drive.api.ApiService (has extras) } U=0: not found
+08-23 10:06:47.633  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeSecretKeyOperation()>
+08-23 10:06:47.633  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void generateSecretKey(java.lang.String)>
+08-23 10:06:47.634  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void generateIV()>
+08-23 10:06:58.914  4443  4443 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeHashOperation()>
+08-23 10:08:01.712   495   510 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:08:01.719   495   515 W ActivityManager: setHasOverlayUi called on unknown pid: 4443
+08-23 10:08:02.830  5586  5586 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void <init>()>
+08-23 10:08:02.838  5586  5586 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>
+08-23 10:08:03.372  5586  5586 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+08-23 10:08:03.374  5586  5586 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: void <init>(br.unb.cic.cryptoapp.MainActivity)>
+08-23 10:08:06.278  5586  5586 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: boolean onMenuItemClick(android.view.MenuItem)>
+--------- beginning of crash
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: FATAL EXCEPTION: main
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: Process: br.unb.cic.cryptoapp, PID: 5586
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.String android.content.Context.getPackageName()' on a null object reference
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.content.ComponentName.<init>(ComponentName.java:131)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.content.Intent.<init>(Intent.java:6858)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuItemImpl.invoke(MenuItemImpl.java:154)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuBuilder.performItemAction(MenuBuilder.java:985)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuPopup.onItemClick(MenuPopup.java:128)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.widget.AdapterView.performItemClick(AdapterView.java:330)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.widget.AbsListView.performItemClick(AbsListView.java:1187)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.widget.AbsListView$PerformClick.run(AbsListView.java:3179)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.widget.AbsListView$3.run(AbsListView.java:4097)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.os.Handler.handleCallback(Handler.java:938)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Handler.java:99)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:223)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:7656)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:592)
+08-23 10:08:06.280  5586  5586 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:947)
+08-23 10:08:06.286   495  5004 W ActivityManager: Force-killing crashed app br.unb.cic.cryptoapp at watcher's request
+08-23 10:08:06.350   495   515 W ActivityManager: setHasOverlayUi called on unknown pid: 5586
+08-23 10:08:06.355   495  1999 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:08:06.708  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void <init>()>
+08-23 10:08:06.720  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>
+08-23 10:08:07.268  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+08-23 10:08:07.270  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: void <init>(br.unb.cic.cryptoapp.MainActivity)>
+08-23 10:08:08.884  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>
+08-23 10:08:08.884  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreen(java.lang.Class)>
+08-23 10:08:09.004  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherActivity: void <init>()>
+08-23 10:08:09.007  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherActivity: void onCreate(android.os.Bundle)>
+08-23 10:08:09.038  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherActivity$1: void <init>(br.unb.cic.cryptoapp.cipher.CipherActivity)>
+08-23 10:08:10.265  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherActivity$1: void onClick(android.view.View)>
+08-23 10:08:10.265  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherActivity: void access$000(br.unb.cic.cryptoapp.cipher.CipherActivity)>
+08-23 10:08:10.265  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherActivity: void encrypt()>
+08-23 10:08:10.266  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherUtil: void <init>()>
+08-23 10:08:10.266  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherUtil: java.lang.String encrypt(java.lang.String)>
+08-23 10:08:10.266  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] des(java.lang.String)>
+08-23 10:08:10.286  5629  5629 V RVSEC   : KeyGeneratorSpec,br.unb.cic.cryptoapp.cipher.CipherUtil,CipherUtil,des,CipherUtil.java:51,UnsafeAlgorithm,v=1 code=KEYGENERATOR-ALG-00 ev=gk1 obj=KeyGenerator val='DES' exp='ChaCha20,ARC4,HmacSHA224,DESede,HmacSHA256,HmacMD5,HmacSHA1,HmacSHA512,AES,BLOWFISH,HmacSHA384' msg='expecting one of ChaCha20,ARC4,HmacSHA224,DESede,HmacSHA256,HmacMD5,HmacSHA1,HmacSHA512,AES,BLOWFISH,HmacSHA384 but found DES'
+08-23 10:08:10.287  5629  5629 V RVSEC   : KeyGeneratorSpec,br.unb.cic.cryptoapp.cipher.CipherUtil,CipherUtil,des,CipherUtil.java:51,InvalidSequenceOfMethodCalls,v=1 code=KEYGENERATOR-ORDER-00 ev=gk1 obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'
+08-23 10:08:10.289  5629  5629 V RVSEC   : CipherSpec,br.unb.cic.cryptoapp.cipher.CipherUtil,CipherUtil,des,CipherUtil.java:54,UnsatisfiedConstraint,v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'
+08-23 10:08:10.290  5629  5629 V RVSEC   : CipherSpec,br.unb.cic.cryptoapp.cipher.CipherUtil,CipherUtil,des,CipherUtil.java:54,UnsafeAlgorithm,v=1 code=CIPHER-ALG-01 ev=i2 obj=Cipher val='DES' exp='a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl)' msg='expecting a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl) but found DES'
+08-23 10:08:10.290  5629  5629 V RVSEC   : CipherSpec,br.unb.cic.cryptoapp.cipher.CipherUtil,CipherUtil,des,CipherUtil.java:54,InvalidSequenceOfMethodCalls,v=1 code=CIPHER-ORDER-00 ev=i2 obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'
+08-23 10:08:10.293  5629  5629 V RVSEC   : CipherSpec,br.unb.cic.cryptoapp.cipher.CipherUtil,CipherUtil,des,CipherUtil.java:56,InvalidSequenceOfMethodCalls,v=1 code=CIPHER-ORDER-00 ev=f2 obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'
+08-23 10:08:10.293  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.util.Utils: java.lang.String bytesToHex(byte[])>
+08-23 10:08:43.350  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.cipher.CipherUtil: byte[] aes(java.lang.String)>
+08-23 10:08:43.352  5629  5629 V RVSEC   : SecretKeySpecSpec,br.unb.cic.cryptoapp.cipher.CipherUtil,CipherUtil,aes,CipherUtil.java:40,UnsatisfiedConstraint,v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='' exp='prepared key material' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to have been prepared by a Key.getEncoded()'
+08-23 10:08:43.354  5629  5629 V RVSEC   : CipherSpec,br.unb.cic.cryptoapp.cipher.CipherUtil,CipherUtil,aes,CipherUtil.java:43,UnsatisfiedConstraint,v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'
+08-23 10:09:03.197  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>
+08-23 10:09:03.218  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void <init>()>
+08-23 10:09:03.221  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void onCreate(android.os.Bundle)>
+08-23 10:09:04.364  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void generateHash(android.view.View)>
+08-23 10:09:04.364  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateAlgorithm(java.lang.String)>
+08-23 10:09:04.367  5629  5629 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateInput(java.lang.String)>

@@ -1,0 +1,31 @@
+{
+  "variant" : "dexlib2",
+  "results" : [ {
+    "apkName" : "cryptoapp.apk",
+    "success" : true,
+    "message" : "instrumented + signed → results/gh105_smoke_85/instrumented_apks/cryptoapp.apk",
+    "phase" : "signed",
+    "weaveCounts" : {
+      "advices" : 126,
+      "dexFiles" : 6,
+      "maxInputApi" : 23,
+      "wrappersGenerated" : 88,
+      "advicesExcludedByArity" : 10,
+      "classesSeen" : 3822,
+      "methodsSeen" : 30028,
+      "matchesApplied" : 36,
+      "plansSkipped" : 0,
+      "plansSkippedAliasing" : 3,
+      "wrappersSubstituted" : 74,
+      "wrappersAliasedToSubtype" : 0,
+      "constructorInlineApplied" : 11,
+      "constructorInlineSkippedAliasing" : 0,
+      "plansSkippedHighRegister" : 0,
+      "plansSkippedUnresolvedBinding" : 0,
+      "coverageInstrumented" : 118,
+      "coverageSpillFailed" : 0,
+      "wovenDexes" : 6,
+      "monitorDexes" : 1
+    }
+  } ]
+}

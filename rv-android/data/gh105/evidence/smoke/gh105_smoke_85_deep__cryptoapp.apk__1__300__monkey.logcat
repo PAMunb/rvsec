@@ -1,0 +1,322 @@
+--------- beginning of main
+--------- beginning of system
+--------- beginning of kernel
+08-23 10:12:51.022   489  2066 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:12:51.024   489  2066 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@c1fd52c
+08-23 10:12:51.297   489   509 W ActivityManager: setHasOverlayUi called on unknown pid: 919
+08-23 10:12:51.705   489   955 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:12:51.707   489   955 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@7c9fb50
+08-23 10:12:53.115   489  2097 W ActivityManager: Unable to start service Intent { act=com.android.vending.contentfilters.IContentFiltersService.BIND pkg=com.android.vending } U=0: not found
+08-23 10:12:53.627   489  2095 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:12:53.632   489  2076 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@c736143
+08-23 10:12:53.884   489   908 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:53.888   489  2095 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:54.498   489   516 W ActivityManager: Slow operation: 82ms so far, now at startProcess: returned from zygote!
+08-23 10:12:54.499   489   516 W ActivityManager: Slow operation: 83ms so far, now at startProcess: done updating battery stats
+08-23 10:12:54.499   489   516 W ActivityManager: Slow operation: 83ms so far, now at startProcess: building log message
+08-23 10:12:54.499   489   516 W ActivityManager: Slow operation: 83ms so far, now at startProcess: starting to update pids map
+08-23 10:12:54.499   489   516 W ActivityManager: Slow operation: 84ms so far, now at startProcess: done updating pids map
+08-23 10:12:54.640  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void <init>()>
+08-23 10:12:54.657  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>
+08-23 10:12:54.840   489  1471 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:54.994   489  2078 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:55.007   489  2034 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:55.328  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+08-23 10:12:55.330  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: void <init>(br.unb.cic.cryptoapp.MainActivity)>
+08-23 10:12:55.580   489  2066 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:55.593   489  2066 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:55.596   489  1965 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:55.611  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>
+08-23 10:12:55.611  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreen(java.lang.Class)>
+08-23 10:12:55.664  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void <init>()>
+08-23 10:12:55.666  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void onCreate(android.os.Bundle)>
+08-23 10:12:56.746   489  2077 W ActivityManager: Unable to start service Intent { act=com.google.android.c2dm.intent.REGISTRATION pkg=com.google.android.apps.maps } U=0: not found
+08-23 10:12:57.775  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void generateHash(android.view.View)>
+08-23 10:12:57.776  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateAlgorithm(java.lang.String)>
+08-23 10:12:57.776  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateInput(java.lang.String)>
+08-23 10:12:58.283   489  2097 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:58.288   489  2067 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:58.289   489  2067 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:12:58.468   489  2066 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:12:58.469   489  2097 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@5581192
+08-23 10:12:59.157   489  2076 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2516 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:13:00.421  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void clearErrors()>
+08-23 10:13:00.422  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: void <init>()>
+08-23 10:13:00.422  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(java.lang.String,java.lang.String)>
+08-23 10:13:00.422  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(byte[],java.lang.String)>
+08-23 10:13:00.440  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.util.Utils: java.lang.String bytesToHex(byte[])>
+08-23 10:13:01.925   489  2077 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:13:01.925   489  2077 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@3907efc
+08-23 10:13:03.314   489  2072 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:13:03.315   489   955 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@86ef56
+08-23 10:13:05.616   489  2014 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:13:05.624   489   977 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@15c3140
+08-23 10:13:09.640   489   955 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:09.953   489   971 W ActivityManager: Slow operation: 178ms so far, now at getContentProviderImpl: after updateLruProcess
+08-23 10:13:09.953   489   971 W ActivityManager: Slow operation: 178ms so far, now at getContentProviderImpl: before updateOomAdj
+08-23 10:13:09.955   489   971 W ActivityManager: Slow operation: 179ms so far, now at getContentProviderImpl: after updateOomAdj
+08-23 10:13:09.955   489   971 W ActivityManager: Slow operation: 180ms so far, now at getContentProviderImpl: done!
+08-23 10:13:11.721   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:11.748   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:12.232   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:14.730   489   955 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:16.938   489   539 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:17.079   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:18.820   489   928 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:18.942   489   575 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:18.976   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:19.097   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:19.138   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:26.346   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:26.361   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:26.533   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:26.939   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:26.966   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:27.150   489   977 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:27.958   489  2034 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:28.054   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:28.322   489   979 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:28.497   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:31.513   489  2079 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:33.414   489   928 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:33.563   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:37.447   489  2096 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:37.947   489   539 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:38.432   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:38.432   489  2014 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:38.561   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:40.486  4660  4660 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void showErrorDialog(java.lang.String)>
+08-23 10:13:44.091   489  2066 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:44.374   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:44.407   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:45.714   489  1997 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:47.093   489   516 W ActivityManager: Slow operation: 81ms so far, now at startProcess: returned from zygote!
+08-23 10:13:47.094   489   516 W ActivityManager: Slow operation: 81ms so far, now at startProcess: done updating battery stats
+08-23 10:13:47.094   489   516 W ActivityManager: Slow operation: 81ms so far, now at startProcess: building log message
+08-23 10:13:47.094   489   516 W ActivityManager: Slow operation: 81ms so far, now at startProcess: starting to update pids map
+08-23 10:13:47.094   489   516 W ActivityManager: Slow operation: 81ms so far, now at startProcess: done updating pids map
+08-23 10:13:47.614   489  2072 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:47.782   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:48.255   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:48.276   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:48.617   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:49.377   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:49.379   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:49.629   489   977 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:49.999   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:50.865   489  1460 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:50.960   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:50.963   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:51.245   489  2096 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:51.541   489  2095 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:51.627   489   516 W ActivityManager: Slow operation: 127ms so far, now at startProcess: returned from zygote!
+08-23 10:13:51.627   489   516 W ActivityManager: Slow operation: 128ms so far, now at startProcess: done updating battery stats
+08-23 10:13:51.627   489   516 W ActivityManager: Slow operation: 128ms so far, now at startProcess: building log message
+08-23 10:13:51.627   489   516 W ActivityManager: Slow operation: 128ms so far, now at startProcess: starting to update pids map
+08-23 10:13:51.627   489   516 W ActivityManager: Slow operation: 128ms so far, now at startProcess: done updating pids map
+08-23 10:13:51.996   489  2055 W ActivityManager: Scheduling restart of crashed service com.google.android.projection.gearhead/com.google.android.apps.auto.carservice.service.impl.GearheadCarStartupService in 1000ms for connection
+08-23 10:13:54.934   489  2065 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:55.053   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:55.053   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:55.053   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:13:55.181   489  1965 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:55.237   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:55.270   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:55.814   489  2076 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:55.904   489   503 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:55.927   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:56.996   489   489 W ActivityManager: type=1400 audit(0.0:35): avc: denied { getpgid } for scontext=u:r:system_server:s0 tcontext=u:r:app_zygote:s0:c512,c768 tclass=process permissive=0
+08-23 10:13:56.996   489   489 W ActivityManager: type=1400 audit(0.0:36): avc: denied { getpgid } for scontext=u:r:system_server:s0 tcontext=u:r:app_zygote:s0:c512,c768 tclass=process permissive=0
+08-23 10:13:57.000   489   489 W ActivityManager: type=1400 audit(0.0:38): avc: denied { getpgid } for scontext=u:r:system_server:s0 tcontext=u:r:app_zygote:s0:c512,c768 tclass=process permissive=0
+08-23 10:13:58.595   489  1965 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:13:58.605   489  2055 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:00.574   489  2096 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:02.863   489  2034 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:02.976   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:03.032   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:03.209   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:03.722   489   503 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:03.860   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:07.466   489   503 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:07.690   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:07.710   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:07.722   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:07.730   489   489 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:07.922   489  2078 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:14:14.356   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:14:14.369   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:14:14.532   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:14:15.419   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:14:15.447   489   489 W ActivityManager: Unable to start service Intent { act=android.service.contentsuggestions.ContentSuggestionsService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiContentSuggestionsService } U=0: not found
+08-23 10:14:16.055   489  6892 E ActivityManager: ANR in com.android.systemui
+08-23 10:14:16.055   489  6892 E ActivityManager: PID: 648
+08-23 10:14:16.055   489  6892 E ActivityManager: Reason: Input dispatching timed out (c870633 NotificationShade (server) is not responding. Waited 5000ms for MotionEvent(deviceId=-1, source=0x00010004, displayId=0, action=MOVE, actionButton=0x00000000, flags=0x00000000, metaState=0x00000000, buttonState=0x00000000, classification=NONE, edgeFlags=0x00000000, xPrecision=1.0, yPrecision=1.0, xCursorPosition=nan, yCursorPosition=nan, pointers=[0: (2.0, 0.0)]), policyFlags=0x6b000000)
+08-23 10:14:16.055   489  6892 E ActivityManager: Load: 6.71 / 2.57 / 0.94
+08-23 10:14:16.055   489  6892 E ActivityManager: ----- Output from /proc/pressure/memory -----
+08-23 10:14:16.055   489  6892 E ActivityManager: some avg10=0.34 avg60=1.42 avg300=0.71 total=3014538
+08-23 10:14:16.055   489  6892 E ActivityManager: full avg10=0.00 avg60=0.05 avg300=0.02 total=349855
+08-23 10:14:16.055   489  6892 E ActivityManager: ----- End output from /proc/pressure/memory -----
+08-23 10:14:16.055   489  6892 E ActivityManager: 
+08-23 10:14:16.055   489  6892 E ActivityManager: CPU usage from 87791ms to 0ms ago (2026-08-23 10:12:46.276 to 2026-08-23 10:14:14.066):
+08-23 10:14:16.055   489  6892 E ActivityManager:   40% 489/system_server: 25% user + 15% kernel / faults: 214368 minor 2502 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   30% 1337/com.google.android.inputmethod.latin: 19% user + 10% kernel / faults: 169054 minor 1223 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   19% 1557/com.google.android.googlequicksearchbox:search: 12% user + 6.4% kernel / faults: 190881 minor 3737 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   16% 1143/com.google.android.gms.persistent: 12% user + 4.2% kernel / faults: 175481 minor 891 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   12% 306/android.hardware.graphics.composer@2.3-service: 0.5% user + 11% kernel / faults: 27 minor 283 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   11% 648/com.android.systemui: 5.3% user + 6.3% kernel / faults: 25081 minor 1644 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   10% 344/surfaceflinger: 4% user + 6.6% kernel / faults: 1944 minor 363 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   9.6% 1022/com.google.android.apps.nexuslauncher: 2.9% user + 6.6% kernel / faults: 53374 minor 569 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   3.6% 95/kswapd0: 0% user + 3.6% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   3.6% 165/logd: 1.4% user + 2.2% kernel / faults: 1238 minor 134 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   2.7% 359/logcat: 0.7% user + 1.9% kernel / faults: 10 minor
+08-23 10:14:16.055   489  6892 E ActivityManager:   1.8% 1408/com.google.android.providers.media.module: 1.2% user + 0.5% kernel / faults: 23129 minor 111 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   1.4% 305/android.hardware.graphics.allocator@3.0-service: 0% user + 1.3% kernel / faults: 12 minor 142 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   1.3% 200/jbd2/dm-5-8: 0% user + 1.3% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   1.2% 1640/com.google.process.gservices: 0.7% user + 0.5% kernel / faults: 7726 minor 18 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   1.1% 1510/com.google.android.apps.photos: 0.8% user + 0.3% kernel / faults: 15896 minor 896 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   1% 375/audioserver: 0.5% user + 0.5% kernel / faults: 4902 minor 231 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.7% 282/statsd: 0.3% user + 0.4% kernel / faults: 256 minor 20 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.6% 409/traced_probes: 0.4% user + 0.1% kernel / faults: 841 minor 126 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.6% 194/kworker/u9:2-fscrypt_read_queue: 0% user + 0.6% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.6% 881/com.android.phone: 0.4% user + 0.2% kernel / faults: 7841 minor 434 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.6% 85/kworker/u9:0-blk_crypto_wq: 0% user + 0.6% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.5% 290/android.hardware.audio.service.ranchu: 0.1% user + 0.4% kernel / faults: 511 minor 100 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.5% 193/kworker/u9:1-blk_crypto_wq: 0% user + 0.5% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.5% 130/kworker/u8:2-kverityd: 0% user + 0.5% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.5% 132/kworker/u8:4-kverityd: 0% user + 0.5% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.5% 1912/com.google.process.gapps: 0.2% user + 0.3% kernel / faults: 2446 minor 14 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.4% 166/lmkd: 0% user + 0.3% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.4% 7/kworker/u8:0+kverityd: 0% user + 0.4% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.4% 131/kworker/u8:3-kverityd: 0% user + 0.4% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.4% 167/servicemanager: 0.2% user + 0.1% kernel / faults: 8 minor 24 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.4% 295/android.hardware.bluetooth@1.1-service.sim: 0.2% user + 0.1% kernel / faults: 16 minor 36 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.4% 418/iorapd: 0.1% user + 0.2% kernel / faults: 32340 minor 117 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.2% 26/ksoftirqd/3: 0% user + 0.2% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.2% 287/zygote64: 0% user + 0.2% kernel / faults: 7678 minor 2 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.2% 196/kworker/u9:4-fscrypt_read_queue: 0% user + 0.2% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.2% 410/traced: 0% user + 0.1% kernel / faults: 21221 minor 27 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.2% 325/android.hardware.sensors@2.1-service.multihal: 0% user + 0.1% kernel / faults: 16 minor 34 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.2% 10/rcu_preempt: 0% user + 0.2% kernel
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.1% 286/netd: 0% user + 0.1% kernel / faults: 610 minor 89 major
+08-23 10:14:16.055   489  6892 E ActivityManager:   0.1% 436/media.swcodec: 0% user + 0.1% kernel / faults: 134 minor 382 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 34/kcompactd0: 0% user + 0.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 99/kworker/u8:1-kverityd: 0% user + 0.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 111/kworker/3:2-rcu_gp: 0% user + 0.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 337/android.hardware.vibrator-service.example: 0% user + 0% kernel / faults: 736 minor 74 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 828/com.android.networkstack.process: 0% user + 0% kernel / faults: 1171 minor 209 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 164/kworker/1:3-kdmflush: 0% user + 0.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 16/ksoftirqd/1: 0% user + 0.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 120/kworker/0:2-events: 0% user + 0.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 9/ksoftirqd/0: 0% user + 0.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 21/ksoftirqd/2: 0% user + 0.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 117/kworker/1:1H-kblockd: 0% user + 0.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 204/android.system.suspend@1.0-service: 0% user + 0% kernel / faults: 11 minor 46 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0.1% 947/com.google.android.ext.services: 0% user + 0% kernel / faults: 2666 minor 342 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 397/dhcpclient: 0% user + 0% kernel / faults: 1 minor 1 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 245/loop19: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 288/zygote: 0% user + 0% kernel / faults: 1160 minor 8 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 419/keystore: 0% user + 0% kernel / faults: 185 minor 27 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 421/media.extractor: 0% user + 0% kernel / faults: 71 minor 155 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 423/media.metrics: 0% user + 0% kernel / faults: 436 minor 122 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 426/mediaserver: 0% user + 0% kernel / faults: 122 minor 184 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 1/init: 0% user + 0% kernel / faults: 79 minor 24 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 113/kworker/2:2-mm_percpu_wq: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 411/cameraserver: 0% user + 0% kernel / faults: 5 minor 22 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 115/kworker/3:1H-kblockd: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 118/kworker/2:1H-kblockd: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 172/hwservicemanager: 0% user + 0% kernel / faults: 7 minor 9 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 293/ip6tables-restore: 0% user + 0% kernel / faults: 28 minor 1 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 626/wpa_supplicant: 0% user + 0% kernel / faults: 22 minor 55 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 772/android.hardware.gnss@2.0-service.ranchu: 0% user + 0% kernel / faults: 9 minor 53 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 784/webview_zygote: 0% user + 0% kernel / faults: 211 minor 167 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 1424/com.google.android.googlequicksearchbox:interactor: 0% user + 0% kernel / faults: 296 minor 29 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 12/kworker/0:1-cgroup_pidlist_destroy: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 15/migration/1: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 91/kworker/2:1-cgroup_pidlist_destroy: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 116/kworker/0:1H-kblockd: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 173/psimon: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 227/loop10: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 259/loop26: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 312/android.hardware.health@2.1-service: 0% user + 0% kernel / faults: 21 minor 69 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 328/android.hardware.wifi@1.0-service: 0% user + 0% kernel / faults: 26 minor 6 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 339/media.log: 0% user + 0% kernel / faults: 46 minor 29 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 408/mdnsd: 0% user + 0% kernel / faults: 15 minor 7 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 417/installd: 0% user + 0% kernel / faults: 315 minor 26 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 433/wificond: 0% user + 0% kernel / faults: 32 minor 6 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 435/libgoldfish-rild: 0% user + 0% kernel / faults: 45 minor 73 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 1569/com.android.ims.rcsservice: 0% user + 0% kernel / faults: 277 minor 23 major
+08-23 10:14:16.056   489  6892 E ActivityManager:   0% 1618/com.android.emulator.multidisplay: 0% user + 0% kernel / faults: 461 minor 9 major
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 2361/android.process.media: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 2567/kworker/u8:5-kverityd: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 2623/com.google.android.gms: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 2755/com.google.android.ims: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 3160/com.google.android.gms.unstable: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 3524/com.android.chrome: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 3634/com.google.android.calendar: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 3975/adbd: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 4079/com.google.android.permissioncontroller: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 4115/com.google.android.projection.gearhead:shared: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 4318/abb: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 4508/logcat: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 4510/com.android.commands.monkey: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 4581/com.android.dialer: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 4660/br.unb.cic.cryptoapp: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 4945/com.google.android.apps.docs: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 5021/com.google.android.apps.restore: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 5148/com.google.android.cellbroadcastreceiver: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 5237/com.google.android.configupdater: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 5340/com.android.systemui:screenshot: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 5527/com.google.android.webview:sandboxed_process0:org.chromium.content.app.SandboxedProcessService0:0: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 5709/com.android.providers.calendar: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 6146/com.google.android.apps.youtube.music: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 6427/com.google.android.apps.wallpaper: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 6496/com.google.android.projection.gearhead:car: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:  +0% 6687/android.process.acore: 0% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager: 68% TOTAL: 36% user + 31% kernel + 0.5% iowait + 0.6% softirq
+08-23 10:14:16.056   489  6892 E ActivityManager: CPU usage from 13ms to 275ms later (2026-08-23 10:14:14.080 to 2026-08-23 10:14:14.341):
+08-23 10:14:16.056   489  6892 E ActivityManager:   55% 489/system_server: 33% user + 21% kernel / faults: 425 minor
+08-23 10:14:16.056   489  6892 E ActivityManager:     16% 6892/AnrConsumer: 4.2% user + 12% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     8.4% 507/android.ui: 4.2% user + 4.2% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     8.4% 561/InputDispatcher: 4.2% user + 4.2% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     8.4% 2095/Binder:489_1E: 8.4% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.2% 489/Binder:489_3: 0% user + 4.2% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.2% 510/android.anim: 4.2% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.2% 520/OomAdjuster: 4.2% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.2% 2055/Binder:489_15: 4.2% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.2% 2078/Binder:489_1C: 4.2% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   34% 648/com.android.systemui: 12% user + 21% kernel / faults: 53 minor
+08-23 10:14:16.056   489  6892 E ActivityManager:     21% 1164/RenderThread: 0% user + 21% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     12% 648/ndroid.systemui: 8.6% user + 4.3% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.3% 798/SysUiBg: 4.3% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   20% 306/android.hardware.graphics.composer@2.3-service: 4.1% user + 16% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     12% 306/composer@2.3-se: 0% user + 12% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   22% 3975/adbd: 0% user + 22% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     9.1% 4308/adbd: 0% user + 9.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     9.1% 4309/adbd: 0% user + 9.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.5% 4511/shell svc 4510: 0% user + 4.5% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   22% 4660/br.unb.cic.cryptoapp: 13% user + 9.1% kernel / faults: 47 minor
+08-23 10:14:16.056   489  6892 E ActivityManager:     9.1% 4660/b.cic.cryptoapp: 9.1% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     9.1% 4698/RenderThread: 0% user + 9.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   16% 344/surfaceflinger: 8.2% user + 8.2% kernel / faults: 13 minor
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.1% 344/surfaceflinger: 0% user + 4.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.1% 372/Binder:344_2: 0% user + 4.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.1% 2238/Binder:344_5: 0% user + 4.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   11% 165/logd: 7.9% user + 3.9% kernel / faults: 1 minor
+08-23 10:14:16.056   489  6892 E ActivityManager:     7.9% 366/logd.reader.per: 3.9% user + 3.9% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     3.9% 170/logd.writer: 3.9% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     3.9% 4512/logd.reader.per: 3.9% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   13% 4510/com.android.commands.monkey: 13% user + 0% kernel / faults: 141 minor
+08-23 10:14:16.056   489  6892 E ActivityManager:     18% 4510/commands.monkey: 13% user + 4.5% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.5% 4623/HeapTaskDaemon: 4.5% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   8.2% 359/logcat: 4.1% user + 4.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   9.1% 5340/com.android.systemui:screenshot: 4.5% user + 4.5% kernel / faults: 9 minor
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.5% 5340/emui:screenshot: 4.5% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.5% 5370/RenderThread: 0% user + 4.5% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   4.1% 305/android.hardware.graphics.allocator@3.0-service: 0% user + 4.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.1% 305/allocator@3.0-s: 0% user + 4.1% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   4.3% 1337/com.google.android.inputmethod.latin: 4.3% user + 0% kernel / faults: 13 minor
+08-23 10:14:16.056   489  6892 E ActivityManager:     4.3% 1337/putmethod.latin: 4.3% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   4.4% 1557/com.google.android.googlequicksearchbox:search: 4.4% user + 0% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager:   4.5% 4508/logcat: 0% user + 4.5% kernel
+08-23 10:14:16.056   489  6892 E ActivityManager: 54% TOTAL: 26% user + 27% kernel + 0.9% softirq
+08-23 10:14:22.621   489   560 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.drive.ApiService.RESET_AFTER_BOOT flg=0x4 cmp=com.google.android.gms/.drive.api.ApiService (has extras) } U=0: not found

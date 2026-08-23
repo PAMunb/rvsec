@@ -1,0 +1,169 @@
+--------- beginning of main
+--------- beginning of system
+08-23 10:01:11.758   507  1071 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:01:11.758   507  1071 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@c32a90
+--------- beginning of kernel
+08-23 10:01:13.492   507   559 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:01:13.493   507   525 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@76f92ec
+08-23 10:01:13.876   507  3021 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:13.878   507  1085 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:14.900   507   530 W ActivityManager: setHasOverlayUi called on unknown pid: 837
+08-23 10:01:15.118   507   537 W ActivityManager: Slow operation: 53ms so far, now at startProcess: returned from zygote!
+08-23 10:01:15.118   507   537 W ActivityManager: Slow operation: 53ms so far, now at startProcess: done updating battery stats
+08-23 10:01:15.118   507   537 W ActivityManager: Slow operation: 53ms so far, now at startProcess: building log message
+08-23 10:01:15.118   507   537 W ActivityManager: Slow operation: 53ms so far, now at startProcess: starting to update pids map
+08-23 10:01:15.118   507   537 W ActivityManager: Slow operation: 53ms so far, now at startProcess: done updating pids map
+08-23 10:01:15.294  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void <init>()>
+08-23 10:01:15.313  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>
+08-23 10:01:15.474   507  1823 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:15.557   507  2584 W ActivityManager: Unable to start service Intent { act=com.android.vending.contentfilters.IContentFiltersService.BIND pkg=com.android.vending } U=0: not found
+08-23 10:01:15.742   507  1822 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:15.799   507  1822 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:16.075  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+08-23 10:01:16.078  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: void <init>(br.unb.cic.cryptoapp.MainActivity)>
+08-23 10:01:16.506  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>
+08-23 10:01:16.506  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreen(java.lang.Class)>
+08-23 10:01:16.558  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void <init>()>
+08-23 10:01:16.560  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void onCreate(android.os.Bundle)>
+08-23 10:01:17.046   507  1672 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:17.061   507  4498 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:17.115   507  1672 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:17.371   507   560 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:18.758   507   507 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:19.032   507   560 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:19.035   507   537 W ActivityManager: Slow operation: 55ms so far, now at startProcess: returned from zygote!
+08-23 10:01:19.035   507   537 W ActivityManager: Slow operation: 56ms so far, now at startProcess: done updating battery stats
+08-23 10:01:19.035   507   537 W ActivityManager: Slow operation: 56ms so far, now at startProcess: building log message
+08-23 10:01:19.035   507   537 W ActivityManager: Slow operation: 56ms so far, now at startProcess: starting to update pids map
+08-23 10:01:19.035   507   537 W ActivityManager: Slow operation: 56ms so far, now at startProcess: done updating pids map
+08-23 10:01:20.031   507  1672 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:20.047   507  4708 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:20.065   507  1605 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:20.070   507  4708 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2658 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:01:20.739  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void generateHash(android.view.View)>
+08-23 10:01:20.739  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateAlgorithm(java.lang.String)>
+08-23 10:01:20.739  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: boolean validateInput(java.lang.String)>
+08-23 10:01:20.811   507   525 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:21.043   507   507 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:21.257   507  1672 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:23.490  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void clearErrors()>
+08-23 10:01:23.491  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: void <init>()>
+08-23 10:01:23.491  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(java.lang.String,java.lang.String)>
+08-23 10:01:23.491  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.messagedigest.MessageDigestUtil: java.lang.String hash(byte[],java.lang.String)>
+08-23 10:01:23.511  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.util.Utils: java.lang.String bytesToHex(byte[])>
+08-23 10:01:28.369  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>
+08-23 10:01:28.390  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void <init>()>
+08-23 10:01:28.394  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void onCreate(android.os.Bundle)>
+08-23 10:01:28.461  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void initializeViews()>
+08-23 10:01:28.461  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupTabLayout()>
+08-23 10:01:28.468  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void <init>(br.unb.cic.cryptoapp.generated.CryptographyActivity)>
+08-23 10:01:28.468  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupInputFields()>
+08-23 10:01:28.468  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void updateUIForTab()>
+08-23 10:01:28.468  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupSecretKeyUI()>
+08-23 10:01:28.468  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupAlgorithmSpinner(java.lang.String[])>
+08-23 10:01:28.469  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupModeRadioGroup()>
+08-23 10:01:28.469  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupExecuteButton()>
+08-23 10:01:28.469  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void <init>(br.unb.cic.cryptoapp.generated.CryptographyActivity)>
+08-23 10:01:30.142   507  1672 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:33.766   507  2584 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:34.852   507  1662 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:35.206   507   507 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:36.234   507   525 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:36.820  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>
+08-23 10:01:36.820  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void lambda$setupExecuteButton$0$CryptographyActivity(android.view.View)>
+08-23 10:01:36.820  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: boolean validateInputs()>
+08-23 10:01:36.820  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeOperation()>
+08-23 10:01:36.820  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeSecretKeyOperation()>
+08-23 10:01:36.820  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void generateSecretKey(java.lang.String)>
+08-23 10:01:36.822  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void generateIV()>
+08-23 10:01:41.579  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabUnselected(com.google.android.material.tabs.TabLayout$Tab)>
+08-23 10:01:41.579  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabSelected(com.google.android.material.tabs.TabLayout$Tab)>
+08-23 10:01:41.579  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: java.lang.String access$002(br.unb.cic.cryptoapp.generated.CryptographyActivity,java.lang.String)>
+08-23 10:01:41.579  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void access$100(br.unb.cic.cryptoapp.generated.CryptographyActivity)>
+08-23 10:01:41.580  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupKeyPairUI()>
+08-23 10:01:43.463   507  5351 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:43.627   507   507 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:43.645   507   507 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:43.658   507   507 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:43.664   507  5347 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:43.845   507   507 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:44.145   507   507 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:45.765  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity$1: void onTabReselected(com.google.android.material.tabs.TabLayout$Tab)>
+08-23 10:01:46.212   507  5351 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:46.430   507   507 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:49.723  4203  4203 V RVSEC   : SecretKeySpecSpec,br.unb.cic.cryptoapp.generated.CryptographyActivity,CryptographyActivity,executeSecretKeyOperation,CryptographyActivity.java:358,UnsatisfiedConstraint,v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='' exp='prepared key material' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to have been prepared by a Key.getEncoded()'
+08-23 10:01:49.723  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: byte[] encryptWithSecretKey(java.lang.String,java.lang.String)>
+08-23 10:01:49.725  4203  4203 V RVSEC   : CipherSpec,br.unb.cic.cryptoapp.generated.CryptographyActivity,CryptographyActivity,encryptWithSecretKey,CryptographyActivity.java:457,UnsatisfiedConstraint,v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'
+08-23 10:01:51.514   507   589 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:52.188  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupHashUI()>
+08-23 10:01:53.253  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void setupHmacUI()>
+08-23 10:01:54.123  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeHmacOperation()>
+08-23 10:01:54.124  4203  4203 V RVSEC   : SecretKeySpecSpec,br.unb.cic.cryptoapp.generated.CryptographyActivity,CryptographyActivity,executeHmacOperation,CryptographyActivity.java:604,UnsatisfiedConstraint,v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='' exp='prepared key material' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to have been prepared by a Key.getEncoded()'
+08-23 10:01:55.710   507   559 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:01:56.621   507  3021 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:02:03.156  4203  4203 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: boolean onMenuItemClick(android.view.MenuItem)>
+--------- beginning of crash
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: FATAL EXCEPTION: main
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: Process: br.unb.cic.cryptoapp, PID: 4203
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.String android.content.Context.getPackageName()' on a null object reference
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.content.ComponentName.<init>(ComponentName.java:131)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.content.Intent.<init>(Intent.java:6858)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuItemImpl.invoke(MenuItemImpl.java:154)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuBuilder.performItemAction(MenuBuilder.java:985)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuPopup.onItemClick(MenuPopup.java:128)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.widget.AdapterView.performItemClick(AdapterView.java:330)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.widget.AbsListView.performItemClick(AbsListView.java:1187)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.widget.AbsListView.onKeyUp(AbsListView.java:3403)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.widget.ListView.commonKey(ListView.java:2500)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.widget.ListView.onKeyUp(ListView.java:2373)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.KeyEvent.dispatch(KeyEvent.java:2866)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.View.dispatchKeyEvent(View.java:14247)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewGroup.dispatchKeyEvent(ViewGroup.java:1954)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.widget.ListView.dispatchKeyEvent(ListView.java:2348)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewGroup.dispatchKeyEvent(ViewGroup.java:1959)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewGroup.dispatchKeyEvent(ViewGroup.java:1959)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.widget.PopupWindow$PopupDecorView.dispatchKeyEvent(PopupWindow.java:2544)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$ViewPostImeInputStage.processKeyEvent(ViewRootImpl.java:5947)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$ViewPostImeInputStage.onProcess(ViewRootImpl.java:5815)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5310)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.forward(ViewRootImpl.java:5485)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.apply(ViewRootImpl.java:5542)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.forward(ViewRootImpl.java:5485)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.apply(ViewRootImpl.java:5542)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.forward(ViewRootImpl.java:5485)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.apply(ViewRootImpl.java:5542)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl.deliverInputEvent(ViewRootImpl.java:8080)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl.doProcessInputEvents(ViewRootImpl.java:8031)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl.enqueueInputEvent(ViewRootImpl.java:7992)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.ViewRootImpl$WindowInputEventReceiver.onInputEvent(ViewRootImpl.java:8203)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.view.InputEventReceiver.dispatchInputEvent(InputEventReceiver.java:220)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.os.MessageQueue.nativePollOnce(Native Method)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.os.MessageQueue.next(MessageQueue.java:335)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:183)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:7656)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:592)
+08-23 10:02:03.160  4203  4203 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:947)
+08-23 10:02:03.232   507   530 W ActivityManager: setHasOverlayUi called on unknown pid: 4203
+08-23 10:02:03.241   507  1071 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found

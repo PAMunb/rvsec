@@ -1,0 +1,87 @@
+--------- beginning of main
+--------- beginning of system
+--------- beginning of kernel
+08-23 10:15:07.874   498  2425 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:15:07.891   498  1477 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@64dbcb8
+08-23 10:15:08.416   498   518 W ActivityManager: setHasOverlayUi called on unknown pid: 924
+08-23 10:15:08.944   498  2425 W ActivityManager: Unable to start service Intent { act=com.google.android.gms.auth.key.retrieval.service.START pkg=com.google.android.gms } U=0: not found
+08-23 10:15:08.952   498  2048 W ActivityManager: Unbind failed: could not find connection for android.os.BinderProxy@64c47f4
+08-23 10:15:09.587   498  1477 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2514 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:15:09.591   498   513 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2514 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:15:09.647  4094  4094 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void <init>()>
+08-23 10:15:09.669  4094  4094 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void onCreate(android.os.Bundle)>
+08-23 10:15:10.253  4094  4094 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+08-23 10:15:10.254  4094  4094 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: void <init>(br.unb.cic.cryptoapp.MainActivity)>
+08-23 10:15:10.624  4094  4094 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>
+08-23 10:15:10.624  4094  4094 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity: void showScreen(java.lang.Class)>
+08-23 10:15:10.673  4094  4094 I RVSEC-COV: <br.unb.cic.cryptoapp.MainActivity$1: boolean onMenuItemClick(android.view.MenuItem)>
+--------- beginning of crash
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: FATAL EXCEPTION: main
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: Process: br.unb.cic.cryptoapp, PID: 4094
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: java.lang.NullPointerException: Attempt to invoke virtual method 'java.lang.String android.content.Context.getPackageName()' on a null object reference
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.content.ComponentName.<init>(ComponentName.java:131)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.content.Intent.<init>(Intent.java:6858)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuItemImpl.invoke(MenuItemImpl.java:154)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuBuilder.performItemAction(MenuBuilder.java:985)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at androidx.appcompat.view.menu.MenuPopup.onItemClick(MenuPopup.java:128)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.widget.AdapterView.performItemClick(AdapterView.java:330)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.widget.AbsListView.performItemClick(AbsListView.java:1187)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.widget.AbsListView.onKeyUp(AbsListView.java:3403)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.widget.ListView.commonKey(ListView.java:2500)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.widget.ListView.onKeyUp(ListView.java:2373)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.KeyEvent.dispatch(KeyEvent.java:2866)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.View.dispatchKeyEvent(View.java:14247)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewGroup.dispatchKeyEvent(ViewGroup.java:1954)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.widget.ListView.dispatchKeyEvent(ListView.java:2348)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewGroup.dispatchKeyEvent(ViewGroup.java:1959)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewGroup.dispatchKeyEvent(ViewGroup.java:1959)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.widget.PopupWindow$PopupDecorView.dispatchKeyEvent(PopupWindow.java:2544)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$ViewPostImeInputStage.processKeyEvent(ViewRootImpl.java:5947)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$ViewPostImeInputStage.onProcess(ViewRootImpl.java:5815)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5310)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.forward(ViewRootImpl.java:5485)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.apply(ViewRootImpl.java:5542)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.forward(ViewRootImpl.java:5485)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.apply(ViewRootImpl.java:5542)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.onDeliverToNext(ViewRootImpl.java:5367)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.forward(ViewRootImpl.java:5333)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.forward(ViewRootImpl.java:5485)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.apply(ViewRootImpl.java:5341)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$AsyncInputStage.apply(ViewRootImpl.java:5542)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$InputStage.deliver(ViewRootImpl.java:5314)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl.deliverInputEvent(ViewRootImpl.java:8080)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl.doProcessInputEvents(ViewRootImpl.java:8031)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl.enqueueInputEvent(ViewRootImpl.java:7992)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.ViewRootImpl$WindowInputEventReceiver.onInputEvent(ViewRootImpl.java:8203)
+08-23 10:15:10.686  4094  4094 E AndroidRuntime: 	at android.view.InputEventReceiver.dispatchInputEvent(InputEventReceiver.java:220)
+08-23 10:15:10.687  4094  4094 E AndroidRuntime: 	at android.os.MessageQueue.nativePollOnce(Native Method)
+08-23 10:15:10.687  4094  4094 E AndroidRuntime: 	at android.os.MessageQueue.next(MessageQueue.java:335)
+08-23 10:15:10.687  4094  4094 E AndroidRuntime: 	at android.os.Looper.loop(Looper.java:183)
+08-23 10:15:10.687  4094  4094 E AndroidRuntime: 	at android.app.ActivityThread.main(ActivityThread.java:7656)
+08-23 10:15:10.687  4094  4094 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+08-23 10:15:10.687  4094  4094 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(RuntimeInit.java:592)
+08-23 10:15:10.687  4094  4094 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:947)
+08-23 10:15:11.102   498   518 W ActivityManager: setHasOverlayUi called on unknown pid: 4094
+08-23 10:15:11.119   498  4316 W ActivityManager: Unable to start service Intent { act=android.service.appprediction.AppPredictionService cmp=com.google.android.as/com.google.android.apps.miphone.aiai.app.AiAiPredictionService } U=0: not found
+08-23 10:15:11.140   498  1475 W ActivityManager: Unable to start service Intent { act=com.android.vending.contentfilters.IContentFiltersService.BIND pkg=com.android.vending } U=0: not found
+08-23 10:15:11.271   498  4184 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2514 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:15:11.274   498  4184 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2514 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:15:11.276   498  4316 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2514 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
+08-23 10:15:11.281   498  4383 W ActivityManager: Background start not allowed: service Intent { cmp=com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService } to com.google.android.apps.messaging/.shared.datamodel.action.execution.ActionExecutorImpl$EmptyService from pid=2514 uid=10143 pkg=com.google.android.apps.messaging startFg?=false
