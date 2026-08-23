@@ -1061,16 +1061,79 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `scripts/check_no_legacy_mop.py` skip list, the retired copy under `backup/` that the move
       itself creates inside the grepped tree, and the active gh48-project-finalization
       artifacts, whose `defsuses` rows are that change's to update), reactor builds (P3)
-- [ ] 7.4 Regenerate the full `jca_android` monitor through the real pipeline; record heap;
+- [x] 7.4 Regenerate the full `jca_android` monitor through the real pipeline; record heap;
       inspect the artifact, never the exit code (INV-INS-145); update
       `data/jca_android/README.md` to the new machinery census **and** the new file count — the
       set is no longer 23 specifications and the universe is no longer 214, because Group 5
-      added junction specifications; verify no gate, test name or record holds the stale literal
+      added junction specifications; verify no gate, test name or record holds the stale literal.
+      **Measured (batch B9):** two full runs, 79 s and 77 s, peak RSS 5.4 GB and 4.5 GB across
+      the process tree, producing a byte-identical `MultiSpec_1RuntimeMonitor.java` of 17,087
+      lines — the generation is deterministic. **No launcher passes `-Xmx`**: javamop's invokes a
+      bare `java`, rv-monitor's and the child at `LogicRepositoryConnector.java:149-154` pass
+      `-Xss1g` and nothing else, so both JVMs run at the default ergonomic heap. **And there is
+      no environment lever, measured**: `_JAVA_OPTIONS=-Xmx4g` reaches both JVMs but aborts the
+      run, because the JVM prints `Picked up _JAVA_OPTIONS:` on stderr and
+      `utils.execute_command` raises on any stderr even at `code=0` — INV-INS-145 turned around,
+      the exit code falsely red instead of falsely green. Recorded rather than repaired
+      (researcher decision 2026-08-23): widening `execute_command` would blind the generator to
+      the masked child OOM the invariant exists for. A side effect nobody had recorded: the
+      failed run leaves 24 gitignored `.rvm` inside the specification directory, which silently
+      changes the harness's cache fingerprint until a successful run moves them out.
+      **Artifact inspection** found the monitor differs from the one the harness had cached — a
+      state renumbering, `{2,3}` transposed, `fail` unmoved — traced in four measurements: two
+      real-pipeline runs agree, a cold-cache harness leg is byte-identical to the real pipeline,
+      the old cache differs, and the reports are identical either way (61/31/32/7 over 131
+      traces, 0 files differing). The cache is keyed on the specification set and not on the
+      toolchain, so it is stale and provably harmless — **and that excludes the monitor as the
+      cause of the ten-report evidence drift**. `CipherSpec` declares exactly 17 events, the
+      ceiling, headroom zero; next largest is `SecureRandomSpec` at 13. **Literals corrected**:
+      set 23 → **24**, universe 214 → **215**, report sites 50 → **112** (all four-argument, zero
+      commented), `codes.csv` 50 → **112**, `ExecutionContext`/`setProperty(`/`.remove(` all
+      **0**, `validate(` **38** (the handoff said 39; `f010cb92` commented one out). The README's
+      four `21`s are **not** stale: they count the rule-paired specifications of
+      `conformance_record.csv`, not the set, and the ambiguous sentence was reworded instead. No
+      gate holds a count literal — all 18 `scripts/gh10*.py` enumerate
 - [ ] 7.5 Run `/rv-qa-lint-fix scripts` and `/rv-doc-code` on any script not covered by 2.12 —
       enumerate them from `git status` at this point, so "any script" is decidable
-- [ ] 7.6 Delete the expected-baseline mechanism of 2.10: every gate now asserts zero findings
+- [x] 7.6 Delete the expected-baseline mechanism of 2.10: every gate now asserts zero findings
       on its own, `data/jca_android/gate_baseline.json` is removed, and the pytest wrappers stop
-      reading it. A baseline that outlives its groups is an allow-list nobody voted for
+      reading it. A baseline that outlives its groups is an allow-list nobody voted for.
+      **Measured before it was executed (batch B9):** the file held **one** gate — G-ORDER, nine
+      rows — and five `retired` entries. The other eight gates were already at zero and their
+      `_no_regression` calls already compared against the empty set, which the wrappers' own
+      docstrings said in as many words. The mechanism was dead for eight of nine, and deleting it
+      unchanged would have turned nine records into nine failures.
+      **Researcher decision (2026-08-23): move the nine to `gate_allowlist.csv` and teach
+      `gh105_order_gate.py` to read it.** The task's accusation is about *provenance* — the nine
+      baseline rows were three anonymous fields elected by whatever a `--write` measured, while
+      every allow-list row carries the witness, the measurement, the reason and the owning task.
+      Moving them is taking them to a vote, which is obeying 7.6 rather than dodging it. Repairing
+      the nine automata was measured and rejected: two (`CipherInputStreamSpec`, `SecretKeySpec`)
+      have the excess on the **rule's** side — the api30 orders a symbol no monitored program can
+      produce — and `order_alphabet_map.csv` has no disposition for that, so repair would end at
+      the allow-list anyway after a whole group; two more are inherited from the frozen `jca`.
+      Narrowing 7.6 to the gates already at zero would have removed no row at all and left
+      `DEMOLITION_TASK` pointing at a task that no longer existed.
+      **Delivered:** `gh105_order_gate.py` gained an `allowed` list beside `findings`, an
+      `--allowlist` flag and its own 20-line reader — deliberately not the shared
+      `read_allowlist`, because **a row with an empty `reason` must allow nothing**, and the
+      shared reader ignores that column. Two key widths, not three: the subject of a G-ORDER row
+      is the constant `order`. Audited by mutation, as finding 100 asks: emptying a reason,
+      dropping a row and renaming the gate each produce exactly one finding. The gate now reports
+      `13 passed, 0 failed, 9 allow-listed, 2 skipped of 24` and exits 0.
+      The script, the JSON and the report moved to `backup/gh105-retired/gate-baseline/` with a
+      `RETIREMENT.md` that **preserves the five retirement records verbatim** — they are decisions
+      rather than measurements, each saying what a future finding from that gate would mean, and
+      they died with the file. Without that, 7.6 would have traded nine unprovenanced expectations
+      for five unprovenanced retirements. In the suite four mechanism tests died whole (14
+      assertions) with the `BASELINE`/`_recorded`/`_no_regression` helpers and the `measured`
+      fixture; six wrappers became `_no_findings`, five of them a rename. The sixth,
+      `test_inv_ins_138_gorder`, asserts **both** halves — zero findings *and* a non-empty
+      allow-list — because a run reporting neither would mean the gate stopped comparing.
+      Suite 71 → 67 passing; no `.mop` edited, and the harness footprint against `HEAD` is zero
+      files. **Found along the way and worth its own line:** `tests/parity/` does not run in CI —
+      `.github/workflows/ci.yml:79-97` iterates `modules/*/tests` only — so D-13's "CI contract"
+      is `/rv-verify` and task 8.1 in practice
 
 ## 8. Verification
 

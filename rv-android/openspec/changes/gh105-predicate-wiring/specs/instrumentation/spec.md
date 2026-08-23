@@ -419,8 +419,9 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
   still traces to its api30 rule. The `jca` branch of G-2 is unchanged.
 - **INV-INS-118** (restated, replacing the entry of the same number): every hunk between the
   frozen `jca` and the successor `jca_android` MUST carry a `divergence_record.csv` row keyed by
-  that hunk, and the successor set holds **23** specifications — the tree's count, both
-  `RandomStringPassword.mop` and `SecretKeySpec.mop` present. `SecretKeySpec.mop` carries a wired
+  that hunk, and the successor set holds **24** specifications — the tree's count, both
+  `RandomStringPassword.mop` and `SecretKeySpec.mop` present, and `IvChainJunction.mop` added by
+  Group 5. `SecretKeySpec.mop` carries a wired
   site after this change and `RandomStringPassword.mop` carries none, its four deleted at task
   4.11; membership is what the count asserts, not predicate sites. The 21-specification arithmetic
   of the original entry counted a removal that the tree does not show.
@@ -888,7 +889,7 @@ it SHALL read the artifacts, never the exit codes (INV-INS-139). The toolchain's
 silent twice over — measured: a primitive-array parameter makes JavaMOP delete the entire list
 (not just the offending parameter) and return 0 with the success message, and rv-monitor then
 emits a global monitor with zero `CachedWeakReference`; even a hard pointcut parse error returns
-0. Today zero of the 214 specifications declares a primitive-array parameter, so G-PARAM
+0. Today zero of the 215 specifications declares a primitive-array parameter, so G-PARAM
 protects the work F3 introduces (junction specifications) rather than repairing a present
 defect. The root cause is located and recorded (`javamop.jj:1456` `SimpleTypePattern` versus
 `:1470` `TypePattern`, silent `catch` in both translators' `JavaParserAdapter`); an upstream

@@ -41,7 +41,7 @@ integrity), NFR07 (reproducibility).
 MetaCrySL api30 rules (oracle, read-only)
         │  clauses (ENSURES/REQUIRES/NEGATES, ORDER)
         ▼
-jca_android .mop (23 files)───────────────┐
+jca_android .mop (24 files)───────────────┐
   │ store calls (body/@match)             │ junction specs (per co-observable chain)
   ▼                                       ▼
 rvsec-core: PredicateStore/PredicateVerdict   JavaMOP parametric indexing
@@ -55,7 +55,7 @@ rv-android gate layer (scripts/, tests/parity/):
   predicate_graph.csv ── G-PRED2 (closure)      order_alphabet_map.csv ── G-ORDER (DFA equiv)
   G-ACC (orphans, both directions)              G-PARAM (.mop list survives in .rvm)
   import-discipline (no ExecutionContext)       G-PRED (jca lock only — reformulated scope)
-  all generic over the enumerated .mop universe (214 today; skip-and-count contract)
+  all generic over the enumerated .mop universe (215 today; skip-and-count contract)
         │ before/after monitors
         ▼
 scripts/gh104_diff_harness.py + TraceRunner: satisfy/violate trace pair per wired edge
@@ -105,8 +105,8 @@ scripts/gh104_diff_harness.py + TraceRunner: satisfy/violate trace pair per wire
 (10 `unmonitored-consumer`/`unmonitored-producer`, the vacuous #30 and #23, the
 `unreachable-composition` #17 and #21), `preparedEC` `unclosable`; zero
 orphan accusers; zero guard reads; three-valued verdicts reaching the envelope; the freeze safe
-by construction; a gate layer that holds all of it over the full enumerated universe (214 files
-today, plus the junction specifications this change adds).
+by construction; a gate layer that holds all of it over the full enumerated universe (215 files
+today, the junction specifications this change adds included).
 
 **Non-Goals**: repairing `jca` or the archived set; editing MetaCrySL; the weaver (if
 `UnsatisfiedConstraint` stays at zero on the production path, this change is **blocked** and the

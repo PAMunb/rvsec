@@ -33,6 +33,18 @@ symbol for, such as `initError` or `unsafe_protocol`. That erasure is what lets
 Group 3 absorb an orphan into the automaton (G-ACC) without changing the language
 the automaton accepts (G-ORDER).
 
+A divergence the set keeps on purpose is a row of `data/jca_android/gate_allowlist.csv`
+and is reported as `allow-listed`, not as a failure. There are two kinds, and
+neither has a repair on the specification's side: the rule orders a symbol no
+monitored program can produce -- `CipherInputStream`'s one-argument constructor is
+`protected` on android-30, and `SecretKeySpec.destroy()` throws in both
+implementations this set sees, so the `.mop` does not observe it -- and the
+specification is the frozen `jca`'s, where an edit would break the freeze task 8.2
+proves. Each row carries the witness, the measurement and the task that decided
+it, which is what separates it from an expectation nobody voted for: the gate
+asserts zero findings on its own, and the exceptions are named in a file under
+review rather than recorded by whatever a run happened to measure.
+
 Usage:
     uv run python scripts/gh105_order_gate.py --sets jca_android [--json]
 """
@@ -59,6 +71,14 @@ DEFAULT_RULES = Path(
 )
 
 DEFAULT_MAP = Path("data/jca_android/order_alphabet_map.csv")
+
+# A divergence this gate reports may be one the set is keeping on purpose: the
+# rule orders a symbol no monitored program can produce, or the specification is
+# the frozen `jca`'s and may not be edited here. Those live in the allow-list,
+# and the difference from a recorded expectation is the whole point -- a row of
+# `gate_allowlist.csv` names the witness, the reason, and the task that decided
+# it, so the finding stays visible and stays owned.
+DEFAULT_ALLOWLIST = Path("data/jca_android/gate_allowlist.csv")
 
 _SECTION = re.compile(
     r"^\s*(SPEC|OBJECTS|EVENTS|ORDER|CONSTRAINTS|REQUIRES|ENSURES|NEGATES|FORBIDDEN)\b"
@@ -637,18 +657,68 @@ class OrderRun:
 
     Attributes:
         passed: `<set>/<spec>` of each specification whose two languages agree.
-        findings: One entry per specification whose languages differ.
+        findings: One entry per specification whose languages differ and whose
+            divergence nobody has decided to keep.
+        allowed: One entry per specification whose languages differ and whose
+            divergence `gate_allowlist.csv` records as deliberate. It is a
+            finding in every respect except its verdict: it is printed, it is
+            counted, and it names the task that owns it -- what it is not is a
+            reason to fail. Kept apart from `findings` so the gate can assert
+            zero findings on its own.
         skipped: `(<set>/<spec>, reason)` for each specification the gate could
             not decide.
     """
 
     passed: list[str] = field(default_factory=list)
     findings: list[OrderFinding] = field(default_factory=list)
+    allowed: list[OrderFinding] = field(default_factory=list)
     skipped: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def total(self) -> int:
-        return len(self.passed) + len(self.findings) + len(self.skipped)
+        return len(self.passed) + len(self.findings) + len(self.allowed) + len(self.skipped)
+
+
+def read_allowlist(path: Path) -> set[tuple[str, str, str]]:
+    """The ordering divergences `gate_allowlist.csv` records as deliberate.
+
+    A row with an empty `reason` allows nothing. That is not defensive coding: it
+    is the difference between this file and the expected-baseline it replaced.
+    A baseline row was three fields a run happened to measure; an allow-list row
+    is a decision, and a decision with no reason written down is the thing task
+    7.6 removed. `gh104_gates.py` reads its own allow-list the same way.
+
+    Args:
+        path: The allow-list CSV. Rows of other gates are ignored here.
+
+    Returns:
+        `(set, spec, event_or_state)` for each G-ORDER row that carries a reason,
+        or the empty set when the file does not exist.
+    """
+    if not path.is_file():
+        return set()
+    allowed: set[tuple[str, str, str]] = set()
+    with path.open(newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            if row["gate"] != "G-ORDER" or not row["reason"].strip():
+                continue
+            allowed.add((row["set"], row["spec"], row["event_or_state"]))
+    return allowed
+
+
+def _is_allowed(finding: OrderFinding, allowed: set[tuple[str, str, str]]) -> bool:
+    """Whether the allow-list covers this specification's ordering divergence.
+
+    Two widths, and no more: the row names one specification, or it names every
+    ordering divergence of one set (`*, *`). There is no third width, because the
+    subject of a G-ORDER row is the constant `order` -- a per-event allowance
+    would be a key this gate never produces.
+    """
+    candidates = {
+        (finding.spec_set, finding.spec, "order"),
+        (finding.spec_set, "*", "*"),
+    }
+    return bool(candidates & allowed)
 
 
 def _automaton_region(source):
@@ -877,6 +947,7 @@ def run(
     selection: str = "all",
     rules_root: Path = DEFAULT_RULES,
     map_path: Path = DEFAULT_MAP,
+    allowlist_path: Path = DEFAULT_ALLOWLIST,
 ) -> OrderRun:
     """Run G-ORDER over the enumerated universe, skipping what it cannot decide.
 
@@ -885,12 +956,17 @@ def run(
         selection: `"all"` for the enumerated universe, or the name of one set.
         rules_root: Directory of generated api30 rules.
         map_path: The alphabet mapping CSV.
+        allowlist_path: The allow-list CSV. A divergence it covers is reported
+            under `allowed` instead of `findings`.
 
     Returns:
-        An OrderRun whose passed, findings and skipped lists together account for
-        every `.mop` visited.
+        An OrderRun whose passed, findings, allowed and skipped lists together
+        account for every `.mop` visited.
     """
     mapping = read_map(map_path)
+    # The subject column of a G-ORDER row is the constant `order`: the finding is
+    # about the specification's whole language, not about one event of it.
+    allowed = read_allowlist(allowlist_path)
     names = SPECIFICATION_SETS if selection == "all" else (selection,)
     result = OrderRun()
     for name in names:
@@ -911,6 +987,8 @@ def run(
                 result.passed.append(f"{name}/{mop.stem}")
             elif isinstance(outcome, str):
                 result.skipped.append((f"{name}/{mop.stem}", outcome))
+            elif _is_allowed(outcome, allowed):
+                result.allowed.append(outcome)
             else:
                 result.findings.append(outcome)
     return result
@@ -937,26 +1015,40 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sets", default="all", help="`all` or the name of one set")
     parser.add_argument("--rules", type=Path, default=DEFAULT_RULES, help="the api30 rules")
     parser.add_argument("--map", type=Path, default=DEFAULT_MAP, help="the alphabet mapping")
+    parser.add_argument(
+        "--allowlist",
+        type=Path,
+        default=DEFAULT_ALLOWLIST,
+        help="the allow-list of deliberately kept divergences",
+    )
     parser.add_argument("--json", action="store_true", help="machine-readable report")
     arguments = parser.parse_args(argv)
 
-    result = run(arguments.specs_root, arguments.sets, arguments.rules, arguments.map)
+    result = run(
+        arguments.specs_root,
+        arguments.sets,
+        arguments.rules,
+        arguments.map,
+        arguments.allowlist,
+    )
+
+    def describe(finding: OrderFinding) -> dict[str, object]:
+        return {
+            "set": finding.spec_set,
+            "spec": finding.spec,
+            "message": finding.message,
+            "witness": list(finding.witness),
+            "accepted_by": finding.accepted_by,
+        }
 
     payload = {
         "passed": len(result.passed),
         "failed": len(result.findings),
+        "allowed": len(result.allowed),
         "skipped": len(result.skipped),
         "total": result.total,
-        "findings": [
-            {
-                "set": finding.spec_set,
-                "spec": finding.spec,
-                "message": finding.message,
-                "witness": list(finding.witness),
-                "accepted_by": finding.accepted_by,
-            }
-            for finding in result.findings
-        ],
+        "findings": [describe(finding) for finding in result.findings],
+        "allow_listed": [describe(finding) for finding in result.allowed],
         "skips": [{"spec": spec, "reason": reason} for spec, reason in result.skipped],
     }
 
@@ -965,10 +1057,13 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(
             f"G-ORDER: {len(result.passed)} passed, {len(result.findings)} failed, "
-            f"{len(result.skipped)} skipped of {result.total} specifications"
+            f"{len(result.allowed)} allow-listed, {len(result.skipped)} skipped "
+            f"of {result.total} specifications"
         )
         for finding in result.findings:
             print(f"  [{finding.spec_set}/{finding.spec}] {finding.message}")
+        for finding in result.allowed:
+            print(f"  allow-listed [{finding.spec_set}/{finding.spec}] {finding.message}")
         for spec, reason in result.skipped:
             print(f"  skipped {spec}: {reason}")
 

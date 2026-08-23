@@ -32,7 +32,6 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
-import gh105_gate_baseline  # noqa: E402
 import gh105_order_gate  # noqa: E402
 import gh105_param_gate  # noqa: E402
 from gh105_predicate_graph import (  # noqa: E402
@@ -669,7 +668,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       no `.mop` at all. It read each of them back off the tree -- the reads at 14, the
       guards and the accepting-state calls at 0, the writes at 30, the single withdrawal
       -- and retired the three placement gates in `gate_baseline.json`, so that a
-      regeneration can no longer re-record what tasks 4.12 and 4.14 removed.
+      regeneration could no longer re-record what tasks 4.12 and 4.14 removed. Task 7.6
+      then deleted that mechanism outright; the three retirement records it carried are
+      preserved at `backup/gh105-retired/gate-baseline/RETIREMENT.md`.
     * task 5.1 moves the reads, 14 -> 15, and moves nothing else. It is the first task of
       the change that adds a specification instead of editing one: `IvChainJunction.mop`
       carries the consumer read of api30 Cipher's guarded `preparedIV[params]` clause,
@@ -815,6 +816,13 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       `read`+`read-absent` stays 38, `condition` stays 0, `negate` stays 1, and the 22 distinct
       `Property` values stay 22. The `@match2` handler each of the two files gains writes
       nothing, which is what makes it invisible here and is stated in the file itself.
+
+      Batch B9 (tasks 7.4 and 7.6) edits no `.mop` at all, and the harness footprint is the
+      proof: regenerated from `HEAD` and compared, all 24 reports are byte-identical. So
+      `write` stays 31, `read`+`read-absent` stays 38, `condition` stays 0, `negate` stays 1
+      and the `Property` values stay 22. What it moved is one level out of this census
+      entirely -- the expected-baseline mechanism is gone and G-ORDER asserts zero on its
+      own -- and a census of predicate operations cannot see a gate's verdict either.
 
       Batch B7 (tasks 6.3, 6.6 and 6.7) moves none of the five either, and for a reason
       worth telling apart from B6's: this batch *does* edit a `.mop`, and what it edits is
@@ -1201,6 +1209,12 @@ def test_the_graph_reproduces_the_measured_placement_census():
       decision at all: a handler sees no parameter of the event it follows, and the predicate
       is over the array the event returns. The graph keeps its 70 rows, and the round trip was
       re-checked the way finding 81 asks.
+
+      Batch B9 (tasks 7.4 and 7.6) edits no `.mop` and moves none of the eight. The graph
+      keeps its 70 rows. What the batch changed is where the nine G-ORDER divergences are
+      written down -- `gate_baseline.json`, which recorded them anonymously, is retired, and
+      `gate_allowlist.csv` carries them with a witness, a reason and a task each -- and that
+      is a fact about the gate's bookkeeping, not about any site this file counts.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1541,8 +1555,8 @@ def test_the_junction_rules_do_not_govern_typestate_specifications():
 
     A typestate specification whose state has no transition for an event is doing
     its job -- that is how it accuses a wrong call sequence. Applying rule (b) to
-    the 23 specifications of the set would report the set's whole purpose as a
-    defect, which is why the rules key on the junction naming convention.
+    the 23 typestate specifications of the set -- all of it but the junction --
+    would report the set's whole purpose as a defect, which is why the rules key on the junction naming convention.
     """
     root = _specs_root()
     report = analyze_set(root / "jca_android")
@@ -1670,63 +1684,40 @@ def test_gparam_is_green_over_the_set_as_it_stands():
 # ------------------------------------------------ the gates under the CI contract
 
 
-BASELINE = REPO / "data/jca_android/gate_baseline.json"
-
-# The gates of this change are written before the edits that make them green, so
-# CI cannot ask them for zero findings without leaving the suite red across most
-# of the change -- and a suite that is expected to be red stops being read
-# (design D-13). Each wrapper below asserts instead that the gate reports nothing
-# the recorded baseline does not already carry: a finding that leaves the
-# baseline as its group lands is progress, a finding that is not in it is a
-# regression, and the mechanism is deleted outright by task 7.6 once the gates
-# stand on their own. It is not `gate_allowlist.csv`, which records findings that
-# are deliberately permanent.
+# The gates of this change were written before the edits that make them green, so
+# they spent most of the change registered against an expected baseline: each
+# wrapper asserted that the gate reported nothing the baseline did not already
+# carry, and a specification's row left the baseline as its group landed (design
+# D-13). Task 7.6 deleted that mechanism. Every gate below now asserts zero
+# findings on its own, and the exceptions that outlive their group live in
+# `gate_allowlist.csv`, where each one carries the witness, the reason and the
+# task that decided it. The retired mechanism, and the five retirement records it
+# carried, are kept at `backup/gh105-retired/gate-baseline/RETIREMENT.md`.
 
 
 @pytest.fixture(scope="module")
 def suite():
     """One run of the whole structural suite, shared by every wrapper.
 
-    The run walks 214 files over five sets; running it once per assertion would
+    The run walks 215 files over five sets; running it once per assertion would
     make the CI wiring cost more than everything it guards.
     """
     return run_gates(_specs_root(), "all", GRAPH, ALLOWLIST)
 
 
-def _recorded(gate: str) -> set[tuple[str, str, str]]:
-    """The baseline rows of one gate, or a declared skip until task 2.10 lands."""
-    if not BASELINE.is_file():
-        pytest.skip(
-            f"the expected baseline is written by task 2.10 and does not exist yet: {BASELINE}"
-        )
-    payload = json.loads(BASELINE.read_text(encoding="utf-8"))
-    return {tuple(row) for row in payload["gates"].get(gate, [])}
+def _no_findings(suite, gates: tuple[str, ...]) -> None:
+    """The structural suite reports nothing for these gates.
 
-
-def _no_regression_over(gates: tuple[str, ...], measured: set[tuple[str, str, str]]) -> None:
-    """The measured findings are a subset of what the baseline records.
-
-    Keyed on set/file/subject and never on line numbers or message text, so a
-    reformatted file does not read as a new finding -- a gate that cries wolf on
-    formatting is a gate that gets muted.
+    Keyed on set/file/subject and never on line numbers or message text, so the
+    failure names the specification and the subject a reader has to open -- a
+    gate whose report is a diff of line numbers is a gate that gets muted.
     """
-    recorded: set[tuple[str, str, str]] = set()
-    for gate in gates:
-        recorded |= _recorded(gate)
-    new = sorted(measured - recorded)
-    assert not new, f"{gates}: findings absent from the baseline at {BASELINE}: {new}"
-
-
-def _no_regression(suite, gates: tuple[str, ...]) -> None:
-    """The structural suite's own findings, under the same rule."""
-    _no_regression_over(
-        gates,
-        {
-            (finding.spec_set, finding.file, finding.subject)
-            for finding in suite.findings
-            if finding.gate in gates
-        },
+    measured = sorted(
+        (finding.spec_set, finding.file, finding.subject)
+        for finding in suite.findings
+        if finding.gate in gates
     )
+    assert not measured, f"{gates}: {measured}"
 
 
 def test_inv_ins_130_import_discipline(suite):
@@ -1737,8 +1728,7 @@ def test_inv_ins_130_import_discipline(suite):
     one in code. It opened this change reporting all 23 files of the set and
     reports none: task 4.14 took the last seven plus the two dangling imports of
     `CipherInputStreamSpec` and `CipherOutputStreamSpec`, and task 4.15 retired
-    the gate. `_no_regression` therefore compares against the empty set and the
-    subset assertion *is* the zero assertion.
+    the gate, so what is asserted here is zero findings outright.
 
     The literal `grep -rlw` beside it is not redundant with the gate: it is what
     says the gate and the invariant still name the same files, so a gate that
@@ -1755,7 +1745,7 @@ def test_inv_ins_130_import_discipline(suite):
     assert {finding.file for finding in findings} == literal, (
         "the gate and the `grep -rlw` of INV-INS-130 must name the same files"
     )
-    _no_regression(suite, ("INV-INS-130",))
+    _no_findings(suite, ("INV-INS-130",))
 
 
 def test_inv_ins_133_no_condition_reads(suite):
@@ -1767,12 +1757,12 @@ def test_inv_ins_133_no_condition_reads(suite):
     reports none: Group 3 fused 16 away with their guarded twins, the Group-4
     passes relocated seven and deleted four that governed nothing any api30 rule
     asks for, and task 4.12 moved the last one. Task 4.15 retired the gate, so
-    the comparison is against the empty set and a guard reported here now is a
-    new one rather than a leftover.
+    zero findings is what is asserted, and a guard reported here now is a new one
+    rather than a leftover.
     """
     findings = [finding for finding in suite.findings if finding.gate == "INV-INS-133"]
     assert all(finding.spec_set == "jca_android" for finding in findings)
-    _no_regression(suite, ("INV-INS-133",))
+    _no_findings(suite, ("INV-INS-133",))
 
 
 def test_inv_ins_134_write_placement(suite):
@@ -1789,7 +1779,7 @@ def test_inv_ins_134_write_placement(suite):
     """
     findings = [finding for finding in suite.findings if finding.gate == "INV-INS-134"]
     assert all(finding.spec_set == "jca_android" for finding in findings)
-    _no_regression(suite, ("INV-INS-134",))
+    _no_findings(suite, ("INV-INS-134",))
 
 
 def test_inv_ins_135_gacc(suite):
@@ -1798,19 +1788,15 @@ def test_inv_ins_135_gacc(suite):
     Both directions, because an accuser outside the ordering fires on a trace the
     automaton never judged, and a transition labelled by an undeclared event can
     never be taken. The 17 orphans of the derived set were Group 3's work and task
-    3.7 retired the gate: its baseline rows are gone, so `_no_regression` now
-    compares against the empty set and the subset assertion *is* the zero
-    assertion. Both are written, because they say different things -- one that the
-    gate is silent, the other that the mechanism knows it is supposed to be.
+    3.7 retired the gate, so what is asserted here is zero findings outright.
 
     The `generic` orphan is nobody's, and is reported informatively rather than
     failing a run it does not belong to.
     """
     findings = [finding for finding in suite.findings if finding.gate == "G-ACC"]
     assert findings == []
-    assert not _recorded("G-ACC")
     assert any(finding.gate == "G-ACC" for finding in suite.informative)
-    _no_regression(suite, ("G-ACC",))
+    _no_findings(suite, ("G-ACC",))
 
 
 def test_inv_ins_136_junction_rules(suite):
@@ -1841,12 +1827,11 @@ def test_inv_ins_137_gpred2(suite):
     It opened this change reporting 36 edges and reports none: Group 5 wired the
     21 clauses a reader could close, recorded the 14 no reader could and the one
     `preparedEC` no rule produces, and task 5.11 closed the last row and retired
-    the gate. `_no_regression` therefore compares against the empty set and the
-    subset assertion *is* the zero assertion.
+    the gate, so what is asserted here is zero findings outright.
     """
     findings = [finding for finding in suite.findings if finding.gate == "G-PRED2"]
     assert all(finding.spec_set == "jca_android" for finding in findings)
-    _no_regression(suite, ("G-PRED2",))
+    _no_findings(suite, ("G-PRED2",))
 
 
 def test_inv_ins_139_gparam(suite):
@@ -2076,147 +2061,40 @@ def test_the_gate_reports_a_word_a_reader_can_check_by_hand():
     sequence short enough to read against the rule.
     """
     result = _order_run()
-    assert result.findings, "the set diverges from its rules today; a green run here means the gate stopped looking"
-    for finding in result.findings:
+    # Since task 7.6 the set's divergences are allow-listed rather than failing,
+    # and an allow-listed row is a finding in every respect except its verdict --
+    # it is printed and it carries its witness. Both lists are walked, or the
+    # check would go vacuous exactly when the gate went green.
+    reported = result.findings + result.allowed
+    assert reported, "the set diverges from its rules today; a green run here means the gate stopped looking"
+    for finding in reported:
         assert finding.witness or "empty sequence" in finding.message
         assert finding.accepted_by in ("the api30 ORDER", "the specification")
 
 
 def test_inv_ins_138_gorder(suite):
-    """G-ORDER under CI: no ordering divergence the baseline does not carry.
+    """G-ORDER under CI: zero ordering divergences the set has not decided to keep.
 
-    The gate is written before the repairs that make it green (D-13), so what is
-    asserted is that the measured divergences do not gain one. There are nine as of
-    task 7.1, which is where the number came from: mapping the twelve unmapped
-    specifications raised seven divergences that the skips had been hiding, and
-    repairing the KeyManagerFactory and TrustManagerFactory automata closed two --
-    4 + 7 - 2. Six of the seven are laxities of the specification against its rule and
-    one, CipherInputStreamSpec, is the rule ordering a constructor android-30 declares
-    `protected`. It also
-    asserts the shape of the run itself: every specification is decided or skipped
-    with a reason, and the counts add up to the files that exist (INV-INS-140).
+    The nine divergences the gate reports over `jca_android` are all allow-listed,
+    and the allow-list is the assertion: each row names the witness, the reason and
+    task 7.6 that decided it, so the gate itself asserts zero. Two of the nine have
+    no repair on the specification's side at all -- the rule orders a symbol no
+    monitored program can produce -- and two more are inherited from the frozen
+    `jca`, so a run that reported zero *findings and zero allowances* would mean the
+    gate stopped looking rather than that the set converged. Both halves are checked
+    here for that reason. It also asserts the shape of the run itself: every
+    specification is decided or skipped with a reason, and the counts add up to the
+    files that exist (INV-INS-140).
     """
     result = _order_run()
     assert result.total == len(list((_specs_root() / "jca_android").glob("*.mop")))
     assert all(reason for _, reason in result.skipped)
 
-    _no_regression_over(
-        ("G-ORDER",),
-        {("jca_android", f"{finding.spec}.mop", "order") for finding in result.findings},
+    assert result.findings == []
+    assert result.allowed, (
+        "the set keeps nine ordering divergences on purpose; a run with none means "
+        "the gate stopped comparing"
     )
-
-
-# -------------------------------------------------- the baseline mechanism (D-13)
-
-
-@pytest.fixture(scope="module")
-def measured():
-    """Both gate suites, reduced to the keys a baseline records."""
-    payload, _, _ = gh105_gate_baseline.collect(_specs_root())
-    return payload
-
-
-def test_the_baseline_is_keyed_by_what_survives_a_reformat(measured):
-    """`[set, file, subject]`, never a line number and never the message text.
-
-    The mechanism exists to hold still while the tree is edited underneath it.
-    Keyed on a position, every touched file would report its own findings as new
-    ones, and the first person to see that would delete the mechanism rather than
-    read it -- which is how a change loses its only regression net.
-    """
-    assert measured["gates"], "a baseline of nothing would make every wrapper vacuous"
-    for gate, rows in measured["gates"].items():
-        for row in rows:
-            assert len(row) == 3, f"{gate}: {row}"
-            assert all(isinstance(field, str) and field for field in row[:2])
-            assert not any(field.isdigit() for field in row), f"{gate}: a line number in {row}"
-
-
-def test_a_finding_outside_the_recorded_baseline_is_a_regression(measured, tmp_path, monkeypatch):
-    """The mechanism has to fail on something, and this is the something.
-
-    A baseline that records everything the gates can report would be a mute
-    button. This drops one row from each gate's record and asserts the wrappers'
-    comparison notices exactly the dropped rows -- the check that separates *no
-    regression* from *no assertion*.
-    """
-    trimmed = {gate: rows[1:] for gate, rows in measured["gates"].items()}
-    fake = tmp_path / "gate_baseline.json"
-    fake.write_text(json.dumps({"gates": trimmed}), encoding="utf-8")
-    monkeypatch.setattr(sys.modules[__name__], "BASELINE", fake)
-
-    for gate, rows in measured["gates"].items():
-        keys = {tuple(row) for row in rows}
-        _no_regression_over((gate,), keys - {tuple(rows[0])})
-        with pytest.raises(AssertionError):
-            _no_regression_over((gate,), keys)
-
-
-RETIREMENTS = {
-    "G-ACC": ("3.7", 17),
-    "INV-INS-133": ("4.15", 27),
-    "INV-INS-134": ("4.15", 42),
-    "INV-INS-130": ("4.15", 23),
-    "G-PRED2": ("5.11", 36),
-}
-
-
-def test_a_retired_gate_leaves_the_baseline_and_stays_out(measured):
-    """Five gates are retired, and `--write` must not put any of them back.
-
-    Retiring is a decision, not a measurement: the gate is expected to be silent
-    from here on, so its rows leave `gates` and its next finding is a regression.
-    A regeneration on a tree that had drifted would otherwise re-record whatever
-    the gate happened to report that day and quietly restore the expectation the
-    group removed -- the one failure the whole mechanism exists to prevent. So
-    `retire` carries the record forward and drops the gate from the fresh payload
-    whether or not it is reporting.
-
-    Task 3.7 retired G-ACC with the 17 orphans. Task 4.15 retired the three
-    placement gates, which reached zero in passes that were not its own: the 27
-    guard reads at task 4.12, the 42 unaccounted writes and the 23 files naming
-    the old substrate at task 4.14. Task 5.11 retired G-PRED2 with the closure
-    sweep, over the 36 unclosed edges the set opened this change with. The `was`
-    counts are what each gate reported on the unmodified tree, not what it
-    reports now, which is nothing.
-
-    G-PRED2 is why this test carries no assertion that a named gate is still in
-    `gates`. It had one, on itself, for as long as Group 5 had writes left to
-    wire; the sweep that closed the last row -- `PBEKeySpecSpec c1/SPECCED_KEY`,
-    an `omission` because a write with no reader closes with the write-side
-    vocabulary and not with the `unmonitored-consumer` its clause is -- drove the
-    gate to zero, and `collect` builds `gates` from findings alone, so the key
-    left the payload in the same measurement. Retiring it a commit later would
-    have meant a commit where the assertion was red on purpose. What replaces the
-    assertion is the record below: every retired gate names the task that closed
-    it and what it was reporting before.
-    """
-    recorded = json.loads(BASELINE.read_text(encoding="utf-8"))
-    assert set(recorded["retired"]) == set(RETIREMENTS)
-    for gate, (task, was) in RETIREMENTS.items():
-        assert gate not in recorded["gates"], gate
-        assert recorded["retired"][gate]["task"] == task
-        assert recorded["retired"][gate]["was"] == was
-        assert recorded["retired"][gate]["note"].strip()
-
-    # a fresh measurement that *did* report on every retired gate is still not re-baselined
-    fresh = {"gates": {gate: [["jca_android", "X.mop", "finding"]] for gate in RETIREMENTS}}
-    fresh["gates"]["K"] = [["s", "f", "x"]]
-    carried = gh105_gate_baseline.retire(fresh, recorded)
-    assert not set(carried["gates"]) & set(RETIREMENTS)
-    assert carried["gates"]["K"] == [["s", "f", "x"]]
-    assert carried["retired"] == recorded["retired"]
-
-
-def test_the_baseline_carries_its_own_removal_order(measured):
-    """Scaffolding with a demolition date says so in the artifact.
-
-    Task 7.6 deletes this mechanism when the gates are green on their own. Written
-    into the JSON rather than only into `tasks.md`, because the person who finds
-    this file two groups from now will be reading the file.
-    """
-    assert measured["demolition_task"] == "7.6"
-    assert "allow-list" in measured["what_this_is"]
 
 
 # --------------------------------------------------------------------- INV-INS-143

@@ -40,7 +40,9 @@ keep resolving (INV-INS-118), and by the identity checks of tasks 2.11 and 10.1.
 
 ## What the successor set contains
 
-Twenty-three `.mop` files and `codes.csv`, and nothing else. `codes.csv` (header
+Twenty-four `.mop` files and `codes.csv`, and nothing else. It was twenty-three until Group 5
+added `IvChainJunction.mop`, the junction specification that carries a chain no single API's
+rule states. `codes.csv` (header
 `spec,code,error_type,site_kind,event,file_line`) is the table of failure codes the set's
 envelopes emit; it is the **only** non-`.mop` file of the directory. The seed directory
 `jca/` also holds `MultiSpec_1MonitorAspect.aj`, a gitignored leftover of a generation run
@@ -53,14 +55,23 @@ reads. An earlier revision of this change deleted them along with the predicate 
 they feed; that decision is withdrawn (design D-11), so they still have work to do and
 removing either would silently disarm a `condition()` elsewhere in the set.
 
-The predicates are carried over **byte-for-byte**: the seed's 134 `ExecutionContext` lines
-(23 `import`, 27 `validate(`, 49 `setProperty(`, 9 `remove(`, 25 accepting-state calls and
-1 comment at `MessageDigestSpec.mop:25`) appear in `jca_android` at the same events, in the
-same order, unrewritten. The G-PRED gate
-(`tests/parity/test_gh104_specset_gates.py::test_jca_android_predicates_preserved`) checks
-exactly that, per file, against the frozen `jca` as the oracle — it is the gate that would
-have caught the withdrawn removal going in. The `ExecutionContext` keying ruling of gh101
-(equality, `e204e2a4`) therefore applies to this set exactly as it applies to the seed.
+The predicates were carried over **byte-for-byte** until gh105 migrated the substrate. The seed
+still holds its 134 `ExecutionContext` lines (23 `import`, 27 `validate(`, 49 `setProperty(`,
+9 `remove(`, 25 accepting-state calls and 1 comment at `MessageDigestSpec.mop:25`) and is frozen
+that way. `jca_android` holds **none** of them: the set names `ExecutionContext` **0** times, calls
+`setProperty(` **0** times and `.remove(` **0** times, and reads its predicates through **38**
+`validate(` calls against the new store. Group 4 did the migration and INV-INS-130 is the check —
+a whole-word grep over the set, so a mention in a comment or a string counts like one in code.
+
+What the seed-versus-successor comparison still means is therefore narrower, and the two gates that
+make it say so are worth naming apart. `tests/parity/test_gh104_specset_gates.py::test_the_frozen_seed_still_carries_every_predicate_site_it_was_frozen_with`
+runs G-PRED against the **seed itself**, which is what keeps the frozen control frozen; its
+docstring records that gh105 supersedes it for `jca_android` alone. For the successor the
+accounting is `predicate_graph.csv` and the four gates that decide against it: every predicate site
+has a row with its clause, its mechanism and its disposition, which is a stronger statement than
+byte-equality ever was — byte-equality could only say the lines had not moved, not that each read
+has a producer and each write a reader. The `ExecutionContext` keying ruling of gh101 (equality,
+`e204e2a4`) still governs the seed; the successor's store is keyed by identity.
 
 ## The normalisation rule
 
@@ -94,9 +105,11 @@ move a `jca` verdict.
 158 rows, extracted from Conscrypt branch `android11-release`, path
 `common/src/main/java/org/conscrypt/OpenSSLProvider.java` (607 lines, 175 `Alg.Alias.*`
 registrations), kept locally and gitignored at `backup/gh104-analise/OpenSSLProvider.java`.
-149 rows are in services one of the 21 specifications covers; 9 are in services with no
-specification (`AlgorithmParameters` 8, `SecretKeyFactory` 1) and are kept, with their flag,
-so the extraction stays complete.
+149 rows are in services one of the 21 rule-paired specifications covers — 21, not 24: it is the
+count of `.mop` files with a matching api30 rule, which is what `conformance_record.csv` keys on,
+and not the size of the set. The other 9 rows are in services with no specification
+(`AlgorithmParameters` 8, `SecretKeyFactory` 1) and are kept, with their flag, so the extraction
+stays complete.
 
 `in_api30_allowlist` has exactly one definition: **`yes` when the row's canonical name is an
 entry of the successor set's allow-list for that service, after the two recorded divergences
@@ -212,42 +225,49 @@ reports and 6.1 % of the 97,018-row corpus. `Signature`: the same rule accepts `
 therefore means "value outside the api30 allow-list of the platform", not "cryptographically
 insecure"; the name is kept for continuity with `jca` and the meaning shift is declared.
 
-## Site census after Group 2
+## Site census
 
-Counted from the files with `scripts/gh104_mop_lint.py`'s own site parser, on the set as Group 2
-left it (tasks 2.2–2.8 and 2.14), before Group 7 edited a single message:
+Counted from the files with `scripts/gh104_mop_lint.py`'s own site parser:
 
 | | three-argument | four-argument | commented | live total |
 |---|---|---|---|---|
 | frozen `jca` (the seed) | 25 | 25 | 1 | **50** |
 | `jca_android` after Group 2 | 25 | 25 | 1 | **50** |
-| `jca_android` after Group 8 | 25 | 25 | 0 | **50** |
+| `jca_android` today | 0 | **112** | 0 | **112** |
 
-**The census is the seed's, unchanged, and there is no difference to explain.** That follows from
-D-11: the successor keeps every event the seed declares, predicates included, and the allow-list
-re-transcription of task 2.4 changed which *values* a condition admits without deleting a report
-site. The one site that could have been lost is `SecretKeySpecSpec.c3`, whose condition had an
-allow-list half and a predicate half; `generated/api30/SecretKeySpec.cryptsl` declares
-`length(keyMaterial) >= off + len` and nothing about the algorithm, so the algorithm half left and
-the randomisation predicate — and with it the accusation and its report site — stayed.
+**Through Group 2 the census was the seed's, unchanged, and there was no difference to explain.**
+That followed from D-11: the successor keeps every event the seed declares, predicates included,
+and the allow-list re-transcription of task 2.4 changed which *values* a condition admits without
+deleting a report site. The one site that could have been lost is `SecretKeySpecSpec.c3`, whose
+condition had an allow-list half and a predicate half; `generated/api30/SecretKeySpec.cryptsl`
+declares `length(keyMaterial) >= off + len` and nothing about the algorithm, so the algorithm half
+left and the randomisation predicate — and with it the accusation and its report site — stayed.
+
+**Groups 5 to 7 more than doubled it, and that is the difference to explain.** The successor now
+holds **112** live sites against the seed's 50, and the growth is the predicate wiring itself: a
+clause that was carried as an unread `setProperty` in the seed becomes, in the successor, a read
+with a producer and an accusation of its own when the read answers *violated*. `IvChainJunction`
+alone contributes 14 sites, `SignatureSpec` 11 and `KeyGeneratorSpec` 8. The three-argument form is
+gone entirely: Group 7 gave every site an envelope, so all 112 are four-argument and the set holds
+no commented report.
 
 The five purely predicate-guarded accusers are likewise all alive: `IvParameterSpec` c3/c4,
 `PBEKeySpecSpec` err2/err3 and `SecureRandomSpec` setSeed3. An earlier revision of this change
 predicted 44 or 45 live sites by subtracting exactly those six; the prediction died with the
 removal it assumed.
 
-The 51st `new ErrorDescription(` of the set was the commented `g4` report of `MessageDigestSpec`
+The 51st `new ErrorDescription(` of the seed was the commented `g4` report of `MessageDigestSpec`
 (`:58` of the seed). It was counted apart because it emitted nothing, and it stayed commented
 through Group 7. Group 8 task 8.14 revived it: the harness classified the change `introduced` on
 `data/gh104/traces/MessageDigestSpec-unlisted-only.txt` and `unchanged` on the other 62 traces, so
-the accusation it adds is measured rather than assumed. The set now has no commented report site.
+the accusation it adds is measured rather than assumed. The set has no commented report site.
 
-The 25 three-argument sites are the 21 `@fail`/`@match1` handlers plus `IvParameterSpec` c3/c4 and
-`PBEKeySpecSpec`'s two `FORBIDDEN` sites; the 25 four-argument sites are the value accusers. Group 7
-gives all 50 an envelope, so after it the three-argument count is zero and the codes.csv row count is
-50.
+Of the seed's 50, the 25 three-argument sites were the 21 `@fail`/`@match1` handlers plus
+`IvParameterSpec` c3/c4 and `PBEKeySpecSpec`'s two `FORBIDDEN` sites, and the 25 four-argument
+sites were the value accusers. Group 7 gave every site an envelope, so the three-argument count is
+zero and every one of the successor's 112 rows in `codes.csv` names a four-argument site.
 
-**Group 8 leaves the total where it found it, by two changes that cancel.** Task 8.6 removes the
+**Group 8 left the seed-inherited total where it found it, by two changes that cancel.** Task 8.6 removes the
 `UnsafeAlgorithm` report inside `KeyPairGeneratorSpec`'s `init1`, whose branch is unreachable — the
 `condition(validate(keySize))` compiles to an early return and `validate` accepts exactly the
 members of `safeAlgorithms`, so the guarded `!matches(...)` is false whenever it is evaluated — and
@@ -266,7 +286,38 @@ the specification's name without its `Spec` suffix in upper case (`MESSAGEDIGEST
 `TRUSTMANAGERFACTORY`, `PBEKEYSPEC`) — derived mechanically, so no abbreviation table exists for two
 readers to disagree over — and `<KIND>` is the clause family the `ErrorType` implies: `ORDER`,
 `ALG`, `CONSTR`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`. The table is bijective with the census above:
-50 rows, 50 live sites, and the message gate fails on either half of that going wrong.
+**112 rows, 112 live sites**, and the message gate fails on either half of that going wrong. It
+also checks the anchor: since task 7.2 a `code-anchor` check compares each row's `file_line` with
+the line the code is actually emitted from, because the two times a batch re-anchored the file by
+script it moved anchors nobody had noticed.
+
+## Generating the set, and the heap it takes
+
+The whole set generates through the real pipeline —
+`uv run rv-monitor-generator generate --specs-dir <set> --output <dir>` — in **79 s** and **77 s**
+over two runs, at a peak resident set of **5.4 GB** and **4.5 GB** across the process tree. The two
+runs produced a byte-identical `MultiSpec_1RuntimeMonitor.java` of 17,087 lines, so the generation
+is deterministic.
+
+**No launcher passes `-Xmx`.** `javamop/target/release/javamop/javamop/bin/javamop:18` invokes a
+bare `java`; `rv-monitor`'s launcher and the child that `LogicRepositoryConnector.java:149-154`
+spawns each pass `-Xss1g` and nothing else. Both JVMs therefore run at the default ergonomic heap,
+which on a machine of this size is a quarter of physical memory and is far more than the set needs.
+
+**And there is no environment lever for it, measured.** `_JAVA_OPTIONS=-Xmx4g` does reach both
+JVMs — `command.py:180` calls `Popen` with no `env=`, and the child is spawned with `envp=null` —
+but it aborts the generation: the JVM prints `Picked up _JAVA_OPTIONS: -Xmx4g` on **stderr**, and
+`rv_android_core.util.utils.execute_command` raises whenever stderr is non-empty, even at `code=0`.
+The run fails after JavaMOP has written its `.aj` and before the `.rvm` files are moved, which
+leaves 24 generated `.rvm` inside the specification directory; a successful run moves them out
+again. This is INV-INS-145 turned around — there the exit code is falsely green, here it is falsely
+red — and it is recorded rather than repaired, because widening `execute_command` would blind the
+generator to the masked child OOM the invariant exists for (researcher decision, 2026-08-23).
+
+**Inspect the artifact, never the exit code** (INV-INS-145). The set's alphabet ceiling is
+`CipherSpec`, at exactly **17 events** and therefore at zero headroom: eighteen raise
+`StackOverflowError` in the parent's enable-set parser at any heap. The next largest is
+`SecureRandomSpec` at 13, and the junction `IvChainJunction` entered at 7.
 
 ## Records in this directory
 
@@ -276,4 +327,6 @@ readers to disagree over — and `<KIND>` is the clause family the `ErrorType` i
 | `conformance_record.csv` | one row per specification against its api30 rule: transcription verdicts, deferred constants, declared costs, and the divergences measured but not repaired — including the nine `guard-on-field` rows Group 7 declares and Group 8 task 8.16 repairs. |
 | `alias_table.csv` | the Conscrypt `android11-release` alias table (158 rows), carried as code by `ConscryptAliasTable`. |
 | `constraint_table.csv` | one row per api30 `CONSTRAINTS` clause of the 21 paired rules plus one per `.mop` value test with no clause behind it. |
-| `gate_allowlist.csv` | the remaining gate hits with a reason and the task that owns each. |
+| `gate_allowlist.csv` | the remaining gate hits with a reason and the task that owns each. Since task 7.6 it also carries the nine ordering divergences the set keeps on purpose, and `gh105_order_gate.py` reads it: a row with an empty reason allows nothing. |
+| `predicate_graph.csv` | one row per predicate site: the clause it serves, the mechanism, and the disposition. It is what replaced byte-equality against the seed as the successor's predicate accounting. |
+| `order_alphabet_map.csv` | which `.mop` event is which symbol of the api30 rule, per specification. Never inferred: without a complete mapping G-ORDER skips and says so. |
