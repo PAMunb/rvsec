@@ -71,9 +71,9 @@ import os
 import re
 import shutil
 import subprocess
-from collections import Counter
 import sys
 import tempfile
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -128,11 +128,21 @@ class Difference:
 
 @dataclass
 class Report:
+    """
+    What one regeneration comparison found: differences, indent-only lines, notes.
+
+    `indent_only` is a count and not a list on purpose. The lock framing adds a
+    brace level to every dispatcher body and the generator re-indents the whole
+    file from the brace structure, so those lines number in the thousands and
+    carry no information beyond how many they are.
+    """
+
     differences: list[Difference] = field(default_factory=list)
     indent_only: int = 0
     notes: list[str] = field(default_factory=list)
 
     def by_category(self) -> dict[str, int]:
+        """Count the differences by category, for the summary line."""
         counts: dict[str, int] = {}
         for d in self.differences:
             counts[d.category] = counts.get(d.category, 0) + 1
@@ -216,17 +226,32 @@ def resolve_braces(hunk: list[Difference], context: list[str]) -> list[Differenc
                 owner = cat
                 break
     return [
-        Difference(d.sign, owner if d.category == CATEGORY_BRACE else d.category, d.text)
+        Difference(
+            d.sign, owner if d.category == CATEGORY_BRACE else d.category, d.text
+        )
         for d in hunk
     ]
 
 
 def strip_lines(path: Path) -> list[str]:
+    """
+    The file's lines with leading and trailing whitespace removed.
+
+    This is what the monitor comparison reads, so that the framing's extra tab on
+    every dispatcher body line does not read as thousands of changed lines. The
+    raw text is still available through `raw_lines` for the indentation count.
+    """
     text = path.read_text(encoding="utf-8", errors="replace")
     return [ln.strip() for ln in text.splitlines()]
 
 
 def raw_lines(path: Path) -> list[str]:
+    """
+    The file's lines exactly as written, indentation included.
+
+    Used only to tell an indent-only difference from a substantive one: two lines
+    equal after stripping and unequal before it differ by whitespace alone.
+    """
     text = path.read_text(encoding="utf-8", errors="replace")
     return text.splitlines()
 
@@ -265,7 +290,9 @@ def diff_exact(control: Path, candidate: Path, report: Report, label: str) -> No
     if control.read_bytes() == candidate.read_bytes():
         return
     report.differences.append(
-        Difference("!", CATEGORY_OTHER, f"{label} differs from the control byte for byte")
+        Difference(
+            "!", CATEGORY_OTHER, f"{label} differs from the control byte for byte"
+        )
     )
 
 
@@ -400,6 +427,25 @@ def regenerate(specs_dir: Path, aspects_dir: Path, rvsec_home: Path, out: Path) 
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Regenerate (or accept) a candidate set, classify the diff, and return an exit code.
+
+    Three outcomes rather than two. `EXIT_CANNOT_RUN` is for everything that
+    prevents the comparison from being made at all -- a control that is not on
+    this disk, an unset `RVSEC_HOME`, a regeneration that failed -- and it is kept
+    apart from `EXIT_UNEXPECTED` so that "not measured" can never be read as
+    "measured and clean".
+
+    The manifest is verified before anything is generated, since a control that
+    does not match its own digests is not a control.
+
+    When the unexpected differences are all state labels and the rest is a pure
+    permutation, `RELABELLING_DIAGNOSIS` is printed. That combination has one
+    known cause -- the JDK that ran the generation orders the ERE-to-FSM states
+    differently -- and printing the diagnosis is cheaper than a reader
+    rediscovering it from a 16 000-line diff. It is a note, not a pass: the exit
+    code still says the diff was not what `--expect` admitted.
+    """
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--specs-dir", type=Path, help="the .mop set to regenerate")
     p.add_argument("--aspects-dir", type=Path, help="defaults to <specs-dir>/../aspect")
@@ -482,7 +528,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\n{len(unexpected)} unexpected difference(s); first 40:")
         for d in unexpected[:40]:
             print(f"  {d.sign} [{d.category}] {d.text}")
-        substantive = [d for d in unexpected if d.text.strip() not in ("", "}", "{", "};")]
+        substantive = [
+            d for d in unexpected if d.text.strip() not in ("", "}", "{", "};")
+        ]
         rows = [d for d in substantive if STATE_LABEL_RE.search(d.text)]
         rest = [d for d in substantive if not STATE_LABEL_RE.search(d.text)]
         # A line that is removed and added with identical text was reordered, not

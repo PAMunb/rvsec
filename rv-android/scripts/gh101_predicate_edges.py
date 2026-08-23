@@ -177,11 +177,26 @@ GROUP_3_FILES = {"SSLContextSpec.mop", "TrustManagerFactorySpec.mop"}
 CLAUSE_TO_KIND = {"ENSURES": "WRITE", "REQUIRES": "READ", "NEGATES": "REMOVE"}
 
 EDGE_FIELDS = [
-    "mop_file", "rule", "clause", "predicate", "negated", "argument",
-    "property", "verdict", "bucket", "group", "note",
+    "mop_file",
+    "rule",
+    "clause",
+    "predicate",
+    "negated",
+    "argument",
+    "property",
+    "verdict",
+    "bucket",
+    "group",
+    "note",
 ]
 COUNT_FIELDS = [
-    "mop_file", "rule", "clauses", "present", "to_close", "recorded", "group",
+    "mop_file",
+    "rule",
+    "clauses",
+    "present",
+    "to_close",
+    "recorded",
+    "group",
 ]
 
 
@@ -231,7 +246,12 @@ def classify(
     if surrogate := SURROGATE.get(predicate):
         if (surrogate, kind) in sites:
             return "present-surrogate", "", "", f"carried as Property.{surrogate}"
-        return "missing", "capability-absent", "5", f"surrogate Property.{surrogate} absent"
+        return (
+            "missing",
+            "capability-absent",
+            "5",
+            f"surrogate Property.{surrogate} absent",
+        )
 
     prop = PREDICATE_TO_PROPERTY.get(predicate)
     if prop is None:
@@ -242,6 +262,13 @@ def classify(
 
 
 def main() -> int:
+    """
+    Classify every predicate clause of every mapped rule against the inventory.
+
+    The iteration is over `MOP_TO_RULE` rather than over the inventory, because
+    the question is what the rules state and the set fails to implement. Starting
+    from the sites would only ever find edges that already exist.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--inventory", type=Path, required=True)
     parser.add_argument("--rules", type=Path, default=DEFAULT_RULES)
@@ -256,7 +283,9 @@ def main() -> int:
     sites = load_inventory(args.inventory)
     rows: list[dict[str, str]] = []
     for mop_file, rule in sorted(MOP_TO_RULE.items()):
-        for clause, predicate, negated, argument in parse_clauses(args.rules / f"{rule}.crysl"):
+        for clause, predicate, negated, argument in parse_clauses(
+            args.rules / f"{rule}.crysl"
+        ):
             verdict, bucket, group, note = classify(
                 mop_file, rule, clause, predicate, argument, sites[mop_file]
             )
@@ -268,7 +297,9 @@ def main() -> int:
                     "predicate": predicate,
                     "negated": "yes" if negated else "no",
                     "argument": argument,
-                    "property": PREDICATE_TO_PROPERTY.get(predicate, SURROGATE.get(predicate, "")),
+                    "property": PREDICATE_TO_PROPERTY.get(
+                        predicate, SURROGATE.get(predicate, "")
+                    ),
                     "verdict": verdict,
                     "bucket": bucket,
                     "group": group,
@@ -276,7 +307,9 @@ def main() -> int:
                 }
             )
 
-    handle = args.edges.open("w", encoding="utf-8", newline="") if args.edges else sys.stdout
+    handle = (
+        args.edges.open("w", encoding="utf-8", newline="") if args.edges else sys.stdout
+    )
     try:
         writer = csv.DictWriter(handle, fieldnames=EDGE_FIELDS, lineterminator="\n")
         writer.writeheader()
@@ -287,18 +320,26 @@ def main() -> int:
 
     if args.counts:
         with args.counts.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=COUNT_FIELDS, lineterminator="\n")
+            writer = csv.DictWriter(
+                handle, fieldnames=COUNT_FIELDS, lineterminator="\n"
+            )
             writer.writeheader()
             for mop_file, rule in sorted(MOP_TO_RULE.items()):
                 own = [row for row in rows if row["mop_file"] == mop_file]
-                to_close = [row for row in own if row["verdict"] in ("missing", "wrong-constant")]
+                to_close = [
+                    row
+                    for row in own
+                    if row["verdict"] in ("missing", "wrong-constant")
+                ]
                 groups = sorted({row["group"] for row in to_close})
                 writer.writerow(
                     {
                         "mop_file": mop_file,
                         "rule": rule,
                         "clauses": len(own),
-                        "present": sum(row["verdict"].startswith("present") for row in own),
+                        "present": sum(
+                            row["verdict"].startswith("present") for row in own
+                        ),
                         "to_close": len(to_close),
                         "recorded": sum(row["verdict"] == "recorded" for row in own),
                         "group": "+".join(groups),

@@ -43,6 +43,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from gh104_baseline import FREEZE_ITEMS as BASELINE_FREEZE_ITEMS  # noqa: E402
 from gh104_baseline import (  # noqa: E402
     Envelope,
     FreezeRegistry,
@@ -52,7 +53,6 @@ from gh104_baseline import (  # noqa: E402
     rel,
     sha256_file,
 )
-from gh104_baseline import FREEZE_ITEMS as BASELINE_FREEZE_ITEMS  # noqa: E402
 
 RV_ANDROID = Path(__file__).resolve().parents[1]
 OUT_DIR = RV_ANDROID / "data" / "gh104"
@@ -150,7 +150,10 @@ FREEZE_ITEMS: dict[str, dict[str, Any]] = {
             "`data/gh104/evidence/harness/*.md` whose file name does not begin with "
             f"`{SELFTEST_PREFIX}`; both replay sides (A and B) are read."
         ),
-        "value": {"dir": "data/gh104/evidence/harness", "excluded_prefix": SELFTEST_PREFIX},
+        "value": {
+            "dir": "data/gh104/evidence/harness",
+            "excluded_prefix": SELFTEST_PREFIX,
+        },
         "why": (
             "The self-test reports replay a synthetic mutant written into scratch to prove "
             "the harness can reach all four verdicts; they measure the instrument, not the "
@@ -194,7 +197,25 @@ def parse_envelope(message: str) -> tuple[str, str]:
 CMP_IN = ("comp162_shards",)
 
 
-def measure_comp162(rows: Sequence[Mapping[str, str]], freeze: FreezeRegistry) -> dict[str, Any]:
+def measure_comp162(
+    rows: Sequence[Mapping[str, str]], freeze: FreezeRegistry
+) -> dict[str, Any]:
+    """
+    Measure the discontinuity on the published corpus, where it is zero by construction.
+
+    The zero is the point: comp162's records predate the envelope, so every `code`
+    and `event` parses to the sentinel and the seven-part identity cannot separate
+    anything the five-part identity joined. Recording that as a five-part baseline
+    is what makes the harness figure readable -- without it, a reader has no way
+    to tell a corpus the identity does not refine from an identity that refines
+    nothing.
+
+    The 8-tuple is reproduced here, from Group 1's frozen definition, for one
+    reason: it is the tuple every published count of this corpus was computed
+    under, and the two tuples must never be interchanged. Each envelope names the
+    freeze items that produced it, so a definition that moves invalidates the
+    number rather than silently changing it.
+    """
     error_type = make_error_type(freeze)
     identity8 = make_key(freeze.require("identity8"))
     freeze.require("identity5")
@@ -204,40 +225,67 @@ def measure_comp162(rows: Sequence[Mapping[str, str]], freeze: FreezeRegistry) -
     total = len(rows)
     parsed = [(row, *parse_envelope(row.get("message", ""))) for row in rows]
 
-    five = {(r["spec"], error_type(r), r["class"], r["method"], r["source"]) for r in rows}
+    five = {
+        (r["spec"], error_type(r), r["class"], r["method"], r["source"]) for r in rows
+    }
     seven = {
         (r["spec"], error_type(r), r["class"], r["method"], r["source"], code, event)
         for r, code, event in parsed
     }
-    enveloped = [1 for _, code, event in parsed if code != SENTINEL or event != SENTINEL]
+    enveloped = [
+        1 for _, code, event in parsed if code != SENTINEL or event != SENTINEL
+    ]
     eight = collections.Counter(identity8(r) for r in rows)
 
     env: dict[str, Envelope] = {}
     env["identities_8tuple"] = Envelope(
         "distinct identities under the 8-tuple `(apk, rep, tool, spec, class, method, source, message)`",
-        len(eight), total, "identities / rows", ("identity8",), CMP_IN, expected=6344,
+        len(eight),
+        total,
+        "identities / rows",
+        ("identity8",),
+        CMP_IN,
+        expected=6344,
         note="Group 1's freeze item, reproduced here so the two tuples are never interchanged.",
     )
     env["identities_5tuple"] = Envelope(
         "distinct identities under the `ErrorSummary` 5-tuple `(spec, error, class, method, location)`",
-        len(five), total, "identities / rows", ("identity5", "error_type"), CMP_IN, expected=409,
+        len(five),
+        total,
+        "identities / rows",
+        ("identity5", "error_type"),
+        CMP_IN,
+        expected=409,
         note="the era every published deduplicated count of this corpus belongs to.",
     )
     env["identities_7tuple"] = Envelope(
         "distinct identities under the 7-tuple `(spec, error, class, method, location, code, event)`",
-        len(seven), total, "identities / rows",
-        ("identity7", "error_type", "envelope_parse"), CMP_IN, expected=409,
+        len(seven),
+        total,
+        "identities / rows",
+        ("identity7", "error_type", "envelope_parse"),
+        CMP_IN,
+        expected=409,
         note="equal to the 5-tuple count by construction: this corpus predates the envelope.",
     )
     env["records_carrying_an_envelope"] = Envelope(
-        "records whose message carries a `v=1` envelope", len(enveloped), total, "rows",
-        ("envelope_parse",), CMP_IN, expected=0,
+        "records whose message carries a `v=1` envelope",
+        len(enveloped),
+        total,
+        "rows",
+        ("envelope_parse",),
+        CMP_IN,
+        expected=0,
         note="zero is the reason the discontinuity below is zero, and it is a property of the "
-             "corpus, not a result about the identity.",
+        "corpus, not a result about the identity.",
     )
     env["discontinuity"] = Envelope(
-        "identities the 7-tuple adds over the 5-tuple", len(seven) - len(five), len(five),
-        "identities / identities", ("identity5", "identity7", "envelope_parse"), CMP_IN,
+        "identities the 7-tuple adds over the 5-tuple",
+        len(seven) - len(five),
+        len(five),
+        "identities / identities",
+        ("identity5", "identity7", "envelope_parse"),
+        CMP_IN,
         expected=0,
         note="zero **by construction** - labelled so, not read as a failure (INV-CORE-57).",
     )
@@ -255,10 +303,14 @@ def measure_comp162(rows: Sequence[Mapping[str, str]], freeze: FreezeRegistry) -
 # ---------------------------------------------------------------------------
 
 
-def read_harness_records(directory: Path) -> tuple[list[dict[str, str]], dict[str, Any]]:
+def read_harness_records(
+    directory: Path,
+) -> tuple[list[dict[str, str]], dict[str, Any]]:
     """Every `## Envelopes` record of the harness reports, with the files they came from."""
     files = sorted(
-        path for path in directory.glob("*.md") if not path.name.startswith(SELFTEST_PREFIX)
+        path
+        for path in directory.glob("*.md")
+        if not path.name.startswith(SELFTEST_PREFIX)
     )
     if not files:
         raise FileNotFoundError(f"no harness reports under {directory}/*.md")
@@ -303,6 +355,13 @@ def read_harness_records(directory: Path) -> tuple[list[dict[str, str]], dict[st
 
 
 def _aggregate_sha(members: Mapping[str, Any]) -> str:
+    """
+    One digest over a group of input files, from their names and their digests.
+
+    The names are hashed alongside the digests and in sorted order, so that
+    renaming a member or reordering the group changes the aggregate. A digest of
+    the contents alone would call two different corpora the same input.
+    """
     digest = hashlib.sha256()
     for name in sorted(members):
         digest.update(name.encode())
@@ -314,7 +373,27 @@ def _aggregate_sha(members: Mapping[str, Any]) -> str:
 HARNESS_IN = ("harness_reports",)
 
 
-def measure_harness(records: Sequence[Mapping[str, str]], freeze: FreezeRegistry) -> dict[str, Any]:
+def measure_harness(
+    records: Sequence[Mapping[str, str]], freeze: FreezeRegistry
+) -> dict[str, Any]:
+    """
+    Measure the discontinuity on the corpus that decides E6.
+
+    This is the corpus whose records carry `ev=`, so this is where "does `code`
+    and `event` separate anything" has an answer that is about the identity rather
+    than about the era.
+
+    Three narrowings, each guarding a way the number could flatter the change.
+    `class`, `method` and `location` are constant across the corpus (freeze item
+    `harness_site`), so they are held fixed rather than invented: including them
+    would add a component that separates nothing. The collision count is computed
+    over the enveloped records alone, because a split between an enveloped record
+    and a legacy one is the era boundary showing through and not a cause the
+    identity separated -- E6 is decided on that conservative number. And
+    `by_event_alone` isolates the separations where all the causes share one
+    `code`, which is the direct test of design D-5's claim that `code` on its own
+    would refine nothing.
+    """
     freeze.require("identity5")
     freeze.require("identity7")
     freeze.require("envelope_parse")
@@ -345,71 +424,106 @@ def measure_harness(records: Sequence[Mapping[str, str]], freeze: FreezeRegistry
     # Where the separated causes share one `code`, `event` is doing the separating on its
     # own - the claim of design D-5 that `code` alone would refine nothing.
     by_event_alone = {
-        key: value for key, value in separated.items() if len({code for code, _ in value}) == 1
+        key: value
+        for key, value in separated.items()
+        if len({code for code, _ in value}) == 1
     }
 
     env: dict[str, Envelope] = {}
     env["records"] = Envelope(
-        "violation records read from the harness reports", total, total, "records",
-        ("harness_corpus",), HARNESS_IN,
+        "violation records read from the harness reports",
+        total,
+        total,
+        "records",
+        ("harness_corpus",),
+        HARNESS_IN,
         excluded=f"the `{SELFTEST_PREFIX}*` reports of the harness self-test",
     )
     env["records_carrying_an_envelope"] = Envelope(
-        "records whose message carries a `v=1` envelope", len(enveloped), total, "records",
-        ("envelope_parse",), HARNESS_IN,
+        "records whose message carries a `v=1` envelope",
+        len(enveloped),
+        total,
+        "records",
+        ("envelope_parse",),
+        HARNESS_IN,
         note="the remainder are pre-E1 messages replayed as the A side of the E1 rounds; they "
-             "parse to the sentinel exactly as a legacy device record would.",
+        "parse to the sentinel exactly as a legacy device record would.",
     )
     env["distinct_events"] = Envelope(
         "distinct `ev=` values inside the envelopes",
-        len({r["event"] for r in enveloped}), len(enveloped), "events / records",
-        ("envelope_parse",), HARNESS_IN,
+        len({r["event"] for r in enveloped}),
+        len(enveloped),
+        "events / records",
+        ("envelope_parse",),
+        HARNESS_IN,
     )
     env["distinct_codes"] = Envelope(
         "distinct `code=` values inside the envelopes",
-        len({r["code"] for r in enveloped}), len(enveloped), "codes / records",
-        ("envelope_parse",), HARNESS_IN,
+        len({r["code"] for r in enveloped}),
+        len(enveloped),
+        "codes / records",
+        ("envelope_parse",),
+        HARNESS_IN,
     )
     env["identities_5tuple"] = Envelope(
         "distinct identities under the 5-tuple, with the site held constant",
-        len(five), total, "identities / records", ("identity5", "harness_site"), HARNESS_IN,
+        len(five),
+        total,
+        "identities / records",
+        ("identity5", "harness_site"),
+        HARNESS_IN,
     )
     env["identities_7tuple"] = Envelope(
         "distinct identities under the 7-tuple, with the site held constant",
-        len(seven), total, "identities / records",
-        ("identity7", "harness_site", "envelope_parse"), HARNESS_IN,
+        len(seven),
+        total,
+        "identities / records",
+        ("identity7", "harness_site", "envelope_parse"),
+        HARNESS_IN,
     )
     env["discontinuity"] = Envelope(
-        "identities the 7-tuple adds over the 5-tuple", len(seven) - len(five), len(five),
+        "identities the 7-tuple adds over the 5-tuple",
+        len(seven) - len(five),
+        len(five),
         "identities / identities",
-        ("identity5", "identity7", "harness_site", "envelope_parse"), HARNESS_IN,
+        ("identity5", "identity7", "harness_site", "envelope_parse"),
+        HARNESS_IN,
         note="the whole-corpus figure, which spans both eras: the A sides of the E1 rounds "
-             "replay a pre-envelope snapshot, so some of this number is a sentinel standing "
-             "beside a named event. E6 is decided on `discontinuity_envelope_only` below, "
-             "not on this one.",
+        "replay a pre-envelope snapshot, so some of this number is a sentinel standing "
+        "beside a named event. E6 is decided on `discontinuity_envelope_only` below, "
+        "not on this one.",
     )
     env["discontinuity_envelope_only"] = Envelope(
         "identities the 7-tuple adds over the 5-tuple, counting only enveloped records",
-        len(seven_env) - len(five_env), len(five_env), "identities / identities",
-        ("identity5", "identity7", "harness_site", "envelope_parse"), HARNESS_IN,
+        len(seven_env) - len(five_env),
+        len(five_env),
+        "identities / identities",
+        ("identity5", "identity7", "harness_site", "envelope_parse"),
+        HARNESS_IN,
         excluded="records whose message carries no envelope",
         note="the number that decides E6: it must be non-zero, or `code` and `event` add "
-             "nothing to the identity and design D-5 is re-opened. It counts only records "
-             "carrying an envelope, so the sentinel cannot pass the gate on its own.",
+        "nothing to the identity and design D-5 is re-opened. It counts only records "
+        "carrying an envelope, so the sentinel cannot pass the gate on its own.",
     )
     env["five_part_identities_split"] = Envelope(
         "five-part identities that the seven-part identity splits into more than one",
-        len(separated), len(five_env), "identities / identities",
-        ("identity5", "identity7", "harness_site"), HARNESS_IN,
+        len(separated),
+        len(five_env),
+        "identities / identities",
+        ("identity5", "identity7", "harness_site"),
+        HARNESS_IN,
         excluded="records whose message carries no envelope",
     )
     env["split_by_event_alone"] = Envelope(
         "of those, the ones whose separated causes share a single `code`",
-        len(by_event_alone), len(separated), "identities / identities",
-        ("identity5", "identity7", "harness_site", "envelope_parse"), HARNESS_IN,
+        len(by_event_alone),
+        len(separated),
+        "identities / identities",
+        ("identity5", "identity7", "harness_site", "envelope_parse"),
+        HARNESS_IN,
         excluded="records whose message carries no envelope",
         note="these are the reports `event` separates on its own, with `code` identical - the "
-             "measured form of design D-5's claim that `code` alone would refine nothing.",
+        "measured form of design D-5's claim that `code` alone would refine nothing.",
     )
 
     return {
@@ -427,7 +541,9 @@ def measure_harness(records: Sequence[Mapping[str, str]], freeze: FreezeRegistry
         },
         "runs": {
             run: count
-            for run, count in sorted(collections.Counter(r["run"] for r in records).items())
+            for run, count in sorted(
+                collections.Counter(r["run"] for r in records).items()
+            )
         },
     }
 
@@ -438,6 +554,18 @@ def measure_harness(records: Sequence[Mapping[str, str]], freeze: FreezeRegistry
 
 
 def build(freeze: FreezeRegistry = DEFAULT_FREEZE) -> dict[str, Any]:
+    """
+    Assemble both corpora, the frozen definitions and the era split into one result.
+
+    The verdict reads the conservative discontinuity rather than the headline one.
+    The headline counts the whole harness corpus, which mixes the pre-E1 A sides
+    of the E1 rounds with post-E1 records, so part of it is the era boundary; a
+    gate that could be passed by the sentinel standing beside a named event would
+    not be measuring the change at all.
+
+    The freeze definitions travel inside the result, not beside it, so that a
+    recorded number and the definition that produced it cannot be separated.
+    """
     comp162 = load_comp162()
     harness_records, harness_inputs = read_harness_records(HARNESS_DIR)
 
@@ -461,7 +589,11 @@ def build(freeze: FreezeRegistry = DEFAULT_FREEZE) -> dict[str, Any]:
         "definitions": {
             key: {
                 "definition": item["definition"],
-                "value": list(item["value"]) if isinstance(item["value"], tuple) else item["value"],
+                "value": (
+                    list(item["value"])
+                    if isinstance(item["value"], tuple)
+                    else item["value"]
+                ),
                 "why": item["why"],
             }
             for key, item in sorted(freeze.items.items())
@@ -519,6 +651,13 @@ _TABLE_HEAD = (
 
 
 def _row(env: Mapping[str, Any]) -> str:
+    """
+    One markdown table row for a measurement envelope.
+
+    `agrees` renders a disagreement in bold and an absent expectation as a dash,
+    because those are different states: nothing was expected, versus something was
+    expected and the measurement contradicts it.
+    """
     pct = "" if env["percent"] is None else f" = {env['percent']:.2f} %"
     den = "-" if env["denominator"] is None else f"{env['denominator']:,}"
     measured = f"{env['numerator']:,} / {den} {env['unit']}{pct}"
@@ -531,6 +670,12 @@ def _row(env: Mapping[str, Any]) -> str:
 
 
 def _notes(envelopes: Mapping[str, Any]) -> Iterable[str]:
+    """
+    The note and exclusion lines for a group of envelopes, in order.
+
+    An exclusion is emitted only when there is one -- `nothing` is the default and
+    prints no line -- so the exclusions that do appear are read as deliberate.
+    """
     for key, env in envelopes.items():
         if env["note"]:
             yield f"- `{key}` — {env['note']}"
@@ -539,6 +684,15 @@ def _notes(envelopes: Mapping[str, Any]) -> Iterable[str]:
 
 
 def render_markdown(b: Mapping[str, Any]) -> str:
+    """
+    Render the whole result as the evidence document.
+
+    The verdict comes first and the definitions last, but the numbers in between
+    each name the definition ids that produced them, so the document can be read
+    top-down for the answer and bottom-up for how it was computed. Every number
+    carries numerator, denominator and unit: a bare count in an evidence file is a
+    number nobody can re-derive.
+    """
     L: list[str] = []
     add = L.append
     verdict = b["verdict"]
@@ -576,7 +730,9 @@ def render_markdown(b: Mapping[str, Any]) -> str:
         f"- **Separated by `event` alone**: {verdict['split_by_event_alone']:,} of those, with "
         "`code` identical on both sides"
     )
-    add(f"- **E6 lands**: {'yes' if verdict['e6_lands'] else '**no** — re-open design D-5'}")
+    add(
+        f"- **E6 lands**: {'yes' if verdict['e6_lands'] else '**no** — re-open design D-5'}"
+    )
     add("")
     add(verdict["rule"])
     add("")
@@ -748,21 +904,43 @@ def render_markdown(b: Mapping[str, Any]) -> str:
     return "\n".join(L) + "\n"
 
 
-def write(out_dir: Path = OUT_DIR, freeze: FreezeRegistry = DEFAULT_FREEZE) -> dict[str, Any]:
+def write(
+    out_dir: Path = OUT_DIR, freeze: FreezeRegistry = DEFAULT_FREEZE
+) -> dict[str, Any]:
+    """
+    Build the result and write both the JSON and the markdown into `out_dir`.
+
+    Both are written from one build, so the machine-readable and the human-readable
+    artefact can never disagree about what was measured.
+    """
     result = build(freeze)
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "identity_discontinuity.json").write_text(
         json.dumps(result, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-    (out_dir / "identity_discontinuity.md").write_text(render_markdown(result), encoding="utf-8")
+    (out_dir / "identity_discontinuity.md").write_text(
+        render_markdown(result), encoding="utf-8"
+    )
     return result
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="gh104 E6 identity discontinuity (task 9.1)")
+    """
+    Parse arguments, write the evidence, and print both corpora's headline figures.
+
+    The summary prints comp162's discontinuity with "zero by construction" spelled
+    out, and the harness's twice -- whole corpus and enveloped records only -- so
+    that the conservative number is the one a reader takes away.
+    """
+    parser = argparse.ArgumentParser(
+        description="gh104 E6 identity discontinuity (task 9.1)"
+    )
     parser.add_argument(
-        "--out", type=Path, default=OUT_DIR, help="output directory (default: data/gh104)"
+        "--out",
+        type=Path,
+        default=OUT_DIR,
+        help="output directory (default: data/gh104)",
     )
     args = parser.parse_args(argv)
 
@@ -770,7 +948,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     verdict = result["verdict"]
     comp = result["corpora"]["comp162"]["envelopes"]
     harness = result["corpora"]["harness"]["envelopes"]
-    print(f"wrote {args.out / 'identity_discontinuity.json'}, identity_discontinuity.md")
+    print(
+        f"wrote {args.out / 'identity_discontinuity.json'}, identity_discontinuity.md"
+    )
     print(
         "comp162: 8-tuple "
         f"{comp['identities_8tuple']['numerator']:,}, "
@@ -787,7 +967,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"of which {harness['split_by_event_alone']['numerator']:,} by `event` alone)"
     )
     if not verdict["e6_lands"]:
-        print("DISCONTINUITY IS ZERO on the deciding corpus: E6 does not land; re-open design D-5")
+        print(
+            "DISCONTINUITY IS ZERO on the deciding corpus: E6 does not land; re-open design D-5"
+        )
         return 1
     return 0
 

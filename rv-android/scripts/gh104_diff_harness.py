@@ -46,7 +46,9 @@ TEST_CLASSES = RVSEC_MOP / "target/test-classes"
 CLASSPATH_FILE = RVSEC_MOP / "target/gh104-classpath.txt"
 
 # `val` inside `exp`: `expecting one of A,B,C but found B.`
-ENVELOPE = re.compile(r"expecting (?:one of|at least)?\s*\{?([^}]*?)\}?\s*but found\s+(.*?)\.?\s*$")
+ENVELOPE = re.compile(
+    r"expecting (?:one of|at least)?\s*\{?([^}]*?)\}?\s*but found\s+(.*?)\.?\s*$"
+)
 
 # The `v=1` envelope names the two values outright, so where it is present they are
 # read from it rather than parsed back out of the sentence. Reading the prose would
@@ -85,7 +87,9 @@ def generate(set_dir: Path, out_dir: Path) -> Path:
     # a cold JVM on a loaded machine misses it. One retry costs a few seconds and removes a
     # failure that says nothing about the specifications.
     for attempt in range(2):
-        result = subprocess.run(command, cwd=REPO, capture_output=True, text=True, check=False)
+        result = subprocess.run(
+            command, cwd=REPO, capture_output=True, text=True, check=False
+        )
         if monitor.is_file():
             break
     if not monitor.is_file():
@@ -174,7 +178,9 @@ def self_contradicting(envelope: str) -> str | None:
         if not prose:
             return None
         expected_text, observed = prose.group(1), prose.group(2)
-    expected = {item.strip().strip("{}").lower() for item in re.split(r"[,;]", expected_text)}
+    expected = {
+        item.strip().strip("{}").lower() for item in re.split(r"[,;]", expected_text)
+    }
     observed = observed.strip().lower()
     if observed and observed in expected:
         return f"val ∈ exp: observed {observed!r} is listed in {sorted(expected)}"
@@ -182,6 +188,15 @@ def self_contradicting(envelope: str) -> str | None:
 
 
 def classify(left: dict, right: dict) -> str:
+    """
+    Classify one trace by how the two snapshots' accusations differ.
+
+    `unchanged` covers two cases that are the same answer: neither side accuses,
+    or both accuse at the same event. Equality is over the accusing events and
+    not over the reports, because a message the change rewrote would otherwise
+    show up as a behavioural difference -- and the behaviour is exactly what the
+    messages are not.
+    """
     if not left["accused"] and not right["accused"]:
         return "unchanged"
     if left["accused"] and not right["accused"]:
@@ -192,6 +207,18 @@ def classify(left: dict, right: dict) -> str:
 
 
 def compare(left: list[dict], right: list[dict]) -> list[dict]:
+    """
+    Pair the two sides by trace name and classify each pair.
+
+    The union of the two key sets is walked rather than either side alone, so a
+    trace that ran on one snapshot only becomes an `unreplayed` row instead of
+    disappearing. That row carries no class of its own: a comparison with no
+    trace on one side classifies nothing, and silently dropping it would make the
+    counts add up to a smaller corpus than the one that was run.
+
+    The self-contradicting envelopes are flagged per side, so a flag on `a` and
+    none on `b` reads as a repair even when the classification is `unchanged`.
+    """
     by_left = {outcome["trace"]: outcome for outcome in left}
     by_right = {outcome["trace"]: outcome for outcome in right}
     rows: list[dict] = []
@@ -231,11 +258,19 @@ def compare(left: list[dict], right: list[dict]) -> list[dict]:
 
 
 def specification_of(trace: str) -> str:
+    """
+    The specification a trace belongs to, from its file name.
+
+    Traces are named `<Spec>-<case>.txt`, so the first segment is the grouping
+    key for the per-specification reports.
+    """
     name = trace.replace(".txt", "")
     return name.split("-", 1)[0]
 
 
-def write_reports(rows: list[dict], out: Path, group: str, set_a: Path, set_b: Path) -> list[Path]:
+def write_reports(
+    rows: list[dict], out: Path, group: str, set_a: Path, set_b: Path
+) -> list[Path]:
     """One markdown report per specification, at `evidence/harness/<group>-<Spec>.md`."""
     out.mkdir(parents=True, exist_ok=True)
     by_spec: dict[str, list[dict]] = {}
@@ -318,7 +353,9 @@ def write_mutant(seed: Path, target: Path) -> dict[str, str]:
         "      start [\n        g1 -> waitingInit\n        g2 -> waitingInit\n        g3 -> start\n      ]",
     )
     tmf.write_text(text, encoding="utf-8")
-    applied["moved"] = "TrustManagerFactorySpec: g3 loops at start, so the accusation lands on init"
+    applied["moved"] = (
+        "TrustManagerFactorySpec: g3 loops at start, so the accusation lands on init"
+    )
 
     # `removed`: IvParameterSpecSpec's violating branch `c3` is closed off. Deleting its report
     # site alone would not do it -- `c3` carries an all-`fail` row, so firing it still runs the
@@ -332,7 +369,9 @@ def write_mutant(seed: Path, target: Path) -> dict[str, str]:
         "         false && !ExecutionContext.instance().validate(Property.RANDOMIZED, iv)\n       ) {",
     )
     iv.write_text(text, encoding="utf-8")
-    applied["removed"] = "IvParameterSpecSpec: c3's condition is closed off, so the branch never fires"
+    applied["removed"] = (
+        "IvParameterSpecSpec: c3's condition is closed off, so the branch never fires"
+    )
 
     # `introduced`: MessageDigestSpec's commented-out `g4` report is revived, so a digest
     # obtained under an unsafe algorithm is accused at `getInstance` as well.
@@ -347,7 +386,7 @@ def write_mutant(seed: Path, target: Path) -> dict[str, str]:
     md.write_text(text, encoding="utf-8")
     applied["introduced"] = (
         "MessageDigestSpec: the commented-out g4 report at :57-58 is revived, so a bare "
-        "getInstance(\"MD5\") is accused where the seed accuses only the call that consumes it"
+        'getInstance("MD5") is accused where the seed accuses only the call that consumes it'
     )
 
     applied["unchanged"] = "KeyStoreSpec and every other file: not mutated"
@@ -360,6 +399,17 @@ def write_mutant(seed: Path, target: Path) -> dict[str, str]:
 
 
 def run(set_a: Path, set_b: Path, traces: Path, out: Path, group: str) -> dict:
+    """
+    Generate both snapshots in scratch, replay the corpus, write the reports.
+
+    Both sides are generated under a fresh scratch root, so neither call touches a
+    committed monitor -- the harness measures what two sets do, and would be
+    worthless if running it changed one of them.
+
+    The returned `scratch` path is deliberately not cleaned up: the generated
+    monitors are what a later gate run and any replay of a single trace need, and
+    regenerating them costs a minute and a half.
+    """
     root = Path(tempfile.mkdtemp(prefix="gh104-harness-", dir=scratch_root()))
     monitors_a = generate(set_a, root / "a" / "monitors")
     monitors_b = generate(set_b, root / "b" / "monitors")
@@ -382,11 +432,21 @@ def run(set_a: Path, set_b: Path, traces: Path, out: Path, group: str) -> dict:
 
 
 def main() -> int:
+    """
+    Parse arguments, run the harness (or its self-test), and write the report.
+
+    `--selftest` replaces both sides: `jca` against a synthetic mutant of itself,
+    written in scratch, whose known mutations the classifier must recover. It is
+    the only mode that writes one summary file instead of one report per
+    specification, because its subject is the classifier and not any set.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--a", type=Path, help="the first specification-set directory")
     parser.add_argument("--b", type=Path, help="the second specification-set directory")
     parser.add_argument("--traces", type=Path, default=REPO / "data/gh104/traces")
-    parser.add_argument("--out", type=Path, default=REPO / "data/gh104/evidence/harness")
+    parser.add_argument(
+        "--out", type=Path, default=REPO / "data/gh104/evidence/harness"
+    )
     parser.add_argument(
         "--group",
         default="s",
@@ -477,7 +537,11 @@ def main() -> int:
         args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
-    print(json.dumps({key: value for key, value in report.items() if key != "rows"}, indent=2))
+    print(
+        json.dumps(
+            {key: value for key, value in report.items() if key != "rows"}, indent=2
+        )
+    )
     missing = {"unchanged", "moved", "removed", "introduced"} - set(report["counts"])
     if args.selftest and missing:
         print(f"the self-test produced no {sorted(missing)} verdict", file=sys.stderr)

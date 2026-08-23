@@ -114,6 +114,23 @@ def error_sites(mop: MopSpec) -> list[dict]:
 
 
 def lint(directory: Path) -> dict:
+    """
+    Run the six checks over every `.mop` of one set and return the report.
+
+    The parse comes first and its failure is itself a finding: an unbalanced group
+    that the parser walks into gives `unbalanced` and the file is skipped, because
+    every later check reads structure the parse was supposed to have found.
+
+    Two choices are worth stating. Commented report sites are skipped, since a
+    report the set holds and does not emit cannot be off by a factor of ten; and
+    only `declarations` are matched against `RESERVED`, because an event named
+    `reset` becomes `Prop_1_event_reset` and collides with nothing, while a field
+    of that name shadows a member of the generated monitor.
+
+    The brace and parenthesis scan stops at the first negative depth and reports
+    the line, but reports an unclosed opener without one: a depth that never
+    returns to zero says how many are open and not where.
+    """
     findings: list[dict] = []
     notes: list[dict] = []
 
@@ -122,7 +139,12 @@ def lint(directory: Path) -> dict:
             mop = parse_mop(path)
         except ValueError as error:  # an unbalanced group the parser walked into
             findings.append(
-                {"kind": "unbalanced", "file": path.name, "line": 0, "detail": str(error)}
+                {
+                    "kind": "unbalanced",
+                    "file": path.name,
+                    "line": 0,
+                    "detail": str(error),
+                }
             )
             continue
 
@@ -208,7 +230,8 @@ def lint(directory: Path) -> dict:
                     {
                         "kind": "reserved-name",
                         "file": path.name,
-                        "line": mop.text[: mop.text.index(match.group(0))].count("\n") + 1,
+                        "line": mop.text[: mop.text.index(match.group(0))].count("\n")
+                        + 1,
                         "detail": f"`{name}` is a name the generator writes into the monitor",
                     }
                 )
@@ -231,6 +254,13 @@ def lint(directory: Path) -> dict:
 
 
 def main() -> int:
+    """
+    Parse arguments, lint the directory, print the report as JSON.
+
+    Three exit codes, and the middle one is the point: 2 is "this is not a
+    specification-set directory" and 1 is "it is, and it has findings". A gate
+    that answered 1 to both would let a mistyped path read as a clean set.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("directory", type=Path)
     parser.add_argument("--json", type=Path)

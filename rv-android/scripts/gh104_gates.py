@@ -83,7 +83,9 @@ from pathlib import Path
 MONITOR_CLASS = re.compile(
     r"^(?:final )?class (\w+)Monitor extends .*Abstract(?:Atomic|Synchronized)Monitor"
 )
-TRANSITION = re.compile(r"static final int (\w+)_transition_(\w+)\[\]\s*=\s*\{([^}]*)\}")
+TRANSITION = re.compile(
+    r"static final int (\w+)_transition_(\w+)\[\]\s*=\s*\{([^}]*)\}"
+)
 EVENT_METHOD = re.compile(r"\bboolean (\w+)_event_(\w+)\s*\(")
 # `...Category_fail = nextstate == 4;` in the atomic form,
 # `...Category_fail = Prop_1_state == 3;` in the synchronized one.
@@ -104,10 +106,24 @@ class Property:
 
     @property
     def fail_state(self) -> int | None:
+        """
+        The state index the generator gave the `fail` category, or None.
+
+        None means the generated property declared no `fail` category at all, which
+        every structural gate treats as "there is nothing here to compare against"
+        rather than as state zero.
+        """
         return self.categories.get("fail")
 
     @property
     def states(self) -> set[int]:
+        """
+        Every state index this property mentions, from any direction.
+
+        The union is taken over three sources -- the row positions, the row targets and
+        the category constants -- because a state can appear as a target and never as a
+        source, and G-2d asks about the highest index of all of them.
+        """
         seen: set[int] = set()
         for row in self.transitions.values():
             seen.update(range(len(row)))
@@ -116,6 +132,13 @@ class Property:
         return seen
 
     def reachable(self) -> set[int]:
+        """
+        The states reachable from the initial state, following any event.
+
+        Reachability is over the union of all transition rows: an event is a label, and
+        G-2c asks whether the state can be arrived at by any path, not by a
+        distinguished one.
+        """
         reached = {0}
         frontier = [0]
         while frontier:
@@ -128,11 +151,21 @@ class Property:
 
 
 def parse_monitor(path: Path) -> list[Property]:
+    """
+    Every property the generated monitor declares, as transitions and categories.
+
+    Two passes, because the generator writes the two kinds of fact differently.
+    The category constants are emitted inside every event method, so they are
+    collected first across the whole file, taking the first occurrence per
+    (spec, property, category) as the definition. The transition rows and event
+    methods are then read line by line, keyed by the monitor class currently open.
+    """
     text = path.read_text(encoding="utf-8")
 
     properties: dict[tuple[str, str], Property] = {}
 
     def slot(spec: str, prop: str) -> Property:
+        """The property record for this (spec, property) pair, created on first use."""
         key = (spec, prop)
         if key not in properties:
             properties[key] = Property(spec=spec, prop=prop)
@@ -170,7 +203,9 @@ EVENT_START = re.compile(r"\bevent\s+(\w+)\s+(before|after)\b")
 LIST_LITERAL = re.compile(r"(?:List<\w+>\s+)?(\w+)\s*=\s*Arrays\.asList\s*\(")
 
 
-def _match_delimiters(text: str, start: int, opening: str, closing: str) -> tuple[int, int]:
+def _match_delimiters(
+    text: str, start: int, opening: str, closing: str
+) -> tuple[int, int]:
     """Index range of the balanced group whose opener is at or after `start`."""
     index = text.index(opening, start)
     depth = 0
@@ -224,6 +259,13 @@ def _split_top_level(text: str) -> list[str]:
 
 @dataclass
 class MopEvent:
+    """
+    One `event` declaration of a `.mop` file, parsed from its head and body.
+
+    `body_start` and `body_end` carry the line span, which is what lets another
+    gate ask which event a report site belongs to.
+    """
+
     name: str
     kind: str
     line: int
@@ -237,6 +279,15 @@ class MopEvent:
 
 @dataclass
 class MopSpec:
+    """
+    One parsed `.mop` file: its events, its formula, its list literals, its text.
+
+    The raw `text` is kept alongside the parsed parts because several gates ask
+    questions the parse deliberately does not answer -- where a name is written,
+    whether a substring occurs -- and re-reading the file would let the two views
+    drift.
+    """
+
     path: Path
     spec: str
     declarations: str
@@ -248,6 +299,7 @@ class MopSpec:
     text: str
 
     def event(self, name: str) -> MopEvent | None:
+        """The event of this specification with that name, or None."""
         for candidate in self.events:
             if candidate.name == name:
                 return candidate
@@ -274,6 +326,18 @@ class MopSpec:
 
 
 def parse_mop(path: Path) -> MopSpec:
+    """
+    Parse one `.mop` file into events, formula, allow-lists and declarations.
+
+    The parse is delimiter-matched rather than line-based throughout: a
+    `call(...)` pointcut, an `args(...)` list and a `condition(...)` guard all span
+    lines in this corpus, and a regular expression that stopped at the newline
+    would silently truncate the very guard the gates read.
+
+    `declarations` is everything between the specification header and the first
+    event, which is the region where a name can shadow a member of the generated
+    monitor.
+    """
     text = path.read_text(encoding="utf-8")
 
     header = SPEC_HEADER.search(text)
@@ -289,7 +353,9 @@ def parse_mop(path: Path) -> MopSpec:
             start, end = _match_delimiters(head, call.end() - 1, "(", ")")
             calls.append(head[start + 1 : end].strip())
         args: list[str] = []
-        if args_match := re.search(r"&&\s*args\s*\(", head) or re.search(r"\bargs\s*\(", head):
+        if args_match := re.search(r"&&\s*args\s*\(", head) or re.search(
+            r"\bargs\s*\(", head
+        ):
             start, end = _match_delimiters(head, args_match.end() - 1, "(", ")")
             args = [part.strip() for part in _split_top_level(head[start + 1 : end])]
         condition = None
@@ -305,8 +371,8 @@ def parse_mop(path: Path) -> MopSpec:
                 args=args,
                 condition=condition,
                 body=text[open_brace + 1 : close_brace],
-                body_start=text[: open_brace].count("\n") + 1,
-                body_end=text[: close_brace].count("\n") + 1,
+                body_start=text[:open_brace].count("\n") + 1,
+                body_end=text[:close_brace].count("\n") + 1,
             )
         )
 
@@ -374,29 +440,53 @@ SECTIONS = (
 
 @dataclass
 class CryslRule:
+    """
+    One parsed api30 rule: its sections, its events and its declared objects.
+
+    Sections keep the line number of each clause, because a gate that clears a
+    finding has to say which clause cleared it and where -- a verdict pointing at
+    a rule file and no line is not checkable.
+    """
+
     path: Path
     sections: dict[str, list[tuple[int, str]]]
     events: dict[str, tuple[str, list[str]]]
     objects: dict[str, str]
 
     def clauses(self, section: str) -> list[tuple[int, str]]:
+        """The clauses of one section, as (line, text) pairs; empty if absent."""
         return self.sections.get(section, [])
 
 
 def parse_crysl(path: Path) -> CryslRule:
+    """
+    Parse a `.cryptsl` rule into sections, events and objects.
+
+    Clauses are accumulated across lines and terminated by `;` rather than by the
+    newline, because the corpus wraps them freely. The line recorded is where the
+    clause *starts*, which is where a reader following a verdict wants to land.
+
+    The `EVENTS` parse skips aggregates (`Cons := c1 | c2;`), keeps the
+    right-hand side of an assignment (`k1: kp = generateKeyPair();`), and reduces
+    a qualified call to its last segment, so that the name matched against a
+    `.mop` pointcut is the method rather than its declaring type.
+    """
     sections: dict[str, list[tuple[int, str]]] = {}
     current: str | None = None
     buffer: list[str] = []
     buffer_line = 0
 
     def flush() -> None:
-        nonlocal buffer, buffer_line
+        """Close the clause being accumulated and file it under the current section."""
+        nonlocal buffer
         clause = " ".join(part.strip() for part in buffer).strip().strip(";").strip()
         if current and clause:
             sections.setdefault(current, []).append((buffer_line, clause))
         buffer = []
 
-    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for number, raw in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         line = raw.strip()
         head = line.rstrip(":").strip()
         if head in SECTIONS:
@@ -425,7 +515,9 @@ def parse_crysl(path: Path) -> CryslRule:
         if not call:
             continue
         name = call.group(1).split(".")[-1]
-        params = [part.strip() for part in _split_top_level(call.group(2)) if part.strip()]
+        params = [
+            part.strip() for part in _split_top_level(call.group(2)) if part.strip()
+        ]
         events[label.strip()] = (name, params)
 
     # `java.security.spec.AlgorithmParameterSpec params;` -> params: AlgorithmParameterSpec
@@ -457,6 +549,8 @@ def rule_for(spec: str, crysl_dir: Path) -> CryslRule | None:
 
 @dataclass
 class AllowRow:
+    """One row of a gate allow-list: which gate, which subject, and why."""
+
     gate: str
     spec: str
     target: str
@@ -475,10 +569,19 @@ class Allowlist:
     """
 
     def __init__(self, rows: list[AllowRow]):
+        """Hold the parsed rows; `load` is the constructor that reads a file."""
         self.rows = rows
 
     @classmethod
     def load(cls, path: Path | None) -> "Allowlist":
+        """
+        Read an allow-list CSV, or return an empty one when the path is absent.
+
+        Absent and empty are the same thing here on purpose: no allow-list means
+        nothing is allowed, which is the safe direction. `spec` and `event_or_state`
+        default to `*`, and `event` is accepted as an older name for the same column,
+        so a file written to the shared six-column schema still reads.
+        """
         if path is None or not path.is_file():
             return cls([])
         rows: list[AllowRow] = []
@@ -488,7 +591,9 @@ class Allowlist:
                     AllowRow(
                         gate=(raw.get("gate") or "").strip(),
                         spec=(raw.get("spec") or "*").strip() or "*",
-                        target=(raw.get("event_or_state") or raw.get("event") or "*").strip()
+                        target=(
+                            raw.get("event_or_state") or raw.get("event") or "*"
+                        ).strip()
                         or "*",
                         verdict=(raw.get("verdict") or "").strip(),
                         clause=(raw.get("clause") or "").strip(),
@@ -498,6 +603,14 @@ class Allowlist:
         return cls(rows)
 
     def find(self, gate: str, spec: str, target: str) -> AllowRow | None:
+        """
+        The first row matching this gate, spec and target, or None.
+
+        First match rather than most specific: the rows are read in file order, so a
+        narrow row placed above a wildcard wins, and the file is readable as the list
+        of decisions it is. The caller still checks `reason` -- a row with none allows
+        nothing.
+        """
         for row in self.rows:
             if row.gate != gate:
                 continue
@@ -525,6 +638,13 @@ PREDICATE_CALL = re.compile(
 
 
 def _normalise(name: str) -> str:
+    """
+    A name with separators dropped and case folded, for comparing spellings.
+
+    Used only where the question is whether two identifiers name the same thing
+    (`HMAC-SHA256` against `HmacSHA256`), never to decide allow-list membership:
+    `_canonical` states why folding separators away is wrong there.
+    """
     return name.replace("_", "").replace("-", "").lower()
 
 
@@ -558,11 +678,23 @@ def _crysl_params(
     if not candidates:
         return None
     exact = [params for params in candidates if len(params) == arity]
-    pool = exact or sorted((p for p in candidates if len(p) >= arity), key=len) or candidates
+    pool = (
+        exact
+        or sorted((p for p in candidates if len(p) >= arity), key=len)
+        or candidates
+    )
     if len(pool) == 1 or not declared:
         return pool[0]
 
     def score(params: list[str]) -> int:
+        """
+        How many of a candidate's parameters agree in type with the declared ones.
+
+        Used to choose between CrySL events that bind the same method name at the
+        same arity. Unknown positions (`_`, an unnamed type, a wildcard) score zero
+        rather than counting against a candidate, so a partial match beats no match
+        instead of being discarded.
+        """
         agreed = 0
         for index, param in enumerate(params):
             if index >= len(declared):
@@ -579,7 +711,15 @@ def _crysl_params(
     return max(pool, key=score)
 
 
-def _clause_hit(rule: CryslRule, sections: tuple[str, ...], needle: str) -> tuple[str, int, str] | None:
+def _clause_hit(
+    rule: CryslRule, sections: tuple[str, ...], needle: str
+) -> tuple[str, int, str] | None:
+    """
+    The first clause of the given sections that names this identifier.
+
+    Word-bounded, so `key` does not match `keySize`, and returning the section and
+    line means the verdict can carry the clause that cleared it.
+    """
     pattern = re.compile(rf"\b{re.escape(needle)}\b")
     for section in sections:
         for line, clause in rule.clauses(section):
@@ -591,6 +731,14 @@ def _clause_hit(rule: CryslRule, sections: tuple[str, ...], needle: str) -> tupl
 def _predicate_hit(
     rule: CryslRule, sections: tuple[str, ...], predicate: str, obj: str
 ) -> tuple[str, int, str] | None:
+    """
+    The first clause of the given sections stating this predicate over this object.
+
+    Both halves have to agree: the predicate name, compared through `_normalise`
+    because spelling varies between the rule and the specification, and the object
+    appearing among the predicate's operands. Matching the name alone would clear
+    an event by a clause about a different value.
+    """
     for section in sections:
         for line, clause in rule.clauses(section):
             for match in re.finditer(r"(\w+)\s*\[([^\]]*)\]", clause):
@@ -602,7 +750,9 @@ def _predicate_hit(
     return None
 
 
-def _forbidden_hit(rule: CryslRule, method: str, params: list[str]) -> tuple[str, int, str] | None:
+def _forbidden_hit(
+    rule: CryslRule, method: str, params: list[str]
+) -> tuple[str, int, str] | None:
     """A FORBIDDEN clause naming the very constructor or method the event binds."""
     wanted = (method, [_simple_type(param) for param in params])
     for line, clause in rule.clauses("FORBIDDEN"):
@@ -617,6 +767,12 @@ def _forbidden_hit(rule: CryslRule, method: str, params: list[str]) -> tuple[str
 
 
 def _simple_type(declared: str) -> str:
+    """
+    The bare type name of a declaration: `java.security.Key k` -> `Key`.
+
+    Both the package and any parameter name are dropped, because a `.mop` pointcut
+    and a CrySL rule name the same type at different degrees of qualification.
+    """
     token = declared.strip().split()[0] if declared.strip() else ""
     return token.split(".")[-1]
 
@@ -667,6 +823,15 @@ def classify_orphan(
         return verdict
 
     def crysl_object(argument: str) -> str | None:
+        """
+        The CrySL object bound at the position this `.mop` argument occupies.
+
+        The link is positional, never by name: the event's `args(...)` gives the
+        index, the rule's parameter list gives the object at that index. A
+        specification and a rule are free to spell the same argument differently, so
+        comparing identifiers would miss every case where they do. An unnamed
+        parameter (`_`) binds nothing and returns None.
+        """
         if argument not in event.args:
             return None
         index = event.args.index(argument)
@@ -717,7 +882,9 @@ def classify_orphan(
             )
             return verdict
 
-    tested = ", ".join(sorted(consumed | {a for a in event.args if re.fullmatch(r"\w+", a)}))
+    tested = ", ".join(
+        sorted(consumed | {a for a in event.args if re.fullmatch(r"\w+", a)})
+    )
     verdict["why"] = (
         f"no {'/'.join(sections)} clause of {rule.path.name} constrains "
         f"what the condition() tests ({tested or 'nothing nameable'})"
@@ -730,7 +897,9 @@ def classify_orphan(
 # --------------------------------------------------------------------------
 
 IN_SET = re.compile(r"(\w+)\s+in\s*\{([^}]*)\}")
-JAVA_LIST = re.compile(r"(?:List<String>\s+)?(\w+)\s*=\s*(?:Arrays\.asList|new String\[\]\s*\{)")
+JAVA_LIST = re.compile(
+    r"(?:List<String>\s+)?(\w+)\s*=\s*(?:Arrays\.asList|new String\[\]\s*\{)"
+)
 
 
 def read_java_lists(path: Path) -> dict[str, list[str]]:
@@ -745,7 +914,9 @@ def read_java_lists(path: Path) -> dict[str, list[str]]:
         opener = "(" if "asList" in match.group(0) else "{"
         closer = ")" if opener == "(" else "}"
         start, end = _match_delimiters(text, match.end() - 1, opener, closer)
-        items = [item.strip().strip('"') for item in _split_top_level(text[start + 1 : end])]
+        items = [
+            item.strip().strip('"') for item in _split_top_level(text[start + 1 : end])
+        ]
         lists[match.group(1)] = [item for item in items if item]
     if not lists:
         raise ValueError(f"no string-array or Arrays.asList literal found in {path}")
@@ -777,10 +948,19 @@ def allow_list_of(mop: MopSpec) -> tuple[str, list[str]] | None:
 
 
 def _relation(clause: str) -> bool:
+    """
+    Whether a clause is a numeric relation rather than a membership test.
+
+    `in {...}` is what G-CONF transcribes into an allow-list; a clause carrying a
+    comparison operator and no `in` is a bound on a value and is a different
+    subject.
+    """
     return bool(re.search(r"(>=|<=|==|>|<)", clause)) and " in " not in clause
 
 
-def _list_guarding(mop: MopSpec, rule: CryslRule, obj: str) -> tuple[str, list[str]] | None:
+def _list_guarding(
+    mop: MopSpec, rule: CryslRule, obj: str
+) -> tuple[str, list[str]] | None:
     """The `Arrays.asList` a specification guards a CrySL object with.
 
     The link is the pointcut, not the name: the event's `call(...)` is matched
@@ -922,7 +1102,9 @@ def constraint_rows(
                             continue
                         number, literals = case
                         row["mop_line"] = f"{mop.path.name}:{number}"
-                        row["verdict"] = _compare(set(literals), wanted, service, aliases)
+                        row["verdict"] = _compare(
+                            set(literals), wanted, service, aliases
+                        )
                         break
                 rows.append(row)
                 continue
@@ -939,7 +1121,9 @@ def constraint_rows(
                 if guarding:
                     matched.add(guarding[0])
                     row["mop_line"] = f"{mop.path.name}:{_line_of(mop, guarding[0])}"
-                    row["verdict"] = _compare(set(guarding[1]), wanted, service, aliases)
+                    row["verdict"] = _compare(
+                        set(guarding[1]), wanted, service, aliases
+                    )
                 rows.append(row)
                 continue
 
@@ -947,7 +1131,9 @@ def constraint_rows(
                 # A numeric bound is implemented when some guard states the same
                 # relation; the record calls that IGUAL and nothing finer.
                 operands = [
-                    name for name in re.findall(r"[A-Za-z_]\w*", clause) if name in rule.objects
+                    name
+                    for name in re.findall(r"[A-Za-z_]\w*", clause)
+                    if name in rule.objects
                 ]
                 bound = re.search(r"(>=|<=|==|>|<)\s*(\d+)", clause)
                 for event in mop.events:
@@ -962,7 +1148,9 @@ def constraint_rows(
                     stated = f"{event.condition or ''}\n{event.body or ''}"
                     if not stated.strip():
                         continue
-                    if bound and bound.group(0).replace(" ", "") in stated.replace(" ", ""):
+                    if bound and bound.group(0).replace(" ", "") in stated.replace(
+                        " ", ""
+                    ):
                         row["verdict"] = "IGUAL"
                         row["mop_line"] = f"{mop.path.name}:{event.line}"
                         break
@@ -970,10 +1158,14 @@ def constraint_rows(
                     # differently (`off` against `offset`), so the operands are
                     # mapped through the pointcut before being looked for.
                     binding = _argument_binding(mop, event, rule)
-                    if not bound and operands and all(
-                        name in binding
-                        and re.search(rf"\b{re.escape(binding[name])}\b", stated)
-                        for name in operands
+                    if (
+                        not bound
+                        and operands
+                        and all(
+                            name in binding
+                            and re.search(rf"\b{re.escape(binding[name])}\b", stated)
+                            for name in operands
+                        )
                     ):
                         row["verdict"] = "IGUAL"
                         row["mop_line"] = f"{mop.path.name}:{event.line}"
@@ -1000,8 +1192,20 @@ def constraint_rows(
 
 
 def _compare(
-    declared: set[str], wanted: set[str], service: str, aliases: dict[tuple[str, str], str]
+    declared: set[str],
+    wanted: set[str],
+    service: str,
+    aliases: dict[tuple[str, str], str],
 ) -> str:
+    """
+    The verdict comparing a set's declared list against the rule's, both canonicalised.
+
+    Four outcomes rather than a boolean, because the direction is what a reader
+    needs: `MOP-MAIS-PERMISSIVO` accepts what the rule rejects, and
+    `MOP-MAIS-RESTRITIVO` reports on a call the rule allows. The first is a
+    missed accusation and the second accuses conforming code -- collapsing both
+    into "differs" would hide which one this is.
+    """
     left = {_canonical(service, value, aliases) for value in declared}
     right = {_canonical(service, value, aliases) for value in wanted}
     extra, missing = left - right, right - left
@@ -1021,11 +1225,19 @@ def _canonical(service: str, value: str, aliases: dict[tuple[str, str], str]) ->
     the failure mode this whole conformance record exists to prevent.
     """
     key = value.strip().lower()
-    canonical = aliases.get((service, _normalise(value))) or aliases.get(("", _normalise(value)))
+    canonical = aliases.get((service, _normalise(value))) or aliases.get(
+        ("", _normalise(value))
+    )
     return canonical.strip().lower() if canonical else key
 
 
 def _line_of(mop: MopSpec, name: str) -> int:
+    """
+    The line where a name is assigned in the `.mop` text, or 0 if nowhere.
+
+    Zero is returned rather than raised: the line is for a reader following the
+    verdict, and a missing line is not a reason to abandon the finding.
+    """
     for number, line in enumerate(mop.text.splitlines(), start=1):
         if re.search(rf"\b{re.escape(name)}\b\s*=", line):
             return number
@@ -1105,13 +1317,22 @@ def derive_set(monitor: Path) -> tuple[str | None, Path | None]:
                 return path.name, path
         config = parent / "experiment_config.json"
         if config.is_file():
-            name = json.loads(config.read_text(encoding="utf-8")).get("specification_set")
+            name = json.loads(config.read_text(encoding="utf-8")).get(
+                "specification_set"
+            )
             if name:
                 return name, resolve_set_dir(name)
     return None, None
 
 
 def resolve_set_dir(name: str) -> Path | None:
+    """
+    The specification-set directory of that name under `RVSEC_HOME`, or None.
+
+    None covers both "RVSEC_HOME is unset" and "no such set", which the callers
+    report as a skip: a gate that cannot find its `.mop` directory has to say so,
+    never to run over an empty one and pass.
+    """
     home = os.environ.get("RVSEC_HOME")
     if not home:
         return None
@@ -1138,7 +1359,10 @@ def cipher_util_for(set_name: str | None) -> tuple[Path | None, str | None]:
         )
     path = Path(home) / "rvsec/rvsec-core/src/main/java/br/unb/cic/mop/jca/util" / name
     if not path.is_file():
-        return None, f"the Cipher transformation utility {name} does not exist yet at {path}"
+        return (
+            None,
+            f"the Cipher transformation utility {name} does not exist yet at {path}",
+        )
     return path, None
 
 
@@ -1214,6 +1438,21 @@ def run_gates(
     cipher_util: Path | None,
     constraint_table: Path | None = None,
 ) -> dict:
+    """
+    Run the nine gates over one monitor and its derived set, and return the report.
+
+    The set is derived from the monitor and never passed, for the reason
+    `derive_set` states. Everything downstream degrades to a recorded skip rather
+    than an exception when an input is missing, because a gate suite that dies on
+    an absent CrySL directory tells the reader less than one that names what it
+    could not check.
+
+    `accept_requires` is decided by looking at the specifications rather than by
+    their set's name: a set with no predicate reads has nothing left to evaluate a
+    `REQUIRES` clause with, so that family stops clearing G-2 orphans there.
+    Either substrate counts, because gh105 replaces one with the other file by
+    file and the flag must not flip halfway through the migration.
+    """
     set_name, set_dir = derive_set(monitor)
     specs = parse_set(set_dir) if set_dir else {}
     properties = parse_monitor(monitor)
@@ -1236,10 +1475,25 @@ def run_gates(
     }
 
     def gate(name: str, hits: list[dict], notes: list[dict] | None = None) -> None:
+        """
+        File one gate's hits, splitting them into failures and allow-listed entries.
+
+        A hit is allow-listed only when a matching row carries a `reason`. A row with
+        an empty one is treated as no row at all: an exception nobody wrote a reason
+        for is indistinguishable from an oversight, and this suite exists to keep
+        those apart.
+
+        `count` stays the number of hits, not of failures, so an allow-list can never
+        make a gate look like it found nothing.
+        """
         failures = []
         allowlisted = []
         for hit in hits:
-            row = allowlist.find(name, hit.get("spec", "*"), str(hit.get("event") or hit.get("state") or "*"))
+            row = allowlist.find(
+                name,
+                hit.get("spec", "*"),
+                str(hit.get("event") or hit.get("state") or "*"),
+            )
             if row and row.reason:
                 allowlisted.append({**hit, "allowlisted": row.reason})
             else:
@@ -1297,7 +1551,11 @@ def run_gates(
                     "state": str(highest),
                     "highest": highest,
                     "fail": fail,
-                    "reason": "no `fail` category" if fail is None else "the sink is not `fail`",
+                    "reason": (
+                        "no `fail` category"
+                        if fail is None
+                        else "the sink is not `fail`"
+                    ),
                 }
             )
 
@@ -1314,7 +1572,9 @@ def run_gates(
 
     # ---- G-2 ----
     if crysl_dir is None or not crysl_dir.is_dir():
-        report["skipped"].append("G-2: --crysl not given, the orphan split has no second input")
+        report["skipped"].append(
+            "G-2: --crysl not given, the orphan split has no second input"
+        )
         gate("G-2", [{"spec": prop.spec, "event": event} for prop, event in orphan_raw])
     else:
         notes: list[dict] = []
@@ -1380,7 +1640,9 @@ def run_gates(
                         }
                     )
     else:
-        report["skipped"].append("G-ERE: the set directory could not be derived from the monitor")
+        report["skipped"].append(
+            "G-ERE: the set directory could not be derived from the monitor"
+        )
     gate("G-ERE", undeclared)
 
     # ---- G-CONF ----
@@ -1408,9 +1670,13 @@ def run_gates(
         # The frozen `jca` is a report, not an assertion: its lists were written
         # by hand against the Java SE providers and every divergence from api30
         # is the measurement this change exists to explain.
-        hits = [] if set_name == "jca" else [
-            row for row in rows if row["verdict"] not in ("IGUAL", "NAO-DERIVADO")
-        ]
+        hits = (
+            []
+            if set_name == "jca"
+            else [
+                row for row in rows if row["verdict"] not in ("IGUAL", "NAO-DERIVADO")
+            ]
+        )
         # `constraint_table.csv` records the clause-by-clause comparison of the
         # api30 rules against the **seed**, so it is an oracle for `jca` and for
         # nothing else. Reading it on the successor set would report every
@@ -1476,7 +1742,9 @@ def run_gates(
         report["gates"]["G-CONF"]["report_only"] = set_name == "jca"
         report["gates"]["G-CONF"]["oracle_rows"] = len(oracle) if oracle else 0
         report["gates"]["G-CONF"]["oracle_agreement"] = agreement
-        report["gates"]["G-CONF"]["cipher_util"] = str(cipher_util) if cipher_util else None
+        report["gates"]["G-CONF"]["cipher_util"] = (
+            str(cipher_util) if cipher_util else None
+        )
         report["gates"]["G-CONF"]["cipher_lists"] = {
             name: len(values) for name, values in cipher_lists.items()
         }
@@ -1489,10 +1757,14 @@ def run_gates(
     # ---- G-PRED ----
     seed_dir = resolve_set_dir("jca")
     if not specs:
-        report["skipped"].append("G-PRED: the set directory could not be derived from the monitor")
+        report["skipped"].append(
+            "G-PRED: the set directory could not be derived from the monitor"
+        )
         gate("G-PRED", [])
     elif seed_dir is None:
-        report["skipped"].append("G-PRED: the frozen jca seed is not reachable (RVSEC_HOME)")
+        report["skipped"].append(
+            "G-PRED: the frozen jca seed is not reachable (RVSEC_HOME)"
+        )
         gate("G-PRED", [])
     else:
         divergences = predicate_divergences(specs, seed_dir)
@@ -1507,6 +1779,13 @@ def run_gates(
 
 
 def main() -> int:
+    """
+    Parse arguments, run the gates, print the report and return an exit code.
+
+    Exit 2 for a monitor that is not on disk, 1 for any failure, 0 otherwise. The
+    skips are printed to stderr next to the JSON report so that a green run whose
+    gates were skipped cannot be read as a green run.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--monitor", type=Path, required=True)
     parser.add_argument("--allowlist", type=Path)

@@ -83,6 +83,17 @@ def hunks(frozen: Path, derived: Path) -> list[dict[str, str]]:
 
 
 def digest_row(name: str, changed: list[str]) -> dict[str, str]:
+    """
+    Key one hunk by a digest of its changed lines, never by its position.
+
+    Position would make every row below an edit stale at once. Content will not:
+    a hunk keeps its key while its lines keep their text, and changing what the
+    hunk contains does change the key, which is the intended behaviour -- the
+    reason recorded for the old content has not been shown to hold for the new.
+
+    The summary is the first added line when there is one, because a divergence
+    is nearly always something `jca_android` says and `jca` does not.
+    """
     payload = "\n".join(changed).encode("utf-8")
     first = next((line for line in changed if line.startswith("+")), changed[0])
     return {
@@ -93,6 +104,13 @@ def digest_row(name: str, changed: list[str]) -> dict[str, str]:
 
 
 def load(record: Path) -> list[dict[str, str]]:
+    """
+    Read the record, treating an absent file as an empty one.
+
+    `--refresh` is how the record is first written, so it has to run before the
+    file exists; `--check` against no record then reports every live hunk as
+    unrecorded, which is the correct answer and not a crash.
+    """
     if not record.exists():
         return []
     with record.open(encoding="utf-8") as handle:
@@ -100,6 +118,15 @@ def load(record: Path) -> list[dict[str, str]]:
 
 
 def check(record: Path, frozen: Path, derived: Path) -> int:
+    """
+    Check both directions between the live diff and the record, and return an exit code.
+
+    A hunk with no row fails, and a row naming no hunk fails as `stale`. Only
+    enforcing the first would let the record accumulate reasons for divergences
+    that no longer exist, which is the drift this replaced the parity check to
+    prevent. A row that exists but carries no `reason`, or a `kind` outside
+    `KINDS`, is treated as absent: an unexplained entry records nothing.
+    """
     live = {(row["file"], row["hunk"]): row for row in hunks(frozen, derived)}
     recorded = {(row["file"], row["hunk"]): row for row in load(record)}
     failures: list[str] = []
@@ -107,7 +134,9 @@ def check(record: Path, frozen: Path, derived: Path) -> int:
     for key, row in sorted(live.items()):
         entry = recorded.get(key)
         if entry is None:
-            failures.append(f"unrecorded divergence  {key[0]} {key[1]}  {row['summary']}")
+            failures.append(
+                f"unrecorded divergence  {key[0]} {key[1]}  {row['summary']}"
+            )
         elif not entry.get("reason", "").strip():
             failures.append(f"entry with no reason   {key[0]} {key[1]}")
         elif entry.get("kind") not in KINDS:
@@ -121,11 +150,17 @@ def check(record: Path, frozen: Path, derived: Path) -> int:
 
     if failures:
         print("\n".join(failures), file=sys.stderr)
-        print(f"\n{len(failures)} problem(s); {len(live)} hunk(s) in the set diff", file=sys.stderr)
+        print(
+            f"\n{len(failures)} problem(s); {len(live)} hunk(s) in the set diff",
+            file=sys.stderr,
+        )
         return 1
 
     kinds = sorted({row["kind"] for row in recorded.values()})
-    print(f"{len(live)} hunk(s), all recorded; kinds: {', '.join(kinds) or 'none'}", file=sys.stderr)
+    print(
+        f"{len(live)} hunk(s), all recorded; kinds: {', '.join(kinds) or 'none'}",
+        file=sys.stderr,
+    )
     return 0
 
 
@@ -150,10 +185,22 @@ def refresh(record: Path, frozen: Path, derived: Path) -> int:
 
 
 def main() -> int:
+    """
+    Parse arguments and dispatch to `--check` or `--refresh`.
+
+    The two modes are mutually exclusive and one is required, because the
+    difference between them is asserting and proposing: `--check` returns 1 on
+    any mismatch, `--refresh` writes the live hunks to stdout with whatever
+    reasons are already on record, for a human to complete.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    mop_base = Path(os.environ.get("RVSEC_HOME", "")) / "rvsec/rvsec-mop/src/main/resources"
+    mop_base = (
+        Path(os.environ.get("RVSEC_HOME", "")) / "rvsec/rvsec-mop/src/main/resources"
+    )
     here = Path(__file__).resolve().parent.parent
-    parser.add_argument("--record", type=Path, default=here / "data/gh101/divergence_record.csv")
+    parser.add_argument(
+        "--record", type=Path, default=here / "data/gh101/divergence_record.csv"
+    )
     parser.add_argument("--frozen", type=Path, default=mop_base / "jca")
     parser.add_argument(
         "--derived", type=Path, default=mop_base / "jca_android_bug_predicate"

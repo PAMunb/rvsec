@@ -1093,8 +1093,40 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       four `21`s are **not** stale: they count the rule-paired specifications of
       `conformance_record.csv`, not the set, and the ambiguous sentence was reworded instead. No
       gate holds a count literal — all 18 `scripts/gh10*.py` enumerate
-- [ ] 7.5 Run `/rv-qa-lint-fix scripts` and `/rv-doc-code` on any script not covered by 2.12 —
-      enumerate them from `git status` at this point, so "any script" is decidable
+- [x] 7.5 Run `/rv-qa-lint-fix scripts` and `/rv-doc-code` on any script not covered by 2.12 —
+      enumerate them from `git status` at this point, so "any script" is decidable.
+      **`git status` does not decide it**: this tree carries ~180 untracked files from another
+      campaign, so the decidable criterion is by path — every `scripts/gh10*.py` less the three
+      2.12 covered. Measured before executing: **14 scripts, 7,096 lines, 92 functions and 6
+      classes without a docstring = 98 items**, two files accounting for 59 of them.
+      **Lint**: `autoflake` changed nothing, `isort` two files, `black` **13 of 14, 96 hunks**
+      (plus three files on a second pass — a `@dataclass` docstring wants a blank line before
+      the first field). The handoff's trap did not materialise: `codes.csv` anchors point at
+      `.mop` files, not at scripts, so `code-anchor` never moved and no row was re-anchored.
+      `flake8` fell **505 → 353**, all of them `E501` inside strings `black` will not break.
+      Outside `E501` three remained, **the same three as `HEAD`** (verified by running flake8
+      over `git show` copies, not assumed): two dead imports in `gh104_message_gate.py` that
+      `autoflake` skips because the block carries a `# noqa: E402` written for the
+      `sys.path.insert` above it, and a `nonlocal buffer_line` in a `flush()` that only ever
+      assigns `buffer`. Both removed; residue outside `E501` is now **0**.
+      **Docs**: all 98 written item by item after reading the code, each saying why the
+      function decides as it does rather than restating its signature. Insertion went through a
+      purpose-built inserter, not `edit.py`: it locates the target structurally in the AST and
+      then **reparses and compares the AST with every docstring stripped against the one from
+      before**, so an insertion that touched anything else fails loudly — a text substitution
+      could not assert that, and `def main() -> int:` appears in fourteen files.
+      **Behaviour proved unchanged by artefact, not by suite**: `gh104_baseline.py` reproduces
+      `baseline.json`/`baseline.md`/`definitions.md` byte-for-byte,
+      `gh104_identity_discontinuity.py` reproduces both of its documents, the gh101 inventory
+      and conformance records reproduce, the harness over 131 traces yields reports identical to
+      the pre-edit pass (61/31/32/7), and the nine `gh104_gates.py` counters are unmoved since
+      B4. `data/gh101/predicate_edges.csv` does **not** reproduce — 44 rows this change's Groups
+      3–5 closed — and the `HEAD` copy of the script produces byte-identical output, so the
+      drift is in the historical record and not in this pass. `gh104_regen_diff.py` was **not**
+      exercised end to end: its control lives under gitignored `results/` and pointing
+      `generate` there would destroy the G-PARAM oracle, so it was covered by `--help`, its
+      three pure functions and the absent-control path only. Evidence:
+      `data/gh105/evidence/f5-ScriptsDocumented.md`
 - [x] 7.6 Delete the expected-baseline mechanism of 2.10: every gate now asserts zero findings
       on its own, `data/jca_android/gate_baseline.json` is removed, and the pytest wrappers stop
       reading it. A baseline that outlives its groups is an allow-list nobody voted for.

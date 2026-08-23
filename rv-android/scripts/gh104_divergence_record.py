@@ -44,26 +44,26 @@ FIELDS = ["file", "hunk", "kind", "summary", "reason", "task"]
 
 # What a difference between the seed and the successor is allowed to be.
 KINDS = {
-    "set-archived",      # the reproved derived set moved out of the way (task 2.1)
-    "allow-list",        # a list was transcribed from the api30 rule (tasks 2.4-2.7)
-    "cipher-import",     # CipherSpec now names Api30CipherTransformationUtil (task 2.8)
-    "api30-omits",       # a value the rule omits and the platform provably carries
-    "behavioural",       # a spelling proved to work on the platform and cited to no rule
-    "message",           # a report site rewritten as a v=1 envelope (tasks 7.3-7.5)
-    "automaton",         # a structural repair proved against the api30 rule, the JDK
-                         # signature or the generated monitor (tasks 8.1-8.6, 8.14-8.16)
+    "set-archived",  # the reproved derived set moved out of the way (task 2.1)
+    "allow-list",  # a list was transcribed from the api30 rule (tasks 2.4-2.7)
+    "cipher-import",  # CipherSpec now names Api30CipherTransformationUtil (task 2.8)
+    "api30-omits",  # a value the rule omits and the platform provably carries
+    "behavioural",  # a spelling proved to work on the platform and cited to no rule
+    "message",  # a report site rewritten as a v=1 envelope (tasks 7.3-7.5)
+    "automaton",  # a structural repair proved against the api30 rule, the JDK
+    # signature or the generated monitor (tasks 8.1-8.6, 8.14-8.16)
     # gh105 (predicate wiring). The successor set stops carrying the seed's
     # predicate machinery unchanged when its first file is migrated (INV-INS-141),
     # so the four things that migration does to a `.mop` each need a name a reason
     # can be filed under. Without them every gh105 row fails `check()` as an
     # unknown kind, which reads as a defect in the record rather than a gap in it.
-    "predicate-store",   # a site moves from ExecutionContext to PredicateStore
-    "placement",         # a read leaves `condition(...)` for the body, or a write
-                         # moves to the rule's acceptance point (INV-INS-133/134)
-    "junction",          # a junction specification for a co-observable chain
+    "predicate-store",  # a site moves from ExecutionContext to PredicateStore
+    "placement",  # a read leaves `condition(...)` for the body, or a write
+    # moves to the rule's acceptance point (INV-INS-133/134)
+    "junction",  # a junction specification for a co-observable chain
     "predicate-removal",  # a `remove`/`negate` site retired, a `@fail` undo retired,
-                         # or a write deleted because it translates no clause of
-                         # the rule and has no reader to lose
+    # or a write deleted because it translates no clause of
+    # the rule and has no reader to lose
 }
 
 # Kinds that describe the set rather than a diff, so they carry no hunk key.
@@ -116,6 +116,17 @@ def hunks(base: Path, target: Path) -> list[dict[str, str]]:
 
 
 def digest_row(name: str, changed: list[str]) -> dict[str, str]:
+    """
+    Key one hunk by a digest of its changed lines, never by its position.
+
+    Position would make every row below an edit stale at once. Content will not:
+    a hunk keeps its key while its lines keep their text, and changing what the
+    hunk contains does change the key, which is the intended behaviour -- the
+    reason recorded for the old content has not been shown to hold for the new.
+
+    The summary is the first added line when there is one, because a divergence
+    is nearly always something the successor says and the seed does not.
+    """
     payload = "\n".join(changed).encode("utf-8")
     first = next((line for line in changed if line.startswith("+")), changed[0])
     return {
@@ -126,6 +137,13 @@ def digest_row(name: str, changed: list[str]) -> dict[str, str]:
 
 
 def load(record: Path) -> list[dict[str, str]]:
+    """
+    Read the record, treating an absent file as an empty one.
+
+    `--refresh` is how the record is first written, so it has to run before the
+    file exists; `--check` against no record then reports every live hunk as
+    unrecorded, which is the correct answer and not a crash.
+    """
     if not record.exists():
         return []
     with record.open(encoding="utf-8") as handle:
@@ -133,6 +151,21 @@ def load(record: Path) -> list[dict[str, str]]:
 
 
 def check(record: Path, base: Path, target: Path) -> int:
+    """
+    Check the record against the live seed-to-successor diff, and return an exit code.
+
+    Rows split in two by whether they carry a hunk key. The keyed ones are
+    checked in both directions -- a hunk with no row fails, a row naming no hunk
+    is stale and fails -- because a record that only had to cover the diff would
+    accumulate reasons for divergences that no longer exist.
+
+    The unkeyed ones are the narrative entries of INV-INS-125: statements about
+    the set rather than about a diff, so they are exempt from the stale check and
+    pay for it with a stricter one. Their `kind` must be in `NARRATIVE_KINDS`,
+    which is what stops an empty `hunk` column from becoming a way to record a
+    real divergence without a hunk to attach it to. Both shapes fail on an empty
+    `reason`: an unexplained entry records nothing.
+    """
     live = {(row["file"], row["hunk"]): row for row in hunks(base, target)}
     recorded: dict[tuple[str, str], dict[str, str]] = {}
     narrative: list[dict[str, str]] = []
@@ -156,7 +189,9 @@ def check(record: Path, base: Path, target: Path) -> int:
     for key, row in sorted(live.items()):
         entry = recorded.get(key)
         if entry is None:
-            failures.append(f"unrecorded divergence    {key[0]} {key[1]}  {row['summary']}")
+            failures.append(
+                f"unrecorded divergence    {key[0]} {key[1]}  {row['summary']}"
+            )
         elif not entry.get("reason", "").strip():
             failures.append(f"entry with no reason     {key[0]} {key[1]}")
         elif entry.get("kind") not in KINDS:
@@ -170,7 +205,10 @@ def check(record: Path, base: Path, target: Path) -> int:
 
     if failures:
         print("\n".join(failures), file=sys.stderr)
-        print(f"\n{len(failures)} problem(s); {len(live)} hunk(s) in the set diff", file=sys.stderr)
+        print(
+            f"\n{len(failures)} problem(s); {len(live)} hunk(s) in the set diff",
+            file=sys.stderr,
+        )
         return 1
 
     kinds = sorted({row["kind"] for row in load(record)})
@@ -185,7 +223,9 @@ def check(record: Path, base: Path, target: Path) -> int:
 def refresh(record: Path, base: Path, target: Path) -> int:
     """Print the live hunks with any reason already on record, for editing by hand."""
     recorded = {
-        (row["file"], row["hunk"]): row for row in load(record) if row.get("hunk", "").strip()
+        (row["file"], row["hunk"]): row
+        for row in load(record)
+        if row.get("hunk", "").strip()
     }
     writer = csv.DictWriter(sys.stdout, fieldnames=FIELDS, lineterminator="\n")
     writer.writeheader()
@@ -208,10 +248,22 @@ def refresh(record: Path, base: Path, target: Path) -> int:
 
 
 def main() -> int:
+    """
+    Parse arguments and dispatch to `--check` or `--refresh`.
+
+    The two modes are mutually exclusive and one is required, because the
+    difference between them is asserting and proposing: `--check` returns 1 on
+    any mismatch, `--refresh` writes the live hunks to stdout with whatever
+    reasons are already on record, for a human to complete.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    mop_base = Path(os.environ.get("RVSEC_HOME", "")) / "rvsec/rvsec-mop/src/main/resources"
+    mop_base = (
+        Path(os.environ.get("RVSEC_HOME", "")) / "rvsec/rvsec-mop/src/main/resources"
+    )
     here = Path(__file__).resolve().parent.parent
-    parser.add_argument("--record", type=Path, default=here / "data/jca_android/divergence_record.csv")
+    parser.add_argument(
+        "--record", type=Path, default=here / "data/jca_android/divergence_record.csv"
+    )
     parser.add_argument("--base", type=Path, default=mop_base / "jca")
     parser.add_argument("--target", type=Path, default=mop_base / "jca_android")
     mode = parser.add_mutually_exclusive_group(required=True)

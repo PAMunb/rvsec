@@ -77,8 +77,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from gh104_gates import (  # noqa: E402
     MopEvent,
     MopSpec,
-    _call_signature,
-    _crysl_params,
     classify_orphan,
     parse_mop,
     rule_for,
@@ -125,7 +123,17 @@ EXPECTED_TYPE = {
 
 
 def _site_type(site: dict) -> str | None:
-    match = re.search(r"ErrorType\s*\.\s*(\w+)", site["arguments"][0] if site["arguments"] else "")
+    """
+    The `ErrorType` constant a report site declares, or None if it names none.
+
+    Only the first argument is scanned, which is where the grammar puts the type.
+    A site with no recognisable constant returns None and is skipped by
+    `wrong-error-type` rather than reported: the type is what that property
+    compares, so having none is a different defect and belongs to the lint.
+    """
+    match = re.search(
+        r"ErrorType\s*\.\s*(\w+)", site["arguments"][0] if site["arguments"] else ""
+    )
     return match.group(1) if match else None
 
 
@@ -221,12 +229,38 @@ def _clause_family(mop: MopSpec, event: MopEvent, crysl_dir: Path) -> str | None
     # one: `keySize in {2048}` is reported as an invalid key size, not as an
     # unsafe algorithm.
     constrained = re.search(r"(\w+)\s+in\s*\{", clause.split("=>")[-1])
-    if constrained and rule.objects.get(constrained.group(1), "").lower() in ("int", "long"):
+    if constrained and rule.objects.get(constrained.group(1), "").lower() in (
+        "int",
+        "long",
+    ):
         return "CONSTRAINTS-numeric"
     return "CONSTRAINTS-value"
 
 
 def check(directory: Path, crysl_dir: Path | None) -> dict:
+    """
+    Run the message-property gate over one set and return the report.
+
+    The order of the properties inside the loop follows what each needs, and two
+    of them are deliberately conditional.
+
+    `wrong-error-type` needs a CrySL directory and an enclosing event, and it
+    skips a site nested inside a condition: the family of the clause is decided by
+    the event, and a nested site reports a narrower fact than its event's clause.
+
+    `code-bijection` and everything downstream of it run only when the set has a
+    `codes.csv`. The frozen `jca` has none and its sites carry no code, so the
+    whole property is skipped there rather than reported as fifty absences --
+    the difference between "not applicable" and "wrong" is the whole value of the
+    `skipped` list.
+
+    Bijection is checked in both directions, and the second direction runs after
+    the loop: a code listed in the CSV that no site emits is a dead identifier,
+    and it can only be found once every site has been seen. `not-observed-family`
+    is likewise symmetric -- a `NOT_OBSERVED` branch filed under any other family
+    would be counted as a violation, and a site of that family emitted under any
+    other branch means the family stopped separating the two.
+    """
     findings: list[dict] = []
     notes: list[dict] = []
     skipped: list[str] = []
@@ -293,7 +327,8 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
             # -- self-contradicting envelope --------------------------------
             guard_fields = set(FIELD_READ.findall(guard))
             message_fields = {
-                field for message_part in site["arguments"][3:]
+                field
+                for message_part in site["arguments"][3:]
                 for field in FIELD_READ.findall(message_part)
             }
             message_getters = {
@@ -312,7 +347,9 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
                         "rather than the observed object",
                     }
                 )
-            if guard_fields and (message_getters or (message_fields and message_fields != guard_fields)):
+            if guard_fields and (
+                message_getters or (message_fields and message_fields != guard_fields)
+            ):
                 findings.append(
                     {
                         "kind": "self-contradicting envelope",
@@ -398,7 +435,7 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
                                     "detail": f"`{code}` is emitted under a NOT_OBSERVED branch "
                                     f"and codes.csv files it as `{family or 'nothing'}`, not "
                                     f"`{NOT_OBSERVED_KIND}`; a verdict of "
-                                    "\"no producer was observed\" would be counted as a violation",
+                                    '"no producer was observed" would be counted as a violation',
                                 }
                             )
                         elif branch != "NOT_OBSERVED" and family == NOT_OBSERVED_KIND:
@@ -447,6 +484,12 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
 
 
 def main() -> int:
+    """
+    Parse arguments, run the gate, print the report and optionally write it as JSON.
+
+    Exit 2 for a path that is not a set directory, 1 for findings, 0 otherwise --
+    the same three-way answer the lint gives, and for the same reason.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("directory", type=Path)
     parser.add_argument("--crysl", type=Path)

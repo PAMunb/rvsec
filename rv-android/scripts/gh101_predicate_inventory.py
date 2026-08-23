@@ -63,7 +63,9 @@ def inventory_file(path: Path) -> list[dict[str, object]]:
     spec = path.stem
     block = "<spec-body>"
 
-    for number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    for number, raw in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
         if match := SPEC_DECL.match(raw):
             spec = match.group(1)
         elif match := EVENT_DECL.match(raw):
@@ -99,6 +101,13 @@ def inventory_set(specs_dir: Path) -> list[dict[str, object]]:
 
 
 def main() -> int:
+    """
+    Emit one CSV row per `ExecutionContext` site in a set, plus per-kind counts.
+
+    The counts go to stderr so that the CSV on stdout stays pipeable: this script
+    is the input to `gh101_predicate_edges.py` and to the pairing check, and a
+    summary line mixed into the rows would corrupt both.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("specs_dir", type=Path, help="directory of .mop files")
     parser.add_argument("-o", "--output", type=Path, help="CSV path (default: stdout)")
@@ -109,7 +118,11 @@ def main() -> int:
         return 1
 
     rows = inventory_set(args.specs_dir)
-    handle = args.output.open("w", encoding="utf-8", newline="") if args.output else sys.stdout
+    handle = (
+        args.output.open("w", encoding="utf-8", newline="")
+        if args.output
+        else sys.stdout
+    )
     try:
         writer = csv.DictWriter(handle, fieldnames=FIELDS, lineterminator="\n")
         writer.writeheader()
@@ -118,7 +131,9 @@ def main() -> int:
         if args.output:
             handle.close()
 
-    counts = {kind: sum(1 for row in rows if row["kind"] == kind) for kind in SITE_PATTERNS}
+    counts = {
+        kind: sum(1 for row in rows if row["kind"] == kind) for kind in SITE_PATTERNS
+    }
     summary = ", ".join(f"{count} {kind.lower()}s" for kind, count in counts.items())
     print(f"{len(rows)} sites ({summary})", file=sys.stderr)
     return 0

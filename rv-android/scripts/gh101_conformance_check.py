@@ -69,31 +69,44 @@ LITERAL = re.compile(r'"([^"]*)"|(\d+)')
 Anchor = tuple[str | None, str | None, str | None, str]
 ANCHORS: dict[str, Anchor] = {
     "CipherInputStreamSpec.mop": (
-        "CipherInputStream", None, None,
+        "CipherInputStream",
+        None,
+        None,
         "the rule carries no membership constraint; the specification monitors "
         "stream sequencing, not algorithm choice",
     ),
     "CipherOutputStreamSpec.mop": (
-        "CipherOutputStream", None, None,
+        "CipherOutputStream",
+        None,
+        None,
         "the rule carries no membership constraint; the specification monitors "
         "stream sequencing, not algorithm choice",
     ),
     "CipherSpec.mop": (
-        "Cipher", None, "transformation",
+        "Cipher",
+        None,
+        "transformation",
         "the only specification with an algorithm constraint and no allow-list of "
         "its own: it delegates to isValid() in shared Java. Closed by this change "
         "in the derived set through a utility of its own (D-S3), not in the .mop",
     ),
     "DHGenParameterSpecSpec.mop": (
-        "DHGenParameterSpec", None, None,
+        "DHGenParameterSpec",
+        None,
+        None,
         "the rule constrains key size through an implication, not a membership set",
     ),
     "GCMParameterSpecSpec.mop": ("GCMParameterSpec", "validLengths", "tLen", ""),
     "HMACParameterSpecSpec.mop": (
-        "HMACParameterSpec", None, None, "the rule carries no membership constraint"
+        "HMACParameterSpec",
+        None,
+        None,
+        "the rule carries no membership constraint",
     ),
     "IvParameterSpec.mop": (
-        "IvParameterSpec", None, None,
+        "IvParameterSpec",
+        None,
+        None,
         "the rule constrains only the randomness of the IV, which the .mop reads "
         "as a predicate rather than a list",
     ),
@@ -101,35 +114,48 @@ ANCHORS: dict[str, Anchor] = {
     "KeyManagerFactorySpec.mop": ("KeyManagerFactory", "safeAlgorithms", "algo", ""),
     "KeyPairGeneratorSpec.mop": ("KeyPairGenerator", "safeAlgorithms", "alg", ""),
     "KeyPairSpec.mop": (
-        "KeyPair", None, None, "the rule carries no membership constraint"
+        "KeyPair",
+        None,
+        None,
+        "the rule carries no membership constraint",
     ),
     "KeyStoreSpec.mop": ("KeyStore", "types", "keyStoreAlg", ""),
     "MacSpec.mop": ("Mac", "safeAlgorithms", "macAlg", ""),
     "MessageDigestSpec.mop": ("MessageDigest", "algorithms", "digestAlg", ""),
     "PBEKeySpecSpec.mop": (
-        "PBEKeySpec", None, None,
+        "PBEKeySpec",
+        None,
+        None,
         "the rule constrains iteration count and key length through implications, "
         "not a membership set",
     ),
     "PBEParameterSpecSpec.mop": (
-        "PBEParameterSpec", None, None,
+        "PBEParameterSpec",
+        None,
+        None,
         "the rule constrains iteration count through an implication, not a "
         "membership set",
     ),
     "RandomStringPassword.mop": (
-        None, None, None,
+        None,
+        None,
+        None,
         "no CrySL counterpart at all. It is not a JCA specification: it propagates "
         "randomness taint through String.valueOf and toCharArray so a password "
         "derived from SecureRandom is not accused by PBEKeySpecSpec",
     ),
     "SSLContextSpec.mop": ("SSLContext", "protocols", "protocol", ""),
     "SecretKeySpec.mop": (
-        "SecretKey", None, None,
+        "SecretKey",
+        None,
+        None,
         "anchored to SecretKey.crysl despite the file name; the rule carries no "
         "membership constraint",
     ),
     "SecretKeySpecSpec.mop": (
-        "SecretKeySpec", "algorithms", None,
+        "SecretKeySpec",
+        "algorithms",
+        None,
         "the derived rule imposes no membership constraint at all -- the MetaCrySL "
         "base specification dropped the one CrySL 1.5.2 carried -- so the list has "
         "no derived anchor either way and stays a declared hand translation",
@@ -140,9 +166,19 @@ ANCHORS: dict[str, Anchor] = {
 }
 
 FIELDS = [
-    "mop_file", "rule", "variable", "rule_object", "verdict", "changed_from_jca",
-    "mop_literals", "rule_literals", "spelling_variants", "aliases", "unmatched",
-    "absent_from_mop", "reason",
+    "mop_file",
+    "rule",
+    "variable",
+    "rule_object",
+    "verdict",
+    "changed_from_jca",
+    "mop_literals",
+    "rule_literals",
+    "spelling_variants",
+    "aliases",
+    "unmatched",
+    "absent_from_mop",
+    "reason",
 ]
 
 
@@ -202,20 +238,48 @@ def rule_membership(path: Path, obj: str) -> list[str]:
         for var, literals in MEMBERSHIP.findall(line.split("=>")[0]):
             if var != obj:
                 continue
-            values = [item.strip().strip('"') for item in literals.split(",") if item.strip()]
+            values = [
+                item.strip().strip('"') for item in literals.split(",") if item.strip()
+            ]
             if len(values) > len(widest):
                 widest = values
     return widest
 
 
 def check(specs_dir: Path, rules_dir: Path, frozen_dir: Path) -> list[dict[str, str]]:
+    """
+    Produce one verdict row per anchored `.mop`, in the order of `ANCHORS`.
+
+    The three verdicts are decided by what the generated rule has to say, not by
+    what the file looks like. A file whose allow-list follows a rule that
+    constrains it is `anchored`; a file the rule imposes nothing on is
+    `uncontradicted`, which is a real answer rather than a missing one; and
+    `no-anchor` is reserved for the case where no generated rule corresponds at
+    all, always with the reason from `ANCHORS`.
+
+    Two of the branches deserve their asymmetry. When the file names no variable
+    there is nothing in it to contradict, so an empty rule reads
+    `uncontradicted` and a non-empty one reads `no-anchor`: the rule constrains
+    something this translation never expressed. And `changed_from_jca` compares
+    against the frozen `jca` file rather than against the rule, because
+    `anchored` claims the derivation acted -- a list identical to the frozen one
+    was carried over, whatever the rule says about it.
+    """
     rows: list[dict[str, str]] = []
     for mop_file, (rule, variable, obj, reason) in sorted(ANCHORS.items()):
         row = {
-            "mop_file": mop_file, "rule": rule or "", "variable": variable or "",
-            "rule_object": obj or "", "changed_from_jca": "", "mop_literals": "",
-            "rule_literals": "", "spelling_variants": "", "aliases": "",
-            "unmatched": "", "absent_from_mop": "", "reason": reason,
+            "mop_file": mop_file,
+            "rule": rule or "",
+            "variable": variable or "",
+            "rule_object": obj or "",
+            "changed_from_jca": "",
+            "mop_literals": "",
+            "rule_literals": "",
+            "spelling_variants": "",
+            "aliases": "",
+            "unmatched": "",
+            "absent_from_mop": "",
+            "reason": reason,
         }
 
         if rule is None:
@@ -223,7 +287,9 @@ def check(specs_dir: Path, rules_dir: Path, frozen_dir: Path) -> list[dict[str, 
             rows.append(row)
             continue
 
-        rule_literals = rule_membership(rules_dir / f"{rule}.cryptsl", obj) if obj else []
+        rule_literals = (
+            rule_membership(rules_dir / f"{rule}.cryptsl", obj) if obj else []
+        )
         row["rule_literals"] = " ".join(sorted(rule_literals))
 
         if variable is None:
@@ -249,7 +315,11 @@ def check(specs_dir: Path, rules_dir: Path, frozen_dir: Path) -> list[dict[str, 
         exact = set(rule_literals)
         aliases = [i for i in mop_literals if i not in exact and normalise(i) in folded]
         unmatched = [i for i in mop_literals if normalise(i) not in folded]
-        absent = [i for i in rule_literals if normalise(i) not in {normalise(m) for m in mop_literals}]
+        absent = [
+            i
+            for i in rule_literals
+            if normalise(i) not in {normalise(m) for m in mop_literals}
+        ]
 
         row["aliases"] = " ".join(sorted(set(aliases)))
         row["unmatched"] = " ".join(sorted(set(unmatched)))
@@ -261,7 +331,9 @@ def check(specs_dir: Path, rules_dir: Path, frozen_dir: Path) -> list[dict[str, 
         # inherited list stands. A list left unchanged while the rule contradicts
         # it is neither, and is the one outcome that must not appear.
         if unmatched or absent:
-            row["verdict"] = "contradicted" if not changed else "anchored-with-deviation"
+            row["verdict"] = (
+                "contradicted" if not changed else "anchored-with-deviation"
+            )
         else:
             row["verdict"] = "anchored" if changed else "uncontradicted"
         rows.append(row)
@@ -270,8 +342,19 @@ def check(specs_dir: Path, rules_dir: Path, frozen_dir: Path) -> list[dict[str, 
 
 
 def main() -> int:
+    """
+    Parse arguments, check the three input directories, write the CSV.
+
+    The default `--specs` names the archived `jca_android_bug_predicate` rather
+    than the live set, for the reason in the module docstring: this gate resolves
+    over the artefact gh101 froze (INV-INS-118). Missing directories are reported
+    individually and exit 1, because a silently empty verdict table is
+    indistinguishable from a conforming one.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    mop_base = Path(os.environ.get("RVSEC_HOME", "")) / "rvsec/rvsec-mop/src/main/resources"
+    mop_base = (
+        Path(os.environ.get("RVSEC_HOME", "")) / "rvsec/rvsec-mop/src/main/resources"
+    )
     parser.add_argument(
         "--specs", type=Path, default=mop_base / "jca_android_bug_predicate"
     )
@@ -280,13 +363,21 @@ def main() -> int:
     parser.add_argument("-o", "--output", type=Path)
     args = parser.parse_args()
 
-    for label, path in (("specs", args.specs), ("frozen specs", args.frozen_specs), ("rules", args.rules)):
+    for label, path in (
+        ("specs", args.specs),
+        ("frozen specs", args.frozen_specs),
+        ("rules", args.rules),
+    ):
         if not path.is_dir():
             print(f"{label} directory not found: {path}", file=sys.stderr)
             return 1
 
     rows = check(args.specs, args.rules, args.frozen_specs)
-    handle = args.output.open("w", encoding="utf-8", newline="") if args.output else sys.stdout
+    handle = (
+        args.output.open("w", encoding="utf-8", newline="")
+        if args.output
+        else sys.stdout
+    )
     try:
         writer = csv.DictWriter(handle, fieldnames=FIELDS, lineterminator="\n")
         writer.writeheader()
@@ -297,7 +388,10 @@ def main() -> int:
 
     blank = [row["mop_file"] for row in rows if not row["verdict"]]
     if blank:
-        print(f"INV-INS-113 violated -- no verdict for: {', '.join(blank)}", file=sys.stderr)
+        print(
+            f"INV-INS-113 violated -- no verdict for: {', '.join(blank)}",
+            file=sys.stderr,
+        )
         return 1
     print(f"{len(rows)} verdicts, none blank", file=sys.stderr)
     return 0

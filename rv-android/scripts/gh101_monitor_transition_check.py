@@ -37,7 +37,9 @@ MONITOR_CLASS = re.compile(
     r"^(?:final )?class (\w+)Monitor extends .*Abstract(?:Atomic|Synchronized)Monitor"
 )
 # `static final int Prop_1_transition_g3[] = {0, 3, 3, 3};;`
-TRANSITION = re.compile(r"static final int (\w+)_transition_(\w+)\[\]\s*=\s*\{([^}]*)\}")
+TRANSITION = re.compile(
+    r"static final int (\w+)_transition_(\w+)\[\]\s*=\s*\{([^}]*)\}"
+)
 # `...Category_fail = nextstate == 4;` in the atomic form,
 # `...Category_fail = Prop_1_state == 3;` in the synchronized one.
 FAIL_STATE = re.compile(
@@ -76,6 +78,12 @@ def check(monitor: Path) -> list[str]:
 
 
 def main() -> int:
+    """
+    Parse the monitor path and report any event with an all-fail transition row.
+
+    Both outcomes print to stderr rather than stdout: this is a gate, and its
+    output is a verdict rather than data for a pipe.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("monitor", type=Path)
     args = parser.parse_args()
@@ -86,7 +94,10 @@ def main() -> int:
 
     offenders = check(args.monitor)
     if offenders:
-        print("INV-INS-110 violated -- bound events with an all-fail row:", file=sys.stderr)
+        print(
+            "INV-INS-110 violated -- bound events with an all-fail row:",
+            file=sys.stderr,
+        )
         print("\n".join(f"  {line}" for line in offenders), file=sys.stderr)
         return 1
 

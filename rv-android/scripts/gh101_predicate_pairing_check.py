@@ -88,6 +88,22 @@ def pairing(rows: list[dict[str, object]]) -> tuple[dict, dict]:
 
 
 def check(specs_dir: Path, inventory: Path, omissions: Path) -> int:
+    """
+    Check INV-INS-111 over a live set and return an exit code.
+
+    The staleness check comes first and is the reason the committed inventory is
+    re-rendered rather than read: every later verdict is computed from the live
+    `.mop` files, so a committed inventory that no longer matches them would make
+    a green run mean nothing.
+
+    Then the three failure classes of the module docstring, and each is
+    symmetric with a way the record can rot. A constant written and never read
+    fails unless it is on the omission list; a constant read and never written
+    fails unconditionally, because it reports on every conforming call (D-S14)
+    and no omission excuses that; and a listed constant fails if nothing writes
+    it any more or if something now reads it, since either way the record has
+    outlived the fact it recorded.
+    """
     live = inventory_set(specs_dir)
     failures: list[str] = []
 
@@ -154,6 +170,13 @@ def check(specs_dir: Path, inventory: Path, omissions: Path) -> int:
 
 
 def main() -> int:
+    """
+    Parse arguments, check the three inputs exist, and run the check.
+
+    Each missing input is reported by name and exits 1 rather than being
+    defaulted away, because this gate's green result is an assertion about
+    specific artefacts.
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     mop_base = (
         Path(os.environ.get("RVSEC_HOME", "")) / "rvsec/rvsec-mop/src/main/resources"
