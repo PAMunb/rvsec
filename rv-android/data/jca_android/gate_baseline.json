@@ -5,7 +5,7 @@
     "universe": 215,
     "read": 213,
     "skipped": 2,
-    "structural_findings": 1,
+    "structural_findings": 0,
     "informative": 21,
     "allow_listed": 0,
     "order_passed": 6,
@@ -13,13 +13,6 @@
     "order_skipped": 205
   },
   "gates": {
-    "G-PRED2": [
-      [
-        "jca_android",
-        "PBEKeySpecSpec.mop",
-        "c1/SPECCED_KEY"
-      ]
-    ],
     "G-ORDER": [
       [
         "jca_android",
@@ -63,6 +56,11 @@
       "task": "4.15",
       "was": 23,
       "note": "the 23 specifications of jca_android that named ExecutionContext, driven to zero by task 4.14: the seven files of its batch plus the two dangling imports left in CipherInputStreamSpec and CipherOutputStreamSpec, which had no use at all. The check is a whole-word grep over the set and counts mentions in comments and strings too, so the migration is complete in prose as well as in code. No specification of the set may name the old substrate again."
+    },
+    "G-PRED2": {
+      "task": "5.11",
+      "was": 36,
+      "note": "the 36 unclosed predicate edges jca_android opened this change with -- reads with no producer in the set and writes with no reader, neither carrying a disposition that named the reason -- driven to zero by Group 5. The wiring closed most of them by giving an existing write its reader; the ones no reader could close were recorded, each with the category the ledger assigns it. Task 5.11 closed the last row, PBEKeySpecSpec c1/SPECCED_KEY, and it needed the write-side vocabulary: the clause is an unmonitored-consumer (SecretKeyFactory, the one rule of api30 that requires speccedKey, has no .mop in the set), but that is a *read* disposition, and a write with no reader closes with omission or propagation and with nothing else. The ledger categorises the clause; this column categorises the site. Retirement travels in the same commit as the closure and not a commit later, because the baseline builds gates from findings alone: a gate at zero has no key here, and a gate with no key is one whose next finding is compared against nothing. So the record is what carries it forward -- a predicate read or written without an accounted counterpart is a regression from here on, and the 21 wired clauses, the 14 recorded ones and preparedEC's unclosable are the whole of the ledger's 36."
     }
   }
 }

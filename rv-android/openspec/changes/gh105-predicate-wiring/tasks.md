@@ -468,7 +468,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       nine green. The default reading of `tests/parity` is therefore the harsher one, and that is
       worth knowing before anyone reads a red as a regression
 
-## 5. F3 — Wire the 24 wired REQUIRES clauses, record the rest (topological)
+## 5. F3 — Wire the 21 wired REQUIRES clauses, record the rest (topological)
 
 <!-- Sequential by chain; every task resolves against design.md's 36-clause ledger, never
      against family names. Every edge task = producer write at the acceptance point
@@ -780,11 +780,36 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `test_a_retired_gate_leaves_the_baseline_and_stays_out` red. #31's *clause* is recorded here
       (`PBEKeySpecSpec.mop` `c2` comment, `predicate_graph.csv` `reason`, evidence).
       Evidence: `data/gh105/evidence/f3-PreparedKeyMaterial.md` (with 6.1 and 6.5, one commit)
-- [ ] 5.11 Closure sweep over **all 21 written `Property` values**, not only the named ones:
+- [x] 5.11 Closure sweep over **all 22 written `Property` values**, not only the named ones:
       every write has its reader or its deliberate-omission record, and the read-only gap
-      (`GENERATED_PRIVATE_KEY`, resolved by 6.1's producer repair) closes. G-PRED2 green — 24
-      wired + 11 recorded (10 non-wireable + the vacuous #30) + `preparedEC` `unclosable` in the
-      graph. Run `/rv-verify` on the gate layer; harness evidence for every 5.x chain committed
+      (`GENERATED_PRIVATE_KEY`, resolved by 6.1's producer repair) closes. G-PRED2 green — 21
+      wired + 14 recorded (10 non-wireable + the vacuous #30 and #23 + the
+      `unreachable-composition` #17 and #21) + `preparedEC` `unclosable` in the graph.
+      **The sweep corrected two numbers this task's own statement carried.** It says 21 written
+      values and there are **22**: task 5.10 renamed `SecretKeySpec.mop:125` from `RANDOMIZED` to
+      `PREPARED_KEY_MATERIAL` while `RANDOMIZED` stayed written at three other sites, so the
+      distinct set grew by one without moving any census of operations. And it said 24 wired,
+      the `design.md` totals said 22, and the tree says **21** — #17 (`{DH} => preparedDH`) was
+      recorded `unreachable-composition` by task 5.8 and never subtracted; measured, `PREPARED_DH`
+      has one write (`DHGenParameterSpecSpec.mop:37`) and no read in the set. Of the 22 written
+      values, 12 have a reader, 9 carry an `omission`, and `SPECCED_KEY` was the last open row.
+      **It closes with `omission`, not with the category its clause has.** Ledger #31 is an
+      `unmonitored-consumer` — `SecretKeyFactory`, the one rule of api30 that requires
+      `speccedKey`, has no `.mop` in the set — but that is a *read* disposition
+      (`gh105_predicate_graph.py:1179`); a write with no reader closes with `omission` or
+      `propagation` and nothing else (`:1189`). The ledger categorises the clause, the graph
+      column categorises the site.
+      **The gate retires in the same commit that closes it**, because
+      `gh105_gate_baseline.py:75-84` builds `gates` from findings alone: at zero the key leaves
+      the baseline and any assertion that names it turns red. So the disposition, the `retired`
+      entry (`was` 36 — what the gate reported on the unmodified tree, the same rule the four
+      earlier retirements used) and the removal of
+      `test_a_retired_gate_leaves_the_baseline_and_stays_out`'s `"G-PRED2" in recorded["gates"]`
+      travelled together, plus one nobody had recorded: the frozen-set test asserted the origin
+      of findings with a set *equality*, which needed a finding to exist, and became a subset.
+      No `.mop` changed, so no trace changed and no census moved — stated in both censuses rather
+      than assumed. `/rv-verify` on the gate layer green: 94 assertions, `structural_findings` 0.
+      Evidence: `data/gh105/evidence/f3-ClosureSweep.md` (with 6.4, one commit)
 
 ## 6. F4 — Pointwise defects and the nine remove() (8 deleted + 1 migrated)
 
@@ -845,7 +870,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       Evidence: `data/gh105/evidence/f3-TLSChain.md` (with 5.9, one commit)
 - [ ] 6.3 `SignatureSpec`: `verified` marked on the `boolean` instead of the `byte[]`; `sign()`
       pointcuts declaring `public byte`
-- [ ] 6.4 **Verify** the 8 `@fail` removals of INV-INS-142 are gone; this task performs none of
+- [x] 6.4 **Verify** the 8 `@fail` removals of INV-INS-142 are gone; this task performs none of
       them. They implement "undo the predicate when the automaton fails", a semantics no CrySL
       generation has, and couple typestate to predicate against the rule's own orthogonality —
       and every one of them left with the file pass that migrated the write it withdrew, which
@@ -858,7 +883,22 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       no-ops on a store nothing writes and would have kept INV-INS-130 off zero, blocking task
       4.15. Measured there: no reader of any predicate remains on the old substrate in
       `jca_android`, so their deletion changed no report (researcher decision, 2026-08-22).
-      Verify the count is zero and that each deletion carries its `divergence_record.csv` hunk
+      Verify the count is zero and that each deletion carries its `divergence_record.csv` hunk.
+      **Both halves are green, measured over the whole set rather than over the named files**:
+      zero `remove(` in any `.mop` of `jca_android`, zero predicate operations inside any `@fail`
+      block (scanned by brace depth, not by grep), zero `ExecutionContext`, and exactly one
+      `negate(` — `PBEKeySpecSpec.mop:167`, the ninth removal, which is a translation and task
+      6.5's to verify. The censuses say the same from the other side: `remove:fail == 0` and
+      `negate:body == 1`. The eight deletions carry six `divergence_record.csv` hunks, two of
+      which cover two removals each: `3667658f9cf7` (`MacSpec`, task 4.9), `0fd4fb92f7f3`
+      (`TrustManagerFactorySpec`, both `GENERATED_TRUST_MANAGER` and the `GENERATED_TRUST_MANAGERS`
+      that named a `Property` no site of any set writes), `a92ed5c42e2d` (`KeyStoreSpec`, both),
+      `eaa0801a5e33` (`KeyManagerFactorySpec`), `ee86d177e08f` (`KeyPairGeneratorSpec`) and
+      `b22fbfe58fb8` (`KeyGeneratorSpec`); `--check` reports 278 hunks all recorded, none stale.
+      **One correction to this statement**: the eight line anchors it names resolve in the
+      archived `jca_android_bug_predicate` set, where the defect is preserved — not in the tree
+      and not in the frozen `jca`. What is verifiable here is the count and the hunks, and both
+      are. Evidence: `data/gh105/evidence/f3-ClosureSweep.md` (with 5.11, one commit)
 - [x] 6.5 Record the `SecretKey generatedKey[this,_] after d` NEGATES as `unclosable` — the set
       has no `destroy` event, and inventing one would fabricate the evidence this change exists
       to remove. The ninth removal (`PBEKeySpecSpec`, `clearPassword`, the one real `NEGATES`

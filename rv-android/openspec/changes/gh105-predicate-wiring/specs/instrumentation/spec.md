@@ -830,12 +830,16 @@ miscounts as 4 extra reads).
 #### Scenario: Closure over the wired set
 
 - **WHEN** F3 completes and G-PRED2 runs over `jca_android`
-- **THEN** each of the 24 wired `REQUIRES` clauses (the 25 wireable minus the vacuous #30,
-  which can have no read site) MUST map to a read site with an accuser
+- **THEN** each of the 21 wired `REQUIRES` clauses (the 25 wireable minus the two vacuous, #30
+  and #23, which can have no read site, and the two whose composition the platform refuses,
+  #17 and #21) MUST map to a read site with an accuser
 - **AND** each of the 10 non-wireable clauses MUST map to an `unmonitored-consumer`/
   `unmonitored-producer` record naming the absent specification
 - **AND** the one predicate with no producer in any rule (`preparedEC`) MUST appear as
   `unclosable`, and `SSLContext randomized[sr]` as `vacuous` (the rule binds `sr` in no event)
+- **AND** each written `Property` value with no reader MUST carry a write-side disposition —
+  `omission` or `propagation`, never a read-side one: `unmonitored-consumer` categorises the
+  clause and closes a read, and a write with no reader is closed by the record of the omission
 
 #### Scenario: Zero rows on a predicate-free set
 

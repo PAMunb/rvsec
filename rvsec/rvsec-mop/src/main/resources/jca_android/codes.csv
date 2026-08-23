@@ -50,11 +50,11 @@ KeyManagerFactorySpec,KEYMANAGERFACTORY-NOBS-00,UnsatisfiedConstraint,NOBS,init,
 KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:182
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-KEYSIZE-00,InvalidKeySize,KEYSIZE,initError,KeyPairGeneratorSpec.mop:132
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairGeneratorSpec.mop:159
-KeyPairSpec,KEYPAIR-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:59
-KeyPairSpec,KEYPAIR-NOBS-00,UnsatisfiedConstraint,NOBS,c1,KeyPairSpec.mop:63
-KeyPairSpec,KEYPAIR-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:68
-KeyPairSpec,KEYPAIR-NOBS-01,UnsatisfiedConstraint,NOBS,c1,KeyPairSpec.mop:72
-KeyPairSpec,KEYPAIR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairSpec.mop:128
+KeyPairSpec,KEYPAIR-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:64
+KeyPairSpec,KEYPAIR-NOBS-00,UnsatisfiedConstraint,NOBS,c1,KeyPairSpec.mop:68
+KeyPairSpec,KEYPAIR-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:73
+KeyPairSpec,KEYPAIR-NOBS-01,UnsatisfiedConstraint,NOBS,c1,KeyPairSpec.mop:77
+KeyPairSpec,KEYPAIR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairSpec.mop:133
 KeyStoreSpec,KEYSTORE-KSTYPE-00,InvalidKeyStoreType,KSTYPE,gk1,KeyStoreSpec.mop:83
 KeyStoreSpec,KEYSTORE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyStoreSpec.mop:92
 MacSpec,MAC-ALG-00,UnsafeAlgorithm,ALG,i1,MacSpec.mop:120
@@ -70,7 +70,7 @@ PBEKeySpecSpec,PBEKEYSPEC-FORB-01,ForbiddenMethod,FORB,f2,PBEKeySpecSpec.mop:43
 PBEKeySpecSpec,PBEKEYSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,PBEKeySpecSpec.mop:104
 PBEKeySpecSpec,PBEKEYSPEC-CONSTR-02,UnsatisfiedConstraint,CONSTR,c1,PBEKeySpecSpec.mop:130
 PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,UnsatisfiedConstraint,NOBS,c1,PBEKeySpecSpec.mop:135
-PBEKeySpecSpec,PBEKEYSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,PBEKeySpecSpec.mop:175
+PBEKeySpecSpec,PBEKEYSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,PBEKeySpecSpec.mop:185
 PBEParameterSpecSpec,PBEPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,PBEParameterSpecSpec.mop:57
 PBEParameterSpecSpec,PBEPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,PBEParameterSpecSpec.mop:63
 PBEParameterSpecSpec,PBEPARAMETERSPEC-NOBS-00,UnsatisfiedConstraint,NOBS,c1,PBEParameterSpecSpec.mop:68

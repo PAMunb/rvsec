@@ -101,8 +101,9 @@ scripts/gh104_diff_harness.py + TraceRunner: satisfy/violate trace pair per wire
 
 ## Goals / Non-Goals
 
-**Goals**: the 36 `REQUIRES` clauses resolved per the ledger — 24 wired, 11 recorded
-(10 `unmonitored-consumer`/`unmonitored-producer` + the vacuous #30), `preparedEC` `unclosable`; zero
+**Goals**: the 36 `REQUIRES` clauses resolved per the ledger — 21 wired, 14 recorded
+(10 `unmonitored-consumer`/`unmonitored-producer`, the vacuous #30 and #23, the
+`unreachable-composition` #17 and #21), `preparedEC` `unclosable`; zero
 orphan accusers; zero guard reads; three-valued verdicts reaching the envelope; the freeze safe
 by construction; a gate layer that holds all of it over the full enumerated universe (214 files
 today, plus the junction specifications this change adds).
@@ -486,9 +487,9 @@ Every F3/record task resolves against this table, not against family names.
 | 36 | TrustManagerFactory | `generatedKeyStore[keyStore]` | | | yes | wire | 5.9 |
 
 Totals: 25 wireable (incl. the 3 negated and the 1 vacuous), 10 non-wireable records,
-1 `unclosable` (`preparedEC`). Of the 25 wireable, **22 are wired**; the vacuous #30 is
-**recorded**, never wired — no event binds `sr`, so it can have no read site — and tasks 5.2 and
-5.3 moved two more out of the wired column on measurement (2026-08-22): #23 joins #30 as
+1 `unclosable` (`preparedEC`). Of the 25 wireable, **21 are wired**; the vacuous #30 is
+**recorded**, never wired — no event binds `sr`, so it can have no read site — and tasks 5.2, 5.3
+and 5.8 moved three more out of the wired column on measurement (2026-08-22): #23 joins #30 as
 `vacuous`, because `output2` is bound only as an array the JCA allocates fresh and
 `validateAbsent` never answers `NOT_OBSERVED`, so a read there could answer only `SATISFIED`; and
 #21 is a **third kind of record**, which this ledger did not have a column for. Its producer and
@@ -525,6 +526,15 @@ cost were measured and declined (evidence: `data/gh105/evidence/f3-PreparedKeyMa
 The lesson for the tasks still open is the third face of "necessary and not sufficient": having a
 `.mop` at both ends and a program that composes still does not tell you **how much** the wiring
 moves — measure the corpus before deciding, not the two ends.
+
+Task 5.11 (2026-08-22) swept the closure and found the totals above had been carrying #17 in the
+wired column after task 5.8 recorded it. **The arithmetic that closes is 21 + 14 + 1**: 21 clauses
+with a read site, 14 recorded (the 10 `unmonitored-*`, the vacuous #30 and #23, the
+`unreachable-composition` #17 and #21), and `preparedEC` `unclosable`. Measured against the tree
+rather than against this table: `PREPARED_DH` has one write (`DHGenParameterSpecSpec.mop:37`) and
+no read anywhere in the set. The same sweep counts **22** distinct `Property` values written where
+the change opened with 21 — task 5.10 renamed a write rather than adding one, and a census of
+operations cannot see a rename. Evidence: `data/gh105/evidence/f3-ClosureSweep.md`.
 
 Dead-end `ENSURES`-only predicates are never required by any rule. The oracle has 12; **9 have
 their producing rule's `.mop` in the set** and are the ones this change must dispose of:

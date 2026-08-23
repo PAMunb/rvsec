@@ -798,6 +798,16 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       `accepting-state` stays 0, and `negate` stays 1: task 6.5 verifies the one real
       NEGATES translation rather than performing it, and verifying it is exactly the
       assertion that this number did not move.
+
+      Batch B6 (tasks 5.11 and 6.4) edits no `.mop` at all, and this census is where that
+      is stated rather than assumed. The closure sweep reads `predicate_graph.csv` and
+      writes a `disposition`, which is a judgment about a site and not a site; the
+      verification at task 6.4 performs nothing by construction. So `write` stays 31,
+      `read`+`read-absent` stays 38, `condition` stays 0 and `negate` stays 1 -- and the
+      last of those is the fourth pass to leave it alone, which is what makes it a number
+      and not a coincidence. What the sweep enumerated is one level up: the 31 writes name
+      **22** distinct `Property` values, one more than the 21 the change opened with,
+      because task 5.10 renamed a write rather than adding one.
     """
     home = _rvsec_home()
     specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
@@ -1144,6 +1154,14 @@ def test_the_graph_reproduces_the_measured_placement_census():
       6.5's verification rather than task 6.5's work: the one real NEGATES clause of the set
       was translated by task 4.6 with the write it withdraws, and the assertion that the
       number did not move is what verifying it amounts to.
+
+      Batch B6 (tasks 5.11 and 6.4) moves no count here either, and it is the first batch
+      of which that is the whole story: it edits no `.mop`, so the graph keeps its 70 rows
+      and every `verdict` above keeps its number. What it changes is one cell of one row --
+      the `disposition` of `PBEKeySpecSpec.mop c1/SPECCED_KEY`, from empty to `omission` --
+      and no census in this file is keyed on that column, by design: a disposition is the
+      reason an edge stays open, and counting reasons would make the record argue with
+      itself. It is G-PRED2 that reads the column, and the closure drove it to zero.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1501,13 +1519,20 @@ def test_the_suite_skips_the_frozen_sets_declaredly_rather_than_failing_them():
     that a frozen file is still what it was frozen as -- and a suite that is
     expected to be red stops being read. The skips are counted and carry reasons,
     which is the difference between scoping a gate and quietly not running it.
+
+    The finding assertion is a subset and not an equality, because task 5.11 drove
+    the structural suite to zero over the whole universe: an equality would have
+    required a finding to exist in order to say where findings may come from, and
+    the claim here has never been that there is one. What it says is that nothing
+    arrives from a set these gates do not govern, which is true of the empty set
+    and stays true if a finding returns.
     """
     run = run_gates(_specs_root(), "all", GRAPH, ALLOWLIST)
 
     skipped_sets = {spec_set for _, spec_set, _ in run.gate_skips}
     assert skipped_sets == {"jca", "jca_android_bug_predicate", "generic", "generic_new"}
     assert all(reason for _, _, reason in run.gate_skips)
-    assert {finding.spec_set for finding in run.findings} == {"jca_android"}
+    assert {finding.spec_set for finding in run.findings} <= {"jca_android"}
 
 
 def test_the_orphan_in_the_generic_set_is_reported_without_failing_the_run():
@@ -1773,6 +1798,12 @@ def test_inv_ins_137_gpred2(suite):
     every write has a reader or a recorded omission. The gate is what stops the
     change from ending with a store that is written and never consulted, which is
     the state it started from.
+
+    It opened this change reporting 36 edges and reports none: Group 5 wired the
+    21 clauses a reader could close, recorded the 14 no reader could and the one
+    `preparedEC` no rule produces, and task 5.11 closed the last row and retired
+    the gate. `_no_regression` therefore compares against the empty set and the
+    subset assertion *is* the zero assertion.
     """
     findings = [finding for finding in suite.findings if finding.gate == "G-PRED2"]
     assert all(finding.spec_set == "jca_android" for finding in findings)
@@ -2047,11 +2078,12 @@ RETIREMENTS = {
     "INV-INS-133": ("4.15", 27),
     "INV-INS-134": ("4.15", 42),
     "INV-INS-130": ("4.15", 23),
+    "G-PRED2": ("5.11", 36),
 }
 
 
 def test_a_retired_gate_leaves_the_baseline_and_stays_out(measured):
-    """Four gates are retired, and `--write` must not put any of them back.
+    """Five gates are retired, and `--write` must not put any of them back.
 
     Retiring is a decision, not a measurement: the gate is expected to be silent
     from here on, so its rows leave `gates` and its next finding is a regression.
@@ -2064,12 +2096,21 @@ def test_a_retired_gate_leaves_the_baseline_and_stays_out(measured):
     Task 3.7 retired G-ACC with the 17 orphans. Task 4.15 retired the three
     placement gates, which reached zero in passes that were not its own: the 27
     guard reads at task 4.12, the 42 unaccounted writes and the 23 files naming
-    the old substrate at task 4.14. The `was` counts are what each gate reported
-    on the unmodified tree, not what it reports now, which is nothing.
+    the old substrate at task 4.14. Task 5.11 retired G-PRED2 with the closure
+    sweep, over the 36 unclosed edges the set opened this change with. The `was`
+    counts are what each gate reported on the unmodified tree, not what it
+    reports now, which is nothing.
 
-    G-PRED2 is deliberately *not* here. Its ten rows are writes whose consumers
-    Group 5 has still to wire, so they are a live expectation and belong in
-    `gates`; the sweep at task 5.11 is what closes them.
+    G-PRED2 is why this test carries no assertion that a named gate is still in
+    `gates`. It had one, on itself, for as long as Group 5 had writes left to
+    wire; the sweep that closed the last row -- `PBEKeySpecSpec c1/SPECCED_KEY`,
+    an `omission` because a write with no reader closes with the write-side
+    vocabulary and not with the `unmonitored-consumer` its clause is -- drove the
+    gate to zero, and `collect` builds `gates` from findings alone, so the key
+    left the payload in the same measurement. Retiring it a commit later would
+    have meant a commit where the assertion was red on purpose. What replaces the
+    assertion is the record below: every retired gate names the task that closed
+    it and what it was reporting before.
     """
     recorded = json.loads(BASELINE.read_text(encoding="utf-8"))
     assert set(recorded["retired"]) == set(RETIREMENTS)
@@ -2078,7 +2119,6 @@ def test_a_retired_gate_leaves_the_baseline_and_stays_out(measured):
         assert recorded["retired"][gate]["task"] == task
         assert recorded["retired"][gate]["was"] == was
         assert recorded["retired"][gate]["note"].strip()
-    assert "G-PRED2" in recorded["gates"]
 
     # a fresh measurement that *did* report on every retired gate is still not re-baselined
     fresh = {"gates": {gate: [["jca_android", "X.mop", "finding"]] for gate in RETIREMENTS}}

@@ -10,7 +10,7 @@ regression lands as a finding nobody recorded. Task 7.6 deletes the mechanism on
 | set | files | read | skipped | predicate sites |
 |---|---|---|---|---|
 | `jca` | 23 | 22 | 1 | 106 |
-| `jca_android` | 24 | 24 | 0 | 69 |
+| `jca_android` | 24 | 24 | 0 | 70 |
 | `jca_android_bug_predicate` | 23 | 22 | 1 | 147 |
 | `generic` | 118 | 118 | 0 | 0 |
 | `generic_new` | 27 | 27 | 0 | 0 |
@@ -26,8 +26,7 @@ Every skipped file carries its reason:
 | gate | findings |
 |---|---|
 | G-ORDER | 4 |
-| G-PRED2 | 1 |
-| **failing total** | **5** |
+| **failing total** | **4** |
 
 Informative (reported in sets these gates do not govern): 21. Allow-listed (permanent, with reasons): 0.
 
@@ -57,6 +56,7 @@ be silent from here on and its next finding is a regression rather than an
 expectation. `--write` carries these forward and never re-baselines them.
 
 - **G-ACC** — retired by task 3.7, 17 findings at the baseline. the 17 orphan accusers of jca_android, closed by Group 3: 12 negated twins fused into their siblings on 11 arrows, PBEKeySpecSpec.err1 fused on the same arrow as err2/err3, and 4 absorbed into their automata (SecureRandomSpec.g4 and PBEKeySpecSpec.f1/f2 with self-loops and an ORDER-unmapped row; KeyPairGeneratorSpec.initError as an Inits alternative mapped to i3). The gate is now expected to be silent over jca_android in both directions, so a finding it reports is a regression and not an expectation. The generic set's one orphan is informative and was never in this record.
+- **G-PRED2** — retired by task 5.11, 36 findings at the baseline. the 36 unclosed predicate edges jca_android opened this change with -- reads with no producer in the set and writes with no reader, neither carrying a disposition that named the reason -- driven to zero by Group 5. The wiring closed most of them by giving an existing write its reader; the ones no reader could close were recorded, each with the category the ledger assigns it. Task 5.11 closed the last row, PBEKeySpecSpec c1/SPECCED_KEY, and it needed the write-side vocabulary: the clause is an unmonitored-consumer (SecretKeyFactory, the one rule of api30 that requires speccedKey, has no .mop in the set), but that is a *read* disposition, and a write with no reader closes with omission or propagation and with nothing else. The ledger categorises the clause; this column categorises the site. Retirement travels in the same commit as the closure and not a commit later, because the baseline builds gates from findings alone: a gate at zero has no key here, and a gate with no key is one whose next finding is compared against nothing. So the record is what carries it forward -- a predicate read or written without an accounted counterpart is a regression from here on, and the 21 wired clauses, the 14 recorded ones and preparedEC's unclosable are the whole of the ledger's 36.
 - **INV-INS-130** — retired by task 4.15, 23 findings at the baseline. the 23 specifications of jca_android that named ExecutionContext, driven to zero by task 4.14: the seven files of its batch plus the two dangling imports left in CipherInputStreamSpec and CipherOutputStreamSpec, which had no use at all. The check is a whole-word grep over the set and counts mentions in comments and strings too, so the migration is complete in prose as well as in code. No specification of the set may name the old substrate again.
 - **INV-INS-133** — retired by task 4.15, 27 findings at the baseline. the 27 predicate reads jca_android evaluated inside condition(...), driven to zero by task 4.12, which moved the last of them -- SecretKeySpec.e1 -- into its event body. Group 3 took 16 of the 27 away by fusing the guarded twins; the Group-4 file passes relocated the rest, and tasks 4.9 and 4.11 deleted four whose reads governed nothing any api30 rule asks for. Every read this change still adds belongs in a body by INV-INS-133, so a guard reported here from now on is a new one and not a leftover.
 - **INV-INS-134** — retired by task 4.15, 42 findings at the baseline. the 42 predicate writes placed away from their rule's acceptance point with no recorded reason, driven to zero by task 4.14, which cleared the last eight over six files: six moved to the acceptance point, and two -- KeyManagerFactorySpec.gkm1 and TrustManagerFactorySpec.gtm1, whose transitions leave the accepting state for start, so an acceptance-point write would never run -- stayed in the event body and gained the reason the gate reads. The gate was never a ban on writing in the body: seven sites still do, each with its reason in the predicate_graph.csv row beside it. Retiring it says the accounting is complete, not that the sites are gone -- a write Group 5 or 6 adds off the acceptance point with no reason is a regression.
