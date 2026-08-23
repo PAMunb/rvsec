@@ -53,7 +53,6 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # --------------------------------------------------------------------- pass 1
 
 
@@ -86,7 +85,9 @@ _SUBSTRATES = ("ExecutionContext", "PredicateStore")
 # from a helper method that happens to share the name.
 _GRAPH_SITE = re.compile(
     r"\b(?P<substrate>" + "|".join(_SUBSTRATES) + r")\s*\.\s*instance\s*\(\s*\)\s*\.\s*"
-    r"(?P<op>" + "|".join(GRAPH_OPERATIONS) + r")\s*\(\s*Property\s*\.\s*(?P<predicate>\w+)"
+    r"(?P<op>"
+    + "|".join(GRAPH_OPERATIONS)
+    + r")\s*\(\s*Property\s*\.\s*(?P<predicate>\w+)"
 )
 
 _ACCEPTING_SITE = re.compile(
@@ -99,7 +100,9 @@ _SPEC_DECL = re.compile(r"^(?P<name>\w+)\s*\(", re.MULTILINE)
 # `creation`, on ten declarations. It is captured rather than skipped because a
 # junction specification that declares its *consumer* event `creation` accuses
 # the conforming trace -- the pilot measured it -- and that rule is gated.
-_EVENT_DECL = re.compile(r"\b(?P<modifiers>(?:creation|unsync|blocking)\s+)*event\s+(?P<name>\w+)\b")
+_EVENT_DECL = re.compile(
+    r"\b(?P<modifiers>(?:creation|unsync|blocking)\s+)*event\s+(?P<name>\w+)\b"
+)
 _HANDLER_DECL = re.compile(r"@(?P<name>\w+)\s*\{")
 _AUTOMATON_DECL = re.compile(r"\b(?P<kind>fsm|ere)\s*:")
 _ALIAS_DECL = re.compile(r"\balias\s+(?P<name>\w+)\s*=\s*(?P<target>\w+)")
@@ -142,7 +145,9 @@ def neutralize(text: str) -> str:
         elif char == "/" and index + 1 < length and text[index + 1] == "*":
             out[index] = out[index + 1] = " "
             index += 2
-            while index < length and not (text[index] == "*" and index + 1 < length and text[index + 1] == "/"):
+            while index < length and not (
+                text[index] == "*" and index + 1 < length and text[index + 1] == "/"
+            ):
                 if text[index] != "\n":
                     out[index] = " "
                 index += 1
@@ -312,7 +317,9 @@ class MopSource:
             the symbol is neither a parameter of `owner` nor a field -- a local
             variable, a literal, or an expression.
         """
-        return self.event_parameters.get(owner, {}).get(name) or self.fields.get(name, "")
+        return self.event_parameters.get(owner, {}).get(name) or self.fields.get(
+            name, ""
+        )
 
 
 def _match_delimiter(neutral: str, start: int, opening: str, closing: str) -> int:
@@ -430,7 +437,9 @@ def _scan_regions(source: MopSource, body_start: int, body_end: int) -> None:
             close = _match_delimiter(neutral, open_brace, "{", "}")
             source.regions.append(Region("body", name, open_brace + 1, close - 1))
             source.declared_events.append(name)
-            source.event_parameters[name] = _collect_declarations(neutral, event.end(), open_brace)
+            source.event_parameters[name] = _collect_declarations(
+                neutral, event.end(), open_brace
+            )
             if "creation" in (event.group("modifiers") or ""):
                 source.creation_events.add(name)
             for start, end in _condition_spans(neutral, event.end(), open_brace):
@@ -442,14 +451,23 @@ def _scan_regions(source: MopSource, body_start: int, body_end: int) -> None:
         if handler:
             open_brace = neutral.index("{", handler.start())
             close = _match_delimiter(neutral, open_brace, "{", "}")
-            source.regions.append(Region(f"@{handler.group('name')}", handler.group("name"), open_brace + 1, close - 1))
+            source.regions.append(
+                Region(
+                    f"@{handler.group('name')}",
+                    handler.group("name"),
+                    open_brace + 1,
+                    close - 1,
+                )
+            )
             index = close
             continue
 
         automaton = _AUTOMATON_DECL.match(neutral, index)
         if automaton:
             end = _automaton_end(neutral, automaton.end(), body_end)
-            source.regions.append(Region("automaton", automaton.group("kind"), automaton.end(), end))
+            source.regions.append(
+                Region("automaton", automaton.group("kind"), automaton.end(), end)
+            )
             index = end
             continue
 
@@ -529,7 +547,9 @@ def _automaton_end(neutral: str, start: int, limit: int) -> int:
             if neutral.startswith("@", index):
                 return index
             for keyword in ("event ", "alias ", "fsm ", "ere "):
-                if neutral.startswith(keyword, index) and (index == 0 or not neutral[index - 1].isalnum()):
+                if neutral.startswith(keyword, index) and (
+                    index == 0 or not neutral[index - 1].isalnum()
+                ):
                     return index
         index += 1
     return limit
@@ -564,7 +584,9 @@ def _skip_member(neutral: str, start: int, limit: int, source: MopSource) -> int
             # A helper method body: its statements are specification-level, and a
             # predicate site inside one is attributable to the specification
             # rather than to any event.
-            source.regions.append(Region("spec-body", "<spec-body>", index + 1, close - 1))
+            source.regions.append(
+                Region("spec-body", "<spec-body>", index + 1, close - 1)
+            )
             # No symbols are harvested here: a member that opens a brace is a
             # helper method or an initializer, and its parameters are local to it.
             # Recording them as specification fields would let one shadow the
@@ -606,7 +628,9 @@ def _collect_sites(source: MopSource) -> None:
                 operation=GRAPH_OPERATIONS[match.group("op")],
                 substrate=match.group("substrate"),
                 predicate=match.group("predicate"),
-                arguments=tuple(re.sub(r"\s+", " ", argument) for argument in arguments),
+                arguments=tuple(
+                    re.sub(r"\s+", " ", argument) for argument in arguments
+                ),
                 line=source.line_of(match.start()),
                 source_negated=prefix.endswith("!"),
                 snippet=" ".join(source.text[match.start() : close].split()),
@@ -731,15 +755,21 @@ def _read_alphabet(source: MopSource) -> Alphabet:
         that names nothing".
     """
     declared = tuple(source.declared_events)
-    automaton = next((region for region in source.regions if region.kind == "automaton"), None)
+    automaton = next(
+        (region for region in source.regions if region.kind == "automaton"), None
+    )
     if automaton is None:
         return Alphabet(kind="", declared=declared, referenced=(), states=())
 
     text = source.neutral[automaton.start : automaton.end]
     if automaton.owner == "fsm":
         states = tuple(match.group("name") for match in _FSM_STATE.finditer(text))
-        referenced = tuple(match.group("event") for match in _FSM_TRANSITION.finditer(text))
-        return Alphabet(kind="fsm", declared=declared, referenced=referenced, states=states)
+        referenced = tuple(
+            match.group("event") for match in _FSM_TRANSITION.finditer(text)
+        )
+        return Alphabet(
+            kind="fsm", declared=declared, referenced=referenced, states=states
+        )
 
     # An `ere` is one expression: every identifier in it is an event except the
     # empty word.
@@ -766,7 +796,11 @@ def _delimiter_imbalance(neutral: str) -> str:
         A sentence naming the delimiter, the direction of the imbalance and the
         line where it was detected, or the empty string when the file balances.
     """
-    for opening, closing, name in (("(", ")", "parenthesis"), ("{", "}", "brace"), ("[", "]", "bracket")):
+    for opening, closing, name in (
+        ("(", ")", "parenthesis"),
+        ("{", "}", "brace"),
+        ("[", "]", "bracket"),
+    ):
         depth = 0
         for index, char in enumerate(neutral):
             if char == opening:
@@ -803,14 +837,25 @@ def read_mop(path: Path) -> MopSource:
 
     imbalance = _delimiter_imbalance(neutral)
     if imbalance:
-        return MopSource(path=path, spec=path.stem, text=text, neutral=neutral, parse_error=imbalance)
+        return MopSource(
+            path=path, spec=path.stem, text=text, neutral=neutral, parse_error=imbalance
+        )
 
     spec_name = path.stem
     parameters: dict[str, str] = {}
     body_start = -1
     for match in _SPEC_DECL.finditer(neutral):
         keyword = match.group("name")
-        if keyword in {"if", "for", "while", "switch", "catch", "return", "import", "package"}:
+        if keyword in {
+            "if",
+            "for",
+            "while",
+            "switch",
+            "catch",
+            "return",
+            "import",
+            "package",
+        }:
             continue
         open_paren = match.end() - 1
         after_params = _match_delimiter(neutral, open_paren, "(", ")")
@@ -892,7 +937,9 @@ def _placement(site: Site) -> str:
     `@match1`/`@match2` aliases happened to reach it.
     """
     if site.site_kind.startswith("@"):
-        return "@match" if _ACCEPTANCE_HANDLERS.match(site.site_kind) else site.site_kind
+        return (
+            "@match" if _ACCEPTANCE_HANDLERS.match(site.site_kind) else site.site_kind
+        )
     return site.site_kind
 
 
@@ -999,7 +1046,13 @@ def _row_key(row: dict[str, str], ordinal: int) -> tuple[str, str, str, str, int
         The identifying tuple, stable across any edit that does not change what
         the site does.
     """
-    return (row["file"], row["event"], row["predicate"], row["verdict"].split(":")[0], ordinal)
+    return (
+        row["file"],
+        row["event"],
+        row["predicate"],
+        row["verdict"].split(":")[0],
+        ordinal,
+    )
 
 
 def build_rows(sources: list[MopSource]) -> list[dict[str, str]]:
@@ -1022,7 +1075,9 @@ def build_rows(sources: list[MopSource]) -> list[dict[str, str]]:
     return rows
 
 
-def carry_judgments(rows: list[dict[str, str]], existing: list[dict[str, str]]) -> list[dict[str, str]]:
+def carry_judgments(
+    rows: list[dict[str, str]], existing: list[dict[str, str]]
+) -> list[dict[str, str]]:
     """Copy the hand-written columns of a previous graph onto freshly read rows.
 
     The five judgment columns record decisions -- which clause a site translates,
@@ -1044,14 +1099,24 @@ def carry_judgments(rows: list[dict[str, str]], existing: list[dict[str, str]]) 
     carried: dict[tuple[str, str, str, str, int], dict[str, str]] = {}
     seen: dict[tuple[str, str, str, str], int] = {}
     for row in existing:
-        stem = (row["file"], row["event"], row["predicate"], row["verdict"].split(":")[0])
+        stem = (
+            row["file"],
+            row["event"],
+            row["predicate"],
+            row["verdict"].split(":")[0],
+        )
         ordinal = seen.get(stem, 0)
         seen[stem] = ordinal + 1
         carried[(*stem, ordinal)] = row
 
     seen.clear()
     for row in rows:
-        stem = (row["file"], row["event"], row["predicate"], row["verdict"].split(":")[0])
+        stem = (
+            row["file"],
+            row["event"],
+            row["predicate"],
+            row["verdict"].split(":")[0],
+        )
         ordinal = seen.get(stem, 0)
         seen[stem] = ordinal + 1
         previous = carried.get((*stem, ordinal))
@@ -1107,7 +1172,9 @@ def analyze_set(set_dir: Path) -> SetReport:
             report.skipped.append((path.name, source.parse_error))
             continue
         if not source.has_specification:
-            report.skipped.append((path.name, "no specification block: event declarations only"))
+            report.skipped.append(
+                (path.name, "no specification block: event declarations only")
+            )
             continue
         report.read += 1
         sources.append(source)
@@ -1177,11 +1244,11 @@ def write_graph(path: Path, rows: list[dict[str, str]]) -> None:
 # reason the edge cannot be wired, and each is a decision somebody wrote down --
 # which is the difference between a gap that is known and a gap that is missing.
 RECORDED_READ_DISPOSITIONS = {
-    "unclosable",           # no producing rule exists at all (`preparedEC`)
+    "unclosable",  # no producing rule exists at all (`preparedEC`)
     "unmonitored-producer",  # the producing rule has no `.mop` in the set
     "unmonitored-consumer",  # the consuming rule has no `.mop` in the set
-    "vacuous",              # the clause binds a value no event of the rule binds
-    "propagation",          # the read translates no clause; it forwards a mark
+    "vacuous",  # the clause binds a value no event of the rule binds
+    "propagation",  # the read translates no clause; it forwards a mark
 }
 
 # The disposition that closes a write with no reader: an `ENSURES`-only dead end,
@@ -1338,7 +1405,11 @@ def gate_placement(report: SetReport) -> list[Finding]:
                     "instead of accusing at it",
                 )
             )
-        if operation == "write" and row["verdict"] != "write:acceptance" and not row["reason"]:
+        if (
+            operation == "write"
+            and row["verdict"] != "write:acceptance"
+            and not row["reason"]
+        ):
             findings.append(
                 Finding(
                     "INV-INS-134",
@@ -1434,7 +1505,10 @@ def gate_pred2(report: SetReport) -> list[Finding]:
         operation = row["verdict"].split(":")[0]
         subject = f"{row['event']}/{row['predicate']}"
         if operation in ("read", "read-absent"):
-            if row["predicate"] not in written and row["disposition"] not in RECORDED_READ_DISPOSITIONS:
+            if (
+                row["predicate"] not in written
+                and row["disposition"] not in RECORDED_READ_DISPOSITIONS
+            ):
                 findings.append(
                     Finding(
                         "G-PRED2",
@@ -1446,7 +1520,10 @@ def gate_pred2(report: SetReport) -> list[Finding]:
                     )
                 )
         elif operation == "write":
-            if row["predicate"] not in read and row["disposition"] not in RECORDED_WRITE_DISPOSITIONS:
+            if (
+                row["predicate"] not in read
+                and row["disposition"] not in RECORDED_WRITE_DISPOSITIONS
+            ):
                 findings.append(
                     Finding(
                         "G-PRED2",
@@ -1500,7 +1577,8 @@ def gate_junction_rules(report: SetReport, sources: list[MopSource]) -> list[Fin
         consumers = {
             site.owner
             for site in source.sites
-            if site.operation in ("read", "read-absent") and not site.site_kind.startswith("@")
+            if site.operation in ("read", "read-absent")
+            and not site.site_kind.startswith("@")
         }
         for event in sorted(consumers & source.creation_events):
             findings.append(
@@ -1518,7 +1596,11 @@ def gate_junction_rules(report: SetReport, sources: list[MopSource]) -> list[Fin
         if alphabet.kind == "fsm":
             transitions = _fsm_transitions(source)
             for state in alphabet.states:
-                missing = [event for event in dict.fromkeys(alphabet.declared) if event not in transitions.get(state, set())]
+                missing = [
+                    event
+                    for event in dict.fromkeys(alphabet.declared)
+                    if event not in transitions.get(state, set())
+                ]
                 for event in missing:
                     findings.append(
                         Finding(
@@ -1536,7 +1618,9 @@ def gate_junction_rules(report: SetReport, sources: list[MopSource]) -> list[Fin
                 continue
             body = source.neutral[region.start : region.end]
             named = {name for name in _ERE_IDENTIFIER.findall(body)}
-            for parameter in sorted(named & set(source.parameters) - set(source.fields)):
+            for parameter in sorted(
+                named & set(source.parameters) - set(source.fields)
+            ):
                 findings.append(
                     Finding(
                         "INV-INS-136(d)",
@@ -1561,7 +1645,9 @@ def _fsm_transitions(source: MopSource) -> dict[str, set[str]]:
         specification declares no automaton or declares an `ere`, which has no
         states to be total over.
     """
-    automaton = next((region for region in source.regions if region.kind == "automaton"), None)
+    automaton = next(
+        (region for region in source.regions if region.kind == "automaton"), None
+    )
     if automaton is None or automaton.owner != "fsm":
         return {}
 
@@ -1696,7 +1782,11 @@ def run_gates(
 
         produced = gate_acc(report, sources) + gate_junction_rules(report, sources)
         if report.name == TARGET_SET:
-            produced += gate_placement(report) + gate_pred2(report) + gate_import(report, sources)
+            produced += (
+                gate_placement(report)
+                + gate_pred2(report)
+                + gate_import(report, sources)
+            )
         else:
             for gate in ("INV-INS-130", "INV-INS-133", "INV-INS-134", "G-PRED2"):
                 run.gate_skips.append(
@@ -1756,7 +1846,9 @@ def main(argv: list[str] | None = None) -> int:
         help="directory holding the specification sets",
     )
     parser.add_argument("--sets", default="all", help="`all` or the name of one set")
-    parser.add_argument("--graph", type=Path, default=DEFAULT_GRAPH, help="the graph CSV")
+    parser.add_argument(
+        "--graph", type=Path, default=DEFAULT_GRAPH, help="the graph CSV"
+    )
     parser.add_argument("--emit", action="store_true", help="rewrite the graph CSV")
     parser.add_argument(
         "--allowlist",
@@ -1769,20 +1861,29 @@ def main(argv: list[str] | None = None) -> int:
 
     set_dirs = _resolve_sets(arguments.specs_root, arguments.sets)
     if not set_dirs:
-        print(f"no specification set found under {arguments.specs_root}", file=sys.stderr)
+        print(
+            f"no specification set found under {arguments.specs_root}", file=sys.stderr
+        )
         return 2
 
     if arguments.emit:
         emitted = analyze_set(arguments.specs_root / "jca_android")
-        write_graph(arguments.graph, carry_judgments(list(emitted.rows), read_graph(arguments.graph)))
+        write_graph(
+            arguments.graph,
+            carry_judgments(list(emitted.rows), read_graph(arguments.graph)),
+        )
 
-    run = run_gates(arguments.specs_root, arguments.sets, arguments.graph, arguments.allowlist)
+    run = run_gates(
+        arguments.specs_root, arguments.sets, arguments.graph, arguments.allowlist
+    )
 
     payload = {
         "universe": run.universe,
         "read": run.read,
         "skipped": run.skipped,
-        "passed": run.universe - run.skipped - len({finding.file for finding in run.findings}),
+        "passed": run.universe
+        - run.skipped
+        - len({finding.file for finding in run.findings}),
         "failed": len(run.findings),
         "allowed": len(run.allowed),
         "informative": len(run.informative),
@@ -1795,7 +1896,9 @@ def main(argv: list[str] | None = None) -> int:
                 "set": report.name,
                 "files": report.total,
                 "read": report.read,
-                "skipped": [{"file": name, "reason": reason} for name, reason in report.skipped],
+                "skipped": [
+                    {"file": name, "reason": reason} for name, reason in report.skipped
+                ],
                 "sites": len(report.rows),
             }
             for report in run.reports
@@ -1815,7 +1918,9 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.json:
         print(json.dumps(payload, indent=2))
     else:
-        print(f"universe: {run.universe} .mop files enumerated under {arguments.specs_root}")
+        print(
+            f"universe: {run.universe} .mop files enumerated under {arguments.specs_root}"
+        )
         for report in run.reports:
             print(
                 f"  {report.name:26s} files={report.total:3d} read={report.read:3d} "
@@ -1841,5 +1946,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

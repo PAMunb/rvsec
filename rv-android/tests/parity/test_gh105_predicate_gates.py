@@ -21,7 +21,6 @@ cases that motivated them rather than against a happy path:
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import sys
@@ -84,8 +83,14 @@ def test_neutralisation_preserves_every_offset():
 @pytest.mark.parametrize(
     "case,source",
     [
-        ("line comment", "// ExecutionContext.instance().validate(Property.RANDOMIZED, x)\n"),
-        ("block comment", "/* ExecutionContext.instance().validate(Property.RANDOMIZED, x) */\n"),
+        (
+            "line comment",
+            "// ExecutionContext.instance().validate(Property.RANDOMIZED, x)\n",
+        ),
+        (
+            "block comment",
+            "/* ExecutionContext.instance().validate(Property.RANDOMIZED, x) */\n",
+        ),
         (
             "accusation message",
             '"obj=Cipher msg=ExecutionContext.instance().validate(Property.RANDOMIZED, iv)"\n',
@@ -190,7 +195,9 @@ FixtureSpec(Cipher c) {
 }
 """,
     )
-    kinds = {(site.operation, site.site_kind, site.owner) for site in read_mop(path).sites}
+    kinds = {
+        (site.operation, site.site_kind, site.owner) for site in read_mop(path).sites
+    }
     assert kinds == {
         ("read", "condition", "c1"),
         ("write", "body", "c1"),
@@ -219,7 +226,9 @@ FixtureSpec(SecureRandom sr) {
     )
     source = read_mop(path)
     assert source.aliases == {"match1": "init"}
-    assert [(site.owner, site.site_kind) for site in source.sites] == [("match1", "@match1")]
+    assert [(site.owner, site.site_kind) for site in source.sites] == [
+        ("match1", "@match1")
+    ]
 
 
 def test_the_declared_type_of_a_bound_symbol_is_recovered(tmp_path):
@@ -328,7 +337,9 @@ FixtureSpec(SecretKeySpec s) {
     assert source.sites == []
 
 
-def test_a_file_with_no_specification_block_reads_as_empty_rather_than_failing(tmp_path):
+def test_a_file_with_no_specification_block_reads_as_empty_rather_than_failing(
+    tmp_path,
+):
     """17 files of `generic_new` declare events and nothing else.
 
     They are not broken and they are not predicate-free by accident; they are a
@@ -438,7 +449,9 @@ def test_the_derived_set_carries_exactly_the_seventeen_orphan_accusers():
         assert source.parse_error == "", f"{path.name}: {source.parse_error}"
         if source.alphabet.orphans:
             found[path.stem] = source.alphabet.orphans
-        assert source.alphabet.undeclared == (), f"{path.name} names an undeclared event"
+        assert (
+            source.alphabet.undeclared == ()
+        ), f"{path.name} names an undeclared event"
 
     assert found == {}
     assert sum(len(events) for events in found.values()) == 0
@@ -471,7 +484,11 @@ def test_the_seventeen_event_only_files_declare_no_automaton_at_all():
     home = _rvsec_home()
     root = home / "rvsec/rvsec-mop/src/main/resources/generic_new"
 
-    without = [path.name for path in sorted(root.glob("*.mop")) if not read_mop(path).alphabet.has_automaton]
+    without = [
+        path.name
+        for path in sorted(root.glob("*.mop"))
+        if not read_mop(path).alphabet.has_automaton
+    ]
     assert len(without) == 17, without
 
 
@@ -839,7 +856,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       no assertion of this suite counts and the harness evidence carries instead.
     """
     home = _rvsec_home()
-    specs = sorted((home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop"))
+    specs = sorted(
+        (home / "rvsec/rvsec-mop/src/main/resources/jca_android").glob("*.mop")
+    )
     assert len(specs) >= 23
 
     counts: dict[str, int] = {}
@@ -850,12 +869,16 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
         for site in source.sites:
             counts[site.operation] = counts.get(site.operation, 0) + 1
             if site.operation.startswith("read"):
-                read_placement[site.site_kind] = read_placement.get(site.site_kind, 0) + 1
+                read_placement[site.site_kind] = (
+                    read_placement.get(site.site_kind, 0) + 1
+                )
 
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 38
     assert read_placement.get("condition", 0) == 0
     assert counts.get("write", 0) == 31
-    assert counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
+    assert (
+        counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
+    )
     assert counts.get("remove", 0) + counts.get("negate", 0) == 1
 
 
@@ -1259,7 +1282,11 @@ def test_the_graph_marks_the_sites_carried_by_orphan_accusers():
       orphan site.
     """
     rows = read_graph(GRAPH)
-    orphan_sites = {(row["file"], row["event"]) for row in rows if row["automaton_membership"] == "orphan"}
+    orphan_sites = {
+        (row["file"], row["event"])
+        for row in rows
+        if row["automaton_membership"] == "orphan"
+    }
     assert orphan_sites == set()
 
 
@@ -1316,7 +1343,13 @@ def test_every_file_is_either_read_or_skipped_with_a_reason():
     """
     root = _specs_root()
     universe = 0
-    for name in ("jca", "jca_android", "jca_android_bug_predicate", "generic", "generic_new"):
+    for name in (
+        "jca",
+        "jca_android",
+        "jca_android_bug_predicate",
+        "generic",
+        "generic_new",
+    ):
         report = analyze_set(root / name)
         existing = len(list((root / name).glob("*.mop")))
         assert report.total == existing, name
@@ -1392,9 +1425,15 @@ def test_gacc_reports_both_directions_and_the_duplicate_declaration():
     report = SetReport(name="jca")
     report.read = 1
 
-    subjects = {(finding.subject, finding.message.split(":")[0]) for finding in gate_acc(report, [source])}
+    subjects = {
+        (finding.subject, finding.message.split(":")[0])
+        for finding in gate_acc(report, [source])
+    }
     assert ("c2", "the ere names `c2`, which no event declares") in subjects
-    assert any(subject == "c1" and "declared more than once" in message for subject, message in subjects)
+    assert any(
+        subject == "c1" and "declared more than once" in message
+        for subject, message in subjects
+    )
 
 
 def test_the_placement_gate_reports_every_read_that_is_still_a_guard():
@@ -1471,7 +1510,9 @@ def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():
     report = analyze_set(_specs_root() / "jca_android")
     report.rows = carry_judgments(report.rows, read_graph(GRAPH))
 
-    kept = next(row for row in report.rows if row["verdict"] == "write:body" and row["reason"])
+    kept = next(
+        row for row in report.rows if row["verdict"] == "write:body" and row["reason"]
+    )
     with_reason = len([f for f in gate_placement(report) if f.gate == "INV-INS-134"])
 
     reason, kept["reason"] = kept["reason"], ""
@@ -1479,7 +1520,10 @@ def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():
     assert without_reason == with_reason + 1
 
     kept["reason"] = reason
-    assert len([f for f in gate_placement(report) if f.gate == "INV-INS-134"]) == with_reason
+    assert (
+        len([f for f in gate_placement(report) if f.gate == "INV-INS-134"])
+        == with_reason
+    )
 
 
 def test_gpred2_closes_a_read_whose_producer_is_recorded_as_absent():
@@ -1492,7 +1536,8 @@ def test_gpred2_closes_a_read_whose_producer_is_recorded_as_absent():
     report = SetReport(name="jca_android")
     report.read = 1
     report.rows = [
-        {column: "" for column in COLUMNS} | {
+        {column: "" for column in COLUMNS}
+        | {
             "file": "CipherSpec.mop",
             "event": "i2",
             "predicate": "PREPARED_EC",
@@ -1525,7 +1570,9 @@ def test_gpred2_is_green_over_a_graph_with_no_rows():
         ("HandlerParameterJunction.mop", "INV-INS-136(d)", "@match/spec"),
     ],
 )
-def test_each_junction_rule_catches_the_failure_the_pilot_measured(fixture, rule, subject):
+def test_each_junction_rule_catches_the_failure_the_pilot_measured(
+    fixture, rule, subject
+):
     """One fixture per rule, each carrying its defect and nothing else.
 
     (a) A consumer declared `creation` starts a monitor at the consuming call,
@@ -1536,7 +1583,9 @@ def test_each_junction_rule_catches_the_failure_the_pilot_measured(fixture, rule
     """
     report, source = _fixture_report(fixture)
     findings = gate_junction_rules(report, [source])
-    assert [(finding.gate, finding.subject) for finding in findings] == [(rule, subject)]
+    assert [(finding.gate, finding.subject) for finding in findings] == [
+        (rule, subject)
+    ]
 
 
 def test_the_conforming_junction_trips_nothing():
@@ -1583,7 +1632,12 @@ def test_the_suite_skips_the_frozen_sets_declaredly_rather_than_failing_them():
     run = run_gates(_specs_root(), "all", GRAPH, ALLOWLIST)
 
     skipped_sets = {spec_set for _, spec_set, _ in run.gate_skips}
-    assert skipped_sets == {"jca", "jca_android_bug_predicate", "generic", "generic_new"}
+    assert skipped_sets == {
+        "jca",
+        "jca_android_bug_predicate",
+        "generic",
+        "generic_new",
+    }
     assert all(reason for _, _, reason in run.gate_skips)
     assert {finding.spec_set for finding in run.findings} <= {"jca_android"}
 
@@ -1597,7 +1651,9 @@ def test_the_orphan_in_the_generic_set_is_reported_without_failing_the_run():
     there.
     """
     run = run_gates(_specs_root(), "all", GRAPH, ALLOWLIST)
-    informative = {(finding.spec_set, finding.file, finding.subject) for finding in run.informative}
+    informative = {
+        (finding.spec_set, finding.file, finding.subject) for finding in run.informative
+    }
     assert ("generic", "FSM246.mop", "event_2") in informative
 
 
@@ -1625,7 +1681,10 @@ def test_gparam_catches_every_primitive_array_the_generator_deletes():
 
     collapsed = {finding.spec for finding in result.findings}
     assert collapsed == {"ByteArrayJunction", "IntArrayJunction", "CharArrayJunction"}
-    assert all("returned 0" in finding.message or "return code 0" in finding.message for finding in result.findings)
+    assert all(
+        "returned 0" in finding.message or "return code 0" in finding.message
+        for finding in result.findings
+    )
 
 
 def test_gparam_passes_the_object_idiom():
@@ -1742,9 +1801,9 @@ def test_inv_ins_130_import_discipline(suite):
         for path in sorted((_specs_root() / "jca_android").glob("*.mop"))
         if re.search(r"\bExecutionContext\b", path.read_text(encoding="utf-8"))
     }
-    assert {finding.file for finding in findings} == literal, (
-        "the gate and the `grep -rlw` of INV-INS-130 must name the same files"
-    )
+    assert {
+        finding.file for finding in findings
+    } == literal, "the gate and the `grep -rlw` of INV-INS-130 must name the same files"
     _no_findings(suite, ("INV-INS-130",))
 
 
@@ -1913,7 +1972,8 @@ def test_the_order_grammar_is_read_with_sequence_weakest():
     # The `ere` spells sequence by juxtaposition, where the precedence is the other
     # way round -- one parser, two notations, neither read under the other's rules.
     assert gh105_order_gate.parse_expression("a b | c") == (
-        "alt", (("cat", (("sym", "a"), ("sym", "b"))), ("sym", "c"))
+        "alt",
+        (("cat", (("sym", "a"), ("sym", "b"))), ("sym", "c")),
     )
 
 
@@ -1947,7 +2007,18 @@ def test_an_aggregate_is_expanded_through_every_level_it_names():
     order = gh105_order_gate.expand_aggregates(
         gh105_order_gate.parse_expression(rule.order), rule.aggregates
     )
-    assert gh105_order_gate.symbols_of(order) == {"c1", "c2", "g1", "g2", "gI", "gS", "s1", "s2", "ne", "nB"}
+    assert gh105_order_gate.symbols_of(order) == {
+        "c1",
+        "c2",
+        "g1",
+        "g2",
+        "gI",
+        "gS",
+        "s1",
+        "s2",
+        "ne",
+        "nB",
+    }
 
 
 def test_the_securerandom_kleene_star_is_measured_and_not_argued():
@@ -1970,7 +2041,8 @@ def test_the_securerandom_kleene_star_is_measured_and_not_argued():
     automaton cannot pass unnoticed by closing the wrong hole.
     """
     built = gh105_order_gate.build_automata(
-        _specs_root() / "jca_android" / "SecureRandomSpec.mop", _rules_root(),
+        _specs_root() / "jca_android" / "SecureRandomSpec.mop",
+        _rules_root(),
         gh105_order_gate.read_map(ORDER_MAP),
     )
     assert not isinstance(built, str), built
@@ -1978,7 +2050,9 @@ def test_the_securerandom_kleene_star_is_measured_and_not_argued():
 
     assert gh105_order_gate.accepts(ordered, ("c1", "nB", "nB"))
     assert gh105_order_gate.accepts(specified, ("c1", "nB", "nB"))
-    assert gh105_order_gate.accepts(ordered, ("c1",)) and gh105_order_gate.accepts(specified, ("c1",))
+    assert gh105_order_gate.accepts(ordered, ("c1",)) and gh105_order_gate.accepts(
+        specified, ("c1",)
+    )
 
     assert gh105_order_gate.accepts(specified, ("c1", "c1"))
     assert not gh105_order_gate.accepts(ordered, ("c1", "c1"))
@@ -2006,11 +2080,15 @@ def test_an_absorbed_accuser_is_erased_from_both_languages():
     rows = gh105_order_gate.read_map(ORDER_MAP)["KeyPairGeneratorSpec"]
     exempt = {row.mop_event for row in rows if row.disposition == "order-unmapped"}
     assert exempt == {"g3"}
-    assert {row.mop_event for row in rows if row.order_symbol == "i3"} == {"init1", "initError"}
+    assert {row.mop_event for row in rows if row.order_symbol == "i3"} == {
+        "init1",
+        "initError",
+    }
     assert all(row.reason for row in rows if row.disposition == "order-unmapped")
 
     built = gh105_order_gate.build_automata(
-        _specs_root() / "jca_android" / "KeyPairGeneratorSpec.mop", _rules_root(),
+        _specs_root() / "jca_android" / "KeyPairGeneratorSpec.mop",
+        _rules_root(),
         gh105_order_gate.read_map(ORDER_MAP),
     )
     assert not isinstance(built, str), built
@@ -2034,7 +2112,10 @@ def test_a_specification_without_a_mapping_is_skipped_and_never_inferred(tmp_pat
     """
     result = _order_run()
     skipped = dict(result.skipped)
-    assert set(skipped) == {"jca_android/RandomStringPassword", "jca_android/IvChainJunction"}
+    assert set(skipped) == {
+        "jca_android/RandomStringPassword",
+        "jca_android/IvChainJunction",
+    }
     assert "no rows in the alphabet mapping" in skipped["jca_android/IvChainJunction"]
 
     partial = tmp_path / "order_alphabet_map.csv"
@@ -2047,7 +2128,8 @@ def test_a_specification_without_a_mapping_is_skipped_and_never_inferred(tmp_pat
         encoding="utf-8",
     )
     outcome = gh105_order_gate.build_automata(
-        _specs_root() / "jca_android" / "SecureRandomSpec.mop", _rules_root(),
+        _specs_root() / "jca_android" / "SecureRandomSpec.mop",
+        _rules_root(),
         gh105_order_gate.read_map(partial),
     )
     assert isinstance(outcome, str) and "incomplete" in outcome
@@ -2066,7 +2148,9 @@ def test_the_gate_reports_a_word_a_reader_can_check_by_hand():
     # it is printed and it carries its witness. Both lists are walked, or the
     # check would go vacuous exactly when the gate went green.
     reported = result.findings + result.allowed
-    assert reported, "the set diverges from its rules today; a green run here means the gate stopped looking"
+    assert (
+        reported
+    ), "the set diverges from its rules today; a green run here means the gate stopped looking"
     for finding in reported:
         assert finding.witness or "empty sequence" in finding.message
         assert finding.accepted_by in ("the api30 ORDER", "the specification")
@@ -2108,9 +2192,7 @@ def _message_gate_report(directory: Path) -> dict:
 
 
 def _crysl_dir() -> Path:
-    rules = (
-        Path(_rvsec_home()).parents[0] / "MetaCrySL/generated/api30"
-    )
+    rules = Path(_rvsec_home()).parents[0] / "MetaCrySL/generated/api30"
     if not rules.is_dir():
         pytest.skip("the api30 oracle is not present beside the reactor")
     return rules
@@ -2136,7 +2218,11 @@ def test_inv_ins_143_the_not_observed_verdict_has_a_family_of_its_own(tmp_path):
     specs = _specs_root() / "jca_android"
     report = _message_gate_report(specs)
     assert [f for f in report["findings"] if f["kind"] == "not-observed-family"] == []
-    assert not [reason for reason in report["skipped"] if reason.startswith("not-observed-family")]
+    assert not [
+        reason
+        for reason in report["skipped"]
+        if reason.startswith("not-observed-family")
+    ]
 
     # the same set with the code re-filed under the violation family: one finding,
     # naming the site rather than the row, because the site is what a reader fixes
@@ -2145,11 +2231,16 @@ def test_inv_ins_143_the_not_observed_verdict_has_a_family_of_its_own(tmp_path):
     codes = mutated / "codes.csv"
     codes.write_text(
         codes.read_text(encoding="utf-8").replace(
-            "CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,", "CIPHER-NOBS-00,UnsatisfiedConstraint,CONSTR,"
+            "CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,",
+            "CIPHER-NOBS-00,UnsatisfiedConstraint,CONSTR,",
         ),
         encoding="utf-8",
     )
-    findings = [f for f in _message_gate_report(mutated)["findings"] if f["kind"] == "not-observed-family"]
+    findings = [
+        f
+        for f in _message_gate_report(mutated)["findings"]
+        if f["kind"] == "not-observed-family"
+    ]
     assert len(findings) == 1, findings
     assert findings[0]["file"] == "CipherSpec.mop"
 

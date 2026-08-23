@@ -57,7 +57,12 @@ JCA_BASELINE = {
 }
 JCA_RAW_ORPHANS = 18
 JCA_EXECUTION_CONTEXT = 134
-JCA_LINT = {"three-argument-site": 25, "duplicate-event": 1, "undeclared-symbol": 1, "unbalanced": 1}
+JCA_LINT = {
+    "three-argument-site": 25,
+    "duplicate-event": 1,
+    "undeclared-symbol": 1,
+    "unbalanced": 1,
+}
 JCA_MESSAGE = {"literal-mismatch": 2, "wrong-error-type": 3}
 
 
@@ -137,9 +142,20 @@ def _generated_monitor(set_name: str) -> Path:
     out = Path(tempfile.mkdtemp(prefix=f"gh104-{set_name}-", dir=scratch)) / "monitors"
     out.mkdir(parents=True)
     result = subprocess.run(
-        ["uv", "run", "rv-monitor-generator", "generate", "--specs-dir", str(set_dir),
-         "--output", str(out)],
-        cwd=REPO, capture_output=True, text=True, check=False,
+        [
+            "uv",
+            "run",
+            "rv-monitor-generator",
+            "generate",
+            "--specs-dir",
+            str(set_dir),
+            "--output",
+            str(out),
+        ],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     monitor = out / "MultiSpec_1RuntimeMonitor.java"
     if not monitor.is_file():
@@ -151,11 +167,16 @@ def _generated_monitor(set_name: str) -> Path:
 
 def _gates(monitor: Path, allowlist: Path | None) -> dict:
     command = [
-        sys.executable, str(SCRIPTS / "gh104_gates.py"),
-        "--monitor", str(monitor),
-        "--crysl", str(_crysl()),
-        "--alias", str(REPO / "data/jca_android/alias_table.csv"),
-        "--constraint-table", str(REPO / "data/jca_android/constraint_table.csv"),
+        sys.executable,
+        str(SCRIPTS / "gh104_gates.py"),
+        "--monitor",
+        str(monitor),
+        "--crysl",
+        str(_crysl()),
+        "--alias",
+        str(REPO / "data/jca_android/alias_table.csv"),
+        "--constraint-table",
+        str(REPO / "data/jca_android/constraint_table.csv"),
     ]
     if allowlist and allowlist.is_file():
         command += ["--allowlist", str(allowlist)]
@@ -165,7 +186,11 @@ def _gates(monitor: Path, allowlist: Path | None) -> dict:
 
 
 def _lint(set_name: str) -> dict:
-    command = [sys.executable, str(SCRIPTS / "gh104_mop_lint.py"), str(_set_dir(set_name))]
+    command = [
+        sys.executable,
+        str(SCRIPTS / "gh104_mop_lint.py"),
+        str(_set_dir(set_name)),
+    ]
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     assert result.stdout, result.stderr
     return json.loads(result.stdout)
@@ -173,9 +198,16 @@ def _lint(set_name: str) -> dict:
 
 def _message_gate(set_name: str) -> dict:
     result = subprocess.run(
-        [sys.executable, str(SCRIPTS / "gh104_message_gate.py"), str(_set_dir(set_name)),
-         "--crysl", str(_crysl())],
-        capture_output=True, text=True, check=False,
+        [
+            sys.executable,
+            str(SCRIPTS / "gh104_message_gate.py"),
+            str(_set_dir(set_name)),
+            "--crysl",
+            str(_crysl()),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.stdout, result.stderr
     return json.loads(result.stdout)
@@ -215,7 +247,9 @@ def test_jca_g2_splits_eighteen_orphans_into_fifteen_notes_and_three_failures():
         ("SecretKeySpecSpec", "c3"),
     }
     for note in gate["notes"]:
-        assert note["clause"], f"{note['spec']}.{note['event']} cleared without naming a clause"
+        assert note[
+            "clause"
+        ], f"{note['spec']}.{note['event']} cleared without naming a clause"
 
 
 def test_jca_g_ere_finds_the_gcm_symbol_and_nothing_else():
@@ -252,7 +286,9 @@ def test_no_file_of_the_frozen_set_names_the_alias_class():
 def test_jca_gates_pass_with_the_allowlist():
     report = _gates(_control_monitor(), REPO / "data/jca/gate_allowlist.csv")
     failures = {
-        name: gate["failures"] for name, gate in report["gates"].items() if gate["failures"]
+        name: gate["failures"]
+        for name, gate in report["gates"].items()
+        if gate["failures"]
     }
     assert report["ok"], failures
 
@@ -277,12 +313,21 @@ def test_jca_message_gate_reports_the_measured_baseline():
     report = _message_gate("jca")
     assert report["counts"] == JCA_MESSAGE, report["counts"]
 
-    sites = {(hit["file"], hit["line"]) for hit in report["findings"]
-             if hit["kind"] == "literal-mismatch"}
-    assert sites == {("PBEKeySpecSpec.mop", 49), ("PBEParameterSpecSpec.mop", 49)}, sites
+    sites = {
+        (hit["file"], hit["line"])
+        for hit in report["findings"]
+        if hit["kind"] == "literal-mismatch"
+    }
+    assert sites == {
+        ("PBEKeySpecSpec.mop", 49),
+        ("PBEParameterSpecSpec.mop", 49),
+    }, sites
 
-    wrong = {(hit["file"], hit["line"]) for hit in report["findings"]
-             if hit["kind"] == "wrong-error-type"}
+    wrong = {
+        (hit["file"], hit["line"])
+        for hit in report["findings"]
+        if hit["kind"] == "wrong-error-type"
+    }
     assert wrong == {
         ("PBEKeySpecSpec.mop", 24),
         ("PBEKeySpecSpec.mop", 30),
@@ -300,7 +345,9 @@ def test_jca_declares_the_guard_on_field_sites():
     the guard with it.
     """
     report = _message_gate("jca")
-    specs = {note["spec"] for note in report["notes"] if note["kind"] == "guard-on-field"}
+    specs = {
+        note["spec"] for note in report["notes"] if note["kind"] == "guard-on-field"
+    }
     assert specs == {
         "CipherSpec",
         "KeyGeneratorSpec",
@@ -312,8 +359,11 @@ def test_jca_declares_the_guard_on_field_sites():
         "SignatureSpec",
         "TrustManagerFactorySpec",
     }, specs
-    assert [hit for hit in report["findings"]
-            if hit["kind"] == "self-contradicting envelope"] == []
+    assert [
+        hit
+        for hit in report["findings"]
+        if hit["kind"] == "self-contradicting envelope"
+    ] == []
 
 
 # --------------------------------------------------------------------------
@@ -323,18 +373,24 @@ def test_jca_declares_the_guard_on_field_sites():
 
 def test_jca_android_has_no_orphan_without_a_clause():
     """The target of E4. Skipped, never passed, while the set is not in the tree."""
-    report = _gates(_generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv")
+    report = _gates(
+        _generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv"
+    )
     assert report["gates"]["G-2"]["failures"] == []
 
 
 def test_jca_android_has_no_undeclared_ere_symbol():
-    report = _gates(_generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv")
+    report = _gates(
+        _generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv"
+    )
     assert report["gates"]["G-ERE"]["failures"] == []
 
 
 def test_jca_android_event_names_survive_generation():
     """G-6': one generated event method per transition row."""
-    report = _gates(_generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv")
+    report = _gates(
+        _generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv"
+    )
     assert report["gates"]["G-6'"]["failures"] == []
 
 
@@ -350,5 +406,7 @@ def test_jca_android_message_gate_is_clean():
 
 def test_jca_android_allow_lists_conform_to_the_api30_rules():
     """G-CONF: INV-INS-127, with every difference backed by a recorded row."""
-    report = _gates(_generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv")
+    report = _gates(
+        _generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv"
+    )
     assert report["gates"]["G-CONF"]["failures"] == []

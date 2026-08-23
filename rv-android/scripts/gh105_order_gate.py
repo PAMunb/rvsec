@@ -170,7 +170,9 @@ def tokenize(text: str) -> list[str]:
     Returns:
         The tokens in source order: identifiers and the operators `( ) | * + ? ,`.
     """
-    return [match.group(0) for match in re.finditer(r"[A-Za-z_$][\w$]*|[()|*+?,]", text)]
+    return [
+        match.group(0) for match in re.finditer(r"[A-Za-z_$][\w$]*|[()|*+?,]", text)
+    ]
 
 
 class ParseError(Exception):
@@ -222,7 +224,6 @@ def parse_expression(text: str) -> tuple:
         return branches[0] if len(branches) == 1 else ("alt", tuple(branches))
 
     def parse_cat() -> tuple:
-        nonlocal position
         items: list[tuple] = []
         while peek() is not None and peek() not in ("|", ")", ","):
             items.append(parse_postfix())
@@ -261,7 +262,9 @@ def parse_expression(text: str) -> tuple:
     return node
 
 
-def expand_aggregates(node: tuple, aggregates: dict[str, str], seen: frozenset = frozenset()) -> tuple:
+def expand_aggregates(
+    node: tuple, aggregates: dict[str, str], seen: frozenset = frozenset()
+) -> tuple:
     """Replace every aggregate symbol by its definition, recursively.
 
     `Ins := Gets | Cons` over `Gets := g1 | g2 | gI` is two levels deep in the
@@ -292,7 +295,10 @@ def expand_aggregates(node: tuple, aggregates: dict[str, str], seen: frozenset =
             parse_expression(aggregates[name]), aggregates, seen | {name}
         )
     if kind in ("alt", "cat"):
-        return (kind, tuple(expand_aggregates(child, aggregates, seen) for child in node[1]))
+        return (
+            kind,
+            tuple(expand_aggregates(child, aggregates, seen) for child in node[1]),
+        )
     if kind in ("star", "plus", "opt"):
         return (kind, expand_aggregates(node[1], aggregates, seen))
     return node
@@ -312,7 +318,9 @@ def symbols_of(node: tuple) -> set[str]:
     if kind == "sym":
         return {node[1]}
     if kind in ("alt", "cat"):
-        return set().union(*(symbols_of(child) for child in node[1])) if node[1] else set()
+        return (
+            set().union(*(symbols_of(child) for child in node[1])) if node[1] else set()
+        )
     if kind in ("star", "plus", "opt"):
         return symbols_of(node[1])
     return set()
@@ -529,7 +537,10 @@ def difference_witness(left: Dfa, right: Dfa) -> tuple[str, ...] | None:
                 step = previous
             return tuple(reversed(word))
         for symbol in alphabet:
-            nxt = (left.transitions[current[0]][symbol], right.transitions[current[1]][symbol])
+            nxt = (
+                left.transitions[current[0]][symbol],
+                right.transitions[current[1]][symbol],
+            )
             if nxt not in parents:
                 parents[nxt] = (current, symbol)
                 queue.append(nxt)
@@ -604,7 +615,8 @@ def read_map(path: Path) -> dict[str, list[MapRow]]:
     if not path.is_file():
         return {}
     lines = [
-        line for line in path.read_text(encoding="utf-8").splitlines(keepends=True)
+        line
+        for line in path.read_text(encoding="utf-8").splitlines(keepends=True)
         if not line.startswith("#")
     ]
     mapping: dict[str, list[MapRow]] = {}
@@ -676,7 +688,12 @@ class OrderRun:
 
     @property
     def total(self) -> int:
-        return len(self.passed) + len(self.findings) + len(self.allowed) + len(self.skipped)
+        return (
+            len(self.passed)
+            + len(self.findings)
+            + len(self.allowed)
+            + len(self.skipped)
+        )
 
 
 def read_allowlist(path: Path) -> set[tuple[str, str, str]]:
@@ -723,15 +740,15 @@ def _is_allowed(finding: OrderFinding, allowed: set[tuple[str, str, str]]) -> bo
 
 def _automaton_region(source):
     """The parsed source's `automaton` region, or None when it declares none."""
-    return next((region for region in source.regions if region.kind == "automaton"), None)
+    return next(
+        (region for region in source.regions if region.kind == "automaton"), None
+    )
 
 
 def _match_states(source) -> set[str]:
     """The states an `alias match…` names -- an `fsm`'s accepting set."""
     return {
-        target
-        for name, target in source.aliases.items()
-        if _MATCH_ALIAS.match(name)
+        target for name, target in source.aliases.items() if _MATCH_ALIAS.match(name)
     }
 
 
@@ -795,7 +812,9 @@ def _fsm_nfa(source, text: str, translate) -> Nfa:
     accepting = _match_states(source)
     unknown = accepting - set(states)
     if unknown:
-        raise ParseError(f"an alias names states the `fsm` does not declare: {sorted(unknown)}")
+        raise ParseError(
+            f"an alias names states the `fsm` does not declare: {sorted(unknown)}"
+        )
     nfa.accepting = {states[name][0] for name in accepting}
     return nfa
 
@@ -842,7 +861,11 @@ def build_automata(
     if region is None:
         return "the specification declares no automaton"
 
-    missing = [event for event in source.declared_events if event not in {row.mop_event for row in rows}]
+    missing = [
+        event
+        for event in source.declared_events
+        if event not in {row.mop_event for row in rows}
+    ]
     if missing:
         return (
             f"the mapping is incomplete for `{spec}`: {sorted(set(missing))} carry no row, "
@@ -879,10 +902,14 @@ def build_automata(
         # erased silently: erasure is the recorded `order-unmapped` decision, and
         # a symbol nobody wrote a row for is a mapping that is not finished.
         if event not in translation:
-            raise ParseError(f"`{event}` is named by the automaton and carries no mapping row")
+            raise ParseError(
+                f"`{event}` is named by the automaton and carries no mapping row"
+            )
         return translation[event]
 
-    alphabet = tuple(sorted(symbols_of(order) | set().union(*translation.values(), set())))
+    alphabet = tuple(
+        sorted(symbols_of(order) | set().union(*translation.values(), set()))
+    )
     if not alphabet:
         return f"`{rule_name}` orders an empty alphabet"
 
@@ -895,7 +922,9 @@ def build_automata(
     except ParseError as error:
         return f"the automaton of `{spec}` could not be read: {error}"
 
-    return determinize(automaton, alphabet), determinize(nfa_of_expression(order), alphabet)
+    return determinize(automaton, alphabet), determinize(
+        nfa_of_expression(order), alphabet
+    )
 
 
 def check_specification(
@@ -930,8 +959,12 @@ def check_specification(
     if witness is None:
         return None
 
-    accepted_by = "the api30 ORDER" if accepts(ordered, witness) else "the specification"
-    rejected_by = "the specification" if accepted_by.endswith("ORDER") else "the api30 ORDER"
+    accepted_by = (
+        "the api30 ORDER" if accepts(ordered, witness) else "the specification"
+    )
+    rejected_by = (
+        "the specification" if accepted_by.endswith("ORDER") else "the api30 ORDER"
+    )
     word = " ".join(witness) if witness else "the empty sequence"
     return OrderFinding(
         spec_set,
@@ -979,7 +1012,10 @@ def run(
             # divergence nobody may repair.
             if name != "jca_android":
                 result.skipped.append(
-                    (f"{name}/{mop.stem}", "the alphabet mapping covers the migrated set only")
+                    (
+                        f"{name}/{mop.stem}",
+                        "the alphabet mapping covers the migrated set only",
+                    )
                 )
                 continue
             outcome = check_specification(name, mop, rules_root, mapping)
@@ -1013,8 +1049,12 @@ def main(argv: list[str] | None = None) -> int:
         help="directory holding the specification sets",
     )
     parser.add_argument("--sets", default="all", help="`all` or the name of one set")
-    parser.add_argument("--rules", type=Path, default=DEFAULT_RULES, help="the api30 rules")
-    parser.add_argument("--map", type=Path, default=DEFAULT_MAP, help="the alphabet mapping")
+    parser.add_argument(
+        "--rules", type=Path, default=DEFAULT_RULES, help="the api30 rules"
+    )
+    parser.add_argument(
+        "--map", type=Path, default=DEFAULT_MAP, help="the alphabet mapping"
+    )
     parser.add_argument(
         "--allowlist",
         type=Path,
@@ -1063,7 +1103,9 @@ def main(argv: list[str] | None = None) -> int:
         for finding in result.findings:
             print(f"  [{finding.spec_set}/{finding.spec}] {finding.message}")
         for finding in result.allowed:
-            print(f"  allow-listed [{finding.spec_set}/{finding.spec}] {finding.message}")
+            print(
+                f"  allow-listed [{finding.spec_set}/{finding.spec}] {finding.message}"
+            )
         for spec, reason in result.skipped:
             print(f"  skipped {spec}: {reason}")
 

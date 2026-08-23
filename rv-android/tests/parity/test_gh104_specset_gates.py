@@ -56,7 +56,9 @@ EXPECTED_SPECS = 23
 def _rvsec_home() -> Path:
     home = os.environ.get("RVSEC_HOME")
     if not home or not (Path(home) / SUCCESSOR).is_dir():
-        pytest.skip("RVSEC_HOME not set or the successor set is absent from the Java reactor")
+        pytest.skip(
+            "RVSEC_HOME not set or the successor set is absent from the Java reactor"
+        )
     return Path(home)
 
 
@@ -117,9 +119,9 @@ def test_the_frozen_seed_still_carries_every_predicate_site_it_was_frozen_with()
     """
     home = _rvsec_home()
     specs = sorted((home / SEED).glob("*.mop"))
-    assert len(specs) == EXPECTED_SPECS, (
-        f"expected {EXPECTED_SPECS} specifications in the frozen seed, found {len(specs)}"
-    )
+    assert (
+        len(specs) == EXPECTED_SPECS
+    ), f"expected {EXPECTED_SPECS} specifications in the frozen seed, found {len(specs)}"
 
     census = collections.Counter(
         _classify(line)

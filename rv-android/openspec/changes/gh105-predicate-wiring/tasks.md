@@ -1250,9 +1250,23 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       this APK, not as a result.
       Evidence: `data/gh105/evidence/f5-DeviceSmokeTest.md`, logcats under
       `data/gh105/evidence/smoke/`
-- [ ] 8.6 Run `/rv-qa-lint-fix` over everything the change touched since 7.5 (the rv-sdd
+- [x] 8.6 Run `/rv-qa-lint-fix` over everything the change touched since 7.5 (the rv-sdd
       schema's final sequence: lint-fix → verify → code-reviewer), then `/rv-verify` (tests +
-      lint + types) and `uv run pytest tests/parity --import-mode=importlib -o "addopts="`
+      lint + types) and `uv run pytest tests/parity --import-mode=importlib -o "addopts="`.
+      Nothing but documents changed since 7.5 literally, so the scope was read as the change's
+      own code — and two pockets were not clean: the three `gh105_*` gate scripts 7.5 excluded
+      (2.12 was assumed to cover them; `012f9dbe` had edited one since) and the four
+      `tests/parity` gate suites, one of which carried a dead `import json`. Fixed: 7 files,
+      54 + 4 hunks, one redundant `nonlocal` (the same defect B10 found in `gh104_gates.py`) and
+      one `W391`. Residue outside `E501`: **0**. The reformat is proved inert by regenerating the
+      five gate outputs before and after (`diff -r` clean) and by the four suites still at
+      **91 passed**. `tests/parity` whole: **149 passed, 3 failed**, all three pre-existing and
+      outside this change (a gator jar rebuilt without regenerating its baseline; `reachesMop`
+      tokens in `modules/aperv-tool/`; and `StaticAnalysisParser.parse_file()` losing its
+      `package` parameter in `bd10fb0f` without the gh60 test following). Also measured: without
+      `ANDROID_SDK_HOME` exported, seven parity tests error inside `lib/gator/gator` instead of
+      running.
+      Evidence: `data/gh105/evidence/f5-FinalVerification.md`
 - [ ] 8.7 Run `/rv-code-reviewer` on the change ("Review gh105-predicate-wiring implementation")
 - [ ] 8.8 [BLOCKED — external: gh104 archive, which follows the joint experiment] Reconcile
       with gh104 before archive: once gh104 has archived, add the formal `MODIFIED` entry for

@@ -151,7 +151,9 @@ def test_frozen_set_predicate_inventory_matches_baseline():
 def test_every_divergence_between_the_sets_is_recorded():
     """INV-INS-109 (b): the set diff and the divergence record name the same hunks."""
     _rvsec_home()
-    result = _run(sys.executable, str(SCRIPTS / "gh101_divergence_record.py"), "--check")
+    result = _run(
+        sys.executable, str(SCRIPTS / "gh101_divergence_record.py"), "--check"
+    )
     assert result.returncode == 0, result.stderr
 
 

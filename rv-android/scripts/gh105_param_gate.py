@@ -44,7 +44,9 @@ _HEADER = re.compile(r"^(?P<name>\w+)\s*\((?P<parameters>[^)]*)\)\s*\{", re.MULT
 # The types the generator drops. `Object` is the idiom that bypasses it: the
 # overload is pinned in the `call(...)` signature instead, and `args(x)` with
 # `Object` matches any single argument, autoboxed primitives included.
-_PRIMITIVE_ARRAY = re.compile(r"\b(?:byte|char|int|long|short|float|double|boolean)\s*\[\s*\]")
+_PRIMITIVE_ARRAY = re.compile(
+    r"\b(?:byte|char|int|long|short|float|double|boolean)\s*\[\s*\]"
+)
 
 
 @dataclass(frozen=True)
@@ -111,10 +113,21 @@ def read_header(path: Path) -> tuple[str, list[str]] | None:
     text = neutralize(path.read_text(encoding="utf-8"))
     for match in _HEADER.finditer(text):
         name = match.group("name")
-        if name in {"if", "for", "while", "switch", "catch", "import", "package", "return"}:
+        if name in {
+            "if",
+            "for",
+            "while",
+            "switch",
+            "catch",
+            "import",
+            "package",
+            "return",
+        }:
             continue
         raw = match.group("parameters").strip()
-        parameters = [re.sub(r"\s+", " ", part.strip()) for part in raw.split(",") if part.strip()]
+        parameters = [
+            re.sub(r"\s+", " ", part.strip()) for part in raw.split(",") if part.strip()
+        ]
         return name, parameters
     return None
 
@@ -181,10 +194,17 @@ def run(specs_root: Path, monitors: Path, selection: str = "all") -> ParamRun:
         for mop in sorted(set_dir.glob("*.mop")):
             rvm = monitors / f"{mop.stem}.rvm"
             if not rvm.is_file():
-                result.skipped.append((f"{name}/{mop.stem}", f"no generated monitor at {rvm}"))
+                result.skipped.append(
+                    (f"{name}/{mop.stem}", f"no generated monitor at {rvm}")
+                )
                 continue
             if read_header(mop) is None:
-                result.skipped.append((f"{name}/{mop.stem}", "no specification header: event declarations only"))
+                result.skipped.append(
+                    (
+                        f"{name}/{mop.stem}",
+                        "no specification header: event declarations only",
+                    )
+                )
                 continue
             finding = compare(name, mop, rvm)
             if finding:
@@ -213,7 +233,9 @@ def main(argv: list[str] | None = None) -> int:
         help="directory holding the specification sets",
     )
     parser.add_argument("--sets", default="all", help="`all` or the name of one set")
-    parser.add_argument("--monitors", type=Path, required=True, help="directory of generated `.rvm`")
+    parser.add_argument(
+        "--monitors", type=Path, required=True, help="directory of generated `.rvm`"
+    )
     parser.add_argument("--json", action="store_true", help="machine-readable report")
     arguments = parser.parse_args(argv)
 
@@ -222,7 +244,9 @@ def main(argv: list[str] | None = None) -> int:
     payload = {
         "passed": len(result.passed),
         "failed": len(result.findings),
-        "skipped": [{"spec": spec, "reason": reason} for spec, reason in result.skipped],
+        "skipped": [
+            {"spec": spec, "reason": reason} for spec, reason in result.skipped
+        ],
         "findings": [
             {"set": finding.spec_set, "spec": finding.spec, "message": finding.message}
             for finding in result.findings
