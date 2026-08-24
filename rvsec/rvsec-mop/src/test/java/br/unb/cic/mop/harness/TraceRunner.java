@@ -21,6 +21,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -290,7 +291,8 @@ public final class TraceRunner implements AutoCloseable {
             Object target = receiver != null ? receiver : produced;
             for (Advice advice : matched) {
                 for (MonitorCall monitorCall : advice.calls) {
-                    int before = ErrorCollector.instance().getErrors().size();
+                    Set<ErrorDescription> before =
+                            new HashSet<>(ErrorCollector.instance().getErrors());
                     try {
                         invoke(advice, monitorCall, arguments, target, produced);
                     } catch (Exception | StackOverflowError raised) {
@@ -310,9 +312,10 @@ public final class TraceRunner implements AutoCloseable {
                         continue;
                     }
                     Set<ErrorDescription> after = ErrorCollector.instance().getErrors();
-                    if (after.size() > before) {
+                    if (after.size() > before.size()) {
                         accusing.add(advice.specName + "." + monitorCall.eventId);
-                        envelopes.add(envelope(after, advice.specName, monitorCall.eventId));
+                        envelopes.addAll(
+                                envelopes(after, before, advice.specName, monitorCall.eventId));
                     }
                 }
             }
@@ -325,14 +328,44 @@ public final class TraceRunner implements AutoCloseable {
         return outcome;
     }
 
-    private String envelope(Set<ErrorDescription> errors, String spec, String event) {
-        for (ErrorDescription error : errors) {
-            if (spec.equals(error.getSpec())) {
-                return "spec=" + error.getSpec() + ",ev=" + event + ",type=" + error.getType()
-                        + ",msg=" + error.getExpecting();
+    /**
+     * The envelopes of the accusations <em>this event added</em>, one per accusation.
+     *
+     * <p>
+     * The set is diffed rather than scanned. {@link ErrorCollector} accumulates over the whole
+     * trace and hands back a {@link HashSet}, so a scan returns an arbitrary error of the
+     * specification -- in practice one raised at an earlier event -- and any second accusation
+     * at one event is invisible. Both cost real evidence: an event body that raises a value
+     * accusation beside a predicate one (SignatureSpec's {@code i1} raises
+     * {@code SIGNATURE-ALG-00} and {@code SIGNATURE-NOBS-00} from two independent {@code if}s)
+     * reported only one of the two, so re-anchoring a value list showed up as no change at all.
+     *
+     * <p>
+     * The order is the message's, so that two snapshots of the same trace are comparable: a
+     * {@code HashSet}'s iteration order is not a property of the run being measured.
+     */
+    private List<String> envelopes(Set<ErrorDescription> after, Set<ErrorDescription> before,
+            String spec, String event) {
+        List<ErrorDescription> added = new ArrayList<>();
+        for (ErrorDescription error : after) {
+            if (spec.equals(error.getSpec()) && !before.contains(error)) {
+                added.add(error);
             }
         }
-        return "spec=" + spec + ",ev=" + event;
+        added.sort((left, right) -> String.valueOf(left.getExpecting())
+                .compareTo(String.valueOf(right.getExpecting())));
+        List<String> written = new ArrayList<>();
+        for (ErrorDescription error : added) {
+            written.add("spec=" + error.getSpec() + ",ev=" + event + ",type=" + error.getType()
+                    + ",msg=" + error.getExpecting());
+        }
+        if (written.isEmpty()) {
+            // The event moved the counter but added nothing of this specification: the
+            // accusation belongs to another spec woven over the same call. The event is still
+            // an accusing one, so it keeps an envelope, and the envelope says only that.
+            written.add("spec=" + spec + ",ev=" + event);
+        }
+        return written;
     }
 
     // ---------------------------------------------------------------- matching
