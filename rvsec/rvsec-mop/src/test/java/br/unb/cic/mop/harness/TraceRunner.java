@@ -327,13 +327,21 @@ public final class TraceRunner implements AutoCloseable {
                                 : raised;
                         unresolved.add(line + "  (" + advice.specName + "."
                                 + monitorCall.eventId + " raised " + cause + ")");
-                        continue;
-                    }
-                    Set<ErrorDescription> after = ErrorCollector.instance().getErrors();
-                    if (after.size() > before.size()) {
-                        accusing.add(advice.specName + "." + monitorCall.eventId);
-                        envelopes.addAll(
-                                envelopes(after, before, advice.specName, monitorCall.eventId));
+                    } finally {
+                        // The diff runs whether or not the call returned. A handler can add an
+                        // accusation and *then* throw -- reporting is the first thing a @fail
+                        // handler does, and the throw comes from whatever runs after it -- and
+                        // reading the collector only on the success path lost that accusation
+                        // twice over: it never reached `accusingEvents`, and the next event's
+                        // `before` snapshot already contained it, so no later event could
+                        // report it either. The trace then read `unchanged` while the two sides
+                        // differed, which is the failure this harness exists to make impossible.
+                        Set<ErrorDescription> after = ErrorCollector.instance().getErrors();
+                        if (after.size() > before.size()) {
+                            accusing.add(advice.specName + "." + monitorCall.eventId);
+                            envelopes.addAll(
+                                    envelopes(after, before, advice.specName, monitorCall.eventId));
+                        }
                     }
                 }
             }
@@ -1138,7 +1146,24 @@ public final class TraceRunner implements AutoCloseable {
                 values.put(this.target, target);
             }
             if (returning != null) {
-                values.put(returning, produced != null ? produced : target);
+                // Only the value the line actually produced, never the receiver. The
+                // fallback that stood here put the *called object* where the *returned*
+                // object belongs whenever a trace line named no binding, and for a
+                // dispatcher parameter typed Object that flows in silently: a predicate
+                // then stores or validates a value the run never produced, and the
+                // resulting "not accused" is manufactured inside the trace rather than
+                // measured from it.
+                //
+                // The binding is left null instead of refusing to replay the line.
+                // Refusing was measured first, and it costs more than it saves: 8,502
+                // replayed events across the 159 traces name no return value, so the
+                // harness would stop measuring them entirely -- a larger loss than the
+                // one being repaired, and of the same kind. Null says what is true, that
+                // the trace did not state a return value; a specification that goes on to
+                // use it raises, and the line is recorded as unresolved where the value
+                // actually mattered. Traces that want the value measured must name it
+                // with `-> binding`.
+                values.put(returning, produced);
             }
             for (String parameter : parameters) {
                 values.putIfAbsent(parameter, null);
