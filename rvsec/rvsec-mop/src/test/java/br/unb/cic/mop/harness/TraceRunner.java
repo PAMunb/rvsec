@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -216,6 +217,23 @@ public final class TraceRunner implements AutoCloseable {
             imports.put(qualified.substring(qualified.lastIndexOf('.') + 1), qualified);
         }
         return imports;
+    }
+
+    /**
+     * The specifications this snapshot carries, by the name its advices are filed under.
+     *
+     * <p>
+     * Read off the snapshot rather than listed anywhere, so that a test asking "does every
+     * specification have a trace" asks it of the monitor under test and not of a number that
+     * was true when it was written. The frozen `jca` control answers 23; the successor set
+     * answers 24, and the difference is `IvChainJunction`.
+     */
+    Set<String> specifications() {
+        Set<String> names = new TreeSet<>();
+        for (Advice advice : advices) {
+            names.add(advice.specName);
+        }
+        return names;
     }
 
     @Override

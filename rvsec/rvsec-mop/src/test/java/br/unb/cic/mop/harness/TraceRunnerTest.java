@@ -12,9 +12,14 @@ import org.junit.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static java.util.Collections.emptySet;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -54,6 +59,17 @@ public class TraceRunnerTest {
             "../../rv-android/results/gh101_group8_jca_frozen_control/monitors";
     private static final String DEFAULT_TRACES_DIR = "../../rv-android/data/gh104/traces";
 
+    /**
+     * Specifications the traces directory serves that the frozen control does not carry.
+     *
+     * <p>
+     * One directory of traces feeds both sides of every comparison, so it holds traces for
+     * specifications only the successor set has. {@code IvChainJunction} is gh105's junction
+     * specification; the frozen `jca` has no such file.
+     */
+    private static final List<String> SUCCESSOR_ONLY_SPECIFICATIONS =
+            Arrays.asList("IvChainJunctionSpec");
+
     private static Path monitorDir;
     private static Path tracesDir;
     private static Path workDir;
@@ -73,20 +89,98 @@ public class TraceRunnerTest {
         Files.createDirectories(workDir);
     }
 
+    /**
+     * Every trace line resolves to an advice, except at the sites the frozen set has dead.
+     *
+     * <p>
+     * The assertion is the one the harness rests on: a line that resolves to nothing is reported
+     * "not accused", and that reading is indistinguishable from "not replayed". It held
+     * unconditionally until {@code bdc027a6} taught the runner to read return types, at which
+     * point four sites of the frozen control stopped matching -- correctly, because they never
+     * could have matched a real call, which is exactly what makes them the defects gh104
+     * catalogues. Asserting zero after that is asserting the frozen set has no dead pointcuts,
+     * which is false and is the whole reason the successor set exists.
+     *
+     * <p>
+     * So the exceptions are enumerated with their reason, in the idiom the gate allow-lists use:
+     * an entry without a reason allows nothing, and any unresolved line outside this list still
+     * fails. Three of the four are dead pointcuts and the fourth is an advice that resolves and
+     * throws; none may be added to without naming the specification line it comes from.
+     */
+    private static final List<String[]> DEAD_IN_THE_FROZEN_CONTROL = Arrays.asList(
+            new String[] {".getTrustManagers()",
+                "TrustManagerFactorySpec.mop:63 declares gtm1 returning(TrustManager[][]) while "
+                + "TrustManagerFactory.getTrustManagers() returns TrustManager[], so no call can "
+                + "match it (design D-1, measured and not repaired)"},
+            new String[] {".createSSLEngine()",
+                "SSLContextSpec.mop:64 is a dead pointcut (design D-1, measured and not "
+                + "repaired)"},
+            new String[] {".sign()",
+                "SignatureSpec.mop:99,:106 declare sign() returning byte where javap on "
+                + "android-30 gives byte[] and int; repaired in the successor set, dead here"},
+            new String[] {".initialize(",
+                "KeyPairGeneratorSpec.mop:26 leaves String algorithm uninitialised, so validate() "
+                + "switches on null and the advice throws rather than failing to match; the "
+                + "successor set conditions the initialize events on algorithm != null"});
+
     @Test
-    public void everyTraceLineResolvesToAnAdvice() throws Exception {
-        List<Path> traces = traces();
+    public void everyTraceLineResolvesToAnAdviceExceptWhereTheFrozenSetIsDead() throws Exception {
         StringBuilder unresolved = new StringBuilder();
         try (TraceRunner runner = TraceRunner.of(monitorDir, workDir.resolve("control"))) {
-            for (Path trace : traces) {
+            for (Path trace : traces()) {
                 TraceRunner.Outcome outcome = runner.replay(trace);
                 for (String line : outcome.unresolved) {
-                    unresolved.append(trace.getFileName()).append(": ").append(line).append('\n');
+                    if (allowedDeadSite(line) == null) {
+                        unresolved.append(trace.getFileName()).append(": ")
+                                .append(line).append('\n');
+                    }
                 }
             }
         }
-        assertEquals("trace lines that no pointcut of the frozen snapshot resolves:\n"
-                + unresolved, 0, unresolved.length());
+        assertEquals("trace lines that no pointcut of the frozen snapshot resolves, and that no "
+                + "dead site of the frozen control accounts for:\n" + unresolved,
+                0, unresolved.length());
+    }
+
+    /** The reason the frozen control cannot replay this line, or {@code null} if it has none. */
+    private static String allowedDeadSite(String line) {
+        for (String[] entry : DEAD_IN_THE_FROZEN_CONTROL) {
+            if (line.contains(entry[0]) && !entry[1].isEmpty()) {
+                return entry[1];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The allow-list above stays honest only while every entry still fires.
+     *
+     * <p>
+     * An entry that stops matching means the site was revived -- by a repair, or by the control
+     * being regenerated -- and a dead-site exception that no longer describes anything is how a
+     * suppression outlives the defect it was written for.
+     */
+    @Test
+    public void everyDeadSiteExceptionStillDescribesAnUnresolvedLine() throws Exception {
+        Set<String> fired = new TreeSet<>();
+        try (TraceRunner runner = TraceRunner.of(monitorDir, workDir.resolve("control"))) {
+            for (Path trace : traces()) {
+                for (String line : runner.replay(trace).unresolved) {
+                    for (String[] entry : DEAD_IN_THE_FROZEN_CONTROL) {
+                        if (line.contains(entry[0])) {
+                            fired.add(entry[0]);
+                        }
+                    }
+                }
+            }
+        }
+        Set<String> stale = new TreeSet<>();
+        for (String[] entry : DEAD_IN_THE_FROZEN_CONTROL) {
+            stale.add(entry[0]);
+        }
+        stale.removeAll(fired);
+        assertEquals("dead-site exceptions that no unresolved line needs any more -- the site "
+                + "was revived and the exception outlived it", emptySet(), stale);
     }
 
     @Test
@@ -107,45 +201,113 @@ public class TraceRunnerTest {
     }
 
     /**
-     * A finding of the harness, pinned so that a repair cannot land unnoticed.
+     * Two defects sit on {@code gtm1}, and the outer one hides the inner.
      *
      * <p>
-     * {@code getInstance("PKIX"); init(ks); getTrustManagers()} is a legitimate sequence and the
-     * frozen set accuses it, at {@code gtm1}, with {@code InvalidSequenceOfMethodCalls}. The
-     * cause is a binding defect rather than the automaton: {@code gtm1} is declared
-     * {@code target(k)} while the specification's parameter is {@code mf}
-     * ({@code TrustManagerFactorySpec.mop:60}), so the generator puts it in the empty parameter
-     * slice -- {@code TrustManagerFactorySpec__Map} -- where the monitor is still in the initial
-     * state and {@code gtm1}'s row sends state 0 to {@code fail}. The two events before it
-     * updated the {@code mf}-keyed monitor and this one never saw them.
+     * This test was written to pin a harness finding: {@code getInstance("PKIX"); init(ks);
+     * getTrustManagers()} is a legitimate sequence and the frozen set accused it at
+     * {@code gtm1}, through a binding defect rather than the automaton -- {@code gtm1} is
+     * declared {@code target(k)} while the specification's parameter is {@code mf}
+     * ({@code TrustManagerFactorySpec.mop:60}), so the generator files it in the empty parameter
+     * slice, {@code TrustManagerFactorySpec__Map}, where the monitor is still in its initial
+     * state and {@code gtm1}'s row sends state 0 to {@code fail}.
      *
      * <p>
-     * The design's scenario for this trace says both snapshots must report no accusation. On the
-     * frozen set that is false today, and the successor set is where it becomes true. When it
-     * does, this test fails and is deleted with the finding it records.
+     * That accusation is no longer observable, and the reason is not a repair. {@code gtm1} is
+     * also declared {@code returning(TrustManager[][])} ({@code TrustManagerFactorySpec.mop:63})
+     * where {@code TrustManagerFactory.getTrustManagers()} returns {@code TrustManager[]}, so
+     * once the runner learned to read return types ({@code bdc027a6}) no call could match it at
+     * all. The binding defect is still in the frozen monitor; nothing can reach it from a real
+     * call. The design says as much -- "any measurement of its revival exercises an
+     * empty-binding broadcast, not the per-object row" -- and this is that statement executed.
+     *
+     * <p>
+     * What is pinned now is the masking, both halves of it: the line does not resolve, and the
+     * legitimate sequence is therefore not accused. A repair of the {@code returning} type alone
+     * revives the site and the binding defect with it, and this test fails and says which of the
+     * two moved.
      */
     @Test
-    public void theFrozenSetAccusesALegitimateGetTrustManagersThroughABindingDefect()
-            throws Exception {
+    public void theGetTrustManagersBindingDefectIsMaskedByItsOwnReturnType() throws Exception {
         try (TraceRunner runner = TraceRunner.of(monitorDir, workDir.resolve("control"))) {
             TraceRunner.Outcome outcome =
                     runner.replay(tracesDir.resolve("TrustManagerFactorySpec.txt"));
-            assertTrue("gtm1 binds target(k), not the specification parameter mf, so it lands "
-                    + "in the empty slice and accuses from state 0", outcome.accused);
-            assertTrue("the accusation must be at gtm1: " + outcome.accusingEvents,
-                    outcome.accusingEvents.contains("TrustManagerFactorySpec.gtm1"));
+
+            assertTrue("gtm1 is declared returning(TrustManager[][]) and getTrustManagers() "
+                    + "returns TrustManager[], so the line must not resolve: " + outcome.unresolved,
+                    outcome.unresolved.stream().anyMatch(l -> l.contains(".getTrustManagers()")));
+            assertFalse("with gtm1 unmatchable the legitimate sequence reaches no accusation, so "
+                    + "the k/mf binding defect behind it cannot be exercised from this trace; "
+                    + "accused at " + outcome.accusingEvents, outcome.accused);
         }
     }
 
+    /**
+     * Every specification of the frozen set has at least one trace.
+     *
+     * <p>
+     * The set is read off the snapshot under test, not written down here. The assertion this
+     * replaced counted distinct file-name prefixes and compared them to the literal 23, which
+     * answers a different question and answers it wrongly twice over: a trace named for a
+     * specification the frozen set does not carry ({@code IvChainJunctionSpec}, which only the
+     * successor set has) inflated the count without covering anything, and a trace named with a
+     * group prefix ({@code d15-CipherSpec-arc4.txt}) contributed the phantom specification
+     * {@code d15}. Both are legitimate traces; the count was the wrong instrument.
+     */
     @Test
     public void everySpecificationOfTheFrozenSetHasATrace() throws Exception {
-        List<String> names = traces().stream()
-                .map(path -> path.getFileName().toString().replace(".txt", ""))
-                .map(name -> name.contains("-") ? name.substring(0, name.indexOf('-')) : name)
-                .distinct().sorted().collect(Collectors.toList());
-        assertEquals("one trace per specification of the frozen set, including the two the "
-                + "successor set drops -- a comparison with no trace on one side classifies "
-                + "nothing: " + names, 23, names.size());
+        Set<String> specifications;
+        try (TraceRunner runner = TraceRunner.of(monitorDir, workDir.resolve("control"))) {
+            specifications = runner.specifications();
+        }
+        Set<String> covered = new TreeSet<>();
+        Set<String> unattributed = new TreeSet<>();
+        for (Path trace : traces()) {
+            String name = specificationOf(trace, specifications);
+            if (name != null) {
+                covered.add(name);
+            } else {
+                unattributed.add(trace.getFileName().toString());
+            }
+        }
+
+        Set<String> missing = new TreeSet<>(specifications);
+        missing.removeAll(covered);
+        assertEquals("every specification of the frozen set needs a trace -- a comparison with "
+                + "no trace on one side classifies nothing", emptySet(), missing);
+
+        // A trace naming no specification of either set is a typo in a file name, and a typo
+        // here is silent: the trace simply never joins a per-specification report.
+        unattributed.removeIf(name -> {
+            for (String successorOnly : SUCCESSOR_ONLY_SPECIFICATIONS) {
+                if (name.contains(successorOnly)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        assertEquals("every trace must name a specification of the frozen set or one of the "
+                + "successor-only specifications " + SUCCESSOR_ONLY_SPECIFICATIONS,
+                emptySet(), unattributed);
+    }
+
+    /**
+     * The specification a trace belongs to: the first name segment that the snapshot carries.
+     *
+     * <p>
+     * Traces are named {@code <Spec>-<case>.txt} and, since D-15, optionally
+     * {@code <group>-<Spec>-<case>.txt}. Scanning the segments rather than taking the first one
+     * reads both, and answers {@code null} for a trace whose specification this snapshot does
+     * not have -- which is a fact about the snapshot, not a defect of the trace.
+     */
+    private static String specificationOf(Path trace, Set<String> specifications) {
+        String name = trace.getFileName().toString().replace(".txt", "");
+        for (String segment : name.split("-")) {
+            if (specifications.contains(segment)) {
+                return segment;
+            }
+        }
+        return null;
     }
 
     /**
