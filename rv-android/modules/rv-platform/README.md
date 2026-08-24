@@ -66,7 +66,7 @@ The RV-Platform module provides a standalone execution engine for Android testin
 
 #### Result Generation and Storage
 - **Result Processing**: Process completed tasks to generate CSV and JSON output files
-- **CSV Generation**: Generate detailed coverage.csv, errors.csv, summary.csv, and performance.csv files
+- **CSV Generation**: Generate coverage.csv, errors.csv, summary.csv, performance.csv, app_events.csv and results.json (column contracts in `docs/architecture.md`)
 - **JSON Generation**: Generate comprehensive results.json files with experiment data
 - **Performance Metrics**: Generate performance.csv with detailed metrics when monitoring is enabled
 - **Standalone Processing**: Reprocess existing experiment results without re-execution

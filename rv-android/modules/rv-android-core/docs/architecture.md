@@ -36,7 +36,7 @@ This module implements requirements from `openspec/specs/core/spec.md`.
 | INV-CORE-22 | PerformanceMonitor is zero-overhead when disabled | `measure_time()` yields immediately; `record_metric()` is a no-op when `enabled=False` |
 | INV-CORE-23 | AbstractTool converts command timeouts to tool timeouts | `execute()` catches `RVCommandTimeoutError` and raises `RVToolTimeoutError` |
 | INV-CORE-24 | Coverage repository ignores unknown methods | `register_method_call()` silently ignores classes not in static analysis data |
-| INV-CORE-25 | RvErrorLog deduplication via unique_msg | Computed as `"{class}:::{method}:::{spec}:::{error_type}:::{message}"` |
+| INV-CORE-25 | RvErrorLog deduplication via unique_msg, composed in exactly one place | Computed as `"{class}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{message}"` — seven `:::` parts, at event granularity. `code`/`event` are the `code=`/`ev=` values of the message envelope, or `UNSPECIFIED` when the record carries none. Readers (e.g. rv-platform's `errors.csv` writer) read this key, never rebuild it |
 
 ### Specification Scenarios
 

@@ -95,8 +95,10 @@ finally:
 ```python
 from rv_coverage.parser.log.logcat_parser import parse_logcat_line
 
-# Parse individual logcat line
-error_log, coverage_log = parse_logcat_line(logcat_line)
+# Parse an individual logcat line. Pass a repository's `parser_diagnostics` as the
+# second argument to account for the lines that become no record; omit it and the
+# counters go to a throwaway object, leaving the parse result unchanged.
+error_log, coverage_log = parse_logcat_line(logcat_line, repository.parser_diagnostics)
 
 if coverage_log:
     analyzer.add_method_call(coverage_log)
@@ -143,7 +145,7 @@ logger.setLevel('DEBUG')
 {
   "method_coverage": 75.5,
   "activities_coverage": 90.0,
-  "methods_jca_reachable_coverage": 60.2,
+  "methods_mop_reachable_coverage": 60.2,
   "total_method_calls": 1247,
   "total_errors": 3
 }

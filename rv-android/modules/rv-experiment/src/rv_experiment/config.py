@@ -642,6 +642,67 @@ class ExperimentConfig(BaseValidatedModel):
         logger.info(f"No {EXTENSION_MOP} files found in '{directory_path_str}'.")
         return False
 
+    def resolve_spec_set_dir(self, rvsec_root: str) -> str:
+        """Resolve ``specification_set`` to the directory that holds its ``.mop`` files.
+
+        The directory structure under RVSEC_HOME is::
+
+            rvsec/rvsec-mop/src/main/resources/
+              jca/          <- JCA crypto API specs (.mop files)
+              jca_android/  <- the successor set for Android API 30
+              generic/      <- generic API usage specs (.mop files)
+              aspect/       <- shared AspectJ aspects
+
+        This mapping is the one asserted by Scenario "JIT Configuration for
+        Monitor Generation With JCA Specs". The predefined sets resolve from the
+        set name alone: no path is supplied by the caller, which is what keeps a
+        stale path from selecting a set other than the one the experiment reports.
+
+        It lives in its own method because two consumers need the same answer:
+        monitor generation instruments the APK with this directory's specs, and
+        static analysis must compute its monitored-operation targets, GATOR
+        reachability and coverage denominator over the very same directory.
+        One resolution, one mapping — a second copy is how the two
+        views drifted apart, with the APK instrumented against one set and
+        measured against another.
+
+        Args:
+            rvsec_root: the effective RVSEC_HOME, already resolved by INV-EXP-05
+
+        Returns:
+            Absolute path to the selected set's specification directory
+
+        Raises:
+            ConfigurationError: If the set is unsupported, or ``custom`` was
+                selected without a usable ``custom_specs_dir``
+        """
+        mop_base_dir = os.path.join(
+            rvsec_root, "rvsec", "rvsec-mop", "src", "main", "resources"
+        )
+        if self.specification_set == SPEC_SET_JCA:
+            return os.path.join(mop_base_dir, SPEC_SET_JCA)
+        if self.specification_set == SPEC_SET_JCA_ANDROID:
+            return os.path.join(mop_base_dir, SPEC_SET_JCA_ANDROID)
+        if self.specification_set == SPEC_SET_GENERIC:
+            return os.path.join(mop_base_dir, SPEC_SET_GENERIC)
+        if self.specification_set == SPEC_SET_CUSTOM:
+            if not self.custom_specs_dir:
+                # Config-layer backstop for INV-EXP-04: the CLI raises a
+                # ClickException first (Scenario "Custom Specification Set Without
+                # Directory"), but a config constructed programmatically without
+                # custom_specs_dir is still rejected here.
+                raise ConfigurationError(
+                    f"Unsupported specification set: {self.specification_set}"
+                )
+            # Scenario "JIT Configuration for Custom Specification Set": a
+            # custom dir without any .mop file raises this exact message.
+            if not self.validate_specs_dir(self.custom_specs_dir):
+                raise ConfigurationError(f"Invalid specs dir: {self.custom_specs_dir}")
+            return self.custom_specs_dir
+        raise ConfigurationError(
+            f"Unsupported specification set: {self.specification_set}"
+        )
+
     def get_monitored_operations_config(self) -> RVGeneratorConfig:
         """
         Just-in-time configuration for monitor generation based on specification set.
@@ -677,46 +738,7 @@ class ExperimentConfig(BaseValidatedModel):
             MonitorConfigError: If RVGeneratorConfig validation fails
         """
         rvsec_root = self.get_effective_rvsec_root()
-
-        # Map specification_set to the directory containing .mop files.
-        # The directory structure under RVSEC_HOME is:
-        #   rvsec/rvsec-mop/src/main/resources/
-        #     jca/          <- JCA crypto API specs (.mop files)
-        #     jca_android/  <- the successor set for Android API 30 (23 specs)
-        #     generic/      <- generic API usage specs (.mop files)
-        #     aspect/       <- shared AspectJ aspects
-        # This mapping is the one asserted by Scenario "JIT Configuration for
-        # Monitor Generation With JCA Specs". The predefined sets resolve from the
-        # set name alone: no path is supplied by the caller, which is what keeps a
-        # stale path from selecting a set other than the one the experiment reports.
-        mop_base_dir = os.path.join(
-            rvsec_root, "rvsec", "rvsec-mop", "src", "main", "resources"
-        )
-        if self.specification_set == SPEC_SET_JCA:
-            mop_specs_dir = os.path.join(mop_base_dir, SPEC_SET_JCA)
-        elif self.specification_set == SPEC_SET_JCA_ANDROID:
-            mop_specs_dir = os.path.join(mop_base_dir, SPEC_SET_JCA_ANDROID)
-        elif self.specification_set == SPEC_SET_GENERIC:
-            mop_specs_dir = os.path.join(mop_base_dir, SPEC_SET_GENERIC)
-        elif self.specification_set == SPEC_SET_CUSTOM:
-            if self.custom_specs_dir:
-                mop_specs_dir = self.custom_specs_dir
-                # Scenario "JIT Configuration for Custom Specification Set": a
-                # custom dir without any .mop file raises this exact message.
-                if not self.validate_specs_dir(mop_specs_dir):
-                    raise ConfigurationError(f"Invalid specs dir: {mop_specs_dir}")
-            else:
-                # Config-layer backstop for INV-EXP-04: the CLI raises a
-                # ClickException first (Scenario "Custom Specification Set Without
-                # Directory"), but a config constructed programmatically without
-                # custom_specs_dir is still rejected here.
-                raise ConfigurationError(
-                    f"Unsupported specification set: {self.specification_set}"
-                )
-        else:
-            raise ConfigurationError(
-                f"Unsupported specification set: {self.specification_set}"
-            )
+        mop_specs_dir = self.resolve_spec_set_dir(rvsec_root)
 
         try:
             # Explicit paths prevent RVGeneratorConfig's internal resolver from
@@ -946,11 +968,23 @@ class ExperimentConfig(BaseValidatedModel):
             if jvm_memory_value:
                 kwargs["jvm_memory"] = jvm_memory_value
 
+            # Scenario "Static Analysis Reads the Selected Specification Set":
+            # the static view is computed over the set the run actually
+            # instruments with. Left to its own default,
+            # RVStaticAnalysisConfig resolves mop_dir to resources/jca, so a
+            # jca_android campaign would take its monitored-operation targets,
+            # its GATOR reachability and its coverage denominator from the frozen
+            # set while the APK carries the successor's monitors — the two views
+            # would disagree by construction. The same resolution that feeds
+            # monitor generation feeds it here. A targets_file, when the caller
+            # supplies one directly to rv-static-analysis, still wins: the two
+            # are mutually exclusive (INV-ANA-33) and rv-experiment sets none.
             return RVStaticAnalysisConfig(
                 rvsec_root=rvsec_root,
                 lib_dir=lib_dir,
                 gator_dir=gator_dir,
                 analysis_client_jar=analysis_client_jar,
+                mop_dir=self.resolve_spec_set_dir(rvsec_root),
                 output_dir=self.output_dir,
                 working_dir=self.output_dir,
                 validate_on_init=False,

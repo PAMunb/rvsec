@@ -144,7 +144,7 @@ Comments describe what the code does *now*. No migration history ("migrated from
 The system supports three distinct specification sets, used **separately** across experiments (one experiment instruments with JCA, another with generic):
 
 1. **JCA Specifications** (`--specification-set jca`): detect misuse of the Java Cryptography Architecture (JCA) API — e.g. proper cipher initialization, key generation, secure random.
-2. **JCA Android Specifications** (`--specification-set jca_android`): the same 23 specifications derived against generated CrySL rules for a declared Android API level. It is the set that carries the specification repairs; `jca` is frozen against the measurements published from it.
+2. **JCA Android Specifications** (`--specification-set jca_android`): the successor of `jca`, seeded byte-for-byte from it and targeted at Android API 30. It is the set that carries the specification repairs; `jca` stays frozen, because the published measurements answer to it. Its value clauses (which algorithms, protocols and key sizes are admitted) are anchored in the expert-validated CrySL rules of the RVSec replication package, pinned by sha256; its event alphabets, `ORDER` expressions and predicate wiring are anchored in the generated `MetaCrySL/generated/api30/` rules. An earlier derived set, generated wholesale against api30, was reproved and is archived at `jca_android_bug_predicate/` with no mapping entry — nothing selects it.
 3. **Generic Specifications** (`--specification-set generic`): detect violations of general API usage — e.g. `hasNext()` before `next()` on Iterator; close streams after use.
 
 A fourth value, `custom`, takes a directory of `.mop` files via `--custom-specs-dir`.

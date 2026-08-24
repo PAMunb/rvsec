@@ -17,7 +17,7 @@ This module implements requirements from `openspec/specs/platform/spec.md`.
 | FR09 | Component-Based Task Execution | `TaskExecutor` coordinates 5 pluggable `ITaskComponent` implementations through 3 execution phases |
 | FR10 | Persistent Task Storage | `TaskStorage` provides atomic file writes (write-temp-then-rename), transactions, and experiment resume via checksum validation |
 | FR11 | Logcat Capture and Parsing | `LogcatComponent` delegates to `LogcatManager` for background logcat capture; rv-coverage parses `RVSEC-COV` and `RVSEC` entries |
-| FR14 | Result Generation | `ResultProcessorComponent` generates `coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, `performance.csv` from completed tasks |
+| FR14 | Result Generation | `ResultProcessorComponent` generates `coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, `performance.csv` and `app_events.csv` from completed tasks; column contracts in [Output Column Contracts](#output-column-contracts) |
 
 ### Key Invariants
 
@@ -33,6 +33,8 @@ This module implements requirements from `openspec/specs/platform/spec.md`.
 | INV-PLT-09 | `PlatformConfig` validates all fields at construction time | Pydantic field validators check `apks_dir` existence, tool count, repetitions, timeouts, and log level |
 | INV-PLT-10 | Result processing only includes COMPLETED tasks | `ResultProcessorComponent` filters tasks by `TaskState.COMPLETED` before generating output |
 | INV-PLT-13 | Phase 3 executes within the emulator context manager | `TaskExecutor._execute_coordinated_components()` wraps Phase 3 in `EmulatorComponent.start_emulator()` context |
+| INV-PLT-19 | The headers and column order of `coverage.csv`, `errors.csv` and `summary.csv` are a written contract; diagnostic fields belong to `app_events.csv` alone | `ERRORS_CSV_COLUMNS` (module constant in `result_processor.py`) is the single definition of the `errors.csv` header; the coverage and summary headers are written inline and asserted by `tests/components/test_result_processor.py` |
+| INV-PLT-32 | A failed write of a task's violation rows (`errors.csv`) or extraction of its `results.json` data is counted, not swallowed | `ResultProcessorComponent._count_write_error()` increments `TaskResult.write_errors[artefact]` and the handler logs at ERROR with the number of rows lost |
 
 ### Specification Scenarios
 
@@ -432,7 +434,7 @@ During Phase 3, data flows through three concurrent channels:
 
 ### Output Data Flow
 
-After all tasks complete, `Platform._process_results()` calls `TaskStorage.get_completed_tasks()` to collect ALL completed tasks across all sessions (INV-PLT-10 filters for `TaskState.COMPLETED`). `ResultProcessorComponent` generates five output files:
+After all tasks complete, `Platform._process_results()` calls `TaskStorage.get_completed_tasks()` to collect ALL completed tasks across all sessions (INV-PLT-10 filters for `TaskState.COMPLETED`). `ResultProcessorComponent` generates six output files:
 
 | Output File | Data Source | Content |
 |-------------|-------------|---------|
@@ -440,9 +442,32 @@ After all tasks complete, `Platform._process_results()` calls `TaskStorage.get_c
 | `errors.csv` | `LogcatRepository` errors or `parse_logcat_file()` reconstruction | Monitored operations violations |
 | `summary.csv` | `CoverageMetrics` from `task.result.coverage_metrics` | Aggregate per-task metrics |
 | `results.json` | Combined coverage + violation data | Hierarchical JSON keyed by APK/rep/timeout/tool |
-| `performance.csv` | `PerformanceMonitor` timing data | Task execution durations |
+| `performance.csv` | `PerformanceProcessorComponent` timing data | Task execution durations |
+| `app_events.csv` | `LogcatRepository` diagnostic events or logcat reconstruction | Crash / VerifyError / ANR events, `stack_head` summary only |
 
 For resumed tasks (where `task.repository` is `None`), `ResultProcessorComponent` reconstructs MOP violation data by calling `parse_logcat_file()` from rv-coverage. Per-method progressive coverage data cannot be reconstructed because `register_method_call()` requires static analysis class data that is not serialized in `tasks.json`.
+
+### Output Column Contracts
+
+The CSV headers are a contract with downstream readers (`aperv_tool.analysis.violations`, the `rvsec-dataset` scripts, the article's analysis scripts) and are asserted by `tests/components/test_result_processor.py`. INV-PLT-19 fixes the header and column order of `coverage.csv`, `errors.csv` and `summary.csv`; a diagnostic field never enters them, it belongs to `app_events.csv`.
+
+| File | Columns | Header |
+|------|---------|--------|
+| `errors.csv` | 13 | `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` |
+| `coverage.csv` | 15 | `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target` |
+| `summary.csv` | 12 | `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target, mop_errors_total, mop_errors_unique` |
+| `performance.csv` | 7 | `apk, rep, timeout, tool, execution_time_seconds, task_state, timestamp` |
+| `app_events.csv` | 15 | `apk, rep, timeout, tool, time, category, exception_class, method, source, message, process, pid, fatal, n_frames, stack_head` |
+
+**`errors.csv` in detail.** The header has exactly one definition in code — the module constant `ERRORS_CSV_COLUMNS` in `result_processor.py` — so the writer cannot drift from the contract. The row reads identity first, then evidence: `spec, class, method` name what was violated and where, then `source, code, event, message` carry the evidence, then `unique_msg` closes with the record's key. Three columns were added since the baseline and are the only additions: `source` (gh89) and `code`/`event` (gh104).
+
+- `source` is the source position of the violation. It sits outside every key deliberately: letting a line number into the identity of a misuse makes one misuse count once per line.
+- `code` and `event` are the `code=` and `ev=` values of the violation message envelope. A record whose producer wrote no envelope — the frozen `jca` specification set writes none, and nothing persisted before gh104 does — carries the sentinel `UNSPECIFIED` (module constant `SENTINEL_UNSPECIFIED`), never an empty string, so a reader can tell "no envelope" from "envelope with an empty value".
+- `unique_msg` is read from the domain object, never assembled in the writer. The key is `__hash__`/`__eq__` of `RvErrorLog` and is composed in exactly one place (rv-android-core, INV-CORE-25); a formula copied into the writer would re-key the record under an identity the domain did not give it, and would freeze the old part count the moment the domain grew. An absent key is a `KeyError`, not a second composition.
+
+Appending a column is compatible because every known consumer addresses columns by name; positional readers are not supported. Column count and order therefore change only through INV-PLT-19.
+
+**Failed writes are counted (INV-PLT-32).** A failure while writing one task's violation rows, or while extracting its data for `results.json`, is logged at ERROR with the task id and the number of rows not written, and counted into `TaskResult.write_errors[artefact]` via `_count_write_error()`. The same counting covers a missing logcat file (`logcat_missing`) and a failed logcat reconstruction (`logcat_reconstruction`), whose consequence is identical: the task contributes no violation row. Without the count, a task whose violations were lost is indistinguishable downstream from a task that violated nothing. Generation continues with the next task — one bad record must not cost the campaign its other tasks.
 
 ---
 
@@ -503,7 +528,7 @@ For resumed tasks (where `task.repository` is `None`), `ResultProcessorComponent
 
 ### ResultProcessorComponent
 
-**Purpose**: Generates the 5 standardized output files (CSV/JSON) from completed tasks. Handles result consolidation across sessions by re-reading logcat files for MOP violation reconstruction when `task.repository` is `None` (tasks loaded from `tasks.json`).
+**Purpose**: Generates the six standardized output files (CSV/JSON) from completed tasks, under the column contracts of [Output Column Contracts](#output-column-contracts). Handles result consolidation across sessions by re-reading logcat files for MOP violation reconstruction when `task.repository` is `None` (tasks loaded from `tasks.json`). Rows lost to a write or reconstruction failure are counted into `TaskResult.write_errors` (INV-PLT-32), not swallowed.
 
 **Location**: `src/rv_platform/components/result_processor.py`
 
@@ -511,7 +536,7 @@ For resumed tasks (where `task.repository` is `None`), `ResultProcessorComponent
 - `ResultProcessorComponent`: Implements `ITaskComponent`; uses `ErrorHandler` per file generation for fault isolation
 
 **Dependencies**:
-- External: `parse_logcat_file` (rv-coverage) for MOP violation reconstruction, `pandas` for CSV operations
+- External: `parse_logcat_file` (rv-coverage) for MOP violation reconstruction; CSV writing uses the standard library `csv` module
 
 ### ToolExecutionComponent
 
@@ -680,7 +705,7 @@ classDiagram
 | Package | Version | Purpose |
 |---------|---------|---------|
 | pydantic | ^2.9.0 | Configuration validation and serialization (PlatformConfig, ExperimentMetadata, StorageConfig) |
-| pandas | ^2.3.1 | Data processing for CSV output generation |
+| pandas | ^2.3.1 | Declared in `pyproject.toml`; not imported by `src/` — the CSV writers use the standard library `csv` module |
 
 ## Testing Strategy
 

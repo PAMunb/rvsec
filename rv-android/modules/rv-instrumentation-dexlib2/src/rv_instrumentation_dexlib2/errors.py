@@ -29,7 +29,7 @@ class UnsupportedAspectConstructError(Exception):
     """A descriptor advice references an AspectJ construct the weaver does not support.
 
     The canonical out-of-scope set is documented in
-    ``docs/LIMITATIONS.md``: ``around``, ``cflow``, ``cflowbelow``,
+    ``rv-android/docs/LIMITATIONS.md``: ``around``, ``cflow``, ``cflowbelow``,
     ``handler``, ``get``, ``set``, ``initialization``, ``preinitialization``.
     Empirical evidence confirms zero usages of these in the RVSEC spec corpus
     (both JCA and Generic sets) so the error indicates a spec change that

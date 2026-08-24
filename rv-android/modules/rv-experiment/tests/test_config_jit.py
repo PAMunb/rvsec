@@ -202,6 +202,102 @@ class TestJitMonitorConfig:
             pass  # ConfigurationError expected for unsupported spec set
 
 
+class TestStaticAnalysisSpecSetResolution:
+    """The static view is computed over the set the run instruments with.
+
+    Requirement "Just-in-Time Sub-Module Configuration (FR17, NFR05)", Scenario
+    "Static Analysis Reads the Selected Specification Set". Before this, a
+    `jca_android` campaign had its monitored-operation targets, its GATOR
+    reachability and its coverage denominator taken from the frozen `jca`
+    directory — RVStaticAnalysisConfig's literal default — while the APK carried
+    the successor's monitors, and nothing in the record said so.
+    """
+
+    def _captured_kwargs(self, config):
+        """Build the static-analysis config with the real class mocked out.
+
+        RVStaticAnalysisConfig validates its paths on construction; here only the
+        argument the experiment passes is under test, so the class is replaced and
+        the call kwargs read back.
+        """
+        with patch(
+            "rv_experiment.config.RVStaticAnalysisConfig", return_value=MagicMock()
+        ) as mock_cls:
+            config.get_static_analysis_config()
+        return mock_cls.call_args[1]
+
+    def test_static_analysis_config_uses_selected_set(self, tmp_apk_dir, tmp_path):
+        """jca_android resolves to the successor's directory, jca to the frozen one,
+        custom to custom_specs_dir; and a targets_file still wins the mutex."""
+        rvsec_dir = tmp_path / "rvsec"
+        rvsec_dir.mkdir()
+        resources = os.path.join(
+            str(rvsec_dir), "rvsec", "rvsec-mop", "src", "main", "resources"
+        )
+
+        # Case 1 — the successor set: the whole point of the task.
+        android_config = make_config(
+            tmp_apk_dir,
+            specification_set="jca_android",
+            rvsec_root=str(rvsec_dir),
+        )
+        assert self._captured_kwargs(android_config)["mop_dir"] == os.path.join(
+            resources, "jca_android"
+        )
+
+        # Case 2 — the frozen set still resolves where it always did.
+        jca_config = make_config(
+            tmp_apk_dir,
+            specification_set="jca",
+            rvsec_root=str(rvsec_dir),
+        )
+        assert self._captured_kwargs(jca_config)["mop_dir"] == os.path.join(
+            resources, "jca"
+        )
+
+        # Case 3 — custom takes the caller's directory verbatim.
+        custom_dir = tmp_path / "my_specs"
+        custom_dir.mkdir()
+        (custom_dir / "MySpec.mop").write_text("spec")
+        custom_config = make_config(
+            tmp_apk_dir,
+            specification_set="custom",
+            custom_specs_dir=str(custom_dir),
+            rvsec_root=str(rvsec_dir),
+        )
+        assert self._captured_kwargs(custom_config)["mop_dir"] == str(custom_dir)
+
+        # Case 4 — INV-ANA-33 mutex: rv-experiment never sets targets_file, so
+        # supplying one to RVStaticAnalysisConfig directly must still leave
+        # mop_dir alone. The experiment passing mop_dir cannot be what breaks it.
+        assert "targets_file" not in self._captured_kwargs(android_config)
+
+    def test_static_analysis_matches_monitor_generation(self, tmp_apk_dir, tmp_path):
+        """One resolution, one mapping: the two JIT methods agree by construction.
+
+        This is the assertion that survives a future set being added — a new entry
+        in the mapping cannot reach monitor generation without reaching the static
+        analysis too.
+        """
+        rvsec_dir = tmp_path / "rvsec"
+        rvsec_dir.mkdir()
+
+        for spec_set in ("jca", "jca_android", "generic"):
+            config = make_config(
+                tmp_apk_dir,
+                specification_set=spec_set,
+                rvsec_root=str(rvsec_dir),
+            )
+            with patch(
+                "rv_experiment.config.RVGeneratorConfig", return_value=MagicMock()
+            ) as mock_gen:
+                config.get_monitored_operations_config()
+            assert (
+                self._captured_kwargs(config)["mop_dir"]
+                == mock_gen.call_args[1]["mop_specs_dir"]
+            )
+
+
 class TestGetModuleConfig:
     """FR17: get_module_config dispatches to correct JIT method."""
 

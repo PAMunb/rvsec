@@ -32,10 +32,11 @@ Written to the results directory:
 | File | Description |
 |------|-------------|
 | `coverage.csv` | Per-method coverage with timing and progressive metrics |
-| `errors.csv` | Monitored-operations violations with timing/context |
+| `errors.csv` | Monitored-operations violations. **13 columns (INV-PLT-19)**: `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` — defined once, in `ERRORS_CSV_COLUMNS` (`components/result_processor.py`). `code`/`event` are the `code=`/`ev=` values of the message envelope, or `UNSPECIFIED` when the record carries none (the frozen `jca` set writes none). `unique_msg` is **read** from `RvErrorLog`, never rebuilt in the writer (INV-CORE-25); an absent key is a `KeyError`. Consumers address columns by name, so appending is compatible; positional readers are not supported. |
 | `summary.csv` | Aggregate metrics per task (activities, methods, MOP coverage, errors) |
 | `results.json` | Hierarchical JSON with complete experiment data |
 | `performance.csv` | Task execution timing metrics |
+| `app_events.csv` | Diagnostic events (crash / VerifyError / ANR), `stack_head` only — the full trace stays in the `.logcat`. Diagnostic fields never enter the three CSVs above (INV-PLT-19). |
 | `tasks.json` | Task-state persistence for continuation. Holds `ExperimentMetadata` (with `config_checksum`) and per-task `result` incl. `logcat_file`. **On resume, coverage/MOP are reconstructed from the logcat + co-located SA JSON — not from the serialized `coverage_metrics`.** |
 
 ## Experiment Resume
@@ -72,3 +73,4 @@ When `tasks.json` exists, the platform loads completed tasks, skips them, execut
 - **Coverage/logcat finalization** happens at exactly one point — a `finally` inside the emulator `with` in `TaskExecutor._run_emulator_session()` — calling `logcat_component.cleanup()` then `coverage_component.cleanup()`. Logcat first because `adb logcat` is the producer writing the file and `CoverageTracker` is the consumer reading it: freezing the file first makes the tracker's final drain see a complete input. The repeat call from `_cleanup_components()` is inert.
 - **Static analysis** is non-critical — execution continues without it. Loading it resolves no package key: GATOR scoped the artefact when it produced it, and `reachability[]` is the whole coverage denominator (INV-ANA-59). `app.code_package` still chooses the scope when an analysis is *run*, which happens in rv-static-analysis, not here.
 - **Result processing** can be skipped during execution and run standalone later (`--process-results`).
+- **Lost rows are counted, not swallowed** (INV-PLT-32): a failed `errors.csv` write, a failed `results.json` extraction, a missing logcat (`logcat_missing`) or a failed reconstruction (`logcat_reconstruction`) log at ERROR with the number of rows lost and increment `TaskResult.write_errors[artefact]`. Without the count, a task whose violations were lost reads downstream exactly like a task that violated nothing. Generation continues with the next task.

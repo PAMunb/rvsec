@@ -26,6 +26,8 @@ This module implements requirements from `openspec/specs/instrumentation/spec.md
 | INV-INS-52 | Multidex preservation | Delegated to the Java weaver, which rewrites each `classes*.dex` independently rather than collapsing into a single DEX. |
 | INV-INS-53 | Canonical Coverage exclusion filter honored | Java weaver re-implements the `Coverage.aj` exclusion rules natively in the `coverage-weaver` submodule. |
 | INV-INS-55 | `instrument_apks(apks_dir, results_dir) -> InstrumentationResults` contract uniform across variants | `DexlibInstrumentation` extends the `Instrumenter` ABC; results are tagged `variant="dexlib2"` and persisted to `instrument_errors.json`. |
+| INV-INS-105 | Every run leaves an `instrument_results.json` of the same shape, whichever path produced it | The `batch` path takes the file the Java CLI writes; the `apk_paths` path collects one file per APK under `instrument_results.d/` and `_merge_per_apk_results` concatenates their `results` arrays into the same document. |
+| INV-INS-122 | `advicesExcludedByArity` measures without filtering | The Java `WrapperEmitter` evaluates the positional-arity rule in its grouping loop and publishes the figure; no advice is removed from any wrapper. The wrapper carries the counter through to `weave_counts` unchanged. |
 
 ### Specification Scenarios
 
@@ -41,11 +43,13 @@ Scenarios from `openspec/specs/instrumentation/spec.md` that validate this archi
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Application Type | Library + thin subprocess wrapper | Heavy lifting (DEX rewriting, javac, d8, jarsigner) lives in the Java CLI; Python orchestrates and observes. |
-| Structuring | Flat single-package layout | The module is small (4 files, ~480 SLOC); a layered split would add ceremony without abstraction value (P1). |
+| Structuring | Flat single-package layout | The module is small (4 files, ~815 SLOC); a layered split would add ceremony without abstraction value (P1). |
 | Primary Pattern | Adapter (subprocess wrapper) | Translates Pydantic config and Python call into Java CLI argv + env. |
 | Dispatch Strategy | Lazy factory in parent module | `rv_instrumentation.get_instrumenter("dexlib2", config)` imports `DexlibInstrumentation` only when the variant is selected — selecting `"ajc"` never imports this module. |
 | Process Isolation | One JVM invocation per batch (or per APK) | Avoids state leakage between APKs; per-APK mode (one JVM per APK) is the only way to honor strict subsets without a symlink farm. |
 | Failure Detection | Cross-check post-condition (file existence) | The CLI may exit 0 with `success` recorded in JSON yet drop the output APK silently (gh53 root cause); `_demote_silent_failures` rebuilds the results map by checking the filesystem. |
+| Observability | Persist CLI stdout/stderr to a file per invocation | `subprocess.run(capture_output=True)` takes the weaver's report — resolved `android.jar`, per-advice skips, javac/d8 diagnostics — off the terminal. Without `_run_cli(log_path=...)` that output lives only for the duration of the call, and the silent-failure guard would point the operator at a stdout that had already been discarded. |
+| Counter Propagation | Merge per-APK counters after the loop, not inside it | The Java CLI writes its results JSON whether the weave succeeded or failed. Globbing `instrument_results.d/` once the loop is done picks up the counters of APKs the guard demoted to errors — exactly the runs a post-mortem needs them for. |
 
 ## Architectural Patterns
 
@@ -102,8 +106,8 @@ Shows the domain entities and their relationships within the dexlib2 instrumenta
 | `DexlibInstrumentationConfig` | Validated configuration: CLI jar path, monitor descriptor directory, instrumented-APK output directory, signing material, extra Java args/classpath. |
 | `MissingDescriptorError` | Raised at preparation time when no `MultiSpec_*MonitorAspect.json` is found. |
 | `DescriptorParseError` | Raised when Jackson (Java side) rejects a descriptor JSON; surfaced through subprocess error parsing. |
-| `UnsupportedAspectConstructError` | Raised when a descriptor references an out-of-scope construct (`around`, `cflow`, etc. — see `docs/LIMITATIONS.md`). |
-| `InstrumentationResults` (from `-core`) | Aggregated per-batch result with `variant="dexlib2"` tag; persisted to `instrument_errors.json`. |
+| `UnsupportedAspectConstructError` | Raised when a descriptor references an out-of-scope construct (`around`, `cflow`, etc. — see `rv-android/docs/LIMITATIONS.md`). |
+| `InstrumentationResults` (from `-core`) | Aggregated per-batch result with `variant="dexlib2"` tag and `weave_counts` (per-APK weaver counters keyed by APK name); errors persisted to `instrument_errors.json`. |
 | `InstrumentationError` (from `-core`) | Per-APK error record: phase, tool, code, message. |
 | `instr-cli.jar` (external) | Java fat jar that performs DEX rewriting; produced by Maven module `rvsec-instrumentation-dexlib2/cli`. |
 
@@ -126,6 +130,10 @@ flowchart TB
             DemoteSF["_demote_silent_failures"]
             ResolveRoot["_resolve_rvsec_root_or_raise"]
             CommonCli["_common_cli_args"]
+            RunCli["_run_cli<br/>(+ log_path)"]
+            MergeRes["_merge_per_apk_results"]
+            ParseRes["_parse_results_json"]
+            PersistErr["_persist_errors_json"]
         end
     end
 
@@ -147,9 +155,13 @@ flowchart TB
     DInstr -->|cross-checks| DemoteSF
     DInstr -->|calls| CommonCli
     DInstr -->|resolves| ResolveRoot
+    DInstr -->|invokes CLI| RunCli
+    DInstr -->|merges apk_paths counters| MergeRes
+    DInstr -->|parses batch JSON| ParseRes
+    DInstr -->|writes| PersistErr
     DInstr -->|emits| Results
     Results -->|aggregates| ErrModel
-    DInstr -.->|subprocess| Jar
+    RunCli -.->|subprocess| Jar
     Jar --> JavaTools
 ```
 
@@ -169,14 +181,18 @@ modules/rv-instrumentation-dexlib2/
 │   ├── dexlib_instrumentation.py    # DexlibInstrumentation(Instrumenter)
 │   └── errors.py                    # 3 module-specific exceptions
 ├── lib/                             # gitignored — Maven copies instr-cli.jar here
+├── docs/
+│   └── architecture.md              # this document
 ├── tests/
-│   └── test_dexlib_instrumentation.py
+│   └── test_dexlib_instrumentation.py  # 26 unit tests, Java CLI mocked
 ├── CLAUDE.md
 ├── README.md
 └── pyproject.toml
 ```
 
 The flat single-package layout is intentional: the module is a thin subprocess wrapper, so a `domain/`/`services/` split would introduce indirection without abstraction value (P1 — Simplicity).
+
+`pyproject.toml` declares a `rv-instrumentation-dexlib2` console script bound to `rv_instrumentation_dexlib2.__main__:main`, but the package has no `__main__.py`. The module is reached programmatically — through `rv_instrumentation.get_instrumenter("dexlib2", config)` or by constructing `DexlibInstrumentation` directly — so the declared script is dangling and fails on invocation.
 
 ### Package Dependencies
 
@@ -231,20 +247,39 @@ sequenceDiagram
     ABC->>FS: mvn dependency:copy-dependencies
     ABC-->>Wrapper: runtime jars list
     Wrapper->>Wrapper: filter to allowlist<br/>(rv-monitor-rt, rvsec-core, rvsec-logger-logcat)
-    Wrapper->>Java: java -jar instr-cli.jar batch <apks_dir> ...
+    Wrapper->>Java: java -jar instr-cli.jar batch <apks_dir><br/>--results-json instrument_results.json
     Java->>FS: rewrite each APK's DEX in place
     Java->>FS: re-sign each APK
-    Java->>FS: write instrument_results.json
-    Java-->>Wrapper: exit code + stderr
+    Java->>FS: write instrument_results.json (with weaveCounts)
+    Java-->>Wrapper: exit code + stdout + stderr
+    Wrapper->>FS: write instr-cli.log (argv, exit, stdout, stderr)
     Wrapper->>FS: read instrument_results.json
-    Wrapper->>Wrapper: _demote_silent_failures()<br/>cross-check output existence
+    Wrapper->>Wrapper: _parse_results_json()<br/>collect weave_counts per APK
+    Wrapper->>Wrapper: _demote_silent_failures()<br/>cross-check output existence, keep counters
     Wrapper->>FS: write instrument_errors.json (variant="dexlib2")
     Wrapper-->>Caller: InstrumentationResults
 ```
 
 ### Execution Flow: Per-APK Path (apk_paths=[...])
 
-When `apk_paths` is a strict subset, the wrapper invokes the CLI once per APK (one JVM per APK). This is the only way to honor strict subsets without staging a symlink farm. Errors are demoted per-APK rather than aborting the batch.
+When `apk_paths` is a strict subset, the wrapper invokes the CLI once per APK (one JVM per APK). This is the only way to honor strict subsets without staging a symlink farm. Each item is a complete path — the wrapper does not re-join it with `apks_dir`.
+
+Per APK, the wrapper:
+
+1. Runs `instr-cli instrument <apk> --results-json instrument_results.d/<apk>.json`, with the CLI output persisted to `instrument_results.d/<apk>.log`.
+2. Cross-checks that `results_dir/<basename>` exists. A clean exit is not proof of success — the single-APK subcommand prints compilation errors to stdout and exits 0 — so a missing output raises, pointing the operator at the log file.
+3. Demotes any `RuntimeError` or `SubprocessError` to an `InstrumentationError` entry rather than aborting the batch.
+
+After the loop, `_merge_per_apk_results` globs `instrument_results.d/*.json` and concatenates their `results` arrays into `instrument_results.json`, returning the per-APK counters. The merge runs after the loop rather than inside it precisely so that APKs the guard demoted still contribute their counters: the Java CLI writes its results JSON whether the weave succeeded or failed, and a failed APK's counters are what a post-mortem needs. A missing or malformed per-APK file is logged and skipped — losing a counter must not turn a successful batch into a failed one.
+
+### Artefacts written under `results_dir`
+
+| Artefact | Path | Written by |
+|---|---|---|
+| Merged results | `instrument_results.json` | Java CLI (`batch`) or `_merge_per_apk_results` (`apk_paths`) |
+| Per-APK results | `instrument_results.d/<apk>.json` | Java CLI, `apk_paths` path only |
+| CLI output | `instrument_results.d/<apk>.log` (per-APK), `instr-cli.log` (batch) | `_run_cli(log_path=...)` |
+| Error report | `instrument_errors.json` | `_persist_errors_json` (writes `{}` when clean) |
 
 ---
 
@@ -258,7 +293,30 @@ When `apk_paths` is a strict subset, the wrapper invokes the CLI once per APK (o
 
 **Key Class**:
 
-- `DexlibInstrumentation(Instrumenter)` — public methods `prepare_instrumentation()`, `instrument(app, result_dir)`, `instrument_apks(apks_dir, results_dir, apk_paths=None, force_instrumentation=False)`. Holds `config: DexlibInstrumentationConfig` and a structured `_logger`.
+- `DexlibInstrumentation(Instrumenter)` — public methods `prepare_instrumentation() -> None`, `instrument(app, result_dir) -> Path`, `instrument_apks(apks_dir, results_dir, force_instrumentation=False, apk_paths=None) -> InstrumentationResults`. Holds `config: DexlibInstrumentationConfig` and a structured `_logger`. Only `instrument_apks` is required by the ABC; the other two are variant-specific and reached through the concrete class.
+
+**Internal helpers**:
+
+- `_common_cli_args(output_dir)` — argv shared by both subcommands: `--descriptor`, `--output`, `--work-dir`, `--monitor-src-dir`, plus signing material and `--classpath` when configured. With `--monitor-src-dir` set the CLI runs the full compile+merge+sign pipeline; without it it stops at written DEXes (`phase=dex_only`).
+- `_run_cli(cli_args, log_path=None)` — builds `java [extra_java_args] -jar instr-cli.jar ...`, runs it with an explicit env and no wallclock timeout, writes argv/exit/elapsed/stdout/stderr to `log_path`, and raises `RuntimeError` on a non-zero exit.
+- `_merge_per_apk_results(per_apk_dir, results_json)` — concatenates the per-APK results into the merged document and returns the counters (INV-INS-105).
+- `_parse_results_json(path)` — reads the batch document into `InstrumentationResults`, collecting `weaveCounts` and per-APK errors. An absent file yields a single `__run__` error: the CLI writes the JSON even when every APK fails, so its absence means the subprocess died first.
+- `_persist_errors_json(results, results_dir)` — writes `instrument_errors.json`.
+- `_first_descriptor()` — the first glob match; the corpus emits one merged descriptor per spec-set run, so "first" is canonical.
+
+### Weaver counters
+
+`InstrumentationResults.weave_counts` carries the Java `BatchRunner`'s per-APK counters, keyed by APK name. They exist so a side effect of a weaving change is measurable rather than inferred.
+
+| Group | Keys | Reads as |
+|---|---|---|
+| Reach | `classesSeen`, `methodsSeen`, `matchesApplied` | How much of the APK the weaver walked and changed. |
+| Declined | `plansSkipped`, `plansSkippedAliasing`, `plansSkippedUnresolvedBinding` (INV-INS-71), `plansSkippedHighRegister` | What the weaver did not apply. `plansSkippedHighRegister` is where emitting more invokes per site pushing a method over its register budget shows up. |
+| Wrappers | `wrappersGenerated`, `wrappersSubstituted`, `wrappersAliasedToSubtype`, `constructorInlineApplied`, `constructorInlineSkippedAliasing` | Wrapper emission and call-site substitution. |
+| Arity | `advicesExcludedByArity` (INV-INS-122) | Advice/overload pairs whose positional `args()` arity does not fit the overload they are grouped onto. A measurement only — every one of them still fires. Always written, so `0` means "measured none" rather than "not measured", and it covers wrapper-path after-advices only: before-side and constructor advices never reach the grouping loop. |
+| Coverage | `coverageInstrumented`, `coverageSpillFailed` | Present only when the coverage weaver ran. |
+
+The figure also depends on the resolved `android.jar`, not only on the descriptor — an overload set can widen between API levels — which is why `_run_cli` persists the CLI log that names the resolved platform jar.
 
 **Dependencies**:
 
@@ -306,7 +364,7 @@ Reference: `docs/PRD.md` Section 7.
 | Performance | NFR01 | P0 | Single-JVM batch path (one `instr-cli.jar` invocation for the whole `apks_dir`) eliminates per-APK JVM startup cost, which dominates throughput when processing hundreds of APKs. |
 | Maintainability | NFR02 | P0 | Flat package structure; one public class; descriptor JSON is the single contract surface with `rv-monitor-generator`. |
 | Extensibility | NFR03 | P1 | Variant selection lives in the parent factory — adding a future `dexlib3` variant requires only a new `Instrumenter` impl and a factory branch, no changes here. |
-| Reliability | NFR04 | P1 | Silent-failure cross-check (`_demote_silent_failures`) catches CLI bugs where exit code 0 ships a missing output APK; per-APK demotion prevents one APK from poisoning the batch. |
+| Reliability | NFR04 | P1 | Silent-failure cross-check (`_demote_silent_failures`) catches CLI bugs where exit code 0 ships a missing output APK; per-APK demotion prevents one APK from poisoning the batch. Persisted CLI logs and per-APK counters make a failed run diagnosable after the fact rather than only while it runs. |
 | Testability | NFR07 | P1 | Subprocess invocation is the only side-effect, making mock-based unit tests straightforward; `DexlibInstrumentationConfig` is fully constructible from in-memory paths. |
 
 ---
@@ -315,30 +373,34 @@ Reference: `docs/PRD.md` Section 7.
 
 ### Instrumenter (from `rv-instrumentation-core`)
 
+`instrument_apks` is the ABC's only abstract method. Single-APK helpers, `check_if_instrumented` and `prepare_instrumentation` are deliberately variant-specific: consumers needing them import the concrete class. The ABC also supplies `_resolve_runtime_libs` as a Template Method shared with the AJC variant.
+
 ```python
 class Instrumenter(ABC):
-    """Abstract instrumentation backend. Variants implement this."""
-
-    @abstractmethod
-    def prepare_instrumentation(self) -> None:
-        """Validate config, populate runtime classpath. Raises on misconfig."""
-        ...
-
-    @abstractmethod
-    def instrument(self, app: App, result_dir: Path) -> InstrumentationResults:
-        """Instrument a single App; emit results into result_dir."""
-        ...
+    """Contract every instrumentation variant MUST satisfy."""
 
     @abstractmethod
     def instrument_apks(
         self,
-        apks_dir: Path,
-        results_dir: Path,
-        apk_paths: Optional[List[Path]] = None,
+        apks_dir,
+        results_dir,
         force_instrumentation: bool = False,
+        apk_paths: Optional[List[str]] = None,
     ) -> InstrumentationResults:
-        """Instrument every APK in apks_dir (or the strict subset apk_paths)."""
+        """Instrument every APK in apks_dir (or the strict subset apk_paths).
+
+        Each apk_paths item is a complete path; the variant must NOT re-join
+        it with apks_dir.
+        """
         ...
+
+    def _resolve_runtime_libs(
+        self,
+        rvsec_root: Path,
+        lib_tmp_dir: Path,
+        timeout_seconds: int = 600,
+    ) -> List[Path]:
+        """mvn dependency:copy-dependencies into lib_tmp_dir; returns jar paths."""
 ```
 
 ```mermaid
@@ -346,20 +408,22 @@ class Instrumenter(ABC):
 classDiagram
     class Instrumenter {
         <<interface>>
-        +prepare_instrumentation()*
-        +instrument(app, result_dir)*
-        +instrument_apks(apks_dir, results_dir, apk_paths, force)*
+        +instrument_apks(apks_dir, results_dir, force, apk_paths)*
+        #_resolve_runtime_libs(rvsec_root, lib_tmp_dir, timeout)
     }
 
     class DexlibInstrumentation {
         +config: DexlibInstrumentationConfig
-        +prepare_instrumentation()
-        +instrument(app, result_dir)
-        +instrument_apks(apks_dir, results_dir, apk_paths, force)
-        -_build_subprocess_env()
-        -_demote_silent_failures()
-        -_common_cli_args()
-        -_resolve_rvsec_root_or_raise()
+        +prepare_instrumentation() None
+        +instrument(app, result_dir) Path
+        +instrument_apks(apks_dir, results_dir, force, apk_paths) InstrumentationResults
+        -_common_cli_args(output_dir)
+        -_run_cli(cli_args, log_path)
+        -_merge_per_apk_results(per_apk_dir, results_json)
+        -_parse_results_json(path)
+        -_persist_errors_json(results, results_dir)
+        -_first_descriptor()
+        -_env_extras()
     }
 
     class AjcInstrumentation {
@@ -420,9 +484,11 @@ assert results.variant == "dexlib2"
 **Flow**:
 
 1. Wrapper parses `instrument_results.json` — the entry shows success.
-2. `_demote_silent_failures` walks the results and checks `Path(result.instrumented_path).exists()`.
-3. The missing entry is rebuilt as an `InstrumentationError(phase="dexlib2_pipeline", ...)`.
+2. `_demote_silent_failures` re-reads `results_dir/instrument_results.json` — the parsed `InstrumentationResults` no longer carries per-APK success flags — and for each entry claiming success checks whether `results_dir/<apkName>` is a file.
+3. The missing entry is rebuilt as an `InstrumentationError(phase="dexlib2_pipeline", ...)` and `success_count` is decremented. `weave_counts` survives the rebuild: demotion changes the verdict on an APK, not what the weaver did to it.
 4. The corrected `InstrumentationResults` is returned to the caller and persisted, preventing phantom successes from poisoning downstream coverage analysis.
+
+The `apk_paths` path does not use this function — it checks each output APK inline, immediately after the run that should have produced it.
 
 ---
 
@@ -431,7 +497,7 @@ assert results.variant == "dexlib2"
 - **New aspect construct support**: extend the descriptor schema in `rv-monitor-generator` and the corresponding weaver in the Java CLI. The Python wrapper requires no changes — descriptor parsing happens entirely on the Java side.
 - **Alternative CLI override**: set `cli_jar_path` to a development build or a Docker-mounted jar to test weaver changes without reinstalling.
 - **Extra classpath entries**: append to `extra_classpath` to pull additional libraries into the Java CLI's javac classpath when the rv-monitor-emitted Java sources reference them.
-- **Subprocess environment**: `_build_subprocess_env` injects `RVSEC_KEYSTORE`, `RVSEC_KEYSTORE_PASS`, `RVSEC_KEYSTORE_ALIAS`, `RVSEC_KEY_PASS` only when the corresponding config fields are set, allowing the Java CLI to fall back to its own defaults otherwise.
+- **Subprocess environment**: `_build_subprocess_env` forwards only `PATH`, `HOME`, `JAVA_HOME`, `ANDROID_HOME` and `RVSEC_HOME`, layering on `RVSEC_KEYSTORE` / `RVSEC_KEYSTORE_PASS` when `keystore_file` / `keystore_password` are set so the Java CLI falls back to its own defaults otherwise. Wholesale `os.environ` propagation is forbidden by INV-EXP-30 — it would leak user-facing `RV_*` values past Layer Purity boundaries into the Java process. Alias and key password travel as `--key-alias` / `--key-pass` argv, not env.
 
 ## Dependencies
 
@@ -454,7 +520,7 @@ assert results.variant == "dexlib2"
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | `tests/test_dexlib_instrumentation.py` | Argv assembly, env injection, descriptor presence checks, results parsing, `_demote_silent_failures` cross-check logic — all with the Java CLI mocked. |
+| Unit | `tests/test_dexlib_instrumentation.py` (26 tests) | Argv assembly, env injection, descriptor presence checks, results parsing, `_demote_silent_failures` cross-check logic, runtime-jar allowlist, per-APK results merge and counter propagation (including an APK that never landed), CLI log persistence, and `advicesExcludedByArity` reaching Python — all with the Java CLI mocked. |
 | End-to-end (validator) | `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/validator/` | `BaksmaliDiffer`, `BootValidator`, `TraceComparator`, `BatchValidator`, `CoverageValidator`, `FeatureMappingChecker` exercise the full pipeline against real APKs from the JCA-400 dataset (Java side; not part of this Python module's tests). |
 
 ## Related Documentation
@@ -466,5 +532,5 @@ assert results.variant == "dexlib2"
 - [rv-instrumentation parent](../../rv-instrumentation/) — Parent facade with `get_instrumenter()` factory.
 - [rv-instrumentation-ajc architecture](../../rv-instrumentation-ajc/docs/architecture.md) — Sibling AJC variant (for comparison).
 - `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` — Java aggregator implementing the weaver.
-- `docs/LIMITATIONS.md` — Out-of-scope AspectJ constructs.
-- `docs/AJ_TO_DEXLIB2_MAPPING.md` — Construct-to-component mapping.
+- [`rv-android/docs/LIMITATIONS.md`](../../../docs/LIMITATIONS.md) — Out-of-scope AspectJ constructs.
+- [`rv-android/docs/AJ_TO_DEXLIB2_MAPPING.md`](../../../docs/AJ_TO_DEXLIB2_MAPPING.md) — Construct-to-component mapping.

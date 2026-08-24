@@ -84,7 +84,7 @@ ExperimentConfig (Pydantic BaseValidatedModel):
   generate_monitors: bool             # Enable monitor generation phase (default: True)
   instrument_apks: bool               # Enable APK instrumentation phase (default: True)
   run_static_analysis: bool           # Enable static analysis phase (default: True)
-  specification_set: str              # "jca", "generic", or "custom"
+  specification_set: str              # "jca", "jca_android", "generic", or "custom"
   custom_specs_dir: Optional[str]     # Required when specification_set == "custom"
   custom_aspects_dir: Optional[str]   # Optional custom AspectJ aspects directory
   apks_dir: str                       # Source APK directory (default: "./apks_examples/")

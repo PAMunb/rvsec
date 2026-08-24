@@ -2,7 +2,17 @@
 
 ## Status
 
-Accepted
+Accepted. The decision stands; two details of the surrounding code have since been refined, and the
+current rule is the one to read from `architecture.md`, not from the Context below:
+
+- Block closing (INV-ANA-56/57): a line under a tag that is not a diagnostic tag no longer closes an
+  open block. Logcat merges every process into one stream, so an interleaved foreign line says
+  nothing about whether the block ended. A block is closed by a key change, a new block start, a
+  non-threadtime line, or `flush()` — which makes the caller's obligation to flush stricter, not
+  weaker, since a block open at end of input is now emitted only there.
+- `parse_logcat_line` takes an optional `diagnostics` parameter (INV-ANA-62). The return type, the
+  parse and the public API are unchanged; the parameter only names the `ParserDiagnostics` object
+  the counters land on.
 
 ## Date
 

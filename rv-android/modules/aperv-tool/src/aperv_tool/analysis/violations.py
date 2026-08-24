@@ -160,8 +160,9 @@ class CsvDiagnostics:
 
     Attributes:
         rows: Data rows read.
-        unique_msg_unparsed: Rows whose `unique_msg` did not carry the five
-            `:::`-joined fields, and whose `violation_type` is therefore empty.
+        unique_msg_unparsed: Rows whose `unique_msg` did not carry the seven
+            `:::`-joined fields, and whose `violation_type`, `code` and `event` are
+            therefore empty. A five-part key of the previous identity era lands here.
             Counted rather than raised: the event itself is intact.
         unique_msg_disagrees: Rows whose `code`/`event` recovered from `unique_msg`
             differ from the CSV's own `code`/`event` columns. Both are written by one

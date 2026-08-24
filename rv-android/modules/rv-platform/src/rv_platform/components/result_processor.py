@@ -575,14 +575,14 @@ class ResultProcessorComponent:
 
         Requirement "Result Generation (FR14)", Scenario "Errors CSV Format".
 
-        The header carries 11 columns: `source` sits after `method` so the row reads
-        identity first, then evidence — `spec, class, method, source, message`. It
-        records where the violation happened without letting the position into any
-        key, which is the whole point of gh89: a source line inside `class`/`method`
-        makes one misuse count once per line. Every known consumer (`rvsec-dataset`
-        `unittests/report.py` and `unittests/classify.py`, the `ase-journal` analysis
-        scripts) addresses columns by name, so appending a column is compatible; that
-        was verified, not assumed.
+        The header carries the 13 columns of `ERRORS_CSV_COLUMNS` (INV-PLT-19). The row
+        reads identity first, then evidence — `spec, class, method, source, code, event,
+        message`. `source` records where the violation happened without letting the
+        position into any key, which is the whole point of gh89: a source line inside
+        `class`/`method` makes one misuse count once per line. Every known consumer
+        (`rvsec-dataset` `unittests/report.py` and `unittests/classify.py`, the
+        `ase-journal` analysis scripts) addresses columns by name, so appending a column
+        is compatible; that was verified, not assumed.
 
         Args:
             completed_tasks: List of completed tasks to process
