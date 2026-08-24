@@ -33,7 +33,9 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
         return value.replace("'", "\\'");
     }
 
-    List<String> algorithms = Arrays.asList("PKIX");
+    // D-15: TrustManagerFactory.crysl states `algorithm in {"PKIX", "SunX509"}`. Same
+    // disposition as KeyManagerFactorySpec: `SunX509` is inert on Android, not removable.
+    List<String> algorithms = Arrays.asList("PKIX", "SunX509");
     String currentAlgorithmInstance = "";
 
     // Staged by `init` for the acceptance-point handler, which sees no event parameter,

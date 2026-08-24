@@ -64,6 +64,16 @@ import java.util.Locale;
  * transcription hunk, recorded in the conformance record against
  * {@code CipherSpec}, and the differential harness sizes it.
  */
+/*
+ * Superseded on 2026-08-24 by design D-15: this class has no caller. The value oracle of the
+ * `jca_android` set moved from the generated api30 rules to the expert-validated CrySL rules,
+ * and `jca_android/CipherSpec.mop` names `CipherTransformationUtil` instead. The class is kept
+ * because it is the record of what the withdrawn anchor said, which is what lets the two be
+ * compared; what it said, measured by executing both classes over the same inputs, is that
+ * `AES/ECB/PKCS5Padding`, `AES/ECB/NoPadding`, `DESede/CBC/PKCS5Padding`,
+ * `DESede/ECB/PKCS5Padding`, `BLOWFISH/ECB/NoPadding`, `ARC4` and `ChaCha20` are all admitted
+ * here and all accused by `CipherTransformationUtil`. It is not to be given a caller again.
+ */
 public final class Api30CipherTransformationUtil {
 
     /** {@code Cipher.cryptsl:121} -- {@code part(0,"/",transformation) in {...}}. */

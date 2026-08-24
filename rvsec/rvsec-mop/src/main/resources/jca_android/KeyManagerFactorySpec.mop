@@ -32,7 +32,10 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         return value.replace("'", "\\'");
     }
 
-    List<String> safeAlgorithms = Arrays.asList("PKIX");
+    // D-15: KeyManagerFactory.crysl states `algorithm in {"PKIX", "SunX509"}`. `SunX509`
+    // returns -- it names a JSE provider absent from Android, which makes it inert, not
+    // removable. `X509` keeps resolving to `PKIX` through the alias table.
+    List<String> safeAlgorithms = Arrays.asList("PKIX", "SunX509");
     String currentAlgorithmInstance = "";
 
     // Staged by `init` for the acceptance-point handler, which sees no event parameter,

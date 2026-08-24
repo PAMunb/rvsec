@@ -31,7 +31,11 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         return value.replace("'", "\\'");
     }
 
-    List<String> safeAlgorithms = Arrays.asList("DSA", "DH", "RSA", "EC");
+    // D-15: the five entries of KeyPairGenerator.crysl. `DiffieHellman` returns -- the api30
+    // clause named only its short form, and the frozen jca carried both. `EC` needs no
+    // divergence row any more: it is an expert entry, so the api30-omits exception D-10
+    // recorded for it has dissolved.
+    List<String> safeAlgorithms = Arrays.asList("RSA", "EC", "DSA", "DiffieHellman", "DH");
 
     // Staged by `gen` for the acceptance-point handler, which sees no event parameter, and
     // cleared the moment it is used or the sequence is rejected.
@@ -39,9 +43,14 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     String algorithm;
 
     private boolean validate(int keySize) {
+      // D-15: the four key-size clauses of KeyPairGenerator.crysl. `3072` returns to the RSA
+      // sizes -- the api30 rule had lost it and the frozen jca was right to carry it. The
+      // subject is upper-cased, so the label for `DiffieHellman` is its upper-case form; it
+      // shares the DH clause, `algorithm in {"DiffieHellman", "DH"} => keysize in {2048}`.
       switch(ConscryptAliasTable.canonical("KeyPairGenerator", algorithm).toUpperCase()) {
-        case "RSA": return Arrays.asList(4096, 2048).contains(keySize);
+        case "RSA": return Arrays.asList(4096, 3072, 2048).contains(keySize);
         case "DSA": return keySize == 2048;
+        case "DIFFIEHELLMAN":
         case "DH": return keySize == 2048;
         case "EC": return keySize == 256;
       }

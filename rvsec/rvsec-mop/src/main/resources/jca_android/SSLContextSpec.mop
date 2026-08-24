@@ -33,8 +33,14 @@ SSLContextSpec(SSLContext ctx) {
         return value.replace("'", "\\'");
     }
 
-   List<String> protocols = Arrays.asList("Default", "TLSv1.2", "TLSv1.1", "SSL", "TLSv1", "TLS",
-       "TLSv1.3");
+   // D-15: SSLContext.crysl states `protocol in {"TLSv1.2", "TLSv1.3"}` (the frozen jca
+   // spells them upper-case; comparison folds case). `TLS` is the single platform-value
+   // entry: Conscrypt binds SSLContext.TLS to the TLSv1.2/TLSv1.3 implementation
+   // (OpenSSLProvider.java:81), so an app asking for it provably gets a protocol the expert
+   // clause admits. `SSL` is NOT here -- Conscrypt binds it to the same implementation
+   // (:80), but through a `put`, not an Alg.Alias, and asking a provider for "SSL" is the
+   // misuse the rule is about (behavioural row in divergence_record.csv).
+   List<String> protocols = Arrays.asList("TLSV1.2", "TLSV1.3", "TLS");
    String currentProtocol = "";
 
    SSLContext context;

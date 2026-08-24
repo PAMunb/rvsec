@@ -33,7 +33,12 @@ SecureRandomSpec(SecureRandom r) {
     SecureRandom sr;
 
     // the expected algorithms for SecureRandom
-    List<String> algorithms = Arrays.asList("SHA1PRNG");
+    // D-15: the six entries of SecureRandom.crysl. Five of them name providers Android does
+    // not ship, so no application can obtain them and no verdict depends on them -- inert,
+    // not removable. Dropping an entry from an expert-validated list because the local
+    // platform lacks it is the unvalidated narrowing this re-anchoring exists to undo.
+    List<String> algorithms = Arrays.asList("SHA1PRNG", "Windows-PRNG", "NativePRNG",
+        "NativePRNGBlocking", "NativePRNGNonBlocking", "PKCS11");
 
     // api30 SecureRandom.cryptsl ensures `randomized` over three different objects:
     // the generator itself `after Ins`, the seed `generateSeed(int)` returns, and the

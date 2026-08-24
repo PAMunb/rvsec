@@ -14,7 +14,12 @@ import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
-import br.unb.cic.mop.jca.util.CipherTransformationUtil;
+// The static form, and bare calls below. The generator merges every specification of the set
+// into one monitor and dedupes imports by class name, keeping the first: if this file and
+// CipherSpec.mop import the same class in different forms, one of them loses and the monitor
+// does not compile. Both name it statically (task 11.3/11.9; caught by the harness, which is
+// the only instrument in the set that compiles what the gates only read as text).
+import static br.unb.cic.mop.jca.util.CipherTransformationUtil.*;
 
 /**
  * IvChainJunctionSpec
@@ -128,7 +133,7 @@ IvChainJunctionSpec(Cipher c) {
       args(encmode, *, params, ..) &&
       target(c) {
         String transformation = c.getAlgorithm();
-        String operationMode = CipherTransformationUtil.mode(transformation);
+        String operationMode = mode(transformation);
         boolean ivRequired = encmode == 1
             && operationMode != null
             && ivModes.contains(operationMode.trim().toUpperCase(Locale.ROOT));

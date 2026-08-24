@@ -25,7 +25,12 @@ MessageDigestSpec(MessageDigest digest) {
         return value.replace("'", "\\'");
     }
 
-    List<String> algorithms = Arrays.asList("MD5", "SHA-224", "SHA-256", "SHA-1", "SHA-512", "SHA-384");
+    // D-15: the value oracle is the expert-validated rule, not the api30 catalogue.
+    // MessageDigest.crysl states `algorithm in {"SHA-256", "SHA-384", "SHA-512"}`; the three
+    // unhyphenated entries are the frozen jca's spelling variants of the same three, kept
+    // because comparison folds case and resolves aliases, so they change no verdict.
+    // `SHA-224` is NOT here: the platform offers it and the experts omit it (oracle-wart).
+    List<String> algorithms = Arrays.asList("SHA-256", "SHA-384", "SHA-512", "SHA256", "SHA384", "SHA512");
     // api30 MessageDigest.cryptsl states `digested[out, _]` and `digested[out, inbytearr]`
     // over the array the digest events produce, and a handler sees no event parameter, so
     // the three events stage the array and the acceptance handler consumes it. Cleared on

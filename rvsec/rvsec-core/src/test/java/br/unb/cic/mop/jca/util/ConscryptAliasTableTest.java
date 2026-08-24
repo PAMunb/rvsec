@@ -43,10 +43,20 @@ public class ConscryptAliasTableTest {
         }
     }
 
+    /**
+     * The extraction was 158 rows until task 11.6 (D-15) added the eleven
+     * multi-line {@code Alg.Alias} registrations that a single-line regex had
+     * missed: six {@code Signature} composite OIDs resolving to
+     * {@code SHA{224,256,384,512}withRSA} ({@code OpenSSLProvider.java:234-262})
+     * and five {@code Cipher.RSA/None/OAEP*} ({@code :339-355}). The six
+     * {@code Signature} rows were live false-accusation vectors: without them an
+     * application signing under the composite OID was reported for an algorithm
+     * the platform resolves to one the rule admits.
+     */
     @Test
-    public void tableHasTheOneHundredAndFiftyEightExtractedRows() throws IOException {
-        assertEquals(158, readRegistry().size());
-        assertEquals(158, ConscryptAliasTable.rows().size());
+    public void tableHasTheOneHundredAndSixtyNineExtractedRows() throws IOException {
+        assertEquals(169, readRegistry().size());
+        assertEquals(169, ConscryptAliasTable.rows().size());
     }
 
     // --- the corrected pointers of the two rows the pivot brief got wrong ---

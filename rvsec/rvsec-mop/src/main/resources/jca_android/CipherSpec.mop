@@ -13,8 +13,27 @@ import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
-import br.unb.cic.mop.jca.util.CipherTransformationUtil;
-import static br.unb.cic.mop.jca.util.Api30CipherTransformationUtil.*;
+// D-15: the value oracle is the expert-validated Cipher.crysl, and CipherTransformationUtil
+// is the transcription of it the published numbers were measured with. The freeze on that
+// class (INV-INS-109/118) forbids editing it, not calling it: it stays byte-identical and
+// gains a second caller, so no verdict of the frozen jca moves.
+//
+// What the withdrawn api30 anchor cost here is the sharpest case for the reversal, and it is
+// recorded because no published number shows it: Api30CipherTransformationUtil admits
+// AES/ECB/PKCS5Padding -- ECB is a member of the transcribed AES mode clause and no
+// transcribed padding clause covers ECB, so isValid falls through to `return true` -- and
+// likewise DESede, BLOWFISH, ARC4 and ChaCha20 under any mode. Every one of those is accused
+// by the class named below. ECB is the misuse this line of work exists to detect.
+//
+// Api30CipherTransformationUtil is deliberately not deleted: it keeps no caller and stays as
+// the record of what the withdrawn anchor said, which is what makes the two comparable.
+//
+// Only the static import is written, and the one call that used to qualify the class name is
+// bare below. The generator dedupes imports by class name and keeps the first: written both
+// ways it drops the static one, and the monitor then fails to compile on `isValid` -- caught
+// by the harness, not by a grep of the lists. The frozen jca imports the same class the same
+// single way.
+import static br.unb.cic.mop.jca.util.CipherTransformationUtil.*;
 
 
 /**
@@ -27,7 +46,7 @@ import static br.unb.cic.mop.jca.util.Api30CipherTransformationUtil.*;
  */
 CipherSpec(Cipher c) {
 
-    String expectedTransformations = "a transformation admitted by Api30CipherTransformationUtil (api30 Cipher.cryptsl)";
+    String expectedTransformations = "a transformation admitted by CipherTransformationUtil (expert Cipher.crysl)";
     // The envelope's quoting rule (design D-3): a null value is the empty string,
     // a single quote is escaped so it cannot close the field early, and the value
     // is capped so a pathological argument cannot push the record past the
@@ -137,7 +156,7 @@ CipherSpec(Cipher c) {
      args(mode, key, ..) &&
      target(c) {
         PredicateVerdict asSecretKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key,
-            CipherTransformationUtil.alg(c.getAlgorithm()));
+            alg(c.getAlgorithm()));
         PredicateVerdict asPublicKey = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, key);
         PredicateVerdict asPrivateKey = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, key);
         PredicateVerdict origin = PredicateVerdict.NOT_OBSERVED;

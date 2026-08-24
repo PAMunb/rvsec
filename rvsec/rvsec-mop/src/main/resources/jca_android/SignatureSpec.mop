@@ -33,11 +33,14 @@ SignatureSpec(Signature s) {
         return value.replace("'", "\\'");
     }
 
-       List<String> algorithms = Arrays.asList("NONEwithRSA", "SHA1withDSA", "SHA224withECDSA", "MD5withRSA",
-            "SHA256withDSA", "SHA384withRSA/PSS", "DSAwithSHA1", "SHA384withRSA", "SHA512withRSA/PSS",
-            "SHA1withRSA/PSS", "SHA512withRSA", "SHA1withRSA", "NONEwithDSA", "SHA256withRSA/PSS",
-            "SHA224withRSA/PSS", "SHA256withRSA", "DSA", "SHA224withRSA", "SHA224withDSA", "DSS",
-            "SHA1withECDSA", "SHA256withECDSA", "SHA384withECDSA", "SHA512withECDSA");
+       // D-15: exactly the seven entries of Signature.crysl. The api30 catalogue admitted
+       // `NONEwithRSA` (raw RSA, no hash), `MD5withRSA`, `SHA1withRSA`, `SHA1withDSA`,
+       // `DSAwithSHA1` and `NONEwithDSA` -- the whole weak-signature family this
+       // specification exists to accuse. `SHA224withECDSA` and `SHA1withECDSA` are absent
+       // from the expert clause and stay absent (oracle-wart rows); the api30-omits row that
+       // added the four SHA*withECDSA is closed, three of them being expert entries.
+       List<String> algorithms = Arrays.asList("SHA256withRSA", "SHA256withECDSA", "SHA256withDSA",
+            "SHA384withRSA", "SHA512withRSA", "SHA384withECDSA", "SHA512withECDSA");
        String currentAlgorithmInstance = "";
 
        String expectedPrivateKey = "a private key produced by one of the generators the rule names";

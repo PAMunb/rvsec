@@ -32,8 +32,14 @@ KeyGeneratorSpec(KeyGenerator k) {
         return value.replace("'", "\\'");
     }
 
-    List<String> safeAlgorithms = Arrays.asList("ChaCha20", "ARC4", "HmacSHA224", "DESede", "HmacSHA256",
-        "HmacMD5", "HmacSHA1", "HmacSHA512", "AES", "BLOWFISH", "HmacSHA384");
+    // D-15: KeyGenerator.crysl states `algorithm in {"AES", "HmacSHA256", "HmacSHA384",
+    // "HmacSHA512"}`; the six HMAC[-/]SHA* entries are the frozen jca's spelling variants.
+    // `ARC4`, `DESede`, `BLOWFISH`, `ChaCha20`, `HmacMD5`, `HmacSHA1` and `HmacSHA224` leave
+    // with the api30 catalogue. The rule's second clause,
+    // `algorithm in {"AES"} => keysize in {128, 192, 256}`, stays a deferred constant: the
+    // published jca never tested it, and this change restores lists rather than adding
+    // accusation classes whose false-positive rate is unmeasured.
+    List<String> safeAlgorithms = Arrays.asList("AES", "HmacSHA256", "HmacSHA384", "HmacSHA512", "HMAC-SHA256", "HMAC/SHA256", "HMAC-SHA384", "HMAC/SHA384", "HMAC/SHA512", "HMAC-SHA512");
     String currentAlgorithmInstance = "";
 
     // Staged by `gk1` for the acceptance-point handler, which sees no event parameter, and
