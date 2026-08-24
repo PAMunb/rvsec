@@ -1415,33 +1415,102 @@ def read_records(set_dir_name: str, repo: Path) -> dict[str, list[dict]]:
     return records
 
 
+#: The verdicts that mean two value lists were compared and found to differ.
+#: A narrative divergence row can only ever be the account of one of these:
+#: it explains why a list the set carries differs from the list its clause
+#: declares. See `backing_record`.
+LIST_DIFFERENCE_VERDICTS = (
+    "MOP-MAIS-PERMISSIVO",
+    "MOP-MAIS-RESTRITIVO",
+    "DIVERGENTE",
+)
+
+#: The narrative divergence kinds. D-15 adds three to the one `api30-omits`
+#: that came before it, because the expert anchor admits three further ways a
+#: list may legitimately differ from its clause (INV-INS-125): a widening argued
+#: from a primary source, a quirk of the oracle transcribed rather than fixed,
+#: and a spelling the frozen set wrote into its list that the normalisation rule
+#: already covers.
+NARRATIVE_KINDS = ("api30-omits", "platform-value", "oracle-wart", "spelling-variant")
+
+#: Operators and call predicates that are part of a clause's shape. Everything
+#: else in a clause is either a literal value or a name the two oracles spell
+#: differently, which is exactly what `_clause_shape` must look past.
+CLAUSE_OPERATORS = re.compile(r"=>|&&|\|\||!=|==|>=|<=|>|<|\bnoCallTo\b|\bcallTo\b")
+
+
+def _clause_shape(text: str) -> tuple:
+    """What two spellings of the same clause have in common: its values and operators.
+
+    The conformance record was written against the generated api30 rules and the
+    expert rules spell the same clause differently -- `alg in {"AES"} => keySize in
+    {128, 192, 256}` against `algorithm in {"AES"} => keysize in {128, 192, 256}`,
+    and `encmode in {2, 4, 1, 3}` against `encmode in {1,2,3,4}`. A substring test
+    calls those different clauses, so the record that does account for them looks
+    absent, and the clause falls through to whatever looser rule sits below.
+
+    The shape drops the object names, which is where the two oracles disagree, and
+    keeps what they cannot disagree about: the sets of literal values, canonicalised
+    to lower case and order-free, and the operators. The operators are kept because
+    without them `part(1) in {CFB,PCBC,...} && encmode != 1 => noCallTo(IWOIV)` and
+    its `== 1 => callTo(iv)` twin collapse into one shape, and a record entry for
+    either would then answer for both.
+    """
+    sets = [
+        frozenset(
+            value.strip().strip('"').lower()
+            for value in _split_top_level(match.group(2))
+            if value.strip()
+        )
+        for match in IN_SET.finditer(text)
+    ]
+    operators = tuple(sorted(CLAUSE_OPERATORS.findall(text)))
+    return (tuple(sorted(sets, key=sorted)), operators)
+
+
 def backing_record(row: dict, records: dict[str, list[dict]]) -> str:
     """The record entry that accounts for one clause-level difference, or `unbacked`.
 
-    The match is by the CrySL object the clause constrains (`rule_object`) or by the
-    clause text the set declares it does not implement (`absent_from_mop`) -- not by
-    specification name. A record row for the specification says nothing about *this*
-    clause, and accepting it would make the gate agree with any record that mentions
-    the file at all.
+    The match is by the CrySL object the clause constrains (`rule_object`), by the
+    clause the set declares it does not implement (`absent_from_mop`), or -- for the
+    narrative divergence kinds -- by the kind being able to account for this row's
+    verdict at all. Never by specification name alone: a record row for the
+    specification says nothing about *this* clause, and accepting it would make the
+    gate agree with any record that mentions the file.
+
+    The last of those three tests is why this function is written out rather than
+    inlined. `divergence_record.csv` is keyed by hunk, so its rows are file-level and
+    carry no object; a row of one of the narrative kinds therefore cannot, on its own,
+    say which clause of its specification it is about. What it *can* say is what kind
+    of thing it explains: all four kinds explain why a value list the set carries
+    differs from the list its clause declares. A clause the set never implemented has
+    no list to differ, so no narrative row can be its account -- its account is a
+    `deferred-constant` entry in the clause-level `conformance_record.csv`. Without
+    that restriction one `oracle-wart` row about RSA/ECB padding was answering for
+    `encmode in {1,2,3,4}`, and one `spelling-variant` row about six HMAC entries was
+    answering for `algorithm in {"AES"} => keysize in {128,192,256}` -- both of which
+    have a correct, clause-level record entry that the substring test above had
+    stopped finding.
     """
     clause = row.get("clause", "")
     constrained = IN_SET.search(clause)
     obj = constrained.group(1) if constrained else ""
+    shape = _clause_shape(clause)
+    verdict = row.get("verdict", "")
     for spec in (row["spec"], row["spec"].removesuffix("Spec")):
         for entry in records.get(spec, []):
             if obj and entry.get("rule_object", "").strip() == obj:
                 return f"{entry['record']}: {entry.get('verdict', '').strip()}"
             absent = entry.get("absent_from_mop", "").strip()
-            if absent and absent not in ("-", "") and absent in clause:
-                return f"{entry['record']}: {entry.get('verdict', '').strip()}"
-            # D-15 adds three record kinds to the one `api30-omits` this looked
-            # for, because the expert anchor admits three further ways a list may
-            # legitimately differ from its clause (INV-INS-125). All three are
-            # narrative rows: a widening argued from a primary source, a quirk of
-            # the oracle transcribed rather than fixed, and a spelling the frozen
-            # set wrote into its list that the normalisation rule already covers.
+            if absent and absent not in ("-", ""):
+                if absent in clause or _clause_shape(absent) == shape:
+                    return f"{entry['record']}: {entry.get('verdict', '').strip()}"
             kind = entry.get("kind", "").strip()
-            if kind in ("api30-omits", "platform-value", "oracle-wart", "spelling-variant") and obj:
+            if (
+                kind in NARRATIVE_KINDS
+                and obj
+                and verdict in LIST_DIFFERENCE_VERDICTS
+            ):
                 return f"{entry['record']}: {kind}"
     return "unbacked"
 
@@ -1507,6 +1576,17 @@ def run_gates(
         "gates": {},
         "skipped": [],
     }
+
+    # The six structural gates read `properties` and nothing else, so a monitor
+    # that declares none makes every one of them report zero hits over zero
+    # input. Without this skip that reads as six green gates: the failure mode
+    # this suite exists to catch, one level up from the specifications it checks.
+    # A gate that measured nothing has to say so rather than answer "no findings".
+    if not properties:
+        report["skipped"].append(
+            "structural gates (G-2, G-2a, G-2b', G-2c, G-2d, G-6'): the monitor "
+            "declares no property, so they examined nothing"
+        )
 
     def gate(name: str, hits: list[dict], notes: list[dict] | None = None) -> None:
         """
@@ -1833,7 +1913,17 @@ def run_gates(
             len(predicate_sites(mop.text)) for mop in specs.values()
         )
 
-    report["ok"] = not any(gate["failures"] for gate in report["gates"].values())
+    # A skip is not a pass. Every branch above degrades to a recorded skip rather
+    # than an exception, which is what lets the suite name the input it lacked --
+    # but for that to be worth anything the verdict has to read the record. It did
+    # not: `ok` came from the failure lists alone, so a monitor with no property
+    # and no oracle scored nine green gates and exit 0. The two states stay
+    # distinguishable in the report -- `skipped` names what did not run, the
+    # per-gate `failures` name what did -- and neither of them is green.
+    report["ok"] = (
+        not any(gate["failures"] for gate in report["gates"].values())
+        and not report["skipped"]
+    )
     return report
 
 
@@ -1841,9 +1931,10 @@ def main() -> int:
     """
     Parse arguments, run the gates, print the report and return an exit code.
 
-    Exit 2 for a monitor that is not on disk, 1 for any failure, 0 otherwise. The
-    skips are printed to stderr next to the JSON report so that a green run whose
-    gates were skipped cannot be read as a green run.
+    Exit 2 for a monitor that is not on disk, 1 for any failure **or any gate that
+    did not run**, 0 only when every gate ran and every one of them was clean. The
+    skips are also printed to stderr next to the JSON report, but the exit code is
+    what a caller reads, so a skipped gate has to move it.
     """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--monitor", type=Path, required=True)
