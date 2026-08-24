@@ -2,11 +2,13 @@
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
 - **B** `/home/pedro/.cache/gh104-tmp/jca_mutant`
-- traces: 5
+- traces: 7
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
 | `KeyStoreSpec-androidkeystore.txt` | unchanged | gk1:?, load:? | gk1:?, load:? |
+| `KeyStoreSpec-d15-jks.txt` | unchanged | — | — |
+| `KeyStoreSpec-d15-pkcs12.txt` | unchanged | — | — |
 | `KeyStoreSpec-getkey-iv.txt` | unchanged | — | — |
 | `KeyStoreSpec-guard-on-field.txt` | unchanged | gk1:?, load:? | gk1:?, load:? |
 | `KeyStoreSpec-jks.txt` | unchanged | — | — |

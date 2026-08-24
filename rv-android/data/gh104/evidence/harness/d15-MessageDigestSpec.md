@@ -2,10 +2,13 @@
 
 - **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/f3df4e36-cdd1-4c58-a57b-9ec2804d6c42/scratchpad/before`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
-- traces: 7
+- traces: 10
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `MessageDigestSpec-d15-md5.txt` | introduced | — | d1:MESSAGEDIGEST-ORDER-00, g4:MESSAGEDIGEST-ALG-02, update:MESSAGEDIGEST-ALG-00, update:MESSAGEDIGEST-ORDER-00 |
+| `MessageDigestSpec-d15-sha1-alias.txt` | introduced | — | d1:MESSAGEDIGEST-ORDER-00, g4:MESSAGEDIGEST-ALG-02, update:MESSAGEDIGEST-ALG-00, update:MESSAGEDIGEST-ORDER-00 |
+| `MessageDigestSpec-d15-sha1.txt` | introduced | — | d1:MESSAGEDIGEST-ORDER-00, g4:MESSAGEDIGEST-ALG-02, update:MESSAGEDIGEST-ALG-00, update:MESSAGEDIGEST-ORDER-00 |
 | `MessageDigestSpec-guard-on-field.txt` | unchanged | d1:MESSAGEDIGEST-ORDER-00, update:MESSAGEDIGEST-ORDER-00 | d1:MESSAGEDIGEST-ORDER-00, update:MESSAGEDIGEST-ORDER-00 |
 | `MessageDigestSpec-md5-only.txt` | introduced | — | g4:MESSAGEDIGEST-ALG-02 |
 | `MessageDigestSpec-md5.txt` | introduced | — | d1:MESSAGEDIGEST-ORDER-00, g4:MESSAGEDIGEST-ALG-02, update:MESSAGEDIGEST-ALG-00, update:MESSAGEDIGEST-ORDER-00 |
@@ -21,6 +24,18 @@
 
 ## Envelopes
 
+- `MessageDigestSpec-d15-md5.txt` (B) `spec=MessageDigestSpec,ev=g4,type=UnsafeAlgorithm,msg=v=1 code=MESSAGEDIGEST-ALG-02 ev=g4 obj=MessageDigest val='MD5' exp='SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512' msg='expecting one of SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512 but found MD5'`
+- `MessageDigestSpec-d15-md5.txt` (B) `spec=MessageDigestSpec,ev=update,type=UnsafeAlgorithm,msg=v=1 code=MESSAGEDIGEST-ALG-00 ev=update obj=MessageDigest val='MD5' exp='SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512' msg='expecting one of SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512 but found MD5'`
+- `MessageDigestSpec-d15-md5.txt` (B) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MESSAGEDIGEST-ORDER-00 ev=update obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'`
+- `MessageDigestSpec-d15-md5.txt` (B) `spec=MessageDigestSpec,ev=d1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MESSAGEDIGEST-ORDER-00 ev=d1 obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'`
+- `MessageDigestSpec-d15-sha1-alias.txt` (B) `spec=MessageDigestSpec,ev=g4,type=UnsafeAlgorithm,msg=v=1 code=MESSAGEDIGEST-ALG-02 ev=g4 obj=MessageDigest val='SHA1' exp='SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512' msg='expecting one of SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512 but found SHA1'`
+- `MessageDigestSpec-d15-sha1-alias.txt` (B) `spec=MessageDigestSpec,ev=update,type=UnsafeAlgorithm,msg=v=1 code=MESSAGEDIGEST-ALG-00 ev=update obj=MessageDigest val='SHA1' exp='SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512' msg='expecting one of SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512 but found SHA1'`
+- `MessageDigestSpec-d15-sha1-alias.txt` (B) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MESSAGEDIGEST-ORDER-00 ev=update obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'`
+- `MessageDigestSpec-d15-sha1-alias.txt` (B) `spec=MessageDigestSpec,ev=d1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MESSAGEDIGEST-ORDER-00 ev=d1 obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'`
+- `MessageDigestSpec-d15-sha1.txt` (B) `spec=MessageDigestSpec,ev=g4,type=UnsafeAlgorithm,msg=v=1 code=MESSAGEDIGEST-ALG-02 ev=g4 obj=MessageDigest val='SHA-1' exp='SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512' msg='expecting one of SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512 but found SHA-1'`
+- `MessageDigestSpec-d15-sha1.txt` (B) `spec=MessageDigestSpec,ev=update,type=UnsafeAlgorithm,msg=v=1 code=MESSAGEDIGEST-ALG-00 ev=update obj=MessageDigest val='SHA-1' exp='SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512' msg='expecting one of SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512 but found SHA-1'`
+- `MessageDigestSpec-d15-sha1.txt` (B) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MESSAGEDIGEST-ORDER-00 ev=update obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'`
+- `MessageDigestSpec-d15-sha1.txt` (B) `spec=MessageDigestSpec,ev=d1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MESSAGEDIGEST-ORDER-00 ev=d1 obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'`
 - `MessageDigestSpec-guard-on-field.txt` (A) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MESSAGEDIGEST-ORDER-00 ev=update obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'`
 - `MessageDigestSpec-guard-on-field.txt` (A) `spec=MessageDigestSpec,ev=d1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MESSAGEDIGEST-ORDER-00 ev=d1 obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'`
 - `MessageDigestSpec-guard-on-field.txt` (B) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MESSAGEDIGEST-ORDER-00 ev=update obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'`

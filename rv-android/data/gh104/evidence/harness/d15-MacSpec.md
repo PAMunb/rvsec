@@ -2,10 +2,11 @@
 
 - **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/f3df4e36-cdd1-4c58-a57b-9ec2804d6c42/scratchpad/before`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
-- traces: 10
+- traces: 11
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `MacSpec-d15-hmacpbesha1.txt` | moved | f1:MAC-ORDER-00, i1:MAC-ALG-00, i1:MAC-ORDER-00, update:MAC-ORDER-00, updateBytes:MAC-ORDER-00 | f1:MAC-ORDER-00, i1:MAC-ORDER-00, update:MAC-ORDER-00, updateBytes:MAC-ORDER-00 |
 | `MacSpec-decrypt-buffer.txt` | unchanged | c1:SECRETKEYSPEC-NOBS-00, f2:MAC-CONSTR-00, i2:CIPHER-NOBS-00 | c1:SECRETKEYSPEC-NOBS-00, f2:MAC-CONSTR-00, i2:CIPHER-NOBS-00 |
 | `MacSpec-encrypted-buffer.txt` | unchanged | c1:SECRETKEYSPEC-NOBS-00, f2:MAC-CONSTR-00, i2:CIPHER-NOBS-00 | c1:SECRETKEYSPEC-NOBS-00, f2:MAC-CONSTR-00, i2:CIPHER-NOBS-00 |
 | `MacSpec-fresh-buffer.txt` | unchanged | c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00 | c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00 |
@@ -19,6 +20,15 @@
 
 ## Envelopes
 
+- `MacSpec-d15-hmacpbesha1.txt` (A) `spec=MacSpec,ev=i1,type=UnsafeAlgorithm,msg=v=1 code=MAC-ALG-00 ev=i1 obj=Mac val='HmacPBESHA1' exp='PBEwithHmacSHA256,PBEwithHmacSHA1,HmacSHA224,HmacSHA256,HmacMD5,HmacSHA512,PBEwithHmacSHA512,HmacSHA384,PBEwithHmacSHA384,PBEwithHmacSHA224,PBEwithHmacSHA,HmacSHA1' msg='expecting one of PBEwithHmacSHA256,PBEwithHmacSHA1,HmacSHA224,HmacSHA256,HmacMD5,HmacSHA512,PBEwithHmacSHA512,HmacSHA384,PBEwithHmacSHA384,PBEwithHmacSHA224,PBEwithHmacSHA,HmacSHA1 but found HmacPBESHA1'`
+- `MacSpec-d15-hmacpbesha1.txt` (A) `spec=MacSpec,ev=i1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=i1 obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`
+- `MacSpec-d15-hmacpbesha1.txt` (A) `spec=MacSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=update obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`
+- `MacSpec-d15-hmacpbesha1.txt` (A) `spec=MacSpec,ev=updateBytes,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=updateBytes obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`
+- `MacSpec-d15-hmacpbesha1.txt` (A) `spec=MacSpec,ev=f1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=f1 obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`
+- `MacSpec-d15-hmacpbesha1.txt` (B) `spec=MacSpec,ev=i1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=i1 obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`
+- `MacSpec-d15-hmacpbesha1.txt` (B) `spec=MacSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=update obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`
+- `MacSpec-d15-hmacpbesha1.txt` (B) `spec=MacSpec,ev=updateBytes,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=updateBytes obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`
+- `MacSpec-d15-hmacpbesha1.txt` (B) `spec=MacSpec,ev=f1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=MAC-ORDER-00 ev=f1 obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'`
 - `MacSpec-decrypt-buffer.txt` (A) `spec=SecretKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='' exp='prepared key material' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to have been prepared by a Key.getEncoded()'`
 - `MacSpec-decrypt-buffer.txt` (A) `spec=CipherSpec,ev=i2,type=UnsatisfiedConstraint,msg=v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'`
 - `MacSpec-decrypt-buffer.txt` (A) `spec=MacSpec,ev=f2,type=UnsatisfiedConstraint,msg=v=1 code=MAC-CONSTR-00 ev=f2 obj=Mac val='encrypted' exp='not encrypted' msg='the buffer the mac is written into already holds ciphertext'`

@@ -70,7 +70,7 @@ accusations all carry the OAEP spelling. It is nonetheless the sharpest loss the
 anchor caused: `Api30CipherTransformationUtil` admits it, `CipherTransformationUtil` accuses
 it, and ECB is the misuse the crypto-API literature reports first. Costing no published
 number is precisely why it needed a trace of its own rather than a replay
-(`data/gh104/traces/d15-CipherSpec-aes-ecb-pkcs5.txt`, task 11.9): a false negative that
+(`data/gh104/traces/CipherSpec-d15-aes-ecb-pkcs5.txt`, task 11.9): a false negative that
 moves no number is one that travels into the next campaign unwitnessed.
 
 ## Reproducing

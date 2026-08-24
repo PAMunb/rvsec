@@ -2,10 +2,13 @@
 
 - **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/f3df4e36-cdd1-4c58-a57b-9ec2804d6c42/scratchpad/before`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
-- traces: 5
+- traces: 8
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `KeyGeneratorSpec-d15-arc4.txt` | unchanged | gk1:KEYGENERATOR-ORDER-00, init:KEYGENERATOR-ORDER-00 | gk1:KEYGENERATOR-ORDER-00, init:KEYGENERATOR-ORDER-00 |
+| `KeyGeneratorSpec-d15-desede.txt` | moved | gk1:KEYGENERATOR-ORDER-00, init:KEYGENERATOR-ORDER-00 | gk1:KEYGENERATOR-ALG-00, gk1:KEYGENERATOR-ORDER-00, init:KEYGENERATOR-ORDER-00 |
+| `KeyGeneratorSpec-d15-hmacmd5.txt` | moved | gk1:KEYGENERATOR-ORDER-00, init:KEYGENERATOR-ORDER-00 | gk1:KEYGENERATOR-ALG-00, gk1:KEYGENERATOR-ORDER-00, init:KEYGENERATOR-ORDER-00 |
 | `KeyGeneratorSpec-guard-on-field.txt` | unchanged | gk1:KEYGENERATOR-ORDER-00, init:KEYGENERATOR-ORDER-00 | gk1:KEYGENERATOR-ORDER-00, init:KEYGENERATOR-ORDER-00 |
 | `KeyGeneratorSpec-rangen-unobserved.txt` | removed | g4:SECURERANDOM-ALG-00, initRandomSize:KEYGENERATOR-NOBS-01 | — |
 | `KeyGeneratorSpec-rangen.txt` | unchanged | — | — |
@@ -14,6 +17,20 @@
 
 ## Envelopes
 
+- `KeyGeneratorSpec-d15-arc4.txt` (A) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=init obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-arc4.txt` (A) `spec=KeyGeneratorSpec,ev=gk1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=gk1 obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-arc4.txt` (B) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=init obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-arc4.txt` (B) `spec=KeyGeneratorSpec,ev=gk1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=gk1 obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-desede.txt` (A) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=init obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-desede.txt` (A) `spec=KeyGeneratorSpec,ev=gk1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=gk1 obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-desede.txt` (B) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=init obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-desede.txt` (B) `spec=KeyGeneratorSpec,ev=gk1,type=UnsafeAlgorithm,msg=v=1 code=KEYGENERATOR-ALG-00 ev=gk1 obj=KeyGenerator val='DESede' exp='AES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512' msg='expecting one of AES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found DESede'`
+- `KeyGeneratorSpec-d15-desede.txt` (B) `spec=KeyGeneratorSpec,ev=gk1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=gk1 obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-hmacmd5.txt` (A) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=init obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-hmacmd5.txt` (A) `spec=KeyGeneratorSpec,ev=gk1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=gk1 obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-hmacmd5.txt` (B) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=init obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
+- `KeyGeneratorSpec-d15-hmacmd5.txt` (B) `spec=KeyGeneratorSpec,ev=gk1,type=UnsafeAlgorithm,msg=v=1 code=KEYGENERATOR-ALG-00 ev=gk1 obj=KeyGenerator val='HmacMD5' exp='AES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512' msg='expecting one of AES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found HmacMD5'`
+- `KeyGeneratorSpec-d15-hmacmd5.txt` (B) `spec=KeyGeneratorSpec,ev=gk1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=gk1 obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
 - `KeyGeneratorSpec-guard-on-field.txt` (A) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=init obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
 - `KeyGeneratorSpec-guard-on-field.txt` (A) `spec=KeyGeneratorSpec,ev=gk1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=gk1 obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`
 - `KeyGeneratorSpec-guard-on-field.txt` (B) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYGENERATOR-ORDER-00 ev=init obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'`

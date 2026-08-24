@@ -2,10 +2,12 @@
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
 - **B** `/home/pedro/.cache/gh104-tmp/jca_mutant`
-- traces: 5
+- traces: 7
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `KeyPairGeneratorSpec-d15-diffiehellman.txt` | unchanged | — | — |
+| `KeyPairGeneratorSpec-d15-rsa-3072.txt` | unchanged | — | — |
 | `KeyPairGeneratorSpec-ec.txt` | unchanged | — | — |
 | `KeyPairGeneratorSpec-no-init.txt` | unchanged | gen:? | gen:? |
 | `KeyPairGeneratorSpec-rsa3072.txt` | unchanged | — | — |

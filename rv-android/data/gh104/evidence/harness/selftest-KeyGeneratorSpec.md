@@ -2,10 +2,13 @@
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
 - **B** `/home/pedro/.cache/gh104-tmp/jca_mutant`
-- traces: 5
+- traces: 8
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `KeyGeneratorSpec-d15-arc4.txt` | unchanged | gk1:?, init:? | gk1:?, init:? |
+| `KeyGeneratorSpec-d15-desede.txt` | unchanged | gk1:?, init:? | gk1:?, init:? |
+| `KeyGeneratorSpec-d15-hmacmd5.txt` | unchanged | gk1:?, init:? | gk1:?, init:? |
 | `KeyGeneratorSpec-guard-on-field.txt` | unchanged | gk1:?, init:? | gk1:?, init:? |
 | `KeyGeneratorSpec-rangen-unobserved.txt` | unchanged | — | — |
 | `KeyGeneratorSpec-rangen.txt` | unchanged | — | — |
@@ -14,6 +17,18 @@
 
 ## Envelopes
 
+- `KeyGeneratorSpec-d15-arc4.txt` (A) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `KeyGeneratorSpec-d15-arc4.txt` (A) `spec=KeyGeneratorSpec,ev=gk1,type=UnsafeAlgorithm,msg=expecting one ofAES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .`
+- `KeyGeneratorSpec-d15-arc4.txt` (B) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `KeyGeneratorSpec-d15-arc4.txt` (B) `spec=KeyGeneratorSpec,ev=gk1,type=UnsafeAlgorithm,msg=expecting one ofAES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .`
+- `KeyGeneratorSpec-d15-desede.txt` (A) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `KeyGeneratorSpec-d15-desede.txt` (A) `spec=KeyGeneratorSpec,ev=gk1,type=UnsafeAlgorithm,msg=expecting one ofAES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .`
+- `KeyGeneratorSpec-d15-desede.txt` (B) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `KeyGeneratorSpec-d15-desede.txt` (B) `spec=KeyGeneratorSpec,ev=gk1,type=UnsafeAlgorithm,msg=expecting one ofAES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .`
+- `KeyGeneratorSpec-d15-hmacmd5.txt` (A) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `KeyGeneratorSpec-d15-hmacmd5.txt` (A) `spec=KeyGeneratorSpec,ev=gk1,type=UnsafeAlgorithm,msg=expecting one ofAES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .`
+- `KeyGeneratorSpec-d15-hmacmd5.txt` (B) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `KeyGeneratorSpec-d15-hmacmd5.txt` (B) `spec=KeyGeneratorSpec,ev=gk1,type=UnsafeAlgorithm,msg=expecting one ofAES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .`
 - `KeyGeneratorSpec-guard-on-field.txt` (A) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `KeyGeneratorSpec-guard-on-field.txt` (A) `spec=KeyGeneratorSpec,ev=gk1,type=UnsafeAlgorithm,msg=expecting one ofAES,HmacSHA256,HmacSHA384,HmacSHA512,HMAC-SHA256,HMAC/SHA256,HMAC-SHA384,HMAC/SHA384,HMAC/SHA512,HMAC-SHA512 but found .`
 - `KeyGeneratorSpec-guard-on-field.txt` (B) `spec=KeyGeneratorSpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`

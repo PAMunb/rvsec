@@ -447,7 +447,7 @@ No repair task of the allow-list, automata or message groups SHALL close without
 - **WHEN** the trace `Signature.getInstance("MD5withRSA"); initSign(k); update(b); sign()` is replayed through `SignatureSpec` in the pre-D-15 snapshot and in the re-anchored set, and `i1` raises `SIGNATURE-NOBS-00` on both sides because no generator of the private key was observed
 - **THEN** the harness MUST report `i1:SIGNATURE-ALG-00` on the re-anchored side and not on the other, and MUST class the trace `moved`
 - **AND** a comparison that reports `unchanged` here MUST be read as a defect of the instrument and not as a result about the set — the value site did fire, and the C5 replay says so independently
-- **AND** the same MUST hold where the value site stops firing at an event that stays accused: `d15-MacSpec-hmacpbesha1` drops `i1:MAC-ALG-00` while `i1:MAC-ORDER-00` survives on both sides, because `Mac.crysl:44` names `HmacPBESHA1` outright and the re-anchoring admits it
+- **AND** the same MUST hold where the value site stops firing at an event that stays accused: `MacSpec-d15-hmacpbesha1` drops `i1:MAC-ALG-00` while `i1:MAC-ORDER-00` survives on both sides, because `Mac.crysl:44` names `HmacPBESHA1` outright and the re-anchoring admits it
 
 #### Scenario: an item inherited from the message group is measured, not assumed
 

@@ -2,10 +2,13 @@
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
 - **B** `/home/pedro/.cache/gh104-tmp/jca_mutant`
-- traces: 9
+- traces: 12
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `SignatureSpec-d15-md5withrsa.txt` | unchanged | g3:?, i1:? | g3:?, i1:? |
+| `SignatureSpec-d15-nonewithrsa.txt` | unchanged | g3:?, i1:? | g3:?, i1:? |
+| `SignatureSpec-d15-sha1withdsa.txt` | unchanged | g3:?, i1:? | g3:?, i1:? |
 | `SignatureSpec-ecdsa.txt` | unchanged | — | — |
 | `SignatureSpec-generated-privkey.txt` | unchanged | gpr:? | gpr:? |
 | `SignatureSpec-generated-pubkey.txt` | unchanged | gpu:? | gpu:? |
@@ -18,6 +21,12 @@
 
 ## Lines no pointcut resolved
 
+- `SignatureSpec-d15-md5withrsa.txt` — `s.sign() -> out`
+- `SignatureSpec-d15-md5withrsa.txt` — `s.sign() -> out`
+- `SignatureSpec-d15-nonewithrsa.txt` — `s.sign() -> out`
+- `SignatureSpec-d15-nonewithrsa.txt` — `s.sign() -> out`
+- `SignatureSpec-d15-sha1withdsa.txt` — `s.sign() -> out`
+- `SignatureSpec-d15-sha1withdsa.txt` — `s.sign() -> out`
 - `SignatureSpec-ecdsa.txt` — `s.sign() -> out`
 - `SignatureSpec-ecdsa.txt` — `s.sign() -> out`
 - `SignatureSpec-generated-privkey.txt` — `s.sign() -> out`
@@ -33,6 +42,18 @@
 
 ## Envelopes
 
+- `SignatureSpec-d15-md5withrsa.txt` (A) `spec=SignatureSpec,ev=g3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SignatureSpec-d15-md5withrsa.txt` (A) `spec=SignatureSpec,ev=i1,type=UnsafeAlgorithm,msg=expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found MD5withRSA.`
+- `SignatureSpec-d15-md5withrsa.txt` (B) `spec=SignatureSpec,ev=g3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SignatureSpec-d15-md5withrsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsafeAlgorithm,msg=expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found MD5withRSA.`
+- `SignatureSpec-d15-nonewithrsa.txt` (A) `spec=SignatureSpec,ev=g3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SignatureSpec-d15-nonewithrsa.txt` (A) `spec=SignatureSpec,ev=i1,type=UnsafeAlgorithm,msg=expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found NONEwithRSA.`
+- `SignatureSpec-d15-nonewithrsa.txt` (B) `spec=SignatureSpec,ev=g3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SignatureSpec-d15-nonewithrsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsafeAlgorithm,msg=expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found NONEwithRSA.`
+- `SignatureSpec-d15-sha1withdsa.txt` (A) `spec=SignatureSpec,ev=g3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SignatureSpec-d15-sha1withdsa.txt` (A) `spec=SignatureSpec,ev=i1,type=UnsafeAlgorithm,msg=expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found SHA1withDSA.`
+- `SignatureSpec-d15-sha1withdsa.txt` (B) `spec=SignatureSpec,ev=g3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SignatureSpec-d15-sha1withdsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsafeAlgorithm,msg=expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found SHA1withDSA.`
 - `SignatureSpec-generated-privkey.txt` (A) `spec=KeyPairSpec,ev=gpr,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `SignatureSpec-generated-privkey.txt` (B) `spec=KeyPairSpec,ev=gpr,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `SignatureSpec-generated-pubkey.txt` (A) `spec=KeyPairSpec,ev=gpu,type=InvalidSequenceOfMethodCalls,msg=unknown`

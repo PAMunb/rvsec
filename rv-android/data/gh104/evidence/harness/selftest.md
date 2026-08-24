@@ -30,15 +30,15 @@ and the direction of every difference is known before the run rather than after.
 | `IvChainJunctionSpec-decrypt.txt` | removed | c3:?, c3:? | — |
 | `IvChainJunctionSpec-unprepared.txt` | removed | c3:?, c3:? | — |
 | `IvParameterSpecSpec-unrandomised.txt` | removed | c3:?, c3:? | — |
+| `MessageDigestSpec-d15-md5.txt` | moved | update:?, update:? | g4:?, update:? |
+| `MessageDigestSpec-d15-sha1-alias.txt` | moved | update:?, update:? | g4:?, update:? |
+| `MessageDigestSpec-d15-sha1.txt` | moved | update:?, update:? | g4:?, update:? |
 | `MessageDigestSpec-md5-only.txt` | introduced | — | g4:? |
 | `MessageDigestSpec-md5.txt` | moved | update:?, update:? | g4:?, update:? |
 | `MessageDigestSpec-sha1.txt` | moved | update:?, update:? | g4:?, update:? |
 | `MessageDigestSpec-unlisted-only.txt` | introduced | — | g4:? |
 | `SecretKeySpec-hardcoded-iv.txt` | moved | c3:?, c3:?, c3:?, c3:? | c3:?, c3:? |
 | `TrustManagerFactorySpec-x509.txt` | moved | g3:?, init:? | init:?, init:? |
-| `d15-MessageDigestSpec-md5.txt` | moved | update:?, update:? | g4:?, update:? |
-| `d15-MessageDigestSpec-sha1-alias.txt` | moved | update:?, update:? | g4:?, update:? |
-| `d15-MessageDigestSpec-sha1.txt` | moved | update:?, update:? | g4:?, update:? |
 
 ## Self-contradicting envelopes
 

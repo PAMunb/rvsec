@@ -2,10 +2,13 @@
 
 - **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/f3df4e36-cdd1-4c58-a57b-9ec2804d6c42/scratchpad/before`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
-- traces: 9
+- traces: 12
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `SignatureSpec-d15-md5withrsa.txt` | moved | i1:SIGNATURE-NOBS-00 | i1:SIGNATURE-ALG-00, i1:SIGNATURE-NOBS-00 |
+| `SignatureSpec-d15-nonewithrsa.txt` | moved | i1:SIGNATURE-NOBS-00 | i1:SIGNATURE-ALG-00, i1:SIGNATURE-NOBS-00 |
+| `SignatureSpec-d15-sha1withdsa.txt` | moved | i1:SIGNATURE-NOBS-00 | i1:SIGNATURE-ALG-00, i1:SIGNATURE-NOBS-00 |
 | `SignatureSpec-ecdsa.txt` | unchanged | i1:SIGNATURE-NOBS-00 | i1:SIGNATURE-NOBS-00 |
 | `SignatureSpec-generated-privkey.txt` | unchanged | gpr:KEYPAIR-ORDER-00 | gpr:KEYPAIR-ORDER-00 |
 | `SignatureSpec-generated-pubkey.txt` | unchanged | gpu:KEYPAIR-ORDER-00 | gpu:KEYPAIR-ORDER-00 |
@@ -18,6 +21,15 @@
 
 ## Envelopes
 
+- `SignatureSpec-d15-md5withrsa.txt` (A) `spec=SignatureSpec,ev=i1,type=UnsatisfiedConstraint,msg=v=1 code=SIGNATURE-NOBS-00 ev=i1 obj=Signature val='MD5withRSA' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to initSign was observed'`
+- `SignatureSpec-d15-md5withrsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsafeAlgorithm,msg=v=1 code=SIGNATURE-ALG-00 ev=i1 obj=Signature val='MD5withRSA' exp='SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA' msg='expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found MD5withRSA'`
+- `SignatureSpec-d15-md5withrsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsatisfiedConstraint,msg=v=1 code=SIGNATURE-NOBS-00 ev=i1 obj=Signature val='MD5withRSA' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to initSign was observed'`
+- `SignatureSpec-d15-nonewithrsa.txt` (A) `spec=SignatureSpec,ev=i1,type=UnsatisfiedConstraint,msg=v=1 code=SIGNATURE-NOBS-00 ev=i1 obj=Signature val='NONEwithRSA' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to initSign was observed'`
+- `SignatureSpec-d15-nonewithrsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsafeAlgorithm,msg=v=1 code=SIGNATURE-ALG-00 ev=i1 obj=Signature val='NONEwithRSA' exp='SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA' msg='expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found NONEwithRSA'`
+- `SignatureSpec-d15-nonewithrsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsatisfiedConstraint,msg=v=1 code=SIGNATURE-NOBS-00 ev=i1 obj=Signature val='NONEwithRSA' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to initSign was observed'`
+- `SignatureSpec-d15-sha1withdsa.txt` (A) `spec=SignatureSpec,ev=i1,type=UnsatisfiedConstraint,msg=v=1 code=SIGNATURE-NOBS-00 ev=i1 obj=Signature val='SHA1withDSA' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to initSign was observed'`
+- `SignatureSpec-d15-sha1withdsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsafeAlgorithm,msg=v=1 code=SIGNATURE-ALG-00 ev=i1 obj=Signature val='SHA1withDSA' exp='SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA' msg='expecting one of SHA256withRSA,SHA256withECDSA,SHA256withDSA,SHA384withRSA,SHA512withRSA,SHA384withECDSA,SHA512withECDSA but found SHA1withDSA'`
+- `SignatureSpec-d15-sha1withdsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsatisfiedConstraint,msg=v=1 code=SIGNATURE-NOBS-00 ev=i1 obj=Signature val='SHA1withDSA' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to initSign was observed'`
 - `SignatureSpec-ecdsa.txt` (A) `spec=SignatureSpec,ev=i1,type=UnsatisfiedConstraint,msg=v=1 code=SIGNATURE-NOBS-00 ev=i1 obj=Signature val='SHA256withECDSA' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to initSign was observed'`
 - `SignatureSpec-ecdsa.txt` (B) `spec=SignatureSpec,ev=i1,type=UnsatisfiedConstraint,msg=v=1 code=SIGNATURE-NOBS-00 ev=i1 obj=Signature val='SHA256withECDSA' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to initSign was observed'`
 - `SignatureSpec-generated-privkey.txt` (A) `spec=KeyPairSpec,ev=gpr,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYPAIR-ORDER-00 ev=gpr obj=KeyPair val='' exp='' msg='the observed call sequence is not one KeyPairSpec accepts'`

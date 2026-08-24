@@ -17,7 +17,7 @@ for below; an unattributed delta would be a defect, not a result.
 
 ## introduced (6) — an accusation the re-anchoring restores
 
-`d15-MessageDigestSpec-{md5,sha1,sha1-alias}` and the three inherited
+`MessageDigestSpec-d15-{md5,sha1,sha1-alias}` and the three inherited
 `MessageDigestSpec-{md5,md5-only,sha1}`. Side A is silent, side B accuses. This is the
 5,892-row family of the published corpus coming back, and `sha1-alias` shows it coming back
 *through* the alias table: the observed `SHA1` resolves to `SHA-1`, which the expert list
@@ -34,20 +34,20 @@ Side A admitted the value, so only the ordering or a predicate complained; side 
 the `*-ALG-*` site fires at an event that was, in most of these, **already accused for another
 reason**. That is why the first measurement could not see them.
 
-- `d15-CipherSpec-{aes-ecb-pkcs5,aes-ecb-nopadding,desede-cbc,blowfish-ecb,chacha20}`: B adds
+- `CipherSpec-d15-{aes-ecb-pkcs5,aes-ecb-nopadding,desede-cbc,blowfish-ecb,chacha20}`: B adds
   `i1:CIPHER-ALG-00`, `i1:CIPHER-ORDER-00` and `i2:CIPHER-ALG-01`. Under the api30 tables these
   transformations were *admitted*, so `g1` fired and only the ordering complained; under the
   expert tables `getInstance` takes the `g3` branch and the value is accused at both value
   sites. This is the ECB detection returning (task 11.3), and it is why the case needed a trace:
   the corpus's 109 `CipherSpec` accusations are all the OAEP spelling, so no published number
   shows it.
-- `d15-SignatureSpec-{md5withrsa,nonewithrsa,sha1withdsa}`: B adds `i1:SIGNATURE-ALG-00`.
+- `SignatureSpec-d15-{md5withrsa,nonewithrsa,sha1withdsa}`: B adds `i1:SIGNATURE-ALG-00`.
   `i1` raises the value accusation and the predicate accusation from two independent `if`s, and
   `i1:SIGNATURE-NOBS-00` fires on both sides, so this is the exact shape the old harness lost.
-- `d15-SSLContextSpec-{ssl,tlsv1}`: B adds `init:SSLCONTEXT-PROTO-00`, beside the
+- `SSLContextSpec-d15-{ssl,tlsv1}`: B adds `init:SSLCONTEXT-PROTO-00`, beside the
   `init:SSLCONTEXT-{NOBS-00,NOBS-01,ORDER-00}` that both sides raise. Task 11.2, and for `SSL`
   the `behavioural` row of task 11.4.
-- `d15-KeyGeneratorSpec-{desede,hmacmd5}`: B adds `gk1:KEYGENERATOR-ALG-00`. `gk1`'s body
+- `KeyGeneratorSpec-d15-{desede,hmacmd5}`: B adds `gk1:KEYGENERATOR-ALG-00`. `gk1`'s body
   checks the value unconditionally and the `@fail` handler raises `KEYGENERATOR-ORDER-00` at the
   same event, so again both sides accuse `gk1` and only the code differs.
 - `SecretKeySpecSpec-badalg`: B adds `c1:SECRETKEYSPEC-ALG-00`. **This is the restored
@@ -57,12 +57,12 @@ reason**. That is why the first measurement could not see them.
 
 ### The value site stops firing (4) — a narrowing undone at an already-accused event
 
-- `TrustManagerFactorySpec-sunx509`, `d15-TrustManagerFactorySpec-sunx509`: B drops
+- `TrustManagerFactorySpec-sunx509`, `TrustManagerFactorySpec-d15-sunx509`: B drops
   `init:TRUSTMANAGERFACTORY-ALG-00`.
-- `d15-KeyManagerFactorySpec-sunx509`: B drops `init:KEYMANAGERFACTORY-ALG-00`.
+- `KeyManagerFactorySpec-d15-sunx509`: B drops `init:KEYMANAGERFACTORY-ALG-00`.
   `SunX509` is an expert entry, inert on Android but not removable — the "no narrowing by
   preference" decision of D-15, and here it is executed rather than described.
-- `d15-MacSpec-hmacpbesha1`: B drops `i1:MAC-ALG-00`. `HmacPBESHA1` is named outright by
+- `MacSpec-d15-hmacpbesha1`: B drops `i1:MAC-ALG-00`. `HmacPBESHA1` is named outright by
   `Mac.crysl:44`; the api30 list spelled it `PBEwithHmacSHA1` and so accused it. The
   re-anchoring **admits** this value. (The inherited `MacSpec-hmacpbesha1` says the same thing
   and classes `removed`, because there the value site was the only accusation.)
@@ -78,19 +78,19 @@ are the `SecureRandom` list restoration of the `removed` section reaching the sa
 
 ### Platform-limited (1)
 
-`d15-CipherSpec-arc4`: B adds `i1:CIPHER-ORDER-00` and no value code. See the note on ARC4
+`CipherSpec-d15-arc4`: B adds `i1:CIPHER-ORDER-00` and no value code. See the note on ARC4
 below — the branch changes because `g1`/`g3` read the transformation **string**, while the value
 site reads `getAlgorithm()` off an object this JVM cannot produce.
 
 ## removed (12) — a narrowing undone, or its consequence
 
-- `d15-KeyPairGeneratorSpec-rsa-3072`, `d15-KeyPairGeneratorSpec-diffiehellman`,
+- `KeyPairGeneratorSpec-d15-rsa-3072`, `KeyPairGeneratorSpec-d15-diffiehellman`,
   `KeyPairGeneratorSpec-rsa3072`: RSA `3072` and `DiffieHellman` are expert entries; D-10 had
   dropped both. Task 11.2. (`KEYPAIRGENERATOR-KEYSIZE-00`, and for `diffiehellman` the ordering
   rows that followed it.)
-- `d15-KeyStoreSpec-jks`, `KeyStoreSpec-jks`: `JKS` is an expert type, inert on Android but not
+- `KeyStoreSpec-d15-jks`, `KeyStoreSpec-jks`: `JKS` is an expert type, inert on Android but not
   removable. Task 11.2. (`KEYSTORE-KSTYPE-00` and its two ordering rows.)
-- `d15-SecureRandomSpec-{nativeprng,windowsprng}`, `SecureRandomSpec-nativeprng`,
+- `SecureRandomSpec-d15-{nativeprng,windowsprng}`, `SecureRandomSpec-nativeprng`,
   `SecureRandomSpec-genseed-rejected-algorithm`: the api30 refinement had cut the list to
   `SHA1PRNG` alone; all six expert entries are back. Task 11.2. (`SECURERANDOM-ALG-00` and the
   ordering and predicate rows that followed it.)
@@ -144,7 +144,7 @@ One value in this group cannot be witnessed by execution on this JVM: **`ARC4`**
 that the platform does answer — `AES` for both. The value sites of `KeyGeneratorSpec.gk1` and
 `CipherSpec.i1` read `k.getAlgorithm()` / the transformation off the **object**, so they see
 `AES`, and staying silent is the correct answer to the object they were given.
-`d15-KeyGeneratorSpec-arc4` therefore classes `unchanged` and `d15-CipherSpec-arc4` moves only
+`KeyGeneratorSpec-d15-arc4` therefore classes `unchanged` and `CipherSpec-d15-arc4` moves only
 at its ordering site, where the `g1`/`g3` split reads the string the trace named.
 
 Lengthening either trace changes nothing; the object is what is missing, not the sequence. The
@@ -156,9 +156,9 @@ values of this family — `MD5`, `SHA-1`, `DESede`, `HmacMD5`, `NONEwithRSA`, `M
 
 **Superseded reading.** An earlier version of this file recorded eight traces as classing
 `unchanged` because they were "too short to reach the `*-ALG-*` site", and named
-`d15-KeyGeneratorSpec-hmacmd5` as the counter-example that proved the site worked. Measured, the
+`KeyGeneratorSpec-d15-hmacmd5` as the counter-example that proved the site worked. Measured, the
 premise was wrong in three ways: seven of the eight do reach the value site and B does raise the
-accusation; `hmacmd5` classed `unchanged` exactly like them; and `d15-MacSpec-hmacpbesha1` was
+accusation; `hmacmd5` classed `unchanged` exactly like them; and `MacSpec-d15-hmacpbesha1` was
 listed among values "the re-anchoring does reject" while the same file's `removed` section
 already recorded `HmacPBESHA1` as an expert entry the re-anchoring **admits**. The instrument,
 not the traces, was what could not see it.

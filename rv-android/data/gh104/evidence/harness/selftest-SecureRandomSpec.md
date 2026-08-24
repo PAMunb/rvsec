@@ -2,10 +2,12 @@
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
 - **B** `/home/pedro/.cache/gh104-tmp/jca_mutant`
-- traces: 9
+- traces: 11
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `SecureRandomSpec-d15-nativeprng.txt` | unchanged | — | — |
+| `SecureRandomSpec-d15-windowsprng.txt` | unchanged | — | — |
 | `SecureRandomSpec-genseed-rejected-algorithm.txt` | unchanged | — | — |
 | `SecureRandomSpec-genseed-to-setseed.txt` | unchanged | — | — |
 | `SecureRandomSpec-nativeprng.txt` | unchanged | — | — |

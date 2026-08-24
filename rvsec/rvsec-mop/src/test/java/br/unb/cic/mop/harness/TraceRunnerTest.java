@@ -251,7 +251,7 @@ public class TraceRunnerTest {
      * answers a different question and answers it wrongly twice over: a trace named for a
      * specification the frozen set does not carry ({@code IvChainJunctionSpec}, which only the
      * successor set has) inflated the count without covering anything, and a trace named with a
-     * group prefix ({@code d15-CipherSpec-arc4.txt}) contributed the phantom specification
+     * group prefix ({@code CipherSpec-d15-arc4.txt}) contributed the phantom specification
      * {@code d15}. Both are legitimate traces; the count was the wrong instrument.
      */
     @Test

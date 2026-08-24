@@ -2,10 +2,11 @@
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
 - **B** `/home/pedro/.cache/gh104-tmp/jca_mutant`
-- traces: 10
+- traces: 11
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `MacSpec-d15-hmacpbesha1.txt` | unchanged | update:? | update:? |
 | `MacSpec-decrypt-buffer.txt` | unchanged | f2:?, next2:? | f2:?, next2:? |
 | `MacSpec-encrypted-buffer.txt` | unchanged | f2:?, next2:? | f2:?, next2:? |
 | `MacSpec-fresh-buffer.txt` | unchanged | f2:?, next2:? | f2:?, next2:? |
@@ -19,6 +20,8 @@
 
 ## Envelopes
 
+- `MacSpec-d15-hmacpbesha1.txt` (A) `spec=MacSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `MacSpec-d15-hmacpbesha1.txt` (B) `spec=MacSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `MacSpec-decrypt-buffer.txt` (A) `spec=SecureRandomSpec,ev=next2,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `MacSpec-decrypt-buffer.txt` (A) `spec=MacSpec,ev=f2,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `MacSpec-decrypt-buffer.txt` (B) `spec=SecureRandomSpec,ev=next2,type=InvalidSequenceOfMethodCalls,msg=unknown`

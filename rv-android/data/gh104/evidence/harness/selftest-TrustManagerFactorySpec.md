@@ -2,10 +2,11 @@
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
 - **B** `/home/pedro/.cache/gh104-tmp/jca_mutant`
-- traces: 9
+- traces: 10
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `TrustManagerFactorySpec-d15-sunx509.txt` | unchanged | init:?, init:? | init:?, init:? |
 | `TrustManagerFactorySpec-guard-on-field.txt` | unchanged | init:?, init:? | init:?, init:? |
 | `TrustManagerFactorySpec-loaded-keystore.txt` | unchanged | — | — |
 | `TrustManagerFactorySpec-managers-taken-twice.txt` | unchanged | — | — |
@@ -27,6 +28,10 @@
 
 ## Envelopes
 
+- `TrustManagerFactorySpec-d15-sunx509.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=UnsafeAlgorithm,msg=expecting one of PKIX,SunX509 but found .`
+- `TrustManagerFactorySpec-d15-sunx509.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `TrustManagerFactorySpec-d15-sunx509.txt` (B) `spec=TrustManagerFactorySpec,ev=init,type=UnsafeAlgorithm,msg=expecting one of PKIX,SunX509 but found .`
+- `TrustManagerFactorySpec-d15-sunx509.txt` (B) `spec=TrustManagerFactorySpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `TrustManagerFactorySpec-guard-on-field.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=UnsafeAlgorithm,msg=expecting one of PKIX,SunX509 but found .`
 - `TrustManagerFactorySpec-guard-on-field.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `TrustManagerFactorySpec-guard-on-field.txt` (B) `spec=TrustManagerFactorySpec,ev=init,type=UnsafeAlgorithm,msg=expecting one of PKIX,SunX509 but found .`

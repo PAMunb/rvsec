@@ -2,10 +2,13 @@
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
 - **B** `/home/pedro/.cache/gh104-tmp/jca_mutant`
-- traces: 7
+- traces: 10
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
+| `MessageDigestSpec-d15-md5.txt` | moved | update:?, update:? | g4:?, update:? |
+| `MessageDigestSpec-d15-sha1-alias.txt` | moved | update:?, update:? | g4:?, update:? |
+| `MessageDigestSpec-d15-sha1.txt` | moved | update:?, update:? | g4:?, update:? |
 | `MessageDigestSpec-guard-on-field.txt` | unchanged | update:?, update:? | update:?, update:? |
 | `MessageDigestSpec-md5-only.txt` | introduced | — | g4:? |
 | `MessageDigestSpec-md5.txt` | moved | update:?, update:? | g4:?, update:? |
@@ -16,6 +19,18 @@
 
 ## Envelopes
 
+- `MessageDigestSpec-d15-md5.txt` (A) `spec=MessageDigestSpec,ev=update,type=UnsafeAlgorithm,msg=expecting one of {SHA-256, SHA-384, SHA-512} but found MD5.`
+- `MessageDigestSpec-d15-md5.txt` (A) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `MessageDigestSpec-d15-md5.txt` (B) `spec=MessageDigestSpec,ev=g4,type=UnsafeAlgorithm,msg=expecting one of {SHA-256, SHA-384, SHA-512} but found MD5.`
+- `MessageDigestSpec-d15-md5.txt` (B) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `MessageDigestSpec-d15-sha1-alias.txt` (A) `spec=MessageDigestSpec,ev=update,type=UnsafeAlgorithm,msg=expecting one of {SHA-256, SHA-384, SHA-512} but found SHA1.`
+- `MessageDigestSpec-d15-sha1-alias.txt` (A) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `MessageDigestSpec-d15-sha1-alias.txt` (B) `spec=MessageDigestSpec,ev=g4,type=UnsafeAlgorithm,msg=expecting one of {SHA-256, SHA-384, SHA-512} but found SHA1.`
+- `MessageDigestSpec-d15-sha1-alias.txt` (B) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `MessageDigestSpec-d15-sha1.txt` (A) `spec=MessageDigestSpec,ev=update,type=UnsafeAlgorithm,msg=expecting one of {SHA-256, SHA-384, SHA-512} but found SHA-1.`
+- `MessageDigestSpec-d15-sha1.txt` (A) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `MessageDigestSpec-d15-sha1.txt` (B) `spec=MessageDigestSpec,ev=g4,type=UnsafeAlgorithm,msg=expecting one of {SHA-256, SHA-384, SHA-512} but found SHA-1.`
+- `MessageDigestSpec-d15-sha1.txt` (B) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `MessageDigestSpec-guard-on-field.txt` (A) `spec=MessageDigestSpec,ev=update,type=UnsafeAlgorithm,msg=expecting one of {SHA-256, SHA-384, SHA-512} but found .`
 - `MessageDigestSpec-guard-on-field.txt` (A) `spec=MessageDigestSpec,ev=update,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `MessageDigestSpec-guard-on-field.txt` (B) `spec=MessageDigestSpec,ev=update,type=UnsafeAlgorithm,msg=expecting one of {SHA-256, SHA-384, SHA-512} but found .`

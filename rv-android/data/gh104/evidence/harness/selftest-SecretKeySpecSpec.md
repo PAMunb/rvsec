@@ -2,12 +2,14 @@
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
 - **B** `/home/pedro/.cache/gh104-tmp/jca_mutant`
-- traces: 5
+- traces: 7
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
 | `SecretKeySpecSpec-badalg.txt` | unchanged | c3:?, c3:? | c3:?, c3:? |
 | `SecretKeySpecSpec-cipher-chain.txt` | unchanged | — | — |
+| `SecretKeySpecSpec-d15-aes.txt` | unchanged | c3:?, c3:? | c3:?, c3:? |
+| `SecretKeySpecSpec-d15-hmacsha256.txt` | unchanged | c3:?, c3:? | c3:?, c3:? |
 | `SecretKeySpecSpec-offset.txt` | unchanged | — | — |
 | `SecretKeySpecSpec-prepared-material.txt` | unchanged | — | — |
 | `SecretKeySpecSpec.txt` | unchanged | — | — |
@@ -18,3 +20,11 @@
 - `SecretKeySpecSpec-badalg.txt` (A) `spec=SecretKeySpecSpec,ev=c3,type=InvalidSequenceOfMethodCalls,msg=unknown`
 - `SecretKeySpecSpec-badalg.txt` (B) `spec=SecretKeySpecSpec,ev=c3,type=UnsatisfiedConstraint,msg= Using either an invalid algorithm or keyMaterial.length is not randomized.`
 - `SecretKeySpecSpec-badalg.txt` (B) `spec=SecretKeySpecSpec,ev=c3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SecretKeySpecSpec-d15-aes.txt` (A) `spec=SecretKeySpecSpec,ev=c3,type=UnsatisfiedConstraint,msg= Using either an invalid algorithm or keyMaterial.length is not randomized.`
+- `SecretKeySpecSpec-d15-aes.txt` (A) `spec=SecretKeySpecSpec,ev=c3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SecretKeySpecSpec-d15-aes.txt` (B) `spec=SecretKeySpecSpec,ev=c3,type=UnsatisfiedConstraint,msg= Using either an invalid algorithm or keyMaterial.length is not randomized.`
+- `SecretKeySpecSpec-d15-aes.txt` (B) `spec=SecretKeySpecSpec,ev=c3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SecretKeySpecSpec-d15-hmacsha256.txt` (A) `spec=SecretKeySpecSpec,ev=c3,type=UnsatisfiedConstraint,msg= Using either an invalid algorithm or keyMaterial.length is not randomized.`
+- `SecretKeySpecSpec-d15-hmacsha256.txt` (A) `spec=SecretKeySpecSpec,ev=c3,type=InvalidSequenceOfMethodCalls,msg=unknown`
+- `SecretKeySpecSpec-d15-hmacsha256.txt` (B) `spec=SecretKeySpecSpec,ev=c3,type=UnsatisfiedConstraint,msg= Using either an invalid algorithm or keyMaterial.length is not randomized.`
+- `SecretKeySpecSpec-d15-hmacsha256.txt` (B) `spec=SecretKeySpecSpec,ev=c3,type=InvalidSequenceOfMethodCalls,msg=unknown`
