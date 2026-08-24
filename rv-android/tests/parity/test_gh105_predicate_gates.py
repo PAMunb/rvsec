@@ -21,6 +21,7 @@ cases that motivated them rather than against a happy path:
 
 from __future__ import annotations
 
+import csv
 import os
 import re
 import sys
@@ -41,6 +42,7 @@ from gh105_predicate_graph import (  # noqa: E402
     build_rows,
     carry_judgments,
     gate_acc,
+    gate_import,
     gate_junction_rules,
     gate_placement,
     gate_pred2,
@@ -1526,6 +1528,75 @@ def test_the_placement_gate_accepts_a_write_that_records_why_it_stays():
     )
 
 
+def test_the_placement_gate_reports_a_read_left_in_a_guard():
+    """The red side of INV-INS-133, which the tree can no longer supply.
+
+    The gate over the live set asserts zero, and has since task 4.12 moved the
+    last guard read. That assertion is worth exactly as much as the gate's
+    ability to still fire, and nothing in the tree demonstrates it any more: a
+    gate rewired to return `[]` unconditionally would pass every INV-INS-133
+    assertion this suite makes. `grep "condition(" tests/parity/fixtures` returned
+    nothing before this fixture, which is how the absence was measured.
+
+    So the negative comes from a fixture, the same way INV-INS-136's three do:
+    the consuming end of the IV chain with its read in `condition(...)` and
+    everything else correct. It carries that one defect and no other -- the
+    substrate is the set's own `PredicateStore`, so the import gate stays quiet,
+    and the single write sits at the acceptance point, so INV-INS-134 does too.
+    A fixture that tripped two gates could not tell which one was still working.
+    """
+    report, source = _fixture_report("GuardedReadSpec.mop")
+
+    findings = gate_placement(report)
+    assert [(finding.gate, finding.subject) for finding in findings] == [
+        ("INV-INS-133", "consume/PREPARED_IV")
+    ]
+    assert "suppresses the transition" in findings[0].message
+    assert gate_import(report, [source]) == []
+
+    # The row the gate keys on: what makes this a finding is `site_kind`, not the
+    # operation. The same read in the body is the correct placement, and the
+    # conforming junction beside it is the proof.
+    read = next(row for row in report.rows if row["verdict"].startswith("read"))
+    assert read["site_kind"] == "condition"
+    conforming, _ = _fixture_report("ConformingJunction.mop")
+    body = next(row for row in conforming.rows if row["verdict"].startswith("read"))
+    assert body["site_kind"] == "body"
+    assert [f for f in gate_placement(conforming) if f.gate == "INV-INS-133"] == []
+
+
+def test_the_import_gate_reports_the_old_substrate_in_code_and_in_prose():
+    """The red side of INV-INS-130, and both of the counts it reports apart.
+
+    Task 4.14 took the set to zero and task 4.15 retired the gate, so the live
+    assertion is a literal zero cross-checked against a `grep -rlw` -- and both
+    halves go quiet together if the gate stops looking. No fixture named
+    `ExecutionContext` at all before this one.
+
+    The fixture carries the mention in the three forms the invariant's word
+    boundary exists to catch, none of them a substring of the others: the import
+    line, a fully-qualified `br.unb.cic.mop.ExecutionContext` call, and one in a
+    comment. The last is why the gate reports two counts rather than one -- a file
+    whose code migrated and whose prose still points at the old substrate has not
+    finished migrating, and the code count alone would call it clean.
+    """
+    report, source = _fixture_report("LegacySubstrateSpec.mop")
+
+    findings = gate_import(report, [source])
+    assert [(finding.gate, finding.subject) for finding in findings] == [
+        ("INV-INS-130", "ExecutionContext")
+    ]
+    assert "3 whole-word mentions" in findings[0].message
+    assert "(2 in code, 1 in comments or strings)" in findings[0].message
+
+    # The literal check of INV-INS-130 names the same file, which is what says the
+    # gate and the invariant have not drifted apart.
+    assert re.search(r"\bExecutionContext\b", source.text)
+    # And the one defect is the substrate: nothing else about the file is wrong.
+    assert gate_placement(report) == []
+    assert gate_acc(report, [source]) == []
+
+
 def test_gpred2_closes_a_read_whose_producer_is_recorded_as_absent():
     """A gap that is written down is closed; a gap that is silent is a finding.
 
@@ -2164,6 +2235,176 @@ def test_the_gate_reports_a_word_a_reader_can_check_by_hand():
     for finding in reported:
         assert finding.witness or "empty sequence" in finding.message
         assert finding.accepted_by in ("the api30 ORDER", "the specification")
+
+
+def _allowlist_variant(tmp_path: Path, **overrides: str) -> Path:
+    """The live allow-list with `CipherSpec`'s G-ORDER row overridden.
+
+    Written from the real file rather than from a hand-made one so the mutant
+    differs from the tree in exactly the field under test, and so a change to the
+    allow-list's columns reaches these tests instead of passing them by.
+    """
+    with ALLOWLIST.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    for row in rows:
+        if row["spec"] == "CipherSpec" and row["gate"] == "G-ORDER":
+            row.update(overrides)
+    path = tmp_path / "gate_allowlist.csv"
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
+def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
+    tmp_path,
+):
+    """The red path of the gate this change adds -- the one the tree cannot show.
+
+    G-ORDER reports zero findings and nine allowances over `jca_android`, and it
+    has since task 7.6. Every assertion this suite makes about it is therefore an
+    assertion about a green run, which a gate that had stopped comparing would
+    also satisfy. What makes the green mean something is that a run *can* go red,
+    and this is where that is shown.
+
+    The mutant changes one field of one row -- `CipherSpec`'s witness, from
+    `g1 i1 u1` to a word the gate never produces -- and the divergence it used to
+    forgive comes back as a finding: 13 passed, **1** failed, 8 allow-listed, 2
+    skipped. Nothing else moves, which is the second half of the claim: the
+    allowance is about one counterexample, so revoking it accuses one
+    specification and not the set.
+    """
+    result = gh105_order_gate.run(
+        _specs_root(),
+        "jca_android",
+        _rules_root(),
+        ORDER_MAP,
+        _allowlist_variant(tmp_path, witness="g1 i1 u1 OUTRA"),
+    )
+    assert [finding.spec for finding in result.findings] == ["CipherSpec"]
+    assert result.findings[0].witness == ("g1", "i1", "u1")
+    assert result.findings[0].accepted_by == "the specification"
+    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (13, 8, 2)
+
+    # And the green run beside it, from the same code path: the difference between
+    # the two is the one field, so the gate is what is being measured here.
+    healthy = _order_run()
+    assert healthy.findings == []
+    assert (len(healthy.passed), len(healthy.allowed)) == (13, 9)
+
+
+def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
+    tmp_path,
+):
+    """The two fields `read_allowlist` refuses a row for, and they refuse it alike.
+
+    An empty `reason` is what separates an allow-list from the expected-baseline
+    task 7.6 retired: a baseline row was a measurement, an allow-list row is a
+    decision, and a decision nobody wrote down is a measurement again. An empty
+    `witness` is the sharper one -- keyed on the specification alone, a row that
+    forgives one measured divergence forgives every future one of the same file,
+    and nine of the twenty-two compared specifications would quietly stop being
+    guarded.
+
+    Both are asserted at the reader, where the row is dropped, and at the run,
+    where the divergence comes back: dropping the row from the set and still
+    passing the specification would be a gate that forgave by accident.
+    """
+    live = gh105_order_gate.read_allowlist(ALLOWLIST)
+    assert len(live) == 9
+    assert ("jca_android", "CipherSpec", "order", "g1 i1 u1") in live
+
+    for field, blank in (("reason", ""), ("witness", "")):
+        path = _allowlist_variant(tmp_path, **{field: blank})
+        admitted = gh105_order_gate.read_allowlist(path)
+        assert len(admitted) == 8, field
+        assert not any(spec == "CipherSpec" for _, spec, _, _ in admitted), field
+
+        result = gh105_order_gate.run(
+            _specs_root(), "jca_android", _rules_root(), ORDER_MAP, path
+        )
+        assert [finding.spec for finding in result.findings] == ["CipherSpec"], field
+
+    # An absent file allows nothing and crashes at nothing -- the gate goes fully
+    # red rather than erroring, which is what makes a mis-pathed allow-list
+    # visible instead of fatal.
+    assert gh105_order_gate.read_allowlist(tmp_path / "no-such-file.csv") == set()
+
+
+def test_the_allow_list_has_two_widths_and_the_witness_is_in_both():
+    """`(set, spec)` and `(set, *)`, and neither forgives another counterexample.
+
+    The wildcard row exists so a set-wide decision does not have to be copied per
+    specification; it is not a way to stop comparing. Both widths carry the
+    witness for the same reason: a specification whose divergence was forgiven may
+    diverge again for another reason, and that second one is a finding.
+
+    The empty word is asserted apart because it is a real witness -- `KeyPairSpec`
+    diverges on the empty sequence -- and `""` already means *this row names no
+    witness*, so the two cannot share a spelling.
+    """
+    finding = gh105_order_gate.OrderFinding(
+        "jca_android", "CipherSpec", "message", ("g1", "i1", "u1"), "the specification"
+    )
+    allowed = gh105_order_gate._is_allowed
+    assert allowed(finding, {("jca_android", "CipherSpec", "order", "g1 i1 u1")})
+    assert allowed(finding, {("jca_android", "*", "*", "g1 i1 u1")})
+    assert not allowed(finding, {("jca_android", "CipherSpec", "order", "g1 i1")})
+    assert not allowed(finding, {("jca_android", "*", "*", "g1 i1")})
+    assert not allowed(finding, {("jca", "CipherSpec", "order", "g1 i1 u1")})
+    # There is no per-event width: the subject of a G-ORDER row is the constant
+    # `order`, so a row keyed on an event is a key this gate never produces.
+    assert not allowed(finding, {("jca_android", "CipherSpec", "i1", "g1 i1 u1")})
+
+    empty = gh105_order_gate.OrderFinding(
+        "jca_android", "KeyPairSpec", "message", (), "the api30 ORDER"
+    )
+    assert gh105_order_gate.witness_word(()) == gh105_order_gate.EMPTY_WITNESS
+    assert allowed(empty, {("jca_android", "KeyPairSpec", "order", "<empty>")})
+    assert not allowed(empty, {("jca_android", "KeyPairSpec", "order", "")})
+
+
+def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothing(
+    tmp_path, capsys
+):
+    """The three verdicts of `main()`, which is what CI actually reads.
+
+    Everything above calls `run()`; the exit code is a separate translation, and
+    a `run()` that reported findings into a `main()` that returned 0 would be a
+    gate nobody could wire into anything. The 2 is the one worth spelling out:
+    a typo in `--sets` produces a perfectly clean `0 passed, 0 failed` and a gate
+    that answered success there would be reporting about files it never read.
+    """
+    specs, rules = _specs_root(), _rules_root()
+    common = [
+        f"--specs-root={specs}",
+        f"--rules={rules}",
+        f"--map={ORDER_MAP}",
+    ]
+
+    assert (
+        gh105_order_gate.main(
+            common + ["--sets=jca_android", f"--allowlist={ALLOWLIST}"]
+        )
+        == 0
+    )
+    assert "13 passed, 0 failed, 9 allow-listed" in capsys.readouterr().out
+
+    mutant = _allowlist_variant(tmp_path, witness="g1 i1 u1 OUTRA")
+    assert (
+        gh105_order_gate.main(common + ["--sets=jca_android", f"--allowlist={mutant}"])
+        == 1
+    )
+    assert "1 failed" in capsys.readouterr().out
+
+    assert (
+        gh105_order_gate.main(
+            common + ["--sets=no_such_set", f"--allowlist={ALLOWLIST}"]
+        )
+        == 2
+    )
+    assert "compared no specification at all" in capsys.readouterr().err
 
 
 def test_inv_ins_138_gorder(suite):

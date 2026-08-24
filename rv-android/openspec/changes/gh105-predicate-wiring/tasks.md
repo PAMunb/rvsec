@@ -1267,7 +1267,31 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `ANDROID_SDK_HOME` exported, seven parity tests error inside `lib/gator/gator` instead of
       running.
       Evidence: `data/gh105/evidence/f5-FinalVerification.md`
-- [ ] 8.7 Run `/rv-code-reviewer` on the change ("Review gh105-predicate-wiring implementation")
+- [x] 8.7 Run `/rv-code-reviewer` on the change ("Review gh105-predicate-wiring implementation").
+      Verdict **REQUEST CHANGES**: three criticals, ten warnings, a handful of suggestions. Every
+      finding was reproduced before being accepted or refused, and two of the three criticals only
+      appear outside the repository root — a reviewer trusting the root's green suite would have
+      refused both. Repaired: **C1** (relative data defaults let three gates exit 0 having compared
+      **0 of 24**, blaming the specification for a missing CSV — paths now anchored on `__file__`
+      and the gates exit **2** when they compared nothing), **C2** (`_order_run` pinned the map and
+      left the allow-list relative, so `test_inv_ins_138_gorder` was red outside the root: 91 from
+      the root, **67** from `/tmp`), **C3** (`PredicateStore` held two truths in two fields and a
+      reader could sample a pair that never existed — the one direction that *suppresses* an
+      accusation; the concurrency test the decision ordered **refuted the review's proposed
+      repair**, measuring 18 leaks with the writes already inverted, so the fix is an immutable
+      `State` behind an `AtomicReference` and every read is a snapshot — `rvsec-core` **72 tests,
+      0 failures**), **W1** (the allow-list matched on `(set, spec)` and ignored the witness, so one
+      forgiven counterexample forgave every future one — nine of twenty-two compared specifications
+      unguarded; `gate_allowlist.csv` gains a `witness` column filled from the gate's own output)
+      and **W7** (`_is_allowed`, `read_allowlist`, `OrderRun` and `main()` were called by no test,
+      and INV-INS-133/130 had no negative fixture: six tests and two fixtures added, each of the
+      five red paths proved by mutating the gate, running, and reverting). Registered and **not**
+      repaired under decision 7: **W2** — the set's only `@fail` without `__RESET` (20 of 21 reset;
+      a rejected sequence re-raises `KEYPAIRGENERATOR-ORDER-00` at every later event) gets a
+      `behavioural` narrative row in `divergence_record.csv`, now **288** rows (282 hunks + 6
+      narratives), `check()` exit 0 — plus W3, W5, W6, W9, W10 and the 🟢 suggestions in prose.
+      Four suites **97 passed** (was 91); the four gate outputs byte-identical before and after.
+      Evidence: `data/gh105/evidence/f5-FinalVerification.md`
 - [ ] 8.8 [BLOCKED — external: gh104 archive, which follows the joint experiment] Reconcile
       with gh104 before archive: once gh104 has archived, add the formal `MODIFIED` entry for
       its requirement "The Successor Set Carries the Predicates of Its Seed Unchanged" to this

@@ -1,0 +1,50 @@
+package mop;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+
+/**
+ * The IV chain's consuming end written the way INV-INS-133 forbids: the read of
+ * PREPARED_IV sits in `condition(...)` instead of in the event body.
+ *
+ * Everything else about this file is correct -- the substrate is the set's own
+ * PredicateStore, and the only write sits at the acceptance point -- so the one
+ * finding the gate produces here is the placement, and a gate that reported two
+ * would be reporting something the fixture does not carry.
+ *
+ * What the misplacement costs is visible in the fsm below: when `validate`
+ * returns false the guard suppresses `consume` entirely, the binding leaves the
+ * automaton without a transition, and the program is accused of a wrong call
+ * sequence rather than of the unsatisfied constraint it actually broke.
+ */
+GuardedReadSpec(Cipher c, IvParameterSpec spec) {
+
+    event prepare after(Object iv) returning(IvParameterSpec s):
+      call(public IvParameterSpec.new(byte[])) && args(iv) { }
+
+    event consume before(IvParameterSpec spec):
+      call(public void Cipher.init(int, java.security.Key, java.security.spec.AlgorithmParameterSpec))
+      && args(.., spec) &&
+      condition(PredicateStore.instance().validate(Property.PREPARED_IV, spec) == PredicateVerdict.SATISFIED) {
+    }
+
+    fsm :
+      start [
+        prepare -> prepared
+        consume -> start
+      ]
+      prepared [
+        prepare -> prepared
+        consume -> used
+      ]
+      used [
+        prepare -> prepared
+        consume -> used
+      ]
+
+    @match {
+      PredicateStore.instance().ensure(Property.PREPARED_IV, c);
+    }
+}

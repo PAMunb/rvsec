@@ -1,0 +1,38 @@
+package mop;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.ExecutionContext;
+import br.unb.cic.mop.Property;
+
+/**
+ * A file of the migrated set that still reaches for the gh104 substrate, which
+ * INV-INS-130 forbids: no `.mop` of `jca_android` may name `ExecutionContext`.
+ *
+ * It carries the mention in all three forms the invariant's `grep -rlw` has to
+ * catch, because none of them is a substring of the others: the import line, a
+ * fully-qualified call, and one left behind in this comment telling its reader
+ * to reach for the old substrate. A file whose code finished migrating and whose
+ * prose did not has not finished migrating, which is why the gate counts the two
+ * apart and reports both.
+ *
+ * The one write sits at the acceptance point and the file declares no read, so
+ * the placement gate has nothing to say about it: the substrate is the single
+ * defect this fixture carries.
+ */
+LegacySubstrateSpec(SecureRandom sr) {
+
+    event init after() returning(SecureRandom r):
+      call(public SecureRandom.new()) { }
+
+    fsm :
+      start [
+        init -> randomised
+      ]
+      randomised [
+        init -> randomised
+      ]
+
+    @match {
+      br.unb.cic.mop.ExecutionContext.instance().setProperty(Property.RANDOMIZED, sr);
+    }
+}
