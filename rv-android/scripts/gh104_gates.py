@@ -530,15 +530,28 @@ def parse_crysl(path: Path) -> CryslRule:
     return CryslRule(path=path, sections=sections, events=events, objects=objects)
 
 
+# The two rule dialects this gate reads. `.cryptsl` is what MetaCrySL generates
+# and stays the oracle of ORDER, event alphabets and predicate clauses; `.crysl`
+# is the expert-validated CogniCrypt source, pinned by sha256, and is the oracle
+# of every value clause from D-15 (INV-INS-125). The two share a grammar for
+# everything this parser reads -- sections, `EVENTS`, `OBJECTS`, `in {...}` --
+# and differ where it does not look: `length[x]` against `length(x)`,
+# `generatedKey[k, alg]` against `generatedKey(k, alg)`, and the Cipher splitter
+# `alg(transformation)` against `part(0,"/",transformation)`, which both land in
+# the `NAO-DERIVADO` branch because the tables live in Java control flow either way.
+RULE_EXTENSIONS = (".cryptsl", ".crysl")
+
+
 def rule_for(spec: str, crysl_dir: Path) -> CryslRule | None:
     """`IvParameterSpecSpec` -> `IvParameterSpec.cryptsl`; `SecretKeySpec` -> `SecretKey`."""
     candidates = [spec]
     if spec.endswith("Spec"):
         candidates.append(spec[: -len("Spec")])
     for name in candidates[1:] + candidates[:1]:
-        path = crysl_dir / f"{name}.cryptsl"
-        if path.is_file():
-            return parse_crysl(path)
+        for extension in RULE_EXTENSIONS:
+            path = crysl_dir / f"{name}{extension}"
+            if path.is_file():
+                return parse_crysl(path)
     return None
 
 
@@ -897,6 +910,8 @@ def classify_orphan(
 # --------------------------------------------------------------------------
 
 IN_SET = re.compile(r"(\w+)\s+in\s*\{([^}]*)\}")
+# The Cipher transformation splitters of the two rule dialects (see RULE_EXTENSIONS).
+CIPHER_SPLITTER = re.compile(r"\b(?:part|alg|mode|pad)\s*\(")
 JAVA_LIST = re.compile(
     r"(?:List<String>\s+)?(\w+)\s*=\s*(?:Arrays\.asList|new String\[\]\s*\{)"
 )
@@ -1065,22 +1080,28 @@ def constraint_rows(
         if rule is None:
             continue
         service = rule.path.stem
+        # The label carries the rule's own extension, so a reader of the record
+        # can tell which oracle a verdict answers to without looking anything up.
+        suffix = rule.path.suffix
         matched: set[str] = set()
 
         for line, clause in rule.clauses("CONSTRAINTS"):
             row = {
                 "spec": spec,
-                "cryptsl_line": f"{service}.cryptsl:{line}",
+                "cryptsl_line": f"{service}{suffix}:{line}",
                 "mop_line": "",
                 "verdict": "CRYSL-NAO-IMPLEMENTADO",
                 "clause": clause,
             }
 
-            if "part(" in clause:
+            if CIPHER_SPLITTER.search(clause):
                 # The Cipher transformation tables live in Java control flow
                 # (D-b), and the record maps each clause to a line range of it
                 # by hand. The gate reads the lists (below) but does not claim
-                # to have re-derived that mapping.
+                # to have re-derived that mapping. Both dialects land here: the
+                # generated rule writes `part(0,"/",transformation)` and the
+                # expert rule `alg(transformation)`/`mode(...)`/`pad(...)`, and
+                # neither is a membership test this parser can map to a list.
                 row["verdict"] = "NAO-DERIVADO"
                 row["mop_line"] = cipher_util.name if cipher_util else ""
                 rows.append(row)
@@ -1342,7 +1363,12 @@ def resolve_set_dir(name: str) -> Path | None:
 
 CIPHER_UTILS = {
     "jca": "CipherTransformationUtil.java",
-    "jca_android": "Api30CipherTransformationUtil.java",
+    # D-15: the successor set's value oracle is the expert rule, and the frozen
+    # `jca`'s utility is the transcription of it the published numbers were
+    # measured with, so `jca_android/CipherSpec.mop` names that class. The freeze
+    # forbids editing it, not calling it. `Api30CipherTransformationUtil.java`
+    # keeps no caller and is the record of the withdrawn anchor.
+    "jca_android": "CipherTransformationUtil.java",
     "jca_android_bug_predicate": "AndroidCipherTransformationUtil.java",
 }
 
@@ -1408,8 +1434,15 @@ def backing_record(row: dict, records: dict[str, list[dict]]) -> str:
             absent = entry.get("absent_from_mop", "").strip()
             if absent and absent not in ("-", "") and absent in clause:
                 return f"{entry['record']}: {entry.get('verdict', '').strip()}"
-            if entry.get("kind", "").strip() == "api30-omits" and obj:
-                return f"{entry['record']}: api30-omits"
+            # D-15 adds three record kinds to the one `api30-omits` this looked
+            # for, because the expert anchor admits three further ways a list may
+            # legitimately differ from its clause (INV-INS-125). All three are
+            # narrative rows: a widening argued from a primary source, a quirk of
+            # the oracle transcribed rather than fixed, and a spelling the frozen
+            # set wrote into its list that the normalisation rule already covers.
+            kind = entry.get("kind", "").strip()
+            if kind in ("api30-omits", "platform-value", "oracle-wart", "spelling-variant") and obj:
+                return f"{entry['record']}: {kind}"
     return "unbacked"
 
 
@@ -1437,6 +1470,7 @@ def run_gates(
     alias_csv: Path | None,
     cipher_util: Path | None,
     constraint_table: Path | None = None,
+    value_crysl_dir: Path | None = None,
 ) -> dict:
     """
     Run the nine gates over one monitor and its derived set, and return the report.
@@ -1646,8 +1680,16 @@ def run_gates(
     gate("G-ERE", undeclared)
 
     # ---- G-CONF ----
-    if not specs or crysl_dir is None or not crysl_dir.is_dir():
-        report["skipped"].append("G-CONF: needs both the set directory and --crysl")
+    # D-15 splits the oracles: value clauses answer to the pinned expert copy
+    # (`--value-crysl`), everything else -- G-2's orphan split above, the ORDER
+    # and predicate gates elsewhere -- stays on the generated api30 rules. When
+    # no value oracle is given the gate falls back to `--crysl`, which is what
+    # the frozen `jca` report and every pre-D-15 invocation expect.
+    conf_crysl = value_crysl_dir or crysl_dir
+    if not specs or conf_crysl is None or not conf_crysl.is_dir():
+        report["skipped"].append(
+            "G-CONF: needs both the set directory and a value oracle (--value-crysl, or --crysl)"
+        )
         gate("G-CONF", [])
     else:
         # D-b keeps the Cipher transformation lists in Java, one utility per set:
@@ -1663,7 +1705,7 @@ def run_gates(
                 f"G-CONF: {alias_csv} carries no alias row; comparison is case-insensitive only"
             )
         try:
-            rows = constraint_rows(specs, crysl_dir, aliases, cipher_util)
+            rows = constraint_rows(specs, conf_crysl, aliases, cipher_util)
         except ValueError as error:  # a Java literal the extraction could not find
             report["skipped"].append(f"G-CONF: {error}")
             rows = []
@@ -1706,7 +1748,23 @@ def run_gates(
                     agreement["not-derived"] += 1
                     continue
                 if key not in recorded:
+                    # An unrecorded row used to be counted and then dropped, which
+                    # made the whole reproduction fall silent the moment the row
+                    # keys moved: D-15 changed `Cipher.cryptsl:121` into
+                    # `Cipher.crysl:96`, and every row went unrecorded while the
+                    # gate still reported green. A gate that stops comparing has to
+                    # say so, so an unrecorded row is a finding of its own.
                     agreement["unrecorded"] += 1
+                    hits.append(
+                        {
+                            "spec": row["spec"],
+                            "event": row["cryptsl_line"],
+                            "kind": "oracle-unrecorded",
+                            "derived": row["verdict"],
+                            "recorded": "",
+                            "clause": row.get("clause", ""),
+                        }
+                    )
                     continue
                 if recorded[key] == row["verdict"]:
                     agreement["agree"] += 1
@@ -1742,6 +1800,7 @@ def run_gates(
         report["gates"]["G-CONF"]["report_only"] = set_name == "jca"
         report["gates"]["G-CONF"]["oracle_rows"] = len(oracle) if oracle else 0
         report["gates"]["G-CONF"]["oracle_agreement"] = agreement
+        report["gates"]["G-CONF"]["value_oracle"] = str(conf_crysl)
         report["gates"]["G-CONF"]["cipher_util"] = (
             str(cipher_util) if cipher_util else None
         )
@@ -1790,11 +1849,20 @@ def main() -> int:
     parser.add_argument("--monitor", type=Path, required=True)
     parser.add_argument("--allowlist", type=Path)
     parser.add_argument("--crysl", type=Path)
+    parser.add_argument(
+        "--value-crysl",
+        type=Path,
+        help=(
+            "the pinned expert copy RVSec-replication-package/tools/rules/, the oracle of "
+            "every value clause from D-15 (INV-INS-125). Defaults to --crysl, which is what "
+            "the frozen `jca` report and every pre-D-15 invocation expect."
+        ),
+    )
     parser.add_argument("--alias", type=Path)
     parser.add_argument(
         "--cipher-util",
         type=Path,
-        help="Api30CipherTransformationUtil.java; D-b keeps the Cipher lists in Java",
+        help="the Cipher transformation utility of the set under test; D-b keeps those lists in Java. Defaults to the CIPHER_UTILS entry for the set the monitor was generated from.",
     )
     parser.add_argument(
         "--constraint-table",
@@ -1815,6 +1883,7 @@ def main() -> int:
         alias_csv=args.alias,
         cipher_util=args.cipher_util,
         constraint_table=args.constraint_table,
+        value_crysl_dir=args.value_crysl,
     )
 
     if args.json:

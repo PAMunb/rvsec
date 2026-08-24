@@ -213,6 +213,21 @@ Ten silent-discard or scramble points were verified: `logcat_parser.py:268-270` 
 
 ### D-10 — the allow-lists are a literal transcription of the api30 `CONSTRAINTS`, under one declared normalisation rule and with recorded divergences
 
+> **Anchor superseded on 2026-08-24 by D-15.** The 2026-08-24 audit
+> (`docs/20260824_auditoria_specs_jca_android.md`) measured that the api30 value lists are
+> availability catalogues, not security lists — the MetaCrySL tiers were derived from
+> provider registries, so `MessageDigest` admits `MD5`/`SHA-1`, `SSLContext` admits
+> `SSL`/`TLSv1`, `Mac` admits `HmacMD5`, `KeyGenerator` admits `ARC4` — and that the manual
+> transcription (original rules → MetaCrySL base) is unfaithful in 19 of 33 rules. The
+> researcher re-anchored the **value oracle** to the 49 expert-validated rules; D-15 states
+> the new anchor and what survives of this decision. Everything in D-10 that is
+> *machinery* — the normalisation rule, `ConscryptAliasTable` and its per-entry pointer
+> discipline, the record files, G-CONF as the gate that fails on any unrecorded
+> difference, D-b (the Cipher list lives in Java), D-30 (the `deferred-constant` class) —
+> **stands** and is re-used by D-15 unchanged. Only the anchor (which rule file a value
+> list is transcribed from) moves. The text below is kept as the record of the decision
+> that Groups 1–8 executed against.
+
 (Sub-labels used elsewhere in this change: **D-b** = the Cipher list stays in Java, in a new class; **D-c** = the `EC` divergence; **D-30** = the `deferred-constant` class. **D-a**, cited by tasks for the `ErrorType` corrections, is D-13.)
 
 **What was decided and what it replaces.** The lineage's D-B chose the oracle *per clause family*: MetaCrySL api30 for availability (Cipher catalogue, keystore types) and CrySL 1.5.2 for recommendation (digest algorithms, TLS protocols), recorded per specification. That rule is withdrawn. **Decision: every allow-list of `jca_android` is the `CONSTRAINTS` set of the matching `generated/api30/<Spec>.cryptsl`, transcribed literally.** One oracle, one anchor, no per-clause judgement call. The reason is that the mixed rule reintroduces the problem the set exists to solve: "recommendation" is exactly the label under which `TLS` and `AndroidKeyStore` were being rejected — a JSE-era preference presented to the developer as a platform fact. If the api30 rule admits a value, the set admits it; if the researcher believes the rule is wrong, the place to say so is the divergence record, not a second anchor.
@@ -327,6 +342,180 @@ This supersedes the earlier plan for `PBEKeySpecSpec:24,30`, which mapped them t
 **Decision: the generator emits the guarded region so the lock is released on every exit.** This is a generator repair, not a specification repair, so it lands in the `__EVENTNAME` group (G) where `rv-monitor` is already open and no other group owns the module — not in E4, which touches `.mop` files only. The framing is emitted where acquisition and release bracket the dispatch body — `Advice.java:176-177` (acquire) and `:254-256` (release) in `rv-monitor/rv-monitor/src/main/java/.../output/combinedoutputcode/event/advice/` — not in `GlobalLock.java`, whose `getAcquireCode()`/`getReleaseCode()` are string fragments that `BaseMonitor.java:543-587` also uses unbalanced (release, start a thread, re-acquire) and that must keep working. The exception itself still propagates to the application, as today; only the lock's release changes. The red test needs a **second thread**: a reentrant lock lets the throwing thread re-enter, so two calls on one thread pass before the repair. It is behaviour-preserving on every path that does not throw, which is what makes it checkable: regenerating the frozen `jca` — the single control — must diff against `results/gh101_group8_jca_frozen_control/monitors/` in the framing, the event-name table and the `RVM_eventName` helper, and in nothing else (no expanded macro: the frozen `jca` has no `__EVENTNAME`). The framing wraps the explicit `tryLock` form the dispatchers emit; `GlobalLock.useImplicitLock` is hard-set `false`, so the implicit-lock branch is not emitted and receives no framing.
 
 **Why it is inside this change rather than an issue of its own.** The researcher decided it on 2026-08-18. The argument that carried it is that this change already reopens the generator, already rebuilds the reactor and refreshes `lib/`, and already regenerates and diffs the control — so the marginal cost is the emitter edit and one test, while the marginal cost of deferring is that every device-side task of this change, E6 included, runs on an instrument that can hang without saying so. The invariant is INV-INS-129, and the scope is exactly the dispatcher framing: no change to which advice fires, to the lock's identity, or to the spin loop.
+
+### D-15 — the value oracle is re-anchored to the expert-validated CrySL rules; D-10's machinery is kept, its anchor is withdrawn
+
+**Decided by the researcher on 2026-08-24**, reversing the anchor of D-10 after the audit
+(`docs/20260824_auditoria_specs_jca_android.md`, commit `5fbe8173`) measured the chain the
+api30 oracle sits on. Three findings carried the reversal. (a) The MetaCrySL manual
+transcription (original rules → `samples/jca/base/`) loses 16 of 49 rules and damages 19 of
+the surviving 33 — inverted `length` comparators, fabricated clauses, a `FORBIDDEN` on a
+method that does not exist, `notHardCoded[password]` deleted from all three rules that had
+it. (b) The Android tier `.ref` files were derived from provider registries, so every
+refined list is an **availability catalogue**: api30 `MessageDigest` admits `MD5`/`SHA-1`,
+`SSLContext` admits `SSL`/`TLSv1`/`TLSv1.1`, `Mac` admits `HmacMD5`/`HmacSHA1`,
+`KeyGenerator` admits `ARC4`, `SecretKeyFactory` grows 12→44 including broken KDFs. A set
+faithful to that oracle cannot, by construction, accuse an insecure algorithm the platform
+offers. (c) The generation stage is faithful (union exact in all 11 holes), so the defects
+are upstream of it and un-fixable from here — MetaCrySL stays read-only.
+
+**Decision.** Every **value clause** of `jca_android` — the allow-lists and value tests,
+including the Cipher transformation tables in their Java class (D-b) — is a literal
+transcription of the `CONSTRAINTS` of the corresponding rule in
+**`RVSec-replication-package/tools/rules/*.crysl`**, the copy the published numbers were
+measured against. `UnsafeAlgorithm` (KIND `ALG`) regains its published meaning:
+"cryptographically insecure per the expert rule". The scope is values only: **ORDER,
+event alphabets, and the predicate wiring of gh105 keep their api30 anchor** — the audit
+measured the original ORDER survives the chain nearly intact, so there is no defect to
+correct there, and re-anchoring it would reopen G-ORDER's nine recorded divergences and the
+36-clause ledger for no detection gain.
+
+**Provenance of the oracle copy, pinned.** Three local copies of the 49 rules exist and the
+audit measured them: the upstream CogniCrypt checkout (`Crypto-API-Rules`, `master` at
+`6d844ab`, 2022-05-12) and `rvsec-cognicrypt/CrySL-Rules` are byte-identical; the
+replication-package copy differs in exactly one value — it adds `"CCM"` to the AES modes of
+`Cipher.crysl:97,113`. That addition is **local to RVSec**: the *current* upstream `master`
+(checked 2026-08-24) still carries no `CCM` — and has meanwhile moved in the opposite
+direction, dropping `CBC`/`PCBC` from the AES modes, which is precisely why the oracle must
+be a pinned copy and not a moving branch: re-anchoring to today's upstream would accuse
+`AES/CBC/PKCS5Padding`, the corpus's most common transformation, on nobody's decision. The
+re-anchoring task records the sha256 of the 49 files as a freeze item and enters the CCM
+addition as a provenance row.
+
+**Warts are transcribed, not fixed.** The expert lists carry measured quirks —
+`Cipher` admits `OAEPWithMD5AndMGF1Padding` but no SHA-1 OAEP variant, `MessageDigest`
+omits `SHA-224`, `Signature` omits `SHA224withECDSA` and `SHA1withECDSA`. Researcher
+decision: they are transcribed literally, each with a record row (`kind=oracle-wart` in the
+divergence record) naming the quirk. Correcting a wart privately would repeat the
+MetaCrySL failure this decision exists to undo: an unvalidated edit on top of a validated
+rule. The harness and the C5 replay size what each wart costs before merge.
+
+**The platform-adjustment layer — the one admissible widening, closed and cited.** A value
+enters an allow-list beyond the expert list **only** when rejecting it would accuse a
+practice the platform itself recommends, and only with a primary-source citation
+(`kind=platform-value` in the divergence record; an uncited candidate is dropped and stays
+accused). The enumerated candidates, from the five rows that motivated D-10's pivot:
+`SSLContext` += `TLS` (the negotiated-protocol name; on API 30 it negotiates up to
+TLSv1.3); `KeyStore` += `{AndroidKeyStore, AndroidCAStore, BKS, BouncyCastle}` (the expert
+list is JSE-only — `{JCEKS, JKS, DKS, PKCS11, PKCS12}` — and names no Android type);
+nothing else. `X509` needs no entry — it resolves to `PKIX` through the alias table, and
+`PKIX` is in the expert list. `SHA256WITHRSA` needs no entry — case-insensitivity covers
+it. The unhyphenated OAEP spelling stays a `behavioural` record — doubly so now, since even
+the hyphenated SHA-1 OAEP is outside the expert list (a wart row). Values the expert lists
+carry that Android does not offer (`SunX509`, `NativePRNG*`, `Windows-PRNG`, `PKCS11`,
+`JKS`, `JCEKS`, `DKS`) **stay in the lists**: they are inert on the platform and removing
+them is exactly the un-validated narrowing this decision forbids.
+
+**What dissolves and what returns.** Under the expert oracle, D-10's two recorded
+divergences dissolve — `EC` (with `keySize 256`) and `SHA256/384/512withECDSA` are already
+in the expert lists; their `api30-omits` rows are closed with a note, and `SHA224withECDSA`
+leaves the `SignatureSpec` list as a wart. The narrowings D-10 accepted are undone: RSA
+`3072` and `DiffieHellman` return to `KeyPairGeneratorSpec`, `SunX509` to the two factory
+lists, the `SecretKeySpecSpec` algorithm list `{AES, HmacSHA256, HmacSHA384, HmacSHA512}`
+is restored (its removal was the audit's clearest case of the oracle destroying a check the
+monitor already had). The detections D-10 priced and gave up return: MD5/SHA-1 digests
+(5,892 rows of the published corpus), `MD5withRSA`/`SHA1withRSA`/`SHA1withDSA`,
+`SSL`/`TLSv1`/`TLSv1.1`/`Default`, `HmacMD5`/`HmacSHA1`,
+`ARC4`/`BLOWFISH`/`DESede`/`ChaCha20`, and — the case D-10 never priced — `AES/ECB` and
+every other transformation the frozen Cipher tables reject. The AES key-size clause is
+**not** in this list: it is deferred, for the reason given below. The acceptance criterion is two-sided and measured by the harness plus the C5
+replay: the security accusations return, **and** the four platform-artefact rows that
+motivated D-10 (TLS 8,648 · AndroidKeyStore 2,005 · X509 643 · SHA256WITHRSA 4) stay
+non-accused — the first two through the adjustment layer, `X509` through the alias table,
+`SHA256WITHRSA` through case folding. The fifth row D-10 listed, OAEP-no-hyphen (109), is
+**not** in the non-accused half and never was: `RSA/ECB/OAEPWithSHA1AndMGF1Padding` is
+rejected by the api30 anchor too — the api30 padding list spells it `OAEPwithSHA-1andMGF1Padding`,
+with the hyphen — so it was accused before this decision and stays accused after it, the more
+so because the expert rule carries no SHA-1 OAEP variant at all (an `oracle-wart` row). Its
+`behavioural` record explains the spelling; it does not clear the accusation. Counting it
+among the rows the re-anchoring must keep silent was an error of D-10's own bookkeeping,
+corrected here.
+
+**How the anchor is realised: the expert rule is the authority, the frozen `jca` list is
+the transcription of it that was published.** The re-anchoring does not re-transcribe the
+rules from scratch. For each value clause, the list the successor set carries is the list
+the frozen `jca` carries — because that list *is* the expert transcription, and it is the
+one the published numbers were measured against — and each list is then checked, entry by
+entry, against the `CONSTRAINTS` of the pinned expert copy. The two agree on every
+security-relevant value; where they differ it is by spelling variants the frozen set
+hand-wrote into its lists (`SHA256` beside `SHA-256`, `HMAC-SHA256` beside `HmacSHA256`,
+`TLSV1.2` for `TLSv1.2`), and those stay in place rather than being stripped into alias
+rows. Stripping them would be a second unvalidated edit for no detection gain: the lists
+are compared through `ConscryptAliasTable.matches`, which folds case and resolves aliases,
+so a redundant spelling changes no verdict, while removing one could. Each such entry gets
+a `spelling-variant` note in the conformance record naming the expert clause it duplicates,
+so the gate can tell a redundant spelling from an unbacked value.
+
+**The measured cost of the api30 anchor, restated with the case D-10 never named:
+`AES/ECB`.** The audit priced the api30 anchor by the algorithm lists it widened. The
+larger loss is in the `Cipher` tables, and it was not stated: `Api30CipherTransformationUtil`
+admits **`AES/ECB/PKCS5Padding`** — `ECB` is a member of the transcribed `AES` mode clause
+(`Cipher.cryptsl:137`), and no transcribed padding clause covers `ECB`, so the method falls
+through to its `return true`. Verified by execution against both classes: `AES/ECB/PKCS5Padding`,
+`AES/ECB/NoPadding`, `DESede/CBC/PKCS5Padding`, `DESede/ECB/PKCS5Padding`,
+`BLOWFISH/ECB/NoPadding`, `ARC4` and `ChaCha20` are all accused by the frozen
+`CipherTransformationUtil` and all admitted by `Api30CipherTransformationUtil`. ECB is the
+misuse the crypto-API literature reports first and the one this line of work exists to
+detect; a set that admits it is not an Android instrument, it is a broken one. The case does
+not appear in the published corpus's `CipherSpec` accusations (whose 109 rows are all the
+OAEP spelling), so it costs no published number — it is a false negative the successor set
+would have carried into the next campaign undetected, which is why it is recorded here and
+carried by a trace of its own rather than by the C5 replay.
+
+**`CipherSpec` re-points at the frozen utility; no new Cipher class is written**
+(researcher decision, 2026-08-24). `jca_android/CipherSpec.mop` imports
+`CipherTransformationUtil` — the class of the frozen `jca` — instead of
+`Api30CipherTransformationUtil`. The freeze on that class (INV-INS-109/118, task 10.1)
+forbids **editing** it, not **calling** it: it stays byte-identical and gains a second
+caller, and no verdict of the frozen set moves, because a `.mop` of `jca` calling a class
+that another `.mop` also calls is the same call it always made. The alternative — a third
+class transcribing `Cipher.crysl` directly, which would additionally carry `CCM` and the
+eight `PBEWithHmacSHA*AndAES_*` transformations — is rejected under P1: it is new code whose
+behaviour on the corpus is unmeasured, to gain values no corpus app uses.
+`Api30CipherTransformationUtil` is **not deleted**: it keeps no caller and stays as the
+record of what the api30 anchor said, which is what INV-INS-112 asks of a set's Cipher
+tables and what makes the two anchors comparable. It leaves the G-CONF path, whose
+`--cipher-util` input now names the frozen class.
+
+**`SSL` stays accused** (researcher decision, 2026-08-24). Conscrypt registers
+`SSLContext.SSL` and `SSLContext.TLS` on the same implementation class
+(`OpenSSLProvider.java:80-81` — both take `defaultSSLContextSuffix`, which is the TLSv1.2 or
+TLSv1.3 suffix), so on API 30 the two names are behaviourally the same context. `SSL` gets
+no `platform-value` row all the same: the registration is a `put`, not an `Alg.Alias`, so
+the alias rule of INV-INS-127 gives it no row either; the expert rule names `TLSv1.2` and
+`TLSv1.3` and nothing else; and asking a provider for `"SSL"` is the misuse the rule is
+about, whatever this one platform happens to resolve it to. The behavioural equivalence is
+recorded as a `behavioural` row so the reader of a report knows what the 103 accused events
+actually got at run time. `TLS`, by contrast, does get the row: it is the name the platform
+documents and the one an app that wants the current protocol is told to ask for.
+
+**The AES key-size clause stays deferred** (researcher decision, 2026-08-24). The expert
+`KeyGenerator.crysl` states `algorithm in {"AES"} => keysize in {128, 192, 256}`, and the
+published `jca` never implemented it — `jca/KeyGeneratorSpec.mop` has no key-size test at
+all. Implementing it now would add a class of accusation the validated set never made, with
+an unmeasured false-positive rate, inside a change whose whole point is to stop making
+unvalidated edits to expert-validated lists. It stays a `deferred-constant` row citing the
+expert clause text. The same disposition applies to every expert clause the frozen set left
+unimplemented: the re-anchoring restores the lists the experts wrote, it does not enlarge
+the set of clauses the instrument checks.
+
+**What this does to the records and gates, and what it deliberately does not touch.**
+`constraint_table.csv` and `conformance_record.csv` are re-derived with the expert rule as
+the anchor column — the deferred-constant class (D-30) survives unchanged in kind, but its
+rows now cite the expert clause text, which matters because the audit proved two api30
+"clauses" (`pre_len > pre_off`, `len > off`) are mangled reconstructions whose promotion
+would implement a bug. G-CONF re-points its `--crysl` input at the pinned expert copy and
+keeps its contract: any difference with no record row behind it fails. The normalisation
+rule, `ConscryptAliasTable`, the per-entry pointer requirement, the envelope, `codes.csv`,
+the frozen `jca`, and everything Groups 1–8 built outside the value lists are untouched.
+The alias table additionally gains the 11 multi-line Conscrypt registrations the original
+single-line extraction missed (6 `Signature` composite OIDs → `SHA*withRSA`, 5
+`Cipher.RSA/None/OAEP*`), measured by the audit as real false-accusation vectors.
+
+**Cross-change note.** gh105's artifacts reference api30 as the oracle of the wired
+predicates; that anchor is unchanged here. Its task 8.8 (reconciling the delta with this
+change at archival) picks up the D-15 vocabulary for the value clauses; nothing in gh105's
+72 executed tasks is reopened.
 
 ## API Design
 

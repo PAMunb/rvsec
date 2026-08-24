@@ -46,7 +46,9 @@ FIELDS = ["file", "hunk", "kind", "summary", "reason", "task"]
 KINDS = {
     "set-archived",  # the reproved derived set moved out of the way (task 2.1)
     "allow-list",  # a list was transcribed from the api30 rule (tasks 2.4-2.7)
-    "cipher-import",  # CipherSpec now names Api30CipherTransformationUtil (task 2.8)
+    "cipher-import",  # which Cipher transformation utility CipherSpec names
+    # (task 2.8 pointed it at Api30CipherTransformationUtil; task 11.3, under
+    # D-15, points it at the frozen jca's CipherTransformationUtil)
     "api30-omits",  # a value the rule omits and the platform provably carries
     "behavioural",  # a spelling proved to work on the platform and cited to no rule
     "message",  # a report site rewritten as a v=1 envelope (tasks 7.3-7.5)
@@ -64,10 +66,33 @@ KINDS = {
     "predicate-removal",  # a `remove`/`negate` site retired, a `@fail` undo retired,
     # or a write deleted because it translates no clause of
     # the rule and has no reader to lose
+    # D-15 (the value oracle moves to the pinned expert CrySL copy). INV-INS-125
+    # enumerates five admissible departures from a literal transcription of the
+    # expert rule; three of them are divergence-record kinds of their own, and the
+    # other two are the alias table and the conformance record's deferred constants.
+    "platform-value",  # a value the expert rule omits whose rejection would accuse a
+    # practice the platform itself recommends, admitted only with a
+    # primary-source citation; the set is closed (INV-INS-125)
+    "oracle-wart",  # a measured quirk of the expert rule, transcribed faithfully
+    # rather than corrected, with the quirk named
+    "spelling-variant",  # a frozen-set list entry that duplicates an expert entry under
+    # case folding or an alias row, kept because removing it could
+    # move a verdict and keeping it cannot
 }
 
 # Kinds that describe the set rather than a diff, so they carry no hunk key.
-NARRATIVE_KINDS = {"set-archived", "api30-omits", "behavioural"}
+NARRATIVE_KINDS = {
+    "set-archived",
+    "api30-omits",
+    "behavioural",
+    # D-15: a platform value and an oracle wart are both admitted by an argument
+    # rather than by a diff, so both owe the record a narrative reason.
+    "platform-value",
+    "oracle-wart",
+    # A spelling variant is admitted by an argument about the normalisation rule,
+    # not by a diff either: the row says which expert entry it duplicates.
+    "spelling-variant",
+}
 
 
 def hunks(base: Path, target: Path) -> list[dict[str, str]]:

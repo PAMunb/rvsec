@@ -1,0 +1,7 @@
+# D-15 (task 11.9). The api30 anchor admitted this value; the expert anchor rejects it.
+# The corpus cannot supply the case, so it is replayed here: no published number moves,
+# which is exactly why it would otherwise have travelled on as an unwitnessed false negative.
+#
+Cipher.getInstance("ARC4") -> c
+c.init(1, null)
+c.doFinal(bytes) -> out

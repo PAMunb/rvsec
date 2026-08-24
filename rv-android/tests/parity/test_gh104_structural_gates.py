@@ -41,6 +41,12 @@ SCRIPTS = REPO / "scripts"
 CONTROL = REPO / "results/gh101_group8_jca_frozen_control/monitors"
 MANIFEST = REPO / "data/gh104/jca_frozen_control.sha256"
 CRYSL = REPO.parent.parent / "MetaCrySL/generated/api30"
+# D-15 (2026-08-24) splits the oracles. The generated api30 rules above stay the
+# oracle of ORDER, event alphabets and predicate clauses; the pinned expert copy
+# below is the oracle of every value clause, and is what G-CONF reads through
+# `--value-crysl` (INV-INS-125/127). The pin is by sha256, recorded as a freeze
+# item of `data/jca_android/README.md`.
+VALUE_CRYSL = REPO.parent.parent / "RVSec-replication-package/tools/rules"
 
 # Measured on 2026-08-16 against the frozen control monitor, and reproduced by
 # every gate of `scripts/gh104_gates.py`. `G-2` is the count of
@@ -84,6 +90,12 @@ def _crysl() -> Path:
     if not CRYSL.is_dir():
         pytest.skip(f"the generated api30 rules are absent: {CRYSL}")
     return CRYSL
+
+
+def _value_crysl() -> Path:
+    if not VALUE_CRYSL.is_dir():
+        pytest.skip(f"the pinned expert rules are absent: {VALUE_CRYSL}")
+    return VALUE_CRYSL
 
 
 def _control_monitor() -> Path:
@@ -173,6 +185,8 @@ def _gates(monitor: Path, allowlist: Path | None) -> dict:
         str(monitor),
         "--crysl",
         str(_crysl()),
+        "--value-crysl",
+        str(_value_crysl()),
         "--alias",
         str(REPO / "data/jca_android/alias_table.csv"),
         "--constraint-table",
@@ -404,8 +418,14 @@ def test_jca_android_message_gate_is_clean():
     assert report["counts"] == {}, report["counts"]
 
 
-def test_jca_android_allow_lists_conform_to_the_api30_rules():
-    """G-CONF: INV-INS-127, with every difference backed by a recorded row."""
+def test_jca_android_allow_lists_conform_to_the_expert_rules():
+    """G-CONF: INV-INS-127, with every difference backed by a recorded row.
+
+    From D-15 the oracle is the pinned expert copy, not the generated api30
+    rules. The assertion is unchanged -- no unbacked difference -- but what
+    counts as a difference moved: the api30 lists admitted MD5, SHA-1, ARC4,
+    NONEwithRSA and AES/ECB, and the expert lists do not.
+    """
     report = _gates(
         _generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv"
     )
