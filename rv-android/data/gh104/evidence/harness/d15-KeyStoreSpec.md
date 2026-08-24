@@ -1,15 +1,15 @@
 # KeyStoreSpec — differential harness
 
-- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/4ee1da1c-15d4-4c75-8a60-fdfffb00219b/scratchpad/jca_android.before`
+- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/f3df4e36-cdd1-4c58-a57b-9ec2804d6c42/scratchpad/before`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
 - traces: 5
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
 | `KeyStoreSpec-androidkeystore.txt` | unchanged | — | — |
-| `KeyStoreSpec-getkey-iv.txt` | unchanged | IvParameterSpecSpec.c1 | IvParameterSpecSpec.c1 |
-| `KeyStoreSpec-guard-on-field.txt` | unchanged | KeyStoreSpec.load, KeyStoreSpec.gk1 | KeyStoreSpec.load, KeyStoreSpec.gk1 |
-| `KeyStoreSpec-jks.txt` | removed | KeyStoreSpec.load, KeyStoreSpec.gk1 | — |
+| `KeyStoreSpec-getkey-iv.txt` | unchanged | c1:IVPARAMETERSPEC-NOBS-00 | c1:IVPARAMETERSPEC-NOBS-00 |
+| `KeyStoreSpec-guard-on-field.txt` | unchanged | gk1:KEYSTORE-ORDER-00, load:KEYSTORE-ORDER-00 | gk1:KEYSTORE-ORDER-00, load:KEYSTORE-ORDER-00 |
+| `KeyStoreSpec-jks.txt` | removed | gk1:KEYSTORE-KSTYPE-00, gk1:KEYSTORE-ORDER-00, load:KEYSTORE-ORDER-00 | — |
 | `KeyStoreSpec.txt` | unchanged | — | — |
 
 ## Envelopes
@@ -22,3 +22,4 @@
 - `KeyStoreSpec-guard-on-field.txt` (B) `spec=KeyStoreSpec,ev=gk1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYSTORE-ORDER-00 ev=gk1 obj=KeyStore val='' exp='' msg='the observed call sequence is not one KeyStoreSpec accepts'`
 - `KeyStoreSpec-jks.txt` (A) `spec=KeyStoreSpec,ev=load,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYSTORE-ORDER-00 ev=load obj=KeyStore val='' exp='' msg='the observed call sequence is not one KeyStoreSpec accepts'`
 - `KeyStoreSpec-jks.txt` (A) `spec=KeyStoreSpec,ev=gk1,type=InvalidKeyStoreType,msg=v=1 code=KEYSTORE-KSTYPE-00 ev=gk1 obj=KeyStore val='JKS' exp='AndroidKeyStore,PKCS12,BKS,BouncyCastle,AndroidCAStore' msg='expecting one of AndroidKeyStore,PKCS12,BKS,BouncyCastle,AndroidCAStore but found JKS'`
+- `KeyStoreSpec-jks.txt` (A) `spec=KeyStoreSpec,ev=gk1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=KEYSTORE-ORDER-00 ev=gk1 obj=KeyStore val='' exp='' msg='the observed call sequence is not one KeyStoreSpec accepts'`

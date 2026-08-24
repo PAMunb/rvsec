@@ -6,8 +6,8 @@ mutation per verdict the classifier must produce, so a single run covers all fou
 and the direction of every difference is known before the run rather than after.
 
 - **A** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca`
-- **B** `/home/pedro/tmp-gh104/jca_mutant` (scratch)
-- traces replayed: 57
+- **B** `/home/pedro/.cache/gh104-tmp/jca_mutant` (scratch)
+- traces replayed: 159
 
 ## Mutations
 
@@ -18,20 +18,27 @@ and the direction of every difference is known before the run rather than after.
 
 ## Verdict counts
 
-- `introduced`: 1
-- `moved`: 3
-- `removed`: 1
-- `unchanged`: 52
+- `introduced`: 2
+- `moved`: 7
+- `removed`: 3
+- `unchanged`: 147
 
 ## Traces that differ
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
-| `IvParameterSpecSpec-unrandomised.txt` | removed | IvParameterSpecSpec.c3 | — |
-| `MessageDigestSpec-md5-only.txt` | introduced | — | MessageDigestSpec.g4 |
-| `MessageDigestSpec-md5.txt` | moved | MessageDigestSpec.update | MessageDigestSpec.g4, MessageDigestSpec.update |
-| `MessageDigestSpec-sha1.txt` | moved | MessageDigestSpec.update | MessageDigestSpec.g4, MessageDigestSpec.update |
-| `TrustManagerFactorySpec-x509.txt` | moved | TrustManagerFactorySpec.g3, TrustManagerFactorySpec.init | TrustManagerFactorySpec.init |
+| `IvChainJunctionSpec-decrypt.txt` | removed | c3:?, c3:? | — |
+| `IvChainJunctionSpec-unprepared.txt` | removed | c3:?, c3:? | — |
+| `IvParameterSpecSpec-unrandomised.txt` | removed | c3:?, c3:? | — |
+| `MessageDigestSpec-md5-only.txt` | introduced | — | g4:? |
+| `MessageDigestSpec-md5.txt` | moved | update:?, update:? | g4:?, update:? |
+| `MessageDigestSpec-sha1.txt` | moved | update:?, update:? | g4:?, update:? |
+| `MessageDigestSpec-unlisted-only.txt` | introduced | — | g4:? |
+| `SecretKeySpec-hardcoded-iv.txt` | moved | c3:?, c3:?, c3:?, c3:? | c3:?, c3:? |
+| `TrustManagerFactorySpec-x509.txt` | moved | g3:?, init:? | init:?, init:? |
+| `d15-MessageDigestSpec-md5.txt` | moved | update:?, update:? | g4:?, update:? |
+| `d15-MessageDigestSpec-sha1-alias.txt` | moved | update:?, update:? | g4:?, update:? |
+| `d15-MessageDigestSpec-sha1.txt` | moved | update:?, update:? | g4:?, update:? |
 
 ## Self-contradicting envelopes
 

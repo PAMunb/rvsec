@@ -1,16 +1,16 @@
 # GCMParameterSpecSpec — differential harness
 
-- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/4ee1da1c-15d4-4c75-8a60-fdfffb00219b/scratchpad/jca_android.before`
+- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/f3df4e36-cdd1-4c58-a57b-9ec2804d6c42/scratchpad/before`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
 - traces: 6
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
-| `GCMParameterSpecSpec-badtaglen.txt` | unchanged | GCMParameterSpecSpec.c1 | GCMParameterSpecSpec.c1 |
-| `GCMParameterSpecSpec-second-overload-badtaglen.txt` | unchanged | GCMParameterSpecSpec.c2 | GCMParameterSpecSpec.c2 |
-| `GCMParameterSpecSpec-second-overload-unrandomised.txt` | unchanged | GCMParameterSpecSpec.c2 | GCMParameterSpecSpec.c2 |
+| `GCMParameterSpecSpec-badtaglen.txt` | unchanged | c1:GCMPARAMETERSPEC-CONSTR-00 | c1:GCMPARAMETERSPEC-CONSTR-00 |
+| `GCMParameterSpecSpec-second-overload-badtaglen.txt` | unchanged | c2:GCMPARAMETERSPEC-CONSTR-02 | c2:GCMPARAMETERSPEC-CONSTR-02 |
+| `GCMParameterSpecSpec-second-overload-unrandomised.txt` | unchanged | c2:GCMPARAMETERSPEC-NOBS-01 | c2:GCMPARAMETERSPEC-NOBS-01 |
 | `GCMParameterSpecSpec-second-overload.txt` | unchanged | — | — |
-| `GCMParameterSpecSpec-unrandomised.txt` | unchanged | GCMParameterSpecSpec.c1 | GCMParameterSpecSpec.c1 |
+| `GCMParameterSpecSpec-unrandomised.txt` | unchanged | c1:GCMPARAMETERSPEC-NOBS-00 | c1:GCMPARAMETERSPEC-NOBS-00 |
 | `GCMParameterSpecSpec.txt` | unchanged | — | — |
 
 ## Envelopes

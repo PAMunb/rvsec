@@ -1,30 +1,33 @@
 # TrustManagerFactorySpec — differential harness
 
-- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/4ee1da1c-15d4-4c75-8a60-fdfffb00219b/scratchpad/jca_android.before`
+- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/f3df4e36-cdd1-4c58-a57b-9ec2804d6c42/scratchpad/before`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
 - traces: 9
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
-| `TrustManagerFactorySpec-guard-on-field.txt` | unchanged | TrustManagerFactorySpec.init | TrustManagerFactorySpec.init |
+| `TrustManagerFactorySpec-guard-on-field.txt` | unchanged | init:TRUSTMANAGERFACTORY-NOBS-00, init:TRUSTMANAGERFACTORY-ORDER-00 | init:TRUSTMANAGERFACTORY-NOBS-00, init:TRUSTMANAGERFACTORY-ORDER-00 |
 | `TrustManagerFactorySpec-loaded-keystore.txt` | unchanged | — | — |
-| `TrustManagerFactorySpec-managers-taken-twice.txt` | unchanged | TrustManagerFactorySpec.gtm1 | TrustManagerFactorySpec.gtm1 |
-| `TrustManagerFactorySpec-pkix-init.txt` | unchanged | TrustManagerFactorySpec.init | TrustManagerFactorySpec.init |
+| `TrustManagerFactorySpec-managers-taken-twice.txt` | unchanged | gtm1:TRUSTMANAGERFACTORY-ORDER-00 | gtm1:TRUSTMANAGERFACTORY-ORDER-00 |
+| `TrustManagerFactorySpec-pkix-init.txt` | unchanged | init:TRUSTMANAGERFACTORY-NOBS-00 | init:TRUSTMANAGERFACTORY-NOBS-00 |
 | `TrustManagerFactorySpec-sunx509-no-init.txt` | unchanged | — | — |
-| `TrustManagerFactorySpec-sunx509.txt` | unchanged | TrustManagerFactorySpec.init | TrustManagerFactorySpec.init |
-| `TrustManagerFactorySpec-unloaded-keystore.txt` | unchanged | TrustManagerFactorySpec.init | TrustManagerFactorySpec.init |
-| `TrustManagerFactorySpec-x509.txt` | unchanged | TrustManagerFactorySpec.init | TrustManagerFactorySpec.init |
-| `TrustManagerFactorySpec.txt` | unchanged | TrustManagerFactorySpec.init | TrustManagerFactorySpec.init |
+| `TrustManagerFactorySpec-sunx509.txt` | moved | init:TRUSTMANAGERFACTORY-ALG-00, init:TRUSTMANAGERFACTORY-NOBS-00 | init:TRUSTMANAGERFACTORY-NOBS-00 |
+| `TrustManagerFactorySpec-unloaded-keystore.txt` | unchanged | init:TRUSTMANAGERFACTORY-NOBS-00 | init:TRUSTMANAGERFACTORY-NOBS-00 |
+| `TrustManagerFactorySpec-x509.txt` | unchanged | init:TRUSTMANAGERFACTORY-NOBS-00 | init:TRUSTMANAGERFACTORY-NOBS-00 |
+| `TrustManagerFactorySpec.txt` | unchanged | init:TRUSTMANAGERFACTORY-NOBS-00 | init:TRUSTMANAGERFACTORY-NOBS-00 |
 
 ## Envelopes
 
+- `TrustManagerFactorySpec-guard-on-field.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=UnsatisfiedConstraint,msg=v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=init obj=TrustManagerFactory val='PKIX' exp='a KeyStore this instrumentation observed being loaded' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'`
 - `TrustManagerFactorySpec-guard-on-field.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=TRUSTMANAGERFACTORY-ORDER-00 ev=init obj=TrustManagerFactory val='' exp='' msg='the observed call sequence is not one TrustManagerFactorySpec accepts'`
+- `TrustManagerFactorySpec-guard-on-field.txt` (B) `spec=TrustManagerFactorySpec,ev=init,type=UnsatisfiedConstraint,msg=v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=init obj=TrustManagerFactory val='PKIX' exp='a KeyStore this instrumentation observed being loaded' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'`
 - `TrustManagerFactorySpec-guard-on-field.txt` (B) `spec=TrustManagerFactorySpec,ev=init,type=InvalidSequenceOfMethodCalls,msg=v=1 code=TRUSTMANAGERFACTORY-ORDER-00 ev=init obj=TrustManagerFactory val='' exp='' msg='the observed call sequence is not one TrustManagerFactorySpec accepts'`
 - `TrustManagerFactorySpec-managers-taken-twice.txt` (A) `spec=TrustManagerFactorySpec,ev=gtm1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=TRUSTMANAGERFACTORY-ORDER-00 ev=gtm1 obj=TrustManagerFactory val='' exp='' msg='the observed call sequence is not one TrustManagerFactorySpec accepts'`
 - `TrustManagerFactorySpec-managers-taken-twice.txt` (B) `spec=TrustManagerFactorySpec,ev=gtm1,type=InvalidSequenceOfMethodCalls,msg=v=1 code=TRUSTMANAGERFACTORY-ORDER-00 ev=gtm1 obj=TrustManagerFactory val='' exp='' msg='the observed call sequence is not one TrustManagerFactorySpec accepts'`
 - `TrustManagerFactorySpec-pkix-init.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=UnsatisfiedConstraint,msg=v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=init obj=TrustManagerFactory val='PKIX' exp='a KeyStore this instrumentation observed being loaded' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'`
 - `TrustManagerFactorySpec-pkix-init.txt` (B) `spec=TrustManagerFactorySpec,ev=init,type=UnsatisfiedConstraint,msg=v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=init obj=TrustManagerFactory val='PKIX' exp='a KeyStore this instrumentation observed being loaded' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'`
 - `TrustManagerFactorySpec-sunx509.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=UnsafeAlgorithm,msg=v=1 code=TRUSTMANAGERFACTORY-ALG-00 ev=init obj=TrustManagerFactory val='SunX509' exp='PKIX' msg='expecting one of PKIX but found SunX509'`
+- `TrustManagerFactorySpec-sunx509.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=UnsatisfiedConstraint,msg=v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=init obj=TrustManagerFactory val='SunX509' exp='a KeyStore this instrumentation observed being loaded' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'`
 - `TrustManagerFactorySpec-sunx509.txt` (B) `spec=TrustManagerFactorySpec,ev=init,type=UnsatisfiedConstraint,msg=v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=init obj=TrustManagerFactory val='SunX509' exp='a KeyStore this instrumentation observed being loaded' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'`
 - `TrustManagerFactorySpec-unloaded-keystore.txt` (A) `spec=TrustManagerFactorySpec,ev=init,type=UnsatisfiedConstraint,msg=v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=init obj=TrustManagerFactory val='PKIX' exp='a KeyStore this instrumentation observed being loaded' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'`
 - `TrustManagerFactorySpec-unloaded-keystore.txt` (B) `spec=TrustManagerFactorySpec,ev=init,type=UnsatisfiedConstraint,msg=v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=init obj=TrustManagerFactory val='PKIX' exp='a KeyStore this instrumentation observed being loaded' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'`

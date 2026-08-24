@@ -1,18 +1,18 @@
 # IvChainJunctionSpec — differential harness
 
-- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/4ee1da1c-15d4-4c75-8a60-fdfffb00219b/scratchpad/jca_android.before`
+- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/f3df4e36-cdd1-4c58-a57b-9ec2804d6c42/scratchpad/before`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
 - traces: 7
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
-| `IvChainJunctionSpec-decrypt.txt` | unchanged | SecretKeySpecSpec.c1, IvParameterSpecSpec.c1, CipherSpec.i2 | SecretKeySpecSpec.c1, IvParameterSpecSpec.c1, CipherSpec.i2 |
-| `IvChainJunctionSpec-gcm-unprepared.txt` | unchanged | SecretKeySpecSpec.c1, GCMParameterSpecSpec.c1, CipherSpec.i2, IvChainJunctionSpec.use | SecretKeySpecSpec.c1, GCMParameterSpecSpec.c1, CipherSpec.i2, IvChainJunctionSpec.use |
-| `IvChainJunctionSpec-gcm.txt` | unchanged | SecretKeySpecSpec.c1, CipherSpec.i2 | SecretKeySpecSpec.c1, CipherSpec.i2 |
-| `IvChainJunctionSpec-rangen-unobserved.txt` | moved | SecureRandomSpec.g4, SecretKeySpecSpec.c1, CipherSpec.i2, IvChainJunctionSpec.useRandomKey | SecretKeySpecSpec.c1, CipherSpec.i2, CipherSpec.f2 |
-| `IvChainJunctionSpec-rangen.txt` | moved | SecretKeySpecSpec.c1, CipherSpec.i2 | SecretKeySpecSpec.c1, CipherSpec.i2, CipherSpec.f2 |
-| `IvChainJunctionSpec-unprepared.txt` | unchanged | SecretKeySpecSpec.c1, IvParameterSpecSpec.c1, CipherSpec.i2, IvChainJunctionSpec.use | SecretKeySpecSpec.c1, IvParameterSpecSpec.c1, CipherSpec.i2, IvChainJunctionSpec.use |
-| `IvChainJunctionSpec.txt` | unchanged | SecretKeySpecSpec.c1, CipherSpec.i2 | SecretKeySpecSpec.c1, CipherSpec.i2 |
+| `IvChainJunctionSpec-decrypt.txt` | unchanged | c1:IVPARAMETERSPEC-NOBS-00, c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00 | c1:IVPARAMETERSPEC-NOBS-00, c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00 |
+| `IvChainJunctionSpec-gcm-unprepared.txt` | unchanged | c1:GCMPARAMETERSPEC-NOBS-00, c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00, use:IVCHAINJUNCTION-NOBS-01 | c1:GCMPARAMETERSPEC-NOBS-00, c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00, use:IVCHAINJUNCTION-NOBS-01 |
+| `IvChainJunctionSpec-gcm.txt` | unchanged | c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00 | c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00 |
+| `IvChainJunctionSpec-rangen-unobserved.txt` | moved | c1:SECRETKEYSPEC-NOBS-00, g4:SECURERANDOM-ALG-00, i2:CIPHER-NOBS-00, useRandomKey:IVCHAINJUNCTION-NOBS-02 | c1:SECRETKEYSPEC-NOBS-00, f2:CIPHER-ORDER-00, i2:CIPHER-ALG-01, i2:CIPHER-NOBS-00, i2:CIPHER-ORDER-00 |
+| `IvChainJunctionSpec-rangen.txt` | moved | c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00 | c1:SECRETKEYSPEC-NOBS-00, f2:CIPHER-ORDER-00, i2:CIPHER-ALG-01, i2:CIPHER-NOBS-00, i2:CIPHER-ORDER-00 |
+| `IvChainJunctionSpec-unprepared.txt` | unchanged | c1:IVPARAMETERSPEC-NOBS-00, c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00, use:IVCHAINJUNCTION-NOBS-00 | c1:IVPARAMETERSPEC-NOBS-00, c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00, use:IVCHAINJUNCTION-NOBS-00 |
+| `IvChainJunctionSpec.txt` | unchanged | c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00 | c1:SECRETKEYSPEC-NOBS-00, i2:CIPHER-NOBS-00 |
 
 ## Envelopes
 
@@ -39,13 +39,17 @@
 - `IvChainJunctionSpec-rangen-unobserved.txt` (A) `spec=CipherSpec,ev=i2,type=UnsatisfiedConstraint,msg=v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'`
 - `IvChainJunctionSpec-rangen-unobserved.txt` (A) `spec=IvChainJunctionSpec,ev=useRandomKey,type=UnsatisfiedConstraint,msg=v=1 code=IVCHAINJUNCTION-NOBS-02 ev=useRandomKey obj=Cipher val='AES/ECB/PKCS5Padding' exp='a SecureRandom this instrumentation observed being constructed' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'`
 - `IvChainJunctionSpec-rangen-unobserved.txt` (B) `spec=SecretKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='' exp='prepared key material' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to have been prepared by a Key.getEncoded()'`
+- `IvChainJunctionSpec-rangen-unobserved.txt` (B) `spec=CipherSpec,ev=i2,type=UnsafeAlgorithm,msg=v=1 code=CIPHER-ALG-01 ev=i2 obj=Cipher val='AES/ECB/PKCS5Padding' exp='a transformation admitted by CipherTransformationUtil (expert Cipher.crysl)' msg='expecting a transformation admitted by CipherTransformationUtil (expert Cipher.crysl) but found AES/ECB/PKCS5Padding'`
+- `IvChainJunctionSpec-rangen-unobserved.txt` (B) `spec=CipherSpec,ev=i2,type=UnsatisfiedConstraint,msg=v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'`
 - `IvChainJunctionSpec-rangen-unobserved.txt` (B) `spec=CipherSpec,ev=i2,type=InvalidSequenceOfMethodCalls,msg=v=1 code=CIPHER-ORDER-00 ev=i2 obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'`
-- `IvChainJunctionSpec-rangen-unobserved.txt` (B) `spec=CipherSpec,ev=f2,type=InvalidSequenceOfMethodCalls,msg=v=1 code=CIPHER-ORDER-00 ev=i2 obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'`
+- `IvChainJunctionSpec-rangen-unobserved.txt` (B) `spec=CipherSpec,ev=f2,type=InvalidSequenceOfMethodCalls,msg=v=1 code=CIPHER-ORDER-00 ev=f2 obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'`
 - `IvChainJunctionSpec-rangen.txt` (A) `spec=SecretKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='' exp='prepared key material' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to have been prepared by a Key.getEncoded()'`
 - `IvChainJunctionSpec-rangen.txt` (A) `spec=CipherSpec,ev=i2,type=UnsatisfiedConstraint,msg=v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'`
 - `IvChainJunctionSpec-rangen.txt` (B) `spec=SecretKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='' exp='prepared key material' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to have been prepared by a Key.getEncoded()'`
+- `IvChainJunctionSpec-rangen.txt` (B) `spec=CipherSpec,ev=i2,type=UnsafeAlgorithm,msg=v=1 code=CIPHER-ALG-01 ev=i2 obj=Cipher val='AES/ECB/PKCS5Padding' exp='a transformation admitted by CipherTransformationUtil (expert Cipher.crysl)' msg='expecting a transformation admitted by CipherTransformationUtil (expert Cipher.crysl) but found AES/ECB/PKCS5Padding'`
+- `IvChainJunctionSpec-rangen.txt` (B) `spec=CipherSpec,ev=i2,type=UnsatisfiedConstraint,msg=v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'`
 - `IvChainJunctionSpec-rangen.txt` (B) `spec=CipherSpec,ev=i2,type=InvalidSequenceOfMethodCalls,msg=v=1 code=CIPHER-ORDER-00 ev=i2 obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'`
-- `IvChainJunctionSpec-rangen.txt` (B) `spec=CipherSpec,ev=f2,type=InvalidSequenceOfMethodCalls,msg=v=1 code=CIPHER-ORDER-00 ev=i2 obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'`
+- `IvChainJunctionSpec-rangen.txt` (B) `spec=CipherSpec,ev=f2,type=InvalidSequenceOfMethodCalls,msg=v=1 code=CIPHER-ORDER-00 ev=f2 obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'`
 - `IvChainJunctionSpec-unprepared.txt` (A) `spec=SecretKeySpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='' exp='prepared key material' msg='the keyMaterial given to SecretKeySpec(byte[], String) was not observed to have been prepared by a Key.getEncoded()'`
 - `IvChainJunctionSpec-unprepared.txt` (A) `spec=IvParameterSpecSpec,ev=c1,type=UnsatisfiedConstraint,msg=v=1 code=IVPARAMETERSPEC-NOBS-00 ev=c1 obj=IvParameterSpec val='' exp='a randomized byte[]' msg='no randomized source of the iv given to IvParameterSpec(byte[]) was observed'`
 - `IvChainJunctionSpec-unprepared.txt` (A) `spec=CipherSpec,ev=i2,type=UnsatisfiedConstraint,msg=v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'`

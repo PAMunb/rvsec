@@ -405,6 +405,28 @@ INV-INS-124's rule that no allow-list, automaton or message task closes without 
 harness output is not bureaucracy: the harness is the only instrument in the set that compiles
 what it generates. A green gate suite proves the gate's own link and no other.
 
+**And the harness only sees what it compares.** The instrument has the same failure mode one
+level up, and D-15 walked into it. Its first run reported `unchanged 132 · moved 9` and the
+right answer over the same two snapshots is `unchanged 119 · moved 22`; thirteen traces were
+called unchanged by a comparison that could not represent the difference. Two causes, both
+repaired in task 11.11. `TraceRunner.envelope()` scanned the accumulated `ErrorCollector` set —
+unordered, and accumulated over the whole trace — and returned the *first* error of the
+specification, so a second accusation at one event was dropped and the envelope written could
+belong to an event that had already fired; the symptom sat in plain sight in the committed
+evidence, where all four `MacSpec-hmacpbesha1` envelopes carry `ev=i1` inside the message while
+the outer `ev=` reads `update`, `updateBytes`, `f1`. And `classify()` compared accusing event
+*names*, so a repair that adds an accusation at an already-accused event — `SignatureSpec.i1`
+raises `SIGNATURE-ALG-00` and `SIGNATURE-NOBS-00` from two independent `if`s — was invisible by
+construction. The comparison is now over `(event, code)` pairs, which is the accusation's
+identity without being its prose.
+
+The general form is the one this file keeps arriving at from different directions: **an
+instrument that has stopped distinguishing must say so rather than answer "no difference".**
+`unrecorded` became a finding for the same reason when the constraint-table keys moved. What
+makes this instance worth writing down is that the harness self-test did not catch it and could
+not: each of its three mutations moves an accusation to an event that was previously *silent*,
+which is exactly the case a name-only comparison still gets right.
+
 **No launcher passes `-Xmx`.** `javamop/target/release/javamop/javamop/bin/javamop:18` invokes a
 bare `java`; `rv-monitor`'s launcher and the child that `LogicRepositoryConnector.java:149-154`
 spawns each pass `-Xss1g` and nothing else. Both JVMs therefore run at the default ergonomic heap,

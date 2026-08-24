@@ -45,6 +45,13 @@ RVSEC_MOP = REACTOR / "rvsec/rvsec-mop"
 TEST_CLASSES = RVSEC_MOP / "target/test-classes"
 CLASSPATH_FILE = RVSEC_MOP / "target/gh104-classpath.txt"
 
+# `spec=S,ev=E,type=T,msg=v=1 code=C ...`: the two halves that say *where* an
+# accusation was raised and *which* accusation it is. The code is the accusation's
+# identity; the prose after it is not, which is why the classifier reads this and
+# never the message.
+ENVELOPE_SITE = re.compile(r"\bev=([A-Za-z0-9_]+)\b")
+ENVELOPE_CODE = re.compile(r"\bcode=([A-Z0-9-]+)\b")
+
 # `val` inside `exp`: `expecting one of A,B,C but found B.`
 ENVELOPE = re.compile(
     r"expecting (?:one of|at least)?\s*\{?([^}]*?)\}?\s*but found\s+(.*?)\.?\s*$"
@@ -187,15 +194,42 @@ def self_contradicting(envelope: str) -> str | None:
     return None
 
 
+def sites(outcome: dict) -> list[tuple[str, str]]:
+    """The `(event, code)` pairs one snapshot raised on one trace, sorted.
+
+    The event alone is too coarse and the message is too fine. Too coarse loses a
+    real difference: `SignatureSpec.i1` raises `SIGNATURE-ALG-00` and
+    `SIGNATURE-NOBS-00` from two independent `if`s, so re-anchoring a value list
+    adds an accusation at an event that was already accused, and a comparison over
+    event names calls that `unchanged`. Too fine loses the distinction the report
+    exists to draw: a message this change rewrote would read as a behavioural
+    difference, and the behaviour is exactly what the messages are not.
+
+    The code is the accusation's identity -- `codes.csv` is what carries it -- so it
+    is what the comparison is over. The outer `ev=` is read rather than the one
+    inside the message: the envelope's own `ev=` field is written by the
+    specification and can name the event that staged a value rather than the one
+    that raised the accusation.
+    """
+    raised: list[tuple[str, str]] = []
+    for envelope in outcome["envelopes"]:
+        head, _, message = envelope.partition(",msg=")
+        site = ENVELOPE_SITE.search(head)
+        code = ENVELOPE_CODE.search(message)
+        raised.append(
+            (site.group(1) if site else "?", code.group(1) if code else "?")
+        )
+    return sorted(raised)
+
+
 def classify(left: dict, right: dict) -> str:
     """
     Classify one trace by how the two snapshots' accusations differ.
 
     `unchanged` covers two cases that are the same answer: neither side accuses,
-    or both accuse at the same event. Equality is over the accusing events and
-    not over the reports, because a message the change rewrote would otherwise
-    show up as a behavioural difference -- and the behaviour is exactly what the
-    messages are not.
+    or both raise the same accusations at the same events. Equality is over the
+    `(event, code)` pairs of `sites()` and never over the message, for the reason
+    recorded there.
     """
     if not left["accused"] and not right["accused"]:
         return "unchanged"
@@ -203,7 +237,7 @@ def classify(left: dict, right: dict) -> str:
         return "removed"
     if right["accused"] and not left["accused"]:
         return "introduced"
-    return "unchanged" if left["accusingEvents"] == right["accusingEvents"] else "moved"
+    return "unchanged" if sites(left) == sites(right) else "moved"
 
 
 def compare(left: list[dict], right: list[dict]) -> list[dict]:
@@ -248,6 +282,10 @@ def compare(left: list[dict], right: list[dict]) -> list[dict]:
                 "b_accused": two["accused"],
                 "a_events": one["accusingEvents"],
                 "b_events": two["accusingEvents"],
+                # what the classification is actually over, so that a `moved` row
+                # can be read without opening the envelopes underneath it
+                "a_sites": [f"{event}:{code}" for event, code in sites(one)],
+                "b_sites": [f"{event}:{code}" for event, code in sites(two)],
                 "a_envelopes": one["envelopes"],
                 "b_envelopes": two["envelopes"],
                 "unresolved": one["unresolved"] + two["unresolved"],
@@ -296,8 +334,8 @@ def write_reports(
                 continue
             lines.append(
                 f"| `{row['trace']}` | {row['class']} | "
-                f"{', '.join(row['a_events']) or '—'} | "
-                f"{', '.join(row['b_events']) or '—'} |"
+                f"{', '.join(row['a_sites']) or '—'} | "
+                f"{', '.join(row['b_sites']) or '—'} |"
             )
         flagged = [row for row in entries if row.get("flags")]
         if flagged:
@@ -514,8 +552,8 @@ def main() -> int:
                 continue
             lines.append(
                 f"| `{row['trace']}` | {row['class']} | "
-                f"{', '.join(row['a_events']) or '—'} | "
-                f"{', '.join(row['b_events']) or '—'} |"
+                f"{', '.join(row['a_sites']) or '—'} | "
+                f"{', '.join(row['b_sites']) or '—'} |"
             )
         flagged = [row for row in report["rows"] if row.get("flags")]
         lines += ["", "## Self-contradicting envelopes", ""]

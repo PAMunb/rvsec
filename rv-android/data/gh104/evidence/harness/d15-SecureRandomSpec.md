@@ -1,28 +1,29 @@
 # SecureRandomSpec — differential harness
 
-- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/4ee1da1c-15d4-4c75-8a60-fdfffb00219b/scratchpad/jca_android.before`
+- **A** `/tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/f3df4e36-cdd1-4c58-a57b-9ec2804d6c42/scratchpad/before`
 - **B** `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android`
 - traces: 9
 
 | trace | class | A accuses | B accuses |
 |---|---|---|---|
-| `SecureRandomSpec-genseed-rejected-algorithm.txt` | removed | SecureRandomSpec.g4, SecureRandomSpec.genSeed, SecureRandomSpec.setSeed2 | — |
+| `SecureRandomSpec-genseed-rejected-algorithm.txt` | removed | g4:SECURERANDOM-ALG-00, genSeed:SECURERANDOM-ORDER-00, setSeed2:SECURERANDOM-NOBS-00, setSeed2:SECURERANDOM-ORDER-00 | — |
 | `SecureRandomSpec-genseed-to-setseed.txt` | unchanged | — | — |
-| `SecureRandomSpec-nativeprng.txt` | removed | SecureRandomSpec.g4, SecureRandomSpec.next2 | — |
+| `SecureRandomSpec-nativeprng.txt` | removed | g4:SECURERANDOM-ALG-00, next2:SECURERANDOM-ORDER-00 | — |
 | `SecureRandomSpec-nextbytes-twice.txt` | unchanged | — | — |
 | `SecureRandomSpec-randomised-seed.txt` | unchanged | — | — |
 | `SecureRandomSpec-seeded-constructor.txt` | unchanged | — | — |
-| `SecureRandomSpec-unrandomised-constructor.txt` | unchanged | SecureRandomSpec.c2 | SecureRandomSpec.c2 |
-| `SecureRandomSpec-unrandomised-seed.txt` | unchanged | SecureRandomSpec.setSeed2 | SecureRandomSpec.setSeed2 |
+| `SecureRandomSpec-unrandomised-constructor.txt` | unchanged | c2:SECURERANDOM-NOBS-01 | c2:SECURERANDOM-NOBS-01 |
+| `SecureRandomSpec-unrandomised-seed.txt` | unchanged | setSeed2:SECURERANDOM-NOBS-00 | setSeed2:SECURERANDOM-NOBS-00 |
 | `SecureRandomSpec.txt` | unchanged | — | — |
 
 ## Envelopes
 
 - `SecureRandomSpec-genseed-rejected-algorithm.txt` (A) `spec=SecureRandomSpec,ev=g4,type=UnsafeAlgorithm,msg=v=1 code=SECURERANDOM-ALG-00 ev=g4 obj=SecureRandom val='NativePRNG' exp='SHA1PRNG' msg='expecting one of SHA1PRNG but found NativePRNG'`
-- `SecureRandomSpec-genseed-rejected-algorithm.txt` (A) `spec=SecureRandomSpec,ev=genSeed,type=UnsafeAlgorithm,msg=v=1 code=SECURERANDOM-ALG-00 ev=g4 obj=SecureRandom val='NativePRNG' exp='SHA1PRNG' msg='expecting one of SHA1PRNG but found NativePRNG'`
+- `SecureRandomSpec-genseed-rejected-algorithm.txt` (A) `spec=SecureRandomSpec,ev=genSeed,type=InvalidSequenceOfMethodCalls,msg=v=1 code=SECURERANDOM-ORDER-00 ev=genSeed obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts'`
 - `SecureRandomSpec-genseed-rejected-algorithm.txt` (A) `spec=SecureRandomSpec,ev=setSeed2,type=UnsatisfiedConstraint,msg=v=1 code=SECURERANDOM-NOBS-00 ev=setSeed2 obj=SecureRandom val='' exp='a randomized byte[]' msg='setSeed() expects a byte array observed to come from a randomized source'`
+- `SecureRandomSpec-genseed-rejected-algorithm.txt` (A) `spec=SecureRandomSpec,ev=setSeed2,type=InvalidSequenceOfMethodCalls,msg=v=1 code=SECURERANDOM-ORDER-00 ev=setSeed2 obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts'`
 - `SecureRandomSpec-nativeprng.txt` (A) `spec=SecureRandomSpec,ev=g4,type=UnsafeAlgorithm,msg=v=1 code=SECURERANDOM-ALG-00 ev=g4 obj=SecureRandom val='NativePRNG' exp='SHA1PRNG' msg='expecting one of SHA1PRNG but found NativePRNG'`
-- `SecureRandomSpec-nativeprng.txt` (A) `spec=SecureRandomSpec,ev=next2,type=UnsafeAlgorithm,msg=v=1 code=SECURERANDOM-ALG-00 ev=g4 obj=SecureRandom val='NativePRNG' exp='SHA1PRNG' msg='expecting one of SHA1PRNG but found NativePRNG'`
+- `SecureRandomSpec-nativeprng.txt` (A) `spec=SecureRandomSpec,ev=next2,type=InvalidSequenceOfMethodCalls,msg=v=1 code=SECURERANDOM-ORDER-00 ev=next2 obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts'`
 - `SecureRandomSpec-unrandomised-constructor.txt` (A) `spec=SecureRandomSpec,ev=c2,type=UnsatisfiedConstraint,msg=v=1 code=SECURERANDOM-NOBS-01 ev=c2 obj=SecureRandom val='' exp='a randomized byte[]' msg='the constructor expects a byte array observed to come from a randomized source'`
 - `SecureRandomSpec-unrandomised-constructor.txt` (B) `spec=SecureRandomSpec,ev=c2,type=UnsatisfiedConstraint,msg=v=1 code=SECURERANDOM-NOBS-01 ev=c2 obj=SecureRandom val='' exp='a randomized byte[]' msg='the constructor expects a byte array observed to come from a randomized source'`
 - `SecureRandomSpec-unrandomised-seed.txt` (A) `spec=SecureRandomSpec,ev=setSeed2,type=UnsatisfiedConstraint,msg=v=1 code=SECURERANDOM-NOBS-00 ev=setSeed2 obj=SecureRandom val='' exp='a randomized byte[]' msg='setSeed() expects a byte array observed to come from a randomized source'`
