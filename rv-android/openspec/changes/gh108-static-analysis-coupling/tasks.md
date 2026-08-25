@@ -42,8 +42,8 @@
 - [x] 5.4 `.../RvsecAnalysisClient.java:157-163`: rewrite the comment, which currently asserts the opposite of what the code does (P4 — describe current state)
 - [x] 5.5 `.../client/src/test/java/presto/android/gui/clients/json/SentinelEmissionTest.java`: add a case calling `write(..., emitSentinel=false)` directly and asserting the resulting file contains no `complete` key
 - [x] 5.6 Run the client tests **with tests enabled** — `mvn -pl rvsec/rvsec-android/rvsec-gator/client test -DskipTests=false`. `rvsec-gator/pom.xml:18` pins `<skipTests>true</skipTests>`, so a green reactor build proves nothing
-- [ ] 5.7 Rebuild the reactor (`mvn clean install -DskipMopAgent -DskipTests`, JDK 21 in the prefix) and confirm the refreshed jar landed in `rv-android/lib/gator`
-- [ ] 5.8 Commit Group 5 separately, together with the re-copied jar
+- [x] 5.7 Rebuild the reactor (`mvn clean install -DskipMopAgent -DskipTests`, JDK 21 in the prefix) and confirm the refreshed jar landed in `rv-android/lib/gator`
+- [x] 5.8 Commit Group 5 separately, together with the re-copied jar
 
 ## 6. D2 — `mop_dir` derives from the specification set
 
@@ -52,16 +52,16 @@
 - [x] 6.3 Confirm `get_monitor_generation_config()` still dispatches all four values through the extracted method with no behavior change
 - [x] 6.4 Add a test asserting the resulting `mop_dir` for `jca`, `jca_android`, `generic` and `custom` (with `custom_specs_dir`), and that an unsupported value still raises `ConfigurationError`
 - [x] 6.5 Do **not** edit the `jca` default at `rv-static-analysis/config.py:199-208` — it stays as the safety net for standalone callers. Removing it is the declared escalation point to FF SDD (plan.md Section 2)
-- [ ] 6.6 Measure the declared side effect: a `--specification-set generic` run on `apks_examples/cryptoapp.apk` with static analysis on shows `mopDir=.../generic` in the GATOR argv and 296 resolved signatures, against 120 before
-- [ ] 6.7 Contra-proof: a `jca` run is unchanged end to end — same `mopDir`, same 120 signatures — confirming the frozen ruler is untouched
-- [ ] 6.8 Run `/rv-test-run rv-experiment` and `/rv-test-run rv-static-analysis`
+- [x] 6.6 Measure the declared side effect: a `--specification-set generic` run on `apks_examples/cryptoapp.apk` with static analysis on shows `mopDir=.../generic` in the GATOR argv and 296 resolved signatures, against 120 before
+- [x] 6.7 Contra-proof: a `jca` run is unchanged end to end — same `mopDir`, same 120 signatures — confirming the frozen ruler is untouched
+- [x] 6.8 Run `/rv-test-run rv-experiment` and `/rv-test-run rv-static-analysis`
 
 ## 7. Verification
 
-- [ ] 7.1 Run `/rv-qa-lint-fix rv-experiment` and `/rv-qa-lint-fix rv-static-analysis`
-- [ ] 7.2 Run `/rv-verify rv-experiment` and `/rv-verify rv-static-analysis`
-- [ ] 7.3 `uv run pytest --import-mode=importlib -o "addopts=" tests/` green in both modules
-- [ ] 7.4 `grep -rn -- "--sdkpath" docs/` finds nothing in the two live documents; `grep -n "apks" modules/rv-experiment/src/rv_experiment/experiment/workflow/execution_controller.py` shows no reference to the removed parameter
-- [ ] 7.5 Walk every acceptance criterion in plan.md Section 5 and check it off
+- [x] 7.1 Run `/rv-qa-lint-fix rv-experiment` and `/rv-qa-lint-fix rv-static-analysis`
+- [x] 7.2 Run `/rv-verify rv-experiment` and `/rv-verify rv-static-analysis`
+- [x] 7.3 `uv run pytest --import-mode=importlib -o "addopts=" tests/` green in both modules
+- [x] 7.4 `grep -rn -- "--sdkpath" docs/` finds nothing in the two live documents; `grep -n "apks" modules/rv-experiment/src/rv_experiment/experiment/workflow/execution_controller.py` shows no reference to the removed parameter
+- [x] 7.5 Walk every acceptance criterion in plan.md Section 5 and check it off
 - [ ] 7.6 Check off the acceptance criteria in issue #108, then close it (`closes #108` in the final commit) and move the Kanban card to Done
 - [ ] 7.7 Archive with `openspec archive "gh108-static-analysis-coupling" --skip-specs`
