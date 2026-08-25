@@ -27,14 +27,37 @@ identidade continua sendo o sítio, e a mensagem é um atributo que se compara *
 Sem essa separação as duas perguntas se contaminam — uma mensagem reescrita apareceria como
 violação nova, que é exatamente o falso positivo que arruinaria a leitura.
 
-## A identidade de uma violação
+## A identidade de uma violação, e por que o código NÃO entra na chave de junção
 
-    (apk, spec, classe, método, tipo_de_erro)
+    sítio  = (apk, spec, classe, método, tipo_de_erro)      ← a chave de junção
+    linha  = (sítio, code)                                   ← a unidade de comparação
 
 Sem descritor de assinatura: o runtime resolve o sítio por `StackTraceElement`, que não
 carrega descritor, então assinatura não é observável no logcat. União sobre braços e
 réplicas — a pergunta é "o substrato chegou a expor esta violação alguma vez", não "expõe
 por run".
+
+O sítio sozinho **colapsa duas acusações distintas**: `SIGNATURE-CONSTR-00` e
+`SIGNATURE-NOBS-00` são o mesmo evento `i1`, a mesma classe, o mesmo método e o mesmo
+`error_type` `UnsatisfiedConstraint` — só o código as separa. Com a identidade no sítio, a
+segunda ia parar no `Counter` de mensagens ao lado da primeira e `_representative`
+devolvia a mais frequente; a minoritária **desaparecia da comparação**. É o defeito que
+custou treze traces à tarefa 11.9 da gh104, onde o arnês passou a comparar pares
+`(evento, código)`.
+
+**Mas o código não pode ser acrescentado à tupla da junção**, que é o reparo que parece
+óbvio: a era antiga não tem envelope e portanto não tem código nenhum. Com o código dentro
+da chave, todo sítio do lado A viraria `(…, SEM_ENVELOPE)` e todo sítio do lado B
+`(…, SIGNATURE-CONSTR-00)` — tuplas que nunca casam. O resultado seria 100 % `so_A` +
+100 % `so_B` e nenhuma linha `ambos`: a comparação inteira, destruída em silêncio.
+
+Então: **junta-se por sítio, compara-se por código**. Quando um lado não tem envelope, o
+seu único registro responde por cada código do outro lado — o par ainda é `ambos`, o
+`code` da linha é o código do lado que o tem, e a coluna `codigos_no_sitio_b` mostra
+quantas acusações aquele sítio carrega. Quando os dois lados têm códigos (comparação entre
+duas campanhas pós-gh104), o código entra na comparação de verdade e uma acusação presente
+de um lado só sai como `so_A`/`so_B` **dentro de um sítio que os dois enxergam** — que é
+exatamente o achado que antes sumia.
 
 ## Por que o logcat, e não o `errors.csv`
 
@@ -111,10 +134,21 @@ COV = re.compile(r"<([^:>]+):\s*\S+\s+([^(\s]+)\(")
 # most this many times keeps the message verbatim.
 PAYLOAD_SPLITS = 6
 CTOR = ("<init>", "<clinit>")
+# Os três veredictos de `_spec_status` que autorizam atribuir a causa `spec`.
+SPEC_MUDOU = ("nova", "removida", "redefinida")
 
 # The two failure modes gh104 measures and promises to remove.
 MUTE_MESSAGE = "unknown"
 MUTE_SUFFIX = "but found ."
+
+# `v=1 code=<SPEC>-<KIND>-<NN> ev=… obj=… val='…' exp='…' msg='…'` — o mesmo prefixo que o
+# arnês da change lê. Só o `code` interessa aqui: o resto do envelope é a mensagem, e a
+# mensagem é comparada como texto.
+ENVELOPE_CODE = re.compile(r"^v=1 code=(\S+) ")
+# O rótulo de uma mensagem sem envelope — a era pré-gh104 inteira. NÃO é o mesmo que o
+# sentinela `UNSPECIFIED` do envelope, que significa "o produtor tinha o campo e não o
+# preencheu"; este significa "não existe campo".
+NO_CODE = "SEM_ENVELOPE"
 
 # Declarations whose divergence between the two campaigns threatens comparability. The
 # `spec_set` is here to be *seen* diverging: it is the factor under study.
@@ -155,14 +189,25 @@ def _apks_of(files: list[str]) -> set[str]:
     return {os.path.basename(os.path.dirname(f)) for f in files}
 
 
+def _code_of(msg: str) -> str:
+    """O `code=` do envelope, ou `NO_CODE` quando a mensagem não é um envelope."""
+    match = ENVELOPE_CODE.match(msg)
+    return match.group(1) if match else NO_CODE
+
+
 def _read_side(files: list[str], apks: set[str]):
     """-> (viol, cov, nfiles, unmatched)
 
-    `viol[apk][ident] = {"arms": {braço}, "msgs": Counter(mensagem)}` — a mensagem fica FORA
-    da identidade e ao lado dela, que é a diferença desta comparação para o `mop_diff.py`.
+    `viol[apk][sitio][code] = {"arms": {braço}, "msgs": Counter(mensagem)}` — duas
+    dimensões separadas da identidade do sítio: o **código**, que diz *qual* acusação é, e
+    a **mensagem**, que diz se o relato ficou legível. Manter a mensagem fora da identidade
+    é a diferença desta comparação para o `mop_diff.py`; manter o código ao lado do sítio,
+    e não dentro dele, é o que preserva a junção entre as duas eras (ver o cabeçalho).
     `cov[apk] = {(classe, metodo)}`.
     """
-    viol: dict = defaultdict(lambda: defaultdict(lambda: {"arms": set(), "msgs": Counter()}))
+    viol: dict = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(lambda: {"arms": set(), "msgs": Counter()}))
+    )
     cov: dict = defaultdict(set)
     nfiles = 0
     unmatched = 0
@@ -193,9 +238,10 @@ def _read_side(files: list[str], apks: set[str]):
                 if len(f) <= PAYLOAD_SPLITS:
                     unmatched += 1
                     continue
-                rec = viol[apk][(f[0], f[1], f[3], f[5])]
+                msg = f[6].strip()
+                rec = viol[apk][(f[0], f[1], f[3], f[5])][_code_of(msg)]
                 rec["arms"].add(arm)
-                rec["msgs"][f[6].strip()] += 1
+                rec["msgs"][msg] += 1
     return viol, cov, nfiles, unmatched
 
 
@@ -308,6 +354,29 @@ def _representative(msgs: Counter) -> str:
     return min(msgs.items(), key=lambda kv: (-kv[1], kv[0]))[0]
 
 
+def _pair_codes(sa: dict | None, sb: dict | None) -> list[tuple]:
+    """Alinha as acusações de um sítio entre os dois lados -> [(code, rec_a, rec_b)].
+
+    Três casos, e o do meio é o que esta campanha exercita:
+
+    1. o sítio existe de um lado só — uma linha por código daquele lado;
+    2. um lado não tem envelope (a era antiga) e o outro tem códigos — o registro sem
+       código responde por **cada** código do outro lado, porque a junção é o sítio e não
+       o código. Sem isto, comparar as duas eras devolveria zero linhas `ambos`;
+    3. os dois lados têm códigos — união dos códigos, e um código presente de um lado só
+       vira `so_A`/`so_B` dentro de um sítio que ambos enxergam.
+    """
+    ca = sa or {}
+    cb = sb or {}
+    if ca and cb:
+        a_mudo, b_mudo = set(ca) == {NO_CODE}, set(cb) == {NO_CODE}
+        if a_mudo != b_mudo:
+            if a_mudo:
+                return [(code, ca[NO_CODE], cb[code]) for code in sorted(cb)]
+            return [(code, ca[code], cb[NO_CODE]) for code in sorted(ca)]
+    return [(code, ca.get(code), cb.get(code)) for code in sorted(set(ca) | set(cb))]
+
+
 def _msg_status(a: str, b: str) -> str:
     if a == b:
         return "igual"
@@ -382,40 +451,58 @@ def main() -> int:
 
     rows = []
     multi_msg_a = multi_msg_b = 0
+    multi_code_a = multi_code_b = 0
     for apk in sorted(apks):
         ra, rb = a_viol.get(apk, {}), b_viol.get(apk, {})
         for v in sorted(set(ra) | set(rb)):
-            lado = "ambos" if (v in ra and v in rb) else ("so_A" if v in ra else "so_B")
+            sa, sb = ra.get(v), rb.get(v)
             st = specs.get(v[0], "desconhecida")
-            if lado == "ambos":
-                causa = "-"
-            elif v[2] in CTOR:
-                causa = "indeterminado"
-            else:
-                # Quem NÃO viu a violação: executou o método?
-                blind = b_cov if lado == "so_A" else a_cov
-                if (v[1], v[2]) not in blind.get(apk, set()):
-                    causa = "exploracao"
-                elif st in ("nova", "removida", "redefinida"):
-                    causa = "spec"
+            # Um sítio com mais de um código carrega mais de uma acusação. Contá-los é o
+            # que torna visível a acusação que a identidade antiga engolia.
+            codigos_a = "|".join(sorted(sa)) if sa else ""
+            codigos_b = "|".join(sorted(sb)) if sb else ""
+            if sa and len(sa) > 1:
+                multi_code_a += 1
+            if sb and len(sb) > 1:
+                multi_code_b += 1
+
+            for code, reca, recb in _pair_codes(sa, sb):
+                lado = "ambos" if (reca and recb) else ("so_A" if reca else "so_B")
+                if lado == "ambos":
+                    causa = "-"
+                elif sa and sb:
+                    # O sítio aparece nos dois lados e só esta acusação difere. A
+                    # cobertura não discrimina nada aqui — o método foi executado dos dois
+                    # lados —, então sobram spec e substrato.
+                    causa = "spec" if st in SPEC_MUDOU else "instrumentacao"
+                elif v[2] in CTOR:
+                    causa = "indeterminado"
                 else:
-                    causa = "instrumentacao"
+                    # Quem NÃO viu a violação: executou o método?
+                    blind = b_cov if lado == "so_A" else a_cov
+                    if (v[1], v[2]) not in blind.get(apk, set()):
+                        causa = "exploracao"
+                    elif st in SPEC_MUDOU:
+                        causa = "spec"
+                    else:
+                        causa = "instrumentacao"
 
-            ma = _representative(ra[v]["msgs"]) if v in ra else ""
-            mb = _representative(rb[v]["msgs"]) if v in rb else ""
-            if v in ra and len(ra[v]["msgs"]) > 1:
-                multi_msg_a += 1
-            if v in rb and len(rb[v]["msgs"]) > 1:
-                multi_msg_b += 1
+                ma = _representative(reca["msgs"]) if reca else ""
+                mb = _representative(recb["msgs"]) if recb else ""
+                if reca and len(reca["msgs"]) > 1:
+                    multi_msg_a += 1
+                if recb and len(recb["msgs"]) > 1:
+                    multi_msg_b += 1
 
-            rows.append(dict(
-                apk=apk, spec=v[0], classe=v[1], metodo=v[2], tipo_erro=v[3],
-                lado=lado, causa=causa, spec_status=st,
-                msg_status=_msg_status(ma, mb) if lado == "ambos" else "-",
-                msg_a=ma, msg_b=mb,
-                arms_a="|".join(sorted(ra[v]["arms"])) if v in ra else "",
-                arms_b="|".join(sorted(rb[v]["arms"])) if v in rb else "",
-            ))
+                rows.append(dict(
+                    apk=apk, spec=v[0], classe=v[1], metodo=v[2], tipo_erro=v[3],
+                    code=code, lado=lado, causa=causa, spec_status=st,
+                    msg_status=_msg_status(ma, mb) if lado == "ambos" else "-",
+                    msg_a=ma, msg_b=mb,
+                    codigos_no_sitio_a=codigos_a, codigos_no_sitio_b=codigos_b,
+                    arms_a="|".join(sorted(reca["arms"])) if reca else "",
+                    arms_b="|".join(sorted(recb["arms"])) if recb else "",
+                ))
 
     if not rows:
         sys.exit("FALHA: nenhuma violação nos dois lados — nada a comparar")
@@ -428,7 +515,7 @@ def main() -> int:
         w.writerows(rows)
 
     n = Counter(r["lado"] for r in rows)
-    print(f"\n=== identidades (apk, spec, classe, metodo, tipo) — so_A={la}, so_B={lb} ===")
+    print(f"\n=== acusações (apk, spec, classe, metodo, tipo, code) — so_A={la}, so_B={lb} ===")
     print(f"  {la}={n['ambos'] + n['so_A']}  {lb}={n['ambos'] + n['so_B']}  "
           f"ambos={n['ambos']}  so_A={n['so_A']}  so_B={n['so_B']}")
 
@@ -438,17 +525,31 @@ def main() -> int:
         detalhe = "  ".join(f"{k}={v}" for k, v in sorted(c.items())) or "(nenhuma)"
         print(f"  causa {lado} ({len(sub)}): {detalhe}")
 
-    _table("spec_status das identidades", Counter(r["spec_status"] for r in rows))
-    _table("msg_status (só identidades em ambos)",
+    # A acusação que a identidade antiga engolia. Um sítio com mais de um código carrega
+    # mais de uma acusação — `SIGNATURE-CONSTR-00` e `SIGNATURE-NOBS-00` no mesmo evento,
+    # mesmo `error_type` — e antes só a mensagem mais frequente sobrevivia à comparação.
+    sitios = len({(r["apk"], r["spec"], r["classe"], r["metodo"], r["tipo_erro"]) for r in rows})
+    print("\n=== acusações por sítio ===")
+    print(f"  sítios distintos: {sitios}   linhas (sítio × código): {len(rows)}")
+    print(f"  sítios com >1 código: {la}={multi_code_a}  {lb}={multi_code_b}")
+    if multi_code_b:
+        extra = Counter(
+            r["spec"] for r in rows
+            if r["codigos_no_sitio_b"] and "|" in r["codigos_no_sitio_b"]
+        )
+        _table(f"specs com sítio multi-acusação em {lb}", extra)
+
+    _table("spec_status das acusações", Counter(r["spec_status"] for r in rows))
+    _table("msg_status (só acusações em ambos)",
            Counter(r["msg_status"] for r in rows if r["lado"] == "ambos"))
-    print(f"  sítios com >1 mensagem distinta: {la}={multi_msg_a}  {lb}={multi_msg_b} "
+    print(f"  acusações com >1 mensagem distinta: {la}={multi_msg_a}  {lb}={multi_msg_b} "
           "(representante = a mais frequente)")
 
     mute_a = sum(1 for r in rows if r["msg_a"] and _mute(r["msg_a"]))
     mute_b = sum(1 for r in rows if r["msg_b"] and _mute(r["msg_b"]))
     tot_a = sum(1 for r in rows if r["msg_a"])
     tot_b = sum(1 for r in rows if r["msg_b"])
-    print(f"\nidentidades com mensagem ilegível (`{MUTE_MESSAGE}` ou `{MUTE_SUFFIX}`): "
+    print(f"\nacusações com mensagem ilegível (`{MUTE_MESSAGE}` ou `{MUTE_SUFFIX}`): "
           f"{la}={mute_a}/{tot_a} ({100 * mute_a / tot_a:.1f} %)  "
           f"{lb}={mute_b}/{tot_b} ({100 * mute_b / tot_b:.1f} %)")
 
@@ -464,9 +565,9 @@ def main() -> int:
     print(f"\n=== REGRESSÃO legivel_para_ilegivel: {len(reg)} ===")
     if not reg:
         print("  nenhuma — nenhum relato legível virou ilegível")
-    for r in sorted(reg, key=lambda r: (r["spec"], r["apk"])):
+    for r in sorted(reg, key=lambda r: (r["spec"], r["apk"], r["code"])):
         print(f"  {r['apk'][:34]:34s} {r['spec']:24s} {r['classe'][:38]:38s} "
-              f"{r['metodo'][:18]:18s} {r['tipo_erro']}")
+              f"{r['metodo'][:18]:18s} {r['tipo_erro']}  {r['code']}")
         print(f"      {la}: {r['msg_a']}")
         print(f"      {lb}: {r['msg_b']}")
 

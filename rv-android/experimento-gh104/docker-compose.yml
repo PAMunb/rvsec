@@ -1,0 +1,299 @@
+# gh104 — a grade da comp162 sobre o conjunto de especificações NOVO (jca_android).
+#
+# NÃO é o experimento final do Estudo 03, e não é um segundo ensaio de instrumentação.
+# É a corrida pareada em que **o conjunto de specs é o único fator que varia**: a change
+# `openspec/changes/gh104-legible-violation-reports/` promete que uma violação passe a
+# dizer o que aconteceu — envelope versionado no lugar do literal `unknown`, evento do
+# autômato, valor observado e esperado — e esta campanha é onde a promessa vira artefato
+# ou não vira. Contexto completo, com bloqueadores e caminhos: `CONTEXTO.md`.
+#
+# O lado "antes" é a `experimento-comp162/`: mesma variante de instrumentação (dexlib2),
+# mesmo corpus de 162 aplicações, mesma imagem-mãe, mesmo orçamento, mesmas réplicas.
+# Tudo o que difere aqui difere de propósito; qualquer outra diferença arruinaria a
+# atribuição.
+#
+# GRADE. 3 braços x 162 APKs x 3 repetições x 300 s = 1458 identidades em 8 containers.
+#
+#   ape              baseline  — APE original, `ape.jar` builtin do rv-tools
+#   mop_off_llm_off  controle  — artefato MOP no dispositivo, cinco pesos em 0, gatilho
+#                                de atividade desligado. Remove a GUIA, não a navegação
+#                                (INV-APV-30)
+#   mop_on_llm_off   referência— o mesmo + ACTIVITY_TRIGGER, MENU_GATEWAY, MOP_FRONTIER,
+#                                WTG
+#
+# R=3 e não R=1 pelo mesmo motivo da comp162: sem réplica não há medida de variância
+# dentro da célula, e sem ela dá para dizer que uma diferença é consistente entre
+# aplicações, mas não que ela é maior que o ruído de repetição. Manter R=3 aqui também é
+# o que deixa o `wilcoxon.csv` das duas campanhas comparável contraste a contraste.
+#
+# ---------------------------------------------------------------------------
+# O QUE DIFERE DA comp162, E POR QUÊ CADA COISA ESTÁ AQUI
+# ---------------------------------------------------------------------------
+#
+# 1. RV_SPEC_SET = "jca_android". É o fator em estudo. As 21 specs novas substituem as 23
+#    do `jca`; são elas que carregam os reparos de mensagem e os códigos de erro.
+#
+# 2. A IMAGEM é `0.9.3-gh104`, construída da branch `modules` depois do push, e **não**
+#    sobrescreve a tag `0.9.3` — essa é a identidade da imagem que reproduz a comp162, e
+#    apagá-la tornaria a campanha de referência irreproduzível. A imagem só afeta o lado
+#    Python do estágio 2: a mensagem nasce dentro do APK (rvsec-core + monitores tecidos
+#    no host, no estágio 1) e chega ao logcat com o envelope novo mesmo sob imagem velha.
+#    O que a imagem velha estragaria é a saída derivada — `errors.csv` com 11 colunas,
+#    `unique_msg` com 5 partes, sem `ParserDiagnostics`. Daí `RV_IMAGE` ser parametrizável:
+#    trocar a imagem é uma decisão declarada, não um efeito colateral de editar o arquivo.
+#
+# 3. O CORPUS é outro diretório — os mesmos 162 nomes, reinstrumentados com as specs
+#    novas. O `corpus_basis` PRECISA ter nome próprio mesmo com a lista de nomes idêntica:
+#    ele é o sha256 do conteúdo da lista, então reusar `selected162.txt` daria digest
+#    igual ao da comp162 e as duas campanhas ficariam indistinguíveis na proveniência que
+#    o `RUN_START` ecoa — com o portão de corpus do smoke passando assim mesmo.
+#
+# ---------------------------------------------------------------------------
+# OS TRÊS SKIPS — E POR QUE OS `.apk.json` DA comp162 SÃO REUSADOS
+# ---------------------------------------------------------------------------
+#
+# `RV_SKIP_MONITORS`, `RV_SKIP_INSTRUMENT` e `RV_SKIP_STATIC_ANALYSIS` ficam todos em
+# `true` porque o corpus **já entra instrumentado**, com o `<apk>.json` co-locado — que é
+# como o `pre_processor` acha a análise estática
+# (`modules/rv-experiment/.../pre_processor.py:459`, INV-EXP-16). Reinstrumentar aqui
+# produziria binários diferentes dos que o `.apk.json` descreve, e regerar monitores
+# dentro de oito containers concorrentes é o defeito que já custou uma campanha inteira:
+# o JavaMOP estagia os `.rvm` num diretório compartilhado e o gerador os MOVE de lá, então
+# gerações concorrentes se roubam e o lote sai tecido sem monitores, reportando sucesso.
+#
+# Os `.apk.json` são **os mesmos da comp162**, copiados para junto dos binários novos.
+# Isso é deliberado e tem preço declarado:
+#
+#   - o BENEFÍCIO é que o denominador de `cov_mop` fica idêntico nos dois lados, que é a
+#     condição para a diferença pareada ser atribuível ao conjunto de specs;
+#   - o PREÇO é que `cov_mop` continua medindo o alcance das 23 specs do `jca`, e não o
+#     das 21 do conjunto novo. `cov_mop` desta campanha NÃO é "cobertura das specs novas":
+#     é a mesma régua da comp162, aplicada aos dois lados de propósito. Qualquer leitura
+#     que omita isso está errada.
+#
+# Rodar a análise estática de novo também esbarraria num defeito conhecido: o `mop_dir`
+# da análise estática fixa o literal `jca` (`rv-static-analysis/config.py:199-208`) e
+# `get_static_analysis_config()` nunca passa `mop_dir`. Com os skips ligados esse caminho
+# nunca é alcançado, então o defeito não morde nesta corrida.
+#
+# ---------------------------------------------------------------------------
+# A PARTIÇÃO É HERDADA DA comp162 E APENAS PODADA
+# ---------------------------------------------------------------------------
+#
+# `filters/batch_00.txt` … `batch_07.txt` saem de `scripts/make_campaign_filters.py`, que
+# copia verbatim a partição da comp162 e remove **no lugar** as aplicações que não
+# sobreviveram ao estágio 1 — sem renumerar e sem refazer o round-robin. Preservar o
+# índice de container por aplicação é o que faz o efeito-de-container CANCELAR na
+# diferença pareada entre as campanhas em vez de virar parte dela. Gerar round-robin
+# sobre a lista de sobreviventes faria o oposto: remover um elemento renumera tudo que
+# vem depois dele e desloca cerca de metade do corpus.
+#
+# O preço da poda é que os lotes ficam desiguais e um container termina antes, o que muda
+# a contenção do host ao longo da corrida. É custo de segunda ordem, e muito menor que o
+# de quebrar o pareamento de índice. O script imprime os tamanhos justamente para que a
+# assimetria seja vista.
+#
+# ---------------------------------------------------------------------------
+# O JAR SOB TESTE CHEGA POR BIND-MOUNT
+# ---------------------------------------------------------------------------
+#
+# O `ape-rv.jar` local é montado `:ro` por cima do que a própria imagem construiu. O
+# Dockerfile clona `phtcosta/ape` sem `--branch` e sem pin de SHA (gh71 D3), então a
+# imagem traz o HEAD do instante do build — e como esta campanha reconstrói a imagem, sem
+# o bind-mount o jar mudaria junto com o conjunto de specs e a corrida teria dois fatores
+# onde deve ter um. O bind-mount é o pin: o mesmo jar que rodou a comp162.
+#
+# ---------------------------------------------------------------------------
+# TRÊS ARMADILHAS QUE ESTE ARQUIVO NÃO PODE EVITAR SOZINHO
+# ---------------------------------------------------------------------------
+#
+# NÃO DAR `docker compose down` ANTES DE CONSOLIDAR. O `app_events.csv` só materializa no
+# pós-processamento (`rv-platform/.../result_processor.py:167`) e os traços vivem no
+# device, que é efêmero. Um `down` apressado apaga a evidência bruta que o `gh104_gates.py`
+# lê — e a evidência bruta é justamente o que sobrevive se a imagem estiver defasada.
+#
+# CONTAR POR IDENTIDADE, NUNCA POR REGISTRO. O resume (`up -d` de novo) ACRESCENTA um
+# registro para a identidade que re-tenta em vez de sobrescrever. A identidade é
+# `(apk_name, tool.name, tool.variant, repetition, timeout)`. E nunca
+# `grep COMPLETED tasks.json`, que conta em dobro por causa de `result.state_transitions[]`.
+#
+# `RV_NO_QUARANTINE` NÃO APARECE AQUI, E ISSO É PROPOSITAL. Pelo `envvar=` do Click
+# (`rv-experiment/__main__.py:510-511`) a variável de ambiente alimenta uma flag cuja
+# semântica está invertida: definir `RV_NO_QUARANTINE` LIGA a quarentena em vez de
+# desligá-la. Quem escrevesse `RV_NO_QUARANTINE: "true"` achando que estava desligando a
+# quarentena obteria exatamente o contrário, em silêncio. A quarentena fica no default
+# ligado, como em todas as campanhas anteriores — que é também o que mantém a comparação
+# com a comp162 honesta.
+#
+# `RV_LOGCAT_DIAGNOSTICS=true` (gh72) materializa o `app_events.csv`. Foi o que permitiu,
+# na comp162-ajc, medir o confundidor de crashes; aqui ele também separa "a aplicação
+# morreu" de "a spec nova mudou o que é acusado", que é a confusão mais provável desta
+# campanha.
+#
+# SEM SGLANG. Nenhum braço LLM nesta grade.
+#
+# Uso:
+#   uv run python scripts/make_campaign_filters.py --corpus <corpus novo>
+#   uv run python scripts/make_manifest.py --image-id "$(docker inspect -f '{{.Id}}' ...)"
+#   # colar o corpus_basis impresso pelo make_manifest.py nos dois composes
+#   docker compose -f docker-compose.smoke.yml up -d      # smoke primeiro
+#   uv run python scripts/smoke_gates.py                  # critério de aceitação
+#   uv run python scripts/gh104_gates.py --results-glob 'results_smoke/gh104smoke_*/gh104smoke_*'
+#   docker compose up -d                                  # só com os portões PASS
+#   bash scripts/monitor.sh
+#   # resume: re-rodar o mesmo 'up -d' (recupera FAILED/ERROR transientes)
+#   # NÃO dar 'down' antes de consolidar — artefatos efêmeros no device
+
+x-rvandroid: &rvandroid-base
+  # Parametrizável para que trocar a imagem seja uma decisão declarada na linha de
+  # comando, e não uma edição silenciosa deste arquivo. O default é a tag desta campanha.
+  image: ${RV_IMAGE:-phtcosta/rvandroid:0.9.3-gh104}
+  environment: &rvandroid-env
+    # SUBSTITUIR_APOS_MONTAR_CORPUS — o `corpus_basis` só existe depois que o estágio 1
+    # termina e a lista de nomes do corpus novo é escrita. `scripts/make_manifest.py`
+    # imprime o valor pronto para colar aqui e no compose do smoke; até lá o `RUN_START`
+    # ecoaria uma proveniência falsa, e o portão de corpus do smoke reprova de propósito.
+    RV_TOOLS: "ape,aperv:mop_off_llm_off:mop_on_llm_off@corpus_basis=SUBSTITUIR_APOS_MONTAR_CORPUS"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    # O fator em estudo. As 21 specs novas no lugar das 23 do `jca`.
+    RV_SPEC_SET: "jca_android"
+    # O corpus já vem instrumentado (jca_android/dexlib2) com o <apk>.json da comp162
+    # co-locado. Ver o bloco "OS TRÊS SKIPS" no cabeçalho.
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RV_LOGCAT_DIAGNOSTICS: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+# Os volumes são repetidos por serviço e não ancorados: o compose funde mapeamentos,
+# nunca listas, então um alias de lista viraria lista aninhada e o arquivo nem carregaria.
+#
+# RV_DELAY escalona a subida dos emuladores de 10 em 10 s: oito emuladores bootando ao
+# mesmo tempo disputam CPU e alguns estouram o timeout de boot.
+#
+# O caminho do corpus abaixo é PLACEHOLDER: o diretório só nasce no fim do estágio 1.
+# Ele aparece uma vez por serviço, então a substituição é um `sed` de um único padrão.
+
+services:
+
+  gh104_00:
+    <<: *rvandroid-base
+    container_name: gh104_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/gh104_00:/opt/rvsec/rv-android/results
+
+  gh104_01:
+    <<: *rvandroid-base
+    container_name: gh104_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/gh104_01:/opt/rvsec/rv-android/results
+
+  gh104_02:
+    <<: *rvandroid-base
+    container_name: gh104_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/gh104_02:/opt/rvsec/rv-android/results
+
+  gh104_03:
+    <<: *rvandroid-base
+    container_name: gh104_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/gh104_03:/opt/rvsec/rv-android/results
+
+  gh104_04:
+    <<: *rvandroid-base
+    container_name: gh104_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/gh104_04:/opt/rvsec/rv-android/results
+
+  gh104_05:
+    <<: *rvandroid-base
+    container_name: gh104_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/gh104_05:/opt/rvsec/rv-android/results
+
+  gh104_06:
+    <<: *rvandroid-base
+    container_name: gh104_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/gh104_06:/opt/rvsec/rv-android/results
+
+  gh104_07:
+    <<: *rvandroid-base
+    container_name: gh104_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results/gh104_07:/opt/rvsec/rv-android/results

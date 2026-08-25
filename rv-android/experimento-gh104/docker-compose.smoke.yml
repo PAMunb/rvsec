@@ -1,0 +1,91 @@
+# Smoke da gh104 — o portão que libera a campanha.
+#
+# 2 APKs x 3 braços x 1 repetição a 120 s = 6 identidades, uma aplicação por container.
+# O critério de aceitação é `scripts/smoke_gates.py` mais `scripts/gh104_gates.py`, nunca
+# "os containers subiram".
+#
+# 120 s e não 300 s de propósito: o smoke pergunta se a configuração RESOLVE, não quanto
+# ela cobre, e o piso de admissibilidade (C2) escala com o orçamento. O `smoke_gates.py`
+# ainda extrapola dali o ciclo por run a 300 s, que é o que calibra o wall-clock da
+# corrida completa.
+#
+# ESTA CAMPANHA TEM UM SEGUNDO PORTÃO QUE A comp162 NÃO TINHA. Depois do smoke passar nos
+# portões de execução, `gh104_gates.py` roda sobre `results_smoke/` e decide se a promessa
+# da change saiu no artefato: zero mensagens `unknown`, zero terminando em `but found .`,
+# `errors.csv` com 13 colunas, `unique_msg` com sete partes, envelope v1 bem-formado,
+# `__EVENTNAME` não vazado. Seis identidades bastam para reprovar um envelope malformado —
+# não bastam para confirmar cobertura, e o script diz isso ao imprimir a distribuição.
+#
+# Rodar os dois portões AQUI, e não depois de 20 h de campanha, é o ponto inteiro: um
+# envelope quebrado descoberto no fim custa a corrida toda.
+#
+# OS DOIS APKs SÃO ESCOLHIDOS PELO ARTEFATO, e herdados da comp162 quando sobrevivem ao
+# estágio 1. Ambos têm os três sinais do censo — `flagged`, `wtgEdges` e `mopActivities`
+# todos > 0 — então o braço de referência tem o que consumir nas três vias; um APK sem
+# substrato deixaria os portões do `RUN_START` vazios de conteúdo.
+# `scripts/make_campaign_filters.py` escreve `filters/smoke_00.txt` e `smoke_01.txt` e
+# recusa-se a escolher um APK que não sobreviveu.
+#
+# Uso:
+#   docker compose -f docker-compose.smoke.yml up -d
+#   uv run python scripts/smoke_gates.py
+#   uv run python scripts/gh104_gates.py \
+#       --results-glob 'results_smoke/gh104smoke_*/gh104smoke_*' --label smoke-gh104
+#   docker compose -f docker-compose.smoke.yml down     # aqui o down PODE, os traços
+#                                                       # já foram lidos pelos dois portões
+
+x-rvandroid: &rvandroid-base
+  image: ${RV_IMAGE:-phtcosta/rvandroid:0.9.3-gh104}
+  environment: &rvandroid-env
+    # SUBSTITUIR_APOS_MONTAR_CORPUS — o mesmo valor do `docker-compose.yml`, impresso por
+    # `scripts/make_manifest.py`. Os dois arquivos têm de carregar o MESMO `corpus_basis`:
+    # o smoke existe para provar a configuração da campanha, e uma proveniência diferente
+    # provaria outra coisa.
+    RV_TOOLS: "ape,aperv:mop_off_llm_off:mop_on_llm_off@corpus_basis=SUBSTITUIR_APOS_MONTAR_CORPUS"
+    RV_TIMEOUTS: "120"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca_android"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RV_LOGCAT_DIAGNOSTICS: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+
+  gh104smoke_00:
+    <<: *rvandroid-base
+    container_name: gh104smoke_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104smoke_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/smoke_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results_smoke/gh104smoke_00:/opt/rvsec/rv-android/results
+
+  gh104smoke_01:
+    <<: *rvandroid-base
+    container_name: gh104smoke_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: gh104smoke_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/smoke_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ../modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro
+      - ./results_smoke/gh104smoke_01:/opt/rvsec/rv-android/results

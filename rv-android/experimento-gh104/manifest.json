@@ -1,0 +1,70 @@
+{
+  "campaign": "gh104",
+  "purpose": "A grade da comp162 sobre o conjunto de especificações novo (jca_android) da change gh104. Corrida pareada em que o conjunto de specs é o único fator que varia. Mede se a violação passou a dizer o que aconteceu; NÃO é o experimento final do Estudo 03.",
+  "compared_against": "experimento-comp162/consolidado/per_apk_admissivel.csv",
+  "instrumentation_variant": "dexlib2",
+  "image": {
+    "tag": "phtcosta/rvandroid:0.9.3-gh104",
+    "id": null
+  },
+  "build": {
+    "rvsec_branch": "modules",
+    "ape_rv_jar": "bind-mount local"
+  },
+  "corpus": {
+    "dataset_dir": "pendente-estagio-1",
+    "subset_file": "pendente-estagio-1",
+    "apk_count": null,
+    "corpus_basis": "pendente-estagio-1",
+    "pendencia": "nenhum diretório casa /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected* — o corpus instrumentado com as specs novas ainda não existe.\n       O estágio 1 (instrumentação dexlib2 no host) precisa rodar antes; ver CONTEXTO.md §2 e instrumentacao/.\n       Esperado, quando os 162 sobreviverem: /home/pedro/desenvolvimento/RV_ANDROID_NOVO_DATASET/APKS_INSTRUMENTED_jca_android_gh104_selected162"
+  },
+  "monitors": {
+    "dir": "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android/experimento-gh104/monitores/monitors_master/monitors",
+    "digest": null,
+    "files": {},
+    "pendencia": "estagio-0"
+  },
+  "reps": 3,
+  "timeout": 300,
+  "containers": 8,
+  "spec_set": "jca_android",
+  "arms": [
+    {
+      "role": "baseline",
+      "tool": "ape",
+      "variant": null,
+      "jar": "modules/rv-tools/src/rv_tools/builtin/ape/ape.jar"
+    },
+    {
+      "role": "control",
+      "tool": "aperv",
+      "variant": "mop_off_llm_off",
+      "preset": "mop",
+      "strategy": "sata",
+      "mop_data": "static_analysis",
+      "expected_params": {
+        "ape.mopActivitySourceComponents": true,
+        "ape.frontierBoostWeight": 200,
+        "ape.mopWeightDirect": 0,
+        "ape.mopWeightTransitive": 0,
+        "ape.mopWeightOpenMenu": 0,
+        "ape.mopWeightWtg": 0
+      }
+    },
+    {
+      "role": "reference",
+      "tool": "aperv",
+      "variant": "mop_on_llm_off",
+      "preset": "mop",
+      "strategy": "sata",
+      "mop_data": "static_analysis",
+      "expected_params": {
+        "ape.mopActivitySourceComponents": true,
+        "ape.frontierBoostWeight": 200,
+        "ape.mopFrontierWeight": 200,
+        "ape.activityTriggerEnabled": true
+      }
+    }
+  ],
+  "predicted_identities": null
+}
