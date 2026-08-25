@@ -25,6 +25,8 @@ Scoping, stated honestly: the coverage denominator (`reachability`) is intact in
 
 The comment at `RvsecAnalysisClient.java:157-163` asserts the opposite of what the code does — *"the pre-WTG write does NOT emit the sentinel"* — and is what kept the defect invisible.
 
+The rule the repair installs is not "the first write never claims completeness" but "a write claims completeness only when it is the run's last". The two differ on one path: with `skipWtg=true` the client returns immediately after the pre-WTG write, so that write is the run's end and its sentinel is legitimate — which is exactly why the gh91 campaign, which passed `skipWtg=true`, could not hit this defect.
+
 ### D2 — the numerator comes from one specification set, the denominator from another
 
 Two configurations are derived from the same `specification_set` through independent paths:
@@ -112,7 +114,7 @@ Adding a test for INV-ANA-31, which already exists, is not a spec edit and stays
 | File | Action | Detail |
 |------|--------|--------|
 | `rvsec/rvsec-android/rvsec-gator/client/src/main/java/presto/android/gui/clients/json/JsonReportWriter.java:111` | Edit | Add an `emitSentinel` parameter to `write(...)`; emit `w.name(COMPLETE).value(true)` only when it is `true` |
-| `rvsec/rvsec-android/rvsec-gator/client/src/main/java/presto/android/gui/clients/RvsecAnalysisClient.java:165-170` | Edit | Pre-WTG call passes `emitSentinel=false` |
+| `rvsec/rvsec-android/rvsec-gator/client/src/main/java/presto/android/gui/clients/RvsecAnalysisClient.java:165-170` | Edit | Pre-WTG call passes `emitSentinel = skipWtg()` — `false` when WTG is still going to run (the J1 repair) and `true` when WTG is skipped by client parameter, because the client then returns right after this write and it *is* the run's end |
 | `.../RvsecAnalysisClient.java:202-203` | Edit | Post-WTG call passes `emitSentinel=true` |
 | `.../RvsecAnalysisClient.java:157-163` | Edit | Rewrite the comment, which currently asserts the opposite of what the code does (P4: describe current state) |
 | `rvsec/rvsec-android/rvsec-gator/client/src/test/java/presto/android/gui/clients/json/SentinelEmissionTest.java` | Edit | Add a case that calls `write(..., emitSentinel=false)` directly and asserts the file has no `complete` key |
@@ -179,7 +181,7 @@ Group A is the only one requiring `mvn clean install -DskipMopAgent -DskipTests`
 
 ## 5. Acceptance Criteria
 
-- [ ] `JsonReportWriter.write(...)` takes an `emitSentinel` flag; the pre-WTG call passes `false` and the post-WTG call passes `true`
+- [ ] `JsonReportWriter.write(...)` takes an `emitSentinel` flag; the post-WTG call passes `true`, and the pre-WTG call passes `skipWtg()` — `false` on the normal path, `true` when WTG is skipped by client parameter. A literal `false` there would be wrong: under `skipWtg=true` the client returns right after that write, so it is the run's last, and stripping its sentinel would make every skipped-WTG run look like a timeout to `derive_mop_artifact.py` (this is what `tests/parity/test_gh91_completeness.py` records)
 - [ ] A new case in `SentinelEmissionTest` calls `write(..., emitSentinel=false)` directly and asserts the resulting file contains no `complete` key. This is the gap none of the three existing layers reaches: `SentinelEmissionTest` today replicates the sequence in-test and injects exceptions (the J1 case has no exception and its own header says it does not test the production `write`); `tests/parity/test_sentinel_emission.py` runs GATOR end-to-end, where the second write overwrites the first; `modules/rv-static-analysis/tests/parser/test_sentinel.py` tests the reader, not the writer
 - [ ] The `rvsec-gator` client tests are executed explicitly with tests enabled (e.g. `mvn -pl rvsec/rvsec-android/rvsec-gator/client test -DskipTests=false`) and pass. `rvsec-gator/pom.xml:18` pins `<skipTests>true</skipTests>`, so a green reactor build proves nothing
 - [ ] The comment at `RvsecAnalysisClient.java:157-163` describes what the code now does

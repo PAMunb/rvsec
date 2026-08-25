@@ -154,19 +154,20 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 						mainActivity != null ? mainActivity.getName() : null);
 
 		// 5. Write JSON with reachability FIRST (survives timeout during WTG).
-		//    Note: the pre-WTG write does NOT emit the sentinel as the final
-		//    line because JsonReportWriter.write() emits it at the end of a
-		//    successful run; the second write (post-WTG) overwrites the file
-		//    and emits the sentinel then. If the WTG path times out, the
-		//    file on disk is the post-pre-WTG version: complete JSON missing
-		//    only windows[]/transitions[] in their post-WTG enriched form,
-		//    with NO sentinel — which is exactly the "complete-and-empty"
-		//    case the gh57 sweep showed at 78.8% (see Phase-1 task-zero verdict).
+		//    This write claims completeness only when it is the run's last one,
+		//    which is the case exactly when WTG is skipped by client parameter:
+		//    the client then returns right after this write and nothing a kill
+		//    could land in runs afterwards. With WTG enabled the second write
+		//    (post-WTG) overwrites the file and emits the sentinel then, so a
+		//    run killed inside WTG construction leaves reachability on disk with
+		//    NO sentinel — a partial sample the parser and the gh91 predicate
+		//    both refuse to count as finished (INV-ANA-31).
+		boolean wtgSkipped = skipWtg();
 		presto.android.gui.clients.json.JsonReportWriter writer =
 				new presto.android.gui.clients.json.JsonReportWriter(enricher);
 		try {
 			List<Map<String, Object>> preWtgWindows = prepareWindows(output, new HashMap<>(), null);
-			writer.write(outputPath, appPackage, mainActivity, appClasses, output,
+			writer.write(outputPath, wtgSkipped, appPackage, mainActivity, appClasses, output,
 					preWtgWindows, null);
 		} catch (IOException e) {
 			System.err.println("[RvsecAnalysisClient] ERROR writing pre-WTG JSON: " + e.getMessage());
@@ -177,7 +178,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		// 6. Build WTG (may timeout on complex APKs — reachability already saved).
 		//    skipWtg client param short-circuits this for known-slow APKs;
 		//    the partial JSON already has windows[] populated (task 2.1).
-		if (skipWtg()) {
+		if (wtgSkipped) {
 			System.out.println("[RvsecAnalysisClient] WTG skipped by client parameter");
 			System.out.println("[RvsecAnalysisClient] Analysis complete. File saved: " + outputPath);
 			return;
@@ -199,7 +200,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			//    overwrites the pre-WTG file and ends with the "complete":true
 			//    sentinel after fsync, signaling success to the parser.
 			List<Map<String, Object>> postWtgWindows = prepareWindows(output, windowNodeIds, wtg);
-			writer.write(outputPath, appPackage, mainActivity, appClasses, output,
+			writer.write(outputPath, true, appPackage, mainActivity, appClasses, output,
 					postWtgWindows, wtg);
 		} catch (Exception e) {
 			System.out.println("[RvsecAnalysisClient] WTG construction failed: " + e.getMessage()

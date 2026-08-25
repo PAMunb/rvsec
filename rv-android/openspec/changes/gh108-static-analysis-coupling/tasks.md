@@ -37,7 +37,7 @@
 ## 5. J1 — the sentinel only on the post-WTG write (Java; own commit)
 
 - [x] 5.1 `rvsec/rvsec-android/rvsec-gator/client/src/main/java/presto/android/gui/clients/json/JsonReportWriter.java:111`: add an `emitSentinel` parameter to `write(...)` and emit `w.name(COMPLETE).value(true)` only when it is `true`
-- [x] 5.2 `.../RvsecAnalysisClient.java:169-170`: the pre-WTG call passes `emitSentinel=false`
+- [x] 5.2 `.../RvsecAnalysisClient.java:169-170`: the pre-WTG call passes `emitSentinel = skipWtg()` — `false` when WTG will run, `true` when it is skipped by client parameter and this write is the run's last
 - [x] 5.3 `.../RvsecAnalysisClient.java:202-203`: the post-WTG call passes `emitSentinel=true`
 - [x] 5.4 `.../RvsecAnalysisClient.java:157-163`: rewrite the comment, which currently asserts the opposite of what the code does (P4 — describe current state)
 - [x] 5.5 `.../client/src/test/java/presto/android/gui/clients/json/SentinelEmissionTest.java`: add a case calling `write(..., emitSentinel=false)` directly and asserting the resulting file contains no `complete` key

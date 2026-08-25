@@ -12,6 +12,12 @@
  * the file in the "no signal" state the parser uses to mark a sample as
  * incomplete and exclude it from gates requiring completeness.
  *
+ * It also pins the writer's own sentinel decision
+ * ({@code JsonReportWriter.writeCompletionSentinel}): an intermediate
+ * write — the pre-WTG one — must leave no {@code complete} key, and the
+ * run's last write must still emit it. That case has no exception in it,
+ * so none of the fault-injection cases below reach it.
+ *
  * What it does NOT test
  * ---------------------
  * The production {@code JsonReportWriter.write(...)} method itself.
@@ -195,6 +201,84 @@ public class SentinelEmissionTest {
 					content.contains("\"complete\""));
 		} finally {
 			Files.deleteIfExists(out);
+		}
+	}
+
+	// ── the writer's own sentinel decision ──────────────────────────────
+
+	// The cases above replicate the writer's sequence; these two call the
+	// production decision itself. The gap they close is the pre-WTG write:
+	// it fails no section, throws nothing, and finishes cleanly — every
+	// fault-injection case above passes while it silently claims the run
+	// finished. The end-to-end Python test cannot see it either, because
+	// the post-WTG write overwrites the file it would inspect.
+
+	@Test
+	public void sentinelSuppressedOnAnIntermediateWrite() throws IOException {
+		Path out = Files.createTempFile("sentinel-suppressed-", ".json");
+		try {
+			writeMinimalReport(out, false);
+
+			String content = new String(Files.readAllBytes(out), StandardCharsets.UTF_8);
+			assertFalse(
+					"a write asked not to emit the sentinel must leave no `complete` key — "
+							+ "this is the pre-WTG write, and a run killed inside WTG "
+							+ "construction is exactly what INV-ANA-31 must not report as "
+							+ "finished. Content:\n" + tail(content, 200),
+					content.contains("\"complete\""));
+		} finally {
+			Files.deleteIfExists(out);
+		}
+	}
+
+	@Test
+	public void sentinelEmittedOnTheFinalWrite() throws IOException {
+		Path out = Files.createTempFile("sentinel-final-", ".json");
+		try {
+			writeMinimalReport(out, true);
+
+			String content = new String(Files.readAllBytes(out), StandardCharsets.UTF_8);
+			assertTrue(
+					"the run's last write must still end with `,\"complete\":true}` — got tail:\n"
+							+ tail(content, 80),
+					SENTINEL_TAIL.matcher(content).find());
+		} finally {
+			Files.deleteIfExists(out);
+		}
+	}
+
+	/**
+	 * Write a report whose sections are empty placeholders, closing it
+	 * through {@link JsonReportWriter#writeCompletionSentinel} — the same
+	 * call {@code JsonReportWriter.write(...)} makes. The section writers
+	 * are not driven here because they need a fully-initialised Soot Scene;
+	 * what is under test is the sentinel decision, and that is production
+	 * code, not a replica.
+	 */
+	private void writeMinimalReport(Path out, boolean emitSentinel) throws IOException {
+		try (FileOutputStream fos = new FileOutputStream(out.toFile());
+				OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
+				JsonWriter w = new JsonWriter(osw)) {
+
+			w.setIndent("  ");
+			w.beginObject();
+			w.name("package").value("test.pkg");
+			w.name("components");
+			w.beginObject().endObject();
+			w.name("reachability");
+			w.beginArray().endArray();
+			w.name("windows");
+			w.beginArray().endArray();
+			w.name("transitions");
+			w.beginArray().endArray();
+			w.flush();
+
+			JsonReportWriter.writeCompletionSentinel(w, emitSentinel);
+
+			w.endObject();
+			w.flush();
+			osw.flush();
+			fos.getFD().sync();
 		}
 	}
 

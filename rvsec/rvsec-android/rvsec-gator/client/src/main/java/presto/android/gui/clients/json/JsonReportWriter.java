@@ -20,11 +20,13 @@ import soot.SootMethod;
 /**
  * Streaming JSON writer for the unified static-analysis report. Drives
  * the four top-level sections in priority order
- * (reachability → windows → transitions → components), flushes after
+ * (components → reachability → windows → transitions), flushes after
  * each, and emits the {@code "complete": true} sentinel (ADR-6) as the
- * last top-level field — followed by an explicit {@code fsync} so a
- * post-close write-back loss on networked storage cannot strip the
- * sentinel from disk.
+ * last top-level field when the caller asks for it — followed by an
+ * explicit {@code fsync} so a post-close write-back loss on networked
+ * storage cannot strip the sentinel from disk. A caller that writes an
+ * intermediate report passes {@code emitSentinel=false}: the file is
+ * valid JSON, but it does not claim the analysis finished.
  *
  * <p>Purity contract (INV-ANA-30): this class has zero
  * {@link presto.android.gui.clients.reach.ReachabilityIndex} reference.
@@ -49,13 +51,22 @@ public final class JsonReportWriter {
 	}
 
 	/**
-	 * Write the report to {@code outputPath}. On success the file ends
-	 * with {@code ,"complete":true}\n followed by an fsync; on any
-	 * exception path the sentinel is NOT written (the parser detects
-	 * the partial file via the sentinel's absence).
+	 * Write the report to {@code outputPath}. The sentinel is emitted
+	 * only when {@code emitSentinel} is true; on any exception path it is
+	 * not written at all (the parser detects the partial file via the
+	 * sentinel's absence).
+	 *
+	 * <p>The flag exists because the client writes this file twice: once
+	 * before WTG construction, to save reachability from a WTG timeout,
+	 * and once after. A successful write is not the same event as a
+	 * finished analysis — the caller is the only one that knows whether
+	 * the write it is asking for is the run's last. Emitting the sentinel
+	 * unconditionally made a report killed inside WTG construction
+	 * indistinguishable on disk from a complete one (INV-ANA-31).
 	 */
 	public void write(
 			String outputPath,
+			boolean emitSentinel,
 			String appPackage,
 			SootClass mainActivity,
 			Map<SootClass, List<SootMethod>> appClasses,
@@ -108,7 +119,7 @@ public final class JsonReportWriter {
 			// recovered partial file is what consumers read to mark the
 			// sample as incomplete and exclude it from gates requiring
 			// completeness.
-			w.name(JsonSchema.Keys.COMPLETE).value(true);
+			writeCompletionSentinel(w, emitSentinel);
 
 			w.endObject();
 			w.flush();
@@ -120,6 +131,23 @@ public final class JsonReportWriter {
 			// did not reach disk, which is exactly what we want — the
 			// consumer treats the file as incomplete.
 			fos.getFD().sync();
+		}
+	}
+
+	/**
+	 * Emit the completion sentinel as the last top-level field, or nothing
+	 * when the caller says this write is not the run's end.
+	 *
+	 * <p>It is a method rather than an inline branch so the decision can be
+	 * exercised on its own: {@link #write} cannot be driven from a unit test
+	 * (its section writers need a fully-initialised Soot Scene and GATOR's
+	 * XMLParser factory), so this is the only production surface where the
+	 * "do not claim completeness on a partial write" rule is checkable
+	 * without a full GATOR run.
+	 */
+	static void writeCompletionSentinel(JsonWriter w, boolean emitSentinel) throws IOException {
+		if (emitSentinel) {
+			w.name(JsonSchema.Keys.COMPLETE).value(true);
 		}
 	}
 
