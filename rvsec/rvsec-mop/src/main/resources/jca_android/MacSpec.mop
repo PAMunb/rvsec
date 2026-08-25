@@ -68,8 +68,17 @@ MacSpec(Mac m) {
             currentAlgorithmInstance = alg;
         }
 
-        event g2 after(String alg, String provider) returning(Mac m):
-          call(public static Mac Mac.getInstance(String, String)) &&
+        // `Object+` covers both two-argument `getInstance` overloads the platform declares --
+        // `(String, String)` for the provider's name and `(String, Provider)` for the object -- in
+        // one pointcut, so no second event is spent on the same `Gets`. An object obtained through
+        // the overload this pointcut used to miss reached its next event with the monitor at state
+        // 0, where every row is `fail`. It is `Object+` and not `..` on purpose: the trace harness's
+        // resolver walks the declared parameter types of a `call(...)` signature and stops at the
+        // first wildcard (KeyManagerFactorySpec.mop:87-90), so a wildcard here would make every
+        // `getInstance` fit this pointcut, while `Object+` keeps the arity known and the second
+        // position typed. Precedent: `KeyGeneratorSpec.g2`.
+        event g2 after(String alg, Object provider) returning(Mac m):
+          call(public static Mac Mac.getInstance(String, Object+)) &&
           args(alg, provider) &&
           condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
             currentAlgorithmInstance = alg;

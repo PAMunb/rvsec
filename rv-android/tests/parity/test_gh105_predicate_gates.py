@@ -2262,18 +2262,29 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
 ):
     """The red path of the gate this change adds -- the one the tree cannot show.
 
-    G-ORDER reports zero findings and nine allowances over `jca_android`, and it
-    has since task 7.6. Every assertion this suite makes about it is therefore an
-    assertion about a green run, which a gate that had stopped comparing would
-    also satisfy. What makes the green mean something is that a run *can* go red,
-    and this is where that is shown.
+    G-ORDER reports zero findings over `jca_android`, and it has since task 7.6.
+    Every assertion this suite makes about it is therefore an assertion about a
+    green run, which a gate that had stopped comparing would also satisfy. What
+    makes the green mean something is that a run *can* go red, and this is where
+    that is shown.
 
     The mutant changes one field of one row -- `CipherSpec`'s witness, from
     `g1 i1 u1` to a word the gate never produces -- and the divergence it used to
-    forgive comes back as a finding: 13 passed, **1** failed, 8 allow-listed, 2
+    forgive comes back as a finding: 14 passed, **1** failed, 7 allow-listed, 2
     skipped. Nothing else moves, which is the second half of the claim: the
     allowance is about one counterexample, so revoking it accuses one
     specification and not the set.
+
+    The healthy numbers moved at task group 9 and the numbers are the point of the
+    pin, so they are restated rather than relaxed: 14 passed and 8 allowed where
+    this test was written with 13 and 9. `KeyPairSpec` left the allow-list
+    outright -- task 9.11 made the constructor optional, so the empty sequence the
+    row forgave is now accepted by the specification as well as by the rule, and
+    the row was retired rather than left to forgive a divergence that no longer
+    exists. `KeyStoreSpec` stayed allowed and changed witness: task 9.16 repaired
+    `g2 l1` and the gate, which reports the first counterexample it finds, then
+    reached `g1 l1 g1 l1` -- the frozen seed's own outer `+`, which no task of this
+    change touched.
     """
     result = gh105_order_gate.run(
         _specs_root(),
@@ -2285,13 +2296,13 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     assert [finding.spec for finding in result.findings] == ["CipherSpec"]
     assert result.findings[0].witness == ("g1", "i1", "u1")
     assert result.findings[0].accepted_by == "the specification"
-    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (13, 8, 2)
+    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (14, 7, 2)
 
     # And the green run beside it, from the same code path: the difference between
     # the two is the one field, so the gate is what is being measured here.
     healthy = _order_run()
     assert healthy.findings == []
-    assert (len(healthy.passed), len(healthy.allowed)) == (13, 9)
+    assert (len(healthy.passed), len(healthy.allowed)) == (14, 8)
 
 
 def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
@@ -2304,21 +2315,27 @@ def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
     decision, and a decision nobody wrote down is a measurement again. An empty
     `witness` is the sharper one -- keyed on the specification alone, a row that
     forgives one measured divergence forgives every future one of the same file,
-    and nine of the twenty-two compared specifications would quietly stop being
+    and eight of the twenty-two compared specifications would quietly stop being
     guarded.
 
     Both are asserted at the reader, where the row is dropped, and at the run,
     where the divergence comes back: dropping the row from the set and still
     passing the specification would be a gate that forgave by accident.
+
+    Eight rows where this test was written with nine, and the missing one is a
+    repair rather than a relaxation: task 9.11 made `KeyPairSpec`'s constructor
+    optional, so the empty sequence its row forgave is now accepted by the
+    specification too, and the row was retired instead of being left to forgive a
+    divergence that no longer exists.
     """
     live = gh105_order_gate.read_allowlist(ALLOWLIST)
-    assert len(live) == 9
+    assert len(live) == 8
     assert ("jca_android", "CipherSpec", "order", "g1 i1 u1") in live
 
     for field, blank in (("reason", ""), ("witness", "")):
         path = _allowlist_variant(tmp_path, **{field: blank})
         admitted = gh105_order_gate.read_allowlist(path)
-        assert len(admitted) == 8, field
+        assert len(admitted) == 7, field
         assert not any(spec == "CipherSpec" for _, spec, _, _ in admitted), field
 
         result = gh105_order_gate.run(
@@ -2389,7 +2406,7 @@ def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothi
         )
         == 0
     )
-    assert "13 passed, 0 failed, 9 allow-listed" in capsys.readouterr().out
+    assert "14 passed, 0 failed, 8 allow-listed" in capsys.readouterr().out
 
     mutant = _allowlist_variant(tmp_path, witness="g1 i1 u1 OUTRA")
     assert (

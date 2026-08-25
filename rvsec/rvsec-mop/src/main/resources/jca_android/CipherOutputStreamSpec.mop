@@ -7,17 +7,37 @@ import javax.crypto.Cipher;
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.Property;
 
-CipherOutputStreamSpec() {
-    event c1 after() : call(public CipherOutputStream.new(OutputStream, Cipher)) { }
+// The declared parameter is the stream every event binds. Without one the generator emits a
+// single instance for the whole process, so two streams alive at once are one trace: the second
+// constructor arrives where the automaton is waiting for the first stream's own sequence, and a
+// conforming program is accused of a wrong call sequence. Corpus mass for that class was
+// measured at 0 rows of 97,018 -- the repair costs the published numbers nothing and removes
+// the last non-parametric specification of the family (`CipherSpec` and `KeyStoreSpec` are
+// parametric; this file and its sibling were the two that were not).
+CipherOutputStreamSpec(CipherOutputStream cos) {
+    // The constructor binds through `returning`, every other event through `target` -- same
+    // reason as the sibling file: an unbound event of a parametric specification broadcasts
+    // over the whole monitor set instead of naming one stream.
+    event c1 after() returning(CipherOutputStream cos):
+      call(public CipherOutputStream.new(OutputStream, Cipher)) { }
 
-    event w1 after() : call(public void CipherOutputStream.write(int)) || call(public void CipherOutputStream.write(byte[])) {  }
+    event w1 after(CipherOutputStream cos):
+      ( call(public void CipherOutputStream.write(int)) ||
+        call(public void CipherOutputStream.write(byte[]))
+      ) && target(cos) {  }
 
-    event w2 after(byte[] b, int off, int len) :
-     call(public void CipherOutputStream.write(byte[], int, int)) && args(b, off, len) { }
+    event w2 after(byte[] b, int off, int len, CipherOutputStream cos):
+      call(public void CipherOutputStream.write(byte[], int, int)) &&
+      args(b, off, len) &&
+      target(cos) { }
 
-    event fl after() : call(public void CipherOutputStream.flush()) { }
+    event fl after(CipherOutputStream cos):
+      call(public void CipherOutputStream.flush()) &&
+      target(cos) { }
 
-    event cl after(): call(public void CipherOutputStream.close()) { }
+    event cl after(CipherOutputStream cos):
+      call(public void CipherOutputStream.close()) &&
+      target(cos) { }
 
     ere : c1 (w1 | w2 | fl)+ cl
 

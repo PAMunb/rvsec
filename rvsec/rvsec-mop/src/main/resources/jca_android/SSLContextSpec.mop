@@ -78,12 +78,53 @@ SSLContextSpec(SSLContext ctx) {
    // of its own -- it only rebound `currentProtocol` -- so nothing it reported is
    // lost.
    //
+   // The two-argument `g2` below lost the same guard, for the same reason and with the
+   // same effect. It kept the guard when `g1` lost it only because it is not an orphan
+   // and the group that repaired `g1` reached only orphans. What the guard cost is a doubled
+   // report, and the harness measured it rather than the comment guessing: with the condition
+   // false the dispatcher still runs `FindOrCreateEntry`, so the object holds a monitor at
+   // state 0 and `init[0]` is `fail` -- while the `init` body runs anyway and accuses the
+   // protocol. Side A of the pair therefore raised SSLCONTEXT-ORDER-00 *and*
+   // SSLCONTEXT-PROTO-00 for one rejected context; side B raises PROTO-00 alone
+   // (data/gh105/evidence/f6-SSLContextSpec-g2-guard.md).
+   //
    // Residue, recorded and not repaired (divergence_record.csv): a `getInstance`
    // whose protocol the rule rejects and which is never `init`ed is now accused by
-   // nothing, because the accusation lives in the `init` body. The two-argument `g2`
-   // still carries the guard this event lost, and with it the same suppression, for
-   // the same reason -- it is not an orphan, so no task of this group reaches it.
-   // Both are behavioural changes, deliberately deferred.
+   // nothing, because the accusation lives in the `init` body. That holds for both
+   // events now, and it is one behavioural residue, not two deferrals.
+   // `getDefault()` is FORBIDDEN in both oracles -- the expert `SSLContext.crysl:10-11` and
+   // api30's `SSLContext.cryptsl:18` -- and until this event the set had no accuser for it, so
+   // `SSLContext.getDefault().createSSLEngine()` was silence from end to end. The other
+   // FORBIDDEN clause with a `.mop` in this set, `PBEKeySpec`'s two constructors, has been
+   // accused since it was written; the asymmetry was an omission and not a decision, because it
+   // appeared in no record of the project.
+   //
+   // Both oracles write the clause as `getDefault() => Gets`, which reads the forbidden call as
+   // filling the ORDER position the legitimate `getInstance` fills. This file does not model it
+   // that way, and the reason is the one `PBEKeySpecSpec.mop:183-189` already wrote down for the
+   // identical `PBEKeySpec(char[]) => Con`: making a forbidden call an alternative opening of
+   // the ordering is the opposite of what FORBIDDEN says. So the event is a self-loop at every
+   // state -- it accuses in its body and moves the automaton nowhere -- and the residue is the
+   // same one that file records: the obligatory call that follows a forbidden one still reaches
+   // its own state from a state that call never left, so `getDefault(); init(...)` draws
+   // SSLCONTEXT-ORDER-00 on top of the SSLCONTEXT-FORB-00 the `getDefault` already earned.
+   // Recorded, not repaired (divergence_record.csv).
+   //
+   // The self-loops are not decoration. An event absent from the automaton gets a transition
+   // row that moves every state to `fail`, so declaring this event without them would trade the
+   // false negative for an ordering false positive -- the defect tasks 3.2 and 3.6 spent a
+   // group removing from this very file.
+   // The body writes neither `context` nor `currentProtocol`, and that is not an omission: the
+   // self-loop keeps this monitor wherever it already was, `@match1` is reachable only from
+   // `end`, and no route from here arrives there -- a `getDefault()` context that is then
+   // `init`ed goes `start -> fail`. Two writes no handler can read is exactly the bookkeeping
+   // INV-INS-137 says to stop writing.
+   event getDefault after() returning(SSLContext ctx):
+    call(public static SSLContext SSLContext.getDefault()) {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "SSLContextSpec", "" + __LOC,
+          "v=1 code=SSLCONTEXT-FORB-00 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='SSLContext.getInstance(String)' msg='SSLContext.getDefault() is forbidden by api30 SSLContext.cryptsl'"));
+   }
+
    event g1 after(String protocol) returning(SSLContext ctx):
     call(public static SSLContext SSLContext.getInstance(String))
     && args(protocol) {
@@ -91,10 +132,18 @@ SSLContextSpec(SSLContext ctx) {
       currentProtocol = protocol;
     }
 
-    event g2 after(String protocol, String provider) returning(SSLContext ctx):
-      call(public static SSLContext SSLContext.getInstance(String, String)) &&
-      args(protocol, provider) &&
-      condition(ConscryptAliasTable.matches("SSLContext", protocol, protocols)) {
+    // `Object+` covers both two-argument `getInstance` overloads the platform declares --
+    // `(String, String)` for the provider's name and `(String, Provider)` for the object -- in
+    // one pointcut, so no second event is spent on the same `Gets`. An object obtained through
+    // the overload this pointcut used to miss reached its next event with the monitor at state
+    // 0, where every row is `fail`. It is `Object+` and not `..` on purpose: the trace harness's
+    // resolver walks the declared parameter types of a `call(...)` signature and stops at the
+    // first wildcard (KeyManagerFactorySpec.mop:87-90), so a wildcard here would make every
+    // `getInstance` fit this pointcut, while `Object+` keeps the arity known and the second
+    // position typed. Precedent: `KeyGeneratorSpec.g2`.
+    event g2 after(String protocol, Object provider) returning(SSLContext ctx):
+      call(public static SSLContext SSLContext.getInstance(String, Object+)) &&
+      args(protocol, provider) {
         context = ctx;
         currentProtocol = protocol;
     }
@@ -167,8 +216,25 @@ SSLContextSpec(SSLContext ctx) {
        }
    }
 
+   // The return type is the platform's, and it has to be: both weavers gate it exactly, so
+   // while this pointcut declared `void` against android-30's `public final SSLEngine
+   // createSSLEngine()` the advice was generated, sat in the monitor, and never fired. A
+   // signature sweep of all 143 `call(...)` sites of the set found this to be the only
+   // return-type mismatch, and 9.7's G-SIG is what keeps it the last one.
+   //
+   // Reviving the event is a behavioural change and was decided as one: the dispatcher runs
+   // FindOrCreateEntry, so an `SSLContext` whose birth this set never observed gets a monitor
+   // at state 0 here, and `engine[start]` is fail. The two births that were unobserved for no
+   // good reason are closed first -- the `(String, Provider)` overload by 9.16 and the
+   // `g2`-suppressed context by 9.17. The one that remains is `getDefault()`, which 9.9
+   // accuses in its own right and which keeps the ordering report on top, by the decision
+   // recorded at that event.
+   //
+   // `createSSLEngine()` before `init` reaches nothing: it raises IllegalStateException, and
+   // an `after returning` advice does not run on a throw. So the `s1` row is unreachable in
+   // practice and is left as the automaton reads the rule.
    event engine after(SSLContext ctx) returning(SSLEngine eng) :
-     call(public void SSLContext.createSSLEngine(..)) &&
+     call(public SSLEngine SSLContext.createSSLEngine(..)) &&
      target(ctx) {
        stagedEngine = eng;
    }
@@ -197,12 +263,15 @@ SSLContextSpec(SSLContext ctx) {
     start [
       g1 -> s1
       g2 -> s1
+      getDefault -> start
     ]
     s1 [
       init -> end
+      getDefault -> s1
     ]
     end [
       engine -> end
+      getDefault -> end
     ]
 
   alias match1 = end

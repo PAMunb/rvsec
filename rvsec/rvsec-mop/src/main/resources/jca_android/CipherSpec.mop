@@ -35,6 +35,14 @@ import br.unb.cic.mop.Property;
 // single way.
 import static br.unb.cic.mop.jca.util.CipherTransformationUtil.*;
 
+// The normaliser is named in full and imported plainly, where the frozen
+// `CipherTransformationUtil` above is imported statically. That is not inconsistency: the two
+// classes declare methods of the same names, so a second static-* import would make every bare
+// `mode(...)` and `isValid(...)` of the merged monitor ambiguous and the monitor would not
+// compile. Naming this one at each call site is also what tells a reader which of the two a
+// given line asks -- and there are lines of both kinds in these files, on purpose.
+import br.unb.cic.mop.jca.util.CipherTransformationNormalizer;
+
 
 /**
  * CipherSpec
@@ -82,14 +90,14 @@ CipherSpec(Cipher c) {
    event g1 after(String transformation) returning(Cipher c):
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
-     condition(isValid(transformation)) {
+     condition(CipherTransformationNormalizer.isValid(transformation)) {
        currentTransformation = transformation;
    }
 
    event g2 after(String transformation, Object provider) returning(Cipher c):
       call(public static Cipher Cipher.getInstance(String, Object+)) &&
       args(transformation, provider) &&
-      condition(isValid(transformation)) {
+      condition(CipherTransformationNormalizer.isValid(transformation)) {
         currentTransformation = transformation;
    }
 
@@ -97,7 +105,7 @@ CipherSpec(Cipher c) {
    event g3 after(String transformation) returning(Cipher c):
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
-     condition(!isValid(transformation)) {
+     condition(!CipherTransformationNormalizer.isValid(transformation)) {
         currentTransformation = transformation;
    }
 
@@ -105,7 +113,7 @@ CipherSpec(Cipher c) {
      call(public void Cipher.init(int, Certificate, ..)) &&
      args(mode, cert, ..) &&
      target(c) {
-       if (!isValid(c.getAlgorithm())) {
+       if (!CipherTransformationNormalizer.isValid(c.getAlgorithm())) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
                 "v=1 code=CIPHER-ALG-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedTransformations) + "' msg='expecting " + expectedTransformations + " but found " + c.getAlgorithm() + "'"));
         }
@@ -178,7 +186,7 @@ CipherSpec(Cipher c) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
                 "v=1 code=CIPHER-NOBS-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'"));
         }
-        if (!isValid(c.getAlgorithm())) {
+        if (!CipherTransformationNormalizer.isValid(c.getAlgorithm())) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
             "v=1 code=CIPHER-ALG-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedTransformations) + "' msg='expecting " + expectedTransformations + " but found " + c.getAlgorithm() + "'"));
         }
@@ -336,6 +344,19 @@ CipherSpec(Cipher c) {
          finalPlainText = plainTextBuffer;
     }
 
+   // Two transitions both oracles license, added over events that already exist -- the `fsm`
+   // gains no event and the 17-event ceiling is untouched, which corrects the remark of
+   // conformance_record.csv item (e) that repairing this "would need new events".
+   //
+   // `s3` had no `update` loop, so `init; update; update` failed where api30's `updates+`
+   // (Cipher.cryptsl:117) and the expert's `Update+` (Cipher.crysl:85) both admit it. `s2` had
+   // no `init` loop, so `init; init` failed where both state `Inits+`/`Init+`.
+   //
+   // What is deliberately NOT here is a re-`init` at `end` -- the "reused Cipher". Neither
+   // ORDER returns from the finals group to `Inits`, so that transition would make this
+   // specification more permissive than both oracles; it was refused as a conformance repair
+   // by the researcher's decision of 2026-08-25 and would need a divergence row of its own if
+   // it is ever wanted as a project decision.
    fsm :
      start [
         g3 -> unsafeAlg
@@ -352,6 +373,8 @@ CipherSpec(Cipher c) {
        i2 -> s2
      ]
      s2 [
+       i1   -> s2
+       i2   -> s2
        wkb1 -> end
        f2   -> end
        f5   -> end
@@ -364,6 +387,11 @@ CipherSpec(Cipher c) {
        u5   -> s3
      ]
      s3 [
+       u1 -> s3
+       u2 -> s3
+       u3 -> s3
+       u4 -> s3
+       u5 -> s3
        f1 -> end
        f2 -> end
        f3 -> end

@@ -7,17 +7,35 @@ import javax.crypto.Cipher;
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.Property;
 
-CipherInputStreamSpec() {
+// The declared parameter is the stream every event binds. Without one the generator emits a
+// single instance for the whole process, so two streams alive at once are one trace: the second
+// constructor arrives where the automaton is waiting for the first stream's own sequence, and a
+// conforming program is accused of a wrong call sequence. Corpus mass for that class was
+// measured at 0 rows of 97,018 -- the repair costs the published numbers nothing and removes
+// the last non-parametric specification of the family (`CipherSpec` and `KeyStoreSpec` are
+// parametric; this file and its sibling were the two that were not).
+CipherInputStreamSpec(CipherInputStream cis) {
 
-    event c1 after(): call(public CipherInputStream.new(InputStream, Cipher)) { }
+    // The constructor binds through `returning`, every other event through `target`: an event
+    // of a parametric specification that binds no monitored object is handed the parameterless
+    // map and runs on the root monitor and on every live monitor of the specification, which
+    // is the fan-out task 9.3 closed at `PBEKeySpecSpec` and 9.7's G-BIND now locks.
+    event c1 after() returning(CipherInputStream cis):
+      call(public CipherInputStream.new(InputStream, Cipher)) { }
 
-    event r1 after(): call(public int CipherInputStream.read()) || call(public int CipherInputStream.read(byte[])) {  }
+    event r1 after(CipherInputStream cis):
+      ( call(public int CipherInputStream.read()) ||
+        call(public int CipherInputStream.read(byte[]))
+      ) && target(cis) {  }
 
-    event r2 after(byte[] arr, int offset, int len):
+    event r2 after(byte[] arr, int offset, int len, CipherInputStream cis):
       call(public int CipherInputStream.read(byte[], int, int)) &&
-      args(arr, offset, len) { }
+      args(arr, offset, len) &&
+      target(cis) { }
 
-    event cl1 after(): call(public void CipherInputStream.close()) { }
+    event cl1 after(CipherInputStream cis):
+      call(public void CipherInputStream.close()) &&
+      target(cis) { }
 
     ere : c1 (r1 | r2)+ cl1
 

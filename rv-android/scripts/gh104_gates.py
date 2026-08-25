@@ -305,6 +305,14 @@ class MopSpec:
                 return candidate
         return None
 
+    #: Words the rv-monitor ERE grammar reserves, which are therefore never event names.
+    #: `EREParser.jj:49-60` declares the operators `~ & | * + ^` as punctuation and exactly
+    #: two word tokens, `epsilon` and `empty`. Sweeping them as symbols reports a formula
+    #: that parses and generates as one naming an event nobody declared -- measured on
+    #: `generic_new/ListIterator_Set.mop:36`, which has used `epsilon` since before this
+    #: change and was reported by every run of this sweep over the universe.
+    ERE_KEYWORDS = frozenset({"epsilon", "empty"})
+
     def formula_symbols(self) -> list[tuple[str, int]]:
         """Event symbols named in the `ere`/`fsm`, with their line number."""
         if self.formula_kind is None:
@@ -313,7 +321,7 @@ class MopSpec:
         found: list[tuple[str, int]] = []
         if self.formula_kind == "ere":
             for match in re.finditer(r"[A-Za-z_]\w*", self.formula_text):
-                if match.group(0) == "ere":
+                if match.group(0) == "ere" or match.group(0) in self.ERE_KEYWORDS:
                     continue
                 line = base + self.formula_text[: match.start()].count("\n")
                 found.append((match.group(0), line))
@@ -1506,11 +1514,7 @@ def backing_record(row: dict, records: dict[str, list[dict]]) -> str:
                 if absent in clause or _clause_shape(absent) == shape:
                     return f"{entry['record']}: {entry.get('verdict', '').strip()}"
             kind = entry.get("kind", "").strip()
-            if (
-                kind in NARRATIVE_KINDS
-                and obj
-                and verdict in LIST_DIFFERENCE_VERDICTS
-            ):
+            if kind in NARRATIVE_KINDS and obj and verdict in LIST_DIFFERENCE_VERDICTS:
                 return f"{entry['record']}: {kind}"
     return "unbacked"
 

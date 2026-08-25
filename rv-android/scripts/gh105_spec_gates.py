@@ -128,6 +128,14 @@ _CALL = re.compile(r"\bcall\s*\(")
 _RETURNING = re.compile(r"\breturning\s*\(")
 _TARGET = re.compile(r"\btarget\s*\(")
 
+#: The names a binding clause actually binds. `returning(Type name)` declares the
+#: type and the name; `target(name)` names an already-declared one. G-BIND compares
+#: these against the specification's declared parameter names, because that is what
+#: the generator keys the monitor on -- a clause of the right type under the wrong
+#: name binds nothing at all.
+_RETURNING_NAME = re.compile(r"\breturning\s*\(\s*[\w.\[\]$]+(?:\s*\[\s*\])*\s+(\w+)\s*\)")
+_TARGET_NAME = re.compile(r"\btarget\s*\(\s*(\w+)\s*\)")
+
 # `public static SSLContext SSLContext.getInstance(String, String)` and
 # `public PBEKeySpec.new(char[])`, after the modifiers have been stripped. The
 # constructor form is what JavaMOP writes for `new`, and it declares no return type.
@@ -768,6 +776,21 @@ def gate_bind(set_name: str, specs: list[SpecFile], run: GateRun) -> None:
     A non-parametric specification is skipped rather than passed: its generator
     emits one process-wide monitor by design, so "binds no object" is what every
     one of its events does and a finding there would be noise.
+
+    Binding is checked by NAME and not by the presence of a clause, and the
+    difference is not pedantry -- it is the whole defect. The generator keys a
+    parametric monitor on the event parameters whose names are the specification's
+    declared parameters, so `KeyPairSpec(KeyPair keyPair)` with
+    `returning(KeyPair kp)` has a `returning(...)`, has the right type, and binds
+    nothing: the event gets the parameterless map and runs on the root monitor and
+    on every live monitor of the specification. A clause-presence test passes it.
+
+    Task 9.11 measured that exact site. With `KeyPairSpec`'s constructor mandatory
+    the reads of a generator-produced pair drove its monitor to `fail` and the
+    `__RESET` returned it to `start`, where a broadcast `c1` is accepted; with the
+    constructor optional the reads leave the monitor accepting, the broadcast `c1`
+    lands where `c1` is `fail`, and a conforming trace gained an ordering
+    accusation. The clause-presence version of this gate was green throughout.
     """
     for spec_file in specs:
         source = spec_file.source
@@ -785,11 +808,17 @@ def gate_bind(set_name: str, specs: list[SpecFile], run: GateRun) -> None:
             continue
 
         parameter_types = {declared for declared in source.parameters.values()}
+        parameter_names = set(source.parameters)
         for event, (header, line) in spec_file.headers.items():
             run.checked += 1
-            binds = bool(_RETURNING.search(header) or _TARGET.search(header))
-            if binds:
+            bound_names = {
+                match.group(1)
+                for pattern in (_RETURNING_NAME, _TARGET_NAME)
+                for match in pattern.finditer(header)
+            }
+            if bound_names & parameter_names:
                 continue
+            clause = bool(_RETURNING.search(header) or _TARGET.search(header))
             # An event can also name the object among its own parameters and hand
             # it to `args(...)`; that binds the argument, not the monitor, but the
             # declared type is what says whether a monitored object was in reach.
@@ -800,6 +829,21 @@ def gate_bind(set_name: str, specs: list[SpecFile], run: GateRun) -> None:
                 if reachable
                 else ""
             )
+            if clause:
+                run.findings.append(
+                    Finding(
+                        "G-BIND",
+                        set_name,
+                        stem,
+                        f"{stem}.{event}:{line}",
+                        f"`{stem}` declares {sorted(parameter_names)} and `{event}` binds "
+                        f"{sorted(bound_names) or 'nothing'} -- it has a `returning(...)` or "
+                        f"`target(...)` clause of the right type, but the generator keys the "
+                        f"monitor on the NAME, so this event binds no monitored object and its "
+                        f"body runs on every live monitor of the specification",
+                    )
+                )
+                continue
             run.findings.append(
                 Finding(
                     "G-BIND",

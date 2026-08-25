@@ -56,7 +56,22 @@ KeyPairSpec(KeyPair keyPair) {
     // Arity one on both, which is what the oracle writes: `generatedPrivkey` and
     // `generatedPubkey` are one-place in every rule that ensures them -- KeyPair itself,
     // KeyStore, and nothing else -- so there is no arity to move here.
-    event c1 after(PublicKey publicKey, PrivateKey privateKey) returning(KeyPair kp):
+    // `returning(KeyPair keyPair)` and not `returning(KeyPair kp)`: the generator keys a
+    // parametric monitor on the event parameters whose NAMES are the specification's declared
+    // parameters, so a `KeyPair` bound under any other name binds no monitored object at all.
+    // The event then gets the parameterless map and runs on the root monitor and on every live
+    // monitor of the specification -- the same broadcast task 9.3 closed at `PBEKeySpecSpec`,
+    // reached here through a name rather than through a missing clause, which is why G-BIND
+    // did not see it until task 9.11 extended it to compare the bound name.
+    //
+    // Measured, and it was task 9.11's own repair that exposed it: with the mandatory
+    // constructor the `gpu`/`gpr` of a generator-produced pair drove that pair's monitor to
+    // `fail` and `__RESET` returned it to `start`, where a broadcast `c1` is accepted. With the
+    // constructor optional those reads leave the monitor in the accepting state instead, and
+    // the broadcast `c1` arrives where `c1` is `fail` -- so the conforming trace
+    // `KeyPairSpec-observed-halves.txt` gained a KEYPAIR-ORDER-00 it had never drawn. Binding
+    // the name removes it: the constructor is about the pair it constructs.
+    event c1 after(PublicKey publicKey, PrivateKey privateKey) returning(KeyPair keyPair):
       call(public KeyPair.new(PublicKey, PrivateKey))
       && args(publicKey, privateKey) {
         PredicateVerdict privOrigin = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, privateKey);
@@ -127,7 +142,21 @@ KeyPairSpec(KeyPair keyPair) {
     // never read it back (INV-INS-147). `@match` is left empty rather than deleted --
     // an `ere` names its accepting category whether or not a handler uses it, and the
     // write returns here at task 7.1.
-    ere: c1 (gpu | gpr)*
+    // The constructor is optional, and on this platform that is the whole point: api30
+    // `KeyPair.cryptsl:27` orders `co?, (pu*, pr*)*`, and practically every Android key pair
+    // comes out of `generateKeyPair()`, which fires no `c1` at all -- so with the constructor
+    // mandatory every `getPublic()`/`getPrivate()` on a generated pair drew KEYPAIR-ORDER-00.
+    //
+    // The two oracles part company here and the divergence is written down rather than left
+    // implicit: the expert `KeyPair.crysl:20` orders `Con, (GetPubl | GetPriv)*`, constructor
+    // mandatory, so what stood here was a faithful translation of the expert. The repair
+    // follows the project convention that ORDER answers to api30 while values answer to the
+    // expert (D-15); the row is in divergence_record.csv.
+    //
+    // The form is `(c1 | epsilon)` and not `c1?`: the rv-monitor ERE grammar
+    // (EREParser.jj:49-60) has `~ & | * + ^` and `epsilon`, and no `?` -- the shorthand does
+    // not parse.
+    ere: (c1 | epsilon) (gpu | gpr)*
 
     @fail {
        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairSpec", "" + __LOC,

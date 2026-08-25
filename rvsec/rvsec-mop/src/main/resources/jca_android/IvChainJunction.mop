@@ -7,7 +7,6 @@ import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import javax.crypto.Cipher;
 
 import br.unb.cic.mop.eh.*;
@@ -20,6 +19,14 @@ import br.unb.cic.mop.Property;
 // does not compile. Both name it statically (task 11.3/11.9; caught by the harness, which is
 // the only instrument in the set that compiles what the gates only read as text).
 import static br.unb.cic.mop.jca.util.CipherTransformationUtil.*;
+
+// The normaliser is named in full and imported plainly, where the frozen
+// `CipherTransformationUtil` above is imported statically. That is not inconsistency: the two
+// classes declare methods of the same names, so a second static-* import would make every bare
+// `mode(...)` and `isValid(...)` of the merged monitor ambiguous and the monitor would not
+// compile. Naming this one at each call site is also what tells a reader which of the two a
+// given line asks -- and there are lines of both kinds in these files, on purpose.
+import br.unb.cic.mop.jca.util.CipherTransformationNormalizer;
 
 /**
  * IvChainJunctionSpec
@@ -133,10 +140,22 @@ IvChainJunctionSpec(Cipher c) {
       args(encmode, *, params, ..) &&
       target(c) {
         String transformation = c.getAlgorithm();
-        String operationMode = mode(transformation);
+        // The alias is resolved before the split, and the result comes back folded. Reading the
+        // mode off the raw string is the second exposure of the defect the five `isValid` sites
+        // of `CipherSpec` carry: an alias spelling written as one word --
+        // `PBEWithHmacSHA1AndAES_128`, canonical `AES_128/CBC/PKCS5PADDING` (alias_table.csv,
+        // OpenSSLProvider :394-398) -- has no `/`, so `mode(...)` answered the empty string and
+        // both clauses below fell through in silence: no IV was required of a CBC
+        // transformation and no GCM parameter spec of a GCM one. That is a false negative, not
+        // a false positive, which is why this half of task 9.10 adds accusations where the
+        // `isValid` half removes them.
+        //
+        // The two case folds that stood at the tests below are gone with it: the normaliser
+        // folds what it returns, and folding twice only hides where the rule lives.
+        String operationMode = CipherTransformationNormalizer.mode(transformation);
         boolean ivRequired = encmode == 1
             && operationMode != null
-            && ivModes.contains(operationMode.trim().toUpperCase(Locale.ROOT));
+            && ivModes.contains(operationMode);
         if (ivRequired) {
             PredicateVerdict prepared = PredicateStore.instance().validate(Property.PREPARED_IV, params);
             if (prepared == PredicateVerdict.VIOLATED) {
@@ -170,7 +189,7 @@ IvChainJunctionSpec(Cipher c) {
         // producer (`GCMParameterSpecSpec.@match`, arity 1) and this consumer end to
         // end -- which is the measurement clause #21 failed and #17 failed with it.
         boolean gcmRequired = operationMode != null
-            && "GCM".equals(operationMode.trim().toUpperCase(Locale.ROOT));
+            && "GCM".equals(operationMode);
         if (gcmRequired) {
             PredicateVerdict prepared = PredicateStore.instance().validate(Property.PREPARED_GCM, params);
             if (prepared == PredicateVerdict.VIOLATED) {
