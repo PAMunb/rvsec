@@ -1338,7 +1338,13 @@ Subagent dispatch (docs/WORKFLOW.md §5):
      in the previous session, the second was repaired by task 4.5); 9.5 lost its deletion branch
      (INV-INS-132 and frozen-jca readers); 9.2's harness criterion was unsatisfiable as written
      (measured: 159/159 unchanged — the TraceRunner dedups by call site); and 9.19 was added for
-     the two record-hygiene findings the adjudication had excluded (OPUS5-15/16). -->
+     the two record-hygiene findings the adjudication had excluded (OPUS5-15/16). Implementing
+     9.A then refuted one of those two in turn: 9.19(a) read `constraint_table.csv` as an oracle
+     for the successor when the register speaks about the seed, and the gate that recomputes it
+     measured the flip as introducing two disagreements where there are none — the task now
+     records the refutation instead of ordering the edit. Two levels of review missed it because
+     both read `KeyStoreSpec.mop:23` in the set being repaired; the register itself says which
+     set it describes, and the habit of checking that is the group's own lesson. -->
 
 ### 9.A — Repairs that do not change what is accused
 
@@ -1432,7 +1438,18 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       resolve through the hierarchy or land as notes (`SecretKey.getEncoded` is `Key`'s,
       `SecureRandom.nextInt`/`ints` are `Random`'s — the recorded DEX-residue family,
       conformance_record.csv:73); and nested types compare on binary names
-      (`KeyStore$ProtectionParameter`).
+      (`KeyStore$ProtectionParameter`). Two further guards the implementation discovered and
+      this text did not foresee: **(iv)** `javap` prints a **constructor under the class's
+      qualified name** (`public javax.crypto.spec.PBEKeySpec(char[]);`) and a method under the
+      bare name, so treating the two alike reported **15** constructor pointcuts as unweavable,
+      every one of them correct code; and **(v)** the gate is **scoped by platform**, because it
+      compares a signature against a jar and a set written against another platform is outside
+      its reach. `generic` (118 `.mop`) and `generic_new` (27) are JSE specifications — Swing,
+      JMX, `java.util` — whose platform is the JDK, and this gate deliberately carries **no JDK
+      oracle**, since `javap` resolving from the JDK's own modules is precisely the fallback
+      guard (i) exists to refuse. They are declared, counted skips, the same discipline the F5
+      gates' genericity contract states (`proposal.md:20`); unscoped, the gate produced **275**
+      findings that are not defects, and the one real finding surfaced only behind them.
       **G-FORB** asserts that every `FORBIDDEN` clause of a rule **with a `.mop` in the set** has
       an accusing event — the scope matters, because the oracles carry **four** FORBIDDEN rules
       each, not two: besides `PBEKeySpec` (implemented) and `SSLContext.getDefault()` (not),
@@ -1444,7 +1461,19 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       (no `returning`, no `target`) — the class 9.3 closes, and the one a three-line check would
       have caught at `MacSpec.f2` time; the 2026-08-25 sweep found exactly the two 9.3 sites and
       no other. Register G-SIG's inalcançabilidade findings as notes, not failures
-      (`HMACParameterSpec` is absent from android-30 and is already recorded)
+      (`HMACParameterSpec` is absent from android-30 and is already recorded).
+      Measured over the universe (`scripts/gh105_spec_gates.py --sets all`): **G-SIG** 416
+      checked / 1 failed / 7 allow-listed / 7 skipped / 16 notes; **G-FORB** 18 / 2 / 12 / 14 /
+      0; **G-BIND** 843 / 0 / 3 / 24 / 0. Each of the three live findings is a 9.B task awaiting
+      the researcher's decision — G-SIG's single failure is 9.1, G-FORB's two are 9.9, one per
+      oracle — so those two gates stay red until the tasks are approved or their deferral earns
+      a `gate_allowlist.csv` row, exactly as the nine ordering divergences this change already
+      keeps on purpose. 9.18 requires all four suites green, so the group cannot close around
+      them. The red path was proven by mutation for each gate, and G-SIG over the frozen `jca`
+      rediscovered **on its own** three defects this change had already repaired — `byte` for
+      `byte[]` in `Signature.sign()` twice, `KeyManager[]` for `TrustManager[]` in
+      `getTrustManagers()` — allow-listed by freeze with the successor's repair named in the
+      reason. Evidence: `data/gh105/evidence/f6-three-gates.md`
 - [x] 9.8 `ConscryptAliasTable` registry hygiene, no verdict effect: the file states that services
       without a specification enter the table anyway so the extraction is complete, and six
       Conscrypt `Alg.Alias` rows are missing — five `KeyFactory` OIDs and
@@ -1455,23 +1484,44 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `data/jca_android/alias_table.csv`, which `ConscryptAliasTableTest` asserts equal row for
       row — and update the header count, or narrow the completeness claim to what the table
       actually holds. No specification calls `matches` with those services, so no verdict moves
-- [ ] 9.19 Record recompute, two registries the 2026-08-25 verification found stale — no `.mop`
-      text and no verdict moves, both are the record catching up with decisions already made:
-      **(a)** `constraint_table.csv:51` (`KeyStoreSpec | KeyStore.crysl:52`) and `:72`
-      (`SSLContextSpec | SSLContext.crysl:29`) say `IGUAL` where the `.mop` lists are
-      deliberately wider than the expert clause — 9 store types against the expert's 5
-      (`KeyStoreSpec.mop:41-42`, the four documented platform stores) and 3 protocols against
-      the expert's 2 (`SSLContextSpec.mop:43`, the `TLS` platform-value entry). Both become
-      `MOP-MAIS-PERMISSIVO` with the deliberate-permissivity justification cited from their
-      existing records; sweep the remaining `IGUAL` rows once while there (the verification
-      sampled the numeric-clause rows and found no third).
-      **(b)** the 15 `transcription` rows of `conformance_record.csv` still carry the withdrawn
-      anchor: `rule` points at `generated/api30/` and `mop_literals` describes the pre-D-15
-      lists (CipherSpec cites `Api30CipherTransformationUtil`, today without a caller;
-      MessageDigest lists `MD5, SHA-224, SHA-1…` where today's list is SHA-256/384/512;
-      SSLContext lists api30's 7 protocols where today's list is 3; KeyGenerator lists
-      ChaCha20/ARC4/…; KeyPairGenerator misses the restored 3072). Re-anchor the 15 rows to the
-      expert rule and today's literals, per D-15
+- [x] 9.19 Record recompute over the two registries the 2026-08-25 verification flagged as stale
+      — no `.mop` text and no verdict moves in either half. One half was applied; the other was
+      **refuted by measurement**, and the refutation is what the task records:
+      **(a) Refuted — `constraint_table.csv:51` (`KeyStoreSpec | KeyStore.crysl:52`) and `:72`
+      (`SSLContextSpec | SSLContext.crysl:29`) are correct as they stand**, and flipping them to
+      `MOP-MAIS-PERMISSIVO`, as this task originally ordered, would have *introduced* the
+      divergence it claimed to fix. The premise read the wrong set: the `mop_line` column of
+      those rows names the **seed**, not the successor. `jca/KeyStoreSpec.mop:23` is literally
+      the expert's five store types (`JCEKS, JKS, DKS, PKCS11, PKCS12`) and
+      `jca/SSLContextSpec.mop:23` the expert's two protocols (`TLSV1.2, TLSV1.3`); the 9-type
+      and 3-protocol lists are `jca_android`'s (`:41-42`, `:43`). The gate says so itself —
+      `gh104_gates.py:1798-1802`: the table "records the clause-by-clause comparison of the
+      api30 rules against the **seed**, so it is an oracle for `jca` and for nothing else" — and
+      the code loads it only when `set_name == "jca"`. **Measured**: G-CONF derives the verdicts
+      independently from the `jca` set plus the expert rules and reproduces the register at
+      `{"agree": 66, "disagree": 0, "not-derived": 14, "unrecorded": 0}`; with the two rows
+      flipped, `{"agree": 64, "disagree": 2}`. The successor's deliberate permissivity is
+      already recorded where it belongs — the `platform-value` rows of `divergence_record.csv`
+      and, since (b), the two re-anchored `transcription` rows. The sweep this task asked for is
+      done and is stronger than the sampling it proposed: `agree 66 / disagree 0` **is** the gate
+      recomputing all 80 rows against the source, so there is no third wrong row to find.
+      **(b) Applied.** The 15 `transcription` rows of `conformance_record.csv` carried the
+      withdrawn anchor: `rule` pointed at `generated/api30/` and `mop_literals` described the
+      pre-D-15 lists (CipherSpec citing `Api30CipherTransformationUtil`, today without a caller;
+      MessageDigest listing `MD5, SHA-224, SHA-1…` where today's list is SHA-256/384/512;
+      SSLContext listing api30's 7 protocols where today's list is 3; KeyGenerator listing
+      ChaCha20/ARC4/…; KeyPairGenerator missing the restored 3072). All 15 re-anchored to the
+      expert rule and today's literals per D-15, keeping the historical text under a
+      `D-15 (2026-08-24):` paragraph — the convention `divergence_record.csv` already uses.
+      Three substantive corrections came out of the row-by-row pass: `SecretKeySpecSpec`'s
+      `MOP-SEM-BASE` was true of api30 and **false of the expert** (`SecretKeySpec.crysl:18`
+      does declare the algorithm list), so the allow-list is back and byte-identical to the
+      frozen set; `MessageDigestSpec` and `SignatureSpec` **withdrew their declared cost**,
+      because the expert admits neither MD5 nor SHA-1; and nine of the fifteen move
+      `changed_from_jca` from `yes` to `no`, the no-narrowing rule having reverted their
+      narrowings. Only `KeyStoreSpec` and `SSLContextSpec` stay changed against the frozen set —
+      the same pair (a) is about, which is why (a)'s premise looked plausible for as long as it
+      did. Evidence: `data/gh105/evidence/f6-record-hygiene.md`
 
 ### 9.B — Changes to what is accused [researcher decision per task]
 
