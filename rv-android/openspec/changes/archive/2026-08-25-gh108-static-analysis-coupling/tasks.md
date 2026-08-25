@@ -63,5 +63,5 @@
 - [x] 7.3 `uv run pytest --import-mode=importlib -o "addopts=" tests/` green in both modules
 - [x] 7.4 `grep -rn -- "--sdkpath" docs/` finds nothing in the two live documents; `grep -n "apks" modules/rv-experiment/src/rv_experiment/experiment/workflow/execution_controller.py` shows no reference to the removed parameter
 - [x] 7.5 Walk every acceptance criterion in plan.md Section 5 and check it off
-- [ ] 7.6 Check off the acceptance criteria in issue #108, then close it (`closes #108` in the final commit) and move the Kanban card to Done
-- [ ] 7.7 Archive with `openspec archive "gh108-static-analysis-coupling" --skip-specs`
+- [x] 7.6 Check off the acceptance criteria in issue #108, then close it (`closes #108` in the final commit) and move the Kanban card to Done
+- [x] 7.7 Archive with `openspec archive "gh108-static-analysis-coupling" --skip-specs`
