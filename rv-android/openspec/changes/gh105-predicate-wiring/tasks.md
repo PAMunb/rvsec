@@ -1484,6 +1484,19 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `data/jca_android/alias_table.csv`, which `ConscryptAliasTableTest` asserts equal row for
       row — and update the header count, or narrow the completeness claim to what the table
       actually holds. No specification calls `matches` with those services, so no verdict moves
+- [ ] 9.12 **Record hygiene only — the spec defect is already repaired, and the task no longer
+      changes what is accused, which is why it sits here and not in 9.B** (reclassified with the
+      researcher's decision of 2026-08-25). The `end`-state `next2` omission this task originally
+      rescheduled was repaired by task 4.5 of this same change (commit `a7e97294`): today's `fsm`
+      lists `next2 -> end` and the regenerated monitor reads
+      `Prop_1_transition_next2 = {3,1,1,3}` — a second `nextBytes()` is a self-loop, conforming
+      to api30's `Ins, Seeds?, Ends*` (verified 2026-08-25; the previous adjudication copied
+      item (d) from the record without checking the tree). What remains is the stale record:
+      `conformance_record.csv:68` still says "Recorded, not repaired", contradicting the tree.
+      Rewrite that row to name the 4.5 repair, and keep the 12,400-rows-over-43-apps mass with
+      its provenance stated — it was measured on the published `jca` campaign, whose frozen set
+      still carries the omission, so the row must say which set each half of it describes
+
 - [x] 9.19 Record recompute over the two registries the 2026-08-25 verification flagged as stale
       — no `.mop` text and no verdict moves in either half. One half was applied; the other was
       **refuted by measurement**, and the refutation is what the task records:
@@ -1528,7 +1541,23 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 <!-- Each task here needs the differential harness pair, a divergence_record.csv row, and an
      explicit go/no-go. Several carry measured corpus mass from the published jca campaign; that
      mass is a ceiling on what the repair could move, never a causal attribution, and the weaver
-     was repaired between that campaign and today. -->
+     was repaired between that campaign and today.
+
+     DECIDED 2026-08-25 (researcher, against docs/20260825_dossie_decisao_9b_gh105.md): every
+     task of this block is GO, with two scoped exclusions and one reclassification — 9.13's third
+     transition (re-`init` at `end`) is NO, no oracle licences it; 9.1 and 9.9 take the
+     `PBEKeySpecSpec` idiom rather than silencing `engine` at `start`; and 9.12, which no longer
+     changes what is accused, moved to 9.A.
+
+     The order is not preference. Four tasks touch `SSLContextSpec`, and 9.1 revives an event
+     whose dispatcher runs `FindOrCreateEntry` — so it accuses every origin of an `SSLContext`
+     the set does not observe being born. There are three such origins today: the
+     `getInstance(String, Provider)` overload with no pointcut (9.16 closes it), the `g2` context
+     whose protocol guard suppresses the event while the dispatcher still creates the monitor
+     (9.17 closes it), and `getDefault()` (9.9, which by design keeps accusing it — with the
+     right code). Landing 9.1 ahead of 9.16 and 9.17 would buy an ordering false positive in two
+     populations that have nothing to do with the defect it repairs. Execution order:
+     **9.17 -> 9.14 -> 9.16 -> 9.9 -> 9.1 -> 9.13 -> 9.11 -> 9.15 -> 9.10**. -->
 
 - [ ] 9.1 `SSLContextSpec.mop:171`: the `engine` pointcut declares
       `call(public void SSLContext.createSSLEngine(..))` where android-30 declares
@@ -1553,6 +1582,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `call(...)` signature of the set was re-checked against android-30 in the 2026-08-25
       verification (143 sites, class presence read from the jar's own entries) and this is the
       only return-type mismatch — which is what 9.7's G-SIG then locks
+      **GO, decided 2026-08-25.** The joint design question is settled by this change's own precedent: `getDefault` enters the `fsm` as a self-loop at every state, the `PBEKeySpecSpec` idiom (`ere: (f1 | f2)* c1 (f1 | f2)* c2 (f1 | f2)*`), and **`engine` is NOT given a loop at `start`**. So `getDefault().createSSLEngine()` draws FORB-00 *and* ORDER-00, which is byte-for-byte the residue `PBEKeySpecSpec.mop:183-189` already records and the change already ratified — silencing it would mean modelling a forbidden event as an alternative opening of the ordering, the opposite of what FORBIDDEN says. The rejected alternative (`engine -> start`) would have made this task accusation-neutral at the price of a **new** G-ORDER divergence, in a file that already carries one open (task 7.1). Lands **after 9.17 and 9.16**, which close two of the three unobserved-birth origins.
 
 - [ ] 9.9 `SSLContextSpec`: `getDefault()` is FORBIDDEN in **both** oracles (`SSLContext.crysl:10-11`,
       api30 `SSLContext.cryptsl`) and the set has no event for it —
@@ -1572,6 +1602,8 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       transition — without the joint decision, `getDefault().createSSLEngine()` draws the FORB
       code *and* the ordering false positive this task exists to avoid. `SSLContextSpec` has
       4 events of 17
+      **GO, decided 2026-08-25.** Design as recorded in 9.1: self-loop at `start`, `s1` and `end`, FORB code raised in the event body. Closes G-FORB's two findings.
+
 - [ ] 9.10 `CipherSpec` is the one value-carrying specification that does not normalise: its five
       `isValid(...)` sites (`:85`, `:92`, `:100`, `:108`, `:181`) call the statically imported
       frozen `CipherTransformationUtil`, while the other eleven value specs compare through
@@ -1603,6 +1635,8 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       Corpus mass zero for the spelling class is the external audit's estimate, not a record of
       this tree (the consolidated campaign corpus is not here) — the harness pair is the
       evidence, labelled as such
+      **GO, decided 2026-08-25.** **Both halves**: the five `isValid` sites (which remove spelling false positives) and `IvChainJunction`'s unresolved `mode()` (which adds true accusations by closing the silent IV/GCM skip). Last in the execution order — it is the only task of the block that touches Java and needs the reactor build.
+
 - [ ] 9.11 `KeyPairSpec.mop:130`: `ere: c1 (gpu | gpr)*` makes the `KeyPair(PublicKey, PrivateKey)`
       constructor mandatory, but api30 `KeyPair.cryptsl:27` orders `co?, (pu*, pr*)*` and on
       Android practically every `KeyPair` comes from `generateKeyPair()`, which never fires `c1`.
@@ -1615,16 +1649,8 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `Con, (GetPubl | GetPriv)*` — constructor mandatory — so today's `ere` is a faithful
       expert translation, and the repair follows the project convention that ORDER answers to
       api30; the divergence goes in the row, not left implicit
-- [ ] 9.12 **Record hygiene only — the spec defect is already repaired.** The `end`-state `next2`
-      omission this task originally rescheduled was repaired by task 4.5 (commit `a7e97294`):
-      today's `fsm` lists `next2 -> end` and the regenerated monitor reads
-      `Prop_1_transition_next2 = {3,1,1,3}` — a second `nextBytes()` is a self-loop, conforming
-      to api30's `Ins, Seeds?, Ends*` (verified 2026-08-25; the previous adjudication copied
-      item (d) from the record without checking the tree). What remains is the stale record:
-      `conformance_record.csv:68` still says "Recorded, not repaired", contradicting the tree.
-      Rewrite that row to name the 4.5 repair, and keep the 12,400-rows-over-43-apps mass with
-      its provenance stated — it was measured on the published `jca` campaign, whose frozen set
-      still carries the omission, so the row must say which set each half of it describes
+      **GO, decided 2026-08-25.** The oracle split goes in the repair's own divergence row, not left implicit.
+
 - [ ] 9.13 `CipherSpec.mop:339+`: two divergences from the oracles' ORDER, both repairable by
       transitions over existing events — the `fsm` gains no event, the 17-event ceiling is not
       touched (which corrects item (e)'s remark that repairing "would need new events"), and
@@ -1638,15 +1664,21 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       wanted, it is a separate decision with its own divergence row, not part of this
       conformance repair. Measured: **10.814 rows over 21 apps** (a ceiling across both defect
       classes; the record does not split them). `conformance_record.csv` item (e)
+      **GO, decided 2026-08-25.** **Scoped to the two licensed transitions; the third is NO.** Re-`init` at `end` stays unrepaired: neither ORDER returns from the finals group to `Inits`, so it is a project decision with its own divergence row, not conformance, and it was not taken.
+
 - [ ] 9.14 `KeyStoreSpec.mop`: the specification declares `ks` and every event binds `k`, so the
       generator emits one process-wide monitor instead of one per key store; a second `getInstance`
       before the first `load` fails. Measured: **8.655 InvalidSequenceOfMethodCalls over 22 apps
       plus 2.005 InvalidKeyStoreType**. Parametrise it. This and 9.16 touch the same file and the
       same corpus mass; sequence them as one decision. `conformance_record.csv` item (a)
+      **GO, decided 2026-08-25.** Sequenced with 9.16 as one decision, 9.14 first. Second-order effect declared with the harness pair: today's single process-wide monitor, once in the `fail` sink, absorbs everything that follows into one accusation — parametrised, each store accuses for itself, so the raw row count can rise while the set of accused programs shrinks. The rows are correct; the raw count is not the metric.
+
 - [ ] 9.15 `CipherInputStreamSpec` and `CipherOutputStreamSpec` declare no parameter, so each is a
       single process-wide instance and two interleaved streams fail on the second constructor.
       Measured: **0 rows of 97.018** — the repair is free of corpus consequence and is the cheapest
       way to retire item (b), or the clearest candidate to leave recorded. Researcher's call
+      **GO, decided 2026-08-25.** Repair rather than record, for consistency with 9.14 — repairing one non-parametric specification while leaving two is the inconsistency this change exists to remove. The pair will read `unchanged` by construction (0 rows of 97,018); the evidence says so and does not claim a delta.
+
 - [ ] 9.16 `getInstance(String, Provider)` has no pointcut in `KeyStoreSpec`, `SignatureSpec`,
       `MacSpec`, `KeyPairGeneratorSpec` or `SSLContextSpec`, though android-30 declares the overload
       on all five; an object obtained through it reaches its next event with the monitor at state 0,
@@ -1658,6 +1690,8 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       first wildcard type (`KeyManagerFactorySpec.mop:88-90`). `conformance_record.csv` items (g)
       and (a), `gate_allowlist.csv:21` (witness `g2 l1`). `KeyStoreSpec`'s share of the mass is the
       10.660 published rows of 9.14
+      **GO, decided 2026-08-25.** Sequenced after 9.14 on the shared file. Precondition of 9.1: it closes the `getInstance(String, Provider)` birth the set does not observe.
+
 - [ ] 9.17 `SSLContextSpec.mop:97`: `g2` still carries the positive protocol guard that task 3.6
       removed from `g1`, so `getInstance("TLSv1", provider)` fires no event — the dispatcher
       still **creates** the monitor (`FindOrCreateEntry` runs before the condition), which then
@@ -1670,6 +1704,8 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       rows — there is no standalone `behavioural` row for it (verified 2026-08-25 against the
       nine behavioural rows); the repair writes that row when it lands. Deferred at 3.6 because
       `g2` is not an orphan — this is the task that reaches it
+      **GO, decided 2026-08-25.** **First of the block.** Precondition of 9.1: it closes the `g2`-suppressed birth, where the dispatcher creates the monitor at state 0 and the event never fires.
+
 - [ ] 9.18 Verification for the group: the four gate suites green over the repaired set (including
       the three new gates of 9.7, with G-FORB's scope and G-SIG's jar-entry guard as specified
       there), `gh104_divergence_record.py --check` exit 0 with every hunk of 9.A and 9.B keyed,
