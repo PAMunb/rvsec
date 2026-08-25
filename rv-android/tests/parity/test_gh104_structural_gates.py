@@ -177,7 +177,14 @@ def _generated_monitor(set_name: str) -> Path:
     return monitor
 
 
-def _gates(monitor: Path, allowlist: Path | None) -> dict:
+def _gates_command(monitor: Path, allowlist: Path | None) -> list[str]:
+    """The CLI invocation, built once so the report and the exit code agree.
+
+    Two cases read this: the ones that parse the report, and the one that reads the
+    exit code the CLI returns. They have to be the same invocation -- a suite that
+    asserted green on a report built differently from the command a reader runs
+    would be measuring an artefact of its own construction.
+    """
     command = [
         sys.executable,
         str(SCRIPTS / "gh104_gates.py"),
@@ -194,7 +201,13 @@ def _gates(monitor: Path, allowlist: Path | None) -> dict:
     ]
     if allowlist and allowlist.is_file():
         command += ["--allowlist", str(allowlist)]
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    return command
+
+
+def _gates(monitor: Path, allowlist: Path | None) -> dict:
+    result = subprocess.run(
+        _gates_command(monitor, allowlist), capture_output=True, text=True, check=False
+    )
     assert result.stdout, result.stderr
     return json.loads(result.stdout)
 
@@ -284,6 +297,11 @@ def test_jca_g_pred_counts_the_sites_the_successor_must_carry():
     report = _gates(_control_monitor(), None)
     assert report["gates"]["G-PRED"]["predicate_sites"] == JCA_EXECUTION_CONTEXT
     assert report["gates"]["G-PRED"]["failures"] == []
+    # And the gate still governs the seed. It withdraws from a set that has migrated
+    # off `ExecutionContext` onto the store, which is `jca_android` and never this
+    # one; a supersession here would mean the lock had been lifted from the frozen
+    # control by a scoping rule written for its successor.
+    assert report["superseded"] == []
 
 
 def test_no_file_of_the_frozen_set_names_the_alias_class():
@@ -393,6 +411,24 @@ def test_jca_android_has_no_orphan_without_a_clause():
     assert report["gates"]["G-2"]["failures"] == []
 
 
+def test_jca_android_has_no_inert_event_without_a_row():
+    """G-2a over the successor, the assertion whose absence let the CLI stay red.
+
+    The suite asserted G-2, G-ERE, G-6', the lint, the message gate and G-CONF for
+    this set and never G-2a, so four hits with no covering row -- `PBEKeySpecSpec`'s
+    two forbidden constructors, `SSLContextSpec.getDefault` and `SecureRandomSpec.g4`,
+    every one of them an accuser absorbed into the automaton as a self-loop by a task
+    of this change -- lived in the CLI's exit code and nowhere else. Every inert event
+    of this set is a decision, and a decision that is not in `gate_allowlist.csv` with
+    a reason is indistinguishable from an oversight: that is what this asserts, and it
+    is what keeps the two instruments from diverging again.
+    """
+    report = _gates(
+        _generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv"
+    )
+    assert report["gates"]["G-2a"]["failures"] == []
+
+
 def test_jca_android_has_no_undeclared_ere_symbol():
     report = _gates(
         _generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv"
@@ -430,3 +466,40 @@ def test_jca_android_allow_lists_conform_to_the_expert_rules():
         _generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv"
     )
     assert report["gates"]["G-CONF"]["failures"] == []
+
+
+def test_jca_android_gates_exit_zero_and_say_which_gate_withdrew():
+    """The CLI's own verdict over the successor, which no case read before.
+
+    Every assertion above reads one gate's failure list out of the report, and the
+    exit code -- the thing a reader, a hook or a CI step actually consults -- was
+    covered by none of them. It had been 1 for the whole of this change: G-PRED
+    compares each file against the frozen seed's `ExecutionContext` lines, the set
+    has none left by construction (INV-INS-130), and its 23 structural failures were
+    summed into `ok` all the same. A red that cannot go green is not a gate, and the
+    reader who learns to ignore one learns to ignore the others with it.
+
+    So this asserts the whole verdict and the shape behind it: exit 0, nothing
+    skipped -- a missing input is still not a pass -- and G-PRED reported as
+    withdrawn from this set with the successor named in writing, rather than quietly
+    absent from the report.
+    """
+    result = subprocess.run(
+        _gates_command(
+            _generated_monitor("jca_android"),
+            REPO / "data/jca_android/gate_allowlist.csv",
+        ),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    report = json.loads(result.stdout)
+    failures = {
+        name: gate["failures"]
+        for name, gate in report["gates"].items()
+        if gate["failures"]
+    }
+    assert result.returncode == 0, (failures, report["skipped"])
+    assert report["skipped"] == []
+    assert "predicate_graph.csv" in report["gates"]["G-PRED"]["superseded"]
+    assert report["superseded"] == [report["gates"]["G-PRED"]["superseded"]]

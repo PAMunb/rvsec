@@ -18,7 +18,8 @@ directory it was generated from:
     G-CONF  an `Arrays.asList` allow-list that does not transcribe the
             `CONSTRAINTS ... in {...}` clause of the corresponding api30 rule
     G-PRED  a predicate site of the frozen `jca` seed that the set under test
-            has lost or rewritten
+            has lost or rewritten -- superseded, and reported as such, on a set
+            that has migrated off the seed's substrate (see below)
 
 Why G-2 takes the CrySL rule as a second input
 ----------------------------------------------
@@ -1323,6 +1324,9 @@ def _line_of(mop: MopSpec, name: str) -> int:
 # `KeyPairGeneratorSpec` keeps a local `private boolean validate(int)` that has
 # nothing to do with the predicate architecture.
 PREDICATE_MARKER = "ExecutionContext"
+# The substrate that replaced it in gh105. Which of the two a set carries is what
+# decides whether G-PRED still governs it, and the gate decides that by looking.
+SUCCESSOR_MARKER = "PredicateStore"
 
 
 def predicate_sites(text: str) -> list[str]:
@@ -1621,6 +1625,11 @@ def run_gates(
         "requires_clears": accept_requires,
         "gates": {},
         "skipped": [],
+        # A third state, and the reason it is not one of the other two: a gate that
+        # does not govern this set neither failed nor lacked an input. Recorded so
+        # the report still says which gates decided nothing, and kept out of `ok` so
+        # a supersession cannot be read as a defect (see the G-PRED block below).
+        "superseded": [],
     }
 
     # The six structural gates read `properties` and nothing else, so a monitor
@@ -1940,12 +1949,46 @@ def run_gates(
         )
 
     # ---- G-PRED ----
+    #
+    # The gate is the seed's byte-identity lock: it compares each file's
+    # `ExecutionContext` lines against its frozen `jca` counterpart, in order. gh105
+    # migrated `jca_android` off that substrate entirely -- INV-INS-130: the set names
+    # `ExecutionContext` zero times and reads every predicate through `PredicateStore`
+    # -- so on the successor the comparison has no comparable site left and reports all
+    # 23 files as having lost every line. Summing that into `ok` made every invocation
+    # over the successor exit 1 by construction: a red that says nothing about the set,
+    # and that teaches the reader to stop reading the tool -- the R5/R6 failure mode this
+    # suite exists to prevent, arrived at from the inside.
+    #
+    # Which sets it governs is measured, never named. A set still carrying
+    # `ExecutionContext` is still locked to the seed and the gate runs; a set carrying
+    # neither substrate (`generic`) has no counterpart file to compare and reports
+    # nothing either way; only a set that has completed the migration -- the successor
+    # substrate present, the seed's absent -- takes the gate out of its own scope. For
+    # that set the accounting is `data/<set>/predicate_graph.csv` and G-PRED2
+    # (`scripts/gh105_predicate_graph.py`), which is a stronger statement than
+    # byte-equality could make: every site carries its clause, its mechanism and its
+    # disposition, so a read without a producer is a finding rather than an equal count.
     seed_dir = resolve_set_dir("jca")
+    seed_substrate = any(PREDICATE_MARKER in mop.text for mop in specs.values())
+    successor_substrate = any(SUCCESSOR_MARKER in mop.text for mop in specs.values())
     if not specs:
         report["skipped"].append(
             "G-PRED: the set directory could not be derived from the monitor"
         )
         gate("G-PRED", [])
+    elif successor_substrate and not seed_substrate:
+        superseded = (
+            f"G-PRED: `{set_name}` reads its predicates through {SUCCESSOR_MARKER} and names "
+            f"{PREDICATE_MARKER} in no file (INV-INS-130), so the frozen seed's byte-identity "
+            "comparison has no comparable site left to make. The accounting that replaced it "
+            "is predicate_graph.csv and G-PRED2, which decide every site by clause, mechanism "
+            "and disposition"
+        )
+        report["superseded"].append(superseded)
+        gate("G-PRED", [])
+        report["gates"]["G-PRED"]["superseded"] = superseded
+        report["gates"]["G-PRED"]["predicate_sites"] = 0
     elif seed_dir is None:
         report["skipped"].append(
             "G-PRED: the frozen jca seed is not reachable (RVSEC_HOME)"
@@ -1963,9 +2006,12 @@ def run_gates(
     # than an exception, which is what lets the suite name the input it lacked --
     # but for that to be worth anything the verdict has to read the record. It did
     # not: `ok` came from the failure lists alone, so a monitor with no property
-    # and no oracle scored nine green gates and exit 0. The two states stay
+    # and no oracle scored nine green gates and exit 0. The states stay
     # distinguishable in the report -- `skipped` names what did not run, the
-    # per-gate `failures` name what did -- and neither of them is green.
+    # per-gate `failures` name what did, `superseded` names what does not govern
+    # this set -- and only the third is compatible with green: a gate withdrawn
+    # from a set by a recorded decision has an answer, and the answer is that
+    # another instrument holds the question.
     report["ok"] = (
         not any(gate["failures"] for gate in report["gates"].values())
         and not report["skipped"]
@@ -1978,9 +2024,12 @@ def main() -> int:
     Parse arguments, run the gates, print the report and return an exit code.
 
     Exit 2 for a monitor that is not on disk, 1 for any failure **or any gate that
-    did not run**, 0 only when every gate ran and every one of them was clean. The
-    skips are also printed to stderr next to the JSON report, but the exit code is
-    what a caller reads, so a skipped gate has to move it.
+    did not run**, 0 only when every gate that governs the set ran and every one of
+    them was clean. The skips are also printed to stderr next to the JSON report, but
+    the exit code is what a caller reads, so a skipped gate has to move it. A
+    superseded gate does not: it is not a gate that lacked an input, it is a gate
+    another instrument replaced for this set, and both are printed so the difference
+    is visible without reading the JSON.
     """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--monitor", type=Path, required=True)
@@ -2030,6 +2079,8 @@ def main() -> int:
     print(json.dumps(report, indent=2))
     for reason in report["skipped"]:
         print(f"skipped -- {reason}", file=sys.stderr)
+    for reason in report["superseded"]:
+        print(f"superseded -- {reason}", file=sys.stderr)
     return 0 if report["ok"] else 1
 
 

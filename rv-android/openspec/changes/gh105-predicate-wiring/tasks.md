@@ -1750,7 +1750,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 
 ### 10.A — Repairs that do not change what is accused
 
-- [ ] 10.1 `data/jca_android/gate_allowlist.csv`: four G-2a hits with no covering row make
+- [x] 10.1 `data/jca_android/gate_allowlist.csv`: four G-2a hits with no covering row make
       `gh104_gates.py` exit 1 over `jca_android` (measured 2026-08-25): `PBEKeySpecSpec.f1`,
       `PBEKeySpecSpec.f2` (identity transition rows since 3.5's benign loop, bound since 9.3),
       `SSLContextSpec.getDefault` (self-loop at every state by 9.9's design) and
@@ -1759,7 +1759,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       no state change — so the repair is four allowlist rows with per-event reasons citing the
       task that created each shape, never a gate edit. A row with an empty reason allows
       nothing (the register's own rule)
-- [ ] 10.2 `scripts/gh104_gates.py`: G-PRED is superseded for `jca_android` (README, G-PRED2 +
+- [x] 10.2 `scripts/gh104_gates.py`: G-PRED is superseded for `jca_android` (README, G-PRED2 +
       `predicate_graph.csv` are the successor's accounting) but the CLI still sums its 23
       structural failures into the global `ok`, so every invocation over the successor exits 1
       by construction — a false red that trains readers to ignore the tool (R5/R6 class).
