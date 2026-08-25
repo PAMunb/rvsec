@@ -93,6 +93,22 @@ fix; that corpus has since been superseded (see Impact).
   residual case degrades to an unmarked ancestor (a transitive false negative) and the run continues.
   No frozen gate moves — the `G_paridade_targets` fixture has zero violations today.
 
+- **Constructor targets (`new` → `<init>`)** — the extractor emits `MopMethod(owner, "new")` for every
+  `call(Owner.new(..))` pointcut, and Soot names every constructor `<init>`, so those targets have never
+  matched anything. This is a live defect in the **frozen `jca` set**, not only a `generic_new` gap: 18
+  signature rows collapsing into **11 of its 68 pairs** — `SecureRandom`, `SecretKeySpec`,
+  `IvParameterSpec`, `PBEKeySpec` and seven more — all dead, which means the published ruler has never
+  counted a constructor call site, `new SecretKeySpec(...)` included. An earlier draft of this change
+  suppressed the three `generic_new` constructor pointcuts and left the eighteen `jca` ones standing;
+  that shipped an asymmetry this change itself created. The repair is a keyword rename at a code site
+  phase 1 already rewrites, with no GATOR-side change (`TargetResolver.java:53` compares names by
+  equality; `SignatureFileTargetSource` already accepts `<init>`). It is admissible under the freeze
+  doctrine gh101 established — shared code, no branching on spec set — **provided its effect on the
+  frozen set is enumerated**, which phase 4b does: measured on the `cryptoapp` fixture, exactly two
+  methods change on the direct axis (21 → 23), both named. It is sequenced in a phase of its own, after
+  the subtype path is green, so that a red parity gate can still be attributed. `generic_new` goes 67 →
+  **69** pairs and 20 → **21** owners; the `jca` triple 120/68/22 does not move.
+
 - **Rebuild** — two JARs in order: `mvn install` the extractor first (it is a compile-scope
   dependency bundled into `rvsec-analysis-client.jar`), then rebuild the gator `client`.
 

@@ -124,18 +124,36 @@ abstraction introduced by gh60-targets-core (INV-ANA-33, INV-ANA-35).
   pointcuts only. (a) Three specs whose ONLY pointcut is `staticinitialization(Owner+)` —
   `Collection_HashCode`, `Serializable_NoArgConstructor`, `URLConnection_OverrideGetPermission` —
   contribute **zero** static targets (the pointcut never reaches `visit(MethodPointCut)`), so they can
-  never set `reachesTarget` even though the runtime monitor fires on class-load. (b) Constructor
-  pointcuts `call(Owner.new(..))` — `ServerSocket.new(int,int)`, `ServerSocket.new(int,int,InetAddress)`,
-  `TreeMap.new(Map)` — MUST be logged and skipped, and the extractor MUST emit exactly **3** such skip
-  notices for `generic_new`, counted separately from unresolved-owner skips. This is a **required guard,
-  not a passive limitation**: the javamop grammar routes `Owner.new(..)` through `MethodPointCut`
+  never set `reachesTarget` even though the runtime monitor fires on class-load. (b) Constructor pointcuts
+  `call(Owner.new(..))` MUST be extracted as `MopMethod(owner, "<init>")`, **not** logged and skipped.
+  The javamop grammar routes `Owner.new(..)` through `MethodPointCut`
   (`javamop/src/main/javacc/javamop/parser/aspectj_parser/aspectj.jj:1730-1737`, where `"." <NEW>` sets
-  `owner = retType` and `name = "new"`), so nothing rejects it today — it yields nothing only because
-  every `generic_new` import is an asterisk import and the `imports` map is therefore empty. The moment
-  wildcard-package registration lands, these pointcuts would emit a `MopMethod` named `new`, which
-  matches no Soot method (constructors are `<init>`) and would silently inflate the cardinality gate
-  above. Mapping `new`→`<init>` is out of scope; suppressing the bogus target is not. Both owning specs
-  still emit targets via their other `call()` pointcuts.
+  `owner = retType` and `name = "new"`), so the pointcut already reaches the visitor; what it emits today
+  is the literal name `new`, and Soot names every constructor `<init>`, so such a target matches nothing.
+  The mapping is unambiguous — `new` is a Java keyword, no method may be named it — and it is the whole
+  repair: no GATOR-side change is required, because `TargetResolver.resolveInScene` compares names by
+  equality and `SignatureFileTargetSource` already accepts `<init>` through its `([^(]+)` capture.
+  **This corrects a live defect in the frozen `jca` set, not only a `generic_new` gap.** The extractor
+  already emits constructor targets for `jca`: 18 signature rows collapsing into **11 of its 68 pairs**
+  (`SecureRandom`, `KeyPair`, `CipherInputStream`, `CipherOutputStream`, `SecretKeySpec`,
+  `IvParameterSpec`, `GCMParameterSpec`, `PBEKeySpec`, `PBEParameterSpec`, `DHGenParameterSpec`,
+  `HMACParameterSpec`), and all 11 resolve to nothing today. The published ruler has therefore never
+  counted a single constructor call site — including `new SecretKeySpec(...)` and
+  `new IvParameterSpec(...)`, which are central to JCA misuse.
+  Per the freeze doctrine established by gh101 — "shared code MUST NOT branch on the active
+  specification set. A repair that applies equally to both sets is admissible, and its effect on the
+  frozen set is **enumerated** rather than assumed absent" — the repair is admissible and the enumeration
+  is required. Measured on the frozen fixture
+  (`modules/rv-static-analysis/tests/resources/cryptoapp.apk.json`, 106 methods): 11 constructor call
+  sites (`SecretKeySpec` ×5, `IvParameterSpec` ×4, `SecureRandom` ×2) in 10 methods, of which **8 are
+  already flagged** by other targets. Exactly **two** methods change on the direct axis —
+  `CryptoUtils.createSecretKeyFromBytes` and `CryptographyActivity.executeSecretKeyOperation` — taking
+  `directlyReachesTarget` from 21 to 23. The transitive axis is not estimated here and MUST be measured
+  by a real run, since a new seed propagates to its callers.
+  Cardinality consequences: `generic_new` goes from 67 to **69** distinct pairs with a `+`-aware owner
+  key (66 → **67** without), and from 20 to **21** owners carrying targets — `TreeMap` appears only in a
+  constructor pointcut and had no target before. The `jca` triple does **not** move: 120/68/22 stays
+  120/68/22, because those rows already exist; only the emitted name changes from `new` to `<init>`.
   Net coverage: **24/27 specs** with ≥1 static target — a figure that holds only because
   `CharSequence_NotInSet.mop` is repaired within this change. Without the added `import java.util.*;` its
   owner `Set` resolves to nothing, the spec contributes zero targets, and net coverage is 23/27.
@@ -409,6 +427,21 @@ on the **method-name axis**, never on the type axis — an earlier framing that 
 - **THEN** matching MUST use exact `equals(className) && equals(methodName)` with no hierarchy query
 - **AND** `MopSpecsParityTest` MUST keep passing (INV-ANA-35, source-layer parity)
 - **AND** because that test compares `MopSpecsTargetSource.load()` against `JavamopFacade.listUsedMethods()` on the same directory — both sides running through the modified visitor — it CANNOT detect an extractor-side JCA regression; the load-bearing JCA gate is therefore the **literal count** asserted in the extractor test (120 targets / 68 pairs / 22 owners, all flags `false`), plus the `BaselineComparisonIT` on `cryptoapp.apk`
+
+#### Scenario: Constructor pointcut resolves to `<init>` (INV-ANA-40 boundary (b))
+
+- **WHEN** the extractor visits `call(ServerSocket.new(int, int))` in `ServerSocket_Backlog.mop`, or
+  `call(TreeMap.new(Map))` in `TreeMap_Comparable.mop`
+- **THEN** it MUST emit `MopMethod("java.net.ServerSocket", "<init>")` / `MopMethod("java.util.TreeMap", "<init>")`
+  with `includeSubtypes=false` — the pointcuts carry no `+`
+- **AND** `TargetResolver.resolveInScene` MUST resolve them, because `SootMethod.getName()` of a
+  constructor is `<init>` and the comparison at `TargetResolver.java:53` is name equality
+- **AND** the `generic_new` cardinality gate MUST read 69 pairs / 21 owners, not 67 / 20
+- **AND** for `jca` the gate MUST still read 120 signatures / 68 pairs / 22 owners — unchanged, since the
+  18 constructor rows already existed and only their emitted name changes from `new` to `<init>`
+- **AND** the frozen `cryptoapp` fixture MUST move by exactly the two enumerated methods
+  (`CryptoUtils.createSecretKeyFromBytes`, `CryptographyActivity.executeSecretKeyOperation`), re-baselined
+  with that enumeration written into the commit message
 
 #### Scenario: Bytecode-scan-only direct caller is also transitive (INV-ANA-64)
 

@@ -293,6 +293,42 @@ BUG-INV-ANA-19 — but gh69 amplifies it: the direct set grows from 0.0–0.3% o
 projected (projection, not measurement) into the hundreds. That is why it is repaired here rather than
 deferred.
 
+**D9 — Constructor targets are mapped to `<init>` inside this change, in a phase of their own.** An
+earlier draft suppressed them (log+skip, "mapping `new`→`<init>` is out of scope") and treated the
+suppression as a required guard. That was right about the guard and wrong about the scope, for three
+reasons that only became visible once the effect was measured.
+
+First, **the defect is not in `generic_new`, it is in the frozen `jca`**. The extractor already emits 18
+constructor rows for `jca`, collapsing into 11 of its 68 pairs, and none of them has ever resolved —
+`TargetResolver.java:53` compares names by equality and Soot calls every constructor `<init>`. The
+published ruler has never counted a constructor call site, `new SecretKeySpec(...)` included. Suppressing
+the `generic_new` three would have left that untouched and shipped the asymmetry: three suppressed on one
+side, eighteen silently dead on the other, with task 5.8 already open to reconcile a count the change
+itself made incomparable.
+
+Second, **this change is already at that code site**. Boundary (b) obliges the extractor to decide what
+`Owner.new(..)` means; the grammar routes it through `MethodPointCut` and the visitor must branch either
+way. Mapping instead of suppressing is the same site and the same branch, plus a keyword rename that
+cannot be ambiguous. The test infrastructure it needs is task 1.0, which this change creates because the
+extractor module has none.
+
+Third, **the approval cost is now enumerated rather than feared**. The concern was moving the frozen
+ruler. Measured on the fixture behind `G_paridade_targets`: 11 constructor call sites in 10 methods, 8 of
+them already flagged, so exactly **two** methods change on the direct axis (21 → 23), both nameable and
+both plainly correct. That is precisely the form gh101 requires of a repair to shared code — "its effect
+on the frozen set is enumerated rather than assumed absent."
+
+**Why a phase of its own, and not a branch of task 1.3.** The change's review story is "the JCA path is
+untouched; parity is preserved". This repair deliberately moves JCA values, and if a parity gate goes red
+with both landed at once, nothing separates the subtype matcher from the constructor mapping. So the work
+is sequenced after phase 4 has the subtype path green on a real scene, carries its own before/after gate,
+and re-baselines the two fixtures with the enumeration written into the commit. Evidence stays separable
+without a second change.
+
+**What stays out.** The transitive effect is not estimated — a new seed propagates to its callers, and
+only a real run says how far. The phase measures it rather than predicting it.
+
+
 ## API Design
 
 ### `boolean TargetMatching.matches(Type callSiteType, String callSiteName, TargetMethod t, FastHierarchy fh)`
