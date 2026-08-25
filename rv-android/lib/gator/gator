@@ -59,10 +59,23 @@ def analyze(args, unknown):
         jar = "{}:{}".format(jar, args.classpath)
     print("...... classpath: {}".format(jar))
 
+    # --sdk (dest='sdkpath') is the highest-priority source, then ANDROID_SDK_HOME,
+    # then ANDROID_HOME. ANDROID_SDK_HOME is taken as-is so setups that already
+    # worked resolve exactly the same root; ANDROID_HOME is accepted only when it
+    # points at an existing directory, so a stale export cannot silently stand in
+    # for a real SDK. The bare subscript this replaces raised KeyError for anyone
+    # exporting only ANDROID_HOME, which is the normal case outside Docker.
     sdk_path = args.sdkpath
-    if not sdk_path: 
-        sdk_path = os.environ['ANDROID_SDK_HOME']
-        # args.sdkpath = os.environ['ANDROID_SDK']
+    if not sdk_path:
+        sdk_path = os.environ.get('ANDROID_SDK_HOME')
+    if not sdk_path:
+        android_home = os.environ.get('ANDROID_HOME')
+        if android_home and os.path.isdir(android_home):
+            sdk_path = android_home
+    if not sdk_path:
+        print('...... no Android SDK root: pass --sdk, or export ANDROID_SDK_HOME '
+              'or ANDROID_HOME pointing at an existing directory.')
+        exit(-1)
     print('...... Android SDK path: %s' % sdk_path)
 
     apktool_dir = decode_res_from_apk(args.apkpath)

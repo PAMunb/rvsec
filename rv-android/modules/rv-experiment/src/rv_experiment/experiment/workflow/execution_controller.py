@@ -138,7 +138,7 @@ class ExecutionController:
 
             # Create platform configuration from experiment parameters
             self.platform_config = self._create_platform_config(
-                apks, repetitions, timeouts, tools, tool_configs, no_window, results_dir
+                repetitions, timeouts, tools, tool_configs, no_window, results_dir
             )
 
             # Initialize platform
@@ -218,7 +218,6 @@ class ExecutionController:
     )
     def _create_platform_config(
         self,
-        apks: List[App],
         repetitions: int,
         timeouts: List[int],
         tools: List[AbstractTool],
@@ -233,7 +232,6 @@ class ExecutionController:
         directory with fallback from instrumented to original APKs.
 
         Args:
-            apks: Application objects to test
             repetitions: Number of execution repetitions
             timeouts: Timeout values in seconds
             tools: Tool instances (used as fallback when tool_configs is None)

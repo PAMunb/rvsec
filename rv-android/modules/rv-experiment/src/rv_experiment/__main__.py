@@ -744,7 +744,17 @@ def run(
 
             # Execute experiment using existing infrastructure
             ctx.logger.info("Executing experiment via experiment controller")
-            execute_with_config(experiment_config)
+            # execute_with_config() returns False when Phase 2 reports failure without
+            # raising. Discarding it made the CLI declare success unconditionally, and
+            # since both Docker entrypoints exec this CLI, the container exit code
+            # inherited the lie. Report the failure the same way the except branch does.
+            succeeded = execute_with_config(experiment_config)
+
+            if not succeeded:
+                ctx.logger.error("Experiment execution reported failure")
+                click.echo("❌ Experiment failed: see logs for details", err=True)
+                click.echo(f"📊 Partial results in: {experiment_config.output_dir}")
+                sys.exit(1)
 
             click.echo("✅ Experiment completed successfully!")
             click.echo(f"📊 Results available in: {experiment_config.output_dir}")

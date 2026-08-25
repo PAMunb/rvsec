@@ -89,7 +89,10 @@ Este defeito está documentado desde a change gh91, com o reparo já nomeado:
 > `openspec/changes/archive/2026-07-31-gh91-sa-rerun-manifest-key/design.md:141-143`
 > **`ANDROID_SDK_HOME` must be exported.** `lib/gator/gator:64` does `os.environ['ANDROID_SDK_HOME']`
 > — a bare subscript, `KeyError` if unset. It is `ANDROID_SDK_HOME`, **not** `ANDROID_HOME`, which
-> is the one usually exported. Alternatively pass `--sdkpath`.
+> is the one usually exported. Alternatively pass `--sdk`.
+
+**Nota de edição**: a citação acima corrige o nome do flag. O texto arquivado grafa um flag que
+não existe; o correto é `--sdk` (`lib/gator/gator:195`, com `dest='sdkpath'` — daí a confusão).
 
 E aparece em mais cinco lugares: `openspec/changes/archive/2026-08-02-gh92-emulator-boot-gating/tasks.md:223-225`,
 `docs/20260730_gh91_handoff_proxima_sessao.md:169-170`, `docs/20260802_prompt_gh92_logcat_device.md:124,172`,

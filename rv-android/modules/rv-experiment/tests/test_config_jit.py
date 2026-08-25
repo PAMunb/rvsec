@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from helpers import make_config
+from rv_android_core.util.error.exceptions import ConfigurationError
 
 
 class TestRvsecRootHierarchy:
@@ -271,6 +272,41 @@ class TestStaticAnalysisSpecSetResolution:
         # supplying one to RVStaticAnalysisConfig directly must still leave
         # mop_dir alone. The experiment passing mop_dir cannot be what breaks it.
         assert "targets_file" not in self._captured_kwargs(android_config)
+
+    def test_generic_set_resolves_and_unsupported_still_raises(
+        self, tmp_apk_dir, tmp_path
+    ):
+        """`generic` resolves to its own directory; an unsupported set still raises.
+
+        These are the two branches the cases above leave open. `generic` matters
+        most because its target list has no pair in common with `jca`: 296
+        resolved signatures against 120, so taking the wrong directory is not a
+        loss of precision, it is a different question being answered. The
+        unsupported branch must keep refusing a set nobody defined instead of
+        silently falling back to any directory.
+        """
+        rvsec_dir = tmp_path / "rvsec"
+        rvsec_dir.mkdir()
+        resources = os.path.join(
+            str(rvsec_dir), "rvsec", "rvsec-mop", "src", "main", "resources"
+        )
+
+        generic_config = make_config(
+            tmp_apk_dir,
+            specification_set="generic",
+            rvsec_root=str(rvsec_dir),
+        )
+        assert self._captured_kwargs(generic_config)["mop_dir"] == os.path.join(
+            resources, "generic"
+        )
+
+        unknown_config = make_config(
+            tmp_apk_dir,
+            specification_set="unknown_set",
+            rvsec_root=str(rvsec_dir),
+        )
+        with pytest.raises(ConfigurationError):
+            unknown_config.get_static_analysis_config()
 
     def test_static_analysis_matches_monitor_generation(self, tmp_apk_dir, tmp_path):
         """One resolution, one mapping: the two JIT methods agree by construction.

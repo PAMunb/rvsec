@@ -190,9 +190,7 @@ class TestGetCoverageReport:
 class TestCreatePlatformConfig:
     """Test _create_platform_config() with APK directory selection."""
 
-    def test_config_uses_instrumented_apks_when_available(
-        self, controller, mock_apks, mock_tools
-    ):
+    def test_config_uses_instrumented_apks_when_available(self, controller, mock_tools):
         """Test config uses instrumented APKs when available."""
         # Create instrumented APKs dir
         instrumented_dir = os.path.join(
@@ -205,7 +203,6 @@ class TestCreatePlatformConfig:
             patch("os.listdir", return_value=["test.apk"]),
         ):
             config = controller._create_platform_config(
-                apks=mock_apks,
                 repetitions=1,
                 timeouts=[300],
                 tools=mock_tools,
@@ -215,7 +212,7 @@ class TestCreatePlatformConfig:
 
     @pytest.mark.parametrize("policy", [True, False])
     def test_platform_config_carries_package_detector(
-        self, controller, mock_apks, mock_tools, policy
+        self, controller, mock_tools, policy
     ):
         """The run's package policy reaches task generation by value (INV-EXP-34).
 
@@ -230,7 +227,6 @@ class TestCreatePlatformConfig:
             patch("os.listdir", return_value=["test.apk"]),
         ):
             config = controller._create_platform_config(
-                apks=mock_apks,
                 repetitions=1,
                 timeouts=[300],
                 tools=mock_tools,
