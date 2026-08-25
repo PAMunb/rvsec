@@ -991,6 +991,27 @@ def _list_guarding(
     object, and the event's `condition()` names the list it tests that argument
     against. A specification and a rule are free to spell the same argument
     differently (`alg` against `randAlg`), so nothing here compares identifiers.
+
+    That holds while the guard sits on the event that binds the argument. A second
+    shape exists and the pointcut cannot reach it: the clause is stated later, on
+    another event of the same specification, over the value read back off the
+    monitored object. `SSLContextSpec` is the measured case (gh105 task 9.17). The
+    protocol guard used to sit on `g2`, the `getInstance(String, Provider)` that
+    binds the rule's `protocol`; the task removed it, because a condition that is
+    false suppresses the event while the dispatcher has already created the monitor
+    at state 0, so a rejected protocol was reported as a wrong call sequence. The
+    accusation moved to `init`, which states the same list against
+    `ctx.getProtocol()` -- and `init` binds no `protocol`, so the loop above found
+    nothing and the clause was called CRYSL-NAO-IMPLEMENTADO while
+    `SSLContextSpec.mop:195` was stating it.
+
+    The fallback below reaches that shape, and it does compare one identifier: the
+    getter's name against the CrySL object's. That is the exception to the rule in
+    the paragraph above, and it is narrow on purpose. `ctx.getProtocol()` names the
+    object `protocol` of `SSLContext.crysl`; nothing weaker would do, because a
+    guard over some other getter of the same object would be some other clause. The
+    fallback runs only after the pointcut link fails, so a specification that still
+    guards at the binding event is read exactly as before.
     """
     for event in mop.events:
         if not event.calls:
@@ -1027,6 +1048,27 @@ def _list_guarding(
                 hit = re.search(pattern, stated)
                 if hit and hit.group(1) in mop.lists:
                     return hit.group(1), mop.lists[hit.group(1)]
+
+    # The migrated shape, read over the whole specification rather than one event:
+    # the value is no longer an argument in scope, so there is no pointcut to match
+    # and no position to take the object from. What identifies the clause is the
+    # getter, `get<Object>()` -- see the docstring for why that one identifier is
+    # compared and nothing else is.
+    getter = f"get{obj[:1].upper()}{obj[1:]}" if obj else ""
+    if not getter:
+        return None
+    for event in mop.events:
+        stated = f"{event.condition or ''}\n{event.body or ''}"
+        if not stated.strip():
+            continue
+        for pattern in (
+            rf"(\w+)\s*\.contains\(\s*\w+\s*\.\s*{getter}\(\s*\)",
+            rf"ConscryptAliasTable\s*\.\s*matches\(\s*\"[^\"]*\"\s*,\s*"
+            rf"\w+\s*\.\s*{getter}\(\s*\)\s*,\s*(\w+)",
+        ):
+            hit = re.search(pattern, stated)
+            if hit and hit.group(1) in mop.lists:
+                return hit.group(1), mop.lists[hit.group(1)]
     return None
 
 

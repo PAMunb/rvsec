@@ -1637,7 +1637,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       evidence, labelled as such
       **GO, decided 2026-08-25.** **Both halves**: the five `isValid` sites (which remove spelling false positives) and `IvChainJunction`'s unresolved `mode()` (which adds true accusations by closing the silent IV/GCM skip). Last in the execution order — it is the only task of the block that touches Java and needs the reactor build.
 
-- [ ] 9.11 `KeyPairSpec.mop:130`: `ere: c1 (gpu | gpr)*` makes the `KeyPair(PublicKey, PrivateKey)`
+- [x] 9.11 `KeyPairSpec.mop:130`: `ere: c1 (gpu | gpr)*` makes the `KeyPair(PublicKey, PrivateKey)`
       constructor mandatory, but api30 `KeyPair.cryptsl:27` orders `co?, (pu*, pr*)*` and on
       Android practically every `KeyPair` comes from `generateKeyPair()`, which never fires `c1`.
       Every `getPublic()`/`getPrivate()` then draws `KEYPAIR-ORDER-00`. Measured: **668 rows over
@@ -1706,7 +1706,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `g2` is not an orphan — this is the task that reaches it
       **GO, decided 2026-08-25.** **First of the block.** Precondition of 9.1: it closes the `g2`-suppressed birth, where the dispatcher creates the monitor at state 0 and the event never fires.
 
-- [ ] 9.18 Verification for the group: the four gate suites green over the repaired set (including
+- [x] 9.18 Verification for the group: the four gate suites green over the repaired set (including
       the three new gates of 9.7, with G-FORB's scope and G-SIG's jar-entry guard as specified
       there), `gh104_divergence_record.py --check` exit 0 with every hunk of 9.A and 9.B keyed,
       the parity suites passing, and one harness pair committed per **spec-text task** under

@@ -1,7 +1,9 @@
 # Tarefa 9.11 — o construtor obrigatório que nenhum `KeyPair` do Android chama
 
 **Data**: 2026-08-25 · **Decisão**: GO (pesquisador, 25/08)
-**Par**: `A = pós-9.13` · `B = A + 9.11` · `~/tmp-gh104/g9b/pair-911.json`
+**Par**: `A = pós-9.13` · `B = A + 9.11` · `~/tmp-gh104/g9b/pair-911b.json`
+(o `pair-911.json` é a primeira passagem, medida antes do reparo do `c1` que ela mesma expôs;
+fica registrada porque foi ela que o expôs, e não é o par desta tarefa)
 
 ## O reparo
 
@@ -47,20 +49,28 @@ não fica implícita.
 O trace `KeyPairSpec-generated.txt` usa a forma `bind`, que produz o objeto e não dispara nada:
 é o que torna o caso expressável no arnês, porque o monitor nunca vê um `c1`.
 
+Duas passagens, e a diferença entre elas é a matéria da seção "A quinta linha" abaixo. A primeira
+mediu o `ere` sozinho, com o `c1` ainda ligando pelo nome errado; a segunda — o par desta tarefa —
+mede o reparo inteiro, `ere` e ligação, contra o mesmo lado A:
+
 ```
-pair-911: 172 traces  {"unchanged": 167, "removed": 4, "moved": 1}
+pair-911:  172 traces  {"unchanged": 167, "removed": 4, "moved": 1}   <- só o `ere`
+pair-911b: 172 traces  {"unchanged": 167, "removed": 5}               <- `ere` + `returning(keyPair)`
 ```
 
 É o maior delta do bloco, e **quatro dos cinco traces já estavam no corpus** — o falso positivo
 estava medido e aceito havia tempo:
 
-| trace | A | B |
-|---|---|---|
-| `KeyPairSpec-generated.txt` (novo) | `gpu:KEYPAIR-ORDER-00`, `gpr:KEYPAIR-ORDER-00` | *(nada)* |
-| `KeyPairSpec-generated-cipher.txt` | `gpu:KEYPAIR-ORDER-00` | *(nada)* |
-| `SignatureSpec-generated-pubkey.txt` | `gpu:KEYPAIR-ORDER-00` | *(nada)* |
-| `SignatureSpec-generated-privkey.txt` | `gpr:KEYPAIR-ORDER-00` | *(nada)* |
-| `KeyPairSpec-observed-halves.txt` | `gpu:KEYPAIR-ORDER-00`, `gpr:KEYPAIR-ORDER-00` | **`c1:KEYPAIR-ORDER-00`** |
+| trace | A | B (`pair-911`) | B (`pair-911b`) |
+|---|---|---|---|
+| `KeyPairSpec-generated.txt` (novo) | `gpu:KEYPAIR-ORDER-00`, `gpr:KEYPAIR-ORDER-00` | *(nada)* | *(nada)* |
+| `KeyPairSpec-generated-cipher.txt` | `gpu:KEYPAIR-ORDER-00` | *(nada)* | *(nada)* |
+| `SignatureSpec-generated-pubkey.txt` | `gpu:KEYPAIR-ORDER-00` | *(nada)* | *(nada)* |
+| `SignatureSpec-generated-privkey.txt` | `gpr:KEYPAIR-ORDER-00` | *(nada)* | *(nada)* |
+| `KeyPairSpec-observed-halves.txt` | `gpu:KEYPAIR-ORDER-00`, `gpr:KEYPAIR-ORDER-00` | **`c1:KEYPAIR-ORDER-00`** | *(nada)* |
+
+O lado A é o mesmo snapshot (`B-913`) nas duas passagens, e o `B-911b` difere do `B-913` num
+arquivo só, o `KeyPairSpec.mop`: o delta é atribuível a esta tarefa e a mais nada.
 
 Lido no monitor gerado, o `(c1 | epsilon)` compila exatamente como pedido:
 
@@ -114,10 +124,19 @@ do arquivado entram por congelamento com o reparo do sucessor nomeado; os três 
 razão medida (o `HMACParameterSpec` está **ausente** do android-30, e o `RandomStringPassword` não
 tem `@fail` e tem `@match` vazio — não acusa nada).
 
-## Pendência desta evidência
+## A remedição, e o que ela fecha
 
-O par acima foi medido **antes** do reparo do `c1`. Ele precisa ser refeito com
-`A = pós-9.13`, `B = pós-9.11 + c1`, e a expectativa é que as cinco linhas virem `removed`.
+O `pair-911b` foi rodado em 25/08 com `A = B-913` e `B = B-913 + o KeyPairSpec.mop da árvore viva`
+— o `ere` opcional **e** o `returning(KeyPair keyPair)`. As cinco linhas viraram `removed`, a
+`KeyPairSpec-observed-halves.txt` inclusive: o caso conforme do corpus deixa de ser acusado, que é
+o que a primeira passagem prometia e o `c1` difundido impedia.
+
+O `B-911b` foi montado a partir do `B-913`, e não do `B-911`, por um detalhe que vale registrar: o
+`B-911` carregava um `jca_android/` aninhado, cópia acidental do próprio conjunto dentro do
+snapshot. Como o gerador recebe o diretório e não a lista de arquivos, um snapshot com uma segunda
+cópia lá dentro não é o conjunto que se quis medir. Partir do `B-913` limpo e sobrepor o único
+arquivo editado dá a isolação que o par afirma ter — `diff -rq B-913 B-911b` responde
+`KeyPairSpec.mop` e nada mais.
 
 ## Massa
 

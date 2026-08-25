@@ -1790,16 +1790,29 @@ def test_gparam_is_green_over_the_set_as_it_stands():
     says the gate is quiet on the tree it will guard -- and the day it goes red is
     the day a junction specification was written the wrong way.
 
-    The skip is asserted and not merely tolerated. `results/gh51_e2e_test/monitors`
-    is a committed fixture generated before this change, so a specification the
-    change adds has no `.rvm` there and the gate passes over it declaredly --
-    which would quietly empty the promise above for exactly the files it was
-    written for. Naming the skipped file keeps the census honest: 23 compared, one
-    skipped for want of a generated artifact, and a second unmonitored file breaks
-    this test instead of disappearing into the count. `IvChainJunction.mop`
-    (task 5.1) declares one parameter, `Cipher c`, and no array; that it slices by
-    it was read off the generated monitor's `IvChainJunctionSpec_c_Map` rather than
-    inferred from this gate.
+    The absence of a skip is asserted and not merely tolerated, and that assertion
+    is what changed at task 9.18. `results/gh51_e2e_test/monitors` is an untracked
+    local artifact -- `/results/` is in `.gitignore`, so this test skips outright
+    wherever the directory was never built. It held an April generation for most of
+    this change, which is why the census used to read 23 compared and one skipped:
+    `IvChainJunction.mop` is a file this change adds, and April had no `.rvm` for
+    it. Task 9.18 regenerated the directory against the repaired set, so all 24
+    compare and nothing is skipped for want of an artifact. Asserting the empty
+    skip list is the stronger form of the same promise: a specification that stops
+    being generated breaks this test instead of disappearing into a tolerated
+    count. `IvChainJunction.mop` (task 5.1) declares one parameter, `Cipher c`, and
+    no array; that it slices by it was read off the generated monitor's
+    `IvChainJunctionSpec_c_Map` rather than inferred from this gate.
+
+    Regenerating that directory is not one command, and the trap is worth naming
+    here because this test is where it surfaces. `rv-monitor-generator generate`
+    deletes the `.rvm` files once rv-monitor has consumed them
+    (`runtime_verification_generator.py`, `_execute_rvmonitor`), and the `.rvm` is
+    exactly what this gate reads. The generated monitor alone leaves the gate
+    comparing nothing, which its own exit code 2 calls out. The `.rvm` come from
+    running `javamop -d <out> -merge <specs>/*.mop` over a scratch copy of the set,
+    which writes them beside the `.mop` -- so the copy matters, or the run leaves
+    `.rvm` files in the live specification directory.
     """
     monitors = REPO / "results/gh51_e2e_test/monitors"
     if not monitors.is_dir():
@@ -1807,8 +1820,8 @@ def test_gparam_is_green_over_the_set_as_it_stands():
 
     result = gh105_param_gate.run(_specs_root(), monitors, "jca_android")
     assert result.findings == []
-    assert len(result.passed) == 23
-    assert [name for name, _ in result.skipped] == ["jca_android/IvChainJunction"]
+    assert len(result.passed) == 24
+    assert result.skipped == []
 
 
 # ------------------------------------------------ the gates under the CI contract

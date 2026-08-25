@@ -62,3 +62,61 @@ Este reparo fecha uma das três origens de `SSLContext` que o conjunto não obse
 guarda, o despachante rodava `FindOrCreateEntry` e deixava o objeto com monitor em estado 0 —
 exatamente o estado de onde a 9.1, ao reviver o `engine`, acusaria `SSLCONTEXT-ORDER-00`. Por isso
 a 9.17 vem antes.
+
+## O segundo resíduo, achado pela 9.18: o portão perdeu a cláusula de vista
+
+A verificação do grupo (9.18) achou o G-CONF vermelho com uma cláusula sem lastro:
+
+```
+SSLContextSpec | SSLContext.crysl:29 | CRYSL-NAO-IMPLEMENTADO |  | protocol in {"TLSv1.2","TLSv1.3"} | unbacked
+```
+
+O veredito é **falso**, e vale ler por quê antes de qualquer coisa: a cláusula continua
+implementada, em `SSLContextSpec.mop:195`, dentro do corpo do `init`, contra a mesma lista
+`protocols` do campo `:43`. Nenhum programa muda o que é acusado por causa deste achado — é o
+portão que deixou de enxergar, não a especificação que deixou de acusar.
+
+A causa é o casador. O `_list_guarding` do `gh104_gates.py` liga uma cláusula de CONSTRAINTS ao
+`.mop` **pelo pointcut**: acha o evento cujo `call(...)` corresponde ao evento CrySL, usa
+`args(...)` para achar a posição, a posição dá o objeto, e procura a lista na guarda **daquele
+evento**. O objeto `protocol` é ligado pelo `getInstance` — isto é, pelo `g1` e pelo `g2`. A 3.6
+tirou a guarda do `g1` e esta tarefa tirou a do `g2`; o `init`, que é onde a lista ficou, não liga
+`protocol` nenhum (seu pointcut liga `kms`, `tms` e `ctx`). Sem guarda no evento que liga o objeto,
+o casador não achava nada e o veredito caía para "a cláusula não alcança guarda alguma".
+
+Medido contra o snapshot `~/tmp-gh104/g9b/A0-baseline`: era o `SSLContextSpec.mop:97` do `g2` —
+`condition(ConscryptAliasTable.matches("SSLContext", protocol, protocols))` — o sítio que o portão
+lia. Com ele, o veredito era diferença de lista, e as duas linhas de registro que já existiam
+davam conta dela: a narrativa `spelling-variant` do `divergence_record.csv` e a linha
+`transcription` do `conformance_record.csv` (`mop_literals: TLSV1.2, TLSV1.3, TLS` contra
+`rule_literals: TLSv1.2, TLSv1.3`). Ao virar `CRYSL-NAO-IMPLEMENTADO`, o veredito saiu de
+`LIST_DIFFERENCE_VERDICTS` e as duas linhas deixaram de servir de lastro — não porque o registro
+piorasse, mas porque um registro sobre listas que diferem não responde por uma cláusula que não
+seria implementada.
+
+**Decisão (pesquisador, 25/08): estender o casador, não registrar.** Registrar exigiria uma linha
+lastreando a afirmação de que a cláusula não alcança guarda alguma, que é falsa, e que perdoaria em
+silêncio a remoção real da guarda no dia em que ela acontecesse. O reparo está em
+`scripts/gh104_gates.py`, `_list_guarding`: depois que a ligação por pointcut falha — e só depois —
+o casador procura a forma migrada, a lista testada contra `<objeto>.get<Objeto>()` em qualquer
+evento da mesma especificação.
+
+Isso compara **um** identificador, o nome do getter contra o nome do objeto CrySL, onde o docstring
+da função diz que ali nada compara identificadores. A exceção está escrita no próprio docstring com
+a razão: `ctx.getProtocol()` nomeia o objeto `protocol` da `SSLContext.crysl`, e nada mais fraco
+serviria, porque uma guarda sobre outro getter do mesmo objeto seria outra cláusula.
+
+Medido sobre as 80 cláusulas do conjunto, a extensão move exatamente uma linha:
+
+```
+- SSLContextSpec | SSLContext.crysl:29 | CRYSL-NAO-IMPLEMENTADO |            | unbacked
++ SSLContextSpec | SSLContext.crysl:29 | MOP-MAIS-PERMISSIVO   | ...mop:43  | divergence_record.csv: spelling-variant
+```
+
+`MOP-MAIS-PERMISSIVO` é a relação verdadeira: o `.mop` admite `TLS`, que o expert não lista, pela
+razão que o comentário `:36-39` carrega — o Conscrypt liga `SSLContext.TLS` à implementação
+TLSv1.2/TLSv1.3 (`OpenSSLProvider.java:81`).
+
+O que este achado ensina, e que a 9.17 não previu: **tirar uma guarda de um evento pode cegar um
+portão sem mudar uma acusação sequer.** Ao mover uma cláusula para outro evento, confira o que o
+portão que a lia passa a ler.
