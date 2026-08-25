@@ -1293,7 +1293,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       Four suites **97 passed** (was 91); the four gate outputs byte-identical before and after.
       Evidence: `data/gh105/evidence/f5-FinalVerification.md`
 - [ ] 8.8 [BLOCKED — external: gh104 archive, which follows the joint experiment; and internal:
-      group 9, whose repairs land before this change reconciles] Reconcile
+      groups 9, 10 and 11, whose repairs land before this change reconciles] Reconcile
       with gh104 before archive: once gh104 has archived, add the formal `MODIFIED` entry for
       its requirement "The Successor Set Carries the Predicates of Its Seed Unchanged" to this
       delta (the supersession scenario already carries the content) and delete that scenario's
@@ -1305,7 +1305,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       "Reformulated Scope of G-PRED and Retirement of `rvsec-mop-defsuses`", which describes
       events rather than steady state — and verify the 19 IDs by grep (the gh104 task-10.8
       pattern; `openspec-sync-specs` only processes the ADDED/MODIFIED headers)
-- [ ] 8.9 [final commit BLOCKED on 8.8 and on group 9] `openspec status` complete; commits use
+- [ ] 8.9 [final commit BLOCKED on 8.8 and on groups 9, 10 and 11] `openspec status` complete; commits use
       `refs #105`;
       final commit `closes #105` after the researcher signs off completion (D-9 single-change
       scope ratified 2026-08-20; Group 10 of gh104 and campaign validation stay with the joint
@@ -1715,3 +1715,288 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       no pair; 9.2's pair is committed with its measured `unchanged` verdict and the
       monitor-inspection evidence the task specifies, never as a `removed` gate. No task of this
       group is closed on a gate exit code alone — artifact inspection, per R5/R6
+
+## 10. F7 — Repairs adjudicated from the internal conformance validation of 2026-08-25
+
+<!-- Source: the internal validation docs/20260825_validacao_conformidade_jca_android.md — six
+     independent audits over the tree at 14dd8093 (four spec families clause-by-clause against
+     both oracles, one mechanical pass that re-ran every gate and the gh106 conformance CLI
+     M0–M4, one methodological), consolidated the same day. No external model's analysis was
+     read. Every finding ordered below was re-verified against the primary sources during this
+     adjudication, and the pass refuted one claim on its way in: the audit's case-variant
+     mechanism for the splitter finding ("aes" vs "AES" → VIOLATED) is wrong — the store's
+     `ValueKey` folds `String` values to lower case (`PredicateStore.java:171`), so pure case
+     variants already match and the exposed class is alias/composite spellings only (see 10.10).
+     The group was also checked task by task against group 9 so nothing is ordered twice:
+     9.10 covered the five `isValid` sites and the junction's `mode()` — the `i2` splitter is a
+     third exposure it did not reach; 9.19(a)'s refutation governs `constraint_table.csv`
+     (`mop_line` names the seed, the register is an oracle for `jca` and nothing else), so no
+     task here flips or re-anchors any of its rows — the two audit claims against the GCM and
+     Iv rows are re-read under that ruling as anchor ambiguity, already answered by the
+     register's own contract.
+
+     Split as group 9: 10.A does not change the set of programs the specifications accuse and
+     may proceed; 10.B does, and carries the harness pair, the divergence row and the
+     researcher's decision per the standing rule. Tasks 8.8 and 8.9 depend on this group.
+     Ordering: 10.1 and 10.2 first (they turn the successor's CLI verdict from a structural
+     false red into a measurement); the record tasks 10.3–10.9 in any order; 10.10 last — like
+     9.10, it is the group's only Java-touching task and needs the reactor build.
+
+     D-16 (researcher, 2026-08-25) landed after this group was drafted: the api30 oracle is
+     withdrawn entirely. Citations to `*.cryptsl` inside this group describe the records as
+     they stand today; group 11 re-anchors them to the expert rules where the record
+     survives, and a group-10 task that edits such a record coordinates with the group-11
+     task that re-anchors it rather than writing the api30 citation back. -->
+
+### 10.A — Repairs that do not change what is accused
+
+- [ ] 10.1 `data/jca_android/gate_allowlist.csv`: four G-2a hits with no covering row make
+      `gh104_gates.py` exit 1 over `jca_android` (measured 2026-08-25): `PBEKeySpecSpec.f1`,
+      `PBEKeySpecSpec.f2` (identity transition rows since 3.5's benign loop, bound since 9.3),
+      `SSLContextSpec.getDefault` (self-loop at every state by 9.9's design) and
+      `SecureRandomSpec.g4` (self-loop absorption, F1). All four are the same idiom the
+      existing G-2b'/G-2a rows already allow for eight other events — accuser in the body,
+      no state change — so the repair is four allowlist rows with per-event reasons citing the
+      task that created each shape, never a gate edit. A row with an empty reason allows
+      nothing (the register's own rule)
+- [ ] 10.2 `scripts/gh104_gates.py`: G-PRED is superseded for `jca_android` (README, G-PRED2 +
+      `predicate_graph.csv` are the successor's accounting) but the CLI still sums its 23
+      structural failures into the global `ok`, so every invocation over the successor exits 1
+      by construction — a false red that trains readers to ignore the tool (R5/R6 class).
+      Scope G-PRED to the sets it still governs (`jca`'s byte-identity lock, untouched);
+      the CLI must exit 0 over `jca_android` when every applicable gate passes. Close the
+      coverage gap that let this live: the parity suite asserts G-2, G-ERE, G-6', lint,
+      message and G-CONF for `jca_android` but not G-2a
+      (`tests/parity/test_gh104_structural_gates.py:388-431`), which is how the pytest suite
+      stayed green while the CLI was red — add the G-2a assertion so the two instruments
+      cannot diverge silently again
+- [ ] 10.3 `data/jca_android/README.md` refresh — the census is the register the message gate
+      proves, and the prose fell three edits behind it: the five "112" mentions (site census
+      §, codes.csv §) become 115, with the evolution stated (112 → 114 at `5bc5c893`,
+      `SECRETKEYSPEC-ALG-00/01`; → 115 at `cc6d64bc`, `SSLCONTEXT-FORB-00`, task 9.9); the
+      "five purely predicate-guarded accusers … are likewise all alive" paragraph is false
+      against the tree (IvParameterSpec c3/c4 and PBEKeySpecSpec err2/err3 fused by F1/F2,
+      SecureRandomSpec setSeed3 fused into setSeed2) and is rewritten for the successor's
+      actual shape; the propagator paragraph ("each exists only to write a Property another
+      specification's condition() reads … removing either would silently disarm a
+      condition()") is rewritten for RandomStringPassword's post-`5f64c8de` role — it writes
+      nothing and no `condition()` reads it; the file exists as the negative record of the
+      measured laundering ponte, and the paragraph must say that instead; and the "nine
+      ordering divergences the set keeps on purpose" sentence (README:459) counts a state 7.6
+      left behind — 9.11 repaired KeyPairSpec's and 9.16 replaced KeyStoreSpec's witness, so
+      the allowlist holds eight G-ORDER rows today and the sentence restates the current count
+      with the two repairs named
+- [ ] 10.4 `data/jca_android/predicate_graph.csv` refresh — the register is one generation
+      behind the tree (23/08 vs the 7.1 map and the 9.x repairs of 25/08): the KeyGenerator
+      rows and the KeyPairSpec rows claim "`order_alphabet_map.csv` has no row for this file
+      at all" while the completed map carries both (`:163-171`, `:177-179`); the KeyPairSpec
+      rows justify the body write with the pre-9.11 automaton ("transition row {2,1,2} sends
+      it to the fail state") which `(c1 | epsilon)` made false; and three records cite
+      `KeyGenerator.cryptsl:60` for `randomized[ranGen]` where the clause sits at `:52` (the
+      file has 60 lines; `:60` is blank). Regenerate or hand-correct, and re-run the graph
+      gate to confirm 0 failing after the refresh
+- [ ] 10.5 `divergence_record.csv` and sibling-register hygiene: (a) rows 91, 134, 210 and 288
+      — the four ConscryptAliasTable-import hunks of KMF, KeyStore, SSLContext and TMF —
+      carry the KeyGeneratorSpec reason verbatim ("KeyGenerator.cryptsl:45 … ChaCha20, ARC4,
+      DESede…"), which describes none of the four files; rewrite each for its own list.
+      (b) rows 95/96 still state KMF's list as `{PKIX}` with "SunX509 leaves as a narrowing"
+      — reversed by D-15; add the `D-15 (2026-08-24):` adendum the register's convention
+      already uses (the conformance row 11 got it, these did not). (c) add the residue row
+      `TrustManagerFactorySpec.mop:74-78` promises ("a rejected algorithm whose factory is
+      never `init`ed is now accused by nothing") — the comment says "recorded … 
+      (divergence_record.csv)" and no TMF row records it; the harness evidence
+      (`f1-TrustManagerFactorySpec.md`, trace `sunx509-no-init`, class `removed`) is the
+      row's citation. (d) `conformance_record.csv:74` concludes the KPG `@fail` `__RESET`
+      edit "is reverted" — superseded by 9.2, which reimplemented it; add the supersession
+      adendum (the row-19 pattern). (e) `conformance_record.csv:4` still claims the DHGen
+      value test is registered as MOP-SEM-BASE in the constraint table; the 80-row table says
+      IGUAL — correct the way row 19 was corrected. (f) `gate_allowlist.csv:34` (jca, G-FORB,
+      getDefault) still reads "adding the event is task 9.9 … until it lands" — 9.9 landed;
+      restate for the current state (the jca omission stands, the successor's row is closed).
+      (g) `KeyStore.cryptsl` declares `scE`/`skE1`/`skE2` (`:67-71`) that no `.mop` event
+      covers and **no register records** — the omission is a consequence of the rule's own
+      ORDER (`:79` uses only `gE`/`sE`, so there is no G-ORDER divergence to record and the
+      map format has no disposition for a rule-side symbol), but a reader auditing alphabet
+      coverage should find that reasoning written down rather than re-derive it; add the
+      register entry where the `iv`/`d` precedents live. (h) erratum: design.md D-3 and the
+      proposal cite the kept `remove()` at `PBEKeySpecSpec.mop:74`; in the frozen seed it is
+      `:72` (the `:74` offset belongs to the migrated copy) — one-line citation fix
+- [ ] 10.6 Stale in-file comments, P4 pass — prose only, zero behaviour, and where a comment
+      states a withdrawn justification the task restates the current decision rather than
+      deleting the trace: `PBEKeySpecSpec.mop:80-91` (block asserts the `randomized[password]`
+      read "is kept unchanged" and PBEKEYSPEC-CONSTR-01 lives — contradicted by `:116-135` of
+      the same file and by `codes.csv`; rewrite for the post-5.4 state); `MacSpec.mop:329-332`,
+      `GCMParameterSpecSpec` and `SecretKeySpec.mop:84-85` ("one of the thirteen still absent
+      from order_alphabet_map.csv" — the 7.1 map carries all three); `KeyPairSpec.mop:100-113`
+      (the body-write justification describes the pre-9.11 automaton and promises "this write
+      moves to `@match` when 7.1 lands" — 7.1 landed and the write correctly stayed, because
+      with `(c1 | epsilon)` the body IS the acceptance point on both routes; the comment must
+      state that decision, and any actual move of the write would be a 10.B task, which this
+      task explicitly is not); `IvChainJunction.mop:310-311` ("both symbols" for a seven-symbol
+      alphabet); `PBEParameterSpecSpec.mop:12` (file title says "GCMParameterSpec" — the
+      row-289 class of defect, never corrected here); `KeyPairGeneratorSpec.mop:151` (the
+      envelope's `exp='the key size api30 KeyPairGenerator.cryptsl declares…'` attributes the
+      implemented list to the withdrawn anchor — the list is the expert's, 3072 included;
+      this one edits an emitted message text: code and event unchanged, so the harness class
+      is `unchanged` under the (event, code) comparison, and the pair is committed to prove it)
+- [ ] 10.7 `GCMParameterSpecSpec.mop` names `List` and `Arrays` (`:22`) and imports neither —
+      it compiles only because the merged monitor inherits the imports another file
+      contributes, the exact dedupe fragility that broke 11.9 twice and that the README's
+      set-wide import rule exists to prevent. Add the imports in the set's uniform style;
+      expected monitor delta is import-lines-only and the committed byte-diff proves it
+- [ ] 10.8 Register-only rows for the four behavioural findings the validation surfaced and
+      this change defers (the standing rule: a probable repair and a behavioural change are
+      never bundled, and none of these carries a researcher decision): (a) the 2-arg-overload
+      guard family — `KeyManagerFactorySpec.g1/g2` plus its `g3→unsafeAlg` route (the one
+      mirror 3.2/3.6/9.17 did not reach: `unsafeAlg` rejects the `init`, so a rejected
+      algorithm draws ORDER-00 **and** ALG-00), `TrustManagerFactorySpec.g2`,
+      `MessageDigestSpec.g2/g3`, `SignatureSpec.g2`, `SecureRandomSpec.g2` — same misuse,
+      different answer per file; (b) `KeyStoreSpec`: constraint governs transition (`g2` makes
+      the following `load` fail) and the type accusation lives only in `gk1`, so a rejected
+      type that is loaded but never asked for a key draws ORDER and never KSTYPE; (c)
+      `CipherSpec` fsm `:402-412`: the `end` state accepts `wkb1` after `f2` and `f2` after
+      `wkb1`, where both oracles make `w+` and the finals group alternatives — more
+      permissive than either oracle, false-negative only, inherited from the seed byte for
+      byte; (d) predicate writes in event bodies execute even when the dispatched transition
+      fails (`TrustManagerFactorySpec.gtm1`, `KeyManagerFactorySpec.gkm1`) — an
+      over-approximation only reachable in traces already carrying ORDER. Each becomes a
+      narrative/`behavioural` row with the mechanism and the deferral, no spec text moves
+- [ ] 10.9 Evidence hygiene: the 8.4 differential (131 traces, "130/130 attributed") ran on
+      2026-08-23 under the pre-11.11 harness, whose `classify()` compared accusing event
+      names — an accusation added at an already-accused event was invisible by construction,
+      so the attribution is a claim of the pre-repair instrument. Re-run the full 8.4 sweep
+      under the (event, code) harness (seconds, per its own evidence) and refresh
+      `f5-HarnessDifferential.md`; if any trace moves class, attribute it before this group
+      closes — and if none does, the evidence says so under the repaired instrument instead
+      of the broken one
+
+### 10.B — Changes to what is accused [researcher decision per task]
+
+- [ ] 10.10 `CipherSpec.mop:166-167`: the `GENERATED_KEY` tuple splitter is the third exposure
+      of the defect 9.10 repaired — `validate(Property.GENERATED_KEY, key,
+      alg(c.getAlgorithm()))` calls the statically imported frozen
+      `CipherTransformationUtil.alg` (split on `/`, no alias resolution) while every other
+      value site of the same event goes through `CipherTransformationNormalizer` (its `alg`
+      is `:101`). The mechanism, verified this adjudication: the store folds `String` value
+      positions to lower case (`PredicateStore.java:171`), so pure case variants already
+      match and the audit's "aes vs AES" scenario is refuted — the exposed class is
+      **alias/composite spellings**: `Cipher.getInstance("AES_128/CBC/PKCS5Padding")` with a
+      `KeyGenerator("AES")` key forms the tuple `("aes_128")` against the producer's
+      `("aes")` → VIOLATED → a false `CIPHER-CONSTR-00` the envelope presents as positive
+      misuse evidence. Route the splitter through the 9.10 normaliser. **Two questions the
+      harness pair must answer before the researcher decides, because the repair may be
+      incomplete as stated**: (i) `CipherTransformationNormalizer.alg("AES_128/CBC/…")`
+      plausibly yields `AES_128`, which still mismatches the producer's `AES` — if so, the
+      comparison target needs a decision (fold the `AES_128/192/256` service family into
+      `AES`, or record the family as a deliberate mismatch) and that decision is recorded
+      before any edit; (ii) whether any affected program is accused **only** by the false
+      CONSTR (a new-silence risk) or every affected spelling also draws `CIPHER-ALG-0x` from
+      the value check, making the repair pure category hygiene. Divergence row + satisfy/
+      violate pair per the 9.B discipline; like 9.10, needs nothing from the reactor unless
+      the normaliser API itself moves
+- [ ] 10.11 Verification for the group, the 9.18 mirror: `gh104_gates.py` exit 0 over
+      `jca_android` (post-10.1/10.2, G-2a green with the four rows, G-PRED scoped); the
+      G-2a parity assertion of 10.2 in place and red-green tested; the predicate-graph gate
+      0 failing after 10.4; README counts re-derived by the census parser, never asserted as
+      literals; harness pairs committed for 10.6's message-text edit (`unchanged`), 10.7
+      (import-only byte-diff) and 10.10 (researcher-decided); `gh104_divergence_record.py
+      --check` exit 0 with every 10.5/10.8 row keyed. No task of this group closes on a gate
+      exit code alone — artifact inspection, per R5/R6
+
+## 11. F8 — Sole oracle: total withdrawal of MetaCrySL (D-16)
+
+<!-- Source: researcher decision of 2026-08-25 (design.md D-16), superseding D-15's "the scope
+     is values only". The sole oracle of `jca_android`, for values, ORDER, alphabets and
+     predicates alike, is the pinned expert copy `RVSec-replication-package/tools/rules/`
+     (49 rules, sha256 `d7bcc019…`). `MetaCrySL/generated/api30/` keeps no oracle role: it is
+     the historical input of the pre-D-16 records, named only inside supersession adenda.
+
+     Discipline: 11.1 and 11.2 are pure derivation — they produce the expert ledger and the
+     expert alphabet map plus the delta against the api30-derived records, and NOTHING moves
+     on their strength alone. Every behavioural consequence they surface (a read that
+     returns, a wiring that opens, an ORDER tightening) enters 11.5/11.6 with the 9.B
+     discipline: harness pair, divergence row, researcher go/no-go per clause. Platform-limit
+     records (protected constructors, the absent javax.xml.crypto class, destroy() throwing,
+     the Integer cache) were measured on android-30, not derived from api30 — they carry over
+     as records against the expert rule, re-cited, never re-litigated. "No new accusation
+     classes" stands: the 28 expert rules without a `.mop` gain no specification here.
+     Ordering: 11.1 → 11.2 → 11.3 (the instruments must point at the expert rules before any
+     record claims conformity to them) → 11.4 (records) → 11.5/11.6 (researcher-decided) →
+     11.7. Tasks 8.8 and 8.9 depend on this group. -->
+
+- [x] 11.1 [record] Re-derive the predicate ledger from the 49 expert rules: sweep every
+      `REQUIRES`/`ENSURES`/`NEGATES` of `RVSec-replication-package/tools/rules/*.crysl`,
+      produce the expert ledger (the D-16 sibling of design.md's 36-clause table) and the
+      delta table against the api30 ledger — clause by clause: appears only in expert /
+      only in api30 / in both with different binding or arity. Known deltas, each verified
+      against the rule text on 2026-08-25 and named in D-16: `Mac.crysl:54`
+      `generatedKey[key,_]`; `SSLContext.crysl:18,34` (`i1` binds `random`; #30's `vacuous`
+      falls — it was an api30 artifact); `TrustManagerFactory.crysl:29`
+      `generatedManagerFactoryParameters[params]`; `SecureRandom.crysl:46`
+      `randomized[lSeed]`, `:52` `randomized[randInt] after nI`;
+      `KeyPair.crysl:27` `generatedKeypair[this,_] after Con`; `SSLContext.crysl:32` names
+      `generatedKeyManagers[km]` (plural) where the wired read consumes the singular-named
+      property — resolve the pairing in the ledger, not in code. Re-classify every clause
+      with the established dispositions (wired / unmonitored-* / vacuous /
+      unreachable-composition / unclosable), each against the expert text; a disposition
+      that only held under api30 is re-derived, not copied
+- [ ] 11.2 [record] Re-derive `order_alphabet_map.csv` against the expert `EVENTS`/`ORDER`
+      for the 21 paired specifications: every map row re-keyed to the expert rule's symbols
+      and line numbers; the aggregate labels differ (expert `Get, Load, GetEntry…` vs api30
+      `Gets, Loads, gE…` — the KeyStore pair was diffed on 2026-08-25 and is structurally
+      identical), so most rows re-anchor mechanically, and the task lists the specs where
+      the two rules' alphabets genuinely differ (SecureRandom's `nI`/`randInt` family, the
+      Mac/Signature event splits) rather than assuming zero. The two no-rule files
+      (IvChainJunction, RandomStringPassword) keep their declared prose skips, restated
+      against the expert catalogue ("the expert rules enunciate no such rule")
+- [ ] 11.3 [gates] Point every instrument at the sole oracle: `gh105_order_gate.py` and the
+      `gh104_gates.py` `--crysl` input read `RVSec-replication-package/tools/rules/`
+      (G-CONF's `--value-crysl expert` is already there — the two flags collapse into one);
+      the parity fixtures that load api30 rules re-anchor; no CLI keeps an api30 code path.
+      Genericity contract holds: gates still derive their universe by enumeration, skip
+      declaredly, and count what they skipped
+- [ ] 11.4 [records] Single-oracle records: `conformance_record.csv` stops naming two rules
+      per specification — one `rule` column meaning (the expert rule), with the api30
+      citation preserved inside a `D-16 (2026-08-25):` supersession adendum on every row
+      that was derived against it; `divergence_record.csv` rows whose reason cites a
+      `*.cryptsl` gain the same adendum; `data/jca_android/README.md` replaces "The scope
+      is values only" with the sole-oracle statement and re-states which records were
+      re-derived (11.1/11.2) and which carry adenda; `gate_allowlist.csv` G-ORDER rows
+      re-justified against the expert ORDER — a divergence that only existed against api30
+      closes, one that persists against the expert rule is re-cited. Grep gate for the
+      group: outside supersession adenda and the archived set, no artifact of
+      `data/jca_android/` and no `.mop` comment names api30 as an authority
+- [ ] 11.5 [researcher decision per clause — behavioural] The wirings the expert oracle
+      restores or opens, each through the 9.B discipline (harness pair, divergence row,
+      go/no-go): (a) `Mac generatedKey[key,_]` — the read returns on the new store, in the
+      `init` event bodies, three-valued with its own CONSTR/NOBS codes; the 4.9 deletion is
+      superseded (its rationale was "the api30 rule does not declare the clause", which
+      D-16 voids); the seed's measured failure mode (guard in `condition()` masking
+      MAC-ALG-00 under MAC-ORDER-00) is exactly what the body placement avoids;
+      (b) `SSLContext randomized[random]` — `i1: init(km, tm, random)` binds it, so the
+      event gains the binding and the read, producer = the RANDOMIZED hub; #30's row and
+      `SSLContextSpec.mop`'s vacuous comment fall with it; (c)
+      `TrustManagerFactory generatedManagerFactoryParameters[params]` — both ends checked
+      against the set: the producer rules (`CertPathTrustManagerParameters`,
+      `KeyStoreBuilderParameters`) have no `.mop`, so the expected disposition is
+      `unmonitored-producer`, recorded not wired — the task exists so that conclusion is
+      derived under the expert oracle, not assumed; (d) `SecureRandom randomized[lSeed]` —
+      the `long` position boxes fresh (the Integer-cache measurement extends to `Long`);
+      expected disposition platform-limit record, derived not assumed; (e) any further
+      clause 11.1's delta surfaces, one task-line each, same discipline
+- [ ] 11.6 [researcher decision per spec — behavioural] ORDER deltas against the expert
+      rules, from the re-anchored G-ORDER sweep (11.2+11.3): every hit either allow-listed
+      with an expert-anchored reason or repaired under a decision. The named case:
+      `KeyPair.crysl:20` orders the constructor **mandatory** and the 9.11 automaton is
+      `(c1 | epsilon)` — the adjudication weighs the 668-line measurement (the platform
+      constructs the pair inside `generateKeyPair()`; the app never calls `c1`) and, if the
+      automaton stands, writes the divergence record against the expert rule saying exactly
+      that; obedience to `co?` is no longer a reason that exists. Same treatment for every
+      divergence the sweep finds that the api30 anchor was silently absorbing
+- [ ] 11.7 Verification for the group, the 9.18/10.11 mirror: all gates green over the
+      re-anchored inputs; the 11.4 grep gate clean (no api30 authority outside adenda); the
+      expert ledger's arithmetic closed (wired + recorded + unclosable = total, derived by
+      enumeration, never asserted); harness pairs committed for every 11.5/11.6 task that
+      moved an accusation, `unchanged` proofs for the record-only ones;
+      `gh104_divergence_record.py --check` exit 0 with every new row keyed. No task of this
+      group closes on a gate exit code alone — artifact inspection, per R5/R6

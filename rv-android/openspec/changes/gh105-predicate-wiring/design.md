@@ -304,6 +304,46 @@ resets the predicate substrate beside the error sink, and the reset is proved by
 test, not assumed (INV-INS-148). This is why `reset()` exists on the store despite having zero
 production callers — the design already said "test-only"; D-14 names the test.
 
+**D-16 — The MetaCrySL oracle is withdrawn entirely; the sole oracle is the pinned expert copy
+(researcher, 2026-08-25).** D-15 (2026-08-24) withdrew the api30 anchor for **value clauses**
+and kept it for `ORDER`, event alphabets and predicates ("the scope is values only"). That
+limitation is superseded: the researcher's decision is that `jca_android` answers to the
+expert-validated rules and to nothing generated — a chain that measurably inverted value
+semantics (MD5/SHA-1/AES-ECB admitted) does not earn oracle status for any dimension. From this
+decision on, the **only** oracle of the set, for every clause kind, is
+`RVSec-replication-package/tools/rules/` (49 rules, sha256 `d7bcc019…`, the existing freeze
+item). `MetaCrySL/generated/api30/` loses oracle status entirely: it stays on disk as the
+historical input the pre-D-16 records were derived against, cited only inside supersession
+adenda, and no gate, register or `.mop` comment may name it as the authority for anything.
+
+What this does **not** reopen: (a) platform-limit divergences were justified by measurement on
+android-30, never by api30 — protected constructors (CipherStreams), the absent
+`javax.xml.crypto` class (HMACParameterSpec), `destroy()` throwing (SecretKey), the `Integer`
+cache (SecureRandom autoboxing) — they survive unchanged as records **against the expert
+rule**; (b) "no new accusation classes" stands — the 28 expert rules without a `.mop` gain no
+specification in this change; (c) the frozen `jca`, the archived `jca_android_bug_predicate`
+and the published numbers are untouched.
+
+What it does change, ordered by tasks group 11: the 36-clause predicate ledger was derived from
+the 33 api30 rules and must be re-derived from the 49 expert rules — the known deltas, each
+verified against the rule text on 2026-08-25: `Mac.crysl:54` REQUIRES `generatedKey[key,_]`
+(the read task 4.9 deleted returns, on the new store, in the event body); `SSLContext.crysl:18`
+binds `random` in `i1: init(km, tm, random)` and `:34` REQUIRES `randomized[random]` — clause
+#30's `vacuous` disposition was an api30 artifact and falls; `TrustManagerFactory.crysl:29`
+REQUIRES `generatedManagerFactoryParameters[params]`; `SecureRandom.crysl:46` REQUIRES
+`randomized[lSeed]` and `:52` ENSURES `randomized[randInt] after nI`; `KeyPair.crysl:20` orders
+`Con, (GetPubl | GetPriv)*` with the constructor **mandatory** and `:27` ENSURES
+`generatedKeypair[this,_] after Con`. `order_alphabet_map.csv` and G-ORDER re-anchor on the
+expert `EVENTS`/`ORDER`; the gates CLI drops its api30 input; `conformance_record.csv` stops
+naming two rules per specification. Where the current set deliberately stays away from the
+expert text on measurement — the 9.11 `(c1 | epsilon)` automaton against `KeyPair.crysl:20`'s
+mandatory constructor being the named case (668 corpus lines measured: the platform constructs
+the pair internally, the app never calls the constructor) — the disposition becomes a
+**divergence record against the expert rule**, adjudicated by the researcher, never obedience
+to a generated rule. Behavioural consequences (the Mac read, the SSLContext `sr` wiring, ORDER
+deltas) go through the 9.B discipline: harness pair, divergence row, researcher go/no-go per
+task.
+
 
 ## API Design
 

@@ -1,5 +1,16 @@
 ## Purpose
 
+> **D-16 supersession note (researcher, 2026-08-25).** This delta was written under the
+> two-oracle contract of D-15 (values → expert; `ORDER`/alphabets/predicates → api30). D-16
+> withdraws the MetaCrySL oracle entirely: the sole oracle of `jca_android`, for every clause
+> kind, is the pinned expert copy `RVSec-replication-package/tools/rules/` (49 rules, sha256
+> `d7bcc019…`). Every reference to "the api30 rule"/"the oracle" in the requirements below
+> therefore resolves to the matching expert rule; where the api30 and expert texts differ on
+> the protocol dimension, the delta is enumerated and re-adjudicated by tasks group 11
+> (`design.md` D-16 names the verified cases), and the historical api30-derived counts in this
+> file (33 rules, 36-clause ledger, arity maximum) describe the pre-D-16 derivation, kept as
+> the record of what was measured. G-ORDER's "no api30 rule" skip reads as "no expert rule".
+
 A CrySL rule states its cross-object obligations in three clauses: `ENSURES` (what a conforming
 sequence establishes about an object), `REQUIRES` (what a consumer demands was established), and
 `NEGATES` (what a later event withdraws). The `jca_android` set carries the machinery for this —
