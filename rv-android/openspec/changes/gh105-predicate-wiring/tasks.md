@@ -1292,7 +1292,8 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       narratives), `check()` exit 0 — plus W3, W5, W6, W9, W10 and the 🟢 suggestions in prose.
       Four suites **97 passed** (was 91); the four gate outputs byte-identical before and after.
       Evidence: `data/gh105/evidence/f5-FinalVerification.md`
-- [ ] 8.8 [BLOCKED — external: gh104 archive, which follows the joint experiment] Reconcile
+- [ ] 8.8 [BLOCKED — external: gh104 archive, which follows the joint experiment; and internal:
+      group 9, whose repairs land before this change reconciles] Reconcile
       with gh104 before archive: once gh104 has archived, add the formal `MODIFIED` entry for
       its requirement "The Successor Set Carries the Predicates of Its Seed Unchanged" to this
       delta (the supersession scenario already carries the content) and delete that scenario's
@@ -1304,7 +1305,327 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       "Reformulated Scope of G-PRED and Retirement of `rvsec-mop-defsuses`", which describes
       events rather than steady state — and verify the 19 IDs by grep (the gh104 task-10.8
       pattern; `openspec-sync-specs` only processes the ADDED/MODIFIED headers)
-- [ ] 8.9 [final commit BLOCKED on 8.8] `openspec status` complete; commits use `refs #105`;
+- [ ] 8.9 [final commit BLOCKED on 8.8 and on group 9] `openspec status` complete; commits use
+      `refs #105`;
       final commit `closes #105` after the researcher signs off completion (D-9 single-change
       scope ratified 2026-08-20; Group 10 of gh104 and campaign validation stay with the joint
       experiment in `experimento-gh104/`, which validates both changes at once)
+
+## 9. F6 — Repairs adjudicated from the external audit of 2026-08-25
+
+<!-- Source: four independent external audits (docs/analise_gh105_{gemini3,gpt5,mimo-v2-7b-free,
+     opus5}.md), adjudicated in docs/20260825_adjudicacao_analises_specs_jca_android.md. No claim
+     entered on agreement between models: each was re-verified against the .mop of today, the
+     pinned expert rule, the api30 rule, `javap -cp $ANDROID_HOME/platforms/android-30/android.jar`,
+     and the project's own records. Three convergent claims were REFUTED in verification and carry
+     no task — the AES keysize clause (deferred-constant, and `init(64)` throws inside the JCA
+     before `generateKey()` is reached), the `SecretKey.destroy()` NEGATES (INV-INS-137; the
+     default always throws, so an `after returning` advice is dead code and the variant that would
+     fire is semantically inverted), and six allegedly missing `Signature` OID aliases (all 61 are
+     present; the six absent Conscrypt rows are `KeyFactory` and `CertificateFactory`).
+
+     The group is split by whether a task changes the set of programs the specification accuses.
+     9.A does not and may proceed; 9.B does, and each of its tasks carries the harness delta and
+     the researcher's decision, per the standing rule that a probable repair and a behavioural
+     change are never bundled. Tasks 8.8 and 8.9 depend on this group.
+
+     Verified task by task on 2026-08-25 (second session) against the four oracles, with the
+     monitor regenerated from the current set, three independent sweeps re-run from scratch, and
+     two differential harness pairs executed — docs/20260825_verificacao_grupo9_gh105.md carries
+     the 18 verdicts with sources. What that pass changed here: 9.1 moved to 9.B (the revived
+     event is a creation event and start->fail — the repair changes what is accused, as its own
+     conformance_record row already said); 9.6 and 9.12 fell as redundant (the first was applied
+     in the previous session, the second was repaired by task 4.5); 9.5 lost its deletion branch
+     (INV-INS-132 and frozen-jca readers); 9.2's harness criterion was unsatisfiable as written
+     (measured: 159/159 unchanged — the TraceRunner dedups by call site); and 9.19 was added for
+     the two record-hygiene findings the adjudication had excluded (OPUS5-15/16). -->
+
+### 9.A — Repairs that do not change what is accused
+
+<!-- 9.1 lived here until the 2026-08-25 verification read the generated monitor: `engine` is a
+     creation event and its row is {3,1,3,3} — start->fail — so reviving it accuses programs that
+     are silent today. It is now the first task of 9.B, number unchanged. -->
+
+- [ ] 9.2 `KeyPairGeneratorSpec.mop:167-171`: add `__RESET;` to the `@fail` handler. It is the
+      set's only `@fail` without one (20 of 21 reset), the fail state is a sink, and
+      `Category_fail` holds again at every later dispatch — condition-false dispatches included,
+      which neither transition nor recompute the flag (the case
+      `data/gh104/traces/KeyPairGeneratorSpec-sticky-fail.txt` replays). Registered under
+      decision 7 as W2 with a `behavioural` narrative row; that row is replaced by the repair.
+      Two bounds the 2026-08-25 verification measured, so the record says what the repair can
+      and cannot show: (a) `ErrorCollector.addError` dedups on
+      (spec, code, event, class, method, location), so the re-raise is observable only at a
+      **distinct call site** — the delta is at most one row per extra site, and condition-true
+      events keep re-raising even after the reset (start->fail->reset each time); (b) **the
+      differential harness cannot prove this repair**: measured A/B with the reset mutant,
+      159/159 traces class `unchanged`, sticky-fail included — in the TraceRunner every dispatch
+      shares one synthetic call site, so the side-A repeat lands in the dedup. Evidence for the
+      pair is therefore the generated monitor's `reset()` clearing the category flag plus the W2
+      row, not a harness class; do not gate this task on `removed`
+- [ ] 9.3 `PBEKeySpecSpec.mop:33-45`: `f1` and `f2` bind `char[] password` and no `PBEKeySpec` —
+      no `returning`, no `target` — so the generator hands them the parameterless map and each
+      runs its body on the root monitor and every live monitor of the specification
+      (`PBEKeySpecSpec__Map`, `stateTransitionedSet`). Add `returning(PBEKeySpec s)` to both.
+      Exact precedent: `MacSpec.f2`, task 5.3. The automaton does not move — `(f1 | f2)*` is
+      already the benign loop task 3.5 installed. Stated so the harness expectation is honest:
+      the fan-out multiplies **emissions**, not recorded rows — all copies share one
+      (spec, code, event, site) and the ErrorCollector dedups them — so the expected harness
+      class is `unchanged`, and what the repair buys is per-object trace semantics, the end of
+      the set-wide dispatch, and the site class 9.7's G-BIND then locks (the 2026-08-25 sweep
+      found exactly these two events with no binding, none other). The file's comment already
+      states the dispatch in the present tense and only the all-`fail` row in the past; after
+      the repair the paragraph is rewritten for the new binding, not corrected for tense.
+      Closes the last two of the `empty-binding broadcast` sites of `conformance_record.csv`
+      item (c) (`MacSpec.f2` repaired at 5.3, `SSLContextSpec.unsafe_protocol` removed at 3.6,
+      `TrustManagerFactorySpec.g3/gtm1` repaired since)
+- [ ] 9.4 `KeyGeneratorSpec.mop:76` and `MessageDigestSpec.mop:73`: the two negated twins whose
+      `condition(!ConscryptAliasTable.matches(...))` reads the monitor field
+      `currentAlgorithmInstance` instead of the bound argument `alg`. The other
+      six negated twins of the set read the argument (`KeyStoreSpec:63`, `MacSpec:81`,
+      `KeyManagerFactorySpec:64`, `KeyPairGeneratorSpec:77`, `SecureRandomSpec:135`, and
+      `CipherSpec:100` over `transformation`). The field is initialised `""` and the positive twin
+      `g1` writes it only when the algorithm is admitted, so on a fresh monitor the guard is
+      correct **only because** the generator emits `g1Event` ahead of `g4Event`/`g3Event` on the
+      shared pointcut (`MultiSpec_1MonitorAspect.aj:366-371`, `:524-529`), and nothing in the
+      tree asserts that order. Were it to invert, every safe `MessageDigest.getInstance(String)`
+      would accuse through `g4`'s body with the self-contradicting envelope `expecting one of
+      SHA-256,… but found SHA-256` — the `but found .` signature task 8.16 repaired in the body
+      `if` guards (conformance_record.csv:53-61) and did not reach in these two `condition()`
+      clauses. `KeyGeneratorSpec.g3` emits no envelope of its own — its body only rebinds the
+      field and the accusation lives downstream in `gk1` — so for that file the inversion would
+      be automaton-silent and the repair is hygiene against the same latent order dependence.
+      Read `alg` in both. Behaviour today is unchanged by construction; measured on the pair in
+      the 2026-08-25 verification: 159/159 traces `unchanged`, accusations identical event by
+      event
+- [ ] 9.5 `rvsec-core/.../Property.java`: `GENERATED_CIPHER`, `GENERATED_MAC`,
+      `GENERATED_TRUST_MANAGERS` and `WRAPPED_KEY` have zero sites across the 24 `.mop` of
+      `jca_android`, and the javadoc of `GENERATED_CIPHER` states the mark is written at the
+      `init` events, describing a program no live set contains — the inverse of P4. **The repair
+      is the javadoc alone.** Deletion, which an earlier draft of this task offered, fails two
+      checks the 2026-08-25 verification ran: all four constants are in
+      `PROPERTY_CONSTANTS_AT_FREEZE` and `test_property_append_only` fails any removal
+      (INV-INS-132 — the `ordinal()`/`values()` measurement licensed order-insensitivity, never
+      removal); and three of the four are read outside this set — `GENERATED_MAC` by
+      `jca/MacSpec.mop` and by `rvsec-crysl-mop` (`PredicateSite`, `PredicateIdioms`, tests),
+      `GENERATED_TRUST_MANAGERS` by `jca/TrustManagerFactorySpec.mop` and `PredicateStoreTest`,
+      `WRAPPED_KEY` by `jca/CipherSpec.mop` — so deleting them breaks the frozen set's monitor
+      compilation, which is the harness's own side A. Rewrite the four javadocs to what is true:
+      which frozen or archived set reads each constant, and that no live set writes it
+- [x] 9.6 `proposal.md:17` said "24 of those are wired" against `design.md:490`'s "Of the 25
+      wireable, **21 are wired**" — two artefacts of one change contradicting each other, and the
+      wrong one the artefact an external reader cites. **Applied in the 2026-08-25 adjudication
+      session**: the proposal now reads 21 and derives the four clauses left out (#30 and #23
+      `vacuous`, #21 and #17 `unreachable-composition`), matching the design ledger. Verified
+      against the working tree in the same day's verification pass; the edit rides the group's
+      commit (uncommitted until then)
+- [ ] 9.7 Three gates for the three classes this audit walked through, each written so it fails
+      before it passes (the task-8 discipline: prove the red path by mutating, running, reverting):
+      **G-SIG** cross-checks every `call(...)` signature of the set against
+      `$ANDROID_HOME/platforms/android-30/android.jar` and fails on a return-type or arity
+      mismatch — this is the gate whose absence let 9.1 survive nine task groups. Its design
+      carries three guards the 2026-08-25 verification proved necessary: class presence is read
+      from the **jar's own zip entries, never via `javap`** — `javap` resolves `java.*`/`javax.*`
+      from the running JDK's modules regardless of `-cp`, `--system none` or `-bootclasspath`
+      (demonstrated on `javax.xml.crypto.dsig.spec.HMACParameterSpec`, which javap reports
+      present while android-30.jar has zero entries under `javax/xml/crypto`), so a naive sweep
+      greenlights exactly the class the record knows is absent; members declared on supertypes
+      resolve through the hierarchy or land as notes (`SecretKey.getEncoded` is `Key`'s,
+      `SecureRandom.nextInt`/`ints` are `Random`'s — the recorded DEX-residue family,
+      conformance_record.csv:73); and nested types compare on binary names
+      (`KeyStore$ProtectionParameter`).
+      **G-FORB** asserts that every `FORBIDDEN` clause of a rule **with a `.mop` in the set** has
+      an accusing event — the scope matters, because the oracles carry **four** FORBIDDEN rules
+      each, not two: besides `PBEKeySpec` (implemented) and `SSLContext.getDefault()` (not),
+      `DigestInputStream` and `DigestOutputStream` state `FORBIDDEN on(...)` and have no `.mop`
+      (they are among the 27 out-of-scope rules); unscoped, the gate is born red on rules no task
+      owns. Within scope it is decidable and cheap, and the out-of-scope clauses are declared
+      skips, counted.
+      **G-BIND** fails when an event of a parametric specification binds no monitored object
+      (no `returning`, no `target`) — the class 9.3 closes, and the one a three-line check would
+      have caught at `MacSpec.f2` time; the 2026-08-25 sweep found exactly the two 9.3 sites and
+      no other. Register G-SIG's inalcançabilidade findings as notes, not failures
+      (`HMACParameterSpec` is absent from android-30 and is already recorded)
+- [ ] 9.8 `ConscryptAliasTable` registry hygiene, no verdict effect: the file states that services
+      without a specification enter the table anyway so the extraction is complete, and six
+      Conscrypt `Alg.Alias` rows are missing — five `KeyFactory` OIDs and
+      `CertificateFactory X.509 -> X509` — while `AlgorithmParameters` and `SecretKeyFactory` are
+      in. 175 rows in the pinned `backup/gh104-analise/OpenSSLProvider.java` (KeyFactory :195,
+      :196, :197, :200, :201; CertificateFactory :500 — relocated in the 2026-08-25
+      verification), 169 in the table. Add the six to **both** registries — the Java table and
+      `data/jca_android/alias_table.csv`, which `ConscryptAliasTableTest` asserts equal row for
+      row — and update the header count, or narrow the completeness claim to what the table
+      actually holds. No specification calls `matches` with those services, so no verdict moves
+- [ ] 9.19 Record recompute, two registries the 2026-08-25 verification found stale — no `.mop`
+      text and no verdict moves, both are the record catching up with decisions already made:
+      **(a)** `constraint_table.csv:51` (`KeyStoreSpec | KeyStore.crysl:52`) and `:72`
+      (`SSLContextSpec | SSLContext.crysl:29`) say `IGUAL` where the `.mop` lists are
+      deliberately wider than the expert clause — 9 store types against the expert's 5
+      (`KeyStoreSpec.mop:41-42`, the four documented platform stores) and 3 protocols against
+      the expert's 2 (`SSLContextSpec.mop:43`, the `TLS` platform-value entry). Both become
+      `MOP-MAIS-PERMISSIVO` with the deliberate-permissivity justification cited from their
+      existing records; sweep the remaining `IGUAL` rows once while there (the verification
+      sampled the numeric-clause rows and found no third).
+      **(b)** the 15 `transcription` rows of `conformance_record.csv` still carry the withdrawn
+      anchor: `rule` points at `generated/api30/` and `mop_literals` describes the pre-D-15
+      lists (CipherSpec cites `Api30CipherTransformationUtil`, today without a caller;
+      MessageDigest lists `MD5, SHA-224, SHA-1…` where today's list is SHA-256/384/512;
+      SSLContext lists api30's 7 protocols where today's list is 3; KeyGenerator lists
+      ChaCha20/ARC4/…; KeyPairGenerator misses the restored 3072). Re-anchor the 15 rows to the
+      expert rule and today's literals, per D-15
+
+### 9.B — Changes to what is accused [researcher decision per task]
+
+<!-- Each task here needs the differential harness pair, a divergence_record.csv row, and an
+     explicit go/no-go. Several carry measured corpus mass from the published jca campaign; that
+     mass is a ceiling on what the repair could move, never a causal attribution, and the weaver
+     was repaired between that campaign and today. -->
+
+- [ ] 9.1 `SSLContextSpec.mop:171`: the `engine` pointcut declares
+      `call(public void SSLContext.createSSLEngine(..))` where android-30 declares
+      `public final SSLEngine createSSLEngine()` / `(String, int)`; both weavers gate the return
+      type exactly (conformance_record.csv:62, :73), so the advice is generated and has never
+      fired. Change `void` to `SSLEngine`. Adds no event (the 17-event ceiling is untouched) and
+      the `fsm` text does not change — but the behaviour does, which is why this task sits in
+      9.B: read off the regenerated monitor, `engine`'s row is `{3,1,3,3}` (start->fail,
+      s1->fail, end->end) and `SSLContextSpec_engineEvent` creates a monitor when none exists,
+      so a revived event makes `SSLContext.getDefault().createSSLEngine()` — a context no
+      g1/g2 ever observed — draw SSLCONTEXT-ORDER-00 where today there is silence. The row this
+      task retires said exactly that ("reviving it would accuse every createSSLEngine outside
+      the accepting state") and its non-repair was a researcher decision (2026-08-18), so the
+      revival needs the harness pair and a go/no-go, not a hygiene pass. The s1->fail path is
+      unreachable in practice (`createSSLEngine()` before `init` throws `IllegalStateException`
+      and an `after returning` advice never runs). On the accepted route the only effect is
+      `@match1` bookkeeping: `generatedSSLEngine[eng]` written for the first time, no reader
+      (INV-INS-137). **Decide jointly with 9.9**: after both repairs, `getDefault()`'s monitor
+      sits wherever 9.9's new event leaves it, and `engine` from that state must not re-create
+      the ordering false positive 9.9 exists to avoid — either give `engine` a transition there
+      or record the residue deliberately. **A signature sweep closed this class**: every
+      `call(...)` signature of the set was re-checked against android-30 in the 2026-08-25
+      verification (143 sites, class presence read from the jar's own entries) and this is the
+      only return-type mismatch — which is what 9.7's G-SIG then locks
+
+- [ ] 9.9 `SSLContextSpec`: `getDefault()` is FORBIDDEN in **both** oracles (`SSLContext.crysl:10-11`,
+      api30 `SSLContext.cryptsl`) and the set has no event for it —
+      `SSLContext.getDefault().createSSLEngine()` is silent. The omission appears in no record:
+      not `divergence_record.csv`, `conformance_record.csv`, `constraint_table.csv`,
+      `gate_allowlist.csv`, nor any gh105 artefact. It is an inconsistency and not a decision,
+      because the only other FORBIDDEN clause of the set — `PBEKeySpec`'s two constructors — **is**
+      implemented, with `ErrorType.ForbiddenMethod` and its own `PBEKEYSPEC-FORB-00/01` codes
+      ("of the set" is load-bearing: the oracles carry two further FORBIDDEN rules,
+      `DigestInputStream`/`DigestOutputStream`, but neither has a `.mop` here — see 9.7's
+      G-FORB scope). Add the event with a `FORB` code of its own. **The event must enter the
+      `fsm` with self-loops**: an event absent from the automaton gets a transition row that
+      moves every state to `fail`, and the repair would trade a false negative for an ordering
+      false positive — the exact defect tasks 3.2/3.6 spent a group removing. **Decide jointly
+      with 9.1**: once `engine` fires, a `getDefault()` context's monitor sits in whatever state
+      this task's event leaves it, and `engine` from that state is `fail` unless given a
+      transition — without the joint decision, `getDefault().createSSLEngine()` draws the FORB
+      code *and* the ordering false positive this task exists to avoid. `SSLContextSpec` has
+      4 events of 17
+- [ ] 9.10 `CipherSpec` is the one value-carrying specification that does not normalise: its five
+      `isValid(...)` sites (`:85`, `:92`, `:100`, `:108`, `:181`) call the statically imported
+      frozen `CipherTransformationUtil`, while the other eleven value specs compare through
+      `ConscryptAliasTable.matches`, which folds case and resolves aliases. In `isValid`,
+      `alg(t).equals("AES")` and `modes.contains(mode(t))` are case-sensitive (`:44`, `:45`; only
+      the padding calls `toUpperCase()`, `:46`); the CBC padding list is `[PKCS5PADDING,
+      ISO10126PADDING, PKCS5PADDING]` (`:35` — a duplicate, no `PKCS7Padding`); and the RSA
+      branch admits only `mode == ""` and `mode == "ECB"` (`:64-65`), so the `RSA/None/...`
+      spelling falls out. Derivable false positives: `AES/CBC/PKCS7Padding`,
+      `aes/cbc/pkcs5padding`, `AES/cbc/PKCS5Padding`, `RSA/None/PKCS1Padding`.
+      **This does not reopen D-15, and the licence is the mechanism, not the word "spelling"**:
+      the expert clause (`Cipher.crysl:113`) does not list PKCS7, but the mappings are pinned
+      Conscrypt `Alg.Alias` registrations the project already extracted —
+      `alias_table.csv` `Cipher,AES/CBC/PKCS7Padding,AES/CBC/PKCS5Padding,380` and
+      `Cipher,RSA/None/PKCS1Padding,RSA/ECB/PKCS1Padding,334`, today without a reader — and
+      alias-resolution-then-compare against the expert value is exactly what D-15 ratified for
+      the other eleven. Add a normaliser in `rvsec-core` that resolves the `Cipher` alias rows
+      and folds case, then compares to the expert values; migrate the five `isValid` sites; do
+      not touch the frozen `CipherTransformationUtil` and do not revive
+      `Api30CipherTransformationUtil` — read in full on 2026-08-25, it transcribes the api30
+      catalogue (admits `AES/ECB`, `ARC4`, `BLOWFISH`...) and its own doc closes "It is not to
+      be given a caller again".
+      **`IvChainJunction` is a different, second exposure**: it never calls `isValid` and
+      already folds case at both mode tests (`:139`, `:173`, `Locale.ROOT`) — but it extracts
+      `mode()` from the **unresolved** transformation (`:136`), so an alias spelling such as
+      `PBEWithHmacSHA1AndAES_128` (canonical `AES_128/CBC/PKCS5PADDING`, alias_table:394-398)
+      yields `mode() == ""` and silently skips the IV and GCM clauses. The normaliser resolves
+      the alias before the parse, and both files consume it.
+      Corpus mass zero for the spelling class is the external audit's estimate, not a record of
+      this tree (the consolidated campaign corpus is not here) — the harness pair is the
+      evidence, labelled as such
+- [ ] 9.11 `KeyPairSpec.mop:130`: `ere: c1 (gpu | gpr)*` makes the `KeyPair(PublicKey, PrivateKey)`
+      constructor mandatory, but api30 `KeyPair.cryptsl:27` orders `co?, (pu*, pr*)*` and on
+      Android practically every `KeyPair` comes from `generateKeyPair()`, which never fires `c1`.
+      Every `getPublic()`/`getPrivate()` then draws `KEYPAIR-ORDER-00`. Measured: **668 rows over
+      8 apps** (`conformance_record.csv` item (f); the audit's "100 % of this specification's
+      rows" is its own corpus estimate, not derivable from the record). Repair is
+      `ere: (c1 | epsilon) (gpu | gpr)*` — **not `c1?`**: the rv-monitor ERE grammar
+      (`EREParser.jj`) has `~ | * +` and `epsilon` and no `?`, so the shorthand does not parse.
+      Record with the repair that the oracles split here: the expert `KeyPair.crysl:20` orders
+      `Con, (GetPubl | GetPriv)*` — constructor mandatory — so today's `ere` is a faithful
+      expert translation, and the repair follows the project convention that ORDER answers to
+      api30; the divergence goes in the row, not left implicit
+- [ ] 9.12 **Record hygiene only — the spec defect is already repaired.** The `end`-state `next2`
+      omission this task originally rescheduled was repaired by task 4.5 (commit `a7e97294`):
+      today's `fsm` lists `next2 -> end` and the regenerated monitor reads
+      `Prop_1_transition_next2 = {3,1,1,3}` — a second `nextBytes()` is a self-loop, conforming
+      to api30's `Ins, Seeds?, Ends*` (verified 2026-08-25; the previous adjudication copied
+      item (d) from the record without checking the tree). What remains is the stale record:
+      `conformance_record.csv:68` still says "Recorded, not repaired", contradicting the tree.
+      Rewrite that row to name the 4.5 repair, and keep the 12,400-rows-over-43-apps mass with
+      its provenance stated — it was measured on the published `jca` campaign, whose frozen set
+      still carries the omission, so the row must say which set each half of it describes
+- [ ] 9.13 `CipherSpec.mop:339+`: two divergences from the oracles' ORDER, both repairable by
+      transitions over existing events — the `fsm` gains no event, the 17-event ceiling is not
+      touched (which corrects item (e)'s remark that repairing "would need new events"), and
+      that is what made this repairable at all. **Licensed by both oracles**: `s3` has no
+      `update` loop, so `init; update; update` fails where api30's `updates+`
+      (`Cipher.cryptsl:117`) and the expert's `Update+` (`Cipher.crysl:85`) admit it — add the
+      `u*` loop at `s3`; and `s2` has no `init` loop, so `init; init` fails where both orders
+      state `Inits+`/`Init+` — add `i1`/`i2 -> s2` at `s2`. **Not licensed by either oracle**:
+      re-`init` at `end` (the "reused Cipher") — neither ORDER returns from the finals group to
+      `Inits`, so that transition would make the `.mop` more permissive than both oracles; if
+      wanted, it is a separate decision with its own divergence row, not part of this
+      conformance repair. Measured: **10.814 rows over 21 apps** (a ceiling across both defect
+      classes; the record does not split them). `conformance_record.csv` item (e)
+- [ ] 9.14 `KeyStoreSpec.mop`: the specification declares `ks` and every event binds `k`, so the
+      generator emits one process-wide monitor instead of one per key store; a second `getInstance`
+      before the first `load` fails. Measured: **8.655 InvalidSequenceOfMethodCalls over 22 apps
+      plus 2.005 InvalidKeyStoreType**. Parametrise it. This and 9.16 touch the same file and the
+      same corpus mass; sequence them as one decision. `conformance_record.csv` item (a)
+- [ ] 9.15 `CipherInputStreamSpec` and `CipherOutputStreamSpec` declare no parameter, so each is a
+      single process-wide instance and two interleaved streams fail on the second constructor.
+      Measured: **0 rows of 97.018** — the repair is free of corpus consequence and is the cheapest
+      way to retire item (b), or the clearest candidate to leave recorded. Researcher's call
+- [ ] 9.16 `getInstance(String, Provider)` has no pointcut in `KeyStoreSpec`, `SignatureSpec`,
+      `MacSpec`, `KeyPairGeneratorSpec` or `SSLContextSpec`, though android-30 declares the overload
+      on all five; an object obtained through it reaches its next event with the monitor at state 0,
+      where every row is fail (`Signature i1[0]=8`, `Mac i1[0]=4`, `KeyStore load[0]=5`,
+      `KeyPairGenerator init1[0]=4`, `SSLContext init[0]=3`). In four of the five the repair widens
+      the existing two-argument pointcut and **adds no event**; only `KeyStoreSpec` lacks
+      `(String, String)` as well and needs one (it has 7 of 17). Prefer `Object+` over `..` where
+      the arity is known: a wildcard in the `call` signature stops the harness resolver at the
+      first wildcard type (`KeyManagerFactorySpec.mop:88-90`). `conformance_record.csv` items (g)
+      and (a), `gate_allowlist.csv:21` (witness `g2 l1`). `KeyStoreSpec`'s share of the mass is the
+      10.660 published rows of 9.14
+- [ ] 9.17 `SSLContextSpec.mop:97`: `g2` still carries the positive protocol guard that task 3.6
+      removed from `g1`, so `getInstance("TLSv1", provider)` fires no event — the dispatcher
+      still **creates** the monitor (`FindOrCreateEntry` runs before the condition), which then
+      sits at state 0, and the `init` that follows falls into `fail` from there (`init[0] = 3`):
+      reported as a wrong call sequence instead of a rejected protocol. The api30 rule orders
+      `Gets, Init, Engine?` (`SSLContext.cryptsl:39`) with the protocol under CONSTRAINTS
+      (`:43`), so `getInstance` is a `Gets` whatever it was asked for. Drop the guard, exactly
+      as 3.6 did, and let the `init` body accuse once with `SSLCONTEXT-PROTO-00`. The deferral
+      is recorded in the file's own comment (`SSLContextSpec.mop:81-86`) and inside the 3.6 hunk
+      rows — there is no standalone `behavioural` row for it (verified 2026-08-25 against the
+      nine behavioural rows); the repair writes that row when it lands. Deferred at 3.6 because
+      `g2` is not an orphan — this is the task that reaches it
+- [ ] 9.18 Verification for the group: the four gate suites green over the repaired set (including
+      the three new gates of 9.7, with G-FORB's scope and G-SIG's jar-entry guard as specified
+      there), `gh104_divergence_record.py --check` exit 0 with every hunk of 9.A and 9.B keyed,
+      the parity suites passing, and one harness pair committed per **spec-text task** under
+      `data/gh105/evidence/f6-*.md` — 9.5 (javadoc), 9.6 (OpenSpec artefact, applied), 9.8
+      (registry without verdict effect), 9.12 (record hygiene) and 9.19 (record recompute) carry
+      no pair; 9.2's pair is committed with its measured `unchanged` verdict and the
+      monitor-inspection evidence the task specifies, never as a `removed` gate. No task of this
+      group is closed on a gate exit code alone — artifact inspection, per R5/R6
