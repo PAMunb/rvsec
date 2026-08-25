@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A custom descriptor rather than the stock jar-with-dependencies descriptorRef, for one reason
+  that is specific to this module: CrySLParser brings Xtext, EMF and Guice, and those three find
+  their implementations through META-INF/services files. The stock descriptor unpacks every
+  dependency into one directory, so a services file present in two jars is overwritten rather than
+  merged and the last one unpacked wins — the resulting jar builds clean and dies at run time with
+  a resolution error from inside Xtext, which is the failure mode this component exists to avoid
+  reporting as a property of the corpus. The metaInf-services handler below concatenates them.
+
+  The signature exclusions are the second half of the same problem: a signed dependency jar carries
+  META-INF/*.SF and *.RSA whose digests describe the jar they came from, and carrying them into an
+  aggregate jar makes the JVM refuse it with SecurityException.
+-->
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.0 http://maven.apache.org/xsd/assembly-2.1.0.xsd">
+	<!-- Becomes the artifact classifier, so the aggregate is attached alongside the thin jar
+	     instead of replacing it. -->
+	<id>cli</id>
+
+	<formats>
+		<format>jar</format>
+	</formats>
+	<includeBaseDirectory>false</includeBaseDirectory>
+
+	<containerDescriptorHandlers>
+		<containerDescriptorHandler>
+			<handlerName>metaInf-services</handlerName>
+		</containerDescriptorHandler>
+		<!-- Seven of the 61 runtime jars ship a plugin.properties at their root, and EMF resolves a
+		     plugin's display and diagnostic strings through it. Unpacked flat, six of the seven are
+		     overwritten, and the symptom is not a build error: the run completes and Xtext prints
+		     MissingResourceException for '_UI_DiagnosticRoot_diagnostic' the first time it formats a
+		     validation diagnostic — measured on the two upstream rules that do not parse. They are
+		     key=value files with disjoint keys, so concatenating them restores every lookup. -->
+		<containerDescriptorHandler>
+			<handlerName>file-aggregator</handlerName>
+			<configuration>
+				<filePattern>plugin.properties</filePattern>
+				<outputPath>plugin.properties</outputPath>
+			</configuration>
+		</containerDescriptorHandler>
+	</containerDescriptorHandlers>
+
+	<dependencySets>
+		<dependencySet>
+			<outputDirectory>/</outputDirectory>
+			<useProjectArtifact>true</useProjectArtifact>
+			<unpack>true</unpack>
+			<scope>runtime</scope>
+			<unpackOptions>
+				<excludes>
+					<exclude>META-INF/*.SF</exclude>
+					<exclude>META-INF/*.DSA</exclude>
+					<exclude>META-INF/*.RSA</exclude>
+					<exclude>module-info.class</exclude>
+				</excludes>
+			</unpackOptions>
+		</dependencySet>
+	</dependencySets>
+</assembly>

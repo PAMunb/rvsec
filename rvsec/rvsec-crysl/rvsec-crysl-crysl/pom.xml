@@ -13,6 +13,13 @@
 	<artifactId>rvsec-crysl-crysl</artifactId>
 	<name>RVSec :: CrySL conformance :: crysl</name>
 
+	<properties>
+		<!-- The CLI lives in this module (G05 5.1), so this is the only module of the component that
+		     has an entry point to package. -core and -mop stay library jars. -->
+		<main.class>br.unb.cic.rvsec.crysl.crysl.cli.ConformanceCli</main.class>
+		<final.jar.name>rvsec-conformance</final.jar.name>
+	</properties>
+
 	<dependencies>
 		<dependency>
 			<groupId>br.unb.cic</groupId>
@@ -66,4 +73,48 @@
 			<artifactId>archunit</artifactId>
 		</dependency>
 	</dependencies>
+
+	<build>
+		<plugins>
+			<!-- Packages the CLI as a self-contained jar, following the shape of rvsec-mop-extractor
+			     (D-15). Until this existed the only caller of ConformanceCli was its own test suite,
+			     which runs with a surefire-assembled classpath; a researcher wanting to re-run the
+			     comparison outside the build had to reconstruct that classpath by hand, which is a
+			     poor footing for a component whose whole argument is that a published number must be
+			     reproducible from a declared commit.
+
+			     The descriptor is local rather than the stock descriptorRef because of Xtext's
+			     service files — see src/main/assembly/fat-jar.xml for the reason.
+
+			     Note what is deliberately NOT here: no maven-resources-plugin execution copying the
+			     jar into rv-android/lib/. The other rvsec modules do that because the Python pipeline
+			     invokes them; this component does not enter the instrumentation pipeline, the
+			     platform or any experiment path, and the change's Impact section records that it adds
+			     no cross-module interface. Dropping a jar into rv-android/lib/ would create the very
+			     coupling that section says does not exist. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>${main.class}</mainClass>
+						</manifest>
+					</archive>
+					<descriptors>
+						<descriptor>src/main/assembly/fat-jar.xml</descriptor>
+					</descriptors>
+					<finalName>${final.jar.name}</finalName>
+				</configuration>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
 </project>
