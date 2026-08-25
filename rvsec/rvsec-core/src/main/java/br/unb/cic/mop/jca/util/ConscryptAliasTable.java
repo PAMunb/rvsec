@@ -35,10 +35,15 @@ import java.util.Map;
  * monitor woven into an APK has no filesystem contract with this repository, and
  * a specification whose verdict depended on a CSV nobody ships would not be
  * checkable. {@code data/jca_android/alias_table.csv} is the auditable registry
- * of the same 169 rows, and {@code ConscryptAliasTableTest} asserts the two are
+ * of the same 175 rows, and {@code ConscryptAliasTableTest} asserts the two are
  * equal row for row so they cannot drift. The count was 158 until task 11.6
  * (D-15) added the eleven multi-line {@code Alg.Alias} registrations a
- * single-line extraction had missed.
+ * single-line extraction had missed, and 169 until gh105 task 9.8 added the six
+ * the extraction had skipped by service: the five {@code KeyFactory} OIDs
+ * ({@code OpenSSLProvider.java:195-197}, {@code :200-201}) and
+ * {@code CertificateFactory X.509 -> X509} ({@code :500}). The table now holds
+ * every one of the 175 {@code Alg.Alias} registrations of the pinned file, which
+ * is what makes the completeness claim below checkable rather than asserted.
  *
  * <p>Each {@code jca_android} specification names this class in its allow-list
  * check. No specification of the frozen {@code jca} names it, so no verdict of
@@ -62,9 +67,12 @@ import java.util.Map;
  * that matters -- an alias row resolving to a name the expert list rejects makes
  * the accusation reach the calls that spell it otherwise, rather than excusing
  * them. A row in a service no specification of the set covers
- * ({@code AlgorithmParameters}, {@code SecretKeyFactory}) is {@code no}, because
- * there is no list for it to be an entry of; it is kept in the table so that the
- * extraction stays complete. It is a property of the record, not an input to
+ * ({@code AlgorithmParameters}, {@code SecretKeyFactory}, {@code KeyFactory},
+ * {@code CertificateFactory}) is {@code no}, because there is no list for it to be
+ * an entry of; it is kept in the table so that the extraction stays complete. No
+ * specification calls {@link #matches} with any of those four services, so their
+ * rows move no verdict -- they are there so the registry can be audited against
+ * the provider file by count as well as by row. It is a property of the record, not an input to
  * {@link #matches}: resolution never consults it.
  */
 public final class ConscryptAliasTable {
@@ -79,6 +87,7 @@ public final class ConscryptAliasTable {
         { "AlgorithmParameters", "2.16.840.1.101.3.4.1.6", "GCM", "106", "no" },
         { "AlgorithmParameters", "2.16.840.1.101.3.4.1.26", "GCM", "107", "no" },
         { "AlgorithmParameters", "2.16.840.1.101.3.4.1.46", "GCM", "108", "no" },
+        { "CertificateFactory", "X.509", "X509", "500", "no" },
         { "Cipher", "RSA/None/NoPadding", "RSA/ECB/NoPadding", "332", "no" },
         { "Cipher", "RSA/None/PKCS1Padding", "RSA/ECB/PKCS1Padding", "334", "no" },
         { "Cipher", "RSA/None/OAEPPadding", "RSA/ECB/OAEPPadding", "337", "no" },
@@ -113,6 +122,11 @@ public final class ConscryptAliasTable {
         { "Cipher", "2.16.840.1.101.3.4.1.26", "AES/GCM/NoPadding", "432", "no" },
         { "Cipher", "2.16.840.1.101.3.4.1.46", "AES/GCM/NoPadding", "433", "no" },
         { "Cipher", "ChaCha20-Poly1305", "ChaCha20/Poly1305/NoPadding", "449", "no" },
+        { "KeyFactory", "1.2.840.113549.1.1.1", "RSA", "195", "no" },
+        { "KeyFactory", "1.2.840.113549.1.1.7", "RSA", "196", "no" },
+        { "KeyFactory", "2.5.8.1.1", "RSA", "197", "no" },
+        { "KeyFactory", "1.2.840.10045.2.1", "EC", "200", "no" },
+        { "KeyFactory", "1.3.133.16.840.63.0.2", "EC", "201", "no" },
         { "KeyGenerator", "RC4", "ARC4", "141", "no" },
         { "KeyGenerator", "1.2.840.113549.3.4", "ARC4", "142", "no" },
         { "KeyGenerator", "TDEA", "DESEDE", "149", "no" },

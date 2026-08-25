@@ -120,21 +120,26 @@ states one.
 The table is **not read at run time**. A monitor woven into an APK has no filesystem
 contract with this repository, so `ConscryptAliasTable` carries the table as code and
 `alias_table.csv` is the auditable registry of the same rows.
-`ConscryptAliasTableTest` asserts the two are equal row for row — all 169 rows, every
+`ConscryptAliasTableTest` asserts the two are equal row for row — all 175 rows, every
 column — so the record and the instrument cannot drift. No `.mop` of the frozen `jca` names
 that class, which is what keeps the published measurements reproducible: nothing here can
 move a `jca` verdict.
 
 ### `alias_table.csv`
 
-169 rows, extracted from Conscrypt branch `android11-release`, path
+175 rows, extracted from Conscrypt branch `android11-release`, path
 `common/src/main/java/org/conscrypt/OpenSSLProvider.java` (607 lines, 175 `Alg.Alias.*`
 registrations), kept locally and gitignored at `backup/gh104-analise/OpenSSLProvider.java`.
-149 rows are in services one of the 21 rule-paired specifications covers — 21, not 24: it is the
+The row count and the registration count are now the same number, which is the point of gh105
+task 9.8: the table was 169 rows and the completeness claim above was a promise rather than a
+measurement. The six that were missing are missing by service, not by syntax — five
+`KeyFactory` OIDs (`:195-197`, `:200-201`) and `CertificateFactory X.509 → X509` (`:500`) —
+and no `.mop` resolves either service, so adding them moved no verdict.
+160 rows are in services one of the 21 rule-paired specifications covers — 21, not 24: it is the
 count of `.mop` files with a matching api30 rule, which is what `conformance_record.csv` keys on,
-and not the size of the set. The other 9 rows are in services with no specification
-(`AlgorithmParameters` 8, `SecretKeyFactory` 1) and are kept, with their flag, so the extraction
-stays complete.
+and not the size of the set. The other 15 rows are in services with no specification
+(`AlgorithmParameters` 8, `KeyFactory` 5, `SecretKeyFactory` 1, `CertificateFactory` 1) and are
+kept, with their flag, so the extraction stays complete.
 
 `in_api30_allowlist` has exactly one definition: **`yes` when the row's canonical name is an
 entry of the successor set's allow-list for that service, after the recorded departures.** The
@@ -154,11 +159,14 @@ rather than excusing them. Counts under that definition:
 | `Cipher` | 4 | 30 |
 | `TrustManagerFactory` | 1 | 0 |
 | `AlgorithmParameters` (no specification) | 0 | 8 |
+| `KeyFactory` (no specification) | 0 | 5 |
 | `SecretKeyFactory` (no specification) | 0 | 1 |
-| **total** | **67** | **102** |
+| `CertificateFactory` (no specification) | 0 | 1 |
+| **total** | **67** | **108** |
 
 A service the set does not cover has no allow-list for a canonical to be an entry of, so its
-rows are `no` by construction. Under the api30 anchor the split was 124 `yes` / 34 `no` over
+rows are `no` by construction — which is why the six rows task 9.8 added are all `no` and the
+`yes` column did not move. Under the api30 anchor the split was 124 `yes` / 34 `no` over
 158 rows; the 11 rows task 11.6 added and the recomputation against the expert lists moved 65
 flags, nearly all of them `yes` → `no`. That is the measure of the anchor change, read off the
 table: an alias whose canonical name is `SHA-1`, `MD5withRSA`, `ARC4`, `HmacMD5` or a
@@ -453,7 +461,7 @@ generator to the masked child OOM the invariant exists for (researcher decision,
 |---|---|
 | `divergence_record.csv` | one entry per hunk of the successor set against the frozen `jca` seed, plus the two registered exceptions to literal transcription (`EC`, the four `SHA*withECDSA`). Group 7 added the kind `message`: a report site rewritten as a `v=1` envelope. |
 | `conformance_record.csv` | one row per specification against its rules -- the expert rule for value clauses, the api30 rule for ORDER and predicates: transcription verdicts, deferred constants, declared costs, and the divergences measured but not repaired — including the nine `guard-on-field` rows Group 7 declares and Group 8 task 8.16 repairs. |
-| `alias_table.csv` | the Conscrypt `android11-release` alias table (169 rows), carried as code by `ConscryptAliasTable`. |
+| `alias_table.csv` | the Conscrypt `android11-release` alias table (175 rows, one per `Alg.Alias` registration of the pinned provider file), carried as code by `ConscryptAliasTable`. |
 | `constraint_table.csv` | one row per expert `CONSTRAINTS` clause of the paired rules plus one per `.mop` value test with no clause behind it (80 rows since D-15). |
 | `gate_allowlist.csv` | the remaining gate hits with a reason and the task that owns each. Since task 7.6 it also carries the nine ordering divergences the set keeps on purpose, and `gh105_order_gate.py` reads it: a row with an empty reason allows nothing. |
 | `predicate_graph.csv` | one row per predicate site: the clause it serves, the mechanism, and the disposition. It is what replaced byte-equality against the seed as the successor's predicate accounting. |

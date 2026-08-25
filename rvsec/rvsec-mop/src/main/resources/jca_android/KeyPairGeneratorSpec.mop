@@ -168,6 +168,17 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,
           "v=1 code=KEYPAIRGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='' exp='' msg='the observed call sequence is not one KeyPairGeneratorSpec accepts'"));
       kp = null;
+
+      // The reset the other twenty `@fail` blocks of the set carry. Without it the
+      // monitor stays in the failure category after the first rejected sequence:
+      // `fail` is a sink, `Category_fail` is recomputed as `nextstate == 4` after
+      // every event, and the dispatcher calls this handler whenever it holds --
+      // including on dispatches whose `condition(...)` is false, which take no
+      // transition and so never move the state that made it hold. The reset clears
+      // the category so those silent dispatches stop re-raising; a later event that
+      // does transition still accuses, from `start` into `fail` again, which is the
+      // one report a rejected sequence is owed.
+      __RESET;
     }
 
     // The acceptance point of `generatedKeypair[kp, alg]`. The clause carries no `after L`,

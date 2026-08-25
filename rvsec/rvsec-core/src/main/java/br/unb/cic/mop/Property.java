@@ -12,15 +12,31 @@ public enum Property {
      * A monitored {@code Cipher} that completed {@code getInstance} and then an
      * {@code init} whose key requirement held.
      *
-     * <p>CrySL states {@code generatedCipher[this] after Inits}, and both stream
-     * rules require it of the cipher they are constructed with. The mark is
-     * written at the init events rather than on reaching the accepting state,
-     * because a cipher handed to a {@code CipherInputStream} has been
-     * initialised and has not yet encrypted anything -- the stream performs
-     * those calls itself. Marking only at the accepting state would leave every
-     * legitimate stream construction unsatisfied.
+     * <p>No specification of any live set writes or reads this constant. The only
+     * sites are in the archived {@code jca_android_bug_predicate}: its
+     * {@code CipherSpec} writes the mark at the three {@code init} events, and its
+     * {@code CipherInputStreamSpec} and {@code CipherOutputStreamSpec} validate it of
+     * the cipher they are constructed with. The successor set {@code jca_android}
+     * carries the two stream rules with no such read -- {@code cipheredInputStream}
+     * and {@code cipheredOutputStream} are dead-end predicates -- and the frozen
+     * {@code jca} never named the constant at all.
+     *
+     * <p>Kept because {@link Property} is append-only (INV-INS-132): the ordinals are
+     * a freeze item and {@code test_property_append_only} fails any removal.
      */
     GENERATED_CIPHER,
+    /**
+     * A MAC a monitored {@code Mac} produced, the first place of CrySL's
+     * {@code macced[M, D]}.
+     *
+     * <p>Written and read only by frozen and archived sets: {@code jca/MacSpec.mop}
+     * writes it at its two {@code doFinal} events and removes it on failure, and the
+     * archived {@code jca_android_bug_predicate/MacSpec.mop} does the same. The live
+     * {@code jca_android} does not name it -- its {@code Mac} chain runs on
+     * {@link PredicateStore} through {@link #MACED} and {@link #ENCRYPTED}. The
+     * conformance component of {@code rvsec-crysl-mop} reads the {@code jca} sites as
+     * its arity-1 substrate fixture, so the name is load-bearing outside this enum too.
+     */
     GENERATED_MAC,
     /**
      * The data a monitored {@code Mac} computed a MAC over.
@@ -41,6 +57,17 @@ public enum Property {
     GENERATED_KEY_MANAGERS,
     GENERATED_KEY_PAIR,
     GENERATED_TRUST_MANAGER,
+    /**
+     * The trust-manager array a monitored {@code TrustManagerFactory} produced.
+     *
+     * <p>No set writes it. The frozen {@code jca/TrustManagerFactorySpec.mop:88} only
+     * {@code remove}s it in the failure handler -- a clearing of a mark nothing ever
+     * set -- and the archived {@code jca_android_bug_predicate} is where the matching
+     * write and the {@code SSLContextSpec} read live. The live {@code jca_android}
+     * wires that edge through {@link PredicateStore} instead, so the constant has no
+     * live producer and no live consumer; {@code PredicateStoreTest} uses it as a
+     * neutral key for the three-valued verdict cases.
+     */
     GENERATED_TRUST_MANAGERS,
     GENERATED_KEY_STORE,
     PREPARED_DH,
@@ -52,6 +79,16 @@ public enum Property {
     SIGNED,
     SPECCED_KEY,
     VERIFIED,
+    /**
+     * The bytes a monitored {@code Cipher.wrap(Key)} returned.
+     *
+     * <p>Write-only wherever it appears, and nowhere in a live set:
+     * {@code jca/CipherSpec.mop:118} sets it at the {@code wrap} event and no
+     * specification of any of the five sets validates it. {@code jca_android} deleted
+     * the write rather than relocating it (gh105 task 4.1): the {@code Cipher} rule
+     * names {@code w: wrap(wrappedKey)} in no {@code ENSURES} clause, so the mark
+     * translates no clause and has no acceptance point to move to.
+     */
     WRAPPED_KEY,
     /**
      * The key material a {@code SecretKeySpec} is constructed from.

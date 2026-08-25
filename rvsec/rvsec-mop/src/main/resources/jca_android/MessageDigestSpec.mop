@@ -68,9 +68,17 @@ MessageDigestSpec(MessageDigest digest) {
 	in cases like (g3* g1 | g3* g2).
 	Not throwing here eliminates the InvalidSequenceOfMethodCalls false positive in bench02.BrokenHashABPSCase1
 	 */
+	// The guard reads the bound argument, not the monitor field. The field is
+	// initialised `""` and only `g1`/`g2` write it, so this guard held on a fresh
+	// monitor only because the generator emits `g1Event` ahead of `g4Event` on the
+	// shared pointcut, an order nothing in the tree asserts. Were it to invert, this
+	// body -- which does accuse, unlike its KeyGenerator twin -- would report every
+	// safe `getInstance` with the self-contradicting envelope `expecting one of
+	// SHA-256,... but found SHA-256`: the `but found .` signature task 8.16 repaired
+	// in the body `if` guards and did not reach inside a `condition()` clause.
 	event g4 after(String alg) returning(MessageDigest digest):
 	  call(public static MessageDigest MessageDigest.getInstance(String))
-    	  && args(alg) && condition(!ConscryptAliasTable.matches("MessageDigest", currentAlgorithmInstance, algorithms))
+    	  && args(alg) && condition(!ConscryptAliasTable.matches("MessageDigest", alg, algorithms))
         {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
               "v=1 code=MESSAGEDIGEST-ALG-02 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));

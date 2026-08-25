@@ -1346,7 +1346,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
      creation event and its row is {3,1,3,3} — start->fail — so reviving it accuses programs that
      are silent today. It is now the first task of 9.B, number unchanged. -->
 
-- [ ] 9.2 `KeyPairGeneratorSpec.mop:167-171`: add `__RESET;` to the `@fail` handler. It is the
+- [x] 9.2 `KeyPairGeneratorSpec.mop:167-171`: add `__RESET;` to the `@fail` handler. It is the
       set's only `@fail` without one (20 of 21 reset), the fail state is a sink, and
       `Category_fail` holds again at every later dispatch — condition-false dispatches included,
       which neither transition nor recompute the flag (the case
@@ -1362,7 +1362,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       shares one synthetic call site, so the side-A repeat lands in the dedup. Evidence for the
       pair is therefore the generated monitor's `reset()` clearing the category flag plus the W2
       row, not a harness class; do not gate this task on `removed`
-- [ ] 9.3 `PBEKeySpecSpec.mop:33-45`: `f1` and `f2` bind `char[] password` and no `PBEKeySpec` —
+- [x] 9.3 `PBEKeySpecSpec.mop:33-45`: `f1` and `f2` bind `char[] password` and no `PBEKeySpec` —
       no `returning`, no `target` — so the generator hands them the parameterless map and each
       runs its body on the root monitor and every live monitor of the specification
       (`PBEKeySpecSpec__Map`, `stateTransitionedSet`). Add `returning(PBEKeySpec s)` to both.
@@ -1378,7 +1378,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       Closes the last two of the `empty-binding broadcast` sites of `conformance_record.csv`
       item (c) (`MacSpec.f2` repaired at 5.3, `SSLContextSpec.unsafe_protocol` removed at 3.6,
       `TrustManagerFactorySpec.g3/gtm1` repaired since)
-- [ ] 9.4 `KeyGeneratorSpec.mop:76` and `MessageDigestSpec.mop:73`: the two negated twins whose
+- [x] 9.4 `KeyGeneratorSpec.mop:76` and `MessageDigestSpec.mop:73`: the two negated twins whose
       `condition(!ConscryptAliasTable.matches(...))` reads the monitor field
       `currentAlgorithmInstance` instead of the bound argument `alg`. The other
       six negated twins of the set read the argument (`KeyStoreSpec:63`, `MacSpec:81`,
@@ -1397,7 +1397,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       Read `alg` in both. Behaviour today is unchanged by construction; measured on the pair in
       the 2026-08-25 verification: 159/159 traces `unchanged`, accusations identical event by
       event
-- [ ] 9.5 `rvsec-core/.../Property.java`: `GENERATED_CIPHER`, `GENERATED_MAC`,
+- [x] 9.5 `rvsec-core/.../Property.java`: `GENERATED_CIPHER`, `GENERATED_MAC`,
       `GENERATED_TRUST_MANAGERS` and `WRAPPED_KEY` have zero sites across the 24 `.mop` of
       `jca_android`, and the javadoc of `GENERATED_CIPHER` states the mark is written at the
       `init` events, describing a program no live set contains — the inverse of P4. **The repair
@@ -1418,7 +1418,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `vacuous`, #21 and #17 `unreachable-composition`), matching the design ledger. Verified
       against the working tree in the same day's verification pass; the edit rides the group's
       commit (uncommitted until then)
-- [ ] 9.7 Three gates for the three classes this audit walked through, each written so it fails
+- [x] 9.7 Three gates for the three classes this audit walked through, each written so it fails
       before it passes (the task-8 discipline: prove the red path by mutating, running, reverting):
       **G-SIG** cross-checks every `call(...)` signature of the set against
       `$ANDROID_HOME/platforms/android-30/android.jar` and fails on a return-type or arity
@@ -1445,7 +1445,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       have caught at `MacSpec.f2` time; the 2026-08-25 sweep found exactly the two 9.3 sites and
       no other. Register G-SIG's inalcançabilidade findings as notes, not failures
       (`HMACParameterSpec` is absent from android-30 and is already recorded)
-- [ ] 9.8 `ConscryptAliasTable` registry hygiene, no verdict effect: the file states that services
+- [x] 9.8 `ConscryptAliasTable` registry hygiene, no verdict effect: the file states that services
       without a specification enter the table anyway so the extraction is complete, and six
       Conscrypt `Alg.Alias` rows are missing — five `KeyFactory` OIDs and
       `CertificateFactory X.509 -> X509` — while `AlgorithmParameters` and `SecretKeyFactory` are

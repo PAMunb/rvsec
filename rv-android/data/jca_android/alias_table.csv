@@ -7,6 +7,7 @@ AlgorithmParameters,1.2.840.113549.3.7,DESEDE,103,no
 AlgorithmParameters,2.16.840.1.101.3.4.1.6,GCM,106,no
 AlgorithmParameters,2.16.840.1.101.3.4.1.26,GCM,107,no
 AlgorithmParameters,2.16.840.1.101.3.4.1.46,GCM,108,no
+CertificateFactory,X.509,X509,500,no
 Cipher,RSA/None/NoPadding,RSA/ECB/NoPadding,332,no
 Cipher,RSA/None/PKCS1Padding,RSA/ECB/PKCS1Padding,334,no
 Cipher,RSA/None/OAEPPadding,RSA/ECB/OAEPPadding,337,no
@@ -41,6 +42,11 @@ Cipher,2.16.840.1.101.3.4.1.6,AES/GCM/NoPadding,431,no
 Cipher,2.16.840.1.101.3.4.1.26,AES/GCM/NoPadding,432,no
 Cipher,2.16.840.1.101.3.4.1.46,AES/GCM/NoPadding,433,no
 Cipher,ChaCha20-Poly1305,ChaCha20/Poly1305/NoPadding,449,no
+KeyFactory,1.2.840.113549.1.1.1,RSA,195,no
+KeyFactory,1.2.840.113549.1.1.7,RSA,196,no
+KeyFactory,2.5.8.1.1,RSA,197,no
+KeyFactory,1.2.840.10045.2.1,EC,200,no
+KeyFactory,1.3.133.16.840.63.0.2,EC,201,no
 KeyGenerator,RC4,ARC4,141,no
 KeyGenerator,1.2.840.113549.3.4,ARC4,142,no
 KeyGenerator,TDEA,DESEDE,149,no

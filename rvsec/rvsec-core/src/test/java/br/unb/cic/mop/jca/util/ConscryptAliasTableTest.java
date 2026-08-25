@@ -52,11 +52,19 @@ public class ConscryptAliasTableTest {
      * {@code Signature} rows were live false-accusation vectors: without them an
      * application signing under the composite OID was reported for an algorithm
      * the platform resolves to one the rule admits.
+     *
+     * <p>It was 169 until gh105 task 9.8 added the last six, missing by service
+     * rather than by syntax: the five {@code KeyFactory} OIDs ({@code :195-197},
+     * {@code :200-201}) and {@code CertificateFactory X.509} ({@code :500}). No
+     * specification of the set resolves those two services, so no verdict moved;
+     * what moved is that the number here is now the number of {@code Alg.Alias}
+     * lines in the pinned provider file, so the class's completeness claim is a
+     * measurement instead of a promise.
      */
     @Test
-    public void tableHasTheOneHundredAndSixtyNineExtractedRows() throws IOException {
-        assertEquals(169, readRegistry().size());
-        assertEquals(169, ConscryptAliasTable.rows().size());
+    public void tableHasTheOneHundredAndSeventyFiveExtractedRows() throws IOException {
+        assertEquals(175, readRegistry().size());
+        assertEquals(175, ConscryptAliasTable.rows().size());
     }
 
     // --- the corrected pointers of the two rows the pivot brief got wrong ---

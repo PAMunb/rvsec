@@ -24,20 +24,28 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // nothing to say about a call the rule turns down.
         //
         // Absorbing them matters more here than the noise argument alone suggests.
-        // Neither binds the specification parameter -- `after(char[] password)` names
-        // no `PBEKeySpec` -- so the generator dispatches them to the whole monitor
-        // set (`PBEKeySpecSpec__Map`, `stateTransitionedSet.event_f1`). Left outside
-        // the automaton they carry an all-`fail` transition row, so one forbidden
-        // construction anywhere in a program pushed *every* live PBEKeySpec monitor
-        // into `fail`, accusing objects that had done nothing wrong.
-        event f1 after(char[] password):
+        // Left outside the automaton they carried an all-`fail` transition row, so one
+        // forbidden construction anywhere in a program pushed *every* live PBEKeySpec
+        // monitor into `fail`, accusing objects that had done nothing wrong.
+        //
+        // Both bind the specification parameter, like `c1` below: on a `call` to a
+        // constructor the returned value is the object being built, so
+        // `returning(PBEKeySpec s)` names the very spec the event accuses. Without it
+        // the events named no `PBEKeySpec`, the generator handed them the parameterless
+        // map (`PBEKeySpecSpec__Map`, `stateTransitionedSet.event_f1`) and each ran its
+        // body once on the root monitor and once on every live monitor of the
+        // specification -- a set-wide broadcast where the rule accuses one construction.
+        // The `ErrorCollector` dedups on (spec, code, event, class, method, location),
+        // so the copies collapsed to one row and the fan-out never showed in the record;
+        // what the binding buys is per-object trace semantics, not fewer reports.
+        event f1 after(char[] password) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[])) &&
           args(password) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,
                 "v=1 code=PBEKEYSPEC-FORB-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[]) is forbidden by api30 PBEKeySpec.cryptsl'"));
         }
 
-        event f2 after(char[] password, byte[] salt, int keyLength):
+        event f2 after(char[] password, byte[] salt, int keyLength) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[], byte[], int)) &&
           args(password, salt, keyLength) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,

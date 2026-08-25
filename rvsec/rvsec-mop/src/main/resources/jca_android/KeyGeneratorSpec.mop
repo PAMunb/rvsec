@@ -70,10 +70,18 @@ KeyGeneratorSpec(KeyGenerator k) {
         currentAlgorithmInstance = alg;
     }
 
+    // The guard reads the bound argument, not the monitor field. The field is
+    // initialised `""` and only `g1`/`g2` write it, so on a fresh monitor this guard
+    // was correct only because the generator emits `g1Event` ahead of `g3Event` on
+    // the shared pointcut, an order nothing in the tree asserts. Here the inversion
+    // would be silent in the automaton -- this body only rebinds the field and the
+    // accusation lives downstream at `gk1` -- which is exactly why the dependence is
+    // worth removing before something reorders the dispatch. The six other negated
+    // twins of the set already read their argument.
     event g3 after(String alg) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String))
       && args(alg)
-      && condition(!ConscryptAliasTable.matches("KeyGenerator", currentAlgorithmInstance, safeAlgorithms))  {
+      && condition(!ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms))  {
         currentAlgorithmInstance = alg;
     }
 
