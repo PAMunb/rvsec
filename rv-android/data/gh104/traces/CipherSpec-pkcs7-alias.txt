@@ -1,0 +1,7 @@
+# task 9.10. `AES/CBC/PKCS7Padding` is a pinned Conscrypt Alg.Alias for
+# `AES/CBC/PKCS5Padding` (alias_table.csv, OpenSSLProvider :380) and the frozen
+# `CipherTransformationUtil` resolves no alias, so this conforming program is accused.
+bind k = new SecretKeySpec(bytes, "AES")
+Cipher.getInstance("AES/CBC/PKCS7Padding") -> c
+c.init(1, k)
+c.doFinal()

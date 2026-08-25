@@ -1,0 +1,12 @@
+# task 9.15. Two streams alive at once. Before: the specification declares no parameter, so
+# the generator emits a single process-wide instance and the second constructor arrives where
+# the automaton expects the first stream's own sequence. After: one monitor per stream.
+# Corpus mass for this class was measured at 0 rows of 97,018, so this trace is the only
+# witness the repair has -- and that is what the evidence says.
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> cipher
+new CipherInputStream(null, cipher) -> cis1
+new CipherInputStream(null, cipher) -> cis2
+cis1.read()
+cis1.close()
+cis2.read()
+cis2.close()

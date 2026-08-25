@@ -1,0 +1,12 @@
+# task 9.13, the other licensed half. Both oracles state `Inits+`/`Init+` and `s2` carried no
+# `init` loop, so re-initialising a cipher before using it was a wrong call sequence.
+#
+# What this trace deliberately does NOT exercise is re-`init` after the finals -- the "reused
+# Cipher". Neither ORDER returns from the finals group to `Inits`, so that transition was
+# refused with the researcher's decision of 2026-08-25: it would make this specification more
+# permissive than both oracles.
+bind k = new SecretKeySpec(bytes, "AES")
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k)
+c.init(1, k)
+c.doFinal()

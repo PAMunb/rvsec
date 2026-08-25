@@ -1,0 +1,13 @@
+# task 9.17. The two-argument getInstance with a protocol the rule rejects -- the case no
+# trace of this corpus carried, which is why the 9.17 pair read `unchanged` before this file
+# existed. Before: `g2`'s positive guard is false, the event does not fire, and the dispatcher
+# has already run FindOrCreateEntry -- so the context holds a monitor at state 0, where
+# `init` is fail. Measured: the `init` body runs anyway, so side A raises SSLCONTEXT-ORDER-00
+# *and* SSLCONTEXT-PROTO-00 about one rejected context -- a doubled report, not a
+# misclassified one. After: `g2` is a `Gets` whatever it was asked for, the context reaches
+# `end`, and PROTO-00 stands alone.
+#
+# Measured on Temurin: SunJSSE really produces this context and getProtocol() answers
+# "SSLv3", so the guard sees the value the trace names on both sides.
+SSLContext.getInstance("SSLv3", "SunJSSE") -> ctx
+ctx.init(null, null, null)

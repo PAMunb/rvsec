@@ -1,0 +1,7 @@
+# task 9.10. `RSA/None/PKCS1Padding` is a pinned Conscrypt Alg.Alias for
+# `RSA/ECB/PKCS1Padding` (alias_table.csv, OpenSSLProvider :334); the RSA branch of `isValid`
+# admits only `""` and `"ECB"` as the mode (`:64-65`), so the aliased spelling falls out.
+bind k = new SecretKeySpec(bytes, "RSA")
+Cipher.getInstance("RSA/None/PKCS1Padding") -> c
+c.init(1, k)
+c.doFinal()

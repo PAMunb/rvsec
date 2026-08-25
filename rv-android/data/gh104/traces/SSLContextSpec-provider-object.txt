@@ -1,0 +1,10 @@
+# task 9.16. The `(String, Provider)` overload android-30 declares and the pointcut did not
+# cover. Before: no pointcut of the set matches the call, so nothing is dispatched and the
+# context reaches `init` with the monitor at state 0, where `init[0]` is fail -- a conforming
+# program accused of a wrong call sequence. After: the `Object+` pointcut covers both
+# two-argument overloads, `g2` fires, and the conforming program is silent.
+#
+# The protocol is one the rule admits, so nothing else can account for a difference.
+bind p = Security.getProvider("SunJSSE")
+SSLContext.getInstance("TLSv1.2", p) -> ctx
+ctx.init(null, null, null)

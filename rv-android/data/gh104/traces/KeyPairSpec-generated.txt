@@ -1,0 +1,10 @@
+# task 9.11. A KeyPair that came from generateKeyPair() rather than from the constructor --
+# which on Android is practically every key pair. The `bind` form is what makes the case
+# expressible: it produces the object and fires nothing, so the monitor never sees a `c1`.
+# Before: `ere: c1 (gpu | gpr)*` makes the constructor mandatory and both reads accuse.
+# After: `(c1 | epsilon) (gpu | gpr)*`, and they are accepted -- api30 `KeyPair.cryptsl:27`
+# orders `co?, (pu*, pr*)*`. The expert orders the constructor mandatory; the divergence is
+# recorded with the repair, per the project convention that ORDER answers to api30.
+bind kp = new KeyPair(null, null)
+kp.getPublic()
+kp.getPrivate()

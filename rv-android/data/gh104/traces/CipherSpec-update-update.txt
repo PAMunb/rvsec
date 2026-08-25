@@ -1,0 +1,10 @@
+# task 9.13, the licensed half. api30 `Cipher.cryptsl:117` orders `updates+` and the expert
+# `Cipher.crysl:85` orders `Update+`, but `s3` carried no `update` loop, so a second update
+# was a wrong call sequence. Both oracles admit it; the repair is a transition over an event
+# that already exists.
+bind k = new SecretKeySpec(bytes, "AES")
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k)
+c.update(bytes)
+c.update(bytes)
+c.doFinal()

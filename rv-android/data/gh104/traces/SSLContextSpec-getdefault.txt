@@ -1,0 +1,3 @@
+# task 9.9. `getDefault()` is FORBIDDEN in both oracles and the set had no event for it, so
+# this program was silence from end to end. After: SSLCONTEXT-FORB-00, once.
+SSLContext.getDefault() -> ctx

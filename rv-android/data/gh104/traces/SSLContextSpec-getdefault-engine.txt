@@ -1,0 +1,12 @@
+# tasks 9.9 and 9.1 together, and the residue they decided to keep. `createSSLEngine`'s
+# pointcut declared a `void` return where the platform returns SSLEngine, so both weavers
+# gated it out and the advice never fired; with the return type repaired the event is live,
+# its dispatcher creates a monitor when none exists, and its row is fail at `start`.
+#
+# So this program draws SSLCONTEXT-FORB-00 for the forbidden call and SSLCONTEXT-ORDER-00
+# for the engine created on a context the ordering never opened. The second is the residue
+# `PBEKeySpecSpec.mop:183-189` already records for the identical
+# `PBEKeySpec(char[]) => Con`: silencing it would mean modelling a forbidden call as an
+# alternative opening of the ordering, which is the opposite of what FORBIDDEN says.
+SSLContext.getDefault() -> ctx
+ctx.createSSLEngine()

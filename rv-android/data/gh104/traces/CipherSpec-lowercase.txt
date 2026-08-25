@@ -1,0 +1,7 @@
+# task 9.10. The JCA resolves transformation names case-insensitively; `isValid` folds case
+# only for the padding (`:46`), so `alg(t).equals("AES")` (`:44`) and
+# `modes.contains(mode(t))` (`:45`) reject a spelling the platform accepts.
+bind k = new SecretKeySpec(bytes, "AES")
+Cipher.getInstance("aes/cbc/pkcs5padding") -> c
+c.init(1, k)
+c.doFinal()
