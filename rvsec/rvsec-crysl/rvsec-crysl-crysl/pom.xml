@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec-crysl</artifactId>
+		<version>0.9.3-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>rvsec-crysl-crysl</artifactId>
+	<name>RVSec :: CrySL conformance :: crysl</name>
+
+	<dependencies>
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-crysl-core</artifactId>
+		</dependency>
+
+		<!-- The CLI lives in this module and needs the MOP lift as well as the CrySL lift, which is
+		     why this dependency exists; the reason it is this module rather than -mop or a fourth
+		     -cli module is recorded in br.unb.cic.rvsec.crysl.crysl.cli.package-info. The direction
+		     matters: javamop pulls no Guava, so adding it here changes nothing about the classpath
+		     the single-JVM probe measured, whereas adding CrySLParser to -mop would put Guava on the
+		     module whose DependencyDisciplineTest asserts Guava is absent from it. -->
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-crysl-mop</artifactId>
+		</dependency>
+
+		<!-- Argument parsing for the CLI, following the shape of rvsec-mop-extractor (D-15). The
+		     version is the reactor's; jcommander already arrives transitively through javamop, and
+		     declaring it makes the CLI's dependency on it explicit rather than borrowed. -->
+		<dependency>
+			<groupId>com.beust</groupId>
+			<artifactId>jcommander</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>de.darmstadt.tu.crossing.CrySL</groupId>
+			<artifactId>CrySLParser</artifactId>
+			<exclusions>
+				<!-- CrySLParser declares slf4j-simple in compile scope, so without this exclusion a
+				     logging backend is bound for every consumer of this module and the reactor ends
+				     up with two bindings on the same classpath. Only slf4j-api is wanted. -->
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-simple</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-crysl-core</artifactId>
+			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.tngtech.archunit</groupId>
+			<artifactId>archunit</artifactId>
+		</dependency>
+	</dependencies>
+</project>

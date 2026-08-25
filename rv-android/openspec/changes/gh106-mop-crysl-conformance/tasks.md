@@ -95,7 +95,7 @@ type so INV-CONF-03 is machine-checkable, `Event` with `declIndex`, `Constraint`
 with `Witness{status: ABSTRACT|CONCRETE}`. Fixing these types is what releases six parallel tracks
 the next day.
 
-- [ ] 1.1 G00 closed — every checkbox in [tasks/G00-foundation.md](tasks/G00-foundation.md) is `[x]`
+- [x] 1.1 G00 closed — every checkbox in [tasks/G00-foundation.md](tasks/G00-foundation.md) is `[x]`
 
 ## 2. G01 · lift MOP
 
@@ -103,7 +103,7 @@ the next day.
 predicate substrates (`ExecutionContext` and `PredicateStore`); the `ere`/`fsm` mini-parser;
 `file:line` provenance on every item.
 
-- [ ] 2.1 G01 closed — every checkbox in [tasks/G01-lift-mop.md](tasks/G01-lift-mop.md) is `[x]`
+- [x] 2.1 G01 closed — every checkbox in [tasks/G01-lift-mop.md](tasks/G01-lift-mop.md) is `[x]`
 
 ## 3. G02 · lift CrySL
 
@@ -111,14 +111,14 @@ A fresh `CrySLModelReader` per rule with no sharing option; **no lexical normali
 `StateMachineGraph` → automaton; the EMF provenance route (`resource.getErrors()`, names, `file:line`
 — D-19); the single upstream oracle (`CrySL-Rules`, 47 of 49).
 
-- [ ] 3.1 G02 closed — every checkbox in [tasks/G02-lift-crysl.md](tasks/G02-lift-crysl.md) is `[x]`
+- [x] 3.1 G02 closed — every checkbox in [tasks/G02-lift-crysl.md](tasks/G02-lift-crysl.md) is `[x]`
 
 ## 4. G03 · automata core
 
 NFA/DFA, determinization, minimization, product search, the inverse morphism `h⁻¹(L)`, and the
 shortest witness carrying its status and its normalizations.
 
-- [ ] 4.1 G03 closed — every checkbox in [tasks/G03-core-automata.md](tasks/G03-core-automata.md) is `[x]`
+- [x] 4.1 G03 closed — every checkbox in [tasks/G03-core-automata.md](tasks/G03-core-automata.md) is `[x]`
 
 ## 5. G04 · outputs
 
@@ -126,7 +126,7 @@ JSON; CSV in the schemas of `data/jca_android/*.csv`; Markdown evidence in the s
 `data/gh104/evidence/*.md`; **a commit stamp and a counting rule on every emitted table**, enforced
 rather than conventional.
 
-- [ ] 5.1 G04 closed — every checkbox in [tasks/G04-outputs.md](tasks/G04-outputs.md) is `[x]`
+- [x] 5.1 G04 closed — every checkbox in [tasks/G04-outputs.md](tasks/G04-outputs.md) is `[x]`
 
 ## 6. G05 · CLI + reactor
 
@@ -134,7 +134,7 @@ rather than conventional.
 that asserts the effective pom rather than trusting a silent build. `rvsec-mop-extractor` is the
 template **by shape**, not by code.
 
-- [ ] 6.1 G05 closed — every checkbox in [tasks/G05-cli-reactor.md](tasks/G05-cli-reactor.md) is `[x]`
+- [x] 6.1 G05 closed — every checkbox in [tasks/G05-cli-reactor.md](tasks/G05-cli-reactor.md) is `[x]`
 
 ## 7. G06 · M0 vitality
 
@@ -142,13 +142,13 @@ Does it index? Is the accusation site reachable? Does the pointcut resolve again
 Plus the non-normalized AST checker. Emits `Unknown{UnresolvedSignature}`, refuses before M1–M4, and
 **separates the three causes of silence** that P2 measured.
 
-- [ ] 7.1 G06 closed — every checkbox in [tasks/G06-m0-vitality.md](tasks/G06-m0-vitality.md) is `[x]`
+- [x] 7.1 G06 closed — every checkbox in [tasks/G06-m0-vitality.md](tasks/G06-m0-vitality.md) is `[x]`
 
 ## 8. G07 · M1 events
 
 Sets of concrete signatures; coverage plus **both** differences; feeds the label alignment M2 uses.
 
-- [ ] 8.1 G07 closed — every checkbox in [tasks/G07-m1-events.md](tasks/G07-m1-events.md) is `[x]`
+- [x] 8.1 G07 closed — every checkbox in [tasks/G07-m1-events.md](tasks/G07-m1-events.md) is `[x]`
 
 ## 9. G08 · M3 constraints
 
@@ -157,7 +157,7 @@ than decoration; `Unknown{UntranslatableConstraint}`; **two ceilings reported se
 summed** — the upstream denominator is 80 over the 22 paired rules (R1), and the numerator is
 remeasured, not carried over from the `api30`-anchored table.
 
-- [ ] 9.1 G08 closed — every checkbox in [tasks/G08-m3-constraints.md](tasks/G08-m3-constraints.md) is `[x]`
+- [x] 9.1 G08 closed — every checkbox in [tasks/G08-m3-constraints.md](tasks/G08-m3-constraints.md) is `[x]`
 
 ## 10. G09 · M4 predicates
 
@@ -165,7 +165,7 @@ The `ENSURES`/`REQUIRES`/`NEGATES` graph by arity, polarity and argument positio
 (the new one in `jca_android`, the old one in the frozen `jca`); every row marked derived or
 inherited; detection of predicate propagation across type conversions.
 
-- [ ] 10.1 G09 closed — every checkbox in [tasks/G09-m4-predicates.md](tasks/G09-m4-predicates.md) is `[x]`
+- [x] 10.1 G09 closed — every checkbox in [tasks/G09-m4-predicates.md](tasks/G09-m4-predicates.md) is `[x]`
 
 ## 11. G10 · M2 order
 
@@ -174,7 +174,7 @@ inherited; detection of predicate propagation across type conversions.
 `ABSTRACT`/`CONCRETE` with its normalizations printed. Includes recomputing the `KeyGeneratorSpec`
 verdict, whose published value was computed over an automaton that no longer exists.
 
-- [ ] 11.1 G10 closed — every checkbox in [tasks/G10-m2-order.md](tasks/G10-m2-order.md) is `[x]`
+- [x] 11.1 G10 closed — every checkbox in [tasks/G10-m2-order.md](tasks/G10-m2-order.md) is `[x]`
 
 ## 12. G11 · mop.lower + round-trip gate
 
@@ -182,7 +182,7 @@ verdict, whose published value was computed over an automaton that no longer exi
 non-normalized AST checker as the gate, (2) product search as evidence with the normalizations
 printed beside each verdict.
 
-- [ ] 12.1 G11 closed — every checkbox in [tasks/G11-mop-lower-roundtrip.md](tasks/G11-mop-lower-roundtrip.md) is `[x]`
+- [x] 12.1 G11 closed — every checkbox in [tasks/G11-mop-lower-roundtrip.md](tasks/G11-mop-lower-roundtrip.md) is `[x]`
 
 ## 13. G12 · corpus calibration — the gate that stops the component being born wrong
 
@@ -192,7 +192,7 @@ were the component's own rule, and a gate built on those cannot fail (`risk-regi
 evidence. **Never adjust the component until the numbers agree** — the cheapest way to pass a
 calibration gate is to break the instrument.
 
-- [ ] 13.1 G12 closed — every checkbox in [tasks/G12-corpus-calibration.md](tasks/G12-corpus-calibration.md) is `[x]`
+- [x] 13.1 G12 closed — every checkbox in [tasks/G12-corpus-calibration.md](tasks/G12-corpus-calibration.md) is `[x]`
 
 ## 14. G13a · what dies, unconditional part
 
@@ -200,7 +200,7 @@ Back up the six `ORDER` comparators and the seven CrySL readers under `audit/202
 one counted in both categories). Independent of every other group and runnable from day one, because
 nothing in CI depends on them.
 
-- [ ] 14.1 G13a closed — every checkbox in [tasks/G13a-what-dies-unconditional.md](tasks/G13a-what-dies-unconditional.md) is `[x]`
+- [x] 14.1 G13a closed — every checkbox in [tasks/G13a-what-dies-unconditional.md](tasks/G13a-what-dies-unconditional.md) is `[x]`
 
 ## 15. G13b · what dies, conditional part
 
@@ -209,7 +209,7 @@ The CI gates (`scripts/gh105_order_gate.py`, the three `gh10{1,4}_*.py`, and
 reproduction evidence and schedules their retirement in a follow-up cleanup change. The criterion:
 *the ad-hoc dies when the component reproduces its verdict, not when it compiles.*
 
-- [ ] 15.1 G13b closed — every checkbox in [tasks/G13b-what-dies-conditional.md](tasks/G13b-what-dies-conditional.md) is `[x]`
+- [x] 15.1 G13b closed — every checkbox in [tasks/G13b-what-dies-conditional.md](tasks/G13b-what-dies-conditional.md) is `[x]`
 
 ## 16. G14 · final verification
 

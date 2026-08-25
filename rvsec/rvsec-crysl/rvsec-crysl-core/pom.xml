@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec-crysl</artifactId>
+		<version>0.9.3-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>rvsec-crysl-core</artifactId>
+	<name>RVSec :: CrySL conformance :: core</name>
+
+	<properties>
+		<asm.version>9.8</asm.version>
+		<!-- Where the committed CSV schemas live: the sibling rv-android checkout, which is the
+		     producer of data/jca_android/*.csv. CommittedSchemaDriftTest reads the four headers from
+		     there at build time and fails when CsvSchema and the committed files disagree, so a schema
+		     drift is a red build instead of a second CSV dialect nobody notices.
+
+		     The path is relative to this module rather than to ${main.basedir}: the reactor root
+		     resolves that property through directory-maven-plugin, which needs rvsec-parent in the
+		     session, and this module is routinely built with -f rvsec/rvsec-crysl/pom.xml alone. -->
+		<committed.schemas.dir>${project.basedir}/../../../rv-android/data/jca_android</committed.schemas.dir>
+	</properties>
+
+	<!-- The canonical model, the metric result types and the emitters. Gson is here because the
+	     JSON emitter is here. What must never appear below is a dependency on either parser:
+	     javamop and CrySLParser belong to the two lifter modules, and ModelShapeArchTest fails the
+	     build if a class of this module ever depends on javamop.. or crysl.. . -->
+	<dependencies>
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+		</dependency>
+
+		<!-- ApiIndex reads android.jar with ASM. It is declared explicitly rather than inherited:
+		     CrySLParser drags asm 9.8 in transitively on the -crysl module, and an index that took
+		     its bytecode reader from a parser's dependency tree would change version whenever that
+		     parser did, while the class-count assertions of ApiIndexTest are anchored to what the
+		     reader accepts. Pinned to the version CrySLParser 4.0.6 already resolves, so declaring
+		     it moves nothing today and fixes it for tomorrow. ASM is not a parser of either
+		     specification language, so D-16 does not keep it out of this module. -->
+		<dependency>
+			<groupId>org.ow2.asm</groupId>
+			<artifactId>asm</artifactId>
+			<version>${asm.version}</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.tngtech.archunit</groupId>
+			<artifactId>archunit</artifactId>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<!-- Publishes src/test/java as a test-jar so CiTags reaches -mop and -crysl. Only the
+			     tag names travel this way; no test of this module is meant to be re-run elsewhere. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>test-jar</id>
+						<goals>
+							<goal>test-jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

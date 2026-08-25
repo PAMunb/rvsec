@@ -296,6 +296,19 @@ The Level column always means inherent risk; the Status column carries the dispo
     publish the component's value **with its rule** (G12 12.10). Do not chase a rule that was never
     written down, and do not adjust the component to hit a number whose provenance is unknown.
   - **Owner**: change author (adjudication is not delegable).
+- **Update (2026-08-24, G12 closure)**: the gate is wired and ran. **All eight targets reproduced**
+  at their pinned per-repository stamps, and the eight routes were additionally re-taken at the
+  closing HEAD (`rvsec` `6192b57a`, `rvsec-cognicrypt` `f2f4d3b`) rather than assumed to have
+  carried — none drifted. Zero targets are in state *mismatch, unadjudicated*, which is the closing
+  condition this register asked for. Two real disagreements were found and adjudicated in writing
+  (`rv-android/docs/20260824_adjudicacao_calibracao_gh106.md`), and neither was resolved by
+  adjusting the component: the two pairing implementations (23 versus 22 — `SpecRulePairing` is
+  right, the simple-name map counted `Cipher.crysl` twice) and the M3 table's two missing
+  specifications (not a pairing disagreement: both paired rules have an empty `CONSTRAINTS`, so M3
+  has no clause to write a row about — the assertion was made to **name** the two rather than be
+  relaxed). No counting rule, recogniser threshold or lift behaviour was changed in the G12 window;
+  the one behavioural change is M4 pairing through the one implementation, and its before/after is
+  published in the class Javadoc and in the adjudication document.
 - **Status**: Open — controlled by design (INV-CONF-14, D-13); residual is the closing condition above
 
 ---
@@ -353,6 +366,16 @@ The Level column always means inherent risk; the Status column carries the dispo
   residual is target 5's committed `constraint_table.csv` (`25/55`, `api30`-anchored) standing as a
   **labelled historical reconciliation** — kept legible as history, never counted as calibration. The
   description above is preserved as the history that motivated D-18.
+- **Update (2026-08-24, G12 closure)**: the route class is now a field of every target
+  (`RouteClass`) and is printed beside every verdict, as this register asked. The measured
+  composition of the eight is **6 independent probes, 1 committed artifact
+  (`order_alphabet_map.csv`'s `disposition` column, target 6), 1 regenerated artifact (the
+  `rv-monitor-generator` pass, target 8)** — and **0 same-algorithm restatements**, asserted by
+  `test_no_target_restates_the_component` rather than left to review. Target 8's generation pass was
+  actually run, into scratch, and its five specifications are the component's five: the M0.1 proxy's
+  agreement with the generated monitor is now a measurement rather than an assumption. Target 5's
+  committed `constraint_table.csv` remains a labelled historical reconciliation and is named as
+  *not* a calibration route in the target's own `note` field.
 - **Status**: Mitigated by D-18 (routes replaced in the artifacts); residual: target 5's
   historical-reconciliation labelling
 
@@ -692,6 +715,59 @@ The Level column always means inherent risk; the Status column carries the dispo
 
 ---
 
+### RISK-017: `PredicateRef` cannot express polarity, and M4 compares polarity
+
+**Status**: MITIGATED — 2026-08-24, in the three `rvsec-crysl` modules (see the Change Log).
+**Probability**: certain (already realised). **Impact**: High. **Severity**: High.
+
+G00 defined `record PredicateRef(String name, List<String> arguments, Provenance site)` with the
+rationale that *polarity comes from which list holds it, so a reference cannot disagree with its
+section*. **The corpus falsifies that on both sides**, and the delta spec asks for the thing the
+record cannot hold.
+
+Measured, counting rule = `grep` for a leading `!` inside a `REQUIRES` block over the 49 upstream
+rules, and for `validateAbsent` over the 24 `jca_android` specs, both at `78b3f5e3`:
+
+- **CrySL side — 3 negated references in 2 rules**: `Cipher.crysl:137` `!macced[_, plainText]`,
+  `Mac.crysl:51` and `:52` `!encrypted[...]`. These sit **inside `REQUIRES`**. They are *not*
+  `NEGATES` entries: `NEGATES` says the event destroys a predicate, while `!p[...]` in `REQUIRES`
+  says the event demands the predicate be **absent**. Filing them under `negates` claims an entry the
+  rule does not have; filing them under `requires` — which is their true section — silently drops the
+  `!` and inverts their meaning.
+- **MOP side — 9 `validateAbsent` sites** in `jca_android` (e.g. `MacSpec.mop:307`,
+  `validateAbsent(Property.ENCRYPTED, output) == PredicateVerdict.VIOLATED`). The delta spec's own
+  scenario requires the model to *"record a **negated `REQUIRES`** on the three-valued substrate"* —
+  a REQUIRES entry carrying a negation, which is exactly what the record cannot represent.
+
+**Why it is High rather than cosmetic.** M4's stated job is to compare `ENSURES`/`REQUIRES`/`NEGATES`
+**by arity, polarity and argument position** and to emit *edges inverted*. With polarity dropped on
+both sides, the two models agree — and M4 reports **conformant** for a specification that demands the
+opposite of what the rule demands. That is a false negative produced by the instrument, in the one
+metric whose purpose is to catch inversion. It cannot be caught downstream: nothing below the model
+can recover a `!` the lift discarded.
+
+**Mitigation**: add polarity to `PredicateRef` in `-core` and make both lifters populate it, so a
+negated `REQUIRES` is representable and M4 compares it. Because G00 is closed, this is tracked here
+and executed by the orchestrator between G01 closure and G09 dispatch — G01 and G02 both touch the
+type, so it is reconciled once, after both lifters exist, rather than twice under contention.
+**Trigger to re-check**: G09 must assert an inverted-polarity pair end to end; if that assertion
+cannot be written, the mitigation did not land.
+
+### RISK-018: `LiftFailure` was defined twice because no group owns it
+
+**Status**: MITIGATED — 2026-08-24 (see the Change Log). **Probability**: certain (already realised).
+**Impact**: Low. **Severity**: Low.
+
+The delta spec and the design name `LiftFailure` once, as the error type for **both** a `.mop` and a
+`.crysl` that fails to parse, and the CLI contract (G05 5.5) treats it as a result rather than a
+failure. No task group owns its definition, so it landed in `-crysl` as
+`br.unb.cic.rvsec.crysl.crysl.LiftFailure`; G01 needs the same concept in `-mop`, and neither module
+may depend on the other. Left alone this becomes two incompatible types for one contract, and the
+CLI would have to catch both.
+
+**Mitigation**: promote a single `LiftFailure` (carrying a `Throwable` cause) to `-core`, which both
+lifter modules already depend on, and delete the local copies. Same execution window as RISK-017.
+
 ## Monitoring Schedule
 
 - **Review cadence**: at each Full-SDD phase boundary of this change.
@@ -738,3 +814,5 @@ The Level column always means inherent risk; the Status column carries the dispo
 |------|------|--------|
 | 2026-08-24 | all | Register created at end of Design phase. Every entry verified against the tree at HEAD `5fbe8173` rather than derived from `design.md` §Risks — which is why six of the sixteen are risks the design does not carry: RISK-001 (`ci.yml:30` builds with `-DskipTests`; only dexlib2 `grammar-tests` re-enables them at `:44`), RISK-002 (`MetaCrySL` @ `fb1ecab` and `rvsec-cognicrypt` @ `f2f4d3b` are separate repositories, absent from the CI checkout), RISK-003 (`Version` has one `commit` field for three repositories), RISK-004 (`docs/handoff/20260824_arnes_adjudicacao/` 0 files tracked; three Phase 0 docs untracked; the change tree untracked; `ci.yml:20` deletes `backup/`), RISK-006 (targets 5, 6 and 8 of the eight are a hand-maintained CSV, a restatement of the component's own pairing rule, and the AST proxy the component implements), RISK-012 (`tests/parity` and the four `gh10*` scripts appear nowhere in the workflow, so "CI gates" overstates their standing and 13a.7 is vacuous as written). Verified and **confirmed** rather than corrected: the corpus counts (215 `.mop` = 23+24+23+118+27; `api30` 33; upstream 49), the availability of every dependency in the local repository (`CrySLParser 4.0.6`, `javamop 0.9.3-SNAPSHOT`, `guava 33.5.0-jre`, `archunit 1.2.1`), the existence of every parser API the design assumes (`SpecExtractor`, `MOPNameSpace`, `MOPSpecFile`, `DumpVisitor`, `crysl/parsing/CrySLModelReader`, `crysl/rule/StateMachineGraph`), `android-30` present under `ANDROID_HOME`, and that HEAD is exactly the commit the eight targets are pinned at. Two smaller corrections recorded in the bodies: G02 2.2 cites `scripts/normalize_api30.py`, which does not exist (the file is under `docs/handoff/20260824_arnes_adjudicacao/scripts/`); and the V10 `-core` pom validated in Phase 0 declares a Gson dependency, contradicting G00 0.2's "zero external dependencies" (RISK-009). |
 | 2026-08-24 | scope, 002, 003, 004, 006, 007, 011, 014, 016 | **Oracle-switch revision** (same day, after the risk pass). D-06 makes `rvsec-cognicrypt/CrySL-Rules` the single oracle — 49 rules, 47 of which parse with **no** normalization; the two failures are `OAEPParameterSpec` (reserved word `alg`) and `SSLEngine` (`ORDER` references `cp1`, declared `ep1`) — and abandons `MetaCrySL/generated/api30`, which survives only as the method note recording that it deletes 25 clauses across 12 of the 22 paired rules under R1. Folded in: the lexical normalization died (G02 rewritten); pairing is by declared type, `22 of 24` (RISK-007 resolved and closed); calibration target 4 is `47 of 49` via `V3Fresh.java` and target 5 is the upstream denominator `80` via the two independent R1 implementations, with `constraint_table.csv` demoted to a labelled historical reconciliation (RISK-006 mitigated by D-18); RISK-002 and RISK-003 re-scoped to two repositories plus the SDK — reduced, not resolved: `rvsec-cognicrypt` is still absent from the CI checkout; the harness inventory corrected to six probes, three scripts and 18 raw outputs (RISK-004); RISK-011's gh104/gh105 open-task literals stamped as stale within this window; RISK-014 recounted to 209 checkboxes (193 in the group files plus 16 in the revised `tasks.md`); RISK-016 now guards the two copies of the *only* oracle; the decision range extends to D-01 … D-19 (D-18 route independence, D-19 the EMF provenance route). |
+| 2026-08-24 | 017, 018 | **Both mitigated in code.** RISK-017: `-core` gained `model/Polarity` and `PredicateRef` became `(name, arguments, polarity, site)`, refusing a null polarity in the canonical constructor. The CrySL lifter reads `CrySLPredicate.isNegated()` for the `REQUIRES` block only — that is the one block where the flag is a fact of the reference, `CrySLModelReader.getRequiredPredicate` taking it from `RequiredPredicate.isNegated()` on the parse tree — and files `ENSURES`/`NEGATES` as `POSITIVE`, because `getTimedPredicates` is called there with a hard-coded `false`/`true` and the flag merely restates the block; copying it would have made every `NEGATES` pair read as inverted against a `.mop` `remove(...)`, which writes no `!`. The negated requirements stay in `requires`, and the "declared limitation" note in `CryslLifter.liftRequired` is gone. The MOP lifter maps `validateAbsent(...)` and `condition(!...validate(...))` to `NEGATED` and keeps the bare property name; `PredicateSite.negated` was collapsed into `PredicateRef.polarity()`, being the same predicate by construction. Measured, with the counting rules recorded beside each assertion: the upstream oracle yields **3** negated `REQUIRES` in 2 rules (`Cipher`, `Mac`) and **0** negated `ENSURES`/`NEGATES`; the five `.mop` corpora yield **36** negated references — `jca` 6, `jca_android` 5, `jca_android_bug_predicate` 25, both generic sets 0 — where the raw `grep` for `validateAbsent` over `jca_android` answers 9 because 4 of those lines are prose. The `Mac.crysl:51` / `jca_android/MacSpec.mop:307` pair is asserted end to end in `PredicatePolarityPairTest`, together with the flip that makes it disagree. RISK-018: one `LiftFailure` now lives in `br.unb.cic.rvsec.crysl.core`, checked, carrying file, message, `List<ParseError>` (also promoted to `-core`) and cause; `MopLiftException` was deleted and its `UnsupportedLogic` survives as `br.unb.cic.rvsec.crysl.mop.UnsupportedLogic extends LiftFailure`, since "the formula declares a logic out of scope" is a different reason from "the file did not parse" and a caller should not have to match on a message. Suites after the change: `-core` **73**, `-mop` **40**, `-crysl` **51**, 0 failures (`mvn -f rvsec/rvsec-crysl/pom.xml test`). |
+| 2026-08-24 | 003, 005, 017 | **The review's five findings, repaired and measured** (`/rv-code-reviewer` REQUEST CHANGES; full record in `rv-android/docs/20260824_adjudicacao_calibracao_gh106.md`, adenda da noite). RISK-003 gains a defect it did not anticipate and which is now closed: a stamped table whose **content** varies while its stamp does not. Measured over six separate JVMs on one unchanged corpus, `constraint_table.csv` took two distinct contents and `conformance_report.json` six, from three JDK collections whose iteration order is salted per JVM (`Set.of` in `M3Constraints`, `Map.copyOf` in `M3Result.byIdiom`, `Set.copyOf` in `Event.signatures` — the last feeding `MopLifter.declaredTypeOf`, which is the pairing key of target 6). Each published ordering now has a written rule (a precedence `List`, an `EnumMap`, an insertion-ordered set); **nine** separate JVMs afterwards emit every file byte-identically once the two wall-clock `read_at` stamps are normalised, and `DeclaredOrderTest` asserts the property that makes the salt irrelevant. The pairing key was probed over eight JVMs **before** the fix and was already stable on all 215 files, so the hazard was latent and no pairing moved. Also repaired: the subtype marker `+` surviving `PointcutExpander.resolve` (M0.3 over `generic_new` falls from 82 refusals in 23 specifications to 73 in 19, and seven `generic_new` declared types are corrected; M1's coverage and both difference-list sizes are unchanged, two entries change spelling; the pairing set does not move, `jca_android` staying 22 of 24) and the parenthesised `!( … )` negation invisible to `PredicateIdioms.negatedAt` (the lift census goes 6/5/25 → **7/5/26**, one site per substrate-A corpus at `PBEParameterSpecSpec.mop:47`, turning one M4 edge from *present* to *inverted* in each: `jca` 54/46/6 → 53/46/7, `bug_predicate` 61/28/23 → 60/28/24). Two assertions were raised to the corrected reality with the reason written beside them, never weakened. RISK-005 holds: the calibration gate was re-run after every fix and reports **8 targets, 0 mismatches**; no target moved. One finding is recorded as a **disagreement rather than absorbed**: the reviewer's "34 of 80 published rows return `absent` on a reader failure" measures 1 under the written rule (the key-supplying routine returns nothing), and that one row never reaches the `absent` door; the 34 counts every ARITHMETIC and INSTANCE_OF absence, for which `boundNames` extracts the operands correctly and the corpus documents its own deliberate deletions. The M3 vector is therefore unchanged at **31 implemented / 36 absent / 13 refused** of 80, and the alternative guard placement that would move it (to 30/36/14) is recorded and not taken, because it changes what is accused on a judgement the finding does not make. Suites after: `-core` **171**, `-mop` **59**, `-crysl` **102**, 0 failures and 0 skips with `RVSEC_GENERATED_MONITOR`; CI mode `171/58/38`. The declared CI/local split in `ci.yml` was re-measured and re-written from `65 of 326` to `65 of 332` (RISK-002's declaration, which 14.4-quater says is worse than none once it has drifted). |

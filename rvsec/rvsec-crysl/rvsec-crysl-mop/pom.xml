@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec-crysl</artifactId>
+		<version>0.9.3-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>rvsec-crysl-mop</artifactId>
+	<name>RVSec :: CrySL conformance :: mop</name>
+
+	<!-- javamop drags scala-library 2.11.12 in through rv-monitor -> ptltl. That is expected and
+	     harmless here: this module is plain Java 21 and never touches Scala at compile time, and
+	     the reactor's 2.11.12 is the version ptltl was built against. -->
+	<dependencies>
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-crysl-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>br.unb.cic.javamop</groupId>
+			<artifactId>javamop</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>br.unb.cic</groupId>
+			<artifactId>rvsec-crysl-core</artifactId>
+			<type>test-jar</type>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter</artifactId>
+		</dependency>
+	</dependencies>
+</project>

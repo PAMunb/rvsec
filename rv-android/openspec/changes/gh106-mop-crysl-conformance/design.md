@@ -192,7 +192,7 @@ and a table reporting specification and rule side by side carries both stamps.
 **D-18 · A target whose route is the component's own rule is not a calibration.**
 *Chosen because* two of the eight targets as first written could not fail: pairing "by name" is the
 rule the component applies, and the `MapOfMonitor` census "by AST proxy" is the proxy the component
-implements. *Consequence:* target 6 calibrates against the `disposition` column of
+implements. *Consequence:* target 6 calibrates against the declared skips of
 `order_alphabet_map.csv` (an artifact the component does not produce) and target 8 against the
 **regenerated monitors** — which costs one `rv-monitor-generator` pass and buys the only version of
 that check that can come out wrong. Target 5 is the upstream M3 denominator (`80` under R1 over the
@@ -200,6 +200,9 @@ that check that can come out wrong. Target 5 is the upstream M3 denominator (`80
 the committed `constraint_table.csv` (`25/55`, `api30`-anchored human judgement over `jca_android`)
 remains a labelled historical reconciliation, not a calibration. Quantities with no independent
 route are published as self-consistency checks, labelled, and not counted as calibration.
+
+**D-20 · `h⁻¹(L)` is applied at the lift, not in M2.** (researcher decision, 2026-08-24)
+*Chosen because* this document contradicted itself and two task groups implemented opposite readings without knowing: INV-CONF-03 and the API sketch above say `SpecModel.order` is *over `Signature`, not `Label`*, while Data Flow §5 said M2 computes `h⁻¹(L_mop)`. If the preimage happens in M2, the MOP side of the canonical model holds a label language while the CrySL side holds a signature language — the two sides of one model mean different things, and M2 compares automata with disjoint alphabets. *Alternative rejected:* keeping the label language in the model and amending INV-CONF-03; rejected because `SpecModel` is the **canonical** model and an asymmetric `order` is not canonical. *Consequence:* the MOP lift reads the `ere`/`fsm` into a `LabelAutomaton`, builds `InverseMorphism.of(events, site)` and stores the preimage, so M2 compares two real-signature automata directly. Two effects must be handled rather than discovered: the morphism's refusals (`Unknown{OverlappingDispatch}`) now arise **at lift**, so the lift result carries them — and a consumer reading `order` without consulting them reads a language narrower than the file, a narrowing that belongs to the refusal and not to the specification; and `mop.lower` cannot run the preimage backwards, so the `LabelAutomaton` and the morphism are retained on the `-mop` lift result (never on `SpecModel`) for the lowerer. *Measured while implementing it:* the witness this whole line of reasoning rests on did not exist in code — `InverseMorphism.of` grouped events by exact `Signature` equality, under which `IvChainJunction`'s `use` (written with a trailing AspectJ `..`) and `useRandomSpec` (written exactly) never claim the same call. Matching the trailing `..` is what makes D-02's witness real; verified by two routes that no `call(...)` pattern in the 215 files carries a non-trailing `..` or a `*` parameter type.
 
 **D-15 · Shape from `rvsec-mop-extractor`, not code.**
 *Chosen because* the sibling module already solves pom layout, CLI wiring, facade and writer conventions inside this reactor. Copying its code would import an unrelated model.
@@ -304,7 +307,7 @@ ApiIndex index(Path androidJar);
 2. **Stamp.** Every `SpecModel` receives `version = {commit, now, corpus}` at construction. An unstamped model cannot reach emission.
 3. **Pair.** Specifications pair with rules **by declared type** (INV-CONF-11) — 22 of 24, the two unpaired being exactly the two the alphabet map declares as skips.
 4. **M0.** For each specification: index check, accusation-site reachability, signature resolution against `ApiIndex`, plus the non-normalized AST check. A refusal short-circuits: M1–M4 do not run, and the typed `Unknown` is the specification's whole result.
-5. **M1–M4.** Each metric runs against the paired upstream rule. M2 builds `h` from the ordered event list, computes `h⁻¹(L_mop)`, determinizes the rule automaton, and searches the product in both directions, taking ε-erasure decisions from the `disposition` column. M3 classifies by idiom and counts its two ceilings separately. M4 builds both predicate graphs and marks each row derived or inherited.
+5. **M1–M4.** Each metric runs against the paired upstream rule. M2 compares two automata that are **already over real signatures**: the MOP lift built `h` from the ordered event list and applied `h⁻¹(L_mop)` at read time (D-20), so M2 determinizes the rule automaton and searches the product in both directions, taking ε-erasure decisions from the `disposition` column. M3 classifies by idiom and counts its two ceilings separately. M4 builds both predicate graphs and marks each row derived or inherited.
 6. **Calibrate.** The gate checks the eight targets. A mismatch stops publication of the affected metric and is reported with both measurements.
 7. **Emit.** JSON, CSV in the committed schemas (re-anchored to `.crysl` references, the committed `.cryptsl`-anchored files remaining readable as history), Markdown evidence — every table carrying its counting rule and the commit.
 
@@ -342,7 +345,7 @@ ApiIndex index(Path androidJar);
 | Unit | model shape, automata (determinization, minimization, product, `h⁻¹`), idiom recognisers, the `Unknown` hierarchy, `Witness` invariants | JUnit 5, no I/O; synthetic automata with closed-form answers, including the non-deterministic `ORDER con, a?, a` | ~80 |
 | Integration | lift over all 215 `.mop` and the 49 upstream rules; M0–M4 end to end on named specifications; round-trip lower→lift; emitters against the committed CSV schemas | real corpora on disk, read-only | ~40 |
 | Invariant | one test per `INV-CONF-01`…`INV-CONF-17`, each asserting the *violation* is refused | JUnit + ArchUnit (INV-CONF-03 forbids the `Map<Label,Set<Signature>>` shape; INV-CONF-04 forbids a reader held in a field) | 17 |
-| Calibration | the eight targets, each against a route the component does not produce (target 8 regenerates the monitors; target 6 reads the alphabet map's declared skips) | `CalibrationGateTest` at pinned per-corpus stamps | 8 |
+| Calibration | the eight targets, each against a route the component does not produce (target 8 regenerates the monitors; target 6 reads the alphabet map's declared skips, stated as header prose rather than as rows) | `CalibrationGateTest` at pinned per-corpus stamps | 8 |
 | Order-invariance | 40 shuffled read orders of the 49 upstream rules, asserting 47 every time | property-style repetition | 1 (×40) |
 | Reactor | the four poms build; effective `guava.version` is 33.5.0-jre and `scala.version` is 2.11.12; `ptltl` present; `slf4j-simple` absent; JUnit 5 and ArchUnit pinned in the component's parent, since the reactor root manages JUnit 4 | Maven integration test | ~5 |
 | CI | the four new modules' tests actually run in CI, with the oracle-dependent subset tagged and excluded there rather than silently skipped | a workflow step in the shape of the existing `grammar-tests` step | 1 step |

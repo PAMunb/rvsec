@@ -46,6 +46,81 @@ jobs:
           ABSORBERS=$(grep -c "NOT-NEEDED β" "$RVSEC_HOME/rv-android/docs/aspectj_grammar_coverage.md" || true)
           echo "gh62 absorber (NOT-NEEDED β) matrix rows: $ABSORBERS"
 
+      # gh106 - MOP/CrySL conformance component. The reactor build above passes -DskipTests, and
+      # this component's contract is almost entirely tests: the INV-CONF invariant tests, the
+      # ArchUnit shape rules, the order-invariance test and the dependency-discipline assertions.
+      # Without this step every one of them would be a green that exists only on a developer's
+      # machine. RISK-001.
+      #
+      # WHAT THIS STEP DOES NOT RUN, AND WHY. The suite is split by what the CI checkout can
+      # reach. The single oracle - the upstream CrySL rules - lives in rvsec-cognicrypt, a
+      # SEPARATE git repository; android.jar comes from $ANDROID_HOME; and one target of the
+      # calibration gate reads a monitor produced by an rv-monitor-generator pass. actions/checkout
+      # takes one repository, this runner has no Android SDK, and a multi-minute generation pass has
+      # no place on the critical path of a CI build. Every test that reads one of those three inputs
+      # is tagged "oracle-dependent" - the name is CiTags.ORACLE_DEPENDENT in rvsec-crysl-core, and
+      # ReactorBuildIT asserts this workflow against that constant, so the three holders of the name
+      # cannot drift apart - and excluded here. The green below therefore covers the corpus-only
+      # half: the model and automata, the emitters, the MOP lift over the 215-file .mop corpus, the
+      # CLI contract and the reactor wiring. It does NOT cover the CrySL lift against the upstream
+      # rules, the API index, or the calibration gate.
+      #
+      # THE SPLIT, MEASURED - rvsec 6192b57a, rvsec-cognicrypt f2f4d3b, 2026-08-24. These numbers are
+      # not an estimate and they have drifted twice already, so they are re-measured whenever the
+      # suite changes rather than carried:
+      #
+      #   module              full local run   this step   local-only
+      #   rvsec-crysl-core          171           171           0
+      #   rvsec-crysl-mop            59            58           1
+      #   rvsec-crysl-crysl         102            38          64
+      #   total                     332           267          65
+      #
+      # THE ONE LOCAL-ONLY TEST OUTSIDE -crysl is deliberate and stays local:
+      # RoundTripGateTest.test_the_fifth_check_resolves_pointcuts, in rvsec-crysl-mop, resolves the
+      # generated pointcuts against $ANDROID_HOME/platforms/android-30/android.jar. The Android SDK
+      # is not part of this checkout and installing one to run a single test would buy less than it
+      # costs. Everything else in -core and -mop runs here. Do not read this comment as "everything
+      # outside -crysl is covered": it was true when the split was first written and it is not now.
+      #
+      # THE LOCAL GATE, which runs all 332:
+      #
+      #   RVSEC_GENERATED_MONITOR=<scratch>/out/MultiSpec_1RuntimeMonitor.java \
+      #     mvn -f rvsec/rvsec-crysl/pom.xml test
+      #
+      # on a host where rvsec-cognicrypt sits beside rvsec (or RVSEC_CRYSL_RULES points at its
+      # CrySL-Rules directory) and ANDROID_HOME has platforms/android-30. Without the monitor
+      # variable the run is 331 plus one skip, and the skip names the missing path. That is the
+      # second mechanism: the tag decides what CI attempts, the JUnit assumption decides what a
+      # local run does when an input is absent, and neither can turn a missing corpus into a green.
+      # RISK-002.
+      - name: MOP/CrySL conformance component tests (gh106)
+        run: |
+          set -o pipefail
+          mvn -ntp -B -f rvsec/rvsec-crysl/pom.xml -DskipTests=false \
+              -DexcludedGroups=oracle-dependent test 2>&1 | tee gh106-tests.log
+          # A build that prints BUILD SUCCESS beside "Tests are skipped." is the false green this
+          # step exists to prevent, so it is failed here rather than read as a pass.
+          if grep -q "Tests are skipped" gh106-tests.log; then
+            echo "ERROR: surefire skipped the conformance component's tests"; exit 1
+          fi
+          if ! grep -qE "Tests run: [1-9]" gh106-tests.log; then
+            echo "ERROR: no test ran in the conformance component"; exit 1
+          fi
+          echo "--- gh106 per-module test totals ---"
+          grep -E "Tests run: [0-9]+, Failures" gh106-tests.log
+          # The exclusion is declared in the log, not only in this file's comments: someone reading
+          # a green run sees the totals above, and a partial green that looks total is worse than a
+          # red. Measured at rvsec 6192b57a: 267 of 332 tests run here.
+          echo "--- what this green does NOT cover ---"
+          echo "65 of 332 tests carry the oracle-dependent tag and were EXCLUDED from the run above."
+          echo "They read inputs this checkout does not have: the upstream CrySL rules"
+          echo "(rvsec-cognicrypt, a separate repository), android.jar (\$ANDROID_HOME), and a"
+          echo "monitor produced by an rv-monitor-generator pass. 64 are in rvsec-crysl-crysl and 1"
+          echo "in rvsec-crysl-mop (RoundTripGateTest.test_the_fifth_check_resolves_pointcuts,"
+          echo "which needs android.jar). They are a LOCAL gate:"
+          echo "  RVSEC_GENERATED_MONITOR=<scratch>/MultiSpec_1RuntimeMonitor.java \\"
+          echo "    mvn -f rvsec/rvsec-crysl/pom.xml test"
+
   python-test:
     runs-on: ubuntu-latest
     steps:

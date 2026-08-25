@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>br.unb.cic</groupId>
+		<artifactId>rvsec</artifactId>
+		<version>0.9.3-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>rvsec-crysl</artifactId>
+	<packaging>pom</packaging>
+	<name>RVSec :: CrySL conformance</name>
+
+	<properties>
+		<!-- The reactor root pins Guava 19.0 because Soot needs it. This component does not use
+		     Soot, and CrySLParser 4.0.6 calls ImmutableMap.Builder#buildOrThrow, which does not
+		     exist in 19.0: with the inherited pin the code compiles clean and dies at runtime with
+		     NoSuchMethodError. The root dependencyManagement is property-driven, so redefining the
+		     property here is enough to move the managed version for this subtree. INV-CONF-16. -->
+		<guava.version>33.5.0-jre</guava.version>
+
+		<!-- scala.version is deliberately NOT declared here. It looks like the same fix as
+		     guava.version and it is not: raising it to 2.13.x breaks ptltl (reached transitively
+		     through javamop -> rv-monitor) with NoClassDefFoundError: scala/Serializable, and ptltl
+		     may not be excluded. The reactor's 2.11.12 is inherited unchanged. INV-CONF-16. -->
+
+		<crysl.version>4.0.6</crysl.version>
+		<gson.version>2.13.1</gson.version>
+
+		<!-- The reactor root manages JUnit 4 and the surefire-junit4 provider. A JUnit 5 suite that
+		     inherits that setup is collected by a JUnit 4 provider and reports zero tests run - a
+		     green with nothing behind it. The versions below, plus the explicit surefire provider
+		     further down, keep this subtree on the JUnit Platform. risk-register.md RISK-010. -->
+		<junit-jupiter.version>5.12.2</junit-jupiter.version>
+		<archunit.version>1.2.1</archunit.version>
+
+		<maven-dependency-plugin.version>3.8.1</maven-dependency-plugin.version>
+	</properties>
+
+	<modules>
+		<module>rvsec-crysl-core</module>
+		<module>rvsec-crysl-mop</module>
+		<module>rvsec-crysl-crysl</module>
+	</modules>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-crysl-core</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-crysl-mop</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<!-- The test-jar of -core carries CiTags, the single holder of the JUnit tag name that
+			     the CI step excludes by name. -mop and -crysl both tag tests with it, and a name
+			     copied into three places is a name that can drift without anything going red. -->
+			<dependency>
+				<groupId>br.unb.cic</groupId>
+				<artifactId>rvsec-crysl-core</artifactId>
+				<version>${project.version}</version>
+				<type>test-jar</type>
+				<scope>test</scope>
+			</dependency>
+			<dependency>
+				<groupId>com.google.code.gson</groupId>
+				<artifactId>gson</artifactId>
+				<version>${gson.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>de.darmstadt.tu.crossing.CrySL</groupId>
+				<artifactId>CrySLParser</artifactId>
+				<version>${crysl.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.junit.jupiter</groupId>
+				<artifactId>junit-jupiter</artifactId>
+				<version>${junit-jupiter.version}</version>
+				<scope>test</scope>
+			</dependency>
+			<dependency>
+				<groupId>com.tngtech.archunit</groupId>
+				<artifactId>archunit</artifactId>
+				<version>${archunit.version}</version>
+				<scope>test</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<!-- Only resources under src/test/resources-filtered are interpolated. The dependency
+		     discipline tests read the effective values of guava.version and scala.version out of a
+		     filtered properties file, which is why filtering has to be on for that directory - and
+		     off everywhere else, so that a future binary fixture is not corrupted by filtering. -->
+		<testResources>
+			<testResource>
+				<directory>src/test/resources</directory>
+				<filtering>false</filtering>
+			</testResource>
+			<testResource>
+				<directory>src/test/resources-filtered</directory>
+				<filtering>true</filtering>
+			</testResource>
+		</testResources>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<!-- Surefire's default includes cover *Test but not *IT, and Failsafe is not
+					     bound in this subtree. A class named ReactorBuildIT would then compile,
+					     run nowhere, and be read as green - which is the precise defect this
+					     component exists to remove, committed inside the component itself. The
+					     integration test here asserts facts about the build (module registration,
+					     main.basedir), so the test phase is where it belongs; there is no
+					     deployed system to wait for. -->
+					<includes>
+						<include>**/*Test.java</include>
+						<include>**/*IT.java</include>
+					</includes>
+				</configuration>
+				<dependencies>
+					<!-- Pinning the provider is what makes the JUnit 5 suite actually run: with the
+					     provider chosen by classpath scanning, a stray JUnit 4 artifact silently
+					     turns the suite into "Tests run: 0". RISK-010. -->
+					<dependency>
+						<groupId>org.apache.maven.surefire</groupId>
+						<artifactId>surefire-junit-platform</artifactId>
+						<version>${maven-surefire-plugin.version}</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<version>${maven-dependency-plugin.version}</version>
+				<executions>
+					<execution>
+						<!-- Writes the resolved runtime classpath to a file the dependency
+						     discipline tests read. Asserting over the resolved artifacts, rather
+						     than over the pom text, is what catches a version that a transitive
+						     dependency moved behind our back. -->
+						<id>write-resolved-classpath</id>
+						<phase>generate-test-resources</phase>
+						<goals>
+							<goal>build-classpath</goal>
+						</goals>
+						<configuration>
+							<includeScope>runtime</includeScope>
+							<outputFile>${project.build.directory}/resolved-classpath.txt</outputFile>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

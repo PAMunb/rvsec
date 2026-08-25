@@ -15,6 +15,28 @@ Specs are organized by 7 domains, each covering one or more Python modules. Toge
 | **tools** | rv-tools, rv-uiautomator | FR18-FR20 | NFR02 | 14 | 24 | [tools/spec.md](tools/spec.md) |
 | **Total** | 14 modules | **37 FRs** | **8 NFRs** | **111** | **214** | |
 
+## Capabilities (outside the 7 domains)
+
+Not every spec is a domain. A **capability** describes a bounded piece of behavior that does not map
+onto one of the seven Python-module domains above — because it wraps an external tool, because it is
+an offline analysis library, because it governs a campaign, or because it is implemented outside the
+`rv-android` Python tree entirely. Capabilities are deliberately **absent from the domain table**:
+that table's FR/NFR columns exist to prove full PRD coverage by the 14 production modules, and
+adding rows that carry no FR would break the accounting it is there to give.
+
+| Capability | Scope | Invariant prefix | Spec |
+|---|---|---|---|
+| **aperv** | `aperv-tool` — rv-platform plugin wrapping the APE-RV binary | `INV-APV` | [aperv/spec.md](aperv/spec.md) |
+| **calibration-control** | Control scaffold for the APE-RV LLM calibration campaign | `INV-CAL` | [calibration-control/spec.md](calibration-control/spec.md) |
+| **campaign-analysis** | Offline, read-only campaign analysis library under `aperv_tool/analysis/` | `INV-CAN` | [campaign-analysis/spec.md](campaign-analysis/spec.md) |
+| **conformance** | MOP/CrySL conformance: does a `.mop` set encode what the CrySL rules it was translated from require? Implemented in the sibling `rvsec` Maven reactor as `rvsec/rvsec-crysl` (Java), not in a Python module | `INV-CONF` | [changes/gh106-mop-crysl-conformance/specs/conformance/spec.md](../changes/gh106-mop-crysl-conformance/specs/conformance/spec.md) |
+
+`conformance` is the only capability whose spec still lives in a change directory; it moves to
+`openspec/specs/conformance/spec.md` when gh106 is synced or archived. The other three are already
+synced. Note that a capability spec may **cite** invariants owned by another spec (`aperv` and
+`campaign-analysis` cross-reference each other's IDs) — the prefix column names the IDs each spec
+**owns**, not every ID it mentions.
+
 ## Spec Structure
 
 Each spec follows the template at [docs/templates/spec-template.md](../../docs/templates/spec-template.md) with four sections:
@@ -28,8 +50,9 @@ Each spec follows the template at [docs/templates/spec-template.md](../../docs/t
 
 - **Language**: English throughout
 - **Keywords**: RFC 2119 (MUST, MUST NOT, SHALL, SHOULD, MAY)
-- **Invariant IDs**: `INV-XX-NN` where XX is the domain abbreviation
-  - CORE, PLT, EXP, AGT, INS, ANA, TOOL
+- **Invariant IDs**: `INV-XX-NN` where XX is the domain or capability abbreviation
+  - Domains: CORE, PLT, EXP, AGT, INS, ANA, TOOL
+  - Capabilities: APV, CAL, CAN, CONF
 - **Requirement format**: `### Requirement: Name (FR/NFR ID)`
 - **Scenario format**: `#### Scenario: Descriptive Name` with WHEN/THEN/AND
 

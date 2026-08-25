@@ -24,6 +24,7 @@
 	<modules>
 		<module>rvsec-mop</module>
 		<module>rvsec-mop-extractor</module>
+		<module>rvsec-crysl</module>
 		<module>rvsec-core</module>
 		<module>rvsec-logger-csv</module>
 		<module>rvsec-agent</module>
