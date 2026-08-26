@@ -48,8 +48,8 @@ KeyManagerFactorySpec,KEYMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,KeyManag
 KeyManagerFactorySpec,KEYMANAGERFACTORY-CONSTR-00,UnsatisfiedConstraint,CONSTR,init,KeyManagerFactorySpec.mop:125
 KeyManagerFactorySpec,KEYMANAGERFACTORY-NOBS-00,UnsatisfiedConstraint,NOBS,init,KeyManagerFactorySpec.mop:129
 KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:179
-KeyPairGeneratorSpec,KEYPAIRGENERATOR-KEYSIZE-00,InvalidKeySize,KEYSIZE,initError,KeyPairGeneratorSpec.mop:152
-KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairGeneratorSpec.mop:179
+KeyPairGeneratorSpec,KEYPAIRGENERATOR-KEYSIZE-00,InvalidKeySize,KEYSIZE,initError,KeyPairGeneratorSpec.mop:160
+KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairGeneratorSpec.mop:187
 KeyPairSpec,KEYPAIR-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:79
 KeyPairSpec,KEYPAIR-NOBS-00,UnsatisfiedConstraint,NOBS,c1,KeyPairSpec.mop:83
 KeyPairSpec,KEYPAIR-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:88

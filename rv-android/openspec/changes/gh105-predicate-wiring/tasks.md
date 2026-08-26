@@ -2007,7 +2007,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       accuses with the right line to use (tasks 7.2, 10.7). Both are part of the task, not
       surprises after it
 
-- [ ] 11.9 [record] The two dispositions D-17 re-derives, and the census that comes with
+- [x] 11.9 [record] The two dispositions D-17 re-derives, and the census that comes with
       them. **No `.mop` changes, no accusation changes class, no harness pair is owed**: the
       whole task is `predicate_ledger.csv`, `predicate_graph.csv` and the prose that cites
       them. It exists because 11.1 asked for every disposition to be re-derived rather than

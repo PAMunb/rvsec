@@ -114,26 +114,34 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     // so there is nothing to read: `unmonitored-producer`, recorded with the other
     // non-wireable clauses at task 5.10.
     //
-    // `preparedEC` has no producing rule anywhere in the oracle -- it appears in
-    // this REQUIRES and in no ENSURES of any of the 49 -- so no site could ever write it and
-    // a read here could only ever answer NOT_OBSERVED. `unclosable`.
+    // `preparedEC` was recorded `unclosable` against the generated catalogue, where nothing
+    // ensured it. The oracle ensures it twice -- `ECGenParameterSpec.crysl:25` and
+    // `ECParameterSpec.crysl:17` -- and neither has a `.mop`, so task 11.1 re-derived it to
+    // `unmonitored-producer` and `unclosable` left the ledger entirely.
     //
-    // `preparedDH` is the one whose two ends both have a `.mop`, and the composition is
-    // still out of reach. Its only producing rule in the whole oracle is
-    // `DHGenParameterSpec` (`AlgorithmParameters` requires the predicate and ensures
-    // something else), and the JCA refuses to put that object into this call: measured
-    // on a JVM, `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))`
-    // raises `InvalidAlgorithmParameterException: Inappropriate parameter type`, while
-    // the same object into `AlgorithmParameterGenerator.getInstance("DH").init(...)`
-    // -- the consumer the class is for, and one with no `.mop` in this set -- runs. A
-    // DH key pair is initialised from a `DHParameterSpec`, which no rule ensures.
+    // `preparedDH` is the one the oracle changed the diagnosis of, and task 11.9(a) re-derived
+    // it. The sentence this comment used to close on -- *a DH key pair is initialised from a
+    // `DHParameterSpec`, which no rule ensures* -- is false of the oracle:
+    // `DHParameterSpec.crysl:21` ENSURES `preparedDH[this]`, and the generated catalogue
+    // stated no `DHParameterSpec` rule at all. So this set does not have both ends of the
+    // clause: it has `DHGenParameterSpecSpec.mop`, and `DHGenParameterSpec` is exactly the
+    // object the JCA refuses at this call. Measured on Temurin 21, re-run 2026-08-26:
+    // `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))` raises
+    // `InvalidAlgorithmParameterException: Inappropriate parameter type`, while
+    // `initialize(new DHParameterSpec(p, g))` over an RFC 3526 group is accepted, and the
+    // `DHGenParameterSpec` into `AlgorithmParameterGenerator.getInstance("DH").init(...)`
+    // -- the consumer the class exists for, and one with no `.mop` in this set -- runs.
     //
-    // So a read here would accuse every conforming DH program of an unobserved
-    // preparation it has no way to obtain. `unreachable-composition`, the disposition
-    // clause #21 established at task 5.2 -- having a `.mop` at both ends is necessary
-    // and not sufficient -- and it is why `DHGenParameterSpecSpec`'s write carries a
-    // deliberate-omission record instead of a reader (INV-INS-137, researcher decision
-    // 2026-08-22).
+    // So a read here would still accuse every conforming DH program of an unobserved
+    // preparation, and the reason is now the honest one: the producer such a program uses is
+    // unmonitored, not out of reach. `unmonitored-producer`, alongside `preparedRSA` and
+    // `preparedDSA` above rather than alone. What would close it is a `.mop` for
+    // `DHParameterSpec`, which is a new accusation class D-16 keeps out of this change --
+    // and it is why `DHGenParameterSpecSpec`'s write keeps its deliberate-omission record
+    // instead of gaining a reader (INV-INS-137, researcher decision 2026-08-22).
+    //
+    // Nothing here moves on that re-derivation: no event changes, no read opens, and the
+    // accusation this file makes is the one it made (task 11.9, record only).
     event init3 after(AlgorithmParameterSpec params, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) &&
       args(params) &&

@@ -25,6 +25,7 @@ are applied as named overrides with their citation instead of being silently rec
 
 Usage:
     python scripts/gh105_expert_ledger.py --emit ledger
+    python scripts/gh105_expert_ledger.py --emit census
     python scripts/gh105_expert_ledger.py --emit delta
     python scripts/gh105_expert_ledger.py --check      # arithmetic closes, exit 0/1
 """
@@ -60,21 +61,44 @@ SECTION_KEYWORDS = (
 )
 
 # Dispositions whose ground is a measurement against the platform, not the rule text.
-# Each entry names the rule, the predicate, and the evidence D-16 carries over. A clause
-# listed here is derived like any other and then overridden, so the override shows up in
-# the output as a disposition that disagrees with the derivation -- which is the point:
-# the reader sees both the structural verdict and the measured one.
-PLATFORM_OVERRIDES: dict[tuple[str, str], tuple[str, str]] = {
+# Each entry names the rule, the predicate, the evidence, and the tag that says what the
+# entry is -- a measurement carried over from the api30 era, or one re-derived against the
+# sole oracle at task 11.9. A clause listed here is derived like any other and then
+# overridden, so the override shows up in the output as a disposition that disagrees with
+# the derivation -- which is the point: the reader sees both the structural verdict and the
+# measured one.
+#
+# Task 11.9 re-derived both entries rather than copying them, and exactly one moved. That
+# asymmetry is what a re-derivation looks like: two rows that moved, or none, would mean
+# the sweep was answering a different question.
+PLATFORM_OVERRIDES: dict[tuple[str, str], tuple[str, str, str]] = {
     ("KeyPairGenerator", "preparedDH"): (
-        "unreachable-composition",
-        "the JCA refuses DHGenParameterSpec at KeyPairGenerator.initialize; measured, "
-        "ledger clause #17 of the api30 derivation",
+        "unmonitored-producer",
+        "the type KeyPairGenerator.initialize accepts for DH is DHParameterSpec, whose "
+        "rule ENSURES the predicate (DHParameterSpec.crysl:21) and which this set does "
+        "not specify. DHGenParameterSpec, the one producer that does have a .mop, the JCA "
+        "refuses at that call: KeyPairGenerator.getInstance(\"DH\").initialize(new "
+        "DHGenParameterSpec(2048, 0)) raises InvalidAlgorithmParameterException: "
+        "Inappropriate parameter type, while initialize(new DHParameterSpec(p, g)) over an "
+        "RFC 3526 group runs. So a read at KeyPairGeneratorSpec.init3/init4 answers "
+        "NOT_OBSERVED for every conforming DH program because the producer that program "
+        "uses is unmonitored, not because no producer could exist. What would close the "
+        "clause is a .mop for DHParameterSpec, and writing one is a new accusation class "
+        "D-16 keeps out of this change. The disposition read unreachable-composition until "
+        "task 11.9 because the generated catalogue stated no DHParameterSpec rule at all",
+        "[platform measurement re-derived at task 11.9; disposition moved]",
     ),
     ("Mac", "preparedHMAC"): (
         "unreachable-composition",
-        "javax.xml.crypto.dsig.spec.HMACParameterSpec is absent from the api30 "
-        "android.jar, so the producing class cannot be loaded; measured, ledger clause "
-        "#21 of the api30 derivation",
+        "the producer is javax.xml.crypto.dsig.spec.HMACParameterSpec "
+        "(HMACParameterSpec.crysl:14), of the java.xml.crypto module, and the android-30 "
+        "android.jar carries no entry whatever under javax/xml/crypto, so the producing "
+        "class cannot be loaded on the platform this set targets -- a fact about the "
+        "platform and not about a catalogue. On a JVM, where it loads, no Mac the rule "
+        "admits accepts it: measured on Temurin 21 over the nine algorithms of "
+        "Mac.crysl:44, HmacSHA256/384/512 answer \"HMAC does not use parameters\" and "
+        "HmacPBESHA1 with the five PBEWithHmac* answer \"PBEParameterSpec type required\"",
+        "[platform measurement re-derived at task 11.9; disposition unchanged]",
     ),
 }
 
@@ -464,7 +488,7 @@ def derive_ledger(rules: dict[str, Rule], pairs: dict[str, str]) -> list[LedgerR
 
             override = PLATFORM_OVERRIDES.get((name, clause.predicate))
             if override is not None:
-                disposition, reason = override[0], f"{override[1]} [platform measurement, D-16 carry-over]"
+                disposition, reason = override[0], f"{override[1]} {override[2]}"
 
             first = named[0] if named else ""
             vacuity = VACUITY_OVERRIDES.get((name, clause.predicate, first))
@@ -716,6 +740,40 @@ def write_delta(rows: list[dict[str, str]], stream) -> None:
     writer.writerows(rows)
 
 
+#: What a clause of a specified rule can and cannot reach. A `REQUIRES` row of a rule the
+#: set specifies is *unobservable* unless its disposition is `wireable`: every other
+#: disposition names a different way the producing end is out of reach. An `ENSURES` or
+#: `NEGATES` row of a specified rule is *unreadable* when nothing the set can observe
+#: requires it -- `unread` if no rule of the 49 requires it at all, and
+#: `unmonitored-consumer-side` if the rules that do have no `.mop`.
+UNOBSERVABLE = ("unmonitored-producer", "unreachable-composition", "unclosable")
+UNREADABLE = ("unread", "unmonitored-consumer-side")
+
+
+def write_census(rows: list[LedgerRow], stream) -> None:
+    """The two halves of what the set requires and cannot observe, and vice versa.
+
+    Task 11.9(c) and (d). It is emitted rather than written down because a list of six
+    predicates typed by hand in August is a backlog, and a list derived from the ledger is
+    a record: it moves when the ledger moves, and it cannot silently omit a row. Both
+    halves are printed together on purpose -- the requiring half alone reads as a set of
+    gaps in this specification set, and the producing half is what shows that as many of
+    them are dead ends of the oracle.
+    """
+    required = [r for r in rows if r.section == "REQUIRES" and r.disposition in UNOBSERVABLE]
+    ensured = [r for r in rows if r.section in ("ENSURES", "NEGATES") and r.disposition in UNREADABLE]
+
+    print("REQUIRED AND NOT OBSERVABLE", file=stream)
+    print(f"  {len(required)} clause(s), {len({r.predicate for r in required})} predicate(s)", file=stream)
+    for row in required:
+        print(f"  {row.predicate:<34} {row.consumer:<22} {row.rule_line:<32} {row.disposition}", file=stream)
+    print("", file=stream)
+    print("ENSURED AND NOT READABLE", file=stream)
+    print(f"  {len(ensured)} clause(s), {len({r.predicate for r in ensured})} predicate(s)", file=stream)
+    for row in ensured:
+        print(f"  {row.predicate:<34} {row.consumer:<22} {row.rule_line:<32} {row.disposition}", file=stream)
+
+
 def summarise(rows: list[LedgerRow]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for row in rows:
@@ -725,7 +783,7 @@ def summarise(rows: list[LedgerRow]) -> dict[str, int]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--emit", choices=("ledger", "delta", "summary"), default="summary")
+    parser.add_argument("--emit", choices=("ledger", "delta", "census", "summary"), default="summary")
     parser.add_argument("--expert-rules", type=Path, default=DEFAULT_EXPERT_RULES)
     parser.add_argument("--api30-rules", type=Path, default=DEFAULT_API30_RULES)
     parser.add_argument("--set-dir", type=Path, default=DEFAULT_SET_DIR)
@@ -744,6 +802,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.emit == "ledger":
         stream = args.out.open("w", encoding="utf-8") if args.out else sys.stdout
         write_ledger(expert_ledger, stream)
+        if args.out:
+            stream.close()
+        return 0
+
+    if args.emit == "census":
+        stream = args.out.open("w", encoding="utf-8") if args.out else sys.stdout
+        write_census(expert_ledger, stream)
         if args.out:
             stream.close()
         return 0
