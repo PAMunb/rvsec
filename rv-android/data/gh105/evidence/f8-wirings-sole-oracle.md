@@ -270,3 +270,77 @@ trata do outro, imprime o alinhamento antes de aplicar e dobra a razão da linha
 dentro da que a absorveu.
 
 Paridade: **185 passed / 3 failed**, as três pré-existentes de outras frentes. Nenhuma quarta.
+
+---
+
+## 3. (b) `SSLContext randomized[random]` — a vacuidade era do catálogo, não do mundo
+
+`SSLContext.crysl:34` · ledger #47 · **`wireable`** · **fiar** · par de arnês `harness/f8b-SSLContextSpec.md`
+
+### 3.1 A derivação que a 11.1 fez e esta alínea executa
+
+A regra `SSLContext` tem três REQUIRES. Duas já eram lidas desde a 5.9. A terceira carregava
+`vacuous`, e a delta da 11.1 mostrou por quê:
+
+```
+api30    Init: init(kms, tms, _)          <- terceira posição anônima; `sr` bindado por evento nenhum
+expert   i1:   init(km, tm, random)       <- bindado
+```
+
+`bindable api30=False expert=True`. A vacuidade era **artefato da regra gerada**: a cláusula
+existia nos dois catálogos, e só num deles havia variável para ela falar a respeito. Com o oráculo
+único, o sítio existe.
+
+### 3.2 O que o `.mop` ganha
+
+O curinga sai da terceira posição do `args`:
+
+```java
+-  args(kms, tms, *) &&
++  args(kms, tms, random) &&
+```
+
+e o evento passa a declarar `SecureRandom random`. O pointcut agora **não tem curinga nenhum**, o
+que é estritamente mais seguro para o resolvedor do arnês de traces do que o curinga final que ele
+substitui. O `call(...)` já escrevia a assinatura por extenso, então o autômato não vê diferença
+alguma: nenhum símbolo se move, nenhum estado muda.
+
+A leitura é três-valorada, com `SSLCONTEXT-CONSTR-02` e `SSLCONTEXT-NOBS-02`, e o produtor é o hub
+`RANDOMIZED` — o `SecureRandomSpec` grava o predicado sobre o próprio gerador no seu ponto de
+aceitação.
+
+### 3.3 O que ela acusa, dito em voz alta
+
+`init(km, tm, null)` é a forma **documentada** de pedir o `SecureRandom` da própria plataforma, e
+sob a regra como está escrita ela não satisfaz `randomized[random]`: um `null` não é um random que
+esta instrumentação viu ser produzido. Todas as traces do corpus que chegam ao evento passam `null`
+ali, então todas ganham um relatório `NOBS`.
+
+Isso não é uma escolha nova desta alínea: é **a mesma leitura que as duas cláusulas irmãs já
+carregam**, pela decisão de 22/08 — *"a cláusula exige managers que esta instrumentação viu uma
+fábrica produzir, e nenhum argumento não é um deles"*. Ler a terceira de outro jeito faria um
+evento só responder a duas regras ao mesmo tempo. O código `NOBS` é o que diz "limite de alcance"
+em vez de "defeito", e ele diz isso aqui pela mesma razão que diz lá.
+
+### 3.4 O par de arnês
+
+`harness/f8b-SSLContextSpec.md` — **164 `unchanged` / 8 `moved` / 1 `introduced`**. Nenhuma outra
+specification do conjunto se move; os outros 23 relatórios leem `unchanged` inteiros.
+
+- **8 `moved`**: as traces que já acusavam alguma coisa no `init` ganham o `SSLCONTEXT-NOBS-02` ao
+  lado (`-d15-ssl`, `-d15-tlsv1`, `-guard-on-field`, `-provider-object`, `-provider-sslv3`,
+  `-sslv3`, `-tls`, `SSLContextSpec.txt`).
+- **1 `introduced`**: `SSLContextSpec-tls-chain.txt`, a cadeia TLS conforme — `KeyStore` carregado,
+  as duas fábricas, os dois arrays observados — que passa `null` no terceiro argumento e agora diz
+  isso. É a trace que mostra o custo da decisão com mais clareza do que qualquer outra.
+- **`-getdefault`, `-getdefault-engine`, `-sslv3-no-init`**: `unchanged`, porque nenhuma chega ao
+  `init`.
+
+### 3.5 Contagens
+
+```
+predicate_graph.csv .......... 72 -> 73 linhas   (read:body 35 -> 36, round-trip idêntico)
+codes.csv .................... +2 códigos        (SSLCONTEXT-CONSTR-02, SSLCONTEXT-NOBS-02)
+paridade ..................... read+read-absent 40 -> 41; read:body 35 -> 36; condition fica 0
+divergence_record.csv ........ 306 hunks, 4 re-chaveados por posição
+```

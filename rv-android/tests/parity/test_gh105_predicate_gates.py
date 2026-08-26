@@ -873,6 +873,11 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       arrived, and the site matched nothing at all. It is now ordered longest first, and the
       two sites are visible. A census that cannot see a site reports it as absent, which is
       the failure mode this suite exists to catch.
+
+      Task 11.5(b) adds the forty-first: `SSLContextSpec.init` reads `randomized[random]`
+      (SSLContext.crysl:34), the clause whose `vacuous` disposition fell with the substitution
+      of oracle -- the generated rule wrote `init(kms, tms, _)` and bound no random for the
+      clause to be about. So `read`+`read-absent` is 41 and `condition` is still 0.
     """
     home = _rvsec_home()
     specs = sorted(
@@ -892,7 +897,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
                     read_placement.get(site.site_kind, 0) + 1
                 )
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 40
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 41
     assert read_placement.get("condition", 0) == 0
     assert counts.get("write", 0) == 31
     assert (
@@ -1265,6 +1270,9 @@ def test_the_graph_reproduces_the_measured_placement_census():
       which the `clause` and `arity` columns already carry, and not of the operation, which
       has the same placement invariants over it either way. `read:condition-guard` stays 0,
       and that is the point of the repair -- the guard task 4.9 deleted was one.
+
+      Task 11.5(b) adds one more, `SSLContextSpec.init` reading `randomized[random]`, so
+      `read:body` is 36 and the graph 73 rows.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1272,7 +1280,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
-    assert counts.get("read:body", 0) == 35
+    assert counts.get("read:body", 0) == 36
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one

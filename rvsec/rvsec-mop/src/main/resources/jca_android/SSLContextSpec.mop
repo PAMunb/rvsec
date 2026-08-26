@@ -55,6 +55,12 @@ SSLContextSpec(SSLContext ctx) {
 
    String expectedGeneratedTrustManagers = "a TrustManager[] an observed TrustManagerFactory returned";
 
+   // The third clause's `exp=`. It names the producer the way its siblings do, and the
+   // producer here is the RANDOMIZED hub: SecureRandomSpec writes the predicate over the
+   // generator itself at its own acceptance point, so what satisfies this read is a
+   // SecureRandom whose construction or getInstance this instrumentation observed.
+   String expectedRandomized = "a SecureRandom this instrumentation observed being created";
+
    // One event over `getInstance(String)`, where there used to be two split by the
    // sign of a guard. The negated twin `unsafe_protocol` matched the same call with
    // the same `args(protocol)` and named no state, and the generator gives an event
@@ -153,27 +159,41 @@ SSLContextSpec(SSLContext ctx) {
         currentProtocol = protocol;
     }
 
-   // The two REQUIRES clauses of the oracle's SSLContext that name an argument of this call:
-   // `generatedKeyManagers[km]` (SSLContext.crysl:32, ledger clause #28) and
-   // `generatedTrustManagers[tm]` (:33, clause #29). The rule states a third,
-   // `randomized[random]` (:34), and the `vacuous` disposition it used to carry FELL WITH
-   // THE SUBSTITUTION OF ORACLE: it was an artifact of the generated rule, whose `Init`
-   // bound no random. The oracle's `i1: init(km, tm, random)` binds it, so the clause has a
-   // site to read at. Opening that read is task 11.5(b) -- a behavioural change, with a
-   // harness pair and a decision per clause -- and is not done here.
+   // ALL THREE REQUIRES clauses of the oracle's SSLContext that name an argument of this
+   // call, and the third arrived with the oracle: `generatedKeyManagers[km]`
+   // (SSLContext.crysl:32, ledger clause #28), `generatedTrustManagers[tm]` (:33, clause
+   // #29) and `randomized[random]` (:34, clause #47).
+   //
+   // The third carried `vacuous` until D-16 and the disposition FELL WITH THE SUBSTITUTION
+   // OF ORACLE: it was an artefact of the generated rule, whose `Init` reads
+   // `init(kms, tms, _)` -- the third position anonymous, so the variable the clause names
+   // was bound by no event and the clause had no site. The oracle's
+   // `i1: init(km, tm, random)` binds it. Task 11.5(b) opens the read, by the researcher's
+   // decision of 2026-08-26, under the 9.B discipline: harness pair, divergence row,
+   // go/no-go per clause.
    //
    // The rule declares one `init`, this file declares one event for it, and the signature is
-   // written out in full, so binding the two arguments costs nothing the automaton can see:
-   // `args(kms, tms, *)` names the two positions the clauses are about and leaves the third to
-   // a wildcard. The wildcard is safe where it sits -- it is in `args` and it is last, after
-   // every discriminating type, and the `call(...)` signature the trace harness's resolver
-   // walks carries no wildcard at all.
+   // written out in full, so binding all three arguments costs nothing the automaton can
+   // see. The wildcard that stood in the third position of `args` is gone with the clause
+   // that had no use for it; there is now no wildcard at all, which is strictly safer for
+   // the trace harness's resolver than the trailing one it replaced.
    //
-   // Both positions are declared as the reference array types the API declares, and both are
-   // passed to the store as the *bound* object rather than as a value. That is what the
-   // store's bound-first signature is for: a `KeyManager[]` handed to a varargs tail would be
-   // spread into one argument per element, and an empty array into no argument at all, with
-   // nothing but a compiler note to say so.
+   // WHAT THIS READ ACCUSES, SAID PLAINLY, because it is the cost the decision weighed:
+   // `init(km, tm, null)` is the documented way to ask for the platform's own SecureRandom,
+   // and under the rule as written it does not satisfy `randomized[random]` -- a null is not
+   // a random this instrumentation saw produced. Every trace of the corpus that reaches this
+   // event passes `null` there, so every one of them gains a NOBS report. That is the same
+   // reading the two sibling clauses already carry by the researcher's decision of
+   // 2026-08-22 -- "the clause requires managers this instrumentation saw a factory produce,
+   // and no argument is not one" -- and reading the third differently would make the file
+   // answer to two rules at once. The NOBS code is what says "reach limit", and it says it
+   // here for the same reason it says it there.
+   //
+   // The two array positions are declared as the reference array types the API declares, and
+   // all three are passed to the store as the *bound* object rather than as a value. That is
+   // what the store's bound-first signature is for: a `KeyManager[]` handed to a varargs tail
+   // would be spread into one argument per element, and an empty array into no argument at
+   // all, with nothing but a compiler note to say so.
    //
    // Measured on Temurin 21 before either read was written, because having a `.mop` at both
    // ends is necessary and not sufficient. The chain composes: a loaded PKCS12 store into
@@ -196,9 +216,9 @@ SSLContextSpec(SSLContext ctx) {
    // arity 1 and withdrawn nowhere -- and both branches are written anyway, for the reason the
    // rest of the set records: a read that folded VIOLATED into NOT_OBSERVED would misreport a
    // withdrawn predicate as an unobserved one the day a NEGATES clause reaches it.
-   event init after(KeyManager[] kms, TrustManager[] tms, SSLContext ctx):
+   event init after(KeyManager[] kms, TrustManager[] tms, SecureRandom random, SSLContext ctx):
      call(public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)) &&
-     args(kms, tms, *) &&
+     args(kms, tms, random) &&
      target(ctx) {
        if (!ConscryptAliasTable.matches("SSLContext", ctx.getProtocol(), protocols)) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, "SSLContextSpec", "" + __LOC,
@@ -221,6 +241,15 @@ SSLContextSpec(SSLContext ctx) {
        else if (trustManagers == PredicateVerdict.NOT_OBSERVED) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
             "v=1 code=SSLCONTEXT-NOBS-01 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedTrustManagers) + "' msg='the TrustManager[] given to SSLContext.init was not observed coming from a TrustManagerFactory'"));
+       }
+       PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, random);
+       if (randomised == PredicateVerdict.VIOLATED) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
+            "v=1 code=SSLCONTEXT-CONSTR-02 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedRandomized) + "' msg='the SecureRandom given to SSLContext.init carries a randomization predicate the rule does not admit'"));
+       }
+       else if (randomised == PredicateVerdict.NOT_OBSERVED) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
+            "v=1 code=SSLCONTEXT-NOBS-02 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedRandomized) + "' msg='the SecureRandom given to SSLContext.init was not observed coming from a randomized source'"));
        }
    }
 
