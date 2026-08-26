@@ -63,6 +63,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * removal that names a property without naming an object. Both existed on the old store; the first
  * has no call site in any specification set, and the second withdraws a predicate from every object
  * that ever satisfied it, which is not a semantics CrySL has.
+ * {@link #validateAny(Property, Object)} is not the first of those coming back: it names the
+ * property and asks only about the positions the rule itself leaves anonymous.
  */
 public final class PredicateStore {
 
@@ -357,6 +359,56 @@ public final class PredicateStore {
 		return state.tuples.contains(new ValueTuple(values))
 				? PredicateVerdict.SATISFIED
 				: PredicateVerdict.VIOLATED;
+	}
+
+	/**
+	 * Reads a positive {@code REQUIRES} clause whose remaining positions the rule leaves
+	 * <em>anonymous</em> — CrySL's {@code pred[bound, _]}.
+	 *
+	 * <p>
+	 * {@link #validate(Property, Object, Object...)} compares the whole argument list, which is
+	 * what a clause naming every position asks for. A clause writing {@code _} asks something
+	 * else: <em>this object carries the predicate, whatever it carries it with</em>. Reading such
+	 * a clause through {@code validate} with no values compares against the empty tuple, which no
+	 * producer of a one-place-or-wider clause ever records, so every conforming object comes back
+	 * {@link PredicateVerdict#VIOLATED} — positive evidence of a misuse, about a program that
+	 * committed none.
+	 *
+	 * <p>
+	 * Filling the {@code _} in at the call site is not the same thing and was measured not to be:
+	 * the three producers of {@code generatedKey} do not agree on what they write there —
+	 * {@code KeyGeneratorSpec} writes the string the program handed {@code getInstance},
+	 * {@code KeyStoreSpec} and {@code SecretKeySpecSpec} write the key's own algorithm — so a
+	 * reader that guessed one of them would answer {@code VIOLATED} whenever a program spelled the
+	 * algorithm the other way, which on this platform is an ordinary Conscrypt alias.
+	 *
+	 * <p>
+	 * The withdrawal flag is honoured exactly as in {@code validate}: a predicate that was
+	 * explicitly negated is {@code VIOLATED} and not merely absent.
+	 *
+	 * @param p the required predicate
+	 * @param bound the object the clause is about
+	 * @return {@link PredicateVerdict#SATISFIED} when any tuple is recorded for this object under
+	 *         this predicate, {@link PredicateVerdict#VIOLATED} when it was withdrawn,
+	 *         {@link PredicateVerdict#NOT_OBSERVED} when nothing was ever recorded
+	 */
+	public PredicateVerdict validateAny(Property p, Object bound) {
+		if (bound == null) {
+			return PredicateVerdict.NOT_OBSERVED;
+		}
+		purge();
+		Entry entry = entryFor(bound, p, false);
+		if (entry == null) {
+			return PredicateVerdict.NOT_OBSERVED;
+		}
+		// One read, for the reason validate states: the pair has to be sampled at one instant.
+		State state = entry.state.get();
+		if (state.negated) {
+			return PredicateVerdict.VIOLATED;
+		}
+		return state.tuples.isEmpty()
+				? PredicateVerdict.NOT_OBSERVED
+				: PredicateVerdict.SATISFIED;
 	}
 
 	/**

@@ -118,6 +118,58 @@ public class PredicateStoreTest {
 		assertEquals(PredicateVerdict.VIOLATED, store.validate(Property.GENERATED_KEY, key, "AES", "extra"));
 	}
 
+	/**
+	 * The anonymous position of CrySL's {@code pred[bound, _]}: {@code Mac.crysl:54} requires
+	 * {@code generatedKey[key,_]} while the three producers of that predicate all write a second
+	 * place. Reading it through {@code validate} is the trap the test above documents; this is the
+	 * read the clause actually asks for.
+	 */
+	@Test
+	public void anAnonymousPositionIsSatisfiedByAnyRecordedArgumentList() {
+		Object key = new Object();
+		store.ensure(Property.GENERATED_KEY, key, "HmacSHA256");
+
+		assertEquals(PredicateVerdict.VIOLATED, store.validate(Property.GENERATED_KEY, key));
+		assertEquals(PredicateVerdict.SATISFIED, store.validateAny(Property.GENERATED_KEY, key));
+	}
+
+	/**
+	 * The producers disagree on what they write into the anonymous place — {@code KeyGeneratorSpec}
+	 * writes the string the program handed {@code getInstance}, the other two the key's own
+	 * algorithm — so a reader that guessed one spelling would accuse the other. The anonymous read
+	 * is blind to the difference, which is the whole reason it exists.
+	 */
+	@Test
+	public void anAnonymousPositionIgnoresWhichSpellingTheProducerRecorded() {
+		Object viaGenerator = new Object();
+		Object viaKeyStore = new Object();
+		store.ensure(Property.GENERATED_KEY, viaGenerator, "HMAC-SHA256");
+		store.ensure(Property.GENERATED_KEY, viaKeyStore, "HmacSHA256");
+
+		assertEquals(PredicateVerdict.SATISFIED, store.validateAny(Property.GENERATED_KEY, viaGenerator));
+		assertEquals(PredicateVerdict.SATISFIED, store.validateAny(Property.GENERATED_KEY, viaKeyStore));
+	}
+
+	@Test
+	public void anAnonymousReadTellsAWithdrawnPredicateFromAnUnobservedOne() {
+		Object withdrawn = new Object();
+		store.ensure(Property.GENERATED_KEY, withdrawn, "AES");
+		store.negate(Property.GENERATED_KEY, withdrawn);
+
+		assertEquals(PredicateVerdict.VIOLATED, store.validateAny(Property.GENERATED_KEY, withdrawn));
+		assertEquals(PredicateVerdict.NOT_OBSERVED, store.validateAny(Property.GENERATED_KEY, new Object()));
+		assertEquals(PredicateVerdict.NOT_OBSERVED, store.validateAny(Property.GENERATED_KEY, null));
+	}
+
+	/** It names the property: an object marked under one predicate answers nothing under another. */
+	@Test
+	public void anAnonymousReadIsStillAboutOnePredicateAndNotAboutAnyPredicate() {
+		Object key = new Object();
+		store.ensure(Property.GENERATED_KEY, key, "AES");
+
+		assertEquals(PredicateVerdict.NOT_OBSERVED, store.validateAny(Property.RANDOMIZED, key));
+	}
+
 	@Test
 	public void anObjectNeverSeenAtAllIsNotObservedRatherThanViolated() {
 		assertEquals(PredicateVerdict.NOT_OBSERVED, store.validate(Property.RANDOMIZED, new Object()));

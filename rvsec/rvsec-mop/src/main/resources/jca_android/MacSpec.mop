@@ -28,6 +28,12 @@ MacSpec(Mac m) {
         // D-15: Mac.crysl names nine algorithms; the eight further entries are the frozen
         // jca's spelling variants of them. `HmacMD5` and `HmacSHA1`, which the withdrawn
         // catalogue admitted, are gone -- they are what a Mac specification exists to accuse.
+        // What a MAC key may have come from, as the report's `exp=` field. The three
+        // producers of `Property.GENERATED_KEY` in this set, named rather than counted:
+        // `KeyGeneratorSpec`, `KeyStoreSpec` and `SecretKeySpecSpec`. It is a field and
+        // not a literal in two messages so the two sites cannot drift apart.
+        String expectedGeneratedKey = "a key observed coming from a key generator, a key store or a key specification";
+
         List<String> safeAlgorithms = Arrays.asList("HmacSHA256", "HmacSHA384", "HmacSHA512", "HmacPBESHA1",
             "PBEWithHmacSHA1", "PBEWithHmacSHA224", "PBEWithHmacSHA256", "PBEWithHmacSHA384", "PBEWithHmacSHA512",
             "HMAC-SHA256", "HMAC/SHA256", "HMAC-SHA384", "HMAC/SHA384", "HMAC/SHA512", "HMAC-SHA512",
@@ -97,46 +103,63 @@ MacSpec(Mac m) {
         // on the key, and this pass deletes that read outright instead of moving it
         // into the body the way the rest of the group moves its reads.
         //
-        // THE GROUND TASK 4.9 GAVE FOR THAT DELETION NO LONGER HOLDS, AND THE
-        // DELETION IS NOT REVERSED HERE. 4.9 wrote that the read translated no
-        // clause, and against the withdrawn catalogue it did not: that rule required
-        // `preparedHMAC[params]` and the two negated `encrypted[...]`, and stated
-        // nothing over the key. The sole oracle states a fourth clause -- `Mac.crysl:54`
-        // REQUIRES `generatedKey[key,_]`, which is the very predicate the deleted
-        // guard read -- and `predicate_ledger.csv` row 39 disposes it `wireable`, with
-        // both ends specified in this set (KeyGenerator, KeyStore, SecretKeySpec).
-        // Restoring the read is task 11.5(a): it returns an accusation to this file,
-        // so it travels with a harness pair and a decision per clause, which is not
-        // what this pass carries. What stands until then is the file as 4.9 left it,
-        // with the reason corrected rather than the code.
+        // THE CLAUSE IS BACK, AND IT IS NOT A REVERT OF TASK 4.9. 4.9 wrote that the
+        // read it deleted translated no clause, and against the withdrawn catalogue it
+        // did not: that rule required `preparedHMAC[params]` and the two negated
+        // `encrypted[...]`, and stated nothing over the key. The sole oracle states a
+        // fourth clause -- `Mac.crysl:54` REQUIRES `generatedKey[key,_]` -- and
+        // `predicate_ledger.csv` row 39 disposes it `wireable`, with both ends
+        // specified in this set (KeyGenerator, KeyStore, SecretKeySpec). Task 11.5(a)
+        // wires it, by the researcher's decision of 2026-08-26, under the 9.B
+        // discipline: harness pair, divergence row, go/no-go per clause.
         //
-        // What survives of 4.9's argument is the part that was about the read's shape
-        // and not about its clause: it propagated nothing. The reads elsewhere in the
-        // set that carry no clause of their own -- `RandomStringPassword.vo` and `gb`,
-        // `SecretKeySpec.e1` -- each feed a write, so a verdict of theirs travels;
-        // this one fed nothing. It computed a verdict, discarded it, and its only
-        // surviving effect was the transition it suppressed. That is why 11.5(a) is a
-        // wiring and not a revert: what the file needs at this event is a read with an
-        // accuser, which is what the guard never was.
-        //
-        // The suppression was not harmless, which is why the deletion is a repair
-        // and not housekeeping. A guard compiles into the generated monitor as
-        // `if (!(<read>)) return false;` ahead of `handleEvent`, so `init` took no
-        // transition whenever the key came from no observed generator, `doFinal`
-        // then arrived in a state the ORDER does not admit, and the file accused
-        // the program of `MAC-ORDER-00`. Measured over the whole ErrorCollector, on
-        // the two traces this pass added to the corpus: a safe algorithm with an
+        // What comes back is the clause, not the shape 4.9 removed, and the difference
+        // is the whole of the repair. 4.9's guard sat in `condition(...)`, which
+        // compiles into the generated monitor as `if (!(<read>)) return false;` ahead
+        // of `handleEvent`: `init` took no transition whenever the key came from no
+        // observed generator, `doFinal` then arrived in a state the ORDER does not
+        // admit, and the file accused the program of `MAC-ORDER-00`. Measured over the
+        // whole ErrorCollector on two corpus traces: a safe algorithm with an
         // unobserved key -- a program that breaks no clause of the rule -- drew one
-        // report, and an unsafe algorithm with an unobserved key drew the same
-        // single ordering report while the real defect stayed silent, because
-        // `MAC-ALG-00` lives in this body and this body did not run. After the
-        // deletion the first is silent and the second reports the algorithm.
+        // report, and an unsafe algorithm with an unobserved key drew the same single
+        // ordering report while the real defect stayed silent, because `MAC-ALG-00`
+        // lives in this body and this body did not run. THE READ BELOW IS IN THE BODY.
+        // It reports and it suppresses nothing, so both of those programs now say what
+        // they are: the first draws MAC-NOBS-00 alone and the second draws MAC-ALG-00
+        // beside it.
+        //
+        // The other half of 4.9's argument was that the old read propagated nothing --
+        // it computed a verdict, discarded it, and its only surviving effect was the
+        // transition it suppressed. That is answered here too: this read has an accuser
+        // of its own, which is what the guard never was.
+        //
+        // Three-valued, with a code each, for the reason the rest of the set records:
+        // VIOLATED is positive evidence -- this key carries a key-origin predicate that
+        // was withdrawn -- while NOT_OBSERVED says only that no producer of it was
+        // observed, which on Android is as often a reach limit of the instrumentation
+        // as it is a misuse. VIOLATED has no program that produces it today, since no
+        // NEGATES clause of the oracle reaches `generatedKey` on a key this event can
+        // see, and the branch is written anyway so that the day one does, it is not
+        // reported as an absence.
+        //
+        // THE ANONYMOUS PLACE IS READ AS ANONYMOUS, which needed a store method that
+        // did not exist. `Mac.crysl:54` writes `generatedKey[key,_]` while all three
+        // producers write a second place, and `PredicateStore.validate` compares the
+        // whole tuple -- so a read with no values compares against the empty tuple,
+        // which no producer records, and every conforming key would come back VIOLATED.
+        // Filling the `_` in at the call site is not the same clause and was measured
+        // not to work either: `KeyGeneratorSpec` writes the string the program handed
+        // `getInstance` while `KeyStoreSpec` and `SecretKeySpecSpec` write the key's own
+        // algorithm, so a reader that guessed one spelling would accuse a program that
+        // used the other -- an ordinary Conscrypt alias on this platform.
+        // `PredicateStore.validateAny` is the read the clause asks for and nothing
+        // wider: it names the property and is blind only to the positions the rule
+        // itself leaves anonymous.
         //
         // Three of the rule's four REQUIRES clauses do not reach this event:
         // `preparedHMAC` binds `params`, which the one-argument overload does not
         // have, and the two negated `encrypted` clauses bind the `doFinal` outputs.
-        // The fourth, `generatedKey[key,_]`, binds exactly what this event binds,
-        // which is why the site is owed and 11.5(a) is what owes it.
+        // The fourth is this one.
         event i1 before(java.security.Key key, Mac m):
           call(public void Mac.init(java.security.Key)) &&
           args(key) &&
@@ -145,11 +168,21 @@ MacSpec(Mac m) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
                     "v=1 code=MAC-ALG-00 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
             }
+            PredicateVerdict keyOrigin = PredicateStore.instance().validateAny(Property.GENERATED_KEY, key);
+            if (keyOrigin == PredicateVerdict.VIOLATED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-CONSTR-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init carries a key-origin predicate the rule does not admit'"));
+            }
+            else if (keyOrigin == PredicateVerdict.NOT_OBSERVED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-NOBS-00 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init was not observed coming from a key generator, a key store or a key specification'"));
+            }
         }
 
         // The other alternative of `Init` (Mac.crysl:24), taking parameters beside the
-        // key. It carried the same read on the same key, loses it for the same reason,
-        // and is owed the same site by 11.5(a).
+        // key. It carries the same clause over the same key, and gains the same read,
+        // with codes of its own: the two overloads are two sites of `generatedKey[key,_]`
+        // and a report has to say which one it came from.
         //
         // The `params` it binds is the subject of the rule's `preparedHMAC[params]`
         // (Mac.crysl:53, ledger clause #21), and that clause is recorded here
@@ -190,6 +223,15 @@ MacSpec(Mac m) {
             if (!ConscryptAliasTable.matches("Mac", m.getAlgorithm(), safeAlgorithms)) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MacSpec", "" + __LOC,
                     "v=1 code=MAC-ALG-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + m.getAlgorithm() + "'"));
+            }
+            PredicateVerdict keyOrigin = PredicateStore.instance().validateAny(Property.GENERATED_KEY, key);
+            if (keyOrigin == PredicateVerdict.VIOLATED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-CONSTR-02 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init carries a key-origin predicate the rule does not admit'"));
+            }
+            else if (keyOrigin == PredicateVerdict.NOT_OBSERVED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-NOBS-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init was not observed coming from a key generator, a key store or a key specification'"));
             }
         }
 

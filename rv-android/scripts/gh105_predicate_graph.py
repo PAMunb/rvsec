@@ -65,6 +65,12 @@ GRAPH_OPERATIONS = {
     "setProperty": "write",
     "ensure": "write",
     "validate": "read",
+    # `validateAny` is the read of a clause whose remaining positions the rule itself
+    # leaves anonymous (`generatedKey[key,_]`). It is classed as a `read` and not as an
+    # operation of its own because that is what it is: a positive REQUIRES clause, read at
+    # a site, with the same placement invariants over it. What differs is the clause, not
+    # the operation, and the clause is already in the `clause` and `arity` columns.
+    "validateAny": "read",
     "validateAbsent": "read-absent",
     "negate": "negate",
     "remove": "remove",
@@ -83,10 +89,16 @@ _SUBSTRATES = ("ExecutionContext", "PredicateStore")
 # `<Substrate>.instance().<op>(Property.<CONSTANT>` -- the discriminator is the
 # literal `Property.` in first position, which is what separates a graph site
 # from a helper method that happens to share the name.
+# The alternation is ordered longest first, and it has to be: Python's `|` is
+# leftmost-first, not longest-match, so with `validate` ahead of `validateAny` the shorter
+# name wins the alternative and the `(` that must follow it never arrives -- the site
+# matches nothing at all and disappears from the inventory in silence.
+_OPERATION_ALTERNATION = "|".join(sorted(GRAPH_OPERATIONS, key=len, reverse=True))
+
 _GRAPH_SITE = re.compile(
     r"\b(?P<substrate>" + "|".join(_SUBSTRATES) + r")\s*\.\s*instance\s*\(\s*\)\s*\.\s*"
     r"(?P<op>"
-    + "|".join(GRAPH_OPERATIONS)
+    + _OPERATION_ALTERNATION
     + r")\s*\(\s*Property\s*\.\s*(?P<predicate>\w+)"
 )
 

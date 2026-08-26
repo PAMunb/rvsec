@@ -856,6 +856,23 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       105 asks for that last one to be recounted after every rename, and this batch renames
       nothing. What the batch does move is the trace corpus, from 128 files to 129, which
       no assertion of this suite counts and the harness evidence carries instead.
+
+      Task 11.5(a) moves `read` for the first time since these numbers were fixed: 38 to 40.
+      The oracle states a fourth REQUIRES for `Mac` that the withdrawn catalogue did not --
+      `generatedKey[key,_]` (Mac.crysl:54) -- and both `init` overloads gain a read of it in
+      their bodies, by the researcher's decision of 2026-08-26 with a harness pair behind it.
+      The count is asserted at its new value rather than loosened: two sites arrived, two
+      sites are counted, and the next one still cannot arrive unnoticed. `condition` stays 0,
+      which is the assertion that matters most here -- the site 4.9 deleted WAS a
+      condition-guard, and what comes back is deliberately not it.
+
+      The reader had to be taught the call before it could count it. The clause writes its
+      second place as `_`, so the site is `PredicateStore.validateAny`, and the operation
+      alternation of `gh105_predicate_graph.py` is leftmost-first: with `validate` ahead of
+      `validateAny` the shorter name won the alternative, the `(` that must follow it never
+      arrived, and the site matched nothing at all. It is now ordered longest first, and the
+      two sites are visible. A census that cannot see a site reports it as absent, which is
+      the failure mode this suite exists to catch.
     """
     home = _rvsec_home()
     specs = sorted(
@@ -875,7 +892,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
                     read_placement.get(site.site_kind, 0) + 1
                 )
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 38
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 40
     assert read_placement.get("condition", 0) == 0
     assert counts.get("write", 0) == 31
     assert (
@@ -1240,6 +1257,14 @@ def test_the_graph_reproduces_the_measured_placement_census():
       written down -- `gate_baseline.json`, which recorded them anonymously, is retired, and
       `gate_allowlist.csv` carries them with a witness, a reason and a task each -- and that
       is a fact about the gate's bookkeeping, not about any site this file counts.
+
+      Task 11.5(a) adds the graph's first two rows since: `MacSpec.i1` and `MacSpec.i2` read
+      `generatedKey[key,_]` (Mac.crysl:54) in their bodies, so `read:body` goes from 33 to 35
+      and the graph from 70 rows to 72. The verdict is `read:body` and not a verdict of its
+      own even though the call is `validateAny`: the anonymity is a property of the clause,
+      which the `clause` and `arity` columns already carry, and not of the operation, which
+      has the same placement invariants over it either way. `read:condition-guard` stays 0,
+      and that is the point of the repair -- the guard task 4.9 deleted was one.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1247,7 +1272,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
-    assert counts.get("read:body", 0) == 33
+    assert counts.get("read:body", 0) == 35
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one
