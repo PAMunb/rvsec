@@ -149,7 +149,7 @@ paper: B distinguished instances correctly on the hard case, and its failure mod
 four binding rules of INV-INS-136. Per-chain choice is recorded in `predicate_graph.csv`.
 
 **D-3 — The nine `remove()` (plan D3, reformulated by audit).** The oracle has two `NEGATES`
-clauses; at most one of our removals corresponds (`PBEKeySpecSpec.mop:74`, `clearPassword`).
+clauses; at most one of our removals corresponds (`PBEKeySpecSpec.mop:72`, `clearPassword`).
 Decision: the 8 `@fail` removals are deleted (semantics foreign to both CrySL generations;
 couples typestate to predicate against the rule's own orthogonality), each with its harness
 delta; the `PBEKeySpec` removal is kept, translated to the new store, object-scoped. The

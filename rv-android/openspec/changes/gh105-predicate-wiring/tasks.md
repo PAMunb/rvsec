@@ -1786,7 +1786,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       left behind — 9.11 repaired KeyPairSpec's and 9.16 replaced KeyStoreSpec's witness, so
       the allowlist holds eight G-ORDER rows today and the sentence restates the current count
       with the two repairs named
-- [ ] 10.4 `data/jca_android/predicate_graph.csv` refresh — the register is one generation
+- [x] 10.4 `data/jca_android/predicate_graph.csv` refresh — the register is one generation
       behind the tree (23/08 vs the 7.1 map and the 9.x repairs of 25/08): the KeyGenerator
       rows and the KeyPairSpec rows claim "`order_alphabet_map.csv` has no row for this file
       at all" while the completed map carries both (`:163-171`, `:177-179`); the KeyPairSpec
@@ -1795,7 +1795,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       `KeyGenerator.cryptsl:60` for `randomized[ranGen]` where the clause sits at `:52` (the
       file has 60 lines; `:60` is blank). Regenerate or hand-correct, and re-run the graph
       gate to confirm 0 failing after the refresh
-- [ ] 10.5 `divergence_record.csv` and sibling-register hygiene: (a) rows 91, 134, 210 and 288
+- [x] 10.5 `divergence_record.csv` and sibling-register hygiene: (a) rows 91, 134, 210 and 288
       — the four ConscryptAliasTable-import hunks of KMF, KeyStore, SSLContext and TMF —
       carry the KeyGeneratorSpec reason verbatim ("KeyGenerator.cryptsl:45 … ChaCha20, ARC4,
       DESede…"), which describes none of the four files; rewrite each for its own list.

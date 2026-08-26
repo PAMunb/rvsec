@@ -65,6 +65,27 @@
 #     star over a subset of Cipher's calls, which diverges by construction and would
 #     report an ordering defect against a file that states no ordering.
 #
+# A symbol the rule declares and no `.mop` event covers is recorded here and nowhere
+# else, because there is no data row that can hold it: `order-unmapped` erases an event
+# of the `.mop`, never a symbol of the rule, and `gate_allowlist.csv` holds only the
+# rule-side cases that G-ORDER actually reports -- `CipherInputStreamSpec`'s `c1 r1 c`
+# and `SecretKeySpec`'s `d` are there because they are hits to forgive, and a row that
+# forgives nothing would be counted as a decision to forgive by the reader that loads
+# that file. One such symbol family exists in this set (task 10.5):
+#
+#   KeyStoreSpec  api30's KeyStore.cryptsl declares `scE: setCertificateEntry` (`:67`)
+#     and `skE1`/`skE2: setKeyEntry` (`:69`, `:71`), and no event of this set observes
+#     any of the three. It is not an ordering divergence and G-ORDER reports none: the
+#     rule's own ORDER (`:79`) is `Gets, Loads, ((gE?, gk) | (sE, Stores))*`, which names
+#     none of them, so the aggregate `Entries` that holds them is declared and never
+#     used, and two languages cannot differ over a symbol neither expression contains.
+#     D-16 (2026-08-25) settles it rather than reopening it: the sole oracle of this set
+#     is the pinned expert copy, and RVSec-replication-package/tools/rules/KeyStore.crysl
+#     declares no setter events at all -- its alphabet is g1, g2, l1, l2, s1, s2, ge1,
+#     se1, gk1 -- so nothing is uncovered against the oracle this set answers to.
+#     Observing setCertificateEntry/setKeyEntry would be a new accusation class, which
+#     this change does not add.
+#
 # Columns: `rule_line` points at the event declaration in
 # MetaCrySL/generated/api30/<rule>, which is the read-only oracle -- a mapping that
 # cannot name its line is a mapping nobody checked.
