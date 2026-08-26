@@ -314,7 +314,8 @@ decision on, the **only** oracle of the set, for every clause kind, is
 `RVSec-replication-package/tools/rules/` (49 rules, sha256 `d7bcc019…`, the existing freeze
 item). `MetaCrySL/generated/api30/` loses oracle status entirely: it stays on disk as the
 historical input the pre-D-16 records were derived against, cited only inside supersession
-adenda, and no gate, register or `.mop` comment may name it as the authority for anything.
+adenda, and no gate, register, `.mop` comment or emitted message may name it as the
+authority for anything.
 
 What this does **not** reopen: (a) platform-limit divergences were justified by measurement on
 android-30, never by api30 — protected constructors (CipherStreams), the absent

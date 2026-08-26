@@ -1921,8 +1921,11 @@ Subagent dispatch (docs/WORKFLOW.md §5):
      as records against the expert rule, re-cited, never re-litigated. "No new accusation
      classes" stands: the 28 expert rules without a `.mop` gain no specification here.
      Ordering: 11.1 → 11.2 → 11.3 (the instruments must point at the expert rules before any
-     record claims conformity to them) → 11.4 (records) → 11.5/11.6 (researcher-decided) →
-     11.7. Tasks 8.8 and 8.9 depend on this group. -->
+     record claims conformity to them) → 11.4 (records) → 11.8 (spec text) → 11.5/11.6
+     (researcher-decided) → 11.7. Task 11.8 was added on 2026-08-26, after 11.2 measured
+     what the group had not: it carries a number out of sequence because task ids are keys
+     in `divergence_record.csv` and in committed evidence, and are never renumbered.
+     Tasks 8.8 and 8.9 depend on this group. -->
 
 - [x] 11.1 [record] Re-derive the predicate ledger from the 49 expert rules: sweep every
       `REQUIRES`/`ENSURES`/`NEGATES` of `RVSec-replication-package/tools/rules/*.crysl`,
@@ -1964,8 +1967,45 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       re-derived (11.1/11.2) and which carry adenda; `gate_allowlist.csv` G-ORDER rows
       re-justified against the expert ORDER — a divergence that only existed against api30
       closes, one that persists against the expert rule is re-cited. Grep gate for the
-      group: outside supersession adenda and the archived set, no artifact of
-      `data/jca_android/` and no `.mop` comment names api30 as an authority
+      group: outside supersession adenda and the archived set, nothing names api30 as an
+      authority — no artifact of `data/jca_android/`, no `.mop` comment, **and no emitted
+      message**. The third clause is not a widening for tidiness: written as "no `.mop`
+      comment" the gate reads over the five report strings task 11.8 repairs, because a
+      string handed to `ErrorDescription` is not a comment. The gate is what proves 11.8
+      complete, so it has to be able to see what 11.8 fixes
+- [ ] 11.8 [spec text] The five emitted messages that still name the withdrawn oracle as
+      their authority. Measured 2026-08-26, by sweeping the report strings of the set rather
+      than reading a list: `SSLCONTEXT-FORB-00` (`SSLContextSpec.mop:125`, `msg='...
+      is forbidden by api30 SSLContext.cryptsl'`), `GCMPARAMETERSPEC-CONSTR-00` and
+      `-CONSTR-02` (`GCMParameterSpecSpec.mop:66,110`, `exp='a tag length api30
+      GCMParameterSpec.cryptsl admits'`), and `PBEKEYSPEC-FORB-00` and `-FORB-01`
+      (`PBEKeySpecSpec.mop:45,52`, `msg='... is forbidden by api30 PBEKeySpec.cryptsl'`).
+      This is text the tool shows a person reading a violation report: under D-16 it cites an
+      authority that no longer exists. Task 10.6 made this exact repair for the sixth
+      (`KeyPairGeneratorSpec.mop:151`, now `exp='the key size the expert
+      KeyPairGenerator.crysl declares for RSA'`) and reached only that one, because it worked
+      from the internal validation's findings and not from a sweep — which is the reason this
+      task states its own method. Each message is re-anchored on the expert clause it
+      implements, cited by line: `GCMParameterSpec.crysl:18`, `PBEKeySpec.crysl:10-11`,
+      `SSLContext.crysl:11`.
+
+      **The task must prove it is label and not verdict, not assert it.** The three clauses
+      say the same thing in both catalogues — `{96, 104, 112, 120, 128}` is the tag-length
+      list of the expert rule and of the api30 one alike, both FORBID the same two
+      `PBEKeySpec` constructors, and both FORBID `getDefault()` — so no program changes class
+      and the committed harness pair reads **`unchanged`** under the `(event, code)`
+      comparison, as 10.6's did (`data/gh105/evidence/harness/f7-KeyPairGeneratorSpec.md`).
+      A pair that reads anything else is this task getting it wrong, not the measurement
+      surprising: it means a message was re-anchored onto a clause the set does not implement,
+      and the edit comes back out.
+
+      Two consequences the precedents already name and this task inherits: editing a message
+      re-keys its hunk, so `divergence_record.csv` rows come back as `unrecorded`/`stale`
+      pairs to re-key by `(file, summary)` (task 10.6); and any line added above a report site
+      moves the `codes.csv` anchors of that file, which the message gate's `code-anchor` check
+      accuses with the right line to use (tasks 7.2, 10.7). Both are part of the task, not
+      surprises after it
+
 - [ ] 11.5 [researcher decision per clause — behavioural] The wirings the expert oracle
       restores or opens, each through the 9.B discipline (harness pair, divergence row,
       go/no-go): (a) `Mac generatedKey[key,_]` — the read returns on the new store, in the
@@ -1997,6 +2037,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       re-anchored inputs; the 11.4 grep gate clean (no api30 authority outside adenda); the
       expert ledger's arithmetic closed (wired + recorded + unclosable = total, derived by
       enumeration, never asserted); harness pairs committed for every 11.5/11.6 task that
-      moved an accusation, `unchanged` proofs for the record-only ones;
+      moved an accusation, `unchanged` proofs for the record-only ones and for 11.8's five
+      messages;
       `gh104_divergence_record.py --check` exit 0 with every new row keyed. No task of this
       group closes on a gate exit code alone — artifact inspection, per R5/R6
