@@ -40,10 +40,14 @@ SecureRandomSpec(SecureRandom r) {
     List<String> algorithms = Arrays.asList("SHA1PRNG", "Windows-PRNG", "NativePRNG",
         "NativePRNGBlocking", "NativePRNGNonBlocking", "PKCS11");
 
-    // api30 SecureRandom.cryptsl ensures `randomized` over three different objects:
-    // the generator itself `after Ins`, the seed `generateSeed(int)` returns, and the
-    // array `nextBytes(byte[])` fills. The first is ensured at the state Ins leads to
-    // and the other two at the accepting state the Ends reach, so this file has two
+    // SecureRandom.crysl ensures `randomized` over five objects (:49-53): the generator
+    // itself `after Ins`, the seed `generateSeed(int)` returns `after gS`, the array
+    // `nextBytes(byte[])` fills `after nB`, and the two ints `nextInt()` and
+    // `nextInt(int)` return, `after nI` and `after nIR`. This file has events for the
+    // first three; the two int clauses are the delta task 11.2 measured and task 11.5
+    // owns. Every clause carries an `after L`, so each is ensured at the state its own
+    // aggregate leads to -- and Ins leads to one state while the Ends reach another, so
+    // this file has two
     // acceptance points and the second one needs the object to travel: a handler is
     // generated as a no-argument method and sees no event parameter. The event body
     // stages the object here and the handler that runs immediately after the
@@ -76,7 +80,7 @@ SecureRandomSpec(SecureRandom r) {
     // -- so removing the guard changes no reported constraint and removes the
     // spurious ordering report.
     //
-    // This is the constructor's half of `randomized[seed]` (SecureRandom.cryptsl:66,
+    // This is the constructor's half of `randomized[seed]` (SecureRandom.crysl:45,
     // ledger clause #33), the self-chain: the rule binds `seed` in two events, `s1:
     // setSeed(seed)` and `c2: SecureRandom(seed)`, and task 3.1 wired `setSeed2`'s half
     // and named this one as 5.5's in as many words. One clause, two binding sites, one
@@ -150,7 +154,7 @@ SecureRandomSpec(SecureRandom r) {
     // the same code from the same clause; what leaves is the second report and the
     // guard that suppressed the transition.
     //
-    // This is the read of `randomized[seed]` (SecureRandom.cryptsl, REQUIRES), and
+    // This is the read of `randomized[seed]` (SecureRandom.crysl:45, REQUIRES), and
     // it is the half of that clause `setSeed(byte[])` carries -- the rule binds
     // `seed` in two events, `s1: setSeed(seed)` and `c2: SecureRandom(seed)`, and
     // the constructor's half is wired at task 5.5 with the rest of the `randomized`
@@ -179,10 +183,12 @@ SecureRandomSpec(SecureRandom r) {
         }
     }
 
-    // `randomized[genSeed]` (SecureRandom.cryptsl, ENSURES) over the array
-    // `gS: genSeed = generateSeed(num)` returns. The clause carries no `after L`
-    // qualification, so its acceptance point is the accepting state the Ends reach,
-    // and the write belongs to `@match2` (INV-INS-134).
+    // `randomized[genSeed] after gS` (SecureRandom.crysl:50, ENSURES) over the array
+    // `gS: genSeed = generateSeed(num)` returns. The clause carries an `after L`, so its
+    // acceptance point is the state `gS` leads to -- which is the accepting state the Ends
+    // reach, so the write belongs to `@match2` either way (INV-INS-134). The generated rule
+    // left the clause unqualified and this comment used to say so; the site is the same and
+    // the route to it is not.
     event genSeed after(SecureRandom r) returning(byte[] seed):
       call(public byte[] SecureRandom.generateSeed(int))
       && target(r) {
@@ -214,8 +220,8 @@ SecureRandomSpec(SecureRandom r) {
       && target(r) {
     }
 
-    // `randomized[next]` (SecureRandom.cryptsl, ENSURES) over the array
-    // `nB: nextBytes(next)` fills -- the producer half of the IV chain, and the site
+    // `randomized[bytes] after nB` (SecureRandom.crysl:51, ENSURES) over the array
+    // `nB: nextBytes(bytes)` fills -- the producer half of the IV chain, and the site
     // task 4.4 named when it declared its own F2 window: the reads of
     // `IvParameterSpec.c1/c2` bind the same array by identity, so they stop
     // answering NOT_OBSERVED from here on.
@@ -237,7 +243,7 @@ SecureRandomSpec(SecureRandom r) {
       && target(r) {
     }
 
-    // api30 SecureRandom.cryptsl declares no stream event at all, so this event
+    // SecureRandom.crysl declares no stream event at all, so this event
     // translates no clause and marks nothing: the write that stood here claimed
     // `randomized` over an IntStream on the strength of the method name alone. The
     // event stays -- it is in the automaton, and removing it would make the call
@@ -258,9 +264,9 @@ SecureRandomSpec(SecureRandom r) {
     // `order_alphabet_map.csv` records `g4` ORDER-unmapped and G-ORDER erases it
     // from both languages before comparing.
     //
-    // The `end` state carries `next2` because the rule's ORDER ends in `Ends*` and
-    // `nB` is one of the Ends: `nextBytes(); nextBytes()` is a sequence api30
-    // accepts, and the omission of that one row accused the second call of a wrong
+    // The `end` state carries `next2` because the rule's ORDER is `Ins, (Seed?, End*)*`
+    // (SecureRandom.crysl:39) and `nB` is one of the Ends: `nextBytes(); nextBytes()` is a
+    // sequence the rule accepts, and the omission of that one row accused the second call of a wrong
     // call sequence -- 12,400 events on the published campaign, 99.98 % of them
     // inside libraries. The remaining divergences of this automaton against the
     // ORDER (`c1 c1` at `init`, and the Seeds the `end` state still admits after an

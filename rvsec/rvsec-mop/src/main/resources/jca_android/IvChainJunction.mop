@@ -31,15 +31,15 @@ import br.unb.cic.mop.jca.util.CipherTransformationNormalizer;
 /**
  * IvChainJunctionSpec
  *
- * The three REQUIRES clauses of api30's `Cipher` whose argument `CipherSpec` cannot
+ * The three REQUIRES clauses of the oracle's `Cipher` whose argument `CipherSpec` cannot
  * bind, each read here against the store:
  *
- *   #9  `part(1,"/",transformation) in {CBC, CTS, CTR, CFB, PCBC, OFB} && encmode == 1
- *        => preparedIV[params]`   (Cipher.cryptsl:182, task 5.1)
- *   #10 `part(1,"/",transformation) in {GCM} => preparedGCM[params]`
- *                                  (Cipher.cryptsl:184, task 5.8)
- *   #6  `randomized[ranGen]`      (Cipher.cryptsl:176, task 5.5, one site per overload)
- *   #8  `!macced[_, plainText]`   (Cipher.cryptsl:180, task 5.7, the two `doFinal`
+ *   #9  `mode(transformation) in {CBC, PCBC, CTR, CTS, CFB, OFB} && encmode == 1
+ *        => preparedIV[paramSpec]`  (Cipher.crysl:138, task 5.1)
+ *   #10 `mode(transformation) in {GCM} => preparedGCM[paramSpec]`
+ *                                  (Cipher.crysl:139, task 5.8)
+ *   #6  `randomized[random]`      (Cipher.crysl:135, task 5.5, one site per overload)
+ *   #8  `!macced[_, plainText]`   (Cipher.crysl:137, task 5.7, the two `doFinal`
  *                                  overloads `CipherSpec.f2` merges without binding)
  *
  * The name is the one task 5.1 gave the file when it held only the IV chain, and it is
@@ -73,8 +73,8 @@ import br.unb.cic.mop.jca.util.CipherTransformationNormalizer;
  */
 IvChainJunctionSpec(Cipher c) {
 
-    // `part(1,"/",transformation) in {...}` of the clause's antecedent, transcribed
-    // from Cipher.cryptsl:182. It is a list here and not a call into
+    // `mode(transformation) in {...}` of the clause's antecedent, transcribed
+    // from Cipher.crysl:138. It is a list here and not a call into
     // Api30CipherTransformationUtil because that class answers a different question:
     // whether the whole transformation is one the rule admits. This clause asks only
     // which mode was named, and admits modes the CONSTRAINTS may reject -- an
@@ -169,8 +169,8 @@ IvChainJunctionSpec(Cipher c) {
         }
 
         // The rule's second guarded clause over the same argument:
-        // `part(1,"/",transformation) in {GCM} => preparedGCM[params]`
-        // (Cipher.cryptsl:184, ledger clause #10). It reads the same `params` at the
+        // `mode(transformation) in {GCM} => preparedGCM[paramSpec]`
+        // (Cipher.crysl:139, ledger clause #10). It reads the same argument at the
         // same join point as the clause above, which is why it is a second read in
         // this body and not a file of its own: the two clauses share the pointcut
         // exactly, and a second specification over the same call would put a second
@@ -203,9 +203,10 @@ IvChainJunctionSpec(Cipher c) {
         }
     }
 
-    // `randomized[ranGen]` (Cipher.cryptsl:176, ledger clause #6) -- the rule's only
-    // unguarded REQUIRES over an argument `CipherSpec` cannot bind. api30 binds `ranGen` in
-    // i2, i6, i7 and i8, and this file writes one event per overload, which is more events
+    // `randomized[random]` (Cipher.crysl:135, ledger clause #6) -- the rule's only
+    // unguarded REQUIRES over an argument `CipherSpec` cannot bind. The rule binds the
+    // random source in four `init` overloads, and this file writes one event per overload,
+    // which is more events
     // than the clause looks like it needs. Three shorter statements were measured first and
     // all three are worse:
     //
@@ -310,8 +311,8 @@ IvChainJunctionSpec(Cipher c) {
     // state is therefore unreachable by construction -- measured on the generated
     // monitor, whose transition rows send state 0 to state 0 for all seven symbols -- and the
     // file carries no ORDER code, because there is no site that could emit one. G-ORDER skips this
-    // file declaredly, for want of a row in `order_alphabet_map.csv`, and the skip is
-    // right here rather than concealing: no api30 rule states an ORDER this file
+    // file declaredly, for want of a row in `order_alphabet_map_expert.csv`, and the skip is
+    // right here rather than concealing: no rule of the oracle states an ORDER this file
     // translates, so there is nothing for the gate to compare against.
     //
     // The `@match` below is empty on purpose, and it is there because JavaMOP requires
@@ -327,8 +328,8 @@ IvChainJunctionSpec(Cipher c) {
     // Nothing may be written between the `ere` line and the first `@handler`: the lint
     // reads whatever sits there as part of the expression, and a comment block becomes
     // sixty undeclared symbols and one unbalanced brace.
-    // `!macced[_, plainText]` (Cipher.cryptsl:180, ledger clause #8) at the two `doFinal`
-    // overloads api30 binds `plainText` in and `CipherSpec` does not: its `f2` is declared
+    // `!macced[_, plainText]` (Cipher.crysl:137, ledger clause #8) at the two `doFinal`
+    // overloads the rule binds `plainText` in and `CipherSpec` does not: its `f2` is declared
     // `call(public byte[] Cipher.doFinal(byte[], ..))` and stands for the rule's `f2` and
     // `f4` at once, binding no argument, and splitting it into one event per overload is
     // not available at 17 of 17 events (INV-INS-145). Those two overloads share a `byte[]`

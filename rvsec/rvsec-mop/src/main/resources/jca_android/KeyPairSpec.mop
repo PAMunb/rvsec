@@ -19,7 +19,7 @@ import br.unb.cic.mop.Property;
  */
 KeyPairSpec(KeyPair keyPair) {
 
-    // api30 KeyPair.cryptsl also states `generatedKeypair[this, _] after co`, and this
+    // KeyPair.crysl:27 also states `generatedKeypair[this, _] after Con`, and this
     // file has no write for it. None is fabricated, and task 5.10 has now made the record
     // this pass fed it: the predicate is required by no rule of the whole oracle, so a
     // write here would produce something nothing can consume; its other producing site is
@@ -31,7 +31,7 @@ KeyPairSpec(KeyPair keyPair) {
     // site can be written down at all (researcher decision, 2026-08-22).
     //
     // What this event gains is the rule's own REQUIRES, both of them:
-    // `generatedPrivkey[consPriv]` and `generatedPubkey[consPub]` (KeyPair.cryptsl:32,34,
+    // `generatedPrivkey[privateKey]` and `generatedPubkey[publicKey]` (KeyPair.crysl:23-24,
     // ledger clauses #15 and #16). They are the constructor's clauses -- what a program
     // may hand to `new KeyPair(...)` -- and they are separate reports over separate
     // objects, so they carry a code each rather than being folded into one composite the
@@ -94,7 +94,7 @@ KeyPairSpec(KeyPair keyPair) {
         }
     }
 
-    // `generatedPubkey[retPub] after pu` (KeyPair.cryptsl:41), read by `CipherSpec.i2`
+    // `generatedPubkey[retPublicKey] after GetPubl` (KeyPair.crysl:28), read by `CipherSpec.i2`
     // since task 4.1 -- so this is one of the two sites of this pass that closes a chain
     // rather than recording a dead end.
     //
@@ -119,7 +119,7 @@ KeyPairSpec(KeyPair keyPair) {
         PredicateStore.instance().ensure(Property.GENERATED_PUBLIC_KEY, publicKey);
     }
 
-    // `generatedPrivkey[retPriv] after pr` (KeyPair.cryptsl:43) -- and the seed wrote the
+    // `generatedPrivkey[retPrivateKey] after GetPriv` (KeyPair.crysl:29) -- and the seed wrote the
     // private key under `GENERATED_PUBLIC_KEY`, which is the defect task 6.1 names. It is
     // repaired here, with the write, and not recorded like the `preparedKeyMaterial`
     // conflation was, because the argument that kept that one recorded does not hold:
@@ -144,16 +144,22 @@ KeyPairSpec(KeyPair keyPair) {
     // never read it back (INV-INS-147). `@match` is left empty rather than deleted --
     // an `ere` names its accepting category whether or not a handler uses it, and the
     // write returns here at task 7.1.
-    // The constructor is optional, and on this platform that is the whole point: api30
-    // `KeyPair.cryptsl:27` orders `co?, (pu*, pr*)*`, and practically every Android key pair
-    // comes out of `generateKeyPair()`, which fires no `c1` at all -- so with the constructor
-    // mandatory every `getPublic()`/`getPrivate()` on a generated pair drew KEYPAIR-ORDER-00.
+    // The constructor is optional, and on this platform that is the whole point:
+    // practically every Android key pair comes out of `generateKeyPair()`, which fires no
+    // `c1` at all -- so with the constructor mandatory every `getPublic()`/`getPrivate()`
+    // on a generated pair drew KEYPAIR-ORDER-00. That was measured over 668 lines of corpus
+    // and the measurement stands.
     //
-    // The two oracles part company here and the divergence is written down rather than left
-    // implicit: the expert `KeyPair.crysl:20` orders `Con, (GetPubl | GetPriv)*`, constructor
-    // mandatory, so what stood here was a faithful translation of the expert. The repair
-    // follows the project convention that ORDER answers to api30 while values answer to the
-    // expert (D-15); the row is in divergence_record.csv.
+    // THE GROUND HAS CHANGED AND THE AUTOMATON HAS NOT. Task 9.11 justified this shape by
+    // the withdrawn generated rule, which orders `co?, (pu*, pr*)*`, and by a project
+    // convention that ORDER answered to that catalogue while values answered to the expert.
+    // D-16 (2026-08-25) ended the convention: there is one oracle, and `KeyPair.crysl:20`
+    // orders `Con, (GetPubl | GetPriv)*`, constructor MANDATORY. The `ere` here is not
+    // reverted by that -- reverting it would start accusing again exactly what the 668-line
+    // measurement says is the ordinary Android case -- and the adjudication is task 11.6,
+    // with a harness pair and a decision per specification. G-ORDER reports the divergence
+    // today, unforgiven, which is the honest state until then; the row is in
+    // divergence_record.csv.
     //
     // The form is `(c1 | epsilon)` and not `c1?`: the rv-monitor ERE grammar
     // (EREParser.jj:49-60) has `~ & | * + ^` and `epsilon`, and no `?` -- the shorthand does

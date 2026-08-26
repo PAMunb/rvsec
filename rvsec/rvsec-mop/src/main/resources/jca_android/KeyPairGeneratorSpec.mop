@@ -31,10 +31,10 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         return value.replace("'", "\\'");
     }
 
-    // D-15: the five entries of KeyPairGenerator.crysl. `DiffieHellman` returns -- the api30
-    // clause named only its short form, and the frozen jca carried both. `EC` needs no
-    // divergence row any more: it is an expert entry, so the api30-omits exception D-10
-    // recorded for it has dissolved.
+    // D-15: the five entries of KeyPairGenerator.crysl. `DiffieHellman` returns -- the
+    // withdrawn generated clause named only its short form, and the frozen jca carried both.
+    // `EC` needs no divergence row any more: it is an expert entry, so the `api30-omits`
+    // exception D-10 recorded for it has dissolved.
     List<String> safeAlgorithms = Arrays.asList("RSA", "EC", "DSA", "DiffieHellman", "DH");
 
     // Staged by `gen` for the acceptance-point handler, which sees no event parameter, and
@@ -44,7 +44,8 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
 
     private boolean validate(int keySize) {
       // D-15: the four key-size clauses of KeyPairGenerator.crysl. `3072` returns to the RSA
-      // sizes -- the api30 rule had lost it and the frozen jca was right to carry it. The
+      // sizes -- the withdrawn generated rule had lost it and the frozen jca was right to
+      // carry it. The
       // subject is upper-cased, so the label for `DiffieHellman` is its upper-case form; it
       // shares the DH clause, `algorithm in {"DiffieHellman", "DH"} => keysize in {2048}`.
       switch(ConscryptAliasTable.canonical("KeyPairGenerator", algorithm).toUpperCase()) {
@@ -102,18 +103,18 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       target(k) &&
       condition(algorithm != null && validate(keySize)) { }
 
-    // `init3` and `init4` bind the `params` of api30's four guarded REQUIRES clauses --
-    // `{DH} => preparedDH[params]`, `{DSA} => preparedDSA[params]`,
-    // `{RSA} => preparedRSA[params]` and `{EC} => preparedEC[params]`
-    // (KeyPairGenerator.cryptsl:58-64, ledger #17, #18, #19, #20) -- and read none of
+    // `init3` and `init4` bind the `params` of the rule's four guarded REQUIRES clauses --
+    // `{RSA} => preparedRSA[params]`, `{DSA} => preparedDSA[params]`,
+    // `{DiffieHellman, DH} => preparedDH[params]` and `{EC} => preparedEC[params]`
+    // (KeyPairGenerator.crysl:35-38, ledger #17, #18, #19, #20) -- and read none of
     // them. Each of the four is recorded, and the reasons are three different ones:
     //
     // `preparedDSA` and `preparedRSA` have no producing rule with a `.mop` in this set,
     // so there is nothing to read: `unmonitored-producer`, recorded with the other
     // non-wireable clauses at task 5.10.
     //
-    // `preparedEC` has no producing rule anywhere in the oracle -- api30 states it in
-    // this REQUIRES and in no ENSURES of any rule -- so no site could ever write it and
+    // `preparedEC` has no producing rule anywhere in the oracle -- it appears in
+    // this REQUIRES and in no ENSURES of any of the 49 -- so no site could ever write it and
     // a read here could only ever answer NOT_OBSERVED. `unclosable`.
     //
     // `preparedDH` is the one whose two ends both have a `.mop`, and the composition is
@@ -161,10 +162,10 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     // CONSTRAINTS bound, which is a report of its own and not the negation of another
     // event's guard. It enters the automaton as one more alternative of the `Inits`
     // group, at the only position where an `initialize` call is legal, because that is
-    // what the api30 rule says it is: `i3: initialize(keySize)` is an `Inits` event
+    // what the rule says it is: `i1: initialize(keysize)` is an `Init` event
     // whatever size it is handed, and the size is stated separately, under CONSTRAINTS.
     // Outside the automaton it drew a KEYPAIRGENERATOR-ORDER-00 as well as its own
-    // KEYPAIRGENERATOR-KEYSIZE-00, for an ordering -- `Gets, Inits, Generators` -- that
+    // KEYPAIRGENERATOR-KEYSIZE-00, for an ordering -- `Get, Init, Gen` -- that
     // the rule accepts; a self-loop would have kept that second report, because a loop
     // does not satisfy the `Inits` the `gen` that follows needs.
     //
@@ -195,11 +196,11 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     // has the transition row {4, 4, 3, 4, 4} and the match category is `nextstate == 3`,
     // so `gen` is the only event that reaches this handler.
     //
-    // `generatedKeypair` is required by no rule of api30 -- it is the last of the seven
+    // `generatedKeypair` is required by no rule of the oracle -- it is the last of the seven
     // dead-end predicates design.md counts over eleven sites, and this is that eleventh
     // site. The write is relocated as the clause asks and carries a deliberate-omission
     // record for its absent reader (INV-INS-137); no read is fabricated for it. The other
-    // half of the clause, `generatedKeypair[this, _] after co` (KeyPair.cryptsl:39), has
+    // half of the clause, `generatedKeypair[this, _] after Con` (KeyPair.crysl:27), has
     // no site at all in `KeyPairSpec.c1`; task 4.13 measured it and routed the record to
     // task 5.10, because a clause without a site has no row in this inventory of sites.
     //

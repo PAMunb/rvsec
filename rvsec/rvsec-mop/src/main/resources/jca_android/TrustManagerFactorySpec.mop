@@ -61,7 +61,8 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // that carries the algorithm check
     // (data/gh105/evidence/harness/f1-TrustManagerFactorySpec.md).
     //
-    // The api30 rule orders `Gets, Init, gtm?` with `Gets := g1 | g2` and puts the
+    // The rule orders `Get, Init, GetTrustMng?` (TrustManagerFactory.crysl:22) with
+    // `Get := g1 | g2` and puts the
     // algorithm in CONSTRAINTS, so the algorithm must not govern the transition:
     // `getInstance` is a `Gets` whatever it was asked for. Dropping the guard lets
     // the rejected factory reach `final` like any other, where the `init` body
@@ -89,19 +90,19 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
         currentAlgorithmInstance = alg;
     }
 
-    // `generatedKeyStore[keyStore]` (TrustManagerFactory.cryptsl:42, ledger clause #36) is read
+    // `generatedKeyStore[keyStore]` (TrustManagerFactory.crysl:28, ledger clause #36) is read
     // here, in the only event of this file a key store ever reaches. The sibling
     // `KeyManagerFactorySpec` reads the same clause of the neighbouring rule at the same shape,
     // and the reasoning is stated there once for both files.
     //
-    // Here the fusion is cheaper than there: api30 declares `i1: init(keyStore)` and
+    // Here the fusion is cheaper than there: the rule declares `i1: init(keyStore)` and
     // `i2: init(params)`, and both overloads have arity one, so `args(arg)` binds the argument
     // exactly rather than by a shared prefix. The body discriminates by runtime type.
     //
     // The null argument is read rather than exempted, and this file is where that costs the
     // most: measured on Temurin 21, `tmf.init((KeyStore) null)` runs and is the documented
     // default-truststore route, which is a conforming program under every reading except the
-    // rule's own. api30 requires a key store this instrumentation saw loaded, and a null is not
+    // rule's own. The rule requires a key store this instrumentation saw loaded, and a null is not
     // one, so the read reports NOT_OBSERVED there. What the report says is exactly that -- no
     // loading was observed -- and not that the program is broken; the distinction between a
     // reach limit and a violation is the distinction the two codes below carry. Measured too,
@@ -136,9 +137,12 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
        initialisedFactory = mf;
     }
 
-    // `generatedTrustManager[tms]` (TrustManagerFactory.cryptsl:49), and the write this rule's
-    // single consumer reads: `SSLContext.init` asks for the predicate over the TrustManager[]
-    // array (SSLContext.cryptsl:50, ledger clause #29).
+    // `generatedTrustManagers[trustManager] after GetTrustMng` (TrustManagerFactory.crysl:33),
+    // and the write this rule's single consumer reads: `SSLContext.init` asks for the predicate
+    // over the TrustManager[] array, as `generatedTrustManagers[tm]` (SSLContext.crysl:33,
+    // ledger clause #29). The oracle names the predicate in the plural and qualifies it with an
+    // `after L` the generated rule did not carry; neither moves this site, because
+    // `GetTrustMng` is the aggregate `gtm1` belongs to and the write is already in its body.
     //
     // Three defects of this event are repaired here, and they were three faces of one: the
     // advice had no execution path at all. The pointcut declared `getTrustManagers()` returning
@@ -156,7 +160,7 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // happens, so a `SSLContext.init` that receives this array reads SATISFIED. And a second
     // `getTrustManagers()` on one factory draws TRUSTMANAGERFACTORY-ORDER-00, because the
     // transition below leads to a state where the event is not declared. That accusation is
-    // faithful: api30 orders `Gets, Init, gtm?` and the `?` refuses the repetition too. It is
+    // faithful: the rule orders `Get, Init, GetTrustMng?` and the `?` refuses the repetition too. It is
     // also symmetric -- `KeyManagerFactorySpec.gkm1` declares the right return type, has always
     // been live, and has always behaved this way -- so the repair restores two mirror
     // specifications to being mirrors (researcher decision, 2026-08-22).
@@ -209,8 +213,8 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // {4, 4, 4, 1, 4} and the match category is `nextstate == 1`, so the state the Init leads
     // to and the accepting state are one state, and `init` is the only event reaching it.
     //
-    // No rule of api30 requires this half of the clause -- `SSLContext` asks for
-    // `generatedTrustManager[tms]`, over the array, never over the factory -- so the site
+    // No rule of the oracle requires this half of the clause -- `SSLContext.crysl:33` asks for
+    // `generatedTrustManagers[tm]`, over the array, never over the factory -- so the site
     // carries a deliberate-omission record (INV-INS-137) and no read is fabricated for it.
     @match1 {
        if (initialisedFactory != null) {
@@ -219,8 +223,8 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
        }
     }
 
-    // The second accepting state, the mirror of `KeyManagerFactorySpec.taken`: api30 orders
-    // `Gets, Init, gtm?`, so a factory whose trust managers were taken accepts and a second
+    // The second accepting state, the mirror of `KeyManagerFactorySpec.taken`: the rule orders
+    // `Get, Init, GetTrustMng?`, so a factory whose trust managers were taken accepts and a second
     // taking is refused. An alias is how this file says a state accepts, and G-ORDER reads it
     // to decide equivalence. The handler is empty because there is nothing left to write --
     // the write over the factory is `@match1`'s and the one over the array is in the `gtm1`
