@@ -76,3 +76,13 @@ Zero risco, e a linha de registro fica.
 
 Qualquer opção que edite `.mop` ou Java entra com a disciplina do 9.B: par de arnês
 satisfaz/viola, linha de divergência, e a evidência commitada. A opção C é só linha de registro.
+
+---
+
+## 5. A decisão
+
+**Opção C (pesquisador, 2026-08-25): registrar e não mexer.** Entrou como linha narrativa
+`behavioural` do `divergence_record.csv`, com o mecanismo medido, as duas respostas acima e o
+que fechar o caso de verdade exigiria. Nenhuma linha de especificação se moveu, e o custo
+registrado é um `CIPHER-CONSTR-00` falso por programa de grafia composta, sempre em cima do
+`CIPHER-ALG-0x` verdadeiro que o mesmo programa já tira.

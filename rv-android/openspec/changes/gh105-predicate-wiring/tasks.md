@@ -1872,7 +1872,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 
 ### 10.B — Changes to what is accused [researcher decision per task]
 
-- [ ] 10.10 `CipherSpec.mop:166-167`: the `GENERATED_KEY` tuple splitter is the third exposure
+- [x] 10.10 `CipherSpec.mop:166-167`: the `GENERATED_KEY` tuple splitter is the third exposure
       of the defect 9.10 repaired — `validate(Property.GENERATED_KEY, key,
       alg(c.getAlgorithm()))` calls the statically imported frozen
       `CipherTransformationUtil.alg` (split on `/`, no alias resolution) while every other
