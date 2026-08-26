@@ -2080,7 +2080,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       the `long` position boxes fresh (the Integer-cache measurement extends to `Long`);
       expected disposition platform-limit record, derived not assumed; (e) any further
       clause 11.1's delta surfaces, one task-line each, same discipline
-- [ ] 11.6 [researcher decision per spec — behavioural] ORDER deltas against the expert
+- [x] 11.6 [researcher decision per spec — behavioural] ORDER deltas against the expert
       rules, from the re-anchored G-ORDER sweep (11.2+11.3): every hit either allow-listed
       with an expert-anchored reason or repaired under a decision. The named case:
       `KeyPair.crysl:20` orders the constructor **mandatory** and the 9.11 automaton is
