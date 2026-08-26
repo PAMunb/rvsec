@@ -26,7 +26,7 @@ MacSpec(Mac m) {
     }
 
         // D-15: Mac.crysl names nine algorithms; the eight further entries are the frozen
-        // jca's spelling variants of them. `HmacMD5` and `HmacSHA1`, which the api30
+        // jca's spelling variants of them. `HmacMD5` and `HmacSHA1`, which the withdrawn
         // catalogue admitted, are gone -- they are what a Mac specification exists to accuse.
         List<String> safeAlgorithms = Arrays.asList("HmacSHA256", "HmacSHA384", "HmacSHA512", "HmacPBESHA1",
             "PBEWithHmacSHA1", "PBEWithHmacSHA224", "PBEWithHmacSHA256", "PBEWithHmacSHA384", "PBEWithHmacSHA512",
@@ -47,7 +47,8 @@ MacSpec(Mac m) {
         String currentAlgorithmInstance = "";
 
         // The data this Mac authenticated, held from the events that bind it to the
-        // handler that writes about it. api30 ENSURES `macced[M, D]` -- M is the MAC of
+        // handler that writes about it. The rule ENSURES `macced[M, D]` (Mac.crysl:57-59)
+        // -- M is the MAC of
         // D -- and `Property.MACED` holds the second place, the data, which is the place
         // Cipher's `!macced[_, plainText]` quantifies over. A handler sees no event
         // parameter, so what the events observe has to travel in fields.
@@ -91,22 +92,32 @@ MacSpec(Mac m) {
             currentAlgorithmInstance = alg;
         }
 
-        // api30's `Inits`, the one-argument overload. Until this pass it opened
-        // with a `condition(...)` that read a `generatedKey` predicate on the key,
-        // and this pass deletes that read outright instead of moving it into the
-        // body the way the rest of the group moves its reads.
+        // The rule's `Init`, the one-argument overload (Mac.crysl:23,25). Until this
+        // pass it opened with a `condition(...)` that read a `generatedKey` predicate
+        // on the key, and this pass deletes that read outright instead of moving it
+        // into the body the way the rest of the group moves its reads.
         //
-        // It translates no clause. The api30 Mac rule requires
-        // `preparedHMAC[params]` and the two negated `encrypted[output1, _]` /
-        // `encrypted[output2, _]` (Mac.cryptsl:80-84); `generatedKey` is not among
-        // them, and no CONSTRAINTS clause mentions the key either. Nor did the read
-        // propagate: the reads elsewhere in the set that carry no clause of their
-        // own -- `RandomStringPassword.vo` and `gb`, `SecretKeySpec.e1` -- each feed
-        // a write, so a verdict of theirs travels; this one fed nothing. It
-        // computed a verdict, discarded it, and its only surviving effect was the
-        // transition it suppressed. Deleting it and moving it to the body without
-        // an accuser are behaviourally the same program, and what separates them is
-        // dead code and two rows in predicate_graph.csv.
+        // THE GROUND TASK 4.9 GAVE FOR THAT DELETION NO LONGER HOLDS, AND THE
+        // DELETION IS NOT REVERSED HERE. 4.9 wrote that the read translated no
+        // clause, and against the withdrawn catalogue it did not: that rule required
+        // `preparedHMAC[params]` and the two negated `encrypted[...]`, and stated
+        // nothing over the key. The sole oracle states a fourth clause -- `Mac.crysl:54`
+        // REQUIRES `generatedKey[key,_]`, which is the very predicate the deleted
+        // guard read -- and `predicate_ledger.csv` row 39 disposes it `wireable`, with
+        // both ends specified in this set (KeyGenerator, KeyStore, SecretKeySpec).
+        // Restoring the read is task 11.5(a): it returns an accusation to this file,
+        // so it travels with a harness pair and a decision per clause, which is not
+        // what this pass carries. What stands until then is the file as 4.9 left it,
+        // with the reason corrected rather than the code.
+        //
+        // What survives of 4.9's argument is the part that was about the read's shape
+        // and not about its clause: it propagated nothing. The reads elsewhere in the
+        // set that carry no clause of their own -- `RandomStringPassword.vo` and `gb`,
+        // `SecretKeySpec.e1` -- each feed a write, so a verdict of theirs travels;
+        // this one fed nothing. It computed a verdict, discarded it, and its only
+        // surviving effect was the transition it suppressed. That is why 11.5(a) is a
+        // wiring and not a revert: what the file needs at this event is a read with an
+        // accuser, which is what the guard never was.
         //
         // The suppression was not harmless, which is why the deletion is a repair
         // and not housekeeping. A guard compiles into the generated monitor as
@@ -121,10 +132,11 @@ MacSpec(Mac m) {
         // `MAC-ALG-00` lives in this body and this body did not run. After the
         // deletion the first is silent and the second reports the algorithm.
         //
-        // None of the rule's three clauses reaches this event. `preparedHMAC` binds
-        // `params`, which the one-argument overload does not have; the two negated
-        // `encrypted` clauses bind the `doFinal` outputs. This event translates no
-        // clause of the rule and holds no predicate site.
+        // Three of the rule's four REQUIRES clauses do not reach this event:
+        // `preparedHMAC` binds `params`, which the one-argument overload does not
+        // have, and the two negated `encrypted` clauses bind the `doFinal` outputs.
+        // The fourth, `generatedKey[key,_]`, binds exactly what this event binds,
+        // which is why the site is owed and 11.5(a) is what owes it.
         event i1 before(java.security.Key key, Mac m):
           call(public void Mac.init(java.security.Key)) &&
           args(key) &&
@@ -135,28 +147,33 @@ MacSpec(Mac m) {
             }
         }
 
-        // The other alternative of `Inits`, taking parameters beside the key. It
-        // carried the same read on the same key and loses it for the same reason.
+        // The other alternative of `Init` (Mac.crysl:24), taking parameters beside the
+        // key. It carried the same read on the same key, loses it for the same reason,
+        // and is owed the same site by 11.5(a).
         //
-        // The `params` it binds is the subject of api30 Mac `preparedHMAC[params]`
-        // (Mac.cryptsl:80, ledger clause #21), and that clause is recorded here
+        // The `params` it binds is the subject of the rule's `preparedHMAC[params]`
+        // (Mac.crysl:53, ledger clause #21), and that clause is recorded here
         // rather than read: the platform cannot compose its two ends. Three
         // measurements, in the order that decided it.
         //
         // The producer is `javax.xml.crypto.dsig.spec.HMACParameterSpec`
-        // (HMACParameterSpec.cryptsl:21, realised by HMACParameterSpecSpec.mop),
-        // an XML-DSig class of the `java.xml.crypto` module. The api30 android.jar
-        // holds `javax/crypto/Mac` and `javax/crypto/spec/PBEParameterSpec` and no
-        // entry at all under `javax/xml/crypto`, so on the platform this set
+        // (HMACParameterSpec.crysl:14, realised by HMACParameterSpecSpec.mop),
+        // an XML-DSig class of the `java.xml.crypto` module. The android-30
+        // `android.jar` holds `javax/crypto/Mac` and `javax/crypto/spec/PBEParameterSpec`
+        // and no entry at all under `javax/xml/crypto`, so on the platform this set
         // targets the producing class cannot be loaded and the predicate can never
-        // be written.
+        // be written. That is a fact about the platform and not about a catalogue,
+        // which is why the substitution of oracle leaves it standing (task 11.9(b)).
         //
-        // On a JVM, where it can be loaded, no `Mac` accepts it. Measured over the
-        // twelve algorithms of the rule's own CONSTRAINTS allow-list on Temurin 21:
-        // the six `Hmac*` reject every parameter object with "HMAC does not use
-        // parameters"; the five `PBEwithHmac*` accept `PBEParameterSpec` only and
-        // answer "PBEParameterSpec type required" to this one; and
-        // `PBEwithHmacSHA`, which the allow-list names, does not exist.
+        // On a JVM, where it can be loaded, no `Mac` accepts it. Re-measured for the
+        // sole oracle over the nine algorithms of `Mac.crysl:44`, on Temurin 21:
+        // `HmacSHA256`, `HmacSHA384` and `HmacSHA512` reject every parameter object
+        // with "HMAC does not use parameters"; `HmacPBESHA1` and the five
+        // `PBEWithHmac*` answer "PBEParameterSpec type required" to this one. Every
+        // one of the nine resolves, which is the one way the measurement differs from
+        // the one made against the withdrawn catalogue -- that list named
+        // `PBEwithHmacSHA`, which no provider has. The conclusion is the one it was:
+        // no `Mac` the rule admits takes an `HMACParameterSpec`.
         //
         // The advice is `after`, which is after-finally, so it runs on the throwing
         // call too -- the only program that could reach a read here with the
@@ -176,10 +193,10 @@ MacSpec(Mac m) {
             }
         }
 
-        // api30's `Updates`, which the rule states as four events and this file observed
-        // as one, `update(..)`, binding nothing. That was enough while the file wrote no
-        // predicate; it is not enough now, because `macced[output1, pre_input]`
-        // (Mac.cryptsl:91) is about the array the call was given and a pointcut that binds
+        // The rule's `Update` (Mac.crysl:31), which it states as four events and this file
+        // observed as one, `update(..)`, binding nothing. That was enough while the file
+        // wrote no predicate; it is not enough now, because `macced[output1, preInput]`
+        // (Mac.crysl:58) is about the array the call was given and a pointcut that binds
         // no argument has no array to be about (finding 74).
         //
         // So the aggregate splits into siblings, one per overload whose argument the
@@ -193,20 +210,24 @@ MacSpec(Mac m) {
         // positions it does not read.
         //
         // The split adds symbols and moves no ordering claim: the rule puts u1 to u4 in
-        // one alternation, `Updates`, so the `ere` accepts each sibling exactly where it
-        // accepted the aggregate. The aggregate itself stays, and keeps its name, for the
-        // one overload whose argument the rule does not name in any ENSURES.
+        // one alternation, `Update` (Mac.crysl:31), so the `ere` accepts each sibling
+        // exactly where it accepted the aggregate. The aggregate itself stays, and keeps
+        // its name, for `update(byte)` -- the one overload whose ENSURES clause can hold
+        // no site, for the reason below.
         //
-        // `macced[output1, inp]` (Mac.cryptsl:89) is the rule's third clause and gains no
-        // site. `inp` is a primitive `byte`: a write would box it, the store is keyed by
-        // object identity, and no `Cipher` takes a `byte` as its plaintext -- so no read
-        // of the consuming clause could ever meet what a write here recorded. Vacuous,
-        // recorded rather than written, on the ground decision 19 states.
+        // `macced[output1, inputByte]` (Mac.crysl:57) is the rule's remaining ENSURES
+        // clause and gains no site. `inputByte` is a primitive `byte`: a write would box
+        // it, the store is keyed by object identity, and no `Cipher` takes a `byte` as its
+        // plaintext -- so no read of the consuming clause could ever meet what a write here
+        // recorded. Vacuous, recorded rather than written, on the ground decision 19 states.
         event update after(Mac m):
           call(public void Mac.update(byte)) &&
           target(m) { }
 
-        // api30's u2 and u4, which the rule declares twice over the same signature.
+        // The rule's `u2: update(preInput)` (Mac.crysl:28). The withdrawn catalogue
+        // declared this signature twice, as `u2` and again as `u4`, so the alphabet map
+        // needed a row for each; the sole oracle writes it once and its `u4` is a
+        // different call (`order_alphabet_map_delta.csv`, `withdrawn-duplicate`).
         event updateBytes after(byte[] input, Mac m):
           call(public void Mac.update(byte[])) &&
           args(input) &&
@@ -214,8 +235,11 @@ MacSpec(Mac m) {
             maccedByUpdate.add(input);
         }
 
-        // api30's u3, `update(pre_input, offset, len)`. The clause names the array and not
-        // the window, so the two int positions are bound and unread.
+        // The rule's `u3: update(preInput, offset, len)` (Mac.crysl:29). The ENSURES clause
+        // names the array and not the window, so the two int positions are bound and unread
+        // here. The rule does constrain them -- `length[preInput] >= offset + len`,
+        // `offset >= 0` and `len > 0` (Mac.crysl:46-48) -- and this file implements none of
+        // the three, which `constraint_table.csv:58-60` records as CRYSL-NAO-IMPLEMENTADO.
         event updateRange after(byte[] input, int offset, int len, Mac m):
           call(public void Mac.update(byte[], int, int)) &&
           args(input, offset, len) &&
@@ -223,26 +247,35 @@ MacSpec(Mac m) {
             maccedByUpdate.add(input);
         }
 
-        // `Mac.update(ByteBuffer)` is an overload of the API that api30 does not declare:
-        // the rule's `Updates` names four events and none of them is this one, so there is
-        // no clause here and the event stages nothing. It is declared all the same, because
-        // the aggregate pointcut this split replaced did match it, and dropping it would
-        // quietly narrow what the automaton observes -- a change to the alphabet that no
-        // clause asks for. It stands where the aggregate stood.
+        // THE ORACLE DOES DECLARE THIS OVERLOAD, WHERE THE GENERATED RULE DID NOT.
+        // `Mac.update(ByteBuffer)` is the rule's `u4: update(preInputByteBuffer)`
+        // (Mac.crysl:30), and `:31` puts it inside `Update`. This comment used to say the
+        // rule named no such event, which was true of the withdrawn catalogue and is not
+        // true of the sole oracle. What the rule still does not do is name
+        // `preInputByteBuffer` in any ENSURES -- `:57-59` name `inputByte`, `preInput` and
+        // `input` -- so the event carries no clause and stages nothing, which is the same
+        // reading `CipherSpec.f7` carries at the consuming end.
+        //
+        // The alphabet map keeps the event `order-unmapped` all the same
+        // (`order_alphabet_map_expert.csv`): mapping it changes the language the automaton
+        // is compared against, which is behavioural and belongs to 11.5/11.6. The event was
+        // declared because the aggregate pointcut this split replaced did match it, and
+        // dropping it would quietly narrow what the automaton observes. It stands where the
+        // aggregate stood, and the sole oracle is a further reason to keep it there.
         event updateBuffer after(ByteBuffer input, Mac m):
           call(public void Mac.update(ByteBuffer)) &&
           args(input) &&
           target(m) { }
 
-        // api30's `Finals`. Both of these events established a one-place
+        // The rule's `Final` (Mac.crysl:38). Both of these events established a one-place
         // "a MAC was generated" property on the tag they return, and this pass
         // deletes both writes rather than moving them to the acceptance point.
         //
         // The property is written by three of this tree's five specification sets
         // and read by none of them, so nothing downstream loses a fact. And it does
-        // not translate the rule's ENSURES: api30 states `macced[output1, inp]`,
-        // `macced[output1, pre_input]` and `macced[output2, input]`
-        // (Mac.cryptsl:89-93) -- two places, the tag and the data it authenticates
+        // not translate the rule's ENSURES: it states `macced[output1, inputByte]`,
+        // `macced[output1, preInput]` and `macced[output2, input]`
+        // (Mac.crysl:57-59) -- two places, the tag and the data it authenticates
         // -- while a one-place property over the tag alone cannot say which data
         // was authenticated, which is the only thing the consumer asks. That
         // consumer is Cipher's `!macced[_, plainText]`, ledger clause #8, and it is
@@ -254,9 +287,9 @@ MacSpec(Mac m) {
         // and this pass moves no symbol of the alphabet.
         //
         // This event is where the rule's two negated clauses would seem to belong,
-        // and it carries neither. It merges the rule's `f1: output1 = doFinal()`
-        // and `f2: output2 = doFinal(input)` under one pointcut disjunction, and in
-        // both the array it binds is the one the call returns. The JCA allocates
+        // and it carries neither. It covers the rule's `f1: output1 = doFinal()` and
+        // its sibling below covers `f2: output2 = doFinal(input)`; in both, the array
+        // the event binds is the one the call returns. The JCA allocates
         // that array fresh on every invocation -- measured on Temurin 21 over
         // HmacSHA1, HmacSHA256 and HmacSHA512, the returned tag is never the same
         // object as a ciphertext produced beside it -- so no Cipher acceptance
@@ -266,7 +299,7 @@ MacSpec(Mac m) {
         // path to an accusation, which decision 19 deletes rather than writes.
         // Clause #23 (`!encrypted[output2, _]`) has no other site and is recorded
         // vacuous in full; clause #22 keeps its second site, below.
-        // api30's `f1: output1 = doFinal()`, the overload that authenticates only what
+        // The rule's `f1: output1 = doFinal()` (Mac.crysl:33), the overload that authenticates only what
         // `update` already contributed. It binds no data of its own, so it stages none;
         // what the run authenticated is in the update field.
         event f1 after(Mac m) returning(byte[] output):
@@ -274,12 +307,15 @@ MacSpec(Mac m) {
           target(m){
         }
 
-        // api30's `f2: output2 = doFinal(input)`, and the site of
-        // `macced[output2, input]` (Mac.cryptsl:93). It splits off the disjunction it
+        // The rule's `f2: output2 = doFinal(input)` (Mac.crysl:34), and the site of
+        // `macced[output2, input]` (Mac.crysl:59). It splits off the disjunction it
         // shared with `f1` for the reason the `update` family split: the clause is about
-        // the array the call was given, and the merged pointcut bound no argument. Same
-        // ordering claim -- the rule puts both in `FinalsWU`, and the `ere` accepts either
-        // symbol wherever it accepted the merged one.
+        // the array the call was given, and the merged pointcut bound no argument. The
+        // `ere` accepts either symbol wherever it accepted the merged one, and that is a
+        // claim about this file rather than about the rule: the sole oracle puts `f2`
+        // alone in `FinalWU` and `f1` in `FinalWOU` (Mac.crysl:36-37), so the two are not
+        // interchangeable there. What that opens is the G-ORDER divergence named at the
+        // `ere` below, adjudicated at task 11.6.
         event f1Input after(byte[] input, Mac m) returning(byte[] output):
           call(byte[] Mac.doFinal(byte[])) &&
           args(input) &&
@@ -287,10 +323,10 @@ MacSpec(Mac m) {
             maccedByFinal = input;
         }
 
-        // api30's `f3: doFinal(output1, outOffset)` (Mac.cryptsl:59), the only
+        // The rule's `f3: doFinal(output1, outOffset)` (Mac.crysl:35), the only
         // event of the rule whose `byte[]` the caller owns: the tag is written into
         // a buffer the program already had. That makes it the one site where
-        // `!encrypted[output1, _]` (Mac.cryptsl:82, ledger clause #22) can be
+        // `!encrypted[output1, _]` (Mac.crysl:51, ledger clause #22) can be
         // violated -- a program that hands its ciphertext to this call destroys the
         // bytes it means to authenticate, and authenticates whatever they were.
         //
@@ -328,10 +364,13 @@ MacSpec(Mac m) {
         // accusation standing in for a constraint the automaton has no way to
         // state. Recorded, not repaired -- the repair is to the automaton and this
         // pass moves no symbol. Task 7.1 has since mapped this file, so G-ORDER no
-        // longer skips it: it compares both languages over the thirteen rows
-        // order_alphabet_map.csv carries here and reports no divergence, which is the
-        // expected reading -- what is recorded above is a report the automaton has no
-        // way to state, not a sequence the two sides disagree about.
+        // longer skips it, and task 11.2 re-anchored the map on the sole oracle: it now
+        // compares both languages over the twelve rows `order_alphabet_map_expert.csv`
+        // carries here and reports one divergence, `g1 i1 f1` -- a `doFinal()` with no
+        // `update` before it, which this `ere` accepts and `Mac.crysl:41` rejects, its
+        // `FinalWU` being `f2` alone. That is a sequence the two languages disagree
+        // about, and it is adjudicated at task 11.6; what is recorded above is a
+        // different thing, a report the automaton has no way to state.
         ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f1Input | f2) | ((update | updateBytes | updateRange | updateBuffer)* (f1 | f1Input | f2)))
 
         @fail {
@@ -350,8 +389,8 @@ MacSpec(Mac m) {
             __RESET;
         }
 
-        // The acceptance point of `macced[output1, pre_input]` (Mac.cryptsl:91) and
-        // `macced[output2, input]` (Mac.cryptsl:93), and the handler task 4.9 deleted
+        // The acceptance point of `macced[output1, preInput]` (Mac.crysl:58) and
+        // `macced[output2, input]` (Mac.crysl:59), and the handler task 4.9 deleted
         // whole -- it had nothing left to do once the accepting-state bookkeeping went
         // (INV-INS-147), and it comes back because this pass gives it a clause to write.
         // Neither clause carries an `after L`, so the acceptance point is the accepting
@@ -373,7 +412,7 @@ MacSpec(Mac m) {
         // Measured before the write was made: the composition is real and it is the one
         // the negated clause names. `mac.doFinal(data)` followed by
         // `cipher.doFinal(data)` over the *same array object* runs to completion on
-        // Temurin 21 -- mac-then-encrypt, which api30 forbids -- and the tag `doFinal`
+        // Temurin 21 -- mac-then-encrypt, which `Cipher.crysl:137` forbids -- and the tag `doFinal`
         // returns is never the same object as the ciphertext beside it, so marking the
         // data cannot be confused with marking the output.
         @match {
