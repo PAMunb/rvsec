@@ -42,6 +42,7 @@ REQUIRES,KeyPairGenerator,preparedEC,1,no,yes,changed,unmonitored-producer,unclo
 REQUIRES,Mac,generatedKey,2,no,no,expert-only,wireable,-,Mac.crysl:54,-,the api30 rule does not declare the clause
 REQUIRES,OAEPParameterSpec,preparedMGF1,2,no,no,expert-only,unmonitored-consumer,-,OAEPParameterSpec.crysl:22,-,the api30 rule does not declare the clause
 REQUIRES,SSLContext,randomized,1,no,no,changed,wireable,vacuous,SSLContext.crysl:34,SSLContext.cryptsl:52,bindable expert=True api30=False; disposition vacuous -> wireable
+REQUIRES,SecureRandom,randomized,1,no,no,changed,vacuous,wireable,SecureRandom.crysl:46,SecureRandom.cryptsl:66,disposition wireable -> vacuous
 REQUIRES,TrustAnchor,generatedPubkey,1,no,no,expert-only,unmonitored-consumer,-,TrustAnchor.crysl:18,-,the api30 rule does not declare the clause
 REQUIRES,TrustManagerFactory,generatedManagerFactoryParameters,1,no,no,expert-only,unmonitored-producer,-,TrustManagerFactory.crysl:29,-,the api30 rule does not declare the clause
 REQUIRES,X509EncodedKeySpec,preparedKeyMaterial,1,no,no,expert-only,unmonitored-consumer,-,X509EncodedKeySpec.crysl:14,-,the api30 rule does not declare the clause

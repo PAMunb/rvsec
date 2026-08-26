@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import io
 import re
 import sys
 from dataclasses import dataclass, field
@@ -45,6 +46,14 @@ REACTOR = REPO.parent
 DEFAULT_EXPERT_RULES = REACTOR.parent / "RVSec-replication-package/tools/rules"
 DEFAULT_API30_RULES = REACTOR.parent / "MetaCrySL/generated/api30"
 DEFAULT_SET_DIR = REACTOR / "rvsec/rvsec-mop/src/main/resources/jca_android"
+# The two files this script derives, so that `--check` can reproduce them instead of
+# only counting them. `gh105_sole_oracle_gate.py` exempts both from its grep on the
+# ground that "each instrument's `--check` reproduces its file and fails if it does
+# not" -- which was true of the alphabet instrument and not of this one until task
+# 11.7 measured the claim. A record a hand edit can reach is a record the grep gate
+# stopped covering for nothing.
+DEFAULT_LEDGER = REPO / "data/jca_android/predicate_ledger.csv"
+DEFAULT_LEDGER_DELTA = REPO / "data/jca_android/predicate_ledger_delta.csv"
 
 RULE_EXTENSIONS = (".crysl", ".cryptsl")
 
@@ -825,7 +834,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--api30-rules", type=Path, default=DEFAULT_API30_RULES)
     parser.add_argument("--set-dir", type=Path, default=DEFAULT_SET_DIR)
     parser.add_argument("--out", type=Path, default=None)
-    parser.add_argument("--check", action="store_true", help="assert the arithmetic closes")
+    parser.add_argument("--ledger", type=Path, default=DEFAULT_LEDGER)
+    parser.add_argument("--ledger-delta", type=Path, default=DEFAULT_LEDGER_DELTA)
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="assert the arithmetic closes AND the committed files are what this emits",
+    )
     args = parser.parse_args(argv)
 
     if not args.expert_rules.is_dir():
@@ -875,10 +890,45 @@ def main(argv: list[str] | None = None) -> int:
         for disposition in sorted(counts):
             print(f"    {disposition:<26} {counts[disposition]}")
     counts = summarise(expert_ledger)
-    if args.check and sum(counts.values()) != total:
-        print("arithmetic does not close", file=sys.stderr)
-        return 1
-    return 0
+    if not args.check:
+        return 0
+
+    problems: list[str] = []
+    if sum(counts.values()) != total:
+        problems.append("arithmetic does not close")
+
+    # Reproduction, not inspection: the committed file has to be byte for byte what
+    # this run emits. Arithmetic that closes says nothing about a row somebody
+    # retyped, and the ledger is the record the whole group's dispositions rest on.
+    derived_delta = None
+    if args.api30_rules.is_dir():
+        api30_ledger = derive_ledger(
+            read_catalogue(args.api30_rules),
+            paired_rules(args.set_dir, read_catalogue(args.api30_rules)),
+        )
+        derived_delta = derive_delta(expert_ledger, api30_ledger)
+    else:
+        problems.append(
+            f"api30 rules not found ({args.api30_rules}): the delta cannot be reproduced"
+        )
+
+    for path, writer, rows in (
+        (args.ledger, write_ledger, expert_ledger),
+        (args.ledger_delta, write_delta, derived_delta),
+    ):
+        if rows is None:
+            continue
+        if not path.exists():
+            problems.append(f"{path}: absent, so nothing was reproduced")
+            continue
+        buffer = io.StringIO()
+        writer(rows, buffer)
+        if buffer.getvalue() != path.read_text(encoding="utf-8"):
+            problems.append(f"{path}: committed file is not what --emit writes")
+
+    for problem in problems:
+        print(problem, file=sys.stderr)
+    return 1 if problems else 0
 
 
 if __name__ == "__main__":
