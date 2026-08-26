@@ -5,9 +5,9 @@ CipherSpec,CIPHER-ALG-00,UnsafeAlgorithm,ALG,i1,CipherSpec.mop:117
 CipherSpec,CIPHER-CONSTR-00,UnsatisfiedConstraint,CONSTR,i2,CipherSpec.mop:182
 CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i2,CipherSpec.mop:186
 CipherSpec,CIPHER-ALG-01,UnsafeAlgorithm,ALG,i2,CipherSpec.mop:190
-CipherSpec,CIPHER-CONSTR-01,UnsatisfiedConstraint,CONSTR,f5,CipherSpec.mop:327
-CipherSpec,CIPHER-CONSTR-02,UnsatisfiedConstraint,CONSTR,f6,CipherSpec.mop:339
-CipherSpec,CIPHER-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherSpec.mop:430
+CipherSpec,CIPHER-CONSTR-01,UnsatisfiedConstraint,CONSTR,f5,CipherSpec.mop:333
+CipherSpec,CIPHER-CONSTR-02,UnsatisfiedConstraint,CONSTR,f6,CipherSpec.mop:345
+CipherSpec,CIPHER-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,CipherSpec.mop:436
 DHGenParameterSpecSpec,DHGENPARAMETERSPEC-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,DHGenParameterSpecSpec.mop:31
 GCMParameterSpecSpec,GCMPARAMETERSPEC-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,GCMParameterSpecSpec.mop:67
 GCMParameterSpecSpec,GCMPARAMETERSPEC-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,GCMParameterSpecSpec.mop:73
@@ -96,9 +96,9 @@ SecretKeySpecSpec,SECRETKEYSPEC-ALG-01,UnsafeAlgorithm,ALG,c2,SecretKeySpecSpec.
 SecureRandomSpec,SECURERANDOM-CONSTR-01,UnsatisfiedConstraint,CONSTR,c2,SecureRandomSpec.mop:101
 SecureRandomSpec,SECURERANDOM-NOBS-01,UnsatisfiedConstraint,NOBS,c2,SecureRandomSpec.mop:105
 SecureRandomSpec,SECURERANDOM-ALG-00,UnsafeAlgorithm,ALG,g4,SecureRandomSpec.mop:141
-SecureRandomSpec,SECURERANDOM-CONSTR-00,UnsatisfiedConstraint,CONSTR,setSeed2,SecureRandomSpec.mop:177
-SecureRandomSpec,SECURERANDOM-NOBS-00,UnsatisfiedConstraint,NOBS,setSeed2,SecureRandomSpec.mop:181
-SecureRandomSpec,SECURERANDOM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecureRandomSpec.mop:313
+SecureRandomSpec,SECURERANDOM-CONSTR-00,UnsatisfiedConstraint,CONSTR,setSeed2,SecureRandomSpec.mop:206
+SecureRandomSpec,SECURERANDOM-NOBS-00,UnsatisfiedConstraint,NOBS,setSeed2,SecureRandomSpec.mop:210
+SecureRandomSpec,SECURERANDOM-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SecureRandomSpec.mop:342
 SignatureSpec,SIGNATURE-ALG-00,UnsafeAlgorithm,ALG,i1,SignatureSpec.mop:145
 SignatureSpec,SIGNATURE-CONSTR-00,UnsatisfiedConstraint,CONSTR,i1,SignatureSpec.mop:150
 SignatureSpec,SIGNATURE-NOBS-00,UnsatisfiedConstraint,NOBS,i1,SignatureSpec.mop:154
@@ -111,6 +111,6 @@ SignatureSpec,SIGNATURE-CONSTR-02,UnsatisfiedConstraint,CONSTR,i4,SignatureSpec.
 SignatureSpec,SIGNATURE-NOBS-02,UnsatisfiedConstraint,NOBS,i4,SignatureSpec.mop:202
 SignatureSpec,SIGNATURE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,SignatureSpec.mop:288
 TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ALG-00,UnsafeAlgorithm,ALG,init,TrustManagerFactorySpec.mop:123
-TrustManagerFactorySpec,TRUSTMANAGERFACTORY-CONSTR-00,UnsatisfiedConstraint,CONSTR,init,TrustManagerFactorySpec.mop:129
-TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,UnsatisfiedConstraint,NOBS,init,TrustManagerFactorySpec.mop:133
-TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:204
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-CONSTR-00,UnsatisfiedConstraint,CONSTR,init,TrustManagerFactorySpec.mop:145
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,UnsatisfiedConstraint,NOBS,init,TrustManagerFactorySpec.mop:149
+TrustManagerFactorySpec,TRUSTMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,TrustManagerFactorySpec.mop:220

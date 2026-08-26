@@ -1,6 +1,6 @@
 # The predicate ledger, derived against the sole oracle
 
-**Tasks 11.1 and 11.9 of gh105 · design decision D-16 · derived 2026-08-25, re-derived 2026-08-26**
+**Tasks 11.1, 11.9 and 11.5 of gh105 · design decision D-16 · derived 2026-08-25, re-derived 2026-08-26**
 
 This is the record of `predicate_ledger.csv` and `predicate_ledger_delta.csv`, and it
 supersedes *The 36-Clause Ledger (REQUIRES, api30)* of `design.md:483` as the ledger this
@@ -27,7 +27,7 @@ close:
 
 | Section | Clauses | Dispositions |
 |---|---:|---|
-| `REQUIRES` | 57 | 25 wireable · 21 unmonitored-consumer · 9 unmonitored-producer · 1 unreachable-composition · 1 vacuous |
+| `REQUIRES` | 57 | 24 wireable · 21 unmonitored-consumer · 9 unmonitored-producer · 2 vacuous · 1 unreachable-composition |
 | `ENSURES` | 76 | 31 unmonitored-producer-side · 28 producible · 13 unread · 4 unmonitored-consumer-side |
 | `NEGATES` | 2 | 1 unmonitored-producer-side · 1 unmonitored-consumer-side |
 | **total** | **135** | |
@@ -46,16 +46,22 @@ Four of the five are derived from rule text alone:
 - **`wireable`** — the consuming rule and at least one producing rule both have a `.mop`.
 - **`unmonitored-consumer`** — no `.mop` specifies the consuming rule.
 - **`unmonitored-producer`** — the predicate is ensured, but by no rule the set specifies.
-- **`vacuous`** — the rule's own `EVENTS` bind none of the variables the clause names, so
-  the clause has no site to read at. This is a property of the rule, not of the world.
+- **`vacuous`** — the clause can never hold. It has two grounds, and the script keeps them
+  apart because only one of them is readable in the rule: *by text*, when the rule's own
+  `EVENTS` bind none of the variables the clause names, so there is no site to read at; and
+  *by runtime*, when the site exists and the object that reaches it can never carry the
+  predicate. No clause carries the textual form today; both rows of the ledger carry the
+  runtime one, as named overrides with their measurement.
 
-The fifth, **`unreachable-composition`**, cannot be derived from text: it says the two ends
-exist and the platform refuses to compose them. Two clauses carried it —
+The fifth, **`unreachable-composition`**, cannot be derived from text either: it says the
+two ends exist and the platform refuses to compose them. Two clauses carried it —
 `KeyPairGenerator preparedDH` and `Mac preparedHMAC` — and the script applies both as named
-overrides with their citation, printing them as overrides rather than recomputing them. The
-same holds for the one `vacuous` row that survives, `Mac !encrypted[output2,_]`, whose
-emptiness is a runtime fact: `f2` binds `output2` only as a returned array and the JCA
-allocates it fresh on every call.
+overrides with their citation, printing them as overrides rather than recomputing them.
+
+The two runtime-`vacuous` rows are `Mac !encrypted[output2,_]`, whose `f2` binds `output2`
+only as a returned array the JCA allocates fresh on every call, and
+`SecureRandom randomized[lSeed]`, which task 11.5(d) derived and which the section below
+states in full.
 
 **Task 11.9 re-derived both overrides against the oracle rather than copying them, and
 exactly one moved.** That asymmetry is the point: two rows moving, or none, would mean the
@@ -92,6 +98,10 @@ sweep was answering a different question than the one 11.1 asked of it.
 **The arithmetic does not move.** 135 clauses before and after; the two counts that change
 are `unmonitored-producer` 8 → 9 and `unreachable-composition` 2 → 1, which is one row
 crossing between them and not a row appearing or leaving.
+
+Task 11.5(d) later moved a second row the same way — `wireable` 25 → 24 and `vacuous`
+1 → 2 — and it is a decision rather than a re-derivation, which is why it is recorded in
+its own section below and not here.
 
 ## The delta against the api30 derivation
 
@@ -137,13 +147,16 @@ and its output is reproduced below verbatim.
 
 A `REQUIRES` row of a rule the set specifies is **unobservable** unless its disposition is
 `wireable`; every other disposition names a different way the producing end is out of reach.
-An `ENSURES` or `NEGATES` row of a specified rule is **unreadable** when nothing the set can
-observe requires it — `unread` if no rule of the 49 requires it at all,
-`unmonitored-consumer-side` if the rules that do have no `.mop`.
+`vacuous` counts there only for a **positive** clause: a requirement that can never be met
+is a requirement the set cannot observe, while for a negated `!pred[..]` absence *is*
+conformance, so a clause nothing can satisfy is one nothing can violate and listing it as a
+gap would read as work owed where none is. An `ENSURES` or `NEGATES` row of a specified rule
+is **unreadable** when nothing the set can observe requires it — `unread` if no rule of the
+49 requires it at all, `unmonitored-consumer-side` if the rules that do have no `.mop`.
 
 ```
 REQUIRED AND NOT OBSERVABLE
-  10 clause(s), 9 predicate(s)
+  11 clause(s), 10 predicate(s)
   preparedAlg                        Cipher                 Cipher.crysl:136                 unmonitored-producer
   preparedOAEP                       Cipher                 Cipher.crysl:140                 unmonitored-producer
   generatedManagerFactoryParameters  KeyManagerFactory      KeyManagerFactory.crysl:32       unmonitored-producer
@@ -153,6 +166,7 @@ REQUIRED AND NOT OBSERVABLE
   preparedEC                         KeyPairGenerator       KeyPairGenerator.crysl:38        unmonitored-producer
   preparedHMAC                       Mac                    Mac.crysl:53                     unreachable-composition
   preparedKeyMaterial                SecretKeySpec          SecretKeySpec.crysl:23           unmonitored-producer
+  randomized                         SecureRandom           SecureRandom.crysl:46            vacuous
   generatedManagerFactoryParameters  TrustManagerFactory    TrustManagerFactory.crysl:29     unmonitored-producer
 
 ENSURED AND NOT READABLE
@@ -179,8 +193,8 @@ ENSURED AND NOT READABLE
 
 **The derivation is wider than the sketch the task carried, and that is what emitting it was
 for.** Task 11.9(c) named six predicates — `preparedRSA`, `preparedDSA`, `preparedEC`,
-`preparedOAEP`, `preparedAlg` and `generatedManagerFactoryParameters`. The sweep finds nine,
-over ten clauses: `generatedManagerFactoryParameters` is required by two rules and not one,
+`preparedOAEP`, `preparedAlg` and `generatedManagerFactoryParameters`. The sweep found nine,
+over ten clauses, and task 11.5(d) added the tenth (`randomized[lSeed]`, eleven clauses): `generatedManagerFactoryParameters` is required by two rules and not one,
 and three predicates the sketch did not name belong in the class — `preparedDH`, which 11.9(a)
 moved into it; `preparedHMAC`, whose `unreachable-composition` is a different way of being
 unobservable and not an exemption from it; and `preparedKeyMaterial`, whose producer
@@ -196,13 +210,62 @@ so it is `unmonitored-producer` and `unclosable` no longer appears in the ledger
 delta table above records that move.
 
 **The standing conclusion, unchanged by the widening**: closing any of these means a
-specification for a rule the set does not have, which D-16 keeps out of this change. The
+specification for a rule the set does not have, which D-16 keeps out of this change. The one
+row of the list that conclusion does *not* fit is `SecureRandom randomized[lSeed]`, and the
+difference is worth naming rather than smoothing over: the other ten name a producing rule
+that exists in the oracle and lacks a `.mop`, so a specification would close them, while
+that one names a producer the oracle does not have at any type a `long` could carry. No
+specification closes it, which is why its disposition is `vacuous` and not
+`unmonitored-producer`. The
 reciprocal half is here so the requiring half cannot be read as one-sided — `preparedPBE`,
 `speccedKey` and `generatedMessageDigest` are required only by rules with no `.mop`, while
 `digested`, `signed`, `verified`, `generatedKeypair`, `wrappedKey`, `cipheredInputStream`,
 `cipheredOutputStream`, `generatedSSLContext` and `generatedSSLEngine` are required by **no
 rule of the 49 at all**. Those nine are dead ends of the oracle and not of this set, and
 saying so is what keeps a future reader from proposing a wiring for them.
+
+## The clauses task 11.5 records instead of wiring
+
+Three clauses of the sole oracle reached task 11.5 as candidates for a wiring and leave it
+as records. The task exists so that each conclusion is **derived** under the expert oracle
+rather than assumed, and one of the three moved a disposition because of it.
+
+**`TrustManagerFactory generatedManagerFactoryParameters[params]`** (`:29`, ledger clause
+#56) — `unmonitored-producer`, derived. The predicate is ensured by exactly two rules,
+`CertPathTrustManagerParameters.crysl:17` and `KeyStoreBuilderParameters.crysl:14` (ledger
+#61 and #98), and neither has a `.mop`. The site would be cheap — `TrustManagerFactorySpec`
+already fuses `init(KeyStore)` and `init(ManagerFactoryParameters)` into one event and
+discriminates by runtime type, so the read would go in the branch the `instanceof KeyStore`
+test already leaves empty — and that is precisely why the conclusion had to be derived: a
+read placed there can answer `NOT_OBSERVED` and nothing else, which is the shape of the
+seventeen orphan accusers group 3 removed. The twin clause at `KeyManagerFactory.crysl:32`
+(#29) carries the same disposition for the same reason, and the symmetry is not a
+coincidence to be tidied away: it is the same two producing rules.
+
+**`SecureRandom randomized[lSeed]`** (`:46`, clause #51) — **`wireable` → `vacuous`**, and
+this is the one disposition task 11.5 moves. Two independent grounds, either sufficient.
+*By type*: swept over the 49 rules, `randomized` is ENSURED five times and never over a
+`long` — `SecureRandom` carries it on `this`, on the `byte[]` of `generateSeed` and of
+`nextBytes`, and on the `int` of `nextInt` and `nextInt(range)`. No producer of the
+catalogue could mark a `long`. *By substrate*: `PredicateStore` keys the bound object by
+identity, and a `long` reaches an advice boxed. Measured on Temurin 21, the `Long` cache
+spans `-128..127` exactly as `Integer`'s does, so the boxing is wrong in both directions —
+outside the range every call boxes a fresh object no write can have named, and inside it two
+unrelated `setSeed(5L)` calls share one object, so a mark made for either would answer for
+the other. This is the Integer-cache measurement of the earlier groups, extended to `Long`
+and re-derived rather than carried over.
+
+**`Cipher wrappedKey[wrappedKeyBytes, wrappedKey]`** (`:148`, clause #67) — `unread`,
+derived, and the row that shows the reciprocal half of the census is not decoration. The
+oracle *does* state the clause where the generated catalogue stated none, which is why the
+site was reopened at all; no rule of the 49 REQUIRES `wrappedKey`, so a write at
+`CipherSpec.wkb1` would produce something nothing can consume. Task 4.1 deleted that write
+and the deletion stands, now on the oracle's own ground rather than on the withdrawn
+catalogue's silence.
+
+**No harness pair is owed for any of the three**: no `.mop` gains or loses a site, no
+accusation changes class, and the only artefacts that move are this file, the ledger CSV and
+the comments that name the decision beside each site.
 
 ## Predicate names across the two catalogues
 

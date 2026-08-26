@@ -238,8 +238,14 @@ CipherSpec(Cipher c) {
    // states nowhere, which is why this event was written to stage no pair. It still stages
    // none: ledger row 67 disposes the clause `unread`, no rule of the 49 REQUIRES
    // `wrappedKey`, so a write here would produce something nothing can consume, which is
-   // the deliberate omission INV-INS-137 records rather than fabricates. Opening it would
-   // be task 11.5(e) and a new accusation class.
+   // the deliberate omission INV-INS-137 records rather than fabricates.
+   //
+   // Task 11.5(e) has since decided it, and decided it this way: the write stays deleted.
+   // What changed with the oracle is the ground and not the verdict -- task 4.1 deleted it
+   // because the withdrawn catalogue named the event in no ENSURES at all, and it stays
+   // deleted because the oracle names it in one whose predicate nothing reads. The
+   // reciprocal half of the census (`predicate_ledger.md`) is where that is written down,
+   // beside the eight other clauses the oracle ensures and no rule of the 49 requires.
    event wkb1 after(Cipher c) returning(byte[] wrappedKeyBytes):
      call(byte[] Cipher.wrap(Key)) &&
      target(c) {

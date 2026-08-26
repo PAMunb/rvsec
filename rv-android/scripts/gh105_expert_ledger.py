@@ -107,13 +107,35 @@ PLATFORM_OVERRIDES: dict[tuple[str, str], tuple[str, str, str]] = {
 # makes them empty is what the platform does with the object at run time. Kept apart from
 # PLATFORM_OVERRIDES because the ground is different: there the composition is refused,
 # here it is admitted and can never carry the predicate.
-VACUITY_OVERRIDES: dict[tuple[str, str, str], tuple[str, str]] = {
+#
+# Each entry carries its own tag, because the two here were established differently: the
+# `Mac` one is a measurement of the api30 era re-cited under D-16, and the `SecureRandom`
+# one is derived at task 11.5(d) against the sole oracle.
+VACUITY_OVERRIDES: dict[tuple[str, str, str], tuple[str, str, str]] = {
     ("Mac", "encrypted", "output2"): (
         "vacuous",
         "the negated clause over `output2`, which `f2: output2 = doFinal(input)` binds "
         "only as a returned array; the JCA allocates it fresh on every call, so no "
         "`encrypted` can be standing on it; measured, ledger clause #23 of the api30 "
         "derivation. The sibling clause over `output1` is wired and is not this row.",
+        "[runtime measurement, D-16 carry-over]",
+    ),
+    ("SecureRandom", "randomized", "lSeed"): (
+        "vacuous",
+        "the clause over `lSeed`, the `long` seed of `s2: setSeed(lSeed)` "
+        "(SecureRandom.crysl:26,46). Two independent grounds, either of which empties it. "
+        "By type: swept over the 49 rules, `randomized` is ENSURED five times and never on "
+        "a `long` -- SecureRandom carries it on `this`, on the `byte[]` of generateSeed and "
+        "of nextBytes, and on the `int` of nextInt and nextInt(range) -- so no producer of "
+        "the catalogue could mark one. By substrate: PredicateStore keys the bound object "
+        "by identity, and a `long` reaches an advice boxed. Measured on Temurin 21, the "
+        "Long cache spans -128..127 exactly as Integer's does, so the boxing is wrong in "
+        "both directions -- outside the range every call boxes a fresh object no write can "
+        "have named, and inside it two unrelated setSeed(5L) calls share one object, so a "
+        "mark made for either would answer for the other. A read placed here could "
+        "therefore answer NOT_OBSERVED and nothing else, which is the shape of the orphan "
+        "accusers group 3 removed. Recorded, not wired.",
+        "[type and substrate measurement, derived at task 11.5(d)]",
     ),
 }
 
@@ -493,7 +515,7 @@ def derive_ledger(rules: dict[str, Rule], pairs: dict[str, str]) -> list[LedgerR
             first = named[0] if named else ""
             vacuity = VACUITY_OVERRIDES.get((name, clause.predicate, first))
             if vacuity is not None:
-                disposition, reason = vacuity[0], f"{vacuity[1]} [runtime measurement, D-16 carry-over]"
+                disposition, reason = vacuity[0], f"{vacuity[1]} {vacuity[2]}"
 
             rows.append(
                 LedgerRow(
@@ -746,8 +768,23 @@ def write_delta(rows: list[dict[str, str]], stream) -> None:
 #: `NEGATES` row of a specified rule is *unreadable* when nothing the set can observe
 #: requires it -- `unread` if no rule of the 49 requires it at all, and
 #: `unmonitored-consumer-side` if the rules that do have no `.mop`.
+#:
+#: `vacuous` belongs to the first list only for a positive clause. A positive requirement
+#: that can never be met is exactly a requirement the set cannot observe -- it is the row
+#: whose read would answer NOT_OBSERVED and nothing else. A *negated* one is the opposite:
+#: for `!pred[..]` absence is conformance, so a clause nothing can ever satisfy is a clause
+#: nothing can ever violate, and listing it as a gap would read as work owed where none is.
 UNOBSERVABLE = ("unmonitored-producer", "unreachable-composition", "unclosable")
 UNREADABLE = ("unread", "unmonitored-consumer-side")
+
+
+def unobservable(row: "LedgerRow") -> bool:
+    """A `REQUIRES` clause of a specified rule whose producing end is out of reach."""
+    if row.section != "REQUIRES":
+        return False
+    if row.disposition in UNOBSERVABLE:
+        return True
+    return row.disposition == "vacuous" and not row.negated
 
 
 def write_census(rows: list[LedgerRow], stream) -> None:
@@ -760,7 +797,7 @@ def write_census(rows: list[LedgerRow], stream) -> None:
     gaps in this specification set, and the producing half is what shows that as many of
     them are dead ends of the oracle.
     """
-    required = [r for r in rows if r.section == "REQUIRES" and r.disposition in UNOBSERVABLE]
+    required = [r for r in rows if unobservable(r)]
     ensured = [r for r in rows if r.section in ("ENSURES", "NEGATES") and r.disposition in UNREADABLE]
 
     print("REQUIRED AND NOT OBSERVABLE", file=stream)

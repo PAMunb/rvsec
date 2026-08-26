@@ -142,6 +142,35 @@ SecureRandomSpec(SecureRandom r) {
             "v=1 code=SECURERANDOM-ALG-00 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
     }
 
+    // The rule's `s2: setSeed(lSeed)` (SecureRandom.crysl:26), and the site of
+    // `randomized[lSeed]` (:46, ledger clause #51). The clause is RECORDED HERE AND NOT
+    // READ, by the researcher's decision of 2026-08-26 (task 11.5(d)), and the ledger row
+    // moved with it: `wireable` -> `vacuous`.
+    //
+    // The disposition is derived, not assumed, and either half of the derivation is
+    // enough on its own.
+    //
+    // By type: swept over the 49 rules of the oracle, `randomized` is ENSURED five times
+    // and never over a `long` -- `randomized[this] after Ins` over the SecureRandom
+    // itself, `[genSeed]` and `[bytes]` over `byte[]`, `[randInt]` and `[randIntInRange]`
+    // over `int` (SecureRandom.crysl:49-53). No producer the catalogue has could ever
+    // mark the argument this event binds.
+    //
+    // By substrate: `PredicateStore` keys the bound object by identity, and a `long`
+    // reaches an advice boxed. Measured on Temurin 21, the `Long` cache spans -128..127
+    // exactly as `Integer`'s does, so the boxing is wrong in both directions -- outside
+    // the range every call boxes a fresh object no write can have named, and inside it
+    // two unrelated `setSeed(5L)` calls share one object, so a mark made for either would
+    // answer for the other. It is the Integer-cache measurement of the earlier groups,
+    // re-derived over `Long` rather than carried over.
+    //
+    // So a read placed here could answer NOT_OBSERVED and nothing else: an accuser with
+    // no path to a true report, which is the class group 3 removed. The event keeps its
+    // empty body and its place in the automaton -- it is the rule's `s2` and the ORDER
+    // needs the symbol; what it does not gain is a site.
+    //
+    // The sibling clause `randomized[seed]` (:45) is a different row and IS read, twice:
+    // at `c2` and at `setSeed2` below, both over `byte[]`, where identity holds.
     event setSeed1 after(SecureRandom r):
       call(public void SecureRandom.setSeed(long)) &&
       target(r) {  }
