@@ -71,12 +71,28 @@ envelopes emit; it is the **only** non-`.mop` file of the directory. The seed di
 `jca/` also holds `MultiSpec_1MonitorAspect.aj`, a gitignored leftover of a generation run
 that is not tracked and does not travel with the seed.
 
-That count includes `RandomStringPassword.mop` and `SecretKeySpec.mop`, the two pure
-predicate propagators: `grep -c "new ErrorDescription("` returns 0 for both and neither has
-a `@fail`, so each exists only to write a `Property` another specification's `condition()`
-reads. An earlier revision of this change deleted them along with the predicate machinery
-they feed; that decision is withdrawn (design D-11), so they still have work to do and
-removing either would silently disarm a `condition()` elsewhere in the set.
+That count includes `RandomStringPassword.mop` and `SecretKeySpec.mop`, the two files that accuse
+nothing: `grep -c "new ErrorDescription("` returns 0 for both and neither has a `@fail`. They are
+no longer the same case. `SecretKeySpec.mop` is still the propagator the description fits -- it
+reads `GENERATED_KEY` over the key it observes and writes `PREPARED_KEY_MATERIAL` for the
+constructor that copies the bytes, so deleting it would silently disarm a read elsewhere in the
+set, which is the reason design D-11 withdrew the deletion an earlier revision of this change had
+planned.
+
+`RandomStringPassword.mop` writes nothing since `5f64c8de`, and no `condition()` reads it. It was
+the set's only dataflow bridge, carrying `randomized` across `Object -> String -> char[]` so that
+`PBEKeySpecSpec.c1`'s read over a `char[]` could be met, and its four predicate sites went because
+the bridge does not carry what it stamps -- measured over each of the three source types the set
+can hand it (researcher, 2026-08-21): a `byte[]` converts to its identity string, `"[B@726f3b58"`,
+which holds a heap identity hash and not one bit of the array; a `SecureRandom` converts to the
+constant `"SecureRandom"`, the same text in every program; and an `Integer` converts faithfully but
+does not survive the store's identity keying outside the `-128..127` cache, where for
+`nextInt(int)` the marked value is the bound and not the result. So the two source types that
+propagate carry no randomness and the one that carries randomness does not propagate. The file
+stays for what deleting it would cost -- its two events keep the calls modelled rather than
+unmarked -- and it stands in this directory as the negative record of that measurement: the reason
+the set does not launder a predicate across those conversions is written in the file itself, where
+the next reader tempted to rebuild the bridge will find it.
 
 The predicates were carried over **byte-for-byte** until gh105 migrated the substrate. The seed
 still holds its 134 `ExecutionContext` lines (23 `import`, 27 `validate(`, 49 `setProperty(`,
@@ -329,7 +345,7 @@ Counted from the files with `scripts/gh104_mop_lint.py`'s own site parser:
 |---|---|---|---|---|
 | frozen `jca` (the seed) | 25 | 25 | 1 | **50** |
 | `jca_android` after Group 2 | 25 | 25 | 1 | **50** |
-| `jca_android` today | 0 | **112** | 0 | **112** |
+| `jca_android` today | 0 | **115** | 0 | **115** |
 
 **Through Group 2 the census was the seed's, unchanged, and there was no difference to explain.**
 That followed from D-11: the successor keeps every event the seed declares, predicates included,
@@ -340,17 +356,36 @@ declares `length(keyMaterial) >= off + len` and nothing about the algorithm, so 
 left and the randomisation predicate — and with it the accusation and its report site — stayed.
 
 **Groups 5 to 7 more than doubled it, and that is the difference to explain.** The successor now
-holds **112** live sites against the seed's 50, and the growth is the predicate wiring itself: a
+holds **115** live sites against the seed's 50, and the growth is the predicate wiring itself: a
 clause that was carried as an unread `setProperty` in the seed becomes, in the successor, a read
 with a producer and an accusation of its own when the read answers *violated*. `IvChainJunction`
 alone contributes 14 sites, `SignatureSpec` 11 and `KeyGeneratorSpec` 8. The three-argument form is
-gone entirely: Group 7 gave every site an envelope, so all 112 are four-argument and the set holds
+gone entirely: Group 7 gave every site an envelope, so all 115 are four-argument and the set holds
 no commented report.
 
-The five purely predicate-guarded accusers are likewise all alive: `IvParameterSpec` c3/c4,
-`PBEKeySpecSpec` err2/err3 and `SecureRandomSpec` setSeed3. An earlier revision of this change
-predicted 44 or 45 live sites by subtracting exactly those six; the prediction died with the
-removal it assumed.
+**The count moved twice after Group 7, and both moves were accusations the set was missing.** It
+stood at 112 through Group 8. `5bc5c893` took it to 114: repairing the value lists put back the
+`SecretKeySpec` construction accusers `SECRETKEYSPEC-ALG-00` and `SECRETKEYSPEC-ALG-01`, which the
+generated lists had admitted. `cc6d64bc` took it to 115 with `SSLCONTEXT-FORB-00`, task 9.9's
+accuser for `SSLContext.getDefault()` -- FORBIDDEN in both oracles, and until then a call this set
+watched in silence from end to end. Nothing was removed on either side of those two, so 115 is the
+seed's 50 plus the wiring plus these two repairs, and every one of the three numbers above can be
+recounted from the files.
+
+The five purely predicate-guarded accusers -- `IvParameterSpec` c3/c4, `PBEKeySpecSpec` err2/err3
+and `SecureRandomSpec` setSeed3 -- kept their accusations and lost their events. An earlier revision
+of this change predicted 44 or 45 live sites by subtracting exactly those five; the prediction died
+with the removal it assumed, and then Group 3 fused rather than deleted them (INV-INS-135), which
+is a different thing: each was a twin matching the same call as a legitimate event with the guard
+negated, so it sat outside the automaton with an all-`fail` transition row and one bad call fired
+up to three accusers at once. The fusion moves the guard into the surviving event's body, where it
+decomposes per clause -- one report per violated clause, which is what the twins emitted between
+them -- and takes the ordering noise away with it. Where each landed can be read off `codes.csv`:
+`SECURERANDOM-CONSTR-00`/`-NOBS-00` are emitted from `setSeed2` and not from a `setSeed3`,
+`PBEKEYSPEC-CONSTR-00`/`-CONSTR-02`/`-NOBS-01` from `c1`, and `IvParameterSpec`'s two pairs from
+`c1` and `c2`. The `-NOBS-` half of each pair is the other thing that changed: a predicate read
+that answers *not observed* is a different claim from one that answers *violated*, and since
+Group 4 the set says which of the two it saw instead of merging them into one accusation.
 
 The 51st `new ErrorDescription(` of the seed was the commented `g4` report of `MessageDigestSpec`
 (`:58` of the seed). It was counted apart because it emitted nothing, and it stayed commented
@@ -361,7 +396,7 @@ the accusation it adds is measured rather than assumed. The set has no commented
 Of the seed's 50, the 25 three-argument sites were the 21 `@fail`/`@match1` handlers plus
 `IvParameterSpec` c3/c4 and `PBEKeySpecSpec`'s two `FORBIDDEN` sites, and the 25 four-argument
 sites were the value accusers. Group 7 gave every site an envelope, so the three-argument count is
-zero and every one of the successor's 112 rows in `codes.csv` names a four-argument site.
+zero and every one of the successor's 115 rows in `codes.csv` names a four-argument site.
 
 **Group 8 left the seed-inherited total where it found it, by two changes that cancel.** Task 8.6 removes the
 `UnsafeAlgorithm` report inside `KeyPairGeneratorSpec`'s `init1`, whose branch is unreachable — the
@@ -382,7 +417,7 @@ the specification's name without its `Spec` suffix in upper case (`MESSAGEDIGEST
 `TRUSTMANAGERFACTORY`, `PBEKEYSPEC`) — derived mechanically, so no abbreviation table exists for two
 readers to disagree over — and `<KIND>` is the clause family the `ErrorType` implies: `ORDER`,
 `ALG`, `CONSTR`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`. The table is bijective with the census above:
-**112 rows, 112 live sites**, and the message gate fails on either half of that going wrong. It
+**115 rows, 115 live sites**, and the message gate fails on either half of that going wrong. It
 also checks the anchor: since task 7.2 a `code-anchor` check compares each row's `file_line` with
 the line the code is actually emitted from, because the two times a batch re-anchored the file by
 script it moved anchors nobody had noticed.
@@ -463,6 +498,6 @@ generator to the masked child OOM the invariant exists for (researcher decision,
 | `conformance_record.csv` | one row per specification against its rules -- the expert rule for value clauses, the api30 rule for ORDER and predicates: transcription verdicts, deferred constants, declared costs, and the divergences measured but not repaired — including the nine `guard-on-field` rows Group 7 declares and Group 8 task 8.16 repairs. |
 | `alias_table.csv` | the Conscrypt `android11-release` alias table (175 rows, one per `Alg.Alias` registration of the pinned provider file), carried as code by `ConscryptAliasTable`. |
 | `constraint_table.csv` | one row per expert `CONSTRAINTS` clause of the paired rules plus one per `.mop` value test with no clause behind it (80 rows since D-15). |
-| `gate_allowlist.csv` | the remaining gate hits with a reason and the task that owns each. Since task 7.6 it also carries the nine ordering divergences the set keeps on purpose, and `gh105_order_gate.py` reads it: a row with an empty reason allows nothing. |
+| `gate_allowlist.csv` | the remaining gate hits with a reason and the task that owns each. Since task 7.6 it also carries the ordering divergences the set keeps on purpose -- nine when 7.6 wrote them, **eight** today: task 9.11 repaired `KeyPairSpec`'s, and task 9.16 replaced `KeyStoreSpec`'s witness with one the set really rejects. `gh105_order_gate.py` reads the same file, and a row with an empty reason allows nothing. |
 | `predicate_graph.csv` | one row per predicate site: the clause it serves, the mechanism, and the disposition. It is what replaced byte-equality against the seed as the successor's predicate accounting. |
 | `order_alphabet_map.csv` | which `.mop` event is which symbol of the api30 rule, per specification. Never inferred: without a complete mapping G-ORDER skips and says so. |

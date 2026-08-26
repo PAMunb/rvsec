@@ -1770,7 +1770,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       (`tests/parity/test_gh104_structural_gates.py:388-431`), which is how the pytest suite
       stayed green while the CLI was red — add the G-2a assertion so the two instruments
       cannot diverge silently again
-- [ ] 10.3 `data/jca_android/README.md` refresh — the census is the register the message gate
+- [x] 10.3 `data/jca_android/README.md` refresh — the census is the register the message gate
       proves, and the prose fell three edits behind it: the five "112" mentions (site census
       §, codes.csv §) become 115, with the evolution stated (112 → 114 at `5bc5c893`,
       `SECRETKEYSPEC-ALG-00/01`; → 115 at `cc6d64bc`, `SSLCONTEXT-FORB-00`, task 9.9); the
@@ -1839,7 +1839,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       implemented list to the withdrawn anchor — the list is the expert's, 3072 included;
       this one edits an emitted message text: code and event unchanged, so the harness class
       is `unchanged` under the (event, code) comparison, and the pair is committed to prove it)
-- [ ] 10.7 `GCMParameterSpecSpec.mop` names `List` and `Arrays` (`:22`) and imports neither —
+- [x] 10.7 `GCMParameterSpecSpec.mop` names `List` and `Arrays` (`:22`) and imports neither —
       it compiles only because the merged monitor inherits the imports another file
       contributes, the exact dedupe fragility that broke 11.9 twice and that the README's
       set-wide import rule exists to prevent. Add the imports in the set's uniform style;
