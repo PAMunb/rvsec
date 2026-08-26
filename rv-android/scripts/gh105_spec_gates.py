@@ -34,7 +34,7 @@ The gate's design carries three guards, each of which a naive version gets wrong
 constructors are implemented, with `ErrorType.ForbiddenMethod` and codes of their
 own; `SSLContext.getDefault()` is not, and `SSLContext.getDefault().createSSLEngine()`
 is silent. The gate is **scoped to rules that have a `.mop` in the set under test**,
-and the scope is load-bearing rather than cosmetic: each oracle carries **four**
+and the scope is load-bearing rather than cosmetic: the oracle carries **four**
 rules with a `FORBIDDEN` section, not two -- `DigestInputStream` and
 `DigestOutputStream` state `FORBIDDEN on(...)` and have no specification here, being
 among the 27 rules out of scope for this change. Unscoped, the gate is born red on
@@ -86,12 +86,17 @@ REPO = Path(__file__).resolve().parents[1]
 REACTOR = REPO.parent
 DEFAULT_SPECS_ROOT = REACTOR / "rvsec/rvsec-mop/src/main/resources"
 
-# The two oracles, in the division D-15 settled: the pinned expert copy answers for
-# values, the generated api30 rules for ORDER, alphabets and predicates. `FORBIDDEN`
-# is neither -- it names a call the rule turns down outright -- so G-FORB reads both
-# and requires an accusing event for a clause either of them states.
-DEFAULT_EXPERT_RULES = REACTOR.parent / "RVSec-replication-package/tools/rules"
-DEFAULT_API30_RULES = REACTOR.parent / "MetaCrySL/generated/api30"
+# The oracle, and since D-16 (task 11.3) the only one: the pinned expert copy,
+# 49 rules, sha256 `d7bcc019...`. G-FORB read two catalogues while D-15's split
+# stood -- `FORBIDDEN` belonged to neither side of it, so the gate required an
+# accusing event for a clause either one stated. D-16 withdrew the generated
+# api30 catalogue from every dimension, which leaves nothing for a second reading
+# to add: the two catalogues state the same FORBIDDEN clauses on the two rules
+# this set has a `.mop` for (`PBEKeySpec`'s two constructors, `SSLContext`'s
+# `getDefault()`), and where they differ -- api30's `DigestOutputStream` forbids
+# `on(java.lang.String)` where the expert rule forbids `on(boolean)` -- the rule
+# has no specification in any set and the clause is a declared skip either way.
+DEFAULT_RULES = REACTOR.parent / "RVSec-replication-package/tools/rules"
 
 RULE_EXTENSIONS = (".crysl", ".cryptsl")
 
@@ -99,7 +104,7 @@ RULE_EXTENSIONS = (".crysl", ".cryptsl")
 # signature to a jar, so a set whose specifications answer to a different platform
 # is outside its reach and says so, rather than reporting every class the jar does
 # not carry. The mapping is written down instead of inferred, for the reason
-# `order_alphabet_map.csv` is written down: a heuristic guess here is a wrong
+# `order_alphabet_map_expert.csv` is written down: a heuristic guess here is a wrong
 # verdict in both directions, and the wrong direction is the silent one.
 #
 # `generic` and `generic_new` are JSE specifications -- Swing, JMX, `java.util` --
@@ -661,17 +666,26 @@ def _same_arguments(clause_types: tuple[str, ...], pointcut: Pointcut) -> bool:
 def gate_forb(
     set_name: str,
     specs: list[SpecFile],
-    rule_dirs: dict[str, Path],
+    rules_dir: Path,
     run: GateRun,
 ) -> None:
     """Every `FORBIDDEN` clause of a rule that has a `.mop` here has an accusing event.
 
-    The scope is the reason this gate is usable. Both oracles state `FORBIDDEN` on
+    The scope is the reason this gate is usable. The oracle states `FORBIDDEN` on
     four rules; two of them -- `DigestInputStream` and `DigestOutputStream` -- have
     no specification in any set, being among the 27 rules this change leaves out. A
     clause no task owns cannot be a failure, so it is a declared skip and is counted.
+
+    One catalogue, since D-16 (task 11.3). The gate read two while D-15's split
+    stood, and dropping the withdrawn one costs no verdict: on the two rules this
+    set has a `.mop` for the two catalogues state the same clauses, so what the
+    second reading produced was a duplicate of every check and of every skip.
     """
     by_stem = {spec_file.source.path.stem: spec_file for spec_file in specs}
+
+    if not rules_dir.is_dir():
+        run.skipped.append((set_name, f"rule directory absent: {rules_dir}"))
+        return
 
     # Scope, derived rather than declared: a set is in reach of a CrySL FORBIDDEN
     # clause only if its specifications are paired with CrySL rules at all. `generic`
@@ -679,90 +693,84 @@ def gate_forb(
     # clause of every rule would be a finding against them -- a gate that fails on
     # 100 % of a set it was never told about is a gate nobody will read.
     paired = any(
-        (rule_dir / f"{stem}{extension}").is_file()
-        or (rule_dir / f"{stem.removesuffix('Spec')}{extension}").is_file()
-        for rule_dir in rule_dirs.values()
-        if rule_dir.is_dir()
+        (rules_dir / f"{stem}{extension}").is_file()
+        or (rules_dir / f"{stem.removesuffix('Spec')}{extension}").is_file()
         for extension in RULE_EXTENSIONS
         for stem in by_stem
     )
     if not paired:
         run.skipped.append(
-            (set_name, f"{len(specs)} `.mop` and not one paired with a CrySL rule of either oracle")
+            (set_name, f"{len(specs)} `.mop` and not one paired with a CrySL rule of the oracle")
         )
         return
 
-    for oracle, rule_dir in rule_dirs.items():
-        if not rule_dir.is_dir():
-            run.skipped.append((oracle, f"rule directory absent: {rule_dir}"))
+    for rule in sorted(rules_dir.iterdir()):
+        if rule.suffix not in RULE_EXTENSIONS:
             continue
-        for rule in sorted(rule_dir.iterdir()):
-            if rule.suffix not in RULE_EXTENSIONS:
-                continue
-            clauses = _forbidden_clauses(rule)
-            if not clauses:
-                continue
-            spec_file = by_stem.get(f"{rule.stem}Spec") or by_stem.get(rule.stem)
-            if spec_file is None:
-                run.skipped.append(
-                    (
-                        f"{oracle}/{rule.name}",
-                        f"{len(clauses)} FORBIDDEN clause(s) on a rule with no `.mop` in "
-                        f"`{set_name}` -- out of this change's scope (the 27 unpaired rules)",
+        clauses = _forbidden_clauses(rule)
+        if not clauses:
+            continue
+        spec_file = by_stem.get(f"{rule.stem}Spec") or by_stem.get(rule.stem)
+        if spec_file is None:
+            run.skipped.append(
+                (
+                    f"{set_name}/{rule.name}",
+                    f"{len(clauses)} FORBIDDEN clause(s) on a rule with no `.mop` in "
+                    f"`{set_name}` -- out of this change's scope (the 27 unpaired rules)",
+                )
+            )
+            continue
+
+        bodies = {
+            region.owner: spec_file.source.neutral[region.start : region.end]
+            for region in spec_file.source.regions
+            if region.kind == "body"
+        }
+        for clause in clauses:
+            member, clause_types = _clause_member(clause)
+            run.checked += 1
+            # The accusing event is the one whose `call(...)` names the member.
+            # A constructor clause names the type, which JavaMOP writes as `new`.
+            accusers = [
+                pointcut
+                for pointcut in spec_file.pointcuts
+                if (
+                    pointcut.member == member
+                    or (pointcut.member == "new" and pointcut.owner.rpartition(".")[2] == member)
+                )
+                and _same_arguments(clause_types, pointcut)
+            ]
+            if not accusers:
+                run.findings.append(
+                    Finding(
+                        "G-FORB",
+                        set_name,
+                        spec_file.source.path.stem,
+                        f"{spec_file.source.path.stem}.{member}",
+                        f"`{rule.name}` forbids `{clause}` and no event of "
+                        f"`{spec_file.source.path.stem}.mop` has a `call(...)` for it, so the "
+                        f"call is silent where the rule turns it down",
                     )
                 )
                 continue
-
-            bodies = {
-                region.owner: spec_file.source.neutral[region.start : region.end]
-                for region in spec_file.source.regions
-                if region.kind == "body"
-            }
-            for clause in clauses:
-                member, clause_types = _clause_member(clause)
-                run.checked += 1
-                # The accusing event is the one whose `call(...)` names the member.
-                # A constructor clause names the type, which JavaMOP writes as `new`.
-                accusers = [
-                    pointcut
-                    for pointcut in spec_file.pointcuts
-                    if (
-                        pointcut.member == member
-                        or (pointcut.member == "new" and pointcut.owner.rpartition(".")[2] == member)
+            accusing = [
+                pointcut
+                for pointcut in accusers
+                if "ForbiddenMethod" in bodies.get(pointcut.event, "")
+            ]
+            if not accusing:
+                run.findings.append(
+                    Finding(
+                        "G-FORB",
+                        set_name,
+                        spec_file.source.path.stem,
+                        f"{spec_file.source.path.stem}.{accusers[0].event}",
+                        f"`{rule.name}` forbids `{clause}`; the event exists "
+                        f"({', '.join(sorted({p.event for p in accusers}))}) but no body of it "
+                        f"raises `ErrorType.ForbiddenMethod`, so the call takes a transition "
+                        f"instead of drawing the report the clause asks for",
                     )
-                    and _same_arguments(clause_types, pointcut)
-                ]
-                if not accusers:
-                    run.findings.append(
-                        Finding(
-                            "G-FORB",
-                            set_name,
-                            spec_file.source.path.stem,
-                            f"{spec_file.source.path.stem}.{member}",
-                            f"`{oracle}` forbids `{clause}` and no event of "
-                            f"`{spec_file.source.path.stem}.mop` has a `call(...)` for it, so the "
-                            f"call is silent where the rule turns it down",
-                        )
-                    )
-                    continue
-                accusing = [
-                    pointcut
-                    for pointcut in accusers
-                    if "ForbiddenMethod" in bodies.get(pointcut.event, "")
-                ]
-                if not accusing:
-                    run.findings.append(
-                        Finding(
-                            "G-FORB",
-                            set_name,
-                            spec_file.source.path.stem,
-                            f"{spec_file.source.path.stem}.{accusers[0].event}",
-                            f"`{oracle}` forbids `{clause}`; the event exists "
-                            f"({', '.join(sorted({p.event for p in accusers}))}) but no body of it "
-                            f"raises `ErrorType.ForbiddenMethod`, so the call takes a transition "
-                            f"instead of drawing the report the clause asks for",
-                        )
-                    )
+                )
 
 
 # --------------------------------------------------------------------------
@@ -920,8 +928,7 @@ def run_gates(
     selection: str,
     gates: tuple[str, ...],
     jar_path: Path | None,
-    expert_rules: Path,
-    api30_rules: Path,
+    rules: Path,
     allowlist: Path | None = None,
 ) -> dict[str, GateRun]:
     """Run the selected gates over the selected sets, then move allowed findings aside."""
@@ -931,14 +938,12 @@ def run_gates(
     if resolved is not None:
         jar = AndroidJar(resolved)
 
-    rule_dirs = {"expert": expert_rules, "api30": api30_rules}
-
     for set_dir in _resolve_sets(specs_root, selection):
         specs = read_set(set_dir)
         if "G-SIG" in runs:
             gate_sig(set_dir.name, specs, jar, runs["G-SIG"])
         if "G-FORB" in runs:
-            gate_forb(set_dir.name, specs, rule_dirs, runs["G-FORB"])
+            gate_forb(set_dir.name, specs, rules, runs["G-FORB"])
         if "G-BIND" in runs:
             gate_bind(set_dir.name, specs, runs["G-BIND"])
 
@@ -963,8 +968,7 @@ def main(argv: list[str] | None = None) -> int:
         "--gate", action="append", choices=GATES, help="run one gate; repeatable"
     )
     parser.add_argument("--android-jar", type=Path, default=None)
-    parser.add_argument("--expert-rules", type=Path, default=DEFAULT_EXPERT_RULES)
-    parser.add_argument("--api30-rules", type=Path, default=DEFAULT_API30_RULES)
+    parser.add_argument("--rules", type=Path, default=DEFAULT_RULES)
     parser.add_argument("--allowlist", type=Path, default=DEFAULT_ALLOWLIST)
     parser.add_argument("--json", action="store_true")
     arguments = parser.parse_args(argv)
@@ -975,8 +979,7 @@ def main(argv: list[str] | None = None) -> int:
         arguments.sets,
         gates,
         arguments.android_jar,
-        arguments.expert_rules,
-        arguments.api30_rules,
+        arguments.rules,
         arguments.allowlist,
     )
 

@@ -59,7 +59,7 @@ are what E1 changes and what makes the flag fire on `jca_android` until E4 task
 8.16 moves the guard to the getter as well.
 
 Usage:
-    gh104_message_gate.py <set directory> [--crysl <generated/api30>]
+    gh104_message_gate.py <set directory> [--crysl <RVSec-replication-package/tools/rules>]
                           [--json report.json]
 """
 

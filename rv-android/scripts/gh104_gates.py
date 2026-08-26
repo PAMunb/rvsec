@@ -16,7 +16,7 @@ directory it was generated from:
     G-ERE   a symbol named in the `ere`/`fsm` expression with no event
             declaration behind it
     G-CONF  an `Arrays.asList` allow-list that does not transcribe the
-            `CONSTRAINTS ... in {...}` clause of the corresponding api30 rule
+            `CONSTRAINTS ... in {...}` clause of the corresponding expert rule
     G-PRED  a predicate site of the frozen `jca` seed that the set under test
             has lost or rewritten -- superseded, and reported as such, on a set
             that has migrated off the seed's substrate (see below)
@@ -50,7 +50,7 @@ nothing left to evaluate a `REQUIRES` clause, so only `CONSTRAINTS` and
 Usage:
     gh104_gates.py --monitor <MultiSpec_1RuntimeMonitor.java>
                    [--allowlist data/<set>/gate_allowlist.csv]
-                   [--crysl <generated/api30>]
+                   [--crysl <RVSec-replication-package/tools/rules>]
                    [--alias data/jca_android/alias_table.csv]
                    [--json <report.json>]
 
@@ -539,15 +539,24 @@ def parse_crysl(path: Path) -> CryslRule:
     return CryslRule(path=path, sections=sections, events=events, objects=objects)
 
 
-# The two rule dialects this gate reads. `.cryptsl` is what MetaCrySL generates
-# and stays the oracle of ORDER, event alphabets and predicate clauses; `.crysl`
-# is the expert-validated CogniCrypt source, pinned by sha256, and is the oracle
-# of every value clause from D-15 (INV-INS-125). The two share a grammar for
-# everything this parser reads -- sections, `EVENTS`, `OBJECTS`, `in {...}` --
-# and differ where it does not look: `length[x]` against `length(x)`,
-# `generatedKey[k, alg]` against `generatedKey(k, alg)`, and the Cipher splitter
-# `alg(transformation)` against `part(0,"/",transformation)`, which both land in
-# the `NAO-DERIVADO` branch because the tables live in Java control flow either way.
+# The two rule dialects this parser can read. Since D-16 (task 11.3) only one of
+# them is an oracle: `.crysl`, the expert-validated CogniCrypt source pinned by
+# sha256, which answers for values, ORDER, alphabets and predicates alike. D-15
+# had already taken the value dimension from the generated `.cryptsl` catalogue
+# after measuring that it admitted MD5, SHA-1 and AES/ECB; D-16 took the rest,
+# for the reason the design states -- a chain that inverts the semantics of a
+# value earns oracle status in no dimension.
+#
+# The `.cryptsl` extension is kept here because the archived
+# `jca_android_bug_predicate` set still resolves over the catalogue it was
+# computed on (INV-INS-118), and gh101's checker points at both. It is not a
+# fallback for any live set: `--crysl` names one directory and every gate below
+# reads that one. The two dialects share a grammar for everything this parser
+# reads -- sections, `EVENTS`, `OBJECTS`, `in {...}` -- and differ where it does
+# not look: `length[x]` against `length(x)`, `generatedKey[k, alg]` against
+# `generatedKey(k, alg)`, and the Cipher splitter `alg(transformation)` against
+# `part(0,"/",transformation)`, which both land in the `NAO-DERIVADO` branch
+# because the tables live in Java control flow either way.
 RULE_EXTENSIONS = (".cryptsl", ".crysl")
 
 
@@ -815,7 +824,7 @@ def classify_orphan(
         "why": "",
     }
     if rule is None:
-        verdict["why"] = "no api30 rule corresponds to this specification"
+        verdict["why"] = "no rule of the oracle corresponds to this specification"
         return verdict
 
     signature = _call_signature(event.calls[0]) if event.calls else None
@@ -1589,7 +1598,6 @@ def run_gates(
     alias_csv: Path | None,
     cipher_util: Path | None,
     constraint_table: Path | None = None,
-    value_crysl_dir: Path | None = None,
 ) -> dict:
     """
     Run the nine gates over one monitor and its derived set, and return the report.
@@ -1815,15 +1823,18 @@ def run_gates(
     gate("G-ERE", undeclared)
 
     # ---- G-CONF ----
-    # D-15 splits the oracles: value clauses answer to the pinned expert copy
-    # (`--value-crysl`), everything else -- G-2's orphan split above, the ORDER
-    # and predicate gates elsewhere -- stays on the generated api30 rules. When
-    # no value oracle is given the gate falls back to `--crysl`, which is what
-    # the frozen `jca` report and every pre-D-15 invocation expect.
-    conf_crysl = value_crysl_dir or crysl_dir
+    # D-15 split the oracles and gave value clauses to the pinned expert copy,
+    # through a `--value-crysl` flag of its own; D-16 gave that copy every other
+    # dimension too, so the split has nothing left to separate and the two flags
+    # collapse into `--crysl` (task 11.3). G-2's orphan split above, this gate,
+    # and the ORDER and predicate gates elsewhere now read one directory. A gate
+    # that still took two would be offering a caller the choice of comparing
+    # values against one catalogue and structure against another, which is the
+    # arrangement D-16 exists to end.
+    conf_crysl = crysl_dir
     if not specs or conf_crysl is None or not conf_crysl.is_dir():
         report["skipped"].append(
-            "G-CONF: needs both the set directory and a value oracle (--value-crysl, or --crysl)"
+            "G-CONF: needs both the set directory and the oracle (--crysl)"
         )
         gate("G-CONF", [])
     else:
@@ -2034,14 +2045,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--monitor", type=Path, required=True)
     parser.add_argument("--allowlist", type=Path)
-    parser.add_argument("--crysl", type=Path)
     parser.add_argument(
-        "--value-crysl",
+        "--crysl",
         type=Path,
         help=(
-            "the pinned expert copy RVSec-replication-package/tools/rules/, the oracle of "
-            "every value clause from D-15 (INV-INS-125). Defaults to --crysl, which is what "
-            "the frozen `jca` report and every pre-D-15 invocation expect."
+            "the pinned expert copy RVSec-replication-package/tools/rules/, the sole oracle "
+            "of this set from D-16 (INV-INS-125): values, ORDER, alphabets and predicates "
+            "alike. It absorbed the separate --value-crysl D-15 had introduced (task 11.3)."
         ),
     )
     parser.add_argument("--alias", type=Path)
@@ -2069,7 +2079,6 @@ def main() -> int:
         alias_csv=args.alias,
         cipher_util=args.cipher_util,
         constraint_table=args.constraint_table,
-        value_crysl_dir=args.value_crysl,
     )
 
     if args.json:

@@ -1952,7 +1952,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       Mac/Signature event splits) rather than assuming zero. The two no-rule files
       (IvChainJunction, RandomStringPassword) keep their declared prose skips, restated
       against the expert catalogue ("the expert rules enunciate no such rule")
-- [ ] 11.3 [gates] Point every instrument at the sole oracle: `gh105_order_gate.py` and the
+- [x] 11.3 [gates] Point every instrument at the sole oracle: `gh105_order_gate.py` and the
       `gh104_gates.py` `--crysl` input read `RVSec-replication-package/tools/rules/`
       (G-CONF's `--value-crysl expert` is already there — the two flags collapse into one);
       the parity fixtures that load api30 rules re-anchor; no CLI keeps an api30 code path.

@@ -1,18 +1,33 @@
-# The event-alphabet mapping G-ORDER decides under (INV-INS-138). One row per
-# (`.mop` event -> `ORDER` symbol) association, per specification. It is versioned
-# and revised with the specification that uses it: a mapping is a judgement about
-# what a pointcut captures, and a wrong one is a wrong verdict in both directions,
-# so it is never inferred. G-ORDER skips -- with the reason -- any specification
-# with no api30 rule or no rows here.
+# The event-alphabet mapping G-ORDER decided under (INV-INS-138) while the generated
+# api30 catalogue was its oracle. One row per (`.mop` event -> `ORDER` symbol)
+# association, per specification. A mapping is a judgement about what a pointcut
+# captures, and a wrong one is a wrong verdict in both directions, so it was never
+# inferred; that discipline is what made the re-anchoring below checkable.
 #
-# D-16 (2026-08-26, task 11.2): this file is anchored on the withdrawn catalogue, and its
-# successor is `order_alphabet_map_expert.csv` -- the same associations and dispositions,
-# re-keyed to the expert rules' symbols and lines, derived by
-# `scripts/gh105_expert_alphabet.py`. What the move costs, row by row, is
-# `order_alphabet_map_delta.csv`; the reading of it is
-# `data/gh105/evidence/f8-order-alphabet-expert.md`. This file is still the one G-ORDER
-# reads: pointing the instruments at the sole oracle is task 11.3, and until it lands the
-# api30 anchors below are what the gate compares against.
+# D-16 (2026-08-26, task 11.3): **nothing reads this file.** The sole oracle of
+# `jca_android` is the pinned expert copy `RVSec-replication-package/tools/rules/`, and
+# `scripts/gh105_order_gate.py` reads `order_alphabet_map_expert.csv` -- the same
+# associations, dispositions and reasons, re-keyed to the expert rules' symbols and lines
+# by `scripts/gh105_expert_alphabet.py`, by signature and never by name. The row-by-row
+# account of what the move cost is `order_alphabet_map_delta.csv`; the reading of it is
+# `data/gh105/evidence/f8-order-alphabet-expert.md`.
+#
+# The file stays on disk for the reason every superseded record of this change stays: it
+# is the artefact the pre-D-16 verdicts were computed on, and the evidence that cites
+# them (`f1-order-gate-precedence.md`, `f2-*.md`, `f3-OrderMapComplete.md`) resolves over
+# it (INV-INS-118). It is not a fallback and there is no code path that would reach it --
+# G-ORDER names one map, and pointing `--rules` at the expert catalogue while this file
+# supplied the anchors would compare expert symbols against api30 lines and read the
+# mis-keying as a set of ordering defects. Everything below is history; read the
+# successor.
+#
+# What the switch measured, on the day it landed: 14 passed / 0 failed / 8 allow-listed
+# under this file and the api30 rules, against 13 / 6 / 3 under the successor and the
+# expert rules. Four of the six are the same divergence with a witness written in the
+# other catalogue's symbols and are re-keyed by task 11.4; one allowance stops being
+# needed (`CipherInputStreamSpec`, whose witness came from a constructor only api30
+# declared); two are new and behavioural (`KeyPairSpec`, `MacSpec`) and belong to task
+# 11.6 and a researcher decision.
 #
 # The mapping is not a bijection, on purpose and in both directions. The `.mop`
 # separates overloads to bind arguments (`CipherSpec.i2` is one event over the six

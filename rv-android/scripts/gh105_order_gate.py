@@ -5,7 +5,7 @@ A CrySL rule states the legal call sequences of an API in its `ORDER` clause; th
 `.mop` that monitors it states them again as an `fsm` or an `ere`. Nothing checks
 that the two say the same thing, and when they disagree the monitor accuses a
 conforming program: the measured case is `SecureRandom`, whose rule orders
-`Ins, Seeds?, Ends*` -- Kleene star -- while the specification's `end` state has no
+`Ins, (Seed?, End*)*` -- Kleene star -- while the specification's `end` state has no
 transition for `next2`, so a second `nextBytes()` is reported as a wrong call
 sequence. 12,400 events, 99.98 % of them raised inside libraries.
 
@@ -21,7 +21,7 @@ nobody reads.
 The `.mop` splits overloads to bind arguments and the rule aggregates them, so the
 alphabets do not correspond by name -- `SecureRandomSpec.g3` is the rule's `gI`,
 `setSeed1` is `s2` and `setSeed2` is `s1`. The associations live in
-`data/jca_android/order_alphabet_map.csv`, versioned and revised with the
+`data/jca_android/order_alphabet_map_expert.csv`, versioned and revised with the
 specification that uses it. Without a rule or without a complete mapping the gate
 reports `skipped` with the reason: a heuristic guess here is a wrong verdict in
 both directions, and a wrong verdict about an ordering is how a false accusation
@@ -63,11 +63,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from gh105_predicate_graph import SPECIFICATION_SETS, read_mop  # noqa: E402
 
-# The oracle. gh104 fixed it as read-only: where a generated rule is judged
-# defective the judgement is a row of `divergence_record.csv`, never an edit here.
+# The oracle, and since D-16 (task 11.3) the only one this gate has: the pinned
+# expert copy of the CogniCrypt rules, 49 files, sha256 `d7bcc019...`. The
+# generated `MetaCrySL/generated/api30/` catalogue that stood here before was
+# withdrawn from every dimension -- values, ORDER, alphabets, predicates -- once
+# D-15 measured that its value clauses admitted MD5, SHA-1 and AES/ECB: a chain
+# that inverts the semantics of a value earns oracle status in no dimension. It
+# survives as the historical input of the pre-D-16 records and is named only
+# inside their supersession adenda; no code path here reaches it.
+#
+# gh104 fixed the oracle as read-only, and that survives the substitution: where a
+# rule is judged defective the judgement is a row of `divergence_record.csv`,
+# never an edit there.
 DEFAULT_RULES = Path(
     "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv"
-    "/MetaCrySL/generated/api30"
+    "/RVSec-replication-package/tools/rules"
 )
 
 # Both data paths are anchored to this file, not to the working directory. A
@@ -77,7 +87,14 @@ DEFAULT_RULES = Path(
 # specification, which is the one confusion this gate exists to prevent.
 REPO = Path(__file__).resolve().parents[1]
 
-DEFAULT_MAP = REPO / "data/jca_android/order_alphabet_map.csv"
+# The map has to move with the rules it keys against. Pointing `--rules` at the
+# expert catalogue and leaving the api30 map in place would compare expert symbols
+# against api30 anchors -- a mis-keyed comparison that reads as a set of ordering
+# defects. Task 11.2 derived this file for that reason, by signature and never by
+# name: the two catalogues permute names over the same calls (`initialize(int)` is
+# `i3` in api30 and `i1` in the expert rule), so a re-anchoring by name would look
+# mechanical and be wrong exactly where it matters.
+DEFAULT_MAP = REPO / "data/jca_android/order_alphabet_map_expert.csv"
 
 # A divergence this gate reports may be one the set is keeping on purpose: the
 # rule orders a symbol no monitored program can produce, or the specification is
@@ -109,7 +126,7 @@ _ERE_EMPTY = {"epsilon"}
 
 @dataclass(frozen=True)
 class Rule:
-    """One api30 rule, reduced to what an ordering comparison needs.
+    """One rule of the oracle, reduced to what an ordering comparison needs.
 
     Attributes:
         name: The rule's file stem, which is the API class it governs.
@@ -128,7 +145,7 @@ def read_rule(path: Path) -> Rule:
     """Read a rule's event alphabet, its aggregates and its `ORDER` expression.
 
     Args:
-        path: A generated api30 CrySL rule.
+        path: One CrySL rule of the pinned expert catalogue.
 
     Returns:
         A Rule carrying only the ordering-relevant sections. `CONSTRAINTS`,
@@ -587,7 +604,7 @@ class MapRow:
             event stands for. Empty when the row records an erasure.
         symbol_kind: `event` or `aggregate` -- which side of the mapping's
             non-bijection the row is on. Empty on an erasure row.
-        rule: File name of the api30 rule the specification is compared against.
+        rule: File name of the expert rule the specification is compared against.
         disposition: `mapped` for an ordinary association; `order-unmapped`
             erases the event from both languages before the comparison.
         reason: Why the association or the erasure was decided, in prose.
@@ -654,7 +671,7 @@ class OrderFinding:
         message: The witness word and which of the two sides accepts it.
         witness: The shortest disagreeing call sequence, as rule symbols. It is
             carried apart from the message so a reader can replay it.
-        accepted_by: `the api30 ORDER` or `the specification` -- which side
+        accepted_by: `the expert ORDER` or `the specification` -- which side
             admits the witness, and therefore which side is the accuser.
     """
 
@@ -865,7 +882,7 @@ def build_automata(
 
     Args:
         mop: The specification to compare.
-        rules_root: Directory of generated api30 rules.
+        rules_root: Directory of the pinned expert rules.
         mapping: The alphabet mapping, by specification stem.
 
     Returns:
@@ -975,7 +992,7 @@ def check_specification(
     Args:
         spec_set: Specification set the `.mop` belongs to, carried into findings.
         mop: The specification to decide.
-        rules_root: Directory of generated api30 rules.
+        rules_root: Directory of the pinned expert rules.
         mapping: The alphabet mapping, by specification stem.
 
     Returns:
@@ -992,10 +1009,10 @@ def check_specification(
         return None
 
     accepted_by = (
-        "the api30 ORDER" if accepts(ordered, witness) else "the specification"
+        "the expert ORDER" if accepts(ordered, witness) else "the specification"
     )
     rejected_by = (
-        "the specification" if accepted_by.endswith("ORDER") else "the api30 ORDER"
+        "the specification" if accepted_by.endswith("ORDER") else "the expert ORDER"
     )
     word = " ".join(witness) if witness else "the empty sequence"
     return OrderFinding(
@@ -1019,7 +1036,7 @@ def run(
     Args:
         specs_root: Directory holding the specification sets, one per subdirectory.
         selection: `"all"` for the enumerated universe, or the name of one set.
-        rules_root: Directory of generated api30 rules.
+        rules_root: Directory of the pinned expert rules.
         map_path: The alphabet mapping CSV.
         allowlist_path: The allow-list CSV. A divergence it covers is reported
             under `allowed` instead of `findings`.
@@ -1098,7 +1115,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--sets", default="all", help="`all` or the name of one set")
     parser.add_argument(
-        "--rules", type=Path, default=DEFAULT_RULES, help="the api30 rules"
+        "--rules", type=Path, default=DEFAULT_RULES, help="the expert rules"
     )
     parser.add_argument(
         "--map", type=Path, default=DEFAULT_MAP, help="the alphabet mapping"

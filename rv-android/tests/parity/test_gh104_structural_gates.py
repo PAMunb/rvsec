@@ -40,20 +40,35 @@ REPO = Path(__file__).resolve().parents[2]
 SCRIPTS = REPO / "scripts"
 CONTROL = REPO / "results/gh101_group8_jca_frozen_control/monitors"
 MANIFEST = REPO / "data/gh104/jca_frozen_control.sha256"
-CRYSL = REPO.parent.parent / "MetaCrySL/generated/api30"
-# D-15 (2026-08-24) splits the oracles. The generated api30 rules above stay the
-# oracle of ORDER, event alphabets and predicate clauses; the pinned expert copy
-# below is the oracle of every value clause, and is what G-CONF reads through
-# `--value-crysl` (INV-INS-125/127). The pin is by sha256, recorded as a freeze
-# item of `data/jca_android/README.md`.
-VALUE_CRYSL = REPO.parent.parent / "RVSec-replication-package/tools/rules"
+# The oracle, singular since D-16 (2026-08-25, task 11.3). D-15 had split it in
+# two -- the generated api30 rules for ORDER, alphabets and predicates, the pinned
+# expert copy for values through a `--value-crysl` flag of its own -- after
+# measuring that the generated value lists admitted MD5, SHA-1 and AES/ECB. D-16
+# withdrew the generated catalogue from the remaining dimensions for the reason
+# the design states, so the two flags collapsed into `--crysl` and this fixture
+# loads one directory. The pin is by sha256, recorded as a freeze item of
+# `data/jca_android/README.md` (INV-INS-125/127).
+CRYSL = REPO.parent.parent / "RVSec-replication-package/tools/rules"
 
 # Measured on 2026-08-16 against the frozen control monitor, and reproduced by
 # every gate of `scripts/gh104_gates.py`. `G-2` is the count of
-# `orphan-without-clause` verdicts, not of raw orphans: the raw count is 18 and
-# 15 of those carry a CrySL clause that accounts for them.
+# `orphan-without-clause` verdicts, not of raw orphans: the raw count is 18, which
+# does not move, and 16 of those carry a CrySL clause that accounts for them.
+#
+# `G-2` is 3 in the 2026-08-16 measurement and 2 here, and the difference is the
+# substitution of oracle that task 11.3 made, not a gate that stopped looking. The
+# orphan that moved is `SecretKeySpecSpec.c3`, whose `condition()` tests
+# `keyAlgorithm` and `keyMaterial`: `MetaCrySL/generated/api30/SecretKeySpec.cryptsl`
+# states no clause over either -- it dropped the algorithm membership its source had,
+# which is the D-15 finding in its clearest form -- so no clause accounted for the
+# event and G-2 called it a failure. `RVSec-replication-package/tools/rules/
+# SecretKeySpec.crysl:18,20` states `keyAlgorithm in {"AES", "HmacSHA256",
+# "HmacSHA384", "HmacSHA512"}` and `neverTypeOf[keyMaterial, java.lang.String]`, so
+# the event is `orphan-with-clause` and moves from the hits to the notes. Nothing in
+# the frozen set was touched: 3 + 15 and 2 + 16 are the same 18 raw orphans, which is
+# why `JCA_RAW_ORPHANS` is asserted beside the split.
 JCA_BASELINE = {
-    "G-2": 3,
+    "G-2": 2,
     "G-2a": 1,
     "G-2b'": 8,
     "G-2c": 1,
@@ -69,7 +84,16 @@ JCA_LINT = {
     "undeclared-symbol": 1,
     "unbalanced": 1,
 }
-JCA_MESSAGE = {"literal-mismatch": 2, "wrong-error-type": 3}
+# `wrong-error-type` is 3 in the 2026-08-16 measurement and 4 here, for the same
+# reason `G-2` is 2 rather than 3: the message gate classifies a report site by the
+# clause family behind its event, through the same classifier G-2 uses. Under the
+# withdrawn catalogue `SecretKeySpecSpec.mop:48` had no clause behind it at all and
+# no family, so the gate had nothing to compare its `ErrorType` against; under the
+# oracle it has `CONSTRAINTS-value`, and the site raises `UnsatisfiedConstraint`
+# where a value clause asks for `UnsafeAlgorithm`. The finding is the frozen set's
+# and predates this change -- `jca` may not be edited (task 8.2) -- so it is pinned
+# here rather than repaired, exactly as the other three are.
+JCA_MESSAGE = {"literal-mismatch": 2, "wrong-error-type": 4}
 
 
 def _rvsec_home() -> Path:
@@ -88,14 +112,8 @@ def _set_dir(name: str) -> Path:
 
 def _crysl() -> Path:
     if not CRYSL.is_dir():
-        pytest.skip(f"the generated api30 rules are absent: {CRYSL}")
+        pytest.skip(f"the pinned expert rules are absent: {CRYSL}")
     return CRYSL
-
-
-def _value_crysl() -> Path:
-    if not VALUE_CRYSL.is_dir():
-        pytest.skip(f"the pinned expert rules are absent: {VALUE_CRYSL}")
-    return VALUE_CRYSL
 
 
 def _control_monitor() -> Path:
@@ -192,8 +210,6 @@ def _gates_command(monitor: Path, allowlist: Path | None) -> list[str]:
         str(monitor),
         "--crysl",
         str(_crysl()),
-        "--value-crysl",
-        str(_value_crysl()),
         "--alias",
         str(REPO / "data/jca_android/alias_table.csv"),
         "--constraint-table",
@@ -256,22 +272,28 @@ def test_jca_gates_reproduce_the_measured_baseline():
         )
 
 
-def test_jca_g2_splits_eighteen_orphans_into_fifteen_notes_and_three_failures():
-    """The correction G-2 exists for: 17 of the 18 are correct encodings.
+def test_jca_g2_splits_eighteen_orphans_into_sixteen_notes_and_two_failures():
+    """The correction G-2 exists for: 16 of the 18 are correct encodings.
 
     `CONSTRAINTS`, `REQUIRES` and `FORBIDDEN` are per-call predicates and name no
     position in the `ORDER`, so an event that encodes one has no place in the
     automaton and the generator gives it an all-`fail` row. Reading those as
     defects buries the one hit that is real.
+
+    The split was 15/3 while the generated api30 catalogue was the oracle, and the
+    raw 18 is asserted beside it so that the substitution task 11.3 made reads as a
+    re-classification and not as a gate that stopped counting.
+    `SecretKeySpecSpec.c3` crossed the line because the expert rule states the two
+    clauses the generated one had lost; the comment on `JCA_BASELINE` carries the
+    lines.
     """
     report = _gates(_control_monitor(), None)
     gate = report["gates"]["G-2"]
     assert gate["orphans_raw"] == JCA_RAW_ORPHANS
-    assert len(gate["notes"]) == 15, [note["event"] for note in gate["notes"]]
+    assert len(gate["notes"]) == 16, [note["event"] for note in gate["notes"]]
     assert {(hit["spec"], hit["event"]) for hit in gate["hits"]} == {
         ("MessageDigestSpec", "reset"),
         ("PBEKeySpecSpec", "err2"),
-        ("SecretKeySpecSpec", "c3"),
     }
     for note in gate["notes"]:
         assert note[
@@ -342,6 +364,14 @@ def test_jca_carries_no_hand_written_event_name_bookkeeping():
 
 
 def test_jca_message_gate_reports_the_measured_baseline():
+    """The frozen set's four wrong `ErrorType`s and two literal mismatches.
+
+    The sites are pinned and not only the counts, because a count that stayed at
+    four while one finding closed and another opened would report the same number
+    for a different set of defects. `SecretKeySpecSpec.mop:48` is the fourth from
+    task 11.3 and the comment on `JCA_MESSAGE` says why; the other three are the
+    2026-08-16 measurement unchanged.
+    """
     report = _message_gate("jca")
     assert report["counts"] == JCA_MESSAGE, report["counts"]
 
@@ -364,6 +394,7 @@ def test_jca_message_gate_reports_the_measured_baseline():
         ("PBEKeySpecSpec.mop", 24),
         ("PBEKeySpecSpec.mop", 30),
         ("PBEParameterSpecSpec.mop", 49),
+        ("SecretKeySpecSpec.mop", 48),
     }, wrong
 
 
@@ -460,7 +491,9 @@ def test_jca_android_allow_lists_conform_to_the_expert_rules():
     From D-15 the oracle is the pinned expert copy, not the generated api30
     rules. The assertion is unchanged -- no unbacked difference -- but what
     counts as a difference moved: the api30 lists admitted MD5, SHA-1, ARC4,
-    NONEwithRSA and AES/ECB, and the expert lists do not.
+    NONEwithRSA and AES/ECB, and the expert lists do not. D-16 extended that copy
+    to every other dimension, so from task 11.3 the invocation above passes it
+    once, as `--crysl`, and this gate reads what every other gate reads.
     """
     report = _gates(
         _generated_monitor("jca_android"), REPO / "data/jca_android/gate_allowlist.csv"

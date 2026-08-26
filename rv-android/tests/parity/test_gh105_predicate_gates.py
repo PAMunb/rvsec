@@ -2025,12 +2025,36 @@ def test_inv_ins_140_genericity(suite):
 # ---------------------------------------------------------------------- G-ORDER
 
 
-ORDER_MAP = REPO / "data/jca_android/order_alphabet_map.csv"
+# The map and the rules move together or not at all (task 11.3). Keyed against one
+# catalogue's symbols and compared against the other's, every specification would
+# diverge over a mis-keying, and the gate would report it as an ordering defect.
+ORDER_MAP = REPO / "data/jca_android/order_alphabet_map_expert.csv"
+
+#: The six divergences G-ORDER reports over `jca_android` since the oracle became
+#: the pinned expert copy, pinned by specification and by witness so that neither
+#: a seventh appearing nor one of these closing can pass unnoticed. They are open
+#: work with owners, not a baseline: four are the divergence the allow-list already
+#: forgave, with the witness written in the expert rule's symbols instead of api30's
+#: -- `CipherOutputStreamSpec` (`c2 c` before), `KeyGeneratorSpec` (`g1 g1 gk`),
+#: `SSLContextSpec` (`g1 Init se1 se1`) and `SecretKeySpec` (`d`) -- and task 11.4
+#: re-keys their rows. The other two are new and behavioural, and belong to task
+#: 11.6 and a researcher decision per clause: `KeyPairSpec`, where the expert ORDER
+#: requires the constructor against the `(c1 | epsilon)` task 9.11 wrote over 668
+#: measured lines of corpus, and `MacSpec`, where `g1 i1 f1` is a MAC over nothing
+#: that api30 accepted only because it fused both branches into `Finals`.
+OPEN_ORDER_DIVERGENCES = {
+    ("CipherOutputStreamSpec", ("c1", "cl1")),
+    ("KeyGeneratorSpec", ("g1", "g1", "gk1")),
+    ("KeyPairSpec", ()),
+    ("MacSpec", ("g1", "i1", "f1")),
+    ("SSLContextSpec", ("g1", "i1", "se1", "se1")),
+    ("SecretKeySpec", ("d1",)),
+}
 
 
 def _rules_root() -> Path:
     if not gh105_order_gate.DEFAULT_RULES.is_dir():
-        pytest.skip(f"the api30 oracle is absent: {gh105_order_gate.DEFAULT_RULES}")
+        pytest.skip(f"the oracle is absent: {gh105_order_gate.DEFAULT_RULES}")
     return gh105_order_gate.DEFAULT_RULES
 
 
@@ -2053,9 +2077,9 @@ def test_the_order_grammar_is_read_with_sequence_weakest():
 
     `CrySL.xtext:103-120` makes `Sequence` the outermost production and
     `Alternative` the tighter one, which is the opposite of the regular-expression
-    convention the `ere` follows. Cipher is the one rule of the api30 oracle that
+    convention the `ere` follows. Cipher is the one rule of the oracle that
     tells the two apart: its ORDER is
-    `Gets, Inits+, w+ | (FINWOU | (updates+, DOFINALS))+`, and read as a regular
+    `Get, Init+, AADUpdate*, WKB+ | (FINWOU | (Update+, DoFinal))+`, and read as a regular
     expression the right-hand branch stands alone, so a program could finalise
     having never called `getInstance` -- while `g1 i2 f2`, the canonical use, would
     be rejected. The gate read it that way until task 7.1, and reported a
@@ -2071,14 +2095,14 @@ def test_the_order_grammar_is_read_with_sequence_weakest():
     )
 
 
-def test_the_canonical_cipher_use_is_accepted_by_the_api30_order():
+def test_the_canonical_cipher_use_is_accepted_by_the_order_of_the_oracle():
     """`g1 i2 f2` -- getInstance, init, doFinal -- is what the rule is for.
 
     It is the regression the precedence repair exists to catch: under the old
     parse the Cipher ORDER rejected it, because `Gets` and `Inits+` sat in a
     branch the finalising path did not have to pass through.
     """
-    rule = gh105_order_gate.read_rule(_rules_root() / "Cipher.cryptsl")
+    rule = gh105_order_gate.read_rule(_rules_root() / "Cipher.crysl")
     order = gh105_order_gate.expand_aggregates(
         gh105_order_gate.parse_expression(rule.order), rule.aggregates
     )
@@ -2091,13 +2115,19 @@ def test_the_canonical_cipher_use_is_accepted_by_the_api30_order():
 
 
 def test_an_aggregate_is_expanded_through_every_level_it_names():
-    """`Ins := Gets | Cons` over `Gets := g1 | g2 | gI` is two levels deep.
+    """`Ins := Get | Con` over `Get := g1 | g2 | gI` is two levels deep.
 
     The SecureRandom rule orders `Ins`, and an `Ins` left unexpanded is a symbol
     the specification's alphabet can never contain -- the comparison would fail
     for a reason that has nothing to do with either language.
+
+    The expected alphabet is the oracle's own and moved with it at task 11.3: the
+    expert rule splits `nextInt()` from `nextInt(range)` (`nI` and `nIR`) where the
+    generated one had a single `ne`, and it is that split that leaves
+    `SecureRandomSpec.next1` and `next3` without a symbol to erase against -- a
+    consequence reserved for tasks 11.5/11.6.
     """
-    rule = gh105_order_gate.read_rule(_rules_root() / "SecureRandom.cryptsl")
+    rule = gh105_order_gate.read_rule(_rules_root() / "SecureRandom.crysl")
     order = gh105_order_gate.expand_aggregates(
         gh105_order_gate.parse_expression(rule.order), rule.aggregates
     )
@@ -2110,13 +2140,14 @@ def test_an_aggregate_is_expanded_through_every_level_it_names():
         "gS",
         "s1",
         "s2",
-        "ne",
         "nB",
+        "nI",
+        "nIR",
     }
 
 
 def test_the_securerandom_kleene_star_is_measured_and_not_argued():
-    """The anchored case: `Ins, Seeds?, Ends*` against the automaton.
+    """The anchored case: `Ins, (Seed?, End*)*` against the automaton.
 
     The rule accepts `getInstance()` followed by any number of `nextBytes()`, and
     the specification now accepts them too. It did not before task 4.5, for two
@@ -2165,16 +2196,23 @@ def test_an_absorbed_accuser_is_erased_from_both_languages():
     absorb an orphan without turning this gate red.
 
     Task 3.6 shows the exemption is not the only way to absorb one. `initError`
-    was listed here too until that task read the rule: `i3: initialize(keySize)`
-    is an `Inits` event whatever size it is handed, and the size bound is a
-    CONSTRAINTS clause, so the honest row is the mapping to `i3` and not an
+    was listed here too until that task read the rule: `i1: initialize(keysize)`
+    is an `Init` event whatever size it is handed, and the size bound is a
+    CONSTRAINTS clause, so the honest row is the mapping to `i1` and not an
     exemption. Two events standing for one symbol is the non-bijection the map
     already models, and the erased languages are the same either way.
+
+    The symbol is `i1` and was `i3`, and the change of name is the reason task 11.2
+    paired the two catalogues by signature: `KeyPairGenerator`'s four `initialize`
+    overloads are a permutation between them -- `initialize(int)` is `i3` in the
+    generated rule and `i1` in the expert one (`KeyPairGenerator.crysl:14`) -- so a
+    re-anchoring by name would have looked mechanical and mapped every one of them
+    to the wrong call.
     """
     rows = gh105_order_gate.read_map(ORDER_MAP)["KeyPairGeneratorSpec"]
     exempt = {row.mop_event for row in rows if row.disposition == "order-unmapped"}
     assert exempt == {"g3"}
-    assert {row.mop_event for row in rows if row.order_symbol == "i3"} == {
+    assert {row.mop_event for row in rows if row.order_symbol == "i1"} == {
         "init1",
         "initError",
     }
@@ -2237,17 +2275,18 @@ def test_the_gate_reports_a_word_a_reader_can_check_by_hand():
     sequence short enough to read against the rule.
     """
     result = _order_run()
-    # Since task 7.6 the set's divergences are allow-listed rather than failing,
+    # Task 7.6 allow-listed the set's divergences rather than letting them fail,
     # and an allow-listed row is a finding in every respect except its verdict --
-    # it is printed and it carries its witness. Both lists are walked, or the
-    # check would go vacuous exactly when the gate went green.
+    # it is printed and it carries its witness. Task 11.3 put six back into
+    # `findings` by substituting the oracle. Both lists are walked, or the check
+    # would go vacuous whichever way the verdicts fall.
     reported = result.findings + result.allowed
     assert (
         reported
     ), "the set diverges from its rules today; a green run here means the gate stopped looking"
     for finding in reported:
         assert finding.witness or "empty sequence" in finding.message
-        assert finding.accepted_by in ("the api30 ORDER", "the specification")
+        assert finding.accepted_by in ("the expert ORDER", "the specification")
 
 
 def _allowlist_variant(tmp_path: Path, **overrides: str) -> Path:
@@ -2270,6 +2309,37 @@ def _allowlist_variant(tmp_path: Path, **overrides: str) -> Path:
     return path
 
 
+def _allowlist_covering_open_divergences(tmp_path: Path) -> Path:
+    """The live allow-list plus one row per open divergence of task 11.3.
+
+    Written from the real file for the reason `_allowlist_variant` is: the added
+    rows carry the columns the tree's rows carry, so a change to the allow-list's
+    shape reaches this construction instead of passing it by.
+    """
+    with ALLOWLIST.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    template = next(row for row in rows if row["gate"] == "G-ORDER")
+    for spec, witness in sorted(OPEN_ORDER_DIVERGENCES):
+        rows.append(
+            {
+                **{key: "" for key in template},
+                "set": "jca_android",
+                "gate": "G-ORDER",
+                "spec": spec,
+                "event_or_state": "order",
+                "reason": "open at task 11.3; covered here to read the gate's exit 0",
+                "task": "11.3",
+                "witness": gh105_order_gate.witness_word(witness),
+            }
+        )
+    path = tmp_path / "gate_allowlist_covered.csv"
+    with path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
 def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     tmp_path,
 ):
@@ -2283,21 +2353,30 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
 
     The mutant changes one field of one row -- `CipherSpec`'s witness, from
     `g1 i1 u1` to a word the gate never produces -- and the divergence it used to
-    forgive comes back as a finding: 14 passed, **1** failed, 7 allow-listed, 2
-    skipped. Nothing else moves, which is the second half of the claim: the
-    allowance is about one counterexample, so revoking it accuses one
-    specification and not the set.
+    forgive comes back as a finding. Nothing else moves, which is the second half
+    of the claim: the allowance is about one counterexample, so revoking it accuses
+    one specification and not the set. That is why the mutant's findings are
+    compared against the healthy run's rather than against a literal -- the
+    difference between the two runs is the one field, and the assertion says so
+    directly instead of restating a total that also counts divergences this task
+    did not touch.
 
-    The healthy numbers moved at task group 9 and the numbers are the point of the
-    pin, so they are restated rather than relaxed: 14 passed and 8 allowed where
-    this test was written with 13 and 9. `KeyPairSpec` left the allow-list
-    outright -- task 9.11 made the constructor optional, so the empty sequence the
-    row forgave is now accepted by the specification as well as by the rule, and
-    the row was retired rather than left to forgive a divergence that no longer
-    exists. `KeyStoreSpec` stayed allowed and changed witness: task 9.16 repaired
-    `g2 l1` and the gate, which reports the first counterexample it finds, then
-    reached `g1 l1 g1 l1` -- the frozen seed's own outer `+`, which no task of this
-    change touched.
+    The numbers are the point of the pin, so they are restated rather than
+    relaxed, twice now. Task group 9 took the healthy run from 13 passed / 9
+    allowed to 14 / 8: `KeyPairSpec` left the allow-list outright -- task 9.11 made
+    the constructor optional, so the empty sequence the row forgave was accepted by
+    the specification as well as by the rule -- and `KeyStoreSpec` stayed allowed
+    and changed witness, task 9.16 having repaired `g2 l1` so that the gate, which
+    reports the first counterexample it finds, then reached `g1 l1 g1 l1`.
+
+    Task 11.3 took it to 13 passed / 6 failed / 3 allowed by substituting the
+    oracle. The six are `OPEN_ORDER_DIVERGENCES` and the comment there says who
+    owns each; four of them are allow-listed rows whose witness is now written in
+    the other catalogue's symbols, which is why the healthy run has three
+    allowances where it had eight. `CipherSpec` is not among the six: its row
+    forgives `g1 i1 u1` under both catalogues, which is what makes it the mutant's
+    subject here and keeps this test measuring the gate rather than the
+    substitution.
     """
     result = gh105_order_gate.run(
         _specs_root(),
@@ -2306,16 +2385,23 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
         ORDER_MAP,
         _allowlist_variant(tmp_path, witness="g1 i1 u1 OUTRA"),
     )
-    assert [finding.spec for finding in result.findings] == ["CipherSpec"]
-    assert result.findings[0].witness == ("g1", "i1", "u1")
-    assert result.findings[0].accepted_by == "the specification"
-    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (14, 7, 2)
-
-    # And the green run beside it, from the same code path: the difference between
-    # the two is the one field, so the gate is what is being measured here.
     healthy = _order_run()
-    assert healthy.findings == []
-    assert (len(healthy.passed), len(healthy.allowed)) == (14, 8)
+
+    accused = {finding.spec for finding in result.findings} - {
+        finding.spec for finding in healthy.findings
+    }
+    assert accused == {"CipherSpec"}
+    cipher = next(f for f in result.findings if f.spec == "CipherSpec")
+    assert cipher.witness == ("g1", "i1", "u1")
+    assert cipher.accepted_by == "the specification"
+    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (13, 2, 2)
+
+    # And the run beside it, from the same code path: the difference between the
+    # two is the one field, so the gate is what is being measured here.
+    assert {
+        (finding.spec, finding.witness) for finding in healthy.findings
+    } == OPEN_ORDER_DIVERGENCES
+    assert (len(healthy.passed), len(healthy.allowed)) == (13, 3)
 
 
 def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
@@ -2354,7 +2440,10 @@ def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
         result = gh105_order_gate.run(
             _specs_root(), "jca_android", _rules_root(), ORDER_MAP, path
         )
-        assert [finding.spec for finding in result.findings] == ["CipherSpec"], field
+        accused = {finding.spec for finding in result.findings}
+        assert accused == {spec for spec, _ in OPEN_ORDER_DIVERGENCES} | {
+            "CipherSpec"
+        }, field
 
     # An absent file allows nothing and crashes at nothing -- the gate goes fully
     # red rather than erroring, which is what makes a mis-pathed allow-list
@@ -2388,7 +2477,7 @@ def test_the_allow_list_has_two_widths_and_the_witness_is_in_both():
     assert not allowed(finding, {("jca_android", "CipherSpec", "i1", "g1 i1 u1")})
 
     empty = gh105_order_gate.OrderFinding(
-        "jca_android", "KeyPairSpec", "message", (), "the api30 ORDER"
+        "jca_android", "KeyPairSpec", "message", (), "the expert ORDER"
     )
     assert gh105_order_gate.witness_word(()) == gh105_order_gate.EMPTY_WITNESS
     assert allowed(empty, {("jca_android", "KeyPairSpec", "order", "<empty>")})
@@ -2405,6 +2494,15 @@ def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothi
     gate nobody could wire into anything. The 2 is the one worth spelling out:
     a typo in `--sets` produces a perfectly clean `0 passed, 0 failed` and a gate
     that answered success there would be reporting about files it never read.
+
+    The 0 is read against an allow-list built here rather than against the tree's,
+    and the construction is the honest way to ask this question while task 11.3's
+    six divergences are open: the live file forgives three of the nine the gate now
+    reports, so a run under it exits 1 and could not show the translation of a clean
+    run at all. Extending it with a row per `OPEN_ORDER_DIVERGENCES` entry -- the
+    same rows task 11.4 will write for four of them, and task 11.6 may or may not
+    write for the other two -- keeps the case measuring `main()` and not the state
+    of the records. The 1 needs no construction any more: the live file produces it.
     """
     specs, rules = _specs_root(), _rules_root()
     common = [
@@ -2413,20 +2511,20 @@ def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothi
         f"--map={ORDER_MAP}",
     ]
 
+    covered = _allowlist_covering_open_divergences(tmp_path)
+    assert (
+        gh105_order_gate.main(common + ["--sets=jca_android", f"--allowlist={covered}"])
+        == 0
+    )
+    assert "13 passed, 0 failed, 9 allow-listed" in capsys.readouterr().out
+
     assert (
         gh105_order_gate.main(
             common + ["--sets=jca_android", f"--allowlist={ALLOWLIST}"]
         )
-        == 0
-    )
-    assert "14 passed, 0 failed, 8 allow-listed" in capsys.readouterr().out
-
-    mutant = _allowlist_variant(tmp_path, witness="g1 i1 u1 OUTRA")
-    assert (
-        gh105_order_gate.main(common + ["--sets=jca_android", f"--allowlist={mutant}"])
         == 1
     )
-    assert "1 failed" in capsys.readouterr().out
+    assert "6 failed" in capsys.readouterr().out
 
     assert (
         gh105_order_gate.main(
@@ -2438,26 +2536,35 @@ def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothi
 
 
 def test_inv_ins_138_gorder(suite):
-    """G-ORDER under CI: zero ordering divergences the set has not decided to keep.
+    """G-ORDER under CI: every ordering divergence is decided or owned by name.
 
-    The nine divergences the gate reports over `jca_android` are all allow-listed,
-    and the allow-list is the assertion: each row names the witness, the reason and
-    task 7.6 that decided it, so the gate itself asserts zero. Two of the nine have
-    no repair on the specification's side at all -- the rule orders a symbol no
-    monitored program can produce -- and two more are inherited from the frozen
-    `jca`, so a run that reported zero *findings and zero allowances* would mean the
-    gate stopped looking rather than that the set converged. Both halves are checked
-    here for that reason. It also asserts the shape of the run itself: every
-    specification is decided or skipped with a reason, and the counts add up to the
-    files that exist (INV-INS-140).
+    The invariant asks for zero divergences the set has not decided to keep, and
+    for most of this change the assertion was `findings == []`: the eight the gate
+    reported over `jca_android` were all allow-listed, each row naming its witness,
+    its reason and task 7.6 that decided it. Some have no repair on the
+    specification's side at all -- the rule orders a symbol no monitored program can
+    produce -- and others are inherited from the frozen `jca`, so a run reporting
+    zero *findings and zero allowances* would mean the gate stopped looking rather
+    than that the set converged. That is why both halves are checked.
+
+    Task 11.3 substituted the oracle and six divergences are open again. They are
+    pinned by name and witness rather than tolerated by count: `OPEN_ORDER_DIVERGENCES`
+    says which, and who owns each -- four are the allow-list's own rows with the
+    witness re-spelled in the expert rule's symbols, which task 11.4 re-keys, and two
+    are behavioural and go to task 11.6 with a researcher decision per clause. A
+    seventh divergence fails this test, and so does one of the six closing without
+    the record moving with it, which is what the invariant is for: what it no longer
+    does is read a mis-keyed witness as convergence.
     """
     result = _order_run()
     assert result.total == len(list((_specs_root() / "jca_android").glob("*.mop")))
     assert all(reason for _, reason in result.skipped)
 
-    assert result.findings == []
+    assert {
+        (finding.spec, finding.witness) for finding in result.findings
+    } == OPEN_ORDER_DIVERGENCES
     assert result.allowed, (
-        "the set keeps nine ordering divergences on purpose; a run with none means "
+        "the set keeps ordering divergences on purpose; a run with none means "
         "the gate stopped comparing"
     )
 
@@ -2473,9 +2580,9 @@ def _message_gate_report(directory: Path) -> dict:
 
 
 def _crysl_dir() -> Path:
-    rules = Path(_rvsec_home()).parents[0] / "MetaCrySL/generated/api30"
+    rules = Path(_rvsec_home()).parents[0] / "RVSec-replication-package/tools/rules"
     if not rules.is_dir():
-        pytest.skip("the api30 oracle is not present beside the reactor")
+        pytest.skip("the oracle is not present beside the reactor")
     return rules
 
 
