@@ -1,0 +1,17 @@
+# gh105 task 11.5(e). The sibling of CipherInputStreamSpec-initialised-cipher.txt, and it exists
+# for the same reason: the corpus had no program in which the `generatedCipher` chain closes, so
+# neither the write at `CipherSpec.@match3` nor the SATISFIED branch of this file's read had a
+# witness. Here the Cipher is initialised for encryption before the stream is built, so the
+# constructor's read (CipherOutputStream.crysl:32) answers SATISFIED and draws nothing.
+bind km = bytes(32)
+bind iv = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k, spec) -> ready
+new CipherOutputStream(null, c) -> cos
+cos.write(bytes)
+cos.close()

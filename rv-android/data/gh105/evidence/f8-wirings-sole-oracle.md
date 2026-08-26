@@ -344,3 +344,92 @@ codes.csv .................... +2 códigos        (SSLCONTEXT-CONSTR-02, SSLCONT
 paridade ..................... read+read-absent 40 -> 41; read:body 35 -> 36; condition fica 0
 divergence_record.csv ........ 306 hunks, 4 re-chaveados por posição
 ```
+
+---
+
+## 4. (e1) `generatedCipher` — a única cadeia inteira que nunca foi fiada
+
+`Cipher.crysl:144` (ENSURES, ledger #63) · `CipherInputStream.crysl:31` (#15) ·
+`CipherOutputStream.crysl:32` (#16) · **fiar as duas pontas** ·
+pares de arnês `harness/f8e-CipherInputStreamSpec.md` e `f8e-CipherOutputStreamSpec.md`
+
+### 4.1 Por que ela nunca existiu
+
+As **três** cláusulas chegaram com o oráculo. O catálogo retirado não declarava nem o `ENSURES`
+nem os dois `REQUIRES`, então contra ele não faltava nada — e contra o oráculo falta tudo. É a
+única cadeia do conjunto em que **os três arquivos existem** e **nenhuma das duas pontas** estava
+fiada. A `Property.GENERATED_CIPHER` existia no enum e a sua javadoc dizia, corretamente até esta
+tarefa, que nenhum conjunto vivo a escrevia ou lia.
+
+### 4.2 A ponta produtora: `alias match3 = s2`
+
+`generatedCipher[this] **after Init**`. Pela mesma leitura de `after L` que pôs
+`encrypted[...] after Update` em `s3` (INV-INS-134 — o ponto de aceitação são os estados a que `L`
+leva), o ponto de aceitação aqui é **`s2`**, o estado a que `i1` e `i2` levam. O `.mop` ganha um
+`alias match3 = s2` e um `@match3`.
+
+O Cipher viaja num campo de estágio porque um handler é gerado como método sem argumentos e não vê
+parâmetro de evento; e é **estagiado** e não escrito no corpo porque o corpo roda *antes* de a
+transição ser decidida — uma escrita ali marcaria um Cipher que o autômato estava prestes a
+rejeitar. O `@fail` descarta o estágio, que é descarte de campo e não retirada de predicado escrito
+(o que a INV-INS-142 proíbe). O campo **não** é limpo depois da escrita, ao contrário dos pares
+`ENCRYPTED`: aqueles são um fato por transição, este é propriedade permanente do objeto, e `s2` é
+um estado ao qual o autômato pode voltar — `ensure` é idempotente por (propriedade, identidade,
+valores).
+
+### 4.3 A ponta consumidora
+
+Os dois construtores passam a bindar **os dois** argumentos, embora só um seja lido, para que o
+pointcut não carregue curinga nenhum: um curinga na posição **inicial** geraria um aspecto correto e
+derrotaria o resolvedor do arnês de traces, que aceita qualquer chamada a partir do primeiro curinga
+(finding 79). O stream custa um parâmetro declarado e nenhum relatório.
+
+### 4.4 O efeito colateral que o portão viu e o monitor não
+
+Declarar `match3 = s2` **muda a linguagem que o G-ORDER compara**, porque o portão deriva a
+linguagem aceita das categorias de match do autômato. A testemunha da divergência já perdoada do
+`CipherSpec` encurtou:
+
+```
+antes:  g1 i1 u1   aceita pela spec, rejeitada pelo ORDER expert
+agora:  g1 i1      (um Cipher inicializado e nunca usado)
+```
+
+É a **mesma folga**, vista um passo antes: a specification não exige um `Final`, e o `g1 i1 u1`
+continua sendo divergência coberta pela mesma decisão. O que **não** muda é o que o monitor acusa —
+uma categoria de match não acrescenta transição de `fail` —, e o par de arnês mede exatamente isso:
+cinco relatórios `NOBS` introduzidos e **nenhum** `CIPHER-ORDER-00`. A linha do
+`gate_allowlist.csv` teve a testemunha atualizada e a razão estendida com esse parágrafo; a
+asserção de paridade que fixava `g1 i1 u1` acompanhou, com a razão escrita ao lado.
+
+### 4.5 Os pares de arnês, e as duas traces que a tarefa acrescentou
+
+`170 unchanged / 5 introduced` — as cinco são **todas** as traces de stream do corpus, cada uma
+construída sobre um `Cipher` cujo `init` o monitor nunca viu. Isso é achado, não artefato: um
+`CipherInputStream` sobre um cipher não inicializado decifra nada.
+
+Mas isso deixaria a metade **produtora** sem testemunha alguma: nenhuma trace fechava a cadeia, e a
+escrita do `@match3` teria sido afirmada e não medida. A tarefa acrescentou duas —
+`CipherInputStreamSpec-initialised-cipher.txt` e `CipherOutputStreamSpec-initialised-cipher.txt` —
+em que o Cipher é inicializado antes de o stream ser construído. As duas leem `unchanged` **e não
+tiram nenhum relatório de stream**, que é a cadeia fechando: o `@match3` marcou, e a leitura
+respondeu `SATISFIED`.
+
+### 4.6 Contagens
+
+```
+predicate_graph.csv .......... 73 -> 76 linhas   (read:body 36 -> 38, write:acceptance 26 -> 27)
+codes.csv .................... +4 códigos
+corpus de traces ............. +2
+paridade ..................... read+read-absent 41 -> 43; write 31 -> 32
+                               a testemunha do G-ORDER do CipherSpec: `g1 i1 u1` -> `g1 i1`
+divergence_record.csv ........ 306 -> 308 hunks; 21 re-chaveados, 2 linhas novas
+```
+
+Os dois hunks novos são janela do differ e não divergência: pôr `initialisedCipher = c;` no fim do
+corpo do `i1` estendeu a corrida alterada pelo bloco de comentário que abre o `i2`, e o bloco de
+alias crescido por `match3` estendeu a sua pela linha de comentário que abre o `fsm`. Nenhuma linha
+desses comentários se moveu, e nenhuma transição do autômato mudou. O `rekey5.py` desta passagem
+pareia por posição através de N inserções e imprime o alinhamento antes de aplicar.
+
+Paridade: **185 passed / 3 failed**, as três pré-existentes.

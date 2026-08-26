@@ -878,6 +878,13 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       (SSLContext.crysl:34), the clause whose `vacuous` disposition fell with the substitution
       of oracle -- the generated rule wrote `init(kms, tms, _)` and bound no random for the
       clause to be about. So `read`+`read-absent` is 41 and `condition` is still 0.
+
+      Task 11.5(e) adds two reads and one write, and it is the only task of the group that
+      moves `write`: `Cipher.crysl:144 generatedCipher[this] after Init` is ensured at
+      `CipherSpec`'s new `@match3`, and both stream constructors read it. All three clauses
+      arrived with the expert oracle -- the generated catalogue declared none of them -- so
+      this is the one chain of the set whose three files all existed and whose two ends were
+      never wired. `read`+`read-absent` is 43 and `write` is 32.
     """
     home = _rvsec_home()
     specs = sorted(
@@ -897,9 +904,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
                     read_placement.get(site.site_kind, 0) + 1
                 )
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 41
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 43
     assert read_placement.get("condition", 0) == 0
-    assert counts.get("write", 0) == 31
+    assert counts.get("write", 0) == 32
     assert (
         counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
     )
@@ -1273,6 +1280,11 @@ def test_the_graph_reproduces_the_measured_placement_census():
 
       Task 11.5(b) adds one more, `SSLContextSpec.init` reading `randomized[random]`, so
       `read:body` is 36 and the graph 73 rows.
+
+      Task 11.5(e) adds the two stream reads and the `generatedCipher` write: `read:body` is
+      38, `write:acceptance` is 27, and the graph 76 rows. The write is at an acceptance point
+      and not in a body, which is the clause's own `after Init` read the way INV-INS-134 reads
+      every `after L` -- the states L leads to, here `s2`.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1280,14 +1292,14 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
-    assert counts.get("read:body", 0) == 36
+    assert counts.get("read:body", 0) == 38
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one
     # cannot arrive uncounted.
     assert counts.get("read-absent:body", 0) == 5
     assert counts.get("write:body", 0) == 5
-    assert counts.get("write:acceptance", 0) == 26
+    assert counts.get("write:acceptance", 0) == 27
     assert counts.get("remove:fail", 0) == 0
     assert counts.get("negate:body", 0) == 1
     assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 0
@@ -2427,7 +2439,13 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     }
     assert accused == {"CipherSpec"}
     cipher = next(f for f in result.findings if f.spec == "CipherSpec")
-    assert cipher.witness == ("g1", "i1", "u1")
+    # The witness moved at task 11.5(e), and the divergence it exemplifies did not:
+    # `alias match3 = s2` -- the acceptance point of `generatedCipher[this] after Init` --
+    # makes an initialised-and-never-used Cipher the shortest sequence the specification
+    # accepts and the expert ORDER rejects, where `g1 i1 u1` used to be. What the monitor
+    # accuses is unchanged, because a match category adds no `fail` transition, and the
+    # harness pair of that task measures exactly that: five NOBS reports and no ORDER one.
+    assert cipher.witness == ("g1", "i1")
     assert cipher.accepted_by == "the specification"
     assert (len(result.passed), len(result.allowed), len(result.skipped)) == (13, 6, 2)
 
@@ -2466,7 +2484,7 @@ def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
     """
     live = gh105_order_gate.read_allowlist(ALLOWLIST)
     assert len(live) == 7
-    assert ("jca_android", "CipherSpec", "order", "g1 i1 u1") in live
+    assert ("jca_android", "CipherSpec", "order", "g1 i1") in live
 
     for field, blank in (("reason", ""), ("witness", "")):
         path = _allowlist_variant(tmp_path, **{field: blank})

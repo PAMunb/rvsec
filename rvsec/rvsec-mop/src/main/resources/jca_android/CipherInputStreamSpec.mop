@@ -5,6 +5,8 @@ import java.io.InputStream;
 import javax.crypto.Cipher;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 // The declared parameter is the stream every event binds. Without one the generator emits a
@@ -16,12 +18,43 @@ import br.unb.cic.mop.Property;
 // parametric; this file and its sibling were the two that were not).
 CipherInputStreamSpec(CipherInputStream cis) {
 
+    // The `exp=` of the two report sites below, as a field so the two cannot drift apart.
+    String expectedGeneratedCipher = "a Cipher this instrumentation observed being initialised";
+
     // The constructor binds through `returning`, every other event through `target`: an event
     // of a parametric specification that binds no monitored object is handed the parameterless
     // map and runs on the root monitor and on every live monitor of the specification, which
     // is the fan-out task 9.3 closed at `PBEKeySpecSpec` and 9.7's G-BIND now locks.
-    event c1 after() returning(CipherInputStream cis):
-      call(public CipherInputStream.new(InputStream, Cipher)) { }
+    // `generatedCipher[cipher]` (CipherInputStream.crysl:31, ledger row 15), the rule's one
+    // REQUIRES and a clause the withdrawn catalogue did not state -- which is why this file
+    // carried no read of it and the constructor bound no argument at all. Task 11.5(e) wires
+    // it, by the researcher's decision of 2026-08-26, and it is the consuming half of the
+    // chain `CipherSpec`'s `@match3` produces.
+    //
+    // Both arguments are bound although only one is read: `args(input, cipher)` names the two
+    // positions by type and carries no wildcard. A wildcard in the leading position would
+    // generate a correct aspect and defeat the trace harness's resolver, which accepts any
+    // call from the first wildcard onward (finding 79), and there is nothing to gain by it --
+    // the `InputStream` costs one declared parameter and no report.
+    //
+    // The read is in the body, three-valued. VIOLATED is positive evidence that the Cipher
+    // carries a withdrawn `generatedCipher`; NOT_OBSERVED says the constructor was handed a
+    // Cipher whose `init` this instrumentation never saw, which is what the rule is about --
+    // a CipherInputStream over an uninitialised Cipher decrypts nothing. Every trace of this
+    // specification in the corpus is exactly that program, and until now nothing said so.
+    event c1 after(InputStream input, Cipher cipher) returning(CipherInputStream cis):
+      call(public CipherInputStream.new(InputStream, Cipher)) &&
+      args(input, cipher) {
+        PredicateVerdict origin = PredicateStore.instance().validate(Property.GENERATED_CIPHER, cipher);
+        if (origin == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherInputStreamSpec", "" + __LOC,
+                "v=1 code=CIPHERINPUTSTREAM-CONSTR-00 ev=" + __EVENTNAME + " obj=CipherInputStream val='' exp='" + expectedGeneratedCipher + "' msg='the Cipher given to the CipherInputStream constructor carries an initialisation predicate the rule does not admit'"));
+        }
+        else if (origin == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherInputStreamSpec", "" + __LOC,
+                "v=1 code=CIPHERINPUTSTREAM-NOBS-00 ev=" + __EVENTNAME + " obj=CipherInputStream val='' exp='" + expectedGeneratedCipher + "' msg='the Cipher given to the CipherInputStream constructor was not observed being initialised'"));
+        }
+    }
 
     event r1 after(CipherInputStream cis):
       ( call(public int CipherInputStream.read()) ||

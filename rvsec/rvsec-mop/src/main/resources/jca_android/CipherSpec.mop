@@ -87,6 +87,15 @@ CipherSpec(Cipher c) {
    Object finalCipherText = null;
    Object finalPlainText = null;
 
+   // `generatedCipher[this] after Init` (Cipher.crysl:144), staged by the two `init`
+   // events for the handler of the state they lead to. It travels in a field for the
+   // same reason the pairs above do -- a handler is generated as a no-argument method
+   // and sees no event parameter -- and it is staged rather than written in the body
+   // for the reason the clause states: `after Init` means the states `Init` leads to,
+   // and an event body runs before the transition is decided, so a body write would
+   // mark a Cipher the automaton was about to reject.
+   Object initialisedCipher = null;
+
    event g1 after(String transformation) returning(Cipher c):
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
@@ -117,6 +126,7 @@ CipherSpec(Cipher c) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
                 "v=1 code=CIPHER-ALG-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedTransformations) + "' msg='expecting " + expectedTransformations + " but found " + c.getAlgorithm() + "'"));
         }
+        initialisedCipher = c;
     }
 
    // The key-origin clause of the rule -- `generatedKey[key, alg(transformation)]`
@@ -190,6 +200,7 @@ CipherSpec(Cipher c) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
             "v=1 code=CIPHER-ALG-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedTransformations) + "' msg='expecting " + expectedTransformations + " but found " + c.getAlgorithm() + "'"));
         }
+        initialisedCipher = c;
     }
 
    event u1 after (byte[] plainText, Cipher c) returning(byte[] cipherText):
@@ -431,6 +442,20 @@ CipherSpec(Cipher c) {
    // which for this automaton is s3, and that is as much an acceptance point as the
    // accepting state is for the two unqualified clauses (INV-INS-134).
    alias match2 = s3
+   // THE CLAUSE THE ORACLE ADDS AND THE GENERATED CATALOGUE STATED NOWHERE:
+   // `generatedCipher[this] after Init` (Cipher.crysl:144, ledger row 63). By the same
+   // reading as `match2`, the acceptance point of an `after L` clause is the states L
+   // leads to, and both `init` events lead to `s2`. Task 11.5(e) writes it, by the
+   // researcher's decision of 2026-08-26: this is the producing half of the one chain
+   // of the oracle whose three files all exist in this set and whose two ends were
+   // never wired, because the withdrawn catalogue declared neither this ENSURES nor
+   // the two REQUIRES that read it (CipherInputStream.crysl:31,
+   // CipherOutputStream.crysl:32).
+   //
+   // `s2` is reached by `i1` and `i2` and loops on both, so the handler can run more
+   // than once for one Cipher; `ensure` is idempotent per (property, identity, values),
+   // so re-initialising a Cipher re-states the fact rather than accumulating it.
+   alias match3 = s2
 
    @fail {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,
@@ -439,6 +464,12 @@ CipherSpec(Cipher c) {
         updatedPlainText = null;
         finalCipherText = null;
         finalPlainText = null;
+        // The staged Cipher goes with them: a sequence the automaton rejected reached no
+        // acceptance point, so the fact it was staging never happened. This is a discard
+        // of a staging field and not the withdrawal of a written predicate -- INV-INS-142
+        // is about `@fail` handlers that `negate` what a `@match` wrote, and none of the
+        // set has one.
+        initialisedCipher = null;
 	    __RESET;
    }
 
@@ -455,6 +486,16 @@ CipherSpec(Cipher c) {
             PredicateStore.instance().ensure(Property.ENCRYPTED, updatedCipherText, updatedPlainText);
             updatedCipherText = null;
             updatedPlainText = null;
+        }
+   }
+
+   // Arity one, which is the arity the clause states: `generatedCipher[this]` names the
+   // Cipher and nothing else. The field is not cleared after the write, unlike the
+   // staged pairs above: those are one fact per transition, this one is a standing
+   // property of the object, and `s2` is a state the automaton can re-enter.
+   @match3 {
+        if (initialisedCipher != null) {
+            PredicateStore.instance().ensure(Property.GENERATED_CIPHER, initialisedCipher);
         }
    }
 }

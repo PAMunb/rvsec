@@ -1,0 +1,20 @@
+# gh105 task 11.5(e). The corpus had no program that closes the `generatedCipher` chain: every
+# CipherInputStream trace was built on a Cipher whose `init` the monitor never saw, so the read the
+# task opens would have been measured only on its NOT_OBSERVED branch and the write at
+# `CipherSpec.@match3` would have had no witness at all.
+#
+# This is the conforming shape. The Cipher reaches `s2` -- the state `Init` leads to and the
+# acceptance point of `generatedCipher[this] after Init` (Cipher.crysl:144) -- so the handler marks
+# it, and the constructor's read (CipherInputStream.crysl:31) answers SATISFIED and draws nothing.
+bind km = bytes(32)
+bind iv = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(2, k, spec) -> ready
+new CipherInputStream(null, c) -> cis
+cis.read()
+cis.close()

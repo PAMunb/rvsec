@@ -9,20 +9,22 @@ public enum Property {
     DIGESTED,
     ENCRYPTED,
     /**
-     * A monitored {@code Cipher} that completed {@code getInstance} and then an
-     * {@code init} whose key requirement held.
+     * CrySL's {@code generatedCipher[this] after Init}: a monitored {@code Cipher} whose
+     * {@code init} the instrumentation observed, at the state {@code Init} leads to.
      *
-     * <p>No specification of any live set writes or reads this constant. The only
-     * sites are in the archived {@code jca_android_bug_predicate}: its
-     * {@code CipherSpec} writes the mark at the three {@code init} events, and its
-     * {@code CipherInputStreamSpec} and {@code CipherOutputStreamSpec} validate it of
-     * the cipher they are constructed with. The successor set {@code jca_android}
-     * carries the two stream rules with no such read -- {@code cipheredInputStream}
-     * and {@code cipheredOutputStream} are dead-end predicates -- and the frozen
-     * {@code jca} never named the constant at all.
+     * <p>The live {@code jca_android} writes it at {@code CipherSpec}'s {@code @match3}
+     * and reads it at both stream constructors, which is the chain
+     * {@code Cipher.crysl:144} produces and {@code CipherInputStream.crysl:31} /
+     * {@code CipherOutputStream.crysl:32} consume. All three of those clauses arrived
+     * with the expert oracle: the generated catalogue the set was first derived against
+     * declared none of them, which is why the constant sat unused until gh105 task
+     * 11.5(e) wired it. The archived {@code jca_android_bug_predicate} had sites of its
+     * own, at the three {@code init} events rather than at an acceptance point, and the
+     * frozen {@code jca} never named the constant at all.
      *
-     * <p>Kept because {@link Property} is append-only (INV-INS-132): the ordinals are
-     * a freeze item and {@code test_property_append_only} fails any removal.
+     * <p>Not to be confused with {@code cipheredInputStream} and
+     * {@code cipheredOutputStream}, which those two rules ENSURE and no rule of the 49
+     * requires: those stay dead ends and gain no site.
      */
     GENERATED_CIPHER,
     /**

@@ -5,6 +5,8 @@ import java.io.OutputStream;
 import javax.crypto.Cipher;
 
 import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 // The declared parameter is the stream every event binds. Without one the generator emits a
@@ -15,11 +17,29 @@ import br.unb.cic.mop.Property;
 // the last non-parametric specification of the family (`CipherSpec` and `KeyStoreSpec` are
 // parametric; this file and its sibling were the two that were not).
 CipherOutputStreamSpec(CipherOutputStream cos) {
+
+    // The `exp=` of the two report sites below, as a field so the two cannot drift apart.
+    String expectedGeneratedCipher = "a Cipher this instrumentation observed being initialised";
     // The constructor binds through `returning`, every other event through `target` -- same
     // reason as the sibling file: an unbound event of a parametric specification broadcasts
     // over the whole monitor set instead of naming one stream.
-    event c1 after() returning(CipherOutputStream cos):
-      call(public CipherOutputStream.new(OutputStream, Cipher)) { }
+    // `generatedCipher[cipher]` (CipherOutputStream.crysl:32, ledger row 16), the mirror of
+    // the sibling file's clause and wired in the same commit for the same reason. The
+    // reasoning is stated once, at `CipherInputStreamSpec.c1`; what differs here is only the
+    // stream type and the two codes.
+    event c1 after(OutputStream output, Cipher cipher) returning(CipherOutputStream cos):
+      call(public CipherOutputStream.new(OutputStream, Cipher)) &&
+      args(output, cipher) {
+        PredicateVerdict origin = PredicateStore.instance().validate(Property.GENERATED_CIPHER, cipher);
+        if (origin == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherOutputStreamSpec", "" + __LOC,
+                "v=1 code=CIPHEROUTPUTSTREAM-CONSTR-00 ev=" + __EVENTNAME + " obj=CipherOutputStream val='' exp='" + expectedGeneratedCipher + "' msg='the Cipher given to the CipherOutputStream constructor carries an initialisation predicate the rule does not admit'"));
+        }
+        else if (origin == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherOutputStreamSpec", "" + __LOC,
+                "v=1 code=CIPHEROUTPUTSTREAM-NOBS-00 ev=" + __EVENTNAME + " obj=CipherOutputStream val='' exp='" + expectedGeneratedCipher + "' msg='the Cipher given to the CipherOutputStream constructor was not observed being initialised'"));
+        }
+    }
 
     event w1 after(CipherOutputStream cos):
       ( call(public void CipherOutputStream.write(int)) ||
