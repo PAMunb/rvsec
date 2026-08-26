@@ -298,12 +298,15 @@ MacSpec(Mac m) {
         // `input` -- so the event carries no clause and stages nothing, which is the same
         // reading `CipherSpec.f7` carries at the consuming end.
         //
-        // The alphabet map keeps the event `order-unmapped` all the same
-        // (`order_alphabet_map_expert.csv`): mapping it changes the language the automaton
-        // is compared against, which is behavioural and belongs to 11.5/11.6. The event was
-        // declared because the aggregate pointcut this split replaced did match it, and
-        // dropping it would quietly narrow what the automaton observes. It stands where the
-        // aggregate stood, and the sole oracle is a further reason to keep it there.
+        // The alphabet map now carries the event as `u4` (`order_alphabet_map_expert.csv`),
+        // restored at task 11.6 against the sole oracle after standing `order-unmapped`
+        // since the map was written against the withdrawn catalogue. It is not cosmetic:
+        // G-ORDER erases an unmapped event as an epsilon move, so while this row was
+        // erased the `+` in the `ere` below would have been satisfiable with no call at
+        // all. The event was declared in the first place because the aggregate pointcut
+        // this split replaced did match it, and dropping it would quietly narrow what the
+        // automaton observes; it stands where the aggregate stood, and now it stands
+        // inside both languages instead of outside both.
         event updateBuffer after(ByteBuffer input, Mac m):
           call(public void Mac.update(ByteBuffer)) &&
           args(input) &&
@@ -353,11 +356,12 @@ MacSpec(Mac m) {
         // `macced[output2, input]` (Mac.crysl:59). It splits off the disjunction it
         // shared with `f1` for the reason the `update` family split: the clause is about
         // the array the call was given, and the merged pointcut bound no argument. The
-        // `ere` accepts either symbol wherever it accepted the merged one, and that is a
-        // claim about this file rather than about the rule: the sole oracle puts `f2`
-        // alone in `FinalWU` and `f1` in `FinalWOU` (Mac.crysl:36-37), so the two are not
-        // interchangeable there. What that opens is the G-ORDER divergence named at the
-        // `ere` below, adjudicated at task 11.6.
+        // sole oracle puts `f2` alone in `FinalWU` and `f1` in `FinalWOU`
+        // (Mac.crysl:36-37), so the two are not interchangeable there -- and since task
+        // 11.6 they are not interchangeable here either. This event is the only final the
+        // `ere` accepts with no `update` before it, because it is the only one that brings
+        // the bytes it authenticates. The other two now require the `Update+` the rule
+        // requires.
         event f1Input after(byte[] input, Mac m) returning(byte[] output):
           call(byte[] Mac.doFinal(byte[])) &&
           args(input) &&
@@ -406,14 +410,41 @@ MacSpec(Mac m) {
         // accusation standing in for a constraint the automaton has no way to
         // state. Recorded, not repaired -- the repair is to the automaton and this
         // pass moves no symbol. Task 7.1 has since mapped this file, so G-ORDER no
-        // longer skips it, and task 11.2 re-anchored the map on the sole oracle: it now
-        // compares both languages over the twelve rows `order_alphabet_map_expert.csv`
-        // carries here and reports one divergence, `g1 i1 f1` -- a `doFinal()` with no
-        // `update` before it, which this `ere` accepts and `Mac.crysl:41` rejects, its
-        // `FinalWU` being `f2` alone. That is a sequence the two languages disagree
-        // about, and it is adjudicated at task 11.6; what is recorded above is a
-        // different thing, a report the automaton has no way to state.
-        ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f1Input | f2) | ((update | updateBytes | updateRange | updateBuffer)* (f1 | f1Input | f2)))
+        // longer skips it, and task 11.2 re-anchored the map on the sole oracle.
+        //
+        // The shape below is task 11.6's repair, decided by the researcher on
+        // 2026-08-26 under the standing rule of this group -- adherence to the CrySL
+        // rule as the rule is written. `Mac.crysl:41` orders
+        // `Get, Init, (FinalWU | (Update+, Final))` and puts `f2: doFinal(input)`
+        // ALONE in `FinalWU` (`:36-37`), which reads plainly: the one final that may
+        // dispense with `update` is the one that carries its own data. `doFinal()`
+        // and `doFinal(out, off)` with nothing updated authenticate the empty input.
+        // The previous shape accepted all three finals bare -- `((f1 | f1Input | f2) |
+        // (Update* (f1 | f1Input | f2)))`, whose left branch and whose `*` both admit
+        // a MAC over nothing -- and G-ORDER reported it as `g1 i1 f1`. The repair is
+        // the rule transcribed: `f1Input` alone on the left, and `+` where the rule
+        // writes `Update+`.
+        //
+        // Note that `f1Input` is the `.mop` name of the rule's `f2` and `f2` here is
+        // the rule's `f3`; the numbering is crossed between the two files and the
+        // alphabet map is where it is written down.
+        //
+        // What the `+` costs is measured, not estimated, and the harness pair is
+        // `data/gh105/evidence/harness/f8f-MacSpec.md`: three corpus traces begin to
+        // draw MAC-ORDER-00 -- `-decrypt-buffer`, `-encrypted-buffer` and
+        // `-fresh-buffer`, each an `init` followed straight by `doFinal(buf, 0)`.
+        // They were written to witness `!encrypted[output1, _]` at the `f2` site and
+        // used the buffer overload for convenience, so they keep that report and gain
+        // an ordering one beside it. Three sibling traces with an `update` before the
+        // final were added in the same commit, so the clause keeps a witness under a
+        // call sequence the rule admits.
+        //
+        // The repair needed the alphabet map to move first, which measurement settled
+        // and the task had not foreseen: G-ORDER erases an `order-unmapped` event as
+        // an epsilon move, so with `updateBuffer` still erased the `+` above would be
+        // satisfiable by no call at all and `g1 i1 f1` would survive the repair
+        // untouched. That restoration is the commit before this one.
+        ere : (g3* g1 | g3* g2) (i1 | i2) (f1Input | ((update | updateBytes | updateRange | updateBuffer)+ (f1 | f1Input | f2)))
 
         @fail {
             // The withdrawal that stood in this handler went with the write it

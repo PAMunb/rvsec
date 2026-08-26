@@ -1,0 +1,30 @@
+# The ordering-conforming sibling of MacSpec-encrypted-buffer.txt, added at task 11.6 with the
+# `ere` repair. Same misuse, same site: the tag is written into the very array that holds the
+# ciphertext, which is `!encrypted[output1, _]` (Mac.crysl:51, ledger clause #22) violated at the
+# `f2` event -- the only site where it can be, because the JCA allocates the array `doFinal()`
+# returns fresh on every call.
+#
+# What it adds is the `update` the repaired automaton requires before `doFinal(byte[], int)`, so
+# the MAC-CONSTR-00 report arrives on its own instead of beside a MAC-ORDER-00. `msg` is a
+# separate array: the point of the trace is which buffer the tag lands in, and authenticating that
+# same buffer first would confuse the two.
+#
+# Sizes carry over from the original and were measured there: `bytes` is 16, PKCS5Padding takes
+# that to 32, and the HmacSHA256 tag is 32, so `doFinal(ct, 0)` fits exactly.
+bind km = bytes(32)
+bind iv = bytes(16)
+bind msg = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k, spec) -> ready
+c.doFinal(bytes) -> ct
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> mackey
+Mac.getInstance("HmacSHA256") -> m
+m.init(mackey)
+m.update(msg)
+m.doFinal(ct, 0)

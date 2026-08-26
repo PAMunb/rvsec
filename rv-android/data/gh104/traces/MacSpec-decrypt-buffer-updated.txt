@@ -1,0 +1,30 @@
+# The ordering-conforming sibling of MacSpec-decrypt-buffer.txt, added at task 11.6 with the `ere`
+# repair. It witnesses the same declared imprecision of the oracle: `Cipher.crysl` ENSURES
+# `encrypted[cipherText, plainText]` with no guard on the mode, so a Cipher initialised for
+# decryption marks its output the same way an encrypting one does, and a Mac that writes its tag
+# into that output is accused of writing into ciphertext although the array holds plaintext.
+#
+# The `update` before the final is what the repaired `ere` requires, so the MAC-CONSTR-00 report
+# stands alone. The whole program is performed rather than dispatched, because the accusation
+# depends on one array object reaching two specifications -- 32 plaintext bytes encrypt to 48
+# under PKCS5Padding, decrypt back to 32, and the HmacSHA256 tag is 32, so `doFinal(pt, 0)` fits.
+bind km = bytes(32)
+bind iv = bytes(16)
+bind msg = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k, spec) -> ready
+c.doFinal(bytes(32)) -> ct
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> d
+d.init(2, k, spec) -> dready
+d.doFinal(ct) -> pt
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> mackey
+Mac.getInstance("HmacSHA256") -> m
+m.init(mackey)
+m.update(msg)
+m.doFinal(pt, 0)

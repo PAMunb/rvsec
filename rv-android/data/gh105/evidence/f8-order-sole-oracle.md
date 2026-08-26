@@ -70,3 +70,75 @@ A linha do delta sai com `klass` nova, `restored-under-expert`, e a linha
 desaparece — porque agora um cobre. O mapa fica com as mesmas 137 associações; o delta cai de 152
 para 151, e a linha que sumiu é exatamente essa. Nenhuma associação foi acrescentada nem removida:
 uma mudou de disposição, e o símbolo que ela passou a cobrir deixou de constar como descoberto.
+
+---
+
+## 2. `MacSpec` — o `ere` que aceitava um MAC sobre nada
+
+`Mac.crysl:41` · testemunha `g1 i1 f1` · **reparar** · par de arnês devido e commitado
+
+### A regra, lida como está escrita
+
+```
+FinalWU  := f2;                              (Mac.crysl:36)   f2: output2 = doFinal(input)
+FinalWOU := f1 | f3;                         (:37)            f1: doFinal()   f3: doFinal(out, off)
+Final    := FinalWU | FinalWOU;              (:38)
+ORDER      Get, Init, (FinalWU | (Update+, Final))            (:41)
+```
+
+A regra separa os três finais em dois grupos e usa a separação: **o único final que dispensa
+`update` é o que traz o próprio dado**. `doFinal()` e `doFinal(out, off)` sem `update` autenticam a
+entrada vazia, e a regra os põe atrás de `Update+`. A numeração é cruzada entre os dois arquivos —
+o `f1Input` do `.mop` é o `f2` da regra, e o `f2` do `.mop` é o `f3` dela; o mapa de alfabeto é
+onde isso está escrito.
+
+```
+antes:  ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f1Input | f2) | ((update | ... )* (f1 | f1Input | f2)))
+depois: ere : (g3* g1 | g3* g2) (i1 | i2) (f1Input | ((update | ... )+ (f1 | f1Input | f2)))
+```
+
+O que estava aqui aceitava um MAC sobre nada por dois caminhos ao mesmo tempo: o ramo da esquerda,
+que admitia os três finais nus, e o `*`, que admite zero `update`. O G-ORDER reportava exatamente
+isso, `g1 i1 f1`.
+
+### O custo, medido
+
+Par de arnês: `data/gh105/evidence/harness/f8f-MacSpec.md`, 14 traces do corpus que tocam esta
+especificação. **Três `moved`, onze `unchanged`**, e as três que se moveram ganham a mesma coisa:
+
+| trace | A acusa | B acusa |
+|---|---|---|
+| `MacSpec-decrypt-buffer` | `f2:MAC-CONSTR-00` (+2 de outras specs) | idem **+ `f2:MAC-ORDER-00`** |
+| `MacSpec-encrypted-buffer` | `f2:MAC-CONSTR-00` (+2) | idem **+ `f2:MAC-ORDER-00`** |
+| `MacSpec-fresh-buffer` | — (só 2 de outras specs) | idem **+ `f2:MAC-ORDER-00`** |
+
+As três são `init` seguido direto de `doFinal(buf, 0)` — o `f3` da regra, sem `update`. Elas
+existem para testemunhar `!encrypted[output1, _]` no sítio `f2`, e escolheram a sobrecarga com
+buffer por conveniência, não porque a entrada vazia importasse a elas. **Não foram editadas**: são
+o instrumento de medição, e editá-las apagaria a única prova do que o reparo custa.
+
+### As três traces irmãs
+
+`MacSpec-{decrypt,encrypted,fresh}-buffer-updated.txt`, acrescentadas no mesmo commit, cada uma
+igual à sua irmã mais um `m.update(msg)` antes do final. O arnês as lê `unchanged` nos dois lados,
+que é o que se queria provar: a cláusula `!encrypted` continua com testemunha sob uma sequência de
+chamadas que a regra admite, e o `MAC-CONSTR-00` chega sozinho em vez de ao lado de um
+`MAC-ORDER-00`. O `msg` é array próprio e não o buffer onde a tag é escrita — autenticar o mesmo
+buffer confundiria as duas coisas. É o precedente da 11.5(e), aplicado pela mesma razão.
+
+### Ressalva que fica registrada
+
+Em campanha sobre apps reais, todo `Mac` que finaliza sem `update` passa a emitir `MAC-ORDER-00` —
+e `doFinal()` sobre um `Mac` recém-inicializado é chamada que existe. A regra é explícita a
+respeito, e a decisão de 26/08 foi aderir a ela; a linha de divergência do hunk `b579733c6909` diz
+isso, para que a próxima medição não leia o número como surpresa.
+
+### O portão
+
+```
+antes:  G-ORDER: 13 passadas, 2 falhas, 7 perdoadas, 2 puladas
+depois: G-ORDER: 14 passadas, 1 falha,  7 perdoadas, 2 puladas
+```
+
+A que resta é a do `KeyPairSpec`, seção 3. Nenhuma linha entrou no `gate_allowlist.csv`: as duas
+divergências desta tarefa estavam sem perdão, e o reparo fecha em vez de perdoar.

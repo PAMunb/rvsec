@@ -1,0 +1,31 @@
+# The ordering-conforming sibling of MacSpec-fresh-buffer.txt, added at task 11.6 with the `ere`
+# repair that gave that trace a MAC-ORDER-00 it never used to draw.
+#
+# `Mac.crysl:41` orders `Get, Init, (FinalWU | (Update+, Final))` and puts `f2: doFinal(input)`
+# alone in `FinalWU`, so `doFinal(buf, 0)` -- the rule's `f3` -- reaches the automaton only after
+# an `update`. The three buffer traces of this corpus were written to witness
+# `!encrypted[output1, _]` at that site and took the buffer overload for convenience, not because
+# the empty input mattered to them; they stay exactly as they are, because they are what the
+# harness pair measures. This one adds the `update` and nothing else, so the clause keeps a
+# witness under a call sequence the rule admits.
+#
+# `msg` is its own array and is not the buffer the tag is written into: authenticating `buf` and
+# then writing into it would be a second misuse and would stop this trace isolating the first.
+bind km = bytes(32)
+bind iv = bytes(16)
+bind buf = bytes(32)
+bind msg = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(km)
+r.nextBytes(iv)
+new SecretKeySpec(km, "AES") -> k
+new IvParameterSpec(iv) -> spec
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, k, spec) -> ready
+c.doFinal(bytes) -> ct
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> mackey
+Mac.getInstance("HmacSHA256") -> m
+m.init(mackey)
+m.update(msg)
+m.doFinal(buf, 0)
