@@ -8,13 +8,17 @@
 #   narrowed                 the api30 symbol stood for calls the expert rule splits apart
 #   unpaired                 the api30 symbol names a call the expert rule does not
 #   order-unmapped           the row erases the event from both languages (INV-INS-138)
+#   restored-under-expert    the api30 map erases the event and a task reopened it against
+#                            the expert symbol the erasure could not know about
 #   uncovered-expert-symbol  the expert rule declares it and no `.mop` event of the set
 #                            observes it -- the KeyStore setter case, generalised
 #   withdrawn-api30-symbol   api30 declared it and the expert rule does not
 #
-# An `order-unmapped` row whose erasure rested on the api30 alphabet is not silently
-# reopened here: the row keeps its disposition, and the fact that the expert rule does name
-# the call is what the accompanying evidence records for tasks 11.5/11.6.
+# An `order-unmapped` row whose erasure rested on the api30 alphabet is never reopened by
+# derivation: the row keeps its disposition and the delta records that the expert rule does
+# name the call. Reopening one is a decision, and a decided row leaves this table as
+# `restored-under-expert` with the deciding task's reason attached -- `MacSpec.updateBuffer`
+# at task 11.6, the only one so far.
 spec,mop_event,api30_symbol,expert_symbol,klass,signature,note
 IvParameterSpec,c1,cons1,c1,renamed,IvParameterSpec(iv),
 IvParameterSpec,c2,cons2,c2,renamed,"IvParameterSpec(iv, offset, len)",
@@ -141,7 +145,7 @@ MacSpec,update,u1,u1,same-name,update(inp),
 MacSpec,updateBytes,u2,u2,duplicate-settled,update(pre_input),"`update(byte[])`; api30 declares this signature as both u2 and u4, and the expert rule writes it once, as u2"
 MacSpec,updateBytes,u4,,withdrawn-duplicate,update(pre_input),"api30's u4 is its second declaration of `update(byte[])`, and the map carries a row for it only so that no symbol of the rule goes unclaimed. The expert rule writes `u4: update(ByteBuffer)` -- a different call, which this set observes at `MacSpec.updateBuffer` -- so the duplicate has no expert counterpart and the row that held it is withdrawn"
 MacSpec,updateRange,u3,u3,same-name,"update(pre_input, offset, len)",
-MacSpec,updateBuffer,,,order-unmapped,,order-unmapped
+MacSpec,updateBuffer,,u4,restored-under-expert,update(preInputByteBuffer),"`update(ByteBuffer)`, the rule's `u4: update(preInputByteBuffer)` (`Mac.crysl:9,30`), held by `Update` (`:31`). The row was erased under api30, correctly: that rule declared no such overload, and its `u4` was a second declaration of `update(byte[])`. Restored at task 11.6 against the sole oracle, and the restoration is load-bearing rather than decorative, which measurement settled against the expectation the task was written with. Against the `ere` as it stood the restoration is verdict-neutral -- that `ere` accepted zero updates through `(update | ... | updateBuffer)*`, so the witness `g1 i1 f1` stands whether or not `updateBuffer` carries a symbol. Against the repaired `ere`, which writes `+` where the rule writes `Update+`, it is what makes the repair hold: G-ORDER erases an unmapped event as an epsilon move, so an erased symbol inside a `+` satisfies the `+` with no call at all, and `g1 i1 f1` survives the repair unchanged. Measured both ways on 2026-08-26. The two changes are separate commits because one moves an accusation and the other does not, and this one goes first: a record whose effect appears only once the automaton catches up is still a record"
 MacSpec,f1,f1,f1,same-name,output1 = doFinal(),
 MacSpec,f1Input,f2,FinalWU,renamed,output2 = doFinal(input),
 MacSpec,f2,f3,f3,same-name,"doFinal(output1, outOffset)",
@@ -163,7 +167,6 @@ SecretKeySpec,e1,ge,GetEnc,renamed,keyMaterial = getEncoded(),
 ,,KeyStore.cryptsl:scE,,withdrawn-api30-symbol,"setCertificateEntry(alias, cert)",declared and never used by the api30 ORDER
 ,,KeyStore.cryptsl:skE1,,withdrawn-api30-symbol,"setKeyEntry(alias, byteKey, chain)",declared and never used by the api30 ORDER
 ,,KeyStore.cryptsl:skE2,,withdrawn-api30-symbol,"setKeyEntry(alias, key, passwordKey, chain)",declared and never used by the api30 ORDER
-,,,Mac.crysl:u4,uncovered-expert-symbol,update(preInputByteBuffer),named by the expert ORDER
 ,,d,SecretKey.crysl:d1,uncovered-expert-symbol,destroy(),named by the expert ORDER
 ,,,SecureRandom.crysl:nI,uncovered-expert-symbol,randInt = nextInt(),named by the expert ORDER
 ,,,SecureRandom.crysl:nIR,uncovered-expert-symbol,randIntInRange = nextInt(range),named by the expert ORDER

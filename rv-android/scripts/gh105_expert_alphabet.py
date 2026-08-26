@@ -25,11 +25,13 @@ The script emits two tables:
     changed shape (a different aggregate holds it), appeared, or disappeared -- plus the
     rule-side symbols each catalogue declares that no `.mop` event of the set covers.
 
-Nothing here moves a specification. A disposition that flips -- an event erased from the
-comparison under api30 whose expert counterpart exists (`MacSpec.updateBuffer`,
-`SecureRandomSpec.next1`/`next3`) -- is reported as a delta row and stops there: the
-behavioural consequence is a task of 11.5/11.6, with a harness pair and a researcher
-decision, per the standing rule.
+Nothing here infers an association. A disposition that flips -- an event erased from the
+comparison under api30 whose expert counterpart exists -- is reported as a delta row and
+goes no further on this script's own strength: reopening one changes the language the
+automaton is compared against, which is a decision, not a derivation. Three rows are in
+that position (`MacSpec.updateBuffer`, `SecureRandomSpec.next1`/`next3`), and task 11.6
+decided the first of them: `RESTORED_ROWS` carries it, with the decision written beside
+the symbol it restores. The two `SecureRandomSpec` rows stay erased, undecided.
 
 Usage:
     python scripts/gh105_expert_alphabet.py --emit map
@@ -131,6 +133,37 @@ DUPLICATE_OVERRIDES: dict[tuple[str, str], tuple[str | None, str]] = {
 }
 
 
+# The rows the api30 map erases and the expert rule does name: `order_symbol` empty on the
+# way in, a symbol of the sole oracle on the way out. This is the one table here that
+# *widens* what the gate compares, so it is the one table that cannot be a derivation --
+# each entry is a decision of task 11.6, and the reason says which. It is keyed by
+# (`spec`, `mop_event`) and not by symbol, because the row it reopens has no symbol to key
+# on. The input row is left alone: `order_alphabet_map.csv` answers to api30, where the
+# erasure is correct, and a restoration written there would be a claim about a call that
+# catalogue never declared.
+RESTORED_ROWS: dict[tuple[str, str], tuple[str, str]] = {
+    ("MacSpec", "updateBuffer"): (
+        "u4",
+        "`update(ByteBuffer)`, the rule's `u4: update(preInputByteBuffer)` "
+        "(`Mac.crysl:9,30`), held by `Update` (`:31`). The row was erased under api30, "
+        "correctly: that rule declared no such overload, and its `u4` was a second "
+        "declaration of `update(byte[])`. Restored at task 11.6 against the sole oracle, "
+        "and the restoration is load-bearing rather than decorative, which measurement "
+        "settled against the expectation the task was written with. Against the `ere` as "
+        "it stood the restoration is verdict-neutral -- that `ere` accepted zero updates "
+        "through `(update | ... | updateBuffer)*`, so the witness `g1 i1 f1` stands "
+        "whether or not `updateBuffer` carries a symbol. Against the repaired `ere`, "
+        "which writes `+` where the rule writes `Update+`, it is what makes the repair "
+        "hold: G-ORDER erases an unmapped event as an epsilon move, so an erased symbol "
+        "inside a `+` satisfies the `+` with no call at all, and `g1 i1 f1` survives the "
+        "repair unchanged. Measured both ways on 2026-08-26. The two changes are separate "
+        "commits because one moves an accusation and the other does not, and this one "
+        "goes first: a record whose effect appears only once the automaton catches up is "
+        "still a record",
+    ),
+}
+
+
 # A reason that names the api30 rule -- its line, its symbol, or a wart only it had -- is
 # false against the sole oracle, and a record whose reason contradicts its own anchor is
 # worse than one with no reason. These are the rows whose prose had to be rewritten, keyed
@@ -209,17 +242,6 @@ REASON_OVERRIDES: dict[tuple[str, str, str], str] = {
         "as both `u2` and `u4` and the map claimed both so no symbol went unclaimed; the "
         "expert rule declares it once and the second row is withdrawn (see "
         "`order_alphabet_map_delta.csv`, klass `withdrawn-duplicate`)"
-    ),
-    ("MacSpec", "updateBuffer", ""): (
-        "`update(ByteBuffer)`. The erasure was correct against api30, which declared no "
-        "such overload -- its `Updates` named four events and none of them was this one. "
-        "It is **not** correct against the sole oracle: `Mac.crysl:30` declares "
-        "`u4: update(preInputByteBuffer)` and `:31` puts it inside `Update`, so the call "
-        "the erasure removes from both languages is a call this rule orders. The "
-        "disposition is kept here on purpose and not repaired: mapping it changes the "
-        "language the automaton is compared against, which is a behavioural change and "
-        "belongs to a task carrying a harness pair and a researcher decision (11.5/11.6). "
-        "Task 11.2 records the fact and moves nothing"
     ),
     ("SecureRandomSpec", "next1", ""): (
         "`nextInt(int)`. The erasure was correct against api30, whose only near event was "
@@ -566,7 +588,31 @@ def derive(
         if not symbol:
             # An `order-unmapped` row erases the event from both languages. The
             # erasure is a decision about the api30 alphabet, so the expert
-            # catalogue is asked whether the symbol it lacked now exists.
+            # catalogue is asked whether the symbol it lacked now exists -- and
+            # where a task has decided to reopen the row, `RESTORED_ROWS` names
+            # the expert symbol it gains.
+            restored = RESTORED_ROWS.get((row["spec"], row["mop_event"]))
+            if restored is not None:
+                target, why = restored
+                covered[stem].add(target)
+                out["order_symbol"] = target
+                out["symbol_kind"] = expert.kind_of(target)
+                out["rule_line"] = str(expert.line_of(target))
+                out["disposition"] = "mapped"
+                out["reason"] = why
+                map_rows.append(out)
+                delta_rows.append(
+                    {
+                        "spec": row["spec"],
+                        "mop_event": row["mop_event"],
+                        "api30_symbol": "",
+                        "expert_symbol": target,
+                        "klass": "restored-under-expert",
+                        "signature": expert.atoms[target].text,
+                        "note": why,
+                    }
+                )
+                continue
             out["rule_line"] = ""
             _reword(out, "")
             map_rows.append(out)
@@ -715,8 +761,10 @@ MAP_HEADER = """\
 # including the symbols each catalogue declares that no event of this set covers. Nothing
 # in either file moves a specification. Three rows change disposition under the expert
 # alphabet -- `MacSpec.updateBuffer`, `SecureRandomSpec.next1` and `next3`, erased under
-# api30 because the generated rule named no such call -- and each is a behavioural
-# consequence reserved for tasks 11.5/11.6, with a harness pair and a researcher decision.
+# api30 because the generated rule named no such call. Task 11.6 decided the first: it is
+# mapped to `Mac.crysl`'s `u4` here and stays erased in the api30 map, which is the record
+# of a different catalogue. The two `SecureRandomSpec` rows are undecided and stay erased;
+# reopening either widens the language G-ORDER compares and needs a decision of its own.
 #
 # The two declared G-ORDER skips are unchanged and stay prose, never a data row:
 # `RandomStringPassword` and `IvChainJunction`. The expert catalogue enunciates no rule for
@@ -737,13 +785,17 @@ DELTA_HEADER = """\
 #   narrowed                 the api30 symbol stood for calls the expert rule splits apart
 #   unpaired                 the api30 symbol names a call the expert rule does not
 #   order-unmapped           the row erases the event from both languages (INV-INS-138)
+#   restored-under-expert    the api30 map erases the event and a task reopened it against
+#                            the expert symbol the erasure could not know about
 #   uncovered-expert-symbol  the expert rule declares it and no `.mop` event of the set
 #                            observes it -- the KeyStore setter case, generalised
 #   withdrawn-api30-symbol   api30 declared it and the expert rule does not
 #
-# An `order-unmapped` row whose erasure rested on the api30 alphabet is not silently
-# reopened here: the row keeps its disposition, and the fact that the expert rule does name
-# the call is what the accompanying evidence records for tasks 11.5/11.6.
+# An `order-unmapped` row whose erasure rested on the api30 alphabet is never reopened by
+# derivation: the row keeps its disposition and the delta records that the expert rule does
+# name the call. Reopening one is a decision, and a decided row leaves this table as
+# `restored-under-expert` with the deciding task's reason attached -- `MacSpec.updateBuffer`
+# at task 11.6, the only one so far.
 """
 
 
@@ -793,6 +845,16 @@ def main(argv: list[str] | None = None) -> int:
                 problems.append(
                     f"DUPLICATE_OVERRIDES[({stem!r}, {symbol!r})]: "
                     "written and never applied"
+                )
+        reopened = {
+            (row["spec"], row["mop_event"])
+            for row in delta_rows
+            if row["klass"] == "restored-under-expert"
+        }
+        for spec, event in RESTORED_ROWS:
+            if (spec, event) not in reopened:
+                problems.append(
+                    f"RESTORED_ROWS[({spec!r}, {event!r})]: written and never applied"
                 )
         for path, fields, derived, header in (
             (arguments.expert_map, MAP_FIELDS, map_rows, MAP_HEADER),

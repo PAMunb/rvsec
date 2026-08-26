@@ -14,8 +14,10 @@
 # including the symbols each catalogue declares that no event of this set covers. Nothing
 # in either file moves a specification. Three rows change disposition under the expert
 # alphabet -- `MacSpec.updateBuffer`, `SecureRandomSpec.next1` and `next3`, erased under
-# api30 because the generated rule named no such call -- and each is a behavioural
-# consequence reserved for tasks 11.5/11.6, with a harness pair and a researcher decision.
+# api30 because the generated rule named no such call. Task 11.6 decided the first: it is
+# mapped to `Mac.crysl`'s `u4` here and stays erased in the api30 map, which is the record
+# of a different catalogue. The two `SecureRandomSpec` rows are undecided and stay erased;
+# reopening either widens the language G-ORDER compares and needs a decision of its own.
 #
 # The two declared G-ORDER skips are unchanged and stay prose, never a data row:
 # `RandomStringPassword` and `IvChainJunction`. The expert catalogue enunciates no rule for
@@ -148,7 +150,7 @@ MacSpec,i2,i2,event,Mac.crysl,24,mapped,"`init(Key, AlgorithmParameterSpec)`"
 MacSpec,update,u1,event,Mac.crysl,27,mapped,"`update(byte)`; the rule's `u1: update(inputByte)` is over the primitive `byte inputByte` (`Mac.crysl:6,27`). The `.mop` keeps the name `update` for this one overload after the aggregate split"
 MacSpec,updateBytes,u2,event,Mac.crysl,28,mapped,"`update(byte[])`, the rule's `u2: update(preInput)` (`Mac.crysl:7,28`). Under api30 this event needed two rows, because that rule declared the same signature as both `u2` and `u4` and the map claimed both so no symbol went unclaimed; the expert rule declares it once and the second row is withdrawn (see `order_alphabet_map_delta.csv`, klass `withdrawn-duplicate`)"
 MacSpec,updateRange,u3,event,Mac.crysl,29,mapped,"`update(byte[], int, int)`"
-MacSpec,updateBuffer,,,Mac.crysl,,order-unmapped,"`update(ByteBuffer)`. The erasure was correct against api30, which declared no such overload -- its `Updates` named four events and none of them was this one. It is **not** correct against the sole oracle: `Mac.crysl:30` declares `u4: update(preInputByteBuffer)` and `:31` puts it inside `Update`, so the call the erasure removes from both languages is a call this rule orders. The disposition is kept here on purpose and not repaired: mapping it changes the language the automaton is compared against, which is a behavioural change and belongs to a task carrying a harness pair and a researcher decision (11.5/11.6). Task 11.2 records the fact and moves nothing"
+MacSpec,updateBuffer,u4,event,Mac.crysl,30,mapped,"`update(ByteBuffer)`, the rule's `u4: update(preInputByteBuffer)` (`Mac.crysl:9,30`), held by `Update` (`:31`). The row was erased under api30, correctly: that rule declared no such overload, and its `u4` was a second declaration of `update(byte[])`. Restored at task 11.6 against the sole oracle, and the restoration is load-bearing rather than decorative, which measurement settled against the expectation the task was written with. Against the `ere` as it stood the restoration is verdict-neutral -- that `ere` accepted zero updates through `(update | ... | updateBuffer)*`, so the witness `g1 i1 f1` stands whether or not `updateBuffer` carries a symbol. Against the repaired `ere`, which writes `+` where the rule writes `Update+`, it is what makes the repair hold: G-ORDER erases an unmapped event as an epsilon move, so an erased symbol inside a `+` satisfies the `+` with no call at all, and `g1 i1 f1` survives the repair unchanged. Measured both ways on 2026-08-26. The two changes are separate commits because one moves an accusation and the other does not, and this one goes first: a record whose effect appears only once the automaton catches up is still a record"
 MacSpec,f1,f1,event,Mac.crysl,33,mapped,"`doFinal()` returning `byte[]`, the rule's `f1: output1 = doFinal()`"
 MacSpec,f1Input,FinalWU,aggregate,Mac.crysl,36,mapped,"`doFinal(byte[])` is the rule's f2; the numbering is crossed against the `.mop`, whose f2 is the rule's f3"
 MacSpec,f2,f3,event,Mac.crysl,35,mapped,"`doFinal(byte[], int)` is the rule's `f3: doFinal(output1, outOffset)`, the overload that writes the tag into a buffer the caller owns"
