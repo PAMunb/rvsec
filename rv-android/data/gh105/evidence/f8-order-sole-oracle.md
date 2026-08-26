@@ -142,3 +142,113 @@ depois: G-ORDER: 14 passadas, 1 falha,  7 perdoadas, 2 puladas
 
 A que resta é a do `KeyPairSpec`, seção 3. Nenhuma linha entrou no `gate_allowlist.csv`: as duas
 divergências desta tarefa estavam sem perdão, e o reparo fecha em vez de perdoar.
+
+---
+
+## 3. `KeyPairSpec` — o construtor que a regra torna obrigatório
+
+`KeyPair.crysl:20` · testemunha `a sequência vazia` · **reparar** · par de arnês devido e commitado
+
+```
+hoje na regra:  ORDER  Con, (GetPubl | GetPriv)*        Con := c1: KeyPair(publicKey, privateKey)
+antes no .mop:  ere: (c1 | epsilon) (gpu | gpr)*
+depois:         ere: c1 (gpu | gpr)*
+```
+
+### O fato que não estava na conta
+
+`c1 (gpu | gpr)*` **é a forma do seed congelado** (`jca/KeyPairSpec.mop:41`). O que a 9.11 fez foi
+divergir do seed; o que a 11.6 faz é desfazer essa divergência. A consequência é medível e foi
+medida: o `ere` **sai do diff seed→sucessor**, três hunks do arquivo se fundem (10 → 7), e a coluna
+`changed_from_jca` da linha (f) do `conformance_record.csv`, que já lia `no text change` a respeito
+dos literais, passa a ser verdadeira também a respeito do autômato.
+
+A 9.11 tinha dois fundamentos e os dois caíram. O primeiro era a regra gerada, que ordenava
+`co?, (pu*, pr*)*`; o segundo era a convenção de projeto pela qual ORDER respondia àquele catálogo
+enquanto valores respondiam ao expert. A D-16 encerrou a convenção — ela existiu por um dia — e o
+próprio arquivo já dizia isso em caixa alta, apontando para esta tarefa.
+
+### O custo, medido
+
+Par de arnês `f8g`, sobre as 178 traces do corpus: **173 `unchanged`, 5 `introduced`, 0
+`withdrawn`**. Sete `KEYPAIR-ORDER-00` novos em cinco traces:
+
+| trace | A acusa | B acusa |
+|---|---|---|
+| `KeyPairSpec-generated` | — | `gpu:KEYPAIR-ORDER-00`, `gpr:KEYPAIR-ORDER-00` |
+| `KeyPairSpec-observed-halves` | — | `gpu:KEYPAIR-ORDER-00`, `gpr:KEYPAIR-ORDER-00` |
+| `KeyPairSpec-generated-cipher` | — | `gpu:KEYPAIR-ORDER-00` |
+| `SignatureSpec-generated-pubkey` | — | `gpu:KEYPAIR-ORDER-00` |
+| `SignatureSpec-generated-privkey` | — | `gpr:KEYPAIR-ORDER-00` |
+
+**E nada mais em lugar nenhum do corpus.** É esse o segundo número que decide a alínea, e não o
+primeiro: se a cadeia de predicados tivesse se rompido, essas cinco traces teriam ganhado um `NOBS`
+junto — `SIGNATURE-NOBS`, `CIPHER-NOBS` — e nenhuma ganhou. A razão é que **o corpo do evento roda
+antes de a transição ser decidida**, então `gpu`/`gpr` gravam `generatedPubkey`/`generatedPrivkey`
+mesmo quando o autômato rejeita. O `KeyPairSpec-observed-halves.txt` documenta o mesmo fato, escrito
+na época em que o `c1` ainda era obrigatório.
+
+Isso muda o *porquê* de a escrita ficar no corpo do evento, e as duas linhas de `predicate_graph.csv`
+foram corrigidas por isso (D-17): sob o `(c1 | epsilon)` a razão era "o corpo é o ponto de aceitação
+nos dois caminhos, mover para `@match` não compraria nada"; sob o construtor obrigatório a razão é
+"o ponto de aceitação é inalcançável pelo caminho por que um programa obtém um `KeyPair`, e mover
+para `@match` perderia a escrita". O veredito da linha não se move; a razão inverte. É a forma da
+D-17 exatamente.
+
+### A alternativa recusada
+
+`creation event c1` — o JavaMOP suporta e o `generic_new` usa em dez declarações. Daria ORDER fiel
+*e* nenhuma acusação, imitando a semântica de *seed* do CogniCrypt. Sem monitor, porém, o corpo do
+evento não roda, e este arquivo é o **único** produtor de `generatedPubkey`/`generatedPrivkey` do
+conjunto além do `KeyStoreSpec`: as duas traces de `Signature` e a `-generated-cipher` cairiam para
+`NOBS`. Troca sete relatórios de ordenação por ~4 `NOBS` **e pela perda de uma cadeia real**.
+Recusada.
+
+### A ressalva registrada
+
+Em campanha sobre apps reais, todo `kp.getPublic()` sobre um par gerado passa a emitir
+`KEYPAIR-ORDER-00`, o que pode dominar a contagem de violações de ordenação da próxima medição. A
+medição de 668 linhas sobre 8 apps que a 9.11 citou não é contestada e não é a questão: ela diz que
+o relatório será comum, não que a regra ordene outra coisa. A decisão foi tomada com isso na mesa, e
+a ressalva está escrita na linha de divergência do hunk `b067eb6431cc` e na linha (f) do
+`conformance_record.csv`.
+
+---
+
+## 4. O que o grupo de testes de paridade passou a afirmar
+
+Três testes fixavam o conjunto de specs que o G-ORDER acusa, e o `OPEN_ORDER_DIVERGENCES` que os
+três liam **deixou de ter conteúdo**. Ele foi removido, junto com
+`_allowlist_covering_open_divergences`, que só existia para construir um allow-list capaz de mostrar
+a saída 0 enquanto as duas divergências estavam abertas (P3: código superado se apaga inteiro).
+
+O que ficou no lugar diz o que importa, e as duas construções trocaram de lado:
+
+- `test_inv_ins_138_gorder` afirma `findings == []` **e** `result.allowed` não-vazio. A segunda
+  metade é o que separa "convergiu" de "o portão parou de comparar", e por isso não sai.
+- `test_the_order_gate_exits_one_when_it_accuses_...`: a saída 0 agora vem do arquivo vivo e é a
+  saída 1 que se constrói, pelo mesmo mutante que os outros testes usam — revoga a testemunha do
+  `CipherSpec` e traz de volta a única divergência que aquela linha perdoa. Nenhum dos dois
+  veredictos lê um allow-list feito à mão.
+- `test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness`: os números passam de
+  13/6/2 e 13/7 para 15/6/2 e 15/7. **A contagem de perdões não se moveu**, e isso é a asserção
+  mais informativa das três: a 11.6 fechou as duas divergências *reparando*, não perdoando, e uma
+  linha nova no `gate_allowlist.csv` teria aparecido aqui.
+
+Linha de base da paridade depois desta tarefa: **185 passed / 3 failed**, as três pré-existentes de
+outras frentes (`test_baseline_not_older_than_jar`, `test_repo_is_clean`,
+`test_real_gator_json_parses_with_complete_true`). Nenhuma quarta.
+
+---
+
+## 5. Duas coisas que a 11.7 herda
+
+1. **Colisão de nome entre tarefas de mudanças diferentes.** O `README.md` de
+   `data/jca_android/` diz, na seção da tabela de aliases, "as 11 linhas que a tarefa 11.6
+   acrescentou". É a **11.6 da gh104** (`openspec/changes/gh104-legible-violation-reports/tasks.md:302`,
+   as registrações multi-linha do Conscrypt), não esta. Conferido, não renomeado: id de tarefa é
+   chave e não se renumera. Vale saber que existem duas 11.6 citadas nos registros deste diretório.
+2. **O `gh105_expert_alphabet.py` ganhou tabela nova**, `RESTORED_ROWS`, e o `--check` já reprova
+   uma entrada escrita e nunca aplicada. As duas linhas do `SecureRandomSpec` (`next1` → `nIR`,
+   `next3` → `nI`) continuam apagadas e sem decisão: são a mesma classe da que a seção 1 reabriu, e
+   reabri-las alarga a linguagem comparada. Não são desta tarefa e não estão prometidas a nenhuma.

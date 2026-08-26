@@ -64,13 +64,18 @@ KeyPairSpec(KeyPair keyPair) {
     // reached here through a name rather than through a missing clause, which is why G-BIND
     // did not see it until task 9.11 extended it to compare the bound name.
     //
-    // Measured, and it was task 9.11's own repair that exposed it: with the mandatory
-    // constructor the `gpu`/`gpr` of a generator-produced pair drove that pair's monitor to
-    // `fail` and `__RESET` returned it to `start`, where a broadcast `c1` is accepted. With the
-    // constructor optional those reads leave the monitor in the accepting state instead, and
-    // the broadcast `c1` arrives where `c1` is `fail` -- so the conforming trace
-    // `KeyPairSpec-observed-halves.txt` gained a KEYPAIR-ORDER-00 it had never drawn. Binding
-    // the name removes it: the constructor is about the pair it constructs.
+    // The binding was written at task 9.11 and it outlives the automaton shape that
+    // exposed it, which is why it is worth keeping the measurement here. Unbound, a `c1`
+    // is broadcast to every live monitor of the specification, and where it lands depends
+    // on the state those monitors are in: under the mandatory constructor the `gpu`/`gpr`
+    // of a generator-produced pair drive that pair's monitor to `fail`, `__RESET` returns
+    // it to `start`, and a broadcast `c1` is accepted there; under the optional one those
+    // reads leave the monitor accepting instead and the broadcast `c1` arrives where `c1`
+    // is `fail`, which is how the conforming trace `KeyPairSpec-observed-halves.txt`
+    // gained a KEYPAIR-ORDER-00 it had never drawn. Task 11.6 has since made the
+    // constructor mandatory again, so the second half of that measurement is history --
+    // but the binding is not a workaround for either shape. A constructor event is about
+    // the pair it constructs, and binding the name is what says so.
     event c1 after(PublicKey publicKey, PrivateKey privateKey) returning(KeyPair keyPair):
       call(public KeyPair.new(PublicKey, PrivateKey))
       && args(publicKey, privateKey) {
@@ -99,20 +104,22 @@ KeyPairSpec(KeyPair keyPair) {
     // rather than recording a dead end.
     //
     // The write stays in the event body, against the default of INV-INS-134, and the
-    // reason is recorded in `predicate_graph.csv`. It was written when the `ere` demanded
-    // the constructor the rule leaves OPTIONAL -- `co?, (pu*, pr*)*` against `c1 (gpu |
-    // gpr)*` -- and a program almost never constructs the `KeyPair` it reads from: it
-    // gets one out of `KeyPairGenerator.generateKeyPair()`, a call this specification
-    // does not observe, so `gpu` fired from the start state, the transition row
-    // `{2, 1, 2}` sent it to the fail state, and the accepting state was never reached.
-    // Task 9.11 repaired the automaton -- the `ere` below is `(c1 | epsilon) (gpu |
-    // gpr)*` -- and the write stayed here, which is the current decision and not a
-    // leftover. With the constructor optional, the state `gpu` leads to is accepting on
-    // both routes, so the event body IS the acceptance point the clause's `after pu`
-    // names and a move to `@match` would buy nothing; it would, however, change which
-    // programs are accused, and that needs a harness pair and a researcher decision no
-    // task of this line carries. Task 7.1 is likewise closed: `order_alphabet_map.csv`
-    // maps this specification, so G-ORDER compares it rather than skipping it.
+    // reason is recorded in `predicate_graph.csv`. Since task 11.6 restored the
+    // constructor the rule makes mandatory (`KeyPair.crysl:20`), that placement is not a
+    // preference any more -- it is what keeps this chain alive. A program almost never
+    // constructs the `KeyPair` it reads from: it gets one out of
+    // `KeyPairGenerator.generateKeyPair()`, a call this specification does not observe,
+    // so `gpu` fires from the start state and the automaton rejects it. The event body
+    // runs BEFORE the transition is decided, so the write happens anyway; a write at
+    // `@match` would not, and `generatedPubkey` would go unwritten for every generated
+    // pair in the corpus. That is not a hypothesis: the harness pair
+    // `data/gh105/evidence/harness/f8g-*.md` shows the five traces that gain
+    // KEYPAIR-ORDER-00 gaining nothing else, `SignatureSpec-generated-pubkey.txt` and
+    // `-privkey.txt` among them -- their reads still answer SATISFIED, so the chain the
+    // ordering report sits beside is intact.
+    //
+    // Task 7.1 is likewise closed: `order_alphabet_map_expert.csv` maps this
+    // specification, so G-ORDER compares it rather than skipping it.
     event gpu after(KeyPair keyPair) returning(PublicKey publicKey):
       call(public PublicKey KeyPair.getPublic()) &&
       target(keyPair) {
@@ -144,27 +151,42 @@ KeyPairSpec(KeyPair keyPair) {
     // never read it back (INV-INS-147). `@match` is left empty rather than deleted --
     // an `ere` names its accepting category whether or not a handler uses it, and the
     // write returns here at task 7.1.
-    // The constructor is optional, and on this platform that is the whole point:
-    // practically every Android key pair comes out of `generateKeyPair()`, which fires no
-    // `c1` at all -- so with the constructor mandatory every `getPublic()`/`getPrivate()`
-    // on a generated pair drew KEYPAIR-ORDER-00. That was measured over 668 lines of corpus
-    // and the measurement stands.
+    // The constructor is MANDATORY, which is what `KeyPair.crysl:20` orders --
+    // `Con, (GetPubl | GetPriv)*` -- and what task 11.6 restored on the researcher's
+    // decision of 2026-08-26, under the rule that governs the whole group: adherence to
+    // the CrySL rule as the rule is written.
     //
-    // THE GROUND HAS CHANGED AND THE AUTOMATON HAS NOT. Task 9.11 justified this shape by
-    // the withdrawn generated rule, which orders `co?, (pu*, pr*)*`, and by a project
-    // convention that ORDER answered to that catalogue while values answered to the expert.
-    // D-16 (2026-08-25) ended the convention: there is one oracle, and `KeyPair.crysl:20`
-    // orders `Con, (GetPubl | GetPriv)*`, constructor MANDATORY. The `ere` here is not
-    // reverted by that -- reverting it would start accusing again exactly what the 668-line
-    // measurement says is the ordinary Android case -- and the adjudication is task 11.6,
-    // with a harness pair and a decision per specification. G-ORDER reports the divergence
-    // today, unforgiven, which is the honest state until then; the row is in
-    // divergence_record.csv.
+    // The shape it replaces was `(c1 | epsilon) (gpu | gpr)*`, written at task 9.11 on two
+    // grounds that have both gone. The first was the withdrawn generated rule, which
+    // ordered `co?, (pu*, pr*)*`; the second was a project convention by which ORDER
+    // answered to that catalogue while values answered to the expert one. D-16
+    // (2026-08-25) ended the convention and left this file saying so in capitals, pointing
+    // here.
     //
-    // The form is `(c1 | epsilon)` and not `c1?`: the rv-monitor ERE grammar
-    // (EREParser.jj:49-60) has `~ & | * + ^` and `epsilon`, and no `?` -- the shorthand does
-    // not parse.
-    ere: (c1 | epsilon) (gpu | gpr)*
+    // What the restoration costs is the 668-line measurement, and the measurement was
+    // never wrong: practically every Android key pair comes out of `generateKeyPair()`,
+    // which fires no `c1` at all, so every `getPublic()`/`getPrivate()` on a generated pair
+    // is a sequence this automaton rejects. Measured again at 11.6 over the corpus as it
+    // now stands: seven new KEYPAIR-ORDER-00 in five traces -- `KeyPairSpec-generated` (2),
+    // `-observed-halves` (2), `-generated-cipher` (1), `SignatureSpec-generated-pubkey` (1)
+    // and `-generated-privkey` (1). In a campaign over real apps the report will be common,
+    // and the decision was taken with that on the table; the divergence row says it.
+    //
+    // What it does NOT cost is the predicate chain, and that is the fact the decision rests
+    // on: the event body of `gpu`/`gpr` runs before the transition is decided, so both
+    // halves are still marked on a pair the automaton rejects. The harness pair shows the
+    // five traces gaining the ordering report and nothing else -- no NOBS anywhere, which
+    // is what a broken chain would look like.
+    //
+    // The alternative that was weighed and refused: `creation event c1`, which JavaMOP
+    // supports and `generic_new` uses in ten declarations. It would give a faithful ORDER
+    // and no accusation at all, imitating CogniCrypt's seed semantics. But without a
+    // monitor the event body does not run, and this file is the only producer of
+    // `generatedPubkey`/`generatedPrivkey` in the set besides `KeyStoreSpec` -- the two
+    // Signature traces and `-generated-cipher` would fall to NOBS. It trades seven ordering
+    // reports for about four NOBS reports and for the loss of a real chain, which is worse
+    // in both directions.
+    ere: c1 (gpu | gpr)*
 
     @fail {
        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairSpec", "" + __LOC,

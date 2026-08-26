@@ -54,11 +54,11 @@ KeyManagerFactorySpec,KEYMANAGERFACTORY-NOBS-00,UnsatisfiedConstraint,NOBS,init,
 KeyManagerFactorySpec,KEYMANAGERFACTORY-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyManagerFactorySpec.mop:179
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-KEYSIZE-00,InvalidKeySize,KEYSIZE,initError,KeyPairGeneratorSpec.mop:160
 KeyPairGeneratorSpec,KEYPAIRGENERATOR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairGeneratorSpec.mop:187
-KeyPairSpec,KEYPAIR-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:79
-KeyPairSpec,KEYPAIR-NOBS-00,UnsatisfiedConstraint,NOBS,c1,KeyPairSpec.mop:83
-KeyPairSpec,KEYPAIR-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:88
-KeyPairSpec,KEYPAIR-NOBS-01,UnsatisfiedConstraint,NOBS,c1,KeyPairSpec.mop:92
-KeyPairSpec,KEYPAIR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairSpec.mop:170
+KeyPairSpec,KEYPAIR-CONSTR-00,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:84
+KeyPairSpec,KEYPAIR-NOBS-00,UnsatisfiedConstraint,NOBS,c1,KeyPairSpec.mop:88
+KeyPairSpec,KEYPAIR-CONSTR-01,UnsatisfiedConstraint,CONSTR,c1,KeyPairSpec.mop:93
+KeyPairSpec,KEYPAIR-NOBS-01,UnsatisfiedConstraint,NOBS,c1,KeyPairSpec.mop:97
+KeyPairSpec,KEYPAIR-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyPairSpec.mop:192
 KeyStoreSpec,KEYSTORE-KSTYPE-00,InvalidKeyStoreType,KSTYPE,gk1,KeyStoreSpec.mop:122
 KeyStoreSpec,KEYSTORE-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,@fail,KeyStoreSpec.mop:131
 MacSpec,MAC-ALG-00,UnsafeAlgorithm,ALG,i1,MacSpec.mop:168
