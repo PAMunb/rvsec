@@ -100,6 +100,10 @@ SSLContextSpec(SSLContext ctx) {
    // accused since it was written; the asymmetry was an omission and not a decision, because it
    // appeared in no record of the project.
    //
+   // The clause is `SSLContext.crysl:11`, the rule's one FORBIDDEN entry. The emitted string
+   // names the rule and not the line, because `gh104_message_gate.py` reads a numeral in a
+   // message as a value literal and compares it against the guard's (task 11.8).
+   //
    // Both oracles write the clause as `getDefault() => Gets`, which reads the forbidden call as
    // filling the ORDER position the legitimate `getInstance` fills. This file does not model it
    // that way, and the reason is the one `PBEKeySpecSpec.mop:183-189` already wrote down for the
@@ -123,7 +127,7 @@ SSLContextSpec(SSLContext ctx) {
    event getDefault after() returning(SSLContext ctx):
     call(public static SSLContext SSLContext.getDefault()) {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "SSLContextSpec", "" + __LOC,
-          "v=1 code=SSLCONTEXT-FORB-00 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='SSLContext.getInstance(String)' msg='SSLContext.getDefault() is forbidden by api30 SSLContext.cryptsl'"));
+          "v=1 code=SSLCONTEXT-FORB-00 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='SSLContext.getInstance(String)' msg='SSLContext.getDefault() is forbidden by the expert SSLContext.crysl'"));
    }
 
    event g1 after(String protocol) returning(SSLContext ctx):

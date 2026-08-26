@@ -43,8 +43,10 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    // material -- all zero, and the four traces written for this pass are the
    // corpus half of the same measurement.
    //
-   // So the body says what the rule says. The tag length is a CONSTRAINTS clause
-   // and the source a REQUIRES predicate; neither may decide whether the
+   // So the body says what the rule says. The tag length is the CONSTRAINTS clause
+   // `GCMParameterSpec.crysl:18`, which both `CONSTR-00` here and `CONSTR-02` at the
+   // four-argument constructor implement, and the source is the REQUIRES predicate
+   // `:24`; neither may decide whether the
    // constructor happened. Keeping the length as a guard is admitted for
    // CONSTRAINTS checks in general, and was declined here for the reason task
    // 4.7 declined it on the sibling file: it would leave the read this pass takes
@@ -63,7 +65,7 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
        boolean conforms = true;
        if (!validLengths.contains(tagLen)) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
-               "v=1 code=GCMPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='" + tagLen + "' exp='a tag length api30 GCMParameterSpec.cryptsl admits' msg='the authentication tag length is not one the rule admits'"));
+               "v=1 code=GCMPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='" + tagLen + "' exp='a tag length the expert GCMParameterSpec.crysl admits' msg='the authentication tag length is not one the rule admits'"));
            conforms = false;
        }
        PredicateVerdict randomisedSource = PredicateStore.instance().validate(Property.RANDOMIZED, src);
@@ -110,7 +112,7 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
         boolean conforms = true;
         if (!validLengths.contains(tagLen)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
-                "v=1 code=GCMPARAMETERSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='" + tagLen + "' exp='a tag length api30 GCMParameterSpec.cryptsl admits' msg='the authentication tag length is not one the rule admits'"));
+                "v=1 code=GCMPARAMETERSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='" + tagLen + "' exp='a tag length the expert GCMParameterSpec.crysl admits' msg='the authentication tag length is not one the rule admits'"));
             conforms = false;
         }
         PredicateVerdict randomisedSource = PredicateStore.instance().validate(Property.RANDOMIZED, src);

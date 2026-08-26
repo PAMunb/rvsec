@@ -1974,7 +1974,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       comment" the gate reads over the five report strings task 11.8 repairs, because a
       string handed to `ErrorDescription` is not a comment. The gate is what proves 11.8
       complete, so it has to be able to see what 11.8 fixes
-- [ ] 11.8 [spec text] The five emitted messages that still name the withdrawn oracle as
+- [x] 11.8 [spec text] The five emitted messages that still name the withdrawn oracle as
       their authority. Measured 2026-08-26, by sweeping the report strings of the set rather
       than reading a list: `SSLCONTEXT-FORB-00` (`SSLContextSpec.mop:125`, `msg='...
       is forbidden by api30 SSLContext.cryptsl'`), `GCMPARAMETERSPEC-CONSTR-00` and

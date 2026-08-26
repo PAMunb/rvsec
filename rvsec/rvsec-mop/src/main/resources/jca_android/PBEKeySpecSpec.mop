@@ -38,18 +38,25 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // The `ErrorCollector` dedups on (spec, code, event, class, method, location),
         // so the copies collapsed to one row and the fan-out never showed in the record;
         // what the binding buys is per-object trace semantics, not fewer reports.
+        //
+        // The clauses the two accusations implement are the rule's two FORBIDDEN entries:
+        // `PBEKeySpec.crysl:10` (`PBEKeySpec(char[]) => Con`) for `f1` and `:11`
+        // (`PBEKeySpec(char[],byte[],int) => Con`) for `f2`. The emitted strings name the
+        // rule and not the line, because `gh104_message_gate.py` reads a numeral in a
+        // message as a value literal and compares it against the guard's -- so a line
+        // number in the envelope reads as a claim about the argument (task 11.8).
         event f1 after(char[] password) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[])) &&
           args(password) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,
-                "v=1 code=PBEKEYSPEC-FORB-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[]) is forbidden by api30 PBEKeySpec.cryptsl'"));
+                "v=1 code=PBEKEYSPEC-FORB-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[]) is forbidden by the expert PBEKeySpec.crysl'"));
         }
 
         event f2 after(char[] password, byte[] salt, int keyLength) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[], byte[], int)) &&
           args(password, salt, keyLength) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,
-                "v=1 code=PBEKEYSPEC-FORB-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[], byte[], int) is forbidden by api30 PBEKeySpec.cryptsl'"));
+                "v=1 code=PBEKEYSPEC-FORB-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[], byte[], int) is forbidden by the expert PBEKeySpec.crysl'"));
         }
 
         // One event over `PBEKeySpec(char[], byte[], int, int)`, where there used to
