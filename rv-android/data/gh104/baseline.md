@@ -205,7 +205,7 @@ Events are counted over the 97,018-row corpus under `error_type` and `observed_v
 
 Every application ran in **one** environment: an x86_64 Android emulator at **API 30 (Android 11)**, and the Conscrypt sources behind the allow-list verdicts are pinned to branch **`android11-release`** rather than to `master`. Sources: `ase-journal/dataset.tex:5`, `ase-journal/docs/20260806_owasp_cwe_mapping_report.md:622-648`.
 
-This is what makes `MetaCrySL/generated/api30/*.cryptsl` *the* oracle and not one option among several. The constants that decide the largest violation bucket differ between `android11-release` and `master`, so an allow-list transcribed against the wrong branch would be wrong in exactly the bucket that matters most.
+This is what made `MetaCrySL/generated/api30/*.cryptsl` *the* oracle of this measurement and not one option among several. The constants that decide the largest violation bucket differ between `android11-release` and `master`, so an allow-list transcribed against the wrong branch would be wrong in exactly the bucket that matters most. The tense is deliberate: **D-16 (2026-08-25) withdrew that catalogue as an oracle of `jca_android` in every dimension**, and the successor set answers to the pinned expert copy `RVSec-replication-package/tools/rules/`. What this report describes is the era it was measured in, which is what makes the published numbers readable.
 
 ## The specification sets that emit these reports
 

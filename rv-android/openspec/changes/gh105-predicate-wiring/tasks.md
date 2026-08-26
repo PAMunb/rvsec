@@ -1959,7 +1959,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       the parity fixtures that load api30 rules re-anchor; no CLI keeps an api30 code path.
       Genericity contract holds: gates still derive their universe by enumeration, skip
       declaredly, and count what they skipped
-- [ ] 11.4 [records] Single-oracle records: `conformance_record.csv` stops naming two rules
+- [x] 11.4 [records] Single-oracle records: `conformance_record.csv` stops naming two rules
       per specification — one `rule` column meaning (the expert rule), with the api30
       citation preserved inside a `D-16 (2026-08-25):` supersession adendum on every row
       that was derived against it; `divergence_record.csv` rows whose reason cites a

@@ -1909,10 +1909,14 @@ def render_markdown(b: Mapping[str, Any]) -> str:
     )
     add("")
     add(
-        "This is what makes `MetaCrySL/generated/api30/*.cryptsl` *the* oracle and not one option "
-        "among several. The constants that decide the largest violation bucket differ between "
-        "`android11-release` and `master`, so an allow-list transcribed against the wrong branch "
-        "would be wrong in exactly the bucket that matters most."
+        "This is what made `MetaCrySL/generated/api30/*.cryptsl` *the* oracle of this "
+        "measurement and not one option among several. The constants that decide the largest "
+        "violation bucket differ between `android11-release` and `master`, so an allow-list "
+        "transcribed against the wrong branch would be wrong in exactly the bucket that matters "
+        "most. The tense is deliberate: **D-16 (2026-08-25) withdrew that catalogue as an oracle "
+        "of `jca_android` in every dimension**, and the successor set answers to the pinned "
+        "expert copy `RVSec-replication-package/tools/rules/`. What this report describes is the "
+        "era it was measured in, which is what makes the published numbers readable."
     )
     add("")
 
