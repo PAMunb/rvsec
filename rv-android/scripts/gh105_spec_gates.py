@@ -26,7 +26,8 @@ The gate's design carries three guards, each of which a naive version gets wrong
 2. **A member declared on a supertype resolves through the hierarchy.**
    `SecretKey.getEncoded` is declared on `Key`, and `SecureRandom.nextInt`/`ints` on
    `Random`; a gate that read only the named class would report three findings that
-   are correct code. They are the DEX-residue family of `conformance_record.csv:73`.
+   are correct code. They are the DEX-residue family of `conformance_record.csv:63`
+   (the `TrustManagerFactorySpec` `g1 / g2 / g3` row; task 11.4 moved the line).
 3. **A nested type compares on its binary name**, `KeyStore$ProtectionParameter`,
    because that is what the jar holds and what `javap` prints.
 
