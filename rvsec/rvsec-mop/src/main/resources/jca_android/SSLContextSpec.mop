@@ -70,7 +70,7 @@ SSLContextSpec(SSLContext ctx) {
    // to an instance, and one rejected protocol anywhere in the program pushed every
    // live SSLContextSpec monitor to `fail`.
    //
-   // The api30 rule orders `Gets, Init, Engine?` with `Gets := g1 | g2` and states
+   // The rule orders `Get, Init, Engine?` (SSLContext.crysl:26) with `Get := g1 | g2` and states
    // the protocol under CONSTRAINTS, so the protocol must not govern the transition:
    // `getInstance` is a `Gets` whatever it was asked for. Dropping the guard lets the
    // rejected context reach `end` like any other, where the `init` body accuses it
@@ -92,8 +92,9 @@ SSLContextSpec(SSLContext ctx) {
    // whose protocol the rule rejects and which is never `init`ed is now accused by
    // nothing, because the accusation lives in the `init` body. That holds for both
    // events now, and it is one behavioural residue, not two deferrals.
-   // `getDefault()` is FORBIDDEN in both oracles -- the expert `SSLContext.crysl:10-11` and
-   // api30's `SSLContext.cryptsl:18` -- and until this event the set had no accuser for it, so
+   // `getDefault()` is FORBIDDEN by the oracle (`SSLContext.crysl:10-11`) -- and it was
+   // forbidden by the withdrawn generated rule too, so D-16 changes nothing here --
+   // and until this event the set had no accuser for it, so
    // `SSLContext.getDefault().createSSLEngine()` was silence from end to end. The other
    // FORBIDDEN clause with a `.mop` in this set, `PBEKeySpec`'s two constructors, has been
    // accused since it was written; the asymmetry was an omission and not a decision, because it
@@ -148,11 +149,14 @@ SSLContextSpec(SSLContext ctx) {
         currentProtocol = protocol;
     }
 
-   // The two REQUIRES clauses of api30's SSLContext that name an argument of this call:
-   // `generatedKeyManager[kms]` (SSLContext.cryptsl:48, ledger clause #28) and
-   // `generatedTrustManager[tms]` (:50, clause #29). The rule's third, `randomized[sr]` (:52),
-   // is recorded vacuous and is not read here: `Init: init(kms, tms, _)` binds `sr` in no
-   // event, so it has no site to read at.
+   // The two REQUIRES clauses of the oracle's SSLContext that name an argument of this call:
+   // `generatedKeyManagers[km]` (SSLContext.crysl:32, ledger clause #28) and
+   // `generatedTrustManagers[tm]` (:33, clause #29). The rule states a third,
+   // `randomized[random]` (:34), and the `vacuous` disposition it used to carry FELL WITH
+   // THE SUBSTITUTION OF ORACLE: it was an artifact of the generated rule, whose `Init`
+   // bound no random. The oracle's `i1: init(km, tm, random)` binds it, so the clause has a
+   // site to read at. Opening that read is task 11.5(b) -- a behavioural change, with a
+   // harness pair and a decision per clause -- and is not done here.
    //
    // The rule declares one `init`, this file declares one event for it, and the signature is
    // written out in full, so binding the two arguments costs nothing the automaton can see:
@@ -239,10 +243,13 @@ SSLContextSpec(SSLContext ctx) {
        stagedEngine = eng;
    }
 
-  // The two ENSURES clauses of api30 SSLContext.cryptsl name the same acceptance point.
-  // `generatedSSLContext[this] after Init` (:57) carries an `after L`, and `Init` leads to
-  // `end`; `generatedSSLEngine[eng]` (:59) carries none, so its acceptance point is the
-  // accepting state, which the alias below names -- and that is `end` too. Read off the
+  // The two ENSURES clauses of SSLContext.crysl name the same acceptance point.
+  // `generatedSSLContext[this] after Init` (:37) carries an `after L`, and `Init` leads to
+  // `end`; `generatedSSLEngine[eng] after Engine` (:38) carries one too, and `Engine` leads
+  // to `end` as well -- which is what the alias below names. The generated rule left the
+  // second unqualified and the acceptance point was the accepting state as such; under the
+  // oracle both are `after L` clauses that name the same state, so the reading is the same
+  // and the route to it is not. Read off the
   // generated monitor, `init` and `engine` both land in state 1 and the match category is
   // `nextstate == 1`, so both routes INV-INS-134 admits name `@match1`.
   //

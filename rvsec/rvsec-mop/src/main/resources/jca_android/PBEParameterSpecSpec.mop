@@ -74,7 +74,7 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
               }
         }
 
-        // The three-argument constructor, which api30 states as its own event `c2` and
+        // The three-argument constructor, which the rule states as its own event `c2`
         // puts in the same `Cons` alternative as `c1`. It carried, until this pass, the
         // guard `c1` carried before the fusion -- the same conjunction, character for
         // character -- and a guard on this event is not the harmless thing it looks
@@ -131,8 +131,9 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
           __RESET;
         }
 
-        // The one place the rule's `ENSURES preparedPBE[this]` may be written. api30
-        // states the clause without an `after L` qualification, so its acceptance point
+        // The one place the rule's `ENSURES preparedPBE[this]` may be written. The rule
+        // states the clause (PBEParameterSpec.crysl:23) without an `after L`
+        // qualification, so its acceptance point
         // is the accepting state itself, which in an `ere` is exactly what `@match`
         // names -- unlike the sibling PBEKeySpec rule, whose `after c1` names a state
         // an `ere` cannot address. The monitor field is what carries the object here:
@@ -141,7 +142,7 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
         // clause reaches this handler with nothing bound and the call is a no-op.
         //
         // `preparedPBE` is written here and required by no rule of the oracle -- it
-        // appears exactly once in api30, as this rule's own ENSURES. It is one of the
+        // appears exactly once in the oracle, as this rule's own ENSURES. It is one of
         // nine dead ends the change disposes of by recording the omission rather than
         // by fabricating a reader: a read invented on the strength of a producer alone
         // would accuse every conforming use of a consumer nobody models. The record

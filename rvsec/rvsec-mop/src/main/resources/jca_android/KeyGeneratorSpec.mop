@@ -35,7 +35,7 @@ KeyGeneratorSpec(KeyGenerator k) {
     // D-15: KeyGenerator.crysl states `algorithm in {"AES", "HmacSHA256", "HmacSHA384",
     // "HmacSHA512"}`; the six HMAC[-/]SHA* entries are the frozen jca's spelling variants.
     // `ARC4`, `DESede`, `BLOWFISH`, `ChaCha20`, `HmacMD5`, `HmacSHA1` and `HmacSHA224` leave
-    // with the api30 catalogue. The rule's second clause,
+    // with the generated catalogue D-15 withdrew. The rule's second clause,
     // `algorithm in {"AES"} => keysize in {128, 192, 256}`, stays a deferred constant: the
     // published jca never tested it, and this change restores lists rather than adding
     // accusation classes whose false-positive rate is unmeasured.
@@ -96,7 +96,7 @@ KeyGeneratorSpec(KeyGenerator k) {
          call(public void KeyGenerator.init(AlgorithmParameterSpec))
        ) && target(k) {  }
 
-    // `randomized[ranGen]` (KeyGenerator.cryptsl:60, ledger clause #13) at the three `init`
+    // `randomized[random]` (KeyGenerator.crysl:33, ledger clause #13) at the three `init`
     // overloads that bind a SecureRandom -- the rule's i2, i4 and i5 -- one event each. The
     // shorter statements were measured and all fail: a disjunction of the three signatures
     // makes javamop emit no aspect at all; `args(.., ranGen)` generates but matches every

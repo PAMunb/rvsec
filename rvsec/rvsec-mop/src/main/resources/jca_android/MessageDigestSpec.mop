@@ -31,7 +31,7 @@ MessageDigestSpec(MessageDigest digest) {
     // because comparison folds case and resolves aliases, so they change no verdict.
     // `SHA-224` is NOT here: the platform offers it and the experts omit it (oracle-wart).
     List<String> algorithms = Arrays.asList("SHA-256", "SHA-384", "SHA-512", "SHA256", "SHA384", "SHA512");
-    // api30 MessageDigest.cryptsl states `digested[out, _]` and `digested[out, inbytearr]`
+    // MessageDigest.crysl:47-48 state `digested[output, _]` and `digested[output, input]`
     // over the array the digest events produce, and a handler sees no event parameter, so
     // the three events stage the array and the acceptance handler consumes it. Cleared on
     // consumption, so an event whose digest the automaton did not accept leaves no
@@ -99,7 +99,7 @@ MessageDigestSpec(MessageDigest digest) {
 	  }
 
 	/*
-	`digested[out, _]` (MessageDigest.cryptsl:73) and `digested[out, inbytearr]` (:75).
+	`digested[output, _]` (MessageDigest.crysl:47) and `digested[output, input]` (:48).
 	Neither clause carries an `after L`, so the acceptance point of both is the accepting
 	state, which in an `ere` is what `@match` names (INV-INS-134). Read off the generated
 	monitor, the three digest events all land in state 2 and the match category is
@@ -108,8 +108,8 @@ MessageDigestSpec(MessageDigest digest) {
 	The first clause is two-place with the second place anonymous, and a projection onto
 	`out` is exactly what it asks -- the same reading `MACED` carries for `macced[M, D]`.
 	The second clause names both places, and this site writes one. The arity stays where
-	the seed had it, with the reason recorded in `predicate_graph.csv`: no rule of api30
-	requires `digested`, so there is no consumer whose arity this write has to meet.
+	the seed had it, with the reason recorded in `predicate_graph.csv`: no rule of the
+	oracle requires `digested`, so there is no consumer whose arity this write has to meet.
 	 */
 	event d1 after(MessageDigest digest) returning(byte[] out):
 	 call(public byte[] MessageDigest.digest()) &&
@@ -143,7 +143,7 @@ MessageDigestSpec(MessageDigest digest) {
 	bench02.BrokenHashABPSCase1
 	*/
 	/*
-	`digested` is required by no rule of the api30 oracle -- it appears there only as this
+	`digested` is required by no rule of the oracle -- it appears there only as this
 	rule's own ENSURES, and the `digestedInputStream`/`digestedOutputStream` the stream
 	rules ensure are different predicates -- so it is one of the dead ends this change
 	disposes of by recording the omission rather than by fabricating a consumer

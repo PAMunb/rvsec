@@ -78,9 +78,10 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // code say what the message always meant.
         //
         // Two tests are left, and the middle clause is the one that went. It read
-        // `randomized[password]` and translated no clause of the rule: api30 REQUIRES
-        // `randomized[salt]` and says nothing about the password, whose only CONSTRAINTS
-        // clause is `neverTypeOf(password, java.lang.String)` -- a different claim. It
+        // `randomized[password]` and translated no clause of the rule: PBEKeySpec.crysl:29
+        // REQUIRES `randomized[salt]` and says nothing about randomising the password,
+        // whose CONSTRAINTS clauses are `neverTypeOf[password, java.lang.String]` and
+        // `notHardCoded[password]` (:25-26) -- different claims. It
         // was the standing allow-list finding against `err2`, and the fusion moved the
         // accusation without repairing it. Task 5.4 removed it, on the measurement the
         // block above the surviving read states in full: over the whole set nothing
@@ -92,8 +93,9 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // What survives here is the salt read, three-valued for the reason above.
         //
         // Where the write lands, and why it stays here (INV-INS-134's recorded
-        // reason). api30 qualifies the clause -- `speccedKey[this, keylength] after
-        // c1` -- so the acceptance point is the state `c1` leads to. This file states
+        // reason). The rule qualifies the clause -- `speccedKey[this, keyLength] after
+        // Con` (PBEKeySpec.crysl:32) -- so the acceptance point is the state `Con` leads
+        // to. This file states
         // its automaton as an `ere`, and the ERE plugin generates exactly one alias,
         // `match`, over the accepting states: here that is the state after `c2`, which
         // is where the rule NEGATES the predicate rather than ensuring it. Naming the
@@ -115,10 +117,12 @@ PBEKeySpecSpec(PBEKeySpec s) {
                conforms = false;
            }
            // The read of `randomized[password]` that stood here is gone, and what it was
-           // is worth stating because it was the file's loudest report. api30 REQUIRES
-           // `randomized[salt]` and nothing about the password -- its only CONSTRAINTS
-           // clause about it is `neverTypeOf(password, java.lang.String)`, a different
-           // claim -- so the read translated no clause. Measured against the oracle and
+           // is worth stating because it was the file's loudest report. The rule REQUIRES
+           // `randomized[salt]` (PBEKeySpec.crysl:29) and nothing about randomising the
+           // password -- its CONSTRAINTS clauses about it are
+           // `neverTypeOf[password, java.lang.String]` and `notHardCoded[password]`
+           // (:25-26), different claims -- so the read translated no clause. Measured
+           // against the oracle and
            // against the set: `randomized` is ENSURED over four objects only
            // (`this` at SecureRandom, `genSeed`, `next`, `numB`), none of them a
            // `char[]`, and none of the set's six writes of RANDOMIZED binds one either.
@@ -162,8 +166,9 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // recorded rather than measured.
         //
         // Why nothing reads it, written down here because this is where the predicate
-        // is produced. api30 states `speccedKey[keySpec, _]` as the one REQUIRES of
-        // `SecretKeyFactory`, and that rule has no `.mop` in this set -- ledger clause
+        // is produced. The oracle states `speccedKey[keySpec, _]` as the one REQUIRES of
+        // `SecretKeyFactory` (SecretKeyFactory.crysl:28), and that rule has no `.mop` in
+        // this set -- ledger clause
         // #31, `unmonitored-consumer`, recorded at task 5.10. Both of the oracle's
         // producers of the predicate are here (`PBEKeySpec` in this file and
         // `SecretKeySpec`, which deliberately does not write it, SecretKeySpecSpec.mop),

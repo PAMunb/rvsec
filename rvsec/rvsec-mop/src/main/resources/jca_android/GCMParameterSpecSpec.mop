@@ -23,7 +23,7 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
 
    List<Integer> validLengths = Arrays.asList(96, 104, 112, 120, 128);
 
-   // The two-argument constructor, api30's `c1`. Until this pass both of this
+   // The two-argument constructor, the rule's `c1`. Until this pass both of this
    // file's events opened with a `condition(...)` that conjoined the rule's one
    // CONSTRAINTS clause with the read of its one REQUIRES predicate, and a guard
    // on a constructor event is not the harmless thing it looks like: measured in
@@ -82,12 +82,15 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
        }
     }
 
-   // The four-argument constructor, api30's `c2` and the other alternative of
+   // The four-argument constructor, the rule's `c2` and the other alternative of
    // the rule's `Cons`. It carried the same guard as `c1` and three more
    // conjuncts beside it -- `offset >= 0 && len >= 0 && src.length >= offset + len`
-   // -- which this pass deletes rather than moves. They translate no clause: the
-   // rule states one CONSTRAINTS clause, over the tag length, and says nothing
-   // about the offset or the length. And they cannot be false where they stood.
+   // -- which this pass deletes rather than moves. The ground has changed and the
+   // deletion has not: task 4.8 wrote that they translate no clause, which was true
+   // of the generated rule and is FALSE of the oracle -- GCMParameterSpec.crysl:19,
+   // :20 and :21 state `length[src] >= offset + len`, `offset >= 0` and `len > 0`,
+   // and conformance_record.csv defers all three against those lines. What still
+   // stands is the second ground: they cannot be false where they stood.
    // The constructor's documented contract throws IllegalArgumentException for
    // a negative offset, a negative length, or a sum past the end of the array,
    // so an `after ... returning` advice never sees such a construction: measured
@@ -147,8 +150,9 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
       __RESET;
    }
 
-   // The one place the rule's `ENSURES preparedGCM[this]` may be written. api30
-   // states the clause without an `after L` qualification, so its acceptance
+   // The one place the rule's `ENSURES preparedGCM[this]` may be written. The rule
+   // states the clause (GCMParameterSpec.crysl:27) without an `after L`
+   // qualification, so its acceptance
    // point is the accepting state itself, which in an `ere` is exactly what
    // `@match` names. The monitor field is what carries the object here: a
    // handler sees no event arguments, and the field is bound only by the
@@ -156,8 +160,8 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    // clause reaches this handler with nothing bound and the call is a no-op.
    //
    // Unlike `preparedPBE`, this predicate is not a dead end and carries no
-   // deliberate-omission record: api30 requires it at Cipher.cryptsl:184,
-   // `part(1,"/",transformation) in {"GCM"} => preparedGCM[params]`, which is
+   // deliberate-omission record: the oracle requires it at Cipher.crysl:139,
+   // `mode(transformation) in {"GCM"} => preparedGCM[paramSpec]`, which is
    // ledger clause #10 and is wired at task 5.8. The G-PRED2 finding on this
    // write closes there, by a read, not here by a record.
    //

@@ -38,7 +38,7 @@ IvParameterSpecSpec(IvParameterSpec s) {
     // same predicate accuses about what it saw instead of deciding whether the call
     // happened.
     //
-    // The read of `randomized[iv]` (IvParameterSpec.cryptsl:28) lives in this body and
+    // The read of `randomized[iv]` (IvParameterSpec.crysl:22) lives in this body and
     // not in `condition(...)`, for the reason the fusion above already paid for once:
     // a condition compiles to `if (!(guard)) return false;` ahead of both the body and
     // the transition. A failed REQUIRES is not a typestate failure -- the transition
@@ -92,9 +92,13 @@ IvParameterSpecSpec(IvParameterSpec s) {
     // (`offset < 0`, `len < 0`, `iv.length - offset < len`; JDK 21
     // java.base/javax/crypto/spec/IvParameterSpec.java:75-91). It is kept because
     // dropping it would change what the specification claims about the constructor,
-    // which is not what a structural fusion is for. api30's IvParameterSpec rule
-    // states no CONSTRAINTS at all, so nothing in the oracle stands behind these
-    // three either way.
+    // which is not what a structural fusion is for. The oracle states three bounds
+    // clauses -- `length[iv] >= offset + len`, `offset >= 0`, `len > 0`
+    // (IvParameterSpec.crysl:17-19) -- and two of these conjuncts are the first two
+    // verbatim, so it stands behind keeping them. The third reads `len >= 0` where the
+    // rule reads `len > 0`, which conformance_record.csv defers: a guard that does not
+    // advance the automaton accuses nobody, so tightening it would add an accusation
+    // class rather than repair one.
     //
     // The read is the same clause as `c1`'s, at the same arity, over the same array:
     // one predicate, two constructors that bind it. It gets codes of its own because a
@@ -125,7 +129,7 @@ IvParameterSpecSpec(IvParameterSpec s) {
       __RESET;
     }
 
-    // `preparedIV[this]` (IvParameterSpec.cryptsl:33) carries no `after L`
+    // `preparedIV[this]` (IvParameterSpec.crysl:25) carries no `after L`
     // qualification, so the rule's acceptance point is the accepting state and the
     // write belongs in this handler (INV-INS-134) -- which is where it already sat.
     // What leaves is the accepting-state bookkeeping that stood beside it: the new

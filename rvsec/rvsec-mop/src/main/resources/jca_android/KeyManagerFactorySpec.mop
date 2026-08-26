@@ -65,10 +65,10 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         currentAlgorithmInstance = alg;
     }
 
-    // `generatedKeyStore[keyStore]` (KeyManagerFactory.cryptsl:46, ledger clause #14) is read
+    // `generatedKeyStore[keyStore]` (KeyManagerFactory.crysl:31, ledger clause #14) is read
     // here, in the only event of this file that a key store ever reaches.
     //
-    // The event stands for the rule's `i1` and `i2` at once -- api30 declares
+    // The event stands for the rule's `i1` and `i2` at once -- the rule declares
     // `i1: init(keyStore, password)`, `i2: init(params)` and `Init := i1 | i2` -- and the two
     // overloads have different arities, so no named position exists in both signatures. What
     // does exist is the position they share: each has a first argument, so `args(arg, ..)`
@@ -133,8 +133,11 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
        initialisedFactory = k;
     }
 
-    // `generatedKeyManager[kms]` (KeyManagerFactory.cryptsl:53), the predicate ledger #14's
-    // neighbour #28 and the one `SSLContext.init` reads at task 5.9.
+    // `generatedKeyManagers[keyManager] after GetKeyMng` (KeyManagerFactory.crysl:36), the
+    // predicate ledger #14's neighbour #28 and the one `SSLContext.init` reads at task 5.9.
+    // The oracle names the predicate in the plural and qualifies it with an `after L` the
+    // generated rule did not carry; neither moves this site, because `GetKeyMng` is the
+    // aggregate `gkm1` belongs to and the write is already in its body.
     //
     // The write is at the acceptance point, in the sense the monitor has one: `gkm1` carries
     // the transition row {4, 4, 4, 2, 4} and lands on state 2, which is `@match2`, read off
@@ -185,8 +188,8 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     // and the match category is `nextstate == 3`, so the state the Init leads to and the
     // accepting state are one state, and `init` is the only event that reaches it.
     //
-    // No rule of api30 requires this half of the clause -- `SSLContext` asks for
-    // `generatedKeyManager[kms]`, over the array, never over the factory -- so the site
+    // No rule of the oracle requires this half of the clause -- `SSLContext.crysl:32` asks
+    // for `generatedKeyManagers[km]`, over the array, never over the factory -- so the site
     // carries a deliberate-omission record (INV-INS-137) and no read is fabricated for it.
     @match1 {
        if (initialisedFactory != null) {
@@ -196,7 +199,8 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     }
 
     // The second accepting state, which is what makes the rule's `gkm?` optional and terminal
-    // at once: api30 accepts a factory whose key managers were taken, and the `?` refuses a
+    // at once: the rule's ORDER `Get, Init, GetKeyMng?` (KeyManagerFactory.crysl:23) accepts
+    // a factory whose key managers were taken, and the `?` refuses a
     // second taking, so `taken` accepts and declares no event of its own. An alias is how this
     // file says a state accepts -- it is also what G-ORDER reads to decide equivalence -- and
     // the handler is empty because there is nothing left to write: the clause's write over the
