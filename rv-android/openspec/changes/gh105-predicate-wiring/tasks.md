@@ -2089,7 +2089,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       automaton stands, writes the divergence record against the expert rule saying exactly
       that; obedience to `co?` is no longer a reason that exists. Same treatment for every
       divergence the sweep finds that the api30 anchor was silently absorbing
-- [ ] 11.7 Verification for the group, the 9.18/10.11 mirror: all gates green over the
+- [x] 11.7 Verification for the group, the 9.18/10.11 mirror: all gates green over the
       re-anchored inputs; the 11.4 grep gate clean (no api30 authority outside adenda); the
       expert ledger's arithmetic closed (wired + recorded + unclosable = total, derived by
       enumeration, never asserted) and **unmoved by 11.9** — D-17 renames one disposition and
