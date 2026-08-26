@@ -242,3 +242,78 @@ de *qual código* uma acusação emitiu — e é por isso que a tarefa 8.3 não 
 
 **É o item 26 outra vez, de outro ângulo**: as quatro suítes estavam verdes com os relatórios
 errados commitados, porque nenhuma delas compara relatório regenerado com relatório commitado.
+
+---
+
+# Re-execução sob o instrumento reparado — tarefa 10.9 (2026-08-25)
+
+**Por que reexecutar.** Tudo acima foi medido em 23/08 sob o harness **pré-11.11**, cujo
+`classify()` comparava **nomes de eventos acusadores**. Sob esse instrumento, uma acusação
+*acrescentada num evento que já acusava* era invisível por construção: o conjunto de eventos não
+mudava, e o traço saía `unchanged`. A atribuição "130/130, zero sem dono" é, portanto, uma
+afirmação do instrumento de antes do reparo — verdadeira sobre o que ele podia ver, e não sobre o
+conjunto. O harness de hoje compara **(evento, código)**, e esta seção refaz a varredura com ele.
+
+**A varredura.** `A = backup/gh105-preimage/jca_android` (a pré-imagem que a 2.11 arquivou),
+`B = rvsec/rvsec-mop/src/main/resources/jca_android` (a árvore de hoje), corpus
+`data/gh104/traces` inteiro. Os 24 relatórios por especificação estão commitados em
+`data/gh105/evidence/harness/f7-sweep/`, um por arquivo, com a linha de cada traço e os
+envelopes dos dois lados — é ali que se audita qualquer classificação individual.
+
+```
+173 traços:  46 unchanged · 52 moved · 48 introduced · 27 removed
+```
+
+**127 classificações não-`unchanged`**, contra 70 em 131 traços na passagem de 23/08. As duas
+medições não são comparáveis traço a traço, e a razão é tripla, o que precisa ficar dito em vez de
+escondido numa diferença de números:
+
+1. **O corpus cresceu de 131 para 173.** Os 42 traços novos entraram com as tarefas dos grupos 8,
+   9 e 10 que os escreveram para medir os próprios reparos, cada um com a sua evidência.
+2. **O lado B mudou.** Entre 23/08 e hoje aterrissaram o grupo 9 inteiro (19 tarefas, dez delas
+   mudando o que é acusado, todas com par de arnês e decisão do pesquisador) e o grupo 10. Um
+   diferencial contra a mesma pré-imagem mede a change acumulada, não o que ela era em 23/08.
+3. **O instrumento mudou**, que é o ponto desta tarefa: acusações somadas a eventos já acusadores
+   agora aparecem.
+
+**O que a varredura verifica hoje.** A propriedade que ela existe para checar não é o número, é a
+posse: *nenhuma classificação não-`unchanged` pertence a uma especificação que esta change não
+editou*. Ela vale — as vinte especificações com delta são exatamente as vinte que o
+`divergence_record.csv` registra com hunks desta change, e as quatro sem delta nenhum
+(`CipherOutputStreamSpec`, `DHGenParameterSpecSpec`, `HMACParameterSpecSpec`,
+`RandomStringPassword`) são as que só receberam migração de substrato ou, no caso do último, a
+retirada de escritas que não acusam nada.
+
+| especificação | traços | não-`unchanged` | moved | introduced | removed | unchanged |
+|---|---|---|---|---|---|---|
+| `CipherSpec` | 19 | **17** | 11 | 6 | 0 | 2 |
+| `SSLContextSpec` | 12 | **11** | 6 | 4 | 1 | 1 |
+| `SignatureSpec` | 12 | **11** | 2 | 6 | 3 | 1 |
+| `MacSpec` | 11 | **10** | 4 | 3 | 3 | 1 |
+| `TrustManagerFactorySpec` | 10 | **9** | 3 | 5 | 1 | 1 |
+| `IvChainJunctionSpec` | 7 | **7** | 5 | 2 | 0 | 0 |
+| `PBEKeySpecSpec` | 7 | **7** | 5 | 0 | 2 | 0 |
+| `SecureRandomSpec` | 11 | **7** | 2 | 0 | 5 | 4 |
+| `KeyPairSpec` | 6 | **6** | 0 | 3 | 3 | 0 |
+| `MessageDigestSpec` | 10 | **6** | 0 | 6 | 0 | 4 |
+| `SecretKeySpecSpec` | 7 | **6** | 3 | 3 | 0 | 1 |
+| `KeyStoreSpec` | 9 | **5** | 0 | 1 | 4 | 4 |
+| `GCMParameterSpecSpec` | 6 | **4** | 0 | 4 | 0 | 2 |
+| `KeyPairGeneratorSpec` | 8 | **4** | 1 | 0 | 3 | 4 |
+| `PBEParameterSpecSpec` | 6 | **4** | 2 | 2 | 0 | 2 |
+| `SecretKeySpec` | 5 | **4** | 2 | 2 | 0 | 1 |
+| `KeyGeneratorSpec` | 8 | **3** | 2 | 0 | 1 | 5 |
+| `KeyManagerFactorySpec` | 5 | **3** | 2 | 1 | 0 | 2 |
+| `IvParameterSpecSpec` | 4 | **2** | 2 | 0 | 0 | 2 |
+| `CipherInputStreamSpec` | 3 | **1** | 0 | 0 | 1 | 2 |
+| `CipherOutputStreamSpec` | 2 | **0** | 0 | 0 | 0 | 2 |
+| `DHGenParameterSpecSpec` | 1 | **0** | 0 | 0 | 0 | 1 |
+| `HMACParameterSpecSpec` | 1 | **0** | 0 | 0 | 0 | 1 |
+| `RandomStringPasswordSpec` | 3 | **0** | 0 | 0 | 0 | 3 |
+**A granularidade da atribuição, dita com franqueza.** A passagem de 23/08 atribuiu **delta a
+delta**, 130 de 130. Esta atribui **por especificação**: cada arquivo com delta tem, no
+`divergence_record.csv`, as tarefas desta change que o editaram, e cada relatório por
+especificação está commitado para que a leitura traço a traço seja possível sem reexecutar nada.
+Uma reatribuição delta a delta sobre a árvore de hoje mediria a change acumulada dos grupos 1 a
+10 de uma vez, e não é o que esta tarefa pede: o que ela pede é que a afirmação de 23/08 deixe de
+ser a única, e que a que fica seja de um instrumento que enxerga o que o outro não enxergava.

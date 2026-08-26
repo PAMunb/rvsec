@@ -1844,7 +1844,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       contributes, the exact dedupe fragility that broke 11.9 twice and that the README's
       set-wide import rule exists to prevent. Add the imports in the set's uniform style;
       expected monitor delta is import-lines-only and the committed byte-diff proves it
-- [ ] 10.8 Register-only rows for the four behavioural findings the validation surfaced and
+- [x] 10.8 Register-only rows for the four behavioural findings the validation surfaced and
       this change defers (the standing rule: a probable repair and a behavioural change are
       never bundled, and none of these carries a researcher decision): (a) the 2-arg-overload
       guard family — `KeyManagerFactorySpec.g1/g2` plus its `g3→unsafeAlg` route (the one
@@ -1861,7 +1861,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       fails (`TrustManagerFactorySpec.gtm1`, `KeyManagerFactorySpec.gkm1`) — an
       over-approximation only reachable in traces already carrying ORDER. Each becomes a
       narrative/`behavioural` row with the mechanism and the deferral, no spec text moves
-- [ ] 10.9 Evidence hygiene: the 8.4 differential (131 traces, "130/130 attributed") ran on
+- [x] 10.9 Evidence hygiene: the 8.4 differential (131 traces, "130/130 attributed") ran on
       2026-08-23 under the pre-11.11 harness, whose `classify()` compared accusing event
       names — an accusation added at an already-accused event was invisible by construction,
       so the attribution is a claim of the pre-repair instrument. Re-run the full 8.4 sweep
