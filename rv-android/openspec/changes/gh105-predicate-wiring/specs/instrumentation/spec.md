@@ -847,8 +847,15 @@ miscounts as 4 extra reads).
 
 - **WHEN** F3 completes and G-PRED2 runs over `jca_android`
 - **THEN** each of the 21 wired `REQUIRES` clauses (the 25 wireable minus the two vacuous, #30
-  and #23, which can have no read site, and the two whose composition the platform refuses,
-  #17 and #21) MUST map to a read site with an accuser
+  and #23, which can have no read site, and #17 and #21, whose read no conforming program could
+  satisfy) MUST map to a read site with an accuser
+- **AND** those last two MUST each carry the reason its own measurement gives, not a shared
+  label: #21 is `unreachable-composition` because its producer class is absent from the api30
+  `android.jar` and no `Mac` of the rule's allow-list accepts its type, and #17 is
+  `unmonitored-producer` because the type the JCA accepts at that call, `DHParameterSpec`, is
+  ensured by the oracle and specified by no `.mop` (D-17). The counts do not move; a record that
+  says "nothing could close this" where a specification could is the defect the distinction
+  exists to catch
 - **AND** each of the 10 non-wireable clauses MUST map to an `unmonitored-consumer`/
   `unmonitored-producer` record naming the absent specification
 - **AND** the one predicate with no producer in any rule (`preparedEC`) MUST appear as

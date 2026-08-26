@@ -1921,10 +1921,11 @@ Subagent dispatch (docs/WORKFLOW.md §5):
      as records against the expert rule, re-cited, never re-litigated. "No new accusation
      classes" stands: the 28 expert rules without a `.mop` gain no specification here.
      Ordering: 11.1 → 11.2 → 11.3 (the instruments must point at the expert rules before any
-     record claims conformity to them) → 11.4 (records) → 11.8 (spec text) → 11.5/11.6
-     (researcher-decided) → 11.7. Task 11.8 was added on 2026-08-26, after 11.2 measured
-     what the group had not: it carries a number out of sequence because task ids are keys
-     in `divergence_record.csv` and in committed evidence, and are never renumbered.
+     record claims conformity to them) → 11.4 (records) → 11.8 (spec text) → 11.9 (the two
+     dispositions D-17 re-derives) → 11.5/11.6 (researcher-decided) → 11.7. Tasks 11.8 and
+     11.9 were added on 2026-08-26, after 11.2 and 11.1 measured what the group had not:
+     they carry numbers out of sequence because task ids are keys in
+     `divergence_record.csv` and in committed evidence, and are never renumbered.
      Tasks 8.8 and 8.9 depend on this group. -->
 
 - [x] 11.1 [record] Re-derive the predicate ledger from the 49 expert rules: sweep every
@@ -2006,6 +2007,61 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       accuses with the right line to use (tasks 7.2, 10.7). Both are part of the task, not
       surprises after it
 
+- [ ] 11.9 [record] The two dispositions D-17 re-derives, and the census that comes with
+      them. **No `.mop` changes, no accusation changes class, no harness pair is owed**: the
+      whole task is `predicate_ledger.csv`, `predicate_graph.csv` and the prose that cites
+      them. It exists because 11.1 asked for every disposition to be re-derived rather than
+      copied, and one came through with the right conclusion and a reason that had changed
+      class — which is the failure mode a re-derivation is for, and the one a green ledger
+      cannot show.
+
+      (a) **Ledger clause #34** (`KeyPairGenerator`, `algorithm in {"DiffieHellman","DH"} =>
+      preparedDH[params]`, `KeyPairGenerator.crysl:37`) moves from `unreachable-composition`
+      to `unmonitored-producer`. Task 5.8's measurement stands and is re-cited, not repeated:
+      the JCA raises `InvalidAlgorithmParameterException: Inappropriate parameter type` for
+      `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))` on
+      Temurin 21. What falls is the sentence it rested on — "a DH key pair is initialised
+      from a `DHParameterSpec`, which no rule ensures". The generated catalogue states no
+      `DHParameterSpec.cryptsl`; the oracle states `DHParameterSpec.crysl:21 ENSURES
+      preparedDH[this]`, and that is the type `initialize` accepts. The row already carries
+      the evidence — `counterparts` reads `DHGenParameterSpec|DHParameterSpec` and
+      `counterparts_with_mop` reads `DHGenParameterSpec` alone. Still not wired, and the
+      reason is now the honest one: a read at `KeyPairGeneratorSpec.init3/init4` answers
+      `NOT_OBSERVED` for every conforming DH program because the producer it uses is
+      unmonitored, not because no producer could exist. The new reason must say what would
+      close the clause — a `.mop` for `DHParameterSpec` — and say in the same breath that
+      writing one is a new accusation class, which D-16 keeps out.
+
+      (b) **Ledger clause #38** (`Mac preparedHMAC[params]`, `Mac.crysl:53`) is re-derived
+      and survives verbatim, which is what makes (a) a finding rather than a hunch. Its
+      producer is `javax.xml.crypto.dsig.spec.HMACParameterSpec` (`HMACParameterSpec.crysl:14`),
+      of the `java.xml.crypto` module, and the api30 `android.jar` carries no entry whatever
+      under `javax/xml/crypto` — a fact about the platform, not about a catalogue, so the
+      substitution of oracle cannot touch it. The row is re-cited against the expert lines
+      and its disposition is left where it is. **The task closes only if both halves are
+      derived**: one row that moved and one that did not is the shape of a re-derivation;
+      two rows that moved, or none, means the sweep was answering a different question.
+
+      (c) **The census of what the set requires and cannot observe**, stated as a record and
+      never as a backlog. Six predicates the set's own specifications require have no
+      producer it can observe: `preparedRSA` (#19), `preparedDSA` (#18), `preparedEC` (#20,
+      `unclosable` — no rule of the catalogue ensures it), `preparedOAEP`, `preparedAlg` (#7)
+      and `generatedManagerFactoryParameters`. `preparedOAEP` is the one the oracle *adds*:
+      `Cipher.crysl:140` states `mode(transformation) in {"OAEPWith…"} => preparedOAEP[paramSpec]`
+      and the generated catalogue stated no such clause, so it enters the record for the
+      first time here, at `unmonitored-producer`, as 11.1's delta already derived. The census
+      is derived by enumeration from `predicate_ledger.csv`, never listed by hand, and it
+      carries the standing conclusion: closing any of the six means a specification for a
+      rule the set does not have, which D-16 keeps out of this change.
+
+      (d) **The reciprocal half, so the census cannot be read as one-sided**: every
+      `Property` the set writes and nobody reads already carries a write-side disposition
+      (`omission`/`propagation`), and the sweep re-states which of them the oracle could ever
+      give a reader — `preparedPBE` and `speccedKey` are required only by rules with no
+      `.mop`, while `digested`, `signed`, `verified` and `generatedKeypair` are required by
+      **no rule of the 49 at all**. Those four are dead ends of the oracle and not of this
+      set, and saying so is what keeps a future reader from proposing a wiring for them
+
 - [ ] 11.5 [researcher decision per clause — behavioural] The wirings the expert oracle
       restores or opens, each through the 9.B discipline (harness pair, divergence row,
       go/no-go): (a) `Mac generatedKey[key,_]` — the read returns on the new store, in the
@@ -2036,7 +2092,9 @@ Subagent dispatch (docs/WORKFLOW.md §5):
 - [ ] 11.7 Verification for the group, the 9.18/10.11 mirror: all gates green over the
       re-anchored inputs; the 11.4 grep gate clean (no api30 authority outside adenda); the
       expert ledger's arithmetic closed (wired + recorded + unclosable = total, derived by
-      enumeration, never asserted); harness pairs committed for every 11.5/11.6 task that
+      enumeration, never asserted) and **unmoved by 11.9** — D-17 renames one disposition and
+      must shift no count, which is the cheapest check that a re-derivation stayed a
+      re-derivation; harness pairs committed for every 11.5/11.6 task that
       moved an accusation, `unchanged` proofs for the record-only ones and for 11.8's five
       messages;
       `gh104_divergence_record.py --check` exit 0 with every new row keyed. No task of this

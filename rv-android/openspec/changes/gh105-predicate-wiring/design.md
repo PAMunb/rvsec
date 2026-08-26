@@ -345,6 +345,49 @@ to a generated rule. Behavioural consequences (the Mac read, the SSLContext `sr`
 deltas) go through the 9.B discipline: harness pair, divergence row, researcher go/no-go per
 task.
 
+**D-17 — A disposition is re-derived from its reason, not from its conclusion (researcher,
+2026-08-26).** Task 11.1 required that "a disposition that only held under api30 is re-derived,
+not copied", and the expert ledger it produced carried one disposition whose *conclusion* was
+right and whose *reason* had changed class. Ledger clause #34 (`KeyPairGenerator`, `algorithm in
+{"DiffieHellman","DH"} => preparedDH[params]`, `KeyPairGenerator.crysl:37`) reads
+`unreachable-composition`, on the measurement task 5.8 made: the JCA raises
+`InvalidAlgorithmParameterException: Inappropriate parameter type` for
+`KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))`. That
+measurement stands. What no longer stands is the sentence it rested on -- *"a DH key pair is
+initialised from a `DHParameterSpec`, which no rule ensures"*. It was true of the generated
+catalogue, which states no `DHParameterSpec.cryptsl` at all, and it is false of the oracle:
+`DHParameterSpec.crysl:21` ENSURES `preparedDH[this]`, and `DHParameterSpec` is precisely the
+type `initialize` accepts. The clause's own ledger row already shows it -- its `counterparts`
+column reads `DHGenParameterSpec|DHParameterSpec` while `counterparts_with_mop` reads
+`DHGenParameterSpec` alone.
+
+So the disposition becomes `unmonitored-producer`, the same as #18 and #19, and the difference
+is not cosmetic: `unreachable-composition` says no specification could ever close the clause,
+and `unmonitored-producer` says a `.mop` for `DHParameterSpec` would. Nothing is wired either
+way -- a read at `KeyPairGeneratorSpec.init3/init4` would still answer `NOT_OBSERVED` for every
+conforming DH program, because the producer it uses is unmonitored -- so no `.mop` changes, no
+accusation changes class, and no harness pair is owed. What changes is what the record says is
+possible.
+
+Clause #38 (`Mac preparedHMAC[params]`, `Mac.crysl:53`) is the control, and it survives verbatim:
+its producer is `javax.xml.crypto.dsig.spec.HMACParameterSpec` (`HMACParameterSpec.crysl:14`),
+of the `java.xml.crypto` module, and the api30 `android.jar` carries no entry whatever under
+`javax/xml/crypto`. That is a fact about the platform and not about a catalogue, so the
+substitution of oracle leaves it untouched. The two together are why this decision is stated as
+a rule rather than as a correction to one row: **under a substitution of oracle, a disposition
+is re-checked against the sentence that justified it, even when the verdict does not move** --
+the reason is what a later task acts on, and a reason that has quietly changed class is a wrong
+premise waiting to be reused.
+
+Two consequences for the census, both records and neither work: the oracle *adds* a REQUIRES
+clause the generated catalogue never stated -- `Cipher.crysl:140`, `mode(transformation) in
+{"OAEPWith…"} => preparedOAEP[paramSpec]`, whose only producer `OAEPParameterSpec` has no `.mop`
+(`unmonitored-producer`, already in 11.1's delta) -- and six of the predicates the set's own
+specifications require have no producer it can observe at all: `preparedRSA` (#19),
+`preparedDSA` (#18), `preparedEC` (#20, `unclosable`), `preparedOAEP`, `preparedAlg` (#7) and
+`generatedManagerFactoryParameters`. Closing any of them means a specification for a rule the
+set does not have, which is a new accusation class, which D-16 keeps out of this change.
+
 
 ## API Design
 
@@ -483,6 +526,13 @@ is that directory against the edited one.
 
 ## The 36-Clause Ledger (REQUIRES, api30)
 
+**Superseded as an oracle by D-16 (2026-08-25); kept as the record it was computed on.** This
+table was derived from the 33 generated api30 rules. Task 11.1 re-derived it from the 49 expert
+rules into `data/jca_android/predicate_ledger.csv`, with the row-by-row account in
+`predicate_ledger_delta.csv`; that pair is the live ledger, and the numbering below survives in
+it because task ids and clause numbers are keys in committed evidence and are never renumbered.
+D-17 (2026-08-26) corrects one disposition the re-derivation had copied -- see row 17.
+
 Re-derived from the oracle and the set on 2026-08-20 (external verification, arbitrated by
 re-measurement). **Wireable** = the consuming rule *and* at least one producing rule have a
 `.mop` in `jca_android`. Neg = negated clause; Grd = implication guard evaluated in the body.
@@ -506,11 +556,11 @@ Every F3/record task resolves against this table, not against family names.
 | 14 | KeyManagerFactory | `generatedKeyStore[keyStore]` | | | yes | wire | 5.9 |
 | 15 | KeyPair | `generatedPrivkey[consPriv]` | | | yes | wire | 5.6 |
 | 16 | KeyPair | `generatedPubkey[consPub]` | | | yes | wire | 5.6 |
-| 17 | KeyPairGenerator | `{DH} => preparedDH[params]` | | G | wireable, **not composable** | record `unreachable-composition` — the JCA refuses the only producing type at this call | 5.8 |
+| 17 | KeyPairGenerator | `{DH} => preparedDH[params]` | | G | wireable, producer unmonitored | record `unmonitored-producer` (D-17, 2026-08-26; was `unreachable-composition`) — the JCA refuses `DHGenParameterSpec` here, and the type it accepts, `DHParameterSpec`, is ensured by `DHParameterSpec.crysl:21` and has no `.mop` | 5.8; 11.9 |
 | 18 | KeyPairGenerator | `{DSA} => preparedDSA[params]` | | G | no (no producer .mop) | record `unmonitored-producer` | 5.10 |
 | 19 | KeyPairGenerator | `{RSA} => preparedRSA[params]` | | G | no (no producer .mop) | record `unmonitored-producer` | 5.10 |
 | 20 | KeyPairGenerator | `{EC} => preparedEC[params]` | | G | non-connectable | record `unclosable` (no producing rule) | 5.8 |
-| 21 | Mac | `preparedHMAC[params]` | | | wireable, **not composable** | record `unreachable-composition` — the site exists and no program can reach it (5.2) | 5.2 |
+| 21 | Mac | `preparedHMAC[params]` | | | wireable, **not composable** | record `unreachable-composition` — the site exists and no program can reach it (5.2); re-derived unchanged under the oracle at 11.9, the producer class being absent from `android.jar` whatever the catalogue | 5.2; 11.9 |
 | 22 | Mac | `!encrypted[output1, _]` | N | | yes | wired — `validateAbsent` at `MacSpec.f2` (api30's `f3`), with the binding repair; the returned half recorded vacuous | 5.3 |
 | 23 | Mac | `!encrypted[output2, _]` | N | | yes (vacuous) | record `vacuous` — `output2` is bound only as a returned array, which the JCA allocates fresh | 5.3 |
 | 24 | PBEKeySpec | `randomized[salt]` | | | yes | wire | 5.4 |
@@ -570,8 +620,11 @@ moves — measure the corpus before deciding, not the two ends.
 
 Task 5.11 (2026-08-22) swept the closure and found the totals above had been carrying #17 in the
 wired column after task 5.8 recorded it. **The arithmetic that closes is 21 + 14 + 1**: 21 clauses
-with a read site, 14 recorded (the 10 `unmonitored-*`, the vacuous #30 and #23, the
-`unreachable-composition` #17 and #21), and `preparedEC` `unclosable`. Measured against the tree
+with a read site, 14 recorded (the 10 `unmonitored-*`, the vacuous #30 and #23, and #17 and #21,
+which no conforming program can satisfy a read of), and `preparedEC` `unclosable`. D-17 moves
+#17's *reason* from `unreachable-composition` to `unmonitored-producer` and moves none of these
+counts: the clause is recorded either way, and what changes is whether the record says a
+specification could ever close it. Measured against the tree
 rather than against this table: `PREPARED_DH` has one write (`DHGenParameterSpecSpec.mop:37`) and
 no read anywhere in the set. The same sweep counts **22** distinct `Property` values written where
 the change opened with 21 — task 5.10 renamed a write rather than adding one, and a census of
