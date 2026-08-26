@@ -2,17 +2,21 @@
 
 This directory holds the records of the specification set that `--specification-set jca_android`
 resolves to from gh104 on: `rvsec/rvsec-mop/src/main/resources/jca_android/`, seeded from the frozen
-`jca` Java set and shaped by one mechanical pass: every allow-list re-transcribed from
-`MetaCrySL/generated/api30/`, read through the normalisation rule below. The seed's predicate
-machinery travels with it untouched — see *What the successor set contains*.
+`jca` Java set and shaped by one mechanical pass: every allow-list re-transcribed from a CrySL catalogue,
+read through the normalisation rule below. The seed's predicate machinery travels with it
+untouched — see *What the successor set contains*.
 
-The set answers to **two** oracles, and every record says which. Its **value** clauses --
-allow-lists and value tests -- answer to the pinned expert copy
-`RVSec-replication-package/tools/rules/` (design D-15, 2026-08-24; see *The expert
-transcription* below). Its `ORDER`, event alphabets and predicate clauses answer to the
-already-generated MetaCrySL api30 rules under `MetaCrySL/generated/api30/`. Both are
-read-only: where a rule is judged defective the judgement is a row of
-`divergence_record.csv`, never an edit upstream.
+**The set answers to one oracle** (design D-16, 2026-08-25): the pinned expert copy
+`RVSec-replication-package/tools/rules/` — 49 expert-validated CogniCrypt rules, sha256
+`d7bcc019…`, a freeze item below — for **every** dimension alike: values, `ORDER`, event
+alphabets and predicate clauses. It is read-only: where a rule is judged defective the
+judgement is a row of `divergence_record.csv`, never an edit upstream.
+
+The generated catalogue `MetaCrySL/generated/api30/` was that oracle until D-15 took its
+value dimension (2026-08-24) and D-16 took the rest. It keeps **no** oracle role in any
+dimension. It stays on disk as the historical input the pre-D-16 records were written
+against, and is named only inside supersession adenda — a citation of it anywhere else is
+a defect, which is what the grep gate of task 11.4 asserts.
 
 ## Freeze items
 
@@ -129,9 +133,9 @@ idioms the seed carried by accident: case-sensitive `contains()` in `Mac`, `Sign
 `KeyPairGenerator`, and `.toUpperCase()` in `MessageDigest` and `SSLContext` — under which
 the same string was a misuse in one specification and not in another. The seed's eleventh
 idiom, `SecretKeySpecSpec`'s `.toUpperCase()`, became a `ConscryptAliasTable.matches` call
-like the rest when D-15 restored that specification's list: the api30 rule states no algorithm
-clause, so the api30 transcription had deleted the list outright, and `SecretKeySpec.crysl:18`
-states one.
+like the rest when D-15 restored that specification's list: the generated rule stated no
+algorithm clause, so the transcription made against it had deleted the list outright, and
+`SecretKeySpec.crysl:18` states one.
 
 The table is **not read at run time**. A monitor woven into an APK has no filesystem
 contract with this repository, so `ConscryptAliasTable` carries the table as code and
@@ -152,7 +156,7 @@ measurement. The six that were missing are missing by service, not by syntax —
 `KeyFactory` OIDs (`:195-197`, `:200-201`) and `CertificateFactory X.509 → X509` (`:500`) —
 and no `.mop` resolves either service, so adding them moved no verdict.
 160 rows are in services one of the 21 rule-paired specifications covers — 21, not 24: it is the
-count of `.mop` files with a matching api30 rule, which is what `conformance_record.csv` keys on,
+count of `.mop` files with a matching expert rule, which is what `conformance_record.csv` keys on,
 and not the size of the set. The other 15 rows are in services with no specification
 (`AlgorithmParameters` 8, `KeyFactory` 5, `SecretKeyFactory` 1, `CertificateFactory` 1) and are
 kept, with their flag, so the extraction stays complete.
@@ -190,9 +194,13 @@ table: an alias whose canonical name is `SHA-1`, `MD5withRSA`, `ARC4`, `HmacMD5`
 does not.
 
 
-For `Cipher`, "the allow-list" means the algorithm set
-`part(0,"/",transformation) in {…}` of `Cipher.cryptsl:121`, transcribed as `ALGORITHMS` in
-`Api30CipherTransformationUtil`. A canonical that names a bare algorithm of that set is
+For `Cipher`, "the allow-list" means the algorithm set the rule states — under the oracle
+`noCallTo[Init] => alg(transformation) in {…}` of `Cipher.crysl:94`, which names `AES`, `RSA`
+and the eight `PBEWithHmacSHA{224,256,384,512}AndAES_{128,256}` transformations. Until D-15
+it meant `part(0,"/",transformation) in {…}` of `Cipher.cryptsl:121`, eight families wide,
+transcribed as `ALGORITHMS` in `Api30CipherTransformationUtil`; that clause is **withdrawn**
+and that class has had no caller since task 11.3. The counts in the table above were computed
+against the expert lists and are unaffected. A canonical that names a bare algorithm of that set is
 `yes` — the four `ARC4` rows — and a canonical that names a whole transformation is `no`,
 because a transformation is not an entry of any list; it is validated clause by clause.
 **`Cipher.GCM -> AES/GCM/NoPadding` is therefore `no`**, and it would be wrong to read it as
@@ -241,7 +249,7 @@ line and found to match:
    equivalence rather than table entries.
 
 **One spelling deliberately has no row.** `RSA/ECB/OAEPWithSHA1AndMGF1Padding` (109 events,
-1 app, 1 misuse) carries no hyphen in `SHA1`; api30 declares
+1 app, 1 misuse) carries no hyphen in `SHA1`; the withdrawn api30 catalogue declared
 `OAEPwithSHA-1andMGF1Padding` and the expert rule carries no SHA-1 OAEP variant at all, Conscrypt registers
 `RSA/ECB/OAEPWithSHA-1AndMGF1Padding` (`:338`) and the alias
 `RSA/None/OAEPWithSHA-1AndMGF1Padding` (`:339-340`), both hyphenated, and the unhyphenated
@@ -271,12 +279,42 @@ checked entry by entry against that clause: the frozen list *is* the expert tran
 re-transcribing from the rule text would risk a second hand-copy of the kind this decision
 exists to undo.
 
-**The scope is values only.** `ORDER`, event alphabets and the predicate clauses keep the
-generated api30 rules as their oracle — the audit measured that the protocol dimension
-survives the MetaCrySL chain nearly intact, so there is nothing there to correct, and moving
-that anchor would reopen G-ORDER's recorded divergences and the 36-clause predicate ledger
-for no detection gain. `conformance_record.csv` names both rules per specification, so a
-reader can always tell which oracle a verdict answers to.
+**The scope was values only for one day.** Until D-16 (2026-08-25) this paragraph read that
+`ORDER`, event alphabets and the predicate clauses kept the generated api30 rules as their
+oracle, on the ground that the protocol dimension survives the MetaCrySL chain nearly
+intact. **That is withdrawn.** A chain that inverts the semantics of a value clause earns no
+oracle role in any dimension — and task 11.4 then measured the same inversion in the
+arithmetic: `Cipher.cryptsl:131`, `:133` and `:135` state the `update`/`doFinal` buffer
+bounds with the comparison reversed against `Cipher.crysl:123`, `:127` and `:128`, satisfied
+exactly where the oracle is violated, while the fourth clause of the same family is not
+reversed. There is one oracle for every dimension, and it is the expert copy.
+
+What that cost, and where each record now stands:
+
+* **`predicate_ledger.csv` and `predicate_ledger_delta.csv`** — the predicate clauses,
+  re-derived clause by clause from the 49 expert rules by `scripts/gh105_expert_ledger.py`
+  (task 11.1). Every disposition is re-derived against the expert text, never copied.
+* **`order_alphabet_map_expert.csv` and `order_alphabet_map_delta.csv`** — the `ORDER` and
+  event alphabets, re-derived by `scripts/gh105_expert_alphabet.py` (task 11.2), matching
+  **by signature and never by name**, because the two catalogues permute names over the same
+  calls. `order_alphabet_map.csv` is kept on disk and **nothing reads it** (INV-INS-118); it
+  is not a fallback.
+* **`conformance_record.csv` and `conformance_record_delta.csv`** — one `rule` column with
+  one meaning, the expert rule, with the census of what the substitution moved derived by
+  `scripts/gh105_expert_conformance.py` (task 11.4). Its `--check` refuses a `rule` cell
+  naming a `.cryptsl`, a row that names the withdrawn catalogue without a supersession
+  adendum, and a census that does not close.
+* **`divergence_record.csv`** — every row whose reason cites the withdrawn catalogue carries
+  the D-16 adendum, and the twelve whose reason rested on a sentence the oracle makes false
+  carry a tail of their own saying which sentence fell. None of them reverses a decision:
+  where the oracle opens a wiring or tightens an ordering, that is decided per clause at
+  tasks 11.5 and 11.6, with a harness pair and a divergence row.
+* **`constraint_table.csv`** and the value records were already re-anchored by D-15 and are
+  unchanged by D-16.
+
+Every record derived against the generated catalogue keeps its sentences and gains an
+adendum, rather than being rewritten: a row rewritten without them would make the api30 era
+unreadable, and the era is what the published measurements answer to.
 
 In `jca_android` the `ErrorType` `UnsafeAlgorithm` therefore means again what it meant in the
 published `jca`: **cryptographically insecure per the expert rule**. Any report comparing
@@ -354,6 +392,8 @@ deleting a report site. The one site that could have been lost is `SecretKeySpec
 condition had an allow-list half and a predicate half; `generated/api30/SecretKeySpec.cryptsl`
 declares `length(keyMaterial) >= off + len` and nothing about the algorithm, so the algorithm half
 left and the randomisation predicate — and with it the accusation and its report site — stayed.
+(D-15 restored that half against `SecretKeySpec.crysl:18`, and the census above is the Group-2
+one, read as history.)
 
 **Groups 5 to 7 more than doubled it, and that is the difference to explain.** The successor now
 holds **115** live sites against the seed's 50, and the growth is the predicate wiring itself: a
@@ -495,9 +535,13 @@ generator to the masked child OOM the invariant exists for (researcher decision,
 | file | what it records |
 |---|---|
 | `divergence_record.csv` | one entry per hunk of the successor set against the frozen `jca` seed, plus the two registered exceptions to literal transcription (`EC`, the four `SHA*withECDSA`). Group 7 added the kind `message`: a report site rewritten as a `v=1` envelope. |
-| `conformance_record.csv` | one row per specification against its rules -- the expert rule for value clauses, the api30 rule for ORDER and predicates: transcription verdicts, deferred constants, declared costs, and the divergences measured but not repaired — including the nine `guard-on-field` rows Group 7 declares and Group 8 task 8.16 repairs. |
+| `conformance_record.csv` | one row per specification against **the** expert rule (one `rule` column, one meaning, since task 11.4): transcription verdicts, withdrawals, deferred constants, declared costs, and the divergences measured but not repaired — including the nine `guard-on-field` rows Group 7 declares and Group 8 task 8.16 repairs. |
 | `alias_table.csv` | the Conscrypt `android11-release` alias table (175 rows, one per `Alg.Alias` registration of the pinned provider file), carried as code by `ConscryptAliasTable`. |
 | `constraint_table.csv` | one row per expert `CONSTRAINTS` clause of the paired rules plus one per `.mop` value test with no clause behind it (80 rows since D-15). |
 | `gate_allowlist.csv` | the remaining gate hits with a reason and the task that owns each. Since task 7.6 it also carries the ordering divergences the set keeps on purpose -- nine when 7.6 wrote them, **eight** today: task 9.11 repaired `KeyPairSpec`'s, and task 9.16 replaced `KeyStoreSpec`'s witness with one the set really rejects. `gh105_order_gate.py` reads the same file, and a row with an empty reason allows nothing. |
 | `predicate_graph.csv` | one row per predicate site: the clause it serves, the mechanism, and the disposition. It is what replaced byte-equality against the seed as the successor's predicate accounting. |
-| `order_alphabet_map.csv` | which `.mop` event is which symbol of the api30 rule, per specification. Never inferred: without a complete mapping G-ORDER skips and says so. |
+| `order_alphabet_map_expert.csv` | which `.mop` event is which symbol of the **expert** rule, per specification, matched by signature and never by name (task 11.2). This is the file `gh105_order_gate.py` reads. Never inferred: without a complete mapping G-ORDER skips and says so. |
+| `order_alphabet_map.csv` | the same associations against the withdrawn api30 rules. **Nothing reads it** (INV-INS-118); it is kept as the pre-D-16 record and is not a fallback. |
+| `order_alphabet_map_delta.csv` | what the substitution of oracle cost the map, association by association (task 11.2). |
+| `conformance_record_delta.csv` | the clause-by-clause census of the two catalogues: 35 pairs, 17 withdrawals, 43 restorations, and the three inverted comparisons (task 11.4). |
+| `predicate_ledger.csv`, `predicate_ledger_delta.csv` | the predicate clauses of the 49 expert rules with their dispositions, and the delta against the api30-derived ledger (task 11.1). |
