@@ -1894,7 +1894,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       the value check, making the repair pure category hygiene. Divergence row + satisfy/
       violate pair per the 9.B discipline; like 9.10, needs nothing from the reactor unless
       the normaliser API itself moves
-- [ ] 10.11 Verification for the group, the 9.18 mirror: `gh104_gates.py` exit 0 over
+- [x] 10.11 Verification for the group, the 9.18 mirror: `gh104_gates.py` exit 0 over
       `jca_android` (post-10.1/10.2, G-2a green with the four rows, G-PRED scoped); the
       G-2a parity assertion of 10.2 in place and red-green tested; the predicate-graph gate
       0 failing after 10.4; README counts re-derived by the census parser, never asserted as
