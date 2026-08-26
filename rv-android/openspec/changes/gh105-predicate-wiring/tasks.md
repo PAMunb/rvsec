@@ -1940,7 +1940,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       with the established dispositions (wired / unmonitored-* / vacuous /
       unreachable-composition / unclosable), each against the expert text; a disposition
       that only held under api30 is re-derived, not copied
-- [ ] 11.2 [record] Re-derive `order_alphabet_map.csv` against the expert `EVENTS`/`ORDER`
+- [x] 11.2 [record] Re-derive `order_alphabet_map.csv` against the expert `EVENTS`/`ORDER`
       for the 21 paired specifications: every map row re-keyed to the expert rule's symbols
       and line numbers; the aggregate labels differ (expert `Get, Load, GetEntry…` vs api30
       `Gets, Loads, gE…` — the KeyStore pair was diffed on 2026-08-25 and is structurally

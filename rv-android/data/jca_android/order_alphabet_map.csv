@@ -5,6 +5,15 @@
 # so it is never inferred. G-ORDER skips -- with the reason -- any specification
 # with no api30 rule or no rows here.
 #
+# D-16 (2026-08-26, task 11.2): this file is anchored on the withdrawn catalogue, and its
+# successor is `order_alphabet_map_expert.csv` -- the same associations and dispositions,
+# re-keyed to the expert rules' symbols and lines, derived by
+# `scripts/gh105_expert_alphabet.py`. What the move costs, row by row, is
+# `order_alphabet_map_delta.csv`; the reading of it is
+# `data/gh105/evidence/f8-order-alphabet-expert.md`. This file is still the one G-ORDER
+# reads: pointing the instruments at the sole oracle is task 11.3, and until it lands the
+# api30 anchors below are what the gate compares against.
+#
 # The mapping is not a bijection, on purpose and in both directions. The `.mop`
 # separates overloads to bind arguments (`CipherSpec.i2` is one event over the six
 # `init(int, Key, ...)` overloads the rule names apart), and the rule aggregates

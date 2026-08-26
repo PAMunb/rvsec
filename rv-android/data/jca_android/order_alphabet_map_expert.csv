@@ -1,0 +1,163 @@
+# The event-alphabet mapping re-anchored on the sole oracle (task 11.2, D-16). One row per
+# (`.mop` event -> `ORDER` symbol) association, per specification, exactly as
+# `order_alphabet_map.csv` carries it -- same associations, same dispositions, same
+# reasons -- with `order_symbol`, `symbol_kind`, `rule` and `rule_line` re-derived against
+# `RVSec-replication-package/tools/rules/`.
+#
+# Derived, never hand-written: `scripts/gh105_expert_alphabet.py --emit map` reproduces
+# this file byte for byte, and `--check` fails if it does not. The pairing between the two
+# catalogues is by signature and never by name -- `KeyPairGenerator`'s `i1..i4` are a
+# permutation between them and `Signature`'s `u1`/`u2` are swapped, so a re-anchoring by
+# name would look mechanical and be wrong exactly where it matters.
+#
+# What moved, and what did not: `order_alphabet_map_delta.csv` is the row-by-row account,
+# including the symbols each catalogue declares that no event of this set covers. Nothing
+# in either file moves a specification. Three rows change disposition under the expert
+# alphabet -- `MacSpec.updateBuffer`, `SecureRandomSpec.next1` and `next3`, erased under
+# api30 because the generated rule named no such call -- and each is a behavioural
+# consequence reserved for tasks 11.5/11.6, with a harness pair and a researcher decision.
+#
+# The two declared G-ORDER skips are unchanged and stay prose, never a data row:
+# `RandomStringPassword` and `IvChainJunction`. The expert catalogue enunciates no rule for
+# either -- there is no `RandomStringPassword.crysl` and no `IvChainJunction.crysl` among
+# the 49 -- so the reason the api30 map gives for each holds verbatim against the sole
+# oracle: the first bridges two JDK conversions no rule of the catalogue orders, and the
+# second states no ordering of its own and would compare a free star against Cipher's.
+spec,mop_event,order_symbol,symbol_kind,rule,rule_line,disposition,reason
+IvParameterSpec,c1,c1,event,IvParameterSpec.crysl,9,mapped,
+IvParameterSpec,c2,c2,event,IvParameterSpec.crysl,10,mapped,
+KeyPairGeneratorSpec,g1,g1,event,KeyPairGenerator.crysl,10,mapped,
+KeyPairGeneratorSpec,g2,g2,event,KeyPairGenerator.crysl,11,mapped,
+KeyPairGeneratorSpec,g3,,,KeyPairGenerator.crysl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; the rule states the algorithm in CONSTRAINTS, and an ORDER has no symbol for a call it rejects on a constraint"
+KeyPairGeneratorSpec,init1,i1,event,KeyPairGenerator.crysl,14,mapped,`initialize(int)` is the rule's keySize branch
+KeyPairGeneratorSpec,init2,i2,event,KeyPairGenerator.crysl,15,mapped,
+KeyPairGeneratorSpec,init3,i3,event,KeyPairGenerator.crysl,16,mapped,`initialize(AlgorithmParameterSpec)` is the rule's params branch
+KeyPairGeneratorSpec,init4,i4,event,KeyPairGenerator.crysl,17,mapped,
+KeyPairGeneratorSpec,initError,i1,event,KeyPairGenerator.crysl,14,mapped,"the rejected-key-size accuser over the same `initialize(int)` call as init1; task 3.6 absorbed it into the `Inits` group of the `ere`, where the rule already puts it -- `i3` is the call, and the size bound is a CONSTRAINTS clause, so the two events stand for one symbol and the erased languages are unchanged"
+KeyPairGeneratorSpec,gen,Gen,aggregate,KeyPairGenerator.crysl,22,mapped,"one event over both `generateKeyPair()` and `genKeyPair()`, which is the aggregate whole"
+PBEKeySpecSpec,f1,,,PBEKeySpec.crysl,,order-unmapped,"`PBEKeySpec(char[])` is a constructor the rule's EVENTS do not name at all; the event exists to accuse the forbidden overload, and a call outside the rule's alphabet has no ORDER symbol. Absorbed by task 3.5"
+PBEKeySpecSpec,f2,,,PBEKeySpec.crysl,,order-unmapped,"same as f1 for `PBEKeySpec(char[], byte[], int)`"
+PBEKeySpecSpec,c1,Con,aggregate,PBEKeySpec.crysl,15,mapped,
+PBEKeySpecSpec,c2,ClearPass,aggregate,PBEKeySpec.crysl,18,mapped,"`clearPassword()`, the rule's second and last ordered event"
+PBEParameterSpecSpec,c1,c1,event,PBEParameterSpec.crysl,9,mapped,
+PBEParameterSpecSpec,c2,c2,event,PBEParameterSpec.crysl,10,mapped,
+SSLContextSpec,g1,g1,event,SSLContext.crysl,14,mapped,
+SSLContextSpec,g2,g2,event,SSLContext.crysl,15,mapped,
+SSLContextSpec,init,Init,aggregate,SSLContext.crysl,19,mapped,"the rule names one init event and the `.mop` has one event for it: `i1: init(km, tm, random)` (`SSLContext.crysl:18`), held by `Init := i1` (`:19`). api30 wrote the same call with its third position wildcarded and the symbol itself named `Init`; the expert rule types that position as `java.security.SecureRandom` and binds it, which is what makes its `:34` `randomized[random]` a clause with a subject -- the D-16 delta that retires ledger clause #30's `vacuous` disposition"
+SSLContextSpec,engine,Engine,aggregate,SSLContext.crysl,23,mapped,"`createSSLEngine(..)` is one event over both overloads, which is the aggregate whole"
+SSLContextSpec,getDefault,,,SSLContext.crysl,,order-unmapped,"`getDefault()` is a FORBIDDEN clause and the rule's EVENTS do not name it, so it has no ORDER symbol -- the same reading as PBEKeySpecSpec.f1/f2 over the identical `PBEKeySpec(char[]) => Con` (`PBEKeySpec.crysl:10`). The oracle does write `getDefault() => Get` (`SSLContext.crysl:11`), which reads the forbidden call as filling the position the legitimate getInstance fills; this set deliberately does not model it that way, because making a forbidden call an alternative opening of the ordering is the opposite of what FORBIDDEN says (the reason PBEKeySpecSpec.mop:183-189 already records). The event is a self-loop at every state, so it moves the language nowhere and the erasure hides nothing. Added by task 9.9"
+SecretKeySpecSpec,c1,c1,event,SecretKeySpec.crysl,10,mapped,
+SecretKeySpecSpec,c2,c2,event,SecretKeySpec.crysl,11,mapped,
+SecureRandomSpec,c1,c1,event,SecureRandom.crysl,14,mapped,
+SecureRandomSpec,c2,c2,event,SecureRandom.crysl,15,mapped,
+SecureRandomSpec,g1,g1,event,SecureRandom.crysl,18,mapped,
+SecureRandomSpec,g2,g2,event,SecureRandom.crysl,19,mapped,
+SecureRandomSpec,g3,gI,event,SecureRandom.crysl,20,mapped,"`getInstanceStrong()`; the `.mop` numbers it g3 and the rule names it gI, which is exactly the kind of association that cannot be inferred from the name"
+SecureRandomSpec,g4,,,SecureRandom.crysl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String, ..)` calls as g1/g2; task 3.1 absorbs it"
+SecureRandomSpec,setSeed1,s2,event,SecureRandom.crysl,26,mapped,"`setSeed(long)` is the rule's s2 -- the numbering is crossed against the `.mop`, which is why this row exists"
+SecureRandomSpec,setSeed2,s1,event,SecureRandom.crysl,25,mapped,`setSeed(byte[])` is the rule's s1
+SecureRandomSpec,genSeed,gS,event,SecureRandom.crysl,29,mapped,
+SecureRandomSpec,next1,,,SecureRandom.crysl,,order-unmapped,"`nextInt(int)`. The erasure was correct against api30, whose only near event was `ne: next(numB)` -- the protected `next(int)` -- and which named no `nextInt` at all, so mapping the two together would have been an inference INV-INS-138 forbids. It is **not** correct against the sole oracle: `SecureRandom.crysl:33` declares `nIR: randIntInRange = nextInt(range)` and `:34` puts it inside `Next`, which the ORDER reaches through `End`. Kept erased here, for the same reason as `MacSpec.updateBuffer`: the repair changes what the automaton is compared against and belongs to 11.5/11.6"
+SecureRandomSpec,next2,nB,event,SecureRandom.crysl,31,mapped,"`nextBytes(byte[])`, the rule's `nB` (`SecureRandom.crysl:31`). This is the anchored case: a second `nextBytes()` used to be accused of a wrong call sequence because the automaton's end state omitted next2 -- 12,400 events, 99.98 % of them in libraries. Task 4.5 added the row against api30's `Ends*`; the expert ORDER `Ins, (Seed?, End*)*` (`:39`) keeps the repetition and adds one of its own, so the row holds and the mapping itself never changed"
+SecureRandomSpec,next3,,,SecureRandom.crysl,,order-unmapped,"`nextInt()` with no argument. Same reading as next1: api30 named no such event, the expert rule declares `nI: randInt = nextInt()` (`SecureRandom.crysl:32`, inside `Next`), and the erasure is kept pending 11.5/11.6"
+SecureRandomSpec,ints,,,SecureRandom.crysl,,order-unmapped,"`ints(..)` returns an IntStream and the rule names no stream event; the site exists to mark the stream randomized, not to order anything"
+SignatureSpec,g1,g1,event,Signature.crysl,19,mapped,
+SignatureSpec,g2,g2,event,Signature.crysl,20,mapped,
+SignatureSpec,i1,i1,event,Signature.crysl,23,mapped,
+SignatureSpec,i2,i2,event,Signature.crysl,24,mapped,
+SignatureSpec,i3,i3,event,Signature.crysl,25,mapped,
+SignatureSpec,i4,i4,event,Signature.crysl,26,mapped,
+SignatureSpec,update,Update,aggregate,Signature.crysl,34,mapped,"one `update(..)` event over all four overloads the rule names apart, which is the aggregate whole"
+SignatureSpec,s1,s1,event,Signature.crysl,36,mapped,
+SignatureSpec,s2,s2,event,Signature.crysl,37,mapped,
+SignatureSpec,v1,v1,event,Signature.crysl,40,mapped,
+SignatureSpec,v2,v2,event,Signature.crysl,41,mapped,
+TrustManagerFactorySpec,g1,g1,event,TrustManagerFactory.crysl,10,mapped,
+TrustManagerFactorySpec,g2,g2,event,TrustManagerFactory.crysl,11,mapped,
+TrustManagerFactorySpec,init,Init,aggregate,TrustManagerFactory.crysl,16,mapped,"one event over `init(KeyStore)` and `init(ManagerFactoryParameters)`, which is the aggregate whole"
+TrustManagerFactorySpec,gtm1,GetTrustMng,aggregate,TrustManagerFactory.crysl,19,mapped,"the association is with `getTrustManagers()`. Task 6.2 repaired the three defects that kept this event from ever firing -- the return type declared `KeyManager[]` where the API returns `TrustManager[]`, the parameter declared `TrustManager[][]`, and the target bound to a name the specification does not declare -- and none of them changed which rule event this is, only what it binds and whether it runs. The symbol is unchanged and so is this row; the `g1 i1 gtm` divergence the gate reports against this specification is the automatons and stays with task 7.1"
+CipherSpec,g1,g1,event,Cipher.crysl,40,mapped,
+CipherSpec,g2,g2,event,Cipher.crysl,41,mapped,
+CipherSpec,g3,,,Cipher.crysl,,order-unmapped,the invalid-transformation accuser over the same `getInstance(String)` call as g1; the transformation is a CONSTRAINTS matter
+CipherSpec,i1,i1,event,Cipher.crysl,44,mapped,"`init(int, Certificate, ..)` is one event over the rule's two certificate overloads"
+CipherSpec,i1,i2,event,Cipher.crysl,45,mapped,"the second half of the same pointcut: `init(encmode, cert, ranGen)`"
+CipherSpec,i2,i3,event,Cipher.crysl,46,mapped,"`init(int, Key, ..)` is one event over the rule's six key overloads (i3 to i8); the six rows are the non-bijection INV-INS-138 warns about"
+CipherSpec,i2,i4,event,Cipher.crysl,47,mapped,
+CipherSpec,i2,i5,event,Cipher.crysl,48,mapped,
+CipherSpec,i2,i6,event,Cipher.crysl,49,mapped,
+CipherSpec,i2,i7,event,Cipher.crysl,50,mapped,
+CipherSpec,i2,i8,event,Cipher.crysl,51,mapped,
+CipherSpec,u1,u1,event,Cipher.crysl,56,mapped,
+CipherSpec,u2,u2,event,Cipher.crysl,57,mapped,
+CipherSpec,u3,u3,event,Cipher.crysl,58,mapped,
+CipherSpec,u4,u4,event,Cipher.crysl,59,mapped,
+CipherSpec,u5,u5,event,Cipher.crysl,60,mapped,
+CipherSpec,wkb1,WKB,aggregate,Cipher.crysl,79,mapped,"`wrap(Key)`; the rule binds the wrapped key and the `.mop` binds the returned bytes, which is a binding difference and not an ordering one"
+CipherSpec,f1,f1,event,Cipher.crysl,68,mapped,
+CipherSpec,f2,f2,event,Cipher.crysl,69,mapped,"`doFinal(byte[], ..)` returning `byte[]` covers both of the rule's returning overloads that take an argument. Task 6.6 narrowed it off `doFinal()`, which is the rule's f1 and this file's; the two events used to match that one call between them, and the pointcut now says what this row already claimed"
+CipherSpec,f2,f4,event,Cipher.crysl,71,mapped,"the second half of the same pointcut: `doFinal(plainText, plain_off, len)`. The set declares no separate f4 event, which is why f4 is reachable only through this row"
+CipherSpec,f3,f3,event,Cipher.crysl,70,mapped,
+CipherSpec,f5,f5,event,Cipher.crysl,72,mapped,
+CipherSpec,f6,f6,event,Cipher.crysl,73,mapped,
+CipherSpec,f7,f7,event,Cipher.crysl,74,mapped,
+CipherInputStreamSpec,c1,Con,aggregate,CipherInputStream.crysl,12,mapped,"the pointcut is `call(public CipherInputStream.new(InputStream, Cipher))`, and under the sole oracle that is the whole constructor alphabet: `CipherInputStream.crysl:11` declares `c1: CipherInputStream(inputStream, cipher)` and no other constructor. api30 also declared the one-argument `CipherInputStream(is)` -- `protected` in android-30's `javax/crypto/CipherInputStream`, so no application call site could reach it -- and named it inside its `Constructs`. What was a deliberate narrowing of the pointcut against the old anchor is the alphabet itself against this one"
+CipherInputStreamSpec,r1,r1,event,CipherInputStream.crysl,14,mapped,"one event over `read()` and `read(byte[])`, which the rule names apart as r1 and r2"
+CipherInputStreamSpec,r1,r2,event,CipherInputStream.crysl,15,mapped,the second half of the same pointcut: `r2: read(b)`
+CipherInputStreamSpec,r2,r3,event,CipherInputStream.crysl,16,mapped,"`read(byte[], int, int)` is the rule's r3; the numbering is crossed against the `.mop`, whose r2 is the three-argument overload"
+CipherInputStreamSpec,cl1,Close,aggregate,CipherInputStream.crysl,20,mapped,
+CipherOutputStreamSpec,c1,Con,aggregate,CipherOutputStream.crysl,13,mapped,"the pointcut is `call(public CipherOutputStream.new(OutputStream, Cipher))`, and under the sole oracle that is the whole constructor alphabet: `CipherOutputStream.crysl:12` declares `c1: CipherOutputStream(outputStream, cipher)` and no other. api30 also declared the one-argument `CipherOutputStream(os)`, `protected` in android-30 and unreachable from an application call site; the expert rule does not name it"
+CipherOutputStreamSpec,w1,w1,event,CipherOutputStream.crysl,15,mapped,"`write(int)`, which the expert rule types by name: `w1: write(specifiedByte)` over `int specifiedByte` (`CipherOutputStream.crysl:9,15`)"
+CipherOutputStreamSpec,w1,w2,event,CipherOutputStream.crysl,16,mapped,"the second half of the same pointcut: `write(byte[])`, the rule's `w2: write(data)` over `byte[] data` (`CipherOutputStream.crysl:6,16`). Under api30 this row carried a warning, because that rule declared the byte-array parameter under an object literally named `byte` and reading its `w2` as the integer overload was a live risk; the expert rule types both positions and the risk is gone"
+CipherOutputStreamSpec,w2,w3,event,CipherOutputStream.crysl,17,mapped,"`write(byte[], int, int)` is the rule's w3"
+CipherOutputStreamSpec,fl,,,CipherOutputStream.crysl,,order-unmapped,"`flush()`. The rule's EVENTS declare no flush event at all -- `Con`, `Write := w1 | w2 | w3` and `Close` are the whole alphabet (`CipherOutputStream.crysl:11-21`) -- so the call is outside the rule's alphabet and has no ORDER symbol. Same reading as PBEKeySpecSpec.f1. The erasure exposes a divergence rather than hiding one: the `ere` puts `fl` inside the mandatory `(w1 | w2 | fl)+`, so a stream that only flushes reaches `cl`"
+CipherOutputStreamSpec,cl,Close,aggregate,CipherOutputStream.crysl,21,mapped,
+DHGenParameterSpecSpec,c1,Con,aggregate,DHGenParameterSpec.crysl,9,mapped,"the rule declares one event and the `.mop` one; the `condition(exponentSize < primeSize)` is a guard over the same call, not a second symbol"
+GCMParameterSpecSpec,c1,c1,event,GCMParameterSpec.crysl,10,mapped,
+GCMParameterSpecSpec,c2,c2,event,GCMParameterSpec.crysl,11,mapped,
+HMACParameterSpecSpec,c,Con,aggregate,HMACParameterSpec.crysl,8,mapped,"`new HMACParameterSpec(int)`; the `.mop` names the event `c` and the rule `c1`, an association the names do not give"
+KeyGeneratorSpec,g1,g1,event,KeyGenerator.crysl,11,mapped,`getInstance(String)` on the accepted-algorithm branch
+KeyGeneratorSpec,g2,g2,event,KeyGenerator.crysl,12,mapped,"`getInstance(String, Object+)` covers both provider overloads, which is the rule's `getInstance(alg, _)`"
+KeyGeneratorSpec,g3,,,KeyGenerator.crysl,,order-unmapped,the rejected-algorithm twin over the same `getInstance(String)` call as g1; the rule states the algorithm in CONSTRAINTS (:45) and an ORDER has no symbol for a call it rejects on a constraint
+KeyGeneratorSpec,init,i1,event,KeyGenerator.crysl,15,mapped,`init(int)` is the rule's keySize branch; this one event is also the rule's i3
+KeyGeneratorSpec,init,i3,event,KeyGenerator.crysl,17,mapped,the second half of the same pointcut: `init(AlgorithmParameterSpec)` is the rule's params branch
+KeyGeneratorSpec,initRandom,i5,event,KeyGenerator.crysl,19,mapped,`init(SecureRandom)`; split off the merged init event so `randomized[ranGen]` has the argument bound
+KeyGeneratorSpec,initRandomSize,i2,event,KeyGenerator.crysl,16,mapped,"`init(int, SecureRandom)`"
+KeyGeneratorSpec,initRandomSpec,i4,event,KeyGenerator.crysl,18,mapped,"`init(AlgorithmParameterSpec, SecureRandom)`"
+KeyGeneratorSpec,gk1,GenKey,aggregate,KeyGenerator.crysl,23,mapped,`generateKey()`
+KeyManagerFactorySpec,g1,g1,event,KeyManagerFactory.crysl,11,mapped,
+KeyManagerFactorySpec,g2,g2,event,KeyManagerFactory.crysl,12,mapped,
+KeyManagerFactorySpec,g3,,,KeyManagerFactory.crysl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; the rule states `algo in {PKIX}` in CONSTRAINTS, and an ORDER has no symbol for a call it rejects on a constraint. Same reading as KeyPairGeneratorSpec.g3 and CipherSpec.g3"
+KeyManagerFactorySpec,init,Init,aggregate,KeyManagerFactory.crysl,17,mapped,"one event over `init(KeyStore, char[])` and `init(ManagerFactoryParameters)`, which is the rule's `Init := i1 | i2` whole; the same shape as TrustManagerFactorySpec.init"
+KeyManagerFactorySpec,gkm1,GetKeyMng,aggregate,KeyManagerFactory.crysl,20,mapped,`kms = getKeyManagers()`; the `.mop` numbers it gkm1 and the rule gkm
+KeyPairSpec,c1,Con,aggregate,KeyPair.crysl,11,mapped,"`new KeyPair(PublicKey, PrivateKey)` is the rule's `c1: KeyPair(publicKey, privateKey)` (`KeyPair.crysl:10`), held by `Con` (`:11`); the two REQUIRES the body reads are CONSTRAINTS-side clauses and cost no symbol"
+KeyPairSpec,gpu,GetPubl,aggregate,KeyPair.crysl,14,mapped,
+KeyPairSpec,gpr,GetPriv,aggregate,KeyPair.crysl,17,mapped,
+KeyStoreSpec,g1,g1,event,KeyStore.crysl,27,mapped,`getInstance(String)` on the accepted-type branch; the rule's g1 is the one-argument overload
+KeyStoreSpec,g2,,,KeyStore.crysl,,order-unmapped,"the rejected-type twin over the same `getInstance(String)` call as g1 -- the pointcut is the same one-argument overload under the negated `ConscryptAliasTable.matches` guard, so this is NOT the rule's g2, which is `getInstance(type, _)` (`KeyStore.crysl:28`). The type is a CONSTRAINTS clause (`type in {..}`, `:52`) and an ORDER has no symbol for a call it rejects on a constraint"
+KeyStoreSpec,load,Load,aggregate,KeyStore.crysl,33,mapped,"one `load(..)` event over both `load(InputStream, char[])` and `load(LoadStoreParameter)`, which is the aggregate whole"
+KeyStoreSpec,store,Store,aggregate,KeyStore.crysl,37,mapped,"one `store(..)` event over both `store(LoadStoreParameter)` and `store(OutputStream, char[])`, which is the aggregate whole"
+KeyStoreSpec,ge1,GetEntry,aggregate,KeyStore.crysl,40,mapped,"`getEntry(String, ProtectionParameter)`"
+KeyStoreSpec,se1,SetEntry,aggregate,KeyStore.crysl,43,mapped,"`setEntry(String, Entry, ProtectionParameter)`"
+KeyStoreSpec,gk1,GetKey,aggregate,KeyStore.crysl,46,mapped,"`getKey(String, char[])`; the `.mop` binds the returned Key, which is what the rule's `key = getKey(..)` binds"
+KeyStoreSpec,g3,g2,event,KeyStore.crysl,28,mapped,"`getInstance(String, Object+)` -- the rule's own `g2: getInstance(type, _)` (`KeyStore.crysl:28`), whose wildcard second position is what the `Object+` pointcut covers. Added by task 9.16; before it the file had no two-argument event at all and the rule's g2 had no `.mop` symbol"
+MacSpec,g1,g1,event,Mac.crysl,19,mapped,"`getInstance(String)`, the rule's `g1: getInstance(algorithm)` (`Mac.crysl:19`). The association needed a judgement under api30, whose rule declared `getInstance(macAlg)` twice -- as `g1` and again as `g2` -- so the two could not be told apart by their text; the expert rule writes the one-argument overload once and the row is now a plain reading"
+MacSpec,g2,g2,event,Mac.crysl,20,mapped,"`getInstance(String, String)`, the provider overload, which the rule writes as `g2: getInstance(algorithm, _)` (`Mac.crysl:20`). This is the row api30 could not support: its `g2` repeated `g1`'s one-argument signature, so the `.mop` event for the two-argument call was matched to a symbol that did not name it. `getInstance(String, Provider)` exists on android-30 and neither catalogue declares it"
+MacSpec,g3,,,Mac.crysl,,order-unmapped,the unsafe-algorithm accuser over the same `getInstance(String)` call as g1; `algorithm in {..}` is a CONSTRAINTS clause (`Mac.crysl:44`) and an ORDER has no symbol for a call it rejects on a constraint. Same reading as CipherSpec.g3 and KeyPairGeneratorSpec.g3. The erasure is also what makes the `ere`'s `g3* g1 | g3* g2` prefix read as the rule's `Get`
+MacSpec,i1,i1,event,Mac.crysl,23,mapped,`init(Key)`
+MacSpec,i2,i2,event,Mac.crysl,24,mapped,"`init(Key, AlgorithmParameterSpec)`"
+MacSpec,update,u1,event,Mac.crysl,27,mapped,"`update(byte)`; the rule's `u1: update(inputByte)` is over the primitive `byte inputByte` (`Mac.crysl:6,27`). The `.mop` keeps the name `update` for this one overload after the aggregate split"
+MacSpec,updateBytes,u2,event,Mac.crysl,28,mapped,"`update(byte[])`, the rule's `u2: update(preInput)` (`Mac.crysl:7,28`). Under api30 this event needed two rows, because that rule declared the same signature as both `u2` and `u4` and the map claimed both so no symbol went unclaimed; the expert rule declares it once and the second row is withdrawn (see `order_alphabet_map_delta.csv`, klass `withdrawn-duplicate`)"
+MacSpec,updateRange,u3,event,Mac.crysl,29,mapped,"`update(byte[], int, int)`"
+MacSpec,updateBuffer,,,Mac.crysl,,order-unmapped,"`update(ByteBuffer)`. The erasure was correct against api30, which declared no such overload -- its `Updates` named four events and none of them was this one. It is **not** correct against the sole oracle: `Mac.crysl:30` declares `u4: update(preInputByteBuffer)` and `:31` puts it inside `Update`, so the call the erasure removes from both languages is a call this rule orders. The disposition is kept here on purpose and not repaired: mapping it changes the language the automaton is compared against, which is a behavioural change and belongs to a task carrying a harness pair and a researcher decision (11.5/11.6). Task 11.2 records the fact and moves nothing"
+MacSpec,f1,f1,event,Mac.crysl,33,mapped,"`doFinal()` returning `byte[]`, the rule's `f1: output1 = doFinal()`"
+MacSpec,f1Input,FinalWU,aggregate,Mac.crysl,36,mapped,"`doFinal(byte[])` is the rule's f2; the numbering is crossed against the `.mop`, whose f2 is the rule's f3"
+MacSpec,f2,f3,event,Mac.crysl,35,mapped,"`doFinal(byte[], int)` is the rule's `f3: doFinal(output1, outOffset)`, the overload that writes the tag into a buffer the caller owns"
+MessageDigestSpec,g1,g1,event,MessageDigest.crysl,16,mapped,`getInstance(String)` on the accepted-algorithm branch
+MessageDigestSpec,g2,g2,event,MessageDigest.crysl,17,mapped,"`getInstance(String, String)`; the rule's g2 is `getInstance(digestAlg, _)`, one symbol over both provider overloads"
+MessageDigestSpec,g3,g2,event,MessageDigest.crysl,17,mapped,"`getInstance(String, Provider)`, the other half of the rule's `_`; two `.mop` events stand for the one symbol"
+MessageDigestSpec,g4,,,MessageDigest.crysl,,order-unmapped,"the rejected-algorithm accuser over the same `getInstance(String)` call as g1; it carries MESSAGEDIGEST-ALG-02 in its own body, so deleting it would lose a report, and the rule states the algorithm in CONSTRAINTS (:63), not in ORDER"
+MessageDigestSpec,update,Update,aggregate,MessageDigest.crysl,24,mapped,"one `update(..)` event over all four overloads the rule names apart, which is the aggregate whole"
+MessageDigestSpec,d1,d1,event,MessageDigest.crysl,26,mapped,`digest()`
+MessageDigestSpec,d2,DWOU,aggregate,MessageDigest.crysl,29,mapped,"`digest(byte[])`, the rule's DWOU"
+MessageDigestSpec,d3,d3,event,MessageDigest.crysl,28,mapped,"`digest(byte[], int, int)`"
+SecretKeySpec,e1,GetEnc,aggregate,SecretKey.crysl,8,mapped,"this specification translates `SecretKey.crysl`, not `SecretKeySpec.crysl` -- its object is `javax.crypto.SecretKey` and its one event is `getEncoded()`, the rule's `ge1` inside `GetEnc` (`SecretKey.crysl:7-8`)"

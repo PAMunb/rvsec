@@ -1,0 +1,170 @@
+# What re-anchoring `order_alphabet_map.csv` on the expert catalogue costs, row by row
+# (task 11.2, D-16). Derived by `scripts/gh105_expert_alphabet.py --emit delta`.
+#
+# `klass` reads:
+#   same-name                the expert rule names the same call by the same symbol
+#   renamed                  same call, same grouping, different symbol
+#   regrouped                same call, and a differently shaped aggregate holds it
+#   narrowed                 the api30 symbol stood for calls the expert rule splits apart
+#   unpaired                 the api30 symbol names a call the expert rule does not
+#   order-unmapped           the row erases the event from both languages (INV-INS-138)
+#   uncovered-expert-symbol  the expert rule declares it and no `.mop` event of the set
+#                            observes it -- the KeyStore setter case, generalised
+#   withdrawn-api30-symbol   api30 declared it and the expert rule does not
+#
+# An `order-unmapped` row whose erasure rested on the api30 alphabet is not silently
+# reopened here: the row keeps its disposition, and the fact that the expert rule does name
+# the call is what the accompanying evidence records for tasks 11.5/11.6.
+spec,mop_event,api30_symbol,expert_symbol,klass,signature,note
+IvParameterSpec,c1,cons1,c1,renamed,IvParameterSpec(iv),
+IvParameterSpec,c2,cons2,c2,renamed,"IvParameterSpec(iv, offset, len)",
+KeyPairGeneratorSpec,g1,g1,g1,same-name,getInstance(alg),
+KeyPairGeneratorSpec,g2,g2,g2,same-name,"getInstance(alg, _)",
+KeyPairGeneratorSpec,g3,,,order-unmapped,,order-unmapped
+KeyPairGeneratorSpec,init1,i3,i1,renamed,initialize(keySize),
+KeyPairGeneratorSpec,init2,i4,i2,renamed,"initialize(keySize, _)",
+KeyPairGeneratorSpec,init3,i1,i3,renamed,initialize(params),
+KeyPairGeneratorSpec,init4,i2,i4,renamed,"initialize(params, _)",
+KeyPairGeneratorSpec,initError,i3,i1,renamed,initialize(keySize),
+KeyPairGeneratorSpec,gen,Generators,Gen,renamed,kp = generateKeyPair(); kp = genKeyPair(),
+PBEKeySpecSpec,f1,,,order-unmapped,,order-unmapped
+PBEKeySpecSpec,f2,,,order-unmapped,,order-unmapped
+PBEKeySpecSpec,c1,c1,Con,renamed,"PBEKeySpec(password, salt, iterationCount, keylength)",
+PBEKeySpecSpec,c2,cP,ClearPass,renamed,clearPassword(),
+PBEParameterSpecSpec,c1,c1,c1,same-name,"PBEParameterSpec(salt, iterationCount)",
+PBEParameterSpecSpec,c2,c2,c2,same-name,"PBEParameterSpec(salt, iterationCount, paramSpec)",
+SSLContextSpec,g1,g1,g1,same-name,getInstance(protocol),
+SSLContextSpec,g2,g2,g2,same-name,"getInstance(protocol, _)",
+SSLContextSpec,init,Init,Init,same-name,"init(kms, tms, _)",
+SSLContextSpec,engine,Engine,Engine,same-name,"eng = createSSLEngine(); eng = createSSLEngine(_, _)",
+SSLContextSpec,getDefault,,,order-unmapped,,order-unmapped
+SecretKeySpecSpec,c1,c1,c1,same-name,"SecretKeySpec(keyMaterial, alg)",
+SecretKeySpecSpec,c2,c2,c2,same-name,"SecretKeySpec(keyMaterial, off, len, alg)",
+SecureRandomSpec,c1,c1,c1,same-name,SecureRandom(),
+SecureRandomSpec,c2,c2,c2,same-name,SecureRandom(seed),
+SecureRandomSpec,g1,g1,g1,same-name,getInstance(randAlg),
+SecureRandomSpec,g2,g2,g2,same-name,"getInstance(randAlg, _)",
+SecureRandomSpec,g3,gI,gI,same-name,getInstanceStrong(),
+SecureRandomSpec,g4,,,order-unmapped,,order-unmapped
+SecureRandomSpec,setSeed1,s2,s2,same-name,setSeed(lSeed),
+SecureRandomSpec,setSeed2,s1,s1,same-name,setSeed(seed),
+SecureRandomSpec,genSeed,gS,gS,same-name,genSeed = generateSeed(num),
+SecureRandomSpec,next1,,,order-unmapped,,order-unmapped
+SecureRandomSpec,next2,nB,nB,same-name,nextBytes(next),
+SecureRandomSpec,next3,,,order-unmapped,,order-unmapped
+SecureRandomSpec,ints,,,order-unmapped,,order-unmapped
+SignatureSpec,g1,g1,g1,same-name,getInstance(alg),
+SignatureSpec,g2,g2,g2,same-name,"getInstance(alg, _)",
+SignatureSpec,i1,i1,i1,same-name,initSign(priv),
+SignatureSpec,i2,i2,i2,same-name,"initSign(priv, _)",
+SignatureSpec,i3,i3,i3,same-name,initVerify(cert),
+SignatureSpec,i4,i4,i4,same-name,initVerify(pub),
+SignatureSpec,update,Updates,Update,renamed,"update(inpb); update(inpba); update(inpba, offset, len); update(inpBuf)",
+SignatureSpec,s1,s1,s1,same-name,out = sign(),
+SignatureSpec,s2,s2,s2,same-name,"sign(out, offset, len)",
+SignatureSpec,v1,v1,v1,same-name,verify(sign),
+SignatureSpec,v2,v2,v2,same-name,"verify(sign, offset, len)",
+TrustManagerFactorySpec,g1,g1,g1,same-name,getInstance(algo),
+TrustManagerFactorySpec,g2,g2,g2,same-name,"getInstance(algo, _)",
+TrustManagerFactorySpec,init,Init,Init,same-name,init(keyStore); init(params),
+TrustManagerFactorySpec,gtm1,gtm,GetTrustMng,renamed,tms = getTrustManagers(),
+CipherSpec,g1,g1,g1,same-name,getInstance(transformation),
+CipherSpec,g2,g2,g2,same-name,"getInstance(transformation, _)",
+CipherSpec,g3,,,order-unmapped,,order-unmapped
+CipherSpec,i1,i1,i1,same-name,"init(encmode, cert)",
+CipherSpec,i1,i2,i2,same-name,"init(encmode, cert, ranGen)",
+CipherSpec,i2,i3,i3,same-name,"init(encmode, key)",
+CipherSpec,i2,i4,i4,same-name,"init(encmode, key, params)",
+CipherSpec,i2,i5,i5,same-name,"init(encmode, key, param)",
+CipherSpec,i2,i6,i6,same-name,"init(encmode, key, params, ranGen)",
+CipherSpec,i2,i7,i7,same-name,"init(encmode, key, param, ranGen)",
+CipherSpec,i2,i8,i8,same-name,"init(encmode, key, ranGen)",
+CipherSpec,u1,u1,u1,same-name,pre_ciphertext = update(pre_plaintext),
+CipherSpec,u2,u2,u2,same-name,"pre_ciphertext = update(pre_plaintext, pre_plain_off, _)",
+CipherSpec,u3,u3,u3,same-name,"update(pre_plaintext, pre_plain_off, pre_len, pre_ciphertext)",
+CipherSpec,u4,u4,u4,same-name,"update(pre_plaintext, pre_plain_off, pre_len, pre_ciphertext, pre_ciphertext_off)",
+CipherSpec,u5,u5,u5,same-name,"update(pre_plainBuffer, pre_cipherBuffer)",
+CipherSpec,wkb1,w,WKB,renamed,wrap(wrappedKey),
+CipherSpec,f1,f1,f1,same-name,cipherText = doFinal(),
+CipherSpec,f2,f2,f2,same-name,cipherText = doFinal(plainText),
+CipherSpec,f2,f4,f4,same-name,"cipherText = doFinal(plainText, plain_off, len)",
+CipherSpec,f3,f3,f3,same-name,"doFinal(cipherText, ciphertext_off)",
+CipherSpec,f5,f5,f5,same-name,"doFinal(plainText, plain_off, len, cipherText)",
+CipherSpec,f6,f6,f6,same-name,"doFinal(plainText, plain_off, len, cipherText, ciphertext_off)",
+CipherSpec,f7,f7,f7,same-name,"doFinal(plainBuffer, cipherBuffer)",
+CipherInputStreamSpec,c1,c2,Con,renamed,"CipherInputStream(is, ciph)",
+CipherInputStreamSpec,r1,r1,r1,same-name,read(),
+CipherInputStreamSpec,r1,r2,r2,same-name,read(b),
+CipherInputStreamSpec,r2,r3,r3,same-name,"read(b, off, len)",
+CipherInputStreamSpec,cl1,c,Close,renamed,close(),
+CipherOutputStreamSpec,c1,c2,Con,renamed,"CipherOutputStream(os, ciph)",
+CipherOutputStreamSpec,w1,w1,w1,same-name,write(b),
+CipherOutputStreamSpec,w1,w2,w2,same-name,write(byte),
+CipherOutputStreamSpec,w2,w3,w3,same-name,"write(byte, off, len)",
+CipherOutputStreamSpec,fl,,,order-unmapped,,order-unmapped
+CipherOutputStreamSpec,cl,c,Close,renamed,close(),
+DHGenParameterSpecSpec,c1,c1,Con,renamed,"DHGenParameterSpec(primeSize, exponentSize)",
+GCMParameterSpecSpec,c1,c1,c1,same-name,"GCMParameterSpec(tLen, src)",
+GCMParameterSpecSpec,c2,c2,c2,same-name,"GCMParameterSpec(tLen, src, offset, len)",
+HMACParameterSpecSpec,c,c1,Con,renamed,HMACParameterSpec(outputLength),
+KeyGeneratorSpec,g1,g1,g1,same-name,getInstance(alg),
+KeyGeneratorSpec,g2,g2,g2,same-name,"getInstance(alg, _)",
+KeyGeneratorSpec,g3,,,order-unmapped,,order-unmapped
+KeyGeneratorSpec,init,i1,i1,same-name,init(keySize),
+KeyGeneratorSpec,init,i3,i3,same-name,init(params),
+KeyGeneratorSpec,initRandom,i5,i5,same-name,init(ranGen),
+KeyGeneratorSpec,initRandomSize,i2,i2,same-name,"init(keySize, ranGen)",
+KeyGeneratorSpec,initRandomSpec,i4,i4,same-name,"init(params, ranGen)",
+KeyGeneratorSpec,gk1,gk,GenKey,renamed,key = generateKey(),
+KeyManagerFactorySpec,g1,g1,g1,same-name,getInstance(algo),
+KeyManagerFactorySpec,g2,g2,g2,same-name,"getInstance(algo, _)",
+KeyManagerFactorySpec,g3,,,order-unmapped,,order-unmapped
+KeyManagerFactorySpec,init,Init,Init,same-name,"init(keyStore, password); init(params)",
+KeyManagerFactorySpec,gkm1,gkm,GetKeyMng,renamed,kms = getKeyManagers(),
+KeyPairSpec,c1,co,Con,renamed,"KeyPair(consPub, consPriv)",
+KeyPairSpec,gpu,pu,GetPubl,renamed,retPub = getPublic(),
+KeyPairSpec,gpr,pr,GetPriv,renamed,retPriv = getPrivate(),
+KeyStoreSpec,g1,g1,g1,same-name,getInstance(keyStoreAlg),
+KeyStoreSpec,g2,,,order-unmapped,,order-unmapped
+KeyStoreSpec,load,Loads,Load,renamed,"load(fileinput, passwordIn); load(paramLoad)",
+KeyStoreSpec,store,Stores,Store,renamed,"store(paramStore); store(fileoutput, passwordOut)",
+KeyStoreSpec,ge1,gE,GetEntry,renamed,"getEntry(aliasGet, protParamGet)",
+KeyStoreSpec,se1,sE,SetEntry,renamed,"setEntry(aliasSet, entry, protParamSet)",
+KeyStoreSpec,gk1,gk,GetKey,renamed,"key = getKey(alias, passwordKey)",
+KeyStoreSpec,g3,g2,g2,same-name,"getInstance(keyStoreAlg, _)",
+MacSpec,g1,g1,g1,duplicate-settled,getInstance(macAlg),"`getInstance(String)`; api30 declares this signature as both g1 and g2, and the expert rule writes it once, as g1"
+MacSpec,g2,g2,g2,duplicate-settled,getInstance(macAlg),"the provider overload the `.mop` event observes, `getInstance(String, String)`. api30's g2 repeats g1's one-argument signature; the expert rule writes the overload as `g2: getInstance(algorithm, _)`"
+MacSpec,g3,,,order-unmapped,,order-unmapped
+MacSpec,i1,i1,i1,same-name,init(key),
+MacSpec,i2,i2,i2,same-name,"init(key, params)",
+MacSpec,update,u1,u1,same-name,update(inp),
+MacSpec,updateBytes,u2,u2,duplicate-settled,update(pre_input),"`update(byte[])`; api30 declares this signature as both u2 and u4, and the expert rule writes it once, as u2"
+MacSpec,updateBytes,u4,,withdrawn-duplicate,update(pre_input),"api30's u4 is its second declaration of `update(byte[])`, and the map carries a row for it only so that no symbol of the rule goes unclaimed. The expert rule writes `u4: update(ByteBuffer)` -- a different call, which this set observes at `MacSpec.updateBuffer` -- so the duplicate has no expert counterpart and the row that held it is withdrawn"
+MacSpec,updateRange,u3,u3,same-name,"update(pre_input, offset, len)",
+MacSpec,updateBuffer,,,order-unmapped,,order-unmapped
+MacSpec,f1,f1,f1,same-name,output1 = doFinal(),
+MacSpec,f1Input,f2,FinalWU,renamed,output2 = doFinal(input),
+MacSpec,f2,f3,f3,same-name,"doFinal(output1, outOffset)",
+MessageDigestSpec,g1,g1,g1,same-name,getInstance(digestAlg),
+MessageDigestSpec,g2,g2,g2,same-name,"getInstance(digestAlg, _)",
+MessageDigestSpec,g3,g2,g2,same-name,"getInstance(digestAlg, _)",
+MessageDigestSpec,g4,,,order-unmapped,,order-unmapped
+MessageDigestSpec,update,Updates,Update,renamed,"update(pre_inbyte); update(pre_inbytearr); update(pre_inbytearr, pre_off, pre_len); update(pre_inpBuf)",
+MessageDigestSpec,d1,d1,d1,same-name,out = digest(),
+MessageDigestSpec,d2,d2,DWOU,renamed,out = digest(inbytearr),
+MessageDigestSpec,d3,d3,d3,same-name,"digest(out, off, len)",
+SecretKeySpec,e1,ge,GetEnc,renamed,keyMaterial = getEncoded(),
+,,,Cipher.crysl:ua1,uncovered-expert-symbol,updateAAD(aadBytes),named by the expert ORDER
+,,,Cipher.crysl:ua2,uncovered-expert-symbol,"updateAAD(aadBytes, aadOffset, aadLen)",named by the expert ORDER
+,,,Cipher.crysl:ua3,uncovered-expert-symbol,updateAAD(aadByteBuffer),named by the expert ORDER
+,,iv,Cipher.crysl:iv1,uncovered-expert-symbol,getIV(),declared and never used by the expert ORDER
+,,CipherInputStream.cryptsl:c1,,withdrawn-api30-symbol,CipherInputStream(is),named by the api30 ORDER
+,,CipherOutputStream.cryptsl:c1,,withdrawn-api30-symbol,CipherOutputStream(os),named by the api30 ORDER
+,,KeyStore.cryptsl:scE,,withdrawn-api30-symbol,"setCertificateEntry(alias, cert)",declared and never used by the api30 ORDER
+,,KeyStore.cryptsl:skE1,,withdrawn-api30-symbol,"setKeyEntry(alias, byteKey, chain)",declared and never used by the api30 ORDER
+,,KeyStore.cryptsl:skE2,,withdrawn-api30-symbol,"setKeyEntry(alias, key, passwordKey, chain)",declared and never used by the api30 ORDER
+,,,Mac.crysl:u4,uncovered-expert-symbol,update(preInputByteBuffer),named by the expert ORDER
+,,d,SecretKey.crysl:d1,uncovered-expert-symbol,destroy(),named by the expert ORDER
+,,,SecureRandom.crysl:nI,uncovered-expert-symbol,randInt = nextInt(),named by the expert ORDER
+,,,SecureRandom.crysl:nIR,uncovered-expert-symbol,randIntInRange = nextInt(range),named by the expert ORDER
+,,SecureRandom.cryptsl:ne,,withdrawn-api30-symbol,next(numB),named by the api30 ORDER
