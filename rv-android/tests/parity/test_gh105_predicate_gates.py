@@ -2030,25 +2030,28 @@ def test_inv_ins_140_genericity(suite):
 # diverge over a mis-keying, and the gate would report it as an ordering defect.
 ORDER_MAP = REPO / "data/jca_android/order_alphabet_map_expert.csv"
 
-#: The six divergences G-ORDER reports over `jca_android` since the oracle became
-#: the pinned expert copy, pinned by specification and by witness so that neither
-#: a seventh appearing nor one of these closing can pass unnoticed. They are open
-#: work with owners, not a baseline: four are the divergence the allow-list already
-#: forgave, with the witness written in the expert rule's symbols instead of api30's
-#: -- `CipherOutputStreamSpec` (`c2 c` before), `KeyGeneratorSpec` (`g1 g1 gk`),
-#: `SSLContextSpec` (`g1 Init se1 se1`) and `SecretKeySpec` (`d`) -- and task 11.4
-#: re-keys their rows. The other two are new and behavioural, and belong to task
-#: 11.6 and a researcher decision per clause: `KeyPairSpec`, where the expert ORDER
-#: requires the constructor against the `(c1 | epsilon)` task 9.11 wrote over 668
-#: measured lines of corpus, and `MacSpec`, where `g1 i1 f1` is a MAC over nothing
-#: that api30 accepted only because it fused both branches into `Finals`.
+#: The two divergences G-ORDER still reports over `jca_android`, pinned by
+#: specification and by witness so that neither a third appearing nor one of these
+#: closing can pass unnoticed. They are open work with owners, not a baseline, and
+#: both are behavioural: they belong to task 11.6 and a researcher decision per
+#: clause. `KeyPairSpec` is the expert ORDER requiring the constructor against the
+#: `(c1 | epsilon)` task 9.11 wrote over 668 measured lines of corpus, and `MacSpec`
+#: is `g1 i1 f1` -- a MAC over nothing, which api30 accepted only because it fused
+#: both branches into `Finals`.
+#:
+#: Task 11.3 left six here. Four of them were the allow-list's own rows with the
+#: witness written in the withdrawn catalogue's symbols -- `CipherOutputStreamSpec`
+#: (`c2 c` before), `KeyGeneratorSpec` (`g1 g1 gk`), `SSLContextSpec`
+#: (`g1 Init se1 se1`) and `SecretKeySpec` (`d`) -- and task 11.4 re-keyed and
+#: re-justified them against the expert ORDER, which is why they are allowances
+#: again and not findings. A fifth row left the allow-list entirely at 11.4:
+#: `CipherInputStreamSpec`'s `c1 r1 c` forgave a rule symbol that only the generated
+#: catalogue had -- a one-argument constructor android-30 declares `protected` --
+#: and the expert rule's `c1` is the two-argument one the pointcut already matches,
+#: so the divergence closed rather than moved.
 OPEN_ORDER_DIVERGENCES = {
-    ("CipherOutputStreamSpec", ("c1", "cl1")),
-    ("KeyGeneratorSpec", ("g1", "g1", "gk1")),
     ("KeyPairSpec", ()),
     ("MacSpec", ("g1", "i1", "f1")),
-    ("SSLContextSpec", ("g1", "i1", "se1", "se1")),
-    ("SecretKeySpec", ("d1",)),
 }
 
 
@@ -2370,13 +2373,12 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     reports the first counterexample it finds, then reached `g1 l1 g1 l1`.
 
     Task 11.3 took it to 13 passed / 6 failed / 3 allowed by substituting the
-    oracle. The six are `OPEN_ORDER_DIVERGENCES` and the comment there says who
-    owns each; four of them are allow-listed rows whose witness is now written in
-    the other catalogue's symbols, which is why the healthy run has three
-    allowances where it had eight. `CipherSpec` is not among the six: its row
-    forgives `g1 i1 u1` under both catalogues, which is what makes it the mutant's
-    subject here and keeps this test measuring the gate rather than the
-    substitution.
+    oracle, and task 11.4 took it to 13 / 2 / 7 by re-keying four of those six
+    rows against the expert ORDER and retiring a fifth that had nothing left to
+    forgive. The two that remain are `OPEN_ORDER_DIVERGENCES` and the comment
+    there says who owns each. `CipherSpec` is not among them: its row forgives
+    `g1 i1 u1` under both catalogues, which is what makes it the mutant's subject
+    here and keeps this test measuring the gate rather than the substitution.
     """
     result = gh105_order_gate.run(
         _specs_root(),
@@ -2394,14 +2396,14 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     cipher = next(f for f in result.findings if f.spec == "CipherSpec")
     assert cipher.witness == ("g1", "i1", "u1")
     assert cipher.accepted_by == "the specification"
-    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (13, 2, 2)
+    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (13, 6, 2)
 
     # And the run beside it, from the same code path: the difference between the
     # two is the one field, so the gate is what is being measured here.
     assert {
         (finding.spec, finding.witness) for finding in healthy.findings
     } == OPEN_ORDER_DIVERGENCES
-    assert (len(healthy.passed), len(healthy.allowed)) == (13, 3)
+    assert (len(healthy.passed), len(healthy.allowed)) == (13, 7)
 
 
 def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
@@ -2414,27 +2416,29 @@ def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
     decision, and a decision nobody wrote down is a measurement again. An empty
     `witness` is the sharper one -- keyed on the specification alone, a row that
     forgives one measured divergence forgives every future one of the same file,
-    and eight of the twenty-two compared specifications would quietly stop being
+    and seven of the twenty-two compared specifications would quietly stop being
     guarded.
 
     Both are asserted at the reader, where the row is dropped, and at the run,
     where the divergence comes back: dropping the row from the set and still
     passing the specification would be a gate that forgave by accident.
 
-    Eight rows where this test was written with nine, and the missing one is a
-    repair rather than a relaxation: task 9.11 made `KeyPairSpec`'s constructor
-    optional, so the empty sequence its row forgave is now accepted by the
-    specification too, and the row was retired instead of being left to forgive a
+    Seven rows where this test was written with nine, and both departures are
+    repairs rather than relaxations. Task 9.11 made `KeyPairSpec`'s constructor
+    optional, so the empty sequence its row forgave was accepted by the
+    specification too. Task 11.4 retired `CipherInputStreamSpec`'s: it forgave a
+    symbol only the withdrawn catalogue declared, and the expert rule states no such
+    event, so the row had nothing left to forgive. Neither was left standing over a
     divergence that no longer exists.
     """
     live = gh105_order_gate.read_allowlist(ALLOWLIST)
-    assert len(live) == 8
+    assert len(live) == 7
     assert ("jca_android", "CipherSpec", "order", "g1 i1 u1") in live
 
     for field, blank in (("reason", ""), ("witness", "")):
         path = _allowlist_variant(tmp_path, **{field: blank})
         admitted = gh105_order_gate.read_allowlist(path)
-        assert len(admitted) == 7, field
+        assert len(admitted) == 6, field
         assert not any(spec == "CipherSpec" for _, spec, _, _ in admitted), field
 
         result = gh105_order_gate.run(
@@ -2496,13 +2500,13 @@ def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothi
     that answered success there would be reporting about files it never read.
 
     The 0 is read against an allow-list built here rather than against the tree's,
-    and the construction is the honest way to ask this question while task 11.3's
-    six divergences are open: the live file forgives three of the nine the gate now
-    reports, so a run under it exits 1 and could not show the translation of a clean
-    run at all. Extending it with a row per `OPEN_ORDER_DIVERGENCES` entry -- the
-    same rows task 11.4 will write for four of them, and task 11.6 may or may not
-    write for the other two -- keeps the case measuring `main()` and not the state
-    of the records. The 1 needs no construction any more: the live file produces it.
+    and the construction is the honest way to ask this question while divergences
+    are open: the live file forgives seven of the nine the gate reports, so a run
+    under it exits 1 and could not show the translation of a clean run at all.
+    Extending it with a row per `OPEN_ORDER_DIVERGENCES` entry -- the rows task 11.6
+    may or may not write, after a researcher decision per clause -- keeps the case
+    measuring `main()` and not the state of the records. The 1 needs no construction
+    any more: the live file produces it.
     """
     specs, rules = _specs_root(), _rules_root()
     common = [
@@ -2524,7 +2528,7 @@ def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothi
         )
         == 1
     )
-    assert "6 failed" in capsys.readouterr().out
+    assert "2 failed" in capsys.readouterr().out
 
     assert (
         gh105_order_gate.main(
@@ -2547,14 +2551,14 @@ def test_inv_ins_138_gorder(suite):
     zero *findings and zero allowances* would mean the gate stopped looking rather
     than that the set converged. That is why both halves are checked.
 
-    Task 11.3 substituted the oracle and six divergences are open again. They are
-    pinned by name and witness rather than tolerated by count: `OPEN_ORDER_DIVERGENCES`
-    says which, and who owns each -- four are the allow-list's own rows with the
-    witness re-spelled in the expert rule's symbols, which task 11.4 re-keys, and two
-    are behavioural and go to task 11.6 with a researcher decision per clause. A
-    seventh divergence fails this test, and so does one of the six closing without
-    the record moving with it, which is what the invariant is for: what it no longer
-    does is read a mis-keyed witness as convergence.
+    Task 11.3 substituted the oracle and six divergences opened again; task 11.4
+    re-keyed and re-justified four of them against the expert ORDER and retired a
+    fifth whose subject the substitution removed, leaving two. They are pinned by
+    name and witness rather than tolerated by count: `OPEN_ORDER_DIVERGENCES` says
+    which, and both are behavioural and go to task 11.6 with a researcher decision
+    per clause. A third divergence fails this test, and so does one of the two
+    closing without the record moving with it, which is what the invariant is for:
+    what it no longer does is read a mis-keyed witness as convergence.
     """
     result = _order_run()
     assert result.total == len(list((_specs_root() / "jca_android").glob("*.mop")))
