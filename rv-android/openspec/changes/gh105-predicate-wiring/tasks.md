@@ -2062,7 +2062,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       **no rule of the 49 at all**. Those four are dead ends of the oracle and not of this
       set, and saying so is what keeps a future reader from proposing a wiring for them
 
-- [ ] 11.5 [researcher decision per clause — behavioural] The wirings the expert oracle
+- [x] 11.5 [researcher decision per clause — behavioural] The wirings the expert oracle
       restores or opens, each through the 9.B discipline (harness pair, divergence row,
       go/no-go): (a) `Mac generatedKey[key,_]` — the read returns on the new store, in the
       `init` event bodies, three-valued with its own CONSTR/NOBS codes; the 4.9 deletion is
