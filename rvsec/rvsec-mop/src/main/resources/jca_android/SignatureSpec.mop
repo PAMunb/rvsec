@@ -37,8 +37,10 @@ SignatureSpec(Signature s) {
        // `NONEwithRSA` (raw RSA, no hash), `MD5withRSA`, `SHA1withRSA`, `SHA1withDSA`,
        // `DSAwithSHA1` and `NONEwithDSA` -- the whole weak-signature family this
        // specification exists to accuse. `SHA224withECDSA` and `SHA1withECDSA` are absent
-       // from the expert clause and stay absent (oracle-wart rows); the api30-omits row that
-       // added the four SHA*withECDSA is closed, three of them being expert entries.
+       // from the expert clause and stay absent (oracle-wart rows); the divergence row that
+       // added the four SHA*withECDSA is closed, three of them being expert entries. That
+       // row's kind is still spelled `api30-omits`: D-16 keeps the spelling as a record key
+       // and not as an authority.
        List<String> algorithms = Arrays.asList("SHA256withRSA", "SHA256withECDSA", "SHA256withDSA",
             "SHA384withRSA", "SHA512withRSA", "SHA384withECDSA", "SHA512withECDSA");
        String currentAlgorithmInstance = "";
@@ -47,10 +49,10 @@ SignatureSpec(Signature s) {
 
        String expectedPublicKey = "a public key produced by one of the generators the rule names";
 
-       // api30 Signature.cryptsl states four ENSURES clauses over two objects: the
-       // signature `Signs` produces and the signature `Verifies` was given. Neither is
-       // reachable from a handler -- a handler sees no event parameter -- so each event
-       // stages what its clause names and the acceptance handler consumes it. The field
+       // Signature.crysl:58-61 states four ENSURES clauses, and this file stages two
+       // objects for them: the signature `Sign` produces and the signature `Verify` was
+       // given. Neither is reachable from a handler -- a handler sees no event parameter --
+       // so each event stages what its clause names and the acceptance handler consumes it. The field
        // is cleared when consumed, so a call whose event did not fire leaves no marking
        // behind for the next one.
        byte[] stagedSigned = null;
@@ -66,9 +68,9 @@ SignatureSpec(Signature s) {
        // the `@fail` path, which `__RESET`s the monitor to the start state, where no
        // init event is declared.
        //
-       // The api30 rule orders `Gets, ((InitSigns+, ...)+ | (InitVerifies+, ...)+)`
-       // with `Gets := g1 | g2` and states the algorithm under CONSTRAINTS, so the
-       // algorithm must not govern the transition: `getInstance` is a `Gets` whatever
+       // The rule orders `Get, ((InitSign+, ...)+ | (InitVerify+, ...)+)` (Signature.crysl:45)
+       // with `Get := g1 | g2` (:21) and states the algorithm under CONSTRAINTS (:48), so
+       // the algorithm must not govern the transition: `getInstance` is a `Get` whatever
        // it was asked for. Dropping the guard lets the rejected signature reach the
        // init events like any other, where the four `i1`-`i4` bodies accuse it
        // exactly once, with SIGNATURE-ALG-00 through SIGNATURE-ALG-03. `g3`'s body
@@ -103,19 +105,19 @@ SignatureSpec(Signature s) {
            currentAlgorithmInstance = alg;
        }
 
-       // api30 Signature states two REQUIRES clauses and this file read neither until
-       // this pass: `generatedPrivkey[priv]` (Signature.cryptsl:80, ledger #34) over the
-       // key `initSign` is given, and `generatedPubkey[pub]` (:82, ledger #35) over the
+       // The rule states two REQUIRES clauses and this file read neither until this pass:
+       // `generatedPrivkey[privateKey]` (Signature.crysl:54, ledger #34) over the key
+       // `initSign` is given, and `generatedPubkey[publicKey]` (:55, ledger #35) over the
        // key `initVerify` is given. They are the rule's own clauses -- not `generatedKey`,
-       // which api30's Signature never mentions -- so a secret key has no business
-       // answering them, and the three reads below name the two key-half predicates only.
+       // which this rule never mentions -- so a secret key has no business answering them,
+       // and the three reads below name the two key-half predicates only.
        //
-       // Three sites for two clauses, because the rule binds `priv` in both `i1` and `i2`
-       // and `pub` in `i4`. `i3` reads nothing: it binds a `Certificate`, which is the
-       // rule's `cert`, and api30 states no clause over it -- the public half inside a
-       // certificate is never handed to this call as a `PublicKey`, so there is no object
-       // here the clause is about. That asymmetry is the oracle's and is recorded, not
-       // repaired.
+       // Three sites for two clauses, because the rule binds `privateKey` in both `i1` and
+       // `i2` and `publicKey` in `i4`. `i3` reads nothing: it binds a `Certificate`, which
+       // is the rule's `cert` (Signature.crysl:12), and the rule states no clause over it
+       // -- the public half inside a certificate is never handed to this call as a
+       // `PublicKey`, so there is no object here the clause is about. That asymmetry is the
+       // oracle's and is recorded, not repaired.
        //
        // The reads are in the bodies, never in `condition(...)`: a guard would suppress
        // the transition and turn "this key's origin was not observed" into a
@@ -208,18 +210,19 @@ SignatureSpec(Signature s) {
 
         }
 
-       // `signed[out, inpb] after Signs` (Signature.cryptsl:87, with :89 and :91 naming
-       // the same `out` against the other two input shapes). The clause carries an
-       // `after L`, so its acceptance point is the states `Signs` leads to; read off the
+       // `signed[output, inputByte] after Sign` (Signature.crysl:58, with :59 and :60
+       // naming the same `output` against the other two input shapes). The clause carries
+       // an `after L`, so its acceptance point is the states `Sign` leads to; read off the
        // generated monitor, `s1` and `s2` both land in state 1 and the match category is
        // `nextstate == 1 || nextstate == 4`, so those states are inside the accepting set
        // and `@match` is the acceptance point for this clause as well as for `verified`.
        //
        // The clause is two-place -- the signature and the input it was computed over --
        // and this site writes one place. The arity stays where the seed had it and the
-       // reason is recorded in `predicate_graph.csv`: no rule of api30 requires `signed`,
-       // so there is no consumer whose arity this write has to meet, and raising it alone
-       // would be a claim about a chain that does not exist.
+       // reason is recorded in `predicate_graph.csv` row 67: no rule of the 49 requires
+       // `signed`, so there is no consumer whose arity this write has to meet, and raising
+       // it alone would be a claim about a chain that does not exist. Task 11.9(d) counts
+       // it among the four predicates the oracle ensures and no rule of the oracle reads.
        event s1 after(Signature s) returning(byte[] output):
          call(public byte[] Signature.sign()) &&
          target(s) {
@@ -234,19 +237,28 @@ SignatureSpec(Signature s) {
            stagedSigned = output;
        }
 
-       // `verified[sign]` (Signature.cryptsl:93). The clause names the *signature the
-       // call was given*, and the seed wrote the *boolean the call returned* -- a
-       // divergence repaired here rather than recorded, because the two are measurably
-       // different objects and one of them is not about this program at all: an
-       // identity-keyed store handed `Boolean.TRUE` marks the JVM-wide cached instance,
-       // so `validate(VERIFIED, <any other true>)` answers SATISFIED. Measured, the
-       // repair costs nothing either way -- no rule of api30 requires `verified`, so
-       // both forms are read by nobody -- and what it buys is that the site is the
-       // literal transcription of the clause and its omission record has one thing to
-       // say instead of two.
+       // `verified[verified, sign] after Verify` (Signature.crysl:61). THE ORACLE STATES
+       // THIS CLAUSE AT ARITY 2 AND WITH AN `after L`, WHERE THE GENERATED RULE STATED
+       // `verified[sign]` AT ARITY 1 AND WITH NONE. Task 11.1's delta classes it
+       // `reshaped` and `predicate_graph.csv` row 68 carries the record; neither difference
+       // moves this site, for the two reasons below.
        //
-       // The clause carries no `after L`, so its acceptance point is the accepting state,
-       // which in an `ere` is what `@match` names (INV-INS-134).
+       // The write stays at arity 1, over the signature the call was given, where the seed
+       // wrote the boolean the call returned. That repair stands and the substitution
+       // strengthens it rather than touching it: the two are measurably different objects
+       // and one of them is not about this program at all -- an identity-keyed store handed
+       // `Boolean.TRUE` marks the JVM-wide cached instance, so
+       // `validate(VERIFIED, <any other true>)` answers SATISFIED. The oracle names both
+       // places, which is a reason to keep the signature and none at all to go back to the
+       // boolean. Measured, the repair costs nothing either way -- no rule of the 49
+       // requires `verified`, so both forms are read by nobody -- and raising the write to
+       // two places would claim a chain that does not exist, which is the ground `signed`
+       // keeps its own arity on above.
+       //
+       // The `after Verify` does not move the acceptance point either. `v1` and `v2` land
+       // in state 4, which the match category contains, so the states `Verify` leads to are
+       // inside the accepting set and `@match` names them (INV-INS-134) -- the same handler
+       // the clause reached when it was read as carrying no `after L`.
        event v1 after(byte[] sign, Signature s) returning(boolean signed):
          call(public boolean Signature.verify(byte[])) &&
          args(sign) &&
@@ -263,8 +275,8 @@ SignatureSpec(Signature s) {
        }
 
        // Both ENSURES objects are consumed at the accepting state, and neither predicate
-       // has a reader: `signed` and `verified` appear in the api30 oracle only here, as
-       // this rule's own ENSURES, so they are two of the dead ends this change disposes
+       // has a reader: across the 49 rules of the oracle, `signed` and `verified` appear
+       // only here, as this rule's own ENSURES, so they are two of the dead ends this change disposes
        // of by recording the omission rather than by fabricating a consumer
        // (INV-INS-137). What leaves the handlers besides is the accepting-state
        // bookkeeping: the new store does not offer it and the set never read it back

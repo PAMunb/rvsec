@@ -33,8 +33,9 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
 
     // D-15: the five entries of KeyPairGenerator.crysl. `DiffieHellman` returns -- the
     // withdrawn generated clause named only its short form, and the frozen jca carried both.
-    // `EC` needs no divergence row any more: it is an expert entry, so the `api30-omits`
-    // exception D-10 recorded for it has dissolved.
+    // `EC` needs no divergence row any more: it is an expert entry, so the exception D-10
+    // recorded for it has dissolved. That row's kind is still spelled `api30-omits`: D-16
+    // keeps the spelling as a record key and not as an authority.
     List<String> safeAlgorithms = Arrays.asList("RSA", "EC", "DSA", "DiffieHellman", "DH");
 
     // Staged by `gen` for the acceptance-point handler, which sees no event parameter, and
