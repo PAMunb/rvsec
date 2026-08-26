@@ -1821,7 +1821,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       register entry where the `iv`/`d` precedents live. (h) erratum: design.md D-3 and the
       proposal cite the kept `remove()` at `PBEKeySpecSpec.mop:74`; in the frozen seed it is
       `:72` (the `:74` offset belongs to the migrated copy) — one-line citation fix
-- [ ] 10.6 Stale in-file comments, P4 pass — prose only, zero behaviour, and where a comment
+- [x] 10.6 Stale in-file comments, P4 pass — prose only, zero behaviour, and where a comment
       states a withdrawn justification the task restates the current decision rather than
       deleting the trace: `PBEKeySpecSpec.mop:80-91` (block asserts the `randomized[password]`
       read "is kept unchanged" and PBEKEYSPEC-CONSTR-01 lives — contradicted by `:116-135` of

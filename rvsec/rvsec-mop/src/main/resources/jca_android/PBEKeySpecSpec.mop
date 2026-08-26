@@ -69,26 +69,27 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // reports, and the `clearPassword()` that followed drew a fourth, because the
         // failing `c1` had never moved the monitor off `start`.
         //
-        // Two of the three tests are predicate reads and each carries a three-valued
-        // verdict, because the two accusing outcomes are different claims: VIOLATED
-        // is positive evidence that the array carries a randomisation predicate that
-        // was withdrawn, while NOT_OBSERVED says only that no randomised source of it
-        // was ever seen -- on Android as often a reach limit of the instrumentation as
+        // Two of those three tests were predicate reads, and a predicate read carries a
+        // three-valued verdict, because the two accusing outcomes are different claims:
+        // VIOLATED is positive evidence that the array carries a randomisation predicate
+        // that was withdrawn, while NOT_OBSERVED says only that no randomised source of
+        // it was ever seen -- on Android as often a reach limit of the instrumentation as
         // a misuse. Both messages already said the second thing; the split makes the
         // code say what the message always meant.
         //
-        // The middle clause has no rule behind it and is kept unchanged. api30
-        // REQUIRES `randomized[salt]` and says nothing about the password; the
-        // CONSTRAINTS clause about the password is `neverTypeOf(password,
-        // java.lang.String)`, which is not what PBEKEYSPEC-CONSTR-01 tests. That was
-        // the standing allow-list finding against `err2`, and the fusion moved the
-        // accusation without repairing it: dropping it or moving it to the salt
-        // changes what the set accuses, which is a behavioural change no task of this
-        // migration makes. It is recorded in divergence_record.csv instead. Reading it
-        // three-valued as well is a decision of its own (researcher, 2026-08-21): the
-        // site accuses the same constructions with the same message, and a site that
-        // cannot say which of the two verdicts it saw, next to a sibling that can,
-        // would be the odd one out for no reason the rule gives.
+        // Two tests are left, and the middle clause is the one that went. It read
+        // `randomized[password]` and translated no clause of the rule: api30 REQUIRES
+        // `randomized[salt]` and says nothing about the password, whose only CONSTRAINTS
+        // clause is `neverTypeOf(password, java.lang.String)` -- a different claim. It
+        // was the standing allow-list finding against `err2`, and the fusion moved the
+        // accusation without repairing it. Task 5.4 removed it, on the measurement the
+        // block above the surviving read states in full: over the whole set nothing
+        // ENSURES `randomized` over a `char[]`, so the read could only ever answer
+        // NOT_OBSERVED, and it accused every construction of a PBEKeySpec, the
+        // conforming ones included. Its two codes, PBEKEYSPEC-CONSTR-01 and
+        // PBEKEYSPEC-NOBS-00, left `codes.csv` with it, and the siblings kept their
+        // numbers because a code is an identifier in measurements already published.
+        // What survives here is the salt read, three-valued for the reason above.
         //
         // Where the write lands, and why it stays here (INV-INS-134's recorded
         // reason). api30 qualifies the clause -- `speccedKey[this, keylength] after

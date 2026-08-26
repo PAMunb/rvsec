@@ -9,7 +9,7 @@ import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
- * GCMParameterSpec
+ * PBEParameterSpec
  *
  * A JavaMOP specification of the correct usage of the
  * javax.crypto.spec.PBEParameterSpec.

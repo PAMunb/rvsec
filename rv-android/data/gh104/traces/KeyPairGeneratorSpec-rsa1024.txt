@@ -1,0 +1,8 @@
+# reaches `initError`: 1024 is in no key-size clause of any oracle for RSA
+# (the expert KeyPairGenerator.crysl admits 4096, 3072 and 2048), so the site that
+# emits KEYPAIRGENERATOR-KEYSIZE-00 -- the one whose `exp=` prose task 10.6 re-anchors
+# from the withdrawn api30 rule to the expert rule it has implemented since D-15 -- is
+# actually exercised by this trace, where the rest of the corpus leaves it unreached.
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(1024)
+kpg.generateKeyPair() -> kp

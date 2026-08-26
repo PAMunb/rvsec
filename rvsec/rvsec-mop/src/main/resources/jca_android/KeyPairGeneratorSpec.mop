@@ -148,7 +148,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       target(k) &&
       condition(algorithm != null && !validate(keySize)) {
          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "KeyPairGeneratorSpec", "" + __LOC,
-             "v=1 code=KEYPAIRGENERATOR-KEYSIZE-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + keySize + "' exp='the key size api30 KeyPairGenerator.cryptsl declares for " + q(k.getAlgorithm()) + "' msg='invalid key size for algorithm " + k.getAlgorithm() + "'"));
+             "v=1 code=KEYPAIRGENERATOR-KEYSIZE-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + keySize + "' exp='the key size the expert KeyPairGenerator.crysl declares for " + q(k.getAlgorithm()) + "' msg='invalid key size for algorithm " + k.getAlgorithm() + "'"));
     }
 
     event gen after(KeyPairGenerator k) returning(KeyPair keyPair):

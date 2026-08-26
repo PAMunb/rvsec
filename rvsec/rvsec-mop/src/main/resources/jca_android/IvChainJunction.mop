@@ -303,12 +303,12 @@ IvChainJunctionSpec(Cipher c) {
         }
     }
 
-    // The `ere` accepts every sequence of the five events this file declares, which
+    // The `ere` accepts every sequence of the seven events this file declares, which
     // is the whole claim this file makes about ordering: none. The ordering of `Cipher`
     // is `CipherSpec`'s, stated against the rule's own ORDER, and a second automaton over
     // a subset of the same calls could only accuse the same program twice. The `fail`
     // state is therefore unreachable by construction -- measured on the generated
-    // monitor, whose transition rows send state 0 to state 0 for both symbols -- and the
+    // monitor, whose transition rows send state 0 to state 0 for all seven symbols -- and the
     // file carries no ORDER code, because there is no site that could emit one. G-ORDER skips this
     // file declaredly, for want of a row in `order_alphabet_map.csv`, and the skip is
     // right here rather than concealing: no api30 rule states an ORDER this file

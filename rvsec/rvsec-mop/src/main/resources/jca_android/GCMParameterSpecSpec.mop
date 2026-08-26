@@ -135,9 +135,10 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    // derives is {1, 2, 2} for both events, and the monitor is keyed on the
    // constructed object, so no monitor of this specification ever sees a second
    // event and state 2 is never entered. That is recorded rather than repaired --
-   // the repair is to the automaton, and this pass moves no symbol: the file is
-   // one of the thirteen still absent from order_alphabet_map.csv, which task 7.1
-   // owns, so G-ORDER skips it in both directions.
+   // the repair is to the automaton, and this pass moves no symbol. Task 7.1 has since
+   // mapped this file (`c1` and `c2` in order_alphabet_map.csv), so G-ORDER compares it
+   // in both directions and reports no divergence: an unreachable handler is a report
+   // the automaton cannot make, not a sequence the two sides disagree about.
    ere : c1 | c2
 
    @fail {

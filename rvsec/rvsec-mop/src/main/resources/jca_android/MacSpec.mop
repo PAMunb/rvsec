@@ -326,10 +326,12 @@ MacSpec(Mac m) {
         // third site of the family the CipherSpec `unsafeAlg` sink opened and the
         // GCMParameterSpecSpec unreachable `@fail` continued: an ordering
         // accusation standing in for a constraint the automaton has no way to
-        // state. Recorded, not repaired -- the repair is to the automaton, this
-        // pass moves no symbol, and this file is one of the thirteen still absent
-        // from order_alphabet_map.csv, which task 7.1 owns, so G-ORDER skips it in
-        // both directions.
+        // state. Recorded, not repaired -- the repair is to the automaton and this
+        // pass moves no symbol. Task 7.1 has since mapped this file, so G-ORDER no
+        // longer skips it: it compares both languages over the thirteen rows
+        // order_alphabet_map.csv carries here and reports no divergence, which is the
+        // expected reading -- what is recorded above is a report the automaton has no
+        // way to state, not a sequence the two sides disagree about.
         ere : (g3* g1 | g3* g2) (i1 | i2) ((f1 | f1Input | f2) | ((update | updateBytes | updateRange | updateBuffer)* (f1 | f1Input | f2)))
 
         @fail {

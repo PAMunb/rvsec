@@ -99,18 +99,20 @@ KeyPairSpec(KeyPair keyPair) {
     // rather than recording a dead end.
     //
     // The write stays in the event body, against the default of INV-INS-134, and the
-    // reason is recorded in `predicate_graph.csv`. The rule orders `co?, (pu*, pr*)*`
-    // with the constructor OPTIONAL; the `ere` below demands it. A program almost never
-    // constructs the `KeyPair` it reads from -- it gets one out of
-    // `KeyPairGenerator.generateKeyPair()`, a call this specification does not observe --
-    // so `gpu` fires from the start state, the transition row `{2, 1, 2}` sends it to the
-    // fail state, and the accepting state is never reached. Measured over the whole
-    // ErrorCollector: an acceptance-point write leaves that program with the key origin
-    // still unobserved at `Cipher.init`, which is the very report this pass exists to
-    // remove. Repairing the `ere` instead is task 7.1's -- `KeyPairSpec` is one of the
-    // specifications `order_alphabet_map.csv` does not map, so G-ORDER skips it today and
-    // would not check a change to the automaton. When 7.1 lands, this write moves to
-    // `@match`.
+    // reason is recorded in `predicate_graph.csv`. It was written when the `ere` demanded
+    // the constructor the rule leaves OPTIONAL -- `co?, (pu*, pr*)*` against `c1 (gpu |
+    // gpr)*` -- and a program almost never constructs the `KeyPair` it reads from: it
+    // gets one out of `KeyPairGenerator.generateKeyPair()`, a call this specification
+    // does not observe, so `gpu` fired from the start state, the transition row
+    // `{2, 1, 2}` sent it to the fail state, and the accepting state was never reached.
+    // Task 9.11 repaired the automaton -- the `ere` below is `(c1 | epsilon) (gpu |
+    // gpr)*` -- and the write stayed here, which is the current decision and not a
+    // leftover. With the constructor optional, the state `gpu` leads to is accepting on
+    // both routes, so the event body IS the acceptance point the clause's `after pu`
+    // names and a move to `@match` would buy nothing; it would, however, change which
+    // programs are accused, and that needs a harness pair and a researcher decision no
+    // task of this line carries. Task 7.1 is likewise closed: `order_alphabet_map.csv`
+    // maps this specification, so G-ORDER compares it rather than skipping it.
     event gpu after(KeyPair keyPair) returning(PublicKey publicKey):
       call(public PublicKey KeyPair.getPublic()) &&
       target(keyPair) {
