@@ -40,7 +40,7 @@ The model has **three** terminal states — `covered | na-platform | na-value` �
 
 | Tier | Rules | Shape |
 |---|---|---|
-| Trivial (13) | RSAKeyGenParameterSpec, ECGenParameterSpec, ECParameterSpec, DSAParameterSpec, DHParameterSpec, OAEPParameterSpec, MGF1ParameterSpec, KeyStoreBuilderParameters, CertPathTrustManagerParameters, PKIXParameters, PKIXBuilderParameters, TrustAnchor, X509EncodedKeySpec | `ORDER = Con` (1 event, ctor overloads fused), value constraints with accusers, one predicate write on the conforming branch |
+| Trivial (13) | RSAKeyGenParameterSpec, ECGenParameterSpec, ECParameterSpec, DSAParameterSpec, DHParameterSpec, OAEPParameterSpec, MGF1ParameterSpec, KeyStoreBuilderParameters, CertPathTrustManagerParameters, PKIXParameters, PKIXBuilderParameters, TrustAnchor, X509EncodedKeySpec | `ORDER = Con`, one event per overload the rule labels — 18 events over the 13 files (2 each for DHParameterSpec, PKIXParameters and PKIXBuilderParameters, 3 for TrustAnchor, 1 for the rest); value constraints with accusers, one predicate write on the conforming branch |
 | Trivial-interface (1) | Key | `GetEnc*` — one event, `Key+.getEncoded()` (subtype owner, same lesson as R5), writes `preparedKeyMaterial` |
 | Medium (7) | AlgorithmParameters, AlgorithmParameterGenerator, SecretKeyFactory, KeyFactory, CertificateFactory, DigestInputStream, DigestOutputStream | 2–4 events, short ORDER; Digest streams carry a FORBIDDEN `on(boolean)` |
 | Complex (3) | KeyAgreement (5 events incl. `noCallTo[gs3]`), SSLEngine (2 events; oracle defect `cp1`), SSLParameters (3 constructor paths) | need the oracle-defect rows of D-21 before transcription |

@@ -25,6 +25,11 @@ The script emits two tables:
     changed shape (a different aggregate holds it), appeared, or disappeared -- plus the
     rule-side symbols each catalogue declares that no `.mop` event of the set covers.
 
+Rows written after the oracle switch have no anchor to move: their association was decided
+against the expert rule in the first place, and for most of their rules api30 generated no
+file at all. Those rows are declared in `EXPERT_NATIVE_SPECS`, carried through untouched,
+and reported as `expert-native` -- an origin, not a move.
+
 Nothing here infers an association. A disposition that flips -- an event erased from the
 comparison under api30 whose expert counterpart exists -- is reported as a delta row and
 goes no further on this script's own strength: reopening one changes the language the
@@ -94,6 +99,39 @@ DELTA_FIELDS = (
 # declared G-ORDER skips and carry no data row anywhere, by the mapping's own contract:
 # a row of any kind takes the file out of the skip.
 NO_RULE = ("IvChainJunction", "RandomStringPassword")
+
+
+# The specifications of gh109 group G2, whose alphabet rows have no api30 anchor to re-key.
+# They were written from the pinned expert oracle alone (D-16), for rules the withdrawn
+# api30 generation mostly never produced: eight of the fourteen have no `.cryptsl` file at
+# all. So there is nothing to pair a row of theirs against, and pairing the six whose file
+# does exist would invent a provenance the association never had -- the rule they transcribe
+# is the expert one either way, and which of them api30 happened to generate says nothing
+# about where the judgement came from.
+#
+# Declared here rather than inferred from the filesystem, because "the api30 file is
+# missing" and "this association was decided under the expert oracle" are different claims
+# and only the second is true of all fourteen. A row whose `spec` is named here carries an
+# expert symbol already: the re-anchoring has nothing to do, and the delta records the row
+# as `expert-native`, which is an origin and not a move.
+EXPERT_NATIVE_SPECS = frozenset(
+    {
+        "CertPathTrustManagerParametersSpec",
+        "DHParameterSpecSpec",
+        "DSAParameterSpecSpec",
+        "ECGenParameterSpecSpec",
+        "ECParameterSpecSpec",
+        "KeySpec",
+        "KeyStoreBuilderParametersSpec",
+        "MGF1ParameterSpecSpec",
+        "OAEPParameterSpecSpec",
+        "PKIXBuilderParametersSpec",
+        "PKIXParametersSpec",
+        "RSAKeyGenParameterSpecSpec",
+        "TrustAnchorSpec",
+        "X509EncodedKeySpecSpec",
+    }
+)
 
 
 # The pairing is by signature, and a signature the api30 rule declares **twice** cannot be
@@ -549,16 +587,47 @@ def derive(
 
     for row in rows:
         stem = Path(row["rule"]).stem
+        native = row["spec"] in EXPERT_NATIVE_SPECS
         if stem not in cache:
-            api30 = read_rule(api30_rules / f"{stem}.cryptsl")
+            # An expert-native rule is paired against an empty api30 side rather than
+            # against a file: for most of them there is no file, and for the rest reading
+            # one would only offer an anchor no row ever used.
+            api30 = (
+                Rule(path=api30_rules / f"{stem}.cryptsl")
+                if native
+                else read_rule(api30_rules / f"{stem}.cryptsl")
+            )
             expert = read_rule(expert_rules / f"{stem}.crysl")
-            pairing, unpaired = pair_atoms(api30, expert)
+            pairing, unpaired = ({}, []) if native else pair_atoms(api30, expert)
             cache[stem] = (api30, expert, pairing, unpaired)
             covered.setdefault(stem, set())
         api30, expert, pairing, _ = cache[stem]
 
         out = dict(row)
         out["rule"] = f"{stem}.crysl"
+
+        if native:
+            symbol = row["order_symbol"].strip()
+            covered[stem] |= expert.expand(symbol)
+            out["symbol_kind"] = expert.kind_of(symbol) if symbol else ""
+            line = expert.line_of(symbol)
+            out["rule_line"] = str(line) if line else ""
+            map_rows.append(out)
+            delta_rows.append(
+                {
+                    "spec": row["spec"],
+                    "mop_event": row["mop_event"],
+                    "api30_symbol": "",
+                    "expert_symbol": symbol,
+                    "klass": "expert-native",
+                    "signature": (
+                        expert.atoms[symbol].text if symbol in expert.atoms else ""
+                    ),
+                    "note": "decided under the expert oracle; api30 never carried this "
+                    "association",
+                }
+            )
+            continue
         override = DUPLICATE_OVERRIDES.get((stem, row["order_symbol"].strip()))
         if override is not None:
             target, why = override

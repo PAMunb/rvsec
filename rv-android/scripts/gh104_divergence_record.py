@@ -97,6 +97,18 @@ KINDS = {
     # one measured after, so the comparability caveat needs one anchor to point at.
     "value-decision",  # a ratified decision of the change that moves what is accused,
     # recorded so the campaign caveat has an enumerable anchor
+    # gh109 again, and for the one thing gh104 and gh105 never did: those two
+    # campaigns repaired the 23 specifications the seed already carried, so every
+    # kind above names something that happens to an existing file. gh109 adds files.
+    # A specification written for a rule the seed left unspecified is not a
+    # `junction` (that word names the co-observable chain of `IvChainJunction`, the
+    # only new file either predecessor produced), and calling it one to reuse a
+    # word would file 27 rules' worth of coverage under a name that describes one
+    # of them. It gets a word of its own, and the word carries the obligation: the
+    # successor answers to all 49 rules of the pinned oracle, and each of these
+    # files is one rule moving from unspecified to `covered` in the matrix.
+    "coverage-spec",  # a specification the seed did not carry, written for a rule of
+    # the pinned expert oracle that the seed left unspecified
 }
 
 # Kinds that describe the set rather than a diff, so they carry no hunk key.

@@ -80,23 +80,27 @@ SECTION_KEYWORDS = (
 # Task 11.9 re-derived both entries rather than copying them, and exactly one moved. That
 # asymmetry is what a re-derivation looks like: two rows that moved, or none, would mean
 # the sweep was answering a different question.
+#
+# gh109 task 2.R RETIRED the `("KeyPairGenerator", "preparedDH")` entry, and its own reason
+# is what retired it. That override read: *what would close the clause is a .mop for
+# DHParameterSpec, and writing one is a new accusation class D-16 keeps out of this change*.
+# gh109 is the change that writes it (task 2.5), so the sentence the override rested on --
+# "whose rule ENSURES the predicate and which this set does not specify" -- became false the
+# moment `DHParameterSpecSpec.mop` landed, and the clause is `wireable` by derivation with
+# both of its producers now carrying a `.mop`. The platform measurement itself stands and is
+# not discarded: `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048,
+# 0))` raises `InvalidAlgorithmParameterException: Inappropriate parameter type`, while the
+# same call over an RFC 3526 `DHParameterSpec` runs (measured on Temurin 21, re-run
+# 2026-08-26). What changed is what it implies. It used to say the clause could not be read
+# at all, because the only monitored producer was the one the JCA refuses; it now says which
+# producer a conforming DH program actually uses, which is what task 1b.1 needs when it opens
+# the read at `init3`/`init4`, and the `DHGenParameterSpecSpec.mop` row of
+# `predicate_graph.csv` keeps the argument in full.
+#
+# An override is a disposition that disagrees with the derivation. Once the derivation agrees,
+# keeping the entry would assert a disagreement that no longer exists -- which is why this is a
+# deletion and not an edit to `wireable`.
 PLATFORM_OVERRIDES: dict[tuple[str, str], tuple[str, str, str]] = {
-    ("KeyPairGenerator", "preparedDH"): (
-        "unmonitored-producer",
-        "the type KeyPairGenerator.initialize accepts for DH is DHParameterSpec, whose "
-        "rule ENSURES the predicate (DHParameterSpec.crysl:21) and which this set does "
-        "not specify. DHGenParameterSpec, the one producer that does have a .mop, the JCA "
-        "refuses at that call: KeyPairGenerator.getInstance(\"DH\").initialize(new "
-        "DHGenParameterSpec(2048, 0)) raises InvalidAlgorithmParameterException: "
-        "Inappropriate parameter type, while initialize(new DHParameterSpec(p, g)) over an "
-        "RFC 3526 group runs. So a read at KeyPairGeneratorSpec.init3/init4 answers "
-        "NOT_OBSERVED for every conforming DH program because the producer that program "
-        "uses is unmonitored, not because no producer could exist. What would close the "
-        "clause is a .mop for DHParameterSpec, and writing one is a new accusation class "
-        "D-16 keeps out of this change. The disposition read unreachable-composition until "
-        "task 11.9 because the generated catalogue stated no DHParameterSpec rule at all",
-        "[platform measurement re-derived at task 11.9; disposition moved]",
-    ),
     ("Mac", "preparedHMAC"): (
         "unreachable-composition",
         "the producer is javax.xml.crypto.dsig.spec.HMACParameterSpec "

@@ -321,7 +321,15 @@ class M3ConstraintsCorpusTest {
         ClauseVerdict row = result.rows().get(0);
         assertEquals(ClauseFamily.ARITHMETIC, row.family());
         assertEquals(java.util.Optional.of(M3Result.Idiom.B_INLINE_ARITHMETIC), row.idiom());
-        assertTrue(row.evidence().orElseThrow().contains("exponentSize < primeSize"));
+        // The evidence is the specification's own comparison, and R1 (gh109 task 1.1) inverted
+        // it. The rule states `exponentSize < primeSize`; before R1 the specification stated the
+        // same thing in a `condition(...)`, which compiles ahead of the transition and drew
+        // nothing when it failed. R1 moved the clause into the event body, where an accusation is
+        // possible, and an accusing body tests the branch that violates -- so what stands in the
+        // source is the negation. The clause is still implemented, which the assertions above
+        // check; what moved is the text, and reading the old text here would now mean the
+        // specification had gone back to a guard that cannot report.
+        assertEquals("if (exponentSize >= primeSize)", row.evidence().orElseThrow());
     }
 
     @Test
@@ -454,7 +462,13 @@ class M3ConstraintsCorpusTest {
     void test_alias_table_rows_per_service() throws Exception {
         Map<String, Integer> rows = aliasTableRows();
 
-        assertEquals(169, rows.values().stream().mapToInt(Integer::intValue).sum(),
+        // 169 -> 175 is NOT gh109's: the drift was already at HEAD before this change edited
+        // anything. Measured - ConscryptAliasTable.java last moved at ed81597c (gh105) and this
+        // test last moved at 062b4c39 (gh106), so registrations landed after the pin that counts
+        // them and the pin was never re-measured. It is re-pinned here because a whole module
+        // left red hides the next regression, and the cause is written down rather than absorbed:
+        // the number belongs to gh105 and only the re-measurement belongs to gh109.
+        assertEquals(175, rows.values().stream().mapToInt(Integer::intValue).sum(),
                 "the table as it stands. It was 158 until task 11.6 (D-15) added the eleven "
                         + "multi-line Alg.Alias registrations a single-line extraction had missed, "
                         + "so any number published from it needs the commit beside it");

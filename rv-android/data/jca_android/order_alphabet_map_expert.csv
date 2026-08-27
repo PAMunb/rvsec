@@ -164,3 +164,22 @@ MessageDigestSpec,d1,d1,event,MessageDigest.crysl,26,mapped,`digest()`
 MessageDigestSpec,d2,DWOU,aggregate,MessageDigest.crysl,29,mapped,"`digest(byte[])`, the rule's DWOU"
 MessageDigestSpec,d3,d3,event,MessageDigest.crysl,28,mapped,"`digest(byte[], int, int)`"
 SecretKeySpec,e1,GetEnc,aggregate,SecretKey.crysl,8,mapped,"this specification translates `SecretKey.crysl`, not `SecretKeySpec.crysl` -- its object is `javax.crypto.SecretKey` and its one event is `getEncoded()`, the rule's `ge1` inside `GetEnc` (`SecretKey.crysl:7-8`)"
+CertPathTrustManagerParametersSpec,c1,c1,event,CertPathTrustManagerParameters.crysl,7,mapped,
+DHParameterSpecSpec,c1,c1,event,DHParameterSpec.crysl,9,mapped,
+DHParameterSpecSpec,c2,c2,event,DHParameterSpec.crysl,10,mapped,"the three-argument overload the rule names apart as `c2`; `ORDER Con` takes `c1 | c2`, so the two events stand for two symbols and not for one"
+DSAParameterSpecSpec,c1,c1,event,DSAParameterSpec.crysl,9,mapped,
+ECGenParameterSpecSpec,c1,c1,event,ECGenParameterSpec.crysl,7,mapped,
+ECParameterSpecSpec,c1,c1,event,ECParameterSpec.crysl,10,mapped,"the pointcut binds no argument -- the rule states no CONSTRAINTS clause over the four the constructor takes -- and it is still that constructor, so the symbol is `c1`"
+KeySpec,ge1,ge1,event,Key.crysl,7,mapped,"`getEncoded()`, the rule's one event and the only member of `GetEnc`. The `.mop` writes `ere : ge1*` where the rule writes `GetEnc*`; the star is the same star"
+KeyStoreBuilderParametersSpec,c1,c1,event,KeyStoreBuilderParameters.crysl,7,mapped,"the pointcut is written over `Object+` because the DEX matcher's `TypeResolver.toDescriptor` cannot spell the nested `KeyStore.Builder`, and the rule's declared type is restored in the body with an `instanceof`. The event is still the rule's `c1: KeyStoreBuilderParameters(builder)`: what the pointcut widens is the match, not the association"
+MGF1ParameterSpecSpec,c1,c1,event,MGF1ParameterSpec.crysl,7,mapped,
+OAEPParameterSpecSpec,c1,c1,event,OAEPParameterSpec.crysl,11,mapped,
+PKIXParametersSpec,c1,c1,event,PKIXParameters.crysl,7,mapped,
+PKIXParametersSpec,c2,c2,event,PKIXParameters.crysl,8,mapped,"the rule writes this overload as `c2: PKIXParameters(_)`, and the underscore is the `Set<TrustAnchor>` constructor -- the only other one the class declares"
+PKIXBuilderParametersSpec,c1,c1,event,PKIXBuilderParameters.crysl,9,mapped,
+PKIXBuilderParametersSpec,c2,c2,event,PKIXBuilderParameters.crysl,10,mapped,
+RSAKeyGenParameterSpecSpec,c1,c1,event,RSAKeyGenParameterSpec.crysl,8,mapped,
+TrustAnchorSpec,c1,c1,event,TrustAnchor.crysl,9,mapped,"`TrustAnchor(String, PublicKey, byte[])` -- the rule's `c1: TrustAnchor(_, publicKey, _)`, whose bound position is the public key. It is `c3` that takes the `X500Principal`"
+TrustAnchorSpec,c2,c2,event,TrustAnchor.crysl,10,mapped,
+TrustAnchorSpec,c3,c3,event,TrustAnchor.crysl,11,mapped,
+X509EncodedKeySpecSpec,c1,c1,event,X509EncodedKeySpec.crysl,7,mapped,

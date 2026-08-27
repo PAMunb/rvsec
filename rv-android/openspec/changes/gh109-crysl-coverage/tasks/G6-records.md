@@ -9,18 +9,25 @@ M2 slice is a batched correction pass over records whose claims were verified th
 |---|---|---|
 | `rvsec-crysl` `Corpora.java:28` (`new Corpus("jca_android", 24)`) | 24 | 24 + landed specs (runs in CI) |
 | `MopLiftCorpusTest.java:118,129` | 215 | 215 + landed specs (runs in CI) |
-| `MopLiftCorpusTest.java:143` (`assertEquals(907, total.events())`) | 907 | re-measured — **R2 alone moves it, so G1 owes a re-pin too** |
-| `MopLiftCorpusTest.java:144` (`assertEquals(381, total.parameters())`) | 381 | re-measured |
-| `MopLiftCorpusTest.java:196` (`assertEquals(907, checked)`, one provenance check per event) | 907 | re-measured, same number as `:143` |
-| `MopLiftCorpusTest.java:276,277` (42 refusing files / 56 `OverlappingDispatch` refusals) | 42 / 56 | re-measure: a new spec with an overlapping dispatch moves them |
-| `MopLiftCorpusTest.java:122,134` (`@DisplayName` literals) | 215 / 907 / 381 | cosmetic but stale — move with their assertions |
+| `MopLiftCorpusTest.java:149` (`assertEquals(907, total.events())`) | 907 | **done: 908.** R2 alone made this due, ahead of any new spec, and the re-pin landed with the `initError2` event rather than with G2 |
+| `MopLiftCorpusTest.java:150` (`assertEquals(383, total.parameters())`) | 383 | **measured after 908 landed: unchanged.** The prediction that R2 would move it was wrong, and the counting rule says why — `spec.getParameters().size()` counts a specification's declared parameters, not an event's, so only a spec that declares a new formal parameter moves this number. (The pin is 383, not the 381 first written here: gh105 moved it when `CipherInputStreamSpec` and `CipherOutputStreamSpec` each gained one.) |
+| `MopLiftCorpusTest.java:202` (`assertEquals(907, checked)`, one provenance check per event) | 907 | **done: 908**, same number as `:149` |
+| `MopLiftCorpusTest.java:282,283` (42 refusing files / 56 `OverlappingDispatch` refusals) | 42 / 56 | `:283` **done: 57** — `initError2` overlaps `init2`'s dispatch exactly as `initError` overlaps `init1`'s. `:282` held at 42: the overlap is inside a file that was already refusing. Re-measure again per group: a new spec with an overlapping dispatch moves both |
+| `MopLiftCorpusTest.java:122,134` (`@DisplayName` literals) | 215 / 907 / 383 | cosmetic but stale — move with their assertions; `:134` **done** |
 | `CalibrationTargets.java:69` (string `"215 files, 215 ok, 0 fail"`) | 215 | updated literal (MAIN code of rvsec-crysl-core) |
 | `CalibrationTargets.java:70` (per-corpus list, `"jca_android 24/24"`) | 24 | updated literal, same commit as `:69` |
 | `tests/parity/test_gh105_predicate_gates.py:1868` (G-PARAM `len(result.passed) == 24`) | 24 | new count, over the 0.3 `.rvm`-preserving fixture |
 | `tests/parity` G-ORDER skip-set pin `:2287` (`{RandomStringPassword, IvChainJunction}`) | 2 names | unchanged IF 6.2 maps every new spec; otherwise the declared-skip set grows and the `MAP_HEADER` prose moves with it |
 
 Update per milestone (G2 lands → constants move once; G3/G4 land → move again). Keep each move in
-the same commit as the specs it counts.
+the same commit as the specs it counts — with the one exception this task already met: a repair that
+adds an event makes the event-side pins due on its own, before any new specification exists, and
+leaving them for the first new spec means debugging two causes of one count at once.
+
+The line numbers above are the live ones. The first draft of this fiche cited `:143`, `:144`, `:196`,
+`:276` and `:277`, which the file has since moved past; re-derive them before editing rather than
+trusting either list, and remember that JUnit aborts a method at its first failing assertion, so a
+pin below a failing one has not been checked at all.
 
 ## 6.2 [M1] Alphabet-map chain for new specs
 

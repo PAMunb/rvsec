@@ -110,6 +110,29 @@
 #     Observing setCertificateEntry/setKeyEntry would be a new accusation class, which
 #     this change does not add.
 #
+# gh109 task 6.2 (2026-08-27) qualifies two claims above, by measurement.
+#
+# First, "nothing reads this file" is no longer true, and was already only half true when
+# it was written: no *gate* reads it -- G-ORDER reads the expert successor -- but the
+# MOP-CrySL conformance component reads exactly this file, as its M2 epsilon-erasure
+# source (`AlphabetMap.java`, `M2OrderCorpusTest:79`, `M1EventsCorpusTest:62`). An event
+# of the paired corpus with no row here is not erased and not mapped: M2 emits
+# ORDER-SEM-DISPOSICAO for it and refuses to choose. So the file is live, and a new
+# specification that lands without its rows takes a refusal with it.
+#
+# Second, the anchoring. The fourteen producer specifications of gh109 group G2 were
+# written from the pinned expert oracle alone, under D-16, and eight of the rules they
+# transcribe have no `.cryptsl` file in the api30 generation at all. Their rows are
+# therefore anchored on the expert rule -- `<Rule>.crysl` with an expert line -- and the
+# `.cryptsl` spelling of the rows above is history, not a schema. Which of the fourteen
+# api30 happened to generate says nothing about where the judgement came from, so all
+# fourteen are anchored the same way, declared in `EXPERT_NATIVE_SPECS` in
+# `scripts/gh105_expert_alphabet.py`; the derivation carries them through untouched and
+# the delta records each as `expert-native`, an origin rather than a move. Every one of
+# the nineteen associations is one-to-one -- the `.mop` transcribes the rule's own event
+# labels, constructor for constructor -- which is why their reasons are mostly empty:
+# a row says something only where the transcription is not the obvious one.
+#
 # Columns: `rule_line` points at the event declaration in
 # MetaCrySL/generated/api30/<rule>, which is the read-only oracle -- a mapping that
 # cannot name its line is a mapping nobody checked.
@@ -253,3 +276,22 @@ MessageDigestSpec,d1,d1,event,MessageDigest.cryptsl,45,mapped,`digest()`
 MessageDigestSpec,d2,d2,event,MessageDigest.cryptsl,47,mapped,"`digest(byte[])`, the rule's DWOU"
 MessageDigestSpec,d3,d3,event,MessageDigest.cryptsl,49,mapped,"`digest(byte[], int, int)`"
 SecretKeySpec,e1,ge,event,SecretKey.cryptsl,15,mapped,"this specification translates `SecretKey.cryptsl`, not `SecretKeySpec.cryptsl` -- its object is `javax.crypto.SecretKey` and its one event is `getEncoded()`, the rule's `ge`. The sibling `SecretKeySpecSpec` is the one mapped to `SecretKeySpec.cryptsl`"
+CertPathTrustManagerParametersSpec,c1,c1,event,CertPathTrustManagerParameters.crysl,7,mapped,
+DHParameterSpecSpec,c1,c1,event,DHParameterSpec.crysl,9,mapped,
+DHParameterSpecSpec,c2,c2,event,DHParameterSpec.crysl,10,mapped,"the three-argument overload the rule names apart as `c2`; `ORDER Con` takes `c1 | c2`, so the two events stand for two symbols and not for one"
+DSAParameterSpecSpec,c1,c1,event,DSAParameterSpec.crysl,9,mapped,
+ECGenParameterSpecSpec,c1,c1,event,ECGenParameterSpec.crysl,7,mapped,
+ECParameterSpecSpec,c1,c1,event,ECParameterSpec.crysl,10,mapped,"the pointcut binds no argument -- the rule states no CONSTRAINTS clause over the four the constructor takes -- and it is still that constructor, so the symbol is `c1`"
+KeySpec,ge1,ge1,event,Key.crysl,7,mapped,"`getEncoded()`, the rule's one event and the only member of `GetEnc`. The `.mop` writes `ere : ge1*` where the rule writes `GetEnc*`; the star is the same star"
+KeyStoreBuilderParametersSpec,c1,c1,event,KeyStoreBuilderParameters.crysl,7,mapped,"the pointcut is written over `Object+` because the DEX matcher's `TypeResolver.toDescriptor` cannot spell the nested `KeyStore.Builder`, and the rule's declared type is restored in the body with an `instanceof`. The event is still the rule's `c1: KeyStoreBuilderParameters(builder)`: what the pointcut widens is the match, not the association"
+MGF1ParameterSpecSpec,c1,c1,event,MGF1ParameterSpec.crysl,7,mapped,
+OAEPParameterSpecSpec,c1,c1,event,OAEPParameterSpec.crysl,11,mapped,
+PKIXParametersSpec,c1,c1,event,PKIXParameters.crysl,7,mapped,
+PKIXParametersSpec,c2,c2,event,PKIXParameters.crysl,8,mapped,"the rule writes this overload as `c2: PKIXParameters(_)`, and the underscore is the `Set<TrustAnchor>` constructor -- the only other one the class declares"
+PKIXBuilderParametersSpec,c1,c1,event,PKIXBuilderParameters.crysl,9,mapped,
+PKIXBuilderParametersSpec,c2,c2,event,PKIXBuilderParameters.crysl,10,mapped,
+RSAKeyGenParameterSpecSpec,c1,c1,event,RSAKeyGenParameterSpec.crysl,8,mapped,
+TrustAnchorSpec,c1,c1,event,TrustAnchor.crysl,9,mapped,"`TrustAnchor(String, PublicKey, byte[])` -- the rule's `c1: TrustAnchor(_, publicKey, _)`, whose bound position is the public key. It is `c3` that takes the `X500Principal`"
+TrustAnchorSpec,c2,c2,event,TrustAnchor.crysl,10,mapped,
+TrustAnchorSpec,c3,c3,event,TrustAnchor.crysl,11,mapped,
+X509EncodedKeySpecSpec,c1,c1,event,X509EncodedKeySpec.crysl,7,mapped,

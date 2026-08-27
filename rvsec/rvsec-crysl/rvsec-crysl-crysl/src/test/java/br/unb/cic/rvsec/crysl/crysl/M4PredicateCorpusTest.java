@@ -57,6 +57,7 @@ import org.junit.jupiter.api.Test;
  *                 pairs  present  absent  inverted  rows  derived  derived fraction
  *   before (23)      23       50      53         0   123      103             0.837
  *   after  (22)      22       44      44         0   106       88             0.830
+ *   gh109  (35)      35       68      40         0   131      108             0.824
  * </pre>
  *
  * <p>The nine that leave {@code absent} are the point: {@code Cipher.crysl}'s clauses were being
@@ -102,13 +103,16 @@ class M4PredicateCorpusTest {
                         + "only way to compare against the published measurements");
         assertEquals(0, count(frozen, PredicateSubstrate.PREDICATE_STORE));
 
-        assertEquals(70, current.size(),
-                "the 70 PredicateStore sites of the 0/70/21 signature, unchanged at the head this "
-                        + "was written against");
+        assertEquals(101, current.size(),
+                "70 -> 101 across gh109: task 1.3(b) writes the three generatedMessageDigest sites "
+                        + "the transcription had omitted, and group G2's fourteen producer "
+                        + "specifications carry 14 writes and 10 reads of their own. The 0/70/21 "
+                        + "signature this was written against is the shape and not the number: "
+                        + "still no site on substrate A, and still every one of them on the store");
         assertEquals(0, count(current, PredicateSubstrate.EXECUTION_CONTEXT),
                 "so the substrate-A ceiling no longer binds this set: it is a property of the "
                         + "frozen set, not a defect of the current corpus");
-        assertEquals(70, count(current, PredicateSubstrate.PREDICATE_STORE));
+        assertEquals(101, count(current, PredicateSubstrate.PREDICATE_STORE));
 
         PredicateGraph frozenGraph = PredicateGraph.of(frozen);
         PredicateGraph currentGraph = PredicateGraph.of(current);
@@ -219,29 +223,36 @@ class M4PredicateCorpusTest {
         }
         int paired = pairing.pairs().size();
 
-        assertEquals(22, paired,
+        assertEquals(35, paired,
                 "the pairing of record: SpecRulePairing, by declared type and INJECTIVE "
-                        + "(INV-CONF-11 plus the injectivity the corpus forces). The two that pair "
-                        + "with nothing are RandomStringPassword.mop, whose declared type is "
-                        + "String, and IvChainJunction.mop, which declares Cipher and loses "
-                        + "Cipher.crysl to CipherSpec on signature coverage");
-        assertEquals(List.of("IvChainJunction.mop", "RandomStringPassword.mop"),
+                        + "(INV-CONF-11 plus the injectivity the corpus forces). The three that "
+                        + "pair with nothing are RandomStringPassword.mop, whose declared type is "
+                        + "String; IvChainJunction.mop, which declares Cipher and loses "
+                        + "Cipher.crysl to CipherSpec on signature coverage; and, since gh109, "
+                        + "OAEPParameterSpecSpec.mop, whose rule is one of the two the lift "
+                        + "rejects");
+        assertEquals(List.of("IvChainJunction.mop", "OAEPParameterSpecSpec.mop",
+                        "RandomStringPassword.mop"),
                 pairing.unpairedNames(),
-                "and the loser is named rather than dropped in silence");
-        assertEquals(44, present, "edges present over the 22 pairs, with no declared alias");
-        assertEquals(44, absent, "clauses of the paired rules no site implements");
+                "and the losers are named rather than dropped in silence");
+        assertEquals(68, present, "edges present over the 35 pairs, with no declared alias");
+        assertEquals(40, absent,
+                "44 -> 40 at gh109 group G2: four clauses that no site implemented now have one. "
+                        + "The group adds pairs as well as sites, so this number could have moved "
+                        + "either way -- a new pair brings its rule's unimplemented clauses in "
+                        + "with it -- and it fell, which is what a producer specification is for");
         assertEquals(0, inverted,
                 "no site of the current corpus pairs with a clause and then disagrees with it on "
                         + "polarity or on argument order - including the one negated pair, "
                         + "MacSpec's validateAbsent against Mac.crysl's !encrypted, which agrees "
                         + "because both sides are read as NEGATED and not because both lifts lost "
                         + "the same signal");
-        assertEquals(106, rows, "one row per site of a paired specification, plus one per absence");
-        assertEquals(88, derivedRows,
+        assertEquals(131, rows, "one row per site of a paired specification, plus one per absence");
+        assertEquals(108, derivedRows,
                 "rows whose fidelity class this metric derived, under Judgements.empty(): no "
                         + "declared alias and no supplied class, so every derived row was derived "
                         + "by this metric and by nothing else");
-        assertEquals(0.830, (double) derivedRows / rows, 0.001,
+        assertEquals(0.824, (double) derivedRows / rows, 0.001,
                 "the derived fraction, which is the honest measure of how much of the manual "
                         + "table this component replaced; it rises when the comparison improves "
                         + "and not when the component is handed more judgement");

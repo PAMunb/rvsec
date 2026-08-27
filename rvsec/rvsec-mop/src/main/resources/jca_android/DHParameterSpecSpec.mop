@@ -1,0 +1,111 @@
+package mop;
+
+import java.math.BigInteger;
+import javax.crypto.spec.DHParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+/**
+ * DHParameterSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.crypto.spec.DHParameterSpec.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/DHParameterSpec.crysl
+ */
+DHParameterSpecSpec(DHParameterSpec s) {
+
+   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   DHParameterSpec spec;
+
+   // The two-argument constructor, the rule's `c1` (:9) and one alternative of its
+   // `Con := c1 | c2`. api30 declares both overloads and the rule declares both, so both
+   // are events here: the rule labelling them separately is what says they stay separate
+   // (`GCMParameterSpecSpec` and `PBEParameterSpecSpec` have the same shape).
+   //
+   // The two CONSTRAINTS clauses are `p >= 1^2048` and `g >= 1^2048`
+   // (DHParameterSpec.crysl:17-18), the identical pair `DSAParameterSpec.crysl:16-17`
+   // states, and they are transcribed the same way: *bit length at least 2048*, a recorded
+   // decision (D-20.4) and not a transcription, because CrySL has no exponentiation
+   // operator and `1^2048` read as written is the constant 1. The `oracle-wart` row against
+   // `tools/rules/DSAParameterSpec.crysl` states the defect in full and the row against
+   // this rule points at it; the rules themselves are never edited (D-21).
+   //
+   // Both clauses land in the body with an accuser apiece, never in a `condition(...)`,
+   // which would compile to `if (!(guard)) return false;` ahead of the transition
+   // (INV-INS-133) and turn a short modulus into silence. They accumulate rather than
+   // short-circuit, so a program that got both wrong hears about both. Report family is
+   // `CONSTR`/`UnsatisfiedConstraint` for the reason the DSA twin states: only one of the
+   // two quantities is a key size, and the rule says the same thing about both.
+   event c1 after(BigInteger p, BigInteger g) returning(DHParameterSpec s):
+     call(public DHParameterSpec.new(BigInteger, BigInteger)) &&
+     args(p, g) {
+       boolean conforms = true;
+       if (p == null || p.bitLength() < 2048) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DHParameterSpecSpec", "" + __LOC,
+               "v=1 code=DHPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=DHParameterSpec val='" + (p == null ? 0 : p.bitLength()) + "' exp='a prime modulus of 2048 bits or more' msg='the diffie-hellman prime modulus is shorter than the rule intends'"));
+           conforms = false;
+       }
+       if (g == null || g.bitLength() < 2048) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DHParameterSpecSpec", "" + __LOC,
+               "v=1 code=DHPARAMETERSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=DHParameterSpec val='" + (g == null ? 0 : g.bitLength()) + "' exp='a generator of 2048 bits or more' msg='the diffie-hellman generator is shorter than the rule intends'"));
+           conforms = false;
+       }
+       if (conforms) {
+           spec = s;
+       }
+   }
+
+   // The three-argument constructor, the rule's `c2` (:10). The rule declares the private
+   // exponent size `l` among its objects and constrains it nowhere, so this body is `c1`'s
+   // over this overload's first two arguments: the same two clauses over the same two
+   // quantities, with codes of their own because a code names a site and not a clause
+   // (`IvParameterSpec.mop:108-111`).
+   event c2 after(BigInteger p, BigInteger g, int l) returning(DHParameterSpec s):
+     call(public DHParameterSpec.new(BigInteger, BigInteger, int)) &&
+     args(p, g, l) {
+       boolean conforms = true;
+       if (p == null || p.bitLength() < 2048) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DHParameterSpecSpec", "" + __LOC,
+               "v=1 code=DHPARAMETERSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=DHParameterSpec val='" + (p == null ? 0 : p.bitLength()) + "' exp='a prime modulus of 2048 bits or more' msg='the diffie-hellman prime modulus is shorter than the rule intends'"));
+           conforms = false;
+       }
+       if (g == null || g.bitLength() < 2048) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DHParameterSpecSpec", "" + __LOC,
+               "v=1 code=DHPARAMETERSPEC-CONSTR-03 ev=" + __EVENTNAME + " obj=DHParameterSpec val='" + (g == null ? 0 : g.bitLength()) + "' exp='a generator of 2048 bits or more' msg='the diffie-hellman generator is shorter than the rule intends'"));
+           conforms = false;
+       }
+       if (conforms) {
+           spec = s;
+       }
+   }
+
+   // `Con := c1 | c2` is the whole ORDER (:13-14), so the `@fail` handler cannot fire: the
+   // transition row is {1, 2, 2} for both events and the monitor is keyed on the constructed
+   // object, so no monitor ever sees a second event and state 2 is never entered. Written
+   // because the generator and the `codes.csv` bijection expect it (precedent:
+   // `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1 | c2
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHParameterSpecSpec", "" + __LOC,
+          "v=1 code=DHPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=DHParameterSpec val='' exp='' msg='the observed call sequence is not one DHParameterSpecSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES preparedDH[this]` (:21) carries no `after L`, so the acceptance point is the
+   // accepting state, which in an `ere` is `@match` (INV-INS-134). `spec` is bound only by
+   // the conforming branches and `ensure` treats a null binding as a no-op.
+   //
+   // `preparedDH` has a second producer already in the set -- `DHGenParameterSpecSpec.mop`,
+   // for `DHGenParameterSpec.crysl:18` -- and three consumers among the 49:
+   // `KeyPairGenerator.crysl:37`, `KeyAgreement.crysl:47` and `AlgorithmParameters.crysl:36`,
+   // the first wired at task 1b.1 and the last at 3.1. Until this file landed the predicate
+   // was written by one producer and read by none.
+   @match {
+      PredicateStore.instance().ensure(Property.PREPARED_DH, spec);
+   }
+
+}

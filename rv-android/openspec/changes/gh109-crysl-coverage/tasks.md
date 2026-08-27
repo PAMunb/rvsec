@@ -66,21 +66,21 @@ Subagent dispatch (docs/WORKFLOW.md §5) — lighter protocol than gh105 (design
 
 ## 2. G2 — Trivial producer specs, 14 files (parallel per spec, after G0) — `tasks/G2-producers-trivial.md`
 
-- [ ] 2.1 `RSAKeyGenParameterSpecSpec.mop` (`preparedRSA`)
-- [ ] 2.2 `ECGenParameterSpecSpec.mop` (`preparedEC`, curve list)
-- [ ] 2.3 `ECParameterSpecSpec.mop` (`preparedEC`)
-- [ ] 2.4 `DSAParameterSpecSpec.mop` (`preparedDSA`, bit-length ≥ 2048 per D-20.4)
-- [ ] 2.5 `DHParameterSpecSpec.mop` (`preparedDH`, bit-length ≥ 2048)
-- [ ] 2.6 `MGF1ParameterSpecSpec.mop` (`preparedMGF1`)
-- [ ] 2.7 `OAEPParameterSpecSpec.mop` (`preparedOAEP`; REQUIRES `preparedMGF1` — wire after 2.6)
-- [ ] 2.8 `KeyStoreBuilderParametersSpec.mop` (`generatedManagerFactoryParameters`)
-- [ ] 2.9 `CertPathTrustManagerParametersSpec.mop` (`generatedManagerFactoryParameters`; reads `generatedCertPathParameters`)
-- [ ] 2.10 `PKIXParametersSpec.mop` (`generatedCertPathParameters`; reads `generatedKeyStore`)
-- [ ] 2.11 `PKIXBuilderParametersSpec.mop` (`generatedCertPathParameters`; reads `generatedKeyStore`)
-- [ ] 2.12 `TrustAnchorSpec.mop` (`generatedTrustAnchor`; reads `generatedPubkey`)
-- [ ] 2.13 `X509EncodedKeySpecSpec.mop` (`speccedKey`; reads `preparedKeyMaterial`)
-- [ ] 2.14 `KeySpec.mop` — interface rule `Key` (`Key+.getEncoded()`, writes `preparedKeyMaterial`)
-- [ ] 2.R Group records pass (new-file rows, graph, ledger — five of the six named producer gaps plus `preparedDH` must show closed) + [GEN] monitor + gates
+- [x] 2.1 `RSAKeyGenParameterSpecSpec.mop` (`preparedRSA`)
+- [x] 2.2 `ECGenParameterSpecSpec.mop` (`preparedEC`, curve list)
+- [x] 2.3 `ECParameterSpecSpec.mop` (`preparedEC`)
+- [x] 2.4 `DSAParameterSpecSpec.mop` (`preparedDSA`, bit-length ≥ 2048 per D-20.4)
+- [x] 2.5 `DHParameterSpecSpec.mop` (`preparedDH`, bit-length ≥ 2048)
+- [x] 2.6 `MGF1ParameterSpecSpec.mop` (`preparedMGF1`)
+- [x] 2.7 `OAEPParameterSpecSpec.mop` (`preparedOAEP`; REQUIRES `preparedMGF1` — wire after 2.6)
+- [x] 2.8 `KeyStoreBuilderParametersSpec.mop` (`generatedManagerFactoryParameters`)
+- [x] 2.9 `CertPathTrustManagerParametersSpec.mop` (`generatedManagerFactoryParameters`; reads `generatedCertPathParameters`)
+- [x] 2.10 `PKIXParametersSpec.mop` (`generatedCertPathParameters`; reads `generatedKeyStore`)
+- [x] 2.11 `PKIXBuilderParametersSpec.mop` (`generatedCertPathParameters`; reads `generatedKeyStore`)
+- [x] 2.12 `TrustAnchorSpec.mop` (`generatedTrustAnchor`; reads `generatedPubkey`)
+- [x] 2.13 `X509EncodedKeySpecSpec.mop` (`speccedKey`; reads `preparedKeyMaterial`)
+- [x] 2.14 `KeySpec.mop` — interface rule `Key` (`Key+.getEncoded()`, writes `preparedKeyMaterial`)
+- [x] 2.R Group records pass (new-file rows, graph, ledger — five of the six named producer gaps plus `preparedDH` must show closed) + [GEN] monitor + gates
 
 ## 1b. G1b — Consumer reads unblocked by the producers (after G2) — `tasks/G1b-consumer-reads.md`
 

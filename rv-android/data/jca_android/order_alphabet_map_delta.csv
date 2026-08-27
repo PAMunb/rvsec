@@ -159,6 +159,25 @@ MessageDigestSpec,d1,d1,d1,same-name,out = digest(),
 MessageDigestSpec,d2,d2,DWOU,renamed,out = digest(inbytearr),
 MessageDigestSpec,d3,d3,d3,same-name,"digest(out, off, len)",
 SecretKeySpec,e1,ge,GetEnc,renamed,keyMaterial = getEncoded(),
+CertPathTrustManagerParametersSpec,c1,,c1,expert-native,CertPathTrustManagerParameters(params),decided under the expert oracle; api30 never carried this association
+DHParameterSpecSpec,c1,,c1,expert-native,"DHParameterSpec(p, g)",decided under the expert oracle; api30 never carried this association
+DHParameterSpecSpec,c2,,c2,expert-native,"DHParameterSpec(p, g, l)",decided under the expert oracle; api30 never carried this association
+DSAParameterSpecSpec,c1,,c1,expert-native,"DSAParameterSpec(p, q, g)",decided under the expert oracle; api30 never carried this association
+ECGenParameterSpecSpec,c1,,c1,expert-native,ECGenParameterSpec(stdName),decided under the expert oracle; api30 never carried this association
+ECParameterSpecSpec,c1,,c1,expert-native,"ECParameterSpec(curve, g, n, h)",decided under the expert oracle; api30 never carried this association
+KeySpec,ge1,,ge1,expert-native,keyMaterial = getEncoded(),decided under the expert oracle; api30 never carried this association
+KeyStoreBuilderParametersSpec,c1,,c1,expert-native,KeyStoreBuilderParameters(builder),decided under the expert oracle; api30 never carried this association
+MGF1ParameterSpecSpec,c1,,c1,expert-native,MGF1ParameterSpec(mdName),decided under the expert oracle; api30 never carried this association
+OAEPParameterSpecSpec,c1,,c1,expert-native,"OAEPParameterSpec(mdName, mgfName, mgfSpec, pSrc)",decided under the expert oracle; api30 never carried this association
+PKIXParametersSpec,c1,,c1,expert-native,PKIXParameters(keyStore),decided under the expert oracle; api30 never carried this association
+PKIXParametersSpec,c2,,c2,expert-native,PKIXParameters(_),decided under the expert oracle; api30 never carried this association
+PKIXBuilderParametersSpec,c1,,c1,expert-native,"PKIXBuilderParameters(keystore, targetConstraints)",decided under the expert oracle; api30 never carried this association
+PKIXBuilderParametersSpec,c2,,c2,expert-native,"PKIXBuilderParameters(trustAnchors, targetConstraints)",decided under the expert oracle; api30 never carried this association
+RSAKeyGenParameterSpecSpec,c1,,c1,expert-native,"RSAKeyGenParameterSpec(keysize, publicExponent)",decided under the expert oracle; api30 never carried this association
+TrustAnchorSpec,c1,,c1,expert-native,"TrustAnchor(_, publicKey, _)",decided under the expert oracle; api30 never carried this association
+TrustAnchorSpec,c2,,c2,expert-native,"TrustAnchor(trustedCert, _)",decided under the expert oracle; api30 never carried this association
+TrustAnchorSpec,c3,,c3,expert-native,"TrustAnchor(caPrincipal, publicKey, _)",decided under the expert oracle; api30 never carried this association
+X509EncodedKeySpecSpec,c1,,c1,expert-native,X509EncodedKeySpec(encodedKey),decided under the expert oracle; api30 never carried this association
 ,,,Cipher.crysl:ua1,uncovered-expert-symbol,updateAAD(aadBytes),named by the expert ORDER
 ,,,Cipher.crysl:ua2,uncovered-expert-symbol,"updateAAD(aadBytes, aadOffset, aadLen)",named by the expert ORDER
 ,,,Cipher.crysl:ua3,uncovered-expert-symbol,updateAAD(aadByteBuffer),named by the expert ORDER

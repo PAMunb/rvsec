@@ -49,9 +49,9 @@ class AlphabetMapTest {
     void test_the_committed_map_parses() throws IOException {
         AlphabetMap map = AlphabetMap.read(committed);
 
-        assertEquals(22, map.rows().size(),
+        assertEquals(36, map.rows().size(),
                 "one group per specification carrying rows; the two G-ORDER skips are prose in the "
-                        + "header and never data rows, which is what keeps them skips: " 
+                        + "header and never data rows, which is what keeps them skips: "
                         + map.rows().keySet());
 
         List<AlphabetMap.Row> keyGenerator = map.rowsOf("KeyGeneratorSpec");

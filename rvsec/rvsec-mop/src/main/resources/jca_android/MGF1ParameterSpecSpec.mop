@@ -1,0 +1,102 @@
+package mop;
+
+import java.security.spec.MGF1ParameterSpec;
+import java.util.Arrays;
+import java.util.List;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+/**
+ * MGF1ParameterSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.spec.MGF1ParameterSpec.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/MGF1ParameterSpec.crysl
+ */
+MGF1ParameterSpecSpec(MGF1ParameterSpec s) {
+
+   // The envelope's quoting rule (design D-3): a null value is the empty string, a single
+   // quote is escaped so it cannot close the field early, and the value is capped so a
+   // pathological argument cannot push the record past the logcat payload limit.
+   private String q(String s) {
+       if (s == null) {
+           return "";
+       }
+       String value = s.length() > 512 ? s.substring(0, 512) : s;
+       return value.replace("'", "\\'");
+   }
+
+   // MGF1ParameterSpec.crysl:14, transcribed. The class also exposes five static constants
+   // (SHA1, SHA224, SHA256, SHA384, SHA512), and a program that reads one of those never
+   // reaches this constructor: the field is initialised inside the platform, outside
+   // anything the instrumentation weaves. That is a reach limit of the monitor and not a
+   // hole in the rule, and it is why the read at `OAEPParameterSpecSpec` distinguishes
+   // NOT_OBSERVED from VIOLATED (INV-INS-143) -- `MGF1ParameterSpec.SHA256` is the ordinary
+   // way to write this and it arrives unobserved.
+   List<String> digests = Arrays.asList("SHA-256", "SHA-384", "SHA-512");
+
+   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   MGF1ParameterSpec spec;
+
+   // The second place of `preparedMGF1[this, mdName]` (:17), staged beside the object for
+   // the same reason the object is staged: a handler sees no event arguments.
+   String stagedDigest;
+
+   // The rule's one event, `c1: MGF1ParameterSpec(mdName)` (:7), and the whole of its
+   // ORDER. api30 declares exactly this constructor.
+   //
+   // The digest name is a CONSTRAINTS clause read in the body, never in a `condition(...)`,
+   // which would compile to `if (!(guard)) return false;` ahead of the transition
+   // (INV-INS-133) and turn a spec built on MD5 into silence.
+   //
+   // `ConscryptAliasTable.matches("MessageDigest", ...)` is the same call the digest
+   // specification of the set makes, and here the table earns its keep rather than merely
+   // folding case: `SHA256` and `2.16.840.1.101.3.4.2.1` are Conscrypt aliases of
+   // `SHA-256`, and a program spelling the digest either way has satisfied the rule.
+   event c1 after(String mdName) returning(MGF1ParameterSpec s):
+     call(public MGF1ParameterSpec.new(String)) &&
+     args(mdName) {
+       if (!ConscryptAliasTable.matches("MessageDigest", mdName, digests)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MGF1ParameterSpecSpec", "" + __LOC,
+               "v=1 code=MGF1PARAMETERSPEC-ALG-00 ev=" + __EVENTNAME + " obj=MGF1ParameterSpec val='" + q(mdName) + "' exp='" + q(String.join(",", digests)) + "' msg='the mask generation function digest is not one the rule admits'"));
+       }
+       else {
+           spec = s;
+           // D-20.3, INV-INS-153: an algorithm-valued predicate is written canonical.
+           // `PredicateStore` compares value positions after lowercasing and nothing else,
+           // so a raw `SHA256` written here would never match the `SHA-256` the OAEP
+           // reader asks with, and the chain would break in silence.
+           stagedDigest = ConscryptAliasTable.canonical("MessageDigest", mdName);
+       }
+   }
+
+   // `Con := c1` is the whole ORDER (:10-11), so the `@fail` handler cannot fire: one
+   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
+   // no monitor ever sees a second event. Written because the generator and the
+   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MGF1ParameterSpecSpec", "" + __LOC,
+          "v=1 code=MGF1PARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=MGF1ParameterSpec val='' exp='' msg='the observed call sequence is not one MGF1ParameterSpecSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES preparedMGF1[this, mdName]` (:17) carries no `after L`, so the acceptance
+   // point is the accepting state, which in an `ere` is `@match` (INV-INS-134). The clause
+   // has two places and both are written: the object, and the digest it was built with.
+   //
+   // The second place is what makes the consuming clause more than an existence check.
+   // `OAEPParameterSpec.crysl:22` requires `preparedMGF1[mgfSpec, mdName]` with *its own*
+   // `mdName`, so the read compares the two digest names and refuses an OAEP spec whose
+   // digest and whose mask-generation digest disagree. A one-place write here would make
+   // that comparison unaskable.
+   @match {
+      PredicateStore.instance().ensure(Property.PREPARED_MGF1, spec, stagedDigest);
+   }
+
+}

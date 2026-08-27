@@ -1,0 +1,66 @@
+package mop;
+
+import java.math.BigInteger;
+import java.security.spec.ECParameterSpec;
+import java.security.spec.ECPoint;
+import java.security.spec.EllipticCurve;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+/**
+ * ECParameterSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.spec.ECParameterSpec.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/ECParameterSpec.crysl
+ */
+ECParameterSpecSpec(ECParameterSpec s) {
+
+   // Bound by the one event, which has nothing to refuse; the field exists because a
+   // handler sees no event arguments and `@match` is where the write belongs.
+   ECParameterSpec spec;
+
+   // The rule's one event, `c1: ECParameterSpec(curve, g, n, h)` (:10), and the whole of
+   // its ORDER. api30 declares exactly this constructor.
+   //
+   // This specification accuses nothing, and that is the rule and not an omission:
+   // ECParameterSpec.crysl states no CONSTRAINTS section and no REQUIRES section, so there
+   // is no clause to transcribe into a body and this file appears in `codes.csv` with its
+   // `@fail` row alone. What it contributes is the ENSURES below -- one of the two
+   // producers of `preparedEC`, and the one that admits any curve the caller can build by
+   // hand. The sibling `ECGenParameterSpecSpec` is the one that constrains a curve by
+   // standard name.
+   //
+   // The four parameters of the rule's event are named in the pointcut signature and bound
+   // by nothing, because no clause of the rule reads them. The signature is spelled out
+   // rather than wildcarded so the trace harness's resolver can walk the declared parameter
+   // types (it stops at the first wildcard -- `KeyManagerFactorySpec.mop:87-90`).
+   event c1 after() returning(ECParameterSpec s):
+     call(public ECParameterSpec.new(EllipticCurve, ECPoint, BigInteger, int)) {
+       spec = s;
+   }
+
+   // `Con := c1` is the whole ORDER (:13-14), so the `@fail` handler cannot fire: one
+   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
+   // no monitor ever sees a second event. Written because the generator and the
+   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "ECParameterSpecSpec", "" + __LOC,
+          "v=1 code=ECPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=ECParameterSpec val='' exp='' msg='the observed call sequence is not one ECParameterSpecSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES preparedEC[this]` (:17) carries no `after L`, so the acceptance point is the
+   // accepting state, which in an `ere` is `@match` (INV-INS-134). With no clause able to
+   // fail, `spec` is bound on every construction this monitor sees, and the write is
+   // unconditional in substance as well as in form.
+   @match {
+      PredicateStore.instance().ensure(Property.PREPARED_EC, spec);
+   }
+
+}

@@ -156,17 +156,38 @@ class M1EventsCorpusTest {
             throws LiftFailure, IOException {
         SpecRulePairing.Result pairing = pairTheCorpus();
 
-        assertEquals(24, pairing.pairs().size() + pairing.unpaired().size(),
+        assertEquals(38, pairing.pairs().size() + pairing.unpaired().size(),
                 "every specification of the set is accounted for, paired or not");
-        assertEquals(22, pairing.pairs().size(),
-                "22 of 24 pair by declared type; counting rule = " + SpecRulePairing.PAIRING_RULE);
-        assertEquals(22, pairing.pairedRules(),
-                "and 22 distinct rules are claimed, because the pairing is injective - the "
+        assertEquals(35, pairing.pairs().size(),
+                "35 of 38 pair by declared type; counting rule = " + SpecRulePairing.PAIRING_RULE);
+        assertEquals(35, pairing.pairedRules(),
+                "and 35 distinct rules are claimed, because the pairing is injective - the "
                         + "denominator every later aggregate is stated over");
 
-        assertEquals(alphabetMapSkips(), Set.copyOf(pairing.unpairedNames()),
-                "the two the pairing leaves over are the two the alphabet map declares as skips, "
-                        + "read from an artifact this component does not produce");
+        // Until gh109 the two sets were the same two names, and the assertion was equality.
+        // They came apart when the coverage specifications landed: OAEPParameterSpecSpec.mop
+        // owns rows in the alphabet map, because the map is derived by a reader that parses
+        // OAEPParameterSpec.crysl without complaint, and is still unpaired here, because the
+        // lift does not - the rule is one of the two lift failures (OAEPParameterSpec:8,
+        // SSLEngine:12), so no rule of the *lifted* oracle declares its type. A specification
+        // whose oracle does not parse is not a specification the map declared a skip for, and
+        // collapsing the two would file a parser defect under a mapping decision. So the
+        // containment is what holds: every map skip is unpaired, and what is unpaired beyond
+        // them is named with its reason below.
+        assertTrue(Set.copyOf(pairing.unpairedNames()).containsAll(alphabetMapSkips()),
+                "every specification the alphabet map declares a skip for is one the pairing "
+                        + "leaves over, read from an artifact this component does not produce");
+        assertEquals(Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword"),
+                Set.copyOf(pairing.unpairedNames()),
+                "and nothing else is left over");
+
+        assertEquals(SpecRulePairing.Reason.NO_RULE_DECLARES_THE_TYPE,
+                reasonFor(pairing, "OAEPParameterSpecSpec"),
+                "not because the oracle states no rule about javax.crypto.spec.OAEPParameterSpec "
+                        + "- it states one - but because that rule does not lift, so it is absent "
+                        + "from the corpus the pairing reads. The consequence is that M1-M4 report "
+                        + "nothing about this specification, and it is named here rather than "
+                        + "discovered as a hole in a denominator");
 
         assertEquals(SpecRulePairing.Reason.NO_RULE_DECLARES_THE_TYPE,
                 reasonFor(pairing, "RandomStringPassword"),
@@ -202,7 +223,7 @@ class M1EventsCorpusTest {
         String markdown = M1Events.table(results, mopVersion(), OracleCorpus.version(),
                 pairing.pairingRule()).markdown(List.of());
 
-        assertEquals(22, results.size());
+        assertEquals(35, results.size());
         assertTrue(markdown.contains("rvsec-cognicrypt"), "the oracle repository (INV-CONF-11)");
         assertTrue(markdown.contains("INV-CONF-11"), "the pairing rule (INV-CONF-11)");
         assertTrue(markdown.contains("R-M1"), "the counting rule (INV-CONF-02)");
@@ -216,7 +237,7 @@ class M1EventsCorpusTest {
             specifications.add(new SpecRulePairing.Candidate(name,
                     lifter.lift(file, mopVersion())));
         }
-        assertEquals(24, specifications.size(), "the jca_android set is 24 files");
+        assertEquals(38, specifications.size(), "the jca_android set is 38 files");
 
         List<SpecRulePairing.Candidate> rules = new ArrayList<>();
         CryslLifter.CorpusLift lift = new CryslLifter()
@@ -258,7 +279,7 @@ class M1EventsCorpusTest {
             }
             withRows.add(line.substring(0, line.indexOf(',')));
         }
-        assertEquals(22, withRows.size(), "22 of the set's specifications own rows in the map");
+        assertEquals(36, withRows.size(), "36 of the set's specifications own rows in the map");
 
         Set<String> skips = new LinkedHashSet<>();
         for (Path file : mopFiles()) {

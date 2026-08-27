@@ -1,0 +1,12 @@
+# gh109 task 2.R, the violating half of the value-constrained producer shape (task 2.1).
+# Both clauses of RSAKeyGenParameterSpec.crysl break at once, and the trace exists to show
+# that they accumulate rather than short-circuit: 512 is not one of the three key sizes the
+# rule admits and 3 is not the exponent it admits, so the construction must draw BOTH
+# RSAKEYGENPARAMETERSPEC-KEYSIZE-00 and RSAKEYGENPARAMETERSPEC-CONSTR-00 -- two reports for
+# two broken clauses, under two families, because only one of the two quantities is a key
+# size.
+#
+# It must not prepare `preparedRSA`: the write is taken only when neither clause fired, so
+# a KeyPairGenerator initialised from these parameters is left without the predicate its
+# own rule will ask for.
+new RSAKeyGenParameterSpec(512, 3) -> params

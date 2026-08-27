@@ -1,0 +1,5 @@
+# legitimate: the only event of the specification, with both value clauses satisfied.
+# RSAKeyGenParameterSpec.crysl:15-16 admits keysize in {1024, 2048, 4096} and a public
+# exponent of 65537, and 2048 with F4 is the ordinary case. Nothing is drawn and
+# `preparedRSA` is staged.
+new RSAKeyGenParameterSpec(2048, 65537) -> params

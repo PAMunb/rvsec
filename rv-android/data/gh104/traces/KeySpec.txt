@@ -1,0 +1,14 @@
+# legitimate: the interface-rule shape (gh109 task 2.14). Key.crysl states no CONSTRAINTS,
+# no FORBIDDEN and an ORDER of `GetEnc*` that refuses no sequence, so this specification has
+# no accusation site at all and this trace draws nothing -- which is what it is here to show.
+#
+# What it does have is the guard mirrored from SecretKeySpec.mop:122 and generalised to
+# Key's shape. The key below was generated under observation, so `generatedKey[k, alg]` is
+# SATISFIED, the origin is observed, and `preparedKeyMaterial` is staged for the returned
+# array. Two `getEncoded()` calls return two arrays and each is staged separately, which is
+# why the handler runs after every `ge1` and not once.
+KeyGenerator.getInstance("AES") -> kg
+kg.init(256)
+kg.generateKey() -> key
+key.getEncoded()
+key.getEncoded()

@@ -132,7 +132,7 @@ class M0VitalityTest {
     void test_five_specifications_do_not_index() throws LiftFailure {
         Map<String, M0Result> results = examine(ANDROID, Optional.empty());
 
-        assertEquals(24, results.size(), "the corpus is 24 files: " + results.keySet());
+        assertEquals(38, results.size(), "the corpus is 38 files: " + results.keySet());
 
         List<String> notIndexing = results.values().stream()
                 .filter(result -> !result.indexes())
@@ -140,10 +140,16 @@ class M0VitalityTest {
                 .sorted()
                 .toList();
 
-        assertEquals(List.of("CipherInputStreamSpec", "CipherOutputStreamSpec",
-                        "HMACParameterSpecSpec", "KeyStoreSpec", "RandomStringPassword"),
+        // Five became three, and the two movements have nothing to do with each other.
+        // CipherInputStreamSpec, CipherOutputStreamSpec and KeyStoreSpec left the list under
+        // gh105, which gave each of them a declared parameter to index on; this pin was never
+        // re-measured then, so it has been carrying a stale list since. KeySpec joined it at
+        // gh109 task 2.14 for the original reason: Key.crysl's one event is
+        // `keyMaterial = getEncoded()`, the specification declares no parameter of its own, and
+        // it compiles to one monitor for the whole program.
+        assertEquals(List.of("HMACParameterSpecSpec", "KeySpec", "RandomStringPassword"),
                 notIndexing,
-                "the five specifications that compile to one monitor for the whole program");
+                "the three specifications that compile to one monitor for the whole program");
 
         // The counting rule as data rather than as prose: the two ways a specification fails to
         // index are different facts about different files, and a test that only counted five would
@@ -158,11 +164,13 @@ class M0VitalityTest {
                         "0/" + read.facts().declaredEvents());
             }
         }
+        // Only the 0/N half of the rule has members now. The three files that were here under
+        // "no parameter" all declare one since gh105, so the half that applies to them stopped
+        // applying; KeySpec is 0/1 because it declares a parameter its one event does not bind --
+        // `Key+.getEncoded()` binds the receiver and the rule's own object is the returned array.
         assertEquals(Map.of(
-                        "CipherInputStreamSpec", "no parameter",
-                        "CipherOutputStreamSpec", "no parameter",
                         "HMACParameterSpecSpec", "0/1",
-                        "KeyStoreSpec", "0/7",
+                        "KeySpec", "0/1",
                         "RandomStringPassword", "0/2"),
                 binding,
                 "0/N binding, plus specifications declared with no parameter — the two halves of "
@@ -241,10 +249,16 @@ class M0VitalityTest {
                 .map(M0Result::specification)
                 .sorted()
                 .toList();
-        assertEquals(List.of("RandomStringPassword", "SecretKeySpec"), refused,
-                "two of the 24, not one. SecretKeySpec.mop is one of the 22 pairs D-06 names, so "
+        assertEquals(List.of("KeySpec", "RandomStringPassword", "SecretKeySpec"), refused,
+                "three of the 38, not one. SecretKeySpec.mop is one of the pairs D-06 names, so "
                         + "refusing it removes a pair from what M1-M4 report on, and that "
-                        + "consequence is named here rather than discovered downstream");
+                        + "consequence is named here rather than discovered downstream. KeySpec.mop "
+                        + "joins it at gh109 task 2.14 and for the same reason, by design: Key.crysl "
+                        + "states no CONSTRAINTS and no FORBIDDEN, its ORDER GetEnc* refuses no "
+                        + "sequence, and the specification exists to write preparedKeyMaterial and "
+                        + "nothing else. It has no accusation site because the rule asks for none, "
+                        + "so M1-M4 do not report on it -- which is the cost of transcribing a rule "
+                        + "that only produces, and it is named here rather than found downstream");
 
         // What that costs, measured rather than estimated, at this working tree:
         //
@@ -382,21 +396,30 @@ class M0VitalityTest {
                 .sorted()
                 .toList();
 
-        assertEquals(24, android.size());
+        assertEquals(38, android.size());
         assertEquals(23, jca.size());
-        assertEquals(18, androidAbsorbing.size(), "jca_android absorbing: " + androidAbsorbing);
+        // 18 -> 32 at gh109 group G2: every one of the fourteen producer specifications
+        // absorbs its own misuse, which is what a transcribed value clause is -- the accusation
+        // is raised on the branch the clause rejects, inside the event, and no other
+        // specification of the set is asked to notice.
+        assertEquals(32, androidAbsorbing.size(), "jca_android absorbing: " + androidAbsorbing);
         assertEquals(15, jcaAbsorbing.size(), "jca absorbing: " + jcaAbsorbing);
 
         // The lists, not only the totals: the independent probe
         // (docs/handoff/20260824_arnes_adjudicacao/scripts/absorve.py) prints these same names, and
         // two routes agreeing on a count while disagreeing on which files it is made of would be a
         // coincidence read as a confirmation.
-        assertEquals(List.of("CipherSpec", "GCMParameterSpecSpec", "IvChainJunction",
-                        "IvParameterSpec", "KeyGeneratorSpec", "KeyManagerFactorySpec",
-                        "KeyPairGeneratorSpec", "KeyPairSpec", "KeyStoreSpec", "MacSpec",
-                        "MessageDigestSpec", "PBEKeySpecSpec", "PBEParameterSpecSpec",
-                        "SSLContextSpec", "SecretKeySpecSpec", "SecureRandomSpec", "SignatureSpec",
-                        "TrustManagerFactorySpec"),
+        assertEquals(List.of("CertPathTrustManagerParametersSpec", "CipherInputStreamSpec",
+                        "CipherOutputStreamSpec", "CipherSpec", "DHGenParameterSpecSpec",
+                        "DHParameterSpecSpec", "DSAParameterSpecSpec", "ECGenParameterSpecSpec",
+                        "GCMParameterSpecSpec", "IvChainJunction", "IvParameterSpec",
+                        "KeyGeneratorSpec", "KeyManagerFactorySpec", "KeyPairGeneratorSpec",
+                        "KeyPairSpec", "KeyStoreSpec", "MGF1ParameterSpecSpec", "MacSpec",
+                        "MessageDigestSpec", "OAEPParameterSpecSpec", "PBEKeySpecSpec",
+                        "PBEParameterSpecSpec", "PKIXBuilderParametersSpec", "PKIXParametersSpec",
+                        "RSAKeyGenParameterSpecSpec", "SSLContextSpec", "SecretKeySpecSpec",
+                        "SecureRandomSpec", "SignatureSpec", "TrustAnchorSpec",
+                        "TrustManagerFactorySpec", "X509EncodedKeySpecSpec"),
                 androidAbsorbing);
         assertEquals(List.of("CipherSpec", "IvParameterSpec", "KeyGeneratorSpec",
                         "KeyManagerFactorySpec", "KeyPairGeneratorSpec", "KeyStoreSpec", "MacSpec",
@@ -477,9 +500,9 @@ class M0VitalityTest {
                 }
             }
         }
-        assertEquals(List.of("RandomStringPassword", "SecretKeySpec"),
+        assertEquals(List.of("KeySpec", "RandomStringPassword", "SecretKeySpec"),
                 List.copyOf(new java.util.TreeSet<>(unreachable.keySet())),
-                "INV-CONF-09: the two refusals of the set are emitted as typed Unknowns and not "
+                "INV-CONF-09: the three refusals of the set are emitted as typed Unknowns and not "
                         + "only as Silence rows, so they are counted in the same vocabulary as "
                         + "every other refusal of the report");
     }

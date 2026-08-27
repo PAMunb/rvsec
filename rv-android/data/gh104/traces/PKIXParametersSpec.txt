@@ -1,0 +1,8 @@
+# legitimate: the REQUIRES-reading producer shape (gh109 task 2.10) with its read satisfied.
+# PKIXParameters.crysl:15 requires `generatedKeyStore[keyStore]`, which the existing
+# KeyStoreSpec.mop:185 writes at the `Load` acceptance point (KeyStore.crysl:59). The store
+# below is really loaded, so the read returns SATISFIED, nothing is drawn, and
+# `generatedCertPathParameters` is staged for CertPathTrustManagerParameters to read.
+KeyStore.getInstance("PKCS12") -> ks
+ks.load(null)
+new PKIXParameters(ks) -> params

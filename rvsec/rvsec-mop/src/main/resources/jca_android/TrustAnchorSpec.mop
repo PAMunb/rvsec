@@ -1,0 +1,118 @@
+package mop;
+
+import java.security.PublicKey;
+import java.security.cert.TrustAnchor;
+import java.security.cert.X509Certificate;
+import javax.security.auth.x500.X500Principal;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+
+/**
+ * TrustAnchor
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.cert.TrustAnchor.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/TrustAnchor.crysl
+ */
+TrustAnchorSpec(TrustAnchor s) {
+
+   // Bound where the construction satisfied whatever the rule asks of it, which for `c2`
+   // is nothing; see the note on that event.
+   TrustAnchor spec;
+
+   // The rule declares three events (:9-11) and api30 declares exactly three constructors,
+   // and they line up one for one: `c1` is `TrustAnchor(_, publicKey, _)`, the overload
+   // whose first parameter is the CA's distinguished name as a `String`; `c2` is
+   // `TrustAnchor(trustedCert, _)`, the certificate overload; `c3` is
+   // `TrustAnchor(caPrincipal, publicKey, _)`, the same shape as `c1` with an
+   // `X500Principal` in place of the string. Three events, three symbols, one alternation.
+   //
+   // The rule's one REQUIRES is `generatedPubkey[publicKey]` (:18), and it binds the object
+   // that only `c1` and `c3` carry. The read therefore lives in those two bodies and in
+   // neither is it a `condition(...)`: a guard compiles to `if (!(guard)) return false;`
+   // ahead of the transition (INV-INS-133), and a failed REQUIRES is not a typestate
+   // failure. Three-valued, with VIOLATED and NOT_OBSERVED under different code families
+   // (INV-INS-143). Two sites, two pairs of codes, because a code names a site and not a
+   // clause.
+   //
+   // The producers are the existing `KeyPairSpec.mop:126` (`KeyPair.crysl:24,:28`) and,
+   // from task 3.4, `KeyFactorySpec`'s `generatePublic`.
+   event c1 after(String caName, PublicKey pubKey, byte[] nameConstraints) returning(TrustAnchor s):
+     call(public TrustAnchor.new(String, PublicKey, byte[])) &&
+     args(caName, pubKey, nameConstraints) {
+       PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, pubKey);
+       if (generated == PredicateVerdict.VIOLATED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustAnchorSpec", "" + __LOC,
+               "v=1 code=TRUSTANCHOR-CONSTR-00 ev=" + __EVENTNAME + " obj=TrustAnchor val='' exp='a public key the monitor observed being generated' msg='the ca public key carries a generation predicate the rule does not admit'"));
+       }
+       else if (generated == PredicateVerdict.NOT_OBSERVED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustAnchorSpec", "" + __LOC,
+               "v=1 code=TRUSTANCHOR-NOBS-00 ev=" + __EVENTNAME + " obj=TrustAnchor val='' exp='a public key the monitor observed being generated' msg='no generation of the ca public key was observed'"));
+       }
+       else {
+           spec = s;
+       }
+   }
+
+   // The certificate overload, the rule's `c2` (:10). It binds `trustedCert` and the rule
+   // reads that object in no clause, so there is nothing to check here: the anchor is the
+   // certificate, and the rule states its requirement about a public key handed over
+   // separately. Silence here is the rule, not an omission.
+   event c2 after(X509Certificate trustedCert, byte[] nameConstraints) returning(TrustAnchor s):
+     call(public TrustAnchor.new(X509Certificate, byte[])) &&
+     args(trustedCert, nameConstraints) {
+       spec = s;
+   }
+
+   // The principal overload, the rule's `c3` (:11). Same clause as `c1` over the same
+   // object, at a second site.
+   event c3 after(X500Principal caPrincipal, PublicKey pubKey, byte[] nameConstraints) returning(TrustAnchor s):
+     call(public TrustAnchor.new(X500Principal, PublicKey, byte[])) &&
+     args(caPrincipal, pubKey, nameConstraints) {
+       PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, pubKey);
+       if (generated == PredicateVerdict.VIOLATED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustAnchorSpec", "" + __LOC,
+               "v=1 code=TRUSTANCHOR-CONSTR-01 ev=" + __EVENTNAME + " obj=TrustAnchor val='' exp='a public key the monitor observed being generated' msg='the ca public key carries a generation predicate the rule does not admit'"));
+       }
+       else if (generated == PredicateVerdict.NOT_OBSERVED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustAnchorSpec", "" + __LOC,
+               "v=1 code=TRUSTANCHOR-NOBS-01 ev=" + __EVENTNAME + " obj=TrustAnchor val='' exp='a public key the monitor observed being generated' msg='no generation of the ca public key was observed'"));
+       }
+       else {
+           spec = s;
+       }
+   }
+
+   // `Con := c1 | c2 | c3` is the whole ORDER (:14-15), so the `@fail` handler cannot fire:
+   // every event's transition row is {1, 2, 2} and the monitor is keyed on the constructed
+   // object, so no monitor ever sees a second event and state 2 is never entered. Written
+   // because the generator and the `codes.csv` bijection expect it (precedent:
+   // `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1 | c2 | c3
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustAnchorSpec", "" + __LOC,
+          "v=1 code=TRUSTANCHOR-ORDER-00 ev=" + __EVENTNAME + " obj=TrustAnchor val='' exp='' msg='the observed call sequence is not one TrustAnchorSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES generatedTrustAnchor[this]` (:21) carries no `after L`, so the acceptance
+   // point is the accepting state, which in an `ere` is `@match` (INV-INS-134). `ensure`
+   // treats a null binding as a no-op, so an anchor built over a public key of unobserved
+   // origin writes nothing.
+   //
+   // This predicate has no live consumer, and that is a fact about the oracle rather than a
+   // gap in the set: the one clause that would require it,
+   // `PKIXBuilderParameters.crysl:18`, is commented out in the rule
+   // (`//generatedTrustAnchor[];`) and is deliberately not wired. The write stands because
+   // the rule ENSURES it and coverage of the rule is what this change owes; the predicate
+   // ledger carries the unconsumed disposition with this reason.
+   @match {
+      PredicateStore.instance().ensure(Property.GENERATED_TRUST_ANCHOR, spec);
+   }
+
+}

@@ -885,6 +885,12 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       arrived with the expert oracle -- the generated catalogue declared none of them -- so
       this is the one chain of the set whose three files all existed and whose two ends were
       never wired. `read`+`read-absent` is 43 and `write` is 32.
+
+      gh109 group G2 lands fourteen producer specifications and moves both counts at once:
+      `read`+`read-absent` is 53 and `write` is 49. The writes are one per file, which is what
+      a producer rule is -- every one of the fourteen ENSURES exactly one predicate -- and the
+      ten reads are the REQUIRES clauses five of them state. There is no `read-absent` among
+      them: a producer reads a predicate to demand it, never to demand its absence.
     """
     home = _rvsec_home()
     specs = sorted(
@@ -904,12 +910,13 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
                     read_placement.get(site.site_kind, 0) + 1
                 )
 
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 43
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 53
     assert read_placement.get("condition", 0) == 0
     # 32 -> 35 at gh109 task 1.3(b): the three `Get` events of `MessageDigestSpec` gain the
     # `generatedMessageDigest` write the transcription had omitted (`MessageDigest.crysl:46`).
     # Three sites and not one, because a code -- and a site -- names a call and not a clause.
-    assert counts.get("write", 0) == 35
+    # 35 -> 49 at group G2, one per new producer specification.
+    assert counts.get("write", 0) == 49
     assert (
         counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
     )
@@ -1288,6 +1295,13 @@ def test_the_graph_reproduces_the_measured_placement_census():
       38, `write:acceptance` is 27, and the graph 76 rows. The write is at an acceptance point
       and not in a body, which is the clause's own `after Init` read the way INV-INS-134 reads
       every `after L` -- the states L leads to, here `s2`.
+
+      gh109 group G2 adds 24 rows and the graph is 103. `read:body` is 48 and
+      `write:acceptance` is 41: every one of the fourteen producers ENSURES its predicate with
+      no `after L` on the clause, so INV-INS-134 puts the write at the acceptance point, and
+      every REQUIRES they state is read in the event body beside its accuser. None of the
+      fourteen moves `write:body`, `read-absent:body` or `negate:body`, and that is the shape
+      of a producer: it writes where the construction is accepted and reads where it accuses.
     """
     rows = read_graph(GRAPH)
     counts: dict[str, int] = {}
@@ -1295,7 +1309,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
-    assert counts.get("read:body", 0) == 38
+    assert counts.get("read:body", 0) == 48
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one
@@ -1305,7 +1319,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
     # clause carries `after Get`, so its acceptance point IS the transition, which is the same
     # INV-INS-134 reading -- inverted -- that puts this file's `digested` in `@match`.
     assert counts.get("write:body", 0) == 8
-    assert counts.get("write:acceptance", 0) == 27
+    assert counts.get("write:acceptance", 0) == 41
     assert counts.get("remove:fail", 0) == 0
     assert counts.get("negate:body", 0) == 1
     assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 0
@@ -1876,7 +1890,11 @@ def test_gparam_is_green_over_the_set_as_it_stands():
 
     result = gh105_param_gate.run(_specs_root(), monitors, "jca_android")
     assert result.findings == []
-    assert len(result.passed) == 24
+    # 24 -> 38 at gh109 group G2: the gate passes one specification per `.rvm`, so this count
+    # is the size of the set and moves with every group that adds files. It is also the check
+    # that the fixture was refreshed -- a stale `results/gh51_e2e_test/monitors` leaves the new
+    # specifications with no `.rvm` to compare against and they would be skipped, not passed.
+    assert len(result.passed) == 38
     assert result.skipped == []
 
 
@@ -2422,9 +2440,12 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     assert cipher.witness == ("g1", "i1")
     assert cipher.accepted_by == "the specification"
     # Under the mutant allow-list `CipherSpec` is accused, so it leaves both buckets: the
-    # healthy run is 16/6/2 since gh109 task 1.4 discharged `CipherOutputStreamSpec`'s row,
-    # and this one is 16 passed / 5 allow-listed / 2 skipped.
-    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (16, 5, 2)
+    # healthy run is 30/6/2 since gh109 group G2 mapped its fourteen new specifications into
+    # the alphabet (task 6.2) and every one of them passes, and this one is 30 passed /
+    # 5 allow-listed / 2 skipped. The skip count does not move with the set: it is the two
+    # files that pair with no rule in either catalogue, and a new specification that entered
+    # it would be one G-ORDER had stopped comparing.
+    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (30, 5, 2)
 
     # And the run beside it, from the same code path: the difference between the
     # two is the one field, so the gate is what is being measured here. The healthy
@@ -2432,8 +2453,10 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     # it would also be what a gate that stopped comparing produces.
     assert healthy.findings == []
     # 15/7 -> 16/6 at gh109 task 1.4: R4 repaired the divergence
-    # `CipherOutputStreamSpec`'s row forgave, and the row went with it.
-    assert (len(healthy.passed), len(healthy.allowed)) == (16, 6)
+    # `CipherOutputStreamSpec`'s row forgave, and the row went with it. 16 -> 30 at group G2:
+    # fourteen producer automata, fourteen ORDER expressions transcribed from the same rules,
+    # and no new allowance -- the allow-list is still the six of gh105.
+    assert (len(healthy.passed), len(healthy.allowed)) == (30, 6)
 
 
 def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
@@ -2557,7 +2580,7 @@ def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothi
     # 15/7 -> 16/6 at gh109 task 1.4 (R4). The `ere` no longer lets `flush` satisfy the
     # rule's mandatory `Write+`, so `CipherOutputStreamSpec` stops needing the forgiveness
     # it had and its allow-list row is removed with the repair.
-    assert "16 passed, 0 failed, 6 allow-listed" in capsys.readouterr().out
+    assert "30 passed, 0 failed, 6 allow-listed" in capsys.readouterr().out
 
     revoked = _allowlist_variant(tmp_path, witness="g1 i1 OUTRA")
     assert (

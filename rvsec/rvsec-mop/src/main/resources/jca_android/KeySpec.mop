@@ -1,0 +1,110 @@
+package mop;
+
+import java.security.Key;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+
+/**
+ * Key
+ *
+ * A JavaMOP specification of the correct usage of the interface java.security.Key.
+ * The file is named for the specification and not for the rule's own word: read alone,
+ * `KeySpec` suggests java.security.spec.KeySpec, which is a different type entirely. The
+ * name is kept because the ledger pairs a rule to `<Rule>Spec.mop` by convention
+ * (`gh105_expert_ledger.py:438-448`), and an exception in the pairing code would be worse
+ * than a name that needs one sentence.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/Key.crysl
+ */
+KeySpec(Key key) {
+
+   // The bytes `getEncoded()` returned, held from the event that observed them to the
+   // handler that may write about them. A handler sees no event parameter and the clause
+   // says where the predicate is established, so the two have to be joined by a field --
+   // the same shape `SecretKeySpec.mop:27` uses for the same clause.
+   byte[] stagedKeyMaterial;
+
+   // The whole of this specification: reading a key's encoding. The rule ENSURES
+   // `preparedKeyMaterial[keyMaterial] after GetEnc` (Key.crysl:14) and states no
+   // CONSTRAINTS and no REQUIRES, so nothing here translates a constraint and nothing here
+   // accuses -- this event has no code in `codes.csv` and gains none, exactly as its
+   // `SecretKey` twin has none.
+   //
+   // What it does is bridge a copy. `getEncoded()` returns a fresh clone on every call and
+   // the store is keyed on object identity, so without this event no reader of the returned
+   // bytes could ever see what was established about the key they came out of.
+   //
+   // THE SECOND INTERFACE-OWNED POINTCUT OF THE SET, AND THE ONE THAT OVERLAPS ANOTHER.
+   // `Key` is the supertype of `SecretKey`, `PublicKey` and `PrivateKey` (measured on the
+   // api30 archive: `SecretKeySpec implements KeySpec, SecretKey` and
+   // `SecretKey extends Key`), and the owner matcher keeps the trailing `+` and walks
+   // interfaces (`PointcutMatcher:322-345` through `AndroidClassIndex.walkAncestors`, the
+   // R5 measurement). So `Key+.getEncoded()` matches every receiver
+   // `SecretKeySpec.mop`'s `SecretKey+.getEncoded()` matches, and a `SecretKey`'s encoding
+   // is observed twice, once by each specification. That double monitoring is deliberate
+   // and costs nothing at the store: `ensure` is idempotent per (property, identity,
+   // values), so the second write of the same tuple adds nothing.
+   //
+   // What it would have cost is the reason this body carries a guard the rule does not
+   // state. `SecretKeySpec.mop` stages only when the key's own origin was observed, and
+   // that guard is not decoration: it is what refuses to launder key material through a
+   // copy -- hard-coded bytes, accused at their own `SecretKeySpec` construction, handing
+   // their encoding on as prepared material for a second `SecretKeySpec` that would then be
+   // silent (researcher decision, 2026-08-22, measured by
+   // `SecretKeySpec-laundered-material.txt`). Written to the letter of `Key.crysl`, which
+   // states no REQUIRES, this file would prepare that material unconditionally through the
+   // Key monitor and cancel the refusal without a line of either specification changing.
+   //
+   // So the guard is mirrored here rather than dropped, and generalised to the shape `Key`
+   // has: a key's origin is observed when the store carries `generatedKey` for it with its
+   // own algorithm (the `SecretKey` route, `SecretKeySpec.crysl:27` and
+   // `KeyGenerator.crysl:32`), or `generatedPubkey`, or `generatedPrivkey`
+   // (`KeyPair.crysl:24-28`, `KeyStore.crysl:62`). Any one of the three answering SATISFIED
+   // is an origin. This is a MOP-MAIS-RESTRITIVO divergence against the rule, recorded as
+   // such, and the twin of the one `SecretKeySpec.mop` already carries against
+   // `SecretKey.crysl` -- which is the point: two specifications watching one call must
+   // agree about what it means, or the looser of them decides.
+   //
+   // The verdict is three-valued and here the three collapse into two, for the reason the
+   // twin states: the read governs a write instead of a report, so NOT_OBSERVED and
+   // VIOLATED both stage nothing and the difference between them has no reader to tell it
+   // to.
+   event ge1 after(Key k) returning(byte[] material):
+      call(public byte[] Key+.getEncoded()) &&
+      target(k) {
+        boolean originObserved =
+            PredicateStore.instance().validate(Property.GENERATED_KEY, k, k.getAlgorithm()) == PredicateVerdict.SATISFIED
+            || PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, k) == PredicateVerdict.SATISFIED
+            || PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, k) == PredicateVerdict.SATISFIED;
+        if (originObserved) {
+            stagedKeyMaterial = material;
+        }
+   }
+
+   // `GetEnc*` is the whole of the rule's ORDER (:11), so every sequence of `getEncoded()`
+   // calls is accepted and no `@fail` handler is written: there is no sequence to refuse,
+   // which is why this file, like `SecretKeySpec.mop`, appears in `codes.csv` with no rows
+   // at all.
+   //
+   // The clause carries `after GetEnc`, so it is established at the states `ge` leads to;
+   // the `ere` is `ge1*`, whose only alias is `match` over its accepting states. Read from
+   // the generated monitor the transition row for `ge1` is {0, 1} and the match category is
+   // `nextstate == 0`, so the states after `ge` and the accepting states are the same
+   // single state and the handler below is both routes at once (INV-INS-134).
+   ere : ge1*
+
+   // Runs after every `ge1`, which is what the clause needs: each call returns its own copy
+   // and each copy has to be marked separately. The staged array is consumed here or
+   // discarded, so a call whose key origin was not observed never leaves a marking behind
+   // for the next one.
+   @match {
+     if (stagedKeyMaterial != null) {
+         PredicateStore.instance().ensure(Property.PREPARED_KEY_MATERIAL, stagedKeyMaterial);
+         stagedKeyMaterial = null;
+     }
+   }
+
+}

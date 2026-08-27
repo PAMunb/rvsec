@@ -1,0 +1,85 @@
+package mop;
+
+import java.security.cert.CertPathParameters;
+import javax.net.ssl.CertPathTrustManagerParameters;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+
+/**
+ * CertPathTrustManagerParameters
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.net.ssl.CertPathTrustManagerParameters.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/CertPathTrustManagerParameters.crysl
+ */
+CertPathTrustManagerParametersSpec(CertPathTrustManagerParameters s) {
+
+   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   CertPathTrustManagerParameters spec;
+
+   // The rule's one event, `c1: CertPathTrustManagerParameters(params)` (:7), and the whole
+   // of its ORDER. api30 declares exactly this constructor.
+   //
+   // The rule states no CONSTRAINTS and one REQUIRES, `generatedCertPathParameters[params]`
+   // (:14), which is a `PredicateStore` read in the body and not a `condition(...)`: a
+   // guard compiles to `if (!(guard)) return false;` ahead of both the body and the
+   // transition (INV-INS-133), and a failed REQUIRES is not a typestate failure. Read in
+   // the body, the clause accuses about what it saw instead of deciding whether the
+   // construction happened.
+   //
+   // The verdict is three-valued and the two accusing outcomes are different claims,
+   // reported under different code families (INV-INS-143). VIOLATED is positive evidence
+   // that the parameters object carries the predicate with other values or had it
+   // withdrawn; NOT_OBSERVED says only that no `PKIXParameters` or `PKIXBuilderParameters`
+   // construction was ever observed for it -- on Android as often a reach limit of the
+   // instrumentation as a misuse.
+   //
+   // The producers this read waits for are the two siblings of this group,
+   // `PKIXParametersSpec` (2.10) and `PKIXBuilderParametersSpec` (2.11), and they in turn
+   // read `generatedKeyStore`. The chain is three specifications deep and lands whole here:
+   // a store nobody loaded produces parameters nobody may trust.
+   event c1 after(CertPathParameters params) returning(CertPathTrustManagerParameters s):
+     call(public CertPathTrustManagerParameters.new(CertPathParameters)) &&
+     args(params) {
+       PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_CERT_PATH_PARAMETERS, params);
+       if (generated == PredicateVerdict.VIOLATED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CertPathTrustManagerParametersSpec", "" + __LOC,
+               "v=1 code=CERTPATHTRUSTMANAGERPARAMETERS-CONSTR-00 ev=" + __EVENTNAME + " obj=CertPathTrustManagerParameters val='' exp='cert path parameters the monitor observed being built' msg='the cert path parameters carry a generation predicate the rule does not admit'"));
+       }
+       else if (generated == PredicateVerdict.NOT_OBSERVED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CertPathTrustManagerParametersSpec", "" + __LOC,
+               "v=1 code=CERTPATHTRUSTMANAGERPARAMETERS-NOBS-00 ev=" + __EVENTNAME + " obj=CertPathTrustManagerParameters val='' exp='cert path parameters the monitor observed being built' msg='no construction of the cert path parameters was observed'"));
+       }
+       else {
+           spec = s;
+       }
+   }
+
+   // `Con := c1` is the whole ORDER (:10-11), so the `@fail` handler cannot fire: one
+   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
+   // no monitor ever sees a second event. Written because the generator and the
+   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CertPathTrustManagerParametersSpec", "" + __LOC,
+          "v=1 code=CERTPATHTRUSTMANAGERPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=CertPathTrustManagerParameters val='' exp='' msg='the observed call sequence is not one CertPathTrustManagerParametersSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES generatedManagerFactoryParameters[this]` (:17) carries no `after L`, so the
+   // acceptance point is the accepting state, which in an `ere` is `@match` (INV-INS-134).
+   // `spec` is bound only where the read answered SATISFIED, and `ensure` treats a null
+   // binding as a no-op: parameters whose own origin was not observed do not go on to
+   // prepare a manager factory. That is the literal reading of CrySL -- a predicate is
+   // ensured for a use that satisfied the rule -- and it is what keeps the chain from
+   // laundering an unobserved key store into a trusted manager factory two hops later.
+   @match {
+      PredicateStore.instance().ensure(Property.GENERATED_MANAGER_FACTORY_PARAMETERS, spec);
+   }
+
+}

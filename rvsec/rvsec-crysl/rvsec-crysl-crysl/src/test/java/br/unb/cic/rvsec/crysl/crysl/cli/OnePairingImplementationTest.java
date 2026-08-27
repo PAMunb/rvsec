@@ -71,14 +71,14 @@ class OnePairingImplementationTest {
         CompareRun.Summary summary = CompareRun.run(args, CORPUS, OracleCorpus.cryslRules(),
                 ALPHABET_MAP, OracleCorpus.androidJar());
 
-        assertEquals(22, summary.pairs(),
+        assertEquals(35, summary.pairs(),
                 "the pairing of record, by declared type and injective (INV-CONF-11 plus the "
                         + "injectivity the corpus forces); the simple-name approximation that "
                         + "reached 23 no longer exists anywhere");
-        assertEquals(21, summary.compared(),
-                "M0 refuses SecretKeySpec, so 22 pairs yield 21 sets of M1-M4 verdicts. Pairing "
-                        + "and vitality are different questions and conflating them would corrupt "
-                        + "the pairing target");
+        assertEquals(33, summary.compared(),
+                "M0 refuses SecretKeySpec and KeySpec, so 35 pairs yield 33 sets of M1-M4 "
+                        + "verdicts. Pairing and vitality are different questions and conflating "
+                        + "them would corrupt the pairing target");
 
         Set<String> m1 = firstColumnOfMarkdown(out.resolve(CompareRun.M1_MARKDOWN));
         Set<String> m2 = firstColumnOfMarkdown(out.resolve(CompareRun.M2_MARKDOWN));
@@ -95,12 +95,22 @@ class OnePairingImplementationTest {
 
         // M3 and M4 are row tables, so a specification with nothing to say produces no row and
         // disappears from the file. That is not a pairing disagreement and must not be asserted as
-        // one: measured here, the two missing from the M3 table are exactly the two whose paired
+        // one: measured here, the ones missing from the M3 table are exactly those whose paired
         // rule states no CONSTRAINTS clause at all - HMACParameterSpec.crysl and KeyPair.crysl are
         // 0 under R1 - so M3's denominator for them is 0 and there is no row to write. Naming them
         // is what keeps the assertion a measurement rather than a tolerance.
-        assertEquals(Set.of("HMACParameterSpecSpec", "KeyPairSpec"), minus(m1, m3),
-                "the only specifications M1 compares and the M3 table omits are the two whose "
+        //
+        // Two became nine at gh109 group G2, and the seven that joined are the ones whose whole
+        // content is a predicate: ECParameterSpec, KeyStoreBuilderParameters,
+        // CertPathTrustManagerParameters, PKIXParameters, PKIXBuilderParameters, TrustAnchor and
+        // X509EncodedKeySpec state REQUIRES and ENSURES and no CONSTRAINTS at all. They are absent
+        // from M3 and present in M4, which is where a rule with nothing to constrain and something
+        // to produce belongs.
+        assertEquals(Set.of("CertPathTrustManagerParametersSpec", "ECParameterSpecSpec",
+                        "HMACParameterSpecSpec", "KeyPairSpec", "KeyStoreBuilderParametersSpec",
+                        "PKIXBuilderParametersSpec", "PKIXParametersSpec", "TrustAnchorSpec",
+                        "X509EncodedKeySpecSpec"), minus(m1, m3),
+                "the only specifications M1 compares and the M3 table omits are those whose "
                         + "upstream rule has an empty CONSTRAINTS section, so M3 has no clause to "
                         + "write a row about");
         assertFalse(m1.contains("IvChainJunction"),

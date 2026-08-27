@@ -1,0 +1,96 @@
+package mop;
+
+import java.math.BigInteger;
+import java.security.spec.DSAParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+/**
+ * DSAParameterSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.spec.DSAParameterSpec.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/DSAParameterSpec.crysl
+ */
+DSAParameterSpecSpec(DSAParameterSpec s) {
+
+   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   DSAParameterSpec spec;
+
+   // The rule's one event, `c1: DSAParameterSpec(p, q, g)` (:9), and the whole of its
+   // ORDER. api30 declares exactly this constructor.
+   //
+   // The two CONSTRAINTS clauses are `p >= 1^2048` and `g >= 1^2048`
+   // (DSAParameterSpec.crysl:16-17), and they are transcribed as *bit length at least
+   // 2048*, which is a recorded decision and not a transcription (D-20.4, with an
+   // `oracle-wart` row against `tools/rules/DSAParameterSpec.crysl`). CrySL has no
+   // exponentiation operator: read as written, `1^2048` is the constant 1 and the clause
+   // admits every positive modulus, which is not a constraint anyone wrote on purpose. The
+   // evident intent is the 2048-bit floor the literature states for finite-field DSA, and
+   // that is what runs here. The rule itself is never edited (D-21).
+   //
+   // The clause over `g` reads oddly and is transcribed anyway: a generator is not a key
+   // size, and requiring it to be a 2048-bit number is a statement about the domain
+   // parameters and not about the strength of anything. It is the rule's clause, stated
+   // beside the one over `p` in the same words, so it gets the same reading and the same
+   // report family. Both report `UnsatisfiedConstraint` under `CONSTR` rather than
+   // `InvalidKeySize` under `KEYSIZE`, because only one of the two is a key size and
+   // splitting the pair across two families would tell the reader the rule said two
+   // different kinds of thing where it said one thing twice.
+   //
+   // The subprime `q` is bound because `args(...)` is positional and the two clauses sit
+   // on either side of it; no clause of the rule reads it.
+   //
+   // Neither clause guards the transition. A `condition(...)` compiles to
+   // `if (!(guard)) return false;` ahead of the body and the transition (INV-INS-133), so a
+   // spec built with a short modulus would take no transition and be accused of nothing.
+   // The two clauses accumulate rather than short-circuit, so a program that got both wrong
+   // hears about both.
+   event c1 after(BigInteger p, BigInteger subprime, BigInteger g) returning(DSAParameterSpec s):
+     call(public DSAParameterSpec.new(BigInteger, BigInteger, BigInteger)) &&
+     args(p, subprime, g) {
+       boolean conforms = true;
+       if (p == null || p.bitLength() < 2048) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DSAParameterSpecSpec", "" + __LOC,
+               "v=1 code=DSAPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=DSAParameterSpec val='" + (p == null ? 0 : p.bitLength()) + "' exp='a prime modulus of 2048 bits or more' msg='the dsa prime modulus is shorter than the rule intends'"));
+           conforms = false;
+       }
+       if (g == null || g.bitLength() < 2048) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DSAParameterSpecSpec", "" + __LOC,
+               "v=1 code=DSAPARAMETERSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=DSAParameterSpec val='" + (g == null ? 0 : g.bitLength()) + "' exp='a generator of 2048 bits or more' msg='the dsa generator is shorter than the rule intends'"));
+           conforms = false;
+       }
+       if (conforms) {
+           spec = s;
+       }
+   }
+
+   // `Con := c1` is the whole ORDER (:12-13), so the `@fail` handler cannot fire: one
+   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
+   // no monitor ever sees a second event. Written because the generator and the
+   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DSAParameterSpecSpec", "" + __LOC,
+          "v=1 code=DSAPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=DSAParameterSpec val='' exp='' msg='the observed call sequence is not one DSAParameterSpecSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES preparedDSA[this]` (:20) carries no `after L`, so the acceptance point is the
+   // accepting state, which in an `ere` is `@match` (INV-INS-134). `spec` is bound only by
+   // the conforming branch and `ensure` treats a null binding as a no-op.
+   //
+   // The read that closes this write is `KeyPairGenerator.crysl:36`,
+   // `algorithm in {"DSA"} => preparedDSA[params]`, wired at task 1b.1. The rule's sibling
+   // producer, `DSAGenParameterSpec.crysl:25`, is not specified at all: its class appears
+   // only from API 35, so its rule ends N/A-by-platform in the coverage matrix and this
+   // file is the predicate's only producer on this platform.
+   @match {
+      PredicateStore.instance().ensure(Property.PREPARED_DSA, spec);
+   }
+
+}

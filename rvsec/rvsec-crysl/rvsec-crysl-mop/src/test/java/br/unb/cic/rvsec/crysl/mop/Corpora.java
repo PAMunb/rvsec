@@ -25,7 +25,7 @@ final class Corpora {
     /** The five corpora, with the file count each was measured at. */
     static final List<Corpus> ALL = List.of(
             new Corpus("jca", 23),
-            new Corpus("jca_android", 24),
+            new Corpus("jca_android", 38),
             new Corpus("jca_android_bug_predicate", 23),
             new Corpus("generic", 118),
             new Corpus("generic_new", 27));

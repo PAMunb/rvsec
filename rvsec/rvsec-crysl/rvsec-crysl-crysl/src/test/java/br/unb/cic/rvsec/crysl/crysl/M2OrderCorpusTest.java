@@ -270,24 +270,40 @@ class M2OrderCorpusTest {
                 "BOTH directions are alive, which differs from the published reading that only "
                         + "rule \\ MOP sustained the verdict. The direction that died in gh105 "
                         + "task 6.6 was the f1/f2 one; another mop-only word took its place");
+        // The word shrank from four letters to two, and not because of gh109: measured, the
+        // `alias match3 = s2` that shortens it entered CipherSpec.mop at 62f65b3f (gh105 task
+        // 11.5(e)), and gh109's one commit over that file touched comments and a CONSTRAINTS
+        // helper - no alias, no event, no ere. An initialised-and-never-used Cipher is now the
+        // shortest sequence the specification accepts and the expert ORDER rejects, which is what
+        // the Python G-ORDER gate has asserted since that task (`cipher.witness == ("g1", "i1")`).
+        // This pin never followed, and it is re-pinned here rather than left red: the number
+        // belongs to gh105 and only the re-measurement belongs to gh109.
+        //
+        // What the D-10 note below says stays true of the word it describes - wrap after doFinal
+        // in ENCRYPT_MODE is still automaton-valid and still impossible in Java. It is no longer
+        // the SHORTEST such word, which is the only thing that moved.
         assertEquals(List.of("javax.crypto.Cipher.getInstance(java.lang.String,AnyType)",
-                        "javax.crypto.Cipher.init(int,java.security.Key)",
-                        "javax.crypto.Cipher.doFinal(byte[])",
-                        "javax.crypto.Cipher.wrap(java.security.Key)"),
+                        "javax.crypto.Cipher.init(int,java.security.Key)"),
                 render(comparison.mopOnly().orElseThrow()),
                 "and the replacement is the case design D-10 exists for: wrap after a doFinal in "
                         + "ENCRYPT_MODE raises IllegalStateException before any monitor sees it, "
                         + "so this word is automaton-valid and impossible in Java - which is "
                         + "exactly why it stays ABSTRACT and carries no claim");
 
+        // The same gh105 movement that shortened the mop-only word above moved this one, and
+        // for the same reason: with `s2` accepting, the projected difference finds a shorter
+        // separating word than `g1 i2 i2 f2` and `updateAAD` stands where the repeated `init`
+        // did. The published reading is still about this direction being alive; which word
+        // witnesses it is a shortest-word search and not a claim, and re-pinning it is a
+        // re-measurement of gh105's change, not of gh109's.
         M2Order.Comparison projected = corpus.compareWithoutRefusedLetters("CipherSpec");
         assertEquals(List.of("javax.crypto.Cipher.getInstance(java.lang.String,AnyType)",
                         "javax.crypto.Cipher.init(int,java.security.Key)",
-                        "javax.crypto.Cipher.init(int,java.security.Key)",
+                        "javax.crypto.Cipher.updateAAD(byte[])",
                         "javax.crypto.Cipher.doFinal(byte[])"),
                 render(projected.ruleOnly().orElseThrow()),
-                "the rule \\ MOP direction is the published g1 i2 i2 f2, letter for letter, once "
-                        + "the refused getInstance(String) is taken out of the rule as well");
+                "the rule \\ MOP direction is alive, letter for letter, once the refused "
+                        + "getInstance(String) is taken out of the rule as well");
     }
 
     // ---------------------------------------------------------------- 10.14, INV-CONF-09
@@ -318,12 +334,14 @@ class M2OrderCorpusTest {
     void test_the_refused_specification_gets_no_verdict() throws Exception {
         Corpus corpus = Corpus.read();
 
-        assertEquals(22, corpus.pairs().size(), "22 of 24 pair by declared type");
-        assertEquals(21, corpus.comparable().size(),
-                "and 21 of those receive an M2 verdict: SecretKeySpec has a non-empty @match, no "
+        assertEquals(35, corpus.pairs().size(), "35 of 38 pair by declared type");
+        assertEquals(33, corpus.comparable().size(),
+                "and 33 of those receive an M2 verdict: SecretKeySpec has a non-empty @match, no "
                         + "@fail and no addError, so it cannot accuse under any trace and M0 "
-                        + "refuses it");
+                        + "refuses it, and KeySpec is refused for the same reason at gh109 task "
+                        + "2.14 - by design there, because Key.crysl asks for no accusation");
         assertFalse(corpus.comparable().contains("SecretKeySpec"));
+        assertFalse(corpus.comparable().contains("KeySpec"));
     }
 
     // ---------------------------------------------------------------- 10.15
@@ -371,7 +389,7 @@ class M2OrderCorpusTest {
         for (String specification : corpus.comparable()) {
             results.add(corpus.compare(specification).result());
         }
-        assertEquals(21, results.size());
+        assertEquals(33, results.size());
 
         for (M2Result result : results) {
             result.witness().ifPresent(witness -> assertEquals(WitnessStatus.ABSTRACT,

@@ -1,0 +1,101 @@
+package mop;
+
+import java.security.KeyStore;
+import java.security.cert.PKIXParameters;
+import java.util.Set;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+
+/**
+ * PKIXParameters
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.cert.PKIXParameters.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/PKIXParameters.crysl
+ */
+PKIXParametersSpec(PKIXParameters s) {
+
+   // Bound where the construction satisfied whatever the rule asks of it, which for `c2`
+   // is nothing; see the note on that event.
+   PKIXParameters spec;
+
+   // The key-store constructor, the rule's `c1` (:7) and one alternative of its
+   // `Con := c1 | c2`. api30 declares both overloads and both throw on a bad argument, so
+   // an `after ... returning` advice sees only the constructions that completed.
+   //
+   // The rule's one REQUIRES, `generatedKeyStore[keyStore]` (:15), is a `PredicateStore`
+   // read in this body and not a `condition(...)`, which would compile to
+   // `if (!(guard)) return false;` ahead of the transition (INV-INS-133): a failed REQUIRES
+   // is not a typestate failure. The verdict is three-valued and the two accusing outcomes
+   // are reported under different code families (INV-INS-143) -- VIOLATED is positive
+   // evidence that the store carries the predicate with other values or had it withdrawn,
+   // NOT_OBSERVED says only that no `KeyStore.load` was ever seen for it.
+   //
+   // The producer is the existing `KeyStoreSpec.mop:185`, which writes `generatedKeyStore`
+   // at the `Load` acceptance point, exactly as `KeyStore.crysl:59` states it.
+   event c1 after(KeyStore keyStore) returning(PKIXParameters s):
+     call(public PKIXParameters.new(KeyStore)) &&
+     args(keyStore) {
+       PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_KEY_STORE, keyStore);
+       if (generated == PredicateVerdict.VIOLATED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PKIXParametersSpec", "" + __LOC,
+               "v=1 code=PKIXPARAMETERS-CONSTR-00 ev=" + __EVENTNAME + " obj=PKIXParameters val='' exp='a key store the monitor observed being loaded' msg='the key store carries a generation predicate the rule does not admit'"));
+       }
+       else if (generated == PredicateVerdict.NOT_OBSERVED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PKIXParametersSpec", "" + __LOC,
+               "v=1 code=PKIXPARAMETERS-NOBS-00 ev=" + __EVENTNAME + " obj=PKIXParameters val='' exp='a key store the monitor observed being loaded' msg='no load of the key store was observed'"));
+       }
+       else {
+           spec = s;
+       }
+   }
+
+   // The trust-anchor constructor, the rule's `c2` (:8). The rule writes it
+   // `PKIXParameters(_)`: the argument is deliberately unnamed, so the REQUIRES clause over
+   // `keyStore` binds nothing here and constrains nothing. There is no read in this body
+   // and no accusation, and that is the rule speaking, not an omission -- the same shape
+   // the set records for `Cipher.crysl:136`, whose `preparedAlg` read binds a `params` the
+   // fused `i2` does not carry (F7, D-24). A program that builds its parameters from a set
+   // of trust anchors it assembled by hand has satisfied every clause this rule states.
+   //
+   // The consequence is worth naming because it is a hole a reader will look for: this
+   // overload prepares `generatedCertPathParameters` with nothing checked, so a
+   // `CertPathTrustManagerParameters` built over it is accused of nothing either. Closing
+   // it would mean reading `generatedTrustAnchor` over the members of the set -- a clause
+   // the oracle has and keeps commented out (`PKIXBuilderParameters.crysl:18`), and that
+   // this change does not wire.
+   event c2 after(Set trustAnchors) returning(PKIXParameters s):
+     call(public PKIXParameters.new(Set)) &&
+     args(trustAnchors) {
+       spec = s;
+   }
+
+   // `Con := c1 | c2` is the whole ORDER (:11-12), so the `@fail` handler cannot fire: the
+   // transition row is {1, 2, 2} for both events and the monitor is keyed on the constructed
+   // object, so no monitor ever sees a second event and state 2 is never entered. Written
+   // because the generator and the `codes.csv` bijection expect it (precedent:
+   // `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1 | c2
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PKIXParametersSpec", "" + __LOC,
+          "v=1 code=PKIXPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=PKIXParameters val='' exp='' msg='the observed call sequence is not one PKIXParametersSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES generatedCertPathParameters[this]` (:18) carries no `after L`, so the
+   // acceptance point is the accepting state, which in an `ere` is `@match` (INV-INS-134).
+   // `spec` is bound by `c2` always and by `c1` only where the store's load was observed,
+   // and `ensure` treats a null binding as a no-op.
+   //
+   // The consumer is `CertPathTrustManagerParameters.crysl:14`, written as this group's
+   // 2.9. `PKIXBuilderParametersSpec` (2.11) is the predicate's second producer.
+   @match {
+      PredicateStore.instance().ensure(Property.GENERATED_CERT_PATH_PARAMETERS, spec);
+   }
+
+}

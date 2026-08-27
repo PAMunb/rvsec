@@ -28,7 +28,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The lift over all 215 {@code .mop} files of the five corpora.
+ * The lift over all 229 {@code .mop} files of the five corpora.
  *
  * <p>The three aggregate numbers are asserted as <strong>fields of a result object</strong> and not
  * only inside an assertion message, together with the counting rule each was taken under. A number
@@ -115,23 +115,23 @@ class MopLiftCorpusTest {
             assertEquals(corpus.expectedFiles(), censuses.get(i).files(),
                     "corpus " + corpus.name() + " changed size under the component");
         }
-        assertEquals(215, total.files());
+        assertEquals(229, total.files());
     }
 
     @Test
-    @DisplayName("215 files, 215 ok, 0 fail")
-    void test_all_215_files_lift() {
+    @DisplayName("229 files, 229 ok, 0 fail")
+    void test_all_229_files_lift() {
         for (Census census : censuses) {
             assertEquals(census.files(), census.ok(),
                     census.corpus() + " did not lift completely: " + census.failures());
             assertEquals(0, census.fail(), census.corpus() + ": " + census.failures());
         }
-        assertEquals(215, total.ok());
+        assertEquals(229, total.ok());
         assertEquals(0, total.fail());
     }
 
     @Test
-    @DisplayName("the aggregate is 907 events and 383 parameters, with the counting rules as data")
+    @DisplayName("the aggregate is 927 events and 397 parameters, with the counting rules as data")
     void test_aggregate_events_and_parameters() {
         // These two numbers are the corpus drift tripwire, and Corpora reads the LIVE corpus, so a
         // specification repair is expected to move them. When it does, the repair re-measures and
@@ -139,15 +139,27 @@ class MopLiftCorpusTest {
         // into KeyStoreSpec.mop and one into SSLContextSpec.mop, and 381 -> 383 was the same work
         // giving CipherInputStreamSpec.mop and CipherOutputStreamSpec.mop a parameter each, both
         // having declared none. A test that could not tell either from an accidental duplication
-        // would not be worth running.
+        // would not be worth running. 907 -> 908 is the gh109 R2 repair: KeyPairGeneratorSpec.mop
+        // gained the `initError2` accuser for `initialize(int, SecureRandom)`, the twin of the
+        // `initError` that already guarded `initialize(int)`. The parameter count does not move
+        // with it, and that is the counting rule speaking rather than an oversight: parameters are
+        // counted per specification, not per event, so only a spec that declares a new formal
+        // parameter moves the second number. 383 was re-measured after 908 landed and held.
+        //
+        // 908 -> 927 and 383 -> 397 are gh109 group G2, the fourteen producer specifications the
+        // set gained for rules of the pinned expert oracle it had never specified. The two moves
+        // confirm the counting rule from both sides at once: nineteen events, because the group's
+        // rules declare that many constructor and getter labels between them, and exactly fourteen
+        // parameters, one per new specification, because each declares a single formal parameter
+        // and no event of any of them adds one.
         //
         // Assert both counts, and note that the events assertion running first is why the parameter
         // drift went unseen: CI reported only the event failure for three runs while this line had
         // already been false for all three.
         assertEquals("spec.getEvents().size()", total.eventCountingRule());
         assertEquals("spec.getParameters().size()", total.parameterCountingRule());
-        assertEquals(907, total.events(), "aggregate event count under " + total.eventCountingRule());
-        assertEquals(383, total.parameters(),
+        assertEquals(927, total.events(), "aggregate event count under " + total.eventCountingRule());
+        assertEquals(397, total.parameters(),
                 "aggregate parameter count under " + total.parameterCountingRule());
     }
 
@@ -199,7 +211,7 @@ class MopLiftCorpusTest {
                 checked++;
             }
         }
-        assertEquals(907, checked, "one provenance check per declared event");
+        assertEquals(927, checked, "one provenance check per declared event");
     }
 
     @Test
@@ -280,7 +292,7 @@ class MopLiftCorpusTest {
             }
         }
         assertEquals(42, refusing, "files of the five corpora carrying at least one refusal");
-        assertEquals(56, refusals, "OverlappingDispatch refusals over the five corpora");
+        assertEquals(57, refusals, "OverlappingDispatch refusals over the five corpora");
     }
 
     @Test

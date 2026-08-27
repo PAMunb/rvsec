@@ -106,26 +106,25 @@ class CalibrationGateTest {
     void test_each_target_agrees_on_its_items_too() {
         CalibrationReport report = gate();
 
-        assertEquals("215 files, 215 ok, 0 fail", valueOf(report, "T1-mop-lift"));
+        assertEquals("229 files, 229 ok, 0 fail", valueOf(report, "T1-mop-lift"));
         assertEquals("93 of 118", valueOf(report, "T2-generic-multiparameter"));
         assertEquals(List.of("1:25", "2:39", "3:28", "4:18", "5:7", "6:1"),
                 itemsOf(report, "T2-generic-multiparameter"),
                 "the histogram and not only the total: a total can coincide over a different "
                         + "distribution");
-        assertEquals("0 of 24", valueOf(report, "T3-android-multiparameter"));
+        assertEquals("0 of 38", valueOf(report, "T3-android-multiparameter"));
         assertEquals("47 of 49", valueOf(report, "T4-rules-that-load"));
         assertEquals(List.of("OAEPParameterSpec.crysl", "SSLEngine.crysl"),
                 itemsOf(report, "T4-rules-that-load"),
                 "the two upstream residuals, named; they are findings about those files and are "
                         + "never repaired in place");
-        assertEquals("80 of 119", valueOf(report, "T5-m3-denominator"));
-        assertEquals("22 of 24", valueOf(report, "T6-pairing"));
-        assertEquals(List.of("IvChainJunction", "RandomStringPassword"),
+        assertEquals("88 of 119", valueOf(report, "T5-m3-denominator"));
+        assertEquals("35 of 38", valueOf(report, "T6-pairing"));
+        assertEquals(List.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword"),
                 itemsOf(report, "T6-pairing"));
-        assertEquals("5 of 22", valueOf(report, "T7-partial-binding"));
-        assertEquals("5 of 24", valueOf(report, "T8-without-map-of-monitor"));
-        assertEquals(List.of("CipherInputStreamSpec", "CipherOutputStreamSpec",
-                        "HMACParameterSpecSpec", "KeyStoreSpec", "RandomStringPassword"),
+        assertEquals("3 of 38", valueOf(report, "T7-partial-binding"));
+        assertEquals("3 of 38", valueOf(report, "T8-without-map-of-monitor"));
+        assertEquals(List.of("HMACParameterSpecSpec", "KeySpec", "RandomStringPassword"),
                 itemsOf(report, "T8-without-map-of-monitor"));
     }
 

@@ -1,0 +1,23 @@
+# gh109 task 2.R, the separating half of the interface-rule shape (task 2.14). There is no
+# violating half to write: the specification accuses nothing under any trace, so the pair
+# that carries information is staged / not-staged and not satisfy / violate.
+#
+# The public key here comes out of a certificate. Nothing in the set writes an origin
+# predicate for it -- the four writers are KeyGeneratorSpec.mop:223, KeyPairSpec.mop:126
+# and :146, KeyStoreSpec.mop:189-191 and SecretKeySpecSpec.mop:242, and none of them
+# observes `Certificate.getPublicKey()` -- so `generatedPubkey[k]` is NOT_OBSERVED, the
+# guard refuses, `preparedKeyMaterial` is NOT staged, and nothing is drawn. The same
+# silence as KeySpec.txt, from the opposite cause. What separates the two is downstream: an
+# X509EncodedKeySpec built over this material is accused by task 2.13's read, and one built
+# over KeySpec.txt's material is not. That stays true after group G3: 3.4 writes
+# `generatedPubkey` for `KeyFactory.generatePublic`, which is not this call.
+#
+# This is the trace that shows the guard doing its work. Transcribed to the letter, Key.crysl
+# states no REQUIRES and this construction would have prepared the material anyway, which
+# would cancel the laundering refusal SecretKeySpec.mop has carried since 2026-08-22 without
+# a line of either specification changing (the decision of 2026-08-27, recorded as a
+# `value-decision` row against jca_android/KeySpec.mop).
+CertificateFactory.getInstance("X.509") -> cf
+cf.generateCertificate(stream) -> cert
+cert.getPublicKey() -> pub
+pub.getEncoded()

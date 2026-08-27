@@ -1,0 +1,109 @@
+package mop;
+
+import java.security.spec.ECGenParameterSpec;
+import java.util.Arrays;
+import java.util.List;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+/**
+ * ECGenParameterSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.spec.ECGenParameterSpec.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/ECGenParameterSpec.crysl
+ */
+ECGenParameterSpecSpec(ECGenParameterSpec s) {
+
+   // The envelope's quoting rule (design D-3): a null value is the empty string, a single
+   // quote is escaped so it cannot close the field early, and the value is capped so a
+   // pathological argument cannot push the record past the logcat payload limit.
+   private String q(String s) {
+       if (s == null) {
+           return "";
+       }
+       String value = s.length() > 512 ? s.substring(0, 512) : s;
+       return value.replace("'", "\\'");
+   }
+
+   // ECGenParameterSpec.crysl:14-22, transcribed name for name and in the rule's own order.
+   // Nine curves in twenty-three spellings: the rule enumerates its own aliases -- each
+   // brainpool curve by name and by OID, each NIST curve by `secpNNNr1`, by `NIST P-NNN`,
+   // by OID, and `secp256r1` also by its X9.62 name. That is why the membership test below
+   // consults no alias table of ours for the aliasing itself.
+   List<String> curves = Arrays.asList(
+       "brainpoolP224r1", "1.3.36.3.3.2.8.1.1.5",
+       "brainpoolP256r1", "1.3.36.3.3.2.8.1.1.7",
+       "brainpoolP320r1", "1.3.36.3.3.2.8.1.1.9",
+       "brainpoolP384r1", "1.3.36.3.3.2.8.1.1.11",
+       "brainpoolP512r1", "1.3.36.3.3.2.8.1.1.13",
+       "secp224r1", "NIST P-224", "1.3.132.0.33",
+       "secp256r1", "NIST P-256", "X9.62 prime256v1", "1.2.840.10045.3.1.7",
+       "secp384r1", "NIST P-384", "1.3.132.0.34",
+       "secp521r1", "NIST P-521", "1.3.132.0.35");
+
+   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   ECGenParameterSpec spec;
+
+   // The rule's one event, `c1: ECGenParameterSpec(stdName)` (:7), and the whole of its
+   // ORDER. api30 declares exactly this constructor.
+   //
+   // The curve name is a CONSTRAINTS clause and is read in the body, not in a
+   // `condition(...)`: a guard would compile to `if (!(guard)) return false;` ahead of the
+   // transition (INV-INS-133), and a spec built for an unlisted curve would be accused of
+   // nothing at all.
+   //
+   // `ConscryptAliasTable.matches` is called for the set's one normalisation rule --
+   // case-insensitive comparison -- and not for an alias resolution, because there is none
+   // to do: no Conscrypt service registers curve standard names, so the table has no row
+   // under this label and `matches` degrades to exactly that comparison. Passing a label
+   // the table does not carry is the set's established form for it (`SecretKeySpec`,
+   // `SecureRandom`, `SSLContext` and `KeyStore` all do the same). What the call buys is
+   // that a program spelling `SECP256R1` is not accused for the case alone, and that this
+   // file gets its comparison from the same place as the other eleven allow-lists of the
+   // set rather than growing a twelfth.
+   //
+   // A curve name is an algorithm name, so this reports `UnsafeAlgorithm` under the `ALG`
+   // family, as every other algorithm allow-list of the set does.
+   event c1 after(String stdName) returning(ECGenParameterSpec s):
+     call(public ECGenParameterSpec.new(String)) &&
+     args(stdName) {
+       if (!ConscryptAliasTable.matches("ECGenParameterSpec", stdName, curves)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "ECGenParameterSpecSpec", "" + __LOC,
+               "v=1 code=ECGENPARAMETERSPEC-ALG-00 ev=" + __EVENTNAME + " obj=ECGenParameterSpec val='" + q(stdName) + "' exp='" + q(String.join(",", curves)) + "' msg='the elliptic curve standard name is not one the rule admits'"));
+       }
+       else {
+           spec = s;
+       }
+   }
+
+   // `Con := c1` is the whole ORDER (:10-11), so the `@fail` handler cannot fire: one
+   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
+   // no monitor ever sees a second event. Written because the generator and the
+   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "ECGenParameterSpecSpec", "" + __LOC,
+          "v=1 code=ECGENPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=ECGenParameterSpec val='' exp='' msg='the observed call sequence is not one ECGenParameterSpecSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES preparedEC[this]` (:25) carries no `after L`, so the acceptance point is the
+   // accepting state, which in an `ere` is `@match` (INV-INS-134). `spec` is bound only by
+   // the conforming branch and `ensure` treats a null binding as a no-op, so a spec built
+   // for an unlisted curve prepares nothing.
+   //
+   // `preparedEC` has two producers -- this rule and `ECParameterSpec.crysl:17` -- and two
+   // consumers, `KeyPairGenerator.crysl:38` and `KeyAgreement.crysl:48`, both guarded by an
+   // algorithm test. This is the producer that constrains the curve; the sibling states no
+   // CONSTRAINTS at all.
+   @match {
+      PredicateStore.instance().ensure(Property.PREPARED_EC, spec);
+   }
+
+}

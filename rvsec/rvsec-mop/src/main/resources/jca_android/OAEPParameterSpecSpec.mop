@@ -1,0 +1,132 @@
+package mop;
+
+import java.security.spec.AlgorithmParameterSpec;
+import java.util.Arrays;
+import java.util.List;
+import javax.crypto.spec.OAEPParameterSpec;
+import javax.crypto.spec.PSource;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+
+/**
+ * OAEPParameterSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.crypto.spec.OAEPParameterSpec.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/OAEPParameterSpec.crysl
+ */
+OAEPParameterSpecSpec(OAEPParameterSpec s) {
+
+   // The envelope's quoting rule (design D-3): a null value is the empty string, a single
+   // quote is escaped so it cannot close the field early, and the value is capped so a
+   // pathological argument cannot push the record past the logcat payload limit.
+   private String q(String s) {
+       if (s == null) {
+           return "";
+       }
+       String value = s.length() > 512 ? s.substring(0, 512) : s;
+       return value.replace("'", "\\'");
+   }
+
+   // OAEPParameterSpec.crysl:18-19, transcribed. The rule also declares a fifth object,
+   // `java.lang.String alg` at :8, which no event, constraint, requirement or ensures
+   // clause of the rule names -- an anomaly with no transcription consequence, recorded as
+   // an `oracle-wart` row and mentioned here so a reader comparing the two files does not
+   // go looking for the clause that reads it.
+   List<String> digests = Arrays.asList("SHA-256", "SHA-384", "SHA-512");
+
+   List<String> maskFunctions = Arrays.asList("MGF1");
+
+   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   OAEPParameterSpec spec;
+
+   // The rule's one event, `c1: OAEPParameterSpec(mdName, mgfName, mgfSpec, pSrc)` (:11),
+   // and the whole of its ORDER. api30 declares exactly this constructor; the class's
+   // `DEFAULT` static constant is built inside the platform and never reaches this
+   // pointcut, the same reach limit `MGF1ParameterSpecSpec` records for its own constants.
+   //
+   // Three clauses land in this body and none of them guards the transition. A
+   // `condition(...)` compiles to `if (!(guard)) return false;` ahead of the body and the
+   // transition (INV-INS-133), so a spec built on MD5, or on a mask function nobody
+   // prepared, would take no transition and be accused of nothing. They accumulate rather
+   // than short-circuit, so a construction that broke two clauses is told about two.
+   //
+   // The two value clauses use the set's one normalisation rule through
+   // `ConscryptAliasTable.matches`. For the digest the table also resolves genuine
+   // Conscrypt aliases (`SHA256`, the OID); for the mask function it has no rows under this
+   // label, so the call degrades to case-insensitive comparison, which is all `MGF1` needs.
+   //
+   // The REQUIRES clause `preparedMGF1[mgfSpec, mdName]` (:22) is a `PredicateStore` read
+   // in the body, three-valued, with the two accusing outcomes under different code
+   // families (INV-INS-143). VIOLATED is positive evidence: the mask spec carries the
+   // predicate with a *different* digest, which is exactly the disagreement the clause's
+   // second place exists to catch. NOT_OBSERVED says only that no `MGF1ParameterSpec`
+   // construction was ever seen for this object -- on Android usually the `SHA256` static
+   // constant, whose initialisation the instrumentation cannot reach, and as often a reach
+   // limit as a misuse. The value asked with is this spec's own digest, canonicalised the
+   // same way the producer canonicalises what it writes (D-20.3), because the store
+   // compares value positions after lowercasing and nothing else.
+   event c1 after(String mdName, String mgfName, AlgorithmParameterSpec mgfSpec, PSource pSrc) returning(OAEPParameterSpec s):
+     call(public OAEPParameterSpec.new(String, String, AlgorithmParameterSpec, PSource)) &&
+     args(mdName, mgfName, mgfSpec, pSrc) {
+       boolean conforms = true;
+       if (!ConscryptAliasTable.matches("MessageDigest", mdName, digests)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "OAEPParameterSpecSpec", "" + __LOC,
+               "v=1 code=OAEPPARAMETERSPEC-ALG-00 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='" + q(mdName) + "' exp='" + q(String.join(",", digests)) + "' msg='the oaep digest is not one the rule admits'"));
+           conforms = false;
+       }
+       if (!ConscryptAliasTable.matches("OAEPParameterSpec", mgfName, maskFunctions)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "OAEPParameterSpecSpec", "" + __LOC,
+               "v=1 code=OAEPPARAMETERSPEC-ALG-01 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='" + q(mgfName) + "' exp='" + q(String.join(",", maskFunctions)) + "' msg='the mask generation function is not one the rule admits'"));
+           conforms = false;
+       }
+       PredicateVerdict preparedMask = PredicateStore.instance().validate(Property.PREPARED_MGF1, mgfSpec,
+           ConscryptAliasTable.canonical("MessageDigest", mdName));
+       if (preparedMask == PredicateVerdict.VIOLATED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "OAEPParameterSpecSpec", "" + __LOC,
+               "v=1 code=OAEPPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='" + q(mdName) + "' exp='a mask generation function prepared for the same digest' msg='the mask generation parameters were prepared for a different digest'"));
+           conforms = false;
+       }
+       else if (preparedMask == PredicateVerdict.NOT_OBSERVED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "OAEPParameterSpecSpec", "" + __LOC,
+               "v=1 code=OAEPPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='" + q(mdName) + "' exp='a mask generation function prepared for the same digest' msg='no preparation of the mask generation parameters was observed'"));
+           conforms = false;
+       }
+       if (conforms) {
+           spec = s;
+       }
+   }
+
+   // `Con := c1` is the whole ORDER (:14-15), so the `@fail` handler cannot fire: one
+   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
+   // no monitor ever sees a second event. Written because the generator and the
+   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "OAEPParameterSpecSpec", "" + __LOC,
+          "v=1 code=OAEPPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='' exp='' msg='the observed call sequence is not one OAEPParameterSpecSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES preparedOAEP[this]` (:25) carries no `after L`, so the acceptance point is
+   // the accepting state, which in an `ere` is `@match` (INV-INS-134). `spec` is bound only
+   // by the conforming branch and `ensure` treats a null binding as a no-op.
+   //
+   // Two rules of the oracle require this predicate and they are not in the same state.
+   // `AlgorithmParameters.crysl:40` requires it under `algorithm in {"OAEP"}` and is wired
+   // at task 3.1. `Cipher.crysl:140-141` guards it with `mode(transformation)` over five
+   // strings the same rule classifies as paddings, so its antecedent can never hold and the
+   // clause constrains no trace -- a defect carried as an `oracle-wart` row against the
+   // rule and transcribed by evident intent, never edited upstream (D-21). The vacuous
+   // consumer lowers this write's urgency and not its coverage obligation.
+   @match {
+      PredicateStore.instance().ensure(Property.PREPARED_OAEP, spec);
+   }
+
+}

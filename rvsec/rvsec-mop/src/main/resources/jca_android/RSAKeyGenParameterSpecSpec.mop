@@ -1,0 +1,109 @@
+package mop;
+
+import java.math.BigInteger;
+import java.security.spec.RSAKeyGenParameterSpec;
+import java.util.Arrays;
+import java.util.List;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+
+/**
+ * RSAKeyGenParameterSpec
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.spec.RSAKeyGenParameterSpec.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/RSAKeyGenParameterSpec.crysl
+ */
+RSAKeyGenParameterSpecSpec(RSAKeyGenParameterSpec s) {
+
+   // The envelope's quoting rule (design D-3): a null value is the empty string, a single
+   // quote is escaped so it cannot close the field early, and the value is capped so a
+   // pathological argument cannot push the record past the logcat payload limit.
+   private String q(String s) {
+       if (s == null) {
+           return "";
+       }
+       String value = s.length() > 512 ? s.substring(0, 512) : s;
+       return value.replace("'", "\\'");
+   }
+
+   // RSAKeyGenParameterSpec.crysl:15, transcribed as the rule writes it. 1024 is in the
+   // list and stays in it: the pinned expert oracle is the sole authority on what a value
+   // clause admits (D-16), and narrowing a list because a modern reading would narrow it
+   // is an edit to the oracle by another route. Whoever wants 1024 out takes it out
+   // upstream, or records a value decision of its own the way D-20 did for the eight PBE
+   // families.
+   List<Integer> keySizes = Arrays.asList(1024, 2048, 4096);
+
+   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   RSAKeyGenParameterSpec spec;
+
+   // The rule's one event, `c1: RSAKeyGenParameterSpec(keysize, publicExponent)` (:8), and
+   // the whole of its ORDER. api30 declares exactly this constructor and no other overload
+   // of it, so there is nothing to fuse.
+   //
+   // Both CONSTRAINTS clauses are read here, in the body, and neither guards the
+   // transition. A `condition(...)` compiles to `if (!(guard)) return false;` ahead of both
+   // the body and the transition (INV-INS-133), so a spec built with an inadmissible key
+   // size would take no transition, reach no accepting state and be accused of nothing --
+   // the silence measured on this file's sibling `GCMParameterSpecSpec` before gh105 moved
+   // its guards into the body.
+   //
+   // The two clauses accumulate rather than short-circuit: a program that got both the key
+   // size and the exponent wrong broke two clauses and is told about two, and the write is
+   // taken only when neither fired.
+   //
+   // `keysize` is the rule's own word for it and `InvalidKeySize` is the set's type for
+   // that family (precedent: `KeyPairGeneratorSpec`'s two KEYSIZE sites). The exponent is
+   // not a key size and not an algorithm name, so it reports the general
+   // `UnsatisfiedConstraint`.
+   event c1 after(int keysize, BigInteger publicExponent) returning(RSAKeyGenParameterSpec s):
+     call(public RSAKeyGenParameterSpec.new(int, BigInteger)) &&
+     args(keysize, publicExponent) {
+       boolean conforms = true;
+       if (!keySizes.contains(keysize)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "RSAKeyGenParameterSpecSpec", "" + __LOC,
+               "v=1 code=RSAKEYGENPARAMETERSPEC-KEYSIZE-00 ev=" + __EVENTNAME + " obj=RSAKeyGenParameterSpec val='" + keysize + "' exp='" + q(keySizes.toString()) + "' msg='the rsa key size is not one the rule admits'"));
+           conforms = false;
+       }
+       if (publicExponent == null || !publicExponent.equals(BigInteger.valueOf(65537))) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "RSAKeyGenParameterSpecSpec", "" + __LOC,
+               "v=1 code=RSAKEYGENPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=RSAKeyGenParameterSpec val='" + q(String.valueOf(publicExponent)) + "' exp='65537' msg='the rsa public exponent is not the one the rule admits'"));
+           conforms = false;
+       }
+       if (conforms) {
+           spec = s;
+       }
+   }
+
+   // `Con := c1` is the whole ORDER (:11-12), so this automaton has one symbol and the
+   // `@fail` handler below cannot fire: the transition row the generator derives is
+   // {1, 2, 2} and the monitor is keyed on the constructed object, so no monitor of this
+   // specification ever sees a second event and state 2 is never entered. The handler is
+   // written anyway, because the generator and the `codes.csv` bijection both expect one
+   // (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   ere : c1
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "RSAKeyGenParameterSpecSpec", "" + __LOC,
+          "v=1 code=RSAKEYGENPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=RSAKeyGenParameterSpec val='' exp='' msg='the observed call sequence is not one RSAKeyGenParameterSpecSpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES preparedRSA[this]` (:19) carries no `after L`, so its acceptance point is the
+   // accepting state, which in an `ere` is `@match` (INV-INS-134). The object arrives
+   // through the field, which the conforming branch alone binds; `ensure` treats a null
+   // binding as a no-op, so a construction that broke either clause writes nothing.
+   //
+   // The read that closes this write is `KeyPairGenerator.crysl:35`,
+   // `algorithm in {"RSA"} => preparedRSA[params]`, wired at task 1b.1. Until gh109 this
+   // predicate had no producer at all, which is why that read was left closed rather than
+   // answering NOT_OBSERVED forever (D-24).
+   @match {
+      PredicateStore.instance().ensure(Property.PREPARED_RSA, spec);
+   }
+
+}
