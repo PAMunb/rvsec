@@ -393,7 +393,7 @@ class M0VitalityTest {
     // ---------------------------------------------------------------- 6.11
 
     @Test
-    @DisplayName("6.11: 18 of 24 jca_android and 15 of 23 jca absorb misuse, under the stated rule")
+    @DisplayName("6.11: 42 of 48 jca_android and 15 of 23 jca absorb misuse, under the stated rule")
     void test_the_absorbs_misuse_census() throws LiftFailure {
         Map<String, M0Result> android = examine(ANDROID, Optional.empty());
         Map<String, M0Result> jca = examine(JCA, Optional.empty());
@@ -418,8 +418,12 @@ class M0VitalityTest {
         // specifications absorb too, which is not a given -- `CertificateFactorySpec` absorbs on
         // its type and encoding clauses, and the two digest streams on a read length and on a
         // FORBIDDEN call -- so the census says the group kept the shape rather than that it kept
-        // the count.
-        assertEquals(39, androidAbsorbing.size(), "jca_android absorbing: " + androidAbsorbing);
+        // the count. 39 -> 42 at group G4, and again all three: `KeyAgreementSpec` absorbs on its
+        // algorithm clause, on eleven predicate reads and on the FORBIDDEN `gs3`, and the two TLS
+        // specifications on their protocol and cipher-suite clauses. A specification that
+        // transcribed a value clause and absorbed nothing would be one whose accusation lives
+        // somewhere else, which is the shape this census is here to catch.
+        assertEquals(42, androidAbsorbing.size(), "jca_android absorbing: " + androidAbsorbing);
         assertEquals(15, jcaAbsorbing.size(), "jca absorbing: " + jcaAbsorbing);
 
         // The lists, not only the totals: the independent probe
@@ -434,12 +438,14 @@ class M0VitalityTest {
                         "DigestInputStreamSpec", "DigestOutputStreamSpec",
                         "ECGenParameterSpecSpec",
                         "GCMParameterSpecSpec", "IvChainJunction", "IvParameterSpec",
+                        "KeyAgreementSpec",
                         "KeyFactorySpec", "KeyGeneratorSpec", "KeyManagerFactorySpec",
                         "KeyPairGeneratorSpec",
                         "KeyPairSpec", "KeyStoreSpec", "MGF1ParameterSpecSpec", "MacSpec",
                         "MessageDigestSpec", "OAEPParameterSpecSpec", "PBEKeySpecSpec",
                         "PBEParameterSpecSpec", "PKIXBuilderParametersSpec", "PKIXParametersSpec",
-                        "RSAKeyGenParameterSpecSpec", "SSLContextSpec", "SecretKeyFactorySpec",
+                        "RSAKeyGenParameterSpecSpec", "SSLContextSpec", "SSLEngineSpec",
+                        "SSLParametersSpec", "SecretKeyFactorySpec",
                         "SecretKeySpecSpec",
                         "SecureRandomSpec", "SignatureSpec", "TrustAnchorSpec",
                         "TrustManagerFactorySpec", "X509EncodedKeySpecSpec"),

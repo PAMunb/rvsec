@@ -159,14 +159,17 @@ class M1EventsCorpusTest {
         assertEquals(corpusSize(), pairing.pairs().size() + pairing.unpaired().size(),
                 "every specification of the set is accounted for, paired or not");
         assertEquals(pairedSize(), pairing.pairs().size(),
-                "all but the three unpaired pair by declared type; counting rule = "
+                "all but the four unpaired pair by declared type; counting rule = "
                         + SpecRulePairing.PAIRING_RULE);
         assertEquals(pairedSize(), pairing.pairedRules(),
                 "and as many distinct rules are claimed, because the pairing is injective - "
                         + "denominator every later aggregate is stated over");
 
         // Until gh109 the two sets were the same two names, and the assertion was equality.
-        // They came apart when the coverage specifications landed: OAEPParameterSpecSpec.mop
+        // They came apart when the coverage specifications landed, and group G4 widened the gap
+        // with the second of the two lift failures: SSLEngineSpec.mop owns rows in the alphabet
+        // map for the same reason OAEPParameterSpecSpec.mop does, and is unpaired here for the
+        // same reason too. OAEPParameterSpecSpec.mop
         // owns rows in the alphabet map, because the map is derived by a reader that parses
         // OAEPParameterSpec.crysl without complaint, and is still unpaired here, because the
         // lift does not - the rule is one of the two lift failures (OAEPParameterSpec:8,
@@ -188,6 +191,17 @@ class M1EventsCorpusTest {
                         + "from the corpus the pairing reads. The consequence is that M1-M4 report "
                         + "nothing about this specification, and it is named here rather than "
                         + "discovered as a hole in a denominator");
+
+        assertEquals(SpecRulePairing.Reason.NO_RULE_DECLARES_THE_TYPE,
+                reasonFor(pairing, "SSLEngineSpec"),
+                "the twin of the row above, and the other half of the same parser defect: the "
+                        + "oracle states SSLEngine.crysl about javax.net.ssl.SSLEngine, and the "
+                        + "rule does not lift because :12 binds EnableProtocol to an event cp1 "
+                        + "the rule never declares. gh109 task 4.1 transcribes the evident intent "
+                        + "and records the defect as an oracle-wart row; what cannot be "
+                        + "transcribed away is the lift failure, so M1-M4 report nothing about "
+                        + "this specification and it is named here rather than discovered as a "
+                        + "hole in a denominator");
 
         assertEquals(SpecRulePairing.Reason.NO_RULE_DECLARES_THE_TYPE,
                 reasonFor(pairing, "RandomStringPassword"),
@@ -298,15 +312,19 @@ class M1EventsCorpusTest {
     /**
      * The specifications of the set that pair with no rule of the <em>lifted</em> oracle.
      *
-     * <p>Declared rather than derived, and short on purpose: each of the three names is a
+     * <p>Declared rather than derived, and short on purpose: each of the four names is a
      * judgement, and the reason for it is asserted beside the name in
      * {@link #test_pairing_leaves_over_the_two_specifications_the_alphabet_map_skips()}. What
      * derives from the list is only arithmetic — the pairing denominator is the corpus minus these
-     * three — and deriving it is what keeps a group of new specifications from moving half a dozen
+     * four — and deriving it is what keeps a group of new specifications from moving half a dozen
      * literals that say nothing about the oracle.
+     *
+     * <p>Three until gh109 group G4 added {@code SSLEngineSpec}, whose rule is the second of the
+     * two the lift rejects. A name enters this list only with a measured reason, and that one is a
+     * parser failure over the pinned oracle, not a mapping decision.
      */
-    private static final Set<String> UNPAIRED =
-            Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword");
+    private static final Set<String> UNPAIRED = Set.of("IvChainJunction", "OAEPParameterSpecSpec",
+            "RandomStringPassword", "SSLEngineSpec");
 
     /** How many {@code .mop} files the set holds right now. Derived: it carries no judgement. */
     private static int corpusSize() {

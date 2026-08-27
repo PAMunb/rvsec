@@ -1,0 +1,395 @@
+package mop;
+
+import java.security.Key;
+import java.security.SecureRandom;
+import java.security.spec.AlgorithmParameterSpec;
+
+import javax.crypto.KeyAgreement;
+import javax.crypto.SecretKey;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * KeyAgreement
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.crypto.KeyAgreement.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyAgreement.crysl
+ */
+KeyAgreementSpec(KeyAgreement ka) {
+
+   // The envelope's quoting rule (design D-3).
+   private String q(String str) {
+       if (str == null) {
+           return "";
+       }
+       String value = str.length() > 512 ? str.substring(0, 512) : str;
+       return value.replace("'", "\\'");
+   }
+
+   // KeyAgreement.crysl:40, transcribed. `DiffieHellman` and `DH` are both the rule's own
+   // entries and both stay -- an alias never enters the list it resolves against.
+   List<String> safeAlgorithms = Arrays.asList("DH", "DiffieHellman", "ECDH");
+
+   // The antecedents of the two guarded REQUIRES clauses (:47 and :48). They are the rule's
+   // own partition of the algorithm list above: a Diffie-Hellman agreement wants DH domain
+   // parameters, an elliptic-curve one wants curve parameters.
+   List<String> dhAlgorithms = Arrays.asList("DH", "DiffieHellman");
+
+   List<String> ecAlgorithms = Arrays.asList("ECDH");
+
+   // Staged by `get`, because every guarded read below asks which algorithm this agreement
+   // is for and no `init` event binds it.
+   String algorithm = null;
+
+   // Bound by `get` and read by the two `GenSecretBuffer` events, which write the rule's one
+   // ENSURES. Unlike a single-event producer of this set, conformance here is NOT decidable
+   // inside the event that writes: the clauses live at `Get`, at the four `Init` overloads
+   // and at `DoPhase`, and the write happens at a later event still. `conforms` is the field
+   // that carries that verdict forward, and the reading of CrySL is unchanged -- a predicate
+   // is ensured for a use that satisfied the rule.
+   //
+   // Residue, recorded rather than repaired: a `gs3` that arrives AFTER the buffer was
+   // generated clears the flag too late to gate a write already made. The rule's
+   // `noCallTo[gs3]` is a statement about the whole trace and this instrument decides at the
+   // event; withdrawing the predicate would be a NEGATES this rule does not state.
+   boolean conforms = true;
+
+   String expectedGeneratedPrivkey = "a private key this instrumentation observed being generated";
+
+   String expectedGeneratedPubkey = "a public key this instrumentation observed being generated";
+
+   String expectedRandomized = "a SecureRandom this instrumentation observed being created";
+
+   // `Get := g1 | g2` (:16-18), fused on the zeroth position because the rule's own label
+   // fuses them. api30 declares three overloads -- `(String)`, `(String, String)` and
+   // `(String, Provider)` -- and all three are the rule's `Get`; leaving one out sends an
+   // agreement obtained through it to its next event with the monitor at state 0, where
+   // every row is `fail` (the `KeyPairGeneratorSpec.g2` defect).
+   //
+   // The algorithm CONSTRAINT (:40) is accused in the body and not in a `condition(...)`: a
+   // guard would suppress the transition and an agreement asked for a protocol the rule
+   // refuses would be accused of nothing (INV-INS-133, INV-INS-152).
+   event get after(String alg) returning(KeyAgreement ka):
+     ( call(public static KeyAgreement KeyAgreement.getInstance(String)) ||
+       call(public static KeyAgreement KeyAgreement.getInstance(String, String)) ||
+       call(public static KeyAgreement KeyAgreement.getInstance(String, java.security.Provider))
+     ) && args(alg, ..) {
+       algorithm = ConscryptAliasTable.canonical("KeyAgreement", alg);
+       if (!ConscryptAliasTable.matches("KeyAgreement", alg, safeAlgorithms)) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-ALG-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
+       }
+   }
+
+   // `i1: init(privKey)` (:20), the first alternative of `Init := i1 | i2 | i3 | i4` (:24).
+   //
+   // THE FOUR OVERLOADS GET AN EVENT EACH and are not fused, although the rule's label fuses
+   // them, because they bind DIFFERENT arguments: `generatedPrivkey[privKey]` (:45) is about
+   // all four, `randomized[random]` (:44) only about the two that take a SecureRandom, and
+   // the two guarded parameter clauses (:47-48) only about the two that take a parameter
+   // spec. A fused event over `args(privKey, ..)` would bind the first position and leave
+   // three clauses of the rule with no site at all; a fused event PLUS a binding event would
+   // emit two letters for one call, where the ORDER has exactly one `Init` between the `Get`
+   // and the `DoPhase`. The precedent and the measurement are
+   // `AlgorithmParameterGeneratorSpec.mop:62-74`.
+   //
+   // `generatedPrivkey[privKey]` is read three-valued with a code per accusing outcome
+   // (INV-INS-143). Its producers are `KeyFactorySpec.genPrivate`, `KeyPairSpec` and
+   // `KeyStoreSpec`.
+   event init1 after(Key privKey, KeyAgreement ka):
+     call(public void KeyAgreement.init(java.security.Key)) &&
+     args(privKey) && target(ka) {
+       PredicateVerdict privateKey = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, privKey);
+       if (privateKey == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-CONSTR-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='the private key given to init carries a generation predicate the rule does not admit'"));
+       }
+       else if (privateKey == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'"));
+       }
+   }
+
+   // `i2: init(privKey, params)` (:21), the second alternative, and the first site of the two
+   // GUARDED clauses (:47-48): the algorithm the `Get` staged selects which parameter
+   // predicate is required, and an agreement whose algorithm neither antecedent names reaches
+   // no parameter read at all -- which is the rule speaking, not a gap.
+   //
+   // Each branch names its predicate as a LITERAL `Property.` constant rather than through a
+   // selected variable, because the record reader anchors a predicate site on the literal
+   // first argument of the store call (`gh105_predicate_graph.py`, pass 1); a constant held
+   // in a variable would leave the clause out of the graph, the ledger and every gate while
+   // the monitor went on accusing.
+   //
+   // The two clauses meet the private-key clause here and they ACCUMULATE rather than
+   // short-circuit: an `init` that handed over an unobserved key AND unobserved parameters
+   // must draw both reports, not the first.
+   event init2 after(Key privKey, AlgorithmParameterSpec params, KeyAgreement ka):
+     call(public void KeyAgreement.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) &&
+     args(privKey, params) && target(ka) {
+       PredicateVerdict privateKey = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, privKey);
+       if (privateKey == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-CONSTR-01 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='the private key given to init carries a generation predicate the rule does not admit'"));
+       }
+       else if (privateKey == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-01 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'"));
+       }
+       PredicateVerdict prepared = PredicateVerdict.SATISFIED;
+       String required = null;
+       if (ConscryptAliasTable.matches("KeyAgreement", algorithm, dhAlgorithms)) {
+           required = "preparedDH";
+           prepared = PredicateStore.instance().validate(Property.PREPARED_DH, params);
+       }
+       else if (ConscryptAliasTable.matches("KeyAgreement", algorithm, ecAlgorithms)) {
+           required = "preparedEC";
+           prepared = PredicateStore.instance().validate(Property.PREPARED_EC, params);
+       }
+       if (required != null && prepared == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-CONSTR-02 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(required) + "' msg='the parameter spec carries a preparation predicate the rule does not admit'"));
+       }
+       else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-02 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(required) + "' msg='no preparation of the parameter spec given to init was observed'"));
+       }
+   }
+
+   // `i3: init(privKey, params, random)` (:22), the third alternative, and the ONE overload
+   // that binds all three objects the rule's REQUIRES section names. Three clauses meet here,
+   // each with codes of its own, because a code names a site and not a clause.
+   event init3 after(Key privKey, AlgorithmParameterSpec params, SecureRandom random, KeyAgreement ka):
+     call(public void KeyAgreement.init(java.security.Key, java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom)) &&
+     args(privKey, params, random) && target(ka) {
+       PredicateVerdict privateKey = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, privKey);
+       if (privateKey == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-CONSTR-03 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='the private key given to init carries a generation predicate the rule does not admit'"));
+       }
+       else if (privateKey == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-03 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'"));
+       }
+       PredicateVerdict prepared = PredicateVerdict.SATISFIED;
+       String required = null;
+       if (ConscryptAliasTable.matches("KeyAgreement", algorithm, dhAlgorithms)) {
+           required = "preparedDH";
+           prepared = PredicateStore.instance().validate(Property.PREPARED_DH, params);
+       }
+       else if (ConscryptAliasTable.matches("KeyAgreement", algorithm, ecAlgorithms)) {
+           required = "preparedEC";
+           prepared = PredicateStore.instance().validate(Property.PREPARED_EC, params);
+       }
+       if (required != null && prepared == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-CONSTR-04 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(required) + "' msg='the parameter spec carries a preparation predicate the rule does not admit'"));
+       }
+       else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-04 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(required) + "' msg='no preparation of the parameter spec given to init was observed'"));
+       }
+       PredicateVerdict randomized = PredicateStore.instance().validate(Property.RANDOMIZED, random);
+       if (randomized == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-CONSTR-05 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='the SecureRandom given to init carries a randomization predicate the rule does not admit'"));
+       }
+       else if (randomized == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-05 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='no construction of the SecureRandom given to init was observed'"));
+       }
+   }
+
+   // `i4: init(privKey, random)` (:23), the fourth alternative. It binds no parameter spec,
+   // so the two guarded clauses have nothing to read here and are not read: an implication
+   // whose consequent names an object this call does not pass is not about this call.
+   event init4 after(Key privKey, SecureRandom random, KeyAgreement ka):
+     call(public void KeyAgreement.init(java.security.Key, java.security.SecureRandom)) &&
+     args(privKey, random) && target(ka) {
+       PredicateVerdict privateKey = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, privKey);
+       if (privateKey == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-CONSTR-06 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='the private key given to init carries a generation predicate the rule does not admit'"));
+       }
+       else if (privateKey == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-06 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'"));
+       }
+       PredicateVerdict randomized = PredicateStore.instance().validate(Property.RANDOMIZED, random);
+       if (randomized == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-CONSTR-07 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='the SecureRandom given to init carries a randomization predicate the rule does not admit'"));
+       }
+       else if (randomized == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-07 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='no construction of the SecureRandom given to init was observed'"));
+       }
+   }
+
+   // `dp1: doPhase(pubKey, lastPhase)` (:26), the whole of `DoPhase` (:27), and the site of
+   // `generatedPubkey[pubKey]` (:46). The `lastPhase` flag is bound because the rule binds
+   // it, and no clause constrains it -- the rule names it in no CONSTRAINT and in no
+   // REQUIRES, so the body has nothing to say about it, which is the rule speaking.
+   //
+   // The call returns a `Key` and the event does not bind it: no clause of the rule names
+   // that return value, and a `returning(...)` of a value no clause reads is bookkeeping.
+   event dophase after(Key pubKey, boolean lastPhase, KeyAgreement ka):
+     call(public java.security.Key KeyAgreement.doPhase(java.security.Key, boolean)) &&
+     args(pubKey, lastPhase) && target(ka) {
+       PredicateVerdict publicKey = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, pubKey);
+       if (publicKey == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-CONSTR-08 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPubkey) + "' msg='the public key given to doPhase carries a generation predicate the rule does not admit'"));
+       }
+       else if (publicKey == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-08 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPubkey) + "' msg='no generation of the public key given to doPhase was observed'"));
+       }
+   }
+
+   // `gs1: sharedSecretBuffer = generateSecret()` (:29), the first alternative of
+   // `GenSecretBuffer` (:31), and one of the two acceptance points of
+   // `preparedKeyMaterial[sharedSecretBuffer] after GenSecretBuffer` (:51).
+   //
+   // THE LABEL THIS EVENT BELONGS TO IS MIS-BOUND IN THE PINNED RULE. `:31` reads
+   // `GenSecretBuffer := gs1 | g2;` -- `g2` is the two-argument `getInstance` of `:17`, a
+   // factory call, where `gs2` at `:30` is the two-argument `generateSecret` that is the
+   // evident twin of `gs1`. Read literally the ORDER (:37) would accept a second
+   // `getInstance` as the terminal event of a key agreement, would reject
+   // `generateSecret(buffer, offset)`, and the ENSURES would write over a call that binds no
+   // buffer. This file transcribes `gs1 | gs2`; the warrant is the `oracle-wart` row task
+   // gh109:0.1 recorded against `tools/rules/KeyAgreement.crysl` (D-21), and the pinned rule
+   // is not edited.
+   //
+   // The write is in the body and not in a handler because the clause names the RETURNED
+   // array, which a handler cannot see (INV-INS-134, the `gkm1` placement). It closes
+   // `preparedKeyMaterial` as a predicate with two producers -- `SecretKeySpec`'s
+   // `getEncoded` route is the other -- and its consumers are `SecretKeySpecSpec` and
+   // `X509EncodedKeySpecSpec`.
+   event gs1 after(KeyAgreement ka) returning(byte[] sharedSecretBuffer):
+     call(public byte[] KeyAgreement.generateSecret()) &&
+     target(ka) {
+       if (conforms) {
+           PredicateStore.instance().ensure(Property.PREPARED_KEY_MATERIAL, sharedSecretBuffer);
+       }
+   }
+
+   // `gs2: generateSecret(sharedSecretBuffer, offset)` (:30), the second alternative of
+   // `GenSecretBuffer` under the reading the row above states, and the second acceptance
+   // point of the same ENSURES.
+   //
+   // It is a separate event and not fused with `gs1`, although the rule's label fuses them,
+   // for the reason the conventions note fixes: the buffer is the RETURN VALUE of one call
+   // and the FIRST ARGUMENT of the other, so one event cannot bind both. The `offset` is
+   // bound because the rule binds it and constrained by nothing, as `lastPhase` is at
+   // `doPhase`.
+   event gs2 after(byte[] sharedSecretBuffer, int offset, KeyAgreement ka):
+     call(public int KeyAgreement.generateSecret(byte[], int)) &&
+     args(sharedSecretBuffer, offset) && target(ka) {
+       if (conforms) {
+           PredicateStore.instance().ensure(Property.PREPARED_KEY_MATERIAL, sharedSecretBuffer);
+       }
+   }
+
+   // `gs3: sharedKey = generateSecret(symmetricKeyAlgorithm)` (:33), reached by the rule only
+   // through `noCallTo[gs3]` (:41) -- a CONSTRAINTS clause that forbids the call outright.
+   //
+   // IT IS REALISED AS A FORBIDDEN EVENT AND NOT AS AN AUTOMATON POSITION, which is the
+   // `SSLContextSpec.getDefault` precedent: making a forbidden call an alternative of the
+   // ordering is the opposite of what forbidding it says. The event therefore self-loops at
+   // every state -- it accuses in its body and moves the automaton nowhere. The self-loops
+   // are not decoration: an event absent from the automaton gets a transition row that moves
+   // every state to `fail`, so declaring it without them would trade a false negative for an
+   // ordering false positive.
+   //
+   // The `GenSecret := gs3 | GenSecretBuffer` alias the rule declares at `:34` appears in no
+   // ORDER and in no CONSTRAINT, so nothing transcribes it; the anomaly is recorded on the
+   // same `oracle-wart` row as the `g2`/`gs2` defect.
+   //
+   // `ForbiddenMethod` and not `InvalidSequenceOfMethodCalls`: the finding is the call
+   // itself, and a sequencing type would send the reader hunting for a missing call
+   // (`ErrorType.java:12-18`, D-13).
+   event gs3 after(String symmetricKeyAlgorithm, KeyAgreement ka):
+     call(public javax.crypto.SecretKey KeyAgreement.generateSecret(String)) &&
+     args(symmetricKeyAlgorithm) && target(ka) {
+       conforms = false;
+       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "KeyAgreementSpec", "" + __LOC,
+           "v=1 code=KEYAGREEMENT-FORB-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(symmetricKeyAlgorithm) + "' exp='KeyAgreement.generateSecret() or KeyAgreement.generateSecret(byte[], int)' msg='the expert KeyAgreement.crysl forbids deriving a named secret key from an agreement'"));
+   }
+
+   // The rule's ORDER (:37), `Get, Init, DoPhase, GenSecretBuffer`, plus the self-loops that
+   // keep the forbidden `gs3` out of the language. It is an `fsm` and not an `ere` for
+   // exactly that reason: no `ere` of this set spells a self-loop, and `SSLContextSpec` --
+   // the other file with a FORBIDDEN call to place -- made the same choice for the same
+   // reason.
+   //
+   // `DoPhase` appears once, as the rule writes it. A Diffie-Hellman agreement with more than
+   // two parties calls `doPhase` repeatedly, and such a trace is rejected here because the
+   // rule rejects it; that is a property of the oracle and is recorded, not repaired.
+   fsm :
+     start [
+       get -> gotten
+       gs3 -> start
+     ]
+     gotten [
+       init1 -> inited
+       init2 -> inited
+       init3 -> inited
+       init4 -> inited
+       gs3 -> gotten
+     ]
+     inited [
+       dophase -> phased
+       gs3 -> inited
+     ]
+     phased [
+       gs1 -> agreed
+       gs2 -> agreed
+       gs3 -> phased
+     ]
+     agreed [
+       gs3 -> agreed
+     ]
+
+   alias match = agreed
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyAgreementSpec", "" + __LOC,
+          "v=1 code=KEYAGREEMENT-ORDER-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='' exp='' msg='the observed call sequence is not one KeyAgreementSpec accepts'"));
+      algorithm = null;
+      conforms = true;
+      __RESET;
+   }
+
+   // The rule states one ENSURES and it carries `after GenSecretBuffer`, so the write is at
+   // the two `gs` events and not here. The handler exists because the generator and the
+   // `codes.csv` bijection both expect one, and it stages nothing.
+   @match {
+   }
+
+}

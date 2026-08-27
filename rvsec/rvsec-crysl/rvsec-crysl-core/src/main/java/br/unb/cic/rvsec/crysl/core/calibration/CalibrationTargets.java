@@ -66,8 +66,8 @@ public final class CalibrationTargets {
     public static CalibrationTarget mopLift() {
         return new CalibrationTarget("T1-mop-lift",
                 "SpecExtractor over the five .mop corpora",
-                "236 files, 236 ok, 0 fail",
-                List.of("jca 23/23", "jca_android 45/45", "jca_android_bug_predicate 23/23",
+                "239 files, 239 ok, 0 fail",
+                List.of("jca 23/23", "jca_android 48/48", "jca_android_bug_predicate 23/23",
                         "generic 118/118", "generic_new 27/27"),
                 "files whose name ends in .mop under each of the five corpus directories; a file "
                         + "is ok when javamop.parser.SpecExtractor.parse returns without throwing, "
@@ -100,15 +100,16 @@ public final class CalibrationTargets {
     public static CalibrationTarget androidMultiParameter() {
         return new CalibrationTarget("T3-android-multiparameter",
                 "multi-parameter specifications in jca_android",
-                "0 of 45", List.of(),
-                "spec.getParameters().size() > 1 on the parsed AST, over the 38 files of "
-                        + "jca_android. The histogram is {1:45}: every specification of the set "
+                "0 of 48", List.of(),
+                "spec.getParameters().size() > 1 on the parsed AST, over the 48 files of "
+                        + "jca_android. The histogram is {1:48}: every specification of the set "
                         + "declares exactly one parameter. It read {0:2, 1:22} at 24 files; the "
                         + "two parameterless ones gained a parameter under gh105 and each of the "
                         + "fourteen gh109 producers declares one, so the 0 bucket emptied without "
                         + "the question this target asks changing at all. The seven gh109 group G3 "
-                        + "specifications each declare one too, which is why the answer moved from "
-                        + "0 of 38 to 0 of 45 and not from 0 to something",
+                        + "specifications each declare one too, and so do the three of group G4, "
+                        + "which is why the answer moved from 0 of 38 to 0 of 48 and not from 0 to "
+                        + "something",
                 RouteClass.INDEPENDENT_PROBE, HARNESS + "/probes/Census.java",
                 "jca_android", rvsec(), PublishedMetric.MOP_LIFT,
                 "this is what makes the single-parameter slicing boundary irrelevant for this "
@@ -137,7 +138,7 @@ public final class CalibrationTargets {
     public static CalibrationTarget m3Denominator() {
         return new CalibrationTarget("T5-m3-denominator",
                 "M3 denominator under R1: clauses in the 42 paired upstream rules",
-                "101 of 119",
+                "106 of 119",
                 List.of("AlgorithmParameterGenerator=2", "AlgorithmParameters=1",
                         "CertPathTrustManagerParameters=0", "CertificateFactory=2", "Cipher=25",
                         "CipherInputStream=3",
@@ -145,12 +146,14 @@ public final class CalibrationTargets {
                         "DSAParameterSpec=2", "DigestInputStream=3", "DigestOutputStream=3",
                         "ECGenParameterSpec=1", "ECParameterSpec=0",
                         "GCMParameterSpec=4", "HMACParameterSpec=0", "IvParameterSpec=3", "Key=0",
+                        "KeyAgreement=2",
                         "KeyFactory=1", "KeyGenerator=2", "KeyManagerFactory=3", "KeyPair=0",
                         "KeyPairGenerator=5",
                         "KeyStore=5", "KeyStoreBuilderParameters=0", "MGF1ParameterSpec=1", "Mac=5",
                         "MessageDigest=7", "PBEKeySpec=3", "PBEParameterSpec=1",
                         "PKIXBuilderParameters=0", "PKIXParameters=0", "RSAKeyGenParameterSpec=2",
-                        "SSLContext=1", "SecretKey=0", "SecretKeyFactory=1", "SecretKeySpec=3",
+                        "SSLContext=1", "SSLParameters=3", "SecretKey=0", "SecretKeyFactory=1",
+                        "SecretKeySpec=3",
                         "SecureRandom=1",
                         "Signature=4", "TrustAnchor=0", "TrustManagerFactory=1",
                         "X509EncodedKeySpec=0"),
@@ -169,7 +172,16 @@ public final class CalibrationTargets {
                         + "CertificateFactory 2, DigestInputStream 3 and DigestOutputStream 3. "
                         + "The denominator does not move, because it was always over all 49. "
                         + "OAEPParameterSpec is not in the 42 - its rule does not load, so nothing "
-                        + "pairs with it - and its clauses stay in the 119 only",
+                        + "pairs with it - and its clauses stay in the 119 only. Re-run at group "
+                        + "G4: 101 of 119 becomes 106 of 119 over 44 paired rules, and the five "
+                        + "the group adds to the numerator are KeyAgreement 2 (the algorithm "
+                        + "allow-list and noCallTo[gs3]) and SSLParameters 3 (the protocol "
+                        + "allow-list and the two suite implications). SSLEngine states the same "
+                        + "three clauses and none of them enters, for the same reason "
+                        + "OAEPParameterSpec's do not: its rule is the second of T4's two that do "
+                        + "not load, so nothing pairs with it and its clauses stay in the 119 "
+                        + "only. The denominator still does not move, because it was always over "
+                        + "all 49",
                 RouteClass.INDEPENDENT_PROBE,
                 HARNESS + " R1 census (raw text, no parser) + docs/20260824_mapeamento_mop_crysl.md",
                 "CrySL-Rules", oracle(), PublishedMetric.M3,
@@ -185,8 +197,9 @@ public final class CalibrationTargets {
     public static CalibrationTarget pairing() {
         return new CalibrationTarget("T6-pairing",
                 ".mop specifications that have an upstream rule as their oracle",
-                "42 of 45",
-                List.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword"),
+                "44 of 48",
+                List.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword",
+                        "SSLEngineSpec"),
                 "the 38 jca_android specifications minus the two that "
                         + "data/jca_android/order_alphabet_map.csv declares G-ORDER skips, minus "
                         + "the one whose upstream rule is among the two T4 names as not loading. "
@@ -197,7 +210,14 @@ public final class CalibrationTargets {
                         + "it is absent from the corpus anything could pair with. A declared skip "
                         + "says no rule orders this file; this says the rule exists and the parser "
                         + "cannot read it, and collapsing the two would file an upstream defect "
-                        + "under a mapping decision. The route stays independent of the "
+                        + "under a mapping decision. gh109 group G4 adds a second name to that "
+                        + "third subtraction and not a third kind of reason: SSLEngineSpec.mop is "
+                        + "about javax.net.ssl.SSLEngine, the oracle states SSLEngine.crysl about "
+                        + "it, and that rule is T4's other non-loading name -- its ORDER "
+                        + "references an event `cp1` line 11 declares as `ep1`. The specification "
+                        + "transcribes the evident intent and the parser still cannot read the "
+                        + "rule, so M1-M4 report nothing about the file. The route stays "
+                        + "independent of the "
                         + "component's pairing: it reads the map's declared skips and T4's own "
                         + "item list, both committed artifacts. A "
                         + "declared skip is prose in that file's header and deliberately never a "
@@ -217,7 +237,7 @@ public final class CalibrationTargets {
                         + "specifications and cites .cryptsl files for them, but both written "
                         + "reasons survive the re-anchoring to upstream, which is why it is a "
                         + "usable route; the rows gh109 adds are expert-native and cite .crysl "
-                        + "directly. The component reaches the same 35 "
+                        + "directly. The component reaches the same count "
                         + "only because its pairing is INJECTIVE: CipherSpec.mop and "
                         + "IvChainJunction.mop declare byte-identically the same type, so a plain "
                         + "declared-type function would pair both with Cipher.crysl and answer 23. "
@@ -229,9 +249,9 @@ public final class CalibrationTargets {
     public static CalibrationTarget partialBinding() {
         return new CalibrationTarget("T7-partial-binding",
                 "specifications with at least one event that binds no declared parameter",
-                "3 of 45",
+                "3 of 48",
                 List.of("HMACParameterSpecSpec", "KeySpec", "RandomStringPassword"),
-                "over the 38 jca_android specifications that declare at least one parameter, those "
+                "over the 48 jca_android specifications that declare at least one parameter, those "
                         + "with at least one event whose getMOPParametersOnSpec() is empty — that "
                         + "is, an event binding none of the parameters the specification declares. "
                         + "The denominator is 38 and no longer 22 of 24, because every "
@@ -255,9 +275,9 @@ public final class CalibrationTargets {
     public static CalibrationTarget withoutMapOfMonitor() {
         return new CalibrationTarget("T8-without-map-of-monitor",
                 "specifications for which the generated monitor builds no MapOfMonitor",
-                "3 of 45",
+                "3 of 48",
                 List.of("HMACParameterSpecSpec", "KeySpec", "RandomStringPassword"),
-                "the 38 jca_android specifications are regenerated with rv-monitor-generator into "
+                "the 48 jca_android specifications are regenerated with rv-monitor-generator into "
                         + "a scratch directory, and MultiSpec_1RuntimeMonitor.java is read for a "
                         + "field declaration of the shape 'MapOfMonitor<XMonitor> X_..._Map'. A "
                         + "specification without such a field indexes nothing and compiles to one "

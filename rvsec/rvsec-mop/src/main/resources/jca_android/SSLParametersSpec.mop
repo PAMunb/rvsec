@@ -1,0 +1,270 @@
+package mop;
+
+import javax.net.ssl.SSLParameters;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * SSLParameters
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.net.ssl.SSLParameters.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/SSLParameters.crysl
+ */
+SSLParametersSpec(SSLParameters s) {
+
+   // The envelope's quoting rule (design D-3).
+   private String q(String str) {
+       if (str == null) {
+           return "";
+       }
+       String value = str.length() > 512 ? str.substring(0, 512) : str;
+       return value.replace("'", "\\'");
+   }
+
+   // `elements(x) in {...}` quantifies over every element, so a report has to carry the
+   // element that broke the clause and not the array. Null when the clause holds; an empty
+   // array satisfies it vacuously. The twin of `SSLEngineSpec.firstRejected`, and the two
+   // files transcribe the same three CONSTRAINTS clauses from two rules that state them in
+   // identical text.
+   private String firstRejected(String[] values, List<String> allowList) {
+       if (values == null) {
+           return null;
+       }
+       for (String value : values) {
+           if (!ConscryptAliasTable.matches("SSLParameters", value, allowList)) {
+               return value;
+           }
+       }
+       return null;
+   }
+
+   // The ANTECEDENT of the two suite implications (:21 and :44). An empty array selects no
+   // protocol and satisfies neither antecedent -- see `SSLEngineSpec`, where the same choice
+   // is argued: read vacuously an empty array would satisfy both at once and one suite list
+   // would be accused of failing two mutually exclusive consequents.
+   private boolean allProtocolsAre(String[] values, String only) {
+       if (values == null || values.length == 0) {
+           return false;
+       }
+       for (String value : values) {
+           if (!only.equalsIgnoreCase(value)) {
+               return false;
+           }
+       }
+       return true;
+   }
+
+   // SSLParameters.crysl:20, transcribed -- the same clause `SSLEngine.crysl:18` states, over
+   // the same wire protocol names.
+   List<String> safeProtocols = Arrays.asList("TLSv1.2", "TLSv1.3");
+
+   // SSLParameters.crysl:21-43, the consequent of the first implication: the 23 suites the
+   // rule admits beside TLSv1.2, in the rule's own order.
+   List<String> tls12Suites = Arrays.asList(
+       "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
+       "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+       "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+       "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+       "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
+       "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+       "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+       "TLS_DHE_DSS_WITH_AES_128_CBC_SHA256",
+       "TLS_DHE_DSS_WITH_AES_256_CBC_SHA256",
+       "TLS_DHE_DSS_WITH_AES_128_GCM_SHA256",
+       "TLS_DHE_DSS_WITH_AES_256_GCM_SHA384",
+       "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256",
+       "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256",
+       "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
+       "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
+       "TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256",
+       "TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384",
+       "TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256",
+       "TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384",
+       "TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256",
+       "TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384",
+       "TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256",
+       "TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384");
+
+   // SSLParameters.crysl:44-45, the consequent of the second implication.
+   List<String> tls13Suites = Arrays.asList("TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384");
+
+   // The two arrays, staged, because the implications name both of them and this rule --
+   // unlike `SSLEngine` -- offers THREE routes on which they can arrive: `Con3` binds both
+   // at once, `Con2` binds the suites and `SetProtocol` the protocols, and `Con1` leaves
+   // both to the two setters in either order. The implications are therefore evaluated at
+   // every event that can complete a pair, and at no event that cannot.
+   String[] protocolList = null;
+   String[] cipherSuiteList = null;
+
+   // Bound at every constructor and consumed by the acceptance handler, which sees no event
+   // parameter. As in `SSLEngineSpec` the binding is not confined to a conforming branch,
+   // because no single event of this rule decides conformance: `conforms` carries the
+   // verdict of clauses that span two calls, and the handler gates the write on it.
+   SSLParameters constructed = null;
+   boolean conforms = true;
+
+   String expectedTls12Suites = "a cipher suite the expert SSLParameters.crysl admits beside TLSv1.2";
+
+   String expectedTls13Suites = "a cipher suite the expert SSLParameters.crysl admits beside TLSv1.3";
+
+   // `Con1: SSLParameters()` (:8). It binds neither array, so no clause of the rule has
+   // anything to say here; the body binds the object and nothing else. The event exists
+   // because the ORDER names it (:17) -- an alternative of the ORDER with no event leaves the
+   // rule accepting a sequence the specification rejects, which is a divergence with no
+   // clause behind it (the `AlgorithmParameterGeneratorSpec.initSpec` precedent).
+   event c1 after() returning(SSLParameters s):
+     call(public SSLParameters.new()) {
+       constructed = s;
+   }
+
+   // `Con2: SSLParameters(cipherSuites)` (:9). Stages the suites; the implications that are
+   // about them cannot be decided yet, because the ORDER puts the `SetProtocol` that binds
+   // the other half after this call (:17, the second alternative).
+   event c2 after(String[] cipherSuites) returning(SSLParameters s):
+     call(public SSLParameters.new(String[])) &&
+     args(cipherSuites) {
+       constructed = s;
+       cipherSuiteList = cipherSuites;
+   }
+
+   // `Con3: SSLParameters(cipherSuites, protocols)` (:10), the one event of this rule that
+   // binds BOTH arrays, and therefore the only one where all three CONSTRAINTS clauses can
+   // be read at once. It is also a complete trace on its own: `Con3` is the third
+   // alternative of the ORDER and reaches the accepting state unaided.
+   //
+   // The clauses ACCUMULATE (they are independent, and a construction that narrowed to
+   // TLSv1 with a suite the rule refuses must draw both reports), while the two implications
+   // are `if`/`else if`, because their antecedents are mutually exclusive by construction.
+   event c3 after(String[] cipherSuites, String[] protocols) returning(SSLParameters s):
+     call(public SSLParameters.new(String[], String[])) &&
+     args(cipherSuites, protocols) {
+       constructed = s;
+       cipherSuiteList = cipherSuites;
+       protocolList = protocols;
+       String rejectedProtocol = firstRejected(protocolList, safeProtocols);
+       if (rejectedProtocol != null) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, "SSLParametersSpec", "" + __LOC,
+               "v=1 code=SSLPARAMETERS-PROTO-00 ev=" + __EVENTNAME + " obj=SSLParameters val='" + q(rejectedProtocol) + "' exp='" + q(String.join(",", safeProtocols)) + "' msg='expecting one of " + String.join(",", safeProtocols) + " but found " + rejectedProtocol + "'"));
+       }
+       if (allProtocolsAre(protocolList, "TLSv1.2")) {
+           String rejected = firstRejected(cipherSuiteList, tls12Suites);
+           if (rejected != null) {
+               conforms = false;
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLParametersSpec", "" + __LOC,
+                   "v=1 code=SSLPARAMETERS-ALG-00 ev=" + __EVENTNAME + " obj=SSLParameters val='" + q(rejected) + "' exp='" + q(expectedTls12Suites) + "' msg='the cipher suites are not ones the expert SSLParameters.crysl admits beside that protocol'"));
+           }
+       }
+       else if (allProtocolsAre(protocolList, "TLSv1.3")) {
+           String rejected = firstRejected(cipherSuiteList, tls13Suites);
+           if (rejected != null) {
+               conforms = false;
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLParametersSpec", "" + __LOC,
+                   "v=1 code=SSLPARAMETERS-ALG-01 ev=" + __EVENTNAME + " obj=SSLParameters val='" + q(rejected) + "' exp='" + q(expectedTls13Suites) + "' msg='the cipher suites are not ones the expert SSLParameters.crysl admits beside that protocol'"));
+           }
+       }
+   }
+
+   // `CipherSuite: setCipherSuites(cipherSuites)` (:12). Reached only after `Con1`, and it
+   // may be either half of that alternative's unordered pair, so it stages its array and
+   // then evaluates the implications if -- and only if -- the protocols are already known.
+   // When this is the first of the pair the guard is false and the `SetProtocol` that
+   // follows carries the same block.
+   event cs after(String[] cipherSuites, SSLParameters s):
+     call(public void SSLParameters.setCipherSuites(String[])) &&
+     args(cipherSuites) && target(s) {
+       cipherSuiteList = cipherSuites;
+       if (protocolList != null) {
+           if (allProtocolsAre(protocolList, "TLSv1.2")) {
+               String rejected = firstRejected(cipherSuiteList, tls12Suites);
+               if (rejected != null) {
+                   conforms = false;
+                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLParametersSpec", "" + __LOC,
+                       "v=1 code=SSLPARAMETERS-ALG-02 ev=" + __EVENTNAME + " obj=SSLParameters val='" + q(rejected) + "' exp='" + q(expectedTls12Suites) + "' msg='the cipher suites are not ones the expert SSLParameters.crysl admits beside that protocol'"));
+               }
+           }
+           else if (allProtocolsAre(protocolList, "TLSv1.3")) {
+               String rejected = firstRejected(cipherSuiteList, tls13Suites);
+               if (rejected != null) {
+                   conforms = false;
+                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLParametersSpec", "" + __LOC,
+                       "v=1 code=SSLPARAMETERS-ALG-03 ev=" + __EVENTNAME + " obj=SSLParameters val='" + q(rejected) + "' exp='" + q(expectedTls13Suites) + "' msg='the cipher suites are not ones the expert SSLParameters.crysl admits beside that protocol'"));
+               }
+           }
+       }
+   }
+
+   // `SetProtocol: setProtocols(protocols)` (:13). It binds the array the unconditional
+   // protocol clause (:20) is about, so that clause is accused here as it is at `Con3` --
+   // two sites for one clause and therefore two codes, because a report has to say which
+   // call it is about (INV-INS-143). The implication block is the twin of `cs`'s: this event
+   // closes the `Con2` route as well as the second half of the `Con1` pair.
+   event sp after(String[] protocols, SSLParameters s):
+     call(public void SSLParameters.setProtocols(String[])) &&
+     args(protocols) && target(s) {
+       protocolList = protocols;
+       String rejectedProtocol = firstRejected(protocolList, safeProtocols);
+       if (rejectedProtocol != null) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, "SSLParametersSpec", "" + __LOC,
+               "v=1 code=SSLPARAMETERS-PROTO-01 ev=" + __EVENTNAME + " obj=SSLParameters val='" + q(rejectedProtocol) + "' exp='" + q(String.join(",", safeProtocols)) + "' msg='expecting one of " + String.join(",", safeProtocols) + " but found " + rejectedProtocol + "'"));
+       }
+       if (cipherSuiteList != null) {
+           if (allProtocolsAre(protocolList, "TLSv1.2")) {
+               String rejected = firstRejected(cipherSuiteList, tls12Suites);
+               if (rejected != null) {
+                   conforms = false;
+                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLParametersSpec", "" + __LOC,
+                       "v=1 code=SSLPARAMETERS-ALG-04 ev=" + __EVENTNAME + " obj=SSLParameters val='" + q(rejected) + "' exp='" + q(expectedTls12Suites) + "' msg='the cipher suites are not ones the expert SSLParameters.crysl admits beside that protocol'"));
+               }
+           }
+           else if (allProtocolsAre(protocolList, "TLSv1.3")) {
+               String rejected = firstRejected(cipherSuiteList, tls13Suites);
+               if (rejected != null) {
+                   conforms = false;
+                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLParametersSpec", "" + __LOC,
+                       "v=1 code=SSLPARAMETERS-ALG-05 ev=" + __EVENTNAME + " obj=SSLParameters val='" + q(rejected) + "' exp='" + q(expectedTls13Suites) + "' msg='the cipher suites are not ones the expert SSLParameters.crysl admits beside that protocol'"));
+               }
+           }
+       }
+   }
+
+   // The rule's ORDER (:17), `(Con1, ((CipherSuite, SetProtocol) | (SetProtocol,
+   // CipherSuite))) | (Con2, SetProtocol) | Con3`, transcribed. It is the set's first
+   // multi-constructor-profile automaton, and the three profiles are three events and not one
+   // fused event: the rule names them apart (`Con1`, `Con2`, `Con3` are three labels, not
+   // `Con := c1 | c2 | c3`) and they bind different arguments, which is the second reason the
+   // conventions note gives for keeping overloads apart.
+   ere : (c1 ((cs sp) | (sp cs))) | (c2 sp) | c3
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLParametersSpec", "" + __LOC,
+          "v=1 code=SSLPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=SSLParameters val='' exp='' msg='the observed call sequence is not one SSLParametersSpec accepts'"));
+      constructed = null;
+      protocolList = null;
+      cipherSuiteList = null;
+      conforms = true;
+      __RESET;
+   }
+
+   // `generatedSSLParameters[this]` (:48) carries no `after L`, so its acceptance point is
+   // the accepting state, which in an `ere` is this handler (INV-INS-134). The object
+   // reaches it through the monitor field, and the write is gated on the verdict the events
+   // accumulated.
+   //
+   // No rule of the pinned oracle REQUIRES `generatedSSLParameters`: the write stands because
+   // the rule ENSURES it and coverage of the rule is the obligation, and the ledger
+   // classifies the predicate as unconsumed rather than as an omission of this file
+   // (INV-INS-137, the `generatedKeyFactory` reading).
+   @match {
+      if (conforms && constructed != null) {
+          PredicateStore.instance().ensure(Property.GENERATED_SSL_PARAMETERS, constructed);
+      }
+   }
+
+}

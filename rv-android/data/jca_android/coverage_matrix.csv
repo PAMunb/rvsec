@@ -15,10 +15,10 @@ CertificateFactory,covered,CertificateFactorySpec.mop,
 Cipher,covered,CipherSpec.mop,"the preparedOAEP REQUIRES clause at :140-141 has an unsatisfiable antecedent, and the specification transcribes the evident intent instead"
 CipherInputStream,covered,CipherInputStreamSpec.mop,
 CipherOutputStream,covered,CipherOutputStreamSpec.mop,
-Cookie,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+Cookie,na-platform,"the rule's SPEC line names javax.servlet.http.Cookie, and the api30 jar holds zero entries under javax/servlet (archive listing of platforms/android-30/android.jar): the servlet API is not part of the Android platform at any level. Android's own cookie types -- java.net.HttpCookie, android.webkit.CookieManager -- are different classes with different methods, so there is no class here for the rule to be about",
 DHGenParameterSpec,covered,DHGenParameterSpecSpec.mop,
 DHParameterSpec,covered,DHParameterSpecSpec.mop,`p >= 1^2048` and `g >= 1^2048` are literally `>= 1`; transcribed as bit-length >= 2048 (D-20.4) -- the DSAParameterSpec row states the defect
-DSAGenParameterSpec,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+DSAGenParameterSpec,na-platform,"java.security.spec.DSAGenParameterSpec has zero entries in the api30 jar (archive listing); the class first ships with API 35. The rule's sibling producer for the same predicate, DSAParameterSpec, is present and covered, so the DSA parameter route the set can observe is specified",
 DSAParameterSpec,covered,DSAParameterSpecSpec.mop,`p >= 1^2048` and `g >= 1^2048` are literally `>= 1`; both rules are transcribed as bit-length >= 2048 (D-20.4)
 DigestInputStream,covered,DigestInputStreamSpec.mop,
 DigestOutputStream,covered,DigestOutputStreamSpec.mop,
@@ -28,7 +28,7 @@ GCMParameterSpec,covered,GCMParameterSpecSpec.mop,
 HMACParameterSpec,na-platform,"javax.crypto.spec.HMACParameterSpec exists on no Android API level (INV-INS-155); the .mop is kept as documentation of untranslatability, not as coverage",
 IvParameterSpec,covered,IvParameterSpec.mop,
 Key,covered,KeySpec.mop,
-KeyAgreement,,"pending adjudication (gh109 tasks 4.4, 5.1)","GenSecretBuffer at :31 is bound to the getInstance overload `g2` where `gs2` is meant, and :34 declares a label no clause uses"
+KeyAgreement,covered,KeyAgreementSpec.mop,"GenSecretBuffer at :31 is bound to the getInstance overload `g2` where `gs2` is meant, and :34 declares a label no clause uses"
 KeyFactory,covered,KeyFactorySpec.mop,
 KeyGenerator,covered,KeyGeneratorSpec.mop,
 KeyManagerFactory,covered,KeyManagerFactorySpec.mop,
@@ -44,11 +44,11 @@ PBEKeySpec,covered,PBEKeySpecSpec.mop,
 PBEParameterSpec,covered,PBEParameterSpecSpec.mop,
 PKIXBuilderParameters,covered,PKIXBuilderParametersSpec.mop,
 PKIXParameters,covered,PKIXParametersSpec.mop,
-PasswordAuthentication,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+PasswordAuthentication,na-value,"java.net.PasswordAuthentication exists on api30 (archive listing), so the adjudication is about the rule and not the platform, and it rests on two verified legs (INV-INS-156). (a) Both CONSTRAINTS clauses are static-analysis predicates the instrument cannot evaluate at run time: neverTypeOf[password, java.lang.String] asks about the DECLARED type of the expression that produced the argument, which is erased by the time an advice sees a char[], and notHardCoded[password] asks whether the value came from a literal in the source. (b) generatedPasswordAuthentication (PasswordAuthentication.crysl:26) is required by no rule of the 49 -- it is this rule's own ENSURES and nothing else names it -- so a specification for the rule would monitor every construction and reach no verdict a reader could act on. What the ORDER would still accuse is recorded rather than assumed away: Con, (GetPassword | GetUserName)* refuses a getPassword() on an object whose construction went unobserved, exactly as every `ere : c1 ...` of the set does. That residue is the whole of what a specification here would add, and it is an artefact of instrumentation reach rather than a misuse the expert rule names -- which is why the once-claimed third leg, 'the ORDER is unviolatable', is withdrawn as imprecise and is not what this adjudication rests on",
 RSAKeyGenParameterSpec,covered,RSAKeyGenParameterSpecSpec.mop,
 SSLContext,covered,SSLContextSpec.mop,
-SSLEngine,,"pending adjudication (gh109 tasks 4.4, 5.1)",the EnableProtocol label at :12 is bound to the undeclared event `cp1`; the specification transcribes `ep1`
-SSLParameters,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+SSLEngine,covered,SSLEngineSpec.mop,the EnableProtocol label at :12 is bound to the undeclared event `cp1`; the specification transcribes `ep1`
+SSLParameters,covered,SSLParametersSpec.mop,
 SecretKey,covered,"SecretKeySpec.mop (realises the rule's ENSURES; the Destroy tail is platform-dead (INV-INS-137), so no reachable trace yields a further verdict. NON_PAIRING_FILES governs specification pairing, not coverage)",
 SecretKeyFactory,covered,SecretKeyFactorySpec.mop,the algorithm CONSTRAINT lists PBEWithHmacSHA384AndAES_128 twice
 SecretKeySpec,covered,SecretKeySpecSpec.mop,

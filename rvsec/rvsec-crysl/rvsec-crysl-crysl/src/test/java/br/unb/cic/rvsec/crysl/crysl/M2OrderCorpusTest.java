@@ -335,7 +335,7 @@ class M2OrderCorpusTest {
         Corpus corpus = Corpus.read();
 
         assertEquals(corpusSize() - UNPAIRED.size(), corpus.pairs().size(),
-                "all but the three unpaired pair by declared type");
+                "all but the four unpaired pair by declared type");
         assertEquals(corpus.pairs().size() - M0_REFUSED.size(), corpus.comparable().size(),
                 "and all but the two M0 refuses receive an M2 verdict: SecretKeySpec has a "
                         + "non-empty @match, no "
@@ -538,8 +538,8 @@ class M2OrderCorpusTest {
      * {@code M1EventsCorpusTest}. Only the arithmetic derives from it, so that a group of new
      * specifications moves no literal here.
      */
-    private static final Set<String> UNPAIRED =
-            Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword");
+    private static final Set<String> UNPAIRED = Set.of("IvChainJunction", "OAEPParameterSpecSpec",
+            "RandomStringPassword", "SSLEngineSpec");
 
     /**
      * The paired specifications M0 refuses, which therefore receive no M2 verdict (INV-CONF-09).

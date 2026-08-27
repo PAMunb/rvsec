@@ -1,0 +1,249 @@
+package mop;
+
+import javax.net.ssl.SSLEngine;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * SSLEngine
+ *
+ * A JavaMOP specification of the correct usage of the
+ * javax.net.ssl.SSLEngine.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/SSLEngine.crysl
+ */
+SSLEngineSpec(SSLEngine eng) {
+
+   // The envelope's quoting rule (design D-3).
+   private String q(String str) {
+       if (str == null) {
+           return "";
+       }
+       String value = str.length() > 512 ? str.substring(0, 512) : str;
+       return value.replace("'", "\\'");
+   }
+
+   // `elements(x) in {...}` is a clause about EVERY element of the array, so what a report
+   // has to carry is the element that broke it and not the array. This returns the first
+   // such element, or null when the clause holds -- which is also what makes the accusing
+   // branch a single `if` at the site instead of a loop with a report inside it.
+   //
+   // An empty array satisfies the clause vacuously and returns null, which is the literal
+   // reading: `elements(protocols) in {...}` quantifies over the elements there are.
+   private String firstRejected(String[] values, List<String> allowList) {
+       if (values == null) {
+           return null;
+       }
+       for (String value : values) {
+           if (!ConscryptAliasTable.matches("SSLEngine", value, allowList)) {
+               return value;
+           }
+       }
+       return null;
+   }
+
+   // The ANTECEDENT of the two suite implications (:19 and :42): `elements(protocols) in
+   // {"TLSv1.2"}` holds when every enabled protocol is that one protocol.
+   //
+   // An empty array is treated as NOT selecting the protocol, which is the one place this
+   // file departs from the vacuous reading above, and deliberately: read vacuously, an empty
+   // `protocols` would satisfy BOTH antecedents at once and the same suite list would be
+   // accused of failing two mutually exclusive consequents. An engine with no enabled
+   // protocol negotiates nothing, so neither implication is about it.
+   private boolean allProtocolsAre(String[] values, String only) {
+       if (values == null || values.length == 0) {
+           return false;
+       }
+       for (String value : values) {
+           if (!only.equalsIgnoreCase(value)) {
+               return false;
+           }
+       }
+       return true;
+   }
+
+   // SSLEngine.crysl:18, transcribed. These are wire protocol names as
+   // `setEnabledProtocols` takes them, not the JSSE protocol names `SSLContext.getInstance`
+   // takes, so the `TLS` platform-value entry of `SSLContextSpec` (D-15) has no counterpart
+   // here: no provider spells an enabled protocol `TLS`. What the clause accuses is a
+   // program that NARROWS an engine to TLSv1, TLSv1.1 or SSLv3 -- on api30 the platform
+   // enables TLSv1.2 and TLSv1.3 by default, so an engine nobody narrows never reaches this
+   // event at all (recorded, task gh109:5.3).
+   List<String> safeProtocols = Arrays.asList("TLSv1.2", "TLSv1.3");
+
+   // SSLEngine.crysl:19-41, the consequent of the first implication: the 23 suites the rule
+   // admits beside TLSv1.2, transcribed literally and in the rule's own order.
+   List<String> tls12Suites = Arrays.asList(
+       "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
+       "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+       "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+       "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+       "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
+       "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+       "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+       "TLS_DHE_DSS_WITH_AES_128_CBC_SHA256",
+       "TLS_DHE_DSS_WITH_AES_256_CBC_SHA256",
+       "TLS_DHE_DSS_WITH_AES_128_GCM_SHA256",
+       "TLS_DHE_DSS_WITH_AES_256_GCM_SHA384",
+       "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256",
+       "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256",
+       "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
+       "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
+       "TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA256",
+       "TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384",
+       "TLS_ECDH_ECDSA_WITH_AES_128_GCM_SHA256",
+       "TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384",
+       "TLS_ECDH_RSA_WITH_AES_128_CBC_SHA256",
+       "TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384",
+       "TLS_ECDH_RSA_WITH_AES_128_GCM_SHA256",
+       "TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384");
+
+   // SSLEngine.crysl:42-43, the consequent of the second implication: the two TLSv1.3
+   // suites. The rule names no others, and the platform's third default -- the CHACHA20
+   // suite -- is therefore accused. That is the oracle speaking and not a wart: the
+   // omission is symmetric across the two TLS rules and there is no evident intent to
+   // transcribe (D-21 records a defect, not a preference).
+   List<String> tls13Suites = Arrays.asList("TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384");
+
+   // The two arrays the events bind, staged because the implications of :19 and :42 name
+   // BOTH of them and the rule's ORDER admits either call first: whichever event fires
+   // second is the one that can evaluate them, so each event must be able to.
+   //
+   // The arrays are staged as the caller passed them -- no copy. That is the same reading
+   // the store's bound-first signature has at `SSLContextSpec.init`: what the clause is
+   // about is the array this call handed over, and a program that mutates it afterwards has
+   // changed the object the accusation was about.
+   String[] enabledProtocols = null;
+   String[] enabledCipherSuites = null;
+
+   // Bound by both events and consumed by the acceptance handler, which sees no event
+   // parameter. Unlike the producer specifications of this set the binding is NOT confined
+   // to a conforming branch, and it cannot be: no single event of this rule decides
+   // conformance, because the implications span the two. `conforms` carries that decision
+   // across them and the handler gates the write on it -- same reading of CrySL ("a
+   // predicate is ensured for a use that satisfied the rule"), different mechanism, because
+   // the clause has a different shape.
+   SSLEngine engine = null;
+   boolean conforms = true;
+
+   String expectedTls12Suites = "a cipher suite the expert SSLEngine.crysl admits beside TLSv1.2";
+
+   String expectedTls13Suites = "a cipher suite the expert SSLEngine.crysl admits beside TLSv1.3";
+
+   // `ec1: setEnabledCipherSuites(cipherSuites)` (:8), the whole of `EnableCipher` (:9).
+   //
+   // No clause of the rule constrains the suites on their own: both suite clauses are
+   // implications whose antecedent is about the protocols, so this event stages its array
+   // and then evaluates the pair -- but only when the protocols have already been seen. When
+   // this call comes first the guard is false and nothing is accused here; the `ep1` that
+   // completes the ordering carries the same block and accuses there instead.
+   //
+   // The two implications are `if`/`else if` and that is not the short-circuit the
+   // conventions note forbids: their antecedents are mutually exclusive by construction --
+   // every protocol is TLSv1.2, or every protocol is TLSv1.3 -- so at most one of them has
+   // anything to say about any one engine.
+   event ec1 after(String[] cipherSuites, SSLEngine eng):
+     call(public void SSLEngine.setEnabledCipherSuites(String[])) &&
+     args(cipherSuites) && target(eng) {
+       engine = eng;
+       enabledCipherSuites = cipherSuites;
+       if (enabledProtocols != null) {
+           if (allProtocolsAre(enabledProtocols, "TLSv1.2")) {
+               String rejected = firstRejected(enabledCipherSuites, tls12Suites);
+               if (rejected != null) {
+                   conforms = false;
+                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLEngineSpec", "" + __LOC,
+                       "v=1 code=SSLENGINE-ALG-00 ev=" + __EVENTNAME + " obj=SSLEngine val='" + q(rejected) + "' exp='" + q(expectedTls12Suites) + "' msg='the enabled cipher suites are not ones the expert SSLEngine.crysl admits beside that protocol'"));
+               }
+           }
+           else if (allProtocolsAre(enabledProtocols, "TLSv1.3")) {
+               String rejected = firstRejected(enabledCipherSuites, tls13Suites);
+               if (rejected != null) {
+                   conforms = false;
+                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLEngineSpec", "" + __LOC,
+                       "v=1 code=SSLENGINE-ALG-01 ev=" + __EVENTNAME + " obj=SSLEngine val='" + q(rejected) + "' exp='" + q(expectedTls13Suites) + "' msg='the enabled cipher suites are not ones the expert SSLEngine.crysl admits beside that protocol'"));
+               }
+           }
+       }
+   }
+
+   // `ep1: setEnabledProtocols(protocols)` (:11), the whole of `EnableProtocol`.
+   //
+   // THE LABEL THIS EVENT REALISES IS BOUND TO NOTHING IN THE PINNED RULE. `:12` reads
+   // `EnableProtocol := cp1;` and no event `cp1` is declared anywhere in `SSLEngine.crysl`;
+   // the only events are `ec1` (:8) and `ep1` (:11), and `cp1` reads as a transposition of
+   // their two prefixes. The evident intent is `EnableProtocol := ep1`, which is what this
+   // event transcribes, and the warrant is the `oracle-wart` row task gh109:0.1 recorded
+   // against `tools/rules/SSLEngine.crysl` (D-21). The pinned rule is not edited.
+   //
+   // The unconditional protocol clause (:18) is accused HERE, at the one event that binds
+   // the array it is about, and in the body rather than in a `condition(...)`: a guard would
+   // suppress the transition and the narrowing would be accused of nothing (INV-INS-133,
+   // INV-INS-152). The suite block below is the twin of `ec1`'s, for the other call order.
+   event ep1 after(String[] protocols, SSLEngine eng):
+     call(public void SSLEngine.setEnabledProtocols(String[])) &&
+     args(protocols) && target(eng) {
+       engine = eng;
+       enabledProtocols = protocols;
+       String rejectedProtocol = firstRejected(enabledProtocols, safeProtocols);
+       if (rejectedProtocol != null) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeProtocol, "SSLEngineSpec", "" + __LOC,
+               "v=1 code=SSLENGINE-PROTO-00 ev=" + __EVENTNAME + " obj=SSLEngine val='" + q(rejectedProtocol) + "' exp='" + q(String.join(",", safeProtocols)) + "' msg='expecting one of " + String.join(",", safeProtocols) + " but found " + rejectedProtocol + "'"));
+       }
+       if (enabledCipherSuites != null) {
+           if (allProtocolsAre(enabledProtocols, "TLSv1.2")) {
+               String rejected = firstRejected(enabledCipherSuites, tls12Suites);
+               if (rejected != null) {
+                   conforms = false;
+                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLEngineSpec", "" + __LOC,
+                       "v=1 code=SSLENGINE-ALG-02 ev=" + __EVENTNAME + " obj=SSLEngine val='" + q(rejected) + "' exp='" + q(expectedTls12Suites) + "' msg='the enabled cipher suites are not ones the expert SSLEngine.crysl admits beside that protocol'"));
+               }
+           }
+           else if (allProtocolsAre(enabledProtocols, "TLSv1.3")) {
+               String rejected = firstRejected(enabledCipherSuites, tls13Suites);
+               if (rejected != null) {
+                   conforms = false;
+                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SSLEngineSpec", "" + __LOC,
+                       "v=1 code=SSLENGINE-ALG-03 ev=" + __EVENTNAME + " obj=SSLEngine val='" + q(rejected) + "' exp='" + q(expectedTls13Suites) + "' msg='the enabled cipher suites are not ones the expert SSLEngine.crysl admits beside that protocol'"));
+               }
+           }
+       }
+   }
+
+   // The rule's ORDER (:15), `(EnableCipher, EnableProtocol) | (EnableProtocol,
+   // EnableCipher)`: both calls, in either order, and neither alone. The alternation is the
+   // rule's own and is why the two suite blocks above are twins rather than one block in one
+   // place -- the second call to arrive is the one that can compare the two arrays, and the
+   // rule does not say which that is.
+   ere : (ec1 ep1) | (ep1 ec1)
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLEngineSpec", "" + __LOC,
+          "v=1 code=SSLENGINE-ORDER-00 ev=" + __EVENTNAME + " obj=SSLEngine val='' exp='' msg='the observed call sequence is not one SSLEngineSpec accepts'"));
+      engine = null;
+      enabledProtocols = null;
+      enabledCipherSuites = null;
+      conforms = true;
+      __RESET;
+   }
+
+   // `generatedSSLEngine[this]` (:46) carries no `after L`, so its acceptance point is the
+   // accepting state as such, which in an `ere` is this handler (INV-INS-134). The engine
+   // reaches it through the monitor field because a handler sees no event parameter, and the
+   // write is gated on `conforms` because that is where the two implications' verdict lives.
+   //
+   // `SSLContextSpec` writes the same predicate at its own `@match1`, over the engine
+   // `createSSLEngine` returned. Two producers for one predicate is what the ledger already
+   // models; nothing of the 49 rules requires it, so both writes are unread and the graph
+   // records the omission rather than a consumer being invented for it (INV-INS-137).
+   @match {
+      if (conforms && engine != null) {
+          PredicateStore.instance().ensure(Property.GENERATE_SSL_ENGINE, engine);
+      }
+   }
+
+}

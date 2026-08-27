@@ -101,17 +101,17 @@ DELTA_FIELDS = (
 NO_RULE = ("IvChainJunction", "RandomStringPassword")
 
 
-# The specifications of gh109 group G2, whose alphabet rows have no api30 anchor to re-key.
-# They were written from the pinned expert oracle alone (D-16), for rules the withdrawn
-# api30 generation mostly never produced: eight of the fourteen have no `.cryptsl` file at
-# all. So there is nothing to pair a row of theirs against, and pairing the six whose file
-# does exist would invent a provenance the association never had -- the rule they transcribe
-# is the expert one either way, and which of them api30 happened to generate says nothing
-# about where the judgement came from.
+# The specifications gh109 adds -- group G2's fourteen, G3's seven and G4's three -- whose
+# alphabet rows have no api30 anchor to re-key. They were written from the pinned expert
+# oracle alone (D-16), for rules the withdrawn api30 generation mostly never produced: many
+# of them have no `.cryptsl` file at all. So there is nothing to pair a row of theirs
+# against, and pairing the ones whose file does exist would invent a provenance the
+# association never had -- the rule they transcribe is the expert one either way, and which
+# of them api30 happened to generate says nothing about where the judgement came from.
 #
 # Declared here rather than inferred from the filesystem, because "the api30 file is
 # missing" and "this association was decided under the expert oracle" are different claims
-# and only the second is true of all fourteen. A row whose `spec` is named here carries an
+# and only the second is true of all of them. A row whose `spec` is named here carries an
 # expert symbol already: the re-anchoring has nothing to do, and the delta records the row
 # as `expert-native`, which is an origin and not a move.
 EXPERT_NATIVE_SPECS = frozenset(
@@ -126,6 +126,7 @@ EXPERT_NATIVE_SPECS = frozenset(
         "DigestOutputStreamSpec",
         "ECGenParameterSpecSpec",
         "ECParameterSpecSpec",
+        "KeyAgreementSpec",
         "KeyFactorySpec",
         "KeySpec",
         "KeyStoreBuilderParametersSpec",
@@ -134,6 +135,8 @@ EXPERT_NATIVE_SPECS = frozenset(
         "PKIXBuilderParametersSpec",
         "PKIXParametersSpec",
         "RSAKeyGenParameterSpecSpec",
+        "SSLEngineSpec",
+        "SSLParametersSpec",
         "SecretKeyFactorySpec",
         "TrustAnchorSpec",
         "X509EncodedKeySpecSpec",

@@ -103,6 +103,42 @@ ADJUDICATED_STATES = {
         "javax.crypto.spec.HMACParameterSpec exists on no Android API level (INV-INS-155); "
         "the .mop is kept as documentation of untranslatability, not as coverage",
     ),
+    "Cookie": (
+        "na-platform",
+        "the rule's SPEC line names javax.servlet.http.Cookie, and the api30 jar holds zero "
+        "entries under javax/servlet (archive listing of "
+        "platforms/android-30/android.jar): the servlet API is not part of the Android "
+        "platform at any level. Android's own cookie types -- java.net.HttpCookie, "
+        "android.webkit.CookieManager -- are different classes with different methods, so "
+        "there is no class here for the rule to be about",
+    ),
+    "DSAGenParameterSpec": (
+        "na-platform",
+        "java.security.spec.DSAGenParameterSpec has zero entries in the api30 jar (archive "
+        "listing); the class first ships with API 35. The rule's sibling producer for the "
+        "same predicate, DSAParameterSpec, is present and covered, so the DSA parameter "
+        "route the set can observe is specified",
+    ),
+    "PasswordAuthentication": (
+        "na-value",
+        "java.net.PasswordAuthentication exists on api30 (archive listing), so the "
+        "adjudication is about the rule and not the platform, and it rests on two verified "
+        "legs (INV-INS-156). (a) Both CONSTRAINTS clauses are static-analysis predicates the "
+        "instrument cannot evaluate at run time: neverTypeOf[password, java.lang.String] "
+        "asks about the DECLARED type of the expression that produced the argument, which is "
+        "erased by the time an advice sees a char[], and notHardCoded[password] asks whether "
+        "the value came from a literal in the source. (b) generatedPasswordAuthentication "
+        "(PasswordAuthentication.crysl:26) is required by no rule of the 49 -- it is this "
+        "rule's own ENSURES and nothing else names it -- so a specification for the rule "
+        "would monitor every construction and reach no verdict a reader could act on. What "
+        "the ORDER would still accuse is recorded rather than assumed away: "
+        "Con, (GetPassword | GetUserName)* refuses a getPassword() on an object whose "
+        "construction went unobserved, exactly as every `ere : c1 ...` of the set does. That "
+        "residue is the whole of what a specification here would add, and it is an artefact "
+        "of instrumentation reach rather than a misuse the expert rule names -- which is why "
+        "the once-claimed third leg, 'the ORDER is unviolatable', is withdrawn as imprecise "
+        "and is not what this adjudication rests on",
+    ),
 }
 
 #: The kind of divergence row that records an oracle defect (D-21).

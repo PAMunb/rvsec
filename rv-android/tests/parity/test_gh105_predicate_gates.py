@@ -892,7 +892,12 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       `KeyPairGenerator` at two `initialize` overloads each, plus the
       `generatedManagerFactoryParameters` read at each of the two factory specifications.
       Group G3 then takes `read` to 70 and the sum to 75: twelve more reads over seven new
-      specifications, and eleven writes, which is why the write count moves with it. The writes are one per file, which is what
+      specifications, and eleven writes, which is why the write count moves with it. Group G4
+      adds three specifications and takes `read` to 81 and the sum to 86: eleven reads, all of
+      them `KeyAgreementSpec`'s -- `generatedPrivkey` at each of the four `init` overloads,
+      `randomized` at the two that bind a SecureRandom, the guarded `preparedDH`/`preparedEC`
+      pair at the two that bind a parameter spec, and `generatedPubkey` at `doPhase`. The two
+      TLS specifications read nothing: their rules state no REQUIRES at all. The writes are one per file, which is what
       a producer rule is -- every one of the fourteen ENSURES exactly one predicate -- and the
       ten reads are the REQUIRES clauses five of them state. There is no `read-absent` among
       them: a producer reads a predicate to demand it, never to demand its absence.
@@ -918,15 +923,17 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     # Content censuses, not set sizes: these two move with every group that adds
     # specifications, because each new file brings its own writes and reads. Re-measure both
     # at the start of a group -- JUnit-style one-per-cycle discovery costs the same here.
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 75
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 86
     assert read_placement.get("condition", 0) == 0
     # 32 -> 35 at gh109 task 1.3(b): the three `Get` events of `MessageDigestSpec` gain the
     # `generatedMessageDigest` write the transcription had omitted (`MessageDigest.crysl:46`).
     # Three sites and not one, because a code -- and a site -- names a call and not a clause.
     # 35 -> 49 at group G2, one per new producer specification. 49 -> 60 at group G3: eleven
     # writes over seven specifications, because four of them ENSURE more than one clause or
-    # write the same predicate at two `Gen` routes.
-    assert counts.get("write", 0) == 60
+    # write the same predicate at two `Gen` routes. 60 -> 64 at group G4: `KeyAgreementSpec`
+    # writes `preparedKeyMaterial` at both `generateSecret` routes, and the two TLS
+    # specifications write their ENSURES once each at the acceptance point.
+    assert counts.get("write", 0) == 64
     assert (
         counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
     )
@@ -1318,6 +1325,13 @@ def test_the_graph_reproduces_the_measured_placement_census():
       and not in a body, which is the clause's own `after Init` read the way INV-INS-134 reads
       every `after L` -- the states L leads to, here `s2`.
 
+      gh109 group G4 adds three specifications: eleven reads and four writes, so `read:body` is
+      81 and the graph 151. All eleven reads are `KeyAgreementSpec`'s -- the two TLS rules state
+      no REQUIRES -- and the four writes split two and two, which is the shape of the group: the
+      `preparedKeyMaterial` clause carries `after GenSecretBuffer` and names an object no
+      handler can see, so both its sites are `write:body`, while the two `generatedSSL*` clauses
+      carry no `after L` and land in `@match`.
+
       gh109 group G3 adds seven specifications: twelve reads and eleven writes, so `read:body`
       is 70 and the graph 136. Group G1b before it added ten read rows and no write, taking the
       graph to 113 and `read:body` to 58: `KeyPairGeneratorSpec` reads its four guarded clauses at `init3` and again at
@@ -1342,7 +1356,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
     # Content censuses, not set sizes: every verdict count in this test moves with each group
     # that adds specifications. Re-measure the whole block at the start of a group rather than
     # rediscovering one number per run.
-    assert counts.get("read:body", 0) == 70
+    assert counts.get("read:body", 0) == 81
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one
@@ -1353,11 +1367,17 @@ def test_the_graph_reproduces_the_measured_placement_census():
     # INV-INS-134 reading -- inverted -- that puts this file's `digested` in `@match`. 8 -> 14
     # at group G3: six of that group's writes name a value the event RETURNS, which a handler
     # cannot see, so they sit in the body at the acceptance point the clause asks for -- the
-    # `KeyManagerFactorySpec.gkm1` placement.
-    assert counts.get("write:body", 0) == 14
+    # `KeyManagerFactorySpec.gkm1` placement. 14 -> 16 at group G4: `KeyAgreementSpec`'s two
+    # `generateSecret` routes write `preparedKeyMaterial[sharedSecretBuffer] after
+    # GenSecretBuffer`, which names the returned array at one and the first argument at the
+    # other, so neither can be a handler.
+    assert counts.get("write:body", 0) == 16
     # 41 -> 46 at group G3: five of that group's eleven writes name the monitored object or a
-    # value a field can carry, so they sit in the acceptance-point handler.
-    assert counts.get("write:acceptance", 0) == 46
+    # value a field can carry, so they sit in the acceptance-point handler. 46 -> 48 at group
+    # G4: `generatedSSLEngine[this]` and `generatedSSLParameters[this]` carry no `after L`, so
+    # the acceptance state is the acceptance point, and both are gated on a `conforms` field
+    # because their rules' suite implications span two events.
+    assert counts.get("write:acceptance", 0) == 48
     assert counts.get("remove:fail", 0) == 0
     assert counts.get("negate:body", 0) == 1
     assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 0
@@ -2482,13 +2502,18 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     # finding instead of by a bucket. The passed count is stated as what is left of the set
     # after the allowances, the skips and that one accusation, because it is arithmetic of the
     # set size and moves with every group. The two numbers that stay literal are the ones that
-    # carry a decision: 5 is the healthy allow-list minus the row the mutant replaced, and the
+    # carry a decision: 7 is the healthy allow-list minus the row the mutant replaced, and the
     # skip count does not move with the set at all -- it is the two files that pair with no rule
     # in either catalogue, and a new specification entering it would be one G-ORDER had stopped
-    # comparing.
+    # comparing. 5 -> 7 at gh109 group G4, which adds two rows and neither is a relaxation:
+    # both forgive a witness the PINNED RULE produces and the specification refuses, because
+    # `SSLEngine.crysl:12` binds `EnableProtocol` to an undeclared `cp1` and
+    # `KeyAgreement.crysl:31` binds `GenSecretBuffer` to the `getInstance` overload `g2` where
+    # `gs2` is meant. The oracle is never edited (D-21), so the witnesses cannot be repaired
+    # away and are recorded instead.
     assert (len(result.passed), len(result.allowed), len(result.skipped)) == (
-        _specset_size() - 5 - 2 - 1,
-        5,
+        _specset_size() - 7 - 2 - 1,
+        7,
         2,
     )
 
@@ -2503,8 +2528,8 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     # and passes -- so 6 is the literal that carries the decision and the passed count is what
     # is left of the set after it and the two skips.
     assert (len(healthy.passed), len(healthy.allowed)) == (
-        _specset_size() - 6 - len(healthy.skipped),
-        6,
+        _specset_size() - 8 - len(healthy.skipped),
+        8,
     )
 
 
@@ -2534,16 +2559,19 @@ def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
     divergence that no longer exists.
     """
     live = gh105_order_gate.read_allowlist(ALLOWLIST)
-    # 7 -> 6 at gh109 task 1.4, with the discharged `CipherOutputStreamSpec` row.
-    assert len(live) == 6
+    # 7 -> 6 at gh109 task 1.4, with the discharged `CipherOutputStreamSpec` row. 6 -> 8 at
+    # gh109 group G4: the two oracle-defect witnesses of `SSLEngineSpec` and `KeyAgreementSpec`,
+    # which the pinned rule produces and no repair can retire.
+    assert len(live) == 8
     assert ("jca_android", "CipherSpec", "order", "g1 i1") in live
 
     for field, blank in (("reason", ""), ("witness", "")):
         path = _allowlist_variant(tmp_path, **{field: blank})
         admitted = gh105_order_gate.read_allowlist(path)
         # one fewer than `live`: the variant blanks the field on one row and the reader
-        # drops it. 6 -> 5 with the discharged row of gh109 task 1.4.
-        assert len(admitted) == 5, field
+        # drops it. 6 -> 5 with the discharged row of gh109 task 1.4; 5 -> 7 with the two rows
+        # gh109 group G4 adds.
+        assert len(admitted) == 7, field
         assert not any(spec == "CipherSpec" for _, spec, _, _ in admitted), field
 
         result = gh105_order_gate.run(
@@ -2629,7 +2657,7 @@ def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothi
     # 15/7 -> 16/6 at gh109 task 1.4 (R4). The `ere` no longer lets `flush` satisfy the
     # rule's mandatory `Write+`, so `CipherOutputStreamSpec` stops needing the forgiveness
     # it had and its allow-list row is removed with the repair.
-    assert "37 passed, 0 failed, 6 allow-listed" in capsys.readouterr().out
+    assert "38 passed, 0 failed, 8 allow-listed" in capsys.readouterr().out
 
     revoked = _allowlist_variant(tmp_path, witness="g1 i1 OUTRA")
     assert (

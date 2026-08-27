@@ -59,8 +59,8 @@ class OnePairingImplementationTest {
      * derives is the arithmetic below, so that a group of new specifications entering the corpus
      * directory moves no literal in this class.
      */
-    private static final Set<String> UNPAIRED =
-            Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword");
+    private static final Set<String> UNPAIRED = Set.of("IvChainJunction", "OAEPParameterSpecSpec",
+            "RandomStringPassword", "SSLEngineSpec");
 
     private static final Set<String> M0_REFUSED = Set.of("SecretKeySpec", "KeySpec");
 

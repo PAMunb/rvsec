@@ -104,7 +104,7 @@ class M4PredicateCorpusTest {
                         + "only way to compare against the published measurements");
         assertEquals(0, count(frozen, PredicateSubstrate.PREDICATE_STORE));
 
-        assertEquals(131, current.size(),
+        assertEquals(146, current.size(),
                 "70 -> 101 -> 111 across gh109: task 1.3(b) writes the three generatedMessageDigest "
                         + "sites the transcription had omitted; group G2's fourteen producer "
                         + "specifications carry 14 writes and 10 reads of their own; and group G1b "
@@ -113,12 +113,16 @@ class M4PredicateCorpusTest {
                         + "generatedManagerFactoryParameters at each of the two manager factories. "
                         + "The 0/70/21 signature this was written against is the shape and not the "
                         + "number: still no site on substrate A, and still every one of them on the "
-                        + "store. It moves with every group that adds sites -- re-measure it at the "
-                        + "start of one rather than one build cycle at a time");
+                        + "store. Group G3 then takes it to 131 and group G4 to 146: fifteen "
+                        + "sites over three specifications, all but four of them KeyAgreementSpec's "
+                        + "eleven reads, because the two TLS rules state no REQUIRES and contribute "
+                        + "only their own ENSURES. It moves with every group that adds sites -- "
+                        + "re-measure it at the start of one rather than one build cycle at a "
+                        + "time");
         assertEquals(0, count(current, PredicateSubstrate.EXECUTION_CONTEXT),
                 "so the substrate-A ceiling no longer binds this set: it is a property of the "
                         + "frozen set, not a defect of the current corpus");
-        assertEquals(131, count(current, PredicateSubstrate.PREDICATE_STORE));
+        assertEquals(146, count(current, PredicateSubstrate.PREDICATE_STORE));
 
         PredicateGraph frozenGraph = PredicateGraph.of(frozen);
         PredicateGraph currentGraph = PredicateGraph.of(current);
@@ -231,18 +235,18 @@ class M4PredicateCorpusTest {
 
         assertEquals(corpusSize() - UNPAIRED.size(), paired,
                 "the pairing of record: SpecRulePairing, by declared type and INJECTIVE "
-                        + "(INV-CONF-11 plus the injectivity the corpus forces). The three that "
+                        + "(INV-CONF-11 plus the injectivity the corpus forces). The four that "
                         + "pair with nothing are RandomStringPassword.mop, whose declared type is "
                         + "String; IvChainJunction.mop, which declares Cipher and loses "
                         + "Cipher.crysl to CipherSpec on signature coverage; and, since gh109, "
-                        + "OAEPParameterSpecSpec.mop, whose rule is one of the two the lift "
-                        + "rejects");
+                        + "OAEPParameterSpecSpec.mop and SSLEngineSpec.mop, whose rules are the "
+                        + "two the lift rejects");
         assertEquals(List.of("IvChainJunction.mop", "OAEPParameterSpecSpec.mop",
-                        "RandomStringPassword.mop"),
+                        "RandomStringPassword.mop", "SSLEngineSpec.mop"),
                 pairing.unpairedNames(),
                 "and the losers are named rather than dropped in silence");
-        assertEquals(96, present, "edges present over the pairs, with no declared alias");
-        assertEquals(38, absent,
+        assertEquals(105, present, "edges present over the pairs, with no declared alias");
+        assertEquals(40, absent,
                 "44 -> 40 at gh109 group G2: four clauses that no site implemented now have one. "
                         + "The group adds pairs as well as sites, so this number could have moved "
                         + "either way -- a new pair brings its rule's unimplemented clauses in "
@@ -252,7 +256,12 @@ class M4PredicateCorpusTest {
                         + "guarded REQUIRES of KeyPairGenerator and the "
                         + "generatedManagerFactoryParameters of each manager factory -- six clauses "
                         + "that had a rule and no site, read at ten sites because two of them are "
-                        + "read at two overloads each");
+                        + "read at two overloads each. 38 -> 40 at group G4, and it ROSE, which is "
+                        + "the other half of the same counting rule: the group adds two pairs -- "
+                        + "KeyAgreementSpec and SSLParametersSpec, SSLEngineSpec pairing with "
+                        + "nothing because its rule does not lift -- and KeyAgreementSpec "
+                        + "implements every predicate clause its rule states, so what enters is "
+                        + "the unimplemented clauses the two new rules bring with them");
         assertEquals(0, inverted,
                 "no site of the current corpus pairs with a clause and then disagrees with it on "
                         + "polarity or on argument order - including the one negated pair, "
@@ -264,13 +273,19 @@ class M4PredicateCorpusTest {
         // apiece as absences. Both halves move together and neither can be read off the other.
         // 135 -> 159 at group G3, and both halves of the counting rule move at once: twenty-four
         // sites enter over seven new pairs, and the absences rise with the pairing rather than
-        // fall with the sites.
-        assertEquals(159, rows, "one row per site of a paired specification, plus one per absence");
-        assertEquals(134, derivedRows,
+        // fall with the sites. 159 -> 175 at group G4: fourteen sites of paired specifications --
+        // KeyAgreementSpec's eleven reads and two writes, SSLParametersSpec's one write, and none
+        // of SSLEngineSpec's, whose specification pairs with no rule -- plus the two absences the
+        // two new pairs bring in.
+        assertEquals(175, rows, "one row per site of a paired specification, plus one per absence");
+        // 134 -> 145 at group G4, eleven of the sixteen new rows: the derived fraction falls
+        // slightly, from 0.843 to 0.829, because five of the new rows are absences and an absence
+        // is not a class this metric derives.
+        assertEquals(145, derivedRows,
                 "rows whose fidelity class this metric derived, under Judgements.empty(): no "
                         + "declared alias and no supplied class, so every derived row was derived "
                         + "by this metric and by nothing else");
-        assertEquals(0.843, (double) derivedRows / rows, 0.001,
+        assertEquals(0.829, (double) derivedRows / rows, 0.001,
                 "the derived fraction, which is the honest measure of how much of the manual "
                         + "table this component replaced; it rises when the comparison improves "
                         + "and not when the component is handed more judgement");
@@ -372,13 +387,13 @@ class M4PredicateCorpusTest {
     /**
      * The specifications of the set that pair with no rule of the lifted oracle.
      *
-     * <p>Declared, because each name is a judgement — and the three are named with their reasons
+     * <p>Declared, because each name is a judgement — and the four are named with their reasons
      * in the assertion right below the count. Only the arithmetic derives from the list, which is
      * what keeps a group of new specifications from moving a literal that says nothing about
      * predicates.
      */
-    private static final Set<String> UNPAIRED =
-            Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword");
+    private static final Set<String> UNPAIRED = Set.of("IvChainJunction", "OAEPParameterSpecSpec",
+            "RandomStringPassword", "SSLEngineSpec");
 
     /** How many {@code .mop} files the Android set holds right now. Derived: no judgement in it. */
     private static int corpusSize() {

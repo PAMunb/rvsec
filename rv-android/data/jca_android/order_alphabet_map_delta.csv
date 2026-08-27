@@ -208,12 +208,29 @@ TrustAnchorSpec,c1,,c1,expert-native,"TrustAnchor(_, publicKey, _)",decided unde
 TrustAnchorSpec,c2,,c2,expert-native,"TrustAnchor(trustedCert, _)",decided under the expert oracle; api30 never carried this association
 TrustAnchorSpec,c3,,c3,expert-native,"TrustAnchor(caPrincipal, publicKey, _)",decided under the expert oracle; api30 never carried this association
 X509EncodedKeySpecSpec,c1,,c1,expert-native,X509EncodedKeySpec(encodedKey),decided under the expert oracle; api30 never carried this association
+KeyAgreementSpec,get,,Get,expert-native,,decided under the expert oracle; api30 never carried this association
+KeyAgreementSpec,init1,,i1,expert-native,init(privKey),decided under the expert oracle; api30 never carried this association
+KeyAgreementSpec,init2,,i2,expert-native,"init(privKey, params)",decided under the expert oracle; api30 never carried this association
+KeyAgreementSpec,init3,,i3,expert-native,"init(privKey, params, random)",decided under the expert oracle; api30 never carried this association
+KeyAgreementSpec,init4,,i4,expert-native,"init(privKey, random)",decided under the expert oracle; api30 never carried this association
+KeyAgreementSpec,dophase,,dp1,expert-native,"doPhase(pubKey, lastPhase)",decided under the expert oracle; api30 never carried this association
+KeyAgreementSpec,gs1,,gs1,expert-native,sharedSecretBuffer = generateSecret(),decided under the expert oracle; api30 never carried this association
+KeyAgreementSpec,gs2,,gs2,expert-native,"generateSecret(sharedSecretBuffer, offset)",decided under the expert oracle; api30 never carried this association
+KeyAgreementSpec,gs3,,,expert-native,,decided under the expert oracle; api30 never carried this association
+SSLEngineSpec,ec1,,ec1,expert-native,setEnabledCipherSuites(cipherSuites),decided under the expert oracle; api30 never carried this association
+SSLEngineSpec,ep1,,ep1,expert-native,setEnabledProtocols(protocols),decided under the expert oracle; api30 never carried this association
+SSLParametersSpec,c1,,Con1,expert-native,SSLParameters(),decided under the expert oracle; api30 never carried this association
+SSLParametersSpec,c2,,Con2,expert-native,SSLParameters(cipherSuites),decided under the expert oracle; api30 never carried this association
+SSLParametersSpec,c3,,Con3,expert-native,"SSLParameters(cipherSuites, protocols)",decided under the expert oracle; api30 never carried this association
+SSLParametersSpec,cs,,CipherSuite,expert-native,setCipherSuites(cipherSuites),decided under the expert oracle; api30 never carried this association
+SSLParametersSpec,sp,,SetProtocol,expert-native,setProtocols(protocols),decided under the expert oracle; api30 never carried this association
 ,,,Cipher.crysl:ua1,uncovered-expert-symbol,updateAAD(aadBytes),named by the expert ORDER
 ,,,Cipher.crysl:ua2,uncovered-expert-symbol,"updateAAD(aadBytes, aadOffset, aadLen)",named by the expert ORDER
 ,,,Cipher.crysl:ua3,uncovered-expert-symbol,updateAAD(aadByteBuffer),named by the expert ORDER
 ,,iv,Cipher.crysl:iv1,uncovered-expert-symbol,getIV(),declared and never used by the expert ORDER
 ,,CipherInputStream.cryptsl:c1,,withdrawn-api30-symbol,CipherInputStream(is),named by the api30 ORDER
 ,,CipherOutputStream.cryptsl:c1,,withdrawn-api30-symbol,CipherOutputStream(os),named by the api30 ORDER
+,,,KeyAgreement.crysl:gs3,uncovered-expert-symbol,sharedKey = generateSecret(symmetricKeyAlgorithm),declared and never used by the expert ORDER
 ,,KeyStore.cryptsl:scE,,withdrawn-api30-symbol,"setCertificateEntry(alias, cert)",declared and never used by the api30 ORDER
 ,,KeyStore.cryptsl:skE1,,withdrawn-api30-symbol,"setKeyEntry(alias, byteKey, chain)",declared and never used by the api30 ORDER
 ,,KeyStore.cryptsl:skE2,,withdrawn-api30-symbol,"setKeyEntry(alias, key, passwordKey, chain)",declared and never used by the api30 ORDER
