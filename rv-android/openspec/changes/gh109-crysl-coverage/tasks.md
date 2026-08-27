@@ -92,14 +92,14 @@ Subagent dispatch (docs/WORKFLOW.md §5) — lighter protocol than gh105 (design
 
 ## 3. G3 — Medium specs, 7 files (parallel per spec, after G2 template proven) — `tasks/G3-medium.md`
 
-- [ ] 3.1 `AlgorithmParametersSpec.mop` (`preparedAlg`; 4 conditional REQUIRES implications)
-- [ ] 3.2 `AlgorithmParameterGeneratorSpec.mop` (`preparedAlg`; reads `randomized`)
-- [ ] 3.3 `SecretKeyFactorySpec.mop` (`generatedKey`; reads `speccedKey` — the password→key route)
-- [ ] 3.4 `KeyFactorySpec.mop` (`generatedPrivkey`/`generatedPubkey`; reads `speccedKey`)
-- [ ] 3.5 `CertificateFactorySpec.mop` (`generatedCert`)
-- [ ] 3.6 `DigestInputStreamSpec.mop` (reads `generatedMessageDigest`, written by 1.3(b) — **after 1.3**; FORBIDDEN `on(boolean)`)
-- [ ] 3.7 `DigestOutputStreamSpec.mop` (same family, same dependency on 1.3(b); apply the R4 lesson to its `ere`)
-- [ ] 3.R Group records pass (`preparedAlg` gap must show closed; ledger rows #17/#18/#103 leave `unmonitored-consumer`/`unmonitored-consumer-side` now that both ends are paired, and must land on wired rather than on `unmonitored-producer` — that is what 1.3 bought; the three `MessageDigestSpec` graph rows must **lose** the transitory `unmonitored-consumer` 1.R wrote, and every *other* write row of the graph is re-derived too — this group lands consumers for predicates written under `omission` when no consumer existed, and G-PRED2 stops raising a row the moment any specification reads its name, D-24) + [GEN] monitor + gates
+- [x] 3.1 `AlgorithmParametersSpec.mop` (`preparedAlg`; 4 conditional REQUIRES implications)
+- [x] 3.2 `AlgorithmParameterGeneratorSpec.mop` (`preparedAlg`; reads `randomized`)
+- [x] 3.3 `SecretKeyFactorySpec.mop` (`generatedKey`; reads `speccedKey` — the password→key route)
+- [x] 3.4 `KeyFactorySpec.mop` (`generatedPrivkey`/`generatedPubkey`; reads `speccedKey`)
+- [x] 3.5 `CertificateFactorySpec.mop` (`generatedCert`)
+- [x] 3.6 `DigestInputStreamSpec.mop` (reads `generatedMessageDigest`, written by 1.3(b) — **after 1.3**; FORBIDDEN `on(boolean)`)
+- [x] 3.7 `DigestOutputStreamSpec.mop` (same family, same dependency on 1.3(b); apply the R4 lesson to its `ere`)
+- [x] 3.R Group records pass (`preparedAlg` gap must show closed; ledger rows #17/#18/#103 leave `unmonitored-consumer`/`unmonitored-consumer-side` now that both ends are paired, and must land on wired rather than on `unmonitored-producer` — that is what 1.3 bought; the three `MessageDigestSpec` graph rows must **lose** the transitory `unmonitored-consumer` 1.R wrote, and every *other* write row of the graph is re-derived too — this group lands consumers for predicates written under `omission` when no consumer existed, and G-PRED2 stops raising a row the moment any specification reads its name, D-24) + [GEN] monitor + gates
 
 ## 4. G4 — Complex specs + adjudications (after G3) — `tasks/G4-complex-adjudications.md`
 
@@ -118,7 +118,7 @@ Subagent dispatch (docs/WORKFLOW.md §5) — lighter protocol than gh105 (design
 
 ## 6. G6 — Records, censuses, enforcement constants — `tasks/G6-records.md`
 
-- [ ] 6.1 [M1, same commit as first new spec] CI/gate enumeration constants: `Corpora`, `MopLiftCorpusTest`, `CalibrationTargets`, G-PARAM count, G-ORDER skip set (D-23)
+- [x] 6.1 [M1, same commit as first new spec] CI/gate enumeration constants: `Corpora`, `MopLiftCorpusTest`, `CalibrationTargets`, G-PARAM count, G-ORDER skip set (D-23)
 - [ ] 6.2 [M1] Alphabet-map chain for new specs (`gh105_expert_alphabet.py --emit` + `--check`)
 - [ ] 6.3 [M2] Verified stale-record corrections: README site census 115→125 + sibling scalars (the "38" reads is 36 `validate(` + 5 `validateAbsent(`); `constraint_table.csv` verdict cells + seed-resolved pointers; `predicate_graph.csv` reasons — 69 of 76 rows, measured; ledger `SecretKeySpec` chain rows + `PREDICATE_ALIASES` unfusion. The `next1`/`next3` rows move to 6.2 (a mapping decision, not a repair); the `LC_ALL=C` recipe item is withdrawn — measured, it breaks the hash it was meant to fix
 - [ ] 6.4 [M2] Extend the sole-oracle gate to `rvsec-core` Java + amend the 3 stale api30 citations — **blocked on a researcher decision**: the gate would also flag the conformance component's legitimate `rvsec-cognicrypt` stamps (design Open Questions)

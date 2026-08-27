@@ -137,8 +137,35 @@
 # MetaCrySL/generated/api30/<rule>, which is the read-only oracle -- a mapping that
 # cannot name its line is a mapping nobody checked.
 spec,mop_event,order_symbol,symbol_kind,rule,rule_line,disposition,reason
+AlgorithmParameterGeneratorSpec,get,Get,aggregate,AlgorithmParameterGenerator.crysl,13,mapped,"one event over `getInstance(String)` and `getInstance(String, String)`, the rule's `Get := g1 | g2` whole"
+AlgorithmParameterGeneratorSpec,initSize,i1,event,AlgorithmParameterGenerator.crysl,15,mapped,"`init(size)`. The two size overloads are events apart and not one fused event, because only the two-argument one binds the `random` the rule's REQUIRES names, and a fused event beside a random-binding one would put two letters where the ORDER has one Init"
+AlgorithmParameterGeneratorSpec,initSizeRandom,i2,event,AlgorithmParameterGenerator.crysl,16,mapped,"`init(size, random)`, the only event of the file that binds the SecureRandom `randomized[random]` names"
+AlgorithmParameterGeneratorSpec,initSpec,i3,event,AlgorithmParameterGenerator.crysl,17,mapped,"`init(genParamSpec)`. No clause of the rule names its argument, so the event has an empty body; it exists because an Init alternative with no event leaves the rule accepting a sequence the specification rejects, which G-ORDER measured on this file"
+AlgorithmParameterGeneratorSpec,initSpecRandom,i4,event,AlgorithmParameterGenerator.crysl,18,mapped,"`init(genParamSpec, random)`, the second site of `randomized[random]`"
+AlgorithmParameterGeneratorSpec,gen,gp1,event,AlgorithmParameterGenerator.crysl,21,mapped,"`algParams = generateParameters()`, the whole of `GenParam`"
+AlgorithmParametersSpec,get,Get,aggregate,AlgorithmParameters.crysl,13,mapped,"one event over `getInstance(String)` and `getInstance(String, String)`, which is the rule's `Get := g1 | g2` whole"
+AlgorithmParametersSpec,init,Init,aggregate,AlgorithmParameters.crysl,18,mapped,"one event over `init(AlgorithmParameterSpec)`, `init(byte[])` and `init(byte[], String)`, which is the rule's `Init := i1 | i2 | i3` whole; the body discriminates by runtime type, which is what separates the rule's `paramSpec` from its `params`"
+AlgorithmParametersSpec,encoded,GetEncoded,aggregate,AlgorithmParameters.crysl,22,mapped,"one event over `getEncoded()` and `getEncoded(String)`, which is the rule's `GetEncoded := e1 | e2` whole; no clause names the format the second overload takes"
+CertificateFactorySpec,get,Get,aggregate,CertificateFactory.crysl,11,mapped,"one event over the three `getInstance` overloads api30 declares, which is the rule's `Get := g1 | g2` whole"
+CertificateFactorySpec,genCert,gc1,event,CertificateFactory.crysl,13,mapped,"`generateCertificate(inStream)`, the whole of `GenCert`"
+CertificateFactorySpec,genCertPath,gen1,event,CertificateFactory.crysl,16,mapped,"the rule's `generateCertPath(_)`, whose anonymous argument api30 spells in two ways -- over an `InputStream` and over a `List` -- so one event covers both"
+CertificateFactorySpec,genCertPathEncoded,gen2,event,CertificateFactory.crysl,17,mapped,"`generateCertPath(inStream, encoding)`, the only overload whose second argument a CONSTRAINTS clause names, which is why it is an event of its own"
+CertificateFactorySpec,genCrl,gcrl1,event,CertificateFactory.crysl,20,mapped,"`generateCRL(inStream)`, the whole of `GenCRL`"
+DigestInputStreamSpec,c1,c1,event,DigestInputStream.crysl,14,mapped,"`DigestInputStream(stream, digest)`, the whole of `Con`"
+DigestInputStreamSpec,r1,r1,event,DigestInputStream.crysl,17,mapped,`read()`
+DigestInputStreamSpec,r2,r2,event,DigestInputStream.crysl,18,mapped,"`read(data, offset, len)`"
+DigestInputStreamSpec,cl1,cl1,event,DigestInputStream.crysl,21,mapped,"`close()`, which the class inherits from `java.io.FilterInputStream` and the pointcut names on the subtype; javac emits the call site's static receiver type as the invoke owner, so the association is with the call the rule means"
+DigestInputStreamSpec,on,,,DigestInputStream.crysl,,order-unmapped,"the FORBIDDEN accuser (`DigestInputStream.crysl:11`). A FORBIDDEN clause states that a call must not happen, not where it happens, so the event has no ORDER counterpart at all; it accuses in its body and self-loops at every state, which is the disposition `SSLContextSpec.getDefault` and `PBEKeySpecSpec.f1`/`f2` already carry"
+DigestOutputStreamSpec,c1,c1,event,DigestOutputStream.crysl,15,mapped,"`DigestOutputStream(stream, digest)`, the whole of `Con`"
+DigestOutputStreamSpec,w1,r1,event,DigestOutputStream.crysl,18,mapped,"`write(specifiedByte)`; the rule numbers the two `Write` alternatives `r1` and `r2`, which is a copy-paste of its input-stream sibling and not a claim about reading"
+DigestOutputStreamSpec,w2,r2,event,DigestOutputStream.crysl,19,mapped,"`write(data, offset, len)`"
+DigestOutputStreamSpec,cl1,cl1,event,DigestOutputStream.crysl,22,mapped,"`close()`, inherited from `java.io.FilterOutputStream` and named on the subtype; see the input-stream twin for the measurement"
+DigestOutputStreamSpec,on,,,DigestOutputStream.crysl,,order-unmapped,"the FORBIDDEN accuser (`DigestOutputStream.crysl:12`), same disposition as its input-stream twin"
 IvParameterSpec,c1,cons1,event,IvParameterSpec.cryptsl,15,mapped,
 IvParameterSpec,c2,cons2,event,IvParameterSpec.cryptsl,17,mapped,
+KeyFactorySpec,get,Get,aggregate,KeyFactory.crysl,12,mapped,"one event over the three `getInstance` overloads api30 declares, which is the rule's `Get := g1 | g2` whole"
+KeyFactorySpec,genPrivate,gpr1,event,KeyFactory.crysl,14,mapped,"`privateKey = generatePrivate(keySpec)`, the whole of `GenPriv`"
+KeyFactorySpec,genPublic,gpu1,event,KeyFactory.crysl,17,mapped,"`publicKey = generatePublic(keySpec)`, the whole of `GenPubl`"
 KeyPairGeneratorSpec,g1,g1,event,KeyPairGenerator.cryptsl,17,mapped,
 KeyPairGeneratorSpec,g2,g2,event,KeyPairGenerator.cryptsl,19,mapped,
 KeyPairGeneratorSpec,g3,,,KeyPairGenerator.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; the rule states the algorithm in CONSTRAINTS, and an ORDER has no symbol for a call it rejects on a constraint"
@@ -160,6 +187,9 @@ SSLContextSpec,g2,g2,event,SSLContext.cryptsl,25,mapped,
 SSLContextSpec,init,Init,event,SSLContext.cryptsl,29,mapped,"the rule names one init event, `init(kms, tms, _)`, and the `.mop` has one event for it"
 SSLContextSpec,engine,Engine,aggregate,SSLContext.cryptsl,35,mapped,"`createSSLEngine(..)` is one event over both overloads, which is the aggregate whole"
 SSLContextSpec,getDefault,,,SSLContext.cryptsl,,order-unmapped,"`getDefault()` is a FORBIDDEN clause and the rule's EVENTS do not name it, so it has no ORDER symbol -- the same reading as PBEKeySpecSpec.f1/f2 over the identical `PBEKeySpec(char[]) => Con`. The oracle does write `getDefault() => Gets`, which reads the forbidden call as filling the position the legitimate getInstance fills; this set deliberately does not model it that way, because making a forbidden call an alternative opening of the ordering is the opposite of what FORBIDDEN says (the reason PBEKeySpecSpec.mop:183-189 already records). The event is a self-loop at every state, so it moves the language nowhere and the erasure hides nothing. Added by task 9.9"
+SecretKeyFactorySpec,get,Get,aggregate,SecretKeyFactory.crysl,12,mapped,"one event over `getInstance(String)` and `getInstance(String, String)`, the rule's `Get := g1 | g2` whole"
+SecretKeyFactorySpec,gen,gS,event,SecretKeyFactory.crysl,14,mapped,"`key = generateSecret(keySpec)`, the alternative of `Gen` that binds the key spec the rule's REQUIRES names"
+SecretKeyFactorySpec,translate,tK,event,SecretKeyFactory.crysl,15,mapped,"`key = translateKey(otherKey)`, the other alternative of `Gen`; the rule's REQUIRES names a `keySpec` this overload does not bind"
 SecretKeySpecSpec,c1,c1,event,SecretKeySpec.cryptsl,17,mapped,
 SecretKeySpecSpec,c2,c2,event,SecretKeySpec.cryptsl,19,mapped,
 SecureRandomSpec,c1,c1,event,SecureRandom.cryptsl,23,mapped,

@@ -1,0 +1,13 @@
+# gh109 task 3.R, the ORDER-bearing producer shape of group G3 (task 3.2).
+# The legitimate sequence the rule's `Get, Init, GenParam` (:25) states, with both value
+# clauses satisfied: `DSA` is one of the three algorithms the rule admits (:28) and 2048 is
+# one of the two sizes (:29). Nothing is drawn, and `preparedAlg[algParams, "DSA"]` is
+# written for the returned AlgorithmParameters by the `gen` body, which is where the clause's
+# `after GenParam` acceptance point falls.
+#
+# The separating trace is AlgorithmParameterGeneratorSpec-badsize.txt, identical but for the
+# size, which draws ALGORITHMPARAMETERGENERATOR-KEYSIZE-00 and, because the clause is a value
+# clause and not an ordering one, still reaches `generateParameters()` without an ORDER code.
+AlgorithmParameterGenerator.getInstance("DSA") -> apg
+apg.init(2048)
+apg.generateParameters()

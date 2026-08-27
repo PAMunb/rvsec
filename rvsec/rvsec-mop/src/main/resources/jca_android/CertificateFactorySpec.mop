@@ -1,0 +1,128 @@
+package mop;
+
+import java.io.InputStream;
+import java.security.cert.CRL;
+import java.security.cert.CertPath;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * CertificateFactory
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.cert.CertificateFactory.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/CertificateFactory.crysl
+ */
+CertificateFactorySpec(CertificateFactory f) {
+
+   // The envelope's quoting rule (design D-3).
+   private String q(String str) {
+       if (str == null) {
+           return "";
+       }
+       String value = str.length() > 512 ? str.substring(0, 512) : str;
+       return value.replace("'", "\\'");
+   }
+
+   // CertificateFactory.crysl:27, transcribed. Both spellings are the rule's own; the alias
+   // table resolves `X509` to `X.509` for this service and an alias never enters the list it
+   // resolves against.
+   List<String> safeTypes = Arrays.asList("X509", "X.509");
+
+   // CertificateFactory.crysl:28. The clause is about the `encoding` of `gen2` alone --
+   // the rule binds the name in no other event -- so it is checked where that argument
+   // exists and nowhere else.
+   List<String> safeEncodings = Arrays.asList("PKCS7", "PkiPath");
+
+   // Staged by `get` for the acceptance-point write, which sees no event parameter.
+   String type = null;
+
+   // `Get := g1 | g2` (:9-11), fused on the zeroth position. api30 declares three
+   // overloads and all three are the rule's `Get`.
+   event get after(String t) returning(CertificateFactory f):
+     ( call(public static CertificateFactory CertificateFactory.getInstance(String)) ||
+       call(public static CertificateFactory CertificateFactory.getInstance(String, String)) ||
+       call(public static CertificateFactory CertificateFactory.getInstance(String, java.security.Provider))
+     ) && args(t, ..) {
+       type = ConscryptAliasTable.canonical("CertificateFactory", t);
+       if (!ConscryptAliasTable.matches("CertificateFactory", t, safeTypes)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CertificateFactorySpec", "" + __LOC,
+               "v=1 code=CERTIFICATEFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=CertificateFactory val='" + q(t) + "' exp='" + q(String.join(",", safeTypes)) + "' msg='expecting one of " + String.join(",", safeTypes) + " but found " + t + "'"));
+       }
+   }
+
+   // `gc1: generateCertificate(inStream)` (:13), the whole of `GenCert`. The rule states no
+   // clause about this call beyond its position in the ordering, so the body is empty and
+   // that is the rule speaking.
+   event genCert after(InputStream inStream, CertificateFactory f) returning(Certificate cert):
+     call(public Certificate CertificateFactory.generateCertificate(InputStream)) &&
+     args(inStream) && target(f) {
+   }
+
+   // `GenCertPath := gen1 | gen2` (:16-18). The rule's `gen1` is `generateCertPath(_)` with
+   // an anonymous argument, which api30 spells in two ways -- over an `InputStream` and over
+   // a `List` -- and `gen2` is `generateCertPath(inStream, encoding)`, the only one whose
+   // second argument a clause names. So the two-argument overload gets an event of its own
+   // and the two one-argument overloads share one: fusing all three would leave the encoding
+   // to be bound by a wildcard, which the trace harness's resolver reads as *any argument*
+   // and which would put the value check on calls that make no encoding claim.
+   event genCertPath after(Object source, CertificateFactory f) returning(CertPath path):
+     ( call(public CertPath CertificateFactory.generateCertPath(InputStream)) ||
+       call(public CertPath CertificateFactory.generateCertPath(java.util.List))
+     ) && args(source) && target(f) {
+   }
+
+   // `gen2: generateCertPath(inStream, encoding)` (:17) and the site of the encoding
+   // CONSTRAINT (:28). The check is in the body with an accuser on the violated branch
+   // (INV-INS-152); in a `condition(...)` it would suppress the transition and the call
+   // would be accused of nothing (INV-INS-133).
+   event genCertPathEncoded after(InputStream inStream, String encoding, CertificateFactory f) returning(CertPath path):
+     call(public CertPath CertificateFactory.generateCertPath(InputStream, String)) &&
+     args(inStream, encoding) && target(f) {
+       if (encoding == null || !safeEncodings.contains(encoding)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CertificateFactorySpec", "" + __LOC,
+               "v=1 code=CERTIFICATEFACTORY-ALG-01 ev=" + __EVENTNAME + " obj=CertificateFactory val='" + q(encoding) + "' exp='" + q(String.join(",", safeEncodings)) + "' msg='expecting one of " + String.join(",", safeEncodings) + " but found " + encoding + "'"));
+       }
+   }
+
+   // `gcrl1: generateCRL(inStream)` (:20), the whole of `GenCRL`. No clause of the rule
+   // names anything this call binds.
+   event genCrl after(InputStream inStream, CertificateFactory f) returning(CRL crl):
+     call(public CRL CertificateFactory.generateCRL(InputStream)) &&
+     args(inStream) && target(f) {
+   }
+
+   // The rule's ORDER, `Get, (GenCert | GenCertPath | GenCRL)+` (:24). The `+` is the
+   // rule's: a factory obtained and never used is a sequence the rule refuses, and the R4
+   // lesson is checked -- no event of this alternation erases to nothing against the rule's
+   // alphabet, because each of the four stands for a labelled event of the rule and none is
+   // a negated twin.
+   ere : get (genCert | genCertPath | genCertPathEncoded | genCrl)+
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CertificateFactorySpec", "" + __LOC,
+          "v=1 code=CERTIFICATEFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=CertificateFactory val='' exp='' msg='the observed call sequence is not one CertificateFactorySpec accepts'"));
+      __RESET;
+   }
+
+   // `ENSURES generatedCert[type]` (:31), with no `after L`, so the acceptance point is the
+   // accepting state (INV-INS-134). The clause's one position is the TYPE STRING and not the
+   // factory or the certificate, which is what the rule writes; the predicate is therefore
+   // stored over the string, at arity 1.
+   //
+   // No rule of the pinned oracle REQUIRES `generatedCert`. The write stands because the
+   // rule ENSURES it and coverage is the obligation; no reader is fabricated (INV-INS-137)
+   // and the graph carries the omission.
+   @match {
+      if (type != null) {
+          PredicateStore.instance().ensure(Property.GENERATED_CERT, type);
+      }
+   }
+
+}

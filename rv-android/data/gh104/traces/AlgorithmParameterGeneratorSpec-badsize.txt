@@ -1,0 +1,11 @@
+# gh109 task 3.R, the accusing half of the pair above. 1024 is not one of the two sizes
+# AlgorithmParameterGenerator.crysl:29 admits, so `initSize` draws
+# ALGORITHMPARAMETERGENERATOR-KEYSIZE-00 in its body.
+#
+# What the trace also shows is that the accusation does NOT suppress the transition: the
+# check is in the event body and not in a `condition(...)`, so the automaton still takes the
+# Init and `generateParameters()` draws no ORDER code on top of it. A guard would have made
+# one value defect look like two defects of different kinds (INV-INS-133).
+AlgorithmParameterGenerator.getInstance("DSA") -> apg
+apg.init(1024)
+apg.generateParameters()

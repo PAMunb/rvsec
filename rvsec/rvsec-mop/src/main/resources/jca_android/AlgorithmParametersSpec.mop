@@ -1,0 +1,222 @@
+package mop;
+
+import java.security.AlgorithmParameters;
+import java.security.spec.AlgorithmParameterSpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * AlgorithmParameters
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.AlgorithmParameters.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/AlgorithmParameters.crysl
+ */
+AlgorithmParametersSpec(AlgorithmParameters s) {
+
+   // The envelope's quoting rule (design D-3): a null value is the empty string, a single
+   // quote is escaped so it cannot close the field early, and the value is capped so a
+   // pathological argument cannot push the record past the logcat payload limit.
+   private String q(String str) {
+       if (str == null) {
+           return "";
+       }
+       String value = str.length() > 512 ? str.substring(0, 512) : str;
+       return value.replace("'", "\\'");
+   }
+
+   // AlgorithmParameters.crysl:28-31, transcribed. The eight PBE families are the same eight
+   // D-20.1 admits in `CipherTransformationNormalizer`, and they are here for the same
+   // reason: the expert rule states them, so refusing them would accuse a practice the
+   // oracle names.
+   List<String> safeAlgorithms = Arrays.asList("AES", "DiffieHellman", "DH", "OAEP",
+       "PBEWithHmacSHA224AndAES_128", "PBEWithHmacSHA256AndAES_128",
+       "PBEWithHmacSHA384AndAES_128", "PBEWithHmacSHA512AndAES_128",
+       "PBEWithHmacSHA224AndAES_256", "PBEWithHmacSHA256AndAES_256",
+       "PBEWithHmacSHA384AndAES_256", "PBEWithHmacSHA512AndAES_256");
+
+   // The eight entries of the third guarded REQUIRES (:37-39). Written out rather than
+   // derived from `safeAlgorithms` by a prefix test, because the clause is a list and a
+   // prefix test would silently admit a family the oracle does not name.
+   List<String> pbeAlgorithms = Arrays.asList(
+       "PBEWithHmacSHA224AndAES_128", "PBEWithHmacSHA256AndAES_128",
+       "PBEWithHmacSHA384AndAES_128", "PBEWithHmacSHA512AndAES_128",
+       "PBEWithHmacSHA224AndAES_256", "PBEWithHmacSHA256AndAES_256",
+       "PBEWithHmacSHA384AndAES_256", "PBEWithHmacSHA512AndAES_256");
+
+   List<String> dhAlgorithms = Arrays.asList("DiffieHellman", "DH");
+
+   // Staged by `get` for the two writes, which are at acceptance points and see no event
+   // parameter of their own. The canonical spelling is what is stored (D-20.3,
+   // INV-INS-153): readers query canonical names, so a raw alias would break propagation
+   // silently and surface downstream as NOT_OBSERVED.
+   String algorithm = null;
+   AlgorithmParameters initialised = null;
+
+   String expectedPreparedAlg = "parameter bytes this instrumentation observed being encoded";
+
+   // The rule's `Get := g1 | g2` (:11-13), fused. The two overloads api30 declares are
+   // `getInstance(String)` and `getInstance(String, String)`; they differ in arity, so the
+   // position they share is the zeroth and `args(alg, ..)` binds it in both. The wildcard is
+   // in `args` and not in the `call(...)` signatures, which are written out in full: the
+   // trace harness's resolver walks the declared parameter types of the call and stops at
+   // the first wildcard, so a wildcard in the signature would make every `getInstance` fit
+   // this pointcut (KeyManagerFactorySpec.mop:87-90).
+   //
+   // The one CONSTRAINTS clause is accused HERE, in the body, and not in a `condition(...)`:
+   // a guard compiles to `if (!(guard)) return false;` ahead of the transition, so a
+   // rejected algorithm would take no transition and be accused of nothing (INV-INS-133,
+   // INV-INS-152). The algorithm is staged either way, because the two ENSURES clauses name
+   // it and a rejected one must not silently become an empty string in a later report.
+   event get after(String alg) returning(AlgorithmParameters s):
+     ( call(public static AlgorithmParameters AlgorithmParameters.getInstance(String)) ||
+       call(public static AlgorithmParameters AlgorithmParameters.getInstance(String, String))
+     ) && args(alg, ..) {
+       algorithm = ConscryptAliasTable.canonical("AlgorithmParameters", alg);
+       if (!ConscryptAliasTable.matches("AlgorithmParameters", alg, safeAlgorithms)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "AlgorithmParametersSpec", "" + __LOC,
+               "v=1 code=ALGORITHMPARAMETERS-ALG-00 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
+       }
+   }
+
+   // The rule's `Init := i1 | i2 | i3` (:15-18), fused on the zeroth position for the same
+   // reason `get` fuses: `init(AlgorithmParameterSpec)`, `init(byte[])` and
+   // `init(byte[], String)` have no named position in common except the first. The body
+   // discriminates by runtime type, which is what separates the rule's `paramSpec` from its
+   // `params`.
+   //
+   // FIVE REQUIRES clauses meet here, and they split cleanly along that discrimination.
+   //
+   // `preparedAlg[params, algorithm]` (:34) is about the BYTE ARRAY of `i2`/`i3` -- the
+   // encoded form -- and it is read at arity 2, against the algorithm the rule binds. Its
+   // producer is this same rule's second ENSURES, `preparedAlg[encParams, algorithm] after
+   // GetEncoded` (:44): the round trip is one instance encoding its parameters and another
+   // initialising from those bytes, and the clause says the bytes must come from parameters
+   // somebody prepared. A program that hands over bytes from a file or a network reaches
+   // NOT_OBSERVED, which is a reach limit and not a misuse -- hence the separate code family
+   // (INV-INS-143).
+   //
+   // The other four (:35-40) are GUARDED implications over the `paramSpec` of `i1`, and the
+   // guard is the rule's own: the algorithm selects which predicate is required, and a spec
+   // handed to an instance whose algorithm none of the four antecedents names reaches no
+   // read at all. Each names its predicate as a LITERAL `Property.` constant rather than
+   // through a selected variable, because the record reader anchors a predicate site on the
+   // literal first argument of the store call (`gh105_predicate_graph.py`, pass 1); a
+   // constant held in a variable would leave the clause out of the graph, the ledger and
+   // every gate while the monitor went on accusing.
+   event init after(Object arg, AlgorithmParameters s):
+     ( call(public void AlgorithmParameters.init(AlgorithmParameterSpec)) ||
+       call(public void AlgorithmParameters.init(byte[])) ||
+       call(public void AlgorithmParameters.init(byte[], String))
+     ) && args(arg, ..) && target(s) {
+       if (arg instanceof byte[]) {
+           PredicateVerdict prepared = PredicateStore.instance().validate(Property.PREPARED_ALG, arg, algorithm);
+           if (prepared == PredicateVerdict.VIOLATED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParametersSpec", "" + __LOC,
+                   "v=1 code=ALGORITHMPARAMETERS-CONSTR-00 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='" + q(algorithm) + "' exp='" + q(expectedPreparedAlg) + "' msg='the encoded parameters carry a preparation predicate the rule does not admit'"));
+           }
+           else if (prepared == PredicateVerdict.NOT_OBSERVED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParametersSpec", "" + __LOC,
+                   "v=1 code=ALGORITHMPARAMETERS-NOBS-00 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='" + q(algorithm) + "' exp='" + q(expectedPreparedAlg) + "' msg='no preparation of the encoded parameters was observed'"));
+           }
+       }
+       else if (arg instanceof AlgorithmParameterSpec) {
+           PredicateVerdict prepared = PredicateVerdict.SATISFIED;
+           String required = null;
+           if ("AES".equalsIgnoreCase(algorithm)) {
+               required = "preparedIV";
+               prepared = PredicateStore.instance().validate(Property.PREPARED_IV, arg);
+           }
+           else if (algorithm != null && dhAlgorithms.contains(algorithm)) {
+               required = "preparedDH";
+               prepared = PredicateStore.instance().validate(Property.PREPARED_DH, arg);
+           }
+           else if (algorithm != null && pbeAlgorithms.contains(algorithm)) {
+               required = "preparedPBE";
+               prepared = PredicateStore.instance().validate(Property.PREPARED_PBE, arg);
+           }
+           else if ("OAEP".equalsIgnoreCase(algorithm)) {
+               required = "preparedOAEP";
+               prepared = PredicateStore.instance().validate(Property.PREPARED_OAEP, arg);
+           }
+           if (required != null && prepared == PredicateVerdict.VIOLATED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParametersSpec", "" + __LOC,
+                   "v=1 code=ALGORITHMPARAMETERS-CONSTR-01 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='" + q(algorithm) + "' exp='" + q(required) + "' msg='the parameter spec carries a preparation predicate the rule does not admit'"));
+           }
+           else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParametersSpec", "" + __LOC,
+                   "v=1 code=ALGORITHMPARAMETERS-NOBS-01 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='" + q(algorithm) + "' exp='" + q(required) + "' msg='no preparation of the parameter spec was observed'"));
+           }
+       }
+       initialised = s;
+   }
+
+   // The rule's `GetEncoded := e1 | e2` (:20-22), fused on the return value: both overloads
+   // return the encoded bytes and only one of them names a format, which no clause of the
+   // rule constrains.
+   //
+   // `preparedAlg[encParams, algorithm] after GetEncoded` (:44) is written HERE, in the
+   // body, and not in a handler, for the reason `KeyManagerFactorySpec.gkm1` records: the
+   // clause names the RETURNED ARRAY, a handler sees no parameter of the event it follows,
+   // and the array is the parameter. The placement is still the acceptance point the clause
+   // asks for -- this event is the one that reaches the second accepting state.
+   event encoded after(AlgorithmParameters s) returning(byte[] encParams):
+     ( call(public byte[] AlgorithmParameters.getEncoded()) ||
+       call(public byte[] AlgorithmParameters.getEncoded(String))
+     ) && target(s) {
+       PredicateStore.instance().ensure(Property.PREPARED_ALG, encParams, algorithm);
+   }
+
+   // The rule's ORDER, `Get, Init, GetEncoded?` (:25). The trailing `?` is why this is an
+   // `fsm` and not an `ere`: no `ere` of this set spells optionality, and the idiom for it
+   // is a second accepting state that declares no event of its own
+   // (KeyManagerFactorySpec.mop:196-200, whose ORDER has the same shape).
+   fsm :
+     start [
+       get -> obtained
+     ]
+     obtained [
+       init -> initialised
+     ]
+     initialised [
+       encoded -> published
+     ]
+     published [
+     ]
+
+   alias match1 = initialised
+   alias match2 = published
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "AlgorithmParametersSpec", "" + __LOC,
+          "v=1 code=ALGORITHMPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='' exp='' msg='the observed call sequence is not one AlgorithmParametersSpec accepts'"));
+      initialised = null;
+      __RESET;
+   }
+
+   // `preparedAlg[this, algorithm] after Init` (:43). The clause names the state the Init
+   // leads to, which is this one, and the object is the monitored instance -- reachable
+   // through a field where the returned array of `encoded` is not (INV-INS-134).
+   //
+   // The consumers are real and were the sixth producer gap INV-INS-151 counted:
+   // `Cipher.crysl:136` requires the predicate over an `AlgorithmParameters` and is recorded
+   // closed at task 1b.4 for a reason of its own, and this rule's own `init` reads it over
+   // the encoded bytes. `AlgorithmParameterGeneratorSpec` (task 3.2) is its second producer.
+   @match1 {
+      if (initialised != null) {
+          PredicateStore.instance().ensure(Property.PREPARED_ALG, initialised, algorithm);
+      }
+   }
+
+   // The second accepting state exists to make `GetEncoded` optional and declares no event.
+   // The write that belongs to it is in the `encoded` body, because the clause names the
+   // returned array; see that event.
+   @match2 {
+   }
+
+}

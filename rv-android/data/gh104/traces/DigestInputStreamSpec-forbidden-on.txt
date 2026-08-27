@@ -1,0 +1,16 @@
+# gh109 task 3.R, the FORBIDDEN shape of group G3 (task 3.6). `DigestInputStream.crysl:11`
+# states `on(boolean)` FORBIDDEN, and the call draws DIGESTINPUTSTREAM-FORB-00 under
+# ErrorType.ForbiddenMethod -- not under InvalidSequenceOfMethodCalls, which would send the
+# reader hunting for a missing call.
+#
+# The other half of what the trace shows is the automaton: the forbidden event is a SELF-LOOP
+# at every state, so the `read()` that follows still reaches the Read state and the `close()`
+# still accepts. Making the forbidden call an alternative position of the ordering -- which is
+# how both oracles write the clause -- would put an ORDER code on top of the FORB one for a
+# sequence the rule orders correctly, and that is the reading `SSLContextSpec.getDefault` and
+# `PBEKeySpecSpec` already refused.
+MessageDigest.getInstance("SHA-256") -> md
+new DigestInputStream(null, md) -> dis
+dis.on(false)
+dis.read()
+dis.close()

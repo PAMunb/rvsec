@@ -1,0 +1,186 @@
+package mop;
+
+import java.security.AlgorithmParameterGenerator;
+import java.security.AlgorithmParameters;
+import java.security.SecureRandom;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * AlgorithmParameterGenerator
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.AlgorithmParameterGenerator.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/AlgorithmParameterGenerator.crysl
+ */
+AlgorithmParameterGeneratorSpec(AlgorithmParameterGenerator g) {
+
+   // The envelope's quoting rule (design D-3).
+   private String q(String str) {
+       if (str == null) {
+           return "";
+       }
+       String value = str.length() > 512 ? str.substring(0, 512) : str;
+       return value.replace("'", "\\'");
+   }
+
+   // AlgorithmParameterGenerator.crysl:28, transcribed.
+   List<String> safeAlgorithms = Arrays.asList("DH", "DiffieHellman", "DSA");
+
+   // AlgorithmParameterGenerator.crysl:29. The two admitted sizes are a list and not a
+   // threshold, so the check is membership: the rule admits 2048 and 3072 and says nothing
+   // about 4096, which a threshold would silently admit.
+   List<Integer> safeSizes = Arrays.asList(2048, 3072);
+
+   String algorithm = null;
+   AlgorithmParameterGenerator initialised = null;
+
+   String expectedRandomized = "a SecureRandom this instrumentation observed being constructed";
+
+   // `Get := g1 | g2` (:11-13), fused on the zeroth position. api30 declares
+   // `getInstance(String)` and `getInstance(String, String)`.
+   //
+   // The algorithm CONSTRAINT is accused in the body, never in a `condition(...)`
+   // (INV-INS-133, INV-INS-152), and the canonical spelling is staged for the ENSURES that
+   // names it (D-20.3, INV-INS-153).
+   event get after(String alg) returning(AlgorithmParameterGenerator g):
+     ( call(public static AlgorithmParameterGenerator AlgorithmParameterGenerator.getInstance(String)) ||
+       call(public static AlgorithmParameterGenerator AlgorithmParameterGenerator.getInstance(String, String))
+     ) && args(alg, ..) {
+       algorithm = ConscryptAliasTable.canonical("AlgorithmParameterGenerator", alg);
+       if (!ConscryptAliasTable.matches("AlgorithmParameterGenerator", alg, safeAlgorithms)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "AlgorithmParameterGeneratorSpec", "" + __LOC,
+               "v=1 code=ALGORITHMPARAMETERGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=AlgorithmParameterGenerator val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
+       }
+   }
+
+   // `i1: init(size)` (:15), one alternative of `Init := i1 | i2 | i3 | i4`, and the site of
+   // the size CONSTRAINT (:29) for the one-argument overload.
+   //
+   // The two size overloads get an event EACH, and they are not fused, because the rule
+   // names them apart and only one of them binds the SecureRandom its REQUIRES needs. A
+   // fused event over both would emit two letters for one call -- the `.mop` would dispatch
+   // the fused event and the random-binding event on the same `init(size, random)` -- and
+   // the ordering the rule states has exactly one `Init` between the Get and the GenParam.
+   // Splitting them costs a duplicated value check and buys a language that compares.
+   //
+   // The check is in the body with an accuser on the violated branch (INV-INS-152); in a
+   // `condition(...)` it would suppress the transition and the call would be accused of
+   // nothing (INV-INS-133).
+   event initSize after(int size, AlgorithmParameterGenerator g):
+     call(public void AlgorithmParameterGenerator.init(int)) &&
+     args(size) && target(g) {
+       if (!safeSizes.contains(size)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "AlgorithmParameterGeneratorSpec", "" + __LOC,
+               "v=1 code=ALGORITHMPARAMETERGENERATOR-KEYSIZE-00 ev=" + __EVENTNAME + " obj=AlgorithmParameterGenerator val='" + size + "' exp='" + q(safeSizes.toString()) + "' msg='the parameter size is not one the expert AlgorithmParameterGenerator.crysl admits'"));
+       }
+       initialised = g;
+   }
+
+   // `i2: init(size, random)` (:16), the other size alternative of `Init`, and the only
+   // event of this file that binds the `random` the rule's one REQUIRES names.
+   //
+   // TWO clauses meet here and they ACCUMULATE rather than short-circuit, in the
+   // `boolean conforms` form the conventions note fixes: a call that broke the size clause
+   // AND handed over an unobserved SecureRandom must draw both reports, not the first.
+   //
+   // `randomized[random]` (:32) is read three-valued with a code per accusing outcome
+   // (INV-INS-143); its producer is the existing `SecureRandomSpec`, which writes
+   // `randomized[this] after Ins`.
+   event initSizeRandom after(int size, SecureRandom random, AlgorithmParameterGenerator g):
+     call(public void AlgorithmParameterGenerator.init(int, SecureRandom)) &&
+     args(size, random) && target(g) {
+       if (!safeSizes.contains(size)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "AlgorithmParameterGeneratorSpec", "" + __LOC,
+               "v=1 code=ALGORITHMPARAMETERGENERATOR-KEYSIZE-01 ev=" + __EVENTNAME + " obj=AlgorithmParameterGenerator val='" + size + "' exp='" + q(safeSizes.toString()) + "' msg='the parameter size is not one the expert AlgorithmParameterGenerator.crysl admits'"));
+       }
+       initialised = g;
+       PredicateVerdict randomized = PredicateStore.instance().validate(Property.RANDOMIZED, random);
+       if (randomized == PredicateVerdict.VIOLATED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParameterGeneratorSpec", "" + __LOC,
+               "v=1 code=ALGORITHMPARAMETERGENERATOR-CONSTR-00 ev=" + __EVENTNAME + " obj=AlgorithmParameterGenerator val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='the SecureRandom given to init carries a randomness predicate the rule does not admit'"));
+       }
+       else if (randomized == PredicateVerdict.NOT_OBSERVED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParameterGeneratorSpec", "" + __LOC,
+               "v=1 code=ALGORITHMPARAMETERGENERATOR-NOBS-00 ev=" + __EVENTNAME + " obj=AlgorithmParameterGenerator val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='no construction of the SecureRandom given to init was observed'"));
+       }
+   }
+
+   // `i3: init(genParamSpec)` (:17), the third alternative of `Init`. No clause of the rule
+   // names its argument -- neither CONSTRAINTS nor REQUIRES mentions `genParamSpec` -- so the
+   // body is empty and that is the rule speaking, the shape `PKIXParametersSpec.c2` records
+   // for its own anonymous argument.
+   //
+   // The event exists ANYWAY, and the reason is the language and not the clauses: G-ORDER
+   // compares the automaton against the rule's ORDER, and an `Init` alternative with no event
+   // leaves `Get, i3, GenParam` accepted by the rule and rejected by the specification. That
+   // is a divergence with no clause behind it, and it was measured on this file before the
+   // event existed.
+   event initSpec after(java.security.spec.AlgorithmParameterSpec genParamSpec, AlgorithmParameterGenerator g):
+     call(public void AlgorithmParameterGenerator.init(java.security.spec.AlgorithmParameterSpec)) &&
+     args(genParamSpec) && target(g) {
+       initialised = g;
+   }
+
+   // `i4: init(genParamSpec, random)` (:18), the fourth alternative, and the SECOND site of
+   // `randomized[random]` (:32): the clause names the rule's `random`, which `i2` and `i4`
+   // both bind, so both are sites and each carries a code of its own (INV-INS-143). The
+   // parameter spec is still unconstrained, as at `i3`.
+   event initSpecRandom after(java.security.spec.AlgorithmParameterSpec genParamSpec, SecureRandom random, AlgorithmParameterGenerator g):
+     call(public void AlgorithmParameterGenerator.init(java.security.spec.AlgorithmParameterSpec, SecureRandom)) &&
+     args(genParamSpec, random) && target(g) {
+       PredicateVerdict randomized = PredicateStore.instance().validate(Property.RANDOMIZED, random);
+       if (randomized == PredicateVerdict.VIOLATED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParameterGeneratorSpec", "" + __LOC,
+               "v=1 code=ALGORITHMPARAMETERGENERATOR-CONSTR-01 ev=" + __EVENTNAME + " obj=AlgorithmParameterGenerator val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='the SecureRandom given to init carries a randomness predicate the rule does not admit'"));
+       }
+       else if (randomized == PredicateVerdict.NOT_OBSERVED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParameterGeneratorSpec", "" + __LOC,
+               "v=1 code=ALGORITHMPARAMETERGENERATOR-NOBS-01 ev=" + __EVENTNAME + " obj=AlgorithmParameterGenerator val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='no construction of the SecureRandom given to init was observed'"));
+       }
+       initialised = g;
+   }
+
+   // `GenParam := gp1` (:21-22), and the acceptance point of
+   // `preparedAlg[algParams, algorithm] after GenParam` (:35). The write is in the body and
+   // not in the handler because the clause names the RETURNED AlgorithmParameters, which a
+   // handler cannot see -- the same placement `KeyManagerFactorySpec.gkm1` records
+   // (INV-INS-134). The value position carries the canonical algorithm, so that
+   // `AlgorithmParametersSpec`'s arity-2 read of the same predicate compares against the
+   // spelling the producers store (D-20.3).
+   event gen after(AlgorithmParameterGenerator g) returning(AlgorithmParameters algParams):
+     call(public AlgorithmParameters AlgorithmParameterGenerator.generateParameters()) &&
+     target(g) {
+       PredicateStore.instance().ensure(Property.PREPARED_ALG, algParams, algorithm);
+   }
+
+   // The rule's ORDER, `Get, Init, GenParam` (:25). Exactly one `Init` stands between the
+   // Get and the GenParam, and the two size events are alternatives of that one position --
+   // which is why they had to stop overlapping: a fused event plus a random-binding event
+   // would put two letters where the rule has one.
+   //
+   // All four `Init` alternatives are events, including the two whose argument no clause
+   // names: an alternative with no event leaves the rule accepting a sequence the
+   // specification rejects, which G-ORDER measured on this file and which is a divergence
+   // with no clause behind it.
+   ere : get (initSize | initSizeRandom | initSpec | initSpecRandom) gen
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "AlgorithmParameterGeneratorSpec", "" + __LOC,
+          "v=1 code=ALGORITHMPARAMETERGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=AlgorithmParameterGenerator val='' exp='' msg='the observed call sequence is not one AlgorithmParameterGeneratorSpec accepts'"));
+      initialised = null;
+      __RESET;
+   }
+
+   // The rule states one ENSURES and it carries `after GenParam`, so the write is at the
+   // `gen` event and not here. The handler exists because the generator and the `codes.csv`
+   // bijection expect one, and it stages nothing.
+   @match {
+   }
+
+}

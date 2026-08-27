@@ -1,7 +1,7 @@
 section,consumer,predicate,arity,negated,guarded,kind,expert_disposition,api30_disposition,expert_line,api30_line,note
-ENSURES,AlgorithmParameterGenerator,preparedAlg,2,no,no,expert-only,unmonitored-producer-side,-,AlgorithmParameterGenerator.crysl:35,-,the api30 rule does not declare the clause
+ENSURES,AlgorithmParameterGenerator,preparedAlg,2,no,no,expert-only,producible,-,AlgorithmParameterGenerator.crysl:35,-,the api30 rule does not declare the clause
 ENSURES,CertPathTrustManagerParameters,generatedManagerFactoryParameters,1,no,no,changed,producible,unread,CertPathTrustManagerParameters.crysl:17,CertPathTrustManagerParameters.cryptsl:25,disposition unread -> producible
-ENSURES,CertificateFactory,generatedCert,1,no,no,expert-only,unmonitored-producer-side,-,CertificateFactory.crysl:31,-,the api30 rule does not declare the clause
+ENSURES,CertificateFactory,generatedCert,1,no,no,expert-only,unread,-,CertificateFactory.crysl:31,-,the api30 rule does not declare the clause
 ENSURES,Cipher,generatedCipher,1,no,no,expert-only,producible,-,Cipher.crysl:144,-,the api30 rule does not declare the clause
 ENSURES,Cipher,wrappedKey,2,no,no,expert-only,unread,-,Cipher.crysl:148,-,the api30 rule does not declare the clause
 ENSURES,Cookie,generatedCookie,1,no,no,expert-only,unmonitored-producer-side,-,Cookie.crysl:22,-,the api30 rule does not declare the clause
@@ -10,35 +10,35 @@ ENSURES,DSAParameterSpec,preparedDSA,1,no,no,expert-only,producible,-,DSAParamet
 ENSURES,ECGenParameterSpec,preparedEC,1,no,no,expert-only,producible,-,ECGenParameterSpec.crysl:25,-,the api30 rule does not declare the clause
 ENSURES,ECParameterSpec,preparedEC,1,no,no,expert-only,producible,-,ECParameterSpec.crysl:17,-,the api30 rule does not declare the clause
 ENSURES,KeyAgreement,preparedKeyMaterial,1,no,no,expert-only,unmonitored-producer-side,-,KeyAgreement.crysl:51,-,the api30 rule does not declare the clause
-ENSURES,KeyFactory,generatedKeyFactory,2,no,no,expert-only,unmonitored-producer-side,-,KeyFactory.crysl:30,-,the api30 rule does not declare the clause
-ENSURES,KeyFactory,generatedPrivkey,1,no,no,expert-only,unmonitored-producer-side,-,KeyFactory.crysl:31,-,the api30 rule does not declare the clause
-ENSURES,KeyFactory,generatedPubkey,1,no,no,expert-only,unmonitored-producer-side,-,KeyFactory.crysl:32,-,the api30 rule does not declare the clause
+ENSURES,KeyFactory,generatedKeyFactory,2,no,no,expert-only,unread,-,KeyFactory.crysl:30,-,the api30 rule does not declare the clause
+ENSURES,KeyFactory,generatedPrivkey,1,no,no,expert-only,producible,-,KeyFactory.crysl:31,-,the api30 rule does not declare the clause
+ENSURES,KeyFactory,generatedPubkey,1,no,no,expert-only,producible,-,KeyFactory.crysl:32,-,the api30 rule does not declare the clause
 ENSURES,KeyStoreBuilderParameters,generatedManagerFactoryParameters,1,no,no,changed,producible,unread,KeyStoreBuilderParameters.crysl:14,KeyStoreBuilderParameters.cryptsl:21,disposition unread -> producible
 ENSURES,MGF1ParameterSpec,preparedMGF1,2,no,no,expert-only,producible,-,MGF1ParameterSpec.crysl:17,-,the api30 rule does not declare the clause
-ENSURES,MessageDigest,generatedMessageDigest,1,no,no,expert-only,unmonitored-consumer-side,-,MessageDigest.crysl:46,-,the api30 rule does not declare the clause
+ENSURES,MessageDigest,generatedMessageDigest,1,no,no,expert-only,producible,-,MessageDigest.crysl:46,-,the api30 rule does not declare the clause
 ENSURES,OAEPParameterSpec,preparedOAEP,1,no,no,expert-only,producible,-,OAEPParameterSpec.crysl:25,-,the api30 rule does not declare the clause
-ENSURES,PBEParameterSpec,preparedPBE,1,no,no,changed,unmonitored-consumer-side,unread,PBEParameterSpec.crysl:23,PBEParameterSpec.cryptsl:37,disposition unread -> unmonitored-consumer-side
+ENSURES,PBEParameterSpec,preparedPBE,1,no,no,changed,producible,unread,PBEParameterSpec.crysl:23,PBEParameterSpec.cryptsl:37,disposition unread -> producible
 ENSURES,PasswordAuthentication,generatedPasswordAuthentication,1,no,no,expert-only,unmonitored-producer-side,-,PasswordAuthentication.crysl:26,-,the api30 rule does not declare the clause
 ENSURES,SSLEngine,generatedSSLEngine,1,no,no,expert-only,unmonitored-producer-side,-,SSLEngine.crysl:46,-,the api30 rule does not declare the clause
 ENSURES,SSLParameters,generatedSSLParameters,1,no,no,expert-only,unmonitored-producer-side,-,SSLParameters.crysl:48,-,the api30 rule does not declare the clause
 ENSURES,Signature,verified,2,no,no,reshaped,unread,unread,Signature.crysl:61,Signature.cryptsl:93,arity api30=1 expert=2
 ENSURES,TrustAnchor,generatedTrustAnchor,1,no,no,expert-only,unread,-,TrustAnchor.crysl:21,-,the api30 rule does not declare the clause
-ENSURES,X509EncodedKeySpec,speccedKey,2,no,no,expert-only,unmonitored-consumer-side,-,X509EncodedKeySpec.crysl:17,-,the api30 rule does not declare the clause
-REQUIRES,AlgorithmParameterGenerator,randomized,1,no,no,expert-only,unmonitored-consumer,-,AlgorithmParameterGenerator.crysl:32,-,the api30 rule does not declare the clause
-REQUIRES,AlgorithmParameters,preparedAlg,2,no,no,reshaped,unmonitored-consumer,unmonitored-consumer,AlgorithmParameters.crysl:34,AlgorithmParameters.cryptsl:52,arity api30=1 expert=2
-REQUIRES,AlgorithmParameters,preparedOAEP,1,no,yes,expert-only,unmonitored-consumer,-,AlgorithmParameters.crysl:40,-,the api30 rule does not declare the clause
-REQUIRES,AlgorithmParameters,preparedPBE,1,no,yes,expert-only,unmonitored-consumer,-,AlgorithmParameters.crysl:37,-,the api30 rule does not declare the clause
+ENSURES,X509EncodedKeySpec,speccedKey,2,no,no,expert-only,producible,-,X509EncodedKeySpec.crysl:17,-,the api30 rule does not declare the clause
+REQUIRES,AlgorithmParameterGenerator,randomized,1,no,no,expert-only,wireable,-,AlgorithmParameterGenerator.crysl:32,-,the api30 rule does not declare the clause
+REQUIRES,AlgorithmParameters,preparedAlg,2,no,no,reshaped,wireable,wireable,AlgorithmParameters.crysl:34,AlgorithmParameters.cryptsl:52,arity api30=1 expert=2
+REQUIRES,AlgorithmParameters,preparedOAEP,1,no,yes,expert-only,wireable,-,AlgorithmParameters.crysl:40,-,the api30 rule does not declare the clause
+REQUIRES,AlgorithmParameters,preparedPBE,1,no,yes,expert-only,wireable,-,AlgorithmParameters.crysl:37,-,the api30 rule does not declare the clause
 REQUIRES,Cipher,preparedOAEP,1,no,yes,expert-only,wireable,-,Cipher.crysl:140,-,the api30 rule does not declare the clause
 REQUIRES,CipherInputStream,generatedCipher,1,no,no,expert-only,wireable,-,CipherInputStream.crysl:31,-,the api30 rule does not declare the clause
 REQUIRES,CipherOutputStream,generatedCipher,1,no,no,expert-only,wireable,-,CipherOutputStream.crysl:32,-,the api30 rule does not declare the clause
-REQUIRES,DigestInputStream,generatedMessageDigest,1,no,no,expert-only,unmonitored-consumer,-,DigestInputStream.crysl:33,-,the api30 rule does not declare the clause
-REQUIRES,DigestOutputStream,generatedMessageDigest,1,no,no,expert-only,unmonitored-consumer,-,DigestOutputStream.crysl:34,-,the api30 rule does not declare the clause
+REQUIRES,DigestInputStream,generatedMessageDigest,1,no,no,expert-only,wireable,-,DigestInputStream.crysl:33,-,the api30 rule does not declare the clause
+REQUIRES,DigestOutputStream,generatedMessageDigest,1,no,no,expert-only,wireable,-,DigestOutputStream.crysl:34,-,the api30 rule does not declare the clause
 REQUIRES,KeyAgreement,generatedPrivkey,1,no,no,expert-only,unmonitored-consumer,-,KeyAgreement.crysl:45,-,the api30 rule does not declare the clause
 REQUIRES,KeyAgreement,generatedPubkey,1,no,no,expert-only,unmonitored-consumer,-,KeyAgreement.crysl:46,-,the api30 rule does not declare the clause
 REQUIRES,KeyAgreement,preparedDH,1,no,yes,expert-only,unmonitored-consumer,-,KeyAgreement.crysl:47,-,the api30 rule does not declare the clause
 REQUIRES,KeyAgreement,preparedEC,1,no,yes,expert-only,unmonitored-consumer,-,KeyAgreement.crysl:48,-,the api30 rule does not declare the clause
 REQUIRES,KeyAgreement,randomized,1,no,no,expert-only,unmonitored-consumer,-,KeyAgreement.crysl:44,-,the api30 rule does not declare the clause
-REQUIRES,KeyFactory,speccedKey,2,no,no,expert-only,unmonitored-consumer,-,KeyFactory.crysl:27,-,the api30 rule does not declare the clause
+REQUIRES,KeyFactory,speccedKey,2,no,no,expert-only,wireable,-,KeyFactory.crysl:27,-,the api30 rule does not declare the clause
 REQUIRES,KeyManagerFactory,generatedManagerFactoryParameters,1,no,no,expert-only,wireable,-,KeyManagerFactory.crysl:32,-,the api30 rule does not declare the clause
 REQUIRES,KeyPairGenerator,preparedDSA,1,no,yes,changed,wireable,unmonitored-producer,KeyPairGenerator.crysl:36,KeyPairGenerator.cryptsl:60,disposition unmonitored-producer -> wireable
 REQUIRES,KeyPairGenerator,preparedEC,1,no,yes,changed,wireable,unclosable,KeyPairGenerator.crysl:38,KeyPairGenerator.cryptsl:64,disposition unclosable -> wireable

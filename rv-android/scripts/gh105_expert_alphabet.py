@@ -116,11 +116,17 @@ NO_RULE = ("IvChainJunction", "RandomStringPassword")
 # as `expert-native`, which is an origin and not a move.
 EXPERT_NATIVE_SPECS = frozenset(
     {
+        "AlgorithmParameterGeneratorSpec",
+        "AlgorithmParametersSpec",
         "CertPathTrustManagerParametersSpec",
+        "CertificateFactorySpec",
         "DHParameterSpecSpec",
         "DSAParameterSpecSpec",
+        "DigestInputStreamSpec",
+        "DigestOutputStreamSpec",
         "ECGenParameterSpecSpec",
         "ECParameterSpecSpec",
+        "KeyFactorySpec",
         "KeySpec",
         "KeyStoreBuilderParametersSpec",
         "MGF1ParameterSpecSpec",
@@ -128,6 +134,7 @@ EXPERT_NATIVE_SPECS = frozenset(
         "PKIXBuilderParametersSpec",
         "PKIXParametersSpec",
         "RSAKeyGenParameterSpecSpec",
+        "SecretKeyFactorySpec",
         "TrustAnchorSpec",
         "X509EncodedKeySpecSpec",
     }

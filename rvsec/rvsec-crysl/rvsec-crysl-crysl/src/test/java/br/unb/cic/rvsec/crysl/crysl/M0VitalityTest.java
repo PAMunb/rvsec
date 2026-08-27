@@ -414,23 +414,33 @@ class M0VitalityTest {
         // 18 -> 32 at gh109 group G2: every one of the fourteen producer specifications
         // absorbs its own misuse, which is what a transcribed value clause is -- the accusation
         // is raised on the branch the clause rejects, inside the event, and no other
-        // specification of the set is asked to notice.
-        assertEquals(32, androidAbsorbing.size(), "jca_android absorbing: " + androidAbsorbing);
+        // specification of the set is asked to notice. 32 -> 39 at group G3: all seven medium
+        // specifications absorb too, which is not a given -- `CertificateFactorySpec` absorbs on
+        // its type and encoding clauses, and the two digest streams on a read length and on a
+        // FORBIDDEN call -- so the census says the group kept the shape rather than that it kept
+        // the count.
+        assertEquals(39, androidAbsorbing.size(), "jca_android absorbing: " + androidAbsorbing);
         assertEquals(15, jcaAbsorbing.size(), "jca absorbing: " + jcaAbsorbing);
 
         // The lists, not only the totals: the independent probe
         // (docs/handoff/20260824_arnes_adjudicacao/scripts/absorve.py) prints these same names, and
         // two routes agreeing on a count while disagreeing on which files it is made of would be a
         // coincidence read as a confirmation.
-        assertEquals(List.of("CertPathTrustManagerParametersSpec", "CipherInputStreamSpec",
+        assertEquals(List.of("AlgorithmParameterGeneratorSpec", "AlgorithmParametersSpec",
+                        "CertPathTrustManagerParametersSpec", "CertificateFactorySpec",
+                        "CipherInputStreamSpec",
                         "CipherOutputStreamSpec", "CipherSpec", "DHGenParameterSpecSpec",
-                        "DHParameterSpecSpec", "DSAParameterSpecSpec", "ECGenParameterSpecSpec",
+                        "DHParameterSpecSpec", "DSAParameterSpecSpec",
+                        "DigestInputStreamSpec", "DigestOutputStreamSpec",
+                        "ECGenParameterSpecSpec",
                         "GCMParameterSpecSpec", "IvChainJunction", "IvParameterSpec",
-                        "KeyGeneratorSpec", "KeyManagerFactorySpec", "KeyPairGeneratorSpec",
+                        "KeyFactorySpec", "KeyGeneratorSpec", "KeyManagerFactorySpec",
+                        "KeyPairGeneratorSpec",
                         "KeyPairSpec", "KeyStoreSpec", "MGF1ParameterSpecSpec", "MacSpec",
                         "MessageDigestSpec", "OAEPParameterSpecSpec", "PBEKeySpecSpec",
                         "PBEParameterSpecSpec", "PKIXBuilderParametersSpec", "PKIXParametersSpec",
-                        "RSAKeyGenParameterSpecSpec", "SSLContextSpec", "SecretKeySpecSpec",
+                        "RSAKeyGenParameterSpecSpec", "SSLContextSpec", "SecretKeyFactorySpec",
+                        "SecretKeySpecSpec",
                         "SecureRandomSpec", "SignatureSpec", "TrustAnchorSpec",
                         "TrustManagerFactorySpec", "X509EncodedKeySpecSpec"),
                 androidAbsorbing);

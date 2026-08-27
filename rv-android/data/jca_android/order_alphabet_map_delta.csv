@@ -20,8 +20,35 @@
 # `restored-under-expert` with the deciding task's reason attached -- `MacSpec.updateBuffer`
 # at task 11.6, the only one so far.
 spec,mop_event,api30_symbol,expert_symbol,klass,signature,note
+AlgorithmParameterGeneratorSpec,get,,Get,expert-native,,decided under the expert oracle; api30 never carried this association
+AlgorithmParameterGeneratorSpec,initSize,,i1,expert-native,init(size),decided under the expert oracle; api30 never carried this association
+AlgorithmParameterGeneratorSpec,initSizeRandom,,i2,expert-native,"init(size, random)",decided under the expert oracle; api30 never carried this association
+AlgorithmParameterGeneratorSpec,initSpec,,i3,expert-native,init(genParamSpec),decided under the expert oracle; api30 never carried this association
+AlgorithmParameterGeneratorSpec,initSpecRandom,,i4,expert-native,"init(genParamSpec, random)",decided under the expert oracle; api30 never carried this association
+AlgorithmParameterGeneratorSpec,gen,,gp1,expert-native,algParams = generateParameters(),decided under the expert oracle; api30 never carried this association
+AlgorithmParametersSpec,get,,Get,expert-native,,decided under the expert oracle; api30 never carried this association
+AlgorithmParametersSpec,init,,Init,expert-native,,decided under the expert oracle; api30 never carried this association
+AlgorithmParametersSpec,encoded,,GetEncoded,expert-native,,decided under the expert oracle; api30 never carried this association
+CertificateFactorySpec,get,,Get,expert-native,,decided under the expert oracle; api30 never carried this association
+CertificateFactorySpec,genCert,,gc1,expert-native,generateCertificate(inStream),decided under the expert oracle; api30 never carried this association
+CertificateFactorySpec,genCertPath,,gen1,expert-native,generateCertPath(_),decided under the expert oracle; api30 never carried this association
+CertificateFactorySpec,genCertPathEncoded,,gen2,expert-native,"generateCertPath(inStream, encoding)",decided under the expert oracle; api30 never carried this association
+CertificateFactorySpec,genCrl,,gcrl1,expert-native,generateCRL(inStream),decided under the expert oracle; api30 never carried this association
+DigestInputStreamSpec,c1,,c1,expert-native,"DigestInputStream(stream, digest)",decided under the expert oracle; api30 never carried this association
+DigestInputStreamSpec,r1,,r1,expert-native,read(),decided under the expert oracle; api30 never carried this association
+DigestInputStreamSpec,r2,,r2,expert-native,"read(data, offset, len)",decided under the expert oracle; api30 never carried this association
+DigestInputStreamSpec,cl1,,cl1,expert-native,close(),decided under the expert oracle; api30 never carried this association
+DigestInputStreamSpec,on,,,expert-native,,decided under the expert oracle; api30 never carried this association
+DigestOutputStreamSpec,c1,,c1,expert-native,"DigestOutputStream(stream, digest)",decided under the expert oracle; api30 never carried this association
+DigestOutputStreamSpec,w1,,r1,expert-native,write(specifiedByte),decided under the expert oracle; api30 never carried this association
+DigestOutputStreamSpec,w2,,r2,expert-native,"write(data, offset, len)",decided under the expert oracle; api30 never carried this association
+DigestOutputStreamSpec,cl1,,cl1,expert-native,close(),decided under the expert oracle; api30 never carried this association
+DigestOutputStreamSpec,on,,,expert-native,,decided under the expert oracle; api30 never carried this association
 IvParameterSpec,c1,cons1,c1,renamed,IvParameterSpec(iv),
 IvParameterSpec,c2,cons2,c2,renamed,"IvParameterSpec(iv, offset, len)",
+KeyFactorySpec,get,,Get,expert-native,,decided under the expert oracle; api30 never carried this association
+KeyFactorySpec,genPrivate,,gpr1,expert-native,privateKey = generatePrivate(keySpec),decided under the expert oracle; api30 never carried this association
+KeyFactorySpec,genPublic,,gpu1,expert-native,publicKey = generatePublic(keySpec),decided under the expert oracle; api30 never carried this association
 KeyPairGeneratorSpec,g1,g1,g1,same-name,getInstance(alg),
 KeyPairGeneratorSpec,g2,g2,g2,same-name,"getInstance(alg, _)",
 KeyPairGeneratorSpec,g3,,,order-unmapped,,order-unmapped
@@ -43,6 +70,9 @@ SSLContextSpec,g2,g2,g2,same-name,"getInstance(protocol, _)",
 SSLContextSpec,init,Init,Init,same-name,"init(kms, tms, _)",
 SSLContextSpec,engine,Engine,Engine,same-name,"eng = createSSLEngine(); eng = createSSLEngine(_, _)",
 SSLContextSpec,getDefault,,,order-unmapped,,order-unmapped
+SecretKeyFactorySpec,get,,Get,expert-native,,decided under the expert oracle; api30 never carried this association
+SecretKeyFactorySpec,gen,,gS,expert-native,key = generateSecret(keySpec),decided under the expert oracle; api30 never carried this association
+SecretKeyFactorySpec,translate,,tK,expert-native,key = translateKey(otherKey),decided under the expert oracle; api30 never carried this association
 SecretKeySpecSpec,c1,c1,c1,same-name,"SecretKeySpec(keyMaterial, alg)",
 SecretKeySpecSpec,c2,c2,c2,same-name,"SecretKeySpec(keyMaterial, off, len, alg)",
 SecureRandomSpec,c1,c1,c1,same-name,SecureRandom(),

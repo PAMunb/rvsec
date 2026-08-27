@@ -104,7 +104,7 @@ class M4PredicateCorpusTest {
                         + "only way to compare against the published measurements");
         assertEquals(0, count(frozen, PredicateSubstrate.PREDICATE_STORE));
 
-        assertEquals(111, current.size(),
+        assertEquals(131, current.size(),
                 "70 -> 101 -> 111 across gh109: task 1.3(b) writes the three generatedMessageDigest "
                         + "sites the transcription had omitted; group G2's fourteen producer "
                         + "specifications carry 14 writes and 10 reads of their own; and group G1b "
@@ -118,7 +118,7 @@ class M4PredicateCorpusTest {
         assertEquals(0, count(current, PredicateSubstrate.EXECUTION_CONTEXT),
                 "so the substrate-A ceiling no longer binds this set: it is a property of the "
                         + "frozen set, not a defect of the current corpus");
-        assertEquals(111, count(current, PredicateSubstrate.PREDICATE_STORE));
+        assertEquals(131, count(current, PredicateSubstrate.PREDICATE_STORE));
 
         PredicateGraph frozenGraph = PredicateGraph.of(frozen);
         PredicateGraph currentGraph = PredicateGraph.of(current);
@@ -241,8 +241,8 @@ class M4PredicateCorpusTest {
                         "RandomStringPassword.mop"),
                 pairing.unpairedNames(),
                 "and the losers are named rather than dropped in silence");
-        assertEquals(78, present, "edges present over the pairs, with no declared alias");
-        assertEquals(34, absent,
+        assertEquals(96, present, "edges present over the pairs, with no declared alias");
+        assertEquals(38, absent,
                 "44 -> 40 at gh109 group G2: four clauses that no site implemented now have one. "
                         + "The group adds pairs as well as sites, so this number could have moved "
                         + "either way -- a new pair brings its rule's unimplemented clauses in "
@@ -262,12 +262,15 @@ class M4PredicateCorpusTest {
         // 131 -> 135 at group G1b, and the arithmetic is the counting rule itself: ten sites
         // enter and six absences leave, because the six clauses those sites implement had a row
         // apiece as absences. Both halves move together and neither can be read off the other.
-        assertEquals(135, rows, "one row per site of a paired specification, plus one per absence");
-        assertEquals(112, derivedRows,
+        // 135 -> 159 at group G3, and both halves of the counting rule move at once: twenty-four
+        // sites enter over seven new pairs, and the absences rise with the pairing rather than
+        // fall with the sites.
+        assertEquals(159, rows, "one row per site of a paired specification, plus one per absence");
+        assertEquals(134, derivedRows,
                 "rows whose fidelity class this metric derived, under Judgements.empty(): no "
                         + "declared alias and no supplied class, so every derived row was derived "
                         + "by this metric and by nothing else");
-        assertEquals(0.830, (double) derivedRows / rows, 0.001,
+        assertEquals(0.843, (double) derivedRows / rows, 0.001,
                 "the derived fraction, which is the honest measure of how much of the manual "
                         + "table this component replaced; it rises when the comparison improves "
                         + "and not when the component is handed more judgement");

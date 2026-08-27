@@ -1,0 +1,147 @@
+package mop;
+
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.PublicKey;
+import java.security.spec.KeySpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+import br.unb.cic.mop.jca.util.ConscryptAliasTable;
+
+/**
+ * KeyFactory
+ *
+ * A JavaMOP specification of the correct usage of the
+ * java.security.KeyFactory.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyFactory.crysl
+ */
+KeyFactorySpec(KeyFactory f) {
+
+   // The envelope's quoting rule (design D-3).
+   private String q(String str) {
+       if (str == null) {
+           return "";
+       }
+       String value = str.length() > 512 ? str.substring(0, 512) : str;
+       return value.replace("'", "\\'");
+   }
+
+   // KeyFactory.crysl:24, transcribed. `DiffieHellman` and `DH` are both entries of the
+   // rule and both stay: the alias table resolves one to the other, and an alias never
+   // enters the list it resolves against.
+   List<String> safeAlgorithms = Arrays.asList("RSA", "DiffieHellman", "DH", "DSA", "EC");
+
+   // Staged by `get` for the `after Get` write, which sees no event parameter.
+   String algorithm = null;
+   KeyFactory obtained = null;
+
+   String expectedSpeccedKey = "a key spec this instrumentation observed being built from key material";
+
+   // `Get := g1 | g2` (:10-12), fused on the zeroth position. api30 declares three
+   // overloads -- `(String)`, `(String, String)` and `(String, Provider)` -- and all three
+   // are the rule's `Get`, so all three are named. Leaving one out sends an object obtained
+   // through it to its next event with the monitor at state 0, where every row is `fail`;
+   // that is the defect `KeyPairGeneratorSpec.g2` records.
+   event get after(String alg) returning(KeyFactory f):
+     ( call(public static KeyFactory KeyFactory.getInstance(String)) ||
+       call(public static KeyFactory KeyFactory.getInstance(String, String)) ||
+       call(public static KeyFactory KeyFactory.getInstance(String, java.security.Provider))
+     ) && args(alg, ..) {
+       algorithm = ConscryptAliasTable.canonical("KeyFactory", alg);
+       obtained = f;
+       if (!ConscryptAliasTable.matches("KeyFactory", alg, safeAlgorithms)) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyFactorySpec", "" + __LOC,
+               "v=1 code=KEYFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
+       }
+   }
+
+   // `gpr1: privateKey = generatePrivate(keySpec)` (:14), the whole of `GenPriv`.
+   //
+   // `speccedKey[keySpec, _]` (:27) is read here, at arity 1 through `validateAny`: the
+   // clause leaves its second position anonymous, and demanding a one-place entry instead
+   // would answer VIOLATED for every spec whose producer wrote the value the rule allows it
+   // to ignore. Producers: `PBEKeySpecSpec`, `SecretKeySpecSpec` and, from task 2.13,
+   // `X509EncodedKeySpecSpec` -- which is the one a key factory actually sees, since a
+   // public or private key is decoded from encoded key material.
+   //
+   // `generatedPrivkey[privateKey] after GenPriv` (:31) is written in this body and not in
+   // a handler, because the clause names the RETURNED key (INV-INS-134, the `gkm1`
+   // placement). Its readers exist: `KeyPairSpec` and `SignatureSpec` read the predicate.
+   // The write is on the conforming branch only.
+   event genPrivate after(KeySpec keySpec, KeyFactory f) returning(PrivateKey privateKey):
+     call(public PrivateKey KeyFactory.generatePrivate(KeySpec)) &&
+     args(keySpec) && target(f) {
+       boolean conforms = true;
+       PredicateVerdict specced = PredicateStore.instance().validateAny(Property.SPECCED_KEY, keySpec);
+       if (specced == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
+               "v=1 code=KEYFACTORY-CONSTR-00 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='the key spec carries a specification predicate the rule does not admit'"));
+       }
+       else if (specced == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
+               "v=1 code=KEYFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='no construction of the key spec was observed'"));
+       }
+       if (conforms) {
+           PredicateStore.instance().ensure(Property.GENERATED_PRIVATE_KEY, privateKey);
+       }
+   }
+
+   // `gpu1: publicKey = generatePublic(keySpec)` (:17), the whole of `GenPubl`, and the
+   // twin of the site above. Two sites for one clause, so two pairs of codes: a report has
+   // to say which of the two calls it is about (INV-INS-143, the `IvParameterSpec` rule).
+   //
+   // `generatedPubkey[publicKey] after GenPubl` (:32) has readers too -- `TrustAnchorSpec`
+   // from task 2.12, and `KeyPairSpec`.
+   event genPublic after(KeySpec keySpec, KeyFactory f) returning(PublicKey publicKey):
+     call(public PublicKey KeyFactory.generatePublic(KeySpec)) &&
+     args(keySpec) && target(f) {
+       boolean conforms = true;
+       PredicateVerdict specced = PredicateStore.instance().validateAny(Property.SPECCED_KEY, keySpec);
+       if (specced == PredicateVerdict.VIOLATED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
+               "v=1 code=KEYFACTORY-CONSTR-01 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='the key spec carries a specification predicate the rule does not admit'"));
+       }
+       else if (specced == PredicateVerdict.NOT_OBSERVED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
+               "v=1 code=KEYFACTORY-NOBS-01 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='no construction of the key spec was observed'"));
+       }
+       if (conforms) {
+           PredicateStore.instance().ensure(Property.GENERATED_PUBLIC_KEY, publicKey);
+       }
+   }
+
+   // The rule's ORDER, `Get, (GenPriv | GenPubl)*` (:21). The `*` is the rule's: a factory
+   // may generate any number of keys, or none, so the state the Get leads to accepts on its
+   // own. Precedent for the shape: `KeyPairSpec`'s `ere: c1 (gpu | gpr)*`.
+   ere : get (genPrivate | genPublic)*
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyFactorySpec", "" + __LOC,
+          "v=1 code=KEYFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=KeyFactory val='' exp='' msg='the observed call sequence is not one KeyFactorySpec accepts'"));
+      obtained = null;
+      __RESET;
+   }
+
+   // `generatedKeyFactory[this, algorithm] after Get` (:30). The `Get` state is the
+   // accepting state of a `Get, (...)*` ordering, so the clause's acceptance point and the
+   // match are the same state, and the object is the monitored factory -- reachable through
+   // a field where the two returned keys are not.
+   //
+   // No rule of the pinned oracle REQUIRES `generatedKeyFactory`. The write stands because
+   // the rule ENSURES it and coverage of the rule is the obligation; no reader is
+   // fabricated for it, and the graph records the omission (INV-INS-137).
+   @match {
+      if (obtained != null) {
+          PredicateStore.instance().ensure(Property.GENERATED_KEY_FACTORY, obtained, algorithm);
+      }
+   }
+
+}
