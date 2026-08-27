@@ -1,0 +1,9 @@
+# gh109 task 1.R, the conforming half of R4. Every flush a program may legally make, at every
+# position it may make it, still passes: the repaired `ere` is `c1 fl* ((w1 | w2) fl*)+ cl`,
+# which quantifies the `+` over writes and leaves flushes free around them.
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> cipher
+new CipherOutputStream(null, cipher) -> cos
+cos.flush()
+cos.write(bytes)
+cos.flush()
+cos.close()

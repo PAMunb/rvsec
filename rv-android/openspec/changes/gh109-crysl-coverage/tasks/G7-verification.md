@@ -29,6 +29,11 @@ Java lines carry the JDK 21 prefix; monitor generation is inspected as an artifa
   `generatedManagerFactoryParameters` have live read sites; `Cipher.crysl:136`'s `preparedAlg` carries
   its deferral row (ceiling 17/17, `i2` binds no `params`). A predicate written by a new specification
   and read by nobody fails this assertion.
+- Transitory dispositions, enumerated rather than absent. G3 is M2 work, so the
+  `unmonitored-consumer` 1.R wrote on the three `MessageDigestSpec` write rows is **legitimately
+  still standing at M1**. What is asserted here is that each one is named, with the task that owes
+  its retirement (3.R), and that no *other* row acquired one. The assertion that none survived is
+  7.3's, at M2.
 - Coverage matrix: every G1/G2-landed rule `covered`; no rule with zero or two states among the
   landed tiers.
 - Run `/rv-verify` on the touched Python surface (scripts/, tests/parity/).
@@ -39,6 +44,10 @@ Java lines carry the JDK 21 prefix; monitor generation is inspected as an artifa
    pairs added by 1.R/2.R/3.R/4.3; every `introduced/removed/moved` classified and attributed to its
    group; evidence committed.
 2. Re-run the full 7.1 battery.
+   - Including the assertion 7.2 could not make: **no transitory disposition survived its reason**,
+     in `predicate_graph.csv` or in `predicate_ledger.csv`. Concretely, the three `MessageDigestSpec`
+     write rows no longer carry `unmonitored-consumer`, and no write row carries an `omission` whose
+     recorded reason a landed consumer falsified (D-24).
 3. Coverage matrix complete: **49/49 terminal states** over the three values (covered / na-platform /
    na-value), each with evidence, and `oracle_defect_row` filled by the join on `kind = oracle-wart`
    — the master question answers *yes, or adjudicated*. Remember what the column asserts: pairing and

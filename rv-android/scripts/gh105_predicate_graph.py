@@ -1268,9 +1268,15 @@ RECORDED_READ_DISPOSITIONS = {
     "propagation",  # the read translates no clause; it forwards a mark
 }
 
-# The disposition that closes a write with no reader: an `ENSURES`-only dead end,
-# recorded rather than given a fabricated reader.
-RECORDED_WRITE_DISPOSITIONS = {"omission", "propagation"}
+# The dispositions that close a write with no reader. `omission` is the
+# `ENSURES`-only dead end -- no rule of the oracle requires the predicate, so the
+# write is recorded rather than given a fabricated reader. `unmonitored-consumer`
+# is the read side's own word with the roles mirrored: rules do require the
+# predicate and they have no `.mop` in the set, which is the true reason a write
+# lands ahead of its readers. Admitting it does not loosen the gate -- a
+# reader-less write still has to name why -- it makes the true reason sayable
+# where before only the false one was.
+RECORDED_WRITE_DISPOSITIONS = {"omission", "propagation", "unmonitored-consumer"}
 
 # A junction specification, by name. The convention is what makes the four rules
 # of INV-INS-136 checkable at all: they apply to mechanism B and to nothing else,

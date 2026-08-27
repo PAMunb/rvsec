@@ -41,7 +41,6 @@ SSLContextSpec(SSLContext ctx) {
    // (:80), but through a `put`, not an Alg.Alias, and asking a provider for "SSL" is the
    // misuse the rule is about (behavioural row in divergence_record.csv).
    List<String> protocols = Arrays.asList("TLSV1.2", "TLSV1.3", "TLS");
-   String currentProtocol = "";
 
    SSLContext context;
 
@@ -81,8 +80,7 @@ SSLContextSpec(SSLContext ctx) {
    // `getInstance` is a `Gets` whatever it was asked for. Dropping the guard lets the
    // rejected context reach `end` like any other, where the `init` body accuses it
    // exactly once, with SSLCONTEXT-PROTO-00. `unsafe_protocol`'s body accused nothing
-   // of its own -- it only rebound `currentProtocol` -- so nothing it reported is
-   // lost.
+   // of its own, so nothing it reported is lost.
    //
    // The two-argument `g2` below lost the same guard, for the same reason and with the
    // same effect. It kept the guard when `g1` lost it only because it is not an orphan
@@ -125,11 +123,10 @@ SSLContextSpec(SSLContext ctx) {
    // row that moves every state to `fail`, so declaring this event without them would trade the
    // false negative for an ordering false positive -- the defect tasks 3.2 and 3.6 spent a
    // group removing from this very file.
-   // The body writes neither `context` nor `currentProtocol`, and that is not an omission: the
-   // self-loop keeps this monitor wherever it already was, `@match1` is reachable only from
-   // `end`, and no route from here arrives there -- a `getDefault()` context that is then
-   // `init`ed goes `start -> fail`. Two writes no handler can read is exactly the bookkeeping
-   // INV-INS-137 says to stop writing.
+   // The body writes no monitor state, and that is not an omission: the self-loop keeps this
+   // monitor wherever it already was, `@match1` is reachable only from `end`, and no route from
+   // here arrives there -- a `getDefault()` context that is then `init`ed goes `start -> fail`.
+   // A write no handler can read is exactly the bookkeeping INV-INS-137 says to stop writing.
    event getDefault after() returning(SSLContext ctx):
     call(public static SSLContext SSLContext.getDefault()) {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "SSLContextSpec", "" + __LOC,
@@ -140,7 +137,6 @@ SSLContextSpec(SSLContext ctx) {
     call(public static SSLContext SSLContext.getInstance(String))
     && args(protocol) {
       context = ctx;
-      currentProtocol = protocol;
     }
 
     // `Object+` covers both two-argument `getInstance` overloads the platform declares --
@@ -156,7 +152,6 @@ SSLContextSpec(SSLContext ctx) {
       call(public static SSLContext SSLContext.getInstance(String, Object+)) &&
       args(protocol, provider) {
         context = ctx;
-        currentProtocol = protocol;
     }
 
    // ALL THREE REQUIRES clauses of the oracle's SSLContext that name an argument of this

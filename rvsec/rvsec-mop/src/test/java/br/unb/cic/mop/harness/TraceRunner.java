@@ -417,7 +417,10 @@ public final class TraceRunner implements AutoCloseable {
                     continue;
                 }
                 if (call.type != null) {
-                    if (!pointcut.type.equals(call.type)) {
+                    // A `T+` owner admits the declared type and anything assignable to it; a
+                    // plain owner is the exact name, as before. The other branch is already
+                    // subtype-aware, because `isInstance` is.
+                    if (!ownerAdmits(pointcut, call.type)) {
                         continue;
                     }
                 } else {
@@ -817,6 +820,26 @@ public final class TraceRunner implements AutoCloseable {
         return adapted;
     }
 
+    /**
+     * Whether a line that names its own type is one this pointcut's owner admits: the same name,
+     * or -- under the AspectJ subtype operator {@code T+} -- a type assignable to it.
+     *
+     * <p>
+     * It lives here and not on {@link Pointcut} because resolving a simple name to a class is
+     * this runner's job and its table, and {@code Pointcut} is static.
+     */
+    private boolean ownerAdmits(Pointcut pointcut, String declaredType) {
+        if (pointcut.type.equals(declaredType)) {
+            return true;
+        }
+        if (!pointcut.subtypeOwner) {
+            return false;
+        }
+        Class<?> owner = resolve(pointcut.type);
+        Class<?> actual = resolve(declaredType);
+        return owner != null && actual != null && owner.isAssignableFrom(actual);
+    }
+
     private Class<?> resolve(String simpleName) {
         String qualified = imports.get(simpleName);
         String[] candidates = qualified != null
@@ -987,6 +1010,18 @@ public final class TraceRunner implements AutoCloseable {
         final String returnType;
         final List<String> paramTypes;
         final boolean variadic;
+        /**
+         * Whether the owner carried the AspectJ subtype operator, {@code T+}. The operator is
+         * stripped from {@link #type} and kept here, the way the parameter path already keeps
+         * it ({@link TraceRunner#fitsPointcut}) and the way the production matcher does
+         * ({@code PointcutMatcher} §4.O, which keeps the {@code +} in {@code declaringType()}
+         * and routes the owner through {@code InheritanceResolver.isAssignableFrom}).
+         *
+         * <p>Without this the owner {@code SecretKey+} was looked up as a class of that literal
+         * name, resolved to {@code null}, and matched nothing -- so a specification that widened
+         * its owner to admit subtypes was measured here as one that had stopped weaving.
+         */
+        final boolean subtypeOwner;
 
         /** Words a signature may carry ahead of the return type. */
         private static final List<String> MODIFIERS = Arrays.asList(
@@ -995,7 +1030,8 @@ public final class TraceRunner implements AutoCloseable {
 
         Pointcut(String type, String method, String returnType, List<String> paramTypes,
                 boolean variadic) {
-            this.type = type;
+            this.subtypeOwner = type.endsWith("+");
+            this.type = this.subtypeOwner ? type.substring(0, type.length() - 1) : type;
             this.method = method;
             this.returnType = returnType;
             this.paramTypes = paramTypes;

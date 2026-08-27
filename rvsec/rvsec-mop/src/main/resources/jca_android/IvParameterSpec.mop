@@ -95,10 +95,15 @@ IvParameterSpecSpec(IvParameterSpec s) {
     // which is not what a structural fusion is for. The oracle states three bounds
     // clauses -- `length[iv] >= offset + len`, `offset >= 0`, `len > 0`
     // (IvParameterSpec.crysl:17-19) -- and two of these conjuncts are the first two
-    // verbatim, so it stands behind keeping them. The third reads `len >= 0` where the
-    // rule reads `len > 0`, which conformance_record.csv defers: a guard that does not
-    // advance the automaton accuses nobody, so tightening it would add an accusation
-    // class rather than repair one.
+    // verbatim, so it stands behind keeping them, uncoded: a code with no reachable
+    // emission accuses a program the platform forbids.
+    //
+    // The third is the one clause of the three a program can break and still return, and
+    // it has its own branch and its own code for that reason. The constructor admits
+    // `len == 0`; the rule states `len > 0`; and a zero-length IV was passing this guard
+    // AND being prepared, so the specification put its own seal on the one violation it
+    // could actually see. `len < 0` is refused by the constructor, so the branch is
+    // written over `len <= 0` and reached only at zero.
     //
     // The read is the same clause as `c1`'s, at the same arity, over the same array:
     // one predicate, two constructors that bind it. It gets codes of its own because a
@@ -116,7 +121,11 @@ IvParameterSpecSpec(IvParameterSpec s) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
                 "v=1 code=IVPARAMETERSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='no randomized source of the iv given to IvParameterSpec(byte[], int, int) was observed'"));
         }
-        else if (offset >= 0 && len >= 0 && iv.length >= offset + len) {
+        else if (len <= 0) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
+                "v=1 code=IVPARAMETERSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=IvParameterSpec val='" + len + "' exp='a length greater than zero' msg='the iv length given to IvParameterSpec(byte[], int, int) is not greater than zero'"));
+        }
+        else if (offset >= 0 && iv.length >= offset + len) {
             spec = s;
         }
     }

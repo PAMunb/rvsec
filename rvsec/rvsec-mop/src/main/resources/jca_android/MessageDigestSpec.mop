@@ -37,7 +37,6 @@ MessageDigestSpec(MessageDigest digest) {
     // consumption, so an event whose digest the automaton did not accept leaves no
     // marking behind for the next one.
     byte[] stagedDigested = null;
-	String currentAlgorithmInstance = "";
 
 	/*
 	getInstance events should not, by themselves, trigger UnsalfeAlgorithm errors. The reason is because the algorithm
@@ -45,22 +44,39 @@ MessageDigestSpec(MessageDigest digest) {
 	Therefore, during the getInstance sub-graph, we only need to keep track of what is the latest algorithm that has
 	been instantiated.
 	 */
+	// `MessageDigest.crysl:46` states `generatedMessageDigest[this] after Get`, and the
+	// `after Get` is what fixes the site: the acceptance point is this transition, not the
+	// accepting state, which is the same reading -- inverted -- that puts `digested` in
+	// `@match` below (INV-INS-134). The predicate is what `DigestInputStream.crysl:33` and
+	// `DigestOutputStream.crysl:34` require, so without this write their reads could answer
+	// only NOT_OBSERVED, for every program, forever.
+	//
+	// It is written by `g1`, `g2` and `g3` and not by `g4`. The three are the conforming
+	// route -- each guarded on `ConscryptAliasTable.matches` -- while `g4` is the
+	// complementary event over the same pointcut, whose body has just accused
+	// MESSAGEDIGEST-ALG-02. Writing there would hand the stream rules a digest this
+	// specification refused, and CrySL ensures a predicate for a use that satisfied the
+	// rule.
+	//
+	// The `condition(...)` on these three is not the mistake INV-INS-133 names. That rule
+	// is about a clause whose violated side is silence; here the violated side is `g4`,
+	// which reports. The guard partitions the calls, it does not hide them.
 	event g1 after(String alg) returning(MessageDigest digest):
 	  call(public static MessageDigest MessageDigest.getInstance(String))
 	  && args(alg) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
-	  currentAlgorithmInstance = alg;
+	  PredicateStore.instance().ensure(Property.GENERATED_MESSAGE_DIGEST, digest);
 	}
 
 	event g2 after(String alg, String provider) returning(MessageDigest digest):
       call(public static MessageDigest MessageDigest.getInstance(String, String))
       && args(alg, provider) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
-	  currentAlgorithmInstance = alg;
+	  PredicateStore.instance().ensure(Property.GENERATED_MESSAGE_DIGEST, digest);
     }
 
     event g3 after(String alg, Provider provider) returning(MessageDigest digest):
       call(public static MessageDigest MessageDigest.getInstance(String, Provider))
       && args(alg, provider) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
-    	currentAlgorithmInstance = alg;
+    	PredicateStore.instance().ensure(Property.GENERATED_MESSAGE_DIGEST, digest);
     }
 
 	/*
@@ -82,7 +98,6 @@ MessageDigestSpec(MessageDigest digest) {
         {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
               "v=1 code=MESSAGEDIGEST-ALG-02 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
-		    currentAlgorithmInstance = alg;
         }
 
 	/*
@@ -111,9 +126,19 @@ MessageDigestSpec(MessageDigest digest) {
 	the seed had it, with the reason recorded in `predicate_graph.csv`: no rule of the
 	oracle requires `digested`, so there is no consumer whose arity this write has to meet.
 	 */
+	// Same case as `update` and `d2`: this event consumes the algorithm, so this is where
+	// an unsafe one is caught. Without the check the two-argument route was silent on
+	// value -- `getInstance("MD5", provider)` followed by a direct `digest()` matches `g2`
+	// and `d1`, neither of which looked at the algorithm, and the only report the sequence
+	// could draw was an ordering one it did not deserve.
 	event d1 after(MessageDigest digest) returning(byte[] out):
 	 call(public byte[] MessageDigest.digest()) &&
 	 target(digest) {
+		if (!ConscryptAliasTable.matches("MessageDigest", digest.getAlgorithm(), algorithms)) {
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
+		__LOC,
+       "v=1 code=MESSAGEDIGEST-ALG-03 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(digest.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + digest.getAlgorithm() + "'"));
+		}
 	    stagedDigested = out;
 	}
 
@@ -131,10 +156,18 @@ MessageDigestSpec(MessageDigest digest) {
     	stagedDigested = out;
     }
 
+    // The third consumption route, and the same check for the same reason. The code is a
+    // site's and not a clause's: one CONSTRAINTS clause read at four events is four codes,
+    // because the report has to say which call it is about.
     event d3 after(byte[] out, int offset, int len, MessageDigest digest):
      call(public int MessageDigest.digest(byte[], int, int)) &&
      args(out, offset, len) &&
      target(digest) {
+		if (!ConscryptAliasTable.matches("MessageDigest", digest.getAlgorithm(), algorithms)) {
+			ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" +
+		__LOC,
+       "v=1 code=MESSAGEDIGEST-ALG-04 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(digest.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + digest.getAlgorithm() + "'"));
+		}
        stagedDigested = out;
     }
 

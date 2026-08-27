@@ -30,6 +30,7 @@ KeyPairGeneratorSpec,init2,i4,i2,renamed,"initialize(keySize, _)",
 KeyPairGeneratorSpec,init3,i1,i3,renamed,initialize(params),
 KeyPairGeneratorSpec,init4,i2,i4,renamed,"initialize(params, _)",
 KeyPairGeneratorSpec,initError,i3,i1,renamed,initialize(keySize),
+KeyPairGeneratorSpec,initError2,i4,i2,renamed,"initialize(keySize, _)",
 KeyPairGeneratorSpec,gen,Generators,Gen,renamed,kp = generateKeyPair(); kp = genKeyPair(),
 PBEKeySpecSpec,f1,,,order-unmapped,,order-unmapped
 PBEKeySpecSpec,f2,,,order-unmapped,,order-unmapped

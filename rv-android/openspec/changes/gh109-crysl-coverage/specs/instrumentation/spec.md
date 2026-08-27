@@ -82,6 +82,24 @@ The `jca_android` set SHALL cover the pinned expert oracle completely, in the se
 - **THEN** a program that initializes an RSA `KeyPairGenerator` from a conforming `RSAKeyGenParameterSpec` MUST read SATISFIED, and one that initializes it from a parameter spec the rule refuses MUST be accused on the VIOLATED branch
 - **AND** the NOT_OBSERVED branch MUST carry a code of its own, so that a program whose parameter spec was built outside the monitored set is distinguishable from one that violated the clause
 
+#### Scenario: A producer gap hides behind a producing rule that is paired
+
+- **WHEN** the ledger is re-derived after `DigestInputStreamSpec.mop` and `DigestOutputStreamSpec.mop` land, and the `generatedMessageDigest` they read names a producing rule — `MessageDigest` — that already has a paired `.mop`
+- **THEN** the disposition MUST be decided by whether `MessageDigestSpec.mop` writes the predicate, and not by whether the producing rule has a `.mop`: a paired producer that writes nothing is a gap, and it is the one form the absent-rule enumeration cannot see
+- **AND** the write MUST stand at the acceptance point the rule names (`generatedMessageDigest[this] after Get`, `MessageDigest.crysl:46`), so that a program which digests through a conforming `getInstance` reaches the SATISFIED branch instead of NOT_OBSERVED
+
+#### Scenario: A producer lands a group before its consumers and the interval is named
+
+- **WHEN** `MessageDigestSpec.mop` gains the `generatedMessageDigest` write in group G1 and the two rules that require it — `DigestInputStream.crysl:33` and `DigestOutputStream.crysl:34` — have no specification until group G3
+- **THEN** the write's recorded disposition MUST name the absent consumer and MUST NOT name a deliberate omission, because two rules of the oracle do require the predicate and an omission would record as settled the gap this change exists to close
+- **AND** the disposition MUST NOT outlive its reason: when the consuming specifications land, the re-derivation MUST move the write to wired, and the final verification MUST report that no transitory disposition remains
+
+#### Scenario: A recorded omission expires when a landing consumer reads its predicate
+
+- **WHEN** a specification landed by this change reads a predicate that an existing specification writes under the disposition `omission`, and the closure gate — which accumulates written and read predicate names over the whole set — therefore stops raising that write row
+- **THEN** the group's records pass MUST re-derive the disposition of every write row of the graph, not only the rows its own tasks created
+- **AND** a recorded reason the landing consumer falsified MUST be amended in that same pass, because a reason no gate reads any more is where a false record survives unnoticed
+
 #### Scenario: A read that cannot bind its clause is recorded, not dropped
 
 - **WHEN** `Cipher.crysl:136` requires `preparedAlg[params, alg(transformation)]` but `CipherSpec`'s fused `i2` binds only `mode` and `key` (`args(mode, key, ..)`) and the specification stands at 17 of the 17 events the generator admits

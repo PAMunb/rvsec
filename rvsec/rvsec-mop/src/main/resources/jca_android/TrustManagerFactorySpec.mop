@@ -36,7 +36,6 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // D-15: TrustManagerFactory.crysl states `algorithm in {"PKIX", "SunX509"}`. Same
     // disposition as KeyManagerFactorySpec: `SunX509` is inert on Android, not removable.
     List<String> algorithms = Arrays.asList("PKIX", "SunX509");
-    String currentAlgorithmInstance = "";
 
     // Staged by `init` for the acceptance-point handler, which sees no event parameter,
     // and cleared the moment it is used or the sequence is rejected.
@@ -67,8 +66,8 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // `getInstance` is a `Gets` whatever it was asked for. Dropping the guard lets
     // the rejected factory reach `final` like any other, where the `init` body
     // accuses it exactly once, with `TRUSTMANAGERFACTORY-ALG-00`. `g3`'s body
-    // accused nothing of its own -- it only rebound `currentAlgorithmInstance` --
-    // so nothing it reported is lost; what leaves is the pair of ordering reports
+    // accused nothing of its own, so nothing it reported is lost; what leaves is
+    // the pair of ordering reports
     // about an ordering the rule accepts, and what arrives is the constraint
     // report the rule states.
     //
@@ -80,14 +79,12 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     event g1 after(String alg) returning(TrustManagerFactory mf):
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String))
       && args(alg) {
-        currentAlgorithmInstance = alg;
     }
 
     event g2 after(String alg) returning(TrustManagerFactory mf):
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..))
       && args(alg, *)
       && condition(ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms)) {
-        currentAlgorithmInstance = alg;
     }
 
     // `generatedKeyStore[keyStore]` (TrustManagerFactory.crysl:28, ledger clause #36) is read

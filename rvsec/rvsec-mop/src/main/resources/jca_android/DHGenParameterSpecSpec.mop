@@ -18,11 +18,35 @@ DHGenParameterSpecSpec(DHGenParameterSpec s) {
 
    DHGenParameterSpec spec;
 
+   // The rule's single CONSTRAINTS clause, `exponentSize < primeSize`
+   // (DHGenParameterSpec.crysl:15), read in the body with an accuser on the violated
+   // branch. It has to be read here and not in a `condition(...)`: that clause
+   // compiles to `if (!(guard)) return false;` ahead of both the body and the
+   // transition, so a construction that breaks the constraint takes no transition,
+   // reaches no accepting state and is accused of nothing (INV-INS-133). A value
+   // clause whose violation is total silence is not a check.
+   //
+   // Both integers the message prints are operands of this guard: `val` carries the
+   // exponent size the constructor was given, `exp` names the bound it had to fall
+   // under. The rule states the constraint over the sizes and not over the values
+   // derived from them, so nothing else is read.
+   //
+   // `spec` is bound only on the conforming branch, which is what carries the write
+   // to `@match`: `ENSURES preparedDH[this]` (:18) has no `after L`, so its
+   // acceptance point is the accepting state (INV-INS-134), and a construction that
+   // broke the clause arrives there with nothing bound. `ensure` treats a null
+   // binding as a no-op, so it prepares nothing -- the literal reading of CrySL,
+   // where a predicate is ensured for a use that satisfied the rule.
    event c1 after(int primeSize, int exponentSize) returning(DHGenParameterSpec s):
     call(public DHGenParameterSpec.new(int, int)) &&
-    args(primeSize, exponentSize) &&
-    condition(exponentSize < primeSize) {
-       spec = s;
+    args(primeSize, exponentSize) {
+       if (exponentSize >= primeSize) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DHGenParameterSpecSpec", "" + __LOC,
+               "v=1 code=DHGENPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=DHGenParameterSpec val='" + exponentSize + "' exp='an exponent size below the prime size " + primeSize + "' msg='the exponent size is not below the prime size'"));
+       }
+       else {
+           spec = s;
+       }
    }
 
    ere : c1

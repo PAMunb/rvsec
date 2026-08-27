@@ -906,7 +906,10 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
 
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 43
     assert read_placement.get("condition", 0) == 0
-    assert counts.get("write", 0) == 32
+    # 32 -> 35 at gh109 task 1.3(b): the three `Get` events of `MessageDigestSpec` gain the
+    # `generatedMessageDigest` write the transcription had omitted (`MessageDigest.crysl:46`).
+    # Three sites and not one, because a code -- and a site -- names a call and not a clause.
+    assert counts.get("write", 0) == 35
     assert (
         counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
     )
@@ -1298,7 +1301,10 @@ def test_the_graph_reproduces_the_measured_placement_census():
     # 5.3 put the set's first one there, and the assertion exists so that the next one
     # cannot arrive uncounted.
     assert counts.get("read-absent:body", 0) == 5
-    assert counts.get("write:body", 0) == 5
+    # 5 -> 8 at gh109 task 1.3(b). The three new writes are `write:body` and belong there: the
+    # clause carries `after Get`, so its acceptance point IS the transition, which is the same
+    # INV-INS-134 reading -- inverted -- that puts this file's `digested` in `@match`.
+    assert counts.get("write:body", 0) == 8
     assert counts.get("write:acceptance", 0) == 27
     assert counts.get("remove:fail", 0) == 0
     assert counts.get("negate:body", 0) == 1
@@ -2415,14 +2421,19 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     # harness pair of that task measures exactly that: five NOBS reports and no ORDER one.
     assert cipher.witness == ("g1", "i1")
     assert cipher.accepted_by == "the specification"
-    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (15, 6, 2)
+    # Under the mutant allow-list `CipherSpec` is accused, so it leaves both buckets: the
+    # healthy run is 16/6/2 since gh109 task 1.4 discharged `CipherOutputStreamSpec`'s row,
+    # and this one is 16 passed / 5 allow-listed / 2 skipped.
+    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (16, 5, 2)
 
     # And the run beside it, from the same code path: the difference between the
     # two is the one field, so the gate is what is being measured here. The healthy
     # run reports nothing, which is only worth asserting beside the mutant -- alone
     # it would also be what a gate that stopped comparing produces.
     assert healthy.findings == []
-    assert (len(healthy.passed), len(healthy.allowed)) == (15, 7)
+    # 15/7 -> 16/6 at gh109 task 1.4: R4 repaired the divergence
+    # `CipherOutputStreamSpec`'s row forgave, and the row went with it.
+    assert (len(healthy.passed), len(healthy.allowed)) == (16, 6)
 
 
 def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
@@ -2451,13 +2462,16 @@ def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(
     divergence that no longer exists.
     """
     live = gh105_order_gate.read_allowlist(ALLOWLIST)
-    assert len(live) == 7
+    # 7 -> 6 at gh109 task 1.4, with the discharged `CipherOutputStreamSpec` row.
+    assert len(live) == 6
     assert ("jca_android", "CipherSpec", "order", "g1 i1") in live
 
     for field, blank in (("reason", ""), ("witness", "")):
         path = _allowlist_variant(tmp_path, **{field: blank})
         admitted = gh105_order_gate.read_allowlist(path)
-        assert len(admitted) == 6, field
+        # one fewer than `live`: the variant blanks the field on one row and the reader
+        # drops it. 6 -> 5 with the discharged row of gh109 task 1.4.
+        assert len(admitted) == 5, field
         assert not any(spec == "CipherSpec" for _, spec, _, _ in admitted), field
 
         result = gh105_order_gate.run(
@@ -2540,7 +2554,10 @@ def test_the_order_gate_exits_one_when_it_accuses_and_two_when_it_compared_nothi
         )
         == 0
     )
-    assert "15 passed, 0 failed, 7 allow-listed" in capsys.readouterr().out
+    # 15/7 -> 16/6 at gh109 task 1.4 (R4). The `ere` no longer lets `flush` satisfy the
+    # rule's mandatory `Write+`, so `CipherOutputStreamSpec` stops needing the forgiveness
+    # it had and its allow-list row is removed with the repair.
+    assert "16 passed, 0 failed, 6 allow-listed" in capsys.readouterr().out
 
     revoked = _allowlist_variant(tmp_path, witness="g1 i1 OUTRA")
     assert (

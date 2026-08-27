@@ -1,0 +1,9 @@
+# gh109 task 1.R, the violating half of R1. The rule states one CONSTRAINTS clause --
+# `exponentSize < primeSize` (DHGenParameterSpec.crysl:15) -- and this construction breaks
+# it: an exponent as large as the prime.
+#
+# Before R1 the clause sat in a `condition(...)`, which compiles ahead of the transition, so
+# this trace took no transition, reached no accepting state and drew NOTHING. It is the
+# violation whose report was total silence. It must now draw DHGENPARAMETERSPEC-CONSTR-00,
+# and it must not prepare `preparedDH`.
+new DHGenParameterSpec(2048, 2048) -> params

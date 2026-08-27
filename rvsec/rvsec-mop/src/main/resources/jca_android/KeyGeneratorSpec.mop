@@ -212,7 +212,16 @@ KeyGeneratorSpec(KeyGenerator k) {
     // three-valued read.
     @match {
        if (generatedKey != null) {
-           PredicateStore.instance().ensure(Property.GENERATED_KEY, generatedKey, generatedKeyAlgorithm);
+           // The value written is the canonical name, not the spelling `getInstance` was
+           // handed (D-20.3). `PredicateStore` only lowercases when it compares, so a raw
+           // alias propagates as itself: a key from `getInstance("HMAC/SHA256")` was stored
+           // under that string and every reader asks with `key.getAlgorithm()`, which
+           // answers `HmacSHA256`. The read then says NOT_OBSERVED -- no producer seen --
+           // about a key this very specification watched being generated, and the failure
+           // surfaces as an accusation in a different file, which is the worst place to
+           // debug it from. Resolving here puts both ends on the same name.
+           PredicateStore.instance().ensure(Property.GENERATED_KEY, generatedKey,
+               ConscryptAliasTable.canonical("KeyGenerator", generatedKeyAlgorithm));
            generatedKey = null;
            generatedKeyAlgorithm = null;
        }

@@ -43,7 +43,6 @@ SignatureSpec(Signature s) {
        // and not as an authority.
        List<String> algorithms = Arrays.asList("SHA256withRSA", "SHA256withECDSA", "SHA256withDSA",
             "SHA384withRSA", "SHA512withRSA", "SHA384withECDSA", "SHA512withECDSA");
-       String currentAlgorithmInstance = "";
 
        String expectedPrivateKey = "a private key produced by one of the generators the rule names";
 
@@ -74,8 +73,7 @@ SignatureSpec(Signature s) {
        // it was asked for. Dropping the guard lets the rejected signature reach the
        // init events like any other, where the four `i1`-`i4` bodies accuse it
        // exactly once, with SIGNATURE-ALG-00 through SIGNATURE-ALG-03. `g3`'s body
-       // accused nothing of its own -- it only rebound `currentAlgorithmInstance` --
-       // so nothing it reported is lost.
+       // accused nothing of its own, so nothing it reported is lost.
        //
        // Residue, recorded and not repaired (divergence_record.csv): a `getInstance`
        // whose algorithm the rule rejects and which is never initialised is now
@@ -86,7 +84,6 @@ SignatureSpec(Signature s) {
        event g1 after(String alg) returning(Signature s):
          call(public static Signature Signature.getInstance(String)) &&
          args(alg) {
-           currentAlgorithmInstance = alg;
        }
 
        // `Object+` covers both two-argument `getInstance` overloads the platform declares --
@@ -102,7 +99,6 @@ SignatureSpec(Signature s) {
          call(public static Signature Signature.getInstance(String, Object+)) &&
          args(alg, provider) &&
          condition(ConscryptAliasTable.matches("Signature", alg, algorithms)) {
-           currentAlgorithmInstance = alg;
        }
 
        // The rule states two REQUIRES clauses and this file read neither until this pass:

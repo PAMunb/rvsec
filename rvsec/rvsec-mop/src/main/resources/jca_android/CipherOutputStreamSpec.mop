@@ -59,7 +59,17 @@ CipherOutputStreamSpec(CipherOutputStream cos) {
       call(public void CipherOutputStream.close()) &&
       target(cos) { }
 
-    ere : c1 (w1 | w2 | fl)+ cl
+    // The rule's ORDER is `Con, Write+, Close` (CipherOutputStream.crysl:24), and `flush`
+    // is not in its alphabet at all -- the rule's `Write` is `w1 | w2 | w3`, three
+    // `write` overloads and nothing else. So `fl` erases to the empty word when this
+    // language is compared with the rule's, and it must not be able to satisfy the `+`
+    // on its own: under `(w1 | w2 | fl)+` the sequence `c1 fl cl` is accepted, while the
+    // rule rejects it for having no `Write`. A stream that was constructed, flushed and
+    // closed without ever being written to is exactly the case the `+` is there to catch.
+    //
+    // `fl*` around the writes keeps every flush the program may legally make, at every
+    // position it may make it, while leaving the `+` quantifying only over writes.
+    ere : c1 fl* ((w1 | w2) fl*)+ cl
 
     @fail {
        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherOutputStreamSpec", "" + __LOC,

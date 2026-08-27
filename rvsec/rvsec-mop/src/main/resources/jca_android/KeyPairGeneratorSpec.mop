@@ -161,6 +161,27 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
              "v=1 code=KEYPAIRGENERATOR-KEYSIZE-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + keySize + "' exp='the key size the expert KeyPairGenerator.crysl declares for " + q(k.getAlgorithm()) + "' msg='invalid key size for algorithm " + k.getAlgorithm() + "'"));
     }
 
+    // The twin of `initError` over `initialize(int, SecureRandom)`. `init2` carries the
+    // same guard as `init1` -- `algorithm != null && validate(keySize)` -- and until this
+    // event existed it had no complement: a call with a key size the rule's CONSTRAINTS
+    // refuse took no transition, because a false `condition(...)` returns ahead of the
+    // body, and drew no report, because nothing else was watching that overload. The
+    // two-argument route was therefore silent on exactly the misuse the one-argument
+    // route accuses, and the difference between them was the presence of a `SecureRandom`
+    // the rule says nothing about.
+    //
+    // It is a site of its own and so it carries a code of its own: the report has to say
+    // which overload it is about (INV-INS-143, the same reason `IvParameterSpec` gives two
+    // codes to one clause read at two constructors).
+    event initError2 after(int keySize, SecureRandom random, KeyPairGenerator k):
+      call(public void KeyPairGenerator.initialize(int, SecureRandom)) &&
+      args(keySize, random) &&
+      target(k) &&
+      condition(algorithm != null && !validate(keySize)) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "KeyPairGeneratorSpec", "" + __LOC,
+             "v=1 code=KEYPAIRGENERATOR-KEYSIZE-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + keySize + "' exp='the key size the expert KeyPairGenerator.crysl declares for " + q(k.getAlgorithm()) + "' msg='invalid key size for algorithm " + k.getAlgorithm() + "'"));
+    }
+
     event gen after(KeyPairGenerator k) returning(KeyPair keyPair):
       (call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) &&
       target(k) {
@@ -181,7 +202,14 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     // `order_alphabet_map.csv` therefore maps it to `i3`, like `init1`, instead of
     // exempting it: the two events stand for the same rule symbol, the erased
     // languages are the ones compared today, and G-ORDER sees no change.
-    ere: (g3* g1 | g3* g2) (init1 | init2 | init3 | init4 | initError) gen
+    //
+    // `initError2` is absorbed on the same ground and mapped the same way, but to
+    // `init2`'s symbol and not to `initError`'s: it stands for `i2: initialize(keysize,
+    // random)`, the rule's own two-argument `Init`, so it maps to `i4` in
+    // `order_alphabet_map.csv` and `i2` in `order_alphabet_map_expert.csv`. Mapping it to
+    // `initError`'s symbol would file the two-argument call under `initialize(keysize)`
+    // and erase the wrong language.
+    ere: (g3* g1 | g3* g2) (init1 | init2 | init3 | init4 | initError | initError2) gen
 
     @fail {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,

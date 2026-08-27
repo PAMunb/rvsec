@@ -50,7 +50,6 @@ MacSpec(Mac m) {
         // purpose: this pass owns the file's predicate sites, and a monitor field
         // that no site reads is a separate repair. Recorded, not made, alongside
         // the ordering finding above the `ere` below.
-        String currentAlgorithmInstance = "";
 
         // The data this Mac authenticated, held from the events that bind it to the
         // handler that writes about it. The rule ENSURES `macced[M, D]` (Mac.crysl:57-59)
@@ -72,7 +71,6 @@ MacSpec(Mac m) {
           call(public static Mac Mac.getInstance(String)) &&
           args(alg) &&
           condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
-            currentAlgorithmInstance = alg;
         }
 
         // `Object+` covers both two-argument `getInstance` overloads the platform declares --
@@ -88,14 +86,12 @@ MacSpec(Mac m) {
           call(public static Mac Mac.getInstance(String, Object+)) &&
           args(alg, provider) &&
           condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
-            currentAlgorithmInstance = alg;
         }
 
         event g3 after(String alg) returning(Mac m):
           call(public static Mac Mac.getInstance(String)) &&
           args(alg) &&
           condition(!ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
-            currentAlgorithmInstance = alg;
         }
 
         // The rule's `Init`, the one-argument overload (Mac.crysl:23,25). Until this

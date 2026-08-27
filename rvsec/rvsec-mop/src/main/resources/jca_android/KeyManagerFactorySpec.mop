@@ -36,7 +36,6 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     // returns -- it names a JSE provider absent from Android, which makes it inert, not
     // removable. `X509` keeps resolving to `PKIX` through the alias table.
     List<String> safeAlgorithms = Arrays.asList("PKIX", "SunX509");
-    String currentAlgorithmInstance = "";
 
     // Staged by `init` for the acceptance-point handler, which sees no event parameter,
     // and cleared the moment it is used or the sequence is rejected.
@@ -48,21 +47,18 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
       && condition(ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms)) {
-        currentAlgorithmInstance = alg;
     }
 
     event g2 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..))
       && args(alg, *)
       && condition(ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms)) {
-        currentAlgorithmInstance = alg;
     }
 
     event g3 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
       && condition(!ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms))  {
-        currentAlgorithmInstance = alg;
     }
 
     // `generatedKeyStore[keyStore]` (KeyManagerFactory.crysl:31, ledger clause #14) is read

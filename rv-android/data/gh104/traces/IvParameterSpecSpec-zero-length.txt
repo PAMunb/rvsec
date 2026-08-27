@@ -1,0 +1,11 @@
+# gh109 task 1.R, the violating half of R9. The rule states `len > 0`
+# (IvParameterSpec.crysl:19) and the constructor admits `len == 0`, so zero is the one value
+# of the three bounds clauses a program can write and still return.
+#
+# Before R9 the write guard read `len >= 0`, so this construction passed the guard AND was
+# prepared -- the specification put its own `preparedIV` on a zero-length IV. It must now
+# draw IVPARAMETERSPEC-CONSTR-02 and prepare nothing.
+bind iv = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+r.nextBytes(iv)
+new IvParameterSpec(iv, 0, 0) -> spec

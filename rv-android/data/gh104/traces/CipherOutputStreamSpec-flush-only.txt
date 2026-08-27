@@ -1,0 +1,11 @@
+# gh109 task 1.R, the violating half of R4. The rule orders `Con, Write+, Close`
+# (CipherOutputStream.crysl:24) and its `Write` is the three `write` overloads alone --
+# `flush` is not in the rule's alphabet at all.
+#
+# Before R4 the `ere` read `c1 (w1 | w2 | fl)+ cl`, so a flush satisfied the `+` and this
+# stream -- constructed, flushed, closed, never written to -- was accepted. The rule rejects
+# it. It must now draw CIPHEROUTPUTSTREAM-ORDER-00.
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> cipher
+new CipherOutputStream(null, cipher) -> cos
+cos.flush()
+cos.close()

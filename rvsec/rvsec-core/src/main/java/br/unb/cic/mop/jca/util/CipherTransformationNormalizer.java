@@ -30,19 +30,18 @@ import java.util.Map;
  *       transformation names case-insensitively</li>
  * </ul>
  *
- * <h2>What this does NOT change: the admitted values</h2>
+ * <h2>The admitted values, and the one place they move</h2>
  *
  * <p>
- * The value clauses here are {@link CipherTransformationUtil}'s, reproduced. That is deliberate
- * and it is the whole reason this repair does not reopen D-15: what the researcher's decision of
- * 2026-08-25 licensed is alias resolution and case folding -- the mechanism D-15 already
- * ratified for the other eleven specifications -- and not a new value set. Two known gaps
- * against the expert rule are therefore left exactly as they are, each of which would be a
- * value decision of its own:
+ * The value clauses here are {@link CipherTransformationUtil}'s, reproduced, with one addition
+ * the researcher ratified separately: the eight {@code PBEWithHmacSHA*AndAES_*} families
+ * {@code Cipher.crysl:90-93} admits (decision D-20.1). Everything else about the inherited
+ * {@code {AES, RSA}} collapse stands, and alias resolution and case folding remain what the
+ * decision of 2026-08-25 licensed -- the mechanism D-15 already ratified for the other eleven
+ * specifications. One known gap against the expert rule is left exactly as it is, because
+ * closing it would be a value decision of its own:
  *
  * <ul>
- *   <li>{@code Cipher.crysl:89-92} admits eight {@code PBEWithHmacSHA*AndAES_*} algorithms;
- *       neither this class nor the frozen one implements them, so they stay accused.</li>
  *   <li>For {@code AES} with {@code CCM/GCM/CTR/CTS/CFB/OFB} the expert admits
  *       {@code NoPadding} alone, while this list also admits the empty padding. The extra
  *       value is inert: a two-part transformation such as {@code "AES/GCM"} is not a name the
@@ -65,6 +64,22 @@ public final class CipherTransformationNormalizer {
 
     /** mode (folded) -> the paddings admitted with it, folded. */
     private static final Map<String, List<String>> AES_PADDINGS = aesPaddings();
+
+    /**
+     * The eight algorithms {@code Cipher.crysl:90-93} admits beside {@code AES} for a
+     * {@code SecretKey}, folded. Read off the RAW transformation and never off the resolved
+     * one: Conscrypt files ten PBE services under these two canonical names, and the two the
+     * expert rule does NOT list -- {@code PBEWithHmacSHA1AndAES_128} and its 256 twin
+     * ({@code ConscryptAliasTable:103}, {@code :110}) -- resolve to the same
+     * {@code AES_128/CBC/PKCS5PADDING} as the ones it does. After resolution the eight and the
+     * two are the same string, so a check that ran on the canonical form would admit SHA-1 key
+     * derivation the oracle refuses.
+     */
+    private static final List<String> PBE_AES_ALGORITHMS = Arrays.asList(
+            "PBEWITHHMACSHA224ANDAES_128", "PBEWITHHMACSHA256ANDAES_128",
+            "PBEWITHHMACSHA384ANDAES_128", "PBEWITHHMACSHA512ANDAES_128",
+            "PBEWITHHMACSHA224ANDAES_256", "PBEWITHHMACSHA256ANDAES_256",
+            "PBEWITHHMACSHA384ANDAES_256", "PBEWITHHMACSHA512ANDAES_256");
 
     private static final List<String> RSA_ECB_PADDINGS = Arrays.asList(
             "NOPADDING", "PKCS1PADDING", "OAEPWITHMD5ANDMGF1PADDING",
@@ -121,6 +136,35 @@ public final class CipherTransformationNormalizer {
     }
 
     /**
+     * The algorithm to compare a key's own algorithm against, for the transformation this
+     * {@code Cipher} was built with -- the value side of {@code generatedKey[key,
+     * alg(transformation)]} ({@code Cipher.crysl:135}).
+     *
+     * <p>
+     * It is {@link #alg} with one fold on top: {@code AES_128} and {@code AES_256} answer
+     * {@code AES}. Conscrypt files keysize-suffixed services for the PBE transformations --
+     * {@code PBEWithHmacSHA1AndAES_128} resolves to {@code AES_128/CBC/PKCS5PADDING} -- while a
+     * key generated for that use reports the family name, {@code AES}, because that is the
+     * service its own generator was asked for. Comparing the suffixed name against the family
+     * name answers VIOLATED for a program that did nothing wrong, and the clause then accuses a
+     * key origin that is in fact the one the rule wants (researcher decision D-20.2).
+     *
+     * <p>
+     * The fold is here and not in {@link #alg} on purpose. {@link #isValid} reads {@code alg} to
+     * decide which value list applies, and folding there would silently admit
+     * {@code AES_128/CBC/PKCS5PADDING} as an AES transformation -- a different decision, about a
+     * different clause, which the PBE families of {@code Cipher.crysl:90-105} are admitted by on
+     * their own terms.
+     */
+    public static String keyAlgorithm(String transformation) {
+        String algorithm = alg(transformation);
+        if ("AES_128".equals(algorithm) || "AES_256".equals(algorithm)) {
+            return "AES";
+        }
+        return algorithm;
+    }
+
+    /**
      * Whether the transformation is one the expert rule's value clauses admit, read after alias
      * resolution and case folding.
      *
@@ -133,6 +177,22 @@ public final class CipherTransformationNormalizer {
         if (transformation == null) {
             return false;
         }
+        // The PBE families are decided on the raw spelling, ahead of resolution, for the
+        // reason PBE_AES_ALGORITHMS records: resolution erases the difference between the
+        // eight the rule admits and the two it does not. The rule pairs them with
+        // `mode in {"CBC"}` (:98-100) and `pad in {"PKCS5Padding"}` (:104-106); a program
+        // that names the service alone writes neither, and Conscrypt resolves it to exactly
+        // that pair, so the one-word form conforms by construction.
+        String rawAlgorithm = fold(CipherTransformationUtil.alg(transformation));
+        if (PBE_AES_ALGORITHMS.contains(rawAlgorithm)) {
+            String rawMode = fold(CipherTransformationUtil.mode(transformation));
+            String rawPadding = fold(CipherTransformationUtil.pad(transformation));
+            if (rawMode.isEmpty() && rawPadding.isEmpty()) {
+                return true;
+            }
+            return "CBC".equals(rawMode) && "PKCS5PADDING".equals(rawPadding);
+        }
+
         String algorithm = alg(transformation);
         String mode = mode(transformation);
         String padding = pad(transformation);

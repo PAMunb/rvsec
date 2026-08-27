@@ -67,7 +67,6 @@ CipherSpec(Cipher c) {
         return value.replace("'", "\\'");
     }
 
-   String currentTransformation = "";
 
    // Cipher.crysl ensures `encrypted` over a *pair* -- the ciphertext and the
    // plaintext it came from -- in three clauses (:145-147): one `after Update`, and
@@ -100,14 +99,12 @@ CipherSpec(Cipher c) {
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
      condition(CipherTransformationNormalizer.isValid(transformation)) {
-       currentTransformation = transformation;
    }
 
    event g2 after(String transformation, Object provider) returning(Cipher c):
       call(public static Cipher Cipher.getInstance(String, Object+)) &&
       args(transformation, provider) &&
       condition(CipherTransformationNormalizer.isValid(transformation)) {
-        currentTransformation = transformation;
    }
 
 
@@ -115,7 +112,6 @@ CipherSpec(Cipher c) {
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
      condition(!CipherTransformationNormalizer.isValid(transformation)) {
-        currentTransformation = transformation;
    }
 
    event i1 before(int mode, Certificate cert, Cipher c):
@@ -173,8 +169,16 @@ CipherSpec(Cipher c) {
      call(public void Cipher.init(int, Key,..)) &&
      args(mode, key, ..) &&
      target(c) {
+        // The value side of the clause goes through the normalizer, not through the frozen
+        // `alg` this file statically imports. `CipherTransformationUtil.alg` splits the raw
+        // string, so an alias spelling never reaches its own algorithm: the one-word
+        // `PBEWithHmacSHA1AndAES_128` has no `/` to split on and answers itself, which
+        // matches no key any producer of this set ever wrote. `keyAlgorithm` resolves the
+        // Conscrypt alias first and then folds the keysize-suffixed services onto their
+        // family, so a key generated for `AES` matches a Cipher built for `AES_128` -- the
+        // same key, the same family, and no misuse (D-20.2).
         PredicateVerdict asSecretKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key,
-            alg(c.getAlgorithm()));
+            CipherTransformationNormalizer.keyAlgorithm(c.getAlgorithm()));
         PredicateVerdict asPublicKey = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, key);
         PredicateVerdict asPrivateKey = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, key);
         PredicateVerdict origin = PredicateVerdict.NOT_OBSERVED;
