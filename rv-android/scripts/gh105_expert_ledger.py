@@ -113,6 +113,18 @@ PLATFORM_OVERRIDES: dict[tuple[str, str], tuple[str, str, str]] = {
         "HmacPBESHA1 with the five PBEWithHmac* answer \"PBEParameterSpec type required\"",
         "[platform measurement re-derived at task 11.9; disposition unchanged]",
     ),
+    ("HMACParameterSpec", "preparedHMAC"): (
+        "unreachable-composition",
+        "the mirror of the Mac row above, from the producing side. Derivation calls this "
+        "clause producible because Mac requires the predicate and Mac has a .mop, and that "
+        "reading is structurally true and materially false: the class this rule is about "
+        "loads on no Android API level (zero entries under javax/xml/crypto in all 25 "
+        "android.jar installed here, android-10 through android-37), so the write can never "
+        "happen on the platform the set targets, and on a JVM no Mac the rule admits accepts "
+        "the object, so it would never be read either. Both ends of one composition are out "
+        "of reach, and the two rows now say so",
+        "[gh109 task 5.1; the row read `producible / read by Mac` and contradicted row 38]",
+    ),
 }
 
 # Clauses whose emptiness is a runtime fact the rule text cannot show. Structurally the
@@ -574,6 +586,13 @@ def derive_ledger(rules: dict[str, Rule], pairs: dict[str, str]) -> list[LedgerR
                 else:
                     disposition = "producible"
                     reason = f"read by {', '.join(read_with_mop)}"
+                # The producing half takes the same overrides as the requiring one. A
+                # composition the platform refuses is refused from both ends, and a ledger
+                # that says so on one row and not on its mirror is a ledger that has to be
+                # read twice to be believed.
+                override = PLATFORM_OVERRIDES.get((name, clause.predicate))
+                if override is not None:
+                    disposition, reason = override[0], f"{override[1]} {override[2]}"
                 rows.append(
                     LedgerRow(
                         number=number,
@@ -779,8 +798,12 @@ def write_delta(rows: list[dict[str, str]], stream) -> None:
 #: set specifies is *unobservable* unless its disposition is `wireable`: every other
 #: disposition names a different way the producing end is out of reach. An `ENSURES` or
 #: `NEGATES` row of a specified rule is *unreadable* when nothing the set can observe
-#: requires it -- `unread` if no rule of the 49 requires it at all, and
-#: `unmonitored-consumer-side` if the rules that do have no `.mop`.
+#: requires it -- `unread` if no rule of the 49 requires it at all,
+#: `unmonitored-consumer-side` if the rules that do have no `.mop`, and
+#: `unreachable-composition` if a consumer with a `.mop` exists and the platform refuses the
+#: composition anyway. The third is a measurement and not a derivation, so it arrives only
+#: through `PLATFORM_OVERRIDES`; leaving it out of this list would drop the one row it
+#: names from the census, which is the opposite of what recording it is for.
 #:
 #: `vacuous` belongs to the first list only for a positive clause. A positive requirement
 #: that can never be met is exactly a requirement the set cannot observe -- it is the row
@@ -788,7 +811,7 @@ def write_delta(rows: list[dict[str, str]], stream) -> None:
 #: for `!pred[..]` absence is conformance, so a clause nothing can ever satisfy is a clause
 #: nothing can ever violate, and listing it as a gap would read as work owed where none is.
 UNOBSERVABLE = ("unmonitored-producer", "unreachable-composition", "unclosable")
-UNREADABLE = ("unread", "unmonitored-consumer-side")
+UNREADABLE = ("unread", "unmonitored-consumer-side", "unreachable-composition")
 
 
 def unobservable(row: "LedgerRow") -> bool:

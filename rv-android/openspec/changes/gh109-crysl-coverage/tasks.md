@@ -111,10 +111,10 @@ Subagent dispatch (docs/WORKFLOW.md §5) — lighter protocol than gh105 (design
 
 ## 5. G5 — Android ports (anytime after G0) — `tasks/G5-android-ports.md`
 
-- [ ] 5.1 `HMACParameterSpecSpec` platform-dead disposition (INV-INS-155; reconcile ledger rows #38/#80)
-- [ ] 5.2 BouncyCastle alias rows for the KeyStore service family (table + `ConscryptAliasTable` mirror)
-- [ ] 5.3 TLS-default-per-platform note + `getSocketFactory` non-addition recorded (D-20.5)
-- [ ] 5.4 Seed the AndroidKeyStore future issue (out-of-scope record with the 3 candidate accusations)
+- [x] 5.1 `HMACParameterSpecSpec` platform-dead disposition (INV-INS-155; reconcile ledger rows #38/#80)
+- [x] 5.2 The KeyStore alias gap recorded, not filled — **revised**: the pinned Conscrypt `OpenSSLProvider.java` registers no `KeyStore` alias at all (measured: 175 `Alg.Alias`, 175 rows, zero occurrences of the string), so a BC row would be the first with no provider line to cite (INV-INS-127); the four store names already enter through the closed `platform-value` set and `matches` resolves them by case folding; the corpus measures no other spelling. README declared-limit paragraph + divergence narrative row; no table row, no `ConscryptAliasTable` edit, no reactor build
+- [x] 5.3 TLS-default-per-platform note + `getSocketFactory` non-addition recorded (D-20.5)
+- [x] 5.4 Seed the AndroidKeyStore future issue (out-of-scope record with the 3 candidate accusations)
 
 ## 6. G6 — Records, censuses, enforcement constants — `tasks/G6-records.md`
 

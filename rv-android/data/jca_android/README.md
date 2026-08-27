@@ -240,10 +240,22 @@ line and found to match:
 
 **Two declared limits**, stated because a table that hides them invites false confidence:
 
-1. **`KeyStore` has no alias coverage here.** `AndroidKeyStore` comes from
-   `AndroidKeyStoreProvider` and `BKS`/`BouncyCastle` from Bouncy Castle, and
-   `OpenSSLProvider.java` registers no `KeyStore` alias at all. That is a limit of the
-   table, not evidence that none is needed.
+1. **`KeyStore` has no alias coverage here, and gh109 task 5.2 measured what that costs.**
+   `AndroidKeyStore` comes from `AndroidKeyStoreProvider` and `BKS`/`BouncyCastle` from Bouncy
+   Castle, and `OpenSSLProvider.java` registers no `KeyStore` alias at all — measured, not
+   assumed: the pinned copy holds 175 `Alg.Alias` registrations against this table's 175 rows,
+   and the string `KeyStore` does not occur in it once. The limit is therefore a property of
+   the source this table transcribes, and it costs nothing here for three reasons. A row would
+   be the first with no provider line to cite, which INV-INS-127 refuses and which is the same
+   ground on which `RSA/ECB/OAEPWithSHA1AndMGF1Padding` gets no row. The four store types
+   `{AndroidKeyStore, AndroidCAStore, BKS, BouncyCastle}` already reach the allow-list as
+   entries of the **closed** `platform-value` set, and `matches` resolves them by case-folded
+   membership without consulting a row, so an alias row would record one departure twice under
+   two kinds. And the corpus measures no other spelling: the only `KeyStore` type the event
+   census carries is `AndroidKeyStore` (2,005 events, 11 apps), which the list admits. The
+   `divergence_record.csv` row for `alias_table.csv` (task `gh109:5.2`) carries the argument in
+   full. What remains genuinely uncovered is *authorial* AndroidKeyStore specification, which
+   has no expert rule and seeds its own issue (task 5.4) rather than an alias row.
 2. **`SSLContext.SSL` and `SSLContext.TLS` (`:80-81`) are not rows.** They point at the same
    implementation class but are not `Alg.Alias` registrations, so they are behavioural
    equivalence rather than table entries.
@@ -373,6 +385,37 @@ The acceptance measurement of the re-anchoring — both sides of it — is
 `evidence/d15_c5_replay.md`: the 5,892 `MD5`/`SHA-1` rows, the 103 `SSL` and the 4
 `NONEwithRSA` of the published corpus are accused again, **and** the `TLS` 8,648,
 `AndroidKeyStore` 2,005, `X509` 643 and `SHA256WITHRSA` 4 stay silent.
+
+
+### What the platform already does, and what the two TLS rules therefore measure
+
+gh109 task 5.3, recorded because a reader of a report needs to know which programs the two new
+TLS specifications can reach at all. Measured in the pinned Conscrypt `OpenSSLProvider.java`
+(branch `android11-release`, the same copy `alias_table.csv` transcribes):
+
+- `:51` constructs the provider with `"TLSv1.3"` as its default protocol, so
+  `defaultSSLContextSuffix` is `$TLSv13` (`:64-74`) and the three unversioned registrations —
+  `SSLContext.SSL`, `SSLContext.TLS` and `SSLContext.Default` (`:80-81`, `:86`) — all resolve to
+  the TLSv1.3 implementation.
+- `:82-83` still register `SSLContext.TLSv1` and `SSLContext.TLSv1.1` as contexts of their own.
+  They are reachable by asking for them by name; what the platform has moved is the **default**,
+  not the catalogue.
+
+Both `SSLEngine.crysl` and `SSLParameters.crysl` constrain values a program *sets*:
+`setEnabledProtocols`, `setEnabledCipherSuites`, `setProtocols`, `setCipherSuites` and the
+two-array `SSLParameters` constructor. A program that takes what the platform hands it calls none
+of them and reaches no event of either specification. So the accusation surface of both rules is
+exactly the programs that **narrow** an engine or a parameter set away from the platform default
+— which is the population worth accusing, and is why neither rule needs a `platform-value` entry
+the way `SSLContextSpec` needed one for `TLS`: `setEnabledProtocols` takes wire protocol names
+(`TLSv1.2`, `TLSv1.3`), never the JSSE context names that `getInstance` takes, so no default
+spelling collides with the expert list (D-15).
+
+The other half of the platform question — the calls this change deliberately does **not** add —
+is recorded with the D-20 decisions: `SSLContext.getSocketFactory` gets no event because it is
+outside `SSLContext.crysl`'s `EVENTS`, and AndroidKeyStore gets no specification because it has
+no expert rule at all (`divergence_record.csv`, task `gh109:0.5`; the AndroidKeyStore issue is
+seeded by task 5.4).
 
 
 ## Site census

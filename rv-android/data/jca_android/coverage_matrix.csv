@@ -25,7 +25,7 @@ DigestOutputStream,covered,DigestOutputStreamSpec.mop,
 ECGenParameterSpec,covered,ECGenParameterSpecSpec.mop,
 ECParameterSpec,covered,ECParameterSpecSpec.mop,
 GCMParameterSpec,covered,GCMParameterSpecSpec.mop,
-HMACParameterSpec,na-platform,"javax.crypto.spec.HMACParameterSpec exists on no Android API level (INV-INS-155); the .mop is kept as documentation of untranslatability, not as coverage",
+HMACParameterSpec,na-platform,"the rule's SPEC line names javax.xml.crypto.dsig.spec.HMACParameterSpec, of the java.xml.crypto module, and every android.jar installed here -- 25 platform jars, android-10 through android-37 -- holds zero entries under javax/xml/crypto (archive listing, re-measured at gh109 task 5.1). The subject class exists on no Android API level, so the monitor can never fire an event (INV-INS-155). The .mop is kept as documentation of untranslatability, not as coverage; retiring it to backup/ stays available and would move only the enumeration constants. On a JVM, where the class does load, the composition its ENSURES feeds is out of reach too: no algorithm of Mac.crysl:44 accepts the parameter spec, which is what rows 38 and 80 of predicate_ledger.csv record from the requiring and the producing side",
 IvParameterSpec,covered,IvParameterSpec.mop,
 Key,covered,KeySpec.mop,
 KeyAgreement,covered,KeyAgreementSpec.mop,"GenSecretBuffer at :31 is bound to the getInstance overload `g2` where `gs2` is meant, and :34 declares a label no clause uses"

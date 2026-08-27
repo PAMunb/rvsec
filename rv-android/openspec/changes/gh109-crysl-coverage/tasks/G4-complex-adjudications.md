@@ -35,8 +35,16 @@ transcribes the *evident intent*, citing its divergence row as warrant. Records 
 - REQUIRES `randomized[random]`, `generatedPrivkey[privKey]`, `generatedPubkey[pubKey]` (producers:
   `SecureRandomSpec`, 3.4, `KeyPairSpec`) + 2 conditional implications (`preparedDH`/`preparedEC` —
   guarded reads); ENSURES `preparedKeyMaterial[sharedSecretBuffer]`.
-- 5 events (the FORBIDDEN `gs3` included) — well under the ceiling, but the largest new automaton: write its trace pair
-  individually (satisfy: full DH agreement; violate: `GenSecret` without `DoPhase`).
+- **9 events** (the FORBIDDEN `gs3` included), not the 5 this fiche projected. The rule's label
+  `Init := i1 | i2 | i3 | i4` fuses four overloads that bind DIFFERENT arguments —
+  `randomized[random]` is about two of them, the guarded `preparedDH`/`preparedEC` clauses about
+  the other two — and `GenSecretBuffer` fuses a call that RETURNS the buffer with one that takes
+  it as an ARGUMENT, which one event cannot bind. Fusing to the projected count would leave
+  three clauses of the rule with no site at all; the precedent and the measurement are
+  `AlgorithmParameterGeneratorSpec.mop:62-74`. Recorded in `divergence_record.csv`: the fiche is
+  the plan, the rule is the oracle, and where they disagree the rule wins.
+- Still the largest new automaton: write its trace pair individually (satisfy: full DH
+  agreement; violate: `GenSecret` without `DoPhase`).
 
 ## 4.4 Adjudications (N/A terminal states — coverage matrix rows, no `.mop`)
 
