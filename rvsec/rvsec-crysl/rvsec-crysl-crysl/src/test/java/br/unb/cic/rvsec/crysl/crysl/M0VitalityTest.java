@@ -96,6 +96,18 @@ class M0VitalityTest {
     }
 
     /**
+     * How many {@code .mop} files the Android corpus holds right now.
+     *
+     * <p>Derived rather than pinned. This number moves whenever a file enters the directory and
+     * carries no judgement of its own, so a literal here would only cost one build cycle per group
+     * of new specifications to rediscover. Every pin below that names files, verdicts or witnesses
+     * stays literal, because those move when a decision moves.
+     */
+    private static int corpusSize() {
+        return filesOf(ANDROID).size();
+    }
+
+    /**
      * The stamp a lifted model carries in these tests.
      *
      * <p>The commit is a fixed literal rather than the working tree's HEAD: a test asserting
@@ -132,7 +144,8 @@ class M0VitalityTest {
     void test_five_specifications_do_not_index() throws LiftFailure {
         Map<String, M0Result> results = examine(ANDROID, Optional.empty());
 
-        assertEquals(38, results.size(), "the corpus is 38 files: " + results.keySet());
+        assertEquals(corpusSize(), results.size(),
+                "every file of the corpus is examined: " + results.keySet());
 
         List<String> notIndexing = results.values().stream()
                 .filter(result -> !result.indexes())
@@ -396,7 +409,7 @@ class M0VitalityTest {
                 .sorted()
                 .toList();
 
-        assertEquals(38, android.size());
+        assertEquals(corpusSize(), android.size());
         assertEquals(23, jca.size());
         // 18 -> 32 at gh109 group G2: every one of the fourteen producer specifications
         // absorbs its own misuse, which is what a transcribed value clause is -- the accusation

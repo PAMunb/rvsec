@@ -910,6 +910,9 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
                     read_placement.get(site.site_kind, 0) + 1
                 )
 
+    # Content censuses, not set sizes: these two move with every group that adds
+    # specifications, because each new file brings its own writes and reads. Re-measure both
+    # at the start of a group -- JUnit-style one-per-cycle discovery costs the same here.
     assert counts.get("read", 0) + counts.get("read-absent", 0) == 53
     assert read_placement.get("condition", 0) == 0
     # 32 -> 35 at gh109 task 1.3(b): the three `Get` events of `MessageDigestSpec` gain the
@@ -974,6 +977,18 @@ GRAPH = REPO / "data/jca_android/predicate_graph.csv"
 
 def _specs_root() -> Path:
     return _rvsec_home() / "rvsec/rvsec-mop/src/main/resources"
+
+
+def _specset_size(name: str = "jca_android") -> int:
+    """How many `.mop` files a specification set holds right now.
+
+    Derived, never pinned. A count of files in a directory moves whenever a
+    specification is added and says nothing about any gate, so a literal for it
+    buys one build cycle of rediscovery per group of new files and no coverage.
+    Pins that name files, verdicts, witnesses or reasons stay literal, because
+    those move when a decision moves.
+    """
+    return len(list((_specs_root() / name).glob("*.mop")))
 
 
 def test_the_graph_carries_exactly_the_fifteen_contracted_columns():
@@ -1309,6 +1324,9 @@ def test_the_graph_reproduces_the_measured_placement_census():
         counts[row["verdict"]] = counts.get(row["verdict"], 0) + 1
 
     assert counts.get("read:condition-guard", 0) == 0
+    # Content censuses, not set sizes: every verdict count in this test moves with each group
+    # that adds specifications. Re-measure the whole block at the start of a group rather than
+    # rediscovering one number per run.
     assert counts.get("read:body", 0) == 48
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
@@ -1890,11 +1908,11 @@ def test_gparam_is_green_over_the_set_as_it_stands():
 
     result = gh105_param_gate.run(_specs_root(), monitors, "jca_android")
     assert result.findings == []
-    # 24 -> 38 at gh109 group G2: the gate passes one specification per `.rvm`, so this count
-    # is the size of the set and moves with every group that adds files. It is also the check
-    # that the fixture was refreshed -- a stale `results/gh51_e2e_test/monitors` leaves the new
-    # specifications with no `.rvm` to compare against and they would be skipped, not passed.
-    assert len(result.passed) == 38
+    # The gate passes one specification per `.rvm`, so this count is the size of the set and it
+    # is derived rather than pinned. What the assertion still buys is the check that the fixture
+    # was refreshed -- a stale `results/gh51_e2e_test/monitors` leaves the new specifications
+    # with no `.rvm` to compare against, and they would be skipped, not passed.
+    assert len(result.passed) == _specset_size()
     assert result.skipped == []
 
 
@@ -2439,13 +2457,20 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     # harness pair of that task measures exactly that: five NOBS reports and no ORDER one.
     assert cipher.witness == ("g1", "i1")
     assert cipher.accepted_by == "the specification"
-    # Under the mutant allow-list `CipherSpec` is accused, so it leaves both buckets: the
-    # healthy run is 30/6/2 since gh109 group G2 mapped its fourteen new specifications into
-    # the alphabet (task 6.2) and every one of them passes, and this one is 30 passed /
-    # 5 allow-listed / 2 skipped. The skip count does not move with the set: it is the two
-    # files that pair with no rule in either catalogue, and a new specification that entered
-    # it would be one G-ORDER had stopped comparing.
-    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (30, 5, 2)
+    # Under the mutant allow-list `CipherSpec` is accused, so it leaves both buckets: one row
+    # fewer allowed than the healthy run beside it, and one specification accounted for by the
+    # finding instead of by a bucket. The passed count is stated as what is left of the set
+    # after the allowances, the skips and that one accusation, because it is arithmetic of the
+    # set size and moves with every group. The two numbers that stay literal are the ones that
+    # carry a decision: 5 is the healthy allow-list minus the row the mutant replaced, and the
+    # skip count does not move with the set at all -- it is the two files that pair with no rule
+    # in either catalogue, and a new specification entering it would be one G-ORDER had stopped
+    # comparing.
+    assert (len(result.passed), len(result.allowed), len(result.skipped)) == (
+        _specset_size() - 5 - 2 - 1,
+        5,
+        2,
+    )
 
     # And the run beside it, from the same code path: the difference between the
     # two is the one field, so the gate is what is being measured here. The healthy
@@ -2453,10 +2478,14 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     # it would also be what a gate that stopped comparing produces.
     assert healthy.findings == []
     # 15/7 -> 16/6 at gh109 task 1.4: R4 repaired the divergence
-    # `CipherOutputStreamSpec`'s row forgave, and the row went with it. 16 -> 30 at group G2:
-    # fourteen producer automata, fourteen ORDER expressions transcribed from the same rules,
-    # and no new allowance -- the allow-list is still the six of gh105.
-    assert (len(healthy.passed), len(healthy.allowed)) == (30, 6)
+    # `CipherOutputStreamSpec`'s row forgave, and the row went with it. The allow-list has not
+    # grown since -- every specification a group adds transcribes its ORDER from the same rule
+    # and passes -- so 6 is the literal that carries the decision and the passed count is what
+    # is left of the set after it and the two skips.
+    assert (len(healthy.passed), len(healthy.allowed)) == (
+        _specset_size() - 6 - len(healthy.skipped),
+        6,
+    )
 
 
 def test_an_allow_list_row_allows_nothing_without_both_a_reason_and_a_witness(

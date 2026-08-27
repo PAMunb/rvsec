@@ -50,6 +50,29 @@ class OnePairingImplementationTest {
     private static final String MOP_COMMIT = "6192b57a";
     private static final String ORACLE_COMMIT = "f2f4d3b";
 
+    /**
+     * The specifications of the set that pair with no rule of the lifted oracle, and the paired
+     * ones M0 refuses.
+     *
+     * <p>Both lists are declared, because every membership is a judgement argued elsewhere
+     * ({@code M1EventsCorpusTest} for the first, {@code M2OrderCorpusTest} for the second). What
+     * derives is the arithmetic below, so that a group of new specifications entering the corpus
+     * directory moves no literal in this class.
+     */
+    private static final Set<String> UNPAIRED =
+            Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword");
+
+    private static final Set<String> M0_REFUSED = Set.of("SecretKeySpec", "KeySpec");
+
+    /** How many {@code .mop} files the set holds right now. Derived: it carries no judgement. */
+    private static int corpusSize() {
+        try (Stream<Path> entries = Files.list(CORPUS)) {
+            return (int) entries.filter(p -> p.getFileName().toString().endsWith(".mop")).count();
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException("cannot list " + CORPUS, e);
+        }
+    }
+
     @Test
     @DisplayName("12.0: M1, M2, M3 and M4 of one report name the same specifications")
     void test_every_metric_pairs_through_one_implementation(@TempDir Path root) throws IOException {
@@ -71,14 +94,14 @@ class OnePairingImplementationTest {
         CompareRun.Summary summary = CompareRun.run(args, CORPUS, OracleCorpus.cryslRules(),
                 ALPHABET_MAP, OracleCorpus.androidJar());
 
-        assertEquals(35, summary.pairs(),
+        assertEquals(corpusSize() - UNPAIRED.size(), summary.pairs(),
                 "the pairing of record, by declared type and injective (INV-CONF-11 plus the "
                         + "injectivity the corpus forces); the simple-name approximation that "
                         + "reached 23 no longer exists anywhere");
-        assertEquals(33, summary.compared(),
-                "M0 refuses SecretKeySpec and KeySpec, so 35 pairs yield 33 sets of M1-M4 "
-                        + "verdicts. Pairing and vitality are different questions and conflating "
-                        + "them would corrupt the pairing target");
+        assertEquals(summary.pairs() - M0_REFUSED.size(), summary.compared(),
+                "M0 refuses SecretKeySpec and KeySpec, so the pairs yield that many fewer sets of "
+                        + "M1-M4 verdicts. Pairing and vitality are different questions and "
+                        + "conflating them would corrupt the pairing target");
 
         Set<String> m1 = firstColumnOfMarkdown(out.resolve(CompareRun.M1_MARKDOWN));
         Set<String> m2 = firstColumnOfMarkdown(out.resolve(CompareRun.M2_MARKDOWN));

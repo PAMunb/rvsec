@@ -22,13 +22,26 @@ import java.util.stream.Stream;
  */
 final class Corpora {
 
-    /** The five corpora, with the file count each was measured at. */
+    /**
+     * The five corpora, with the file count each is measured at.
+     *
+     * <p>Four carry a literal because they are frozen: any change in their size is a finding, and
+     * the number is what states it. {@code jca_android} is the live set under construction, so its
+     * size is read from the directory instead — a literal there is arithmetic that moves whenever a
+     * specification is added, says nothing about the lift, and is discovered one build cycle at a
+     * time because JUnit stops at the first failed assertion.
+     */
     static final List<Corpus> ALL = List.of(
             new Corpus("jca", 23),
-            new Corpus("jca_android", 38),
+            new Corpus("jca_android", filesOf("jca_android").size()),
             new Corpus("jca_android_bug_predicate", 23),
             new Corpus("generic", 118),
             new Corpus("generic_new", 27));
+
+    /** The files the five corpora hold between them — the denominator of the lift census. */
+    static int expectedTotal() {
+        return ALL.stream().mapToInt(Corpus::expectedFiles).sum();
+    }
 
     private Corpora() {
     }

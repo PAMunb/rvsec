@@ -10,8 +10,11 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,32 @@ import org.junit.jupiter.api.io.TempDir;
 class AlphabetMapTest {
 
     private static Path committed;
+
+    /**
+     * The {@code .mop} corpus the committed map is stated over, in the sibling module's tree.
+     *
+     * <p>Read only so that the row-group count below can be stated as an arithmetic of the corpus
+     * instead of as a literal. A literal there moves whenever a specification enters the directory,
+     * which says nothing about this reader and costs one build cycle per group to rediscover.
+     */
+    private static final Path CORPUS = Paths.get("..", "..", "rvsec-mop", "src", "main",
+            "resources", "jca_android").normalize();
+
+    /**
+     * The two specifications the map declares as G-ORDER skips, by owning no data row at all.
+     *
+     * <p>Declared, not derived: which files are skipped is the mapping decision this file records,
+     * and its reason is prose in the map's own header.
+     */
+    private static final Set<String> ORDER_SKIPS =
+            Set.of("IvChainJunction", "RandomStringPassword");
+
+    private static int corpusSize() throws IOException {
+        assertTrue(Files.isDirectory(CORPUS), "the .mop corpus is not at " + CORPUS.toAbsolutePath());
+        try (Stream<Path> entries = Files.list(CORPUS)) {
+            return (int) entries.filter(p -> p.getFileName().toString().endsWith(".mop")).count();
+        }
+    }
 
     @BeforeAll
     static void resolveCommittedMap() throws IOException {
@@ -49,7 +78,7 @@ class AlphabetMapTest {
     void test_the_committed_map_parses() throws IOException {
         AlphabetMap map = AlphabetMap.read(committed);
 
-        assertEquals(36, map.rows().size(),
+        assertEquals(corpusSize() - ORDER_SKIPS.size(), map.rows().size(),
                 "one group per specification carrying rows; the two G-ORDER skips are prose in the "
                         + "header and never data rows, which is what keeps them skips: "
                         + map.rows().keySet());

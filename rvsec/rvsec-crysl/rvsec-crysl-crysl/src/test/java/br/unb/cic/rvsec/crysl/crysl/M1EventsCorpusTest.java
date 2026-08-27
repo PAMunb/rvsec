@@ -156,12 +156,13 @@ class M1EventsCorpusTest {
             throws LiftFailure, IOException {
         SpecRulePairing.Result pairing = pairTheCorpus();
 
-        assertEquals(38, pairing.pairs().size() + pairing.unpaired().size(),
+        assertEquals(corpusSize(), pairing.pairs().size() + pairing.unpaired().size(),
                 "every specification of the set is accounted for, paired or not");
-        assertEquals(35, pairing.pairs().size(),
-                "35 of 38 pair by declared type; counting rule = " + SpecRulePairing.PAIRING_RULE);
-        assertEquals(35, pairing.pairedRules(),
-                "and 35 distinct rules are claimed, because the pairing is injective - the "
+        assertEquals(pairedSize(), pairing.pairs().size(),
+                "all but the three unpaired pair by declared type; counting rule = "
+                        + SpecRulePairing.PAIRING_RULE);
+        assertEquals(pairedSize(), pairing.pairedRules(),
+                "and as many distinct rules are claimed, because the pairing is injective - "
                         + "denominator every later aggregate is stated over");
 
         // Until gh109 the two sets were the same two names, and the assertion was equality.
@@ -177,8 +178,7 @@ class M1EventsCorpusTest {
         assertTrue(Set.copyOf(pairing.unpairedNames()).containsAll(alphabetMapSkips()),
                 "every specification the alphabet map declares a skip for is one the pairing "
                         + "leaves over, read from an artifact this component does not produce");
-        assertEquals(Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword"),
-                Set.copyOf(pairing.unpairedNames()),
+        assertEquals(UNPAIRED, Set.copyOf(pairing.unpairedNames()),
                 "and nothing else is left over");
 
         assertEquals(SpecRulePairing.Reason.NO_RULE_DECLARES_THE_TYPE,
@@ -223,7 +223,7 @@ class M1EventsCorpusTest {
         String markdown = M1Events.table(results, mopVersion(), OracleCorpus.version(),
                 pairing.pairingRule()).markdown(List.of());
 
-        assertEquals(35, results.size());
+        assertEquals(pairedSize(), results.size());
         assertTrue(markdown.contains("rvsec-cognicrypt"), "the oracle repository (INV-CONF-11)");
         assertTrue(markdown.contains("INV-CONF-11"), "the pairing rule (INV-CONF-11)");
         assertTrue(markdown.contains("R-M1"), "the counting rule (INV-CONF-02)");
@@ -237,7 +237,8 @@ class M1EventsCorpusTest {
             specifications.add(new SpecRulePairing.Candidate(name,
                     lifter.lift(file, mopVersion())));
         }
-        assertEquals(38, specifications.size(), "the jca_android set is 38 files");
+        assertEquals(corpusSize(), specifications.size(),
+                "every .mop file of the jca_android set is a pairing candidate");
 
         List<SpecRulePairing.Candidate> rules = new ArrayList<>();
         CryslLifter.CorpusLift lift = new CryslLifter()
@@ -279,8 +280,6 @@ class M1EventsCorpusTest {
             }
             withRows.add(line.substring(0, line.indexOf(',')));
         }
-        assertEquals(36, withRows.size(), "36 of the set's specifications own rows in the map");
-
         Set<String> skips = new LinkedHashSet<>();
         for (Path file : mopFiles()) {
             String name = file.getFileName().toString().replace(".mop", "");
@@ -288,7 +287,35 @@ class M1EventsCorpusTest {
                 skips.add(name);
             }
         }
+        // Stated as the complement rather than as a literal, which makes it an assertion about
+        // the map instead of about the corpus size: the row-owners and the skips partition the
+        // set exactly when the map owns rows for no file outside it.
+        assertEquals(corpusSize() - skips.size(), withRows.size(),
+                "the map's row-owners are all files of the set: " + withRows);
         return skips;
+    }
+
+    /**
+     * The specifications of the set that pair with no rule of the <em>lifted</em> oracle.
+     *
+     * <p>Declared rather than derived, and short on purpose: each of the three names is a
+     * judgement, and the reason for it is asserted beside the name in
+     * {@link #test_pairing_leaves_over_the_two_specifications_the_alphabet_map_skips()}. What
+     * derives from the list is only arithmetic — the pairing denominator is the corpus minus these
+     * three — and deriving it is what keeps a group of new specifications from moving half a dozen
+     * literals that say nothing about the oracle.
+     */
+    private static final Set<String> UNPAIRED =
+            Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword");
+
+    /** How many {@code .mop} files the set holds right now. Derived: it carries no judgement. */
+    private static int corpusSize() {
+        return mopFiles().size();
+    }
+
+    /** The denominator every M1 aggregate is stated over: the corpus minus {@link #UNPAIRED}. */
+    private static int pairedSize() {
+        return corpusSize() - UNPAIRED.size();
     }
 
     private static List<Path> mopFiles() {

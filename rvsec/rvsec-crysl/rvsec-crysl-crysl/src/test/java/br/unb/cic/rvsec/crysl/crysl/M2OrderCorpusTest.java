@@ -334,9 +334,11 @@ class M2OrderCorpusTest {
     void test_the_refused_specification_gets_no_verdict() throws Exception {
         Corpus corpus = Corpus.read();
 
-        assertEquals(35, corpus.pairs().size(), "35 of 38 pair by declared type");
-        assertEquals(33, corpus.comparable().size(),
-                "and 33 of those receive an M2 verdict: SecretKeySpec has a non-empty @match, no "
+        assertEquals(corpusSize() - UNPAIRED.size(), corpus.pairs().size(),
+                "all but the three unpaired pair by declared type");
+        assertEquals(corpus.pairs().size() - M0_REFUSED.size(), corpus.comparable().size(),
+                "and all but the two M0 refuses receive an M2 verdict: SecretKeySpec has a "
+                        + "non-empty @match, no "
                         + "@fail and no addError, so it cannot accuse under any trace and M0 "
                         + "refuses it, and KeySpec is refused for the same reason at gh109 task "
                         + "2.14 - by design there, because Key.crysl asks for no accusation");
@@ -389,7 +391,7 @@ class M2OrderCorpusTest {
         for (String specification : corpus.comparable()) {
             results.add(corpus.compare(specification).result());
         }
-        assertEquals(33, results.size());
+        assertEquals(corpus.comparable().size(), results.size());
 
         for (M2Result result : results) {
             result.witness().ifPresent(witness -> assertEquals(WitnessStatus.ABSTRACT,
@@ -527,6 +529,29 @@ class M2OrderCorpusTest {
     private static List<SpecModel> upstreamRules() throws IOException {
         return new CryslLifter().liftCorpus(OracleCorpus.cryslRules(), OracleCorpus.version())
                 .models();
+    }
+
+    /**
+     * The specifications of the set that pair with no rule of the lifted oracle.
+     *
+     * <p>Declared, because each name is a judgement — the reasons are asserted one by one in
+     * {@code M1EventsCorpusTest}. Only the arithmetic derives from it, so that a group of new
+     * specifications moves no literal here.
+     */
+    private static final Set<String> UNPAIRED =
+            Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword");
+
+    /**
+     * The paired specifications M0 refuses, which therefore receive no M2 verdict (INV-CONF-09).
+     *
+     * <p>Declared for the same reason: both memberships were argued and are asserted below with
+     * their cause.
+     */
+    private static final Set<String> M0_REFUSED = Set.of("SecretKeySpec", "KeySpec");
+
+    /** How many {@code .mop} files the set holds right now. Derived: it carries no judgement. */
+    private static int corpusSize() {
+        return mopFiles().size();
     }
 
     private static List<Path> mopFiles() {

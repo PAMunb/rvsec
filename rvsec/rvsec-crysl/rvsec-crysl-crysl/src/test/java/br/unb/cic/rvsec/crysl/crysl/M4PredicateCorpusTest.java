@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -223,7 +224,7 @@ class M4PredicateCorpusTest {
         }
         int paired = pairing.pairs().size();
 
-        assertEquals(35, paired,
+        assertEquals(corpusSize() - UNPAIRED.size(), paired,
                 "the pairing of record: SpecRulePairing, by declared type and INJECTIVE "
                         + "(INV-CONF-11 plus the injectivity the corpus forces). The three that "
                         + "pair with nothing are RandomStringPassword.mop, whose declared type is "
@@ -235,7 +236,7 @@ class M4PredicateCorpusTest {
                         "RandomStringPassword.mop"),
                 pairing.unpairedNames(),
                 "and the losers are named rather than dropped in silence");
-        assertEquals(68, present, "edges present over the 35 pairs, with no declared alias");
+        assertEquals(68, present, "edges present over the pairs, with no declared alias");
         assertEquals(40, absent,
                 "44 -> 40 at gh109 group G2: four clauses that no site implemented now have one. "
                         + "The group adds pairs as well as sites, so this number could have moved "
@@ -349,6 +350,22 @@ class M4PredicateCorpusTest {
         } catch (LiftFailure e) {
             throw new IllegalStateException("the corpus must lift: " + file, e);
         }
+    }
+
+    /**
+     * The specifications of the set that pair with no rule of the lifted oracle.
+     *
+     * <p>Declared, because each name is a judgement — and the three are named with their reasons
+     * in the assertion right below the count. Only the arithmetic derives from the list, which is
+     * what keeps a group of new specifications from moving a literal that says nothing about
+     * predicates.
+     */
+    private static final Set<String> UNPAIRED =
+            Set.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword");
+
+    /** How many {@code .mop} files the Android set holds right now. Derived: no judgement in it. */
+    private static int corpusSize() {
+        return filesOf("jca_android").size();
     }
 
     private static List<Path> filesOf(String corpus) {

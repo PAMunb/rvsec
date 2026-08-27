@@ -28,7 +28,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The lift over all 229 {@code .mop} files of the five corpora.
+ * The lift over every {@code .mop} file of the five corpora.
  *
  * <p>The three aggregate numbers are asserted as <strong>fields of a result object</strong> and not
  * only inside an assertion message, together with the counting rule each was taken under. A number
@@ -115,18 +115,18 @@ class MopLiftCorpusTest {
             assertEquals(corpus.expectedFiles(), censuses.get(i).files(),
                     "corpus " + corpus.name() + " changed size under the component");
         }
-        assertEquals(229, total.files());
+        assertEquals(Corpora.expectedTotal(), total.files());
     }
 
     @Test
-    @DisplayName("229 files, 229 ok, 0 fail")
-    void test_all_229_files_lift() {
+    @DisplayName("every file of every corpus lifts: as many ok as files, 0 fail")
+    void test_every_file_lifts() {
         for (Census census : censuses) {
             assertEquals(census.files(), census.ok(),
                     census.corpus() + " did not lift completely: " + census.failures());
             assertEquals(0, census.fail(), census.corpus() + ": " + census.failures());
         }
-        assertEquals(229, total.ok());
+        assertEquals(Corpora.expectedTotal(), total.ok());
         assertEquals(0, total.fail());
     }
 
@@ -153,7 +153,9 @@ class MopLiftCorpusTest {
         // parameters, one per new specification, because each declares a single formal parameter
         // and no event of any of them adds one.
         //
-        // Assert both counts, and note that the events assertion running first is why the parameter
+        // Both stay pinned, and both move with EVERY group that adds specifications to the live
+        // set -- re-measure them at the start of a group rather than discovering them one build
+        // cycle at a time. Note that the events assertion running first is why the parameter
         // drift went unseen: CI reported only the event failure for three runs while this line had
         // already been false for all three.
         assertEquals("spec.getEvents().size()", total.eventCountingRule());
