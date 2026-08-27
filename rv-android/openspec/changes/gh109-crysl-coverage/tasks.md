@@ -84,11 +84,11 @@ Subagent dispatch (docs/WORKFLOW.md §5) — lighter protocol than gh105 (design
 
 ## 1b. G1b — Consumer reads unblocked by the producers (after G2) — `tasks/G1b-consumer-reads.md`
 
-- [ ] 1b.1 `KeyPairGeneratorSpec`: the four guarded reads of `KeyPairGenerator.crysl:35-38` in `init3`/`init4` (after 1.2)
-- [ ] 1b.2 `KeyManagerFactorySpec`: `generatedManagerFactoryParameters` read on the bound `arg` (`:114`)
-- [ ] 1b.3 `TrustManagerFactorySpec`: the twin read (`:142`)
-- [ ] 1b.4 Record the deferred `Cipher.crysl:136` `preparedAlg` read (F7 form: ceiling 17/17 + `i2` binds no `params`)
-- [ ] 1b.R Group records pass + trace pairs (satisfy/violate/not-observed per site) + [GEN] monitor + gates
+- [x] 1b.1 `KeyPairGeneratorSpec`: the four guarded reads of `KeyPairGenerator.crysl:35-38` in `init3`/`init4` (after 1.2)
+- [x] 1b.2 `KeyManagerFactorySpec`: `generatedManagerFactoryParameters` read on the bound `arg` (`:114`)
+- [x] 1b.3 `TrustManagerFactorySpec`: the twin read (`:142`)
+- [x] 1b.4 Record the deferred `Cipher.crysl:136` `preparedAlg` read (F7 form: ceiling 17/17 + `i2` binds no `params`)
+- [x] 1b.R Group records pass + trace pairs (satisfy/violate/not-observed per site) + [GEN] monitor + gates
 
 ## 3. G3 — Medium specs, 7 files (parallel per spec, after G2 template proven) — `tasks/G3-medium.md`
 

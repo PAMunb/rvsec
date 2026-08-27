@@ -1,0 +1,14 @@
+# gh109 task 1b.1, the satisfied half at `init4` -- the `initialize(params, random)` overload.
+# Same clause and same verdict as at `init3`, and a site of its own because the report has to
+# say which overload it is about: this one carries KEYPAIRGENERATOR-CONSTR-01 and
+# KEYPAIRGENERATOR-NOBS-01, for the reason `initError`/`initError2` carry two key-size codes
+# (INV-INS-143). Nothing is drawn here.
+#
+# The SecureRandom is bound rather than fired: it is the argument the overload adds and the
+# rule says nothing about it, so firing its own specification would put a second file's
+# verdicts into a trace about this one.
+new RSAKeyGenParameterSpec(2048, 65537) -> params
+bind sr = SecureRandom.getInstance("SHA1PRNG")
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(params, sr)
+kpg.generateKeyPair()

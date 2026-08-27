@@ -43,6 +43,9 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
 
     String expectedGeneratedKeyStore = "a KeyStore this instrumentation observed being loaded";
 
+    String expectedGeneratedManagerFactoryParameters =
+        "a ManagerFactoryParameters this instrumentation observed being constructed";
+
     // One event over `getInstance(String)`, where there used to be two split by the
     // sign of a guard. The negated twin `g3` matched the same call and named no
     // state, and the generator gives an event absent from the automaton a
@@ -122,20 +125,24 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
         }
         // The rule's other REQUIRES, `generatedManagerFactoryParameters[params]`
         // (TrustManagerFactory.crysl:29, ledger clause #56), is about the argument of the
-        // `i2: init(params)` overload -- which is the branch this `if` leaves empty. It is
-        // RECORDED AND NOT READ, by the researcher's decision of 2026-08-26 (task
-        // 11.5(c)), and the disposition is derived: the predicate is ENSURED by exactly two
-        // rules of the oracle, `CertPathTrustManagerParameters.crysl:17` and
-        // `KeyStoreBuilderParameters.crysl:14` (ledger #61 and #98), and neither has a
-        // `.mop` in this set. `unmonitored-producer`.
+        // `i2: init(params)` overload, and it is read on the sibling branch below.
         //
-        // The cheapness of the site is the reason the conclusion had to be derived rather
-        // than assumed: the event already binds `arg` and already discriminates by runtime
-        // type, so an `else if (arg instanceof ManagerFactoryParameters)` would cost three
-        // lines. What it would buy is an accuser that can answer NOT_OBSERVED and nothing
-        // else, for every program in the world -- the shape of the seventeen orphan
-        // accusers group 3 removed. The twin clause at `KeyManagerFactory.crysl:32`
-        // (#29) carries the same disposition on the same two producing rules.
+        // It was RECORDED AND NOT READ until gh109 group G2, and the reason was derived
+        // rather than assumed: the predicate is ENSURED by exactly two rules of the oracle,
+        // `CertPathTrustManagerParameters.crysl:17` and `KeyStoreBuilderParameters.crysl:14`
+        // (ledger #61 and #98), and neither had a `.mop` in this set. `unmonitored-producer`.
+        // The sentence that closed that derivation -- *what it would buy is an accuser that
+        // can answer NOT_OBSERVED and nothing else, for every program in the world* -- is the
+        // one G2 falsified: tasks 2.8 and 2.9 wrote both producers, so the read can now answer
+        // SATISFIED, and what stays NOT_OBSERVED is a measurable population of programs that
+        // built their parameters outside the monitored set rather than every program there is.
+        // 7.3 measures that population over the APK corpus.
+        //
+        // The site is as cheap as the old derivation measured it: the event already binds
+        // `arg` and already discriminates by runtime type, so the read is an
+        // `else if (arg instanceof ManagerFactoryParameters)` beside the key-store branch.
+        // The twin clause at `KeyManagerFactory.crysl:32` (#29) is opened the same way, on
+        // the same two producing rules, at task 1b.2.
         if (arg == null || arg instanceof KeyStore) {
             PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_KEY_STORE, arg);
             if (generated == PredicateVerdict.VIOLATED) {
@@ -145,6 +152,21 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
             else if (generated == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustManagerFactorySpec", "" + __LOC,
                     "v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'"));
+            }
+        }
+        // `generatedManagerFactoryParameters[params]`, on the branch a `ManagerFactoryParameters`
+        // is the one to reach. The `null` case belongs to the key-store branch above and not to
+        // this one, for the reason stated there: null is the documented default-truststore route
+        // and carries no runtime type to discriminate on.
+        else if (arg instanceof ManagerFactoryParameters) {
+            PredicateVerdict prepared = PredicateStore.instance().validate(Property.GENERATED_MANAGER_FACTORY_PARAMETERS, arg);
+            if (prepared == PredicateVerdict.VIOLATED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustManagerFactorySpec", "" + __LOC,
+                    "v=1 code=TRUSTMANAGERFACTORY-CONSTR-01 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedManagerFactoryParameters) + "' msg='the ManagerFactoryParameters given to TrustManagerFactory.init carries a generation predicate the rule does not admit'"));
+            }
+            else if (prepared == PredicateVerdict.NOT_OBSERVED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustManagerFactorySpec", "" + __LOC,
+                    "v=1 code=TRUSTMANAGERFACTORY-NOBS-01 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedManagerFactoryParameters) + "' msg='no construction of the ManagerFactoryParameters given to TrustManagerFactory.init was observed'"));
             }
         }
        initialisedFactory = mf;

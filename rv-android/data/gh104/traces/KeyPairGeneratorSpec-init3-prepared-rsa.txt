@@ -1,0 +1,13 @@
+# gh109 task 1b.1, the satisfied half of the guarded read at `init3`.
+# KeyPairGenerator.crysl:35 states `algorithm in {"RSA"} => preparedRSA[params]`. The
+# parameters below are constructed under observation and with both value clauses of
+# RSAKeyGenParameterSpec.crysl satisfied, so `RSAKeyGenParameterSpecSpec` (task 2.1) stages
+# `preparedRSA` for the object; the generator is obtained under "RSA", so the guard selects
+# that clause and no other; and the read answers SATISFIED. Nothing is drawn.
+#
+# The separating trace is KeyPairGeneratorSpec-init3-unobserved-params.txt, identical but
+# for the `bind`, which draws KEYPAIRGENERATOR-NOBS-00.
+new RSAKeyGenParameterSpec(2048, 65537) -> params
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(params)
+kpg.generateKeyPair()

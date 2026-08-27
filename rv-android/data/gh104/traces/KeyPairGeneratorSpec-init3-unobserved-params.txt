@@ -1,0 +1,14 @@
+# gh109 task 1b.1, the separating half at `init3`: the parameters are built outside the
+# monitored set. `bind` produces the object without firing the advices of its construction,
+# which is the trace idiom for a producer this instrumentation never wove -- a framework, a
+# library, a call that ran before the monitor attached.
+#
+# Nothing was written for the object, so the read answers NOT_OBSERVED and the site draws
+# KEYPAIRGENERATOR-NOBS-00 and NOT KEYPAIRGENERATOR-CONSTR-00. That distinction is the whole
+# point of the pair: an absence of evidence is not evidence of a refused preparation
+# (INV-INS-143). Whether the NOBS branch survives is what task 7.3 measures over the APK
+# corpus; this trace is what makes it reachable in the meantime.
+bind params = new RSAKeyGenParameterSpec(2048, 65537)
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(params)
+kpg.generateKeyPair()

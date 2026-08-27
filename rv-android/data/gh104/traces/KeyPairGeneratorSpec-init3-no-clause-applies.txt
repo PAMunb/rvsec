@@ -1,0 +1,14 @@
+# gh109 task 1b.1, the third outcome of a GUARDED read: no clause applies, so there is no read.
+# KeyPairGenerator.crysl:35-38 states its four REQUIRES per algorithm, and the specification's
+# guard is the clause's own -- `requiredPreparation()` answers null where no clause names the
+# algorithm the generator was obtained under.
+#
+# Here the generator is bound rather than fired, so its `getInstance` was never observed and
+# the monitor's `algorithm` field is null. That is the same case as an algorithm outside the
+# four: nothing selects a predicate, the read does not happen, and the site draws NEITHER
+# KEYPAIRGENERATOR-CONSTR-00 nor KEYPAIRGENERATOR-NOBS-00. A read that fired anyway would
+# accuse every program whose generator came from outside the woven code of an unobserved
+# preparation the rule never asked it for.
+bind params = new RSAKeyGenParameterSpec(2048, 65537)
+bind kpg = KeyPairGenerator.getInstance("RSA")
+kpg.initialize(params)

@@ -1,0 +1,9 @@
+# gh109 task 1b.1, the separating half at `init4`: parameters built outside the monitored set,
+# handed to the two-argument overload. Draws KEYPAIRGENERATOR-NOBS-01 -- the twin of the
+# NOBS-00 its one-argument sibling draws, and the pair of codes is what lets a reader tell the
+# two overloads apart in a report.
+bind params = new RSAKeyGenParameterSpec(2048, 65537)
+bind sr = SecureRandom.getInstance("SHA1PRNG")
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(params, sr)
+kpg.generateKeyPair()

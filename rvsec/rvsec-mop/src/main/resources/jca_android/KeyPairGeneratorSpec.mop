@@ -7,6 +7,7 @@ import java.security.spec.AlgorithmParameterSpec;
 
 import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
@@ -59,6 +60,37 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       return false;
     }
 
+    // Which of the four guarded REQUIRES clauses of KeyPairGenerator.crysl:35-38 applies to
+    // the `params` an `initialize` was handed. The guard is the rule's own: the algorithm
+    // selects the clause, and an algorithm none of the four names -- or one this
+    // instrumentation never observed, which is the same case -- selects none, so `null` is
+    // the answer that means *no clause applies here*. Read at `init3` and `init4`, where the
+    // narrative of the reads lives; it is declared up here because javamop's parser takes the
+    // declaration block before the first `event` and nothing after it.
+    private Property requiredPreparation() {
+        if (algorithm == null) {
+            return null;
+        }
+        switch (ConscryptAliasTable.canonical("KeyPairGenerator", algorithm).toUpperCase()) {
+            case "RSA": return Property.PREPARED_RSA;
+            case "DSA": return Property.PREPARED_DSA;
+            case "DIFFIEHELLMAN":
+            case "DH": return Property.PREPARED_DH;
+            case "EC": return Property.PREPARED_EC;
+        }
+        return null;
+    }
+
+    // The name the report shows for the predicate the selected clause requires. It is the
+    // rule's own spelling and not the enum constant's, because the reader who follows a
+    // report back is reading KeyPairGenerator.crysl.
+    private String preparationName(Property required) {
+        if (required == Property.PREPARED_RSA) { return "preparedRSA"; }
+        if (required == Property.PREPARED_DSA) { return "preparedDSA"; }
+        if (required == Property.PREPARED_DH) { return "preparedDH"; }
+        return "preparedEC";
+    }
+
     event g1 after(String alg) returning(KeyPairGenerator k):
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
       args(alg) &&
@@ -107,50 +139,110 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     // `init3` and `init4` bind the `params` of the rule's four guarded REQUIRES clauses --
     // `{RSA} => preparedRSA[params]`, `{DSA} => preparedDSA[params]`,
     // `{DiffieHellman, DH} => preparedDH[params]` and `{EC} => preparedEC[params]`
-    // (KeyPairGenerator.crysl:35-38, ledger #17, #18, #19, #20) -- and read none of
-    // them. Each of the four is recorded, and the reasons are three different ones:
+    // (KeyPairGenerator.crysl:35-38, ledger #32, #33, #34, #35) -- and now read all four.
+    // Until gh109 group G2 they read none: no rule that ENSURES any of the four had a
+    // `.mop` in this set, so a read here would have answered NOT_OBSERVED for every
+    // conforming program, and the four clauses were recorded `unmonitored-producer`. G2
+    // wrote the producers -- `RSAKeyGenParameterSpecSpec` (preparedRSA),
+    // `DSAParameterSpecSpec` (preparedDSA), `DHParameterSpecSpec` (preparedDH),
+    // `ECGenParameterSpecSpec` and `ECParameterSpecSpec` (preparedEC) -- and D-24 is what
+    // makes opening the reads part of closing the gap: a predicate written by a brand-new
+    // specification and read by nobody is not a wired clause.
     //
-    // `preparedDSA` and `preparedRSA` have no producing rule with a `.mop` in this set,
-    // so there is nothing to read: `unmonitored-producer`, recorded with the other
-    // non-wireable clauses at task 5.10.
-    //
-    // `preparedEC` was recorded `unclosable` against the generated catalogue, where nothing
-    // ensured it. The oracle ensures it twice -- `ECGenParameterSpec.crysl:25` and
-    // `ECParameterSpec.crysl:17` -- and neither has a `.mop`, so task 11.1 re-derived it to
-    // `unmonitored-producer` and `unclosable` left the ledger entirely.
-    //
-    // `preparedDH` is the one the oracle changed the diagnosis of, and task 11.9(a) re-derived
-    // it. The sentence this comment used to close on -- *a DH key pair is initialised from a
-    // `DHParameterSpec`, which no rule ensures* -- is false of the oracle:
-    // `DHParameterSpec.crysl:21` ENSURES `preparedDH[this]`, and the generated catalogue
-    // stated no `DHParameterSpec` rule at all. So this set does not have both ends of the
-    // clause: it has `DHGenParameterSpecSpec.mop`, and `DHGenParameterSpec` is exactly the
-    // object the JCA refuses at this call. Measured on Temurin 21, re-run 2026-08-26:
-    // `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))` raises
-    // `InvalidAlgorithmParameterException: Inappropriate parameter type`, while
+    // The measurement that motivated the old conclusion stays true and stays relevant, so
+    // it is kept rather than deleted. On Temurin 21, re-run 2026-08-26:
+    // `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))`
+    // raises `InvalidAlgorithmParameterException: Inappropriate parameter type`, while
     // `initialize(new DHParameterSpec(p, g))` over an RFC 3526 group is accepted, and the
     // `DHGenParameterSpec` into `AlgorithmParameterGenerator.getInstance("DH").init(...)`
-    // -- the consumer the class exists for, and one with no `.mop` in this set -- runs.
+    // -- the consumer that class exists for -- runs. That is why the producer this read
+    // needs is `DHParameterSpec` and not `DHGenParameterSpec`, and why
+    // `DHGenParameterSpecSpec`'s own write keeps its deliberate-omission record instead of
+    // being wired here (INV-INS-137, researcher decision 2026-08-22).
     //
-    // So a read here would still accuse every conforming DH program of an unobserved
-    // preparation, and the reason is now the honest one: the producer such a program uses is
-    // unmonitored, not out of reach. `unmonitored-producer`, alongside `preparedRSA` and
-    // `preparedDSA` above rather than alone. What would close it is a `.mop` for
-    // `DHParameterSpec`, which is a new accusation class D-16 keeps out of this change --
-    // and it is why `DHGenParameterSpecSpec`'s write keeps its deliberate-omission record
-    // instead of gaining a reader (INV-INS-137, researcher decision 2026-08-22).
+    // The clause is guarded, so the read is too: the algorithm selects which of the four
+    // predicates is required, and a `params` handed to a generator whose algorithm none of
+    // the four clauses names reaches no read at all. `algorithm` is null when no
+    // `getInstance` of this program was observed, and that is the same no-clause-applies
+    // case -- the rule states the requirement per algorithm, and an unobserved algorithm
+    // selects nothing.
     //
-    // Nothing here moves on that re-derivation: no event changes, no read opens, and the
-    // accusation this file makes is the one it made (task 11.9, record only).
+    // The verdict is three-valued and its two accusing outcomes carry different codes, as
+    // at every other read of this set (INV-INS-143): VIOLATED says the program prepared the
+    // parameter object in a way the producing rule refuses, NOT_OBSERVED says this
+    // instrumentation never saw it prepared at all. Folding them together would count a
+    // reach limit of the monitored set as a misuse. The two events are two sites and so
+    // carry two pairs of codes -- a reader has to be able to tell which overload the report
+    // is about, which is the reason `initError`/`initError2` above have codes of their own.
     event init3 after(AlgorithmParameterSpec params, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) &&
       args(params) &&
-      target(k)  { }
+      target(k)  {
+        Property required = requiredPreparation();
+        PredicateVerdict prepared = PredicateVerdict.SATISFIED;
+        // Each of the four clauses names its predicate as a LITERAL `Property.` constant, and
+        // the four-way `if` is what that costs. It is not a style: the record reader anchors a
+        // predicate site on the literal first argument of the store call
+        // (`gh105_predicate_graph.py`, pass 1), precisely so that a private helper named
+        // `validate` -- this file has one -- is not mistaken for the store's. A `Property` held
+        // in a variable is invisible to it, and the clause would vanish from the graph, from the
+        // ledger and from every gate that reads them while the monitor went on accusing.
+        if (required == Property.PREPARED_RSA) {
+            prepared = PredicateStore.instance().validate(Property.PREPARED_RSA, params);
+        }
+        else if (required == Property.PREPARED_DSA) {
+            prepared = PredicateStore.instance().validate(Property.PREPARED_DSA, params);
+        }
+        else if (required == Property.PREPARED_DH) {
+            prepared = PredicateStore.instance().validate(Property.PREPARED_DH, params);
+        }
+        else if (required == Property.PREPARED_EC) {
+            prepared = PredicateStore.instance().validate(Property.PREPARED_EC, params);
+        }
+        if (required != null && prepared == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYPAIRGENERATOR-CONSTR-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(algorithm) + "' exp='" + q(preparationName(required)) + "' msg='the AlgorithmParameterSpec given to KeyPairGenerator.initialize carries a preparation predicate the rule does not admit'"));
+        }
+        else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYPAIRGENERATOR-NOBS-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(algorithm) + "' exp='" + q(preparationName(required)) + "' msg='no preparation of the AlgorithmParameterSpec given to KeyPairGenerator.initialize was observed'"));
+        }
+    }
 
     event init4 after(AlgorithmParameterSpec params, SecureRandom random, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)) &&
       args(params, random) &&
-      target(k) { }
+      target(k) {
+        Property required = requiredPreparation();
+        PredicateVerdict prepared = PredicateVerdict.SATISFIED;
+        // Each of the four clauses names its predicate as a LITERAL `Property.` constant, and
+        // the four-way `if` is what that costs. It is not a style: the record reader anchors a
+        // predicate site on the literal first argument of the store call
+        // (`gh105_predicate_graph.py`, pass 1), precisely so that a private helper named
+        // `validate` -- this file has one -- is not mistaken for the store's. A `Property` held
+        // in a variable is invisible to it, and the clause would vanish from the graph, from the
+        // ledger and from every gate that reads them while the monitor went on accusing.
+        if (required == Property.PREPARED_RSA) {
+            prepared = PredicateStore.instance().validate(Property.PREPARED_RSA, params);
+        }
+        else if (required == Property.PREPARED_DSA) {
+            prepared = PredicateStore.instance().validate(Property.PREPARED_DSA, params);
+        }
+        else if (required == Property.PREPARED_DH) {
+            prepared = PredicateStore.instance().validate(Property.PREPARED_DH, params);
+        }
+        else if (required == Property.PREPARED_EC) {
+            prepared = PredicateStore.instance().validate(Property.PREPARED_EC, params);
+        }
+        if (required != null && prepared == PredicateVerdict.VIOLATED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYPAIRGENERATOR-CONSTR-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(algorithm) + "' exp='" + q(preparationName(required)) + "' msg='the AlgorithmParameterSpec given to KeyPairGenerator.initialize carries a preparation predicate the rule does not admit'"));
+        }
+        else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYPAIRGENERATOR-NOBS-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(algorithm) + "' exp='" + q(preparationName(required)) + "' msg='no preparation of the AlgorithmParameterSpec given to KeyPairGenerator.initialize was observed'"));
+        }
+    }
 
     event initError after(int keySize, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(int)) &&

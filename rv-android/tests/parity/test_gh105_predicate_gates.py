@@ -887,7 +887,10 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
       never wired. `read`+`read-absent` is 43 and `write` is 32.
 
       gh109 group G2 lands fourteen producer specifications and moves both counts at once:
-      `read`+`read-absent` is 53 and `write` is 49. The writes are one per file, which is what
+      `read`+`read-absent` is 53 and `write` is 49. Group G1b then opens ten reads and
+      writes nothing, so `read` goes to 58 and the sum to 63: the four guarded clauses of
+      `KeyPairGenerator` at two `initialize` overloads each, plus the
+      `generatedManagerFactoryParameters` read at each of the two factory specifications. The writes are one per file, which is what
       a producer rule is -- every one of the fourteen ENSURES exactly one predicate -- and the
       ten reads are the REQUIRES clauses five of them state. There is no `read-absent` among
       them: a producer reads a predicate to demand it, never to demand its absence.
@@ -913,7 +916,7 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     # Content censuses, not set sizes: these two move with every group that adds
     # specifications, because each new file brings its own writes and reads. Re-measure both
     # at the start of a group -- JUnit-style one-per-cycle discovery costs the same here.
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 53
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 63
     assert read_placement.get("condition", 0) == 0
     # 32 -> 35 at gh109 task 1.3(b): the three `Get` events of `MessageDigestSpec` gain the
     # `generatedMessageDigest` write the transcription had omitted (`MessageDigest.crysl:46`).
@@ -1311,6 +1314,13 @@ def test_the_graph_reproduces_the_measured_placement_census():
       and not in a body, which is the clause's own `after Init` read the way INV-INS-134 reads
       every `after L` -- the states L leads to, here `s2`.
 
+      gh109 group G1b adds ten read rows and no write, so the graph is 113 and `read:body`
+      is 58: `KeyPairGeneratorSpec` reads its four guarded clauses at `init3` and again at
+      `init4` -- each clause naming its predicate as a literal `Property.` constant, which
+      is what this reader anchors a site on -- and `KeyManagerFactorySpec` and
+      `TrustManagerFactorySpec` each read `generatedManagerFactoryParameters` on the
+      sibling branch of a discrimination their `generatedKeyStore` read already made.
+
       gh109 group G2 adds 24 rows and the graph is 103. `read:body` is 48 and
       `write:acceptance` is 41: every one of the fourteen producers ENSURES its predicate with
       no `after L` on the clause, so INV-INS-134 puts the write at the acceptance point, and
@@ -1327,7 +1337,7 @@ def test_the_graph_reproduces_the_measured_placement_census():
     # Content censuses, not set sizes: every verdict count in this test moves with each group
     # that adds specifications. Re-measure the whole block at the start of a group rather than
     # rediscovering one number per run.
-    assert counts.get("read:body", 0) == 48
+    assert counts.get("read:body", 0) == 58
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one

@@ -43,6 +43,9 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
 
     String expectedGeneratedKeyStore = "a KeyStore this instrumentation observed being loaded";
 
+    String expectedGeneratedManagerFactoryParameters =
+        "a ManagerFactoryParameters this instrumentation observed being constructed";
+
     event g1 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
@@ -124,6 +127,31 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
             else if (generated == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
                     "v=1 code=KEYMANAGERFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='no loading of the KeyStore given to KeyManagerFactory.init was observed'"));
+            }
+        }
+        // The rule's other REQUIRES clause, `generatedManagerFactoryParameters[params]`
+        // (KeyManagerFactory.crysl:32, ledger clause #29), on the sibling branch of the same
+        // discrimination. `params` is what the rule's `i2` binds, so this is the branch where a
+        // `ManagerFactoryParameters` reaches this event at all, and the guard that separates the
+        // two clauses is the same runtime-type test the `generatedKeyStore` read above already
+        // makes -- no new event, no new pointcut, no arity to fuse.
+        //
+        // Until gh109 group G2 the clause was recorded `unmonitored-producer`: nothing in the set
+        // ensured the predicate, so the read could only ever have answered NOT_OBSERVED. G2 wrote
+        // both producers the oracle states -- `KeyStoreBuilderParametersSpec` (task 2.8) and
+        // `CertPathTrustManagerParametersSpec` (task 2.9), the two rules whose ENSURES names it --
+        // and D-24 is why writing them is not enough: a predicate no specification reads is a
+        // clause that moved no verdict. The `null` case belongs to the branch above and not to
+        // this one, for the reason stated there; a null argument is read as the rule's `i1`.
+        else if (arg instanceof ManagerFactoryParameters) {
+            PredicateVerdict prepared = PredicateStore.instance().validate(Property.GENERATED_MANAGER_FACTORY_PARAMETERS, arg);
+            if (prepared == PredicateVerdict.VIOLATED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
+                    "v=1 code=KEYMANAGERFACTORY-CONSTR-01 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedManagerFactoryParameters) + "' msg='the ManagerFactoryParameters given to KeyManagerFactory.init carries a generation predicate the rule does not admit'"));
+            }
+            else if (prepared == PredicateVerdict.NOT_OBSERVED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
+                    "v=1 code=KEYMANAGERFACTORY-NOBS-01 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedManagerFactoryParameters) + "' msg='no construction of the ManagerFactoryParameters given to KeyManagerFactory.init was observed'"));
             }
         }
        initialisedFactory = k;

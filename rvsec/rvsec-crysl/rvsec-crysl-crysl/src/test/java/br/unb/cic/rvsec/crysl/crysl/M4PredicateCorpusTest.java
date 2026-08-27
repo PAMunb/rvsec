@@ -104,16 +104,21 @@ class M4PredicateCorpusTest {
                         + "only way to compare against the published measurements");
         assertEquals(0, count(frozen, PredicateSubstrate.PREDICATE_STORE));
 
-        assertEquals(101, current.size(),
-                "70 -> 101 across gh109: task 1.3(b) writes the three generatedMessageDigest sites "
-                        + "the transcription had omitted, and group G2's fourteen producer "
-                        + "specifications carry 14 writes and 10 reads of their own. The 0/70/21 "
-                        + "signature this was written against is the shape and not the number: "
-                        + "still no site on substrate A, and still every one of them on the store");
+        assertEquals(111, current.size(),
+                "70 -> 101 -> 111 across gh109: task 1.3(b) writes the three generatedMessageDigest "
+                        + "sites the transcription had omitted; group G2's fourteen producer "
+                        + "specifications carry 14 writes and 10 reads of their own; and group G1b "
+                        + "opens ten reads and no write -- the four guarded clauses of "
+                        + "KeyPairGenerator at two initialize overloads each, and "
+                        + "generatedManagerFactoryParameters at each of the two manager factories. "
+                        + "The 0/70/21 signature this was written against is the shape and not the "
+                        + "number: still no site on substrate A, and still every one of them on the "
+                        + "store. It moves with every group that adds sites -- re-measure it at the "
+                        + "start of one rather than one build cycle at a time");
         assertEquals(0, count(current, PredicateSubstrate.EXECUTION_CONTEXT),
                 "so the substrate-A ceiling no longer binds this set: it is a property of the "
                         + "frozen set, not a defect of the current corpus");
-        assertEquals(101, count(current, PredicateSubstrate.PREDICATE_STORE));
+        assertEquals(111, count(current, PredicateSubstrate.PREDICATE_STORE));
 
         PredicateGraph frozenGraph = PredicateGraph.of(frozen);
         PredicateGraph currentGraph = PredicateGraph.of(current);
@@ -236,24 +241,33 @@ class M4PredicateCorpusTest {
                         "RandomStringPassword.mop"),
                 pairing.unpairedNames(),
                 "and the losers are named rather than dropped in silence");
-        assertEquals(68, present, "edges present over the pairs, with no declared alias");
-        assertEquals(40, absent,
+        assertEquals(78, present, "edges present over the pairs, with no declared alias");
+        assertEquals(34, absent,
                 "44 -> 40 at gh109 group G2: four clauses that no site implemented now have one. "
                         + "The group adds pairs as well as sites, so this number could have moved "
                         + "either way -- a new pair brings its rule's unimplemented clauses in "
-                        + "with it -- and it fell, which is what a producer specification is for");
+                        + "with it -- and it fell, which is what a producer specification is for. "
+                        + "40 -> 34 at group G1b, and this one could only fall: the group adds no "
+                        + "pair at all, only sites, and the six clauses it implements are the four "
+                        + "guarded REQUIRES of KeyPairGenerator and the "
+                        + "generatedManagerFactoryParameters of each manager factory -- six clauses "
+                        + "that had a rule and no site, read at ten sites because two of them are "
+                        + "read at two overloads each");
         assertEquals(0, inverted,
                 "no site of the current corpus pairs with a clause and then disagrees with it on "
                         + "polarity or on argument order - including the one negated pair, "
                         + "MacSpec's validateAbsent against Mac.crysl's !encrypted, which agrees "
                         + "because both sides are read as NEGATED and not because both lifts lost "
                         + "the same signal");
-        assertEquals(131, rows, "one row per site of a paired specification, plus one per absence");
-        assertEquals(108, derivedRows,
+        // 131 -> 135 at group G1b, and the arithmetic is the counting rule itself: ten sites
+        // enter and six absences leave, because the six clauses those sites implement had a row
+        // apiece as absences. Both halves move together and neither can be read off the other.
+        assertEquals(135, rows, "one row per site of a paired specification, plus one per absence");
+        assertEquals(112, derivedRows,
                 "rows whose fidelity class this metric derived, under Judgements.empty(): no "
                         + "declared alias and no supplied class, so every derived row was derived "
                         + "by this metric and by nothing else");
-        assertEquals(0.824, (double) derivedRows / rows, 0.001,
+        assertEquals(0.830, (double) derivedRows / rows, 0.001,
                 "the derived fraction, which is the honest measure of how much of the manual "
                         + "table this component replaced; it rises when the comparison improves "
                         + "and not when the component is handed more judgement");
