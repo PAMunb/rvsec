@@ -107,7 +107,7 @@ Subagent dispatch (docs/WORKFLOW.md §5) — lighter protocol than gh105 (design
 - [x] 4.2 `SSLParametersSpec.mop` (3 constructor paths)
 - [x] 4.3 `KeyAgreementSpec.mop` (5 events, `noCallTo[gs3]`, `gs2` defect row from 0.1)
 - [x] 4.4 Adjudicate N/A: `Cookie` (no class), `DSAGenParameterSpec` (API 35+), `PasswordAuthentication` (D-19, ratified: recorded N/A-by-value)
-- [ ] 4.R Group records pass + [GEN] monitor + gates
+- [x] 4.R Group records pass + [GEN] monitor + gates
 
 ## 5. G5 — Android ports (anytime after G0) — `tasks/G5-android-ports.md`
 

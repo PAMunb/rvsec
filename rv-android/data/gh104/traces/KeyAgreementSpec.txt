@@ -1,0 +1,31 @@
+# gh109 task 4.R, the conforming half of the ORDER pair of group G4 (task 4.3). The rule's
+# `Get, Init, DoPhase, GenSecretBuffer` (KeyAgreement.crysl:37) walked end to end: `DH` is one
+# of the three algorithms `:40` admits, the private key handed to `init` and the public key
+# handed to `doPhase` both carry the generation predicate `KeyPairSpec` wrote for them, and
+# `generateSecret()` reaches the accepting state. No KEYAGREEMENT code is drawn.
+#
+# The separating trace is KeyAgreementSpec-nodophase.txt, identical but for the missing
+# `doPhase`, which draws KEYAGREEMENT-ORDER-00 at the same `generateSecret()`.
+#
+# The two KEYPAIR-ORDER-00 this trace does draw are not about this rule and are not noise: the
+# pair came out of `generateKeyPair()` and was never built by a monitored `new KeyPair`, so
+# KeyPairSpec's `ere` -- `c1 (gpu | gpr)*`, with the constructor mandatory where the expert
+# rule makes it so -- sends `gpu` and `gpr` to the fail state. That is the divergence
+# `KeyPairSpec.mop:160-186` records and task 11.6 of gh105 decided to keep, and it is the
+# reason the predicate writes sit in those event bodies: they run before the transition is
+# decided, so the chain this trace measures is intact on a pair the ordering rejects. The
+# precedent trace is SignatureSpec-generated-privkey.txt.
+#
+# `generateSecret()` names no return value, so the `preparedKeyMaterial[sharedSecretBuffer]`
+# write of `:51` stores nothing here: the runner replays the dispatchers without executing the
+# API, and an agreement it never really initialised produces no buffer to name. What the trace
+# measures is the acceptance point being reached, not the store entry.
+KeyPairGenerator.getInstance("DH") -> kpg
+kpg.initialize(2048)
+kpg.generateKeyPair() -> kp
+kp.getPrivate() -> priv
+kp.getPublic() -> pub
+KeyAgreement.getInstance("DH") -> ka
+ka.init(priv)
+ka.doPhase(pub, true)
+ka.generateSecret()

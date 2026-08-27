@@ -1,0 +1,19 @@
+# gh109 task 4.R, the accusing half of the pair above. The protocol is still TLSv1.3, so the
+# antecedent of the second implication (`SSLEngine.crysl:42`) holds; the suite is
+# TLS_CHACHA20_POLY1305_SHA256, which the rule does not name, so `ec1` draws SSLENGINE-ALG-01.
+#
+# The suite is chosen deliberately: it is one of the three the api30 platform enables by
+# default for TLSv1.3, and the expert rule lists only the other two. The accusation is
+# therefore the oracle speaking about a platform default rather than a defect of transcription
+# -- the omission is symmetric across SSLEngine.crysl and SSLParameters.crysl, and D-21 records
+# a defect, not a preference. A campaign over real apps will meet this report; the trace is
+# what makes that predictable instead of surprising.
+#
+# What the trace also shows is WHERE the report is raised. The clause is an implication across
+# two events and the accusation sits in the body of each event that can complete the pair, so
+# the second call to arrive is the one that evaluates it: here that is `ec1`, and the code is
+# ALG-01 rather than the ALG-03 the reverse call order would draw. One code names one site.
+bind ctx = SSLContext.getDefault()
+bind eng = ctx.createSSLEngine()
+eng.setEnabledProtocols(strings("TLSv1.3"))
+eng.setEnabledCipherSuites(strings("TLS_CHACHA20_POLY1305_SHA256"))

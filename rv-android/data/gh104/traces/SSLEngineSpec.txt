@@ -1,0 +1,20 @@
+# gh109 task 4.R, the conforming half of the implication pair of group G4 (task 4.1).
+# `SSLEngine.crysl:15` admits both call orders and neither call alone; this one narrows the
+# engine to TLSv1.3 and then enables a suite `:42-43` names beside that protocol, so the
+# unconditional protocol clause (`:18`) holds at `ep1` and the second implication holds at
+# `ec1`, which is the event that arrives with both arrays already bound. Nothing is drawn, and
+# `generatedSSLEngine[this]` is written at the accepting state.
+#
+# The separating trace is SSLEngineSpec-suite-outside.txt, identical but for the suite.
+#
+# The engine is produced by two `bind` lines and not by a monitored `SSLContext` route, on
+# purpose: what this pair measures is the two clauses of SSLEngine.crysl, and a monitored
+# `getInstance`/`init`/`createSSLEngine` prefix would add three SSLCONTEXT-NOBS reports about
+# the null key material that prefix hands over -- true of that program, and about another rule.
+# `SSLContext.getDefault()` is also the only way to reach a usable engine here: the runner
+# executes the API only on lines that bind, so an `init` the trace merely names never runs and
+# `createSSLEngine()` on an uninitialised context produces nothing to monitor.
+bind ctx = SSLContext.getDefault()
+bind eng = ctx.createSSLEngine()
+eng.setEnabledProtocols(strings("TLSv1.3"))
+eng.setEnabledCipherSuites(strings("TLS_AES_128_GCM_SHA256"))

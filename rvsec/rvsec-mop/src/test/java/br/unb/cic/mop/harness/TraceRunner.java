@@ -80,9 +80,10 @@ import java.util.stream.Stream;
  * object itself carries {@code SHA-256}.
  *
  * <p>
- * Arguments are string literals, integers, {@code null}, a previously bound name, or one of the
- * placeholders {@code bytes}, {@code bytes(n)}, {@code chars}, {@code chars(n)} for the array
- * arguments no trace needs to spell out.
+ * Arguments are string literals, integers, {@code true}/{@code false}, {@code null}, a
+ * previously bound name, or one of the placeholders {@code bytes}, {@code bytes(n)},
+ * {@code chars}, {@code chars(n)}, {@code strings("a", "b")} for the array arguments no trace
+ * needs to spell out.
  *
  * <h2>A limitation worth knowing</h2>
  *
@@ -459,6 +460,15 @@ public final class TraceRunner implements AutoCloseable {
      * The platform consulted is this JVM's, not android-30's. The two agree on every signature
      * the set names -- the JCA classes are the same API -- and a type the harness cannot
      * resolve carries no gate rather than a false negative.
+     *
+     * <p>
+     * The comparison is on the name without its package, because a pointcut may qualify the
+     * return type it declares and neither weaver reads that as a different type:
+     * {@code KeyAgreement.doPhase} is declared {@code java.security.Key} and
+     * {@code KeyAgreement.generateSecret(String)} {@code javax.crypto.SecretKey}. Compared
+     * against {@link Class#getSimpleName()} verbatim both lost, and the two lines that name
+     * them replayed as unresolved -- "not accused" where the truth is "not replayed", the one
+     * reading this class exists to make impossible.
      */
     private boolean returnTypeAdmits(Pointcut pointcut) {
         if (pointcut.returnType == null) {
@@ -481,11 +491,17 @@ public final class TraceRunner implements AutoCloseable {
             if (!pointcut.variadic && method.getParameterCount() != fixed) {
                 continue;
             }
-            if (method.getReturnType().getSimpleName().equals(pointcut.returnType)) {
+            if (method.getReturnType().getSimpleName().equals(simpleName(pointcut.returnType))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** A declared type without its package: {@code java.security.Key} is {@code Key}. */
+    private static String simpleName(String declared) {
+        int dot = declared.lastIndexOf('.');
+        return dot < 0 ? declared : declared.substring(dot + 1);
     }
 
     /**
@@ -612,6 +628,26 @@ public final class TraceRunner implements AutoCloseable {
         }
         if (token.matches("-?\\d+")) {
             return Integer.valueOf(token);
+        }
+        // A pointcut that declares `boolean` refuses a null argument, the way the weaver's
+        // static typing does, so a trace could not reach the events whose signature carries a
+        // flag: `DigestInputStream.on(boolean)` and `KeyAgreement.doPhase(Key, boolean)` are
+        // both forbidden or ordering sites whose whole point is that the call happened.
+        if ("true".equals(token) || "false".equals(token)) {
+            return Boolean.valueOf(token);
+        }
+        // The array-of-strings placeholder, spelled out rather than sized like `bytes(n)`,
+        // because the clauses that read one -- `elements(protocols) in {...}` of the two TLS
+        // rules -- are about the values and not about the length.
+        if (token.startsWith("strings(") && token.endsWith(")")) {
+            List<String> values =
+                    Call.split(token.substring("strings(".length(), token.length() - 1));
+            String[] array = new String[values.size()];
+            for (int index = 0; index < array.length; index++) {
+                Object value = literal(values.get(index));
+                array[index] = value == null ? null : String.valueOf(value);
+            }
+            return array;
         }
         if (token.startsWith("bytes")) {
             return new byte[size(token, 16)];

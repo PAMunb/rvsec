@@ -1,0 +1,17 @@
+# gh109 task 4.R, the accusing half of the pair above: the same conforming prefix, with the
+# `doPhase` left out. `KeyAgreement.crysl:37` orders `Get, Init, DoPhase, GenSecretBuffer`, so
+# a `generateSecret()` on an agreement that never received the other party's public key is a
+# sequence the automaton has no transition for, and `gs1` draws KEYAGREEMENT-ORDER-00 at the
+# `inited` state.
+#
+# What the pair separates is the ordering clause and nothing else. The private key still
+# carries `generatedPrivkey`, so `init` draws no KEYAGREEMENT-NOBS-00 and the report the reader
+# gets names the one thing that went wrong. The KEYPAIR-ORDER-00 is the recorded residue the
+# conforming half explains.
+KeyPairGenerator.getInstance("DH") -> kpg
+kpg.initialize(2048)
+kpg.generateKeyPair() -> kp
+kp.getPrivate() -> priv
+KeyAgreement.getInstance("DH") -> ka
+ka.init(priv)
+ka.generateSecret()

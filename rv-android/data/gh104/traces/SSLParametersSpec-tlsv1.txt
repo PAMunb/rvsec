@@ -1,0 +1,14 @@
+# gh109 task 4.R, the accusing half of the pair above. TLSv1 is not one of the two protocols
+# `SSLParameters.crysl:20` admits, so `c3` draws SSLPARAMETERS-PROTO-00 in its body.
+#
+# What the trace separates is the unconditional clause from the two implications. Neither
+# antecedent holds -- every enabled protocol is TLSv1, which is neither TLSv1.2 nor TLSv1.3 --
+# so the suite list is not read at all and no ALG code accompanies the protocol one. A program
+# that narrowed to an old protocol is accused of that and of nothing else, which is what the
+# mutually exclusive `if`/`else if` over the two antecedents buys.
+#
+# The accusation also does not suppress the transition: the check is in the event body and not
+# in a `condition(...)`, so `Con3` still reaches the accepting state and the ORDER stays
+# silent. A guard would have made one value defect look like two defects of different kinds
+# (INV-INS-133).
+new SSLParameters(strings("TLS_AES_128_GCM_SHA256"), strings("TLSv1")) -> params

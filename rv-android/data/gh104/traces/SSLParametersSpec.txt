@@ -1,0 +1,9 @@
+# gh109 task 4.R, the conforming half of the constructor-route pair of group G4 (task 4.2).
+# `Con3` is the third alternative of `SSLParameters.crysl:17` and a complete trace on its own:
+# the two-array constructor binds everything the rule's three CONSTRAINTS clauses are about, so
+# all of them are decided at one event. TLSv1.3 is admitted by `:20` and the suite is one of
+# the two `:44-45` names beside it, so nothing is drawn and `generatedSSLParameters[this]` is
+# written at the accepting state.
+#
+# The separating trace is SSLParametersSpec-tlsv1.txt, identical but for the protocol.
+new SSLParameters(strings("TLS_AES_128_GCM_SHA256"), strings("TLSv1.3")) -> params
