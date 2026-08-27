@@ -249,8 +249,8 @@ public final class CalibrationTargets {
     public static CalibrationTarget partialBinding() {
         return new CalibrationTarget("T7-partial-binding",
                 "specifications with at least one event that binds no declared parameter",
-                "3 of 48",
-                List.of("HMACParameterSpecSpec", "KeySpec", "RandomStringPassword"),
+                "2 of 48",
+                List.of("HMACParameterSpecSpec", "RandomStringPassword"),
                 "over the 48 jca_android specifications that declare at least one parameter, those "
                         + "with at least one event whose getMOPParametersOnSpec() is empty — that "
                         + "is, an event binding none of the parameters the specification declares. "
@@ -259,9 +259,15 @@ public final class CalibrationTargets {
                         + "gained one under gh105, and each of the fourteen gh109 producers "
                         + "declares one. KeyPairSpec, KeyStoreSpec and PBEKeySpecSpec left the "
                         + "numerator in the same gh105 work that gave them their bindings, and "
-                        + "KeySpec joined it at gh109 task 2.14: its one event binds the receiver "
-                        + "of Key+.getEncoded() and the parameter it declares is the returned "
-                        + "array. Items are .mop file names without the extension",
+                        + "KeySpec joined the numerator at gh109 task 2.14 and LEFT it again at "
+                        + "task 7.1, which is the movement this target exists to force. The file "
+                        + "declared KeySpec(Key key) while its one event binds k, and the "
+                        + "generator keys a monitor on the NAME: the declared parameter was bound "
+                        + "by nothing, so ge1 broadcast its body to every live monitor of the "
+                        + "specification and one key's staged material could be written for "
+                        + "another. G-BIND reported it at gh109 task 7.1 and the header was "
+                        + "renamed to match the event, which is the SSLParametersSpec lesson of "
+                        + "task 4.2. Items are .mop file names without the extension",
                 RouteClass.INDEPENDENT_PROBE, HARNESS + "/probes/Binding.java",
                 "jca_android", rvsec(), PublishedMetric.M0,
                 "route and component consult the same parser API and are still different routes: "
@@ -275,8 +281,8 @@ public final class CalibrationTargets {
     public static CalibrationTarget withoutMapOfMonitor() {
         return new CalibrationTarget("T8-without-map-of-monitor",
                 "specifications for which the generated monitor builds no MapOfMonitor",
-                "3 of 48",
-                List.of("HMACParameterSpecSpec", "KeySpec", "RandomStringPassword"),
+                "2 of 48",
+                List.of("HMACParameterSpecSpec", "RandomStringPassword"),
                 "the 48 jca_android specifications are regenerated with rv-monitor-generator into "
                         + "a scratch directory, and MultiSpec_1RuntimeMonitor.java is read for a "
                         + "field declaration of the shape 'MapOfMonitor<XMonitor> X_..._Map'. A "

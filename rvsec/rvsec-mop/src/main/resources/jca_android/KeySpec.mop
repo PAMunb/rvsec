@@ -19,7 +19,7 @@ import br.unb.cic.mop.Property;
  *
  * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/Key.crysl
  */
-KeySpec(Key key) {
+KeySpec(Key k) {
 
    // The bytes `getEncoded()` returned, held from the event that observed them to the
    // handler that may write about them. A handler sees no event parameter and the clause

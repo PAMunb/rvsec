@@ -153,16 +153,19 @@ class M0VitalityTest {
                 .sorted()
                 .toList();
 
-        // Five became three, and the two movements have nothing to do with each other.
+        // Five became three and then two, and the movements have nothing to do with each other.
         // CipherInputStreamSpec, CipherOutputStreamSpec and KeyStoreSpec left the list under
         // gh105, which gave each of them a declared parameter to index on; this pin was never
-        // re-measured then, so it has been carrying a stale list since. KeySpec joined it at
-        // gh109 task 2.14 for the original reason: Key.crysl's one event is
-        // `keyMaterial = getEncoded()`, the specification declares no parameter of its own, and
-        // it compiles to one monitor for the whole program.
-        assertEquals(List.of("HMACParameterSpecSpec", "KeySpec", "RandomStringPassword"),
+        // re-measured then, so it had been carrying a stale list since. KeySpec joined it at
+        // gh109 task 2.14 and left again at gh109 task 7.1: the file declared `KeySpec(Key key)`
+        // while its one event binds `k`, and the generator keys a monitor on the NAME, so the
+        // declared parameter was bound by nothing. G-BIND reported it, the header was renamed to
+        // match the event, and the specification indexes per key as its own comment always said
+        // it did -- which is what the write at `@match` needs, since a broadcast body could stage
+        // one key's material on another key's monitor.
+        assertEquals(List.of("HMACParameterSpecSpec", "RandomStringPassword"),
                 notIndexing,
-                "the three specifications that compile to one monitor for the whole program");
+                "the two specifications that compile to one monitor for the whole program");
 
         // The counting rule as data rather than as prose: the two ways a specification fails to
         // index are different facts about different files, and a test that only counted five would
@@ -179,11 +182,10 @@ class M0VitalityTest {
         }
         // Only the 0/N half of the rule has members now. The three files that were here under
         // "no parameter" all declare one since gh105, so the half that applies to them stopped
-        // applying; KeySpec is 0/1 because it declares a parameter its one event does not bind --
-        // `Key+.getEncoded()` binds the receiver and the rule's own object is the returned array.
+        // applying; KeySpec was 0/1 until gh109 task 7.1 renamed its declared parameter to the
+        // name its one event binds, and it now binds what it declares.
         assertEquals(Map.of(
                         "HMACParameterSpecSpec", "0/1",
-                        "KeySpec", "0/1",
                         "RandomStringPassword", "0/2"),
                 binding,
                 "0/N binding, plus specifications declared with no parameter — the two halves of "

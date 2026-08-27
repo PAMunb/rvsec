@@ -119,15 +119,15 @@ Subagent dispatch (docs/WORKFLOW.md §5) — lighter protocol than gh105 (design
 ## 6. G6 — Records, censuses, enforcement constants — `tasks/G6-records.md`
 
 - [x] 6.1 [M1, same commit as first new spec] CI/gate enumeration constants: `Corpora`, `MopLiftCorpusTest`, `CalibrationTargets`, G-PARAM count, G-ORDER skip set (D-23)
-- [ ] 6.2 [M1] Alphabet-map chain for new specs (`gh105_expert_alphabet.py --emit` + `--check`)
+- [x] 6.2 [M1] Alphabet-map chain for new specs (`gh105_expert_alphabet.py --emit` + `--check`)
 - [ ] 6.3 [M2] Verified stale-record corrections: README site census 115→125 + sibling scalars (the "38" reads is 36 `validate(` + 5 `validateAbsent(`); `constraint_table.csv` verdict cells + seed-resolved pointers; `predicate_graph.csv` reasons — 69 of 76 rows, measured; ledger `SecretKeySpec` chain rows + `PREDICATE_ALIASES` unfusion. The `next1`/`next3` rows move to 6.2 (a mapping decision, not a repair); the `LC_ALL=C` recipe item is withdrawn — measured, it breaks the hash it was meant to fix
 - [ ] 6.4 [M2] Extend the sole-oracle gate to `rvsec-core` Java + amend the 3 stale api30 citations — **blocked on a researcher decision**: the gate would also flag the conformance component's legitimate `rvsec-cognicrypt` stamps (design Open Questions)
 - [ ] 6.5 [M2, at sync] Re-derive the two gh105-delta enumeration literals in the main spec during the manual `/opsx:sync` review (design Risks)
 
 ## 7. G7 — Verification (once per milestone, single session) — `tasks/G7-verification.md`
 
-- [ ] 7.1 [M1] Full battery over the enlarged set: [GEN] monitor (artifact inspection), `tests/parity`, all record `--check`s, G-SIG/G-FORB/G-BIND, Maven gh106 tests
-- [ ] 7.2 [M1] Ledger assertion, both sides: the five named producer gaps plus `preparedDH` closed (`preparedAlg` after G3; `preparedKeyMaterial` fully after 4.3; `generatedMessageDigest` written by 1.3 and read from 3.6/3.7), and every predicate the set writes read at a consuming site or carrying a recorded impossibility (D-24) — transitory dispositions enumerated, each naming the task that owes its retirement, since G3 is M2 work and 1.R's `unmonitored-consumer` is legitimately still standing here; coverage matrix shows no rule without a terminal state among the landed tiers; run `/rv-verify` on the touched Python surface
+- [x] 7.1 [M1] Full battery over the enlarged set: [GEN] monitor (artifact inspection), `tests/parity`, all record `--check`s, G-SIG/G-FORB/G-BIND, Maven gh106 tests
+- [x] 7.2 [M1] Ledger assertion, both sides: the five named producer gaps plus `preparedDH` closed (`preparedAlg` after G3; `preparedKeyMaterial` fully after 4.3; `generatedMessageDigest` written by 1.3 and read from 3.6/3.7), and every predicate the set writes read at a consuming site or carrying a recorded impossibility (D-24) — transitory dispositions enumerated, each naming the task that owes its retirement, since G3 is M2 work and 1.R's `unmonitored-consumer` is legitimately still standing here; coverage matrix shows no rule without a terminal state among the landed tiers; run `/rv-verify` on the touched Python surface
 - [ ] 7.3 [M2] **Harness checkpoint 2** (final): differential classification attributed per group; battery green; coverage matrix complete — 49/49 terminal states over three values, `oracle_defect_row` filled by join; no transitory disposition survived its reason, in the graph or in the ledger; **NOBS rate of the G1b sites read over the APK corpus, for the researcher's decision on whether any NOBS branch retires** (D-24)
 - [ ] 7.4 [M2] Run `/rv-qa-lint-fix scripts/ tests/parity/`
 - [ ] 7.5 [M2] Run `/rv-verify` on the same touched surface

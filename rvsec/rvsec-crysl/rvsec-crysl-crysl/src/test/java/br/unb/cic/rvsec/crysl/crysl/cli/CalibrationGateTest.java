@@ -123,9 +123,9 @@ class CalibrationGateTest {
         assertEquals(List.of("IvChainJunction", "OAEPParameterSpecSpec", "RandomStringPassword",
                         "SSLEngineSpec"),
                 itemsOf(report, "T6-pairing"));
-        assertEquals("3 of 48", valueOf(report, "T7-partial-binding"));
-        assertEquals("3 of 48", valueOf(report, "T8-without-map-of-monitor"));
-        assertEquals(List.of("HMACParameterSpecSpec", "KeySpec", "RandomStringPassword"),
+        assertEquals("2 of 48", valueOf(report, "T7-partial-binding"));
+        assertEquals("2 of 48", valueOf(report, "T8-without-map-of-monitor"));
+        assertEquals(List.of("HMACParameterSpecSpec", "RandomStringPassword"),
                 itemsOf(report, "T8-without-map-of-monitor"));
     }
 

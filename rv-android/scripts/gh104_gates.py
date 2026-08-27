@@ -394,6 +394,20 @@ def parse_mop(path: Path) -> MopSpec:
         tail = text[formula.end() :]
         stop = re.search(r"\n\s*(?:@|alias\b)", tail)
         formula_text = tail[: stop.start()] if stop else tail
+        # A comment standing between the formula and the next section is prose about
+        # the automaton, not part of it. The formula runs to the next `@` or `alias`,
+        # so such a comment fell inside it and every word of it was read as an event
+        # symbol: `KeySpec.mop`'s four-line note under `ere : ge1*` produced 49
+        # undeclared-symbol findings, one per English word. Comments are blanked
+        # rather than deleted because the line numbers reported for real symbols are
+        # computed by counting newlines in this text.
+        formula_text = re.sub(r"//[^\n]*", "", formula_text)
+        formula_text = re.sub(
+            r"/\*.*?\*/",
+            lambda m: "\n" * m.group(0).count("\n"),
+            formula_text,
+            flags=re.S,
+        )
 
     lists: dict[str, list[str]] = {}
     for match in LIST_LITERAL.finditer(text):
@@ -1563,6 +1577,16 @@ def backing_record(row: dict, records: dict[str, list[dict]]) -> str:
     for spec in (row["spec"], row["spec"].removesuffix("Spec")):
         for entry in records.get(spec, []):
             if obj and entry.get("rule_object", "").strip() == obj:
+                return f"{entry['record']}: {entry.get('verdict', '').strip()}"
+            # A clause whose object this parser cannot name -- `elements(protocols)
+            # in {...}`, `p >= 1^2048`, `noCallTo[gs3]` -- is keyed by its own text
+            # instead. `absent_from_mop` cannot serve here: every one of its uses
+            # says the clause is NOT in the specification, and these are clauses the
+            # set states through a shape no regular expression maps to a list (an
+            # array quantifier, a bit-length floor, a FORBIDDEN event). The record
+            # says where each is stated, which is what `NAO-DERIVADO` means for the
+            # `Cipher` clauses and what this makes checkable for the others.
+            if entry.get("rule_object", "").strip() == clause.strip():
                 return f"{entry['record']}: {entry.get('verdict', '').strip()}"
             absent = entry.get("absent_from_mop", "").strip()
             if absent and absent not in ("-", ""):
