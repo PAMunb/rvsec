@@ -1858,6 +1858,11 @@ def test_gparam_is_green_over_the_set_as_it_stands():
     running `javamop -d <out> -merge <specs>/*.mop` over a scratch copy of the set,
     which writes them beside the `.mop` -- so the copy matters, or the run leaves
     `.rvm` files in the live specification directory.
+
+    That recipe is now a script -- `scripts/gh109_refresh_rvm_fixture.sh` -- because
+    gh109 adds specifications to the set and the fixture has to be refreshed once per
+    group instead of once per change. It does the scratch copy, runs `javamop`, copies
+    the `.rvm` back and fails loudly if the run produced none.
     """
     monitors = REPO / "results/gh51_e2e_test/monitors"
     if not monitors.is_dir():

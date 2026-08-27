@@ -78,6 +78,25 @@ KINDS = {
     "spelling-variant",  # a frozen-set list entry that duplicates an expert entry under
     # case folding or an alias row, kept because removing it could
     # move a verdict and keeping it cannot
+    # gh106 (the MOP/CrySL conformance component). A CI gate may measure something
+    # the component deliberately does not measure. That is not a failure of either
+    # one, it is a boundary, and it needs a name for the same reason the gh105 kinds
+    # needed theirs: without it the row fails `check()` as an unknown kind, which
+    # reads as a defect in the record rather than as the recorded decision it is.
+    "gate-scope",  # a verdict one of the surviving ad-hoc gates produces and the
+    # component declines to produce, with the decision that declined it
+    # gh109 (expert-oracle coverage parity). A ratified decision that changes what
+    # the set accuses is not a departure from a literal transcription -- the closed
+    # five of INV-INS-125 are all about a value list differing from its clause, and
+    # these are not that. Two of them move the set TOWARDS the oracle (the PBE
+    # families it stopped refusing), one is a comparison semantics rather than a
+    # list (the keysize-suffixed service names), one is a mechanism the producers
+    # share (canonical predicate values), and one is a non-addition (no accusation
+    # surface the oracle does not name). What they have in common is the only thing
+    # a record can act on: a campaign measured before them is not comparable with
+    # one measured after, so the comparability caveat needs one anchor to point at.
+    "value-decision",  # a ratified decision of the change that moves what is accused,
+    # recorded so the campaign caveat has an enumerable anchor
 }
 
 # Kinds that describe the set rather than a diff, so they carry no hunk key.
@@ -92,6 +111,13 @@ NARRATIVE_KINDS = {
     # A spelling variant is admitted by an argument about the normalisation rule,
     # not by a diff either: the row says which expert entry it duplicates.
     "spelling-variant",
+    # A scope boundary is a statement about what the conformance component measures,
+    # so it attaches to no hunk of the seed-to-successor diff at all.
+    "gate-scope",
+    # A value decision is argued from the oracle and from the platform, never from a
+    # diff: the hunks it produces are recorded separately, by the tasks that write
+    # them, and this row is the decision itself.
+    "value-decision",
 }
 
 

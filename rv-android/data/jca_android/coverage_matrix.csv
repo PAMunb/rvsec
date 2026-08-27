@@ -1,0 +1,59 @@
+# Derived by scripts/gh109_coverage_matrix.py --emit. Do not edit by hand.
+# terminal_state is one of covered | na-platform | na-value (D-19).
+# `covered` is a verdict of PAIRING AND ADJUDICATION, NOT of clause completeness:
+#   the depth of a transcription is measured per rule by M0-M4 of the rvsec-crysl
+#   conformance component and clause by clause by constraint_table.csv and
+#   predicate_ledger.csv. This file does not re-derive it.
+# oracle_defect_row is a join on divergence_record.csv rows of kind `oracle-wart`
+#   whose `file` column names tools/rules/<Rule>.crysl. A defect is an attribute of
+#   a rule's row, never a terminal state of its own (D-21).
+rule,terminal_state,evidence,oracle_defect_row
+AlgorithmParameterGenerator,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+AlgorithmParameters,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+CertPathTrustManagerParameters,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+CertificateFactory,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+Cipher,covered,CipherSpec.mop,"the preparedOAEP REQUIRES clause at :140-141 has an unsatisfiable antecedent, and the specification transcribes the evident intent instead"
+CipherInputStream,covered,CipherInputStreamSpec.mop,
+CipherOutputStream,covered,CipherOutputStreamSpec.mop,
+Cookie,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+DHGenParameterSpec,covered,DHGenParameterSpecSpec.mop,
+DHParameterSpec,,"pending adjudication (gh109 tasks 4.4, 5.1)",`p >= 1^2048` and `g >= 1^2048` are literally `>= 1`; transcribed as bit-length >= 2048 (D-20.4) -- the DSAParameterSpec row states the defect
+DSAGenParameterSpec,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+DSAParameterSpec,,"pending adjudication (gh109 tasks 4.4, 5.1)",`p >= 1^2048` and `g >= 1^2048` are literally `>= 1`; both rules are transcribed as bit-length >= 2048 (D-20.4)
+DigestInputStream,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+DigestOutputStream,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+ECGenParameterSpec,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+ECParameterSpec,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+GCMParameterSpec,covered,GCMParameterSpecSpec.mop,
+HMACParameterSpec,na-platform,"javax.crypto.spec.HMACParameterSpec exists on no Android API level (INV-INS-155); the .mop is kept as documentation of untranslatability, not as coverage",
+IvParameterSpec,covered,IvParameterSpec.mop,
+Key,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+KeyAgreement,,"pending adjudication (gh109 tasks 4.4, 5.1)","GenSecretBuffer at :31 is bound to the getInstance overload `g2` where `gs2` is meant, and :34 declares a label no clause uses"
+KeyFactory,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+KeyGenerator,covered,KeyGeneratorSpec.mop,
+KeyManagerFactory,covered,KeyManagerFactorySpec.mop,
+KeyPair,covered,KeyPairSpec.mop,
+KeyPairGenerator,covered,KeyPairGeneratorSpec.mop,
+KeyStore,covered,KeyStoreSpec.mop,
+KeyStoreBuilderParameters,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+MGF1ParameterSpec,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+Mac,covered,MacSpec.mop,
+MessageDigest,covered,MessageDigestSpec.mop,
+OAEPParameterSpec,,"pending adjudication (gh109 tasks 4.4, 5.1)","the OBJECTS block at :8 declares `java.lang.String alg`, which no event, constraint, requirement or ensures clause uses -- anomaly note, no transcription consequence"
+PBEKeySpec,covered,PBEKeySpecSpec.mop,
+PBEParameterSpec,covered,PBEParameterSpecSpec.mop,
+PKIXBuilderParameters,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+PKIXParameters,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+PasswordAuthentication,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+RSAKeyGenParameterSpec,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+SSLContext,covered,SSLContextSpec.mop,
+SSLEngine,,"pending adjudication (gh109 tasks 4.4, 5.1)",the EnableProtocol label at :12 is bound to the undeclared event `cp1`; the specification transcribes `ep1`
+SSLParameters,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+SecretKey,covered,"SecretKeySpec.mop (realises the rule's ENSURES; the Destroy tail is platform-dead (INV-INS-137), so no reachable trace yields a further verdict. NON_PAIRING_FILES governs specification pairing, not coverage)",
+SecretKeyFactory,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+SecretKeySpec,covered,SecretKeySpecSpec.mop,
+SecureRandom,covered,SecureRandomSpec.mop,
+Signature,covered,SignatureSpec.mop,
+TrustAnchor,,"pending adjudication (gh109 tasks 4.4, 5.1)",
+TrustManagerFactory,covered,TrustManagerFactorySpec.mop,
+X509EncodedKeySpec,,"pending adjudication (gh109 tasks 4.4, 5.1)",
