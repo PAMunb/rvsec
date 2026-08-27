@@ -131,12 +131,23 @@ class MopLiftCorpusTest {
     }
 
     @Test
-    @DisplayName("the aggregate is 905 events and 381 parameters, with the counting rules as data")
+    @DisplayName("the aggregate is 907 events and 383 parameters, with the counting rules as data")
     void test_aggregate_events_and_parameters() {
+        // These two numbers are the corpus drift tripwire, and Corpora reads the LIVE corpus, so a
+        // specification repair is expected to move them. When it does, the repair re-measures and
+        // re-pins here rather than the pin being loosened: 905 -> 907 was gh105 wiring one event
+        // into KeyStoreSpec.mop and one into SSLContextSpec.mop, and 381 -> 383 was the same work
+        // giving CipherInputStreamSpec.mop and CipherOutputStreamSpec.mop a parameter each, both
+        // having declared none. A test that could not tell either from an accidental duplication
+        // would not be worth running.
+        //
+        // Assert both counts, and note that the events assertion running first is why the parameter
+        // drift went unseen: CI reported only the event failure for three runs while this line had
+        // already been false for all three.
         assertEquals("spec.getEvents().size()", total.eventCountingRule());
         assertEquals("spec.getParameters().size()", total.parameterCountingRule());
-        assertEquals(905, total.events(), "aggregate event count under " + total.eventCountingRule());
-        assertEquals(381, total.parameters(),
+        assertEquals(907, total.events(), "aggregate event count under " + total.eventCountingRule());
+        assertEquals(383, total.parameters(),
                 "aggregate parameter count under " + total.parameterCountingRule());
     }
 
@@ -188,7 +199,7 @@ class MopLiftCorpusTest {
                 checked++;
             }
         }
-        assertEquals(905, checked, "one provenance check per declared event");
+        assertEquals(907, checked, "one provenance check per declared event");
     }
 
     @Test

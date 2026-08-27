@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import br.unb.cic.rvsec.crysl.core.LiftFailure;
 import br.unb.cic.rvsec.crysl.core.model.Polarity;
 import br.unb.cic.rvsec.crysl.core.model.PredicateRef;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -81,7 +82,7 @@ class PredicateSubstrateTest {
 
     @Test
     @DisplayName("substrate B: jca_android/MacSpec.mop is a negated REQUIRES on the three-valued store")
-    void test_predicate_store_validate_absent() throws LiftFailure {
+    void test_predicate_store_validate_absent() throws Exception {
         MopLift lift = lifter.read(Corpora.file("jca_android", "MacSpec.mop"),
                 Corpora.version("jca_android"));
 
@@ -102,11 +103,18 @@ class PredicateSubstrateTest {
         assertEquals(List.of("output"), site.ref().arguments());
         assertEquals(Optional.of("VIOLATED"), site.verdict(),
                 "the three-valued verdict is compared on the call itself here");
-        // The call is on line 307. The task file cited :303, which is the line the enclosing
-        // "event f2" is declared on; provenance is stamped at the reference, not at the event that
-        // contains it, so 307 is what a reader following the file:line will find.
-        assertEquals(307, site.ref().site().line());
         assertEquals("MacSpec.mop", site.ref().site().file());
+        // The line is read back out of the file instead of being pinned as a literal. What this
+        // check is for is that provenance is stamped at the REFERENCE and not at the enclosing
+        // "event f2" — the task file cited the event's line, and a reader following that file:line
+        // lands on the wrong statement — and the text of the stamped line proves that wherever the
+        // call happens to sit. A literal proves the same thing and additionally breaks on every
+        // edit above it: jca_android is the corpus under repair and this call has already moved
+        // twice (307, 316, 398). The substrate-A witness above keeps its literal, because the
+        // frozen jca cannot move.
+        List<String> lines = Files.readAllLines(Corpora.file("jca_android", "MacSpec.mop"));
+        assertTrue(lines.get(site.ref().site().line() - 1).contains("validateAbsent"),
+                "the stamped line holds the validateAbsent call, not the event declaring it");
     }
 
     @Test

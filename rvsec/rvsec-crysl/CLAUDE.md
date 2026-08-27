@@ -69,6 +69,24 @@ Read-only in every case (INV-CONF-12); nothing writes to a path it read.
   `rvsec-crysl-core/pom.xml`). `CommittedSchemaDriftTest` fails — rather than skips — when that
   directory is absent.
 
+**Editing a `.mop` in one of the five corpora is editing this component's inputs.** Reading the live
+set is what makes the census meaningful and it is also what makes it fragile: `MopLiftCorpusTest`
+pins the aggregate as a literal (currently 907 events, 383 parameters, 215 files), so a specification
+repair that adds or removes an event or a parameter turns the CI red in `rvsec-crysl-mop` and nowhere
+else — the reactor build above it passes with `-DskipTests` and says nothing. Whoever moves the
+corpus re-runs the component and re-pins the census in the same change. That is the intended
+workflow, not a failure of the test: the literal is the tripwire that tells a deliberate repair from
+an accidental duplication. It happened once unnoticed — after gh106 pinned `905`/`381`, gh105 wired
+one event into `KeyStoreSpec.mop` and one into `SSLContextSpec.mop` and gave `CipherInputStreamSpec`
+and `CipherOutputStreamSpec` a parameter each, and the CI stayed red for three runs. The numbers live
+in `MopLiftCorpusTest` (its `@DisplayName` and two assertions), `MopLift`'s javadoc and the gh106
+conformance spec; all of them move together.
+
+**Re-measure both counts, never just the one CI names.** The event assertion runs before the
+parameter assertion in the same test, so a moved event count hides a moved parameter count: the three
+red runs above reported only `905 -> 907` while `381 -> 383` was equally false and invisible. Run the
+component and read the census off the run, rather than patching the number in the failure message.
+
 ## Build properties (parent `pom.xml`)
 - **`guava.version` = `33.5.0-jre`** — overrides the reactor's 19.0. The root pins 19.0 for Soot;
   this component uses no Soot, and `CrySLParser 4.0.6` calls `ImmutableMap.Builder#buildOrThrow`,

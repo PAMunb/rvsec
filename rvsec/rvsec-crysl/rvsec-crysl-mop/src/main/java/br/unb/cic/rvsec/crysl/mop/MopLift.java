@@ -43,7 +43,7 @@ import java.util.Objects;
  * <p>The three parser counts are carried as data rather than recomputed by each caller, and each
  * comes with the counting rule it was taken under, because a count published without its rule is
  * the failure INV-CONF-02 exists to prevent. They are the raw parser counts, and the aggregate over
- * the five corpora is 905 events and 381 parameters across 215 files.
+ * the five corpora is 907 events and 383 parameters across 215 files.
  *
  * <p>{@code eventsBindingParameters} is the third of them and it is here because M0.1 cannot be
  * answered without it and cannot recover it from the text: {@code getMOPParametersOnSpec()} is the

@@ -106,8 +106,13 @@ The lift SHALL survive the seven measured parser traps: `BlockStmt.getStmts()` r
 #### Scenario: All five corpora lift without failure
 - **WHEN** the component lifts `jca` (23 files), `jca_android` (24), `jca_android_bug_predicate` (23), `generic` (118) and `generic_new` (27)
 - **THEN** it SHALL report `215 files, 215 ok, 0 fail`
-- **AND** the aggregate event count SHALL be 905 and the aggregate parameter count 381
+- **AND** the aggregate event count SHALL be 907 and the aggregate parameter count 383
 - **AND** the counting rules `spec.getEvents().size()` and `spec.getParameters().size()` SHALL be stated beside those two numbers
+- **AND** whoever edits a `.mop` of the five corpora SHALL re-measure the aggregate and re-pin it here and in `MopLiftCorpusTest`, in the same change that moves the corpus
+
+The pin is deliberately a literal over a live corpus, and the two halves of that decision cost each other something. Reading the live set is what makes the census mean anything (a copy would answer about a snapshot); pinning a literal is what tells a deliberate repair from an accidental duplication. What it costs is that a legitimate specification repair turns `rvsec-crysl-mop` red until someone re-pins — the reactor above it builds with `-DskipTests` and reports nothing. That is the intended workflow and it has already been paid once: gh106 pinned `905`/`381`, gh105 then wired one event into `jca_android/KeyStoreSpec.mop` and one into `jca_android/SSLContextSpec.mop` and gave `CipherInputStreamSpec.mop` and `CipherOutputStreamSpec.mop` a parameter each, and CI stayed red for three runs before the census was re-measured at `907`/`383`.
+
+The parameter half of that drift is why the two counts SHALL be re-measured together rather than the failing one being patched. CI never reported it: the event assertion runs first and stops the test, so three red runs named only the event count while the parameter count had been wrong the whole time. It surfaced when the component was run locally, and a re-pin that had trusted the CI message would have left `381` in place and turned red again on the next run.
 
 #### Scenario: Both predicate substrates are recognised
 - **WHEN** the component lifts `jca/MacSpec.mop`, which calls `ExecutionContext.instance().setProperty(Property.GENERATED_MAC, output)`

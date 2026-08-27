@@ -123,8 +123,11 @@ public final class MopLifter {
         // parse throw.
         //
         // Its measured effect on these corpora is NIL. Probed over all five with the call and
-        // without it, both runs give ok=215 fail=0 eventos=905 parametros=381 - identical in all
-        // three aggregates, because nothing on this path generates a name. The call is kept anyway:
+        // without it, both runs give ok=215 fail=0 eventos=905 parametros=381 - the aggregate as
+        // the corpus stood when the probe ran, since moved to 907 events and 383 parameters by
+        // later jca_android repairs - identical in all three aggregates, because nothing on this
+        // path generates a name. What the probe found is the equality of the two runs, which no
+        // corpus edit disturbs, so it is not re-run when a count moves. The call is kept anyway:
         // it costs one field write, it is the only reset the class offers, and a corpus that did
         // reach getMOPVar() would fail loudly without it. This comment exists so that a later
         // reader who measures the same nil does not conclude the line is dead and delete it, and
