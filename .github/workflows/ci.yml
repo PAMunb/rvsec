@@ -161,9 +161,13 @@ jobs:
             if [ -d "$module/tests" ] && [ "$(basename $module)" != "rv-agent-validation" ]; then
               module_name=$(basename $module)
               echo "=== Testing $module_name ==="
+              # -rs prints the reason of every skip. A checkout has none of the
+              # heavy inputs some suites read - aperv-tool alone gates ~70 tests
+              # on campaign trees that are gitignored - and a green whose skips
+              # are invisible is the half-measurement this flag exists to expose.
               uv run pytest "$module/tests" \
                 -m "not (slow or online or sglang or performance or dataset)" \
-                --import-mode=importlib --tb=short -q \
+                --import-mode=importlib --tb=short -q -rs \
                 -o "addopts=" \
                 --cov="$module/src" --cov-report= || failed=1
               if [ -f .coverage ]; then

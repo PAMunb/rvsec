@@ -54,7 +54,16 @@ def campaign_root(manifest: dict) -> Path | None:
     The manifest records the path the pin was taken against, relative to the
     repository root. An absolute value is honoured as-is, so a tree mounted
     elsewhere needs a regenerated manifest rather than an environment variable.
+
+    Presence is decided by ``results/``, not by the campaign directory itself.
+    The directory is versioned — the campaign's scaffolding (README, manifest,
+    scripts, filters, censo_substrato.csv) is in the repository — while the runs
+    under ``results/`` are 6.3 GB and are gitignored. Any checkout therefore has
+    the directory and almost none has the tree, so a gate that asked only whether
+    the directory existed opened on an empty campaign: every test reading through
+    it hit a tree of nothing and failed on it instead of skipping. That is the
+    third outcome this module forbids, reached from the other side.
     """
     declared = Path(manifest["campaign_root"])
     root = declared if declared.is_absolute() else REPO_ROOT / declared
-    return root if root.is_dir() else None
+    return root if (root / "results").is_dir() else None
