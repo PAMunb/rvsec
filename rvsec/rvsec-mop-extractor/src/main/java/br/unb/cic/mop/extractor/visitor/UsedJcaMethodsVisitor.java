@@ -69,6 +69,7 @@ public class UsedJcaMethodsVisitor extends VoidVisitorAdapter<Object> {
 	// name, and the first import wins deterministically rather than by hash order.
 	private Set<String> wildcardPackages = new LinkedHashSet<>();
 	private Set<String> skippedOwners = new LinkedHashSet<>();
+	private Set<String> skippedParameterTypes = new LinkedHashSet<>();
 
 	@Override
 	public void visit(MOPSpecFile f, Object arg) {
@@ -174,11 +175,8 @@ public class UsedJcaMethodsVisitor extends VoidVisitorAdapter<Object> {
 		}
 		for (String pkg : wildcardPackages) {
 			String candidate = pkg + "." + simpleOwner;
-			try {
-				Class.forName(candidate);
+			if (loadable(candidate)) {
 				return candidate;
-			} catch (ClassNotFoundException | LinkageError e) {
-				// Not this package's class — keep looking.
 			}
 		}
 		return null;
@@ -191,11 +189,40 @@ public class UsedJcaMethodsVisitor extends VoidVisitorAdapter<Object> {
 	 */
 	private String resolveInImplicitPackage(String simpleName) {
 		String candidate = IMPLICIT_PACKAGE + "." + simpleName;
+		return loadable(candidate) ? candidate : null;
+	}
+
+	/**
+	 * Does {@code fqn} name a class this JVM can see?
+	 *
+	 * <p>Loaded with {@code initialize=false}: resolution needs the class to exist, never to run
+	 * its static initialiser, and probing a wildcard package would otherwise execute the
+	 * initialiser of whatever class it happens to hit.
+	 *
+	 * <p>The two failures are not the same signal and are not treated as one.
+	 * {@code ClassNotFoundException} means "not this package's class", which is the loop's normal
+	 * negative answer. A {@code LinkageError} means the class IS there and is broken — silently
+	 * reading that as absent would let a later wildcard package bind the owner to a different
+	 * class of the same simple name, so it is reported.
+	 *
+	 * <p><b>Classpath caveat.</b> This answers from the extractor's own JVM, not from the
+	 * platform the analysis will run against: {@code java.lang.String} resolves against the host
+	 * JDK, not {@code android.jar}. That is sound for the JDK-owned types the corpora declare and
+	 * is the reason an owner in an Android-only package cannot be resolved here at all — such an
+	 * owner is reported as skipped, which reads as "not imported" when the real cause is "not on
+	 * this classpath".
+	 */
+	private boolean loadable(String fqn) {
 		try {
-			Class.forName(candidate);
-			return candidate;
-		} catch (ClassNotFoundException | LinkageError e) {
-			return null;
+			Class.forName(fqn, false, UsedJcaMethodsVisitor.class.getClassLoader());
+			return true;
+		} catch (ClassNotFoundException e) {
+			return false;
+		} catch (LinkageError e) {
+			System.out.println("[UsedJcaMethodsVisitor] WARN '" + fqn + "' is present but failed"
+					+ " to link (" + e.getClass().getSimpleName() + ": " + e.getMessage()
+					+ "); treating it as unresolvable rather than binding the owner elsewhere");
+			return false;
 		}
 	}
 
@@ -247,7 +274,21 @@ public class UsedJcaMethodsVisitor extends VoidVisitorAdapter<Object> {
 		if (fqn == null) {
 			fqn = resolveInImplicitPackage(base);
 		}
-		return fqn == null ? declared : fqn + suffix;
+		if (fqn == null) {
+			// Same rule the owner path follows: never a silent drop. An unresolved parameter is
+			// returned as written — which is harmless for a LENIENT target, whose parameters are
+			// ignored, and fatal for a STRICT one, which compares against the Soot signature and
+			// would match nothing. It also splits identity: two specs writing the same pointcut,
+			// one importing the type and one not, produce two MopMethod entries.
+			if (skippedParameterTypes.add(declared)) {
+				System.out.println("[UsedJcaMethodsVisitor] WARN parameter type '" + declared
+						+ "' resolved through neither the explicit imports " + imports.keySet()
+						+ ", the wildcard packages " + wildcardPackages + ", nor the implicit "
+						+ IMPLICIT_PACKAGE + " package; kept as written");
+			}
+			return declared;
+		}
+		return fqn + suffix;
 	}
 
 	public Set<String> getClasses() {
@@ -261,6 +302,15 @@ public class UsedJcaMethodsVisitor extends VoidVisitorAdapter<Object> {
 	/** Owners no import of the visited spec could resolve; see the log-and-skip rule above. */
 	public Set<String> getSkippedOwners() {
 		return skippedOwners;
+	}
+
+	/**
+	 * Parameter types that stayed simple names because nothing resolved them. Kept apart from
+	 * {@link #getSkippedOwners}: an unresolved owner drops a target, an unresolved parameter
+	 * keeps it but makes it unmatchable under STRICT.
+	 */
+	public Set<String> getSkippedParameterTypes() {
+		return skippedParameterTypes;
 	}
 
 }

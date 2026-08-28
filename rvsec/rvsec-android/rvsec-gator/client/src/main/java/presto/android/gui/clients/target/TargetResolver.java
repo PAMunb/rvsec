@@ -20,8 +20,9 @@ import soot.Type;
  *       seed, preserving gh57 behavior byte-for-byte (INV-ANA-35).</li>
  *   <li>{@link TargetMethod.MatchPolicy#STRICT} — match by class+name
  *       and the parameter type list. Overloads with mismatching params
- *       are excluded; the bytecode scanner remains LENIENT by
- *       construction (see design.md §D7).</li>
+ *       are excluded. The bytecode scanner honours the same policy — it
+ *       used to be lenient unconditionally, which made a STRICT target
+ *       strict here and lenient there (design D13).</li>
  * </ul>
  *
  * <p>Stateless; instances are cheap to construct and not reused.

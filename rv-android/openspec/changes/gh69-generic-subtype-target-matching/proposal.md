@@ -142,7 +142,8 @@ fix; that corpus has since been superseded (see Impact).
   frozen set is enumerated**, which phase 4b does: measured on the `cryptoapp` fixture, exactly two
   methods change on the direct axis (21 → 23), both named. It is sequenced in a phase of its own, after
   the subtype path is green, so that a red parity gate can still be attributed. `generic_new` goes 67 →
-  **69** pairs and 20 → **21** owners; the `jca` triple 120/68/22 does not move.
+  **69** pairs and 20 → **21** owners; the `jca` triple 120/68/22 does not move *for this repair* — it
+  moves to 122/70/23 later, under the separate cause of the `java.lang` seed described above.
 
 - **Rebuild** — two JARs in order: `mvn install` the extractor first (it is a compile-scope
   dependency bundled into `rvsec-analysis-client.jar`), then rebuild the gator `client`.

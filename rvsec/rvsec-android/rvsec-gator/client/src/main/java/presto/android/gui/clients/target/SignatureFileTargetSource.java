@@ -30,10 +30,12 @@ import java.util.regex.Pattern;
  * any entry whose parameter list is the literal {@code ..} or {@code *}
  * is emitted as {@link TargetMethod.MatchPolicy#LENIENT} so the source
  * file can mix strict and lenient targets line-by-line. The downstream
- * bytecode scanner is LENIENT by construction (see D7 in design.md),
- * so a STRICT entry may still match parameter-mismatched call sites at
- * the bytecode-scan layer — STRICT only constrains the resolver's
- * Soot {@code Scene} matching.
+ * bytecode scanner honours the same per-target policy: a STRICT entry
+ * constrains both match points, the resolver's {@code Scene} pass and the
+ * bytecode scan, which compares against the parameter types the invoke
+ * instruction's descriptor carries. It was lenient unconditionally until
+ * design D13, which meant a STRICT entry still matched
+ * parameter-mismatched call sites on the direct axis.
  */
 public final class SignatureFileTargetSource implements TargetMethodSource {
 

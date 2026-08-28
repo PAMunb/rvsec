@@ -479,7 +479,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * Walks each app method's body and inspects every {@link InvokeExpr},
 	 * matching against MOP signatures by ({@code declaringClass.getName()},
 	 * {@code methodRef.name()}) — the same FQN/name policy used by
-	 * {@link #resolveMopInScene}. Independent of the call graph, so it
+	 * {@code TargetResolver.resolveInScene}. Independent of the call graph, so it
 	 * captures app → library calls (e.g. {@code SecureRandom.nextInt}) that
 	 * SPARK quarantines and therefore omits as CG edges (BUG-INV-ANA-19).
 	 *
@@ -604,47 +604,62 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 		Set<SootMethod> result = new HashSet<>();
 
-		// The subtype half: these targets CANNOT be reduced to keys. A key set is the resolved
-		// hierarchy already flattened, and flattening is exactly the pre-expansion this design
-		// rejected — it misses sub-interfaces. So they are matched against the DECLARED
-		// super-type, per invoke, through the same predicate resolveInScene uses.
-		List<presto.android.gui.clients.target.TargetMethod> subtypeTargets = new ArrayList<>();
-		// The strict half: same reason, different axis. A STRICT target reduced to a
-		// class#method key would match every overload of that name — the key set IS the lenient
-		// policy — so these are matched per invoke against the descriptor the call site carries.
-		List<presto.android.gui.clients.target.TargetMethod> strictTargets = new ArrayList<>();
-		Set<String> strictKeys = new HashSet<>();
+		// Targets that CANNOT be reduced to a class#method key, for two independent reasons that
+		// a target may carry at once — so this is one list, not two mutually exclusive ones.
+		//   - `includeSubtypes`: a key set is the resolved hierarchy already flattened, and
+		//     flattening is the pre-expansion this design rejected — it misses sub-interfaces.
+		//   - `STRICT`: a key set IS the lenient policy under another name. `String#valueOf`
+		//     readmits every overload, which is exactly what the policy excludes.
+		// An earlier version bucketed these with an `else if`, which made a target that is both
+		// subtype-declared and STRICT lenient here while `resolveInScene` applied its parameter
+		// check — the two axes then disagreed about the same call site, which is the property
+		// this method exists to hold.
+		List<presto.android.gui.clients.target.TargetMethod> perInvokeTargets = new ArrayList<>();
+		boolean anySubtype = false;
 		for (presto.android.gui.clients.target.TargetMethod t : targetSpecs) {
-			if (t.isIncludeSubtypes()) {
-				subtypeTargets.add(t);
-			} else if (t.getPolicy() == presto.android.gui.clients.target.TargetMethod.MatchPolicy.STRICT) {
-				strictTargets.add(t);
-				strictKeys.add(t.getClassName() + "#" + t.getMethodName());
+			if (t.isIncludeSubtypes()
+					|| t.getPolicy() == presto.android.gui.clients.target.TargetMethod.MatchPolicy.STRICT) {
+				perInvokeTargets.add(t);
+				anySubtype |= t.isIncludeSubtypes();
 			}
 		}
+
+		// Obtained after resolveInScene has force-resolved the owners. Re-read inside the scan
+		// rather than captured: retrieving a body can mint a phantom SootClass, which calls
+		// Scene.addClass and invalidates the cached instance. getOrMakeFastHierarchy is a field
+		// read once the cache is warm.
+		final soot.FastHierarchy hierarchy = anySubtype ? Scene.v().getOrMakeFastHierarchy() : null;
 
 		// The exact half: a resolved Set<SootMethod> collapses to class#method keys, giving an
-		// O(1) lookup per invoke. Every LENIENT target lives here, which is what keeps the JCA
-		// path byte-for-byte unchanged (INV-ANA-35) — the set is unchanged for a spec set that
-		// declares no STRICT target, which is every set but the two seeded String pointcuts.
-		// A key a STRICT spec owns is withheld: it would readmit the overloads that spec's
-		// policy excludes, and the strict half below matches those call sites properly.
+		// O(1) lookup per invoke.
+		//
+		// A key is kept only when some target claims that method *leniently*. If every target
+		// claiming it is STRICT, the key would readmit the overloads those targets exclude, so
+		// the method is left to the per-invoke pass below. Deciding this from what actually
+		// matches — rather than from a second key space built out of the STRICT targets'
+		// declared names — is what keeps two defects out: a declared name carrying a `*`
+		// pattern never equals a resolved key, and a class#method shared by a STRICT and a
+		// LENIENT target (`Cipher.init(int,Key)` beside `Cipher.init(..)`, which
+		// SignatureFileTargetSource's own javadoc advertises) would otherwise strip the key the
+		// LENIENT one needs. For a spec set with no STRICT target the set is identical to the
+		// plain one, since every resolved method was resolved by some target: INV-ANA-35 holds
+		// by construction here, not by measurement.
 		Set<String> targetKeys = new HashSet<>(targets.size());
-		for (SootMethod t : targets) {
-			String key = t.getDeclaringClass().getName() + "#" + t.getName();
-			if (!strictKeys.contains(key)) {
-				targetKeys.add(key);
+		for (SootMethod m : targets) {
+			for (presto.android.gui.clients.target.TargetMethod t : targetSpecs) {
+				if (t.getPolicy() == presto.android.gui.clients.target.TargetMethod.MatchPolicy.STRICT) {
+					continue;
+				}
+				if (matching.matches(m.getDeclaringClass().getType(), m.getName(), t, hierarchy)) {
+					targetKeys.add(m.getDeclaringClass().getName() + "#" + m.getName());
+					break;
+				}
 			}
 		}
 
-		if (targetKeys.isEmpty() && subtypeTargets.isEmpty() && strictTargets.isEmpty()) {
+		if (targetKeys.isEmpty() && perInvokeTargets.isEmpty()) {
 			return result;
 		}
-
-		// Obtained after resolveInScene has force-resolved the owners; nothing between here
-		// and the end of the scan introduces a class, so one instance serves the whole pass.
-		final soot.FastHierarchy hierarchy =
-				subtypeTargets.isEmpty() ? null : Scene.v().getOrMakeFastHierarchy();
 
 		long scanStart = System.currentTimeMillis();
 		int[] counters = scanInvokesInAppClasses(appClasses,
@@ -652,20 +667,12 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 					String name = ref.getName();
 					if (matchesTargetSignature(ref.getDeclaringClass().getName(),
 							name, targetKeys)) {
+						// (see the hierarchy comment above: re-read, never captured)
 						result.add(caller);
 						return true;
 					}
-					for (presto.android.gui.clients.target.TargetMethod t : subtypeTargets) {
-						if (matching.matches(ref.getDeclaringClass().getType(), name, t,
-								hierarchy)) {
-							result.add(caller);
-							return true;
-						}
-					}
-					for (presto.android.gui.clients.target.TargetMethod t : strictTargets) {
-						if (t.getMethodName().equals(name)
-								&& t.getClassName().equals(ref.getDeclaringClass().getName())
-								&& paramsMatchAtCallSite(ref, t)) {
+					for (presto.android.gui.clients.target.TargetMethod t : perInvokeTargets) {
+						if (matchesAtCallSite(ref, name, t, matching)) {
 							result.add(caller);
 							return true;
 						}
@@ -676,11 +683,33 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 		System.out.println("[RvsecAnalysisClient] Bytecode scan: " + counters[0]
 				+ " methods scanned, " + counters[1] + " body-retrieval skips, "
-				+ targetKeys.size() + " exact keys, " + subtypeTargets.size() + " subtype targets, "
-				+ strictTargets.size() + " strict targets, "
+				+ targetKeys.size() + " exact keys, " + perInvokeTargets.size()
+				+ " per-invoke targets (subtype and/or strict), "
 				+ result.size() + " direct target callers detected (bytecodeScan: "
 				+ (System.currentTimeMillis() - scanStart) + " ms)");
 		return result;
+	}
+
+	/**
+	 * The one predicate the per-invoke pass uses, so the direct axis cannot drift from what
+	 * {@code TargetResolver.resolveInScene} does on the transitive one.
+	 *
+	 * <p>Owner and name go through {@link presto.android.gui.clients.target.TargetMatching#matches}
+	 * — which is subtype-aware when the target declares {@code +} and pattern-aware when it
+	 * declares a trailing {@code *} — and the parameter list is checked on top of it when, and
+	 * only when, the target's policy is STRICT. That ordering matters: {@code matches} is lenient
+	 * about parameters by design, so a STRICT target checked only through it would be matched
+	 * leniently here and strictly there.
+	 */
+	static boolean matchesAtCallSite(SootMethodRef ref, String name,
+			presto.android.gui.clients.target.TargetMethod t,
+			presto.android.gui.clients.target.TargetMatching matching) {
+		if (!matching.matches(ref.getDeclaringClass().getType(), name, t,
+				Scene.v().getOrMakeFastHierarchy())) {
+			return false;
+		}
+		return t.getPolicy() != presto.android.gui.clients.target.TargetMethod.MatchPolicy.STRICT
+				|| paramsMatchAtCallSite(ref, t);
 	}
 
 	/**
@@ -710,12 +739,13 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	}
 
 	/**
-	 * Build the {@code "className#methodName"} key set used by the bytecode
-	 * scanner to match {@link InvokeExpr} targets against MOP signatures.
+	 * Build a {@code "className#methodName"} key set from MOP signatures: FQN class + method
+	 * name, ignoring parameter overloads.
 	 *
-	 * Same matching policy as {@link #resolveMopInScene}: FQN class +
-	 * method name, ignoring parameter overloads. Package-private for unit
-	 * tests that exercise the matching policy without a Soot Scene.
+	 * <p>Kept for the unit tests that pin that collapsing policy without a Soot Scene. Production
+	 * no longer calls it — {@code findDirectTargetCallersByBytecodeScan} builds its key set from
+	 * the <i>resolved</i> methods, and only for the targets that claim them leniently, which is
+	 * a decision this method cannot express.
 	 */
 	public static Set<String> buildTargetKeys(Set<MopMethod> mopSignatures) {
 		Set<String> keys = new HashSet<>();

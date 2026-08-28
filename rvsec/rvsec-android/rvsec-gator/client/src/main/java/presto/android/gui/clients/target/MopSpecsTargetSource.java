@@ -51,6 +51,9 @@ public final class MopSpecsTargetSource implements TargetMethodSource {
 				TargetMethod.MatchPolicy policy = m.isOwnerFromImplicitSeed()
 						? TargetMethod.MatchPolicy.STRICT
 						: TargetMethod.MatchPolicy.LENIENT;
+				if (policy == TargetMethod.MatchPolicy.STRICT) {
+					warnIfParametersCannotMatch(m.getClassName(), m.getName(), m.getParameters());
+				}
 				targets.add(new TargetMethod(
 						m.getClassName(),
 						m.getName(),
@@ -70,6 +73,36 @@ public final class MopSpecsTargetSource implements TargetMethodSource {
 		} catch (MOPException e) {
 			System.err.println("[MopSpecsTargetSource] ERROR loading MOP specs: " + e.getMessage());
 			return Collections.emptySet();
+		}
+	}
+
+	/**
+	 * A STRICT target is compared against the full Soot signature, so every parameter must be a
+	 * type name Soot will report. A pointcut that wrote {@code ..}, a bare {@code *}, a subtype
+	 * operator, or a name nothing resolved yields a target that matches nothing at all — the same
+	 * silent-zero shape (INV-ANA-40, RISK-013) this component exists to end, arriving through the
+	 * parameter list instead of the owner. It is reported rather than repaired here: the target
+	 * still loads, and the fix belongs in the spec or the extractor.
+	 */
+	private static final java.util.Set<String> PRIMITIVE_TYPES = java.util.Set.of(
+			"boolean", "byte", "char", "short", "int", "long", "float", "double", "void");
+
+	private static void warnIfParametersCannotMatch(String className, String methodName,
+			java.util.List<String> params) {
+		for (String p : params) {
+			// A primitive is a complete Soot type name with no package, so it is expressible;
+			// everything else without a dot is a simple name nothing resolved.
+			String base = p.endsWith("]") ? p.substring(0, p.indexOf('[')) : p;
+			if (PRIMITIVE_TYPES.contains(base)) {
+				continue;
+			}
+			if ("..".equals(p) || "*".equals(p) || p.indexOf('+') >= 0 || p.indexOf('<') >= 0
+					|| p.indexOf('*') >= 0 || p.indexOf('.') < 0) {
+				System.out.println("[MopSpecsTargetSource] WARN STRICT target " + className + "#"
+						+ methodName + params + " declares the parameter '" + p + "', which is not"
+						+ " a resolvable Soot type name; this target will match no call site");
+				return;
+			}
 		}
 	}
 }

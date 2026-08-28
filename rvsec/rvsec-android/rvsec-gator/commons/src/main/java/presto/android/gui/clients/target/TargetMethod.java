@@ -12,7 +12,11 @@ import java.util.Objects;
  * external signature file (STRICT full-signature match).
  *
  * <p>Immutable by construction (all fields {@code final}, no setters).
- * The match policy is per-instance: a {@code SignatureFileTargetSource}
+ * A target from a MOP spec directory is LENIENT (class+name), except one whose owner the
+ * extractor could resolve only through the implicit {@code java.lang} package — that one is
+ * STRICT, so the implicit resolution cannot widen what the set accuses (design D5/D10).
+ *
+ * <p>The match policy is per-instance: a {@code SignatureFileTargetSource}
  * may emit some STRICT entries and some LENIENT ones (e.g., wildcard
  * parameter lists), so the policy travels with the target, not with the
  * source.

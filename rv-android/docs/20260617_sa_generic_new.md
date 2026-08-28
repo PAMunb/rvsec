@@ -272,6 +272,38 @@ ADR candidato: "Subtype matching via FastHierarchy.canStoreType (não pré-expan
   duas linhas de base do `cryptoapp` passam a descrever a mesma corrida (55/33/23).
 - 2026-08-28: sweep generic400 **continua parado por decisão de escopo**, não por falta do fix: rodá-lo
   é uma change própria, e o corpus migrou do conjunto de 400 APKs para o `rvsec-dataset`.
+- 2026-08-28: **o escopo cresceu por decisão do pesquisador, e a change fechou a RISK-013 (High) por
+  reparo em vez de aceitação.** `jca/RandomStringPassword.mop` nomeia o dono `String` sem importar
+  `java.lang` — implícito em Java, não para o visitor, que não tinha `else` nem log — então as suas
+  duas pointcuts sumiam sem rastro. A spec é 1 das 23 do `jca` e o aspecto tecido carrega as duas, de
+  modo que todo `cov_reaches_target` publicado da régua congelada foi calculado sobre **22 de 23**
+  specs. Nenhuma contagem de violação está errada; o dano é no denominador. O reparo tem três partes
+  que andam juntas porque qualquer uma sozinha piora a medição: semear o pacote implícito como
+  **terceiro e último** passo de resolução, `MatchPolicy.STRICT` para o alvo cujo dono resolve **só**
+  por essa rota, e `getParams()` resolvendo parâmetros para FQN — sem o que STRICT é inexprimível,
+  já que a comparação é contra a assinatura Soot. O critério é sobre a *rota*, não sobre o pacote: é
+  isso que mantém o raio em dois pointcuts por conjunto JCA e **zero** no `generic_new`, cujos donos
+  `Object+`/`Comparable+`/`CharSequence+` são de `java.lang` mas resolvem antes e precisam seguir
+  LENIENT porque declaram `(..)`. Medido com a parte (iii) isolada primeiro, como o design exige:
+  sozinha ela não soma nem remove linha nenhuma em conjunto algum (a fusão temida não ocorreu);
+  depois, a semeadura leva o `jca` de 120/68/22 para **122/70/23** e o `jca_android` de 209 para
+  **211**, em ambos por exatamente `java.lang.String#valueOf(java.lang.Object)` e
+  `java.lang.String#toCharArray()`. Zero donos não resolvidos nos três conjuntos.
+- 2026-08-28: **um terceiro defeito, achado ao implementar o segundo.** A política STRICT sozinha não
+  limitava nada: o scan de bytecode reduzia todo alvo resolvido a uma chave `classe#nome`, que *é* a
+  política lenient com outro nome, e pela semeadura do BFS reverso com o conjunto direto (D8) os
+  falsos positivos voltavam também ao eixo transitivo. O javadoc afirmava que `methodRef` não
+  reconstrói a assinatura no call site; é falso para a lista de parâmetros, que
+  `SootMethodRef.parameterTypes()` lê do descritor da própria instrução. Medido no `cryptoapp` com um
+  único alvo `String.valueOf` e a política como única variável: **24 chamadores diretos sob LENIENT
+  contra 9 sob STRICT**. Registrado como D13.
+- 2026-08-28: no `cryptoapp`, o eixo direto **não** se moveu (23 → 23) — o APK não tem call site das
+  assinaturas tecidas, e sob semeadura lenient teria ganhado os falsos. O transitivo foi de 33 para
+  **37**: os construtores default de `MainActivity`, `CipherActivity`, `CryptographyActivity` e
+  `MessageDigestActivity`, que alcançam `String.valueOf(Object)` pelo call graph do framework. Esse
+  movimento foi **atribuído por isolamento**, não presumido: rodar o mesmo APK contra uma *cópia* do
+  `jca` sem aquela spec reproduz 120 assinaturas / 0 STRICT / 33 / 23 exatamente. O diretório
+  congelado não recebeu um byte (gh101).
 
 ---
 

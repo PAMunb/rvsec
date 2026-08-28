@@ -159,17 +159,20 @@ Level column now always means inherent risk; the Status column carries the dispo
     `nameIsPattern=false` → predicate falls through to today's exact `equals` (design "API Design",
     proposal closing paragraph). The subtype branch is **unreachable** for JCA by construction.
   - **Gate (corrected 2026-08-21)**: the load-bearing gate is the **literal count** in the extractor
-    test — `jca` 120 signatures / 68 `(class, method)` pairs / 22 owners (`jca_android` derived, not pinned), all
+    test — `jca` **122** signatures / **70** `(class, method)` pairs / **23** owners after the phase-5.6
+    seed, 120/68/22 before it (`jca_android` derived, not pinned), all
     flags false (task 1.5). `MopSpecsParityTest` is NOT that gate: it compares
     `MopSpecsTargetSource.load()` with `JavamopFacade.listUsedMethods()` over the same directory, so both
     sides run through the modified visitor and any extractor-side JCA drift passes it unnoticed; its
     fixtures are `CipherSpec`/`MessageDigestSpec` only. `BaselineComparisonIT` on `cryptoapp.apk` is the
     complementary end-to-end gate (measured: that APK has 0 `String.valueOf`/`toCharArray` call sites, so
     it is insensitive to the RISK-011 axis).
-- **Indicators**: JCA target count == 120 (and `jca_android` == 119); JCA-target flags all false;
+- **Indicators**: JCA target count == **122** (and `jca_android` == **211**) — both were 120/119 until
+  the phase-5.6 seed of INV-ANA-40 boundary (c) added the two `RandomStringPassword` rows to each, and
+  `jca_android` had separately grown to 209 under gh109 before that; JCA-target flags all false;
   `MopSpecsParityTest` Green/Red (necessary, not sufficient).
 - **Contingency**:
-  - **Trigger**: parity test fails or JCA count ≠ 120.
+  - **Trigger**: parity test fails or JCA count ≠ 122 (≠ 120 before phase 5.6).
   - **Actions**: diff the offending `TargetMethod` set, confirm flag defaults, restore exact fall-through
     before proceeding. Block archive until parity is byte-for-byte.
   - **Owner**: implementer.
@@ -807,7 +810,7 @@ Level column now always means inherent risk; the Status column carries the dispo
 - **Risk review checklist** (run at each boundary):
   - [ ] Any new risk surfaced by the IT on the real scene?
   - [ ] RISK-001 degrade-warning count still 0 for the **20** owners that carry targets; no owner phantom (`isPhantom` guard active)?
-  - [ ] RISK-002 parity still byte-for-byte / JCA count == 120?
+  - [ ] RISK-002 parity still byte-for-byte / JCA count == 122 (post-5.6 literal)?
   - [ ] RISK-003 post-rebuild generic target count > 0; `sootandroid` in rebuild; WTG no crash?
   - [ ] RISK-005 `resolveInScene` + scan wall-time each **≤ 2× the JCA baseline** (task 4.8) — the older "order of magnitude" phrasing is superseded and must not be used?
   - [ ] RISK-007 key-set diff still empty?
@@ -816,7 +819,7 @@ Level column now always means inherent risk; the Status column carries the dispo
   - [ ] RISK-004 saturation: `reachesTarget` going near-universal on the IT APK is **expected** under decision (c) — the check is that `directlyReachesTarget` lands in the 2–12% band and that no consumer was quietly migrated to the direct axis inside this change
   - [ ] RISK-006 unresolved-owner skip count for `generic_new` still 0 (task 1.0b repair not reverted)?
   - [ ] RISK-010 constructor-skip notices still exactly 3?
-  - [ ] RISK-011 `java.lang` still unseeded; `jca` still 120/68/22? (`jca_android` is **derived, never pinned** — gh109 took it from 23 to 48 specs and 130 to 238 `call()` between 2026-08-21 and 2026-08-28)
+  - [ ] RISK-011 `java.lang` seeded **and** every seeded target STRICT (never one without the other); `jca` at 122/70/23? (`jca_android` is **derived, never pinned** — gh109 took it from 23 to 48 specs and 130 to 238 `call()` between 2026-08-21 and 2026-08-28)
   - [ ] RISK-012 extractor test infrastructure present and green (task 1.0)?
   - [ ] Any risk closeable?
 - **Owner**: change author (Pedro Costa).

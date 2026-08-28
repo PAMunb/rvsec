@@ -502,7 +502,7 @@ names) MUST continue to use the exact-`equals` path with no behavioral change (I
 - **WHEN** the extractor parses `generic_new/Collection_UnsynchronizedAddAll.mop` containing `import java.util.*;` and `call(boolean Collection+.addAll(..))`
 - **THEN** it MUST emit a `MopMethod` with `className="java.util.Collection"`, `methodName="addAll"`, and `includeSubtypes=true`
 - **AND** over all 27 `generic_new` specs the emitted target set MUST have the cardinality fixed in advance by INV-ANA-40 — **69** distinct `call()` pairs when the trailing `+` is part of the owner key, **67** when it is not (currently 0), the constructor pointcuts included per boundary (b); asserting merely `> 0` is the pinned-to-whatever-is-emitted weakness that INV-ANA-40 forbids
-- **AND** the same extractor run on the 23 `jca` specs MUST still emit **exactly 120** targets (68 `(class, method)` pairs, 22 owners), each with `includeSubtypes=false` and `nameIsPattern=false`
+- **AND** the same extractor run on the 23 `jca` specs MUST emit **exactly 122** targets (**70** `(class, method)` pairs, **23** owners), each with `includeSubtypes=false` and `nameIsPattern=false`. **This literal was 120/68/22 until scope boundary (c) became a requirement to repair**: the seed of that boundary resolves the two `RandomStringPassword` pointcuts, which had never loaded. The freeze forbids an *unenumerated* move of the frozen set, not every move — the two added rows are named in boundary (c) and are the whole difference, and pinning the new literal here is what stops a third move arriving unenumerated
 - **AND** the `jca_android` count MUST be **derived by enumerating that directory**, never asserted as a literal: gh109 is adding specs to it (23 → 48 specs, 130 → 238 `call()` pointcuts between 2026-08-21 and 2026-08-28), so only the set-independent properties are pinned — every flag false, and (after the seed of this invariant) **no unresolved owner at all**
 - **AND** the `String` owner of `RandomStringPassword.mop` MUST resolve — through the implicit `java.lang` seed, at the third and last resolution step — and both targets it yields MUST carry `MatchPolicy.STRICT` (scope boundary (c)). **This clause inverted on 2026-08-28**: it previously required `String` to stay unresolved and merely logged, which was the accepted-debt reading of boundary (c). The debt is repaired inside this change instead, so the extractor MUST report **zero** unresolved owners for `jca` and `jca_android`, and the skipped-owner log for those two sets MUST be empty rather than naming `String`
 
@@ -573,8 +573,10 @@ on the **method-name axis**, never on the type axis — an earlier framing that 
 - **AND** `TargetResolver.resolveInScene` MUST resolve them, because `SootMethod.getName()` of a
   constructor is `<init>` and the comparison at `TargetResolver.java:53` is name equality
 - **AND** the `generic_new` cardinality gate MUST read 69 pairs / 21 owners, not 67 / 20
-- **AND** for `jca` the gate MUST still read 120 signatures / 68 pairs / 22 owners — unchanged, since the
-  18 constructor rows already existed and only their emitted name changes from `new` to `<init>`
+- **AND** this repair alone MUST leave `jca` at 120 signatures / 68 pairs / 22 owners — the 18 constructor
+  rows already existed and only their emitted name changes from `new` to `<init>`. (The set's final
+  literal is **122/70/23**; the further two rows come from scope boundary (c)'s seed, which is a
+  different cause measured separately. This clause pins *this* repair's effect, not the end state.)
 - **AND** the frozen `cryptoapp` fixture MUST move by exactly the two enumerated methods
   (`CryptoUtils.createSecretKeyFromBytes`, `CryptographyActivity.executeSecretKeyOperation`), re-baselined
   with that enumeration written into the commit message

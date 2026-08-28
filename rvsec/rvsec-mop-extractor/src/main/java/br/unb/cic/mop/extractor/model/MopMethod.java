@@ -69,10 +69,21 @@ public class MopMethod {
 		return ownerFromImplicitSeed;
 	}
 
-	// The two flags participate in identity on purpose: MopMethod instances live in a
-	// HashSet inside UsedJcaMethodsVisitor, and two pointcuts that differ only by the '+'
-	// operator (Iterator.next vs Iterator+.next in generic_new) would otherwise collapse
-	// into one entry, silently losing the subtype target.
+	// All three flags participate in identity, but they do not all earn it, and the difference
+	// is worth stating rather than leaving as folklore.
+	//
+	// `includeSubtypes` and `nameIsPattern` are derivable from fields already here: `signature`
+	// is the printed MethodPattern, which carries the owner's '+' and the name's '*' verbatim —
+	// measured, `Iterator+.next` prints "* Iterator+.next()" against "* Iterator.next(..)", so
+	// those two could never have collapsed. Including them is harmless and keeps identity
+	// aligned with the accessors; it is not what prevents the collapse.
+	//
+	// `ownerFromImplicitSeed` is the one that earns its place: it is NOT derivable. Two specs in
+	// one directory writing the same pointcut, one importing the owner's package and one not,
+	// produce identical className/name/parameters/signature and differ only in the route the
+	// owner resolved by — which decides the match policy downstream. Without the flag one of the
+	// two would be dropped by the HashSet and the surviving policy would be whichever won the
+	// insertion race.
 	@Override
 	public int hashCode() {
 		return Objects.hash(className, name, parameters, signature, includeSubtypes, nameIsPattern,
