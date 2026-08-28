@@ -3,9 +3,11 @@ package presto.android.gui.clients.target;
 import java.util.HashSet;
 import java.util.Set;
 
+import soot.FastHierarchy;
 import soot.Scene;
 import soot.SootClass;
 import soot.SootMethod;
+import soot.Type;
 
 /**
  * Resolves a {@link TargetMethodSource}'s output into the matching set of
@@ -42,15 +44,36 @@ public final class TargetResolver {
 	 * <p>Static so {@code RvsecAnalysisClient}'s stepping-stone code path
 	 * (which still keeps {@code Set<MopMethod>} alive until Group 6) can
 	 * call it without re-constructing a source.
+	 *
+	 * <p>The {@code matching} helper is supplied rather than created here because the direct
+	 * bytecode scan is the second match point and must share the same resolved-owner cache:
+	 * resolving an owner twice would re-log the degrade warnings and could invalidate a
+	 * {@code FastHierarchy} the scan is already holding.
+	 *
+	 * <p>Owner force-resolution happens <b>before</b> the {@code FastHierarchy} is obtained,
+	 * and the instance is not cached beyond this call. Note also that
+	 * {@code TargetMatching.forceResolveTargets} resolves at SIGNATURES, not HIERARCHY: the
+	 * {@code cls.getMethods()} call in the loop below opens with {@code checkLevel(SIGNATURES)},
+	 * so introducing an owner into the Scene below that level would turn a missing target into
+	 * a crash on the next pass.
 	 */
-	public static Set<SootMethod> resolveInScene(Set<TargetMethod> targets) {
+	public static Set<SootMethod> resolveInScene(Set<TargetMethod> targets, TargetMatching matching) {
 		Set<SootMethod> resolved = new HashSet<>();
+		if (targets.isEmpty()) {
+			return resolved;
+		}
+		matching.forceResolveTargets(targets);
+		FastHierarchy hierarchy = Scene.v().getOrMakeFastHierarchy();
+
 		for (SootClass cls : Scene.v().getClasses()) {
-			String fqn = cls.getName();
+			Type declaringType = cls.getType();
 			for (SootMethod method : cls.getMethods()) {
 				String name = method.getName();
 				for (TargetMethod t : targets) {
-					if (!t.getClassName().equals(fqn) || !t.getMethodName().equals(name)) {
+					// Name first, owner second — the widened owner predicate costs a hierarchy
+					// query where the old exact-FQN check cost a string compare, and this loop
+					// is Scene.getClasses() x methods x targets.
+					if (!matching.matches(declaringType, name, t, hierarchy)) {
 						continue;
 					}
 					if (t.getPolicy() == TargetMethod.MatchPolicy.LENIENT) {

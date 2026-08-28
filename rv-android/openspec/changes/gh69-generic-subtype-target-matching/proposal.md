@@ -5,14 +5,37 @@ GitHub Issue: #69.
 The GATOR static-analysis pipeline computes `reachesTarget`/`directlyReachesTarget` by matching the
 monitored API call sites of an APK against the target methods declared in a JavaMOP spec set. This
 matching is **exact-FQN** and was written for the JCA spec style (explicit imports + exact
-`Class.method` pointcuts). The `generic_new` spec set uses a different style — wildcard imports
-(`import java.util.*;`), owners declared by **subtype** (`call(* Collection+.addAll(..))`), and
-**wildcard method names** (`add*`). Against `generic_new` the pipeline loads **0 targets** and reports
-`reachesTarget=false` for every method of every APK — the static layer contributes no reachability
-signal whatsoever for that spec set. That is the defect this change repairs. What the repaired signal is
-then *good for* is a separate question, deliberately not claimed here: see the two downstream caveats in
-Impact (the experiment path cannot select `generic_new` today, and quasi-universal owners saturate the
-boolean). This change makes the matcher correct; it does not by itself deliver the generic dataset.
+`Class.method` pointcuts). **It therefore discards four constructions the AspectJ pointcut grammar
+admits**, silently and with no diagnostic:
+
+1. the `+` subtype operator on an owner — `call(* Collection+.addAll(..))`
+2. an asterisk import as the owner's only declaration — `import java.util.*;`
+3. a trailing `*` in a method name — `add*`
+4. the constructor form — `call(Owner.new(..))`, which reaches the visitor but emits the literal name
+   `new`, matching no Soot method (constructors are `<init>`)
+
+A pointcut using any of the four contributes **no target at all**, and every method downstream of it
+reads `false`. **That is the defect this change repairs, and it is a defect of the matcher, not of any
+one corpus** — the repair holds for every spec set that writes such a pointcut, present or future.
+
+The current exposure, measured over the four sets in the tree (2026-08-28):
+
+| spec set | specs | `+` owners | `*` names | `Owner.new(..)` |
+|---|---|---|---|---|
+| `jca` (frozen ruler) | 23 | 0 | 0 | **25** |
+| `jca_android` (production successor) | 48 | **2** | 0 | **39** |
+| `generic` | 118 | 0 | 0 | **80** |
+| `generic_new` | 27 | **71** | **15** | 3 |
+
+**The production set is already affected.** `jca_android` — the set gh101 designated as the successor
+carrying every specification repair — declares `Key+.getEncoded` (`KeySpec.mop`, added 2026-08 by gh109)
+and `SecretKey+.getEncoded` (`SecretKeySpec.mop`); both load zero targets today. And the constructor
+form is dead in **all four** sets, the frozen `jca` ruler included.
+
+`generic_new` earns its place in this change as the **verification fixture**: it is the only corpus that
+exercises all four constructions at once, so its numbers are what the gates assert against. It is not
+the subject of the change, and the change does not claim to deliver a generic dataset — see the
+downstream caveats in Impact.
 
 This is confirmed empirically: the `rvsec-mop-extractor` extracts **0 methods** from the 27
 `generic_new` specs versus **120** from `jca`; **27/27** generic specs use wildcard imports and **Read those two numbers carefully — they are not the same unit** (re-derived 2026-08-21): the 120 counts *signatures* and **includes** constructor pointcuts; the 67 counts *(owner, method) pairs* and **excludes** them. Under one convention it is 120 vs **72** signatures, or **68 vs 69** pairs — essentially level. Sharper still: 18 of the `jca` 120 are constructor targets named `new`, which match no Soot method (constructors are `<init>`), so the frozen set carries **~102 live signatures / 57 live pairs** today. The repaired `generic_new` would therefore yield *more* live targets than the published ruler, not half as many. The headline "0 → N" claim is unaffected; the "much smaller than jca" reading is wrong.
@@ -34,26 +57,38 @@ fix; that corpus has since been superseded (see Impact).
   and preserve wildcard method names (`add*`) as a pattern rather than a literal. New `MopMethod`
   flags: `includeSubtypes`, `nameIsPattern`. **Coverage boundary (documented, accepted)**: only
   `call(...)` pointcuts are extracted — the 3 specs whose sole pointcut is `staticinitialization(Owner+)`
-  and the 3 constructor `call(Owner.new(..))` pointcuts remain without static targets. The constructor
-  half is **an active guard, not a passive gap**: the javamop grammar routes `Owner.new(..)` through
-  `MethodPointCut` (`aspectj.jj:1730-1737`), so once wildcard packages are registered these pointcuts
-  would emit a `MopMethod` named `new` — matching no Soot method, since constructors are `<init>` — and
-  silently inflate the cardinality gate. Task 1.3(d) must skip them explicitly and log 3 notices (net 24/27 specs
-  with ≥1 target; see design Non-Goals and INV-ANA-40 scope boundary). **That 24/27 depends on the
+  remain without static targets. The 3 constructor `call(Owner.new(..))` pointcuts do **not**: they are
+  **mapped**, not suppressed. The javamop grammar routes `Owner.new(..)` through `MethodPointCut`
+  (`aspectj.jj:1730-1737`), so once wildcard packages are registered these pointcuts reach the visitor and
+  emit a `MopMethod` named `new` — a target no Soot method can match, since constructors are `<init>`. An
+  earlier draft of this change answered that by skipping them and logging 3 notices; **decision D9 reversed
+  it** (see design D9 and phase 4b, which owns the gate and the re-baseline): task 1.3(d) emits
+  `MopMethod(owner, "<init>")`, and the expected skip-notice count is therefore **zero**. Net coverage is
+  24/27 specs with ≥1 target — and it is 24 rather than 23 *because* of the mapping: `TreeMap_Comparable`'s
+  only `call()` pointcut is `call(TreeMap.new(Map))`, so under the discarded skip rule that spec would
+  contribute nothing (see design Non-Goals and INV-ANA-40 scope boundary (b)). **That 24/27 also depends on the
   one-line spec repair in task 1.0b**: `CharSequence_NotInSet.mop` declared owner `Set+` while importing
   only `java.io`/`java.lang`/`java.nio`, so under the import-driven resolution rule its owner resolved to
   nothing. Without the repair the spec contributes zero targets and coverage is 23/27 — being a JDK class
-  is not sufficient for an owner to resolve; the spec must actually import its package (RISK-006). The implicit `java.lang` package
-  is deliberately **not** seeded: `generic_new` does not need it, and seeding it would move the frozen
-  `jca`/`jca_android` sets (120→122 / 119→121) by resolving `RandomStringPassword.mop`'s `String` owner
-  into a LENIENT target that matches every `String.valueOf` overload — 74 call sites over 3 corpus APKs,
-  17 of them woven. That false-negative is documented in scope boundary (c) and repaired in its own
-  change; evidence in `docs/20260821_handoff_gh69_coringas.md`. **It is a High risk, not a footnote —
-  `risk-register.md` RISK-013**: `RandomStringPasswordSpec` is 1 of the 23 `jca` specs, its two
-  pointcuts are woven and live, and it contributes zero static targets, so every `cov_reaches_target`
-  ever published from the frozen `jca` ruler was computed over **22 of 23** specs. What this change
-  does deliver against it is visibility — the log-and-skip rule makes `String` a named skipped owner
-  instead of a silent drop; the measurement repair stays in task 5.6.
+  is not sufficient for an owner to resolve; the spec must actually import its package (RISK-006). The
+  implicit `java.lang` package is seeded as a **third and last** resolution step, and every target whose
+  owner resolves only through that seed is emitted `STRICT` — the two halves are one rule and MUST NOT be
+  implemented apart. `generic_new` does not need the seed and is untouched by it (all seven of its
+  `java.lang`-owner specs declare `import java.lang.*;`, so they resolve earlier and stay LENIENT, which
+  their `(..)` parameters require). What the seed does reach is `RandomStringPassword.mop`'s `String`
+  owner in the frozen `jca` and in `jca_android` — the only owner left unresolved in either set, re-verified
+  by enumeration on 2026-08-28 (`jca` 23 declared `call()` owners / 22 emitted; `jca_android` 47 / 46;
+  `generic_new` 21 / 21). **That is a High risk repaired, not a footnote — `risk-register.md` RISK-013**:
+  `RandomStringPasswordSpec` is 1 of the 23 `jca` specs, its two pointcuts are woven and live, and it
+  contributed zero static targets, so every `cov_reaches_target` ever published from the frozen `jca`
+  ruler was computed over **22 of 23** specs. This change delivers both halves: visibility (the
+  log-and-skip rule of task 1.3(b), which made `String` a named skipped owner instead of a silent drop)
+  and, in phase 5.6, the measurement repair itself. The reason the repair is three parts rather than one
+  is the measurement that once argued for deferring it: seeding *under LENIENT* would take the sets
+  120→122 / 119→121 and make `String.valueOf` match every overload — 74 call sites over 3 corpus APKs,
+  only 17 woven — so the seed ships bound to the STRICT policy and to FQN parameter resolution in
+  `getParams`, which STRICT presupposes. Evidence in `docs/20260821_handoff_gh69_coringas.md`; the rule
+  and its alternatives in design D5/D10/D11.
 
 - **Matcher (`rvsec-gator`, `commons` + `client`)** — make target matching subtype/wildcard-aware
   via decision **A2**: carry `includeSubtypes` + name-pattern on `TargetMethod`, and at the two match
@@ -122,7 +157,9 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
 
 ### Modified Capabilities
 - `analysis`: the "Unified Static Analysis" requirement (FR04–FR06) — target matching gains
-  subtype/wildcard awareness for spec sets that declare owners by hierarchy. New invariants
+  subtype/wildcard awareness for spec sets that declare owners by hierarchy, and owner resolution gains a
+  bounded implicit-`java.lang` step that repairs the one unresolved owner in the frozen ruler
+  (INV-ANA-40 scope boundary (c), formerly an accepted false-negative and now a requirement). New invariants
   (INV-ANA-40+) for extractor extraction of wildcard/`+`/pattern owners, plus a `## MODIFIED Requirements`
   block restating "Target Method Source Abstraction (FR04)" in full: `TargetMethod` gains
   `includeSubtypes`/`nameIsPattern`, and the `MopSpecsTargetSource` thin-wrapper scenario now requires
@@ -198,14 +235,17 @@ falls through to today's exact `equals` (`includeSubtypes=false`). This is **not
   .../generic_new` directly (tasks 4.3/5.2, procedure in `docs/20260611_sweep_generic_new_400.md`), which
   is unaffected. Wiring the spec-set → `mopDir` selection is the sibling orchestrator repair. It is
   tracked in `docs/20260821_plano_correcao_analise_estatica.md` (D2) — an **untracked** document — but the
-  vehicle that actually implements it is **issue #104, task 10.0** (`tasks/E10-integration.md:7`, open as of
-  2026-08-21, first in its group): "`get_static_analysis_config()` passes the resolved set directory as
-  `mop_dir` — today `RVStaticAnalysisConfig` defaults it to `resources/jca` (`rv_static_analysis/config.py:198-207`)".
-  The coupling is one-directional and narrow: **gh69 does not depend on it to be implemented, verified or
-  archived** — every gate here runs through `--mop-dir` directly — but the *product* of gh69 stays
-  unreachable from `rv-experiment`/`rv-platform` until that task lands. Conversely gh104 task 10.0 does not
-  depend on anything in gh69: without gh69 it selects `generic_new` and gets 0 targets, which is the present
-  defect, not a new one. Neither change registered the other before 2026-08-21.
+  vehicle that actually implemented it is **issue #104, task 10.0** (`tasks/E10-integration.md:7`), which is
+  **done as of 2026-08-28**: `get_static_analysis_config()` now passes the resolved set directory as
+  `mop_dir`, so `RVStaticAnalysisConfig` no longer forces every run onto `resources/jca`. What that repair
+  did **not** do is make `generic_new` selectable: it is still absent from the spec-set enum, and
+  `--specification-set generic` still maps to `resources/generic` — a different corpus. So the residual
+  statement stands with a narrower cause: gh69's verification runs through `--mop-dir` directly and is
+  unaffected either way, while the *product* of gh69 stays unreachable from `rv-experiment`/`rv-platform`
+  until `generic_new` gets an enum entry of its own. The coupling was always one-directional and narrow —
+  **gh69 never depended on gh104 to be implemented, verified or archived**, and conversely gh104 task 10.0
+  did not depend on anything in gh69: without gh69 it selects `generic_new` and gets 0 targets, which is the
+  present defect, not a new one. Neither change registered the other before 2026-08-21.
 - **Downstream (out of scope)**: the `generic_new` reachability sweep and the generic dataset definition
   are a separate later change. **Corpus updated 2026-07-09, re-verified 2026-08-21**: the generic
   experiment will draw APKs from the new dataset repo (`rvsec-dataset`), superseding the 400-APK sweep

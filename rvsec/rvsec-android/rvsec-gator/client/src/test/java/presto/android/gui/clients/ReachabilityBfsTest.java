@@ -137,6 +137,91 @@ public class ReachabilityBfsTest {
 		assertTrue(reachesTarget.contains("A"));
 	}
 
+	// ── reaches ⊇ direct, by construction (INV-ANA-64) ─────────────────────
+
+	// These lock the COMPOSITION the engine performs — seed the reverse BFS with
+	// targets ∪ directTargetSet — rather than the call site that performs it.
+	// ReachabilityEngine.run() reads Scene.v().getCallGraph(), so the wiring itself is
+	// reachable only from the integration tests; what is testable here, and what actually
+	// carries the invariant, is that the composition has the property the design claims.
+
+	@Test
+	public void testScanOnlyCallerIsMarkedWhenSeeded() {
+		// The shape of the defect: the bytecode scan sees M calling a target through an
+		// invoke SPARK quarantined, so M has no vertex in the call graph at all (12 of the
+		// 14 violations measured in the tree are of exactly this kind). Before the repair M
+		// was directlyReachesTarget=true and reachesTarget=false.
+		DefaultDirectedGraph<String, DefaultEdge> g = newGraph();
+		addEdge(g, "caller", "M");
+		Set<String> targets = setOf("T");
+		Set<String> directFromScan = setOf("M");
+
+		Set<String> seeds = new HashSet<>(targets);
+		seeds.addAll(directFromScan);
+		EdgeReversedGraph<String, DefaultEdge> reversed = new EdgeReversedGraph<>(g);
+		Set<String> reachesTarget = RvsecAnalysisClient.multiSourceBfs(reversed, seeds);
+
+		assertTrue("a scan-discovered direct caller must land in reachesTarget",
+				reachesTarget.containsAll(directFromScan));
+	}
+
+	@Test
+	public void testCallerOfAScanOnlyCallerIsAlsoMarked() {
+		// This is the property that rules out the one-line alternative. A post-hoc
+		// reachesTargetSet.addAll(directTargetSet) would satisfy the containment and stop
+		// there, leaving "caller" false — a transitive false negative asserted away rather
+		// than fixed. Seeding propagates.
+		DefaultDirectedGraph<String, DefaultEdge> g = newGraph();
+		addEdge(g, "grandCaller", "caller");
+		addEdge(g, "caller", "M");
+
+		Set<String> seeds = new HashSet<>(setOf("T"));
+		seeds.add("M");
+		EdgeReversedGraph<String, DefaultEdge> reversed = new EdgeReversedGraph<>(g);
+		Set<String> reachesTarget = RvsecAnalysisClient.multiSourceBfs(reversed, seeds);
+
+		assertTrue("the direct caller itself", reachesTarget.contains("M"));
+		assertTrue("its caller, which only seeding reaches", reachesTarget.contains("caller"));
+		assertTrue("and on up the chain", reachesTarget.contains("grandCaller"));
+	}
+
+	@Test
+	public void testEmptyDirectSetLeavesTheResultIdentical() {
+		// The JCA path: when the scan adds nothing, seeding with targets ∪ ∅ must produce
+		// byte-identical output to seeding with targets alone (INV-ANA-35).
+		DefaultDirectedGraph<String, DefaultEdge> g = newGraph();
+		addEdge(g, "A", "B");
+		addEdge(g, "B", "T");
+		EdgeReversedGraph<String, DefaultEdge> reversed = new EdgeReversedGraph<>(g);
+
+		Set<String> targets = setOf("T");
+		Set<String> before = RvsecAnalysisClient.multiSourceBfs(reversed, targets);
+
+		Set<String> seeds = new HashSet<>(targets);
+		seeds.addAll(Collections.<String>emptySet());
+		Set<String> after = RvsecAnalysisClient.multiSourceBfs(reversed, seeds);
+
+		assertEquals(before, after);
+	}
+
+	@Test
+	public void testContainmentHoldsForAMixedDirectSet() {
+		// Direct set from both oracles at once: "cg" has a real edge to the target, "scan"
+		// has none. Both must end up in reachesTarget.
+		DefaultDirectedGraph<String, DefaultEdge> g = newGraph();
+		addEdge(g, "cg", "T");
+		Set<String> targets = setOf("T");
+		Set<String> direct = setOf("cg", "scan");
+
+		Set<String> seeds = new HashSet<>(targets);
+		seeds.addAll(direct);
+		EdgeReversedGraph<String, DefaultEdge> reversed = new EdgeReversedGraph<>(g);
+		Set<String> reachesTarget = RvsecAnalysisClient.multiSourceBfs(reversed, seeds);
+
+		assertTrue("reachesTarget must contain directlyReachesTarget",
+				reachesTarget.containsAll(direct));
+	}
+
 	// ── findDirectTargetCallers tests ──────────────────────────────────────
 
 	@Test

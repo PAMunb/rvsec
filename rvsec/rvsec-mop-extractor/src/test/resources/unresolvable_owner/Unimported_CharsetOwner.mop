@@ -1,0 +1,32 @@
+package mop;
+
+import java.io.*;
+
+/**
+ * Regression guard for the log-and-skip rule (INV-ANA-40).
+ *
+ * The owner `Charset+` is a JDK class, but no import of THIS spec registers
+ * `java.nio.charset` — so none of the visitor's three resolution steps answers for it, and
+ * it must be logged and skipped. Being a JDK class is not what makes an owner resolvable;
+ * the spec importing its package is. That is the same shape as the defect repaired in
+ * `generic_new/CharSequence_NotInSet.mop`, which declared `Set+` while importing only
+ * java.io/java.lang/java.nio.
+ *
+ * The owner used to be `Object+`, chosen for the same reason. Phase 5.6 invalidated that
+ * choice: the implicit `java.lang` package is now the third resolution step, so `Object`
+ * resolves and the fixture stopped witnessing anything. `Charset` is picked because its
+ * package is neither imported here nor implicit anywhere — the seed is one package, not a
+ * classpath search.
+ *
+ * This fixture lives under src/test/resources and is deliberately NOT part of any real
+ * corpus.
+ *
+ * @severity error
+ */
+
+Unimported_CharsetOwner() {
+	event bad_decode before(Object o):
+		call(* Charset+.decode(..)) && target(o) {
+   android.util.Log.v("RVSEC", __LOC + " ::: Unimported_CharsetOwner");
+		}
+}

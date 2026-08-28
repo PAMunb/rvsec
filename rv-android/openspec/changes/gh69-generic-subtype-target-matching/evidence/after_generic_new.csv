@@ -1,0 +1,73 @@
+className,name,parameters,signature,includeSubtypes,nameIsPattern
+java.io.Closeable,close,(),"* Closeable+.close()",true,false
+java.io.InputStream,available,(..),"* InputStream+.available(..)",true,false
+java.io.InputStream,close,(..),"* InputStream+.close(..)",true,false
+java.io.InputStream,read,(..),"* InputStream+.read(..)",true,false
+java.io.InputStream,reset,(..),"* InputStream+.reset(..)",true,false
+java.io.InputStream,skip,(..),"* InputStream+.skip(..)",true,false
+java.io.OutputStream,close,(..),"* OutputStream+.close(..)",true,false
+java.io.OutputStream,flush,(..),"* OutputStream+.flush(..)",true,false
+java.io.OutputStream,write*,(..),"* OutputStream+.write*(..)",true,true
+java.io.Reader,close,(..),"* Reader+.close(..)",true,false
+java.io.Reader,mark,(..),"* Reader+.mark(..)",true,false
+java.io.Reader,read,(..),"* Reader+.read(..)",true,false
+java.io.Reader,ready,(..),"* Reader+.ready(..)",true,false
+java.io.Reader,reset,(..),"* Reader+.reset(..)",true,false
+java.io.Reader,skip,(..),"* Reader+.skip(..)",true,false
+java.io.Writer,close,(..),"* Writer+.close(..)",true,false
+java.io.Writer,flush,(..),"* Writer+.flush(..)",true,false
+java.io.Writer,write*,(..),"* Writer+.write*(..)",true,true
+java.lang.CharSequence,equals,(..),"* CharSequence+.equals(..)",true,false
+java.lang.CharSequence,hashCode,(..),"* CharSequence+.hashCode(..)",true,false
+java.lang.Comparable,compareTo,(..),"* Comparable+.compareTo(..)",true,false
+java.lang.Iterable,iterator,(),"Iterator Iterable+.iterator()",true,false
+java.lang.Iterable,listIterator,(),"ListIterator Iterable+.listIterator()",true,false
+java.lang.Long,parseLong,(String),"* Long.parseLong(String)",false,false
+java.lang.Long,parseLong,(String,int),"* Long.parseLong(String, int)",false,false
+java.lang.Object,notify,(..),"* Object+.notify(..)",true,false
+java.lang.Object,notifyAll,(..),"* Object+.notifyAll(..)",true,false
+java.lang.Object,wait,(..),"* Object+.wait(..)",true,false
+java.net.ServerSocket,<init>,(int,int),"ServerSocket.new(int, int)",false,false
+java.net.ServerSocket,<init>,(int,int,InetAddress),"ServerSocket.new(int, int, InetAddress)",false,false
+java.net.ServerSocket,accept,(..),"* ServerSocket+.accept(..)",true,false
+java.net.ServerSocket,bind,(SocketAddress,int),"* ServerSocket+.bind(SocketAddress, int)",true,false
+java.net.ServerSocket,setSoTimeout,(int),"* ServerSocket+.setSoTimeout(int)",true,false
+java.net.URLDecoder,decode,(String,String),"* URLDecoder.decode(String, String)",false,false
+java.net.URLEncoder,encode,(String,String),"* URLEncoder.encode(String, String)",false,false
+java.util.Collection,add*,(..),"* Collection+.add*(..)",true,true
+java.util.Collection,addAll,(..),"boolean Collection+.addAll(..)",true,false
+java.util.Collection,addAll,(Collection),"* Collection+.addAll(Collection)",true,false
+java.util.Collection,clear,(..),"* Collection+.clear(..)",true,false
+java.util.Collection,iterator,(),"* Collection+.iterator()",true,false
+java.util.Collection,offer*,(..),"* Collection+.offer*(..)",true,true
+java.util.Collection,pop,(..),"* Collection+.pop(..)",true,false
+java.util.Collection,push,(..),"* Collection+.push(..)",true,false
+java.util.Collection,remove*,(..),"* Collection+.remove*(..)",true,true
+java.util.Collection,retain*,(..),"* Collection+.retain*(..)",true,true
+java.util.Collections,newSetFromMap,(Map),"* Collections.newSetFromMap(Map)",false,false
+java.util.Collections,synchronizedCollection,(Collection),"* Collections.synchronizedCollection(Collection)",false,false
+java.util.Collections,synchronizedList,(List),"* Collections.synchronizedList(List)",false,false
+java.util.Collections,synchronizedMap,(Map),"* Collections.synchronizedMap(Map)",false,false
+java.util.Collections,synchronizedSet,(Set),"* Collections.synchronizedSet(Set)",false,false
+java.util.Collections,synchronizedSortedMap,(SortedMap),"* Collections.synchronizedSortedMap(SortedMap)",false,false
+java.util.Collections,synchronizedSortedSet,(SortedSet),"* Collections.synchronizedSortedSet(SortedSet)",false,false
+java.util.Iterator,*,(..),"* Iterator.*(..)",false,true
+java.util.Iterator,hasNext,(..),"* Iterator.hasNext(..)",false,false
+java.util.Iterator,next,(),"* Iterator+.next()",true,false
+java.util.Iterator,next,(..),"* Iterator.next(..)",false,false
+java.util.Iterator,remove,(),"void Iterator+.remove()",true,false
+java.util.ListIterator,add,(..),"void ListIterator+.add(..)",true,false
+java.util.ListIterator,previous,(),"* ListIterator+.previous()",true,false
+java.util.ListIterator,set,(..),"* ListIterator+.set(..)",true,false
+java.util.Map,clear*,(..),"* Map+.clear*(..)",true,true
+java.util.Map,entrySet,(),"Set Map+.entrySet()",true,false
+java.util.Map,keySet,(),"Set Map+.keySet()",true,false
+java.util.Map,put*,(..),"* Map+.put*(..)",true,true
+java.util.Map,put,(Object,Object),"* Map+.put(Object, Object)",true,false
+java.util.Map,putAll,(Map),"* Map+.putAll(Map)",true,false
+java.util.Map,remove,(..),"* Map+.remove(..)",true,false
+java.util.Map,values,(),"Collection Map+.values()",true,false
+java.util.Queue,offer*,(..),"* Queue+.offer*(..)",true,true
+java.util.Set,add,(..),"* Set+.add(..)",true,false
+java.util.Set,addAll,(Collection),"* Set+.addAll(Collection)",true,false
+java.util.TreeMap,<init>,(Map),"TreeMap.new(Map)",false,false

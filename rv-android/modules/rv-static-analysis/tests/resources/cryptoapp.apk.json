@@ -297,7 +297,7 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.cipher.CipherActivity: void <init>()>",
           "reachable": true,
-          "reachesTarget": false,
+          "reachesTarget": true,
           "directlyReachesTarget": false
         },
         {
@@ -416,7 +416,7 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.MainActivity: void <init>()>",
           "reachable": true,
-          "reachesTarget": false,
+          "reachesTarget": true,
           "directlyReachesTarget": false
         },
         {
@@ -486,7 +486,7 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void <init>()>",
           "reachable": true,
-          "reachesTarget": false,
+          "reachesTarget": true,
           "directlyReachesTarget": false
         },
         {
@@ -564,7 +564,7 @@
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity: void executeSecretKeyOperation()>",
           "reachable": true,
           "reachesTarget": true,
-          "directlyReachesTarget": false
+          "directlyReachesTarget": true
         },
         {
           "name": "generateIV",
@@ -780,8 +780,8 @@
           "name": "createSecretKeyFromBytes",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptoUtils: javax.crypto.SecretKey createSecretKeyFromBytes(byte[],java.lang.String)>",
           "reachable": false,
-          "reachesTarget": false,
-          "directlyReachesTarget": false
+          "reachesTarget": true,
+          "directlyReachesTarget": true
         },
         {
           "name": "decryptWithPrivateKey",
@@ -899,7 +899,7 @@
           "name": "<init>",
           "signature": "<br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity: void <init>()>",
           "reachable": true,
-          "reachesTarget": false,
+          "reachesTarget": true,
           "directlyReachesTarget": false
         },
         {

@@ -248,3 +248,180 @@ here rather than settled inside a change scoped to INV-INS-110, which asks only
 that a bound event have a row that is not `fail` from every state. No issue has
 been opened for it; that is the user's call, like the two rule gaps left open in
 [`algorithm_naming.md`](algorithm_naming.md).
+
+---
+
+## A debt this file never recorded, now repaired in shared code (gh69, issue #69)
+
+Every entry above is a repair made in the derived set and deliberately withheld
+from the frozen one. This entry is the opposite shape, and it is written here
+because a ledger that only ever grows stops describing the instrument.
+
+**What was wrong.** The `jca` set declares constructor pointcuts —
+`call(SecureRandom.new(..))`, `call(SecretKeySpec.new(..))`,
+`call(IvParameterSpec.new(..))` and eight more. `rvsec-mop-extractor` emitted
+them with the literal method name `new`, which the pointcut grammar writes and
+which no Soot method can carry: Soot names every constructor `<init>`. Those
+targets therefore matched nothing, and had matched nothing since the extractor
+was written. Eighteen signature rows, collapsing into **11 of the set's 68
+`(class, method)` pairs**, were dead in the static layer. The published ruler had
+never counted a single constructor call site — `new SecretKeySpec(...)` and
+`new IvParameterSpec(...)` included, which are central to the misuses the set
+exists to find.
+
+This was never entered in this file because nobody knew. It was found in 2026-08
+while gh69 was teaching the extractor a different construction, and it is a
+defect of the **extractor**, not of any `.mop` file. Nothing under
+`rvsec/rvsec-mop/src/main/resources/jca` was touched.
+
+**Why repairing it is admissible under the freeze.** The doctrine this file
+serves permits a repair to shared code when it applies equally to both sets and
+its effect on the frozen set is *enumerated* rather than assumed absent. Both
+conditions hold. The change is a keyword mapping in
+`visitor/UsedJcaMethodsVisitor` — `new` becomes `<init>` — with no branch on
+which specification set is active, and no GATOR-side change at all
+(`TargetResolver` already compares names by equality;
+`SignatureFileTargetSource` already accepts `<init>`). Withholding it was not an
+option that preserved anything: the same defect is live in `jca_android`, and
+suppressing it on one side only would have manufactured an asymmetry between the
+sets that did not previously exist — the failure mode consequence 2 of this
+file's preamble warns about.
+
+**The enumeration.** Measured on `cryptoapp.apk` (106 app methods) under the
+spark call graph, which is what production and
+`scripts/check_signature_file_subset.py` use:
+
+| axis | before | after | what moved |
+|---|---|---|---|
+| `reachable` | 55 | 55 | nothing — the repair adds targets, not call-graph nodes |
+| `reachesTarget` | 32 | 33 | `CryptoUtils.createSecretKeyFromBytes` |
+| `directlyReachesTarget` | 21 | 23 | `CryptoUtils.createSecretKeyFromBytes`, `CryptographyActivity.executeSecretKeyOperation` |
+
+The direct axis was predicted from a dexdump before the run and the prediction
+held: 11 constructor call sites (`SecretKeySpec` ×5, `IvParameterSpec` ×4,
+`SecureRandom` ×2) across 10 methods, 8 of which other targets already flagged,
+leaving exactly two. The transitive movement was deliberately **not** predicted —
+a new seed propagates to its callers — and measurement gives one method, the
+caller of `createSecretKeyFromBytes`.
+
+The extractor's own triple does **not** move: `jca` stays at 120 signatures / 68
+pairs / 22 owners, because those eighteen rows already existed and only the
+emitted name changed.
+
+**What this means for a published figure.** Any `cov_directly_reaches_target` or
+`cov_reaches_target` computed from the frozen set before this repair understates
+the numerator wherever the corpus constructs a JCA object — which is most of it.
+The figures reproduce exactly as published, and they remain wrong in that
+direction. A campaign comparing across the repair boundary has to say which side
+each figure comes from; the fixtures in
+`modules/rv-static-analysis/tests/resources/` and
+`rvsec-gator/client/src/test/resources/baseline/` were re-baselined with this
+enumeration and are the post-repair reference.
+
+**A second movement is coming from the same change and is not in this table.**
+gh69 phase 5.6 repairs `RandomStringPassword.mop`'s unresolved `String` owner —
+the one owner in the set the extractor never resolved, which left every published
+`cov_reaches_target` computed over 22 of the set's 23 specifications. That repair
+is also in the visitor, also enumerated, and gets its own entry here when it
+lands. It is recorded now so this table is not read as the whole of what gh69
+moves.
+
+---
+
+## The second gh69 movement: the owner the extractor never resolved (issue #69, phase 5.6)
+
+Same change, same file it lives in, different defect — and it is the one that damaged a
+published figure rather than a numerator.
+
+**What was wrong.** `jca/RandomStringPassword.mop` names its owner `String` and imports
+only `java.util.stream.IntStream` and three `br.unb.cic.mop.*` packages. `java.lang` is
+implicit in Java but was not implicit for the extractor, whose owner resolution consulted
+explicit imports and wildcard-import packages and nothing else — with no `else` branch and
+no log (`UsedJcaMethodsVisitor:70-77`). Both of the spec's pointcuts vanished without a
+trace. The spec is 1 of the 23 in `jca` and 1 of the 48 now in `jca_android`, and it was
+**the only** unresolved owner in either set — re-enumerated 2026-08-28 rather than quoted,
+because gh109 had grown `jca_android` in the interval: `jca` declares 23 `call()` owners and
+emitted 22, `jca_android` declares 47 and emitted 46, `generic_new` declares 21 and emitted
+21.
+
+The woven aspect carries both pointcuts
+(`rvsec/rvsec-mop/src/main/resources/jca/MultiSpec_1MonitorAspect.aj:874,879`), so the
+monitor advised call sites the static layer never marked.
+
+**What it cost, exactly.** No violation count is wrong: `RandomStringPasswordSpec` appears in
+no `errors.csv` anywhere in the tree. The damage is in the denominator — every
+`cov_reaches_target` and `cov_directly_reaches_target` ever published from the frozen ruler
+was computed over **22 of its 23 specifications**, and nothing reported that.
+
+**The repair, and why it is three parts rather than one.** Seeding the implicit `java.lang`
+package alone would have been worse than the hole. MOP targets are emitted LENIENT — class
+and name, signature ignored — so a resolved `String` target makes `String#valueOf` match
+every overload: measured over 3 corpus APKs, 74 call sites of
+`String.valueOf`/`toCharArray` of which only **17** are the woven signatures, the other 57
+being `valueOf(int)`/`valueOf(long)` in `toString` and logging code. So the seed ships bound
+to two other things: `MatchPolicy.STRICT` for any target whose owner resolved *only* through
+the seed, and FQN resolution of pointcut parameter types, without which STRICT cannot be
+expressed at all (`TargetResolver` compares against the Soot signature, which reads
+`java.lang.Object` where the pointcut wrote `Object`).
+
+The criterion is keyed on the **route** the owner resolved by, not on the package it lives
+in. That distinction is what keeps the blast radius at two pointcuts in each JCA set and
+zero elsewhere: `generic_new`'s `Object+`, `Comparable+` and `CharSequence+` owners are
+`java.lang` classes too, but their specs import the package, so they resolve at the first
+step and stay LENIENT — which they must, since they declare `(..)` parameters that STRICT
+could never match.
+
+Nothing under `rvsec/rvsec-mop/src/main/resources/jca` was touched. The repair could not
+have been made from the spec side in any case: the visitor keys its import map by simple
+name, so writing the owner as `java.lang.String` in the pointcut would not have resolved
+either.
+
+**The enumeration.** The extractor's own triple, measured before and after with the parameter
+resolution landed first and separately so the two causes could be told apart:
+
+| set | before | after | what moved |
+|---|---|---|---|
+| `jca` | 120 / 68 / 22 | **122 / 70 / 23** | exactly two rows — `java.lang.String#valueOf(java.lang.Object)` and `java.lang.String#toCharArray()` |
+| `jca_android` | 209 | **211** | the same two rows |
+| `generic_new` | 72 | 72 | nothing; every owner resolves before the seed is consulted |
+
+No row was removed and no rows merged in any set — row count equals distinct-key count on
+both sides, which is the check that matters, because the parameter list participates in
+`MopMethod` identity and resolving it could in principle have collapsed two entries that
+differed only in how two specs spelled a type. It did not: the FQN resolution, measured on
+its own first, changed 1 parameter list in `jca` (`SSLContext.init`, where `KeyManager[]` and
+`TrustManager[]` gained their `javax.net.ssl` prefix), 1 in `jca_android` and 16 in
+`generic_new`, and added or removed no rows anywhere.
+
+On the frozen `cryptoapp` fixture (106 app methods, spark):
+
+| axis | before | after | what moved |
+|---|---|---|---|
+| `reachable` | 55 | 55 | nothing |
+| `reachesTarget` | 33 | **37** | the default constructors of `MainActivity`, `CipherActivity`, `CryptographyActivity` and `MessageDigestActivity` |
+| `directlyReachesTarget` | 23 | 23 | **nothing** |
+
+The direct axis holding still is the repair working, not the repair being inert: `cryptoapp`
+contains no app-level call site of either woven signature, so the two targets add no direct
+caller — and under a *lenient* seed they would have added the false ones. The four methods
+that move do so on the transitive axis, reaching `String.valueOf(Object)` through the
+framework call graph. The movement was attributed by isolation rather than assumed: running
+the same APK against a copy of `jca` with `RandomStringPassword.mop` removed reproduces the
+old numbers exactly (120 signatures, 0 STRICT, 33 reaching, 23 direct), so the whole delta
+belongs to that one specification and to nothing else.
+
+**A defect the repair had to fix first, recorded because it changes shared behaviour.** The
+bytecode scan that computes the direct axis reduced every resolved target to a
+`className#methodName` key, which *is* the lenient policy — so a STRICT target's overloads
+were readmitted there even when `resolveInScene` had correctly excluded them, and through the
+reverse BFS (which the direct set seeds) they reached the transitive axis too. The scan now
+matches a STRICT target per invoke against `SootMethodRef.parameterTypes()`, the descriptor
+the call instruction itself carries. Measured on `cryptoapp` with a single `String.valueOf`
+target: **24 direct callers under LENIENT, 9 under STRICT**. Before phase 5.6 no spec set
+produced a STRICT target from a `.mop` directory at all, so this changes nothing for any
+measurement published to date; it changes what a STRICT target means from here on.
+
+**What this means for a published figure.** Any `cov_reaches_target` from the frozen set,
+before this repair, was computed over 22 of 23 specifications. The published figures
+reproduce exactly and remain wrong in that direction. As with the constructor repair above, a
+campaign comparing across the boundary has to say which side each figure comes from.

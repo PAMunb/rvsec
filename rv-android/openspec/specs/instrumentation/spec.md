@@ -1501,7 +1501,7 @@ The dexlib2 instrumenter SHALL implement functional equivalents for **every** As
 *(Numbered slots 1-14 are preserved for ordinal-stability cross-referencing; items 1, 3, 14 are placeholders pointing at NOT-NEEDED reclassifications — the active scope is exactly the eleven un-struck entries.)*
 
 1. ~~**§4.W**~~ — **NOT-NEEDED β (absorber = `coverage-weaver`)**: pipeline POSITIVE `within(...)` = 0; sole positive consumer is `Coverage.aj` `excludedPackages()`. See `deferred.md` §2.2.1 entry I.
-2. **§4.O** — `T+` in `call()` owner (R11: 64 sites generic_new).
+2. **§4.O** — `T+` in `call()` owner (R11: **64 pipeline** sites in the compiled `generic_new` `.aj`; the `.mop` **source** demand is **71**). The two figures count different artifacts, not the same one twice: `DemandCounter.countMop` scans the `.mop` corpora and `DemandCounter.countCompiledAj` the committed `empirical-monitors/*/MultiSpec_1MonitorAspect.aj` snapshot, and the matrix row records both — SourceDemand `0,0,0,71`, PipelineDemand `0,0,64`. Naming only the pipeline number here once read as a divergence against a source-side count of 71 (gh69, 2026-08-28); both were re-measured with `DemandCounter`'s own `[A-Za-z0-9_]\+\.` pattern and both reproduce, so INV-INS-93 stands unchanged.
 3. ~~**§4.R**~~ — **REMOVED — NOT-NEEDED α (R11.3)**: `T+` in `call()` return = 0 in `.mop`, `Coverage.aj`, and all 3 pipeline `.aj`. All subtype use is owner-position (§4.O).
 4. **§4.N** — `!target(T)` / `!args(T)` parser specialization (R11: 14 + 2 = 16 sites generic_new).
 5. **§4.V** — `(T, ..)` trailing-mixed varargs (R11: **6 jca sites** — resolves PROVISIONAL).

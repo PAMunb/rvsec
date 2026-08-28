@@ -115,19 +115,30 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		Set<presto.android.gui.clients.target.TargetMethod> targetSpecs =
 				Collections.emptySet();
 		Set<SootMethod> targetMethods = Collections.emptySet();
+		// One matcher for the whole run: it owns the resolved-owner cache that both match
+		// points read, so the Scene is touched once per declared owner rather than once per
+		// match point.
+		presto.android.gui.clients.target.TargetMatching matching =
+				new presto.android.gui.clients.target.TargetMatching();
 		if (targetsFile != null) {
 			targetSpecs = new presto.android.gui.clients.target.SignatureFileTargetSource(
 					java.nio.file.Paths.get(targetsFile)).load();
+			long resolveStart = System.currentTimeMillis();
 			targetMethods = presto.android.gui.clients.target.TargetResolver
-					.resolveInScene(targetSpecs);
+					.resolveInScene(targetSpecs, matching);
 			System.out.println("[RvsecAnalysisClient] Targets resolved from file: "
-					+ targetMethods.size());
+					+ targetMethods.size() + " (resolveInScene: "
+					+ (System.currentTimeMillis() - resolveStart) + " ms)");
 		} else if (mopDir != null) {
 			targetSpecs = new presto.android.gui.clients.target.MopSpecsTargetSource(mopDir).load();
+			// Timed because widening the owner predicate removes the equals(fqn) fast-reject
+			// from a Scene.getClasses() x methods x targets loop (NFR04 cost bound).
+			long resolveStart = System.currentTimeMillis();
 			targetMethods = presto.android.gui.clients.target.TargetResolver
-					.resolveInScene(targetSpecs);
+					.resolveInScene(targetSpecs, matching);
 			System.out.println("[RvsecAnalysisClient] MOP methods resolved: "
-					+ targetMethods.size());
+					+ targetMethods.size() + " (resolveInScene: "
+					+ (System.currentTimeMillis() - resolveStart) + " ms)");
 		}
 
 		// 3. Reachability pipeline (BFS + bytecode-scan + callback complement)
@@ -137,7 +148,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		//    enforced in C1e when JsonReportWriter becomes pure).
 		presto.android.gui.clients.reach.ReachabilityIndex index =
 				new presto.android.gui.clients.reach.ReachabilityEngine(
-						output, appClasses, targetMethods).run();
+						output, appClasses, targetMethods, targetSpecs, matching).run();
 
 		// 4. Build the per-node enricher. The inline writer consults it for
 		//    each method/widget/transition/component rather than reading the
@@ -566,32 +577,98 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	 * app methods that literally invoke a target. This pass walks every
 	 * app method body, matches each {@link InvokeExpr} by
 	 * {@code (declaringClass.getName(), methodRef.name())} against the
-	 * target set's class+name pairs, and returns the callers. The match
-	 * is intentionally LENIENT — see design.md §D7 for the rationale that
-	 * a STRICT source still benefits from LENIENT bytecode scan because
-	 * {@code methodRef} alone cannot reliably reconstruct the full Soot
-	 * signature at the call site.
+	 * target set's class+name pairs, and returns the callers.
+	 *
+	 * <p>The match is LENIENT for a LENIENT target and STRICT for a STRICT
+	 * one — the policy the source attached travels all the way here. An
+	 * earlier version of this method was LENIENT unconditionally, on the
+	 * stated ground that "{@code methodRef} alone cannot reliably reconstruct
+	 * the full Soot signature at the call site". That ground is false for the
+	 * parameter list: {@link SootMethodRef#parameterTypes()} returns the types
+	 * the invoke instruction's own descriptor carries, which is as reliable as
+	 * the class and the name read from the same descriptor. Leaving it LENIENT
+	 * had a consequence: a STRICT target collapses to a {@code class#name} key
+	 * here, and that key readmits exactly the overloads STRICT exists to
+	 * exclude — so the direct axis, and through it the reverse BFS the direct
+	 * set seeds, kept the false positives the policy was chosen to remove.
+	 *
+	 * <p>The pass is <b>hybrid</b>. It receives both the resolved {@code Set<SootMethod>} and
+	 * the declared {@code Set<TargetMethod>}, because resolution discards precisely what a
+	 * subtype target needs: the declared super-type FQN and the two matching flags.
 	 */
 	public static Set<SootMethod> findDirectTargetCallersByBytecodeScan(
 			Map<SootClass, List<SootMethod>> appClasses,
-			Set<SootMethod> targets) {
+			Set<SootMethod> targets,
+			Set<presto.android.gui.clients.target.TargetMethod> targetSpecs,
+			presto.android.gui.clients.target.TargetMatching matching) {
 
 		Set<SootMethod> result = new HashSet<>();
-		if (targets.isEmpty()) {
+
+		// The subtype half: these targets CANNOT be reduced to keys. A key set is the resolved
+		// hierarchy already flattened, and flattening is exactly the pre-expansion this design
+		// rejected — it misses sub-interfaces. So they are matched against the DECLARED
+		// super-type, per invoke, through the same predicate resolveInScene uses.
+		List<presto.android.gui.clients.target.TargetMethod> subtypeTargets = new ArrayList<>();
+		// The strict half: same reason, different axis. A STRICT target reduced to a
+		// class#method key would match every overload of that name — the key set IS the lenient
+		// policy — so these are matched per invoke against the descriptor the call site carries.
+		List<presto.android.gui.clients.target.TargetMethod> strictTargets = new ArrayList<>();
+		Set<String> strictKeys = new HashSet<>();
+		for (presto.android.gui.clients.target.TargetMethod t : targetSpecs) {
+			if (t.isIncludeSubtypes()) {
+				subtypeTargets.add(t);
+			} else if (t.getPolicy() == presto.android.gui.clients.target.TargetMethod.MatchPolicy.STRICT) {
+				strictTargets.add(t);
+				strictKeys.add(t.getClassName() + "#" + t.getMethodName());
+			}
+		}
+
+		// The exact half: a resolved Set<SootMethod> collapses to class#method keys, giving an
+		// O(1) lookup per invoke. Every LENIENT target lives here, which is what keeps the JCA
+		// path byte-for-byte unchanged (INV-ANA-35) — the set is unchanged for a spec set that
+		// declares no STRICT target, which is every set but the two seeded String pointcuts.
+		// A key a STRICT spec owns is withheld: it would readmit the overloads that spec's
+		// policy excludes, and the strict half below matches those call sites properly.
+		Set<String> targetKeys = new HashSet<>(targets.size());
+		for (SootMethod t : targets) {
+			String key = t.getDeclaringClass().getName() + "#" + t.getName();
+			if (!strictKeys.contains(key)) {
+				targetKeys.add(key);
+			}
+		}
+
+		if (targetKeys.isEmpty() && subtypeTargets.isEmpty() && strictTargets.isEmpty()) {
 			return result;
 		}
 
-		Set<String> targetKeys = new HashSet<>(targets.size());
-		for (SootMethod t : targets) {
-			targetKeys.add(t.getDeclaringClass().getName() + "#" + t.getName());
-		}
+		// Obtained after resolveInScene has force-resolved the owners; nothing between here
+		// and the end of the scan introduces a class, so one instance serves the whole pass.
+		final soot.FastHierarchy hierarchy =
+				subtypeTargets.isEmpty() ? null : Scene.v().getOrMakeFastHierarchy();
 
+		long scanStart = System.currentTimeMillis();
 		int[] counters = scanInvokesInAppClasses(appClasses,
 				(caller, stmt, ie, ref) -> {
+					String name = ref.getName();
 					if (matchesTargetSignature(ref.getDeclaringClass().getName(),
-							ref.getName(), targetKeys)) {
+							name, targetKeys)) {
 						result.add(caller);
 						return true;
+					}
+					for (presto.android.gui.clients.target.TargetMethod t : subtypeTargets) {
+						if (matching.matches(ref.getDeclaringClass().getType(), name, t,
+								hierarchy)) {
+							result.add(caller);
+							return true;
+						}
+					}
+					for (presto.android.gui.clients.target.TargetMethod t : strictTargets) {
+						if (t.getMethodName().equals(name)
+								&& t.getClassName().equals(ref.getDeclaringClass().getName())
+								&& paramsMatchAtCallSite(ref, t)) {
+							result.add(caller);
+							return true;
+						}
 					}
 					return false;
 				},
@@ -599,8 +676,37 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 		System.out.println("[RvsecAnalysisClient] Bytecode scan: " + counters[0]
 				+ " methods scanned, " + counters[1] + " body-retrieval skips, "
-				+ result.size() + " direct target callers detected");
+				+ targetKeys.size() + " exact keys, " + subtypeTargets.size() + " subtype targets, "
+				+ strictTargets.size() + " strict targets, "
+				+ result.size() + " direct target callers detected (bytecodeScan: "
+				+ (System.currentTimeMillis() - scanStart) + " ms)");
 		return result;
+	}
+
+	/**
+	 * Compare a STRICT target's declared parameter list against the descriptor the invoke
+	 * instruction carries.
+	 *
+	 * <p>Package-private so a unit test can exercise the comparison without a Scene. It mirrors
+	 * {@code TargetResolver.paramsMatch}, which does the same job against a resolved
+	 * {@link SootMethod}; the two must agree, or the direct and transitive axes would disagree
+	 * about the same call site. The declared list is compared as written, which is why the
+	 * extractor resolves pointcut parameter types to FQN — {@code Object} would never equal the
+	 * {@code java.lang.Object} Soot reports here.
+	 */
+	static boolean paramsMatchAtCallSite(SootMethodRef ref,
+			presto.android.gui.clients.target.TargetMethod target) {
+		List<String> declared = target.getParams();
+		List<soot.Type> actual = ref.parameterTypes();
+		if (actual.size() != declared.size()) {
+			return false;
+		}
+		for (int i = 0; i < declared.size(); i++) {
+			if (!actual.get(i).toString().equals(declared.get(i))) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/**

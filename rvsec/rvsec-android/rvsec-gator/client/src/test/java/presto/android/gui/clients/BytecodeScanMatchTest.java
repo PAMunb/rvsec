@@ -23,7 +23,7 @@ public class BytecodeScanMatchTest {
 
 	private static MopMethod mop(String className, String methodName) {
 		return new MopMethod(className, methodName, Collections.emptyList(),
-				className + "." + methodName + "()");
+				className + "." + methodName + "()", false, false, false);
 	}
 
 	private static Set<MopMethod> setOf(MopMethod... methods) {
@@ -50,9 +50,9 @@ public class BytecodeScanMatchTest {
 		// the same key. The bytecode scanner must follow the same policy.
 		Set<MopMethod> sigs = new HashSet<>();
 		sigs.add(new MopMethod("java.security.SecureRandom", "nextInt",
-				Collections.singletonList("int"), "nextInt(int)"));
+				Collections.singletonList("int"), "nextInt(int)", false, false, false));
 		sigs.add(new MopMethod("java.security.SecureRandom", "nextInt",
-				Collections.emptyList(), "nextInt()"));
+				Collections.emptyList(), "nextInt()", false, false, false));
 		Set<String> keys = RvsecAnalysisClient.buildTargetKeys(sigs);
 		assertEquals("Both overloads must collapse to one key", 1, keys.size());
 		assertTrue(keys.contains("java.security.SecureRandom#nextInt"));

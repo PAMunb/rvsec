@@ -63,10 +63,10 @@ Level column now always means inherent risk; the Status column carries the dispo
 | RISK-008 | Sync/archive ordering on `analysis` — gh60/gh66 now synced (constraint satisfied); residual = gh70 INV-ANA-45 anomaly + Phase-6 slot check | Process (sync ordering) | Low | Tolerable | **Low** |
 | RISK-009 | Second match point left non-subtype-aware (bytecode-scan contract gap) | Product (architecture) | Moderate | Serious | **High** |
 | RISK-010 | Non-`call()` pointcuts uncovered: 3 `staticinitialization`-only specs yield no static targets (the 3 ctor pointcuts left this risk on 2026-08-25 — D9 maps them) | Requirements (coverage boundary) | High (certain) | Tolerable | **Medium** |
-| RISK-011 | Seeding the implicit `java.lang` package moves the frozen `jca` set and over-matches under LENIENT | Product (measurement integrity) | High if seeded | Serious | **High** |
+| RISK-011 | Seeding the implicit `java.lang` package **without** the STRICT bound moves the frozen `jca` set and over-matches under LENIENT — re-aimed 2026-08-28: the seed now ships, so this risk forbids the *partial* seed, not the seed | Product (measurement integrity) | High if seeded partially | Serious | **High** |
 | RISK-012 | Java test infrastructure does not run: extractor has none (tasks 1.0/1.4–1.6) **and** the gator skips its own tests by default (`rvsec-gator/pom.xml:18`), yielding a false green | Tools (build) | High (certain) | Tolerable | **Medium** |
 | RISK-014 | Constructor repair (D9) moves values in the frozen `jca` ruler; a re-baseline without a written enumeration would launder the change | Product (measurement integrity) | High (certain) | Tolerable | **Medium** |
-| RISK-013 | `RandomStringPasswordSpec` contributes zero static targets to the frozen `jca` set, silently — the denominator of every published `cov_reaches_target` is computed over 22 of 23 specs | Product (measurement integrity) | High (certain) | Serious | **High** |
+| RISK-013 | `RandomStringPasswordSpec` contributes zero static targets to the frozen `jca` set, silently — the denominator of every published `cov_reaches_target` is computed over 22 of 23 specs. **Closed by repair inside this change (2026-08-28)**, not by acceptance | Product (measurement integrity) | High (certain) | Serious | **High** |
 
 ---
 
@@ -97,9 +97,16 @@ Level column now always means inherent risk; the Status column carries the dispo
 - **Mitigation strategy**: Minimization + Avoidance
   - **Avoidance**: `Scene.v().forceResolve(fqn, SootClass.HIERARCHY)` for **every distinct declared
     target owner** before building the `FastHierarchy` (`TargetMatching.forceResolveTargets`, INV-ANA-43 / D2).
-  - **Phantom-aware guard (the actual mitigation)**: classify an owner as resolved ONLY if
-    `!isPhantom() && resolvingLevel() >= HIERARCHY` — **not** merely `containsClass` (a phantom passes
-    `containsClass`). Guard before calling `canStoreType`.
+  - **Content-aware guard (the actual mitigation; criterion corrected 2026-08-28)**: classify an owner
+    as resolved ONLY if `resolvingLevel() >= HIERARCHY` **and** the class carries hierarchy content —
+    `hasSuperclass() || getInterfaceCount() > 0 || getMethodCount() > 0`. `containsClass` is not
+    sufficient (a phantom passes it), and **`!isPhantom()` is not the right test either**: measured on
+    the real Scene, 522 of the 575 `java.*`/`javax.*` classes are flagged phantom while carrying a
+    complete hierarchy read from the platform `android.jar`, and `canStoreType` answers correctly over
+    all of them. The `!isPhantom()` form degraded every declared owner of both spec sets and was what
+    made this risk fire — see D2 and INV-ANA-43. A class Soot invented for a missing source carries
+    none of the three (and `getModifiers() == 0`), which is what the guard rejects. Guard before
+    calling `canStoreType`.
   - **Minimization (no silent FN)**: any owner phantom/absent at match time **degrades to exact `equals`
     and logs a warning once per owner** — wrong matches become detectable, never silent.
   - **Verification gate**: the IT MUST exercise `canStoreType` against the **real `RvsecAnalysisClient`
@@ -107,9 +114,12 @@ Level column now always means inherent risk; the Status column carries the dispo
     **before any sweep is run**. The standalone spike does not satisfy this gate.
 - **Indicators (Monitoring)**:
   - Count of "degraded to exact for owner X" warnings emitted during the IT run — expected **0** for the
-    **20** owners that reach `forceResolveTargets` (21 distinct `call()` owners minus `TreeMap`, which
-    occurs only in the skipped constructor pointcut); any >0 is a Yellow trigger (forceResolve not
-    populating hierarchy under prod config).
+    **21** owners that reach `forceResolveTargets` (21 distinct `call()` owners, `TreeMap` included:
+    D9 maps its constructor pointcut rather than skipping it, so it carries a target); any >0 is a
+    Yellow trigger. **Measured 2026-08-28**: 21 usable / 0 degraded for `generic_new`. For `jca` the
+    count is 21 usable / 1 degraded — `javax.xml.crypto.dsig.spec.HMACParameterSpec`, which the Android
+    platform does not ship; that one is inert, since every `jca` target is `includeSubtypes=false` and
+    never consults the hierarchy.
   - IT assertion `reachesTarget>0` on the generic-positive APK.
 - **Contingency (Management)**:
   - **Trigger**: degrade-warnings > 0 in the IT, or `reachesTarget` still 0 after force-resolve.
@@ -119,7 +129,15 @@ Level column now always means inherent risk; the Status column carries the dispo
     be hierarchy-resolved under prod config, document it and confirm the degrade path keeps JCA-style
     exact matching intact — do not ship a silent FN.
   - **Owner**: implementer (gator client).
-- **Status**: Open
+- **Status**: **Fired and closed** (2026-08-28). The trigger condition was met on the first real IT run
+  — 19 of 21 `generic_new` owners degraded, 22 of 22 under `jca`, direct axis at 0.0% of app methods —
+  and the cause was the mitigation's own criterion, not a failure of `forceResolve` to populate the
+  hierarchy. Contingency action (1) ("inspect the Scene config — phantom refs can leave a type present
+  but unresolved") is what resolved it; actions (2) and (3) were measured and rejected: escalating the
+  resolve level leaves a pre-existing phantom untouched (`addToResolveWorklist` returns early when
+  `resolvingLevel() >= desiredLevel`), and no JDK type turned out to be genuinely
+  hierarchy-unresolvable. Closed by the corrected criterion above, with the IT gate green at
+  21 usable / 0 degraded.
 
 ---
 
@@ -141,7 +159,7 @@ Level column now always means inherent risk; the Status column carries the dispo
     `nameIsPattern=false` → predicate falls through to today's exact `equals` (design "API Design",
     proposal closing paragraph). The subtype branch is **unreachable** for JCA by construction.
   - **Gate (corrected 2026-08-21)**: the load-bearing gate is the **literal count** in the extractor
-    test — `jca` 120 signatures / 68 `(class, method)` pairs / 22 owners, `jca_android` 119/67/22, all
+    test — `jca` 120 signatures / 68 `(class, method)` pairs / 22 owners (`jca_android` derived, not pinned), all
     flags false (task 1.5). `MopSpecsParityTest` is NOT that gate: it compares
     `MopSpecsTargetSource.load()` with `JavamopFacade.listUsedMethods()` over the same directory, so both
     sides run through the modified visitor and any extractor-side JCA drift passes it unnoticed; its
@@ -205,7 +223,13 @@ Level column now always means inherent risk; the Status column carries the dispo
 
 ---
 
-### RISK-004: Quasi-universal targets saturate `reachesTarget` — measured, and owner-filtering does not fix it
+### RISK-004: Quasi-universal targets saturate `reachesTarget` over the `generic_new` fixture — measured, and owner-filtering does not fix it
+
+> **Scope, restated 2026-08-28**: this is a property of the **fixture corpus**, not of the capability.
+> It follows from which APIs those 27 specs monitor (adding to a container, iterating, closing a stream),
+> and says nothing about a spec set that declares owners by hierarchy over a narrower API family — the
+> two `+` owners live in `jca_android` (`Key+`, `SecretKey+`) being exactly such a case. The risk is
+> retained because the fixture is what the gates run against.
 - **Category**: Requirements (scope boundary)
 - **Description**: Once subtype matching is on, the union of the 67 `generic_new` target pairs marks so
   many call sites that `reachesTarget` collapses onto `reachable` — it stops meaning "reaches a monitored
@@ -276,8 +300,19 @@ Level column now always means inherent risk; the Status column carries the dispo
   - **Owner**: change author (matcher) / `aperv-tool` owner (consumer).
 - **Evidence**: `docs/20260821_gh69_veredito_coringas.md` §4.3–§4.5 — commands, per-APK tables, the per-pair
   ranking over 827,443 call sites, and the calibration of the measurement pipeline against the `jca` anchor.
-- **Status**: Open (accepted as matcher behaviour; **re-scoped 2026-08-21** — mitigation refuted, effect
-  raised to Serious, level Medium→High)
+- **Status**: **Accepted / decision recorded 2026-08-28 — option (c)** (task 5.2b). `reachesTarget` is
+  declared degenerate under `generic_new` and the deliverable for that set is `directlyReachesTarget`; the
+  `aperv-tool` does **not** change, on three grounds verified in the tree: the count model's size term is a
+  pre-registration item with no default (`count_glm.py:240-243` raises `FreezeItemUnset`) and both columns
+  are already emitted side by side (`static_artifact.py:414-415`), so the degenerate offset cannot be
+  inherited silently; the `hot`/`cold` verdict has no in-repo code consumer and its CSV readers run against
+  `jca`; and `sa_methods_reaches_mop` is pinned normatively to `reachesTarget` by the synced
+  `campaign-analysis` capability, so option (a) belongs to a change against that capability. Option (b) is
+  infeasible, not merely undesirable — `<apk>.json` carries no spec-set provenance. Recorded in
+  `specs/analysis/spec.md` INV-ANA-40 scope boundary (e). Residual: two documentation notes (the
+  `static_artifact.py` docstring and `docs/20260803_charac_static_corpus.py`, which duplicates the
+  `hot`/`cold` logic outside the tool). Earlier state: Open, **re-scoped 2026-08-21** — mitigation refuted,
+  effect raised to Serious, level Medium→High.
 
 ---
 
@@ -536,11 +571,16 @@ Level column now always means inherent risk; the Status column carries the dispo
   now reach `forceResolveTargets` — `TreeMap` joins, since its only pointcut is the constructor. That 21,
   not the pre-D9 20, is what the task 4.3 gate asserts. (c) **Moved out of this risk on 2026-08-21.** The `jca`/`jca_android`
   false-negative of `RandomStringPassword.mop` used to be carried here, and inherited this risk's
-  Effect of *Tolerable*. It is not tolerable — see **RISK-013 (High)**, which now owns it. This risk
-  keeps only the pointcut-shape boundary: staticinit-only specs and constructor pointcuts.
+  Effect of *Tolerable*. It is not tolerable — see **RISK-013 (High)**, which owned it from 2026-08-21 and
+  **closed it by repair on 2026-08-28**. This risk keeps only the pointcut-shape boundary: staticinit-only
+  specs and constructor pointcuts. Note what that leaves: after the `String` repair, (a) is the only
+  static false-negative this capability still accepts, and it is accepted for a structural reason — a
+  `staticinitialization` pointcut never reaches `visit(MethodPointCut)`, so there is nothing to extract —
+  rather than for an economic one.
 - **Probability**: High (certain — structural) · **Effect**: Tolerable (bounded; quasi-universal owners
   dominate `reachesTarget` anyway; runtime coverage unaffected) · **Level**: Medium — this rating
-  applies to the pointcut-shape boundary only, now that the `jca` false-negative has moved to RISK-013
+  applies to the pointcut-shape boundary only, the `jca` false-negative having moved to RISK-013 and
+  closed there
 - **Mitigation strategy**: Acceptance (documented scope decision)
   - Documented in proposal (coverage boundary), design (Non-Goals), and INV-ANA-40 (scope boundary).
   - Task 1.3(d) logs+skips constructor pointcuts with a notice; task 1.4 asserts exactly 3 ctor-skip
@@ -577,28 +617,46 @@ Level column now always means inherent risk; the Status column carries the dispo
 - **Probability**: High **if** the seed ships · **Effect**: Serious (silently degrades published JCA
   measurements) · **Level**: High — **retired by design decision, not by mitigation** (the Level column
   is inherent risk, per the published rubric: High×Serious → High; the disposition lives in Status)
-- **Mitigation strategy**: Avoidance
-  - D5 / INV-ANA-40 now forbid the seed: owner resolution comes only from imports the spec declares.
-    `generic_new` is unaffected — all **seven** of its `java.lang`-owner specs carry `import java.lang.*;`
-    (`Object_MonitorOwner`, `Comparable_CompareToNull`, `Comparable_CompareToNullException`,
-    `CharSequence_UndefinedHashCode`, `Long_BadParsingArgs`, and — owner `Iterable` — `ListIterator_Set`
-    and `Map_UnsafeIterator`).
-  - The false-negative it would have "fixed" is documented instead (INV-ANA-40 scope boundary (c)), with
-    its measurements, so the follow-up change does not have to re-derive them. **That false-negative is
-    itself a High risk in its own right — RISK-013.** Avoiding the seed is correct and does not make the
-    hole benign: this risk says "do not half-repair it", RISK-013 says "the hole is grave". Both hold.
-  - The real repair needs three things together — owner visibility (explicit import, an FQN-owner rule,
-    or the seed) + a STRICT policy for that target + FQN parameter resolution in `getParams` — and is
-    tracked as its own issue (task 5.6). Any one of the three alone makes the measurement worse.
-- **Indicators**: `jca` target count stays 120 and `jca_android` 119 after the extractor change; the
-  extractor log shows `String` as a skipped owner; `BaselineComparisonIT` unchanged (`cryptoapp.apk` has
-  0 such call sites — measured).
+- **Mitigation strategy**: **Re-aimed on 2026-08-28 — from Avoidance to Constraint.** The risk statement
+  was always about the seed *under LENIENT*, and that is what it still forbids. What changed is that the
+  bound which removes the objection now ships in this change instead of a later one, so the seed is no
+  longer avoided; the partial seed is.
+  - **What this risk now forbids**: landing owner visibility without `MatchPolicy.STRICT` on the seeded
+    target, or STRICT without FQN parameter resolution. The three parts are one repair (D5 + D10 + D11,
+    INV-ANA-40 boundary (c)); any one alone makes the measurement worse than the hole. A reviewer seeing
+    a diff that adds the seed and nothing else MUST treat it as this risk firing.
+  - **Why the bound is sufficient, measured**: STRICT compares the full Soot signature, so the 57 false
+    positives this risk enumerates — `valueOf(int)`/`valueOf(long)` in `toString`/log code — cannot match
+    `valueOf(Object)`. The 17 legitimate call sites still do. The criterion is scoped to *how the owner
+    resolved*, not to what it is named, so no target that already resolved changes policy: blast radius
+    is 2 pointcuts in `jca`, 2 in `jca_android`, 0 in `generic_new` (D10).
+  - `generic_new` is unaffected for an independent reason worth keeping — all **seven** of its
+    `java.lang`-owner specs carry `import java.lang.*;` (`Object_MonitorOwner`, `Comparable_CompareToNull`,
+    `Comparable_CompareToNullException`, `CharSequence_UndefinedHashCode`, `Long_BadParsingArgs`, and —
+    owner `Iterable` — `ListIterator_Set` and `Map_UnsafeIterator`) — so their owners resolve before the
+    seed is consulted and stay LENIENT, which their `(..)` parameters require.
+- **Indicators**: the `jca` triple moves from 120/68/22 by an **enumerated** delta and not otherwise —
+  the seed contributes 120→122 on the owner axis, and any further movement MUST be attributed to the
+  FQN parameter resolution measured in isolation (D11); the extractor log shows **no** skipped owner for
+  `jca`/`jca_android`; every `String` target reads `STRICT` and every other `jca` target reads what it
+  read before; `BaselineComparisonIT` and the `cryptoapp` fixture unchanged (`cryptoapp.apk` has 0 such
+  call sites — measured, and to be re-verified rather than assumed).
 - **Contingency**:
-  - **Trigger**: a future change proposes seeding `java.lang` or importing `String` in the spec.
-  - **Actions**: require the STRICT-policy and `getParams` FQN work in the same change, plus a re-run of
-    the JCA measurements that the seed invalidates; do not land the visibility half alone.
-  - **Owner**: follow-up change author.
-- **Status**: Closed by design (D5) for this change; open as follow-up scope.
+  - **Trigger**: the three parts are separated in implementation or in commits, or a measurement of the
+    combined change is taken without the isolated `getParams` measurement that precedes it.
+  - **Actions**: stop and re-sequence per D11 — measure `getParams` alone, enumerate what it moves, then
+    land the seed with STRICT and enumerate that separately. Do not widen a gate to absorb an
+    unattributed delta.
+  - **Owner**: this change's implementer (phase 5.6).
+- **Status**: **Closed as satisfied, 2026-08-28.** Phase 5.6 landed the three parts together and the
+  enumeration is written (see RISK-013 and `data/gh101/frozen_set_debt.md`). The constraint was met
+  rather than waived, and one thing had to be repaired for it to be meetable at all: the bytecode
+  scan reduced every target to a `className#methodName` key, which is the lenient policy under
+  another name, so the STRICT bound would have applied to one axis and not the other (design
+  **D13**). With both match points honouring the policy, the bound is measured to work — on
+  `cryptoapp` with a single `String.valueOf` target and the policy as the only variable, LENIENT
+  gives 24 direct callers and STRICT gives **9**, the 15 that fall away being exactly the
+  `valueOf(int)`/`valueOf(long)` call sites this risk enumerates.
 
 ---
 
@@ -635,30 +693,67 @@ Level column now always means inherent risk; the Status column carries the dispo
   invisible for the life of the project.
 - **Probability**: High (certain — structural, present in every run to date) · **Effect**: Serious
   (silently understates the published `jca` reach denominator) · **Level**: **High**
-- **Mitigation strategy**: Acceptance for this change, with a **visibility** mitigation that this
-  change does deliver
-  - **What gh69 fixes**: the log-and-skip rule of INV-ANA-40 (task 1.3(b)) converts the silent drop
-    into a logged skip. After this change the extractor names `String` as a skipped owner instead of
-    swallowing it — property (i) above is discharged here, and it is the property that made the risk
-    grave rather than merely known.
-  - **What gh69 deliberately does NOT fix**: the measurement itself. Seeding the implicit `java.lang`
-    package alone would take `jca` 120→122 and `jca_android` 119→121 and, under LENIENT matching,
-    make `String#valueOf` match every overload — 74 call sites over 3 corpus APKs, 17 of them woven,
-    57 false positives propagated transitively (RISK-011). **The half-repair is worse than the hole.**
-  - **The full repair needs three things together** — owner visibility, a STRICT policy for that
-    target, and FQN parameter resolution in `getParams` — and is tracked as task 5.6.
-  - Task 1.5 asserts that `String` stays unresolved **and logged**, so the boundary cannot silently
-    close or silently widen.
-- **Indicators**: the extractor log names `String` among skipped owners for `jca`/`jca_android`;
-  `jca` stays at 120 signatures / 68 pairs / 22 owners; for `jca_android` the triple 119/67/22 is a **2026-08-21 observation, not a frozen gate** — gh105 is actively editing that set (`call(` 144 → 130 since commit `42a3528`, with 39 of its 74 tasks still open, Group 5 adding new `<Chain>Junction.mop` files). Task 1.5 therefore derives the `jca_android` count by enumeration; only `jca` is asserted literally; the follow-up
-  issue of task 5.6 exists and carries the 74/17/57 measurement.
+- **Mitigation strategy**: **Repair — changed from Acceptance on 2026-08-28 by the researcher's
+  instruction.** The risk exits this change closed, not carried. The reasoning that had justified
+  accepting it is not withdrawn: the *half*-repair really is worse than the hole, and that is why the
+  repair is defined as three parts that land together rather than as "seed `java.lang`".
+  - **Delivered in two stages, and both are inside this change now.** Stage one is *visibility*: the
+    log-and-skip rule of INV-ANA-40 (task 1.3(b)) converted the silent drop into a logged skip, which
+    discharged property (i) above — the property that made this risk grave rather than merely known.
+    Stage two is the *measurement* repair itself, phase 5.6: (i) the implicit `java.lang` seed, (ii)
+    `MatchPolicy.STRICT` for any target whose owner resolved only through that seed, (iii) `getParams()`
+    resolving parameter types to FQN, which (ii) presupposes. See design **D5**, **D10**, **D11** and
+    INV-ANA-40 scope boundary (c).
+  - **Why the seed is now admissible when it was not before**: the objection was never to resolving
+    `String` — it was that resolving it *under LENIENT* makes `String#valueOf` match every overload
+    (74 call sites over 3 corpus APKs, 17 woven, 57 propagated transitively — RISK-011). Part (ii)
+    removes exactly that, by comparing the full Soot signature. RISK-011 is therefore re-aimed rather
+    than retired: it now forbids the partial seed and stays open as the constraint on phase 5.6.
+  - **What must not be lost when this closes**: the cost statement stays true as history. No published
+    violation count is wrong — `RandomStringPasswordSpec` appears in no `errors.csv` anywhere in the
+    tree — and the damage was in the denominator, `cov_reaches_target` having been computed over 22 of
+    the 23 `jca` specs in every measurement published from the frozen ruler. Closing the risk repairs
+    the instrument going forward; it does not retroactively correct any figure already published, and
+    any campaign that re-uses those figures MUST know which side of this repair it sits on.
+  - Task 1.5 asserted that `String` stays unresolved **and logged**. That assertion **inverts** with this
+    decision, and the inversion is itself a gate: after phase 5.6 the extractor MUST report zero
+    unresolved owners for `jca`/`jca_android` and an empty skipped-owner log for both. The boundary
+    cannot be half-closed — a seed that resolves the owner while leaving the target LENIENT is the
+    forbidden middle state.
+- **Indicators**: after phase 5.6, the extractor log names **no** skipped owner for `jca`/`jca_android`;
+  the two `String` targets read `STRICT` and every other `jca` target reads the policy it read before;
+  the `jca` triple moves from 120/68/22 by a delta that is enumerated by signature and attributed to its
+  cause — the seed on the owner axis (120→122) separated from any merge the FQN parameter resolution
+  causes, which D11 requires be measured in isolation first. For `jca_android` no triple is a gate at
+  all: the set is under active edit — gh105 took `call(` 144 → 130 by 2026-08-21, then gh109 added 25
+  `.mop` files, reaching **48 specs / 238 `call()`** by 2026-08-28 with 7 of its 66 tasks still open — so
+  its count is derived by enumeration and only `jca` is asserted literally. The unresolved-owner
+  enumeration was re-run on 2026-08-28 rather than quoted, and still names `String` as the only
+  unresolved owner in either set (`jca` 23 declared / 22 emitted; `jca_android` 47 / 46; `generic_new`
+  21 / 21), so the repair's blast radius is exactly these two pointcuts.
 - **Contingency**:
-  - **Trigger**: a published result depends on the `jca` reach denominator being complete, or a new
-    spec is added to `jca`/`jca_android` whose owner is unimported.
-  - **Actions**: land the three-part repair of task 5.6 as one change, and re-run the `jca`
-    measurements it invalidates; never land the visibility half alone.
-  - **Owner**: follow-up change author (task 5.6).
-- **Status**: Open (accepted for this change — visibility mitigated here, measurement deferred to 5.6)
+  - **Trigger**: a new spec is added to `jca`/`jca_android` whose owner neither the imports nor the seed
+    resolve; or a published result is compared across the repair boundary without accounting for the
+    denominator change.
+  - **Actions**: the repair generalises — an unresolvable owner is still logged and skipped, so the class
+    of defect stays visible rather than silent. For the comparison case, state which side of phase 5.6
+    each figure comes from; do not re-baseline a published measurement silently.
+  - **Owner**: this change's implementer (phase 5.6).
+- **Status**: **Closed by repair, 2026-08-28.** Visibility was delivered by task 1.3(b); the
+  measurement repair landed in phase 5.6 and its enumeration is written — here, in INV-ANA-40 scope
+  boundary (c), and in `data/gh101/frozen_set_debt.md`, which is where this project keeps enumerated
+  debt against the frozen instrument and where the entry now records a debt *removed*.
+
+  Measured outcome: `jca` 120/68/22 → **122/70/23** by exactly the two `RandomStringPassword` rows,
+  `jca_android` 209 → **211** by the same two, `generic_new` unmoved at 72, no row removed and no
+  merge in any set. Zero owners are left unresolved in either JCA set. On the frozen `cryptoapp`
+  fixture the direct axis held at 23 and the transitive axis moved by four Activity constructors,
+  attributed by isolation against a copy of `jca` without the specification.
+
+  What does **not** close with it: the figures already published from the frozen ruler were computed
+  over 22 of its 23 specifications and still are. The instrument is repaired going forward; no
+  published number is retroactively corrected, and a campaign comparing across this boundary has to
+  say which side each figure comes from.
 
 ---
 
@@ -689,7 +784,7 @@ Level column now always means inherent risk; the Status column carries the dispo
   - (b) Task **1.0c**: pass `-DskipTests=false` on every gator maven command (2.5 / 3.3 / 4.3-4.8 / 5.1 /
     5.1b — already applied), **and** delete the `<skipTests>true</skipTests>` line so the trap does not
     outlive this change. Removing it is safe: the suite is 178/178 green.
-- **Indicators**: `mvn -pl rvsec/rvsec-mop-extractor test` runs and reports tests (not "no tests"); every
+- **Indicators**: `mvn -DskipMopAgent -pl rvsec/rvsec-mop-extractor test` runs and reports tests (not "no tests"); every
   gator test command reports a non-zero `Tests run:` count — a run that prints `Tests are skipped.` MUST
   be treated as a failed gate, never as a pass.
 - **Contingency**: if the root `dependencyManagement` entry ever moves, pin `junit` locally at the same
@@ -718,10 +813,10 @@ Level column now always means inherent risk; the Status column carries the dispo
   - [ ] RISK-007 key-set diff still empty?
   - [ ] RISK-008 (at Phase 6 only) `analysis/spec.md` still has INV-ANA-33/35 (gh60/gh66 already synced) **and** INV-ANA-40..44 still free; gh70 INV-ANA-45 gap reconciled at sync?
   - [ ] RISK-009 bytecode scan carries `Set<TargetMethod>` (scan-only IT method reports subtype `directlyReachesTarget=true`, task 4.7)?
-  - [ ] RISK-004 saturation: is `aperv-tool`'s `hot`/`cold` verdict still discriminating on the IT APK, or has `reachesTarget` gone near-universal?
+  - [ ] RISK-004 saturation: `reachesTarget` going near-universal on the IT APK is **expected** under decision (c) — the check is that `directlyReachesTarget` lands in the 2–12% band and that no consumer was quietly migrated to the direct axis inside this change
   - [ ] RISK-006 unresolved-owner skip count for `generic_new` still 0 (task 1.0b repair not reverted)?
   - [ ] RISK-010 constructor-skip notices still exactly 3?
-  - [ ] RISK-011 `java.lang` still unseeded; `jca` still 120/68/22 and `jca_android` 119/67/22?
+  - [ ] RISK-011 `java.lang` still unseeded; `jca` still 120/68/22? (`jca_android` is **derived, never pinned** — gh109 took it from 23 to 48 specs and 130 to 238 `call()` between 2026-08-21 and 2026-08-28)
   - [ ] RISK-012 extractor test infrastructure present and green (task 1.0)?
   - [ ] Any risk closeable?
 - **Owner**: change author (Pedro Costa).
@@ -750,3 +845,6 @@ Level column now always means inherent risk; the Status column carries the dispo
 | 2026-08-21 | RISK-005 / RISK-004 / — | **Verdict follow-through** (measurement session, `docs/20260821_gh69_veredito_coringas.md`). Artifact corrections: (a) **RISK-005 bound corrected** — of the 67 pairs only **54** carry a `+` and reach the `canStoreType` path; and the "O(1) amortized" justification is **false for interface parents**, which is 10 of the 16 distinct `+` owners: the interval encoding covers classes only, so an interface falls to a linear implementers scan or, above 100, to `canStoreClassClassic` (measured against `android.jar` android-30: `Comparable` 245, `Closeable` 154 → BFS branch; `Iterable` 67, `Collection` 38 → scan). The count bound stands; the per-query cost claim did not. (b) **Task 4.3's IT gate re-pointed**: `reachesTarget>0` passes trivially under `generic_new` (84–94% saturation) and proves nothing — the assertion that carries weight is `directlyReachesTarget` inside the measured 2–12% band. Same correction in the design testing table. (c) **Scope boundary (d) rewritten**: measured by *event* it is 55 of 58 (95%), not 40 of 88 lines; the `args()` axis recovers **zero** precision (2 of 22 events narrow a type, neither changes the resolved `SootMethod` set, and `Collection+.add*` already covers `Set.add` unrestricted in the union) — the boundary's own example was the emptiest case available; the recoverable precision is `target()`-of-type, worth 11–41% of the direct seed on two pairs. (d) **`forceResolve` level changed HIERARCHY → SIGNATURES** (task 2.x): resolving at `HIERARCHY` can leave a class below `SIGNATURES`, and `TargetResolver.resolveInScene` calls `cls.getMethods()` unguarded over `Scene.v().getClasses()` (`TargetResolver.java:48-50`) — `getMethods()` opens with `checkLevel(SIGNATURES)`, `doneResolving()` is true in `wjtp`, and `ignore_resolving_levels` is never set, so the next pass throws `RuntimeException`. A **crash created by this change's own mitigation**, realistic trigger `java.net.ServerSocket` in a socket-free APK. (e) **Task 1.4 gate made locale-safe**: `sort -u` under pt_BR folds `Map+.put` into `Map+.put*` and returns 66, failing the 67 gate for the wrong reason. (f) **Proposal's 120-vs-67 comparison qualified**: different units (signatures-with-constructors vs pairs-without); level under one convention (68 vs 69 pairs), and 18 of the `jca` 120 are `new`-named targets that match no Soot method, leaving ~102 live signatures / 57 live pairs — the repaired generic set yields *more* live targets than the frozen ruler, not fewer. (g) New task **5.2b** forces an explicit decision on `aperv-tool` before shipping. Tasks 38→40. |
 | 2026-08-21 | RISK-011 / — | **Two cross-change couplings registered** (neither change had recorded the other). (a) **gh105 is editing `jca_android` while gh69 treated it as frozen.** The two changes use "frozen" with different scopes: gh101 (archived 2026-08-16) froze `jca` alone — "not one byte of `rvsec-mop/src/main/resources/jca` ... Every correction to a specification lands in `jca_android` alone" — and made `jca_android` the successor carrying the repairs; gh105 is executing precisely that. Measured: `call(` occurrences in `jca_android` went **144 → 130** between commit `42a3528` and the working tree (gh105's F1 twin fusions), and gh105 has **39 of 74 tasks open**, including the group that adds new `<Chain>Junction.mop` files to that directory. gh69's triple 119/67/22 is accurate today but would go red on a change doing the right thing, so **task 1.5 now derives the `jca_android` count by enumeration and asserts only `jca` literally** — the discipline gh105 already imposes on its own gates. Exposure is limited: the production static-analysis path never reads `jca_android` (`config.py:199-208` always falls back to `jca`), so only gh69's unit test was at risk, not `G_paridade_targets`. No `.mop` file is written by both changes — gh69 edited one file, in `generic_new`. (b) **gh104 task 10.0 is the vehicle for the spec-set → `mopDir` wiring** that gh69's Impact described only as a plan document (`docs/20260821_plano_correcao_analise_estatica.md` D2, untracked). The proposal now names it. The coupling is one-directional and narrow: gh69 needs nothing from it to be implemented, verified or archived — its gates run through `--mop-dir` directly — but gh69's *product* stays unreachable from `rv-experiment`/`rv-platform` until 10.0 lands, and 10.0 is open. |
 | 2026-08-25 | RISK-014 / — | **Constructor repair pulled into scope** (D9, INV-ANA-40 boundary (b) inverted, new phase 4b, tasks 40 → 47). The earlier draft suppressed the 3 `generic_new` constructor pointcuts and called `new`→`<init>` out of scope. Measurement reversed that on three counts. (a) **The defect is in the frozen `jca`, not in `generic_new`**: the extractor already emits 18 constructor rows for `jca`, collapsing into **11 of its 68 pairs**, and none has ever resolved — `TargetResolver.java:53` compares names by equality and Soot names constructors `<init>`. The published ruler has never counted a constructor call site, `new SecretKeySpec(...)` included. Suppressing three while eighteen stayed silently dead shipped an asymmetry this change created. (b) **The change is already at that code site** — the grammar routes `Owner.new(..)` through `MethodPointCut` and boundary (b) obliges the visitor to branch either way; mapping instead of suppressing is the same branch plus an unambiguous keyword rename, with no GATOR-side change. (c) **The approval cost is now enumerated rather than feared**: measured on the `G_paridade_targets` fixture, 11 call sites in 10 methods of which 8 are already flagged, so exactly two methods move on the direct axis (21 → 23), both named — the form gh101's doctrine requires ("its effect on the frozen set is enumerated rather than assumed absent"). Sequenced as its own phase after phase 4 is green, so a red parity gate stays attributable — the separability argument gh101 and gh104 both used. Cardinality cascade: `generic_new` 67 → **69** pairs and 20 → **21** owners (`TreeMap` joins, appearing only in a constructor pointcut); `jca` 120/68/22 **unchanged**, only 11 names flipped. The transitive axis is deliberately not predicted — 4b.4 measures it. Summary 12 → 13 risks (Medium 5 → 6). |
+| 2026-08-28 | RISK-004 | **Closed as accepted — option (c)** recorded in task 5.2b and in `specs/analysis/spec.md` INV-ANA-40 boundary (e): `reachesTarget` declared degenerate under `generic_new`, `directlyReachesTarget` is the deliverable, `aperv-tool` unchanged. Option (a) belongs to the `campaign-analysis` capability (its spec pins the covariate to `reachesTarget`); option (b) is infeasible — `<apk>.json` carries no spec-set provenance. |
+| 2026-08-28 | — | **D9 coherence sweep.** Three passages still carried the pre-D9 log-and-skip rule for constructor pointcuts and were corrected: `proposal.md` Extractor bullet, `design.md` Non-Goals, and — the consequential one — `specs/analysis/spec.md`, where the normative INV-ANA-40 cardinality gate and its scenario read **67/66 pairs / 20 owners** while the same file's boundary (b) and the `<init>` scenario read **69/67 / 21**. The gate is 69/67 / 21. |
+| 2026-08-28 | — | **Stale figures refreshed.** `jca_android` grew 23 → 48 specs and 130 → 238 `call()` pointcuts under **gh109** (25 `.mop` files added since 2026-08-21); task 1.5 named gh105 as the live editor and quoted 119/67/22 — corrected, with the derive-never-pin rule kept. gh104 task 10.0 (`mop_dir` passthrough) is **done**; `generic_new` still has no spec-set enum entry. Two of task 5.7's four evidence documents have since been committed. |

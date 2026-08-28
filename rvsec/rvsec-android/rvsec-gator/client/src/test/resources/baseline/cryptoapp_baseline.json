@@ -3,9 +3,9 @@
   "mainActivity": "br.unb.cic.cryptoapp.MainActivity",
   "classes": 16,
   "total_methods": 106,
-  "reachable": 67,
-  "reaches_target": 61,
-  "directly_reaches_target": 21,
+  "reachable": 55,
+  "reaches_target": 37,
+  "directly_reaches_target": 23,
   "windows": 5,
   "transitions": 35,
   "transition_edges": [

@@ -47,7 +47,7 @@ public class TargetResolverParamsMatchTest {
 
 	private static TargetMethod strictTarget(List<String> params) {
 		return new TargetMethod("X", "m", params, null,
-				TargetMethod.MatchPolicy.STRICT);
+				TargetMethod.MatchPolicy.STRICT, false, false);
 	}
 
 	@Test

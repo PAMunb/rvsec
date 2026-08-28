@@ -28,6 +28,13 @@
 			<groupId>com.beust</groupId>
 			<artifactId>jcommander</artifactId>
 		</dependency>
+		<!-- Version comes from the root reactor's dependencyManagement (junit 4.13.2);
+		     pinning it here would let this module drift from the rest of the build. -->
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>

@@ -1,0 +1,31 @@
+package mop;
+
+import java.io.*;
+
+/**
+ * Companion to `unresolvable_owner`, guarding the other half of the resolution rule
+ * (INV-ANA-40).
+ *
+ * The owner `StringBuilder` lives in `java.lang`, which no import of this spec registers.
+ * It must resolve anyway, through the third and last resolution step — the package Java
+ * leaves implicit — and the emitted target must RECORD that route, because the gator
+ * attaches `MatchPolicy.STRICT` to exactly the targets that took it. The strictness is
+ * what makes the step admissible: resolving such an owner leniently would match every
+ * overload of the named method.
+ *
+ * `StringBuilder` rather than `String` on purpose: the real corpus case is
+ * `RandomStringPassword.mop`, and a synthetic fixture that duplicated it would pass for
+ * the wrong reason if the visitor ever special-cased that one class.
+ *
+ * This fixture lives under src/test/resources and is deliberately NOT part of any real
+ * corpus.
+ *
+ * @severity error
+ */
+
+Implicit_StringBuilderOwner() {
+	event bad_append before(Object o):
+		call(* StringBuilder.append(..)) && target(o) {
+   android.util.Log.v("RVSEC", __LOC + " ::: Implicit_StringBuilderOwner");
+		}
+}

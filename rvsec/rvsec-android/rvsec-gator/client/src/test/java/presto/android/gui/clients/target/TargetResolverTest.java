@@ -36,7 +36,7 @@ public class TargetResolverTest {
 	public void targetsDelegatesToSource() {
 		final Set<TargetMethod> stub = new HashSet<>(Arrays.asList(
 				new TargetMethod("X", "m", Collections.emptyList(), null,
-						TargetMethod.MatchPolicy.LENIENT)));
+						TargetMethod.MatchPolicy.LENIENT, false, false)));
 		TargetMethodSource source = () -> stub;
 		TargetResolver resolver = new TargetResolver(source);
 		assertSame("targets() MUST delegate to the source without mutating", stub, resolver.targets());
@@ -48,7 +48,8 @@ public class TargetResolverTest {
 		// the outer loop has nothing to iterate. (Sanity check that the
 		// implementation short-circuits sensibly for callers that pass empty
 		// sets without bootstrapping Soot.)
-		Set<?> resolved = TargetResolver.resolveInScene(Collections.emptySet());
+		Set<?> resolved = TargetResolver.resolveInScene(
+				Collections.<TargetMethod>emptySet(), new TargetMatching());
 		assertNotNull(resolved);
 		// Cannot make stronger claims without Scene bootstrap; the IT pins the
 		// non-empty path against the cryptoapp fixture.

@@ -15,8 +15,6 @@
 	<name>RVSec :: Android :: GATOR</name>
 
 	<properties>
-		<skipTests>true</skipTests>
-
 		<classindex.version>3.4</classindex.version>
 		<guava.version>27.1-jre</guava.version>
 		<slf4j.version>1.7.26</slf4j.version>

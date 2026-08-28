@@ -2,9 +2,17 @@
 
 GATOR marks each APK method with `reachesTarget`/`directlyReachesTarget` against the target methods of
 the active JavaMOP spec set (FR04–FR06). The matching pipeline is exact-FQN and import-explicit, written
-for the JCA spec style. The `generic_new` spec set declares owners by type hierarchy (`Collection+`),
-uses wildcard imports (`java.util.*`), and wildcard method names (`add*`). Result: the extractor emits
-**0** targets for `generic_new` (vs 120 for `jca`), so `reachesTarget=false` everywhere.
+for the JCA spec style, and it silently discards four constructions the AspectJ pointcut grammar admits:
+the `+` subtype operator, an asterisk import as an owner's only declaration, a trailing `*` in a method
+name, and the constructor form `Owner.new(..)`. A pointcut using any of them yields no target and no
+diagnostic. The design below is therefore written against those **constructions**, not against a corpus.
+
+Two corpora anchor it, with different jobs. **`jca_android` is the production evidence**: 2 `+` owners
+(`Key+.getEncoded`, `SecretKey+.getEncoded`) and 39 constructor pointcuts, all dead today — and the
+frozen `jca` ruler carries 25 dead constructor pointcuts of its own. **`generic_new` is the verification
+fixture**: 71 `+` owners, 15 `*` names, 3 constructor pointcuts and asterisk imports in all 27 specs, so
+it is the only set that exercises all four constructions at once and it is where the gates get their
+numbers. The extractor emits **0** targets for it today (vs 120 for `jca`).
 
 This design implements **decision A2** (subtype match at match-time via `FastHierarchy.canStoreType`),
 keeps the **output schema unchanged** (decision B), and scopes the change to **matching + rebuild +
@@ -54,13 +62,13 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
 
 | Requirement | Implementation | Test |
 |-------------|---------------|------|
-| INV-ANA-40 (extractor wildcard/`+`/pattern) | `UsedJcaMethodsVisitor.visit(ImportDeclaration\|MethodPointCut)` | `UsedMethodsGenericTest` — N fixed **in advance** (67 distinct `(owner-with-`+`, method-name)` `call()` pairs; 66 if `+` is not part of the owner key — state which key the test uses), not pinned to whatever the implementation emits; extractor run asserts 27→N (24 specs with ≥1 target), 23→120 |
+| INV-ANA-40 (extractor wildcard/`+`/pattern) | `UsedJcaMethodsVisitor.visit(ImportDeclaration\|MethodPointCut)` | `UsedMethodsGenericTest` — N fixed **in advance** (**69** distinct `(owner-with-`+`, method-name)` `call()` pairs under D9; **68** if `+` is not part of the owner key — state which key the test uses), not pinned to whatever the implementation emits; extractor run asserts 27→N (24 specs with ≥1 target), 23→120 |
 | INV-ANA-41 (flag propagation) | `MopSpecsTargetSource.load()` + `MopMethod`/`TargetMethod` ctors | `MopSpecsTargetSourceTest` (generic flags true, jca flags false) — **task 2.4b** |
 | INV-ANA-42 (A2 predicate, both points + cascade) | `TargetMatching` in `TargetResolver.resolveInScene` + `ReachabilityEngine`/`findDirectTargetCallersByBytecodeScan` carrying `Set<TargetMethod>` (hybrid scan) | `TargetMatchingTest` (class→iface, **iface→iface `List<:Iterable`**, bare `*`); `RvsecAnalysisClient` IT |
 | INV-ANA-43 (Scene force-resolve + phantom-aware degrade) | `TargetMatching.forceResolveTargets` + `isPhantom`/`resolvingLevel` guard + degrade branch | `TargetMatchingTest` (absent type **and phantom owner** → equals + warn) |
 | INV-ANA-44 (schema invariance) | no JSON writer change; assert key-set equality | JSON key-set diff generic vs jca; `MopSpecsParityTest` (INV-ANA-35) |
 | INV-ANA-64 (`reaches ⊇ direct` by construction) | `ReachabilityEngine.run()`: compute `directTargetSet` first, then `multiSourceBfs(reversed, targets ∪ directTargetSet)`; `JsonReportWriter` untouched (no gate) | new cases in the existing `ReachabilityBfsTest` (scan-only caller marked; **its caller marked too** — the property post-hoc union misses; empty direct set ⇒ byte-identical to today) + the **already-existing** tripwire `test_reachability_parity.py:163`, whose "by construction" docstring this change finally makes true — **tasks 3.2b/3.2c** |
-| INV-ANA-40 JCA half (no drift on the frozen set) | extractor unchanged for exact-import owners; `java.lang` not seeded (D5) | literal count 120/68/22 (`jca`) and 119/67/22 (`jca_android`), flags false — **task 1.5 is the real JCA gate**, not `MopSpecsParityTest` |
+| INV-ANA-40 JCA half (drift on the frozen set is enumerated, not zero) | extractor unchanged for exact-import owners; `java.lang` seeded and bounded by STRICT (D5/D10) | pre-5.6 literal count 120/68/22 (`jca`), re-pinned by the phase-5.6 enumeration; `jca_android` **derived by enumeration, never pinned** (gh109 is growing it), flags false — **task 1.5 is the real JCA gate**, not `MopSpecsParityTest` |
 
 ## Goals / Non-Goals
 
@@ -68,7 +76,16 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
 - Extractor emits N>0 targets for `generic_new`, with `includeSubtypes`/`nameIsPattern` set correctly.
 - Both match points are subtype/wildcard-aware via `canStoreType`, covering interface→interface.
 - Target super-types are loaded into the Scene before `canStoreType`; absent types degrade gracefully.
-- Output JSON schema unchanged; JCA parity (INV-ANA-35) preserved byte-for-byte.
+- Output JSON schema unchanged; the gator-side JCA exact-match path (INV-ANA-35 / `MopSpecsParityTest`)
+  untouched. **The extractor's `jca` triple does move**, deliberately: D5's seed adds the two
+  `RandomStringPassword` signatures, and D11's parameter resolution may merge others. That movement is
+  enumerated by the phase-5.6 gates rather than presumed absent — the form D9 established. What is
+  preserved is the matching of every owner that already resolved.
+- The implicit `java.lang` package is seeded **and bounded**: `RandomStringPassword.mop`'s `String` owner
+  resolves, and the two targets it yields are STRICT, so resolving it cannot over-match (D5 + D10). This
+  discharges RISK-013 by repair rather than by acceptance.
+- Pointcut parameter types resolve to FQN (`UsedJcaMethodsVisitor.getParams`) — the prerequisite that makes
+  a STRICT target expressible at all, since STRICT compares the full Soot signature (D11).
 
 **Non-Goals:**
 - Running the `generic_new` reachability sweep or defining the generic dataset (separate later change;
@@ -85,37 +102,27 @@ ideation and adversarial validation: `docs/20260617_sa_generic_new.md` §1–§1
   consequential — `sa_methods_reaches_mop`, documented at `static_artifact.py:13-17` as the size covariate
   / offset of a count model, which degenerates toward `total_methods` once saturated. None of this blocks
   gh69; all of it belongs in the downstream change's problem statement rather than being discovered there.
-- **Seeding the implicit `java.lang` package / repairing the `RandomStringPassword` false-negative**
-  (D5, INV-ANA-40 scope boundary (c)). The repair needs owner visibility *plus* a STRICT policy for that
-  target *plus* FQN parameter resolution; done piecemeal it degrades the `jca` measurement instead of
-  improving it. Deferred to its own change (task 5.6). **This is the one non-goal on the list that
-  leaves a High risk standing — RISK-013**: `RandomStringPasswordSpec` is 1 of the 23 `jca` specs and
-  contributes zero static targets, so every `cov_reaches_target` published from the frozen set was
-  computed over 22 of 23. Deferring the *measurement* repair is the right call (the half-repair is
-  measurably worse: 74 call sites, 17 woven, 57 false positives); deferring the *visibility* is not,
-  and this change does not — task 1.3(b) turns the silent drop into a logged skip, and task 1.5 asserts
-  it stays logged. Read this non-goal together with `risk-register.md` RISK-013 before treating it as
-  routine.
-- **Resolving pointcut parameter types to FQN** (`UsedJcaMethodsVisitor.getParams`). After this change an
-  owner resolves (`java.util.Map`) while its parameters keep the simple names the pointcut wrote (`Map`,
-  `Object`), because `getParams` consults only the explicit-import map. This is inert for matching — MOP
-  targets are LENIENT and ignore parameters — but two things follow: the parameter list participates in
-  `MopMethod.equals`/`hashCode`, so it affects the cardinality N pinned by task 1.4; and resolving it
-  later may *merge* entries that differ today only by how a spec spelled a type, which would move the
-  `jca` count of 120 for reasons unrelated to the owner fix. Measure before touching it.
-- Extracting **non-`call()` pointcut shapes** (documented static false-negatives, bounded): the 3 specs
+> **Two entries left this list on 2026-08-28**, by the researcher's instruction, and are now Goals:
+> seeding the implicit `java.lang` package (with the `RandomStringPassword` repair it enables) and
+> resolving pointcut parameter types to FQN. They were deferred here on the argument that the repair is
+> only safe when its three parts land together; the decision is that they land together **in this change**
+> rather than in a later one. The argument was never that the repair is wrong — see **D5**, **D10** and
+> **D11**, which carry it forward as the rule governing how the three parts are sequenced, and
+> `risk-register.md` RISK-013, which closes by repair instead of by acceptance.
+- Extracting **non-`call()` pointcut shapes** (documented static false-negative, bounded): the 3 specs
   whose only pointcut is `staticinitialization(Owner+)` (`Collection_HashCode`,
-  `Serializable_NoArgConstructor`, `URLConnection_OverrideGetPermission`) emit zero static targets, and
-  the 3 constructor pointcuts `call(Owner.new(..))` (`ServerSocket.new` ×2, `TreeMap.new`) are not
-  extracted (Soot `<init>` mapping not implemented). **What is in scope is suppressing them.** The
-  javamop grammar routes `.new` through `MethodPointCut` (`aspectj.jj:1730-1737`: `"." <NEW>` sets
-  `owner = retType`, `name = "new"`), and nothing rejects it today — the corpus yields nothing only
-  because every `generic_new` import is an asterisk import, leaving the `imports` map empty. Register
-  wildcard packages without adding the skip and these pointcuts start emitting a `MopMethod` named
-  `new`, a target no Soot method can match, quietly breaking the 67/66 cardinality gate. So the Non-Goal
-  is the `new`→`<init>` *mapping*; the explicit skip in task 1.3(d) is a requirement.
-  Net static coverage is 24/27 specs; the runtime
-  monitor still covers all 27. See INV-ANA-40 scope boundary.
+  `Serializable_NoArgConstructor`, `URLConnection_OverrideGetPermission`) emit zero static targets —
+  such a pointcut never reaches `visit(MethodPointCut)`, so there is nothing for this change to extract.
+  **Constructor pointcuts are NOT part of this Non-Goal.** An earlier draft placed them here — "the
+  `new`→`<init>` mapping is out of scope; the explicit skip is the requirement" — and **decision D9
+  reversed that**: `call(Owner.new(..))` (`ServerSocket.new` ×2, `TreeMap.new`) is extracted as
+  `MopMethod(owner, "<init>")`, because the same defect is live and silent in the frozen `jca` set (18
+  rows / 11 pairs that have never resolved) and suppressing only the `generic_new` three would ship an
+  asymmetry this change itself created. See **D9** for the full argument and **phase 4b** for the gate
+  and the re-baseline; the cardinality consequence is 69 pairs / 21 owners for `generic_new`, not 67/20.
+  Net static coverage is 24/27 specs — 24 rather than 23 precisely because the mapping is in scope, since
+  `TreeMap_Comparable`'s only `call()` pointcut is the constructor; the runtime monitor still covers all
+  27. See INV-ANA-40 scope boundary (a) and (b).
 
 ## Decisions
 
@@ -126,32 +133,75 @@ omits sub-interfaces (`java.util.List` absent), so an interface-typed call site 
 against `Iterable+.iterator` is missed. A2 asks `canStoreType(List, Iterable)=true` at the call site
 and is correct by construction (the call-site type is always in the Scene). **Recorded as an ADR.**
 
-**D2 — Force-resolve target super-types into the Scene + phantom-aware degrade-to-exact-with-log.**
-The real failure mode (verified empirically against Soot 4.7.1 in the gator fat jar) is **not** an
-exception and **not** a "non-answer": because GATOR runs with `allow_phantom_refs=true`, an unresolvable
-type force-resolves to a **phantom** `SootClass` at `BODIES` level, so `checkLevel(HIERARCHY)` passes and
-`canStoreType` returns a **definite `false`** that silently masks a false-negative. (The spike line
+**D2 — Force-resolve target super-types into the Scene, then degrade on *hierarchy content*, not on
+the phantom flag.** This decision was written against a phantom model that the real Scene falsified;
+what follows is the measured version (`cryptoapp.apk`, API 33, gator fat jar, 2026-08-28), with the
+superseded reading kept because the trap it describes is real and only its *criterion* was wrong.
+
+*What is true.* GATOR runs Soot with `allow_phantom_refs=true`, so a type Soot cannot find becomes a
+phantom `SootClass` that satisfies `Scene.containsClass` and passes `checkLevel(HIERARCHY)` —
+`canStoreType` then returns a **definite, wrong `false`** rather than throwing. A `try/catch` is
+therefore dead code, and `containsClass` alone is not a sufficient guard. (The spike line
 `ByteArrayInputStream <: Closeable : one side NOT in Scene` was the spike's own `containsClass` guard,
-not a `canStoreType` result.) The call-site type is normally loaded, but a declared super-type may be
-phantom/absent. Mitigation: `Scene.v().forceResolve(fqn, SootClass.HIERARCHY)` for each declared target
-owner, **then** obtain the `FastHierarchy`. An earlier draft demanded that `forceResolveTargets` run
-before the first `Scene.v().getOrMakeFastHierarchy()` call *anywhere in the run*. That requirement is
-**dropped**: it is both unsatisfiable and unnecessary. Unsatisfiable, because GATOR itself never calls
-`forceResolve`/`getOrMakeFastHierarchy`/`getActiveHierarchy` (zero occurrences across `client`, `commons`
-and `sootandroid` — it uses its own `presto.android.Hierarchy`, unrelated to Soot's `FastHierarchy`),
-while SPARK materialises the `FastHierarchy` inside the `cg` pack (`PAG`, `ContextInsensitiveBuilder`,
-`TypeManager`, `OnFlyCallGraphBuilder`, `VirtualCalls`) long before `RvsecAnalysisClient.run()` executes
-at the tail of `GUIAnalysis.run()` → `executeClientAnalyses` → `client.run()`. Unnecessary, because the
-premise is false for Soot 4.7.1: `Scene.addClass` calls `modifyHierarchy()`, which nulls
-`activeFastHierarchy`, and `getOrMakeFastHierarchy()` rebuilds whenever that field is null — so
-force-resolving a not-yet-present owner invalidates the cache by itself. **The real rule** is therefore:
-resolve the owners first, obtain the `FastHierarchy` afterwards (calling `Scene.releaseFastHierarchy()`
-first if an owner was already present as a phantom, the one case `addClass` does not cover), and never
-cache the `FastHierarchy` instance across a resolution. Then, at match time, guard on `isPhantom()` /
-`resolvingLevel() < HIERARCHY` (NOT merely `containsClass`) — if phantom/absent, degrade that owner to
-exact `equals` and log a warning once per owner. A `try/catch` is **not** the right mitigation (the call
-does not throw for natural phantoms — it would be dead code). Alternative (do nothing) rejected: silent
-false-negatives. This is the highest-risk point — validated in the IT against the real
+not a `canStoreType` result.)
+
+*What is false — and was the change's actual blocker.* The earlier criterion, "classify an owner as
+resolved only if `!isPhantom() && resolvingLevel() >= HIERARCHY`", treats `isPhantom()` as a proxy for
+"carries no hierarchy". In the GATOR Scene it is not. Under `-force-android-jar` the `java.*`/`javax.*`
+owners of both spec sets are read out of the platform `android.jar`
+(`$ANDROID_HOME/platforms/android-33/android.jar`, which does ship the `java.*` stubs) with a
+**complete and correct hierarchy** — real superclass, real interface list, real `ACC_INTERFACE`
+modifier, real method counts — and are flagged phantom all the same. Measured: **522 of the 575**
+`java.*`/`javax.*` classes in the Scene are phantom, against 26 of 1665 `android.*` ones. And
+`FastHierarchy.canStoreType` answers correctly over every one of them, in every direction tested:
+class→class (`ArrayList <: AbstractList`), class→interface (`ArrayList <: Collection`,
+`ByteArrayInputStream <: Closeable`) and **interface→interface** (`List <: Collection`,
+`List <: Iterable`, `Collection <: Iterable`) — the last being the case decision A2 exists for.
+`Collection.getInterfaces()` reads `[java.lang.Iterable]`; `getAllSubinterfaces(Iterable)` has 13
+members and `getAllImplementersOfInterface(Iterable)` has 21.
+
+Keying the degrade on the flag therefore degraded **every declared owner of both spec sets** —
+`generic_new` 19 of 21, `jca` 22 of 22 — and the direct axis fell to 0.0% of app methods. RISK-001
+fired, caused by its own mitigation.
+
+*Two repairs measured and rejected.* Both were tried against the real Scene, and both are inert.
+`Scene.forceResolve` genuinely cannot upgrade a pre-existing phantom — `SootResolver.addToResolveWorklist`
+returns early when `sc.resolvingLevel() >= desiredLevel`, and a phantom already sits at SIGNATURES — so
+`forceResolve(fqn, BODIES)` leaves the class phantom. `Scene.removeClass` followed by a fresh
+`forceResolve` completes in 3 ms and changes nothing either; worse, it *destroys* interface data that
+was correct before (it is what made `List <: Iterable` read `false` in the first diagnostic, a
+measurement artefact and not a property of the Scene). Neither is needed, because these owners require
+no repair.
+
+*The rule.* Force-resolve each distinct declared owner at `SIGNATURES` (not HIERARCHY: `canStoreType`
+needs only HIERARCHY, but `TargetResolver.resolveInScene` calls `cls.getMethods()` in an unguarded
+loop, which opens with `checkLevel(SIGNATURES)`), obtain the `FastHierarchy` **afterwards**, and never
+cache it across a resolution. Then classify an owner as usable when it is at HIERARCHY or above **and
+carries hierarchy content** — `hasSuperclass() || getInterfaceCount() > 0 || getMethodCount() > 0`.
+A class Soot invented because `SourceLocator` found no source carries none of the three: measured,
+`getModifiers() == 0`, no superclass, no interfaces, no methods. The three clauses are a disjunction so
+that a marker interface (`java.io.Serializable`) is not rejected for having no methods. An owner
+failing the test degrades to exact `equals` and logs a warning once per owner — a reported
+false-negative rather than a silent one (INV-ANA-43).
+
+*Result.* `generic_new` resolves **21 usable / 0 degraded**, the hard gate of RISK-001 and task 4.3.
+`jca` resolves 21 usable / 1 degraded — `javax.xml.crypto.dsig.spec.HMACParameterSpec`, which the
+Android platform genuinely does not ship, and which is inert because every `jca` target is
+`includeSubtypes=false` and never consults the hierarchy. JCA app-method counts are identical either
+side of the criterion change, so INV-ANA-35 is preserved by construction, not by tolerance.
+
+*Ordering, unchanged from the earlier draft.* This capability does **not** require force-resolution to
+precede every `getOrMakeFastHierarchy()` in the process. That is unsatisfiable — GATOR itself never
+calls `forceResolve`/`getOrMakeFastHierarchy`/`getActiveHierarchy` (zero occurrences across `client`,
+`commons` and `sootandroid`; it uses its own `presto.android.Hierarchy`), while SPARK materialises the
+`FastHierarchy` inside the `cg` pack long before `RvsecAnalysisClient.run()` executes at the tail of
+`GUIAnalysis.run()`. It is also unnecessary: `Scene.addClass` calls `modifyHierarchy()`, which nulls
+`activeFastHierarchy`, and `getOrMakeFastHierarchy()` rebuilds when that field is null. The one case
+`addClass` does not cover is an owner already present that was upgraded **in place**; the
+implementation calls `Scene.releaseFastHierarchy()` exactly then, and not merely because an owner was
+flagged phantom — which, per the above, is the common case and modifies nothing.
+
+This remains the highest-risk point, and it is validated in the IT against the real
 `RvsecAnalysisClient` scene, where a degrade on a `generic_new` owner is a **hard gate** (blocks the sweep).
 
 **D3 — Output schema unchanged (decision B, adopted).** Per-spec attribution already lives at runtime
@@ -181,7 +231,7 @@ special-cased to `false` (rejecting an earlier review suggestion that would have
 non-trailing-`*` pattern falls through to `equals` (safe literal). No general glob (`*Listener`) needed (P1).
 
 **D5 — Extractor owner resolution: explicit imports first, `Class.forName` over wildcard packages
-second; the implicit `java.lang` package is NOT seeded.** All 21 owners appearing in `generic_new`
+second, the implicit `java.lang` package third — seeded, and bounded by STRICT (D10).** All 21 owners appearing in `generic_new`
 `call()` pointcuts are JDK classes (`java.lang`/`util`/`io`/`net`), hence loadable at the extractor's
 runtime. **Being a JDK class is not sufficient**, though: resolution is import-driven, so an owner whose
 package no import of *its own spec* registers cannot be resolved at all. That case was live in the corpus
@@ -190,23 +240,44 @@ is repaired in task 1.0b by adding the missing `import java.util.*;`. After that
 non-constructor owners resolve. An owner that resolves via neither route is logged and skipped
 (validated §14 item 14); this is RISK-006's failure mode, and the corpus shows it is not hypothetical.
 
-The earlier plan also seeded `java.lang` by default as defense-in-depth. That is **reversed** on
-measurement (2026-08-21, list corrected 2026-08-21): `generic_new` does not need it — all **seven**
-specs with a `java.lang` `call()` owner carry an explicit `import java.lang.*;`
+The earlier plan seeded `java.lang` by default as defense-in-depth; a measurement on 2026-08-21 reversed
+that, and on 2026-08-28 the decision reverses once more — **not** because that measurement was wrong, but
+because the objection it raised is removed by D10. The measurement stands, and it is now the statement of
+why seeding **alone** is forbidden. It has two halves. First, `generic_new` does not need the seed: all
+**seven** of its specs with a `java.lang` `call()` owner carry an explicit `import java.lang.*;`
 (`CharSequence_UndefinedHashCode`, `Comparable_CompareToNull`, `Comparable_CompareToNullException`,
 `Long_BadParsingArgs`, `Object_MonitorOwner`, and — owner `Iterable` — `ListIterator_Set` and
 `Map_UnsafeIterator`; an earlier draft listed six and wrongly included `CharSequence_NotInSet`, whose
-`call()` owner is `Set`, `CharSequence` appearing only in `args()`). Seeding it, meanwhile, silently
-moves the frozen `jca`/`jca_android` sets —
-`String`, owner of the two `RandomStringPassword.mop` pointcuts, is the only unresolved owner in either
-set, and resolving it under LENIENT makes `String#valueOf` match every overload (74 call sites over 3
-corpus APKs, only 17 of them woven). See INV-ANA-40 scope boundary (c) and `docs/20260821_handoff_gh69_coringas.md`.
+`call()` owner is `Set`, `CharSequence` appearing only in `args()`). Second, seeding moves the frozen
+`jca`/`jca_android` sets: `String`, owner of the two `RandomStringPassword.mop` pointcuts, is the only
+unresolved owner in either set, and resolving it **under LENIENT** makes `String#valueOf` match every
+overload — 74 call sites over 3 corpus APKs, only 17 of them woven, the other 57 propagated to their
+callers by the transitive axis.
 
-Two consequences worth recording for whoever repairs that later: (i) writing the owner as an FQN in the
-pointcut (`call(... java.lang.String.valueOf(Object))`) does **not** work either — the visitor keys its
-map by simple name, so a dotted owner never matches and would need its own rule; (ii) resolution being
-import-driven means a non-JDK owner reached only through a wildcard import cannot be resolved by
-`Class.forName` at all (RISK-006), which an explicit-import convention would fix.
+**What changes is the second half, and only under LENIENT.** The seed ships bound to the STRICT policy of
+D10 and the FQN parameter resolution of D11, which is exactly what makes those 57 unmatchable: a STRICT
+target compares the full Soot signature, so `valueOf(Object)` stops matching `valueOf(int)`. Any one of the
+three parts alone still makes the measurement worse than the hole it repairs — that is the whole content of
+RISK-011, which is therefore **re-aimed rather than retired**: it now forbids the *partial* seed, not the
+seed. See INV-ANA-40 (the seeding rule and scope boundary (c)) and `docs/20260821_handoff_gh69_coringas.md`.
+
+**The unresolved-owner enumeration was re-run on 2026-08-28, not quoted.** INV-ANA-40 required re-running
+it rather than citing the 2026-08-21 figure, because gh109 grew `jca_android` in the interval. Method:
+declared `call()` owners parsed from the `.mop` corpora, diffed against the owners the extractor actually
+emits (`evidence/after_{jca,jca_android,generic_new}.csv`). Result: `jca` declares 23 `call()` owners and
+emits 22; `jca_android` declares 47 and emits 46; `generic_new` declares 21 and emits 21. In both
+JCA-family sets the one missing owner is `String`, from `RandomStringPassword.mop`. So the seed's blast
+radius is exactly the two pointcuts D10 makes STRICT — no other owner in either set changes resolution
+status, and `generic_new` is untouched because it has nothing left to resolve.
+
+Two consequences recorded here before the repair moved into scope, **both still standing**: (i) writing
+the owner as an FQN in the pointcut (`call(... java.lang.String.valueOf(Object))`) does **not** work either
+— the visitor keys its map by simple name, so a dotted owner never matches and would need its own rule.
+This is why the seed, and not a spec rewrite, is the route: `RandomStringPassword.mop` could not be
+repaired from the spec side even if the file were editable, and under the gh101 freeze it is not.
+(ii) Resolution being import-driven means a non-JDK owner reached only through a wildcard import cannot be
+resolved by `Class.forName` at all (RISK-006), which an explicit-import convention would fix. The seed does
+not change this: it adds one implicit package, it does not make resolution classpath-driven.
 
 **D6 — Rebuild order: extractor `install` → gator `client`.** The extractor is a compile-scope
 dependency bundled into `rvsec-analysis-client.jar`; rebuilding gator without first `install`-ing the
@@ -303,8 +374,9 @@ constructor rows for `jca`, collapsing into 11 of its 68 pairs, and none of them
 `TargetResolver.java:53` compares names by equality and Soot calls every constructor `<init>`. The
 published ruler has never counted a constructor call site, `new SecretKeySpec(...)` included. Suppressing
 the `generic_new` three would have left that untouched and shipped the asymmetry: three suppressed on one
-side, eighteen silently dead on the other, with task 5.8 already open to reconcile a count the change
-itself made incomparable.
+side, eighteen silently dead on the other. (An earlier draft of this paragraph also cited task 5.8 as an
+open reconciliation the asymmetry would worsen; 5.8's premise was refuted by measurement on 2026-08-28 —
+see D12 — and that clause is withdrawn. The asymmetry argument does not depend on it.)
 
 Second, **this change is already at that code site**. Boundary (b) obliges the extractor to decide what
 `Owner.new(..)` means; the grammar routes it through `MethodPointCut` and the visitor must branch either
@@ -327,6 +399,98 @@ without a second change.
 
 **What stays out.** The transitive effect is not estimated — a new seed propagates to its callers, and
 only a real run says how far. The phase measures it rather than predicting it.
+
+**D10 — The STRICT criterion for a seeded owner: a target whose owner resolves ONLY via the implicit
+`java.lang` seed is STRICT; every other target keeps the policy it has.** This is the decision that makes
+D5's seed admissible, and it was chosen on 2026-08-28 from three candidates, each measured before being
+compared. Its blast radius is exactly **2 pointcuts in `jca` and 2 in `jca_android`** — both in
+`RandomStringPassword.mop` — and **0 in `generic_new`**, which follows directly from the re-run enumeration
+in D5: `String` is the only owner in either JCA-family set that the seed resolves, and `generic_new` has no
+unresolved owner for the seed to reach. The rule is stated over *how the owner resolved*, not over what it
+is named, and that is deliberate: it binds the strictness to the new resolution path, so a target that
+already resolved cannot silently change policy underneath the frozen ruler.
+
+The two rejected candidates are recorded with the number that refutes each, so neither is re-proposed:
+
+- **"Every `java.lang` owner is STRICT."** Simpler to state, and wrong: `generic_new` declares `Object+`,
+  `Comparable+` and `CharSequence+` as `call()` owners with `import java.lang.*;`, and those pointcuts
+  write `(..)` for their parameters. A STRICT target compares the full Soot signature, so under this rule
+  they would match nothing and the `generic_new` direct axis — the load-bearing measurement of this whole
+  change (RISK-004) — would collapse. The rule would break the set it is supposed to leave alone.
+- **"An explicit, non-`..` parameter list is STRICT."** The most principled-sounding of the three, since it
+  honours what the spec author wrote, and refuted by scale: measured over the corpora, it selects **112 of
+  the 142 `call()` pointcuts in `jca`** and **185 of 222 in `jca_android`** (`generic_new`: 21 of 89). That
+  is not a criterion for one repaired target, it is a wholesale conversion of the frozen ruler from LENIENT
+  to STRICT, arriving as a side effect of an unrelated repair. The gh101 freeze doctrine admits a repair to
+  shared code whose effect on the frozen set is enumerated; it does not admit this one, whose effect is the
+  frozen set.
+
+**D11 — `getParams()` resolves parameter types to FQN, and its effect is measured in ISOLATION before the
+seed lands.** STRICT compares the full Soot signature, so D10 is unexpressible while `getParams` consults
+only the explicit-import map and leaves parameters with the simple names the pointcut wrote (`Map`,
+`Object`) beside an owner that resolved (`java.util.Map`). D11 is therefore a prerequisite of D10, not a
+companion to it.
+
+It also carries the one hazard this change knew about before the repair entered scope, and the sequencing
+exists to catch it: the parameter list participates in `MopMethod.equals`/`hashCode`, so resolving it may
+**merge** entries that differ today only in how two specs spelled the same type — moving the `jca` count of
+120 for a reason that has nothing to do with the owner fix. A combined measurement could not tell the two
+apart. So the phase measures D11 alone first and enumerates whatever moves, then lands D5+D10 and
+enumerates that separately. This is the form D9 already used on the frozen ruler (21 → 23, with both
+signatures named), applied to a repair with two independent causes instead of one.
+
+**D13 — The bytecode scan honours `MatchPolicy.STRICT`; it was lenient unconditionally, and that
+made D10 ineffective.** Found while implementing phase 5.6, and repaired there. The scan reduced
+every resolved target to a `className#methodName` key
+(`RvsecAnalysisClient.findDirectTargetCallersByBytecodeScan`) and matched invokes against that key
+set. A key set *is* the lenient policy: `java.lang.String#valueOf` readmits `valueOf(int)` and
+`valueOf(long)` however carefully `resolveInScene` excluded them. So a STRICT target was strict on
+the transitive-seed axis and lenient on the direct one — and since D8 seeds the reverse BFS with the
+direct set, the false positives reached the transitive axis anyway. D10 would have bounded nothing.
+
+The method's javadoc had asserted the opposite, that "a STRICT source still benefits from LENIENT
+bytecode scan because `methodRef` alone cannot reliably reconstruct the full Soot signature at the
+call site". That is false for the parameter list: `SootMethodRef.parameterTypes()` returns the types
+the invoke instruction's own descriptor carries, which is exactly as reliable as the class and the
+name read from the same descriptor. The claim was never measured; it is now, and the javadoc is
+corrected rather than left standing beside the code that contradicts it.
+
+**The repair.** A STRICT target is withheld from the key set and matched per invoke against
+`ref.parameterTypes()`, by a helper (`paramsMatchAtCallSite`) that mirrors
+`TargetResolver.paramsMatch` — the two must agree, or the direct and transitive axes would disagree
+about the same call site. Subtype targets already had their own per-invoke bucket for the analogous
+reason (a key set is a flattened hierarchy), so this is the same shape applied to the second axis.
+
+**Measured, on `cryptoapp` with a single `String.valueOf` target supplied through a signature file
+so the policy is the only variable**: LENIENT gives **24** direct callers and 402→427 on the
+transitive axis; STRICT gives **9**. The 15 that fall away are the `valueOf(int)`/`valueOf(long)`
+call sites RISK-011 enumerates. That is the bound doing its work, and it is the reason RISK-011
+closes as satisfied rather than as avoided.
+
+**What it moves in what already shipped: nothing.** Before phase 5.6 no `.mop` directory produced a
+STRICT target at all — `MopSpecsTargetSource` emitted every target LENIENT — so no published
+measurement passed through this branch. The other STRICT producer is `SignatureFileTargetSource`,
+reached only by `scripts/check_signature_file_subset.py`, whose gate asserts `STRICT ⊆ LENIENT`;
+tightening STRICT shrinks the left side and the containment still holds (measured after the repair:
+|LENIENT|=37, |STRICT|=27, diff=0, PASS). That script's comment claiming "the bytecode-scan layer is
+LENIENT by construction (D7)" is stale and corrected with it.
+
+**D12 — Task 5.8 is refuted by measurement, not deferred.** The task asserted that two synced specs record
+different counts for the same token in the same corpus — `instrumentation/spec.md` saying **64** where this
+change says **71** — and asked for a reconciliation. The two numbers count **different artifacts**, and
+both are correct. `DemandCounter` (`rvsec-instrumentation-dexlib2/grammar-tests/.../util/DemandCounter.java`)
+maintains two independent signals: `countMop` over the `.mop` corpora (four: `aspect`, `jca`, `generic`,
+`generic_new`) and `countCompiledAj` over the committed
+`empirical-monitors/{jca,generic,generic_new}/MultiSpec_1MonitorAspect.aj` snapshot (three, post-JavaMOP).
+`docs/aspectj_grammar_coverage.md` already records the `T+ in call() owner` row with **both**: SourceDemand
+`0,0,0,71` and PipelineDemand `0,0,64`. Reproduced on 2026-08-28 with `DemandCounter`'s own regex,
+`[A-Za-z0-9_]\+\.`: the `generic_new` `.mop` source gives **71** (all 71 in `call()` owner position, over
+an 89-`call(` denominator) and the compiled `.aj` gives **64**. So this change's 71 *is* the pinned source
+count, already asserted by `MatrixIntegrityTest.testSourceDemandCountsReproducible`; INV-INS-93 is correct
+as written and is not touched, and no delta spec for the `instrumentation` capability is created. What
+remains is a phrasing defect in the main spec — `openspec/specs/instrumentation/spec.md:1504` writes
+"§4.O — `T+` in `call()` owner (R11: 64 sites generic_new)" without naming the unit, which is what misled
+the task's author — and repairing that sentence is the whole of task 5.8's residue.
 
 
 ## API Design
@@ -408,7 +572,7 @@ only a real run says how far. The phase measures it rather than predicting it.
 
 | Layer | What to test | How | Count |
 |-------|-------------|-----|-------|
-| Unit (extractor) | Parse generic_new → the N fixed in advance (67 pairs under a `+`-aware owner key, 66 otherwise; 3 ctor-skip notices; 0 unresolved-owner skips after the 1.0b repair; 24/27 specs covered), flags set; jca → 120, flags false | JUnit on `UsedJcaMethodsVisitor`/`JavamopFacade` with the 27+23 specs | ~4 |
+| Unit (extractor) | Parse generic_new → the N fixed in advance (**69** pairs under a `+`-aware owner key, **68** otherwise; **zero** ctor-skip notices — D9 maps constructors instead; 0 unresolved-owner skips after the 1.0b repair; 24/27 specs covered), flags set; jca → 120, flags false | JUnit on `UsedJcaMethodsVisitor`/`JavamopFacade` with the 27+23 specs | ~4 |
 | Unit (matcher) | `canStoreType` class→iface, **iface→iface (`List<:Iterable` — the only case that distinguishes A2 from A1)**; name patterns `add*`…`write*` and bare `*`; non-trailing pattern → `equals`; absent-type **and phantom owner** degrade | JUnit on `TargetMatching` with a minimal Scene | ~7 |
 | Source | `MopSpecsTargetSource.load()` propagates flags (generic true / jca false) | `MopSpecsTargetSourceTest` (INV-ANA-41 — task 2.4b) | ~2 |
 | Parity | Source-layer parity only: `MopSpecsTargetSource.load` vs `JavamopFacade.listUsedMethods` on the same dir — **both sides run through the modified visitor**, so this test cannot catch an extractor-side JCA regression (its fixtures are `CipherSpec`/`MessageDigestSpec` only, no `String`). The JCA regression gate is the literal count in the extractor test | `MopSpecsParityTest` (INV-ANA-35) | existing |

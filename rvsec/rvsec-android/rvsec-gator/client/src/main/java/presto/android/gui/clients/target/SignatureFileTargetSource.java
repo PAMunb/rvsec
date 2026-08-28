@@ -94,6 +94,8 @@ public final class SignatureFileTargetSource implements TargetMethodSource {
 				}
 			}
 		}
-		return new TargetMethod(className, methodName, params, line, policy);
+		// No signature-file entry declares a `+` owner or a wildcard method name, so this
+		// source stays on exact matching (INV-ANA-35).
+		return new TargetMethod(className, methodName, params, line, policy, false, false);
 	}
 }

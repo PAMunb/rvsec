@@ -1,0 +1,121 @@
+className,name,parameters,signature,includeSubtypes,nameIsPattern
+java.security.KeyPair,<init>,(java.security.PublicKey,java.security.PrivateKey),"public KeyPair.new(PublicKey, PrivateKey)",false,false
+java.security.KeyPair,getPrivate,(),"public PrivateKey KeyPair.getPrivate()",false,false
+java.security.KeyPair,getPublic,(),"public PublicKey KeyPair.getPublic()",false,false
+java.security.KeyPairGenerator,genKeyPair,(),"public KeyPair KeyPairGenerator.genKeyPair()",false,false
+java.security.KeyPairGenerator,generateKeyPair,(),"public KeyPair KeyPairGenerator.generateKeyPair()",false,false
+java.security.KeyPairGenerator,getInstance,(String),"public static KeyPairGenerator KeyPairGenerator.getInstance(String)",false,false
+java.security.KeyPairGenerator,getInstance,(String,String),"public static KeyPairGenerator KeyPairGenerator.getInstance(String, String)",false,false
+java.security.KeyPairGenerator,initialize,(int),"public void KeyPairGenerator.initialize(int)",false,false
+java.security.KeyPairGenerator,initialize,(int,java.security.SecureRandom),"public void KeyPairGenerator.initialize(int, SecureRandom)",false,false
+java.security.KeyPairGenerator,initialize,(java.security.spec.AlgorithmParameterSpec),"public void KeyPairGenerator.initialize(AlgorithmParameterSpec)",false,false
+java.security.KeyPairGenerator,initialize,(java.security.spec.AlgorithmParameterSpec,java.security.SecureRandom),"public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)",false,false
+java.security.KeyStore,getEntry,(String,java.security.KeyStore.ProtectionParameter),"public Entry KeyStore.getEntry(String, ProtectionParameter)",false,false
+java.security.KeyStore,getInstance,(String),"public static KeyStore KeyStore.getInstance(String)",false,false
+java.security.KeyStore,getKey,(String,char[]),"public Key KeyStore.getKey(String, char[])",false,false
+java.security.KeyStore,load,(..),"public void KeyStore.load(..)",false,false
+java.security.KeyStore,setEntry,(String,java.security.KeyStore.Entry,java.security.KeyStore.ProtectionParameter),"public void KeyStore.setEntry(String, Entry, ProtectionParameter)",false,false
+java.security.KeyStore,store,(..),"public void KeyStore.store(..)",false,false
+java.security.MessageDigest,digest,(),"public byte[] MessageDigest.digest()",false,false
+java.security.MessageDigest,digest,(byte[]),"public byte[] MessageDigest.digest(byte[])",false,false
+java.security.MessageDigest,digest,(byte[],int,int),"public int MessageDigest.digest(byte[], int, int)",false,false
+java.security.MessageDigest,getInstance,(String),"public static MessageDigest MessageDigest.getInstance(String)",false,false
+java.security.MessageDigest,getInstance,(String,String),"public static MessageDigest MessageDigest.getInstance(String, String)",false,false
+java.security.MessageDigest,getInstance,(String,java.security.Provider),"public static MessageDigest MessageDigest.getInstance(String, Provider)",false,false
+java.security.MessageDigest,reset,(),"void MessageDigest.reset()",false,false
+java.security.MessageDigest,update,(..),"void MessageDigest.update(..)",false,false
+java.security.SecureRandom,<init>,(),"public SecureRandom.new()",false,false
+java.security.SecureRandom,<init>,(byte[]),"public SecureRandom.new(byte[])",false,false
+java.security.SecureRandom,generateSeed,(int),"public byte[] SecureRandom.generateSeed(int)",false,false
+java.security.SecureRandom,getInstance,(String),"public static SecureRandom SecureRandom.getInstance(String)",false,false
+java.security.SecureRandom,getInstance,(String,..),"public static SecureRandom SecureRandom.getInstance(String, ..)",false,false
+java.security.SecureRandom,getInstanceStrong,(),"public static SecureRandom SecureRandom.getInstanceStrong()",false,false
+java.security.SecureRandom,ints,(..),"public IntStream SecureRandom.ints(..)",false,false
+java.security.SecureRandom,nextBytes,(byte[]),"public void SecureRandom.nextBytes(byte[])",false,false
+java.security.SecureRandom,nextInt,(),"public int SecureRandom.nextInt()",false,false
+java.security.SecureRandom,nextInt,(int),"public int SecureRandom.nextInt(int)",false,false
+java.security.SecureRandom,setSeed,(byte[]),"public void SecureRandom.setSeed(byte[])",false,false
+java.security.SecureRandom,setSeed,(long),"public void SecureRandom.setSeed(long)",false,false
+java.security.Signature,getInstance,(String),"public static Signature Signature.getInstance(String)",false,false
+java.security.Signature,getInstance,(String,String),"public static Signature Signature.getInstance(String, String)",false,false
+java.security.Signature,initSign,(java.security.PrivateKey),"public void Signature.initSign(PrivateKey)",false,false
+java.security.Signature,initSign,(java.security.PrivateKey,java.security.SecureRandom),"public void Signature.initSign(PrivateKey, SecureRandom)",false,false
+java.security.Signature,initVerify,(java.security.PublicKey),"public void Signature.initVerify(PublicKey)",false,false
+java.security.Signature,initVerify,(java.security.cert.Certificate),"public void Signature.initVerify(Certificate)",false,false
+java.security.Signature,sign,(),"public byte Signature.sign()",false,false
+java.security.Signature,sign,(byte[],int,int),"public byte Signature.sign(byte[], int, int)",false,false
+java.security.Signature,update,(..),"public void Signature.update(..)",false,false
+java.security.Signature,verify,(byte[]),"public boolean Signature.verify(byte[])",false,false
+java.security.Signature,verify,(byte[],int,int),"public boolean Signature.verify(byte[], int, int)",false,false
+javax.crypto.Cipher,doFinal,(),"public byte[] Cipher.doFinal()",false,false
+javax.crypto.Cipher,doFinal,(..),"public byte[] Cipher.doFinal(..)",false,false
+javax.crypto.Cipher,doFinal,(byte[],int),"public int Cipher.doFinal(byte[], int)",false,false
+javax.crypto.Cipher,doFinal,(byte[],int,int,byte[]),"public int Cipher.doFinal(byte[], int, int, byte[])",false,false
+javax.crypto.Cipher,doFinal,(byte[],int,int,byte[],int),"public int Cipher.doFinal(byte[], int, int, byte[], int)",false,false
+javax.crypto.Cipher,doFinal,(java.nio.ByteBuffer,java.nio.ByteBuffer),"public int Cipher.doFinal(ByteBuffer, ByteBuffer)",false,false
+javax.crypto.Cipher,getInstance,(String),"public static Cipher Cipher.getInstance(String)",false,false
+javax.crypto.Cipher,getInstance,(String,Object+),"public static Cipher Cipher.getInstance(String, Object+)",false,false
+javax.crypto.Cipher,init,(int,java.security.Key,..),"public void Cipher.init(int, Key, ..)",false,false
+javax.crypto.Cipher,init,(int,java.security.cert.Certificate,..),"public void Cipher.init(int, Certificate, ..)",false,false
+javax.crypto.Cipher,update,(byte[]),"public byte[] Cipher.update(byte[])",false,false
+javax.crypto.Cipher,update,(byte[],int,int),"public byte[] Cipher.update(byte[], int, int)",false,false
+javax.crypto.Cipher,update,(byte[],int,int,byte[]),"public int Cipher.update(byte[], int, int, byte[])",false,false
+javax.crypto.Cipher,update,(byte[],int,int,byte[],int),"public int Cipher.update(byte[], int, int, byte[], int)",false,false
+javax.crypto.Cipher,update,(java.nio.ByteBuffer,java.nio.ByteBuffer),"public int Cipher.update(ByteBuffer, ByteBuffer)",false,false
+javax.crypto.Cipher,wrap,(java.security.Key),"byte[] Cipher.wrap(Key)",false,false
+javax.crypto.CipherInputStream,<init>,(java.io.InputStream,javax.crypto.Cipher),"public CipherInputStream.new(InputStream, Cipher)",false,false
+javax.crypto.CipherInputStream,close,(),"public void CipherInputStream.close()",false,false
+javax.crypto.CipherInputStream,read,(),"public int CipherInputStream.read()",false,false
+javax.crypto.CipherInputStream,read,(byte[]),"public int CipherInputStream.read(byte[])",false,false
+javax.crypto.CipherInputStream,read,(byte[],int,int),"public int CipherInputStream.read(byte[], int, int)",false,false
+javax.crypto.CipherOutputStream,<init>,(java.io.OutputStream,javax.crypto.Cipher),"public CipherOutputStream.new(OutputStream, Cipher)",false,false
+javax.crypto.CipherOutputStream,close,(),"public void CipherOutputStream.close()",false,false
+javax.crypto.CipherOutputStream,flush,(),"public void CipherOutputStream.flush()",false,false
+javax.crypto.CipherOutputStream,write,(byte[]),"public void CipherOutputStream.write(byte[])",false,false
+javax.crypto.CipherOutputStream,write,(byte[],int,int),"public void CipherOutputStream.write(byte[], int, int)",false,false
+javax.crypto.CipherOutputStream,write,(int),"public void CipherOutputStream.write(int)",false,false
+javax.crypto.KeyGenerator,generateKey,(),"public SecretKey KeyGenerator.generateKey()",false,false
+javax.crypto.KeyGenerator,getInstance,(String),"public static KeyGenerator KeyGenerator.getInstance(String)",false,false
+javax.crypto.KeyGenerator,getInstance,(String,Object+),"public static KeyGenerator KeyGenerator.getInstance(String, Object+)",false,false
+javax.crypto.KeyGenerator,init,(int),"public void KeyGenerator.init(int)",false,false
+javax.crypto.KeyGenerator,init,(int,java.security.SecureRandom),"public void KeyGenerator.init(int, SecureRandom)",false,false
+javax.crypto.KeyGenerator,init,(java.security.SecureRandom),"public void KeyGenerator.init(SecureRandom)",false,false
+javax.crypto.KeyGenerator,init,(java.security.spec.AlgorithmParameterSpec),"public void KeyGenerator.init(AlgorithmParameterSpec)",false,false
+javax.crypto.KeyGenerator,init,(java.security.spec.AlgorithmParameterSpec,java.security.SecureRandom),"public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)",false,false
+javax.crypto.Mac,doFinal,(),"byte[] Mac.doFinal()",false,false
+javax.crypto.Mac,doFinal,(byte[]),"byte[] Mac.doFinal(byte[])",false,false
+javax.crypto.Mac,doFinal,(byte[],int),"void Mac.doFinal(byte[], int)",false,false
+javax.crypto.Mac,getInstance,(String),"public static Mac Mac.getInstance(String)",false,false
+javax.crypto.Mac,getInstance,(String,String),"public static Mac Mac.getInstance(String, String)",false,false
+javax.crypto.Mac,init,(java.security.Key),"public void Mac.init(java.security.Key)",false,false
+javax.crypto.Mac,init,(java.security.Key,java.security.spec.AlgorithmParameterSpec),"public void Mac.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)",false,false
+javax.crypto.Mac,update,(..),"public void Mac.update(..)",false,false
+javax.crypto.SecretKey,getEncoded,(),"public byte[] SecretKey.getEncoded()",false,false
+javax.crypto.spec.DHGenParameterSpec,<init>,(int,int),"public DHGenParameterSpec.new(int, int)",false,false
+javax.crypto.spec.GCMParameterSpec,<init>,(int,byte[]),"public GCMParameterSpec.new(int, byte[])",false,false
+javax.crypto.spec.GCMParameterSpec,<init>,(int,byte[],int,int),"public GCMParameterSpec.new(int, byte[], int, int)",false,false
+javax.crypto.spec.IvParameterSpec,<init>,(byte[]),"public IvParameterSpec.new(byte[])",false,false
+javax.crypto.spec.IvParameterSpec,<init>,(byte[],int,int),"public IvParameterSpec.new(byte[], int, int)",false,false
+javax.crypto.spec.PBEKeySpec,<init>,(char[]),"public PBEKeySpec.new(char[])",false,false
+javax.crypto.spec.PBEKeySpec,<init>,(char[],byte[],int),"public PBEKeySpec.new(char[], byte[], int)",false,false
+javax.crypto.spec.PBEKeySpec,<init>,(char[],byte[],int,int),"public PBEKeySpec.new(char[], byte[], int, int)",false,false
+javax.crypto.spec.PBEKeySpec,clearPassword,(),"public void PBEKeySpec.clearPassword()",false,false
+javax.crypto.spec.PBEParameterSpec,<init>,(byte[],int),"public PBEParameterSpec.new(byte[], int)",false,false
+javax.crypto.spec.PBEParameterSpec,<init>,(byte[],int,java.security.spec.AlgorithmParameterSpec),"public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)",false,false
+javax.crypto.spec.SecretKeySpec,<init>,(byte[],String),"public SecretKeySpec.new(byte[], String)",false,false
+javax.crypto.spec.SecretKeySpec,<init>,(byte[],int,int,String),"public SecretKeySpec.new(byte[], int, int, String)",false,false
+javax.net.ssl.KeyManagerFactory,getInstance,(String),"public static KeyManagerFactory KeyManagerFactory.getInstance(String)",false,false
+javax.net.ssl.KeyManagerFactory,getInstance,(String,..),"public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..)",false,false
+javax.net.ssl.KeyManagerFactory,getKeyManagers,(),"public KeyManager[] KeyManagerFactory.getKeyManagers()",false,false
+javax.net.ssl.KeyManagerFactory,init,(java.security.KeyStore,char[]),"public void KeyManagerFactory.init(KeyStore, char[])",false,false
+javax.net.ssl.KeyManagerFactory,init,(javax.net.ssl.ManagerFactoryParameters),"public void KeyManagerFactory.init(ManagerFactoryParameters)",false,false
+javax.net.ssl.SSLContext,createSSLEngine,(..),"public void SSLContext.createSSLEngine(..)",false,false
+javax.net.ssl.SSLContext,getInstance,(String),"public static SSLContext SSLContext.getInstance(String)",false,false
+javax.net.ssl.SSLContext,getInstance,(String,String),"public static SSLContext SSLContext.getInstance(String, String)",false,false
+javax.net.ssl.SSLContext,init,(KeyManager[],TrustManager[],java.security.SecureRandom),"public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)",false,false
+javax.net.ssl.TrustManagerFactory,getInstance,(String),"public static TrustManagerFactory TrustManagerFactory.getInstance(String)",false,false
+javax.net.ssl.TrustManagerFactory,getInstance,(String,..),"public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..)",false,false
+javax.net.ssl.TrustManagerFactory,getTrustManagers,(),"public KeyManager[] TrustManagerFactory.getTrustManagers()",false,false
+javax.net.ssl.TrustManagerFactory,init,(java.security.KeyStore),"public void TrustManagerFactory.init(KeyStore)",false,false
+javax.net.ssl.TrustManagerFactory,init,(javax.net.ssl.ManagerFactoryParameters),"public void TrustManagerFactory.init(ManagerFactoryParameters)",false,false
+javax.xml.crypto.dsig.spec.HMACParameterSpec,<init>,(int),"public HMACParameterSpec.new(int)",false,false
