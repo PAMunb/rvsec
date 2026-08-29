@@ -387,10 +387,15 @@ Level column now always means inherent risk; the Status column carries the dispo
   - Measure wall-time of **both** the scan and `resolveInScene` in the IT; compare to a JCA-equivalent
     run. This is **task 4.8**, added 2026-08-21 — until then the trigger below was a hard gate that no
     task actually measured.
-- **Indicators**: IT scan time **and** `resolveInScene` time each ≤ **2×** the JCA baseline (this is the
-  single gate — the earlier "same order of magnitude" phrasing was looser than the trigger and is superseded).
+- **Indicators**: the **sum** of `resolveInScene`, the bytecode scan and the reverse BFS ≤ **2×** the JCA
+  baseline on the same APK, with each stage reported separately so a regression is attributable (this is
+  the single gate — the earlier "same order of magnitude" phrasing was looser and is superseded, and the
+  per-stage 2× that replaced it is superseded in turn: measured 2026-08-28 on a 45 MB APK the two match
+  points run at 3.07× and 2.85× while the BFS runs at **0.07×**, so the sum is 0.70× and a per-stage gate
+  would have failed a change that made the pipeline faster — see INV-ANA-42 for the table).
 - **Contingency**:
-  - **Trigger**: scan or `resolveInScene` time > 2× the JCA baseline on the IT APK.
+  - **Trigger**: the three-stage sum > 2× the JCA baseline. A single stage above 2× is enumerated in
+    INV-ANA-42, not triggered on.
   - **Actions**: cache resolved `superType(t)` `RefType` per target (resolve once, not per invoke);
     short-circuit the predicate when `!includeSubtypes`.
   - **Owner**: implementer.
@@ -812,7 +817,7 @@ Level column now always means inherent risk; the Status column carries the dispo
   - [ ] RISK-001 degrade-warning count still 0 for the **20** owners that carry targets; no owner phantom (`isPhantom` guard active)?
   - [ ] RISK-002 parity still byte-for-byte / JCA count == 122 (post-5.6 literal)?
   - [ ] RISK-003 post-rebuild generic target count > 0; `sootandroid` in rebuild; WTG no crash?
-  - [ ] RISK-005 `resolveInScene` + scan wall-time each **≤ 2× the JCA baseline** (task 4.8) — the older "order of magnitude" phrasing is superseded and must not be used?
+  - [ ] RISK-005 the **sum** of `resolveInScene` + scan + reverse BFS **≤ 2× the JCA baseline**, each stage reported separately (task 4.8; measured 0.70× on a 45 MB APK) — both the older "order of magnitude" phrasing and the per-stage 2× that replaced it are superseded and must not be used?
   - [ ] RISK-007 key-set diff still empty?
   - [ ] RISK-008 (at Phase 6 only) `analysis/spec.md` still has INV-ANA-33/35 (gh60/gh66 already synced) **and** INV-ANA-40..44 still free; gh70 INV-ANA-45 gap reconciled at sync?
   - [ ] RISK-009 bytecode scan carries `Set<TargetMethod>` (scan-only IT method reports subtype `directlyReachesTarget=true`, task 4.7)?

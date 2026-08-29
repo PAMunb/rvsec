@@ -304,6 +304,63 @@ ADR candidato: "Subtype matching via FastHierarchy.canStoreType (não pré-expan
   movimento foi **atribuído por isolamento**, não presumido: rodar o mesmo APK contra uma *cópia* do
   `jca` sem aquela spec reproduz 120 assinaturas / 0 STRICT / 33 / 23 exatamente. O diretório
   congelado não recebeu um byte (gh101).
+- 2026-08-29: **o `/opsx:verify` da 5.4 não achou defeito de implementação e achou cinco de artefato.** Os
+  invariantes conferidos linha a linha contra a árvore — resolução do dono em três passos com STRICT preso
+  só ao terceiro, um predicado único servindo os dois eixos, critério de degrade por conteúdo de hierarquia,
+  a ordem do BFS da INV-ANA-64 e o conjunto de chaves do JSON — todos batem. O que não batia eram números:
+  o cenário da INV-ANA-40 exigia 67 pares três parágrafos depois de o próprio invariante registrar 68 e
+  refutar o 67; a cláusula do "portão JCA load-bearing" ainda pinava 120/68/22 dois parágrafos depois de o
+  mesmo arquivo pinar 122/70/23; as tarefas 1.4 e 1.5 mandavam escrever a asserção antiga, inclusive a que
+  a 5.6e tinha invertido. E o diretório `evidence/` era pior que defasado: os `after_*.csv` eram o estágio
+  D9 apresentados como estado final, e a última seção afirmava que `String` continua sendo pulado. Tudo
+  corrigido; os três CSV foram regerados no estado final, com uma coluna nova que marca as duas linhas
+  STRICT. **Lição que já tinha aparecido nesta linhagem e voltou: depois de mover um número, `grep` do
+  número antigo em todos os artefatos, `evidence/` incluído.**
+- 2026-08-29: **o eixo direto da política STRICT não tinha portão nenhum, e agora tem.** `matchesAtCallSite`
+  e `paramsMatchAtCallSite` — os dois métodos que *são* o reparo da D13 no eixo direto, e os dois onde a
+  revisão da 5.3 achou defeito — não apareciam em lugar algum fora do próprio arquivo de origem. A cláusula
+  que eles cumprem ("casado por invoke contra os tipos que o descritor da instrução carrega, por uma
+  comparação que concorda com a do `resolveInScene`") estava sustentada por **uma medição manual num APK**,
+  enquanto `buildTargetKeys`, que o mesmo commit deixou morto em produção, guardava quatro testes.
+  `CallSiteMatchPolicyTest` enuncia como comportamento os três achados da revisão: alvo que é subtipo **e**
+  STRICT honra os dois eixos; alvo STRICT com padrão de nome casa por prefixo e ainda recusa a outra
+  sobrecarga; e o mesmo call site passa LENIENT e falha STRICT com a política como única variável. Mutando
+  o ramo STRICT para `return true`, **4 dos 6 casos morrem** — o teste morde.
+- 2026-08-29: **o limite de custo da INV-ANA-42 foi reformulado por medição, e a previsão que ele carregava
+  falhou.** O invariante exigia 2× por estágio e nomeava o BFS reverso explicitamente, no argumento de que
+  o conjunto de sementes cresce de ~120 métodos JCA para todo método casável do Scene. A primeira metade
+  vale; a conclusão não. Medido em `net.phbwt.paperwork_1003007` (45 MB, 3763 métodos de app, 60973 no
+  Scene) sob spark, `generic_new` contra `jca`: `resolveInScene` 2734 ms contra 892 (**3,07×**), scan de
+  bytecode 148 contra 52 (**2,85×**), BFS reverso 246 contra 3545 (**0,07×**), soma 3128 contra 4489
+  (**0,70×**). Dois estágios estouram o 2× e o terceiro é 14× mais barato, de modo que o matcher alargado
+  custa **menos** no total que o exato. O BFS inverte porque semear mais largo não é dar mais trabalho:
+  5661 sementes contra 239 enchem o conjunto visitado de imediato, marcando 49039 métodos contra 30014 e
+  percorrendo cada aresta uma vez em vez de caminhar cadeias longas. Um portão por estágio teria reprovado
+  uma mudança que deixou o pipeline mais rápido. O limite passou a ser sobre a **soma**, com cada estágio
+  reportado à parte; RISK-005 e a matriz de testes do design foram alinhados, para não ficarem três limiares
+  em circulação.
+- 2026-08-29: **o smoke do Estágio A (5.2) fechou em 7 APKs com `reachesTarget > 0`**, de 13 tirados do
+  `head_apks` sem escolher: `paperwork` 1462 de 3763, `at.mikenet` 163 de 645, `brainf` 49, `ciphernotes`
+  31, `lstopo` 29, `caniwebview` 22, `mediclog` 5 — todos com 72 assinaturas e **0 donos degradados**, e com
+  o eixo direto discriminando de 1 a 69 onde o transitivo satura, que é a leitura que a fronteira (e)
+  prevê. **Quatro dos treze devolveram `reachability` vazio, e não é desta change**: é a chave de escopo do
+  `20260828_cadeia_medicao_rvandroid.md` §3 — o GATOR filtra classe de app por `startsWith` do pacote do
+  manifesto, e nesses quatro o manifesto não é a raiz do código. As três famílias do censo aparecem todas
+  na amostra: sufixo de build type (`…android.debug`, `…pagekeeper.staging`), segmento excedente que **não**
+  é build type (`com.module.notelycompose.android` contra código em `com.module.notelycompose.*`) e pacote
+  inteiramente outro (`org.thayyil.ringdroid` no manifesto, código em `com.ringdroid.*`). **Duas das quatro
+  estão fora do alcance da `BUILD_TYPE_DENYLIST` do D-A**, o que é o argumento medido para o D1 continuar
+  pré-requisito e não opção. O reparo é do D2/D9, em change própria; nada foi aberto aqui.
+- 2026-08-29: **dois APKs excedem 100 minutos de GATOR sob `generic_new`** (`ch.famoser.mensa_71`,
+  `raccoonforlemmy`), e a atribuição está **sendo medida, não suposta**: um controle do `mensa` contra `jca`
+  com o mesmo orçamento foi lançado em 28/08 23:50, com o critério dito antes — se o controle também
+  estourar, o custo é do APK e do Soot/SPARK, que esta change não toca; se completar, há estágio crescendo
+  fora dos três que a INV-ANA-42 cronometra, e ele precisa ser achado antes de arquivar. Como os três
+  estágios tocados somam 0,70× no `paperwork`, a hipótese de trabalho é a primeira, mas hipótese não é
+  medição. **Registrado em aberto de propósito.**
+- 2026-08-29: os critérios de aceitação da **issue #69 seguem sem marcar, por decisão do pesquisador** —
+  ação para fora do repositório, adiada e não esquecida. Quem for marcar deve ler este §13 antes: é o
+  registro a que os critérios respondem.
 
 ---
 
