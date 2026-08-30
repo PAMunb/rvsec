@@ -275,7 +275,7 @@ public final class MopLifter {
      * it finds nothing.
      *
      * <ol>
-     *   <li>the type of the first declared parameter — 198 of the 215 files;</li>
+     *   <li>the type of the first declared parameter — 198 of the 239 files;</li>
      *   <li>for a parameterless specification, the declaring type of the first signature its events
      *       name. The {@code jca} sets contain exactly two such specifications, which is why design
      *       D-06 states this fallback explicitly;</li>
@@ -408,7 +408,7 @@ public final class MopLifter {
      * language. That narrowing is an artefact of the refusal and not a claim of the specification,
      * which is exactly why the refusal has to be read. A consumer of {@code SpecModel.order} that
      * does not also read {@code morphism().refusals()} is reading a language narrower than the file
-     * it came from; 42 of the 215 files of the five corpora carry at least one such refusal,
+     * it came from; 42 of the 239 files of the five corpora carry at least one such refusal,
      * 56 refusals between them.
      */
     private static Automaton preimage(LabelAutomaton labelOrder, InverseMorphism morphism) {

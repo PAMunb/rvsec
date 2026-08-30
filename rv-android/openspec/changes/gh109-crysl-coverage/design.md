@@ -4,7 +4,7 @@
 
 Successor of gh105 (`gh105-predicate-wiring`). The substrate that change built — `PredicateStore`, reads in event bodies, the gate layer (G-ORDER, G-PRED2, G-ACC, G-PARAM, G-CONF), the divergence record keyed by hunk, and the sole pinned oracle (D-16: `RVSec-replication-package/tools/rules/`, 49 rules, sha256 `d7bcc019…`) — is taken as given and not redesigned. What moves is the coverage boundary: from the seed's 22 rules to all 49, each with a derivable terminal state, plus 9 verified repairs to existing specifications. FR01–FR03 (monitor generation pipeline), NFR06 (measurement integrity), NFR07 (reproducibility).
 
-Evidence base: the five external analyses (`docs/analise_gh105_{gemini3,glm53,gpt5,grok4,opus5}.md`) were mined for candidates only. Every adopted item was re-verified this session against primary sources — the expert rule text, the live `.mop`, the generated monitor, `rvsec-core` Java, and the api30 jar via `unzip -l` (never `javap -cp`, which resolves against the host JDK). Verification changed several claims materially (see D-18), which is why adoption-without-verification is banned.
+Evidence base: the five external analyses (`docs/analise_gh105_{gemini3,glm53,gpt5,grok4,opus5}.md`) were mined for candidates only. Every adopted item was re-verified this session against primary sources — the expert rule text, the live `.mop`, the generated monitor, `rvsec-core` Java, and the API 30 `android.jar` via `unzip -l` (never `javap -cp`, which resolves against the host JDK). Verification changed several claims materially (see D-18), which is why adoption-without-verification is banned.
 
 ## Decisions
 
@@ -36,7 +36,7 @@ The model has **three** terminal states — `covered | na-platform | na-value` �
 
 `covered` asserts pairing and adjudication, not clause completeness. That distinction is measured, not stylistic: under a strict reading — a REQUIRES clause with no possible producer, or a CONSTRAINTS clause the `.mop` does not implement — **15 of the 22 currently paired rules** carry at least one clause with no verdict surface (`constraint_table.csv` reads 42 `CRYSL-NAO-IMPLEMENTADO` and 14 `NAO-DERIVADO` against 22 `IGUAL`; `predicate_graph.csv` records 12 `omission` rows). The depth axis is therefore *not* re-derived here: it already exists, per rule, in the `rvsec-crysl` conformance component (M0 Vitality, M1 Events, M2 Order, M3 Constraints, M4 Predicates, plus `SpecRulePairing`, `Silence`, `ConformanceReport` and the `compare` CLI, all under CI) and clause by clause in `constraint_table.csv` / `predicate_ledger.csv`. Duplicating it inside the matrix would be the second translation of the oracle that this change's own MODIFIED requirement forbids for the `Cipher` tables — and the set already refused this granularity once, deliberately, in `ErrorType`'s javadoc ("*There is deliberately no `RequiredPredicate`*"). The caveat that rides along with citing M0–M4 is measured: the component's oracle is `rvsec-cognicrypt/CrySL-Rules` at `f2f4d3b`, which differs from the pinned expert copy in **one file and two lines** (`Cipher.crysl:97` and `:113`, the `CCM` entry in the AES mode and padding clauses) — already an `oracle-wart` divergence row.
 
-49 rules = 22 paired today + 24 new specifications + 3 adjudicated N/A (`Cookie` — `javax.servlet` absent from api30; `DSAGenParameterSpec` — class only at API 35+; `PasswordAuthentication` — class exists but both constraints (`neverTypeOf`, `notHardCoded`) are static-analysis predicates unrealizable in RV and `generatedPasswordAuthentication` has no consumer among the 49, so a producer-only spec would add monitoring with no verdict surface; adjudicated recorded-N/A-by-value, ratified, per INV-INS-156. The earlier wording — "the ORDER admits every trace" — is withdrawn as imprecise: `Con, (GetPassword | GetUserName)*` does refuse a `getPassword()` on an object whose construction went unobserved, exactly as any `ere : c1 …` of the set does. What the adjudication rests on is the other two legs, and the ORDER residue is recorded rather than assumed away). `HMACParameterSpec` keeps its `.mop` but its terminal state is N/A-by-platform (INV-INS-155). `SecretKey` is covered by adjudicated mapping: `SecretKeySpec.mop` realizes the rule's ENSURES and its `Destroy` tail is recorded platform-dead (INV-INS-137 — `destroy()` throws on every observable implementation), so no reachable trace yields a further verdict; the ledger's `NON_PAIRING_FILES` governs specification pairing only, and the coverage matrix carries the mapping explicitly (task 0.4). Work inventory for the 24, from the viability census (all classes confirmed in the api30 jar by archive listing):
+49 rules = 22 paired today + 24 new specifications + 3 adjudicated N/A (`Cookie` — `javax.servlet` absent from the API 30 `android.jar`; `DSAGenParameterSpec` — class only at API 35+; `PasswordAuthentication` — class exists but both constraints (`neverTypeOf`, `notHardCoded`) are static-analysis predicates unrealizable in RV and `generatedPasswordAuthentication` has no consumer among the 49, so a producer-only spec would add monitoring with no verdict surface; adjudicated recorded-N/A-by-value, ratified, per INV-INS-156. The earlier wording — "the ORDER admits every trace" — is withdrawn as imprecise: `Con, (GetPassword | GetUserName)*` does refuse a `getPassword()` on an object whose construction went unobserved, exactly as any `ere : c1 …` of the set does. What the adjudication rests on is the other two legs, and the ORDER residue is recorded rather than assumed away). `HMACParameterSpec` keeps its `.mop` but its terminal state is N/A-by-platform (INV-INS-155). `SecretKey` is covered by adjudicated mapping: `SecretKeySpec.mop` realizes the rule's ENSURES and its `Destroy` tail is recorded platform-dead (INV-INS-137 — `destroy()` throws on every observable implementation), so no reachable trace yields a further verdict; the ledger's `NON_PAIRING_FILES` governs specification pairing only, and the coverage matrix carries the mapping explicitly (task 0.4). Work inventory for the 24, from the viability census (all classes confirmed in the API 30 `android.jar` by archive listing):
 
 | Tier | Rules | Shape |
 |---|---|---|
@@ -96,6 +96,112 @@ This is not new scope; it is the completion of a decision the set already record
 
 **The same arithmetic makes every recorded omission perishable, and the group records passes are where it is checked.** G-PRED2 accumulates written and read predicate names over the whole set and then judges each row against those two sets (`gh105_predicate_graph.py:1511-1553`). So the moment any specification reads a name, *every* write row of that name stops being a finding — and its `disposition` and its `reason`, often several hundred words of measured argument, stop being read by anything at all. A change that lands thirteen new consumer specifications is therefore a change that can silently strand recorded omissions written when no consumer existed. The criterion is not a list of rows fixed here, because the readers do not exist yet to measure against: each group's `X.R` re-derives the disposition of **every** write row of the graph, not only the rows its own tasks created, and any recorded reason a landed consumer falsified is amended or moved in that same pass.
 
+### D-25 — The second validation wave lands in this change, not in a new one
+
+Four independent external reports (`docs/analise_gh105_{gemini3,gpt-5,grok-4.6,opus5}.*`, 27/08) were
+adjudicated against the primary sources in seven read-only verification lots; the consolidated result is
+`docs/20260827_relatorio_final_validacao_jca_android.md`. The findings are the **same kind of work this
+change already owns** — repairs to existing specifications, predicate wiring, and truthful records — so
+they land here rather than in a successor change (researcher decision, 28/08). Three consequences:
+
+1. The verification is D-18 applied a second time: every item below was re-verified in the primary
+   sources, and ~20 claims of the reports were **refuted or found already recorded** (the CCM registration,
+   the RSA/ECB padding wart, `nextInt`, the MessageDigest negated-twin row, the AES-keysize deferral, the
+   `RandomStringPassword` retirement). They are listed in the adjudication document so they are not
+   re-adopted later.
+2. Milestone M2 grows: G8 is added and its verification is folded into the single G7 pass, which now
+   covers the enlarged surface. G7 does not run twice.
+3. One report item was refuted **by this change's own earlier measurement**: the `LC_ALL=C` pinning
+   recipe (task 6.3 withdrew it — measured, it breaks the hash it was meant to fix). Re-measured on 28/08:
+   `C` and `C.UTF-8` both yield `6d92bc6d…` (codepoint collation), a language UTF-8 locale yields the
+   registered `d7bcc019…`; the files are byte-identical either way, so a mismatch is a false alarm about
+   content. The only residue is documentary (see 6.3).
+
+### D-26 — The five behavioural repairs of the second wave (they change what is accused)
+
+Stated here once, in the shape of D-20, because each changes what the instrument accuses. Every value
+below comes from the pinned expert oracle; none introduces an algorithm, event or literal the oracle does
+not name. **Each carries the researcher's ratification in its G8 task, and none is applied before it.** **Ratified 2026-08-28 (researcher): GO on all five items below, plus D-27.** Item 5 lands as task 8.1, which gained the `[RATIFY]` marker with this ratification — it had been the one item of this decision the task list left unmarked, and it does move what is accused.
+
+1. **Event-alphabet completeness against the rule's anonymous position.** `getInstance(algorithm, _)`
+   (`SecretKeyFactory.crysl:11`, `AlgorithmParameterGenerator`, `AlgorithmParameters`, `SecureRandom.crysl:20`)
+   admits *any* second argument. Four specifications weave only the `(String)` and `(String, String)` forms,
+   so the `(String, Provider)` route — declared by the API 30 `android.jar` — takes no event: no value accusation, and the
+   next call draws a spurious ORDER. `SecureRandomSpec`'s accuser is narrower still (`args(alg)`, arity 1).
+   The repair realizes the rule's `_`; the idiom already exists in ≥9 specifications of the set.
+2. **A value clause realized only in `condition(...)` is defective (INV-INS-152), and `KeyPairGeneratorSpec`
+   is the surviving instance.** `KeyPairGenerator.crysl:28` names five algorithms and the specification has
+   no ALG code at all; a rejected `getInstance` is absorbed by the negated twin, and the misuse surfaces as
+   `KEYPAIRGENERATOR-KEYSIZE-00` — a message asserting a clause the rule does not state for that algorithm —
+   plus two spurious ORDER lines. Verified distinct from the Mac/Signature two-argument residue (gh105
+   10.8(a)), where the accusation migrates to the init events instead of disappearing.
+
+   **ADENDUM, ratified 2026-08-30 (researcher): the item closes at both arities, and 8.4 closed one.**
+   What is written above is the `getInstance(String)` route, and task 8.4 repaired it there: `g3` accuses
+   and the misuse draws `KEYPAIRGENERATOR-ALG-00`. The two-argument route is in a worse state than the
+   one this item describes, and 8.4 made that visible rather than causing it. `g2` guards
+   `getInstance(String, Object+)` with a **positive** `ConscryptAliasTable.matches(...)` and has no
+   negated twin, so a rejected algorithm passed through it matches **no event at all** — the D-26.1
+   family, registered for five other specifications in the `behavioural` row of `divergence_record.csv`
+   that gh105 task 10.8 opened. It costs more here than in those five: `algorithm` is the field `init1`
+   and `initError` both test for null, so the object goes on unbound and the whole specification stays
+   silent for it — not even the key-size and ordering residues the one-argument route produces. Task 8.9
+   gives it the arity-2 negated twin in the shape D-26.1 gave `SecureRandomSpec.g5`, and the twin binds
+   `algorithm` as `g3` does, so that the two arities answer the same thing to the same misuse rather
+   than trading one asymmetry for another. Register-only was the other option and was declined; the
+   family row carries the decision.
+3. **Alias semantics are not optional at a clause antecedent.** `AlgorithmParametersSpec` tests the
+   antecedents of `AlgorithmParameters.crysl:35-40` with raw case-sensitive `contains`, three lines from a
+   site that uses `ConscryptAliasTable.matches` and inside a block that elsewhere uses `equalsIgnoreCase`;
+   `getInstance("dh")` therefore falls out of every branch and the REQUIRES read never happens — neither
+   NOBS nor VIOLATED, silence. 55 of the set's 57 comparison sites already use `matches`.
+4. **The PBE chain false positive is a reader defect, not an oracle wart** (INV-INS-153). Read together,
+   the oracle is coherent: `SecretKeyFactory.crysl:31` ensures `generatedKey[key, algorithm]` over its own
+   PBE/PBKDF2 list, `Cipher.crysl:134` requires `generatedKey[key, alg(transformation)]`, and for a PBE
+   transformation those are **the same string** — `Cipher.crysl:94-105` treats the whole PBE name as the
+   transformation's algorithm. The direct PBKDF2→`AES` route is closed by the oracle on purpose, and its
+   conforming path is the re-wrap through `SecretKeySpec.crysl:27`. What accuses a conforming program is
+   the reader: `keyAlgorithm` folds `AES_128`→`AES` (D-20.2, written for the alias/keysize route) and the
+   fold spills into the PBE route, where the letter wants the PBE name the producer wrote. The repair
+   compares against **both** readings — the letter and the family — and nothing else. In the same clause
+   family, `KeyStoreSpec.mop:189` writes a concrete value where `KeyStore.crysl:60` leaves the position
+   anonymous (`generatedKey[key, _]`), which is stricter than the rule. The correction the task proposed
+   — drop that write to arity 1 — was **measured against the substrate and declined**. `PredicateStore`
+   has no wildcard: `ensure(p, key)` records the EMPTY tuple, so the three arity-2 readers
+   (`CipherSpec.mop:199`, `SecretKeySpec.mop:122`, `KeySpec.mop:79`) would find the entry, fail to find
+   the tuple and answer VIOLATED — a `CIPHER-CONSTR-00` manufactured for every key-store key, and key
+   material silently unstaged at the other two. An anonymous read is in fact served by `validateAny`,
+   which already answers SATISFIED against the arity-2 write, so the change buys nothing and costs three
+   sites. The write stays at arity 2 and the departure from `_` stays recorded, beside the Temurin
+   measurement that first licensed it (divergence row `94be6e27a760`; researcher decision, 2026-08-28).
+5. **`SecretKeySpec.crysl:26`'s `speccedKey` is transcribed.** The write was omitted on a recorded reason
+   that is false — "its consumer is SecretKeyFactory, which has no specification in this set" — while three
+   sites read `SPECCED_KEY` today (`SecretKeyFactorySpec.mop:90`, `KeyFactorySpec.mop:79`, `:105`). This is
+   INV-INS-151's symmetric obligation read from the other end, and the ledger already says `wireable`.
+
+A sixth item is **not** a specification change and is stated separately: the consolidation channel for
+`-NOBS-` (D-27).
+
+### D-27 — The `-NOBS-` channel is separated in consolidation, and the measurement stays in 7.3
+
+All four reports converge on it and the measurement confirms it: the 64 `-NOBS-` codes and the 86
+`-CONSTR-` codes share `ErrorType.UnsatisfiedConstraint`, the distinction lives only in the code substring,
+and no consumer of the pipeline filters on it (measured: zero hits in `modules/`, `scripts/`). The
+aggravating structure is measured too — 71 of the 76 `validate` sites read a predicate whose only route to
+VIOLATED would be a `negate`, and the set holds exactly one — so upstream misuse reaches a downstream site
+as NOT_OBSERVED and never as a violation.
+
+The decision splits in two, deliberately. **What this change does**: give the consolidation a filter keyed
+on `site_kind` (the column already exists in `codes.csv`) so that a `-NOBS-` line can never be summed as
+conformance nor as violation. Nothing changes on the device; the same `addError` calls fire. **What this
+change does not do**: measure the NOBS rate — that is task 7.3, already open (D-24) — nor decide whether
+producers should `negate` when they accuse, which is a design question that belongs after the measurement.
+
+**Ratified 2026-08-28 (researcher): GO**, and this one lands **first** of the six. It is the only repair of
+the second wave that changes nothing on the device, and separating the channel is what makes 7.3's NOBS
+rate readable at all: before it, a `-NOBS-` line was summed indistinguishably from a `-CONSTR-` one, so the
+rate 7.3 reports is the first reading of this channel and is comparable to no earlier count.
+
 ## Mapping: Spec → Implementation → Test
 
 | Requirement / Invariant | Implementation | Verified by |
@@ -114,7 +220,9 @@ Architecture, API Design, Data Flow, Error Handling and Testing Strategy section
 
 **Goals**: coverage parity (INV-INS-150), the six producer gaps closed, the 9 verified repairs, Android adjudications recorded, records/censuses truthful, all gates green over the enlarged set.
 
-**Non-Goals**: campaign consolidation semantics (NOBS families, junction buckets), the article, weaver work, gate retirement (#107), AndroidKeyStore/`KeyGenParameterSpec` specs (no expert rule — seeds its own issue), Network Security Config/cleartext (static analysis), upstream oracle edits, reopening D-15/11.6 adjudications.
+**Non-Goals**: the NOBS *measurement* and the "should producers negate" design question (7.3 and after — D-27 separates them from the consolidation filter this change does add), junction buckets, the article, gate retirement (#107), AndroidKeyStore/`KeyGenParameterSpec` specs (no expert rule — issue #110), Network Security Config/cleartext (static analysis), upstream oracle edits, reopening D-15/11.6 adjudications.
+
+**Weaver work stays out, and now names what it defers** (researcher decision, 28/08 — separate change): the second validation wave verified two defects in the dexlib2 weaver, and neither is repaired here. (i) `TypeResolver` builds no `$` for nested types, so `KeyStoreSpec`'s `ge1`/`se1` never weave under dexlib2 — a silent false negative plus a spurious `KEYSTORE-ORDER-00` on every `load`…`store`; the `.mop`-side workaround (`Object+`, the idiom `KeyStoreBuilderParametersSpec` already documents) is deliberately NOT applied here, because the root repair in the weaver fixes every specification at once. (ii) `AfterEmitter`'s javadoc promises `finally` semantics that neither the inline insertion nor the wrapper implements, so a plain `after()` advice does not run when the matched call throws — 58 of the set's 202 events are in that form, and ajc and dexlib2 therefore disagree on any trace that throws. Full analysis: `docs/20260827_divergencia_after_dexlib2_ajc.md`. What this change owes them is a record, not a repair (task 8.R).
 
 ## Risks / Trade-offs
 
@@ -123,6 +231,7 @@ Architecture, API Design, Data Flow, Error Handling and Testing Strategy section
 - [False positives from the D-24 reads] → the three new read sites can answer NOT_OBSERVED for a program whose parameter spec or `ManagerFactoryParameters` was built outside the monitored set; that is the shape of the seventeen orphan accusers gh105 group 3 removed. Mitigation is measurement, not argument: each site gets its own `-NOBS-` code, and the NOBS rate over the APK corpus is read at harness checkpoint 2 before the NOBS branch is treated as final (task 7.3).
 - [CI breakage from enumeration constants] → constants updated in the same commit as the first new spec of each milestone (D-23 owns the list).
 - [`SecretKey+`/`Key+` subtype pointcuts on dexlib2] → verify the matcher accepts `+` in owner position on a woven exemplar before relying on it (task-level check in G1/R5).
+- [Behavioral shift of the D-26/D-27 repairs] → ratified GO on 2026-08-28 and sequenced so the corpus is crossed **once**: `jca_android` carries no published number (the frozen `jca` answers for those) and the gh104 campaign had not run, so the six land before it rather than after. The price is named: 8.3 and 8.5 turn silence into `-NOBS-` lines and 8.7 changes how those are summed, so 7.3's NOBS rate is the first reading of that channel and no earlier count is comparable to it. D-26.4's measure-first alternative was declined because a corpus pass costs the same whatever it measures, and a second one would buy an answer the three rules already give when read together.
 - [Behavioral shift of D-20 decisions] → all five stated in one design section, each with divergence-record rows; the campaign comparability caveat (populations named by oracle) is already the gh105 rule.
 - [Two open changes touching the same capability (gh105 unarchived)] → gh109's delta only ADDs requirements plus one MODIFIED (`Cipher Transformation Tables`) that gh105's delta does not touch; archive order gh105 → gh109. The gh105 delta asserts two enumeration literals this change falsifies ("the successor set holds 24 specifications"; "25 are wireable — of which 24 are wired"): at gh109's sync they are re-derived during the manual `/opsx:sync` review (task 6.5) instead of surviving as stale literals.
 

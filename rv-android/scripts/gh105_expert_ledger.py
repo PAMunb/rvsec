@@ -37,6 +37,7 @@ import csv
 import io
 import re
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -183,16 +184,41 @@ NON_PAIRING_FILES = {
     "IvChainJunction.mop",
 }
 
+# Clauses of an unpaired rule that a propagator of the set nevertheless writes, keyed by
+# (rule, predicate). Measured, not assumed: `SecretKeySpec.mop:145` calls
+# `ensure(Property.PREPARED_KEY_MATERIAL, stagedKeyMaterial)` in the acceptance-point
+# handler of its `SecretKey+.getEncoded()` event, which is `SecretKey.crysl:17`'s ENSURES
+# and nothing else. Without this the row reads `unmonitored-producer-side / no .mop
+# specifies the producing rule`, and a reader takes that to mean the predicate is never
+# written -- so a downstream NOT_OBSERVED looks like a missing producer when it is a
+# missing observation. The `NEGATES` twin is here for the opposite reason and says so:
+# `SecretKey.crysl:20` withdraws `generatedKey` after `Destroy`, and no site of the set
+# calls `negate` for it, so that clause really has no writer.
+PROPAGATED_CLAUSES = {
+    ("SecretKey", "preparedKeyMaterial"): "SecretKeySpec.mop:145",
+}
+
 # Predicates the two catalogues spell differently for the same thing. Matching the delta
 # on the raw name would report each of these as two orphan rows -- one "expert-only" and
 # one "api30-only" -- and hide that the clause is the same clause under a new name. The
 # pairing is resolved here, in the ledger, and not in the specifications: the property
 # the wired reads name in code is a `Property` enum constant of the store, which answers
 # to neither catalogue.
-PREDICATE_ALIASES = {
-    "generatedKeyManager": "generatedKeyManagers",
-    "generatedTrustManager": "generatedTrustManagers",
-}
+#
+# THE TABLE IS EMPTY, and the two entries it used to hold were a fusion of two clauses and
+# not a spelling of one (gh109 task 6.3). The pinned expert oracle declares all four names
+# and they are four clauses over two different objects: `KeyManagerFactory.crysl:35` ensures
+# `generatedKeyManager[this] after Init`, over the FACTORY, and `:36` ensures
+# `generatedKeyManagers[keyManager] after GetKeyMng`, over the ARRAY the getter returned;
+# `TrustManagerFactory.crysl:32-33` is the same pair. Only the plurals have a consumer --
+# `SSLContext.crysl:32-33` reads `generatedKeyManagers[km]` and `generatedTrustManagers[tm]`,
+# over the arrays, never over the factories. Aliasing the singular onto the plural made the
+# ledger answer `producible, read by SSLContext` for a clause SSLContext does not read, which
+# is the one thing this record exists to make impossible. Unfused, the singulars come out as
+# what they are: transcribed, written, and read by no rule of the 49 -- which is exactly the
+# deliberate-omission record `TrustManagerFactorySpec.mop:248-255` and
+# `KeyManagerFactorySpec.mop:213-218` already carry in prose.
+PREDICATE_ALIASES: dict[str, str] = {}
 
 
 def canonical(predicate: str) -> str:
@@ -446,13 +472,16 @@ def read_catalogue(directory: Path) -> dict[str, Rule]:
 # ---------------------------------------------------------------------------
 
 
-def paired_rules(set_dir: Path, rules: dict[str, Rule]) -> dict[str, str]:
+def paired_rules(set_dir: Path, rules: Iterable[str]) -> dict[str, str]:
     """Rule name -> the `.mop` that specifies it, for the rules the set covers.
 
     Two spellings are in use and both are the set's own: `Cipher.crysl` is specified by
     `CipherSpec.mop` and `IvParameterSpec.crysl` by `IvParameterSpec.mop`. Anything else
     in the directory specifies no rule -- the two propagators and the junction -- and is
     not a pairing.
+
+    Only the rule names are read, so a catalogue dictionary and a bare sequence of names
+    are both accepted -- `gh109_coverage_matrix.py` passes the latter.
     """
     present = {p.name for p in set_dir.glob("*.mop")} - NON_PAIRING_FILES
     pairs: dict[str, str] = {}
@@ -574,6 +603,18 @@ def derive_ledger(rules: dict[str, Rule], pairs: dict[str, str]) -> list[LedgerR
                 if name not in pairs:
                     disposition = "unmonitored-producer-side"
                     reason = "no .mop specifies the producing rule"
+                    # A propagator is not a specification and does not pair (see
+                    # NON_PAIRING_FILES), but it does write. Saying only "no .mop
+                    # specifies the producing rule" reads as "nothing writes this",
+                    # which for `SecretKey` is false and was recorded as true until
+                    # gh109 task 6.3: `SecretKeySpec.mop` exists for no other purpose
+                    # than to realise this rule's ENSURES. The disposition stays --
+                    # the rule genuinely has no specification, and that is what the
+                    # arithmetic counts -- and the reason now says which of the two
+                    # things it means.
+                    propagator = PROPAGATED_CLAUSES.get((name, clause.predicate))
+                    if propagator:
+                        reason += f"; the predicate is written by the propagator {propagator}"
                 elif not read_by:
                     disposition = "unread"
                     reason = f"no rule of the catalogue REQUIRES {clause.predicate}"

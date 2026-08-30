@@ -131,7 +131,7 @@ class MopLiftCorpusTest {
     }
 
     @Test
-    @DisplayName("the aggregate is 973 events and 407 parameters, with the counting rules as data")
+    @DisplayName("the aggregate is 975 events and 407 parameters, with the counting rules as data")
     void test_aggregate_events_and_parameters() {
         // These two numbers are the corpus drift tripwire, and Corpora reads the LIVE corpus, so a
         // specification repair is expected to move them. When it does, the repair re-measures and
@@ -166,6 +166,19 @@ class MopLiftCorpusTest {
         // two setters) and two for SSLEngineSpec, which is the whole of its rule's alphabet --
         // and exactly three parameters, one per new specification, the counting rule again.
         //
+        // 973 -> 974 is gh109 group G8, and the parameter count does not move with it: task 8.3
+        // gave SecureRandomSpec.mop the event `g5`, the arity-2 twin of the invalid-algorithm
+        // accuser `g4`, because SecureRandom.crysl:20 writes `getInstance(algorithm, _)` and the
+        // accuser bound arity 1 alone (INV-INS-157). One event, no new formal parameter -- the
+        // counting rule again, from the side where only one of the two numbers moves.
+        //
+        // 974 -> 975 is task 8.9, the same group and the same shape one file over, and again the
+        // parameter count holds: KeyPairGeneratorSpec.mop gained the event `g4`, the arity-2 twin
+        // of the invalid-algorithm accuser `g3`. Task 8.4 had given the file its first ALG code at
+        // arity 1 and left `getInstance(algorithm, provider)` matching no event at all, because
+        // `g2`'s guard is positive and `g3`'s pointcut is one-argument. No new formal parameter
+        // travels with the event, so only the first number moves.
+        //
         // Both stay pinned, and both move with EVERY group that adds specifications to the live
         // set -- re-measure them at the start of a group rather than discovering them one build
         // cycle at a time. Note that the events assertion running first is why the parameter
@@ -173,7 +186,7 @@ class MopLiftCorpusTest {
         // already been false for all three.
         assertEquals("spec.getEvents().size()", total.eventCountingRule());
         assertEquals("spec.getParameters().size()", total.parameterCountingRule());
-        assertEquals(973, total.events(), "aggregate event count under " + total.eventCountingRule());
+        assertEquals(975, total.events(), "aggregate event count under " + total.eventCountingRule());
         assertEquals(407, total.parameters(),
                 "aggregate parameter count under " + total.parameterCountingRule());
     }
@@ -226,7 +239,7 @@ class MopLiftCorpusTest {
                 checked++;
             }
         }
-        assertEquals(973, checked, "one provenance check per declared event");
+        assertEquals(975, checked, "one provenance check per declared event");
     }
 
     @Test
@@ -306,8 +319,13 @@ class MopLiftCorpusTest {
                                 + "carries no image and cannot be a letter of the preimage");
             }
         }
+        // 57 -> 58 is gh109 task 8.9: `KeyPairGeneratorSpec.g4` claims the same
+        // `getInstance(String, Object+)` signature as `g2`, the way `g3` claims `g1`'s, so the
+        // file that already carried one refusal now carries two and the count of FILES does not
+        // move. Every negated twin of the set costs one refusal, which is what a refusal is for:
+        // the two labels are told apart by a `condition(...)` the alphabet cannot see.
         assertEquals(42, refusing, "files of the five corpora carrying at least one refusal");
-        assertEquals(57, refusals, "OverlappingDispatch refusals over the five corpora");
+        assertEquals(58, refusals, "OverlappingDispatch refusals over the five corpora");
     }
 
     @Test

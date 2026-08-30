@@ -222,6 +222,10 @@ def check(record: Path, base: Path, target: Path) -> int:
     is stale and fails -- because a record that only had to cover the diff would
     accumulate reasons for divergences that no longer exist.
 
+    A key may appear twice, because the hunk digest is over the changed lines and
+    two places in one file can change identically; what fails is two rows under one
+    key that DISAGREE, since the reader would silently see only the last of them.
+
     The unkeyed ones are the narrative entries of INV-INS-125: statements about
     the set rather than about a diff, so they are exempt from the stale check and
     pay for it with a stricter one. Their `kind` must be in `NARRATIVE_KINDS`,
@@ -238,7 +242,24 @@ def check(record: Path, base: Path, target: Path) -> int:
         if not row.get("hunk", "").strip():
             narrative.append(row)
             continue
-        recorded[(row["file"], row["hunk"])] = row
+        key = (row["file"], row["hunk"])
+        # Two hunks of one file can share a key legitimately -- the digest is over the
+        # changed lines, so the same guard written at two events digests the same -- and
+        # the record then carries two rows under one key. Keeping the last silently is
+        # what this guard removes: identical rows are the same statement written twice
+        # and cost nothing, while rows that DISAGREE mean the record says two things
+        # about one key and the reader would only ever see one of them. Measured when
+        # this was added (gh109 task 6.3): eight duplicated keys, all eight identical.
+        first = recorded.get(key)
+        if first is not None and any(
+            first.get(field, "") != row.get(field, "")
+            for field in ("kind", "summary", "reason", "task")
+        ):
+            failures.append(
+                f"contradicting duplicate  {key[0]} {key[1]}  two rows under one key "
+                f"disagree; only the last would be read"
+            )
+        recorded[key] = row
 
     for row in narrative:
         if row.get("kind") not in NARRATIVE_KINDS:

@@ -15,7 +15,22 @@ here for a reason of its own:
   * **the comments of the set's `.mop` files** -- the justification a maintainer reads
     before editing an event;
   * **the strings the set emits** -- the text a person reads in a violation report, which
-    is the only one of the three that leaves the repository.
+    is the only one of the three that leaves the repository;
+  * **the Java of `rvsec-core`** -- the classes the set calls into, whose javadoc is where
+    a maintainer reads why a value list or a `Property` constant is what it is. gh109 task
+    6.4 added it after the verification found two citations there that were not decorative:
+    `ErrorType.java` justified the `ForbiddenMethod` constants by citing
+    `generated/api30/PBEKeySpec.cryptsl`, and `Property.java`'s `WRAPPED_KEY` denied an
+    ENSURES the pinned oracle states (`Cipher.crysl:148`) in the withdrawn catalogue's
+    spelling -- a false premise that was the recorded justification for deleting a write.
+    Neither surface above could see them.
+
+`rvsec-crysl`, the MOP-CrySL conformance component, is deliberately OUT of scope. Its oracle
+is a different one by design -- the `rvsec-cognicrypt/CrySL-Rules` checkout at `f2f4d3b`,
+whose one difference from the pinned copy is already carried as an `oracle-wart` row -- so
+its 48 `rvsec-cognicrypt` stamps and its citations of the generated catalogue are correct
+statements about what that component measures, not citations of a withdrawn authority. A
+gate that flagged them would be asking it to answer to an oracle it does not have.
 
 The third is not a widening for tidiness. Written as "no `.mop` comment" the gate reads
 over the report strings, because a string handed to `ErrorDescription` is not a comment;
@@ -35,6 +50,7 @@ cannot be told from a run that found nothing.
 Usage:
     python scripts/gh105_sole_oracle_gate.py
     python scripts/gh105_sole_oracle_gate.py --records data/jca_android --set-dir <dir>
+    python scripts/gh105_sole_oracle_gate.py --core-dir <rvsec-core/src>
 """
 
 from __future__ import annotations
@@ -49,6 +65,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
+
 #: The successor set, under the reactor `RVSEC_HOME` points at.
 def default_set_dir() -> Path:
     home = os.environ.get("RVSEC_HOME")
@@ -58,9 +75,50 @@ def default_set_dir() -> Path:
 
 DEFAULT_RECORDS = REPO / "data/jca_android"
 
-#: What naming the withdrawn catalogue looks like. `api30` catches the prose, `.cryptsl`
-#: the citation of a file: both spellings occur alone, so the gate looks for either.
-WITHDRAWN = re.compile(r"api30|\.cryptsl")
+
+def default_core_dir() -> Path:
+    """The `rvsec-core` sources, beside the specification set in the sibling reactor.
+
+    Located the same way `default_set_dir` locates the set, so a checkout without the
+    reactor skips both by the same rule instead of failing on one and not the other.
+    """
+    home = os.environ.get("RVSEC_HOME")
+    root = Path(home) if home else REPO.parent / "rvsec"
+    return root / "rvsec/rvsec-core/src"
+
+
+#: Java of `rvsec-core` exempt by declaration, with the reason. `Api30CipherTransformationUtil`
+#: IS the record of what the withdrawn anchor said -- it exists for no other purpose, keeps no
+#: caller, and its own javadoc closes with "It is not to be given a caller again"
+#: (`CipherSpec.mop` names it in the same terms). A gate that flagged it would be asking the
+#: record of the withdrawal to stop naming what was withdrawn.
+EXEMPT_CORE = {
+    "Api30CipherTransformationUtil.java":
+        "the transcription of the withdrawn anchor, kept as the record of what it said and "
+        "given no caller (gh105 task 11.3)",
+    "Api30CipherTransformationUtilTest.java":
+        "the test of that transcription, which asserts what the withdrawn anchor admitted",
+}
+
+#: What naming the withdrawn catalogue looks like.
+#:
+#: **`api30` NAMES TWO THINGS and only one of them is withdrawn.** The platform sense is
+#: alive and is cited constantly and correctly: `$ANDROID_HOME/platforms/android-30/android.jar`,
+#: the jar INV-INS-154 requires every pointcut owner and member to be verified present in.
+#: The catalogue sense is `MetaCrySL/generated/api30/`, withdrawn as an oracle by D-16. A
+#: bare `api30` matches both, and measured at gh109 task 6.4 the difference was the whole
+#: finding count: 37 findings, every one of them the platform sense -- "the api30 jar holds
+#: zero entries", "api30 declares three overloads" -- and not one a citation of the
+#: catalogue. A gate whose every finding is a false positive is a gate that gets ignored,
+#: which costs more than not having it.
+#:
+#: So the pattern names the catalogue and not the string. Three spellings reach it and each
+#: occurs alone in the tree: the path, the file extension the generated rules carry
+#: (`.cryptsl`, which the expert copy never uses -- it writes `.crysl`), and the prose form
+#: that calls it a rule rather than a jar.
+WITHDRAWN = re.compile(
+    r"generated/api30|\.cryptsl|\bapi30 (?:rule|rules|catalogue|anchor|spec|specification)\b"
+)
 
 #: What makes a citation history rather than an authority: the row or section names the
 #: decision that withdrew it. D-15 (2026-08-24) took the value dimension from the generated
@@ -137,10 +195,11 @@ def _record_findings(path: Path) -> list[Finding]:
         return findings
 
     section, heading, start = [], "(preamble)", 1
+
     def close(lines: list[str], name: str, line: int) -> None:
         body = "\n".join(lines)
         if WITHDRAWN.search(body) and not ADENDUM.search(body):
-            hit = next(l for l in lines if WITHDRAWN.search(l))
+            hit = next(text for text in lines if WITHDRAWN.search(text))
             findings.append(Finding(f"{path.name}:{line} ({name})", "record", hit.strip()[:120]))
 
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -169,7 +228,22 @@ def _spec_findings(path: Path) -> list[Finding]:
     return findings
 
 
-def run(records: Path, set_dir: Path) -> tuple[list[Finding], list[str], int]:
+def _core_findings(path: Path) -> list[Finding]:
+    """A javadoc or comment line of one `rvsec-core` class that cites the catalogue bare.
+
+    The unit is the line, as for a `.mop`, and for the same reason: javadoc is prose a
+    reader stops at, and an adendum several paragraphs below does not reach the sentence
+    that misleads.
+    """
+    findings: list[Finding] = []
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not WITHDRAWN.search(line) or ADENDUM.search(line):
+            continue
+        findings.append(Finding(f"{path.name}:{number}", "java", line.strip()[:120]))
+    return findings
+
+
+def run(records: Path, set_dir: Path, core_dir: Path | None = None) -> tuple[list[Finding], list[str], int]:
     """Sweep both surfaces.
 
     Returns:
@@ -203,6 +277,18 @@ def run(records: Path, set_dir: Path) -> tuple[list[Finding], list[str], int]:
     else:
         skips.append(f"{set_dir}: the specification set is absent (RVSEC_HOME unset?)")
 
+    if core_dir is None:
+        pass
+    elif core_dir.is_dir():
+        for path in sorted(core_dir.rglob("*.java")):
+            if path.name in EXEMPT_CORE:
+                skips.append(f"{path.name}: {EXEMPT_CORE[path.name]}")
+                continue
+            checked += 1
+            findings.extend(_core_findings(path))
+    else:
+        skips.append(f"{core_dir}: rvsec-core is absent (RVSEC_HOME unset?)")
+
     return findings, skips, checked
 
 
@@ -210,10 +296,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--records", type=Path, default=DEFAULT_RECORDS)
     parser.add_argument("--set-dir", type=Path, default=None)
+    parser.add_argument("--core-dir", type=Path, default=None)
     arguments = parser.parse_args(argv)
     set_dir = arguments.set_dir or default_set_dir()
+    core_dir = arguments.core_dir or default_core_dir()
 
-    findings, skips, checked = run(arguments.records, set_dir)
+    findings, skips, checked = run(arguments.records, set_dir, core_dir)
     counts: dict[str, int] = {}
     for finding in findings:
         counts[finding.surface] = counts.get(finding.surface, 0) + 1

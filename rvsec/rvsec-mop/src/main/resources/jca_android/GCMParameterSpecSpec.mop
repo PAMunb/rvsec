@@ -91,16 +91,23 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    // deletion has not: task 4.8 wrote that they translate no clause, which was true
    // of the generated rule and is FALSE of the oracle -- GCMParameterSpec.crysl:19,
    // :20 and :21 state `length[src] >= offset + len`, `offset >= 0` and `len > 0`,
-   // and conformance_record.csv defers all three against those lines. What still
-   // stands is the second ground: they cannot be false where they stood.
-   // The constructor's documented contract throws IllegalArgumentException for
-   // a negative offset, a negative length, or a sum past the end of the array,
-   // so an `after ... returning` advice never sees such a construction: measured
-   // on all three, each throws before any advice runs. Moving them to the body
-   // would have written two more codes with no execution path, accusing a
-   // program the platform itself forbids; the trace that would separate the two
-   // dispositions cannot be written at all, which is a statement about the
-   // program and not about the corpus.
+   // and conformance_record.csv defers all three against those lines. The second
+   // ground stands for TWO of the three and not for all three, which is what the
+   // record said and what re-measuring under gh109 task 6.3 refuted.
+   //
+   // The constructor throws IllegalArgumentException for a negative offset and for
+   // a sum past the end of the array, so an `after ... returning` advice never sees
+   // either: measured on a JVM, `(128, iv, -1, 4)` and `(128, iv, 0, 99)` both throw
+   // before any advice runs, and a body accusation for them would have no execution
+   // path.
+   //
+   // `len > 0` is different, and the claim "measured on all three, each throws" was
+   // FALSE for it: `new GCMParameterSpec(128, iv, 0, 0)` RETURNS. The constructor
+   // rejects a negative length and admits a zero one, so `GCMParameterSpec.crysl:21`
+   // IS reachable by this advice and a site for it would have an execution path.
+   // Giving it one changes what this specification accuses, so it is recorded rather
+   // than made: the deferral stays and now names the right reason -- no ratification,
+   // not no reachable trace.
    //
    // What remains is `c1`'s body over this overload's arguments, and it is the
    // same rule read the same way: the same CONSTRAINTS clause over `tagLen`, the

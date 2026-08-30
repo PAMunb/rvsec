@@ -52,6 +52,7 @@ KeyFactorySpec,genPublic,,gpu1,expert-native,publicKey = generatePublic(keySpec)
 KeyPairGeneratorSpec,g1,g1,g1,same-name,getInstance(alg),
 KeyPairGeneratorSpec,g2,g2,g2,same-name,"getInstance(alg, _)",
 KeyPairGeneratorSpec,g3,,,order-unmapped,,order-unmapped
+KeyPairGeneratorSpec,g4,,,order-unmapped,,order-unmapped
 KeyPairGeneratorSpec,init1,i3,i1,renamed,initialize(keySize),
 KeyPairGeneratorSpec,init2,i4,i2,renamed,"initialize(keySize, _)",
 KeyPairGeneratorSpec,init3,i1,i3,renamed,initialize(params),
@@ -81,6 +82,7 @@ SecureRandomSpec,g1,g1,g1,same-name,getInstance(randAlg),
 SecureRandomSpec,g2,g2,g2,same-name,"getInstance(randAlg, _)",
 SecureRandomSpec,g3,gI,gI,same-name,getInstanceStrong(),
 SecureRandomSpec,g4,,,order-unmapped,,order-unmapped
+SecureRandomSpec,g5,,,order-unmapped,,order-unmapped
 SecureRandomSpec,setSeed1,s2,s2,same-name,setSeed(lSeed),
 SecureRandomSpec,setSeed2,s1,s1,same-name,setSeed(seed),
 SecureRandomSpec,genSeed,gS,gS,same-name,genSeed = generateSeed(num),

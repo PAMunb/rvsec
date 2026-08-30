@@ -1,0 +1,17 @@
+# gh109 task 8.6 (D-26.4), the separating half: the direct `PBKDF2WithHmacSHA*` -> `Cipher(AES)`
+# route, which STILL draws after the repair. That is the oracle speaking and not a defect --
+# the conforming path it offers for a PBKDF2-derived key is the re-wrap through
+# `SecretKeySpec.crysl:27`, `getEncoded()` -> `new SecretKeySpec(bytes, "AES")`.
+#
+# Identical to CipherSpec-pbe-chain-conforming.txt but for the two algorithm names. The producer
+# writes `generatedKey[key, "PBKDF2WithHmacSHA256"]`; the reader asks for the family (`AES`) and
+# for the letter (`AES`), and neither is the name written, so `i2` draws. This is what makes the
+# 8.6 pair a pair: the same repair leaves this case accused.
+SecureRandom.getInstance("SHA1PRNG") -> r
+bind salt = bytes(16)
+r.nextBytes(salt)
+new PBEKeySpec(chars, salt, 100000, 256) -> spec
+SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256") -> skf
+skf.generateSecret(spec) -> key
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, key)

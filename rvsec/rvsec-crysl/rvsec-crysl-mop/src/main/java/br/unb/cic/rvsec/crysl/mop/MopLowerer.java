@@ -131,7 +131,7 @@ public final class MopLowerer {
     /** Named in the alias when the accepting set is empty, so that no state matches it. */
     private static final String NO_ACCEPTING_STATE = "__none";
 
-    /** The package every lowered file declares, matching what all 215 corpus files declare. */
+    /** The package every lowered file declares, matching what all 239 corpus files declare. */
     private static final String PACKAGE = "mop";
 
     /**

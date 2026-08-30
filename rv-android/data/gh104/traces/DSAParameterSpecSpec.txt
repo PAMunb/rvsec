@@ -1,0 +1,3 @@
+# gh109 task 2.4, the conforming half, over the three-BigInteger constructor the rule names.
+# Same transcription as its DH sibling (D-20.4): bit length 2048 or more.
+new DSAParameterSpec(bits(2048), bits(2048), bits(2048)) -> params

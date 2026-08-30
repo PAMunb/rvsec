@@ -101,7 +101,7 @@ class LiftApiShapeTest {
 
         // event f1: (call(byte[] Mac.doFinal(byte[])) || call(byte[] Mac.doFinal())) - one event,
         // two signatures. The return type comes from the method pattern (trap g): getRetType() is
-        // null for every event of all 215 files.
+        // null for every event of all 239 files.
         Event f1 = eventOf(mac, "f1");
         assertEquals(2, f1.signatures().size());
         assertTrue(f1.signatures().stream().allMatch(s -> s.returnType().equals("byte[]")),

@@ -57,9 +57,11 @@ IvParameterSpecSpec(IvParameterSpec s) {
     // therefore does not prepare. That is the literal reading of the boolean this
     // replaces; the alternative -- an unobserved randomisation preparing anyway, so a
     // reach limit costs one report here instead of cascading into a second one
-    // downstream -- has nothing to be measured against yet, because no specification
-    // of the set reads PREPARED_IV. Whoever gives it a reader through the store owns
-    // that question.
+    // downstream -- is now measurable, and the sentence that stood here saying no
+    // specification reads `PREPARED_IV` was false when it was written. Two do:
+    // `AlgorithmParametersSpec.mop:148`, on the `AES` antecedent of
+    // `AlgorithmParameters.crysl:35`, and `IvChainJunction.mop:160`. Whichever way that
+    // question is settled, it is settled against those two sites and not in the abstract.
     event c1 after(byte[] iv) returning(IvParameterSpec s):
       call(public IvParameterSpec.new(byte[])) &&
       args(iv) {

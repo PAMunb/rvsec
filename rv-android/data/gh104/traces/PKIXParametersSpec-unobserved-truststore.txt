@@ -1,0 +1,5 @@
+# gh109 task 2.10, the separating half: the same store, never observed being loaded. Nothing
+# wrote `generatedKeyStore` for it, so `c1` answers NOT_OBSERVED and draws
+# PKIXPARAMETERS-NOBS-00 rather than PKIXPARAMETERS-CONSTR-00 (INV-INS-143).
+bind ks = truststore
+new PKIXParameters(ks) -> params

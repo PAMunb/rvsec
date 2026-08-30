@@ -42,15 +42,21 @@ AlgorithmParameterGeneratorSpec(AlgorithmParameterGenerator g) {
 
    String expectedRandomized = "a SecureRandom this instrumentation observed being constructed";
 
-   // `Get := g1 | g2` (:11-13), fused on the zeroth position. api30 declares
-   // `getInstance(String)` and `getInstance(String, String)`.
+   // `Get := g1 | g2` (:11-13), fused on the zeroth position. The rule leaves `g2`'s second
+   // position anonymous (`getInstance(algorithm, _)`), so every overload the platform
+   // declares is that event: api30 declares three -- `(String)`, `(String, String)` and
+   // `(String, Provider)` -- and all three are named here. Naming a proper subset narrows
+   // the rule's alphabet without saying so (INV-INS-157): the unnamed route takes no event
+   // at all, so its value clause cannot accuse, and the object reaches its next event with
+   // the monitor at state 0, where every row is `fail`. Idiom: `KeyFactorySpec.mop:50-52`.
    //
    // The algorithm CONSTRAINT is accused in the body, never in a `condition(...)`
    // (INV-INS-133, INV-INS-152), and the canonical spelling is staged for the ENSURES that
    // names it (D-20.3, INV-INS-153).
    event get after(String alg) returning(AlgorithmParameterGenerator g):
      ( call(public static AlgorithmParameterGenerator AlgorithmParameterGenerator.getInstance(String)) ||
-       call(public static AlgorithmParameterGenerator AlgorithmParameterGenerator.getInstance(String, String))
+       call(public static AlgorithmParameterGenerator AlgorithmParameterGenerator.getInstance(String, String)) ||
+       call(public static AlgorithmParameterGenerator AlgorithmParameterGenerator.getInstance(String, java.security.Provider))
      ) && args(alg, ..) {
        algorithm = ConscryptAliasTable.canonical("AlgorithmParameterGenerator", alg);
        if (!ConscryptAliasTable.matches("AlgorithmParameterGenerator", alg, safeAlgorithms)) {

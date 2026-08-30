@@ -1,0 +1,4 @@
+# gh109 task 2.6, the violating half. SHA-1 is not on the rule's list, and it is the default the
+# platform's own `MGF1ParameterSpec.SHA1` constant offers -- the misuse this clause exists to
+# catch. `c1` draws MGF1PARAMETERSPEC-ALG-00 and stages nothing.
+new MGF1ParameterSpec("SHA-1") -> mgf

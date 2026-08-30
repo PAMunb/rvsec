@@ -50,7 +50,8 @@ import java.util.Map;
  *
  * <p>
  * {@code Api30CipherTransformationUtil} is not revived for this and must not be: it transcribes
- * the api30 catalogue -- {@code AES/ECB}, {@code ARC4}, {@code BLOWFISH}, {@code ChaCha20} --
+ * the api30 catalogue D-15 withdrew -- {@code AES/ECB}, {@code ARC4}, {@code BLOWFISH},
+ * {@code ChaCha20} --
  * which is exactly the anchor D-15 withdrew, and its own documentation closes with "It is not to
  * be given a caller again."
  */

@@ -1,0 +1,6 @@
+# gh109 task 2.2, the violating half. `secp192r1` is a real curve the platform names and one the
+# expert rule's list does not carry -- the whole point of transcribing the list rather than
+# admitting any string. `c1` draws ECGENPARAMETERSPEC-ALG-00 and, because the conforming branch
+# is what binds the field, writes no `preparedEC`: a consumer downstream reads NOT_OBSERVED and
+# not a refused preparation, which is the INV-INS-143 distinction.
+new ECGenParameterSpec("secp192r1") -> curve

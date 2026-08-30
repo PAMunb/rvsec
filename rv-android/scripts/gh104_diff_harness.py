@@ -216,9 +216,7 @@ def sites(outcome: dict) -> list[tuple[str, str]]:
         head, _, message = envelope.partition(",msg=")
         site = ENVELOPE_SITE.search(head)
         code = ENVELOPE_CODE.search(message)
-        raised.append(
-            (site.group(1) if site else "?", code.group(1) if code else "?")
-        )
+        raised.append((site.group(1) if site else "?", code.group(1) if code else "?"))
     return sorted(raised)
 
 
@@ -288,7 +286,13 @@ def compare(left: list[dict], right: list[dict]) -> list[dict]:
                 "b_sites": [f"{event}:{code}" for event, code in sites(two)],
                 "a_envelopes": one["envelopes"],
                 "b_envelopes": two["envelopes"],
-                "unresolved": one["unresolved"] + two["unresolved"],
+                # Kept apart by side, like the envelopes: a line unresolved on both
+                # sides never replayed at all, and one unresolved on the side that
+                # does not declare the specification is the ordinary case. Merged,
+                # the two read alike -- and "not accused" hiding "not replayed" is
+                # the failure this harness exists to make visible.
+                "a_unresolved": one["unresolved"],
+                "b_unresolved": two["unresolved"],
                 "flags": flags,
             }
         )
@@ -343,12 +347,15 @@ def write_reports(
             for row in flagged:
                 for flag in row["flags"]:
                     lines.append(f"- `{row['trace']}` — {flag}")
-        unresolved = [row for row in entries if row.get("unresolved")]
+        unresolved = [
+            row for row in entries if row.get("a_unresolved") or row.get("b_unresolved")
+        ]
         if unresolved:
             lines += ["", "## Lines no pointcut resolved", ""]
             for row in unresolved:
-                for line in row["unresolved"]:
-                    lines.append(f"- `{row['trace']}` — `{line}`")
+                for side in ("a", "b"):
+                    for line in row.get(f"{side}_unresolved", []):
+                        lines.append(f"- `{row['trace']}` ({side.upper()}) `{line}`")
         lines += ["", "## Envelopes", ""]
         for row in entries:
             for side in ("a", "b"):

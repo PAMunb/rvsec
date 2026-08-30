@@ -3,7 +3,7 @@
 Every task: one new `.mop` in `SET/`, written from its expert rule alone, following the G0.2
 conventions (accuser per value clause, predicate write on the conforming branch, canonical values,
 codes rows appended by the task itself, `unzip -l` viability re-check). All classes and members were
-confirmed in the api30 archive this session; ORDER is `Con` for all but 2.14 (`GetEnc*`). Overloads
+confirmed in the API 30 `android.jar` this session; ORDER is `Con` for all but 2.14 (`GetEnc*`). Overloads
 are **not** collapsed: a rule that labels them separately (`c1: …; c2: …; Con := c1 | c2`) gets one
 event per label, which is what `GCMParameterSpecSpec`, `PBEParameterSpecSpec` and
 `SecretKeySpecSpec` already do — "fusion" in this set names `IvParameterSpec`'s guard-twin fusion,
@@ -39,7 +39,7 @@ Notes that survive from verification:
 - **2.14** is the set's second interface-owned pointcut, `Key+.getEncoded()`, and the shadowing
   question this fiche was written to raise has been measured and answered (researcher decision,
   2026-08-27). The two pointcuts are **not** disjoint and cannot be made so without narrowing the
-  rule's own type: api30 has `SecretKeySpec implements SecretKey` and `SecretKey extends Key`, and
+  rule's own type: the API 30 `android.jar` has `SecretKeySpec implements SecretKey` and `SecretKey extends Key`, and
   the owner matcher keeps the `+` and walks interfaces (the R5 measurement,
   `PointcutMatcher:322-345`), so `Key+` subsumes every receiver `SecretKey+` reaches. The double
   monitoring is deliberate and free at the store — `ensure` is idempotent per (property, identity,
@@ -55,7 +55,7 @@ Notes that survive from verification:
   call have to agree about what it means, or the looser of them decides. Like its twin, the read
   governs a write and not a report: no accuser, no `codes.csv` row, and no `@fail` (the ORDER
   `GetEnc*` refuses no sequence).
-- **2.8** carries a viability finding the census did not reach. api30 declares a second constructor
+- **2.8** carries a viability finding the census did not reach. The API 30 `android.jar` declares a second constructor
   the rule does not, `KeyStoreBuilderParameters(List<KeyStore.Builder>)`, and the pointcut cannot
   separate the two: `KeyStore.Builder` is a nested type, and the DEX matcher's
   `TypeResolver.toDescriptor` builds a descriptor by replacing every dot with a slash, so the nested

@@ -48,7 +48,7 @@ No reactor build and no `rvsec-core` test run are owed: no Java file moves.
 ## 5.3 TLS-default note + `getSocketFactory` non-addition (D-20.5)
 
 Record (divergence narrative row + a paragraph in `data/jca_android/README.md`'s platform section):
-on api30 the platform negotiates TLSv1.3 by default and TLSv1/1.1 are disabled platform-side, so the
+on API 30 the platform negotiates TLSv1.3 by default and TLSv1/1.1 are disabled platform-side, so the
 protocol accusations measure *narrowing* by the program; and `SSLContext.getSocketFactory` is NOT
 added as an event because it is outside the oracle's alphabet — this change adds no accusation
 surface the oracle does not name. No spec edit in this task.
@@ -61,4 +61,4 @@ no expert rule. Body carries the three verified candidate accusations with their
 `setBlockModes` containing `"ECB"` (10/32 APKs use `KeyGenParameterSpec$Builder`),
 `setRandomizedEncryptionRequired(false)` (2/32), `setDigests` with MD5/SHA-1 correlated to
 `PURPOSE_SIGN`; plus the constants evidence (`KeyProperties` exposes `BLOCK_MODE_ECB`, `DIGEST_MD5`,
-`DIGEST_SHA1` on api30). Link it from gh109's proposal Out-of-scope line. Do not start it.
+`DIGEST_SHA1` on API 30). Link it from gh109's proposal Out-of-scope line. Do not start it.

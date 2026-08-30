@@ -169,7 +169,7 @@ public final class PointcutExpander {
                 parameterTypes.add(resolve(op(parameter)));
             }
         }
-        // Trap (g): EventDefinition.getRetType() is null for every event of all 215 files - the
+        // Trap (g): EventDefinition.getRetType() is null for every event of all 239 files - the
         // field is only populated by a syntax the corpus does not use. The declared return type
         // lives in the method pattern, and reading it from there is the difference between an
         // alphabet that distinguishes Mac.doFinal():byte[] from Mac.doFinal(byte[],int):void and

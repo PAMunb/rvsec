@@ -1,0 +1,14 @@
+# gh109 task 8.4 (D-26.2), the accusation this repair created.
+# `KeyPairGenerator.crysl:28` states `algorithm in {"RSA", "EC", "DSA", "DiffieHellman", "DH"}`,
+# and until 8.4 the clause existed only as the negation inside `g3`'s own condition: a rejected
+# algorithm was absorbed and the file carried no ALG code at all. `Ed25519` is a real platform
+# algorithm outside the five, so `g3` takes its branch and draws KEYPAIRGENERATOR-ALG-00.
+#
+# The two lines after it are the residues the task recorded rather than repaired, and they are
+# on this trace on purpose: `initialize(256)` still draws KEYPAIRGENERATOR-KEYSIZE-00, because
+# `validate` cannot answer for an algorithm the rule does not name, and the `ere` still fails,
+# because `(g3* g1 | g3* g2)` wants an admitted `getInstance` before any Init. The accusation
+# 8.4 added is the true one among the three; the other two are the set's known noise here.
+KeyPairGenerator.getInstance("Ed25519") -> kpg
+kpg.initialize(256)
+kpg.generateKeyPair()

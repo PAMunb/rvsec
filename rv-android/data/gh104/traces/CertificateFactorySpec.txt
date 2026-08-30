@@ -1,0 +1,10 @@
+# gh109 task 3.5, the conforming shape. `CertificateFactory.crysl` admits `X.509` as the type,
+# and the ORDER is `get (genCert | genCertPath | genCertPathEncoded | genCrl)+` -- a factory
+# obtained and then used at least once. The value clause is satisfied and the automaton accepts,
+# so nothing is drawn and `generatedCert` is staged at the acceptance point.
+#
+# There is no violating twin: `X.509` is the only type the platform registers, so a rejected
+# name makes `getInstance` throw and the harness would fall back to a different algorithm and
+# measure something the trace does not name (gh109 task 7.3).
+CertificateFactory.getInstance("X.509") -> cf
+cf.generateCertificate(null)

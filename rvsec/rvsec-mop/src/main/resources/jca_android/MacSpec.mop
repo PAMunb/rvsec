@@ -25,19 +25,31 @@ MacSpec(Mac m) {
         return value.replace("'", "\\'");
     }
 
-        // D-15: Mac.crysl names nine algorithms; the eight further entries are the frozen
-        // jca's spelling variants of them. `HmacMD5` and `HmacSHA1`, which the withdrawn
-        // catalogue admitted, are gone -- they are what a Mac specification exists to accuse.
         // What a MAC key may have come from, as the report's `exp=` field. The three
         // producers of `Property.GENERATED_KEY` in this set, named rather than counted:
         // `KeyGeneratorSpec`, `KeyStoreSpec` and `SecretKeySpecSpec`. It is a field and
         // not a literal in two messages so the two sites cannot drift apart.
         String expectedGeneratedKey = "a key observed coming from a key generator, a key store or a key specification";
 
+        // D-15: the first nine entries are `Mac.crysl:44` verbatim. `HmacMD5` and
+        // `HmacSHA1`, which the withdrawn catalogue admitted, are absent -- they are
+        // what a Mac specification exists to accuse.
+        //
+        // The six that follow are Conscrypt spellings of admitted canonicals
+        // (`HMAC-SHA256` resolves to `HmacSHA256`, and likewise for 384 and 512), each
+        // carrying its own `alias_table.csv` row under the `Mac` service.
+        //
+        // `PBEWITHHMACSHA` and `PBEWITHHMACSHA-256` are not here and must not return.
+        // Neither is in `Mac.crysl:44`, and neither has an alias row for this service:
+        // the table spells that family without the hyphen (`PBEWITHHMACSHA224` and kin),
+        // and `matches` folds case but not separators, so the hyphenated spelling
+        // resolved to nothing and was admitted on its literal alone. The departure was
+        // narrow in practice -- under the pinned Conscrypt both spellings throw inside
+        // `getInstance`, and `g1`/`g2` are `after ... returning`, so no event ever
+        // carried them; only a program bundling BouncyCastle could reach the admission.
         List<String> safeAlgorithms = Arrays.asList("HmacSHA256", "HmacSHA384", "HmacSHA512", "HmacPBESHA1",
             "PBEWithHmacSHA1", "PBEWithHmacSHA224", "PBEWithHmacSHA256", "PBEWithHmacSHA384", "PBEWithHmacSHA512",
-            "HMAC-SHA256", "HMAC/SHA256", "HMAC-SHA384", "HMAC/SHA384", "HMAC/SHA512", "HMAC-SHA512",
-            "PBEWITHHMACSHA", "PBEWITHHMACSHA-256");
+            "HMAC-SHA256", "HMAC/SHA256", "HMAC-SHA384", "HMAC/SHA384", "HMAC/SHA512", "HMAC-SHA512");
 
         // A second monitor field, `Mac mac`, stood beside this one until this pass.
         // Its only reader was the accepting-state bookkeeping in the `@match`

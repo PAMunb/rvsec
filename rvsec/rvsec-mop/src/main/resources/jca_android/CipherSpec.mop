@@ -169,16 +169,47 @@ CipherSpec(Cipher c) {
      call(public void Cipher.init(int, Key,..)) &&
      args(mode, key, ..) &&
      target(c) {
-        // The value side of the clause goes through the normalizer, not through the frozen
-        // `alg` this file statically imports. `CipherTransformationUtil.alg` splits the raw
-        // string, so an alias spelling never reaches its own algorithm: the one-word
-        // `PBEWithHmacSHA1AndAES_128` has no `/` to split on and answers itself, which
-        // matches no key any producer of this set ever wrote. `keyAlgorithm` resolves the
-        // Conscrypt alias first and then folds the keysize-suffixed services onto their
-        // family, so a key generated for `AES` matches a Cipher built for `AES_128` -- the
-        // same key, the same family, and no misuse (D-20.2).
-        PredicateVerdict asSecretKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key,
+        // The value side of the clause is read TWICE, against the two spellings the oracle
+        // itself puts on the same string, and against nothing else (D-26.4, INV-INS-153).
+        //
+        //   The FAMILY, `CipherTransformationNormalizer.keyAlgorithm`. It resolves the
+        //   Conscrypt alias and then folds the keysize-suffixed services onto their family,
+        //   so a key generated for `AES` matches a Cipher built for `AES_128` -- the same
+        //   key, the same family, no misuse (D-20.2). That fold was written for the
+        //   alias/keysize route.
+        //
+        //   The LETTER, the frozen `alg` this file statically imports. It splits the raw
+        //   string, so a one-word transformation answers itself: `PBEWithHmacSHA1AndAES_128`
+        //   has no `/` to split on. That is the spelling `Cipher.crysl:134` asks for on the
+        //   PBE route -- `Cipher.crysl:94-105` treats the whole PBE name as the
+        //   transformation's algorithm -- and it is exactly the spelling
+        //   `SecretKeyFactorySpec.mop:108` writes, because `SecretKeyFactory` has one alias
+        //   row and it is not a PBE one, so `canonical` returns the name unchanged.
+        //
+        // Reading only the family accused a program the oracle declares conforming: the
+        // fold turned the producer's `PBEWithHmacSHA256AndAES_128` into `AES` and the store
+        // answered VIOLATED for the conforming PBE chain. Reading only the letter would give
+        // up the alias/keysize route the fold exists for. The two together are the oracle
+        // read across its three rules, and no third value is introduced.
+        //
+        // The direct `PBKDF2WithHmacSHA*` -> `Cipher("AES/...")` route still does not match,
+        // and that is the oracle speaking rather than a defect: the conforming path it
+        // offers is the re-wrap, `getEncoded()` -> `new SecretKeySpec(bytes, "AES")` ->
+        // `generatedKey[this, "AES"]` (SecretKeySpec.crysl:27).
+        PredicateVerdict asFamilyKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key,
             CipherTransformationNormalizer.keyAlgorithm(c.getAlgorithm()));
+        PredicateVerdict asLetterKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key,
+            alg(c.getAlgorithm()));
+        PredicateVerdict asSecretKey;
+        if (asFamilyKey == PredicateVerdict.SATISFIED || asLetterKey == PredicateVerdict.SATISFIED) {
+            asSecretKey = PredicateVerdict.SATISFIED;
+        }
+        else if (asFamilyKey == PredicateVerdict.VIOLATED || asLetterKey == PredicateVerdict.VIOLATED) {
+            asSecretKey = PredicateVerdict.VIOLATED;
+        }
+        else {
+            asSecretKey = PredicateVerdict.NOT_OBSERVED;
+        }
         PredicateVerdict asPublicKey = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, key);
         PredicateVerdict asPrivateKey = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, key);
         PredicateVerdict origin = PredicateVerdict.NOT_OBSERVED;

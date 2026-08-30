@@ -923,7 +923,11 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     # Content censuses, not set sizes: these two move with every group that adds
     # specifications, because each new file brings its own writes and reads. Re-measure both
     # at the start of a group -- JUnit-style one-per-cycle discovery costs the same here.
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 86
+    # 86 -> 87 at gh109 group G8: `CipherSpec.i2` reads `generatedKey` a second time,
+    # against the letter of the clause beside the folded family (D-26.4, task 8.6). It is
+    # one clause probed twice and not two clauses, which is why the write count below does
+    # not move with it.
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 87
     assert read_placement.get("condition", 0) == 0
     # 32 -> 35 at gh109 task 1.3(b): the three `Get` events of `MessageDigestSpec` gain the
     # `generatedMessageDigest` write the transcription had omitted (`MessageDigest.crysl:46`).
@@ -933,7 +937,10 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     # write the same predicate at two `Gen` routes. 60 -> 64 at group G4: `KeyAgreementSpec`
     # writes `preparedKeyMaterial` at both `generateSecret` routes, and the two TLS
     # specifications write their ENSURES once each at the acceptance point.
-    assert counts.get("write", 0) == 64
+    # 64 -> 65 at gh109 group G8: `SecretKeySpecSpec`'s `@match` writes `speccedKey`
+    # (`SecretKeySpec.crysl:26`) beside the `generatedKey` it already wrote -- one handler,
+    # two clauses, the ORDER being the single `Con` (D-26.5, task 8.1).
+    assert counts.get("write", 0) == 65
     assert (
         counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
     )
@@ -1356,7 +1363,9 @@ def test_the_graph_reproduces_the_measured_placement_census():
     # Content censuses, not set sizes: every verdict count in this test moves with each group
     # that adds specifications. Re-measure the whole block at the start of a group rather than
     # rediscovering one number per run.
-    assert counts.get("read:body", 0) == 81
+    # 81 -> 82 at gh109 group G8: the second `generatedKey` probe of `CipherSpec.i2`
+    # (task 8.6), read in the body beside the first.
+    assert counts.get("read:body", 0) == 82
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one
@@ -1377,7 +1386,9 @@ def test_the_graph_reproduces_the_measured_placement_census():
     # G4: `generatedSSLEngine[this]` and `generatedSSLParameters[this]` carry no `after L`, so
     # the acceptance state is the acceptance point, and both are gated on a `conforms` field
     # because their rules' suite implications span two events.
-    assert counts.get("write:acceptance", 0) == 48
+    # 48 -> 49 at gh109 group G8: the `speccedKey` write of `SecretKeySpecSpec.@match`
+    # (task 8.1), which carries no `after L` and so lands at the acceptance point.
+    assert counts.get("write:acceptance", 0) == 49
     assert counts.get("remove:fail", 0) == 0
     assert counts.get("negate:body", 0) == 1
     assert counts.get("bookkeeping:match", 0) + counts.get("bookkeeping:fail", 0) == 0
@@ -2335,10 +2346,18 @@ def test_an_absorbed_accuser_is_erased_from_both_languages():
     generated rule and `i1` in the expert one (`KeyPairGenerator.crysl:14`) -- so a
     re-anchoring by name would have looked mechanical and mapped every one of them
     to the wrong call.
+
+    gh109 task 8.9 makes the exemption a pair. `g4` is the arity-2 negated twin of
+    `g3` over `getInstance(String, Object+)`, added because 8.4 had closed
+    `KeyPairGenerator.crysl:28` at one arity and left the other matching no event
+    at all. It is erased for exactly `g3`'s reason and not for a new one, which is
+    why the erased language does not move: what remains is still
+    `(g1|g2)(inits)gen` against `Gets, Inits, Generators`. An accuser that had to
+    be mapped rather than erased would show up right here, as a difference witness.
     """
     rows = gh105_order_gate.read_map(ORDER_MAP)["KeyPairGeneratorSpec"]
     exempt = {row.mop_event for row in rows if row.disposition == "order-unmapped"}
-    assert exempt == {"g3"}
+    assert exempt == {"g3", "g4"}
     assert {row.mop_event for row in rows if row.order_symbol == "i1"} == {
         "init1",
         "initError",

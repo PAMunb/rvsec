@@ -1,0 +1,5 @@
+# gh109 task 2.5, the violating half: a 1024-bit prime modulus with a conforming generator. Only
+# DHPARAMETERSPEC-CONSTR-00 is drawn, not its sibling -- the two clauses accumulate rather than
+# short-circuit, so a program that got one wrong is told about one, and this trace is what shows
+# the accumulation is real and not a coincidence of both firing together.
+new DHParameterSpec(bits(1024), bits(2048)) -> params

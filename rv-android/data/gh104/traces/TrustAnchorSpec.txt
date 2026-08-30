@@ -1,0 +1,6 @@
+# gh109 task 2.12, over `c2` -- the certificate constructor, the one overload of the three that
+# reads no predicate, because a trust anchor built from an X509Certificate carries its own
+# public key and the rule asks nothing further of it. `anchor` is a real trusted root out of the
+# platform's `cacerts`; what this trace asserts is the automaton and the write of
+# `generatedTrustAnchor` at `@match`, not anything about the certificate's contents.
+new TrustAnchor(anchor, null) -> ta

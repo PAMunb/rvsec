@@ -114,11 +114,68 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         algorithm = alg;
     }
 
+    // The negated twin of `g1`, and the site of `KeyPairGenerator.crysl:28` --
+    // `algorithm in {"RSA", "EC", "DSA", "DiffieHellman", "DH"}`.
+    //
+    // It accuses. Until it did, the clause was realized only as the negation in this
+    // event's own `condition(...)`, which is the shape INV-INS-152 calls defective: the
+    // rejected algorithm was absorbed and reported as nothing, and the whole specification
+    // carried no ALG code. What the reader saw instead was a `KEYPAIRGENERATOR-KEYSIZE-00`
+    // from `initError` -- `validate` returns false for any algorithm outside the five, so
+    // the first `initialize` accused the key size of a clause the rule does not state for
+    // that algorithm -- and two ORDER lines from the `ere`. Contrast `KEYGENERATOR-ALG-00`,
+    // which its own specification has had all along.
+    //
+    // TWO RESIDUES ARE LEFT STANDING, AND ARE RECORDED RATHER THAN REPAIRED HERE. Both
+    // follow a rejected algorithm and both would need a change beyond the clause this task
+    // transcribes: the `KEYPAIRGENERATOR-KEYSIZE-00` still fires on the next
+    // `initialize(int)`, because `validate` cannot answer for an algorithm the rule does
+    // not name; and the `ere` still fails on the sequence, because `(g3* g1 | g3* g2)`
+    // wants an admitted `getInstance` before any `Init`. The accusation this event makes is
+    // now the true one among the three, and the other two are the set's known noise on the
+    // same trace.
     event g3 after(String alg) returning(KeyPairGenerator k):
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
       args(alg) &&
       condition(!ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
         algorithm = alg;
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyPairGeneratorSpec", "" + __LOC,
+            "v=1 code=KEYPAIRGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
+    }
+
+    // The negated twin of `g2`, and the same site of `KeyPairGenerator.crysl:28` one arity over.
+    //
+    // Without it the clause was realized at one arity and not the other, which is a worse state
+    // than the one the file was in before `g3` existed. `g2`'s guard is POSITIVE and `g3`'s
+    // pointcut is one-argument, so a rejected algorithm passed through
+    // `getInstance(alg, provider)` matched no event of this specification at all -- and the cost
+    // here is larger than the missing value report. `algorithm` is the field `init1`,
+    // `init2`, `initError` and `initError2` all test for null before they do anything, so the
+    // object went on unbound and the whole specification stayed silent for it: no value code, no
+    // key-size code, not even the ordering report. The one-argument spelling of the same misuse
+    // drew all three.
+    //
+    // It is the family gh105 task 10.8 registered for five other specifications -- a positive
+    // `matches(...)` on the two-argument overload with a one-argument negated twin -- and the
+    // second of them to be repaired rather than deferred, after `SecureRandomSpec.g5` (D-26.1,
+    // task 8.3). Ratified by the researcher on 2026-08-30 as the addendum to D-26.2.
+    //
+    // `algorithm = alg` is written here exactly as `g3` writes it, so that the two arities answer
+    // the same thing to the same misuse. The two residues `g3` records above therefore follow a
+    // rejected algorithm through this route as well: they are the set's known noise on that
+    // trace, and having them at one arity only would be a new asymmetry in place of the one this
+    // event removes.
+    //
+    // `Object+` and the explicit `args(alg, provider)` are `g2`'s, for `g2`'s reason: the pointcut
+    // covers both two-argument overloads the platform declares, and a `..` wildcard would make
+    // every `getInstance` fit it.
+    event g4 after(String alg, Object provider) returning(KeyPairGenerator k):
+      call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, Object+)) &&
+      args(alg, provider) &&
+      condition(!ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
+        algorithm = alg;
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyPairGeneratorSpec", "" + __LOC,
+            "v=1 code=KEYPAIRGENERATOR-ALG-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
     }
 
     /*
@@ -301,7 +358,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     // `order_alphabet_map.csv` and `i2` in `order_alphabet_map_expert.csv`. Mapping it to
     // `initError`'s symbol would file the two-argument call under `initialize(keysize)`
     // and erase the wrong language.
-    ere: (g3* g1 | g3* g2) (init1 | init2 | init3 | init4 | initError | initError2) gen
+    ere: ((g3 | g4)* g1 | (g3 | g4)* g2) (init1 | init2 | init3 | init4 | initError | initError2) gen
 
     @fail {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,

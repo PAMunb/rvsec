@@ -42,7 +42,7 @@ Write `RV/data/jca_android/NEW_SPEC_CONVENTIONS.md` (one page) fixing, for every
   own task; `file_line` anchored at the emission line (the message gate checks bijection + anchor).
 - **Predicates**: writes/reads through `PredicateStore` exactly as the gh105 substrate rules state;
   algorithm-valued writes pass `ConscryptAliasTable.canonical` (D-20.3, INV-INS-153).
-- **Viability fiche**: each task re-confirms its classes/members in the api30 jar by `unzip -l`
+- **Viability fiche**: each task re-confirms its classes/members in the API 30 `android.jar` by `unzip -l`
   (INV-INS-154) and states the event count (ceiling 17; every new spec is ≤5).
 - **Records**: individual tasks touch ONLY their `.mop` + their `codes.csv` rows. The group's `X.R`
   task owns divergence rows (`new-file` kind), graph re-emit, ledger/alphabet re-emit.

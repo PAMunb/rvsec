@@ -1,0 +1,6 @@
+# gh109 task 2.5, the conforming half. `DHParameterSpec.crysl` states `p >= 1^2048` and
+# `g >= 1^2048`, transcribed as a bit length of 2048 or more (D-20.4, and the oracle-defect row
+# that records why the literal reading is `>= 1`). `bits(2048)` is the smallest integer of that
+# length, so both guards are satisfied at their boundary and nothing else is asserted about the
+# numbers. `preparedDH` is staged at `@match` for `AlgorithmParametersSpec.init` to read.
+new DHParameterSpec(bits(2048), bits(2048)) -> params

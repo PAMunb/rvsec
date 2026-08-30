@@ -58,7 +58,7 @@ run with findings — collapsing the two would make the known upstream residuals
 ## Corpora
 Read-only in every case (INV-CONF-12); nothing writes to a path it read.
 - `.mop` corpora: the sibling `rvsec-mop` module **in the working tree**, not copies in test
-  resources — `jca` (23), `jca_android` (24), `jca_android_bug_predicate` (23), `generic` (118),
+  resources — `jca` (23), `jca_android` (48), `jca_android_bug_predicate` (23), `generic` (118),
   `generic_new` (27). A test that passes against a frozen copy while the live set has moved is worse
   than no test.
 - CrySL oracle: `rvsec-cognicrypt/CrySL-Rules` — a **separate repository**, 49 `.crysl` files, read
@@ -71,7 +71,7 @@ Read-only in every case (INV-CONF-12); nothing writes to a path it read.
 
 **Editing a `.mop` in one of the five corpora is editing this component's inputs.** Reading the live
 set is what makes the census meaningful and it is also what makes it fragile: `MopLiftCorpusTest`
-pins the aggregate as a literal (currently 907 events, 383 parameters, 215 files), so a specification
+pins the aggregate as a literal (currently 974 events, 407 parameters, 239 files), so a specification
 repair that adds or removes an event or a parameter turns the CI red in `rvsec-crysl-mop` and nowhere
 else — the reactor build above it passes with `-DskipTests` and says nothing. Whoever moves the
 corpus re-runs the component and re-pins the census in the same change. That is the intended

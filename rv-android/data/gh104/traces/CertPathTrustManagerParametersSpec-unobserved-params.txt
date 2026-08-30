@@ -1,0 +1,11 @@
+# gh109 task 2.9, the reachable half. `CertPathTrustManagerParameters.crysl` requires
+# `generatedCertPathParameters[params]`, which `PKIXParametersSpec` (task 2.10) writes at its
+# acceptance point. Here the PKIXParameters is built from a store that was never observed being
+# loaded, so that specification accused it and wrote nothing, and this read answers NOT_OBSERVED:
+# CERTPATHTRUSTMANAGERPARAMETERS-NOBS-00.
+#
+# The conforming half depends on the same unreachable state as its producer's -- see
+# PKIXBuilderParametersSpec-unobserved-truststore.txt for the measurement.
+bind ks = truststore
+new PKIXParameters(ks) -> cpp
+new CertPathTrustManagerParameters(cpp) -> params

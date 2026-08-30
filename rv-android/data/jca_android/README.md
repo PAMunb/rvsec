@@ -24,7 +24,7 @@ a defect, which is what the grep gate of task 11.4 asserts.
 |---|---|---|
 | `pre-rename-head` | `a3e6a1651cc63d83525fcbb42c0cd5f659ef463e` | the Java tree's `HEAD` immediately before the `git mv` of task 2.1. Task 10.1 asserts the archival is a pure rename **against this SHA**, and it is also the read-only base of `AndroidCipherTransformationUtil.java`, which does not exist at `7e7acb69` (gh101 added it). |
 | `jca` freeze base | `7e7acb69` | `rvsec-mop/src/main/resources/jca/` and `CipherTransformationUtil.java` are byte-identical to it and stay so (gh101 D-S0, INV-INS-109). |
-| expert value oracle | `d7bcc01938150ae5e560cb3bcb6796af9cba05887df7b93e3f67a80bc3f3b033` | the 49 `.crysl` rules of `RVSec-replication-package/tools/rules/`, the oracle of every **value** clause of this set from D-15 (2026-08-24). The hash is of the sorted per-file manifest `oracle/expert_rules.sha256`; recompute with `cd <pkg>/tools/rules && sha256sum $(ls *.crysl \| sort) \| sha256sum`. |
+| expert value oracle | `d7bcc01938150ae5e560cb3bcb6796af9cba05887df7b93e3f67a80bc3f3b033` | the 49 `.crysl` rules of `RVSec-replication-package/tools/rules/`, the oracle of every **value** clause of this set from D-15 (2026-08-24). The hash is of the sorted per-file manifest `oracle/expert_rules.sha256`; recompute with `cd <pkg>/tools/rules && sha256sum $(ls *.crysl \| sort) \| sha256sum`. **The recipe assumes a language UTF-8 collation** (`pt_BR.UTF-8`, `en_US.UTF-8`, ...): `ls \| sort` is what fixes the order, and under `LC_ALL=C` or `LC_ALL=C.UTF-8` it sorts by codepoint instead, which yields `6d92bc6d94132ff153e0c6d28ffad6b991372574a50f11283a35a100bfd6fd30` **with the files byte-identical** (re-measured 2026-08-28). A mismatch is therefore a false alarm about content until the locale is ruled out. The order-free check that cannot go wrong this way is the per-file one: `cd <pkg>/tools/rules && head -49 <repo>/data/jca_android/oracle/expert_rules.sha256 \| sha256sum -c -` (the 50th line is the roll-up, not a file). |
 
 ### Why the value oracle is a pinned copy and not a branch
 
@@ -102,8 +102,15 @@ The predicates were carried over **byte-for-byte** until gh105 migrated the subs
 still holds its 134 `ExecutionContext` lines (23 `import`, 27 `validate(`, 49 `setProperty(`,
 9 `remove(`, 25 accepting-state calls and 1 comment at `MessageDigestSpec.mop:25`) and is frozen
 that way. `jca_android` holds **none** of them: the set names `ExecutionContext` **0** times, calls
-`setProperty(` **0** times and `.remove(` **0** times, and reads its predicates through **38**
-`validate(` calls against the new store. Group 4 did the migration and INV-INS-130 is the check —
+`setProperty(` **0** times and `.remove(` **0** times, and reads its predicates through the new
+store's three read calls — **85** `validate(`, **5** `validateAny(` and **5** `validateAbsent(`,
+measured over the set today. The single **38** that stood here was never the whole census even
+when it was current: `validate(` alone was 36 and `validateAbsent(` another 5, and the three calls
+answer different questions — `validate` compares the whole value tuple, `validateAny` reads a
+clause whose remaining positions the rule leaves anonymous, `validateAbsent` reads a negated
+REQUIRES. A single number over the three hides which clause shape a site is reading, which is the
+one thing the substrate distinction exists to keep visible. Group 4 did the migration and
+INV-INS-130 is the check —
 a whole-word grep over the set, so a mention in a comment or a string counts like one in code.
 
 What the seed-versus-successor comparison still means is therefore narrower, and the two gates that
@@ -381,6 +388,16 @@ totals** wherever those are quoted, which in turn had replaced a 74-row summary.
 `MOP-MAIS-PERMISSIVO` rows are the frozen set's own spelling variants
 (`MacSpec.mop:12`, `SecretKeySpecSpec.mop:19`), recorded as such.
 
+**Which set the `mop_line` column points into, because the column cannot say so itself.**
+It points into `jca/`, the **frozen seed** — this table is the seed's oracle and G-CONF reads
+it for `jca` and for no other set. `MacSpec.mop:12` is the seed's `safeAlgorithms` list; in
+`jca_android` line 12 is an import, and every other pointer of the column misses by a
+comparable distance, because the successor's files carry the narrative comments the seed does
+not. A reader following one of these into the successor set is reading the wrong file, and the
+verdicts are the substantive column in any case: G-CONF reproduces those and not the pointers.
+The equivalent per-clause pointer for the successor is `predicate_ledger.csv`'s `rule_line`
+together with `predicate_graph.csv`, both of which are re-derived from the live set.
+
 The acceptance measurement of the re-anchoring — both sides of it — is
 `evidence/d15_c5_replay.md`: the 5,892 `MD5`/`SHA-1` rows, the 103 `SSL` and the 4
 `NONEwithRSA` of the published corpus are accused again, **and** the `TLS` 8,648,
@@ -426,7 +443,8 @@ Counted from the files with `scripts/gh104_mop_lint.py`'s own site parser:
 |---|---|---|---|---|
 | frozen `jca` (the seed) | 25 | 25 | 1 | **50** |
 | `jca_android` after Group 2 | 25 | 25 | 1 | **50** |
-| `jca_android` today | 0 | **115** | 0 | **115** |
+| `jca_android` at the end of gh105 | 0 | 115 | 0 | 115 |
+| `jca_android` today | 0 | **252** | 0 | **252** |
 
 **Through Group 2 the census was the seed's, unchanged, and there was no difference to explain.**
 That followed from D-11: the successor keeps every event the seed declares, predicates included,
@@ -438,13 +456,24 @@ left and the randomisation predicate — and with it the accusation and its repo
 (D-15 restored that half against `SecretKeySpec.crysl:18`, and the census above is the Group-2
 one, read as history.)
 
-**Groups 5 to 7 more than doubled it, and that is the difference to explain.** The successor now
-holds **115** live sites against the seed's 50, and the growth is the predicate wiring itself: a
-clause that was carried as an unread `setProperty` in the seed becomes, in the successor, a read
-with a producer and an accusation of its own when the read answers *violated*. `IvChainJunction`
-alone contributes 14 sites, `SignatureSpec` 11 and `KeyGeneratorSpec` 8. The three-argument form is
-gone entirely: Group 7 gave every site an envelope, so all 115 are four-argument and the set holds
-no commented report.
+**Groups 5 to 7 more than doubled it, and that is the first difference to explain.** By the end of
+gh105 the successor held **115** live sites against the seed's 50, and that growth was the predicate
+wiring itself: a clause that was carried as an unread `setProperty` in the seed becomes, in the
+successor, a read with a producer and an accusation of its own when the read answers *violated*.
+`IvChainJunction` alone contributes 14 sites, `SignatureSpec` 11 and `KeyGeneratorSpec` 8. The
+three-argument form is gone entirely: Group 7 gave every site an envelope, so every site is
+four-argument and the set holds no commented report.
+
+**gh109 more than doubled it again, and the split is measurable rather than argued.** The census is
+**252** today, and it divides as 112 sites on the 24 specifications gh109 wrote (the 14 trivial
+producers of G2, the 7 medium of G3, the 3 complex of G4 -- coverage that did not exist before,
+because those rules had no `.mop` at all) and 140 on the files that predate it, up 25 from 115. Those
+25 are the change's repairs and the reads its producers unblocked: the 9 verified repairs of G1, each
+of which gave a clause an accusing branch it did not have; the three consumer reads of G1b, which had
+been left closed on the recorded ground that no producer existed; and the two accusing sites of G8
+(`SECURERANDOM-ALG-01` for the arity the rule leaves open, `KEYPAIRGENERATOR-ALG-00` for a value
+clause that had lived only in a negated guard). Every one of the four numbers above can be recounted
+from `codes.csv` and the files.
 
 **The count moved twice after Group 7, and both moves were accusations the set was missing.** It
 stood at 112 through Group 8. `5bc5c893` took it to 114: repairing the value lists put back the
@@ -452,8 +481,7 @@ stood at 112 through Group 8. `5bc5c893` took it to 114: repairing the value lis
 generated lists had admitted. `cc6d64bc` took it to 115 with `SSLCONTEXT-FORB-00`, task 9.9's
 accuser for `SSLContext.getDefault()` -- FORBIDDEN in both oracles, and until then a call this set
 watched in silence from end to end. Nothing was removed on either side of those two, so 115 is the
-seed's 50 plus the wiring plus these two repairs, and every one of the three numbers above can be
-recounted from the files.
+seed's 50 plus the wiring plus these two repairs, and it too can be recounted from the files.
 
 The five purely predicate-guarded accusers -- `IvParameterSpec` c3/c4, `PBEKeySpecSpec` err2/err3
 and `SecureRandomSpec` setSeed3 -- kept their accusations and lost their events. An earlier revision
@@ -479,7 +507,7 @@ the accusation it adds is measured rather than assumed. The set has no commented
 Of the seed's 50, the 25 three-argument sites were the 21 `@fail`/`@match1` handlers plus
 `IvParameterSpec` c3/c4 and `PBEKeySpecSpec`'s two `FORBIDDEN` sites, and the 25 four-argument
 sites were the value accusers. Group 7 gave every site an envelope, so the three-argument count is
-zero and every one of the successor's 115 rows in `codes.csv` names a four-argument site.
+zero and every one of the successor's 252 rows in `codes.csv` names a four-argument site.
 
 **Group 8 left the seed-inherited total where it found it, by two changes that cancel.** Task 8.6 removes the
 `UnsafeAlgorithm` report inside `KeyPairGeneratorSpec`'s `init1`, whose branch is unreachable — the
@@ -491,6 +519,13 @@ count is 25 either way, the commented count falls to **zero**, and the set holds
 not emit. Task 8.3 deletes `MessageDigestSpec`'s `reset` event, which had an empty body and so no
 row to move.
 
+`KEYPAIRGENERATOR-ALG-00` is back, at a site that can reach it: gh109 task 8.4 puts it on `g3`, the
+negated twin, where the rejected `getInstance` actually arrives. The two facts are not in tension --
+what gh104 removed was an accuser inside `init1`, on a branch that could not execute, and what gh109
+added is the clause's first reachable site. Between the two the specification had no ALG code at all,
+which is what made `KeyPairGenerator.crysl:28` a value clause realized only as a negation
+(INV-INS-152).
+
 ### `codes.csv`, the set's failure codes
 
 The set's report sites carry a failure code from Group 7 on, and `codes.csv` (inside the
@@ -498,9 +533,14 @@ specification directory, not here) is the table of them: one row per live site, 
 `spec,code,error_type,site_kind,event,file_line`. A code is `<SPEC>-<KIND>-<NN>`, where `<SPEC>` is
 the specification's name without its `Spec` suffix in upper case (`MESSAGEDIGEST`,
 `TRUSTMANAGERFACTORY`, `PBEKEYSPEC`) — derived mechanically, so no abbreviation table exists for two
-readers to disagree over — and `<KIND>` is the clause family the `ErrorType` implies: `ORDER`,
-`ALG`, `CONSTR`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`. The table is bijective with the census above:
-**115 rows, 115 live sites**, and the message gate fails on either half of that going wrong. It
+readers to disagree over — and `<KIND>` is the clause family the site belongs to: `ORDER`, `ALG`,
+`CONSTR`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`, `NOBS`. The `ErrorType` implies the family for six of
+the eight and **cannot** separate the last two: a `NOBS` code and a `CONSTR` code both carry
+`UnsatisfiedConstraint`, by construction, because a predicate read has no `ErrorType` of its own —
+so the code and the `site_kind` column are the only place the difference lives. That is why
+consolidation keys on `site_kind` and not on `error_type` (INV-INS-158, `scripts/gh109_nobs_channel.py`).
+The table is bijective with the census above:
+**252 rows, 252 live sites**, and the message gate fails on either half of that going wrong. It
 also checks the anchor: since task 7.2 a `code-anchor` check compares each row's `file_line` with
 the line the code is actually emitted from, because the two times a batch re-anchored the file by
 script it moved anchors nobody had noticed.

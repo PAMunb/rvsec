@@ -1890,9 +1890,19 @@ def run_gates(
             ]
         )
         # `constraint_table.csv` records the clause-by-clause comparison of the
-        # api30 rules against the **seed**, so it is an oracle for `jca` and for
-        # nothing else. Reading it on the successor set would report every
-        # correct transcription as a disagreement with the set it replaced.
+        # rules against the **seed**, so it is an oracle for `jca` and for nothing
+        # else. Reading it on the successor set would report every correct
+        # transcription as a disagreement with the set it replaced.
+        #
+        # Two things about it a reader gets wrong and the file cannot say for
+        # itself (corrected at gh109 task 6.3). Its `cryptsl_line` column names
+        # `.crysl` files: the committed table was RE-DERIVED against the pinned
+        # expert oracle under D-16, so "api30 rules" -- what this comment said --
+        # names a catalogue that is no longer its anchor. And its `mop_line`
+        # column resolves against `jca/`, the frozen seed, NOT against
+        # `jca_android/`: `MacSpec.mop:12` is the seed's `safeAlgorithms` and is
+        # an import in the successor, so following one of those pointers into the
+        # successor set lands on an unrelated line every time.
         oracle = read_constraint_table(constraint_table) if set_name == "jca" else None
         agreement = {"agree": 0, "disagree": 0, "not-derived": 0, "unrecorded": 0}
         if oracle is None:

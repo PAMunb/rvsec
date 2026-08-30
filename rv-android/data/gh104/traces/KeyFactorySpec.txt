@@ -1,0 +1,11 @@
+# gh109 task 3.4, the conforming half, and the whole password-to-key chain of the group in one
+# trace: `SecretKeySpec.mop:145` writes `preparedKeyMaterial` on the observed `getEncoded()`,
+# `X509EncodedKeySpecSpec` (task 2.13) reads it and writes `speccedKey` at its acceptance point,
+# and `genPublic` reads that. Every link is observed, so nothing is drawn anywhere along it.
+KeyGenerator.getInstance("AES") -> kg
+kg.init(256)
+kg.generateKey() -> key
+key.getEncoded() -> material
+new X509EncodedKeySpec(material) -> spec
+KeyFactory.getInstance("RSA") -> kf
+kf.generatePublic(spec)

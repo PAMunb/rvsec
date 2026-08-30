@@ -141,12 +141,13 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
         // conforming branch of either constructor, so a construction that broke a
         // clause reaches this handler with nothing bound and the call is a no-op.
         //
-        // `preparedPBE` is written here and required by no rule of the oracle -- it
-        // appears exactly once in the oracle, as this rule's own ENSURES. It is one of
-        // nine dead ends the change disposes of by recording the omission rather than
-        // by fabricating a reader: a read invented on the strength of a producer alone
-        // would accuse every conforming use of a consumer nobody models. The record
-        // lives in the `disposition` column of predicate_graph.csv.
+        // `preparedPBE` is written here and READ. The sentence that stood here -- that the
+        // predicate is "required by no rule of the oracle" and "appears exactly once, as
+        // this rule's own ENSURES" -- was false when it was written:
+        // `AlgorithmParameters.crysl:37-39` requires it, guarded by the eight
+        // `PBEWithHmacSHA*AndAES_*` names, and gh109 task 3.1 landed the specification that
+        // reads it, at `AlgorithmParametersSpec.mop:156`. The dead-end disposition this
+        // block recorded is retired with it; `predicate_graph.csv` carries the live edge.
         //
         // The accepting-state bookkeeping that stood beside this write is gone: the new
         // substrate does not offer it, and the set never read it (INV-INS-147).

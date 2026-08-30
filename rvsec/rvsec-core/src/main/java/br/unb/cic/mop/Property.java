@@ -56,8 +56,43 @@ public enum Property {
     GENERATED_PUBLIC_KEY,
     GENERATE_SSL_CONTEXT,
     GENERATE_SSL_ENGINE,
+    /**
+     * A monitored {@code KeyManagerFactory}, and separately the key-manager array it
+     * produced.
+     *
+     * <p>Two clauses of one rule share this constant, and object identity is what tells
+     * them apart. {@code KeyManagerFactory.crysl:35-36} ensures
+     * {@code generatedKeyManager[this] after Init} over the factory and
+     * {@code generatedKeyManagers[keyManager] after GetKeyMng} over the array; the live
+     * {@code jca_android} writes the first at {@code KeyManagerFactorySpec.mop:220} (the
+     * {@code init} acceptance point) and the second at {@code :176} (the {@code gkm1}
+     * event, which sees the array the call returned). {@link PredicateStore} keys on the
+     * bound object, so a read against the array can never be answered by a mark left on
+     * the factory, and one name for two clauses costs nothing.
+     *
+     * <p>The reader is {@code SSLContextSpec.mop:222}, over the array
+     * {@code SSLContext.init} receives -- the only half {@code SSLContext.crysl} requires.
+     * The write over the factory is a transcription of the rule with no consumer among the
+     * 49, kept for the same reason its {@code TrustManagerFactory} twin is.
+     */
     GENERATED_KEY_MANAGERS,
     GENERATED_KEY_PAIR,
+    /**
+     * A monitored {@code TrustManagerFactory}, and separately the trust-manager array it
+     * produced -- the exact analogue of {@link #GENERATED_KEY_MANAGERS}.
+     *
+     * <p>{@code TrustManagerFactory.crysl:32-33} ensures
+     * {@code generatedTrustManager[this] after Init} and
+     * {@code generatedTrustManagers[trustManager] after GetTrustMng}. Both are written
+     * under this one constant, told apart by the object bound:
+     * {@code TrustManagerFactorySpec.mop:256} writes the factory at the {@code init}
+     * acceptance point, {@code :218} writes the array at {@code gtm1}. The reader,
+     * {@code SSLContextSpec.mop:231}, asks over the array.
+     *
+     * <p>Not to be confused with {@link #GENERATED_TRUST_MANAGERS}, the plural, which no
+     * live set writes: the array edge runs through this constant, and that one survives as
+     * a frozen-set name and a neutral key in {@code PredicateStoreTest}.
+     */
     GENERATED_TRUST_MANAGER,
     /**
      * The trust-manager array a monitored {@code TrustManagerFactory} produced.
@@ -87,9 +122,19 @@ public enum Property {
      * <p>Write-only wherever it appears, and nowhere in a live set:
      * {@code jca/CipherSpec.mop:118} sets it at the {@code wrap} event and no
      * specification of any of the five sets validates it. {@code jca_android} deleted
-     * the write rather than relocating it (gh105 task 4.1): the {@code Cipher} rule
-     * names {@code w: wrap(wrappedKey)} in no {@code ENSURES} clause, so the mark
-     * translates no clause and has no acceptance point to move to.
+     * the write rather than relocating it (gh105 task 4.1).
+     *
+     * <p>The premise that deletion was recorded under was FALSE and is corrected here
+     * (gh109 task 6.4). It read "the {@code Cipher} rule names {@code w: wrap(wrappedKey)}
+     * in no {@code ENSURES} clause", which was true of the withdrawn
+     * {@code generated/api30/} catalogue, which D-16 withdrew, and is not true of the
+     * pinned expert oracle:
+     * {@code Cipher.crysl:148} declares {@code wrappedKey[wrappedKeyBytes, wrappedKey]},
+     * ensured by {@code wkb1: wrappedKeyBytes = wrap(wrappedKey)} ({@code :78}). The
+     * operational conclusion survives the correction, and for the other of the two reasons
+     * that were given: swept over all 49 rules of the oracle, {@code wrappedKey} appears
+     * exactly once and in an {@code ENSURES}. No rule REQUIRES it, so the mark has no
+     * reader and a write would be monitoring with no verdict surface.
      */
     WRAPPED_KEY,
     /**

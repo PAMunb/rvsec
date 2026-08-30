@@ -101,7 +101,7 @@ ADJUDICATED_STATES = {
     "HMACParameterSpec": (
         "na-platform",
         "the rule's SPEC line names javax.xml.crypto.dsig.spec.HMACParameterSpec, of the "
-        "java.xml.crypto module, and every android.jar installed here -- 25 platform jars, "
+        "java.xml.crypto module, and every android.jar installed here -- 26 platform jars, "
         "android-10 through android-37 -- holds zero entries under javax/xml/crypto "
         "(archive listing, re-measured at gh109 task 5.1). The subject class exists on no "
         "Android API level, so the monitor can never fire an event (INV-INS-155). The .mop "
@@ -212,7 +212,9 @@ def derive(rules_dir: Path, set_dir: Path, record: Path) -> list[dict[str, str]]
         - "oracle_defect_row" (str): Joined defect summaries, "; "-separated, or ""
     """
     defects = oracle_defects(record)
-    pairs = paired_rules(set_dir, {p.stem: None for p in sorted(rules_dir.glob("*.crysl"))})
+    pairs = paired_rules(
+        set_dir, {p.stem: None for p in sorted(rules_dir.glob("*.crysl"))}
+    )
     rows: list[dict[str, str]] = []
 
     for path in sorted(rules_dir.glob("*.crysl")):
@@ -309,7 +311,9 @@ def read_matrix(matrix: Path) -> list[dict[str, str]]:
     ]
 
 
-def check(matrix: Path, rows: list[dict[str, str]], set_dir: Path, complete: bool) -> int:
+def check(
+    matrix: Path, rows: list[dict[str, str]], set_dir: Path, complete: bool
+) -> int:
     """Compare the committed matrix against the live derivation, and return an exit code.
 
     Drift is a failure in both directions for the same reason the divergence record checks
@@ -344,9 +348,13 @@ def check(matrix: Path, rows: list[dict[str, str]], set_dir: Path, complete: boo
     held = {row["rule"]: row for row in committed}
     for rule in sorted(set(live) | set(held)):
         if rule not in held:
-            failures.append(f"rule with no row         {rule}  ({live[rule]['terminal_state'] or 'pending'})")
+            failures.append(
+                f"rule with no row         {rule}  ({live[rule]['terminal_state'] or 'pending'})"
+            )
         elif rule not in live:
-            failures.append(f"stale row                {rule}  the oracle has no such rule")
+            failures.append(
+                f"stale row                {rule}  the oracle has no such rule"
+            )
         else:
             for field in ("terminal_state", "evidence", "oracle_defect_row"):
                 if held[rule][field] != live[rule][field]:
@@ -365,10 +373,16 @@ def check(matrix: Path, rows: list[dict[str, str]], set_dir: Path, complete: boo
 
     if failures:
         print("\n".join(failures), file=sys.stderr)
-        print(f"\n{len(failures)} problem(s); {len(rows)} rule(s) in the oracle", file=sys.stderr)
+        print(
+            f"\n{len(failures)} problem(s); {len(rows)} rule(s) in the oracle",
+            file=sys.stderr,
+        )
         return 1
 
-    counts = {state: sum(1 for row in rows if row["terminal_state"] == state) for state in TERMINAL_STATES}
+    counts = {
+        state: sum(1 for row in rows if row["terminal_state"] == state)
+        for state in TERMINAL_STATES
+    }
     print(
         f"{len(rows)} rule(s): "
         + ", ".join(f"{count} {state}" for state, count in counts.items())

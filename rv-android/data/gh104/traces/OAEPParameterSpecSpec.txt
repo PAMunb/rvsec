@@ -1,0 +1,7 @@
+# gh109 task 2.7, the conforming half. `OAEPParameterSpec.crysl` admits the digest and the mask
+# function by name and requires `preparedMGF1[mgfSpec, mdName]` -- the predicate task 2.6 taught
+# `MGF1ParameterSpecSpec` to write, and the reason 2.7 had to be wired after 2.6. The mask spec
+# below is built under observation with the same digest the OAEP spec names, so all three
+# clauses hold and nothing is drawn.
+new MGF1ParameterSpec("SHA-256") -> mgf
+new OAEPParameterSpec("SHA-256", "MGF1", mgf, psource) -> oaep

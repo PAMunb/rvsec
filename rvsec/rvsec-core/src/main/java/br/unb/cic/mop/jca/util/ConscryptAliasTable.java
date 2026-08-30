@@ -8,12 +8,13 @@ import java.util.Map;
 
 /**
  * What a JCA algorithm string denotes on Android 11, when the string the
- * application passes is not the name the api30 CrySL rule writes.
+ * application passes is not the name the CrySL rule writes.
  *
  * <p>The allow-lists of the {@code jca_android} specification set are literal
  * transcriptions of the {@code CONSTRAINTS} clauses of the pinned expert copy
  * {@code RVSec-replication-package/tools/rules/} (D-15; they were transcriptions
- * of {@code MetaCrySL/generated/api30/} until 2026-08-24). A literal transcription alone leaves
+ * of {@code MetaCrySL/generated/api30/} until D-15 withdrew it on 2026-08-24). A literal
+ * transcription alone leaves
  * roughly three thousand of the measured events unmatched, because the rule
  * writes the JCA standard name and the application writes what the platform
  * provider registers: {@code X509} instead of {@code PKIX},
@@ -294,7 +295,7 @@ public final class ConscryptAliasTable {
     /**
      * Whether {@code observed} is admitted by {@code allowList} for {@code service}
      * under the set's one normalisation rule: case-insensitive comparison, plus
-     * this table. The allow-list stays exactly the api30 clause -- an alias never
+     * this table. The allow-list stays exactly the rule's clause -- an alias never
      * enters the list it resolves against.
      */
     public static boolean matches(String service, String observed, List<String> allowList) {

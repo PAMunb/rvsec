@@ -13,6 +13,8 @@ ENSURES,KeyAgreement,preparedKeyMaterial,1,no,no,expert-only,producible,-,KeyAgr
 ENSURES,KeyFactory,generatedKeyFactory,2,no,no,expert-only,unread,-,KeyFactory.crysl:30,-,the api30 rule does not declare the clause
 ENSURES,KeyFactory,generatedPrivkey,1,no,no,expert-only,producible,-,KeyFactory.crysl:31,-,the api30 rule does not declare the clause
 ENSURES,KeyFactory,generatedPubkey,1,no,no,expert-only,producible,-,KeyFactory.crysl:32,-,the api30 rule does not declare the clause
+ENSURES,KeyManagerFactory,generatedKeyManager,1,no,no,changed,unread,producible,KeyManagerFactory.crysl:35,KeyManagerFactory.cryptsl:53,disposition producible -> unread
+ENSURES,KeyManagerFactory,generatedKeyManagers,1,no,no,expert-only,producible,-,KeyManagerFactory.crysl:36,-,the api30 rule does not declare the clause
 ENSURES,KeyStoreBuilderParameters,generatedManagerFactoryParameters,1,no,no,changed,producible,unread,KeyStoreBuilderParameters.crysl:14,KeyStoreBuilderParameters.cryptsl:21,disposition unread -> producible
 ENSURES,MGF1ParameterSpec,preparedMGF1,2,no,no,expert-only,producible,-,MGF1ParameterSpec.crysl:17,-,the api30 rule does not declare the clause
 ENSURES,MessageDigest,generatedMessageDigest,1,no,no,expert-only,producible,-,MessageDigest.crysl:46,-,the api30 rule does not declare the clause
@@ -23,6 +25,8 @@ ENSURES,SSLEngine,generatedSSLEngine,1,no,no,expert-only,unread,-,SSLEngine.crys
 ENSURES,SSLParameters,generatedSSLParameters,1,no,no,expert-only,unread,-,SSLParameters.crysl:48,-,the api30 rule does not declare the clause
 ENSURES,Signature,verified,2,no,no,reshaped,unread,unread,Signature.crysl:61,Signature.cryptsl:93,arity api30=1 expert=2
 ENSURES,TrustAnchor,generatedTrustAnchor,1,no,no,expert-only,unread,-,TrustAnchor.crysl:21,-,the api30 rule does not declare the clause
+ENSURES,TrustManagerFactory,generatedTrustManager,1,no,no,changed,unread,producible,TrustManagerFactory.crysl:32,TrustManagerFactory.cryptsl:49,disposition producible -> unread
+ENSURES,TrustManagerFactory,generatedTrustManagers,1,no,no,expert-only,producible,-,TrustManagerFactory.crysl:33,-,the api30 rule does not declare the clause
 ENSURES,X509EncodedKeySpec,speccedKey,2,no,no,expert-only,producible,-,X509EncodedKeySpec.crysl:17,-,the api30 rule does not declare the clause
 REQUIRES,AlgorithmParameterGenerator,randomized,1,no,no,expert-only,wireable,-,AlgorithmParameterGenerator.crysl:32,-,the api30 rule does not declare the clause
 REQUIRES,AlgorithmParameters,preparedAlg,2,no,no,reshaped,wireable,wireable,AlgorithmParameters.crysl:34,AlgorithmParameters.cryptsl:52,arity api30=1 expert=2
@@ -44,6 +48,10 @@ REQUIRES,KeyPairGenerator,preparedDSA,1,no,yes,changed,wireable,unmonitored-prod
 REQUIRES,KeyPairGenerator,preparedEC,1,no,yes,changed,wireable,unclosable,KeyPairGenerator.crysl:38,KeyPairGenerator.cryptsl:64,disposition unclosable -> wireable
 REQUIRES,Mac,generatedKey,2,no,no,expert-only,wireable,-,Mac.crysl:54,-,the api30 rule does not declare the clause
 REQUIRES,OAEPParameterSpec,preparedMGF1,2,no,no,expert-only,wireable,-,OAEPParameterSpec.crysl:22,-,the api30 rule does not declare the clause
+REQUIRES,SSLContext,generatedKeyManager,1,no,no,api30-only,-,wireable,-,SSLContext.cryptsl:48,the expert rule does not declare the clause
+REQUIRES,SSLContext,generatedKeyManagers,1,no,no,expert-only,wireable,-,SSLContext.crysl:32,-,the api30 rule does not declare the clause
+REQUIRES,SSLContext,generatedTrustManager,1,no,no,api30-only,-,wireable,-,SSLContext.cryptsl:50,the expert rule does not declare the clause
+REQUIRES,SSLContext,generatedTrustManagers,1,no,no,expert-only,wireable,-,SSLContext.crysl:33,-,the api30 rule does not declare the clause
 REQUIRES,SSLContext,randomized,1,no,no,changed,wireable,vacuous,SSLContext.crysl:34,SSLContext.cryptsl:52,bindable expert=True api30=False; disposition vacuous -> wireable
 REQUIRES,SecureRandom,randomized,1,no,no,changed,vacuous,wireable,SecureRandom.crysl:46,SecureRandom.cryptsl:66,disposition wireable -> vacuous
 REQUIRES,TrustAnchor,generatedPubkey,1,no,no,expert-only,wireable,-,TrustAnchor.crysl:18,-,the api30 rule does not declare the clause

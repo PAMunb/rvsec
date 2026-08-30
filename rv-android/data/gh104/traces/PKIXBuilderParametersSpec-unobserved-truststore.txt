@@ -1,0 +1,14 @@
+# gh109 task 2.11, the reachable half. The twin of `PKIXParametersSpec`'s `c1`: the same
+# `generatedKeyStore` clause over the builder subclass. The store enters from outside the
+# monitored set, the read answers NOT_OBSERVED and `c1` draws PKIXBUILDERPARAMETERS-NOBS-00
+# rather than PKIXBUILDERPARAMETERS-CONSTR-00 (INV-INS-143).
+#
+# THE CONFORMING HALF IS NOT EXPRESSIBLE, and the reason is worth writing down because it looks
+# like an omission. It needs a key store that (a) holds a trusted entry, or the constructor
+# throws, and (b) was observed being loaded, or `KeyStoreSpec` writes no `generatedKeyStore`.
+# The notation cannot give both: `truststore` satisfies (a) but arrives without an observed
+# `getInstance`, so its `load` falls outside the automaton and draws KEYSTORE-ORDER-00; and a
+# store obtained through an observed `getInstance` is empty, because a line with no binding
+# never reaches the platform and so never loads anything into it. Measured, gh109 task 7.3.
+bind ks = truststore
+new PKIXBuilderParameters(ks, null) -> params

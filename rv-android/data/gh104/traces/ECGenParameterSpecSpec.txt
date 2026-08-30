@@ -1,0 +1,5 @@
+# gh109 task 2.2, the conforming half. `ECGenParameterSpec.crysl` admits the curve by name, and
+# `secp256r1` is on the list under three spellings; this one is the OID-free short name.
+# `c1` takes the conforming branch, the object reaches `@match` and `preparedEC` is staged for
+# `KeyPairGeneratorSpec.init3`/`init4` to read (task 1b.1). Nothing is drawn.
+new ECGenParameterSpec("secp256r1") -> curve

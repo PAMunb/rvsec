@@ -1,0 +1,26 @@
+# gh109 task 8.6 (D-26.4), the conforming half of the pair whose done criterion this trace is.
+# The oracle read across three of its rules: `SecretKeyFactory.crysl:31` writes
+# `generatedKey[key, algorithm]` with the PBE name unchanged, `Cipher.crysl:134` requires
+# `generatedKey[key, alg(transformation)]`, and `Cipher.crysl:94-105` treats the whole PBE name
+# as the transformation's algorithm -- so along this chain the two strings are the same one.
+#
+# Before 8.6 the `i2` read compared only the FAMILY, and `keyAlgorithm` folded the producer's
+# `PBEWithHmacSHA256AndAES_128` down to `AES` (the D-20.2 fold, written for the alias/keysize
+# route and spilling into this one). The store answered VIOLATED and a program the oracle
+# declares conforming drew CIPHER-CONSTR-00. The repair reads the letter beside the family and
+# takes either, so NO CIPHER-CONSTR-00 IS DRAWN AT `i2` HERE.
+#
+# The salt is randomised under observation and the iteration count is at the rule's floor,
+# because `PBEKeySpecSpec` writes `speccedKey` only on its fully conforming branch: an
+# unobserved salt clears `conforms` and the whole chain downstream would read NOT_OBSERVED
+# instead of measuring what this trace is for.
+#
+# The separating trace is CipherSpec-pbkdf2-direct-aes.txt.
+SecureRandom.getInstance("SHA1PRNG") -> r
+bind salt = bytes(16)
+r.nextBytes(salt)
+new PBEKeySpec(chars, salt, 100000, 256) -> spec
+SecretKeyFactory.getInstance("PBEWithHmacSHA256AndAES_128") -> skf
+skf.generateSecret(spec) -> key
+Cipher.getInstance("PBEWithHmacSHA256AndAES_128") -> c
+c.init(1, key)

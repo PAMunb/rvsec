@@ -1,0 +1,21 @@
+# gh109 task 8.5 (D-26.3), the executable evidence of that repair.
+# `AlgorithmParameters.crysl:35-40` states its REQUIRES per algorithm, and `:139`/`:143` used to
+# test the antecedent with `dhAlgorithms.contains(algorithm)` -- a case-sensitive list lookup.
+# `getInstance("dh")` therefore matched nothing, `required` stayed null, and the `preparedDH`
+# read NEVER HAPPENED: the site was silent on both the conforming and the violating program.
+# The repair resolves the antecedent through `ConscryptAliasTable.matches`, like the other 55
+# comparison sites of the set, so the lowercase spelling reaches the clause.
+#
+# Here the parameters are prepared under observation (`DHParameterSpecSpec`, task 2.5, writes
+# `preparedDH` at `@match`), the read answers SATISFIED and nothing is drawn. The separating
+# trace is AlgorithmParametersSpec-dh-alias-unobserved.txt, whose NOBS-01 is the accusation the
+# alias route made reachable -- before 8.5 it drew nothing either.
+#
+# NOTE ON WHAT THE DIFFERENTIAL CAN AND CANNOT SHOW. `AlgorithmParametersSpec.mop` is a file
+# gh109 itself created (task 3.1), so snapshot A has nothing to compare and both halves classify
+# as `introduced` against the pre-gh109 preimage. What this trace gives is executable evidence
+# that the site fires, not a delta attributable to 8.5 alone; isolating 8.5 needs a pre-8.5
+# against post-8.5 comparison, which checkpoint 2 is not.
+AlgorithmParameters.getInstance("dh") -> ap
+new DHParameterSpec(bits(2048), bits(2048)) -> params
+ap.init(params)

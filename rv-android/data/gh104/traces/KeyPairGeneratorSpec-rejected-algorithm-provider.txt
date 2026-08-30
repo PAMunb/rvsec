@@ -1,0 +1,23 @@
+# gh109 task 8.9 (the D-26.2 addendum), the accusation this repair created and the twin of
+# KeyPairGeneratorSpec-rejected-algorithm.txt one arity over.
+#
+# The same misuse as that trace -- `Ed25519` is a real platform algorithm outside the five
+# `KeyPairGenerator.crysl:28` names -- spelled through `getInstance(algorithm, provider)`.
+# Until 8.9 this line matched NO event of the specification: `g2`'s guard is a positive
+# `matches(...)` and `g3`'s pointcut is one-argument, so the rejected algorithm fell between
+# them. It cost more than the missing value report. `algorithm` is the field every `init`
+# event tests for null before it does anything, so the object went on unbound and the two
+# lines below drew nothing either -- the whole specification silent for an object whose
+# one-argument spelling drew three reports. `g4` draws KEYPAIRGENERATOR-ALG-01.
+#
+# The two lines after it carry the same residues the arity-1 twin carries, and for the same
+# reason: `validate` cannot answer for an algorithm the rule does not name, and the `ere`
+# wants an admitted `getInstance` before any Init. `g4` binds `algorithm` exactly as `g3`
+# does, which is what makes the two arities answer alike -- the residues are the price of
+# that, and they are the set's known noise on this trace.
+#
+# `SunRsaSign` is any provider name: `Object+` covers both two-argument overloads, and the
+# accusation reads the algorithm string the trace names, never the object the platform built.
+KeyPairGenerator.getInstance("Ed25519", "SunRsaSign") -> kpg
+kpg.initialize(256)
+kpg.generateKeyPair()

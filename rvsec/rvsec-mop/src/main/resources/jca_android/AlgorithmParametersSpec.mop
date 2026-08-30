@@ -60,13 +60,16 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
 
    String expectedPreparedAlg = "parameter bytes this instrumentation observed being encoded";
 
-   // The rule's `Get := g1 | g2` (:11-13), fused. The two overloads api30 declares are
-   // `getInstance(String)` and `getInstance(String, String)`; they differ in arity, so the
-   // position they share is the zeroth and `args(alg, ..)` binds it in both. The wildcard is
-   // in `args` and not in the `call(...)` signatures, which are written out in full: the
-   // trace harness's resolver walks the declared parameter types of the call and stops at
-   // the first wildcard, so a wildcard in the signature would make every `getInstance` fit
-   // this pointcut (KeyManagerFactorySpec.mop:87-90).
+   // The rule's `Get := g1 | g2` (:11-13), fused. `g2` leaves its second position anonymous
+   // (`getInstance(algorithm, _)`), so every overload the platform declares is that event:
+   // api30 declares three -- `getInstance(String)`, `(String, String)` and
+   // `(String, Provider)` -- and all three are named. Naming a proper subset would narrow
+   // the rule's alphabet without saying so (INV-INS-157). The position all three share is
+   // the zeroth, and `args(alg, ..)` binds it in each. The wildcard is in `args` and not in
+   // the `call(...)` signatures, which are written out in full: the trace harness's resolver
+   // walks the declared parameter types of the call and stops at the first wildcard, so a
+   // wildcard in the signature would make every `getInstance` fit this pointcut
+   // (KeyManagerFactorySpec.mop:87-90).
    //
    // The one CONSTRAINTS clause is accused HERE, in the body, and not in a `condition(...)`:
    // a guard compiles to `if (!(guard)) return false;` ahead of the transition, so a
@@ -75,7 +78,8 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
    // it and a rejected one must not silently become an empty string in a later report.
    event get after(String alg) returning(AlgorithmParameters s):
      ( call(public static AlgorithmParameters AlgorithmParameters.getInstance(String)) ||
-       call(public static AlgorithmParameters AlgorithmParameters.getInstance(String, String))
+       call(public static AlgorithmParameters AlgorithmParameters.getInstance(String, String)) ||
+       call(public static AlgorithmParameters AlgorithmParameters.getInstance(String, java.security.Provider))
      ) && args(alg, ..) {
        algorithm = ConscryptAliasTable.canonical("AlgorithmParameters", alg);
        if (!ConscryptAliasTable.matches("AlgorithmParameters", alg, safeAlgorithms)) {
@@ -109,6 +113,17 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
    // literal first argument of the store call (`gh105_predicate_graph.py`, pass 1); a
    // constant held in a variable would leave the clause out of the graph, the ledger and
    // every gate while the monitor went on accusing.
+   //
+   // The four antecedents are tested with the SET'S OWN ALIAS SEMANTICS, like the other
+   // comparison sites of `jca_android` and like the sibling that reads the same two
+   // predicates (`KeyAgreementSpec.mop:152,:156`). An antecedent is not a place where
+   // exact spelling may be demanded: `getInstance("dh")` is `DiffieHellman` to the
+   // platform, and a raw case-sensitive `contains` made it fall out of all four branches
+   // and reach no read at all -- neither NOT_OBSERVED nor VIOLATED, silence, which is the
+   // one outcome a reader cannot act on. `matches` folds case and resolves the service's
+   // alias rows; the AES and OAEP antecedents use `equalsIgnoreCase` because `algorithm`
+   // reaches here already canonical from `get`, and those two names have no alias row of
+   // their own to resolve.
    event init after(Object arg, AlgorithmParameters s):
      ( call(public void AlgorithmParameters.init(AlgorithmParameterSpec)) ||
        call(public void AlgorithmParameters.init(byte[])) ||
@@ -132,11 +147,11 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
                required = "preparedIV";
                prepared = PredicateStore.instance().validate(Property.PREPARED_IV, arg);
            }
-           else if (algorithm != null && dhAlgorithms.contains(algorithm)) {
+           else if (ConscryptAliasTable.matches("AlgorithmParameters", algorithm, dhAlgorithms)) {
                required = "preparedDH";
                prepared = PredicateStore.instance().validate(Property.PREPARED_DH, arg);
            }
-           else if (algorithm != null && pbeAlgorithms.contains(algorithm)) {
+           else if (ConscryptAliasTable.matches("AlgorithmParameters", algorithm, pbeAlgorithms)) {
                required = "preparedPBE";
                prepared = PredicateStore.instance().validate(Property.PREPARED_PBE, arg);
            }

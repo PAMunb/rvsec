@@ -86,7 +86,7 @@ n,section,rule,predicate,arity,negated,guarded,bindable,counterparts,counterpart
 85,ENSURES,KeyFactory,generatedPrivkey,1,no,no,yes,KeyAgreement|KeyPair|Signature,KeyAgreement|KeyPair|Signature,producible,"read by KeyAgreement, KeyPair, Signature",KeyFactory.crysl:31,generatedPrivkey[privateKey] after GenPriv
 86,ENSURES,KeyFactory,generatedPubkey,1,no,no,yes,KeyAgreement|KeyPair|Signature|TrustAnchor,KeyAgreement|KeyPair|Signature|TrustAnchor,producible,"read by KeyAgreement, KeyPair, Signature, TrustAnchor",KeyFactory.crysl:32,generatedPubkey[publicKey] after GenPubl
 87,ENSURES,KeyGenerator,generatedKey,2,no,no,yes,Cipher|Mac,Cipher|Mac,producible,"read by Cipher, Mac",KeyGenerator.crysl:36,"generatedKey[key, algorithm]"
-88,ENSURES,KeyManagerFactory,generatedKeyManager,1,no,no,yes,SSLContext,SSLContext,producible,read by SSLContext,KeyManagerFactory.crysl:35,generatedKeyManager[this] after Init
+88,ENSURES,KeyManagerFactory,generatedKeyManager,1,no,no,yes,-,-,unread,no rule of the catalogue REQUIRES generatedKeyManager,KeyManagerFactory.crysl:35,generatedKeyManager[this] after Init
 89,ENSURES,KeyManagerFactory,generatedKeyManagers,1,no,no,yes,SSLContext,SSLContext,producible,read by SSLContext,KeyManagerFactory.crysl:36,generatedKeyManagers[keyManager] after GetKeyMng
 90,ENSURES,KeyPair,generatedKeypair,2,no,no,yes,-,-,unread,no rule of the catalogue REQUIRES generatedKeypair,KeyPair.crysl:27,"generatedKeypair[this, _] after Con"
 91,ENSURES,KeyPair,generatedPubkey,1,no,no,yes,KeyAgreement|KeyPair|Signature|TrustAnchor,KeyAgreement|KeyPair|Signature|TrustAnchor,producible,"read by KeyAgreement, KeyPair, Signature, TrustAnchor",KeyPair.crysl:28,generatedPubkey[retPublicKey] after GetPubl
@@ -116,7 +116,7 @@ n,section,rule,predicate,arity,negated,guarded,bindable,counterparts,counterpart
 115,ENSURES,SSLContext,generatedSSLEngine,1,no,no,yes,-,-,unread,no rule of the catalogue REQUIRES generatedSSLEngine,SSLContext.crysl:38,generatedSSLEngine[eng] after Engine
 116,ENSURES,SSLEngine,generatedSSLEngine,1,no,no,yes,-,-,unread,no rule of the catalogue REQUIRES generatedSSLEngine,SSLEngine.crysl:46,generatedSSLEngine[this]
 117,ENSURES,SSLParameters,generatedSSLParameters,1,no,no,yes,-,-,unread,no rule of the catalogue REQUIRES generatedSSLParameters,SSLParameters.crysl:48,generatedSSLParameters[this]
-118,ENSURES,SecretKey,preparedKeyMaterial,1,no,no,yes,SecretKeySpec|X509EncodedKeySpec,SecretKeySpec|X509EncodedKeySpec,unmonitored-producer-side,no .mop specifies the producing rule,SecretKey.crysl:17,preparedKeyMaterial[keyMaterial] after GetEnc
+118,ENSURES,SecretKey,preparedKeyMaterial,1,no,no,yes,SecretKeySpec|X509EncodedKeySpec,SecretKeySpec|X509EncodedKeySpec,unmonitored-producer-side,no .mop specifies the producing rule; the predicate is written by the propagator SecretKeySpec.mop:145,SecretKey.crysl:17,preparedKeyMaterial[keyMaterial] after GetEnc
 119,NEGATES,SecretKey,generatedKey,2,no,no,yes,Cipher|Mac,Cipher|Mac,unmonitored-producer-side,no .mop specifies the producing rule,SecretKey.crysl:20,"generatedKey[this, _] after Destroy"
 120,ENSURES,SecretKeyFactory,generatedKey,2,no,no,yes,Cipher|Mac,Cipher|Mac,producible,"read by Cipher, Mac",SecretKeyFactory.crysl:31,"generatedKey[key, algorithm]"
 121,ENSURES,SecretKeySpec,speccedKey,2,no,no,yes,KeyFactory|SecretKeyFactory,KeyFactory|SecretKeyFactory,producible,"read by KeyFactory, SecretKeyFactory",SecretKeySpec.crysl:26,"speccedKey[this, _]"
@@ -131,6 +131,6 @@ n,section,rule,predicate,arity,negated,guarded,bindable,counterparts,counterpart
 130,ENSURES,Signature,signed,2,no,no,yes,-,-,unread,no rule of the catalogue REQUIRES signed,Signature.crysl:60,"signed[output, inputByteBuffer] after Sign"
 131,ENSURES,Signature,verified,2,no,no,yes,-,-,unread,no rule of the catalogue REQUIRES verified,Signature.crysl:61,"verified[verified, sign] after Verify"
 132,ENSURES,TrustAnchor,generatedTrustAnchor,1,no,no,yes,-,-,unread,no rule of the catalogue REQUIRES generatedTrustAnchor,TrustAnchor.crysl:21,generatedTrustAnchor[this]
-133,ENSURES,TrustManagerFactory,generatedTrustManager,1,no,no,yes,SSLContext,SSLContext,producible,read by SSLContext,TrustManagerFactory.crysl:32,generatedTrustManager[this] after Init
+133,ENSURES,TrustManagerFactory,generatedTrustManager,1,no,no,yes,-,-,unread,no rule of the catalogue REQUIRES generatedTrustManager,TrustManagerFactory.crysl:32,generatedTrustManager[this] after Init
 134,ENSURES,TrustManagerFactory,generatedTrustManagers,1,no,no,yes,SSLContext,SSLContext,producible,read by SSLContext,TrustManagerFactory.crysl:33,generatedTrustManagers[trustManager] after GetTrustMng
 135,ENSURES,X509EncodedKeySpec,speccedKey,2,no,no,yes,KeyFactory|SecretKeyFactory,KeyFactory|SecretKeyFactory,producible,"read by KeyFactory, SecretKeyFactory",X509EncodedKeySpec.crysl:17,"speccedKey[this, _] after Con"

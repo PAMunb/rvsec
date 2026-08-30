@@ -132,7 +132,16 @@ SecureRandomSpec(SecureRandom r) {
       sr = r;
     }
 
-    // getInstance with an invalid algorithm.
+    // `getInstance` with an algorithm the rule does not admit, at the arity `g1` observes.
+    //
+    // The accusing sites mirror the admitting ones one for one, and they have to: `args`
+    // is what discriminates them, since both `call(...)` signatures are `(String, ..)`.
+    // `args(alg)` binds arity 1 and nothing else, so this event answers for `g1`'s route
+    // and `g5` below answers for `g2`'s. An accuser bound at a fixed arity does not realize
+    // an alphabet the rule wrote open (INV-INS-157): before `g5` existed, a rejected PRNG
+    // obtained through `getInstance(alg, provider)` took no event at all -- no value
+    // accusation, and the object's next call drew a `SECURERANDOM-ORDER-00` the rule does
+    // not state, because it was still at `start`.
     event g4 after(String alg) returning(SecureRandom r):
       call(public static SecureRandom SecureRandom.getInstance(String, ..))
       && args(alg)
@@ -140,6 +149,23 @@ SecureRandomSpec(SecureRandom r) {
     {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SecureRandomSpec", "" + __LOC,
             "v=1 code=SECURERANDOM-ALG-00 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
+    }
+
+    // The same accusation over `g2`'s route -- the rule's `getInstance(algorithm, _)`
+    // (SecureRandom.crysl:20). `args(alg, *)` binds arity 2 exactly, which is the arity the
+    // rule's anonymous position has; api30's three-argument `getInstance` overloads are
+    // outside the rule's alphabet and stay outside this one.
+    //
+    // It sits at the same three transitions as `g4` -- `start -> start`, `init -> init`,
+    // `end -> end` -- because a rejected algorithm is accused and does not obtain a
+    // SecureRandom the rest of the ORDER may be read against.
+    event g5 after(String alg) returning(SecureRandom r):
+      call(public static SecureRandom SecureRandom.getInstance(String, ..))
+      && args(alg, *)
+      && condition(!ConscryptAliasTable.matches("SecureRandom", alg, algorithms))
+    {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SecureRandomSpec", "" + __LOC,
+            "v=1 code=SECURERANDOM-ALG-01 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
     }
 
     // The rule's `s2: setSeed(lSeed)` (SecureRandom.crysl:26), and the site of
@@ -308,10 +334,12 @@ SecureRandomSpec(SecureRandom r) {
          g2 -> init
          g3 -> init
          g4 -> start
+         g5 -> start
       ]
       init [
          c1       -> init
          g4       -> init
+         g5       -> init
          genSeed  -> end
          setSeed1 -> end
          setSeed2 -> end
@@ -322,6 +350,7 @@ SecureRandomSpec(SecureRandom r) {
       ]
       end [
          g4       -> end
+         g5       -> end
          genSeed  -> end
          setSeed1 -> end
          setSeed2 -> end
@@ -348,8 +377,8 @@ SecureRandomSpec(SecureRandom r) {
 
     // What leaves this handler is the accepting-state bookkeeping that stood beside
     // the write: the new store does not offer it and the set has no reader of it
-    // (INV-INS-147). `sr` is null on the one path that reaches `init` without
-    // binding it -- `g4`, which only accuses -- and `ensure` treats a null binding as
+    // (INV-INS-147). `sr` is null on the paths that re-enter `init` without binding
+    // it -- `g4` and `g5`, which only accuse -- and `ensure` treats a null binding as
     // a no-op, so no guard is needed here.
     @match1 {
         PredicateStore.instance().ensure(Property.RANDOMIZED, sr);

@@ -1,0 +1,11 @@
+# gh109 task 2.13, the conforming half. `X509EncodedKeySpec.crysl` requires the byte array to
+# carry `preparedKeyMaterial`, which `SecretKeySpec.mop:145` writes on `SecretKey+.getEncoded()`
+# -- the `+` pointcut task 1.5 (R5) repaired so the subtype actually weaves.
+#
+# The array bound below is the one that call returned, so the read is on the same object identity
+# the write used and answers SATISFIED. Nothing is drawn.
+KeyGenerator.getInstance("AES") -> kg
+kg.init(256)
+kg.generateKey() -> key
+key.getEncoded() -> material
+new X509EncodedKeySpec(material) -> spec

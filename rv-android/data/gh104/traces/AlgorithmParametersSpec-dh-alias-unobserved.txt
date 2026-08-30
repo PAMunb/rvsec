@@ -1,0 +1,11 @@
+# gh109 task 8.5 (D-26.3), the separating half. Identical to AlgorithmParametersSpec-dh-alias.txt
+# but for the `bind`: the parameters are built outside the monitored set, nothing wrote
+# `preparedDH` for them, and the read answers NOT_OBSERVED. `init` draws
+# ALGORITHMPARAMETERS-NOBS-01.
+#
+# This is the accusation the repair made reachable. Under the case-sensitive `contains` the
+# antecedent `getInstance("dh")` selected no clause at all, so this program -- which the rule
+# does have something to say about -- passed in silence.
+AlgorithmParameters.getInstance("dh") -> ap
+bind params = new DHParameterSpec(bits(2048), bits(2048))
+ap.init(params)

@@ -1,0 +1,5 @@
+# gh109 task 2.13, the separating half: key material that entered from outside the monitored set.
+# No `getEncoded()` was observed for it, so the read answers NOT_OBSERVED and `c1` draws
+# X509ENCODEDKEYSPEC-NOBS-00 -- an absence of evidence, not a refused preparation.
+bind material = bytes(32)
+new X509EncodedKeySpec(material) -> spec

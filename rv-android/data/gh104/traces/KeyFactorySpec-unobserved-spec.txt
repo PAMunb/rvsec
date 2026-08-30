@@ -1,0 +1,7 @@
+# gh109 task 3.4, the separating half. `KeyFactory.crysl` requires `speccedKey[keySpec]` on the
+# spec handed to `generatePublic`. The spec below is built outside the monitored set, so nothing
+# wrote the predicate for it and `genPublic` draws KEYFACTORY-NOBS-01 -- an absence of evidence
+# and not a refused preparation.
+KeyFactory.getInstance("RSA") -> kf
+bind spec = new X509EncodedKeySpec(bytes(32))
+kf.generatePublic(spec)

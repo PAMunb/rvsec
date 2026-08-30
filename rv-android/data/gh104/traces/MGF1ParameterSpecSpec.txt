@@ -1,0 +1,4 @@
+# gh109 task 2.6, the conforming half. `MGF1ParameterSpec.crysl` admits SHA-256, SHA-384 and
+# SHA-512 as the mask-generation digest. `c1` conforms, `preparedMGF1[this, mdName]` is staged
+# at `@match` for `OAEPParameterSpecSpec` (task 2.7) to read. Nothing is drawn.
+new MGF1ParameterSpec("SHA-256") -> mgf

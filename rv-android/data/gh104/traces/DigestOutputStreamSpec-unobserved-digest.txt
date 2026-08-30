@@ -1,0 +1,8 @@
+# gh109 task 3.7, the separating half. `bind` produces a real MessageDigest without firing the
+# advices of its `getInstance`, which is the trace idiom for a producer this instrumentation
+# never wove. Nothing wrote `generatedMessageDigest` for it, so `c1` answers NOT_OBSERVED and
+# draws DIGESTOUTPUTSTREAM-NOBS-00 and not DIGESTOUTPUTSTREAM-CONSTR-00 (INV-INS-143).
+bind md = MessageDigest.getInstance("SHA-256")
+new DigestOutputStream(null, md) -> dos
+dos.write(0)
+dos.close()

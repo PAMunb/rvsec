@@ -137,13 +137,13 @@
 # MetaCrySL/generated/api30/<rule>, which is the read-only oracle -- a mapping that
 # cannot name its line is a mapping nobody checked.
 spec,mop_event,order_symbol,symbol_kind,rule,rule_line,disposition,reason
-AlgorithmParameterGeneratorSpec,get,Get,aggregate,AlgorithmParameterGenerator.crysl,13,mapped,"one event over `getInstance(String)` and `getInstance(String, String)`, the rule's `Get := g1 | g2` whole"
+AlgorithmParameterGeneratorSpec,get,Get,aggregate,AlgorithmParameterGenerator.crysl,13,mapped,"one event over the three overloads api30 declares -- `getInstance(String)`, `(String, String)` and `(String, Provider)` -- which is the rule's `Get := g1 | g2` whole, `g2` leaving its second position anonymous (gh109 task 8.3, INV-INS-157)"
 AlgorithmParameterGeneratorSpec,initSize,i1,event,AlgorithmParameterGenerator.crysl,15,mapped,"`init(size)`. The two size overloads are events apart and not one fused event, because only the two-argument one binds the `random` the rule's REQUIRES names, and a fused event beside a random-binding one would put two letters where the ORDER has one Init"
 AlgorithmParameterGeneratorSpec,initSizeRandom,i2,event,AlgorithmParameterGenerator.crysl,16,mapped,"`init(size, random)`, the only event of the file that binds the SecureRandom `randomized[random]` names"
 AlgorithmParameterGeneratorSpec,initSpec,i3,event,AlgorithmParameterGenerator.crysl,17,mapped,"`init(genParamSpec)`. No clause of the rule names its argument, so the event has an empty body; it exists because an Init alternative with no event leaves the rule accepting a sequence the specification rejects, which G-ORDER measured on this file"
 AlgorithmParameterGeneratorSpec,initSpecRandom,i4,event,AlgorithmParameterGenerator.crysl,18,mapped,"`init(genParamSpec, random)`, the second site of `randomized[random]`"
 AlgorithmParameterGeneratorSpec,gen,gp1,event,AlgorithmParameterGenerator.crysl,21,mapped,"`algParams = generateParameters()`, the whole of `GenParam`"
-AlgorithmParametersSpec,get,Get,aggregate,AlgorithmParameters.crysl,13,mapped,"one event over `getInstance(String)` and `getInstance(String, String)`, which is the rule's `Get := g1 | g2` whole"
+AlgorithmParametersSpec,get,Get,aggregate,AlgorithmParameters.crysl,13,mapped,"one event over the three overloads api30 declares -- `getInstance(String)`, `(String, String)` and `(String, Provider)` -- which is the rule's `Get := g1 | g2` whole, `g2` leaving its second position anonymous (gh109 task 8.3, INV-INS-157)"
 AlgorithmParametersSpec,init,Init,aggregate,AlgorithmParameters.crysl,18,mapped,"one event over `init(AlgorithmParameterSpec)`, `init(byte[])` and `init(byte[], String)`, which is the rule's `Init := i1 | i2 | i3` whole; the body discriminates by runtime type, which is what separates the rule's `paramSpec` from its `params`"
 AlgorithmParametersSpec,encoded,GetEncoded,aggregate,AlgorithmParameters.crysl,22,mapped,"one event over `getEncoded()` and `getEncoded(String)`, which is the rule's `GetEncoded := e1 | e2` whole; no clause names the format the second overload takes"
 CertificateFactorySpec,get,Get,aggregate,CertificateFactory.crysl,11,mapped,"one event over the three `getInstance` overloads api30 declares, which is the rule's `Get := g1 | g2` whole"
@@ -169,6 +169,7 @@ KeyFactorySpec,genPublic,gpu1,event,KeyFactory.crysl,17,mapped,"`publicKey = gen
 KeyPairGeneratorSpec,g1,g1,event,KeyPairGenerator.cryptsl,17,mapped,
 KeyPairGeneratorSpec,g2,g2,event,KeyPairGenerator.cryptsl,19,mapped,
 KeyPairGeneratorSpec,g3,,,KeyPairGenerator.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; the rule states the algorithm in CONSTRAINTS, and an ORDER has no symbol for a call it rejects on a constraint"
+KeyPairGeneratorSpec,g4,,,KeyPairGenerator.cryptsl,,order-unmapped,"the arity-2 invalid-algorithm accuser, twin of g3 over the same `getInstance(String, Object+)` call as g2; gh109 task 8.9 added it so the clause accuses at both arities, and it is erased for g3's reason -- an ORDER has no symbol for a call it rejects on a constraint. Erasing both keeps the `ere`'s `(g3 | g4)* g1 | (g3 | g4)* g2` prefix reading as the rule's Gets"
 KeyPairGeneratorSpec,init1,i3,event,KeyPairGenerator.cryptsl,27,mapped,"`initialize(int)` is the rule's keySize branch"
 KeyPairGeneratorSpec,init2,i4,event,KeyPairGenerator.cryptsl,29,mapped,
 KeyPairGeneratorSpec,init3,i1,event,KeyPairGenerator.cryptsl,23,mapped,"`initialize(AlgorithmParameterSpec)` is the rule's params branch"
@@ -187,7 +188,7 @@ SSLContextSpec,g2,g2,event,SSLContext.cryptsl,25,mapped,
 SSLContextSpec,init,Init,event,SSLContext.cryptsl,29,mapped,"the rule names one init event, `init(kms, tms, _)`, and the `.mop` has one event for it"
 SSLContextSpec,engine,Engine,aggregate,SSLContext.cryptsl,35,mapped,"`createSSLEngine(..)` is one event over both overloads, which is the aggregate whole"
 SSLContextSpec,getDefault,,,SSLContext.cryptsl,,order-unmapped,"`getDefault()` is a FORBIDDEN clause and the rule's EVENTS do not name it, so it has no ORDER symbol -- the same reading as PBEKeySpecSpec.f1/f2 over the identical `PBEKeySpec(char[]) => Con`. The oracle does write `getDefault() => Gets`, which reads the forbidden call as filling the position the legitimate getInstance fills; this set deliberately does not model it that way, because making a forbidden call an alternative opening of the ordering is the opposite of what FORBIDDEN says (the reason PBEKeySpecSpec.mop:183-189 already records). The event is a self-loop at every state, so it moves the language nowhere and the erasure hides nothing. Added by task 9.9"
-SecretKeyFactorySpec,get,Get,aggregate,SecretKeyFactory.crysl,12,mapped,"one event over `getInstance(String)` and `getInstance(String, String)`, the rule's `Get := g1 | g2` whole"
+SecretKeyFactorySpec,get,Get,aggregate,SecretKeyFactory.crysl,12,mapped,"one event over the three overloads api30 declares -- `getInstance(String)`, `(String, String)` and `(String, Provider)` -- which is the rule's `Get := g1 | g2` whole, `g2` leaving its second position anonymous (gh109 task 8.3, INV-INS-157)"
 SecretKeyFactorySpec,gen,gS,event,SecretKeyFactory.crysl,14,mapped,"`key = generateSecret(keySpec)`, the alternative of `Gen` that binds the key spec the rule's REQUIRES names"
 SecretKeyFactorySpec,translate,tK,event,SecretKeyFactory.crysl,15,mapped,"`key = translateKey(otherKey)`, the other alternative of `Gen`; the rule's REQUIRES names a `keySpec` this overload does not bind"
 SecretKeySpecSpec,c1,c1,event,SecretKeySpec.cryptsl,17,mapped,
@@ -198,6 +199,7 @@ SecureRandomSpec,g1,g1,event,SecureRandom.cryptsl,29,mapped,
 SecureRandomSpec,g2,g2,event,SecureRandom.cryptsl,31,mapped,
 SecureRandomSpec,g3,gI,event,SecureRandom.cryptsl,33,mapped,"`getInstanceStrong()`; the `.mop` numbers it g3 and the rule names it gI, which is exactly the kind of association that cannot be inferred from the name"
 SecureRandomSpec,g4,,,SecureRandom.cryptsl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String, ..)` calls as g1/g2; task 3.1 absorbs it"
+SecureRandomSpec,g5,,,SecureRandom.cryptsl,,order-unmapped,"the arity-2 invalid-algorithm accuser, twin of g4 over the same `getInstance(String, ..)` calls; gh109 task 8.3 added it so the rule's anonymous second position has an accusing site (INV-INS-157), and it is absorbed the way g4 is"
 SecureRandomSpec,setSeed1,s2,event,SecureRandom.cryptsl,43,mapped,"`setSeed(long)` is the rule's s2 -- the numbering is crossed against the `.mop`, which is why this row exists"
 SecureRandomSpec,setSeed2,s1,event,SecureRandom.cryptsl,41,mapped,"`setSeed(byte[])` is the rule's s1"
 SecureRandomSpec,genSeed,gS,event,SecureRandom.cryptsl,39,mapped,

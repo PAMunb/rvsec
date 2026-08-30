@@ -12,6 +12,11 @@ import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.math.BigInteger;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
+import javax.crypto.spec.PSource;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +28,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -83,7 +89,22 @@ import java.util.stream.Stream;
  * Arguments are string literals, integers, {@code true}/{@code false}, {@code null}, a
  * previously bound name, or one of the placeholders {@code bytes}, {@code bytes(n)},
  * {@code chars}, {@code chars(n)}, {@code strings("a", "b")} for the array arguments no trace
- * needs to spell out.
+ * needs to spell out. {@code bits(n)} is a {@link BigInteger} of exactly {@code n} bits, for
+ * the clauses stated as a magnitude. {@code truststore} is the platform's own {@code cacerts}
+ * key store and {@code anchor} one X509 certificate out of it, for the certificate-path rules
+ * whose objects cannot be built from literals; {@code psource} is the empty OAEP label.
+ *
+ * <p>
+ * An integer token also serves a position declared {@link BigInteger}. The notation has no
+ * spelling of its own for one, and five pointcuts of {@code jca_android} declare the type --
+ * {@code RSAKeyGenParameterSpec.new(int, BigInteger)}, the two {@code DHParameterSpec}
+ * overloads, {@code DSAParameterSpec.new} and {@code ECParameterSpec.new}. Without the
+ * admission every line naming those constructors resolved against no pointcut and was skipped,
+ * so the specifications that read them measured as silent when the truth was that they never
+ * ran (gh109 task 7.3, checkpoint 2). The conversion is the same shape as the one that lets an
+ * integer token reach a {@code long} position, and it is deliberately narrow: only
+ * {@code Integer} to {@code BigInteger}, never the reverse and never a widening between
+ * unrelated numeric types.
  *
  * <h2>A limitation worth knowing</h2>
  *
@@ -557,6 +578,12 @@ public final class TraceRunner implements AutoCloseable {
                 }
                 continue;
             }
+            // The pointcut-level twin of the `fits` admission above: without it the advice is
+            // never matched, the line is recorded unresolved, and the trace reads as "not
+            // accused" where the truth is "not replayed".
+            if (owner == BigInteger.class && argument instanceof Integer) {
+                continue;
+            }
             if (owner != null && !owner.isInstance(argument)) {
                 return false;
             }
@@ -611,6 +638,14 @@ public final class TraceRunner implements AutoCloseable {
         if (declared == long.class && value instanceof Integer) {
             return ((Integer) value).longValue();
         }
+        // The trace notation writes `new RSAKeyGenParameterSpec(2048, 65537)`, because it has no
+        // spelling for a BigInteger; the pointcut and the constructor both declare one. This is
+        // where the integer token becomes the value the reflective call and the generated
+        // dispatcher need. `fits` and `fitsPointcut` carry the matching admission -- all three
+        // must agree, or the constructor is chosen and the advice is not, or neither is.
+        if (declared == BigInteger.class && value instanceof Integer) {
+            return BigInteger.valueOf(((Integer) value).longValue());
+        }
         if (declared.isInstance(value) || declared.isPrimitive()) {
             return value;
         }
@@ -649,6 +684,44 @@ public final class TraceRunner implements AutoCloseable {
             }
             return array;
         }
+        // `bits(2048)`: a BigInteger of exactly that bit length, for the clauses stated as a
+        // magnitude rather than a value. `DHParameterSpec.crysl` and `DSAParameterSpec.crysl`
+        // require `p >= 1^2048`, transcribed as `p.bitLength() >= 2048` (D-20.4), so the
+        // conforming half of those pairs needs a genuinely long number. An integer token cannot
+        // be it: `BigInteger.valueOf(2048)` has a bit length of 12, so a trace written that way
+        // states the violating case whatever number it names, and the pair does not separate.
+        // The value is `2^(n-1)`, the smallest integer of n bits, so a guard that reads the
+        // length is satisfied at its boundary and nothing else about the number is asserted.
+        if (token.startsWith("bits(")) {
+            return BigInteger.ONE.shiftLeft(size(token, 2048) - 1);
+        }
+        // `truststore` and `anchor`: the platform's own `cacerts` and one certificate out of it.
+        //
+        // The rules of the certificate-path family name objects no notation can spell. A
+        // `PKIXParameters` needs a key store holding at least one trusted entry -- an empty
+        // PKCS12 makes its constructor throw `InvalidAlgorithmParameterException` -- and a
+        // `TrustAnchor` needs a real X509Certificate. Until these existed the harness produced
+        // `null` for both, and `instantiate`'s own comment ("null is still a usable identity")
+        // was wrong here: the generated dispatcher keys its monitor map on the object, so the
+        // line raised a NullPointerException inside the indexing tree and the specification
+        // measured as silent (gh109 task 7.3, finding F3).
+        //
+        // `cacerts` is used rather than a committed fixture because it is the platform speaking:
+        // no binary in the tree to keep current, no expiry to chase, and the certificate is a
+        // real trusted root rather than something written to satisfy a parser. What a trace
+        // asserts about these objects is their PREDICATE state, never their contents, so which
+        // root comes back does not matter -- only that one does.
+        if ("truststore".equals(token) || "anchor".equals(token)) {
+            return platformTrust(token);
+        }
+        // `psource`: the OAEP label source. `OAEPParameterSpec.crysl` names a `PSource` in its
+        // constructor and the platform's constructor throws on a null one, so without this the
+        // line produced `null` and raised inside the indexing tree -- the same shape as the
+        // certificate family above. `PSpecified.DEFAULT` is the empty label, which is what the
+        // rule's own conforming example uses and what every clause of it is silent about.
+        if ("psource".equals(token)) {
+            return PSource.PSpecified.DEFAULT;
+        }
         if (token.startsWith("bytes")) {
             return new byte[size(token, 16)];
         }
@@ -658,6 +731,40 @@ public final class TraceRunner implements AutoCloseable {
             return password;
         }
         return bindings.get(token);
+    }
+
+    /** The platform `cacerts` store, and one certificate from it; loaded once, never mutated. */
+    private static KeyStore trustStore;
+
+    private static synchronized Object platformTrust(String token) {
+        try {
+            if (trustStore == null) {
+                Path store = Paths.get(System.getProperty("java.home"), "lib", "security",
+                        "cacerts");
+                KeyStore loaded = KeyStore.getInstance(KeyStore.getDefaultType());
+                try (java.io.InputStream in = Files.newInputStream(store)) {
+                    loaded.load(in, "changeit".toCharArray());
+                }
+                trustStore = loaded;
+            }
+            if ("truststore".equals(token)) {
+                return trustStore;
+            }
+            List<String> aliases = Collections.list(trustStore.aliases());
+            Collections.sort(aliases);
+            for (String alias : aliases) {
+                Certificate certificate = trustStore.getCertificate(alias);
+                if (certificate instanceof X509Certificate) {
+                    return certificate;
+                }
+            }
+            return null;
+        } catch (Exception unavailable) {
+            // A JRE without `cacerts`, or one whose store carries another password. The traces
+            // that name these tokens then record an unreplayed line, which is the honest answer
+            // and the one a reader can act on.
+            return null;
+        }
     }
 
     private static int size(String token, int fallback) {
@@ -771,11 +878,11 @@ public final class TraceRunner implements AutoCloseable {
     }
 
     /**
-     * The same method, re-looked-up on a public owner when the runtime class is not public.
+     * The same method, re-looked-up on a reachable owner when the runtime class is out of reach.
      *
      * <p>
      * {@code getMethods()} answers with the {@code Method} of the class that declares the
-     * override, and several JCA factories hand back a package-private delegate:
+     * override, and several JCA factories hand back a delegate the caller may not touch:
      * {@code KeyPairGenerator.getInstance("RSA")} is a {@code KeyPairGenerator$Delegate}, which
      * overrides {@code generateKeyPair()}. {@code setAccessible} on that {@code Method} throws
      * {@code InaccessibleObjectException} -- {@code java.base} does not open
@@ -785,21 +892,27 @@ public final class TraceRunner implements AutoCloseable {
      * unresolved, because {@code bind} lines never are.
      *
      * <p>
-     * Looking the same signature up on the nearest public supertype gives a {@code Method}
-     * whose declaring class is exported, and virtual dispatch still runs the delegate's body.
-     * Measured on this JVM, {@code KeyPairGenerator} is the only factory of the set the defect
-     * reaches, and only on the two methods its delegate overrides; the non-public delegates of
-     * {@code MessageDigest} and {@code Signature} override none of the methods the corpus
-     * calls, so they resolved to a public owner already.
+     * A class is out of reach in two ways, and asking only about {@code public} sees one of
+     * them. The delegates above are package-private. {@code sun.security.x509.X509CertImpl} --
+     * what {@code KeyStore.getCertificate} hands back, and so what the {@code anchor} token is
+     * -- is declared {@code public} and lives in a package {@code java.base} exports to nobody,
+     * so a test on the modifier alone accepts it and {@code setAccessible} throws all the same
+     * (gh109 task 7.3, finding F5). {@link #reachable} asks both questions.
+     *
+     * <p>
+     * Looking the same signature up on the nearest reachable supertype gives a {@code Method}
+     * whose declaring class is exported, and virtual dispatch still runs the override's body:
+     * {@code Certificate.getPublicKey()} invoked on an {@code X509CertImpl} answers that
+     * certificate's key.
      */
     private static Method onPublicOwner(Method method) {
-        if (Modifier.isPublic(method.getDeclaringClass().getModifiers())) {
+        if (reachable(method.getDeclaringClass())) {
             return method;
         }
         for (Class<?> owner = method.getDeclaringClass(); owner != null;
                 owner = owner.getSuperclass()) {
             for (Class<?> face : owner.getInterfaces()) {
-                if (!Modifier.isPublic(face.getModifiers())) {
+                if (!reachable(face)) {
                     continue;
                 }
                 try {
@@ -809,7 +922,7 @@ public final class TraceRunner implements AutoCloseable {
                 }
             }
             Class<?> parent = owner.getSuperclass();
-            if (parent == null || !Modifier.isPublic(parent.getModifiers())) {
+            if (parent == null || !reachable(parent)) {
                 continue;
             }
             try {
@@ -819,6 +932,17 @@ public final class TraceRunner implements AutoCloseable {
             }
         }
         return method;
+    }
+
+    /**
+     * Whether this harness may reflect on the class: {@code public}, and in a package its
+     * module exports unconditionally. {@code isExported(String)} asks the unqualified
+     * question, which is the one that matters here -- the harness runs in the unnamed module,
+     * and a package exported only to a named module is exported to something that is not us.
+     */
+    private static boolean reachable(Class<?> owner) {
+        return Modifier.isPublic(owner.getModifiers())
+                && owner.getModule().isExported(owner.getPackageName());
     }
 
     /** Whether an overload's declared parameters accept these arguments as they stand. */
@@ -835,6 +959,11 @@ public final class TraceRunner implements AutoCloseable {
                 continue;
             }
             if (declared[index] == long.class && argument instanceof Integer) {
+                continue;
+            }
+            // An integer token stands for a BigInteger argument; `coerce` converts it before the
+            // constructor is invoked.
+            if (declared[index] == BigInteger.class && argument instanceof Integer) {
                 continue;
             }
             if (!declared[index].isInstance(argument)) {
@@ -876,13 +1005,22 @@ public final class TraceRunner implements AutoCloseable {
         return owner != null && actual != null && owner.isAssignableFrom(actual);
     }
 
-    private Class<?> resolve(String simpleName) {
-        String qualified = imports.get(simpleName);
+    private Class<?> resolve(String name) {
+        String qualified = imports.get(name);
+        // A pointcut may spell its parameter type out in full -- `jca_android` does it ten
+        // times, at `java.security.Key`, `java.security.spec.AlgorithmParameterSpec` and
+        // `java.util.List` -- and a name already qualified must be tried as it stands. Prefixing
+        // it with a package finds nothing, the type resolves to null, and `fitsPointcut` then
+        // admits ANY argument at that position: `apg.init(2048)` matched both `init(int)` and
+        // `init(AlgorithmParameterSpec)`, so one call emitted two letters and the automaton
+        // refused a sequence the rule accepts (gh109 task 7.3, finding F7).
         String[] candidates = qualified != null
                 ? new String[] {qualified}
-                : new String[] {"java.security." + simpleName, "javax.crypto." + simpleName,
-                        "javax.crypto.spec." + simpleName, "javax.net.ssl." + simpleName,
-                        "java.lang." + simpleName};
+                : name.indexOf('.') >= 0
+                        ? new String[] {name}
+                        : new String[] {"java.security." + name, "javax.crypto." + name,
+                                "javax.crypto.spec." + name, "javax.net.ssl." + name,
+                                "java.lang." + name};
         for (String candidate : candidates) {
             try {
                 return Class.forName(candidate);

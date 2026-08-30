@@ -169,19 +169,17 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // would be a no-op in between (researcher, 2026-08-21). The store remembers
         // the withdrawal instead of forgetting the entry, so a later read of a cleared
         // spec answers VIOLATED rather than NOT_OBSERVED -- which is what the clause
-        // states. Nothing reads SPECCED_KEY in any set today, so the difference is
-        // recorded rather than measured.
+        // states.
         //
-        // Why nothing reads it, written down here because this is where the predicate
-        // is produced. The oracle states `speccedKey[keySpec, _]` as the one REQUIRES of
-        // `SecretKeyFactory` (SecretKeyFactory.crysl:28), and that rule has no `.mop` in
-        // this set -- ledger clause
-        // #31, `unmonitored-consumer`, recorded at task 5.10. Both of the oracle's
-        // producers of the predicate are here (`PBEKeySpec` in this file and
-        // `SecretKeySpec`, which deliberately does not write it, SecretKeySpecSpec.mop),
-        // and neither has anywhere to send it. No consumer is fabricated to give the
-        // write a reader, and the write stays because deleting a faithful translation of
-        // a clause the oracle states would be the fabrication running the other way.
+        // Who reads it, written down here because this is where the predicate is
+        // produced. The oracle states `speccedKey[keySpec, _]` as the one REQUIRES of
+        // `SecretKeyFactory` (SecretKeyFactory.crysl:28), and that rule has its `.mop` in
+        // this set, so the read is live: `SecretKeyFactorySpec.mop:96`, plus the two
+        // `KeyFactorySpec` sites (`:79`, `:105`) that read the same predicate over the
+        // key spec their own rule requires. A cleared spec therefore reaches a reader
+        // that can tell VIOLATED from NOT_OBSERVED, which is what the withdrawal above is
+        // for. The oracle's other producer, `SecretKeySpec`, writes it too
+        // (SecretKeySpecSpec.mop, the `@match`).
         event c2 after(PBEKeySpec s):
 	      call(public void PBEKeySpec.clearPassword()) &&
           target(s) {

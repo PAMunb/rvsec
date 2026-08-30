@@ -13,7 +13,7 @@ import java.nio.file.Path;
  * refused, and a caller wanting to report *why* the corpus lost a file should not have to match on
  * a message.
  *
- * <p>No specification of the five corpora uses it — measured, the 215 files declare {@code ere} 65
+ * <p>No specification of the five corpora uses it — measured, the 239 files declare {@code ere} 65
  * times and {@code fsm} 133 times and nothing else, with 17 files declaring no formula at all — so
  * this refusal protects a future specification rather than a present one.
  */

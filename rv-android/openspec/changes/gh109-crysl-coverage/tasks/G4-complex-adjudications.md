@@ -14,7 +14,7 @@ transcribes the *evident intent*, citing its divergence row as warrant. Records 
   array-argument idiom (the store binds arrays whole).
 - ENSURES `generatedSSLEngine[this]` — note `SSLContextSpec` also produces it; the ledger already
   models multi-producer predicates.
-- Platform note (recorded, not a departure): on api30 the platform enables TLSv1.2/1.3 by default;
+- Platform note (recorded, not a departure): on API 30 the platform enables TLSv1.2/1.3 by default;
   the accusation surface is programs that *narrow* to insecure values, which is exactly what the
   rule's constraints accuse. No platform-value row needed unless a default spelling collides.
 
@@ -50,9 +50,9 @@ transcribes the *evident intent*, citing its divergence row as warrant. Records 
 
 | Rule | Terminal state | Evidence to record |
 |---|---|---|
-| `Cookie` | N/A-by-platform | `javax/servlet` = 0 entries in the api30 jar (`unzip -l`) |
-| `DSAGenParameterSpec` | N/A-by-platform | class absent from api30 (`unzip -l` = 0; present from API 35) |
-| `PasswordAuthentication` | N/A-by-value (ratified, INV-INS-156) | class exists on api30. Two legs, both verified: (a) both constraints (`neverTypeOf[password, String]`, `notHardCoded`) are static-analysis predicates the instrument cannot evaluate at run time; (b) `generatedPasswordAuthentication` has no consumer among the 49, so a producer-only spec would monitor without a verdict surface. The third leg once claimed — "the ORDER is unviolatable" — is **withdrawn**: `Con, (GetPassword \| GetUserName)*` refuses a `getPassword()` on an object whose construction went unobserved, exactly as every `ere : c1 …` of the set does. Record the adjudication row with both surviving legs AND with what the ORDER would still accuse, so the departure is measured rather than assumed away |
+| `Cookie` | N/A-by-platform | `javax/servlet` = 0 entries in the API 30 `android.jar` (`unzip -l`) |
+| `DSAGenParameterSpec` | N/A-by-platform | class absent from the API 30 `android.jar` (`unzip -l` = 0; present from API 35) |
+| `PasswordAuthentication` | N/A-by-value (ratified, INV-INS-156) | class exists in the API 30 `android.jar`. Two legs, both verified: (a) both constraints (`neverTypeOf[password, String]`, `notHardCoded`) are static-analysis predicates the instrument cannot evaluate at run time; (b) `generatedPasswordAuthentication` has no consumer among the 49, so a producer-only spec would monitor without a verdict surface. The third leg once claimed — "the ORDER is unviolatable" — is **withdrawn**: `Con, (GetPassword \| GetUserName)*` refuses a `getPassword()` on an object whose construction went unobserved, exactly as every `ere : c1 …` of the set does. Record the adjudication row with both surviving legs AND with what the ORDER would still accuse, so the departure is measured rather than assumed away |
 
 ## 4.R — Group records pass
 

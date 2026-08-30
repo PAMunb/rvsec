@@ -1,0 +1,4 @@
+# gh109 task 3.1, the value half. `AlgorithmParameters.crysl` admits AES, Diffie-Hellman, OAEP
+# and the eight PBE-with-AES families and nothing else; `Blowfish` is a real platform service
+# outside that list, so `get` draws ALGORITHMPARAMETERS-ALG-00.
+AlgorithmParameters.getInstance("Blowfish") -> ap
