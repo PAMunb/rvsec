@@ -5,12 +5,18 @@ import static org.junit.Assert.*;
 
 /**
  * Unit tests for RvsecAnalysisClient.isAppClass() — the package-based
- * class filter that excludes library classes and generated classes (R,
- * R$*, BuildConfig) from the reachability section.
+ * class filter that excludes library classes and generated resource
+ * classes (R, R$*, BuildConfig, Manifest, Manifest$*) from the
+ * reachability section.
  *
  * The reachability section defines the 100% universe for coverage
  * calculation. Including library classes (e.g., retrofit2, kotlinx)
  * would inflate the denominator and make coverage metrics meaningless.
+ *
+ * <p>The cases below the "gh111" heading are the ones that matter for
+ * INV-ANA-71: every case that pre-dates it anchors its resource class at
+ * the scope key's root, so all of them passed under the old rule and
+ * said nothing about it.
  */
 public class ExtractClassesFilterTest {
 
@@ -147,11 +153,12 @@ public class ExtractClassesFilterTest {
 
 	@Test
 	public void testSubpackageRClass() {
-		// R class in a subpackage: com.gh4a.ui.R — should be excluded
-		// suffix is ".ui.R" which does NOT match ".R" exactly
-		// This is actually a valid app class (subpackage named "ui" with class "R")
-		// The filter only catches top-level R/BuildConfig — subpackage ones are rare
-		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.ui.R", PKG));
+		// INVERTED by gh111 (INV-ANA-71). This case used to assert that com.gh4a.ui.R
+		// is an app class, on the reasoning that "subpackage ones are rare" — it was
+		// the leak itself, written down as expected behaviour. They are not rare:
+		// every module of a multi-module Gradle build emits one, and 505 of them were
+		// in the corpus denominator. The test now anchors at the last segment.
+		assertFalse(RvsecAnalysisClient.isAppClass("com.gh4a.ui.R", PKG));
 	}
 
 	// ── Different package prefixes ─────────────────────────────────────
@@ -174,5 +181,68 @@ public class ExtractClassesFilterTest {
 		assertFalse(RvsecAnalysisClient.isAppClass("myapp.R", pkg));
 		assertFalse(RvsecAnalysisClient.isAppClass("myapp.BuildConfig", pkg));
 		assertFalse(RvsecAnalysisClient.isAppClass("otherapp.Main", pkg));
+	}
+
+	// ── gh111 / INV-ANA-71 — the generated-class test is anchored at the class
+	//    name's LAST segment, not at the scope key's root ─────────────────────
+
+	@Test
+	public void testModuleLevelResourceClassExcluded() {
+		// Multi-module Gradle emits one R per module. Under the root-anchored rule
+		// the suffix was ".core.database.R", which matched nothing — measured over
+		// the corpus, 117 such classes were in app.pachli_50's denominator alone.
+		String pkg = "app.pachli";
+		assertFalse(RvsecAnalysisClient.isAppClass("app.pachli.core.database.R", pkg));
+		assertFalse(RvsecAnalysisClient.isAppClass("app.pachli.core.database.R$string", pkg));
+		assertFalse(RvsecAnalysisClient.isAppClass("app.pachli.core.ui.BuildConfig", pkg));
+		assertTrue(RvsecAnalysisClient.isAppClass("app.pachli.core.database.AppDatabase", pkg));
+	}
+
+	@Test
+	public void testAncestorKeyDoesNotLetResourceClassesThrough() {
+		// The detector elects an ancestor of the resource namespace. Under the
+		// root-anchored rule the suffix was ".screenshottile.R", so every resource
+		// class of the app escaped into the denominator — and task 1.8's old
+		// acceptance number counted them.
+		String pkg = "com.github.cvzi";
+		assertFalse(RvsecAnalysisClient.isAppClass("com.github.cvzi.screenshottile.R", pkg));
+		assertFalse(RvsecAnalysisClient.isAppClass("com.github.cvzi.screenshottile.R$string", pkg));
+		assertFalse(RvsecAnalysisClient.isAppClass("com.github.cvzi.screenshottile.BuildConfig", pkg));
+		assertTrue(RvsecAnalysisClient.isAppClass("com.github.cvzi.screenshottile.MainActivity", pkg));
+	}
+
+	@Test
+	public void testManifestResourceClassExcluded() {
+		String pkg = "com.gh4a";
+		assertFalse(RvsecAnalysisClient.isAppClass("com.gh4a.Manifest", pkg));
+		assertFalse(RvsecAnalysisClient.isAppClass("com.gh4a.Manifest$permission", pkg));
+		assertFalse(RvsecAnalysisClient.isAppClass("com.gh4a.core.Manifest$permission", pkg));
+		// A class merely NAMED like one is not one: the segment must be exact.
+		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.ManifestParser", pkg));
+		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.Router", pkg));
+		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.RepositoryActivity", pkg));
+	}
+
+	@Test
+	public void testAnnotationProcessorOutputStaysInTheDenominator() {
+		// Negative case, deliberate. Annotation-processor output is 5,816 classes
+		// carrying 36,264 non-trivial methods that DO execute; removing them would
+		// redefine the denominator rather than close a leak. A later widening of
+		// this filter by analogy with the resource rule must trip here first.
+		String pkg = "com.gh4a";
+		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.di.HomeModule_ProvideFactory", pkg));
+		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.db.AppDatabase_Impl", pkg));
+		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.model.User$$serializer", pkg));
+		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.Hilt_MainActivity", pkg));
+		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.DaggerAppComponent", pkg));
+		assertTrue(RvsecAnalysisClient.isAppClass("com.gh4a.MainActivity_MembersInjector", pkg));
+	}
+
+	@Test
+	public void testResourceClassOutsideTheKeyIsStillOutside() {
+		// The last-segment rule widens what is excluded, never what is included:
+		// a resource class of a library remains excluded by the prefix test.
+		assertFalse(RvsecAnalysisClient.isAppClass("androidx.appcompat.R", PKG));
+		assertFalse(RvsecAnalysisClient.isAppClass("androidx.appcompat.R$id", PKG));
 	}
 }

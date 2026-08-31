@@ -40,7 +40,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -141,7 +140,9 @@ def _predecessor(apk: str, mneut: str, detected: str) -> dict:
 
 
 def check(rows: list[dict]) -> tuple[list[dict], dict[str, list[str]]]:
-    failures: dict[str, list[str]] = {k: [] for k in ("3.2", "3.3a", "3.3b", "3.4", "3.5")}
+    failures: dict[str, list[str]] = {
+        k: [] for k in ("3.2", "3.3a", "3.3b", "3.4", "3.5")
+    }
     results = []
 
     for row in rows:
@@ -224,9 +225,13 @@ def check(rows: list[dict]) -> tuple[list[dict], dict[str, list[str]]]:
         transitions = len(raw.get("transitions") or [])
         entry["transitions"] = transitions
         entry["wtg_status"] = (
-            "ok" if transitions > 0
-            else "truncated" if progress and progress.get("timed_out")
-            else "genuine_empty"
+            "ok"
+            if transitions > 0
+            else (
+                "truncated"
+                if progress and progress.get("timed_out")
+                else "genuine_empty"
+            )
         )
         results.append(entry)
 
@@ -252,7 +257,8 @@ def main() -> int:
     produced = sorted(p.name for p in drv.OUT_DIR.glob("*.apk.json"))
     expected = sorted(f"{r['apk'].strip()}.json" for r in rows)
     unexpected_files = sorted(
-        p.name for p in drv.OUT_DIR.glob("*.json")
+        p.name
+        for p in drv.OUT_DIR.glob("*.json")
         if p.name not in produced and p.name not in BOOKKEEPING
     )
     cardinality_ok = produced == expected and not unexpected_files
@@ -260,19 +266,27 @@ def main() -> int:
     results, failures = check(rows)
 
     if args.json:
-        print(json.dumps({
-            "cardinality_ok": cardinality_ok,
-            "expected": len(expected),
-            "produced": len(produced),
-            "unexpected_files": unexpected_files,
-            "failures": failures,
-            "apks": results,
-        }, indent=2, sort_keys=True))
+        print(
+            json.dumps(
+                {
+                    "cardinality_ok": cardinality_ok,
+                    "expected": len(expected),
+                    "produced": len(produced),
+                    "unexpected_files": unexpected_files,
+                    "failures": failures,
+                    "apks": results,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
     else:
         print(f"gh91 validation gate — {drv.OUT_DIR}\n")
         status = "PASS" if cardinality_ok else "FAIL"
-        print(f"  3.1 cardinality        {status}  "
-              f"({len(produced)} JSONs produced, {len(expected)} expected)")
+        print(
+            f"  3.1 cardinality        {status}  "
+            f"({len(produced)} JSONs produced, {len(expected)} expected)"
+        )
         if not cardinality_ok:
             for name in sorted(set(expected) - set(produced)):
                 print(f"        missing: {name}")
@@ -290,13 +304,16 @@ def main() -> int:
         for key in ("3.2", "3.3a", "3.3b", "3.4", "3.5"):
             bad = failures[key]
             mark = "PASS" if not bad else "FAIL"
-            print(f"  {key:<4} {labels[key]:<35} {mark}"
-                  + (f"  ({len(bad)}): {', '.join(sorted(bad))}" if bad else ""))
+            print(
+                f"  {key:<4} {labels[key]:<35} {mark}"
+                + (f"  ({len(bad)}): {', '.join(sorted(bad))}" if bad else "")
+            )
 
         counts: dict[str, int] = {}
         for entry in results:
             counts[entry.get("wtg_status", "unclassified")] = (
-                counts.get(entry.get("wtg_status", "unclassified"), 0) + 1)
+                counts.get(entry.get("wtg_status", "unclassified"), 0) + 1
+            )
         print("\n  3.7 wtg_status (recorded, not gated)")
         for status in ("ok", "truncated", "genuine_empty", "unclassified"):
             if counts.get(status):
@@ -307,14 +324,18 @@ def main() -> int:
         for entry in results:
             if not entry.get("predecessor_present"):
                 continue
-            print(f"      {entry['apk']:45} {entry['prev_classes_under_mneut']:>12} "
-                  f"{entry['prev_classes_under_detected']:>10} "
-                  f"{entry.get('classes_in_key', 0):>8}")
+            print(
+                f"      {entry['apk']:45} {entry['prev_classes_under_mneut']:>12} "
+                f"{entry['prev_classes_under_detected']:>10} "
+                f"{entry.get('classes_in_key', 0):>8}"
+            )
 
     ok = cardinality_ok and not any(failures.values())
     if not args.json:
-        print(f"\n{'GATE PASSED' if ok else 'GATE FAILED'} — "
-              f"{'group 4 may start' if ok else 'nothing may be copied into the corpus'}")
+        print(
+            f"\n{'GATE PASSED' if ok else 'GATE FAILED'} — "
+            f"{'group 4 may start' if ok else 'nothing may be copied into the corpus'}"
+        )
     return 0 if ok else 1
 
 

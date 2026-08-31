@@ -3,9 +3,9 @@ Tests for ResultProcessorComponent — CSV/JSON generation, task filtering,
 coverage/error/summary data writing, and logcat reconstruction fallback.
 """
 
-import logging
 import csv
 import json
+import logging
 import os
 import shutil
 from datetime import datetime
@@ -67,8 +67,23 @@ def _make_error_task(apk="app.apk"):
     return task
 
 
-def _make_mock_repository(method_calls=None, errors=None, static_methods=None):
-    """Create a mock LogcatRepository."""
+def _make_mock_repository(
+    method_calls=None,
+    errors=None,
+    static_methods=None,
+    total_classes=705,
+    total_methods=40,
+    unmatched_out_of_scope=0,
+    unmatched_in_scope=0,
+):
+    """Create a mock LogcatRepository.
+
+    `total_classes` is the denominator every coverage cell divides by, and it is
+    what decides whether a row is `measured` (INV-PLT-35): the default is a real
+    universe, and `total_classes=0` builds the denominator-less case — a task
+    whose static analysis produced nothing, which runs to completion all the same
+    and writes its violations.
+    """
     repo = MagicMock()
     repo.get_method_calls.return_value = method_calls or []
     repo.get_errors.return_value = errors or []
@@ -76,15 +91,25 @@ def _make_mock_repository(method_calls=None, errors=None, static_methods=None):
     repo.get_static_activities.return_value = []
     repo.get_target_methods.return_value = []
 
+    diagnostics = MagicMock()
+    diagnostics.unmatched_out_of_scope = unmatched_out_of_scope
+    diagnostics.unmatched_in_scope = unmatched_in_scope
+    repo.parser_diagnostics = diagnostics
+
     metrics = MagicMock()
     metrics.called_activities = 2
     metrics.called_methods = 10
     metrics.called_target_methods = 3
     metrics.total_errors = len(errors) if errors else 0
     metrics.to_dict.return_value = {
-        "activity_coverage": 50.0,
-        "method_coverage": 25.0,
-        "mop_method_coverage": 15.0,
+        "activity_coverage": 50.0 if total_classes else 0.0,
+        "class_coverage": 30.0 if total_classes else 0.0,
+        "method_coverage": 25.0 if total_classes else 0.0,
+        "reachable_method_coverage": 20.0 if total_classes else 0.0,
+        "mop_method_coverage": 15.0 if total_classes else 0.0,
+        "direct_mop_method_coverage": 10.0 if total_classes else 0.0,
+        "total_classes": total_classes,
+        "total_methods": total_methods if total_classes else 0,
         "unique_errors": len(errors) if errors else 0,
         "called_methods": 10,
     }
@@ -643,8 +668,13 @@ class TestSummaryCSV:
             reader = list(csv.reader(f))
         assert len(reader) == 2
 
-    def test_summary_csv_zeros_when_no_data(self, tmp_path):
-        """No metrics and no repository → all zeros."""
+    def test_summary_csv_empty_cells_when_no_data(self, tmp_path):
+        """No metrics and no repository → empty cells, not zeros (INV-PLT-35).
+
+        A `0.00` here asserts a measurement: it says the run exercised none of a
+        known universe. Nothing was known and nothing was measured, and the two
+        readings differ by everything a reader would conclude.
+        """
         task = _make_completed_task(coverage_metrics={})
 
         results_dir = str(tmp_path / "results")
@@ -654,8 +684,22 @@ class TestSummaryCSV:
         csv_path = os.path.join(results_dir, "summary.csv")
         with open(csv_path) as f:
             reader = list(csv.reader(f))
-        row = reader[1]
-        assert row[4] == "0"  # zeros
+        header, row = reader[0], reader[1]
+
+        for column in (
+            "cov_act",
+            "cov_class",
+            "cov_method",
+            "cov_reachable",
+            "cov_reaches_target",
+            "cov_directly_reaches_target",
+            "classes_total",
+            "methods_total",
+        ):
+            assert row[header.index(column)] == "", column
+        assert row[header.index("measured")] == "false"
+        # Violations do not depend on static analysis, so they are still written.
+        assert row[header.index("mop_errors_total")] == "0"
 
 
 # ===========================================================================
@@ -713,7 +757,13 @@ class TestResultsJSON:
         assert len(task_data["monitored_operations_errors"]["messages"]) == 1
 
     def test_json_task_data_without_repository(self, tmp_path):
-        """Without repository, uses coverage_metrics and reconstructs from logcat."""
+        """Without a repository there is no denominator, so the percentages are
+        `null` and the call counts are kept (INV-PLT-35).
+
+        This branch is reached only when the logcat is genuinely missing — the
+        coverage and summary writers run first and reconstruct on resume — so
+        `results.json` must be able to say "not measured". JSON can; a `0` cannot.
+        """
         metrics = {
             "called_activities": 3,
             "called_methods": 8,
@@ -733,7 +783,9 @@ class TestResultsJSON:
             task_data = processor._extract_task_data(task)
 
         assert task_data["summary"]["called_methods"] == 8
-        assert task_data["summary"]["method_coverage"] == 20.0
+        assert task_data["summary"]["method_coverage"] is None
+        assert task_data["summary"]["activities_coverage"] is None
+        assert task_data["summary"]["measured"] is False
 
 
 # ===========================================================================
@@ -1132,6 +1184,10 @@ class TestGh58CovClassSlotFix:
             "reachable_method_coverage": 41.67,
             "mop_method_coverage": 83.33,
             "direct_mop_method_coverage": 100.0,
+            # A real denominator, or every cell would be empty by INV-PLT-35 and
+            # the slot identity this class exists to pin would be unobservable.
+            "total_classes": 10,
+            "total_methods": 30,
             "total_errors": 0,
             "unique_errors": 0,
         }
@@ -1258,9 +1314,12 @@ class TestGh65ResumeResolution:
         assert len(processor._unresolved_task_ids) == 1
         assert spy.call_count <= 1  # memo short-circuits re-parse across writers
 
-    def test_missing_json_summary_row_zeroed_no_fallback(self, tmp_path):
+    def test_missing_json_summary_row_empty_no_fallback(self, tmp_path):
         """Serialized coverage_metrics present but JSON absent → summary.csv
-        cov_* stay 0.00 (NO fallback), mop_errors accurate (D-3, INV-PLT-16)."""
+        cov_* are EMPTY (no fallback), mop_errors accurate (INV-PLT-16 as
+        amended by INV-PLT-35: the prohibition on falling back to stale values is
+        unchanged; only zero stops being an admissible way to say "not
+        measured")."""
         task = _make_resume_task(tmp_path, copy_json=False)
         # Stale serialized metrics that MUST NOT leak into the CSV.
         task.result.coverage_metrics = {
@@ -1280,9 +1339,12 @@ class TestGh65ResumeResolution:
         def col(name):
             return row[header.index(name)]
 
-        assert float(col("cov_method")) == 0.00
-        assert float(col("cov_class")) == 0.00
-        assert float(col("cov_act")) == 0.00
+        assert col("cov_method") == ""
+        assert col("cov_class") == ""
+        assert col("cov_act") == ""
+        assert col("measured") == "false"
+        # And none of the stale serialized values leaked into those cells.
+        assert "88" not in row and "77" not in row and "66" not in row
         # MOP errors come from the logcat reconstruction (D-2), not the stale 99.
         assert int(col("mop_errors_total")) == 2
 
@@ -1696,3 +1758,393 @@ class TestGh83TimeRoundTrip:
         cov_method = [float(row[cov_method_idx]) for row in data]
         assert cov_method == sorted(cov_method)
         assert cov_method[-1] > cov_method[0]  # progressive, not row-constant
+
+
+class TestWriteErrorsReachDisk:
+    """The counts serialized by INV-CORE-61 are inert without a save (task 5.2).
+
+    `_count_write_error` fires only during result processing, and the per-task
+    saves both happen before that phase — `platform.py:430` and `:465`, in
+    execution. So the mutations lived in memory and the process ended. What was
+    missing is one write, on each of the two paths that run the processor.
+    """
+
+    @staticmethod
+    def _task_with_a_write_failure(tmp_path):
+        errors = [
+            {
+                "class_full_name": "com.example.C",
+                "method": "enc",
+                "source": "C.java:9",
+                "spec": "CipherSpec",
+                "error_type": "UnsafeAlgorithm",
+                "message": "unknown",
+                "unique_msg": f"com.example.C:::enc:::CipherSpec:::UnsafeAlgorithm:::u{i}",
+                "time_since_task_start": 0,
+            }
+            for i in range(5)
+        ]
+        return _make_completed_task(repository=_make_mock_repository(errors=errors))
+
+    def test_the_live_path_saves_after_processing(self, tmp_path):
+        """`Platform._process_results` writes the store once the processor is done."""
+        from rv_platform.platform import Platform
+
+        task = self._task_with_a_write_failure(tmp_path)
+        task.result.write_errors["errors.csv"] = 2
+
+        platform = MagicMock(spec=Platform)
+        platform.logger = MagicMock()
+        platform.task_storage = MagicMock()
+        platform.task_storage.get_completed_tasks.return_value = [task]
+        platform.task_storage.save.return_value = True
+        platform.config = MagicMock()
+        platform.config.results_dir = str(tmp_path / "results")
+
+        Platform._process_results(platform)
+
+        platform.task_storage.save.assert_called_once()
+
+    def test_a_failed_save_is_reported_rather_than_swallowed(self, tmp_path):
+        """A store that could not be written is the one case where the counts
+        are genuinely lost, so it is the one case that must say so."""
+        from rv_platform.platform import Platform
+
+        platform = MagicMock(spec=Platform)
+        platform.logger = MagicMock()
+        platform.task_storage = MagicMock()
+        platform.task_storage.get_completed_tasks.return_value = []
+        platform.task_storage.save.return_value = False
+        platform.config = MagicMock()
+        platform.config.results_dir = str(tmp_path / "results")
+
+        Platform._process_results(platform)
+
+        warnings = [
+            call.args[0] for call in platform.logger.warning.call_args_list if call.args
+        ]
+        assert any("write-error counts" in message for message in warnings), warnings
+
+    def test_the_counts_survive_a_real_store_round_trip(self, tmp_path):
+        """End to end through `TaskStorage`: mutate, save, reload, read back.
+
+        `get_completed_tasks()` returns references, so the processor's mutation
+        is already in the store — this asserts the half that was missing, that
+        the store then reaches the file and the file reads back.
+        """
+        from rv_platform.storage.task_storage import TaskStorage
+
+        storage = TaskStorage(str(tmp_path / "tasks.json"))
+        task = self._task_with_a_write_failure(tmp_path)
+        storage.update_task(task)
+
+        # What result processing does to a task it was handed.
+        stored = next(iter(storage.get_completed_tasks()))
+        stored.result.write_errors["errors.csv"] = 26
+        assert storage.save()
+
+        reloaded = TaskStorage(str(tmp_path / "tasks.json"))
+        reloaded.load()
+        recovered = next(iter(reloaded.get_completed_tasks()))
+
+        assert recovered.result.write_errors == {"errors.csv": 26}
+
+    def test_a_generator_may_count_more_than_once_per_artefact(self, tmp_path):
+        """`_count_write_error` fires once per generator, and several generators
+        write into the same artefact family — so the assertion downstream is
+        `>= 1` per family, never `== 1`."""
+        task = self._task_with_a_write_failure(tmp_path)
+
+        ResultProcessorComponent._count_write_error(task, "errors.csv")
+        ResultProcessorComponent._count_write_error(task, "errors.csv")
+
+        assert task.result.write_errors["errors.csv"] >= 1
+        assert task.result.write_errors["errors.csv"] == 2
+
+
+class TestSummaryDenominatorsAndCounters:
+    """The columns gh111 adds, and the pair of rows they exist to distinguish."""
+
+    @staticmethod
+    def _rows(tmp_path, tasks):
+        results_dir = str(tmp_path / "results")
+        ResultProcessorComponent(tasks, results_dir)._generate_summary_csv(tasks)
+        with open(os.path.join(results_dir, "summary.csv")) as handle:
+            reader = list(csv.DictReader(handle))
+        return reader
+
+    def test_the_header_is_the_seventeen_column_contract(self, tmp_path):
+        """INV-PLT-19. The order is the contract, and the five new columns are
+        appended so a reader addressing the first twelve positionally is
+        unaffected."""
+        from rv_platform.components.result_processor import SUMMARY_HEADER
+
+        task = _make_completed_task(repository=_make_mock_repository())
+        results_dir = str(tmp_path / "results")
+        ResultProcessorComponent([task], results_dir)._generate_summary_csv([task])
+
+        with open(os.path.join(results_dir, "summary.csv")) as handle:
+            header = next(csv.reader(handle))
+
+        assert header == SUMMARY_HEADER
+        assert header == [
+            "apk",
+            "rep",
+            "timeout",
+            "tool",
+            "cov_act",
+            "cov_class",
+            "cov_method",
+            "cov_reachable",
+            "cov_reaches_target",
+            "cov_directly_reaches_target",
+            "mop_errors_total",
+            "mop_errors_unique",
+            "classes_total",
+            "methods_total",
+            "unmatched_out_of_scope",
+            "unmatched_in_scope",
+            "measured",
+        ]
+
+    def test_the_denominators_are_published(self, tmp_path):
+        """INV-PLT-33: a percentage whose denominator is not in the same row
+        cannot be audited after the fact — which is how four APKs published
+        `cov_class` over denominators of 1, 2, 6 and 21 classes."""
+        repo = _make_mock_repository(total_classes=705, total_methods=4711)
+        row = self._rows(tmp_path, [_make_completed_task(repository=repo)])[0]
+
+        assert row["classes_total"] == "705"
+        assert row["methods_total"] == "4711"
+        assert row["cov_class"] == "30.0"
+
+    def test_the_two_counters_are_separate_columns(self, tmp_path):
+        """INV-PLT-34: "the app did not use it" and "the analysis did not see
+        it" are different facts, and summing them erases the one that matters."""
+        repo = _make_mock_repository(unmatched_out_of_scope=1284, unmatched_in_scope=37)
+        row = self._rows(tmp_path, [_make_completed_task(repository=repo)])[0]
+
+        assert row["unmatched_out_of_scope"] == "1284"
+        assert row["unmatched_in_scope"] == "37"
+        assert "1321" not in row.values()
+
+    def test_counters_are_empty_when_no_diagnostics_were_produced(self, tmp_path):
+        """A run that counted nothing must not publish `0`, which reads as
+        "counted, and the answer was none"."""
+        task = _make_completed_task(repository=_make_mock_repository())
+        del task.repository.parser_diagnostics
+        task.repository.parser_diagnostics = None
+
+        row = self._rows(tmp_path, [task])[0]
+
+        assert row["unmatched_out_of_scope"] == ""
+        assert row["unmatched_in_scope"] == ""
+
+    def test_measured_is_true_when_the_cells_are_filled(self, tmp_path):
+        row = self._rows(
+            tmp_path, [_make_completed_task(repository=_make_mock_repository())]
+        )[0]
+
+        assert row["measured"] == "true"
+        assert row["cov_class"] != ""
+
+    def test_measured_is_false_when_the_cells_are_empty(self, tmp_path):
+        repo = _make_mock_repository(total_classes=0)
+        row = self._rows(tmp_path, [_make_completed_task(repository=repo)])[0]
+
+        assert row["measured"] == "false"
+        assert row["cov_class"] == ""
+        # Never empty itself: a column whose purpose is to survive aggregation
+        # cannot itself go missing (INV-PLT-36).
+        assert row["measured"] != ""
+
+    def test_the_pair_of_rows_that_used_to_read_alike(self, tmp_path):
+        """No denominator, versus a denominator of 705 covered zero times.
+
+        `_percentage` returns `0.0` for `0/0`, so before this change both rows
+        published `cov_class = 0.00` and nothing else distinguished them. One is
+        an app that was exercised and covered nothing; the other is an app whose
+        universe was never established. They are now different rows in three
+        independent places: the cell, the denominator, and `measured`.
+        """
+        covered_nothing = _make_mock_repository(total_classes=705, total_methods=4711)
+        covered_nothing.calculate_metrics.return_value.to_dict.return_value = {
+            "activity_coverage": 0.0,
+            "class_coverage": 0.0,
+            "method_coverage": 0.0,
+            "reachable_method_coverage": 0.0,
+            "mop_method_coverage": 0.0,
+            "direct_mop_method_coverage": 0.0,
+            "total_classes": 705,
+            "total_methods": 4711,
+            "total_errors": 0,
+            "unique_errors": 0,
+        }
+        no_denominator = _make_mock_repository(total_classes=0)
+
+        rows = self._rows(
+            tmp_path,
+            [
+                _make_completed_task(
+                    apk="covered_nothing.apk", repository=covered_nothing
+                ),
+                _make_completed_task(
+                    apk="no_denominator.apk", repository=no_denominator
+                ),
+            ],
+        )
+        by_apk = {row["apk"]: row for row in rows}
+
+        exercised = by_apk["covered_nothing.apk"]
+        assert float(exercised["cov_class"]) == 0.0
+        assert exercised["classes_total"] == "705"
+        assert exercised["measured"] == "true"
+
+        unmeasured = by_apk["no_denominator.apk"]
+        assert unmeasured["cov_class"] == ""
+        assert unmeasured["classes_total"] == ""
+        assert unmeasured["measured"] == "false"
+
+    def test_coverage_csv_writes_empty_cells_without_a_denominator(self, tmp_path):
+        """`coverage.csv` publishes percentages by two mechanisms — four
+        row-constant `cov_*_final` values and three progressive ones — and both
+        must go empty, or the file disagrees with itself."""
+        method_calls = [
+            {
+                "time": 1,
+                "class_name": "com.example.A",
+                "method_name": "m",
+                "signature": "<com.example.A: void m()>",
+                "is_mop_method": False,
+                "activity": None,
+            }
+        ]
+        repo = _make_mock_repository(method_calls=method_calls, total_classes=0)
+        task = _make_completed_task(repository=repo)
+
+        results_dir = str(tmp_path / "results")
+        ResultProcessorComponent([task], results_dir)._generate_coverage_csv([task])
+
+        with open(os.path.join(results_dir, "coverage.csv")) as handle:
+            rows = list(csv.DictReader(handle))
+
+        assert len(rows) == 1
+        for column in (
+            "cov_class",
+            "cov_act",
+            "cov_method",
+            "cov_rv_method",
+            "cov_reachable",
+            "cov_reaches_target",
+            "cov_directly_reaches_target",
+        ):
+            assert rows[0][column] == "", column
+
+
+_GH111_FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures", "gh111")
+_NEUTRALIZED_APK = "org.musicbrainz.picard.barcodescanner_38.apk"
+
+
+def _make_neutralized_key_task(tmp_path):
+    """A resume-shaped task whose co-located artefact is a real run's output.
+
+    The artefact is the unmodified artefact `rv-static-analysis analyze
+    --strip-build-type-suffix` wrote over `org.musicbrainz.picard.barcodescanner_38`
+    on 30/08. Both keys the change exists to reconcile are visible in that one
+    file: `package` is the suffixed `…barcodescanner.debug` the manifest
+    declares, and `codePackage` is the `…barcodescanner` the policy resolved and
+    GATOR filtered by. Under today's default policy the same APK yields an empty
+    `reachability`, which is what makes 51 the movement D2 is credited with.
+
+    The task is round-tripped through `Task.from_dict(Task.to_dict())` for the
+    same reason `_make_resume_task` is: it leaves `results_dir` empty and `app`
+    None, so the processor has to find the artefact from the logcat path rather
+    than from state a live run would still be holding.
+    """
+    import shutil
+
+    task = _make_completed_task(apk=_NEUTRALIZED_APK)
+    results_dir = tmp_path / _NEUTRALIZED_APK
+    results_dir.mkdir(parents=True, exist_ok=True)
+    task.results_dir = str(results_dir)
+
+    logcat = results_dir / "task.logcat"
+    shutil.copy(os.path.join(_GH58_FIXTURE_DIR, "sample_task.logcat"), logcat)
+    task.result.logcat_file = str(logcat)
+
+    shutil.copy(
+        os.path.join(_GH111_FIXTURE_DIR, _NEUTRALIZED_APK + ".json"),
+        results_dir / (_NEUTRALIZED_APK + ".json"),
+    )
+
+    task.static_data = None
+    return Task.from_dict(task.to_dict())
+
+
+class TestTheScopeKeyReachesTheCsv:
+    """Task 8.8 — the last hop of the policy chain: artefact → parser → CSV.
+
+    `rv-static-analysis`'s `test_scope_key_policy.py` follows the key from the
+    entry point through `App`, the GATOR argv and the artefact, and back out of
+    the parser. The hop it cannot reach is the one that publishes the number,
+    because the CSV is written here. These close the chain on a real artefact
+    rather than a constructed one, so a producer that stopped recording the key
+    would fail them.
+    """
+
+    @staticmethod
+    def _row(tmp_path, task):
+        results_dir = str(tmp_path / "results")
+        ResultProcessorComponent([task], results_dir)._generate_summary_csv([task])
+        with open(os.path.join(results_dir, "summary.csv")) as handle:
+            return list(csv.DictReader(handle))[0]
+
+    def test_the_denominator_the_policy_recovered_reaches_the_row(self, tmp_path):
+        """INV-PLT-33 over a key that only D2 resolves. The artefact was
+        produced under `…barcodescanner`; under the declared
+        `…barcodescanner.debug` the client matches no compiled class and the
+        same row would carry no denominator at all."""
+        row = self._row(tmp_path, _make_neutralized_key_task(tmp_path))
+
+        assert row["classes_total"] == "51"
+        assert row["methods_total"] == "246"
+        assert row["measured"] == "true"
+
+    def test_a_denominator_covered_zero_times_is_not_an_absent_denominator(
+        self, tmp_path
+    ):
+        """The pair INV-PLT-35 and INV-PLT-36 exist to separate. The logcat
+        belongs to another application, so nothing in it matches this artefact's
+        51 classes — the run measured a denominator and covered none of it,
+        which is a number, not a blank."""
+        row = self._row(tmp_path, _make_neutralized_key_task(tmp_path))
+
+        assert row["cov_class"] != ""
+        assert float(row["cov_class"]) == 0.0
+        assert row["measured"] == "true"
+
+    def test_the_processor_reads_back_the_key_the_run_resolved(self, tmp_path):
+        """INV-ANA-66 and INV-ANA-58 together: the artefact carries the
+        effective key and the parser surfaces it, while the manifest package it
+        differs from is deliberately not surfaced — a consumer that wants it
+        must read the raw JSON, as this test does."""
+        task = _make_neutralized_key_task(tmp_path)
+        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+
+        static_data = processor._resolve_static_data(task)
+
+        assert static_data is not None
+        assert static_data.code_package == "org.musicbrainz.picard.barcodescanner"
+        assert static_data.class_defs_under_key == 51
+        assert not hasattr(static_data, "package")
+
+        raw = json.load(
+            open(
+                os.path.join(
+                    os.path.dirname(task.result.logcat_file),
+                    _NEUTRALIZED_APK + ".json",
+                )
+            )
+        )
+        assert raw["package"] == "org.musicbrainz.picard.barcodescanner.debug"
+        assert raw["codePackageSource"] == "manifest-neutralized"

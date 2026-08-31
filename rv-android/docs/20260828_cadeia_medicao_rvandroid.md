@@ -1,4 +1,4 @@
-# A cadeia de medição do RV-Android — análise ponta a ponta — 28/08/2026 (rev. 4)
+# A cadeia de medição do RV-Android — análise ponta a ponta — 28-30/08/2026 (rev. 6)
 
 **Papel deste documento**: material de referência da Fase 0 (`docs/WORKFLOW.md`), companheiro de
 `docs/20260827_achados_instrumentador_dexlib2.md`. Aquele cobre o **tecelão de advice** — o que o
@@ -9,6 +9,48 @@ OpenSpec.
 **Por que existe.** A auditoria do tecelão de advice encontrou uma classe de defeito — resolução de
 nome feita por transformação textual, falhando em silêncio. A pergunta natural foi se ela aparecia
 em outros pontos do pipeline. Aparece, em mais lugares e com mais consequência.
+
+**O que a rev. 6 faz.** A rev. 6 (30/08) é a primeira revisão escrita **de dentro da
+implementação**: a change `gh111` foi aplicada, e esta revisão registra o que as corridas mediram —
+não mais o que a leitura de código previa. Ela recolhe também o que duas verificações independentes
+estabeleceram antes dela, a adjudicação das cinco revisões externas
+(`docs/20260829_adjudicacao_revisoes_gh111.md`) e a verificação de consistência das dez dimensões
+(`docs/20260830_verificacao_consistencia_gh111.md`). Cinco correções e quatro achados novos:
+
+- **a correção C1 estreita-se à política padrão** — o D9 é observável hoje sob `--package-detector`,
+  que é política viva; o que é verdade é que nenhuma corrida registrada jamais a ligou. Ver §15.7;
+- **a sonda `D9Probe` é predição, não aceitação** — ela não muta a Scene, então editar a guarda muda
+  a saída dela por zero. A aceitação virou corrida real, e rodou: **21 → 535**;
+- **os denominadores crus não são os entregues** — 771/1.971/3.589 são crus; o cliente filtra as
+  classes geradas antes de escrever, e os entregues são 762/1.952/3.578/535;
+- **o vazamento das classes de recurso** (D9c, INV-ANA-71), que é por que os 550 do `screenshottile`
+  saíram de cena;
+- **o controle de invariância trocou** — o `app.pachli_50` não podia falhar;
+- **três achados de entrega**: os invariantes dos deltas não chegam à spec base pelo motor de merge,
+  quatro requisitos da base contradiziam a change, e a ordem de arquivamento `gh104` → `gh111` está
+  com a porta fechada hoje.
+
+As correções da rev. 6 estão marcadas **[rev. 6]**, e §15.7 é o seu balanço.
+
+**O que a rev. 5 faz.** A rev. 5 (29/08) não acrescenta investigação: ela **submete a rev. 4 à
+leitura do código que a change ia precisar de qualquer forma**, e o que a leitura devolveu contradiz
+a rev. 4 em dois pontos e completa um terceiro. Quatro correções e um achado novo:
+
+- **o D9 e o D2 são conjuntivos na via de produção, não independentes** — `App.code_package` devolve
+  o manifesto verbatim por default (`app.py:146-147`), então a guarda reparada leria hoje o mesmo
+  valor de sempre. Os números da sonda foram medidos com a chave já neutralizada, e os quatro
+  artefatos colapsados vieram do rerun da gh91, que passava `codePackage=` à mão para o cliente. Ver
+  §15.6;
+- **o diagnóstico histórico do normalizador está invertido** — `docs/NOVO/06_normalizacao_inner_classes.md`
+  atribui o `$` ao AspectJ; o `Coverage.aj:64` usa `Class.getName()`, que nunca insere `$` em
+  fronteira de pacote. Ver §5.1;
+- **o D3 mata o `SignatureNormalizer` inteiro**, não só duas chamadas: a classe tem exatamente um
+  consumidor em todo `modules/*/src`. Ver §11, D3;
+- **a §15.3 ganha a coluna que faltava**: os achados da §9 que não estão na change, não foram
+  roteados e não foram retirados. Eram invisíveis na tabela;
+- **achado novo — a procedência e o desvio de finalidade do `libPackages.txt`**. Ver §4.3 e §15.6.
+
+As correções da rev. 5 estão marcadas **[rev. 5]**.
 
 **O que a rev. 4 faz.** A rev. 4 (fim da tarde de 28/08) fecha a **investigação do D9**, que a
 rev. 3 deixou como primeiro item do escopo. O mecanismo do colapso do denominador está determinado e
@@ -661,6 +703,46 @@ completa com tipos de parâmetro qualificados:
 <...TableListAdapter: void onBindViewHolder(android.support.v7.widget.RecyclerView$ViewHolder,int)>
 ```
 
+**[rev. 5] De onde vem o `libPackages.txt`, e por que ele erra aqui.** O arquivo é upstream do
+GATOR, herdado por cadeia de forks registrada em `sootandroid/README.md`: GATOR (Ohio State
+University, 2014-2019, Rountev/Dacong Yan) → `limerick1718/Gator` (commit `4b2fb94d`) →
+`phtcosta/Gator` (commit `b11acb7d`) → `rvsec-gator`. Entrou no commit `d94e33cc` *"starting
+rvsec-gator"* (25/09/2024), o import inicial, e **`git log --follow` sobre ele devolve esse único
+commit** — nunca foi aberto nem editado aqui. As duas cópias (`sootandroid/` e a que o script
+realmente usa, `rv-android/lib/gator/`) são idênticas byte a byte (md5 `9296d262…`).
+
+**Ele é opcional, e o default do GATOR são dois padrões**: `AnalysisEntrypoint.java:77-82` cai em
+`android.support.*` + `com.google.android.gms.*` quando a lista está vazia. Os 2.170 só existem
+porque `rv-android/lib/gator/gator:95` passa `-libraryPackageListFile` **incondicionalmente** — não
+há flag para desligar, e o grep no `rv-android` inteiro devolve essa única linha.
+
+**A finalidade original não era medir.** O GATOR é um analisador de GUI: o par aplicação/biblioteca
+existe para escopar a varredura de `hier.appClasses` que o `FlowgraphRebuilder`, o `WTGHelper` e o
+`GatorIntentAnalysis` fazem. Nesse papel, **falso positivo custa precisão**, não número — rebaixar
+uma classe do app por engano tira um pouco de análise de GUI e ninguém publica isso. O conteúdo
+confirma a finalidade: `butterknife.internal.*`, `dagger.shaded.*`, `com.bumptech.*`,
+`com.squareup.*`, `io.reactivex.*`, `yuku.ambilwarna.*`, `aQute.libg.*` — nomes de pacote de
+bibliotecas Android de terceiros, com subpacotes internos, vocabulário de meados dos anos 2010.
+
+**O defeito é mudança de finalidade sem reautorização.** O `RvsecAnalysisClient` faz
+`Scene.v().getApplicationClasses()` (`:270`) e usa o resultado como **denominador de uma métrica
+publicada**. No papel novo o falso positivo deixou de custar precisão e passou a custar erro de
+medição. E aí a lista, defensável no papel antigo, fica indefensável: `com.github.*` é o namespace
+do JitPack, `io.github.*` é o do OSSRH para usuários do GitHub, `br.com.*` e `uk.org.*` são group
+ids de domínio reverso. Como heurística de "isto veio de um repositório Maven" faz sentido; só que
+são exatamente os namespaces que apps de código aberto usam **para si mesmos**. A lista confunde
+"namespace onde bibliotecas são publicadas" com "namespace que é biblioteca". Some-se a isso 127
+padrões de um segmento só (`c.*`, `a.a.*`, `domain.*`, `flow.*` — saída típica de ProGuard) contra
+2.043 de dois.
+
+**Duas notas mecânicas.** O casamento de `Configs.isLibraryClass` (`:176-186`) faz
+`className.startsWith(pkg.substring(0, len-1))`, e como todo padrão termina em `.*` o ponto final é
+preservado — a denylist **tem** fronteira de ponto. Dentro do mesmo laço, portanto, a lista casa com
+fronteira e a guarda de `:119` casa com `startsWith` cru: a frouxa é a que protege. E
+`Configs.processLibraryPkgFile` (`:188-204`) engole toda exceção num `catch (Exception e) {}` vazio
+— se o arquivo sumir, a lista fica vazia, o default de dois padrões assume, e a análise segue sem
+dizer nada, com denominador **inflado** em vez de colapsado. Mesma família de silêncio.
+
 **O artefato tem sete chaves, invariantes em 381 artefatos**: `package`, `mainActivity`,
 `components`, `reachability`, `windows`, `transitions`, `complete` — nesta ordem, zero variação.
 `reachability` é 76–78% dos bytes e é o denominador. `complete: true` em 219/219, 162/162 e nos 30
@@ -1144,6 +1226,24 @@ sempre errada ali.
 O lado de runtime **não é normalizado**: o `SignatureNormalizer` aparece só em
 `static_analysis_parser.py` em todo `modules/*/src/`. O instrumentador emite o nome binário puro.
 Resultado: denominador com `$`, numerador com `.`, cruzamento por igualdade literal.
+
+**[rev. 5] O diagnóstico de 2025 está invertido, e isso muda a natureza do reparo.** O
+`docs/NOVO/06_normalizacao_inner_classes.md` (§2.1, §4.3) atribui o `$` ao AspectJ: *"AspectJ
+interpreta estruturas Pacote.Classe onde Pacote == Classe como se fossem inner classes"*. Verificado
+na fonte: `Coverage.aj:64` monta o nome com `method.getDeclaringClass().getName()`, que é o **nome
+binário da JVM** e nunca insere `$` em fronteira de pacote — idêntico nos três `Coverage.aj` gerados
+que existem no acervo (`cli_experiment_20260514_134106_eeefed0a`, `gh56-smoke`,
+`gh99_jca_android_monitors`). Quem produzia o `$` era o normalizador, do lado estático. A
+consequência é que o D3 não é uma escolha entre normalizar de um lado ou dos dois: é **remover uma
+transformação que quebra um acordo que já existia**.
+
+**[rev. 5] E o normalizador nunca poderia ter reparado, nem por acidente.** Ele é aplicado ao
+`class_name` e **não** à `signature`: `static_analysis_parser.py:390` guarda `signature=signature`
+verbatim. Quando dispara, produz um registro internamente inconsistente —
+`Method.class_name = …ZoomView$ZoomView` ao lado de `Method.signature = <…ZoomView.ZoomView: …>` — e
+o cruzamento testa os dois (`coverage.py:658` a classe, `:665` a assinatura). É isto que explica os
+~10 milhões de warnings que o doc de 2025 mediu *apesar* do normalizador: a classe casava e o método
+não.
 
 #### A medição pendente da rev. 1, agora fechada
 
@@ -1725,7 +1825,14 @@ denominador de atividades normalizado **e** quebra o casamento window↔class de
 passa a ter `$`, o outro não. É duas ou nenhuma. Quatro testes quebram, um deles estruturalmente
 (`test_normalizer_is_noop_on_correct_json` faz monkeypatch do método). As duas chamadas removidas,
 mais teste que fixa a decisão, mais a correção do `CLAUDE.md` que
-afirma o contrário do que o código faz. Maior impacto e menor risco da lista. *Muda medição* — para
+afirma o contrário do que o código faz.
+
+**[rev. 5] O D3 mata a classe inteira, não só duas chamadas.** `SignatureNormalizer` tem
+**exatamente um consumidor** em todo `modules/*/src/` — o `static_analysis_parser.py`. Removidas as
+duas chamadas, a classe fica morta, e o P3 manda deletar: `signature_normalizer.py`,
+`test_signature_normalizer.py`, a INV-ANA-02 que a torna normativa, e as três alegações de docstring
+(`:11`, `:24`, `:183`) que a descrevem como rede de segurança. Sem shim, sem wrapper, sem
+`_unused`. Maior impacto e menor risco da lista. *Muda medição* — para
 melhor, e a direção é conhecida e medida. Testemunha automatizável: `com.hwloc.lstopo_80283`, único
 caso afetado que existe **em dexlib2, no corpus vivo, com 99 execuções**.
 
@@ -1830,9 +1937,17 @@ com a chave correta, e dois deles publicam `cov_class = 100,00%`. O mecanismo es
 `AnalysisEntrypoint.java:119` compara com o pacote do **manifesto**, e o que ela não protege o
 `libPackages.txt` rebaixa a biblioteca. Reparo: consultar ali o `codePackage` do cliente, com
 fallback ao manifesto. Um sítio, poucas linhas, no `rvsec-gator`. **Muda medição** — os quatro
-denominadores saem de 1 / 2 / 6 / 21 para 771 / 1.971 / 3.589 / 550. Independe de D2 e de D3:
-o D2 conserta a chave que o cliente usa para filtrar; o D9 conserta a guarda que decide o que
-existe para filtrar.
+denominadores saem de 1 / 2 / 6 / 21 para 771 / 1.971 / 3.589 / 550.
+
+~~Independe de D2 e de D3: o D2 conserta a chave que o cliente usa para filtrar; o D9 conserta a
+guarda que decide o que existe para filtrar.~~ **[rev. 5] Independem como sítios de código e são
+conjuntivos como efeito.** A guarda reparada lê `codePackage`, e na via de produção `codePackage`
+**é** o manifesto: `App.code_package` devolve `self.package_name` quando `package_detector` está
+desligado (`app.py:146-147`), que é o default e é a decisão D-A. Logo, sem o D2 a guarda reparada lê
+exatamente o valor de hoje e não muda nada. E sem o D9 o D2 também não conserta os quatro: o
+`AnalysisEntrypoint` roda antes e já esvaziou a `Scene`, então o filtro do cliente, agora com a
+chave certa, encontra 1 classe em vez de 771. **Só os dois juntos devolvem o denominador.** Ver
+§15.6 para o que isso muda na verificação.
 
 **D10 — Efeitos colaterais das flags de pré-processamento. [rev. 3] verificado, e encolheu para
 três.** A rev. 2 listava quatro armadilhas; uma estava errada e outra tem dono.
@@ -1921,6 +2036,80 @@ porque agora *habilita* o D2: com a atribuição decidida, a melhora que o D2 me
 ---
 
 ## 13. Âncoras e medições
+
+### Medições da rev. 6 (30/08/2026) — a implementação medida
+
+Corridas reais desta implementação. Evidência bruta em
+`openspec/changes/gh111-cadeia-medicao/evidence/`.
+
+- **aceitação do D9** (`evidence/acceptance/`): `com.github.cvzi.screenshottile_148` sob
+  `--package-detector`, chave eleita `com.github.cvzi`, `len(reachability)` **21** com o jar
+  pré-mudança e **535** com o reconstruído. Artefato pós: `codePackage=com.github.cvzi`,
+  `codePackageSource=detector`, `class_defs_under_key=539`, zero classes `R`/`BuildConfig`/`Manifest`.
+  Os quatro logs mostram `Executing analysis` e nenhum mostra `Analysis result already exists`.
+- **controle** `me.zhanghai.android.untracker_9`: **330** dos dois lados do rebuild,
+  `class_defs_under_key=332`.
+- **shas dos jars**: pré `4708d63c…` (gator) / `dab75ca7…` (client); pós `6ce00738…` / `df18057e…`.
+- **api level**: derivado do `apktool.yml` de cada APK, não fixo — `android-36` para o
+  `screenshottile`, `android-37` para o `untracker`. Os `android-35` são das corridas da sonda.
+- **D3 sobre os 162**: **215.430** classes parseadas, **0** artefatos parseando para zero, **0**
+  nomes inventados pelo parser (eram 465 em 7 APKs). Instrumento: parsear cada artefato e comparar
+  o conjunto de nomes parseados contra o conjunto que o próprio arquivo carrega.
+- **custo, e a assimetria que o explica**: no mesmo `screenshottile`, com tudo igual, a perna
+  **pré** levou **91 s** e a **pós** levou **3.141 s** — 34×. Não é ruído: sob o jar pré-mudança a
+  guarda compara contra o manifesto, rebaixa todas as classes do app a biblioteca e o Soot analisa
+  quase nada; sob o jar reconstruído as 535 classes ficam na Scene e o grafo de chamadas é
+  construído sobre elas. **O custo de uma análise é fixado por quantas classes sobrevivem ao
+  rebaixamento**, que é exatamente a grandeza que esta change repara. É o que dimensiona a tarefa
+  3.15: a perna de *baseline* dela roda sob a chave com sufixo, onde nada casa — o lado barato; a de
+  *tratamento* roda sob a chave neutralizada, com o universo inteiro do app na Scene — o lado caro,
+  30 a 60 min, e uma das duas corridas aqui não terminou dentro de uma hora. A âncora da gh91
+  (1.800–5.400 s por APK) descreve bem a perna de tratamento.
+- **a perna pós do controle estourou o timeout de 3.600 s** e seu artefato é truncado: sem o flag
+  `complete` e com `transitions` vazio. O 330 continua sendo o número certo — `reachability` é a
+  primeira seção que o escritor descarrega, por desenho (INV-ANA-06) —, mas a comparação não é
+  simétrica: uma corrida `--skip-wtg` completa contra uma corrida cheia truncada. Um controle limpo
+  refaria a perna pós com `--skip-wtg`. Registrado, e não apresentado em silêncio como um par.
+- **decomposição cru → entregue** (`evidence/probe/README.md`, sonda): petals 771 → 762, unchained
+  1.971 → 1.952, feeder 3.589 → 3.578, screenshottile 550 → **535**, pachli 6.467 → 6.336. As três
+  primeiras não se movem sob o alargamento da INV-ANA-71 porque suas classes de recurso já estavam
+  na raiz da chave; as duas últimas são as que carregam o argumento inteiro.
+
+### Medições e leituras da rev. 5 (29/08/2026) — a cadeia de identificadores e a procedência da lista
+
+Nenhuma medição nova sobre o corpus: são leituras de código feitas para escrever a change, e três
+delas contradizem a rev. 4.
+
+- **`App.code_package` é o manifesto por default**: `app.py:146-147` — `if not self.package_detector:
+  return self.package_name`. O único produtor de um `codePackage` diferente do manifesto, hoje, é o
+  `package_detector`, que a decisão D-A aposenta. Logo o D9 sozinho é inerte na via de produção.
+- **A cadeia `codePackage`**: `app.py:132` → `static_analysis.py:277` → `config.py:395-397`
+  (`-clientParam codePackage=`) → `Configs.clientParams` → `RvsecAnalysisClient.java:244-250`. O
+  `AnalysisEntrypoint` não aparece nessa cadeia.
+- **`SignatureNormalizer` tem um consumidor**: grep por
+  `signature_normalizer|SignatureNormalizer|normalize_signature|normalize_parameter` em
+  `modules/*/src` devolve só `static_analysis_parser.py` (7 linhas, 1 import, 1 campo, 2 chamadas,
+  3 docstrings).
+- **A assinatura não é normalizada**: `static_analysis_parser.py:390` guarda `signature=signature`;
+  `repository_initializer.py:61-71` chaveia `MethodCoverageData` por essa assinatura verbatim.
+- **`Coverage.aj:64` usa `getDeclaringClass().getName()`** — idêntico nos três `Coverage.aj` gerados
+  do acervo. Refuta a atribuição do `$` ao AspectJ feita em `docs/NOVO/06_normalizacao_inner_classes.md`.
+- **`SignatureFormatter.toFqn`** (dexlib2) converte o descritor DEX no ponto de emissão: tira `[`
+  contando profundidade, mapeia os primitivos de uma letra, e para referências pega `L…;` e troca
+  `/` por `.`. **O descritor DEX nunca escapa do tecelão.**
+- **`libPackages.txt`**: 2.170 linhas, **todas** terminadas em `.*`; zero em `$*`; zero nomes exatos.
+  127 de um segmento (`c.*`, `a.a.*`, `domain.*`, `flow.*`), 2.043 de dois. `git log --follow`
+  devolve um único commit, `d94e33cc` (25/09/2024). md5 `9296d262…` nas duas cópias. Cadeia de forks
+  em `sootandroid/README.md`: OSU → `limerick1718` → `phtcosta` → aqui.
+- **A denylist casa com fronteira de ponto**, a guarda não: `Configs.isLibraryClass:176-186` faz
+  `startsWith(pkg.substring(0, len-1))` e o padrão termina em `.*`, então o ponto sobrevive;
+  `AnalysisEntrypoint:119` faz `startsWith(appPkg)` cru.
+- **`processLibraryPkgFile` engole exceção**: `catch (Exception e) {}` vazio em `Configs.java:200-203`.
+  Arquivo ausente → lista vazia → default de dois padrões → denominador inflado, em silêncio.
+- **A semeadura de alvos ignora parâmetros no caminho normal**: `TargetMethod.MatchPolicy.LENIENT`
+  casa `(owner, nome)`; `TargetResolver.paramsMatch` só roda no STRICT, comparando
+  `method.getParameterType(i).toString()` com a string declarada. E `MopMethod.signature` é o **texto
+  do pointcut** (`MethodPattern.toString()`), nunca usado para casar — é registro, não chave.
 
 ### Medições da rev. 4 (28/08/2026, fim de tarde) — a investigação do D9
 
@@ -2302,11 +2491,13 @@ conclusões, não os 26 itens da tabela de flags).
 
 ---
 
-## 15. Verificação, decisões e escopo — rev. 3 e rev. 4 (28/08/2026)
+## 15. Verificação, decisões e escopo — rev. 3 a rev. 6 (28-30/08/2026)
 
 Esta seção é o resumo executivo. As seções 1–14 continuam sendo a análise; esta diz **o que sobreviveu
 à verificação, o que o pesquisador decidiu, e qual é o escopo da change**. As §§15.1–15.4 são da
-rev. 3, atualizadas em linha onde a rev. 4 as contradiz; a **§15.5** é o que a rev. 4 fechou.
+rev. 3, atualizadas em linha onde a rev. 4 e a rev. 5 as contradizem; a **§15.5** é o que a rev. 4
+fechou; a **§15.6** é o que a rev. 5 corrigiu, e é onde o escopo sai deste documento e entra na
+issue #111; a **§15.7** é o que a rev. 6 mediu, escrita já com a change implementada.
 
 ### 15.1 O que foi verificado, e o que não sobreviveu
 
@@ -2395,7 +2586,7 @@ fases do Full SDD.
 
 | ordem | item | o que é | muda medição? |
 |---|---|---|---|
-| **1º** | **D9** | **[rev. 4] investigação feita; virou reparo.** A guarda de `AnalysisEntrypoint.java:119` passa a consultar `Configs.getClientParamCode("codePackage=")`, com fallback ao manifesto. Um sítio, poucas linhas, no `rvsec-gator`. Denominadores de classe: 1 → 771, 2 → 1.971, 6 → 3.589, 21 → 550 | **sim** |
+| **1º** | **D9** | **[rev. 4] investigação feita; virou reparo.** A guarda de `AnalysisEntrypoint.java:119` passa a consultar `Configs.getClientParamCode("codePackage=")`, com fallback ao manifesto. Um sítio, poucas linhas, no `rvsec-gator`. Denominadores de classe: 1 → 771, 2 → 1.971, 6 → 3.589, 21 → 550. **[rev. 5] o efeito é conjunto com o D2** — §15.6 | **sim, com o D2** |
 | 2º | **D1** | contadores `unmatched_*` separados em fora-de-escopo × dentro-do-escopo, + portão de não-vacuidade do denominador | não |
 | 3º | **D2** | flag global de sufixo de build-type (denylist) + registro da chave efetiva; não vale para o ajc | **sim** |
 | 4º | **D3** | remover as duas chamadas do normalizador (`:371` e `:455`) | **sim** |
@@ -2432,6 +2623,26 @@ resto da tabela:**
 | D5, D6, D7, D8, Q8 | retirados |
 | checksum que nunca diverge (`platform.py:171` antes de `:178`) | anotado; sem dono |
 
+**[rev. 5] E a coluna que faltava: o que não está em lugar nenhum.** A §9 lista 19 componentes com
+achados. A change leva 7, quatro destinos levam o resto do que foi roteado, e três itens foram
+retirados por decisão. Sobra isto, que não está na change, não foi roteado e não foi retirado — e
+que a tabela acima fazia parecer inexistente:
+
+| achado | onde está na análise | por que ficou de fora |
+|---|---|---|
+| portão insatisfazível do `CoverageValidator` + regex que trunca `<init>` | §9, D8 | D8 diz "fora desta change"; nenhum destino nomeado. Só roda por invocação manual (`ValidationCli.java:451-458`) |
+| fallback do split de frame no `ErrorDescription` (frame inteiro nos três campos) | §9, D7 | D7 some da tabela final sem decisão explícita |
+| denominadores não publicados nos CSVs; dois esquemas de `performance.csv` | §9, Q7 | Q7 sem resposta. **[parcialmente resolvido]** — a gh111 leva os denominadores e os contadores, não a procedência |
+| checksum de resume que nunca diverge | §11, D5 (resíduo) | "anotado; sem dono" |
+| `if static_data:` sempre verdadeiro; retorno de `copy_static_analysis_files` descartado | §9 | nunca virou item D |
+| pós-condição do `static_analysis.py` só de existência de arquivo | §9 | nunca virou item D |
+| ramo `:::` morto no `logcat_parser` | §9 | nunca virou item D |
+| poda do `libPackages.txt`; os três `-exclude` inertes de `Main.java:225-227` | §4.3, §15.4 | dívida declarada; podar muda medição para todos os apps |
+| granularidade (Q3d): `LENIENT` hard-coded, `STRICT` inalcançável pelo caminho MOP, alvo semeado por nome × cobertura casada por assinatura | §9, Q3d | pergunta aberta, sem decisão |
+
+Nove achados. A gh111 encosta em um (os denominadores). Os outros oito continuam sem casa, e o
+registro existe para que não sumam na próxima campanha.
+
 ### 15.4 O que continua em aberto depois de tudo isto
 
 *[rev. 4] Eram três buracos; o primeiro foi fechado pela investigação do D9. Sobram dois, e nenhum é
@@ -2443,9 +2654,15 @@ resolvido pela change:*
    `docs/20260828_d9_colapso_denominador.md`. **No lugar dele entra uma dívida menor**: a poda de
    `libPackages.txt`, que contém namespaces de autores de app (`com.nononsenseapps.*`,
    `info.metadude.*`, `me.zhanghai.*`) e padrões largos como `c.*` e `domain.*`. Com o D9 reparado
-   ela deixa de causar dano no denominador, mas continua governando o que o GATOR trata como
-   biblioteca em análise legítima. Sem dono, e **fora** desta change: podar muda medição para todos
-   os apps.
+   ~~ela deixa de causar dano no denominador, mas continua governando o que o GATOR trata como
+   biblioteca em análise legítima.~~ **[rev. 5] a razão está corrigida, e é mais estreita.** Com o
+   D9 reparado a lista **não alcança mais o denominador**: tudo sob o prefixo do app sai do laço na
+   guarda de `:119` e nunca chega ao `isLibraryClass`, e o que ela ainda rebaixa está fora do
+   prefixo, que o `isAppClass` do cliente já excluía. O que ela continua governando é
+   `hier.appClasses` — logo o `FlowgraphRebuilder`, o `WTGHelper` e a descoberta de entry points, e
+   portanto os predicados `reachable` e `reachesTarget`. A dívida deixou de ser de denominador e
+   virou de alcance. Sem dono, e **fora** desta change: podar muda medição para todos os apps.
+   Procedência, conteúdo e o desvio de finalidade em §4.3.
 2. **A fronteira de ponto do `isAppClass`** (D-C) fica adiada, e muda medição quando for decidida.
    **[rev. 4]** O D9 não a bloqueia nem a torna urgente: o rebaixamento é anterior ao `isAppClass` e
    independente dele.
@@ -2498,4 +2715,151 @@ e as decisões D-A, D-B e D-D seguem valendo. A **D-C** (fronteira de ponto do `
 reavaliada agora, como ela mesma previa: o D9 não a bloqueia — o rebaixamento é anterior ao
 `isAppClass` e independente dele.
 
+### 15.6 O que a rev. 5 corrigiu — e a issue #111 que ela fechou
+
+A rev. 5 foi escrita ao abrir a change. Ler o código que a change ia tocar devolveu duas contradições
+e completou um item. Registro do que sai e do que entra.
+
+**O que não sobreviveu — afirmações da rev. 3/4:**
+
+| # | o que a rev. 3/4 dizia | veredito |
+|---|---|---|
+| 14 | o D9 "independe de D2 e de D3" (§11, §15.5) | **falso como efeito.** Independem como sítios de código; na via de produção são **conjuntivos**. `App.code_package` devolve o manifesto por default (`app.py:146-147`), então a guarda reparada leria o valor de hoje. Os números da sonda foram medidos com a chave já neutralizada |
+| 15 | o D9 "muda medição em 4 dos 162" isoladamente (§15.5, item 13) | **impreciso.** Muda nos quatro **quando o D2 estiver em pé**. Sozinho, na via de produção, é inerte — e não é verificável pelo pipeline, só pela sonda |
+| 16 | a atribuição do `$` ao AspectJ, herdada de `docs/NOVO/06_normalizacao_inner_classes.md` e usada como contexto histórico do D3 | **falso.** `Coverage.aj:64` usa `Class.getName()`, que nunca insere `$` em fronteira de pacote. O `$` era do normalizador |
+| 17 | o D3 é "remover as duas chamadas" (§11, §15.3) | **incompleto.** É remover a classe: `SignatureNormalizer` tem um consumidor em todo `modules/*/src/`, e o P3 manda deletar o arquivo, o teste e a INV-ANA-02 |
+| 18 | a dívida do `libPackages.txt` "continua governando o que o GATOR trata como biblioteca em análise legítima" (§15.4) | **impreciso, e mais estreito.** Depois do D9 ela não alcança o denominador de forma nenhuma. O que ela governa é `hier.appClasses`, logo os predicados `reachable`/`reachesTarget` |
+
+**O que a rev. 5 acrescenta como achado novo:**
+
+- **a procedência e o desvio de finalidade do `libPackages.txt`** (§4.3). A lista é upstream do
+  GATOR, entrou no import inicial do fork em 25/09/2024 e nunca foi editada. Ela existe para
+  **escopar uma análise de GUI**, papel em que falso positivo custa precisão; o `RvsecAnalysisClient`
+  a reaproveita como **denominador de métrica publicada**, papel em que falso positivo é erro de
+  medição. Ninguém reautorizou a lista para o papel novo. É a mesma classe de defeito que o §8 nomeia,
+  numa forma que o documento ainda não tinha registrado: não uma transformação textual silenciosa,
+  mas uma **classificação herdada usada fora da finalidade para a qual foi curada**;
+- **o normalizador nunca poderia ter reparado, nem por acidente** (§5.1): ele toca o `class_name` e
+  não a `signature`, e o cruzamento testa os dois;
+- **os nove achados sem casa** (§15.3): não estão na change, não foram roteados, não foram retirados.
+
+**O que isso muda na verificação da change** — e é a consequência prática da correção 14:
+
+- o **D9 não tem testemunha no pipeline**. A aceitação dele é a sonda `D9Probe.java` rodada contra o
+  jar reconstruído: 771 / 1.971 / 3.589 / 550 nos quatro, e invariância no `app.pachli`. A tarefa 1.4
+  e a 1.5 da `tasks.md` fazem disso um checkpoint explícito;
+- a **ordem D9 → D1 → D2 → D3 continua**, e a razão fica mais simples de enunciar: o D9 é
+  pré-requisito porque **habilita** o D2, não porque separa uma atribuição. A separação de
+  atribuição continua valendo entre D2 e D3, que são independentes entre si e cada um com sua
+  testemunha (os 75 artefatos que parseiam zero, e o `com.hwloc.lstopo_80283`);
+- a **D-C** (fronteira de ponto do `isAppClass`) não muda de estado.
+
+**Onde o escopo foi parar.** A issue **#111** e a change `openspec/changes/gh111-cadeia-medicao/`
+carregam os sete itens desta seção, com as cinco correções da rev. 5 já incorporadas. O `proposal.md`
+traz o mapa da cadeia elo a elo — a forma do identificador em cada ponto, onde a assinatura é
+completa e onde é só classe+nome, e onde o descritor DEX vira FQN — que este documento tinha
+espalhado por §3, §4 e §5. Delta specs em `analysis`, `core`, `experiment` e `platform`;
+INV-ANA-65…69, INV-CORE-58…62, INV-EXP-35…38, INV-PLT-33/34; INV-ANA-02 retirada.
+
 ---
+
+### 15.7 O que a rev. 6 fechou — a change implementada, e o que a medição devolveu
+
+A rev. 6 (30/08) é a primeira revisão escrita **de dentro da implementação**. As anteriores
+analisavam; esta registra o que a execução da `gh111` mediu, e o que duas verificações
+independentes estabeleceram antes dela: a adjudicação das cinco revisões externas
+(`docs/20260829_adjudicacao_revisoes_gh111.md`) e a verificação de consistência das dez dimensões
+(`docs/20260830_verificacao_consistencia_gh111.md`). As correções da rev. 6 estão marcadas
+**[rev. 6]**.
+
+**O que não sobreviveu — afirmações da rev. 5:**
+
+| # | o que a rev. 5 dizia | veredito |
+|---|---|---|
+| 19 | a correção C1: o D9 "não tem testemunha no pipeline" e "é inerte na via de produção" (§15.6) | **estreito demais.** O correto é *"não observável **sob a política padrão**, que é como toda corrida registrada executou"*. O `--package-detector` é política viva (`rv-experiment/__main__.py:282-295,584`, normativa pela INV-EXP-34) e produz uma chave diferente do manifesto sem D2 nenhum. A ordenação D9 → D2 sobrevive intacta; o que muda é que o D9 passa a ter aceitação de pipeline |
+| 20 | a aceitação do D9 é a sonda `D9Probe.java` (§15.6) | **falso como aceitação.** A sonda não importa nada de `presto.android`, reimplementa o predicado de rebaixamento e imprime as duas guardas **sem mutar a Scene** — editar `AnalysisEntrypoint:119` muda a saída dela por exatamente zero. Ela é **predição**, e continua valendo como tal (~13 s por APK). A aceitação é uma corrida real do `rv-static-analysis` contra o jar reconstruído |
+| 21 | os denominadores do D9 são **771 / 1.971 / 3.589 / 550** (§15.6) | **são os números crus, não os entregues.** O `RvsecAnalysisClient.isAppClass` remove as classes geradas antes de escrever o artefato; os denominadores entregues são **762 / 1.952 / 3.578 / 535**. E os 550 do `screenshottile` eram, além de crus, contaminados — ver a linha 22 |
+| 22 | o `app.pachli_50` é o controle de invariância (§15.6, e a tarefa 1.8 original) | **um controle que não pode falhar.** Nenhum padrão do `libPackages.txt` casa `app.pachli.*` (as únicas entradas iniciadas em `app` são `apparat.*`), então o laço de rebaixamento nunca roda e o controle não tem como acusar um alargamento da guarda. O controle passa a ser um dos seis APKs de guarda viva, e a corrida usou `me.zhanghai.android.untracker_9` |
+| 23 | a dívida do `libPackages.txt` "não alcança o denominador de forma nenhuma" (§15.6, linha 18) | **verdadeiro e insuficiente.** Depois do D9 ela deixa de alcançar o denominador **de classes**; continua governando `hier.appClasses` e portanto os predicados `reachable` / `reachesTarget` / `directlyReachesTarget`, que são os denominadores de **três das seis** colunas de cobertura publicadas. Deixa de ser risco para um denominador e continua sendo para três |
+
+**Achados novos da rev. 6 — os três primeiros são de medição, os três últimos de entrega:**
+
+**O vazamento das classes de recurso (D9c, INV-ANA-71).** O `isAppClass` ancorava o teste das classes
+geradas (`R`, `R$*`, `BuildConfig`, `Manifest$*`) na **raiz** da chave de escopo. Duas consequências
+medidas sobre os 162 artefatos: 505 classes geradas estão hoje **dentro** do denominador — 117 só no
+`app.pachli_50`, uma `R` por módulo Gradle —, carregando 547 métodos dos quais **zero** são não
+triviais; e, no caso da chave-ancestral, o vazamento é total. O detector elege `com.github.cvzi` para
+o `screenshottile`, e o sufixo de `com.github.cvzi.screenshottile.R` é `.screenshottile.R`, que não
+casa padrão nenhum ancorado na raiz: sob a regra antiga a filtragem removia **zero** classes e
+entregava 550. Era esse 550 que a tarefa 1.8 ia fixar como número de aceitação do D9 — um
+denominador com quinze classes de recurso dentro. O teste passou a ser sobre o **último segmento** do
+nome da classe, e a aceitação passou a ser 535. Uma change cujo assunto é o denominador não pode
+ratificar um contaminante conhecido dentro dele.
+
+**As seções `## Invariants` dos deltas nunca chegam à spec base.** Verificado executando o próprio
+motor de merge do `openspec` (`buildUpdatedSpec`): o `sync`/`archive` reconstrói apenas a seção
+`## Requirements`, e os invariantes do delta são descartados em silêncio. `openspec validate --strict`
+não vê a diferença. Arquivar a `gh111` como estava entregaria os requisitos e jogaria fora os 22
+invariantes novos, as reafirmações e as emendas — inclusive a reafirmação da INV-PLT-19, que é a
+única coisa que levanta o congelamento de colunas herdado da `gh104`. A `gh104` mediu o mesmo e
+escreveu uma tarefa de sincronização à mão (a 10.8 dela); a `gh111` ganhou a equivalente, a 8.17.
+
+**Quatro requisitos da base contradizem a change e não eram emendados.** Um deles manda escrever
+`0.00` exatamente no caso em que a INV-PLT-35 proíbe; outro manda **excluir da execução** os APKs sem
+análise estática, que é o oposto da decisão D-10; e o bloco `Domain Models (FR33)` do `core` diz, em
+três passagens, que remover sufixo de build-type "pertence a quem cura o corpus, não a este modelo" —
+que é literalmente o que o D2 faz. Foram emendados como cláusulas, não substituídos como blocos.
+
+**A colisão de arquivamento com a `gh104`.** O bloco `Result Generation (FR14)` desta change foi
+copiado da versão da `gh104`, não da base, e a reafirmação da INV-PLT-19 substitui o texto da `gh104`
+pelo nome. Se a `gh111` arquivar primeiro, a `gh104` reaparece por cima. A ordem é
+**`gh104` → `gh111`**, e a tarefa 8.16 é a porta que a verifica antes de qualquer escrita em
+`openspec/specs/`. **Em 30/08 essa porta está fechada**: `grep -c 'code, event'` na
+`openspec/specs/platform/spec.md` devolve `0`, a `gh104` não está arquivada e a INV-PLT-19 da base
+ainda carrega o `errors.csv` de onze colunas. A `gh111` está implementada e **não pode sincronizar**
+até que a `gh104` feche as três tarefas que lhe faltam (10.4, 10.5, 10.8 — validação em dispositivo
+e o sync à mão dela).
+
+**O que a implementação mediu.** Todos os números abaixo são de corridas desta implementação, não
+predições:
+
+- **aceitação do D9, ponta a ponta** (`com.github.cvzi.screenshottile_148`, `--package-detector`,
+  chave eleita `com.github.cvzi`, manifesto `com.github.cvzi.screenshottile.debug`): `len(reachability)`
+  **21 → 535** entre o jar pré-mudança (`lib/gator-pre/`, sha `4708d63c…` / `dab75ca7…`) e o
+  reconstruído (`6ce00738…` / `df18057e…`). O artefato pós registra `codePackage=com.github.cvzi`,
+  `codePackageSource=detector`, `class_defs_under_key=539` e **zero** classes `R`/`BuildConfig`/`Manifest`
+  — a razão do portão é 535/539 = 0,993, muito acima do limiar 0,15;
+- **controle de invariância** (`me.zhanghai.android.untracker_9`, chave casada por padrão do
+  `libPackages.txt` e sem sufixo de build-type, logo com o laço de rebaixamento realmente rodando):
+  pré e pós **idênticos em 330** classes, `class_defs_under_key=332`. Se o reparo tivesse *alargado*
+  a guarda em vez de redirecioná-la, é esse número que teria se mexido;
+- **D3 sobre o corpus inteiro**: os 162 artefatos parseiam **215.430** classes, **0** deles parseia
+  para zero, e o parser inventa **0** nomes — nenhum nome no conjunto parseado está ausente do
+  arquivo. Sobre os sete APKs afetados, 465 → **0** nomes inventados, com a contagem de classes e a
+  de janelas **invariantes** (6/6, 3/3, 180/180, 11/11, 7/7, 15/15, 6/6, e os mesmos subconjuntos
+  ACTIVITY) — o resultado nulo que confirma que os dois sítios de chamada saíram juntos;
+- **testes**: 1.071 (`rv-android-core`), 348+1s (`rv-platform`), 271 (`rv-experiment`), 165
+  (`rv-static-analysis`), 301 (`rv-coverage`), 218 de paridade sob `RV_GATOR_REQUIRED=1` (que é o
+  que faz os testes dependentes do jar rodarem em vez de pularem), e do lado do reator os três ITs que o
+  `client/pom.xml:18` mantém desligados — `BaselineComparisonIT` (11), `GenericSubtypeMatchingIT` (8),
+  `RvsecAnalysisClientIT` (14) — verdes com `-DskipITs=false`.
+
+**O portão que recusava sem impedir nada.** Achado da revisão de código desta implementação, e vale
+registrar porque é a forma mais fina do padrão que o §8 nomeia. A INV-ANA-69 manda o portão *falhar
+alto*, e o código o fazia: uma recusa devolvia um `StaticAnalysisResult` com `success=False`. Só que
+nada a jusante lê esse objeto — o `_report_missing_static_analysis` monta a lista dele com
+`os.path.exists(<apk>.apk.json)` e o `_resolve_static_data` localiza o arquivo pelo nome. O artefato
+recusado continuava no disco, era reparseado e o denominador colapsado saía publicado como
+percentual com `measured=true`, que é exatamente o que o cenário da própria INV-ANA-69 proíbe em
+tantas palavras. O portão era, na prática, uma linha de log — a mesma forma de defeito que a D-5
+existe para encerrar, uma camada adiante. A recusa passou a **renomear** o artefato para
+`<apk>.apk.json.refused`: os consumidores o veem como ausente, a linha toma o caminho honesto que já
+existia (células vazias, `measured=false`), e o arquivo fica para diagnóstico, porque a recusa é um
+alarme de jar velho ou de chave não resolvida e é o próprio artefato que nomeia a causa.
+
+**Um desvio de método a registrar.** A reconstrução do reator (tarefa 1.5) rodou com `-DskipTests`,
+contra o que a decisão D-13 prescreve, porque o `rvsec-mop` falha sobre edições `jca_android/*.mop`
+não commitadas de outra sessão — uma dependência que não é da `gh111`. As suítes que a D-13 nomeia
+foram então rodadas explicitamente sobre os módulos do gator (`mvn test -pl …/sootandroid,…/client`:
+214 + 22 testes, 0 falhas), e a passagem com ITs desta seção as cobre de novo. O desvio é de
+comando, não de cobertura.

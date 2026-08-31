@@ -1,0 +1,3456 @@
+{
+  "package": "org.musicbrainz.picard.barcodescanner.debug",
+  "mainActivity": "org.musicbrainz.picard.barcodescanner.activities.ScannerActivity",
+  "codePackage": "org.musicbrainz.picard.barcodescanner",
+  "codePackageSource": "manifest-neutralized",
+  "class_defs_under_key": 51,
+  "components": {
+    "activities": [
+      {
+        "className": "com.journeyapps.barcodescanner.CaptureActivity",
+        "isMain": false,
+        "intentFilters": [],
+        "exported": false,
+        "permission": null,
+        "reachesTarget": false,
+        "targetMethods": []
+      },
+      {
+        "className": "org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity",
+        "isMain": false,
+        "intentFilters": [],
+        "exported": false,
+        "permission": null,
+        "reachesTarget": true,
+        "targetMethods": [
+          "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: void onCreate(android.os.Bundle)>"
+        ]
+      },
+      {
+        "className": "org.musicbrainz.picard.barcodescanner.activities.ResultActivity",
+        "isMain": false,
+        "intentFilters": [],
+        "exported": false,
+        "permission": null,
+        "reachesTarget": false,
+        "targetMethods": []
+      },
+      {
+        "className": "org.musicbrainz.picard.barcodescanner.activities.ScannerActivity",
+        "isMain": true,
+        "intentFilters": [
+          {
+            "actions": [
+              "android.intent.action.MAIN"
+            ],
+            "categories": [
+              "android.intent.category.LAUNCHER"
+            ],
+            "data": {
+              "schemes": [],
+              "hosts": [],
+              "ports": [],
+              "paths": [],
+              "pathPrefixes": [],
+              "pathPatterns": [],
+              "mimeTypes": []
+            }
+          }
+        ],
+        "exported": true,
+        "permission": null,
+        "reachesTarget": false,
+        "targetMethods": []
+      },
+      {
+        "className": "org.musicbrainz.picard.barcodescanner.activities.AboutActivity",
+        "isMain": false,
+        "intentFilters": [],
+        "exported": false,
+        "permission": null,
+        "reachesTarget": false,
+        "targetMethods": []
+      },
+      {
+        "className": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity",
+        "isMain": false,
+        "intentFilters": [],
+        "exported": false,
+        "permission": null,
+        "reachesTarget": true,
+        "targetMethods": [
+          "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void onCreate(android.os.Bundle)>"
+        ]
+      }
+    ],
+    "receivers": [
+      {
+        "className": "androidx.profileinstaller.ProfileInstallReceiver",
+        "isMain": false,
+        "intentFilters": [
+          {
+            "actions": [
+              "androidx.profileinstaller.action.SAVE_PROFILE"
+            ],
+            "categories": [],
+            "data": {
+              "schemes": [],
+              "hosts": [],
+              "ports": [],
+              "paths": [],
+              "pathPrefixes": [],
+              "pathPatterns": [],
+              "mimeTypes": []
+            }
+          },
+          {
+            "actions": [
+              "androidx.profileinstaller.action.BENCHMARK_OPERATION"
+            ],
+            "categories": [],
+            "data": {
+              "schemes": [],
+              "hosts": [],
+              "ports": [],
+              "paths": [],
+              "pathPrefixes": [],
+              "pathPatterns": [],
+              "mimeTypes": []
+            }
+          },
+          {
+            "actions": [
+              "androidx.profileinstaller.action.SKIP_FILE"
+            ],
+            "categories": [],
+            "data": {
+              "schemes": [],
+              "hosts": [],
+              "ports": [],
+              "paths": [],
+              "pathPrefixes": [],
+              "pathPatterns": [],
+              "mimeTypes": []
+            }
+          },
+          {
+            "actions": [
+              "androidx.profileinstaller.action.INSTALL_PROFILE"
+            ],
+            "categories": [],
+            "data": {
+              "schemes": [],
+              "hosts": [],
+              "ports": [],
+              "paths": [],
+              "pathPrefixes": [],
+              "pathPatterns": [],
+              "mimeTypes": []
+            }
+          }
+        ],
+        "exported": true,
+        "permission": "android.permission.DUMP",
+        "reachesTarget": false,
+        "targetMethods": []
+      }
+    ],
+    "services": [],
+    "providers": [
+      {
+        "className": "androidx.startup.InitializationProvider",
+        "isMain": false,
+        "authorities": "org.musicbrainz.picard.barcodescanner.debug.androidx-startup",
+        "exported": false,
+        "permission": null,
+        "readPermission": null,
+        "writePermission": null,
+        "reachesTarget": false,
+        "targetMethods": []
+      }
+    ]
+  },
+  "reachability": [
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$$ExternalSyntheticLambda0",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$$ExternalSyntheticLambda0: void <init>(org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$$ExternalSyntheticLambda0: java.lang.Object invoke()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$$inlined$doAfterTextChanged$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$$inlined$doAfterTextChanged$1: void <init>(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "afterTextChanged",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$$inlined$doAfterTextChanged$1: void afterTextChanged(android.text.Editable)>",
+          "reachable": false,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "beforeTextChanged",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$$inlined$doAfterTextChanged$1: void beforeTextChanged(java.lang.CharSequence,int,int,int)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onTextChanged",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$$inlined$doAfterTextChanged$1: void onTextChanged(java.lang.CharSequence,int,int,int)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$detectPort$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$detectPort$1: void <init>(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$detectPort$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.AboutActivityKt",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "getPackageInfoCompat",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.AboutActivityKt: android.content.pm.PackageInfo getPackageInfoCompat(android.content.pm.PackageManager,java.lang.String,int)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getPackageInfoCompat$default",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.AboutActivityKt: android.content.pm.PackageInfo getPackageInfoCompat$default(android.content.pm.PackageManager,java.lang.String,int,int,java.lang.Object)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$$ExternalSyntheticLambda1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$$ExternalSyntheticLambda1: void <init>(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onClick",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$$ExternalSyntheticLambda1: void onClick(android.view.View)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.ScannerActivity",
+      "componentType": "activity",
+      "isMain": true,
+      "methods": [
+        {
+          "name": "$r8$lambda$7YM-_B-RBdPmed3x0lw8F5MjYPs",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void $r8$lambda$7YM-_B-RBdPmed3x0lw8F5MjYPs(org.musicbrainz.picard.barcodescanner.activities.ScannerActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "$r8$lambda$Gy1C1vxOp9lD5zm4_0qgqBxW6nM",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void $r8$lambda$Gy1C1vxOp9lD5zm4_0qgqBxW6nM(org.musicbrainz.picard.barcodescanner.activities.ScannerActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "$r8$lambda$lt1dKfUy_T6ApvVBLEsI8SiT2wY",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void $r8$lambda$lt1dKfUy_T6ApvVBLEsI8SiT2wY(org.musicbrainz.picard.barcodescanner.activities.ScannerActivity,com.journeyapps.barcodescanner.ScanIntentResult)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void <init>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "barcodeLauncher$lambda$0",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void barcodeLauncher$lambda$0(org.musicbrainz.picard.barcodescanner.activities.ScannerActivity,com.journeyapps.barcodescanner.ScanIntentResult)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreate$lambda$0",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void onCreate$lambda$0(org.musicbrainz.picard.barcodescanner.activities.ScannerActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreate$lambda$1",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void onCreate$lambda$1(org.musicbrainz.picard.barcodescanner.activities.ScannerActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "startPreferencesActivity",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void startPreferencesActivity()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "startScanner",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void startScanner()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "startSearchActivity",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void startSearchActivity(java.lang.String)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "handleIntents",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void handleIntents()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity: void onCreate(android.os.Bundle)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.BaseActivity",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.BaseActivity: void <init>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getPreferences",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.BaseActivity: org.musicbrainz.picard.barcodescanner.util.Preferences getPreferences()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "handleIntents",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.BaseActivity: void handleIntents()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreateOptionsMenu",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.BaseActivity: boolean onCreateOptionsMenu(android.view.Menu)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onNewIntent",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.BaseActivity: void onNewIntent(android.content.Intent)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onOptionsItemSelected",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.BaseActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onNewIntent$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onNewIntent$1: void <init>(org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "create",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onNewIntent$1: kotlin.coroutines.Continuation create(java.lang.Object,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onNewIntent$1: java.lang.Object invoke(java.lang.Object,java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onNewIntent$1: java.lang.Object invoke(kotlinx.coroutines.CoroutineScope,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onNewIntent$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$sendToPicard$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$sendToPicard$1: void <init>(org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$sendToPicard$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$2$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$2$1: void <init>(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity,java.lang.String,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "create",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$2$1: kotlin.coroutines.Continuation create(java.lang.Object,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$2$1: java.lang.Object invoke(java.lang.Object,java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$2$1: java.lang.Object invoke(kotlinx.coroutines.CoroutineScope,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$2$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$search$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$search$1: void <init>(org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$search$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity",
+      "componentType": "activity",
+      "isMain": false,
+      "methods": [
+        {
+          "name": "$r8$lambda$-FLOwMZwsWaHSYP5iU-PexdFNNY",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void $r8$lambda$-FLOwMZwsWaHSYP5iU-PexdFNNY(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "$r8$lambda$G4lDqHWskHSVt1gq4cUgHoSBDx0",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void $r8$lambda$G4lDqHWskHSVt1gq4cUgHoSBDx0(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void <init>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "access$checkConnectionStatus",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void access$checkConnectionStatus(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "access$detectPort",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: java.lang.Object access$detectPort(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity,java.lang.String,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "access$validateForm",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void access$validateForm(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "checkConnectionStatus",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void checkConnectionStatus()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "checkSaveButtonEnabled",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void checkSaveButtonEnabled()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "detectPort",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: java.lang.Object detectPort(java.lang.String,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "loadFormDataFromPreferences",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void loadFormDataFromPreferences()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "readIpAddressFromInput",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: java.lang.String readIpAddressFromInput()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "readMusicBrainzServerUrlFromInput",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: java.lang.String readMusicBrainzServerUrlFromInput()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "readPortFromInput",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: int readPortFromInput()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "registerEventListeners",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void registerEventListeners()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "registerEventListeners$lambda$1",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void registerEventListeners$lambda$1(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "registerEventListeners$lambda$2",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void registerEventListeners$lambda$2(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "startNextActivity",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void startNextActivity()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "validateForm",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void validateForm()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "handleIntents",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void handleIntents()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: void onCreate(android.os.Bundle)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreateOptionsMenu",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity: boolean onCreateOptionsMenu(android.view.Menu)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$textWatcher$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$textWatcher$1: void <init>(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "afterTextChanged",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$textWatcher$1: void afterTextChanged(android.text.Editable)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "beforeTextChanged",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$textWatcher$1: void beforeTextChanged(java.lang.CharSequence,int,int,int)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onTextChanged",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$registerEventListeners$textWatcher$1: void onTextChanged(java.lang.CharSequence,int,int,int)>",
+          "reachable": false,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$$ExternalSyntheticLambda0",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$$ExternalSyntheticLambda0: void <init>(org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onClick",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>",
+          "reachable": false,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.AboutActivity",
+      "componentType": "activity",
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.AboutActivity: void <init>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.AboutActivity: void onCreate(android.os.Bundle)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreateOptionsMenu",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.AboutActivity: boolean onCreateOptionsMenu(android.view.Menu)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.ScannerActivity$$ExternalSyntheticLambda0",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity$$ExternalSyntheticLambda0: void <init>(org.musicbrainz.picard.barcodescanner.activities.ScannerActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onClick",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity",
+      "componentType": "activity",
+      "isMain": false,
+      "methods": [
+        {
+          "name": "$r8$lambda$wyRE3F__Ue4DoJKm4OmjOq4tTB0",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient $r8$lambda$wyRE3F__Ue4DoJKm4OmjOq4tTB0(org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: void <init>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "access$search",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: java.lang.Object access$search(org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "access$sendToPicard",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: java.lang.Object access$sendToPicard(org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity,java.util.List,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "configurePicard",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: void configurePicard()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getMusicBrainzClient",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient getMusicBrainzClient()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "musicBrainzClient_delegate$lambda$0",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient musicBrainzClient_delegate$lambda$0(org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "search",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: java.lang.Object search(kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "sendToPicard",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: java.lang.Object sendToPicard(java.util.List,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "showResultActivity",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: void showResultActivity(java.util.List)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "showResultActivityWithError",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: void showResultActivityWithError(java.lang.String)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "handleIntents",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: void handleIntents()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: void onCreate(android.os.Bundle)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onNewIntent",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity: void onNewIntent(android.content.Intent)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.ResultActivity",
+      "componentType": "activity",
+      "isMain": false,
+      "methods": [
+        {
+          "name": "$r8$lambda$FCcpZElkWTvQ09iNIM8sgLFm9uw",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity: void $r8$lambda$FCcpZElkWTvQ09iNIM8sgLFm9uw(org.musicbrainz.picard.barcodescanner.activities.ResultActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity: void <init>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "addReleaseToView",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity: void addReleaseToView(android.view.ViewGroup,android.view.LayoutInflater,java.lang.String,java.lang.String,java.lang.String)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreate$lambda$0",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity: void onCreate$lambda$0(org.musicbrainz.picard.barcodescanner.activities.ResultActivity,android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setViewText",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity: void setViewText(android.view.View,int,java.lang.String)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "handleIntents",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity: void handleIntents()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onCreate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity: void onCreate(android.os.Bundle)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.ScannerActivity$$ExternalSyntheticLambda2",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity$$ExternalSyntheticLambda2: void <init>(org.musicbrainz.picard.barcodescanner.activities.ScannerActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onActivityResult",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity$$ExternalSyntheticLambda2: void onActivityResult(java.lang.Object)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.ScannerActivity$$ExternalSyntheticLambda1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity$$ExternalSyntheticLambda1: void <init>(org.musicbrainz.picard.barcodescanner.activities.ScannerActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onClick",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ScannerActivity$$ExternalSyntheticLambda1: void onClick(android.view.View)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onCreate$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onCreate$1: void <init>(org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "create",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onCreate$1: kotlin.coroutines.Continuation create(java.lang.Object,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onCreate$1: java.lang.Object invoke(java.lang.Object,java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onCreate$1: java.lang.Object invoke(kotlinx.coroutines.CoroutineScope,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity$onCreate$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.activities.ResultActivity$$ExternalSyntheticLambda0",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity$$ExternalSyntheticLambda0: void <init>(org.musicbrainz.picard.barcodescanner.activities.ResultActivity)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "onClick",
+          "signature": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.databinding.ConnectionStatusBinding",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ConnectionStatusBinding: void <init>(android.view.View,android.widget.ImageView,android.widget.TextView,android.widget.TextView,android.widget.TextView)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "bind",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ConnectionStatusBinding: org.musicbrainz.picard.barcodescanner.databinding.ConnectionStatusBinding bind(android.view.View)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ConnectionStatusBinding: org.musicbrainz.picard.barcodescanner.databinding.ConnectionStatusBinding inflate(android.view.LayoutInflater,android.view.ViewGroup)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ConnectionStatusBinding: android.view.View getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding: void <init>(android.widget.ScrollView,android.widget.ImageButton,android.widget.Button,org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView,android.widget.TextView,android.widget.EditText,android.widget.EditText,android.widget.EditText)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "bind",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding bind(android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding inflate(android.view.LayoutInflater)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding: android.view.View getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPreferencesBinding: android.widget.ScrollView getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding: void <init>(android.widget.ScrollView,android.widget.Button,org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "bind",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding bind(android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding inflate(android.view.LayoutInflater)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding: android.view.View getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityScannerBinding: android.widget.ScrollView getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding: void <init>(android.widget.ScrollView,android.widget.Button,android.widget.TextView,android.widget.TextView,android.widget.LinearLayout)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "bind",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding bind(android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding inflate(android.view.LayoutInflater)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding: android.view.View getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityResultBinding: android.widget.ScrollView getRoot()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding: void <init>(androidx.constraintlayout.widget.ConstraintLayout,androidx.constraintlayout.widget.ConstraintLayout,android.widget.TextView,android.widget.TextView,android.widget.TextView)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "bind",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding: org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding bind(android.view.View)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding: org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding inflate(android.view.LayoutInflater)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding: org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding: android.view.View getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.WidgetReleaseItemBinding: androidx.constraintlayout.widget.ConstraintLayout getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding: void <init>(android.widget.ScrollView,android.widget.TextView,android.widget.TextView,android.widget.TextView,android.widget.TextView,android.widget.TextView,android.widget.TextView,android.widget.ImageView,android.widget.TextView,android.widget.TextView)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "bind",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding bind(android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding inflate(android.view.LayoutInflater)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding: android.view.View getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityAboutBinding: android.widget.ScrollView getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding: void <init>(android.widget.LinearLayout,com.airbnb.lottie.LottieAnimationView,android.widget.TextView)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "bind",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding bind(android.view.View)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding inflate(android.view.LayoutInflater)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "inflate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding: org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding inflate(android.view.LayoutInflater,android.view.ViewGroup,boolean)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding: android.view.View getRoot()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getRoot",
+          "signature": "<org.musicbrainz.picard.barcodescanner.databinding.ActivityPerformSearchBinding: android.widget.LinearLayout getRoot()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.data.Release",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: void <init>()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "compareTo",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: int compareTo(java.lang.Object)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "compareTo",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: int compareTo(org.musicbrainz.picard.barcodescanner.data.Release)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getArtistCredit",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: java.util.ArrayList getArtistCredit()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getDate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: java.lang.String getDate()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getId",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: java.lang.String getId()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getReleaseArtist",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: java.lang.String getReleaseArtist()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getTitle",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: java.lang.String getTitle()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setDate",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: void setDate(java.lang.String)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setId",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: void setId(java.lang.String)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setTitle",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.Release: void setTitle(java.lang.String)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.data.ArtistCredit",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ArtistCredit: void <init>(java.lang.String,java.lang.String)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getJoinphrase",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ArtistCredit: java.lang.String getJoinphrase()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getName",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ArtistCredit: java.lang.String getName()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setJoinphrase",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ArtistCredit: void setJoinphrase(java.lang.String)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setName",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ArtistCredit: void setName(java.lang.String)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.data.PicardPingResult",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.PicardPingResult: void <init>(boolean,java.lang.String)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getActive",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.PicardPingResult: boolean getActive()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getApplication",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.PicardPingResult: java.lang.String getApplication()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setActive",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.PicardPingResult: void setActive(boolean)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setApplication",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.PicardPingResult: void setApplication(java.lang.String)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse: void <init>()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getCount",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse: int getCount()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getCreated",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse: java.lang.String getCreated()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getOffset",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse: int getOffset()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getReleases",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse: java.util.List getReleases()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setCount",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse: void setCount(int)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setCreated",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse: void setCreated(java.lang.String)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setOffset",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse: void setOffset(int)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setReleases",
+          "signature": "<org.musicbrainz.picard.barcodescanner.data.ReleaseSearchResponse: void setReleases(java.util.List)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView$checkConnectionStatus$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView$checkConnectionStatus$1: void <init>(org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView$checkConnectionStatus$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: void <init>(android.content.Context)>",
+          "reachable": false,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: void <init>(android.content.Context,android.util.AttributeSet)>",
+          "reachable": false,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: void <init>(android.content.Context,android.util.AttributeSet,int)>",
+          "reachable": false,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: void <init>(android.content.Context,android.util.AttributeSet,int,int,kotlin.jvm.internal.DefaultConstructorMarker)>",
+          "reachable": false,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "access$checkConnectionStatus",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: java.lang.Object access$checkConnectionStatus(org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView,java.lang.String,int,int,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "access$getLastUpdate$p",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: int access$getLastUpdate$p(org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "access$setInfoMessage",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: void access$setInfoMessage(org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView,int)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "access$setLastUpdate$p",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: void access$setLastUpdate$p(org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView,int)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "checkConnectionStatus",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: java.lang.Object checkConnectionStatus(java.lang.String,int,int,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setInfoMessage",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: void setInfoMessage(int)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setStatus",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: void setStatus(org.musicbrainz.picard.barcodescanner.data.PicardPingResult,java.lang.String,int)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "updateStatus",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView: void updateStatus(java.lang.String,int)>",
+          "reachable": false,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView$updateStatus$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView$updateStatus$1: void <init>(org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView,java.lang.String,int,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "create",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView$updateStatus$1: kotlin.coroutines.Continuation create(java.lang.Object,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView$updateStatus$1: java.lang.Object invoke(java.lang.Object,java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView$updateStatus$1: java.lang.Object invoke(kotlinx.coroutines.CoroutineScope,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView$updateStatus$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.util.Constants",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<clinit>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Constants: void <clinit>()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Constants: void <init>()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.util.Preferences",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Preferences: void <init>(android.content.Context)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getConnectionConfigured",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Preferences: boolean getConnectionConfigured()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getDefaultMusicBrainzServerUrl",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Preferences: java.lang.String getDefaultMusicBrainzServerUrl()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getDefaultPort",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Preferences: int getDefaultPort()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getIpAddress",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Preferences: java.lang.String getIpAddress()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getMusicBrainzServerUrl",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Preferences: java.lang.String getMusicBrainzServerUrl()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getPort",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Preferences: int getPort()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "setAllPreferences",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.Preferences: void setAllPreferences(java.lang.String,java.lang.String,int)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.util.WebServiceUtils",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<clinit>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.WebServiceUtils: void <clinit>()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.WebServiceUtils: void <init>()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "sanitise",
+          "signature": "<org.musicbrainz.picard.barcodescanner.util.WebServiceUtils: java.lang.String sanitise(java.lang.String)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.PicardClient$$ExternalSyntheticLambda0",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient$$ExternalSyntheticLambda0: void <init>(org.musicbrainz.picard.barcodescanner.webservice.PicardClient)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient$$ExternalSyntheticLambda0: java.lang.Object invoke()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.PicardApi",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "openAlbum",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardApi: java.lang.Object openAlbum(java.lang.String,kotlin.coroutines.Continuation)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "ping",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardApi: java.lang.Object ping(kotlin.coroutines.Continuation)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.PicardClient$Companion",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient$Companion: void <init>()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient$Companion: void <init>(kotlin.jvm.internal.DefaultConstructorMarker)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.HttpClient",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<clinit>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.HttpClient: void <clinit>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.HttpClient: void <init>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "clone",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.HttpClient: java.lang.Object clone()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.PicardClient$ping$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient$ping$1: void <init>(org.musicbrainz.picard.barcodescanner.webservice.PicardClient,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient$ping$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient$$ExternalSyntheticLambda0",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient$$ExternalSyntheticLambda0: void <init>(org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invoke",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient$$ExternalSyntheticLambda0: java.lang.Object invoke()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.PicardClient",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "$r8$lambda$jS7NbBYpVjbtOA2hX_Nw3clgSoM",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient: org.musicbrainz.picard.barcodescanner.webservice.PicardApi $r8$lambda$jS7NbBYpVjbtOA2hX_Nw3clgSoM(org.musicbrainz.picard.barcodescanner.webservice.PicardClient)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<clinit>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient: void <clinit>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient: void <init>(java.lang.String,int)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getAppName",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient: java.lang.String getAppName(java.lang.String)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getAppName$default",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient: java.lang.String getAppName$default(org.musicbrainz.picard.barcodescanner.webservice.PicardClient,java.lang.String,int,java.lang.Object)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getInstance",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient: org.musicbrainz.picard.barcodescanner.webservice.PicardApi getInstance()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "instance_delegate$lambda$0",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient: org.musicbrainz.picard.barcodescanner.webservice.PicardApi instance_delegate$lambda$0(org.musicbrainz.picard.barcodescanner.webservice.PicardClient)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "openRelease",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient: java.lang.Object openRelease(java.lang.String,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "ping",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient: java.lang.Object ping(kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "$r8$lambda$0DtAwWhzFC8dH58j-G14BB5bgLU",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient: org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzApi $r8$lambda$0DtAwWhzFC8dH58j-G14BB5bgLU(org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<clinit>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient: void <clinit>()>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient: void <init>(java.lang.String)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getBaseUrl",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient: java.lang.String getBaseUrl()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "getInstance",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient: org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzApi getInstance()>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "instance_delegate$lambda$0",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient: org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzApi instance_delegate$lambda$0(org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient)>",
+          "reachable": true,
+          "reachesTarget": true,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "queryReleasesByBarcode",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient: java.lang.Object queryReleasesByBarcode(java.lang.String,kotlin.coroutines.Continuation)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient$special$$inlined$-addInterceptor$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient$special$$inlined$-addInterceptor$1: void <init>()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "intercept",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient$special$$inlined$-addInterceptor$1: okhttp3.Response intercept(okhttp3.Interceptor$Chain)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzApi",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "queryReleases",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzApi: java.lang.Object queryReleases(java.lang.String,kotlin.coroutines.Continuation)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.PicardClient$openRelease$1",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient$openRelease$1: void <init>(org.musicbrainz.picard.barcodescanner.webservice.PicardClient,kotlin.coroutines.Continuation)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "invokeSuspend",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.PicardClient$openRelease$1: java.lang.Object invokeSuspend(java.lang.Object)>",
+          "reachable": false,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    },
+    {
+      "className": "org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient$Companion",
+      "componentType": null,
+      "isMain": false,
+      "methods": [
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient$Companion: void <init>()>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        },
+        {
+          "name": "<init>",
+          "signature": "<org.musicbrainz.picard.barcodescanner.webservice.MusicBrainzClient$Companion: void <init>(kotlin.jvm.internal.DefaultConstructorMarker)>",
+          "reachable": true,
+          "reachesTarget": false,
+          "directlyReachesTarget": false
+        }
+      ]
+    }
+  ],
+  "windows": [
+    {
+      "id": 100000,
+      "name": "com.journeyapps.barcodescanner.CaptureActivity",
+      "type": "ACTIVITY",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 63033,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131231088,
+          "idName": "zxing_barcode_scanner",
+          "type": "com.journeyapps.barcodescanner.DecoratedBarcodeView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 100001,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity",
+      "type": "ACTIVITY",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 63097,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230932,
+          "idName": "loading_animation",
+          "type": "com.airbnb.lottie.LottieAnimationView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230933,
+          "idName": "loading_text",
+          "type": "android.widget.TextView",
+          "text": "Consulting MusicBrainz…",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 100002,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.ResultActivity",
+      "type": "ACTIVITY",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 2131230830,
+          "idName": "btn_scan_barcode",
+          "type": "android.widget.Button",
+          "text": "Scan barcode",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": [
+            {
+              "eventType": "click",
+              "handler": "<org.musicbrainz.picard.barcodescanner.activities.ResultActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>"
+            }
+          ]
+        },
+        {
+          "id": 63023,
+          "idName": "",
+          "type": "android.widget.ScrollView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63024,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230864,
+          "idName": "description_search_result",
+          "type": "android.widget.TextView",
+          "text": "MusicBrainz has found the following results for the barcode %1$s and sent them to Picard:",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230923,
+          "idName": "label_error",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230980,
+          "idName": "result_list",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230974,
+          "idName": "relativeLayout",
+          "type": "androidx.constraintlayout.widget.ConstraintLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230975,
+          "idName": "release_artist",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230976,
+          "idName": "release_date",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230977,
+          "idName": "release_title",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 100003,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.ScannerActivity",
+      "type": "ACTIVITY",
+      "isMain": true,
+      "widgets": [
+        {
+          "id": 63078,
+          "idName": "",
+          "type": "android.widget.ScrollView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63079,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230848,
+          "idName": "connection_status_box",
+          "type": "org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230847,
+          "idName": "connectionStatusBox",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131231029,
+          "idName": "status_application_name",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131231030,
+          "idName": "status_connection_host",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131231031,
+          "idName": "status_info",
+          "type": "android.widget.TextView",
+          "text": "Could not connect to Picard. Please check the connection settings and your Wi-Fi connection.",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230934,
+          "idName": "logo",
+          "type": "android.widget.ImageView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": "@null",
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230830,
+          "idName": "btn_scan_barcode",
+          "type": "android.widget.Button",
+          "text": "Scan barcode",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63081,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 100004,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.AboutActivity",
+      "type": "ACTIVITY",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 63066,
+          "idName": "",
+          "type": "android.widget.ScrollView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63067,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230730,
+          "idName": "about_copyright",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230733,
+          "idName": "about_license_2",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230731,
+          "idName": "about_icons",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63068,
+          "idName": "",
+          "type": "androidx.constraintlayout.widget.ConstraintLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230805,
+          "idName": "application_logo",
+          "type": "android.widget.ImageView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": "@null",
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230807,
+          "idName": "application_version",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230806,
+          "idName": "application_title",
+          "type": "android.widget.TextView",
+          "text": "Picard Barcode Scanner",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230735,
+          "idName": "about_picard_icon",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230732,
+          "idName": "about_license_1",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230734,
+          "idName": "about_lottie",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 100005,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity",
+      "type": "ACTIVITY",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 63035,
+          "idName": "",
+          "type": "android.widget.ScrollView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63036,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230829,
+          "idName": "btn_save_preferences",
+          "type": "android.widget.Button",
+          "text": "Save settings",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63044,
+          "idName": "",
+          "type": "androidx.constraintlayout.widget.ConstraintLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230828,
+          "idName": "btn_port_detect",
+          "type": "android.widget.ImageButton",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": "Auto-detect Picard network port",
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230966,
+          "idName": "picard_port",
+          "type": "android.widget.EditText",
+          "text": "",
+          "hint": "",
+          "inputType": "number",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230863,
+          "idName": "description_connect",
+          "type": "android.widget.TextView",
+          "text": "\"In order to send scanned barcodes to Picard you have to connect your device to the same network as the computer running Picard. Enter the IP address of the computer and Picard's port number below.\"",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63041,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230965,
+          "idName": "picard_ip_address",
+          "type": "android.widget.EditText",
+          "text": "",
+          "hint": "",
+          "inputType": "textNoSuggestions",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230848,
+          "idName": "connection_status_box",
+          "type": "org.musicbrainz.picard.barcodescanner.views.ConnectionStatusView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230847,
+          "idName": "connectionStatusBox",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131231029,
+          "idName": "status_application_name",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131231030,
+          "idName": "status_connection_host",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131231031,
+          "idName": "status_info",
+          "type": "android.widget.TextView",
+          "text": "Could not connect to Picard. Please check the connection settings and your Wi-Fi connection.",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230934,
+          "idName": "logo",
+          "type": "android.widget.ImageView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": "@null",
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 2131230943,
+          "idName": "musicbrainz_server_url",
+          "type": "android.widget.EditText",
+          "text": "",
+          "hint": "https://musicbrainz.org/",
+          "inputType": "textUri",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63039,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63043,
+          "idName": "",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 63008,
+      "name": "android.app.AlertDialog",
+      "type": "DIALOG",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 63048,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908893,
+          "idName": "contentPanel",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908894,
+          "idName": "scrollView",
+          "type": "android.widget.ScrollView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908299,
+          "idName": "message",
+          "type": "android.widget.TextView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908886,
+          "idName": "topPanel",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908887,
+          "idName": "title_template",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908888,
+          "idName": "alertTitle",
+          "type": "com.android.internal.widget.DialogTitle",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908294,
+          "idName": "icon",
+          "type": "android.widget.ImageView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908889,
+          "idName": "titleDivider",
+          "type": "android.widget.ImageView",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908890,
+          "idName": "buttonPanel",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 63057,
+          "idName": "",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908313,
+          "idName": "button1",
+          "type": "android.widget.Button",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": [
+            {
+              "eventType": "click",
+              "handler": "<FakeName_16: void onClick(android.view.View)>"
+            }
+          ]
+        },
+        {
+          "id": 16908315,
+          "idName": "button3",
+          "type": "android.widget.Button",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908892,
+          "idName": "rightSpacer",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908891,
+          "idName": "leftSpacer",
+          "type": "android.widget.LinearLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908314,
+          "idName": "button2",
+          "type": "android.widget.Button",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908895,
+          "idName": "customPanel",
+          "type": "android.widget.FrameLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        },
+        {
+          "id": 16908331,
+          "idName": "custom",
+          "type": "android.widget.FrameLayout",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 1107,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.PerformSearchActivity#OptionsMenu",
+      "type": "OPTIONSMENU",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 2131230936,
+          "idName": "mainMenu",
+          "type": "android.view.MenuItem",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 1120,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.ResultActivity#OptionsMenu",
+      "type": "OPTIONSMENU",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 2131230936,
+          "idName": "mainMenu",
+          "type": "android.view.MenuItem",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 1128,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.ScannerActivity#OptionsMenu",
+      "type": "OPTIONSMENU",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 2131230936,
+          "idName": "mainMenu",
+          "type": "android.view.MenuItem",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 1135,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.AboutActivity#OptionsMenu",
+      "type": "OPTIONSMENU",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 2131230936,
+          "idName": "mainMenu",
+          "type": "android.view.MenuItem",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    },
+    {
+      "id": 1144,
+      "name": "org.musicbrainz.picard.barcodescanner.activities.PreferencesActivity#OptionsMenu",
+      "type": "OPTIONSMENU",
+      "isMain": false,
+      "widgets": [
+        {
+          "id": 2131230936,
+          "idName": "mainMenu",
+          "type": "android.view.MenuItem",
+          "text": "",
+          "hint": "",
+          "inputType": "",
+          "entries": [],
+          "prompt": null,
+          "spinnerMode": null,
+          "contentDescription": null,
+          "tooltipText": null,
+          "listeners": []
+        }
+      ]
+    }
+  ],
+  "transitions": [],
+  "complete": true
+}

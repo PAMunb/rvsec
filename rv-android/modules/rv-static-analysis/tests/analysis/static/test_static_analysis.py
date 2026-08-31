@@ -117,7 +117,13 @@ class TestStaticAnalyzer:
 
     @patch("rv_static_analysis.analysis.static.static_analysis.Command")
     def test_run_analysis_passes_code_package(self, mock_command, analyzer):
-        """Test that _run_analysis passes code_package to get_tool_command."""
+        """Both halves of the key cross into GATOR: the key and its origin.
+
+        The origin has no other channel — it lives on the Python side and the
+        run writes it only to a log that never reaches disk — so an artefact
+        produced without it cannot record which policy elected its key
+        (INV-ANA-66).
+        """
         mock_command_instance = MagicMock()
         mock_command_instance.invoke.return_value = CommandResult(0, "Success", "")
         mock_command.return_value = mock_command_instance
@@ -131,6 +137,7 @@ class TestStaticAnalyzer:
             analyzer.app.path,
             analyzer.analysis_file,
             code_package=analyzer.app.code_package,
+            code_package_source=analyzer.app.code_package_source,
         )
 
     @patch("rv_static_analysis.analysis.static.static_analysis.Command")

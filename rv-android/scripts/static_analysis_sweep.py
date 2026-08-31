@@ -28,7 +28,6 @@ import os
 import shutil
 import signal
 import sys
-import time
 import traceback
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field
@@ -64,17 +63,31 @@ DEFAULT_RETRY_STATUSES: Set[str] = {
 }
 
 CSV_COLUMNS = [
-    "apk_name", "code_package", "status",
-    "timeout_used_seconds", "analysis_seconds",
+    "apk_name",
+    "code_package",
+    "status",
+    "timeout_used_seconds",
+    "analysis_seconds",
     "sections_present",
-    "methods_total", "methods_reachable",
-    "methods_reach_mop", "methods_directly_reach_mop",
-    "windows_count", "transitions_count", "components_count",
-    "gator_reaches_target", "gator_directly_reaches_target",
-    "androguard_reaches_target", "androguard_directly_reaches_target",
-    "androguard_methods_reaches_target", "androguard_methods_directly_reaches_target",
-    "agreement_reaches_target", "agreement_directly_reaches_target",
-    "json_size_bytes", "last_pass_id", "last_run_finished", "error_message",
+    "methods_total",
+    "methods_reachable",
+    "methods_reach_mop",
+    "methods_directly_reach_mop",
+    "windows_count",
+    "transitions_count",
+    "components_count",
+    "gator_reaches_target",
+    "gator_directly_reaches_target",
+    "androguard_reaches_target",
+    "androguard_directly_reaches_target",
+    "androguard_methods_reaches_target",
+    "androguard_methods_directly_reaches_target",
+    "agreement_reaches_target",
+    "agreement_directly_reaches_target",
+    "json_size_bytes",
+    "last_pass_id",
+    "last_run_finished",
+    "error_message",
 ]
 
 
@@ -136,6 +149,26 @@ class ProgressEntry:
     error_message: Optional[str] = None
 
 
+
+def _strip_build_type_suffix() -> bool:
+    """Resolve RV_STRIP_BUILD_TYPE_SUFFIX for this standalone invocation.
+
+    A run of this script is a run, not a step inside one, so it is an entry
+    point and may read the environment; everything it constructs receives the
+    resolved boolean by value (INV-EXP-35, INV-CORE-55). Off by default, so an
+    existing invocation keeps producing what it produced before — and this
+    script is the tooling that produced the corpus gh111 repairs, so a run that
+    means to repair it says so.
+    """
+    from rv_android_core.constants import ENV_STRIP_BUILD_TYPE_SUFFIX
+    from rv_android_core.util.utils import resolve_bool_setting
+
+    return resolve_bool_setting(
+        None,
+        os.environ.get(ENV_STRIP_BUILD_TYPE_SUFFIX),
+        ENV_STRIP_BUILD_TYPE_SUFFIX,
+    )
+
 def parse_bool_flexible(value: Any) -> Optional[bool]:
     """Convert PLANILHA-style bool strings ('True'/'False'/''/None) to bool|None."""
     if value is None:
@@ -182,8 +215,12 @@ def load_planilha(planilha_path: Path) -> Dict[str, AndroguardEntry]:
             out[apk_filename] = AndroguardEntry(
                 dex_count=parse_int_flexible(row.get("dex_count")),
                 reaches_target=parse_bool_flexible(row.get("sa_reaches_target")),
-                directly_reaches_target=parse_bool_flexible(row.get("sa_directly_reaches_target")),
-                methods_reaches_target=parse_int_flexible(row.get("sa_num_methods_reaches_target")),
+                directly_reaches_target=parse_bool_flexible(
+                    row.get("sa_directly_reaches_target")
+                ),
+                methods_reaches_target=parse_int_flexible(
+                    row.get("sa_num_methods_reaches_target")
+                ),
                 methods_directly_reaches_target=parse_int_flexible(
                     row.get("sa_num_methods_directly_reaches_target")
                 ),
@@ -207,8 +244,13 @@ def load_existing_progress(output_dir: Path) -> Dict[str, ProgressEntry]:
     for path in progress_dir.glob("*.json"):
         try:
             data = json.loads(path.read_text())
-            entry = ProgressEntry(**{k: v for k, v in data.items()
-                                     if k in ProgressEntry.__dataclass_fields__})
+            entry = ProgressEntry(
+                **{
+                    k: v
+                    for k, v in data.items()
+                    if k in ProgressEntry.__dataclass_fields__
+                }
+            )
             out[entry.apk_name] = entry
         except Exception as e:
             # Corrupted progress file — log and ignore (will be re-classified)
@@ -247,7 +289,7 @@ def try_json_or_recover(text: str) -> Optional[Dict[str, Any]]:
     last_open_array = text.rfind("[")
     if last_close_array > last_open_array:
         # Cut after last closed array, then close any open arrays and the object.
-        candidate = text[:last_close_array + 1]
+        candidate = text[: last_close_array + 1]
         # Count unclosed brackets after our cut
         opens = candidate.count("[") - candidate.count("]")
         for _ in range(opens):
@@ -342,8 +384,9 @@ def derive_metrics_from_raw(raw: Dict[str, Any]) -> ProgressMetrics:
     return metrics
 
 
-def classify_status(metrics: ProgressMetrics, json_exists: bool,
-                    timed_out: bool) -> str:
+def classify_status(
+    metrics: ProgressMetrics, json_exists: bool, timed_out: bool
+) -> str:
     """Map (sections_present, methods_total, file existence, timeout) to a status."""
     if not json_exists:
         return STATUS_FAILED_TIMEOUT_NO_JSON if timed_out else STATUS_FAILED_NO_JSON
@@ -369,8 +412,9 @@ def classify_status(metrics: ProgressMetrics, json_exists: bool,
     return STATUS_UNPARSEABLE
 
 
-def apply_androguard_overlay(entry: ProgressEntry,
-                             ag: Optional[AndroguardEntry]) -> ProgressEntry:
+def apply_androguard_overlay(
+    entry: ProgressEntry, ag: Optional[AndroguardEntry]
+) -> ProgressEntry:
     """Populate androguard_* and agreement_* fields on the entry.
 
     Args:
@@ -383,21 +427,31 @@ def apply_androguard_overlay(entry: ProgressEntry,
     entry.androguard_reaches_target = ag.reaches_target
     entry.androguard_directly_reaches_target = ag.directly_reaches_target
     entry.androguard_methods_reaches_target = ag.methods_reaches_target
-    entry.androguard_methods_directly_reaches_target = ag.methods_directly_reaches_target
+    entry.androguard_methods_directly_reaches_target = (
+        ag.methods_directly_reaches_target
+    )
 
     # Agreement only computable if BOTH sides have a definitive bool
     # (gator side is None when worker didn't run or status didn't yield a boolean).
     if entry.gator_reaches_target is not None and ag.reaches_target is not None:
-        entry.agreement_reaches_target = (entry.gator_reaches_target == ag.reaches_target)
-    if entry.gator_directly_reaches_target is not None and ag.directly_reaches_target is not None:
+        entry.agreement_reaches_target = entry.gator_reaches_target == ag.reaches_target
+    if (
+        entry.gator_directly_reaches_target is not None
+        and ag.directly_reaches_target is not None
+    ):
         entry.agreement_directly_reaches_target = (
             entry.gator_directly_reaches_target == ag.directly_reaches_target
         )
     return entry
 
 
-def worker(apk_path_str: str, output_dir_str: str, config_kwargs: Dict[str, Any],
-           timeout_s: int, pass_id: str) -> Dict[str, Any]:
+def worker(
+    apk_path_str: str,
+    output_dir_str: str,
+    config_kwargs: Dict[str, Any],
+    timeout_s: int,
+    pass_id: str,
+) -> Dict[str, Any]:
     """Analyze a single APK in a child process.
 
     Returns a serializable dict (not a ProgressEntry) to keep the inter-process
@@ -428,7 +482,10 @@ def worker(apk_path_str: str, output_dir_str: str, config_kwargs: Dict[str, Any]
         config = RVStaticAnalysisConfig(**config_kwargs)
         # The sweep filters on the manifest package (the App default). A corpus
         # needing the heuristic election passes package_detector=True here.
-        app = App(str(apk_path))
+        app = App(
+            str(apk_path),
+            strip_build_type_suffix=_strip_build_type_suffix(),
+        )
         package_name = app.package_name
         code_package = app.code_package
 
@@ -460,7 +517,9 @@ def worker(apk_path_str: str, output_dir_str: str, config_kwargs: Dict[str, Any]
         # The StaticAnalyzer pipes subprocess stdout to sys.stdout; we
         # redirect sys.stdout in this process to the log file for the duration
         # of the analyze() call.
-        analyzer = StaticAnalyzer(app=app, config=config, output_dir=str(apk_output_dir))
+        analyzer = StaticAnalyzer(
+            app=app, config=config, output_dir=str(apk_output_dir)
+        )
         original_stdout = sys.stdout
         original_stderr = sys.stderr
         with open(log_path, "w") as logf:
@@ -521,18 +580,28 @@ def worker(apk_path_str: str, output_dir_str: str, config_kwargs: Dict[str, Any]
         windows_count=metrics.windows_count,
         transitions_count=metrics.transitions_count,
         components_count=metrics.components_count,
-        gator_reaches_target=(metrics.methods_reach_mop > 0) if json_exists and metrics.methods_total > 0 else None,
-        gator_directly_reaches_target=(metrics.methods_directly_reach_mop > 0) if json_exists and metrics.methods_total > 0 else None,
+        gator_reaches_target=(
+            (metrics.methods_reach_mop > 0)
+            if json_exists and metrics.methods_total > 0
+            else None
+        ),
+        gator_directly_reaches_target=(
+            (metrics.methods_directly_reach_mop > 0)
+            if json_exists and metrics.methods_total > 0
+            else None
+        ),
         last_pass_id=pass_id,
         error_message=error_message[:500] if error_message else None,
     )
     return asdict(entry)
 
 
-def decide_to_process(apk_files: List[Path],
-                      progress: Dict[str, ProgressEntry],
-                      planilha: Dict[str, AndroguardEntry],
-                      retry_statuses: Set[str]) -> Tuple[List[Path], List[Tuple[Path, str]]]:
+def decide_to_process(
+    apk_files: List[Path],
+    progress: Dict[str, ProgressEntry],
+    planilha: Dict[str, AndroguardEntry],
+    retry_statuses: Set[str],
+) -> Tuple[List[Path], List[Tuple[Path, str]]]:
     """Split APKs into (process_now, skip_with_status) lists.
 
     Skip reasons (in order):
@@ -574,9 +643,9 @@ def decide_to_process(apk_files: List[Path],
     return to_process, to_skip
 
 
-def write_skipped_no_java_code(apk: Path, output_dir: Path,
-                               planilha: Dict[str, AndroguardEntry],
-                               pass_id: str) -> ProgressEntry:
+def write_skipped_no_java_code(
+    apk: Path, output_dir: Path, planilha: Dict[str, AndroguardEntry], pass_id: str
+) -> ProgressEntry:
     """Build and persist a STATUS_SKIPPED_NO_JAVA_CODE entry without invoking GATOR."""
     ag = planilha.get(apk.name)
     now = datetime.now().isoformat(timespec="seconds")
@@ -597,8 +666,9 @@ def write_skipped_no_java_code(apk: Path, output_dir: Path,
     return entry
 
 
-def regenerate_csv(output_dir: Path, apk_files: List[Path],
-                   planilha: Dict[str, AndroguardEntry]) -> Path:
+def regenerate_csv(
+    output_dir: Path, apk_files: List[Path], planilha: Dict[str, AndroguardEntry]
+) -> Path:
     """Regenerate progress.csv from _progress/*.json + APKs not yet processed.
 
     Args:
@@ -658,13 +728,23 @@ def _entry_to_csv_row(entry: ProgressEntry) -> Dict[str, Any]:
         "transitions_count": entry.transitions_count,
         "components_count": entry.components_count,
         "gator_reaches_target": _bool_or_empty(entry.gator_reaches_target),
-        "gator_directly_reaches_target": _bool_or_empty(entry.gator_directly_reaches_target),
+        "gator_directly_reaches_target": _bool_or_empty(
+            entry.gator_directly_reaches_target
+        ),
         "androguard_reaches_target": _bool_or_empty(entry.androguard_reaches_target),
-        "androguard_directly_reaches_target": _bool_or_empty(entry.androguard_directly_reaches_target),
-        "androguard_methods_reaches_target": _int_or_empty(entry.androguard_methods_reaches_target),
-        "androguard_methods_directly_reaches_target": _int_or_empty(entry.androguard_methods_directly_reaches_target),
+        "androguard_directly_reaches_target": _bool_or_empty(
+            entry.androguard_directly_reaches_target
+        ),
+        "androguard_methods_reaches_target": _int_or_empty(
+            entry.androguard_methods_reaches_target
+        ),
+        "androguard_methods_directly_reaches_target": _int_or_empty(
+            entry.androguard_methods_directly_reaches_target
+        ),
         "agreement_reaches_target": _bool_or_empty(entry.agreement_reaches_target),
-        "agreement_directly_reaches_target": _bool_or_empty(entry.agreement_directly_reaches_target),
+        "agreement_directly_reaches_target": _bool_or_empty(
+            entry.agreement_directly_reaches_target
+        ),
         "json_size_bytes": entry.json_size_bytes,
         "last_pass_id": entry.last_pass_id,
         "last_run_finished": entry.last_run_finished,
@@ -771,22 +851,28 @@ def _signal_handler(signum, frame):  # noqa: ARG001
         except Exception as e:
             log.error("CSV regen on shutdown failed: %s", e)
         try:
-            record_sweep_run(output_dir, {
-                "pass_id": pass_id,
-                "interrupted": True,
-                "interrupted_at": datetime.now().isoformat(timespec="seconds"),
-                "killed_descendants": n_killed,
-                "signal": signum,
-            })
+            record_sweep_run(
+                output_dir,
+                {
+                    "pass_id": pass_id,
+                    "interrupted": True,
+                    "interrupted_at": datetime.now().isoformat(timespec="seconds"),
+                    "killed_descendants": n_killed,
+                    "signal": signum,
+                },
+            )
         except Exception:
             pass
     log.warning("Exiting with code 130 (interrupted)")
     os._exit(130)
 
 
-def install_signal_handlers(output_dir: Path, apk_files: List[Path],
-                            planilha: Dict[str, AndroguardEntry],
-                            pass_id: str) -> None:
+def install_signal_handlers(
+    output_dir: Path,
+    apk_files: List[Path],
+    planilha: Dict[str, AndroguardEntry],
+    pass_id: str,
+) -> None:
     """Install SIGINT/SIGTERM handlers BEFORE the pool starts.
 
     Stash state in _shutdown_state so the (top-level) handler can access it.
@@ -814,53 +900,103 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--apks-dir", required=True, type=Path,
-                        help="Directory containing .apk files")
-    parser.add_argument("--output", required=True, type=Path,
-                        help="Output directory (JSONs, _progress/, _backup/, _logs/, progress.csv)")
-    parser.add_argument("--timeout", type=int, default=900,
-                        help="Per-APK analysis timeout in seconds (default: 900 = 15min)")
-    parser.add_argument("--workers", type=int, default=8,
-                        help="Parallel workers (default: 8)")
-    parser.add_argument("--rvsec-root", type=str, default=None,
-                        help="RVSEC installation root (default: $RVSEC_HOME)")
-    parser.add_argument("--jvm-memory", type=str, default="12g",
-                        help="JVM heap size for GATOR (default: 12g)")
-    parser.add_argument("--cg-algorithm", choices=["spark", "cha", "rta", "vta"],
-                        default="spark",
-                        help="Call graph algorithm (default: spark)")
-    parser.add_argument("--skip-wtg", action="store_true",
-                        help="Skip WTG construction (propagated as -clientParam "
-                             "skipWtg=true). Saves wall-clock on APKs where WTG "
-                             "is guaranteed to time out. Partial JSON still has "
-                             "reachability + windows[].")
-    parser.add_argument("--cg-delegation", choices=["true", "false"], default=None,
-                        help="Propagated as -cgDelegation <bool>. When 'true', "
-                             "FlowgraphRebuilder queries Scene.v().getCallGraph() "
-                             "(SPARK) for virtual dispatch in the WTG build. When "
-                             "'false', uses the legacy points-to + CHA fallback path. "
-                             "Default: GATOR's baked-in (false post-M3; opt-in to "
-                             "true for apps without hybrid-framework dispatch).")
-    parser.add_argument("--succ-depth", type=int, default=None,
-                        help="Propagated as -succDepth <int> (GATOR Configs.sDepth, "
-                             "default 4). Bounds successor-enumeration depth in "
-                             "WTGHelper.getSuccNode, the combinatorial core of WTG "
-                             "construction. Lower (e.g. 3) cuts branching^depth cost "
-                             "so timeout-bound APKs can finish, at the price of "
-                             "shorter (fewer multi-hop) transition paths.")
-    parser.add_argument("--planilha", type=Path, default=None,
-                        help="Path to PLANILHA.csv (Joao Androguard reference). "
-                             "Enables dex_count==0 pre-filter and cross-validation columns.")
+    parser.add_argument(
+        "--apks-dir", required=True, type=Path, help="Directory containing .apk files"
+    )
+    parser.add_argument(
+        "--output",
+        required=True,
+        type=Path,
+        help="Output directory (JSONs, _progress/, _backup/, _logs/, progress.csv)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=900,
+        help="Per-APK analysis timeout in seconds (default: 900 = 15min)",
+    )
+    parser.add_argument(
+        "--workers", type=int, default=8, help="Parallel workers (default: 8)"
+    )
+    parser.add_argument(
+        "--rvsec-root",
+        type=str,
+        default=None,
+        help="RVSEC installation root (default: $RVSEC_HOME)",
+    )
+    parser.add_argument(
+        "--jvm-memory",
+        type=str,
+        default="12g",
+        help="JVM heap size for GATOR (default: 12g)",
+    )
+    parser.add_argument(
+        "--cg-algorithm",
+        choices=["spark", "cha", "rta", "vta"],
+        default="spark",
+        help="Call graph algorithm (default: spark)",
+    )
+    parser.add_argument(
+        "--skip-wtg",
+        action="store_true",
+        help="Skip WTG construction (propagated as -clientParam "
+        "skipWtg=true). Saves wall-clock on APKs where WTG "
+        "is guaranteed to time out. Partial JSON still has "
+        "reachability + windows[].",
+    )
+    parser.add_argument(
+        "--cg-delegation",
+        choices=["true", "false"],
+        default=None,
+        help="Propagated as -cgDelegation <bool>. When 'true', "
+        "FlowgraphRebuilder queries Scene.v().getCallGraph() "
+        "(SPARK) for virtual dispatch in the WTG build. When "
+        "'false', uses the legacy points-to + CHA fallback path. "
+        "Default: GATOR's baked-in (false post-M3; opt-in to "
+        "true for apps without hybrid-framework dispatch).",
+    )
+    parser.add_argument(
+        "--succ-depth",
+        type=int,
+        default=None,
+        help="Propagated as -succDepth <int> (GATOR Configs.sDepth, "
+        "default 4). Bounds successor-enumeration depth in "
+        "WTGHelper.getSuccNode, the combinatorial core of WTG "
+        "construction. Lower (e.g. 3) cuts branching^depth cost "
+        "so timeout-bound APKs can finish, at the price of "
+        "shorter (fewer multi-hop) transition paths.",
+    )
+    parser.add_argument(
+        "--planilha",
+        type=Path,
+        default=None,
+        help="Path to PLANILHA.csv (Joao Androguard reference). "
+        "Enables dex_count==0 pre-filter and cross-validation columns.",
+    )
     default_retry_help = ",".join(sorted(DEFAULT_RETRY_STATUSES))
-    parser.add_argument("--retry-statuses", type=str, default=None,
-                        help=f"Comma-separated statuses to reprocess. "
-                             f"Default: {default_retry_help}")
-    parser.add_argument("--regen-csv-only", action="store_true",
-                        help="Skip analysis; only regenerate progress.csv from _progress/")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Print what would be done without running analyses")
-    parser.add_argument("--limit", type=int, default=None,
-                        help="Process only the first N APKs after pre-filter (smoke testing)")
+    parser.add_argument(
+        "--retry-statuses",
+        type=str,
+        default=None,
+        help=f"Comma-separated statuses to reprocess. "
+        f"Default: {default_retry_help}",
+    )
+    parser.add_argument(
+        "--regen-csv-only",
+        action="store_true",
+        help="Skip analysis; only regenerate progress.csv from _progress/",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would be done without running analyses",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Process only the first N APKs after pre-filter (smoke testing)",
+    )
     return parser.parse_args()
 
 
@@ -876,7 +1012,7 @@ def build_config_kwargs(args: argparse.Namespace) -> Dict[str, Any]:
     }
     cg_del = getattr(args, "cg_delegation", None)
     if cg_del is not None:
-        kwargs["cg_delegation"] = (cg_del == "true")
+        kwargs["cg_delegation"] = cg_del == "true"
     succ_depth = getattr(args, "succ_depth", None)
     if succ_depth is not None:
         kwargs["succ_depth"] = succ_depth
@@ -923,6 +1059,7 @@ def main() -> int:
     config_kwargs = build_config_kwargs(args)
     try:
         from rv_static_analysis import RVStaticAnalysisConfig  # noqa: F401
+
         # Trigger validation in main process before forking workers
         RVStaticAnalysisConfig(**config_kwargs)
     except Exception as e:
@@ -940,7 +1077,9 @@ def main() -> int:
     )
     log.info("Retry statuses: %s", sorted(retry_statuses))
 
-    to_process, to_skip = decide_to_process(apk_files, progress, planilha, retry_statuses)
+    to_process, to_skip = decide_to_process(
+        apk_files, progress, planilha, retry_statuses
+    )
 
     pass_id = f"pass_{datetime.now().strftime('%Y%m%dT%H%M%S')}_t{args.timeout}"
     new_skip_count = sum(1 for _, r in to_skip if r == STATUS_SKIPPED_NO_JAVA_CODE)
@@ -949,8 +1088,12 @@ def main() -> int:
     if args.limit is not None:
         to_process = to_process[: args.limit]
 
-    log.info("To process: %d | To skip: %d (incl. %d new skipped_no_java_code)",
-             len(to_process), len(to_skip), new_skip_count)
+    log.info(
+        "To process: %d | To skip: %d (incl. %d new skipped_no_java_code)",
+        len(to_process),
+        len(to_skip),
+        new_skip_count,
+    )
 
     if args.dry_run:
         log.info("DRY RUN — would process:")
@@ -960,6 +1103,7 @@ def main() -> int:
             log.info("  ... and %d more", len(to_process) - 20)
         log.info("DRY RUN — would skip:")
         from collections import Counter
+
         skip_reasons = Counter(reason for _, reason in to_skip)
         for reason, count in skip_reasons.most_common():
             log.info("  %d × %s", count, reason)
@@ -1002,8 +1146,9 @@ def main() -> int:
 
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         futures = {
-            pool.submit(worker, str(apk), str(output_dir), config_kwargs,
-                        args.timeout, pass_id): apk
+            pool.submit(
+                worker, str(apk), str(output_dir), config_kwargs, args.timeout, pass_id
+            ): apk
             for apk in to_process
         }
         for fut in as_completed(futures):
@@ -1012,17 +1157,24 @@ def main() -> int:
                 entry_dict = fut.result()
             except Exception as e:
                 log.error("[%s] worker raised: %s", apk.name, e)
-                entry_dict = asdict(ProgressEntry(
-                    apk_name=apk.name,
-                    status=STATUS_FAILED_EXCEPTION,
-                    timeout_used_seconds=args.timeout,
-                    last_pass_id=pass_id,
-                    error_message=f"{type(e).__name__}: {e}"[:500],
-                ))
+                entry_dict = asdict(
+                    ProgressEntry(
+                        apk_name=apk.name,
+                        status=STATUS_FAILED_EXCEPTION,
+                        timeout_used_seconds=args.timeout,
+                        last_pass_id=pass_id,
+                        error_message=f"{type(e).__name__}: {e}"[:500],
+                    )
+                )
 
             # Reconstruct, overlay Androguard, persist
-            entry = ProgressEntry(**{k: v for k, v in entry_dict.items()
-                                      if k in ProgressEntry.__dataclass_fields__})
+            entry = ProgressEntry(
+                **{
+                    k: v
+                    for k, v in entry_dict.items()
+                    if k in ProgressEntry.__dataclass_fields__
+                }
+            )
             entry = apply_androguard_overlay(entry, planilha.get(apk.name))
             write_progress_atomic(output_dir / "_progress" / f"{apk.stem}.json", entry)
 
@@ -1036,10 +1188,16 @@ def main() -> int:
             elif entry.status == STATUS_SKIPPED_NO_JAVA_CODE:
                 counters["skipped"] += 1
 
-            log.info("[%d/%d] %s -> %s (%.0fs, methods=%d, mop=%d)",
-                     completed, len(to_process), apk.name, entry.status,
-                     entry.analysis_seconds, entry.methods_total,
-                     entry.methods_reach_mop)
+            log.info(
+                "[%d/%d] %s -> %s (%.0fs, methods=%d, mop=%d)",
+                completed,
+                len(to_process),
+                apk.name,
+                entry.status,
+                entry.analysis_seconds,
+                entry.methods_total,
+                entry.methods_reach_mop,
+            )
 
     # Normal completion path: regenerate CSV + record sweep run.
     # Signal-driven shutdown skips this (handler does its own save via os._exit).
@@ -1050,21 +1208,24 @@ def main() -> int:
     except Exception as e:
         log.error("CSV regeneration failed: %s", e)
 
-    record_sweep_run(output_dir, {
-        "pass_id": pass_id,
-        "started_at": started_at.isoformat(timespec="seconds"),
-        "finished_at": finished_at.isoformat(timespec="seconds"),
-        "wall_seconds": (finished_at - started_at).total_seconds(),
-        "timeout_seconds": args.timeout,
-        "workers": args.workers,
-        "cg_algorithm": args.cg_algorithm,
-        "jvm_memory": args.jvm_memory,
-        "to_process": len(to_process),
-        "completed": completed,
-        "counters": counters,
-        "skipped_no_java_code_new": new_skips,
-        "interrupted": False,
-    })
+    record_sweep_run(
+        output_dir,
+        {
+            "pass_id": pass_id,
+            "started_at": started_at.isoformat(timespec="seconds"),
+            "finished_at": finished_at.isoformat(timespec="seconds"),
+            "wall_seconds": (finished_at - started_at).total_seconds(),
+            "timeout_seconds": args.timeout,
+            "workers": args.workers,
+            "cg_algorithm": args.cg_algorithm,
+            "jvm_memory": args.jvm_memory,
+            "to_process": len(to_process),
+            "completed": completed,
+            "counters": counters,
+            "skipped_no_java_code_new": new_skips,
+            "interrupted": False,
+        },
+    )
 
     # Clean up pidfile on normal completion (signal handler doesn't bother — the
     # operator already knows the sweep stopped if they sent the signal).

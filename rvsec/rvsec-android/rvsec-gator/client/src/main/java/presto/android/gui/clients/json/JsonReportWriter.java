@@ -85,6 +85,18 @@ public final class JsonReportWriter {
 			w.name(JsonSchema.Keys.MAIN_ACTIVITY).value(
 					mainActivity != null ? mainActivity.getName() : "");
 
+			// Scope provenance (INV-ANA-66), read through the enricher rather than
+			// from new writer arguments — the same routing that keeps this class free
+			// of a ReachabilityIndex reference (INV-ANA-30). PACKAGE above is the
+			// manifest package; these three are what the run actually filtered by.
+			Map<String, Object> metadata = enricher.topLevelMetadata();
+			w.name(JsonSchema.Keys.CODE_PACKAGE).value(
+					String.valueOf(metadata.get("codePackage")));
+			w.name(JsonSchema.Keys.CODE_PACKAGE_SOURCE).value(
+					String.valueOf(metadata.get("codePackageSource")));
+			w.name(JsonSchema.Keys.CLASS_DEFS_UNDER_KEY).value(
+					((Number) metadata.get("class_defs_under_key")).intValue());
+
 			// Section 1: components — manifest-derived, trivial cost
 			// (D14 2026-05-29). Promoted before the heavy analysis
 			// sections so a transitions-timeout cannot drop the

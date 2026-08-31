@@ -8,9 +8,9 @@ Components. The JSON contains four sections written in priority order
 may be missing. The parser handles partial or truncated JSON gracefully by
 returning empty domain objects for missing or corrupt sections.
 
-All class names are normalized via SignatureNormalizer as a safety net for
-inner class notation (Outer.Inner -> Outer$Inner). The artefact arrives
-already scoped: GATOR was invoked with ``-clientParam codePackage=<key>`` and
+Identifiers cross this module untouched: the class names, window names and
+signatures a consumer sees are the ones the artefact carries. The artefact
+arrives already scoped: GATOR was invoked with ``-clientParam codePackage=<key>`` and
 removed everything outside that key before writing, so the ``reachability``
 member is the application's whole method universe and is loaded as-is
 (INV-ANA-59).
@@ -21,8 +21,11 @@ member is the application's whole method universe and is loaded as-is
   not prevent recovery of the others (INV-ANA-06)
 - Truncated JSON recovery via bracket completion handles timeout scenarios
   where the Java client flushed some sections but was killed mid-write
-- SignatureNormalizer is applied defensively -- the GATOR client already
-  writes $-notation, but the normalizer guards against future changes
+- No transformation on the consumption path (INV-ANA-67). GATOR writes
+  ``SootClass.getName()``, the JVM binary name, in which a dot between two
+  capitalized segments is a package boundary — so a heuristic that converts it
+  to ``$`` is always wrong here, and it was applied to one side of an equality
+  test whose other side is the raw logcat
 - No package key reaches this module. The producer scoped the artefact once;
   asking the question a second time here could only disagree with it, and on
   an app built with ``applicationIdSuffix`` it emptied the universe outright
@@ -48,7 +51,7 @@ member is the application's whole method universe and is loaded as-is
 
 - Input: JSON files produced by RvsecAnalysisClient (GATOR)
 - Output: StaticAnalysisData (Classes, Windows, WindowTransitionGraph, Components)
-- Dependencies: rv-android-core domain models, SignatureNormalizer, LoggingManager
+- Dependencies: rv-android-core domain models, LoggingManager
 """
 
 import json
@@ -81,6 +84,13 @@ _JK = SimpleNamespace(
     package="package",
     main_activity="mainActivity",
     complete="complete",
+    # Scope provenance (INV-ANA-66). `package` is the manifest package whatever
+    # key filtered the artefact, so these three are the only record of what the
+    # run actually scoped by — and `class_defs_under_key` is what the denominator
+    # gate divides by (INV-ANA-69).
+    code_package="codePackage",
+    code_package_source="codePackageSource",
+    class_defs_under_key="class_defs_under_key",
     # Top-level sections
     reachability="reachability",
     windows="windows",
@@ -153,7 +163,6 @@ from rv_android_core.domain.widget import (
 )
 from rv_android_core.domain.window import Window, Windows, WindowType
 from rv_android_core.domain.wtg import WindowTransition, WindowTransitionGraph
-from rv_android_core.util.android.signature_normalizer import SignatureNormalizer
 from rv_android_core.util.logging.manager import LoggingManager
 
 # Event type mapping from Java analysis client output to domain enum
@@ -180,8 +189,9 @@ class StaticAnalysisParser:
     gracefully by returning empty domain objects for missing/corrupt sections
     (INV-ANA-06).
 
-    SignatureNormalizer is applied to all class names as a safety net (INV-ANA-02),
-    though the Java client already writes $-notation via SootClass.getName().
+    The parser transforms no identifier (INV-ANA-67): a class name, a window
+    name and a signature are stored exactly as the artefact spells them, so the
+    equality tests downstream compare two spellings that share one producer.
 
     The parser holds no opinion about packages. The artefact defines its own
     scope: ``reachability`` is loaded whole (INV-ANA-59) and ACTIVITY windows
@@ -190,17 +200,15 @@ class StaticAnalysisParser:
     """
 
     def __init__(self):
-        """Initialize parser with logging and signature normalization.
+        """Initialize the parser's logger.
 
         State:
-            self.normalizer: SignatureNormalizer for inner class notation
-                (Outer.Inner -> Outer$Inner). Applied to all class names.
+            self.logger: ContextAdapter scoped to this module.
         """
         self.logging_manager = LoggingManager.get_instance()
         self.logger = self.logging_manager.get_logger(
             "rv_static_analysis.parser.static.static_analysis_parser"
         )
-        self.normalizer = SignatureNormalizer()
 
     def parse_file(self, file_path: str) -> StaticAnalysisData:
         """
@@ -252,6 +260,20 @@ class StaticAnalysisParser:
         # is missing entirely (older gh57 JSONs).
         complete = bool(data.get(_JK.complete, False))
 
+        # Scope provenance, read back exactly as recorded (INV-ANA-66). The
+        # producer writes "" for an unrecorded key or origin and -1 for an
+        # unrecorded count; both map to None so that "not recorded" stays
+        # distinguishable from an empty key or a genuinely zero universe — the
+        # state of all 162 artefacts written before the key reached disk.
+        code_package = data.get(_JK.code_package) or None
+        code_package_source = data.get(_JK.code_package_source) or None
+        recorded_defs = data.get(_JK.class_defs_under_key)
+        class_defs_under_key = (
+            int(recorded_defs)
+            if isinstance(recorded_defs, int) and recorded_defs >= 0
+            else None
+        )
+
         self.logger.info(
             f"Parsed: {len(classes.classes)} classes, "
             f"{len(classes.methods)} methods, "
@@ -261,7 +283,14 @@ class StaticAnalysisParser:
             f"complete={complete}"
         )
         return StaticAnalysisData(
-            classes, windows, wtg, components=components, complete=complete
+            classes,
+            windows,
+            wtg,
+            components=components,
+            complete=complete,
+            code_package=code_package,
+            code_package_source=code_package_source,
+            class_defs_under_key=class_defs_under_key,
         )
 
     def read_static_analysis_files(
@@ -340,7 +369,8 @@ class StaticAnalysisParser:
         """Parse the reachability section into Classes domain object.
 
         Each entry in data["reachability"] is a class with methods and
-        reachability flags. Class names are normalized (INV-ANA-02).
+        reachability flags. Class names are stored as the artefact spells them
+        (INV-ANA-67).
 
         Every entry is loaded (INV-ANA-59). The member is named ``reachability``
         because its entries carry reachability flags, not because it is a
@@ -365,14 +395,10 @@ class StaticAnalysisParser:
 
             for cls_data in reachability:
                 class_name = cls_data.get(_JK.class_name, "")
-                # Normalize inner class notation: Outer.Inner -> Outer$Inner.
-                # GATOR already outputs $-notation via SootClass.getName(), but
-                # the normalizer guards against future upstream changes.
-                normalized = self.normalizer.normalize_class_name(class_name)
 
                 component_type = cls_data.get(_JK.component_type, None)
                 is_main = cls_data.get(_JK.is_main, False)
-                classes.add_clazz(normalized, component_type, is_main)
+                classes.add_clazz(class_name, component_type, is_main)
 
                 for m_data in cls_data.get(_JK.methods, []):
                     signature = m_data.get(_JK.signature, "")
@@ -384,7 +410,7 @@ class StaticAnalysisParser:
                     params = self._extract_params(signature)
 
                     method = Method(
-                        class_name=normalized,
+                        class_name=class_name,
                         name=method_name,
                         params=params,
                         signature=signature,
@@ -406,7 +432,8 @@ class StaticAnalysisParser:
         """Parse the windows section into Windows domain object.
 
         Each entry in data["windows"] is a window with widgets and listeners.
-        Window names are normalized.
+        Window names are stored as the artefact spells them, which is what lets
+        the membership test below compare like with like (INV-ANA-67).
 
         Unlike ``reachability``, the ``windows`` member is *not* scoped by the
         producer, so framework and library activities
@@ -452,12 +479,11 @@ class StaticAnalysisParser:
 
             for w_data in windows_data:
                 window_name = w_data.get(_JK.name, "")
-                normalized_name = self.normalizer.normalize_class_name(window_name)
 
                 # An ACTIVITY the application does not own is one the producer
                 # left out of reachability. Other window types are kept.
                 w_type_str = w_data.get(_JK.type, "ACTIVITY")
-                if w_type_str == "ACTIVITY" and not classes.get_clazz(normalized_name):
+                if w_type_str == "ACTIVITY" and not classes.get_clazz(window_name):
                     continue
 
                 # Map window type
@@ -467,18 +493,18 @@ class StaticAnalysisParser:
                 is_main = w_data.get(_JK.is_main, False)
 
                 window = Window(
-                    name=normalized_name,
+                    name=window_name,
                     id=window_id,
                     type=window_type,
                     activity=(
-                        normalized_name if window_type == WindowType.ACTIVITY else ""
+                        window_name if window_type == WindowType.ACTIVITY else ""
                     ),
-                    class_name=normalized_name,
+                    class_name=window_name,
                 )
 
                 # Parse widgets
                 for wgt_data in w_data.get(_JK.widgets, []):
-                    widget = self._parse_widget(wgt_data, normalized_name)
+                    widget = self._parse_widget(wgt_data, window_name)
                     if widget:
                         window.add_widget(widget)
 
@@ -486,7 +512,7 @@ class StaticAnalysisParser:
 
                 # Mark main activity in classes
                 if is_main:
-                    clazz = classes.get_clazz(normalized_name)
+                    clazz = classes.get_clazz(window_name)
                     if clazz:
                         clazz.is_main = True
 

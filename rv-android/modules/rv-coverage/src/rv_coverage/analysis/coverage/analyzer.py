@@ -97,7 +97,12 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         """
         super().__init__(analyzer_name="coverage", static_data=static_data)
 
-        self.repository = LogcatRepository()
+        # The artefact's own key, so crossing discards can be split by scope
+        # (INV-CORE-60). None when no static data was supplied — the discards are
+        # then counted unclassified rather than attributed to either side.
+        self.repository = LogcatRepository(
+            scope_key=getattr(static_data, "code_package", None)
+        )
         self.calculation_mode = self._determine_calculation_mode(static_data)
         self.fallback_reason: Optional[str] = None
         self.static_analysis_available = bool(static_data and static_data.classes)
@@ -375,7 +380,9 @@ class CoverageAnalyzer(BaseAnalyzer[Dict[str, Any]]):
         from rv_coverage.parser.log.logcat_parser import parse_logcat_file
 
         # Parse logcat file
-        parsed_repo = parse_logcat_file(logcat_file)
+        parsed_repo = parse_logcat_file(
+            logcat_file, scope_key=self.repository.scope_key
+        )
 
         # Repository is now direct LogcatRepository - no wrapper needed
         core_repo = self.repository

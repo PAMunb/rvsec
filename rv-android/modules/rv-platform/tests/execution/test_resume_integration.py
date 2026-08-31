@@ -670,11 +670,17 @@ class TestGh65ResumeHealthCheck:
         assert "1/3" in health[0]
         assert len(processor._unresolved_task_ids) == 1
 
-        # The unresolved task still has accurate MOP errors; coverage zeroed.
+        # The unresolved task still has accurate MOP errors, and its coverage
+        # cells are EMPTY rather than zero (INV-PLT-35): violations do not depend
+        # on static analysis, and a `0.00` would claim a measurement the run
+        # could not make.
         rows = {r["apk"]: r for r in _summary_rows(results_dir)}
-        assert float(rows["bad.apk"]["cov_method"]) == 0
+        assert rows["bad.apk"]["cov_method"] == ""
+        assert rows["bad.apk"]["classes_total"] == ""
+        assert rows["bad.apk"]["measured"] == "false"
         assert int(rows["bad.apk"]["mop_errors_total"]) == 2
         assert float(rows["ok1.apk"]["cov_method"]) > 0
+        assert rows["ok1.apk"]["measured"] == "true"
 
     def test_no_warning_when_all_resolved(self, tmp_path, caplog):
         import logging

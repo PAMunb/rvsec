@@ -141,9 +141,14 @@ class TestGenerateTasks:
         assert platform.tasks
         for task in platform.tasks:
             assert task.app.package_detector is policy
+            # Three values now (INV-CORE-18 as modified). This platform builds
+            # its apps without the neutralization policy, so the manifest branch
+            # reports "manifest" — "manifest-neutralized" belongs to the runs
+            # that turn the policy on AND have a suffix to remove.
             assert task.app.code_package_source == (
                 "detector" if policy else "manifest"
             )
+            assert task.app.strip_build_type_suffix is False
 
     def test_platform_reads_no_environment_for_the_policy(self):
         """The variable name appears nowhere in rv-platform's source."""

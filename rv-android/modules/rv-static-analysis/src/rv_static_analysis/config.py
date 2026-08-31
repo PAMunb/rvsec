@@ -396,6 +396,13 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         if code_package:
             cmd.extend(["-clientParam", f"codePackage={code_package}"])
 
+        # The origin of that key. It exists only on the Python side (App.code_package_source)
+        # and the run writes it to a log that never reaches disk, so without this channel the
+        # artefact cannot record which policy produced the key it was filtered by (INV-ANA-66).
+        code_package_source = kwargs.get("code_package_source")
+        if code_package_source:
+            cmd.extend(["-clientParam", f"codePackageSource={code_package_source}"])
+
         if self.skip_wtg:
             cmd.extend(["-clientParam", "skipWtg=true"])
 

@@ -34,12 +34,30 @@ public final class ReachabilityEnricher {
 	private final String manifestPackage;
 	private final String codePackage;
 	private final String mainActivity;
+	private final String codePackageSource;
+	private final int classDefsUnderKey;
 
+	/**
+	 * Four-argument form kept for callers that carry no provenance — the tests that
+	 * exercise the per-method enrichment only. Production goes through the six-argument
+	 * constructor: an artefact written without the provenance is one whose denominator
+	 * cannot be audited afterwards (INV-ANA-66).
+	 */
 	public ReachabilityEnricher(
 			ReachabilityIndex index,
 			String manifestPackage,
 			String codePackage,
 			String mainActivity) {
+		this(index, manifestPackage, codePackage, mainActivity, null, -1);
+	}
+
+	public ReachabilityEnricher(
+			ReachabilityIndex index,
+			String manifestPackage,
+			String codePackage,
+			String mainActivity,
+			String codePackageSource,
+			int classDefsUnderKey) {
 		if (index == null) {
 			throw new NullPointerException("index");
 		}
@@ -47,6 +65,8 @@ public final class ReachabilityEnricher {
 		this.manifestPackage = manifestPackage != null ? manifestPackage : "";
 		this.codePackage = codePackage != null ? codePackage : "";
 		this.mainActivity = mainActivity != null ? mainActivity : "";
+		this.codePackageSource = codePackageSource != null ? codePackageSource : "";
+		this.classDefsUnderKey = classDefsUnderKey;
 	}
 
 	/**
@@ -90,17 +110,27 @@ public final class ReachabilityEnricher {
 	}
 
 	/**
-	 * App-level metadata. Currently the gh57 inline writer emits
-	 * {@code package} and {@code mainActivity} only; {@code codePackage}
-	 * is reserved for the upcoming dual-package emission (C2 — issue
-	 * G11) and is exposed here so that change can add the key without
-	 * touching the writer.
+	 * App-level metadata: the two packages, the main activity, the origin of the
+	 * effective key and the compiled class universe under it.
+	 *
+	 * <p>The last two exist so that a stored artefact answers, on its own, the two
+	 * questions a coverage denominator raises after the fact — which key filtered it,
+	 * and how many compiled classes that key covered (INV-ANA-66). Neither is
+	 * recoverable from the file otherwise: the {@code package} member is the manifest
+	 * package whatever key filtered the contents, and no consumer holds the APK.
+	 *
+	 * <p>{@code class_defs_under_key} is the NET count — the compiled classes under the
+	 * key that survive {@code RvsecAnalysisClient.isAppClass}, the same predicate that
+	 * filtered the parsed side. That is what lets the denominator gate merely divide.
+	 * It is {@code -1} when this enricher was built without provenance.
 	 */
 	public Map<String, Object> topLevelMetadata() {
-		Map<String, Object> out = new LinkedHashMap<>(3);
+		Map<String, Object> out = new LinkedHashMap<>(5);
 		out.put("manifestPackage", manifestPackage);
 		out.put("codePackage", codePackage);
 		out.put("mainActivity", mainActivity);
+		out.put("codePackageSource", codePackageSource);
+		out.put("class_defs_under_key", Integer.valueOf(classDefsUnderKey));
 		return out;
 	}
 

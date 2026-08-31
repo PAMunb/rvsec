@@ -13,9 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from rv_android_core.domain.app import App
-from rv_android_core.domain.task import ToolConfig
 from rv_android_core.tools.abstract_tool import AbstractTool
-from rv_android_core.util.error.exceptions import RVExperimentExecutionError
 from rv_experiment.config import ExperimentConfig
 from rv_experiment.experiment.workflow.execution_controller import ExecutionController
 
@@ -33,6 +31,7 @@ def mock_config():
     config.apks_filter = None
     config.logcat_diagnostics = False
     config.package_detector = False
+    config.strip_build_type_suffix = False
     config.device_port = None
     config.repetitions = 1
     config.timeouts = [300]

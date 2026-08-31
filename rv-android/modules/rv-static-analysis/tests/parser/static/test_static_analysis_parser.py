@@ -2,6 +2,7 @@
 
 import json
 import os
+import pathlib
 
 import pytest
 from rv_android_core.domain.classes import Classes
@@ -574,8 +575,14 @@ class TestInnerClassNormalization:
         result = parser.parse_file(path)
         assert "com.example.Outer$Inner" in result.classes.classes
 
-    def test_dot_notation_normalized(self, parser, tmp_path):
-        """Class names using . for inner classes are normalized to $."""
+    def test_dotted_name_is_stored_as_the_artefact_spells_it(self, parser, tmp_path):
+        """A dot between two capitalized segments is a package boundary here.
+
+        GATOR writes `SootClass.getName()`, so `com.example.Outer.Inner` names a
+        class `Inner` in package `com.example.Outer` — not a nested class. The
+        parser used to rewrite it to `Outer$Inner`, which matched nothing the
+        weaver ever emitted; that is what INV-ANA-67 forbids.
+        """
         data = {
             "reachability": [
                 {
@@ -590,8 +597,8 @@ class TestInnerClassNormalization:
         }
         path = _write_json(tmp_path, data)
         result = parser.parse_file(path)
-        # SignatureNormalizer converts Outer.Inner to Outer$Inner
-        assert "com.example.Outer$Inner" in result.classes.classes
+        assert "com.example.Outer.Inner" in result.classes.classes
+        assert "com.example.Outer$Inner" not in result.classes.classes
 
 
 # --- Partial section failure (INV-ANA-06) ---
@@ -997,10 +1004,8 @@ class TestBaselineEquivalence:
     reachability counts (to absorb minor analysis variations across runs).
     """
 
-    # Baseline values for the current cryptoapp.apk analysis. Regenerated
-    # 2026-05-26 against the post-gh60 jar (spark default per gh51 D5 + gh57
-    # schema with components + ADR-6 complete sentinel + C1f reachesTarget
-    # key naming). Source-of-truth ledger lives at
+    # Baseline values for the current cryptoapp.apk analysis. Source-of-truth
+    # ledger lives at
     # `modules/rv-static-analysis/tests/resources/baselines/MANIFEST.json`
     # — keep these constants in sync with the `expected_metrics` of the
     # `cryptoapp` entry there.
@@ -1010,6 +1015,21 @@ class TestBaselineEquivalence:
     # cha→spark switch; the historical drop in `classes` to 16 reflects the
     # R$*/BuildConfig filtering also landed during gh57. See
     # openspec/changes/gh60-targets-core/design.md §D12.
+    #
+    # The two target axes moved again in gh69 (`2a0f5280`), which regenerated
+    # the fixture. Both movements are gains in what the matcher can resolve,
+    # not drift, and each is attributed to one cause:
+    #   - `new` → `<init>` (gh69 D9): Soot names every constructor `<init>`,
+    #     so no pointcut written as `Owner.new(..)` had ever resolved a call
+    #     site. reaches_target 32→33 (`CryptoUtils.createSecretKeyFromBytes`),
+    #     directly_reaches_target 21→23 (plus
+    #     `CryptographyActivity.executeSecretKeyOperation`).
+    #   - implicit `java.lang` seeding (gh69 phase 5.6): `RandomStringPassword.mop`
+    #     names the owner `String` without importing it. The direct axis stays
+    #     at 23 — this APK has no call site of the woven signatures — while
+    #     reaches_target goes 33→37: the default constructors of MainActivity,
+    #     CipherActivity, CryptographyActivity and MessageDigestActivity reach
+    #     `String.valueOf(Object)` through the framework call graph.
     BASELINE = {
         "classes": 16,
         "methods": 106,
@@ -1017,8 +1037,8 @@ class TestBaselineEquivalence:
         "windows": 5,
         "transitions": 36,  # 35 raw JSON objects, 1 has 2 events → 36 expanded
         "reachable": 55,
-        "reaches_target": 32,
-        "directly_reaches_target": 21,
+        "reaches_target": 37,
+        "directly_reaches_target": 23,
     }
 
     def test_class_count_exact(self, parser):
@@ -1117,50 +1137,51 @@ class TestBaselineEquivalence:
             ), f"target {t['target']} not in window_ids"
 
 
-# --- Normalization validation (Task 8.10) ---
+# --- No transformation on the consumption path (INV-ANA-67) ---
 
 
-class TestNormalizerSafetyNet:
-    """Verify SignatureNormalizer is a no-op on well-formed JSON (D7 rule).
+class TestArtifactSpellingPreserved:
+    """Every identifier reaches a consumer exactly as the artefact spells it.
 
-    The Java client writes all class names using SootClass.getName() which
-    produces JVM $ notation. The Python normalizer is a safety net — it should
-    NOT change any class name from correctly-generated JSON.
+    The class this replaces asserted that a normalizer was a *no-op* on
+    well-formed GATOR output, which was true and beside the point: the
+    transformation had no correct case in this pipeline and one wrong case that
+    fired on 465 classes across 7 of the 162 corpus artefacts. What is worth
+    pinning now is the absence of the transformation, not its harmlessness.
     """
 
-    def test_normalizer_is_noop_on_correct_json(self, parser):
-        """Normalizer should not change any class name from cryptoapp JSON."""
-        change_count = 0
-        original_normalize = parser.normalizer.normalize_class_name
+    def test_parser_stores_artifact_spelling(self, parser):
+        """No class name from the cryptoapp fixture differs from its own file."""
+        on_disk = {
+            entry["className"]
+            for entry in json.loads(
+                pathlib.Path(CRYPTOAPP_FIXTURE).read_text(encoding="utf-8")
+            )["reachability"]
+        }
 
-        def counting_normalize(class_name):
-            nonlocal change_count
-            result = original_normalize(class_name)
-            if class_name != result:
-                change_count += 1
-            return result
+        parsed = set(parser.parse_file(CRYPTOAPP_FIXTURE).classes.classes.keys())
 
-        parser.normalizer.normalize_class_name = counting_normalize
-        parser.parse_file(CRYPTOAPP_FIXTURE)
+        assert parsed == on_disk
 
-        assert (
-            change_count == 0
-        ), f"Normalizer changed {change_count} class names — Java client may have a bug"
+    def test_capitalized_package_segment(self, parser, tmp_path):
+        """The corpus shape that motivated the removal.
 
-    def test_normalizer_warns_on_change(self, parser, tmp_path, caplog):
-        """If normalizer changes a class name, a WARNING should be logged."""
-        import logging
-
+        `com.hwloc.lstopo.ZoomView.ZoomView` is a class `ZoomView` in package
+        `com.hwloc.lstopo.ZoomView` — two capitalized segments and no nesting.
+        Its 1080 `RVSEC-COV` events name it with the dot; rewriting the static
+        side to `ZoomView$ZoomView` matched none of them and published 0.00%.
+        """
+        dotted = "com.hwloc.lstopo.ZoomView.ZoomView"
         data = {
             "reachability": [
                 {
-                    "className": "com.example.Outer.Inner",
+                    "className": dotted,
                     "componentType": None,
                     "isMain": False,
                     "methods": [
                         {
-                            "name": "run",
-                            "signature": "<com.example.Outer.Inner: void run()>",
+                            "name": "onDraw",
+                            "signature": f"<{dotted}: void onDraw()>",
                             "reachable": True,
                             "reachesTarget": False,
                             "directlyReachesTarget": False,
@@ -1172,49 +1193,23 @@ class TestNormalizerSafetyNet:
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
-        with caplog.at_level(logging.WARNING):
-            result = parser.parse_file(path)
 
-        # The normalizer converts Outer.Inner -> Outer$Inner
-        assert "com.example.Outer$Inner" in result.classes.classes
-
-    def test_normalizer_handles_legacy_dot_notation(self, parser, tmp_path):
-        """Normalizer corrects . to $ for inner classes in legacy data."""
-        data = {
-            "reachability": [
-                {
-                    "className": "com.example.Outer.Inner",
-                    "componentType": None,
-                    "isMain": False,
-                    "methods": [
-                        {
-                            "name": "run",
-                            "signature": "<com.example.Outer.Inner: void run()>",
-                            "reachable": True,
-                            "reachesTarget": False,
-                            "directlyReachesTarget": False,
-                        }
-                    ],
-                }
-            ],
-            "windows": [],
-            "transitions": [],
-        }
-        path = _write_json(tmp_path, data)
         result = parser.parse_file(path)
 
-        # Should be normalized to $ notation
-        assert "com.example.Outer$Inner" in result.classes.classes
-        assert "com.example.Outer.Inner" not in result.classes.classes
+        assert dotted in result.classes.classes
+        assert "$" not in "".join(result.classes.classes)
+        # The signature was always stored verbatim; the point is that the class
+        # name now agrees with it, which it did not while the rewrite fired.
+        method = next(iter(result.classes.classes[dotted].methods))
+        assert method.signature == f"<{dotted}: void onDraw()>"
+        assert method.class_name == dotted
 
-    def test_inner_class_patterns(self, parser, tmp_path):
-        """Verify normalization for all known inner class patterns."""
-        classes = [
-            # (input, expected_output)
-            ("com.example.Outer$Inner", "com.example.Outer$Inner"),
-            ("com.example.Outer$1", "com.example.Outer$1"),
-            ("com.example.Outer$Inner$1", "com.example.Outer$Inner$1"),
-            ("com.example.Map.GameFieldPosition", "com.example.Map$GameFieldPosition"),
+    def test_genuine_nesting_survives_untouched(self, parser, tmp_path):
+        """`$` in the artefact is real nesting and must be kept as written."""
+        names = [
+            "com.example.Outer$Inner",
+            "com.example.Outer$1",
+            "com.example.Outer$Inner$1",
         ]
         data = {
             "reachability": [
@@ -1222,28 +1217,46 @@ class TestNormalizerSafetyNet:
                     "className": cn,
                     "componentType": None,
                     "isMain": False,
-                    "methods": [
-                        {
-                            "name": "m",
-                            "signature": f"<{cn}: void m()>",
-                            "reachable": True,
-                            "reachesTarget": False,
-                            "directlyReachesTarget": False,
-                        }
-                    ],
+                    "methods": [],
                 }
-                for cn, _ in classes
+                for cn in names
             ],
             "windows": [],
             "transitions": [],
         }
         path = _write_json(tmp_path, data)
+
         result = parser.parse_file(path)
 
-        for _, expected in classes:
-            assert (
-                expected in result.classes.classes
-            ), f"Expected {expected} in classes, got: {list(result.classes.classes.keys())}"
+        assert set(result.classes.classes) == set(names)
+
+    def test_window_names_are_not_rewritten_either(self, parser, tmp_path):
+        """Both call sites went together, and this is why.
+
+        INV-ANA-60 admits an ACTIVITY window when its class is present in
+        `reachability`. Removing only the class-side rewrite would leave window
+        names dollar-separated against dotted classes, silently changing which
+        activities are admitted — so the membership test is asserted here, not
+        just the spelling.
+        """
+        dotted = "com.hwloc.lstopo.ZoomView.ZoomView"
+        data = {
+            "reachability": [
+                {
+                    "className": dotted,
+                    "componentType": None,
+                    "isMain": False,
+                    "methods": [],
+                }
+            ],
+            "windows": [{"id": 1, "name": dotted, "type": "ACTIVITY", "widgets": []}],
+            "transitions": [],
+        }
+        path = _write_json(tmp_path, data)
+
+        result = parser.parse_file(path)
+
+        assert [w.name for w in result.windows.windows] == [dotted]
 
 
 class TestMultiPackageArtefacts:

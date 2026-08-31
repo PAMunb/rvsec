@@ -31,7 +31,10 @@ import sys
 import time
 from pathlib import Path
 
-from rv_android_core.constants import ENV_PACKAGE_DETECTOR
+from rv_android_core.constants import (
+    ENV_PACKAGE_DETECTOR,
+    ENV_STRIP_BUILD_TYPE_SUFFIX,
+)
 from rv_android_core.domain.app import App
 from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_android_core.util.utils import resolve_bool_setting
@@ -183,6 +186,23 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         ),
     )
 
+    # Same default=None rationale as the pair above.
+    config_group.add_argument(
+        "--strip-build-type-suffix",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Neutralize the Gradle build-type suffix of the declared applicationId "
+            "before using it as the scope key: 'com.example.app.debug' becomes "
+            "'com.example.app' (default: off). Overrides "
+            "RV_STRIP_BUILD_TYPE_SUFFIX (CLI > env > default). The suffix renames "
+            "the application, not the code, so under the declared id nothing was "
+            "ever compiled — 75 of the 162 article-corpus APKs are in that state. "
+            "The denylist is not total: a key it cannot resolve is caught by the "
+            "denominator gate, not silently published."
+        ),
+    )
+
     util_group = parser.add_argument_group("Utility Options")
     util_group.add_argument(
         "--verbose", "-v", action="store_true", help="Enable verbose output"
@@ -312,6 +332,21 @@ def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
         sys.exit(1)
 
 
+def _discard_cached_artifact(analyzer: "StaticAnalyzer", force: bool) -> None:
+    """Honour `--force` by removing the artefact the cache would answer with.
+
+    The flag has always promised re-analysis and never delivered it: it was
+    declared on both subparsers and read nowhere, so a run asking for a fresh
+    analysis silently got the stored one. The automatic regeneration of
+    INV-ANA-70 covers only a *changed* scope key; this is the deliberate
+    invalidation, for a run that wants a fresh artefact under the same key.
+    """
+    if not force:
+        return
+    if os.path.isfile(analyzer.analysis_file):
+        os.remove(analyzer.analysis_file)
+
+
 def handle_analyze_command(args: argparse.Namespace) -> int:
     """Run static analysis on a single APK.
 
@@ -344,8 +379,13 @@ def handle_analyze_command(args: argparse.Namespace) -> int:
         )
         return 0
 
-    app = App(args.apk, package_detector=args.package_detector)
+    app = App(
+        args.apk,
+        package_detector=args.package_detector,
+        strip_build_type_suffix=args.strip_build_type_suffix,
+    )
     analyzer = StaticAnalyzer(app, config, args.output)
+    _discard_cached_artifact(analyzer, args.force)
 
     try:
         start_time = time.time()
@@ -422,9 +462,14 @@ def handle_batch_command(args: argparse.Namespace) -> int:
             print(f"\nProcessing [{i}/{len(apk_files)}]: {apk_file.name}")
 
         try:
-            app = App(str(apk_file), package_detector=args.package_detector)
+            app = App(
+                str(apk_file),
+                package_detector=args.package_detector,
+                strip_build_type_suffix=args.strip_build_type_suffix,
+            )
             apk_output_dir = Path(args.output) / app.package_name
             analyzer = StaticAnalyzer(app, config, str(apk_output_dir))
+            _discard_cached_artifact(analyzer, args.force)
             result = analyzer.analyze()
 
             if result.success:
@@ -531,6 +576,28 @@ def resolve_package_detector(cli_value: bool | None) -> bool:
     )
 
 
+def resolve_strip_build_type_suffix(cli_value: bool | None) -> bool:
+    """Resolve the build-type suffix policy under flag > env > default.
+
+    Same contract as `resolve_package_detector` above, and local for the same
+    reason: only entry points may read the environment (INV-EXP-35).
+
+    Args:
+        cli_value: The flag as argparse resolved it (`None` when absent)
+
+    Returns:
+        Whether the declared applicationId is neutralized before use as the key
+
+    Raises:
+        ValueError: the variable holds a value the convention cannot parse
+    """
+    return resolve_bool_setting(
+        cli_value,
+        os.environ.get(ENV_STRIP_BUILD_TYPE_SUFFIX),
+        ENV_STRIP_BUILD_TYPE_SUFFIX,
+    )
+
+
 def main() -> int:
     """Parse arguments and dispatch to the appropriate subcommand handler.
 
@@ -550,6 +617,9 @@ def main() -> int:
     # entire analysis.
     try:
         args.package_detector = resolve_package_detector(args.package_detector)
+        args.strip_build_type_suffix = resolve_strip_build_type_suffix(
+            args.strip_build_type_suffix
+        )
     except ValueError as e:
         print(f"Configuration Error: {e}", file=sys.stderr)
         return 1

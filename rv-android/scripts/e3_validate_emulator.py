@@ -52,7 +52,7 @@ import re
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 logging.basicConfig(
@@ -86,10 +86,24 @@ ERROR_PATTERNS = {
 COV_CLASS = re.compile(r"RVSEC-COV:\s*<([^:]+):")
 
 CSV_FIELDS = [
-    "apk", "package", "sa_classes", "status", "activity", "launch_method",
-    "cov_total", "cov_app", "cov_classes",
-    "fatal_exception", "anr", "verify_error", "error_type_3", "force_stop",
-    "install_s", "launch_s", "total_s", "detail",
+    "apk",
+    "package",
+    "sa_classes",
+    "status",
+    "activity",
+    "launch_method",
+    "cov_total",
+    "cov_app",
+    "cov_classes",
+    "fatal_exception",
+    "anr",
+    "verify_error",
+    "error_type_3",
+    "force_stop",
+    "install_s",
+    "launch_s",
+    "total_s",
+    "detail",
 ]
 
 
@@ -97,12 +111,12 @@ CSV_FIELDS = [
 class Result:
     apk: str
     package: str = ""
-    sa_classes: int = 0      # tamanho do universo do artefato (denominador)
+    sa_classes: int = 0  # tamanho do universo do artefato (denominador)
     status: str = ""
     activity: str = ""
     launch_method: str = ""
     cov_total: int = 0
-    cov_app: int = 0         # linhas cuja classe pertence a esse universo
+    cov_app: int = 0  # linhas cuja classe pertence a esse universo
     cov_classes: int = 0
     fatal_exception: int = 0
     anr: int = 0
@@ -117,11 +131,14 @@ class Result:
 
 # --- adb ---
 
+
 def adb(device: str, *args: str, timeout: int = 120) -> tuple[int, str, str]:
     try:
         p = subprocess.run(
             ["adb", "-s", device, *args],
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
         )
         return p.returncode, p.stdout.strip(), p.stderr.strip()
     except subprocess.TimeoutExpired:
@@ -136,12 +153,15 @@ def single_device() -> str:
         if line.strip() and line.split()[-1] == "device"
     ]
     if len(devices) != 1:
-        log.error("Esperado exatamente 1 device pronto; encontrado: %s", devices or "nenhum")
+        log.error(
+            "Esperado exatamente 1 device pronto; encontrado: %s", devices or "nenhum"
+        )
         sys.exit(3)
     return devices[0]
 
 
 # --- resolução de pacote e activity ---
+
 
 def find_aapt() -> Path:
     sdk = Path(os.environ.get("ANDROID_HOME", ""))
@@ -155,8 +175,12 @@ def find_aapt() -> Path:
 def badging(aapt: Path, apk: Path) -> tuple[str, str]:
     """Retorna (package, launchable_activity). A activity vem vazia quando o
     MAIN/LAUNCHER está só em `<activity-alias>` — é o caso dos 19 do corpus."""
-    p = subprocess.run([str(aapt), "dump", "badging", str(apk)],
-                       capture_output=True, text=True, timeout=180)
+    p = subprocess.run(
+        [str(aapt), "dump", "badging", str(apk)],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
     pkg = act = ""
     for line in p.stdout.splitlines():
         if line.startswith("package: name=") and not pkg:
@@ -174,9 +198,18 @@ def resolve_via_device(device: str, pkg: str) -> str:
     `android/com.android.internal.app.ResolverActivity` — o seletor do sistema.
     Lançar isso abre o chooser, não o app, e o logcat sai sem cobertura por
     motivo nenhum do APK. Por isso só se aceita componente do pacote alvo."""
-    rc, out, _ = adb(device, "shell", "cmd", "package", "resolve-activity",
-                     "--brief", "-c", "android.intent.category.LAUNCHER", pkg,
-                     timeout=60)
+    rc, out, _ = adb(
+        device,
+        "shell",
+        "cmd",
+        "package",
+        "resolve-activity",
+        "--brief",
+        "-c",
+        "android.intent.category.LAUNCHER",
+        pkg,
+        timeout=60,
+    )
     if rc != 0:
         return ""
     for line in out.splitlines():
@@ -217,12 +250,18 @@ def app_classes(meta: Path) -> set[str]:
 
 
 def belongs(cls: str, universe: set[str]) -> bool:
-    """O artefato traz `Outer.Inner` onde o logcat traz `Outer$Inner`; aceitar as
-    duas grafias é o mesmo papel do `SignatureNormalizer` no parser."""
+    """Aceita as duas grafias porque este script lê artefatos de duas eras.
+
+    A premissa antiga — "o artefato traz `Outer.Inner` onde o logcat traz
+    `Outer$Inner`" — está invertida: GATOR escreve `SootClass.getName()`, então um
+    ponto entre dois segmentos capitalizados é fronteira de pacote, e quem
+    inseria o cifrão era o parser. Um artefato produzido antes da gh111 pode
+    carregar a grafia reescrita; a leniência aqui é para ele, não para o logcat."""
     return cls in universe or cls.replace("$", ".") in universe
 
 
 # --- logcat ---
+
 
 def analyze_logcat(text: str, universe: set[str]) -> dict:
     cov_total = cov_app = 0
@@ -240,14 +279,20 @@ def analyze_logcat(text: str, universe: set[str]) -> dict:
         for name, pat in ERROR_PATTERNS.items():
             if pat.search(line):
                 counts[name] += 1
-    return {"cov_total": cov_total, "cov_app": cov_app,
-            "cov_classes": len(classes), **counts}
+    return {
+        "cov_total": cov_total,
+        "cov_app": cov_app,
+        "cov_classes": len(classes),
+        **counts,
+    }
 
 
 # --- um APK ---
 
-def validate_one(apk: Path, device: str, aapt: Path, settle: int,
-                 logcat_dir: Path, meta: Path) -> Result:
+
+def validate_one(
+    apk: Path, device: str, aapt: Path, settle: int, logcat_dir: Path, meta: Path
+) -> Result:
     r = Result(apk=apk.name)
     t_start = time.time()
 
@@ -293,20 +338,45 @@ def validate_one(apk: Path, device: str, aapt: Path, settle: int,
         # 4. lançar
         t0 = time.time()
         if r.launch_method == "monkey":
-            rc, out, err = adb(device, "shell", "monkey", "-p", pkg,
-                               "-c", "android.intent.category.LAUNCHER", "1",
-                               timeout=120)
+            rc, out, err = adb(
+                device,
+                "shell",
+                "monkey",
+                "-p",
+                pkg,
+                "-c",
+                "android.intent.category.LAUNCHER",
+                "1",
+                timeout=120,
+            )
             launch_bad = rc != 0 or "No activities found" in (out + err)
         else:
-            rc, out, err = adb(device, "shell", "am", "start", "-W", "-S",
-                               "-n", r.activity, timeout=180)
+            rc, out, err = adb(
+                device,
+                "shell",
+                "am",
+                "start",
+                "-W",
+                "-S",
+                "-n",
+                r.activity,
+                timeout=180,
+            )
             launch_bad = rc != 0 or "Error" in (out + err)
             if launch_bad:
                 # Última tentativa: o monkey usa o resolvedor do launcher e não
                 # depende do nome de componente que acabou de falhar.
-                rc2, out2, err2 = adb(device, "shell", "monkey", "-p", pkg,
-                                      "-c", "android.intent.category.LAUNCHER", "1",
-                                      timeout=120)
+                rc2, out2, err2 = adb(
+                    device,
+                    "shell",
+                    "monkey",
+                    "-p",
+                    pkg,
+                    "-c",
+                    "android.intent.category.LAUNCHER",
+                    "1",
+                    timeout=120,
+                )
                 if rc2 == 0 and "No activities found" not in (out2 + err2):
                     r.launch_method, launch_bad = "monkey-fallback", False
                     r.detail = f"am start falhou: {(out + ' ' + err).strip()[:200]}"
@@ -345,6 +415,7 @@ def validate_one(apk: Path, device: str, aapt: Path, settle: int,
 
 
 # --- estado / resume ---
+
 
 def load_done(state_csv: Path) -> set[str]:
     if not state_csv.exists():
@@ -401,7 +472,9 @@ def reclassify(corpus: Path, out: Path) -> int:
         for k, v in stats.items():
             setattr(r, k, v)
 
-        if row.get("status") == "launch_failed" or (r.error_type_3 and r.cov_app < COV_MIN):
+        if row.get("status") == "launch_failed" or (
+            r.error_type_3 and r.cov_app < COV_MIN
+        ):
             r.status = "launch_failed"
         elif r.fatal_exception or r.verify_error or r.anr:
             r.status = "crash"
@@ -426,19 +499,34 @@ def reclassify(corpus: Path, out: Path) -> int:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--corpus", type=Path, default=CORPUS)
     ap.add_argument("--out", type=Path, default=OUT_DIR)
-    ap.add_argument("--settle", type=int, default=15,
-                    help="segundos entre o lançamento e a captura do logcat")
+    ap.add_argument(
+        "--settle",
+        type=int,
+        default=15,
+        help="segundos entre o lançamento e a captura do logcat",
+    )
     ap.add_argument("--limit", type=int, default=None)
-    ap.add_argument("--only", action="append", default=[],
-                    help="valida apenas o(s) APK(s) nomeado(s); repetível")
-    ap.add_argument("--force", action="store_true",
-                    help="revalida mesmo o que já está no CSV de estado")
-    ap.add_argument("--reclassify", action="store_true",
-                    help="recalcula status a partir dos logcats gravados, sem device")
+    ap.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        help="valida apenas o(s) APK(s) nomeado(s); repetível",
+    )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="revalida mesmo o que já está no CSV de estado",
+    )
+    ap.add_argument(
+        "--reclassify",
+        action="store_true",
+        help="recalcula status a partir dos logcats gravados, sem device",
+    )
     args = ap.parse_args()
 
     if args.reclassify:
@@ -466,8 +554,12 @@ def main() -> int:
     if args.limit:
         pending = pending[: args.limit]
 
-    log.info("Corpus: %d APKs | já validados: %d | a validar agora: %d",
-             len(apks), len(done), len(pending))
+    log.info(
+        "Corpus: %d APKs | já validados: %d | a validar agora: %d",
+        len(apks),
+        len(done),
+        len(pending),
+    )
     if not pending:
         log.info("Nada a fazer.")
         return 0
@@ -476,8 +568,13 @@ def main() -> int:
     aapt = find_aapt()
     rc, sdk_out, _ = adb(device, "shell", "getprop", "ro.build.version.sdk")
     rc, abi_out, _ = adb(device, "shell", "getprop", "ro.product.cpu.abi")
-    log.info("Device %s | API %s | ABI %s | aapt %s",
-             device, sdk_out, abi_out, aapt.parent.name)
+    log.info(
+        "Device %s | API %s | ABI %s | aapt %s",
+        device,
+        sdk_out,
+        abi_out,
+        aapt.parent.name,
+    )
 
     tally: dict[str, int] = {}
     t_batch = time.time()
@@ -487,16 +584,25 @@ def main() -> int:
         r = validate_one(apk, device, aapt, args.settle, logcat_dir, meta)
         append_row(state_csv, r)
         tally[r.status] = tally.get(r.status, 0) + 1
-        log.info("  → %s | cov %d (app %d) | %s | %.0fs",
-                 r.status.upper(), r.cov_total, r.cov_app,
-                 r.launch_method or "-", r.total_s)
+        log.info(
+            "  → %s | cov %d (app %d) | %s | %.0fs",
+            r.status.upper(),
+            r.cov_total,
+            r.cov_app,
+            r.launch_method or "-",
+            r.total_s,
+        )
         if r.detail:
             log.info("     %s", r.detail[:200])
 
     elapsed = time.time() - t_batch
     log.info("=" * 60)
-    log.info("Validados agora: %d em %.1f min (%.0f s/APK)",
-             len(pending), elapsed / 60, elapsed / max(1, len(pending)))
+    log.info(
+        "Validados agora: %d em %.1f min (%.0f s/APK)",
+        len(pending),
+        elapsed / 60,
+        elapsed / max(1, len(pending)),
+    )
     for status in ("pass", "nocov", "crash", "launch_failed", "install_failed"):
         if status in tally:
             log.info("  %-15s %d", status, tally[status])

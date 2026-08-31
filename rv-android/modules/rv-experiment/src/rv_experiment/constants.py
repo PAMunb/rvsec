@@ -48,6 +48,12 @@ WORKING_DIR = os.getcwd()
 RESULTS_DIR = "results"
 INSTRUMENTED_DIR = "out"
 MONITORS_DIR = "monitors"
+# Provenance marker the generator writes into MONITORS_DIR, naming the
+# specification set the monitors were generated from (INV-EXP-38). Under
+# --skip-monitors the reused directory is otherwise indistinguishable from a
+# correct one: the three sets share most monitor file names, and the ones they
+# do not share are exactly the ones a mismatch would hide.
+MONITORS_PROVENANCE_FILE = "specification_set.txt"
 # INSTRUMENTED_APKS_DIR is the filter basis for INV-EXP-15 (static-analysis targeting:
 # only APKs with a corresponding instrumented file) and INV-EXP-16 (execution targeting:
 # only APKs with a matching `.apk.json` static-analysis output in this same dir), and the

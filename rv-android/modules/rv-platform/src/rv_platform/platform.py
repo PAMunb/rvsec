@@ -230,7 +230,11 @@ class Platform:
 
             # Create app instance under the run's package policy, which arrived
             # already resolved on PlatformConfig (INV-EXP-34).
-            app = App(str(apk_path), package_detector=self.config.package_detector)
+            app = App(
+                str(apk_path),
+                package_detector=self.config.package_detector,
+                strip_build_type_suffix=self.config.strip_build_type_suffix,
+            )
 
             for tool_config in self.config.tools:
                 for repetition in range(1, self.config.repetitions + 1):
@@ -648,6 +652,20 @@ class Platform:
         # Initialize and execute result processing
         processor.initialize({})
         processor.execute({})
+
+        # Result processing is the only thing that mutates a completed task after
+        # its own save: `_count_write_error` increments `TaskResult.write_errors`
+        # while the CSVs are being written, and nothing saved afterwards. The
+        # per-task saves happen at :430 and :465, both BEFORE this phase, so
+        # without this call the counts live for the length of the process and
+        # then vanish — the serialization of INV-CORE-61 would be inert.
+        # `get_completed_tasks()` returns references, so the mutations are already
+        # in the store; only the write was missing.
+        if not self.task_storage.save():
+            self.logger.warning(
+                "Result processing finished but tasks.json could not be saved: "
+                "any write-error counts recorded during it are lost for this run"
+            )
 
         # Clean up
         processor.cleanup()

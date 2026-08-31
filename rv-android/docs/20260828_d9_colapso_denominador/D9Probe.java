@@ -26,6 +26,22 @@ public class D9Probe {
     return false;
   }
 
+
+  /** Regra ANTIGA (ancorada na raiz da chave) de RvsecAnalysisClient.isAppClass. */
+  static boolean isGeneratedRootAnchored(String className, String key) {
+    if (!className.startsWith(key)) return false;
+    String suffix = className.substring(key.length());
+    return suffix.equals(".R") || suffix.startsWith(".R$") || suffix.equals(".BuildConfig");
+  }
+
+  /** Regra NOVA (ancorada no ultimo segmento) — INV-ANA-71. */
+  static boolean isGeneratedLastSegment(String className) {
+    int lastDot = className.lastIndexOf('.');
+    String seg = (lastDot < 0) ? className : className.substring(lastDot + 1);
+    return seg.equals("R") || seg.startsWith("R$")
+        || seg.equals("BuildConfig") || seg.equals("Manifest") || seg.startsWith("Manifest$");
+  }
+
   public static void main(String[] args) throws Exception {
     String apk = args[0], manifest = args[1], androidJar = args[2], libFile = args[3], codePkg = args[4];
 
@@ -104,5 +120,24 @@ public class D9Probe {
       System.out.printf("[guarda=%s] rebaixadas=%d  #AppClasses=%d  sob '%s'=%d%n",
           guard, demoted, app, codePkg, appUnderCode);
     }
+
+    // Decomposicao do denominador sob a chave de codigo (tarefa 1.7 da gh111).
+    // A contagem CRUA e a que as linhas [guarda=...] acima imprimem: um startsWith
+    // simples, sem o filtro isAppClass do cliente. A entregue pelo pipeline e a
+    // crua menos as classes geradas — e o quanto se subtrai depende da regra:
+    // a antiga so alcancava as ancoradas na raiz da chave, a nova (INV-ANA-71)
+    // alcanca qualquer segmento.
+    int raw = 0, rootAnchored = 0, lastSegment = 0;
+    for (SootClass c : Scene.v().getClasses()) {
+      String n = c.getName();
+      if (!n.startsWith(codePkg)) continue;
+      raw++;
+      if (isGeneratedRootAnchored(n, codePkg)) rootAnchored++;
+      if (isGeneratedLastSegment(n)) lastSegment++;
+    }
+    System.out.printf(
+        "[decomposicao] chave=%s cru=%d  geradas(raiz)=%d -> entregue(regra antiga)=%d"
+            + "  geradas(ultimo segmento)=%d -> entregue(regra nova)=%d%n",
+        codePkg, raw, rootAnchored, raw - rootAnchored, lastSegment, raw - lastSegment);
   }
 }

@@ -970,7 +970,13 @@ class TestTaskGetRepository:
             result = task.get_repository()
 
         assert result is parsed_repo
-        parse.assert_called_once_with("/fake/x.logcat", task.static_data)
+        # The recorded scope key travels with the artefact: it classifies crossing
+        # discards by scope (INV-CORE-60) and is never re-derived (INV-ANA-58).
+        parse.assert_called_once_with(
+            "/fake/x.logcat",
+            task.static_data,
+            scope_key=getattr(task.static_data, "code_package", None),
+        )
 
     def test_parses_logcat_file_falls_back_without_static_data(self):
         """Error path: first parse raises, fallback parse succeeds (694-705)."""

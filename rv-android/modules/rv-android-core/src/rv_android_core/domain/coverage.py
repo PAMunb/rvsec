@@ -494,6 +494,27 @@ class ParserDiagnostics:
         envelope_forbidden_chars: a value containing `:::`, which the producer
             contract forbids because it is the separator of `unique_msg`. The record
             is kept verbatim; the parser counts, it does not repair.
+
+    The three crossing counters (INV-ANA-68):
+        These count something else, and the difference is load-bearing. A discard
+        counter above counts a line that became NO record. These count a record that
+        was made and then found no home in the static analysis — the crossing at
+        `LogcatRepository.register_method_call`, where a class or a signature that
+        the artefact does not carry is dropped with nothing but a `logger.debug` to
+        show for it. Splitting them by scope is what separates "the denominator is
+        wrong" from "the run touched library code":
+
+        unmatched_out_of_scope: the executed class sits outside the effective scope
+            key. Expected — the app called a library.
+        unmatched_in_scope: the executed class sits INSIDE the key and the artefact
+            still does not have it. This is the one that indicts the denominator.
+        unmatched_unclassified: no effective key was available to classify against —
+            the state of every artefact written before the key reached disk. Counted
+            under its own name rather than silently attributed to either side.
+
+        They stay OUT of `discarded_lines`: those lines did become records, which is
+        the same reason the sentinel and grammar counters are excluded, and it is
+        what keeps INV-ANA-62's identity true unchanged (task 2.9).
     """
 
     lines_not_threadtime: int = 0
@@ -509,6 +530,9 @@ class ParserDiagnostics:
     sentinel_code: int = 0
     sentinel_event: int = 0
     envelope_forbidden_chars: int = 0
+    unmatched_out_of_scope: int = 0
+    unmatched_in_scope: int = 0
+    unmatched_unclassified: int = 0
 
     # Not a counter: the parser's one piece of carry-over state. A payload logcat
     # split on a newline arrives as two lines, and the second has no structure of
@@ -536,6 +560,9 @@ class ParserDiagnostics:
             "sentinel_code": self.sentinel_code,
             "sentinel_event": self.sentinel_event,
             "envelope_forbidden_chars": self.envelope_forbidden_chars,
+            "unmatched_out_of_scope": self.unmatched_out_of_scope,
+            "unmatched_in_scope": self.unmatched_in_scope,
+            "unmatched_unclassified": self.unmatched_unclassified,
         }
 
     @property
@@ -576,8 +603,18 @@ class LogcatRepository:
     - Supports ResultManager for report generation
     """
 
-    def __init__(self):
+    def __init__(self, scope_key: Optional[str] = None):
         """Initialize an empty coverage repository.
+
+        Args:
+            scope_key: The effective scope key the static analysis artefact records
+                (INV-ANA-66). It classifies discards at the crossing and filters
+                nothing. It is never re-derived here (INV-ANA-58, INV-CORE-60): the
+                artefact's own record is the only admissible source, and `None` —
+                the state of every artefact written before the key reached disk — is
+                carried as `unmatched_unclassified` rather than guessed. A missing
+                key costs the row its two `unmatched_*` cells and nothing else;
+                coverage is still computed from the artefact's own denominator.
 
         State:
             self.classes: Map of fully-qualified class name to ClassCoverageData.
@@ -596,6 +633,7 @@ class LogcatRepository:
                 classes are added. Lazily computed by _calculate_static_totals().
         """
         self.logger = logging.getLogger(__name__)
+        self.scope_key: Optional[str] = scope_key
         self.classes: Dict[str, ClassCoverageData] = {}
         self.errors: List[RvErrorLog] = []
         self.unique_errors: Set[str] = set()
@@ -658,6 +696,7 @@ class LogcatRepository:
         class_data = self.get_class(class_name)
         if not class_data:
             self.logger.debug(f"Ignoring method call for unknown class: {class_name}")
+            self._count_unmatched(class_name)
             return
 
         # Only register calls to methods that exist in static analysis data
@@ -672,6 +711,22 @@ class LogcatRepository:
             self.logger.debug(
                 f"Ignoring method call not found in static analysis: {signature}"
             )
+            self._count_unmatched(class_name)
+
+    def _count_unmatched(self, class_name: str) -> None:
+        """Classify one crossing discard by scope (INV-ANA-68, INV-CORE-60).
+
+        A class outside the key is a library call and is expected; one inside it is
+        a hole in the denominator. Without the key neither claim can be made, so the
+        event is counted unclassified — never silently as in-scope, which would read
+        as evidence for the denominator it is supposed to be testing.
+        """
+        if self.scope_key is None:
+            self.parser_diagnostics.unmatched_unclassified += 1
+        elif class_name.startswith(self.scope_key):
+            self.parser_diagnostics.unmatched_in_scope += 1
+        else:
+            self.parser_diagnostics.unmatched_out_of_scope += 1
 
     def register_rv_error(self, error_log: RvErrorLog) -> None:
         """
@@ -892,43 +947,6 @@ class LogcatRepository:
         # Cache the results
         self._static_totals = totals
         self.logger.debug(f"Calculated static analysis totals: {totals}")
-
-    def diagnose(self) -> Dict[str, Any]:
-        """
-        Generate a diagnostic report about the current state of the repository.
-
-        Returns:
-            Dictionary with diagnostic information
-        """
-        # Collect diagnostic information
-        diagnostics = {
-            "class_count": len(self.classes),
-            "activity_count": sum(
-                1 for c in self.classes.values() if c.component_type == "activity"
-            ),
-            "method_count": sum(len(c.methods) for c in self.classes.values()),
-            "called_method_count": sum(
-                sum(1 for m in c.methods.values() if m.called)
-                for c in self.classes.values()
-            ),
-            "error_count": len(self.errors),
-            "unique_error_count": len(self.unique_errors),
-            "static_totals": self._static_totals,
-        }
-
-        # Check for common issues
-        issues = []
-
-        if diagnostics["method_count"] == 0:
-            issues.append("No methods found in repository")
-
-        if self._static_totals is None:
-            issues.append("Static totals not calculated")
-        elif self._static_totals.get("total_methods", 0) == 0:
-            issues.append("Static totals shows zero methods")
-
-        diagnostics["issues"] = issues
-        return diagnostics
 
     def to_dict(self) -> Dict[str, Any]:
         """

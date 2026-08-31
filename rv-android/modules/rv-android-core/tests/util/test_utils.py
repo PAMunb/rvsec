@@ -411,7 +411,9 @@ class TestUtils:
         get_apks("/apks")
 
         mock_app_class.assert_called_once_with(
-            os.path.join("/apks", "app1.apk"), package_detector=False
+            os.path.join("/apks", "app1.apk"),
+            package_detector=False,
+            strip_build_type_suffix=False,
         )
 
     def test_get_apks_forwards_the_policy_to_every_app(
@@ -425,8 +427,16 @@ class TestUtils:
         get_apks("/apks", package_detector=True)
 
         assert mock_app_class.call_args_list == [
-            call(os.path.join("/apks", "app1.apk"), package_detector=True),
-            call(os.path.join("/apks", "app2.apk"), package_detector=True),
+            call(
+                os.path.join("/apks", "app1.apk"),
+                package_detector=True,
+                strip_build_type_suffix=False,
+            ),
+            call(
+                os.path.join("/apks", "app2.apk"),
+                package_detector=True,
+                strip_build_type_suffix=False,
+            ),
         ]
 
     # Tests for unzip

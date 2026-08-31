@@ -11,6 +11,9 @@ from typing import List, Optional
 
 from androguard.core.bytecodes.apk import APK
 from pydantic import Field, computed_field, field_validator
+from rv_android_core.util.android.build_type_suffix import (
+    neutralize_build_type_suffix,
+)
 from rv_android_core.util.android.package_detector import (
     PackageDetectionResult,
     PackageDetector,
@@ -65,6 +68,15 @@ class App(BaseValidatedModel):
         "reporting the one declared in the manifest. User input, resolved at the "
         "entry point the user invoked and passed in already decided — this model "
         "reads no environment variable (INV-CORE-55)",
+    )
+    strip_build_type_suffix: bool = Field(
+        default=False,
+        description="Neutralize the build-type suffix of the declared applicationId "
+        "before using it as the scope key (INV-CORE-58). Like `package_detector`, it "
+        "is a property of the corpus under study and therefore user input, resolved "
+        "at the entry point and passed in already decided — this model reads no "
+        "environment variable (INV-CORE-55). Off by default: it changes which classes "
+        "a study counts, so no run acquires it by accident",
     )
     validate_on_init: bool = Field(
         default=True,
@@ -135,15 +147,25 @@ class App(BaseValidatedModel):
         Use for static analysis parsing and class filtering. For device
         operations (install, launch): use package_name.
 
-        The declared applicationId is the answer unless `package_detector` asks
-        for the heuristic election, because which package scopes app-owned
-        classes depends on the corpus under study and not on the APK. The
-        declared value is returned verbatim: build-type suffix stripping and
-        prefix repair are properties of a particular corpus and belong to
-        whoever curates it. The election is lazy and runs only when enabled, so
-        the default path never enumerates components (INV-CORE-18).
+        The declared applicationId is the answer unless a policy asks for
+        something else, because which package scopes app-owned classes depends on
+        the corpus under study and not on the APK. Two policies exist, both off by
+        default and both decided at the entry point (INV-CORE-18):
+
+        - `strip_build_type_suffix` neutralizes the Gradle build-type suffix, so
+          the debug variant of `com.example.app` is scoped by the package its
+          classes were actually compiled under rather than by `…app.debug`, under
+          which nothing was compiled at all.
+        - `package_detector` elects the implementation package heuristically.
+
+        Prefix repair is neither, and stays out: no string rule resolves it (forty
+        of the 219 broad-corpus APKs), and the backstop for those is the
+        denominator gate. The election is lazy and runs only when enabled, so the
+        default path never enumerates components.
         """
         if not self.package_detector:
+            if self.strip_build_type_suffix:
+                return neutralize_build_type_suffix(self.package_name)
             return self.package_name
         if self._code_package_result is None:
             self._detect_code_package()
@@ -152,14 +174,24 @@ class App(BaseValidatedModel):
     @computed_field
     @property
     def code_package_source(self) -> str:
-        """Which mechanism produced `code_package`: "manifest" or "detector".
+        """Which mechanism produced `code_package`.
 
-        The choice does not survive in the data it shapes — the GATOR analysis
-        JSON records the manifest package regardless of the key that filtered
-        its contents — so whoever records a run needs the origin stated rather
-        than re-derived (INV-ANA-58).
+        One of "manifest", "manifest-neutralized" or "detector". It reports
+        "manifest" when the neutralization policy was on but removed nothing —
+        the value names what actually produced the key, not what was requested,
+        because a reader asking why a key looks the way it does is asking about
+        the former.
+
+        The choice does not survive in the data it shapes unless it is carried
+        there deliberately — the GATOR analysis JSON records the manifest package
+        regardless of the key that filtered its contents — so this value crosses
+        into the artefact as its own member (INV-ANA-58, INV-ANA-66).
         """
-        return "detector" if self.package_detector else "manifest"
+        if self.package_detector:
+            return "detector"
+        if self.strip_build_type_suffix and self.code_package != self.package_name:
+            return "manifest-neutralized"
+        return "manifest"
 
     def _detect_code_package(self) -> None:
         """Run PackageDetector on the loaded APK instance."""

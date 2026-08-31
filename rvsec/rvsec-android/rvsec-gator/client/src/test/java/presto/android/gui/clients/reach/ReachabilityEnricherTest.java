@@ -33,7 +33,10 @@ import soot.SootMethod;
  *       {@link ReachabilityEnricher#enrichComponent} return empty maps
  *       (placeholders until C3).</li>
  *   <li>{@link ReachabilityEnricher#topLevelMetadata} returns exactly
- *       {@code {manifestPackage, codePackage, mainActivity}}.</li>
+ *       {@code {manifestPackage, codePackage, mainActivity, codePackageSource,
+ *       class_defs_under_key}} — the last two added by gh111 (INV-ANA-66) so a
+ *       stored artefact records which key filtered it and how many compiled
+ *       classes that key covered.</li>
  *   <li>Calls are idempotent — back-to-back invocations on the same
  *       (empty) input produce equal maps with no internal mutation
  *       (verified by comparing object identity of the underlying
@@ -98,16 +101,20 @@ public class ReachabilityEnricherTest {
 	}
 
 	@Test
-	public void topLevelMetadataReturnsExactlyThreeKeys() {
+	public void topLevelMetadataReturnsExactlyFiveKeys() {
 		ReachabilityEnricher enricher = new ReachabilityEnricher(
-				emptyIndex(), "com.app.manifest", "com.app.code", "com.app.MainActivity");
+				emptyIndex(), "com.app.manifest", "com.app.code", "com.app.MainActivity",
+				"manifest-neutralized", 762);
 		Map<String, Object> md = enricher.topLevelMetadata();
 		assertEquals(new LinkedHashSet<>(Arrays.asList(
-						"manifestPackage", "codePackage", "mainActivity")),
+						"manifestPackage", "codePackage", "mainActivity",
+						"codePackageSource", "class_defs_under_key")),
 				md.keySet());
 		assertEquals("com.app.manifest", md.get("manifestPackage"));
 		assertEquals("com.app.code", md.get("codePackage"));
 		assertEquals("com.app.MainActivity", md.get("mainActivity"));
+		assertEquals("manifest-neutralized", md.get("codePackageSource"));
+		assertEquals(Integer.valueOf(762), md.get("class_defs_under_key"));
 	}
 
 	@Test
@@ -118,6 +125,10 @@ public class ReachabilityEnricherTest {
 		assertEquals("", md.get("manifestPackage"));
 		assertEquals("", md.get("codePackage"));
 		assertEquals("", md.get("mainActivity"));
+		// The four-argument form carries no provenance: an absent origin is empty and
+		// an absent count is -1, so a consumer can tell "not recorded" from "zero".
+		assertEquals("", md.get("codePackageSource"));
+		assertEquals(Integer.valueOf(-1), md.get("class_defs_under_key"));
 	}
 
 	@Test

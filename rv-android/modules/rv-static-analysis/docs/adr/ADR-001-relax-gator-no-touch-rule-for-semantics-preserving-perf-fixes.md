@@ -243,6 +243,19 @@ when a low-risk, byte-for-byte validable fix exists.
   `scripts/jstack_wtg_probe.sh` on `ch.famoser.mensa` to confirm the hot spot
   moved off `getReadContainerField`.
 
+## Scope note (2026-08-30)
+
+This ADR relaxes the no-touch rule for **semantics-preserving performance**
+fixes only. It is not the authority for the GATOR edits made under gh111
+(`AnalysisEntrypoint`, `RvsecAnalysisClient`, `JsonReportWriter`,
+`JsonSchema`, `ReachabilityEnricher`), which deliberately **change** what the
+client writes: the demotion guard resolves its package from the `codePackage`
+client parameter instead of the manifest (INV-ANA-65), and the artefact gains
+the key, its origin and `class_defs_under_key` (INV-ANA-66). That is a
+correctness change with its own justification in
+`openspec/changes/gh111-cadeia-medicao/design.md`. Nothing in the decision
+below is withdrawn by it.
+
 ## Related
 
 - Change: `openspec/changes/gh66-gator-wtg-flowcontainer-perf/` (proposal.md,

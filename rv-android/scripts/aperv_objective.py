@@ -11,7 +11,11 @@ outlier APKs (e.g., apps that crash early produce 0% coverage, which would
 distort the score of an otherwise good parameter configuration).
 
 Reads from summary.csv produced by rv-platform's ResultProcessor. The CSV
-has columns: apk, rep, timeout, tool, cov_act, cov_method, cov_rv_method, errors.
+has the seventeen columns of INV-PLT-19: apk, rep, timeout, tool, cov_act,
+cov_class, cov_method, cov_reachable, cov_reaches_target,
+cov_directly_reaches_target, mop_errors_total, mop_errors_unique,
+classes_total, methods_total, unmatched_out_of_scope, unmatched_in_scope,
+measured.
 
 This module is imported dynamically by ``calibration_orchestrator.py`` when
 the ``--tool`` flag starts with ``aperv``.
@@ -23,10 +27,15 @@ Usage:
 """
 
 import logging
+import sys
 from pathlib import Path
 
 import pandas as pd
 from scipy.stats import trim_mean
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from summary_measured import measured_rows  # noqa: E402  (path must be set first)
 
 log = logging.getLogger(__name__)
 
@@ -70,12 +79,24 @@ def compute_score(results_dir: str) -> float:
         log.warning(f"Empty summary.csv in {results_dir}")
         return 0.0
 
+    # Rows with no denominator carry empty coverage cells, which `pd.read_csv`
+    # turns into `NaN` — and `trim_mean` does NOT skip `NaN`, so a single such
+    # row makes the whole objective `nan` and Optuna sees a failed trial where
+    # the truth is a partially unmeasurable one (INV-PLT-36).
+    df = measured_rows(df, context=str(summary_path), log=log)
+    if df.empty:
+        log.warning(f"No measured rows in {summary_path}")
+        return 0.0
+
     # When reps > 1, each APK has multiple rows. First average within each APK
     # (noise reduction), then apply trimmed mean across APK averages (outlier
     # robustness). With 1 rep this is a no-op (groupby returns same values).
-    apk_means = df.groupby("apk")[["cov_method", "cov_rv_method"]].mean()
+    #
+    # `cov_reaches_target`, not `cov_rv_method`: the latter is a `coverage.csv`
+    # column and asking `summary.csv` for it raised `KeyError` on every run.
+    apk_means = df.groupby("apk")[["cov_method", "cov_reaches_target"]].mean()
     avg_method = trim_mean(apk_means["cov_method"].values, TRIM_PROPORTION)
-    avg_mop = trim_mean(apk_means["cov_rv_method"].values, TRIM_PROPORTION)
+    avg_mop = trim_mean(apk_means["cov_reaches_target"].values, TRIM_PROPORTION)
 
     score = MOP_WEIGHT * avg_mop + METHOD_WEIGHT * avg_method
 

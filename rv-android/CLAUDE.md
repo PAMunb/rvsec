@@ -112,7 +112,7 @@ Minimum complexity for the current task. Three similar lines > premature abstrac
 All docs (specs, proposals, design docs) must be narrative and self-contained. Explain *why*, not just *what*. Use WHEN/THEN/AND format with concrete values in scenarios. When behavior has a non-obvious reason, explain it inline.
 
 ### P3: No Backward Compatibility
-Dead/superseded code is deleted entirely — no adapters, shims, wrappers, `# removed` comments, or `_unused` renames. Backup to `backup/` (gitignored) before deletion. All changes must be complete: update all callers, grep for dangling references, one commit = one consistent state.
+Dead/superseded code is deleted entirely — no adapters, shims, wrappers, `# removed` comments, or `_unused` renames. Backup to `backup/` (tracked in git, not ignored) before deletion. All changes must be complete: update all callers, grep for dangling references, one commit = one consistent state.
 
 ### P4: Current-State Comments
 Comments describe what the code does *now*. No migration history ("migrated from X", "replaces old Y"). No promotional language ("modern", "elegant", "advanced"). Names describe function, not lineage (`process_tasks` not `process_tasks_v2`). Reference thesis/ICST paper for historical context, don't embed it in comments.

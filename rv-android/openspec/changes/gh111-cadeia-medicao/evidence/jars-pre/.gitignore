@@ -1,0 +1,3 @@
+# The preserved pre-change jars are ~76 MB; they are evidence for the 1.8 A/B run,
+# not artefacts to version. SHA256SUMS.txt is what records them.
+*.jar

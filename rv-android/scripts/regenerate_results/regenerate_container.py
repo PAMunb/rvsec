@@ -50,6 +50,10 @@ from multiprocessing import Pool
 from typing import Dict, List, Optional, Tuple
 
 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
+from rv_platform.components.result_processor import (
+    SUMMARY_HEADER,
+    summary_row_is_measured,
+)
 from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
 
 # Silence verbose parser logs. The logcat_parser WARNING-level messages are
@@ -58,30 +62,50 @@ from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalys
 # so very long constructor signatures (e.g. databinding _init_ with 100+
 # params) fail to parse. We cannot fix this without modifying rv-android, and
 # the impact is negligible (<0.1% of RVSEC-COV lines per logcat).
-logging.getLogger("rv_static_analysis.parser.static.static_analysis_parser").setLevel(logging.ERROR)
+logging.getLogger("rv_static_analysis.parser.static.static_analysis_parser").setLevel(
+    logging.ERROR
+)
 logging.getLogger("rv_android_core.util.repository_initializer").setLevel(logging.ERROR)
 logging.getLogger("rv_coverage.parser.log.logcat_parser").setLevel(logging.ERROR)
 
 # Filename convention. Tool may contain `:` (e.g. droidbot:dfs_greedy).
-LOGCAT_NAME_RE = re.compile(r"^(?P<apk>.+\.apk)__(?P<rep>\d+)__(?P<timeout>\d+)__(?P<tool>.+)\.logcat$")
+LOGCAT_NAME_RE = re.compile(
+    r"^(?P<apk>.+\.apk)__(?P<rep>\d+)__(?P<timeout>\d+)__(?P<tool>.+)\.logcat$"
+)
 
-# Exact headers from result_processor.py.
-# Summary schema combines the old experiment columns
-# (ase-journal/dataset/results/backup/summary/) with both error counters that
-# LogcatRepository exposes: total (every RVSEC line, with duplicates) and unique
-# (deduplicated by unique_msg = class:::method:::spec:::error_type:::message).
-# CoverageMetrics.to_dict() returns both as `total_errors` and `unique_errors`.
-SUMMARY_HEADER = [
-    "apk", "rep", "timeout", "tool",
-    "cov_act", "cov_class", "cov_method",
-    "cov_reachable", "cov_reaches_target", "cov_directly_reaches_target",
-    "mop_errors_total", "mop_errors_unique",
-]
+# `SUMMARY_HEADER` is IMPORTED from result_processor.py, not copied. A copy lived
+# here under a comment reading "Exact headers from result_processor.py", and the
+# claim was true only until one of the two moved: `experimento-20260706/scripts/
+# consolidate_offline.sh` regenerates a whole campaign exclusively through this
+# script, so a narrower header here would republish an entire campaign in the old
+# schema without anything saying so. The emptiness rule travels the same way,
+# through `summary_row_is_measured` (INV-PLT-19, INV-PLT-35).
 COVERAGE_HEADER = [
-    "apk", "rep", "timeout", "tool", "time", "class", "method", "signature",
-    "cov_class", "cov_act", "cov_method", "cov_rv_method",
+    "apk",
+    "rep",
+    "timeout",
+    "tool",
+    "time",
+    "class",
+    "method",
+    "signature",
+    "cov_class",
+    "cov_act",
+    "cov_method",
+    "cov_rv_method",
 ]
-ERRORS_HEADER = ["apk", "rep", "timeout", "tool", "time", "spec", "class", "method", "message", "unique_msg"]
+ERRORS_HEADER = [
+    "apk",
+    "rep",
+    "timeout",
+    "tool",
+    "time",
+    "spec",
+    "class",
+    "method",
+    "message",
+    "unique_msg",
+]
 
 
 def parse_logcat_filename(filename: str) -> Optional[Tuple[str, int, int, str]]:
@@ -157,16 +181,38 @@ def process_logcat(args: Tuple[str, str]) -> Optional[Dict]:
     # experiment summary used, plus both error counters. See SUMMARY_HEADER.
     metrics = repo.calculate_metrics()
     metrics_dict = metrics.to_dict()
+
+    # The same rule rv-platform applies, from the same function: no denominator
+    # means empty cells, never `0.00` (INV-PLT-35). This script already knows
+    # which APKs have no static JSON — it counts them into `missing_static_apks`
+    # — so it held the information the rule needs and published `0.00` anyway.
+    measured = summary_row_is_measured(metrics_dict)
+
+    def _pct(key: str):
+        return round(metrics_dict.get(key, 0) or 0, 2) if measured else ""
+
+    def _den(key: str):
+        return int(metrics_dict.get(key, 0) or 0) if measured else ""
+
+    diagnostics = repo.parser_diagnostics
     summary_row = [
-        apk, rep, timeout, tool,
-        round(metrics_dict.get("activity_coverage", 0) or 0, 2),
-        round(metrics_dict.get("class_coverage", 0) or 0, 2),
-        round(metrics_dict.get("method_coverage", 0) or 0, 2),
-        round(metrics_dict.get("reachable_method_coverage", 0) or 0, 2),
-        round(metrics_dict.get("mop_method_coverage", 0) or 0, 2),
-        round(metrics_dict.get("direct_mop_method_coverage", 0) or 0, 2),
+        apk,
+        rep,
+        timeout,
+        tool,
+        _pct("activity_coverage"),
+        _pct("class_coverage"),
+        _pct("method_coverage"),
+        _pct("reachable_method_coverage"),
+        _pct("mop_method_coverage"),
+        _pct("direct_mop_method_coverage"),
         metrics_dict.get("total_errors", 0) or 0,
         metrics_dict.get("unique_errors", 0) or 0,
+        _den("total_classes"),
+        _den("total_methods"),
+        int(getattr(diagnostics, "unmatched_out_of_scope", 0) or 0),
+        int(getattr(diagnostics, "unmatched_in_scope", 0) or 0),
+        "true" if measured else "false",
     ]
 
     # ---- coverage (N rows, one per unique called method, chronological) ----
@@ -177,7 +223,9 @@ def process_logcat(args: Tuple[str, str]) -> Optional[Dict]:
     if static_data is not None:
         total_methods = len(repo.get_static_methods())
         total_activities = len(repo.get_static_activities())
-        total_mop = len(repo.get_target_methods()) or 1  # avoid div-by-zero, matches result_processor
+        total_mop = (
+            len(repo.get_target_methods()) or 1
+        )  # avoid div-by-zero, matches result_processor
         # total_classes do MESMO denominador que o summary usa (CoverageMetrics.class_coverage
         # = called_classes / total_classes). Assim a última linha progressiva de cov_class bate
         # exatamente com summary.cov_class. Ver rv_android_core.domain.coverage:427.
@@ -209,22 +257,37 @@ def process_logcat(args: Tuple[str, str]) -> Optional[Dict]:
             if class_name:
                 called_classes.add(class_name)
 
-            method_cov = (len(called_methods) / total_methods * 100) if total_methods > 0 else 0
-            activity_cov = (len(called_activities) / total_activities * 100) if total_activities > 0 else 0
+            method_cov = (
+                (len(called_methods) / total_methods * 100) if total_methods > 0 else 0
+            )
+            activity_cov = (
+                (len(called_activities) / total_activities * 100)
+                if total_activities > 0
+                else 0
+            )
             mop_cov = (len(called_mop) / total_mop * 100) if total_mop > 0 else 0
-            class_cov = (len(called_classes) / total_classes * 100) if total_classes > 0 else 0
+            class_cov = (
+                (len(called_classes) / total_classes * 100) if total_classes > 0 else 0
+            )
 
-            coverage_rows.append([
-                apk, rep, timeout, tool,
-                seconds_since_t0(call.get("first_called_at")),
-                call.get("class_name", ""),
-                call.get("method_name", ""),
-                signature,
-                round(class_cov, 2),     # cov_class — cobertura de classe progressiva real
-                round(activity_cov, 2),  # cov_act
-                round(method_cov, 2),    # cov_method
-                round(mop_cov, 2),       # cov_rv_method
-            ])
+            coverage_rows.append(
+                [
+                    apk,
+                    rep,
+                    timeout,
+                    tool,
+                    seconds_since_t0(call.get("first_called_at")),
+                    call.get("class_name", ""),
+                    call.get("method_name", ""),
+                    signature,
+                    round(
+                        class_cov, 2
+                    ),  # cov_class — cobertura de classe progressiva real
+                    round(activity_cov, 2),  # cov_act
+                    round(method_cov, 2),  # cov_method
+                    round(mop_cov, 2),  # cov_rv_method
+                ]
+            )
     # If static_data is missing (APK without JSON), coverage_rows stays empty and
     # we record a warning. We do not emit degenerate rows (the original consolidated
     # CSV already did that).
@@ -247,7 +310,9 @@ def process_logcat(args: Tuple[str, str]) -> Optional[Dict]:
         # would silently disagree with every freshly consolidated one.
         unique = err["unique_msg"]
         t = seconds_since_t0(err.get("time_occurred"))
-        errors_rows.append([apk, rep, timeout, tool, t, spec, class_full, method_n, msg, unique])
+        errors_rows.append(
+            [apk, rep, timeout, tool, t, spec, class_full, method_n, msg, unique]
+        )
 
     return {
         "logcat": filename,
@@ -270,15 +335,24 @@ def discover_logcats(container_dir: str) -> List[str]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("container_dir", help="Path to one container (e.g. RESULTADOS/m1/results/exp_00/exp_00)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "container_dir",
+        help="Path to one container (e.g. RESULTADOS/m1/results/exp_00/exp_00)",
+    )
     ap.add_argument(
         "--static-dir",
         default="/home/pedro/desenvolvimento/RV_ANDROID_NOVO/JOAO/APKS_FINAL_JCA_DEXLIB",
         help="Directory holding the static analysis JSONs (one per APK).",
     )
-    ap.add_argument("--workers", type=int, default=8, help="Worker count for the internal pool.")
-    ap.add_argument("--limit", type=int, default=0, help="Process only the first N logcats (debug).")
+    ap.add_argument(
+        "--workers", type=int, default=8, help="Worker count for the internal pool."
+    )
+    ap.add_argument(
+        "--limit", type=int, default=0, help="Process only the first N logcats (debug)."
+    )
     args = ap.parse_args()
 
     container_dir = os.path.abspath(args.container_dir)
@@ -296,7 +370,10 @@ def main() -> int:
         print(f"WARNING: no .logcat files found in {container_dir}", file=sys.stderr)
         return 1
 
-    print(f"[{container_dir}] discovered {len(logcats)} logcats, workers={args.workers}", flush=True)
+    print(
+        f"[{container_dir}] discovered {len(logcats)} logcats, workers={args.workers}",
+        flush=True,
+    )
 
     summary_path = os.path.join(container_dir, "summary_regen.csv")
     coverage_path = os.path.join(container_dir, "coverage_regen.csv")
@@ -309,12 +386,17 @@ def main() -> int:
     n_err_rows = 0
     missing_static_apks: set = set()
 
-    with open(summary_path, "w", newline="", encoding="utf-8") as fs, \
-         open(coverage_path, "w", newline="", encoding="utf-8") as fc, \
-         open(errors_path, "w", newline="", encoding="utf-8") as fe:
-        ws = csv.writer(fs); ws.writerow(SUMMARY_HEADER)
-        wc = csv.writer(fc); wc.writerow(COVERAGE_HEADER)
-        we = csv.writer(fe); we.writerow(ERRORS_HEADER)
+    with (
+        open(summary_path, "w", newline="", encoding="utf-8") as fs,
+        open(coverage_path, "w", newline="", encoding="utf-8") as fc,
+        open(errors_path, "w", newline="", encoding="utf-8") as fe,
+    ):
+        ws = csv.writer(fs)
+        ws.writerow(SUMMARY_HEADER)
+        wc = csv.writer(fc)
+        wc.writerow(COVERAGE_HEADER)
+        we = csv.writer(fe)
+        we.writerow(ERRORS_HEADER)
 
         # Each pool worker has its own @lru_cache of static_data (per-process).
         # Acceptable: each container has ~12 unique APKs, so a worker reloads at
@@ -342,7 +424,10 @@ def main() -> int:
         flush=True,
     )
     if missing_static_apks:
-        print(f"  APKs without static JSON ({len(missing_static_apks)}): {sorted(missing_static_apks)}", flush=True)
+        print(
+            f"  APKs without static JSON ({len(missing_static_apks)}): {sorted(missing_static_apks)}",
+            flush=True,
+        )
     return 0
 
 

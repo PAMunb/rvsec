@@ -2,7 +2,7 @@
 
 ## Overview
 
-rv-android-core is the foundational infrastructure module for the RV-Android framework. It provides shared domain models, error handling, logging, command execution, validation, and Android device utilities that every other module depends on. With zero internal dependencies and 12 dependents, it sits at the root of the dependency graph, defining the contracts and abstractions that unify the framework.
+rv-android-core is the foundational infrastructure module for the RV-Android framework. It provides shared domain models, error handling, logging, command execution, validation, and Android device utilities that every other module depends on. With zero internal dependencies and 14 dependents, it sits at the root of the dependency graph, defining the contracts and abstractions that unify the framework.
 
 ## Specification Alignment
 
@@ -35,8 +35,12 @@ This module implements requirements from `openspec/specs/core/spec.md`.
 | INV-CORE-21 | LoggingManager is a thread-safe singleton | Cached logger instances by name + context; returns ContextAdapter wrappers |
 | INV-CORE-22 | PerformanceMonitor is zero-overhead when disabled | `measure_time()` yields immediately; `record_metric()` is a no-op when `enabled=False` |
 | INV-CORE-23 | AbstractTool converts command timeouts to tool timeouts | `execute()` catches `RVCommandTimeoutError` and raises `RVToolTimeoutError` |
-| INV-CORE-24 | Coverage repository ignores unknown methods | `register_method_call()` silently ignores classes not in static analysis data |
+| INV-CORE-24 | Coverage repository does not register unknown methods | `register_method_call()` skips classes and signatures absent from static analysis data -- and counts each skip (INV-CORE-60), so no discard is invisible |
 | INV-CORE-25 | RvErrorLog deduplication via unique_msg, composed in exactly one place | Computed as `"{class}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{message}"` — seven `:::` parts, at event granularity. `code`/`event` are the `code=`/`ev=` values of the message envelope, or `UNSPECIFIED` when the record carries none. Readers (e.g. rv-platform's `errors.csv` writer) read this key, never rebuild it |
+| INV-CORE-58 | Build-type-suffix neutralization applies only when the run states the policy | `neutralize_build_type_suffix()` on a fixed denylist, lowercase comparison, repeated application, two-segment floor; `App` receives the policy as a constructor argument |
+| INV-CORE-59 | The denylist is not treated as total | An uncovered suffix passes through unchanged and reaches the downstream denominator gate, which refuses the resulting analysis; the wrong key is never silently published |
+| INV-CORE-60 | Every unregistered coverage event is counted and classified | `LogcatRepository._count_unmatched()` increments `unmatched_out_of_scope`, `unmatched_in_scope` or `unmatched_unclassified` against `scope_key`; never silently as in-scope |
+| INV-CORE-61 | `write_errors` survives the `TaskResult` round trip as a count map | `to_dict()` emits the `Dict[str, int]`; `from_dict()` reads it back, defaulting to `{}` for files written before the field existed |
 
 ### Specification Scenarios
 
@@ -46,6 +50,8 @@ Scenarios from `openspec/specs/core/spec.md` that validate this architecture:
 - **Command timeout with process tree kill**: A long-running subprocess exceeds timeout, triggering `kill_process_tree()` via psutil and raising `RVCommandTimeoutError`. Traces through Command -> Popen -> psutil -> exception hierarchy.
 - **Circuit breaker opens after threshold failures**: Three consecutive failures for the same command transition the circuit from CLOSED to OPEN, blocking subsequent executions. Traces through CommandCircuitBreaker state machine.
 - **App package mismatch detection**: With `package_detector=True`, reading `code_package` elects the implementation package and logs the mismatch when it differs from the manifest one (observed in ~27.5% of APKs). Traces through App -> PackageDetector -> logging. On the default path the property returns the declared package and the detector never runs.
+- **Build-type suffix neutralization**: With `strip_build_type_suffix=True` and the detector off, reading `code_package` on an APK declaring `com.example.app.debug` returns `com.example.app` and `code_package_source` reports `"manifest-neutralized"`. Traces through App -> `neutralize_build_type_suffix()`. With both policies on, the detector wins and the source reads `"detector"` (INV-CORE-18).
+- **Crossing discard classification**: A `RvCoverageLog` for a class absent from the static analysis data is not registered, and `_count_unmatched()` charges it to `unmatched_in_scope` or `unmatched_out_of_scope` according to `LogcatRepository.scope_key` -- or to `unmatched_unclassified` when the artefact recorded no key. Traces through LogcatRepository -> ParserDiagnostics.
 - **Task state lifecycle**: A Task transitions through CREATED -> RUNNING -> COMPLETED, with each transition recorded in `state_transitions`. Traces through Task -> TaskState -> TaskResult.
 
 ## Key Architectural Decisions
@@ -54,7 +60,7 @@ Scenarios from `openspec/specs/core/spec.md` that validate this architecture:
 
 **Choice**: rv-android-core is a pure library with no standalone execution capability and zero dependencies on other rv-android modules.
 
-**Why**: As the foundation layer consumed by all 12 other modules, any dependency on a higher-level module would create a circular dependency. The zero-dependency constraint ensures rv-android-core can be imported by any module without pulling in the full dependency graph. This is why `domain/task.py` uses `TYPE_CHECKING` guards for imports of `App` and `LogcatRepository` -- the types are needed for annotations but the actual modules are not required at import time.
+**Why**: As the foundation layer consumed by every module above it, any dependency on a higher-level module would create a circular dependency. The zero-dependency constraint ensures rv-android-core can be imported by any module without pulling in the full dependency graph. This is why `domain/task.py` uses `TYPE_CHECKING` guards for imports of `App` and `LogcatRepository` -- the types are needed for annotations but the actual modules are not required at import time.
 
 ### AD-2: Thread-Safe Singletons for Cross-Cutting Services
 
@@ -98,11 +104,15 @@ Scenarios from `openspec/specs/core/spec.md` that validate this architecture:
 
 ### AD-7: Dual Package Identity for Android APKs
 
-**Choice**: `App` exposes both `package_name` (from AndroidManifest.xml, verbatim) and `code_package` (the package that scopes app-owned classes), plus `code_package_source` naming which mechanism produced the second. `code_package` defaults to `package_name`; `PackageDetector` elects it only when the caller passes `package_detector=True`.
+**Choice**: `App` exposes both `package_name` (from AndroidManifest.xml, verbatim) and `code_package` (the package that scopes app-owned classes), plus `code_package_source` naming which mechanism produced the second. `code_package` defaults to `package_name`. Two opt-in policies can change it: `strip_build_type_suffix=True` neutralizes the Gradle build-type suffix, and `package_detector=True` elects the implementation package. When both are on the detector wins.
 
-**Why**: the two answer different questions. Device operations (install, launch, force-stop) need the identifier the device knows. Static analysis needs the prefix that separates the app's classes from the libraries it bundles — and *that* has no answer derivable from the APK, because it is a property of the study. In ~27.5% of APKs (empirically measured across 188 APKs in the ICST study) the two differ: Godot games declare `ir.hsn6.trans` and implement everything under `org.godotengine.godot`, which is what the detector is for; a corpus built with `applicationIdSuffix` wants the declared value untouched, which is what the default is for. Electing implicitly would make one corpus work and silently mis-scope the other, so the choice is user input, resolved at the entry point and passed in by value — `domain/app.py` reads no environment variable (INV-CORE-55).
+**Why**: the two package properties answer different questions. Device operations (install, launch, force-stop) need the identifier the device knows. Static analysis needs the prefix that separates the app's classes from the libraries it bundles — and *that* has no answer derivable from the APK, because it is a property of the study. In ~27.5% of APKs (empirically measured across 188 APKs in the ICST study) the two differ: Godot games declare `ir.hsn6.trans` and implement everything under `org.godotengine.godot`, which is what the detector is for. Electing implicitly would make one corpus work and silently mis-scope the other, so the choice is user input, resolved at the entry point and passed in by value — `domain/app.py` reads no environment variable (INV-CORE-55).
 
-**Invariant cross-reference**: INV-CORE-17 validates APK existence, INV-CORE-18 governs both branches and the provenance field, INV-CORE-55 keeps the domain layer free of environment reads.
+**Why the neutralization is a policy and not a default**: `applicationIdSuffix` renames the *application*, not the code, so the debug variant of `com.example.app` compiles its classes under `com.example.app` while declaring `com.example.app.debug`. Scoping by the declared value there yields a key under which nothing was ever compiled — an empty class universe, and every coverage percentage dividing by whatever survived a library demotion by accident. Neutralizing it is nevertheless a corpus decision, not an APK fact, so it stays off by default: it changes which classes a study counts, and no run should acquire that by accident. The rule lives in one function in this module rather than in the GATOR argv, because neutralizing inside the argv builder would leave `App.code_package` reporting one key while GATOR filtered by another — the two-key problem the recorded-key contract exists to end.
+
+**Why the denylist is not total**: the space of suffixes is open by construction — one corpus app declares `applicationIdSuffix = ".debug.$branch"`, interpolating a git branch name — and prefix repair (`de.grobox.liberario` shipping as `de.grobox.transportr`) has no string rule at all. Rather than grow a list that fails silently, an unresolved key passes through unchanged and is caught downstream by the denominator gate, which refuses an implausible class universe loudly (INV-CORE-59).
+
+**Invariant cross-reference**: INV-CORE-17 validates APK existence, INV-CORE-18 governs all three branches and the provenance field, INV-CORE-55 keeps the domain layer free of environment reads, INV-CORE-58/59 define the neutralization rule and the limit of its guarantee.
 
 ### AD-8: Circuit Breaker for Command Resilience
 
@@ -191,7 +201,8 @@ Shows key domain entities and their relationships.
 | PerformanceMonitor | Metrics collection singleton with timing and subscriber support |
 | AbstractTool | Base class for all testing tools with template method lifecycle |
 | BaseValidatedModel | Foundation for all Pydantic domain models with consistent validation |
-| LogcatRepository | Coverage and error data store for a task execution |
+| LogcatRepository | Coverage and error data store for a task execution; carries the artefact's scope key for discard classification |
+| ParserDiagnostics | Per-run counters for logcat lines and coverage events the parser did not turn into registered data |
 | CoverageMetrics | Calculated coverage percentages (overall and MOP method coverage) |
 | RvCoverageLog | Parsed coverage event from logcat (class, method, signature, timestamp) |
 | RvErrorLog | Parsed specification violation from logcat (spec, error type, class, message) |
@@ -279,11 +290,13 @@ classDiagram
         +state: TaskState
         +state_transitions: List
         +execution_time_seconds: float
+        +write_errors: Dict~str,int~
     }
 
     class AppEntity {
         +app_path: str
         +package_detector: bool
+        +strip_build_type_suffix: bool
         +package_name: str
         +code_package: str
         +code_package_source: str
@@ -291,8 +304,18 @@ classDiagram
     }
 
     class LogcatRepository {
+        +scope_key: Optional~str~
+        +parser_diagnostics: ParserDiagnostics
         +register_method_call(log)
         +calculate_metrics() CoverageMetrics
+    }
+
+    class ParserDiagnostics {
+        +unmatched_out_of_scope: int
+        +unmatched_in_scope: int
+        +unmatched_unclassified: int
+        +discarded_lines: int
+        +to_dict() Dict
     }
 
     class AbstractToolContract {
@@ -313,6 +336,7 @@ classDiagram
     TaskEntity --> LogcatRepository : stores coverage in
     TaskConfiguration --> ToolConfig : contains
     LogcatRepository --> CoverageMetrics : calculates
+    LogcatRepository --> ParserDiagnostics : counts discards in
     AbstractToolContract --> TaskEntity : receives
 ```
 
@@ -339,11 +363,12 @@ rv-android-core/
 │       │   ├── command_exception.py
 │       │   └── command_not_found_error.py
 │       ├── domain/
-│       │   ├── task.py              # Task, TaskConfiguration, TaskResult (480 SLOC)
+│       │   ├── task.py              # Task, TaskConfiguration, TaskResult (494 SLOC)
 │       │   ├── app.py               # APK metadata via Androguard
-│       │   ├── coverage.py          # Coverage tracking models (491 SLOC)
-│       │   ├── static.py            # StaticAnalysisData
-│       │   ├── log.py               # RvCoverageLog, RvErrorLog
+│       │   ├── coverage.py          # Coverage models, ParserDiagnostics,
+│       │   │                        #   LogcatRepository (538 SLOC)
+│       │   ├── static.py            # StaticAnalysisData (+ recorded scope key)
+│       │   ├── log.py               # RvCoverageLog, RvErrorLog, RvDiagnosticEvent
 │       │   ├── classes.py           # Java class/method models
 │       │   ├── window.py            # Window models for WTG
 │       │   ├── widget.py            # UI widget models
@@ -364,7 +389,7 @@ rv-android-core/
 │           │   ├── emulator_manager.py    # Emulator lifecycle
 │           │   ├── logcat_manager.py      # Logcat capture
 │           │   ├── package_detector.py    # Code package detection (CC=20)
-│           │   ├── signature_normalizer.py # Inner class notation
+│           │   ├── build_type_suffix.py   # Build-type suffix policy
 │           │   └── repository_initializer.py
 │           ├── error/
 │           │   ├── error_handler.py   # ErrorHandler singleton (253 SLOC)
@@ -647,7 +672,8 @@ flowchart LR
 2. **LogcatManager** captures raw logcat to a file on disk.
 3. **CoverageTracker** (in rv-coverage) parses entries into `RvCoverageLog` and `RvErrorLog` objects (defined here in rv-android-core).
 4. **LogcatRepository** stores these objects and correlates with static analysis data. `register_method_call()` only registers calls to methods present in the static analysis data (INV-CORE-24). `RvErrorLog` instances are deduplicated via `unique_msg` (INV-CORE-25).
-5. **CoverageMetrics** are calculated on demand, providing overall and MOP-specific coverage percentages.
+5. **Discards are counted, not dropped.** An event whose class or signature the static analysis does not carry produced a record that then found no home. `_count_unmatched()` charges it to one of three `ParserDiagnostics` counters according to `LogcatRepository.scope_key`: `unmatched_out_of_scope` (the app called a library — expected), `unmatched_in_scope` (the class is under the key and the denominator still lacks it — the failure that matters), or `unmatched_unclassified` (no key was recorded, so neither claim can be made). The key comes from the artefact's own record and classifies only; it filters nothing (INV-CORE-60). The three stay out of `discarded_lines`, which counts lines that became no record at all.
+6. **CoverageMetrics** are calculated on demand, providing overall and MOP-specific coverage percentages.
 
 ---
 
@@ -723,14 +749,16 @@ flowchart LR
 **Location**: `src/rv_android_core/domain/`
 
 **Key Classes**:
-- `Task`: Central execution unit with config, result, repository, and static data references
+- `Task`: Central execution unit with config, result, repository, and static data references. `_new_repository()` is the single construction site for its `LogcatRepository`, and is what passes `StaticAnalysisData.code_package` down as the repository's `scope_key` -- `None` on the resume path, where no artefact is loaded
 - `TaskConfiguration(BaseValidatedModel)`: Immutable task parameters (APK name, timeout, tool config, repetition)
-- `TaskResult(BaseValidatedModel)`: Mutable execution results with state transitions
+- `TaskResult(BaseValidatedModel)`: Mutable execution results with state transitions; `write_errors` (`Dict[str, int]`) survives `to_dict()`/`from_dict()` as a per-artefact count of rows lost while writing, which is what the resume protocol reads back (INV-CORE-61)
 - `ToolConfig(BaseValidatedModel)`: Single source of truth for (tool, variant, parameters) -- imported by all modules
-- `App(BaseValidatedModel)`: APK metadata via Androguard; exposes `package_name` (manifest, verbatim), `code_package` (the declared package by default, the PackageDetector election under `package_detector=True`, lazy either way) and `code_package_source`
-- `LogcatRepository`: Coverage and error log storage with metrics calculation
+- `App(BaseValidatedModel)`: APK metadata via Androguard; exposes `package_name` (manifest, verbatim), `code_package` (the declared package by default; neutralized under `strip_build_type_suffix=True`; the PackageDetector election under `package_detector=True`, which wins over the neutralization; lazy on every path) and `code_package_source`
+- `StaticAnalysisData(BaseValidatedModel)`: Parsed GATOR artefact. Beyond the analysis content it carries the producer's record of its own scope: `code_package` (the key the run actually filtered by -- the `package` member holds the manifest package regardless, so it cannot stand in), `code_package_source`, and `class_defs_under_key` (the net count of compiled classes under the key surviving the client's `isAppClass` filter). All three are `Optional` and `None` on artefacts written before the key reached disk
+- `LogcatRepository`: Coverage and error log storage with metrics calculation; constructed with the artefact's `scope_key`, which classifies discards and filters nothing
+- `ParserDiagnostics`: Dataclass of parse-time counters, including the three crossing counters split by scope
 - `CoverageMetrics`: Calculated percentages (overall and MOP method coverage)
-- `RvCoverageLog` / `RvErrorLog`: Parsed logcat events
+- `RvCoverageLog` / `RvErrorLog` / `RvDiagnosticEvent`: Parsed logcat records (`domain/log.py`)
 
 **Dependencies**:
 - Internal: BaseValidatedModel, PackageDetector, ErrorHandler
@@ -794,7 +822,7 @@ RVAndroidError (message, cause)
 - `EmulatorManager`: Emulator start/stop and port allocation
 - `LogcatManager`: Logcat capture to file
 - `PackageDetector`: Detects implementation package vs. manifest package using 6 detection strategies (CC=20). In ~27.5% of APKs, these differ (e.g., Godot engine games).
-- `SignatureNormalizer`: Normalizes inner class notation (Outer.Inner <-> Outer$Inner)
+- `neutralize_build_type_suffix()`: Strips trailing Gradle build-type segments from a declared applicationId (INV-CORE-58); the run policy that decides whether it applies is resolved at the entry point, never here
 
 **Dependencies**:
 - Internal: Command, CommandResult
@@ -821,7 +849,7 @@ How the architecture supports non-functional requirements from `docs/PRD.md` Sec
 
 | NFR | PRD ID | Architectural Support |
 |-----|--------|----------------------|
-| Modularity | NFR01 | Zero internal dependencies; all 12 other modules depend on rv-android-core without coupling to each other through it. Clean package boundaries (domain, commands, tools, util) |
+| Modularity | NFR01 | Zero internal dependencies; the 14 dependent modules reach rv-android-core without coupling to each other through it. Clean package boundaries (domain, commands, tools, util) |
 | Extensibility | NFR02 | AbstractTool template method allows new tools without modifying core. ErrorHandler callback system lets modules react to errors without circular dependencies. BaseValidatedModel provides a consistent extension point for new domain models. BaseAnalyzer[T] generic ABC for analysis components |
 | Testability | NFR03 | 46 test files organized by package. @validated_model enables both positional and named construction for test readability. ValidationConfig toggle allows testing with and without validation. Singleton reset methods for test isolation |
 | Resilience | NFR04 | ErrorHandler with 27+ type-specific handlers and configurable suppression/propagation. CommandCircuitBreaker prevents cascading failures (CLOSED/OPEN/HALF_OPEN). Process tree kill prevents orphaned processes on timeout. Tool timeouts treated as expected behavior (INFO level, not ERROR) |
@@ -961,11 +989,12 @@ Key use cases that validate the architecture.
 **Description**: An Android APK has a manifest package name that differs from its implementation package (occurs in ~27.5% of APKs).
 
 **Flow**:
-1. The entry point resolves the run's package policy (CLI flag > `RV_PACKAGE_DETECTOR` > default `False`) and rv-platform creates an `App(app_path="/path/to/app.apk", package_detector=<resolved>)` (INV-CORE-17 validates APK exists)
+1. The entry point resolves both package policies (CLI flag > `RV_PACKAGE_DETECTOR` / `RV_STRIP_BUILD_TYPE_SUFFIX` > default `False`) and rv-platform creates an `App(app_path="/path/to/app.apk", package_detector=<resolved>, strip_build_type_suffix=<resolved>)` (INV-CORE-17 validates APK exists)
 2. App's `model_post_init()` loads the APK via Androguard, extracting `package_name` from the manifest
-3. On first access of `code_package`: with the policy off, the declared package is returned and no detector runs; with it on, `PackageDetector.detect_package()` analyzes the DEX bytecode using its strategy chain
+3. On first access of `code_package`: with both policies off, the declared package is returned and nothing runs; with only the neutralization on, `neutralize_build_type_suffix()` strips trailing denied segments; with the detector on, `PackageDetector.detect_package()` analyzes the DEX bytecode using its strategy chain and its answer wins regardless of the other policy (INV-CORE-18)
 4. On the detector path, if `package_name != code_package`, a log message reports the mismatch (INV-CORE-18)
-5. Downstream modules use `package_name` for device operations and `code_package` to scope a static analysis they *run* (it becomes GATOR's `-clientParam codePackage=`), and record `code_package_source` with the run. Parsing an existing analysis artefact uses no key (INV-ANA-61)
+5. `code_package_source` reports which of the three produced the value -- `"manifest"`, `"manifest-neutralized"` or `"detector"` -- naming what actually produced the key, so a neutralization that removed nothing still reads `"manifest"`
+6. Downstream modules use `package_name` for device operations and `code_package` to scope a static analysis they *run* (it becomes GATOR's `-clientParam codePackage=`), and the run's artefact records the key, its origin and `class_defs_under_key` (INV-ANA-66). Parsing an existing artefact resolves no filtering key of its own (INV-ANA-61); it reads the recorded one to classify discards at the crossing (INV-CORE-60)
 
 ### Scenario 3: Circuit Breaker Prevents Cascading Failures
 
@@ -998,7 +1027,7 @@ Key use cases that validate the architecture.
 |--------|---------|
 | (none) | rv-android-core is the foundation with zero internal dependencies |
 
-**Dependents** (12 modules depend on rv-android-core):
+**Dependents** (14 modules declare rv-android-core in their `pyproject.toml`):
 
 | Module | What it uses |
 |--------|-------------|
@@ -1008,12 +1037,16 @@ Key use cases that validate the architecture.
 | rv-static-analysis | StaticAnalysisData, ClassData, Command, ErrorHandler, constants |
 | rv-coverage | LogcatRepository, CoverageMetrics, RvCoverageLog, RvErrorLog |
 | rv-monitor-generator | Command, ErrorHandler, constants |
-| rv-instrumentation | Command, App, ErrorHandler, constants |
+| rv-instrumentation-core | BaseValidatedModel |
+| rv-instrumentation-ajc | App, Command, ErrorHandler, LoggingManager, constants, utils, exceptions |
+| rv-instrumentation-dexlib2 | App, LoggingManager, ENV_RVSEC_HOME |
 | rv-platform | Task, TaskConfiguration, App, ErrorHandler, LoggingManager, all domain models |
 | rv-agent | App, Task, Widget, Window, DynamicTransitionGraph, LoggingManager, PerformanceMonitor |
 | rv-experiment | Task, ToolConfig, TaskConfiguration, App, Command, constants |
 | rvagent-tool | AbstractTool, App, Task, ErrorHandler |
-| rv-agent-validation | App, Task, LoggingManager |
+| aperv-tool | AbstractTool, ToolSpec, App, Task, Command, ErrorHandler, LoggingManager, JarResolver |
+
+The `rv-instrumentation` parent is not a dependent: it re-exports the `-core` API and holds the `get_instrumenter()` factory, so it depends on `-core` rather than on this module directly.
 
 ### External
 
@@ -1047,7 +1080,7 @@ uv run pytest modules/rv-android-core/tests/ -v
 
 ## Related Documentation
 
-- [Domain Spec](../../openspec/specs/core/spec.md) - Requirements and invariants for this module (FR33-FR37, INV-CORE-06 through INV-CORE-32 — INV-CORE-30/31/32 added by gh55)
+- [Domain Spec](../../openspec/specs/core/spec.md) - Requirements and invariants for this module (FR33-FR37, INV-CORE-06 onward). INV-CORE-58 through INV-CORE-61, cited above, are defined in the `gh111-cadeia-medicao` delta and reach the main spec when it is synced.
 - [PRD](../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
 - [CLAUDE.md](../../CLAUDE.md) - Project-level quick reference for Claude Code
 - [ADR 0001 — Environment-Variable Pattern](../../../docs/adr/0001-env-var-pattern.md) - gh55 Accepted decision: ENV_* registry, Layer Purity (only L5/L1 read env), Click `envvar=` gambiarra and §9.6 entry-point translation, variant-default pattern (D8) eliminating env reads at L2. Reference for any new env var introduced into the system.

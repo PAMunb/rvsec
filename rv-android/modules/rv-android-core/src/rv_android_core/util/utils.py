@@ -290,7 +290,11 @@ def check_folder_exists(folders: list):
             raise Exception(f"Folder does not exist: {folder}")
 
 
-def get_apks(apks_dir: str, package_detector: bool = False) -> list[App]:
+def get_apks(
+    apks_dir: str,
+    package_detector: bool = False,
+    strip_build_type_suffix: bool = False,
+) -> list[App]:
     """
     Get all APK files from a directory as App objects.
 
@@ -302,6 +306,9 @@ def get_apks(apks_dir: str, package_detector: bool = False) -> list[App]:
         apks_dir: Directory containing APK files
         package_detector: Elect the implementation package heuristically instead
             of reporting the declared applicationId (resolved at the entry point)
+        strip_build_type_suffix: Neutralize the Gradle build-type suffix of the
+            declared applicationId before using it as the scope key (also
+            resolved at the entry point — this function reads no environment)
 
     Returns:
         List of App objects
@@ -312,7 +319,13 @@ def get_apks(apks_dir: str, package_detector: bool = False) -> list[App]:
             if file.casefold().endswith(EXTENSION_APK):
                 try:
                     apk_path = os.path.join(apks_dir, file)
-                    apks.append(App(apk_path, package_detector=package_detector))
+                    apks.append(
+                        App(
+                            apk_path,
+                            package_detector=package_detector,
+                            strip_build_type_suffix=strip_build_type_suffix,
+                        )
+                    )
                     logger.debug(f"Found APK: {file}")
                 except Exception as e:
                     logger.error(f"Error processing APK {file}: {e}")

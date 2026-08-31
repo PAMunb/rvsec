@@ -448,6 +448,12 @@ class TaskResult(BaseValidatedModel):
             "trace_file": self.trace_file,
             "coverage_metrics": self.coverage_metrics,
             "detected_errors_count": len(self.detected_errors),
+            # A per-artefact loss COUNT, not a list of messages (INV-CORE-61).
+            # Serializing it as a list would destroy the number INV-PLT-32 exists
+            # to preserve — and the number is the whole point: without it, a task
+            # whose violations were lost during writing reads exactly like a task
+            # that had none.
+            "write_errors": self.write_errors,
             "state_transitions": self.state_transitions,
         }
 
@@ -490,6 +496,11 @@ class TaskResult(BaseValidatedModel):
                 trace_file=data.get("trace_file", ""),
                 coverage_metrics=data.get("coverage_metrics", {}),
                 detected_errors=data.get("detected_errors", []),
+                # Absent in every tasks.json written before this field reached
+                # to_dict(), which is every file the resume protocol may meet.
+                # An empty map is the honest reading: no loss was recorded,
+                # because nothing was recording.
+                write_errors=data.get("write_errors", {}),
                 state_transitions=data.get("state_transitions", []),
             )
 
@@ -572,14 +583,29 @@ class Task:
         # LogcatRepository is the single source of truth for coverage/error data.
         # The "!= Any" check detects whether the real class was imported or the
         # TYPE_CHECKING fallback is active (meaning rv-coverage is not installed).
-        if LogcatRepository != Any:
-            self.repository = LogcatRepository()
-        else:
-            self.repository = None
+        self.repository = self._new_repository()
 
         # Record creation
         self.result.add_state_transition(TaskState.CREATED)
         self.logger.info(f"Task {self.id} created with configuration: {self.config}")
+
+    def _new_repository(self):
+        """Build a repository carrying the artefact's recorded scope key.
+
+        The key classifies crossing discards by scope (INV-CORE-60) and filters
+        nothing. It is read from the loaded artefact and never re-derived from a
+        package name (INV-ANA-58); several of these construction sites sit on the
+        resume path, where no artefact is loaded at all and the key is legitimately
+        ``None`` — the discards are then counted unclassified.
+
+        The ``!= Any`` check detects whether the real class was imported or the
+        TYPE_CHECKING fallback is active (meaning rv-coverage is not installed).
+        """
+        if LogcatRepository == Any:
+            return None
+        return LogcatRepository(
+            scope_key=getattr(self.static_data, "code_package", None)
+        )
 
     def add_error(self, error: RvErrorLog) -> None:
         """
@@ -590,10 +616,7 @@ class Task:
         """
         # Ensure repository exists
         if not hasattr(self, "repository") or self.repository is None:
-            if LogcatRepository != Any:
-                self.repository = LogcatRepository()
-            else:
-                self.repository = None
+            self.repository = self._new_repository()
 
         # Add to repository
         if self.repository is not None:
@@ -611,10 +634,7 @@ class Task:
         """
         # Ensure repository exists
         if not hasattr(self, "repository") or self.repository is None:
-            if LogcatRepository != Any:
-                self.repository = LogcatRepository()
-            else:
-                self.repository = None
+            self.repository = self._new_repository()
 
         # Add to repository
         if self.repository is not None:
@@ -675,10 +695,7 @@ class Task:
             The task's LogcatRepository
         """
         if not hasattr(self, "repository") or self.repository is None:
-            if LogcatRepository != Any:
-                self.repository = LogcatRepository()
-            else:
-                self.repository = None
+            self.repository = self._new_repository()
 
             # If logcat file exists, parse it and populate the repository
             # Lazy reconstruction: if a logcat file exists from a previous run,
@@ -696,7 +713,9 @@ class Task:
                     # Without static_data, all method calls are ignored as "unknown classes"
                     # because the parser can only register calls for methods known from static analysis.
                     self.repository = parse_logcat_file(
-                        self.result.logcat_file, self.static_data
+                        self.result.logcat_file,
+                        self.static_data,
+                        scope_key=getattr(self.static_data, "code_package", None),
                     )
                     self.logger.info(
                         f"Parsed logcat file: {self.result.logcat_file} with static data"
@@ -705,7 +724,10 @@ class Task:
                     self.logger.error(f"Error parsing logcat file: {e}")
                     # Fallback: try without static data
                     try:
-                        self.repository = parse_logcat_file(self.result.logcat_file)
+                        self.repository = parse_logcat_file(
+                            self.result.logcat_file,
+                            scope_key=getattr(self.static_data, "code_package", None),
+                        )
                         self.logger.warning(
                             "Parsed logcat file without static data - method calls may be ignored"
                         )

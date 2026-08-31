@@ -1,14 +1,21 @@
 """
-Tests for PreProcessor downstream filtering (gh49).
+Tests for PreProcessor downstream selection.
 
 Validates that:
 - _get_target_apks_for_analysis() filters by instrumentation success
-- get_instrumented_apks() filters by static analysis data presence
+- get_instrumented_apks() filters nothing: every instrumented APK executes, and
+  the ones with no static analysis artefact are named in a warning instead of
+  being dropped (INV-EXP-16 as modified)
 """
 
 import os
 import sys
 from unittest.mock import MagicMock, patch
+
+import pytest
+from rv_experiment.experiment.workflow.pre_processor import (
+    PreProcessingConfigurationError,
+)
 
 # Module path used by all patch() targets below.
 _MOD = "rv_experiment.experiment.workflow.pre_processor"
@@ -34,6 +41,41 @@ def _make_pre_processor(tmp_path):
 
         pp = PreProcessor(config)
         return pp, config
+
+
+def _only_warning_naming(pp, fragment):
+    """The single `logger.warning` message containing `fragment`.
+
+    The workflow emits several warnings per call and a bare `assert_any_call`
+    would need the exact text; matching on a fragment and asserting uniqueness
+    keeps the assertion about the content that matters.
+    """
+    matches = [
+        call.args[0]
+        for call in pp.logger.warning.call_args_list
+        if call.args and fragment in call.args[0]
+    ]
+    assert len(matches) == 1, f"expected one warning naming {fragment!r}, got {matches}"
+    return matches[0]
+
+
+def _app_stub(app_path, package_detector=False, strip_build_type_suffix=False):
+    """Stand-in for `App` that accepts every policy kwarg `_build_app` passes.
+
+    The arity is not incidental: `_build_app` forwards both run policies, so a
+    stub that names fewer of them raises `TypeError` and turns a policy change
+    into a test failure that reads like a workflow failure.
+    """
+    return MagicMock(name=os.path.basename(app_path), path=app_path)
+
+
+def _policy_stub(app_path, package_detector=False, strip_build_type_suffix=False):
+    """Same stand-in, exposing the policies it received for assertion."""
+    return MagicMock(
+        path=app_path,
+        package_detector=package_detector,
+        strip_build_type_suffix=strip_build_type_suffix,
+    )
 
 
 class TestGetTargetApksForAnalysis:
@@ -80,9 +122,16 @@ class TestGetTargetApksForAnalysis:
 
 
 class TestGetInstrumentedApks:
-    """Tests for get_instrumented_apks SA filtering."""
+    """Tests for get_instrumented_apks: it reports, it does not exclude."""
 
-    def test_excludes_apks_without_json(self, tmp_path):
+    def test_apk_without_json_still_executes(self, tmp_path):
+        """The APK with no artefact runs, and the warning names it.
+
+        This is the inversion INV-EXP-16 asks for: the previous behaviour
+        dropped `bad.apk` from the returned list while the executed set came
+        from a directory glob that never saw the filter, so the APK ran anyway
+        and the log claimed it had been excluded.
+        """
         pp, config = _make_pre_processor(tmp_path)
 
         inst_dir = tmp_path / "out" / "instrumented_apks"
@@ -94,13 +143,16 @@ class TestGetInstrumentedApks:
         (inst_dir / "bad.apk").write_bytes(b"apk")
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
-                name=os.path.basename(app_path), path=app_path
-            )
+            MockApp.side_effect = _app_stub
             result = pp.get_instrumented_apks()
 
-        assert len(result) == 1
-        assert result[0].path == str(inst_dir / "good.apk")
+        assert sorted(app.path for app in result) == [
+            str(inst_dir / "bad.apk"),
+            str(inst_dir / "good.apk"),
+        ]
+        warning = _only_warning_naming(pp, "coverage denominator")
+        assert "bad.apk" in warning
+        assert "good.apk" not in warning
 
     def test_includes_apks_with_json(self, tmp_path):
         pp, config = _make_pre_processor(tmp_path)
@@ -113,14 +165,19 @@ class TestGetInstrumentedApks:
         (inst_dir / "b.apk.json").write_text("{}")
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
-                name=os.path.basename(app_path), path=app_path
-            )
+            MockApp.side_effect = _app_stub
             result = pp.get_instrumented_apks()
 
         assert len(result) == 2
 
-    def test_falls_back_to_originals_when_no_apk_has_json(self, tmp_path):
+    def test_no_fallback_when_the_only_apk_has_no_json(self, tmp_path):
+        """ "No artefact" is not "no instrumented APK", and only the second falls back.
+
+        The fallback to originals answers the case where instrumentation
+        produced nothing at all. Firing it here would replace a real
+        instrumented APK with its un-instrumented original, which records no
+        violations — the opposite of what a missing denominator warrants.
+        """
         pp, config = _make_pre_processor(tmp_path)
 
         inst_dir = tmp_path / "out" / "instrumented_apks"
@@ -130,14 +187,11 @@ class TestGetInstrumentedApks:
         config.get_apk_list.return_value = ["/originals/fallback.apk"]
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
-                name=os.path.basename(app_path), path=app_path
-            )
+            MockApp.side_effect = _app_stub
             result = pp.get_instrumented_apks()
 
-        # Should fall back to originals
-        assert len(result) == 1
-        assert result[0].path == "/originals/fallback.apk"
+        assert [app.path for app in result] == [str(inst_dir / "nojson.apk")]
+        assert "nojson.apk" in _only_warning_naming(pp, "coverage denominator")
 
     def test_returns_originals_when_instrumented_dir_missing(self, tmp_path):
         pp, config = _make_pre_processor(tmp_path)
@@ -145,9 +199,7 @@ class TestGetInstrumentedApks:
         config.get_apk_list.return_value = ["/originals/app.apk"]
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
-                name=os.path.basename(app_path), path=app_path
-            )
+            MockApp.side_effect = _app_stub
             result = pp.get_instrumented_apks()
 
         assert len(result) == 1
@@ -163,9 +215,7 @@ class TestPackageDetectorPropagation:
         config.get_apk_list.return_value = ["/originals/app.apk"]
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
-                path=app_path, package_detector=package_detector
-            )
+            MockApp.side_effect = _policy_stub
             result = pp.get_instrumented_apks()
 
         assert [app.package_detector for app in result] == [True]
@@ -175,6 +225,7 @@ class TestPackageDetectorPropagation:
         so only the kwarg proves the value was actually passed."""
         pp, config = _make_pre_processor(tmp_path)
         config.package_detector = False
+        config.strip_build_type_suffix = False
 
         inst_dir = tmp_path / "out" / "instrumented_apks"
         inst_dir.mkdir(parents=True)
@@ -182,13 +233,13 @@ class TestPackageDetectorPropagation:
         (inst_dir / "a.apk.json").write_text("{}")
 
         with patch("rv_experiment.experiment.workflow.pre_processor.App") as MockApp:
-            MockApp.side_effect = lambda app_path, package_detector=False: MagicMock(
-                path=app_path, package_detector=package_detector
-            )
+            MockApp.side_effect = _policy_stub
             pp.get_instrumented_apks()
 
         MockApp.assert_called_once_with(
-            app_path=str(inst_dir / "a.apk"), package_detector=False
+            app_path=str(inst_dir / "a.apk"),
+            package_detector=False,
+            strip_build_type_suffix=False,
         )
 
 
@@ -231,16 +282,19 @@ class TestGenerateMonitors:
     _GEN = "rv_monitor_generator.runtime_verification_generator.RuntimeVerificationGenerator"
 
     def test_success_logs_complete(self, tmp_path):
-        pp, _ = _make_pre_processor(tmp_path)
-        with (
-            patch(f"{_MOD}.os.makedirs"),
-            patch(self._GEN) as mock_gen,
-        ):
+        """`os.makedirs` is real here: the provenance marker of INV-EXP-38 is a
+        genuine file write, so mocking the directory away turns a success into a
+        `FileNotFoundError` handled as a monitor-generation failure."""
+        pp, config = _make_pre_processor(tmp_path)
+        config.specification_set = "jca"
+        with patch(self._GEN) as mock_gen:
             mock_gen.return_value.generate_monitors.return_value = True
             pp._generate_monitors()
 
         pp.logger.warning.assert_not_called()
         pp.error_handler.handle_error.assert_not_called()
+        marker = tmp_path / "out" / "monitors" / "specification_set.txt"
+        assert marker.read_text().strip() == "jca"
 
     def test_failure_logs_warning(self, tmp_path):
         pp, _ = _make_pre_processor(tmp_path)
@@ -424,9 +478,7 @@ class TestRunStaticAnalysis:
             result.errors = ["err"]
             pp._run_static_analysis()
 
-        pp.logger.warning.assert_any_call(
-            "Static analysis failed for x.apk: ['err']"
-        )
+        pp.logger.warning.assert_any_call("Static analysis failed for x.apk: ['err']")
 
     def test_per_apk_exception_handled(self, tmp_path):
         pp, _ = _make_pre_processor(tmp_path)
@@ -486,3 +538,174 @@ class TestGetInstrumentedApksExceptionBranch:
 
         pp.error_handler.handle_error.assert_called_once()
         assert result == []
+
+
+class TestSkipInstrumentWithStaticAnalysis:
+    """`--skip-instrument --static-analysis` aborts instead of analysing nothing
+    (INV-EXP-37)."""
+
+    def test_aborts_naming_the_flag_and_the_directory(self, tmp_path):
+        pp, _ = _make_pre_processor(tmp_path)
+
+        with pytest.raises(PreProcessingConfigurationError) as excinfo:
+            pp._assert_instrumentation_available_for_static(instrument=False)
+
+        message = str(excinfo.value)
+        assert "--skip-instrument" in message
+        assert "--static-analysis" in message
+        assert str(tmp_path / "out" / "instrumented_apks") in message
+
+    def test_previous_runs_instrumented_apks_are_a_legitimate_input(self, tmp_path):
+        """The test is the directory, not the flag: pointing `--apks-dir` at an
+        earlier run's `instrumented_apks/` is the documented way to reuse it."""
+        pp, _ = _make_pre_processor(tmp_path)
+        inst_dir = tmp_path / "out" / "instrumented_apks"
+        inst_dir.mkdir(parents=True)
+        (inst_dir / "a.apk").write_bytes(b"apk")
+
+        pp._assert_instrumentation_available_for_static(instrument=False)
+
+        assert any(
+            "reusing" in call.args[0].lower()
+            for call in pp.logger.info.call_args_list
+            if call.args
+        )
+
+    def test_instrumentation_requested_never_aborts(self, tmp_path):
+        pp, _ = _make_pre_processor(tmp_path)
+
+        pp._assert_instrumentation_available_for_static(instrument=True)
+
+
+class TestLoggedSetEqualsExecutedSet:
+    """INV-EXP-16 as modified: what the log names and what runs are one set."""
+
+    def test_mixed_case_logs_no_exclusion(self, tmp_path):
+        """Three instrumented APKs, one without an artefact: all three execute
+        and the only thing the log claims about the third is that it will run
+        without a denominator.
+
+        That the third still contributes violations is pinned one layer down,
+        at the report writer — `test_missing_json_counts_and_errors_survive` in
+        rv-platform's `test_result_processor.py` — because violations are
+        reconstructed from logcat and never consult the static artefact.
+        """
+        pp, config = _make_pre_processor(tmp_path)
+        inst_dir = tmp_path / "out" / "instrumented_apks"
+        inst_dir.mkdir(parents=True)
+        for name in ("a.apk", "b.apk", "c.apk"):
+            (inst_dir / name).write_bytes(b"apk")
+        (inst_dir / "a.apk.json").write_text("{}")
+        (inst_dir / "b.apk.json").write_text("{}")
+
+        with patch(f"{_MOD}.App") as MockApp:
+            MockApp.side_effect = _app_stub
+            result = pp.get_instrumented_apks()
+
+        assert sorted(os.path.basename(app.path) for app in result) == [
+            "a.apk",
+            "b.apk",
+            "c.apk",
+        ]
+        warning = _only_warning_naming(pp, "coverage denominator")
+        assert "1 of 3" in warning
+        assert "c.apk" in warning
+        assert not any(
+            "exclud" in call.args[0].lower()
+            for call in pp.logger.warning.call_args_list
+            if call.args
+        )
+
+
+class TestConsolidatedStaticAnalysisReport:
+    """One statement of what will run without a denominator (INV-EXP-39)."""
+
+    @staticmethod
+    def _populate(tmp_path, total, with_artefact):
+        inst_dir = tmp_path / "out" / "instrumented_apks"
+        inst_dir.mkdir(parents=True)
+        for index in range(total):
+            (inst_dir / f"app{index:03d}.apk").write_bytes(b"apk")
+            if index < with_artefact:
+                (inst_dir / f"app{index:03d}.apk.json").write_text("{}")
+        return inst_dir
+
+    def test_report_names_two_of_fifty(self, tmp_path):
+        pp, _ = _make_pre_processor(tmp_path)
+        self._populate(tmp_path, total=50, with_artefact=48)
+
+        pp._report_missing_static_analysis(static_analysis=True)
+
+        warning = _only_warning_naming(pp, "2 of 50")
+        assert "app048.apk" in warning
+        assert "app049.apk" in warning
+
+    def test_skip_static_report_names_the_flag_and_the_count(self, tmp_path):
+        """ "No artefact" and "no artefact because you asked for none" are
+        different facts, and only the second is the reader's own decision
+        (INV-EXP-39 as amended)."""
+        pp, _ = _make_pre_processor(tmp_path)
+        self._populate(tmp_path, total=4, with_artefact=0)
+
+        pp._report_missing_static_analysis(static_analysis=False)
+
+        warning = _only_warning_naming(pp, "--skip-static")
+        assert "4 of 4" in warning
+
+    def test_all_present_reports_no_warning(self, tmp_path):
+        pp, _ = _make_pre_processor(tmp_path)
+        self._populate(tmp_path, total=3, with_artefact=3)
+
+        pp._report_missing_static_analysis(static_analysis=True)
+
+        pp.logger.warning.assert_not_called()
+        pp.logger.info.assert_any_call(
+            "Static analysis artefact present for all 3 APKs"
+        )
+
+
+class TestMonitorsProvenance:
+    """`--skip-monitors` must not silently instrument with another set's monitors
+    (INV-EXP-38)."""
+
+    @staticmethod
+    def _write_marker(tmp_path, recorded):
+        monitors_dir = tmp_path / "out" / "monitors"
+        monitors_dir.mkdir(parents=True)
+        (monitors_dir / "specification_set.txt").write_text(f"{recorded}\n")
+
+    def test_wrong_set_aborts_naming_both(self, tmp_path):
+        pp, config = _make_pre_processor(tmp_path)
+        config.specification_set = "jca_android"
+        self._write_marker(tmp_path, "generic")
+
+        with pytest.raises(PreProcessingConfigurationError) as excinfo:
+            pp._check_monitors_provenance()
+
+        message = str(excinfo.value)
+        assert "generic" in message
+        assert "jca_android" in message
+
+    def test_absent_marker_warns(self, tmp_path):
+        """Absence is warn, not abort: both resume paths force
+        `generate_monitors=False`, and no `out/monitors/` produced before the
+        marker existed carries one — aborting would make every earlier
+        experiment unresumable."""
+        pp, config = _make_pre_processor(tmp_path)
+        config.specification_set = "jca"
+
+        pp._check_monitors_provenance()
+
+        assert "jca" in _only_warning_naming(pp, "no provenance marker")
+
+    def test_same_set_proceeds_with_a_log_line(self, tmp_path):
+        pp, config = _make_pre_processor(tmp_path)
+        config.specification_set = "jca"
+        self._write_marker(tmp_path, "jca")
+
+        pp._check_monitors_provenance()
+
+        pp.logger.warning.assert_not_called()
+        pp.logger.info.assert_any_call(
+            "Reusing monitors generated from specification set 'jca'"
+        )

@@ -1,0 +1,283 @@
+{
+ "package": "com.hwloc.lstopo",
+ "mainActivity": "com.hwloc.lstopo.MainActivity",
+ "reachability": [
+  {
+   "className": "com.hwloc.lstopo.ZoomView.ZoomView",
+   "componentType": null,
+   "isMain": false,
+   "methods": [
+    {
+     "name": "<init>",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void <init>(android.content.Context)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "<init>",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void <init>(android.content.Context,android.util.AttributeSet)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "<init>",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void <init>(android.content.Context,android.util.AttributeSet,int)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "bias",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: float bias(float,float,float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "clamp",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: float clamp(float,float,float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "lerp",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: float lerp(float,float,float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "processDoubleTouchEvent",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void processDoubleTouchEvent(android.view.MotionEvent)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "processSingleTouchEvent",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void processSingleTouchEvent(android.view.MotionEvent)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "processSingleTouchOnMinimap",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void processSingleTouchOnMinimap(android.view.MotionEvent)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "processSingleTouchOutsideMinimap",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void processSingleTouchOutsideMinimap(android.view.MotionEvent)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "dispatchDraw",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void dispatchDraw(android.graphics.Canvas)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "dispatchTouchEvent",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: boolean dispatchTouchEvent(android.view.MotionEvent)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getListener",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: com.hwloc.lstopo.ZoomView.ZoomView$ZoomViewListener getListener()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getMaxZoom",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: float getMaxZoom()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getMiniMapCaption",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: java.lang.String getMiniMapCaption()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getMiniMapCaptionColor",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: int getMiniMapCaptionColor()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getMiniMapCaptionSize",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: float getMiniMapCaptionSize()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getMiniMapColor",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: int getMiniMapColor()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getMiniMapHeight",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: int getMiniMapHeight()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getZoom",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: float getZoom()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getZoomFocusX",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: float getZoomFocusX()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "getZoomFocusY",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: float getZoomFocusY()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "isMiniMapEnabled",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: boolean isMiniMapEnabled()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "resetZoom",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void resetZoom()>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "setListner",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void setListner(com.hwloc.lstopo.ZoomView.ZoomView$ZoomViewListener)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "setMaxZoom",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void setMaxZoom(float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "setMiniMapCaption",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void setMiniMapCaption(java.lang.String)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "setMiniMapCaptionColor",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void setMiniMapCaptionColor(int)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "setMiniMapCaptionSize",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void setMiniMapCaptionSize(float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "setMiniMapColor",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void setMiniMapColor(int)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "setMiniMapEnabled",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void setMiniMapEnabled(boolean)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "setMiniMapHeight",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void setMiniMapHeight(int)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "setZoom",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void setZoom(float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "smoothZoomTo",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void smoothZoomTo(float,float,float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "zoomTo",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView: void zoomTo(float,float,float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    }
+   ]
+  },
+  {
+   "className": "com.hwloc.lstopo.ZoomView.ZoomView$ZoomViewListener",
+   "componentType": null,
+   "isMain": false,
+   "methods": [
+    {
+     "name": "onZoomStarted",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView$ZoomViewListener: void onZoomStarted(float,float,float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    },
+    {
+     "name": "onZooming",
+     "signature": "<com.hwloc.lstopo.ZoomView.ZoomView$ZoomViewListener: void onZooming(float,float,float)>",
+     "reachable": false,
+     "reachesTarget": false,
+     "directlyReachesTarget": false
+    }
+   ]
+  }
+ ],
+ "windows": [],
+ "transitions": [],
+ "components": {},
+ "complete": true
+}

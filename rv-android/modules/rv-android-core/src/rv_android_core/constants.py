@@ -111,6 +111,13 @@ ENV_LOGCAT_DIAGNOSTICS = "RV_LOGCAT_DIAGNOSTICS"
 # command — and passed down already resolved (INV-EXP-34, INV-CORE-55).
 ENV_PACKAGE_DETECTOR = "RV_PACKAGE_DETECTOR"
 
+# Neutralize the Gradle build-type suffix of the declared applicationId before
+# using it as the scope key (INV-CORE-58, INV-EXP-35). Default off, for the same
+# reason as the detector above: it changes which classes a study counts, so no
+# run acquires it by accident. Read only at an entry point — rv-experiment and
+# the rv-static-analysis command — and passed down already resolved.
+ENV_STRIP_BUILD_TYPE_SUFFIX = "RV_STRIP_BUILD_TYPE_SUFFIX"
+
 # Device timeout budgets, read at the point of use by util/android/android.py.
 # These belong to the L1 cross-layer infra family: the correct value depends on
 # the host and its concurrency level, not on the semantics of the experiment —

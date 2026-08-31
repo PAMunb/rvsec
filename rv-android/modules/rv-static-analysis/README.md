@@ -11,7 +11,8 @@ The RV-Static-Analysis module runs a unified GATOR analysis client on Android AP
 - **Single-Client Architecture**: One GATOR invocation produces all data in a single JSON file
 - **Priority-Ordered Output**: Reachability first, then windows, then transitions — timeout preserves the most critical data
 - **Graceful Degradation**: Parser recovers partial data when sections are missing
-- **File-Level Caching**: If output JSON already exists, analysis is skipped
+- **Scope-Keyed Caching**: An existing output JSON is reused only when it records this run's scope key (or none); a disagreeing key regenerates it. `--force` invalidates deliberately
+- **Denominator Gate**: A coverage denominator the artefact cannot support is refused, not published as a small percentage
 
 ## Architecture
 
@@ -19,18 +20,20 @@ The RV-Static-Analysis module runs a unified GATOR analysis client on Android AP
 
 1. **GATOR Analysis**: Runs unified `RvsecAnalysisClient` on APK
 2. **JSON Output**: Produces `{app_name}.json` with reachability, windows, transitions
-3. **Result Parsing**: `parse_file()` converts JSON into `StaticAnalysisData` objects
+3. **Denominator Gate**: The parsed class count is divided by the compiled-class count the artefact records; an empty, degenerate or universe-less denominator fails that APK
+4. **Result Parsing**: `parse_file()` converts JSON into `StaticAnalysisData` objects
 
 ### Core Components
 
 - **StaticAnalyzer**: Analysis orchestrator — runs GATOR, manages output files
 - **RVStaticAnalysisConfig**: Configuration with priority-based path resolution
-- **StaticAnalysisParser**: Parses unified JSON into domain objects
+- **StaticAnalysisParser**: Parses unified JSON into domain objects, storing every identifier exactly as the artefact spells it
+- **check_denominator()**: Refuses an implausible coverage denominator (`analysis/static/denominator_gate.py`)
 - **parse_file()**: Convenience function for one-call parsing
 
 ### Integration Points
 
-- **rv-android-core**: `App` domain model, `StaticAnalysisData`, `SignatureNormalizer`
+- **rv-android-core**: `App` domain model, `StaticAnalysisData`
 - **rv-platform**: `StaticAnalysisComponent` calls `StaticAnalyzer.analyze()`
 - **rv-agent**: WTG for navigation guidance, MOP flags for action prioritization
 - **rv-coverage**: Method universe (denominator for coverage %)
@@ -75,6 +78,13 @@ rv-static-analysis analyze --apk /path/to/app.apk --output /output
 
 # Batch analyze
 rv-static-analysis batch --apks-dir /path/to/apks --output /output
+
+# Re-analyze, discarding the stored artefact
+rv-static-analysis analyze --apk /path/to/app.apk --output /output --force
+
+# Neutralize a build-type suffix on the declared applicationId before using it
+# as the scope key (com.example.app.debug -> com.example.app)
+rv-static-analysis analyze --apk /path/to/app.apk --output /output --strip-build-type-suffix
 ```
 
 ## Output Format
@@ -99,6 +109,8 @@ Priority-based resolution:
 - `ANDROID_HOME`: Android SDK path.
 - `RV_SA_TIMEOUT`: Per-APK GATOR timeout in seconds. **Only honored via `rv-experiment`** (gh55 Click `envvar=` bridge). Standalone `uv run rv-static-analysis` ignores it — use `--analysis-timeout` CLI flag instead.
 - `RV_JVM_MEMORY`: JVM `-Xmx` for the GATOR subprocess (e.g. `4g`). Same standalone caveat as `RV_SA_TIMEOUT`.
+- `RV_PACKAGE_DETECTOR`: Elect the implementation package as the scope key instead of the declared applicationId. **Honored standalone** (see `CLAUDE.md`), under flag > env > default.
+- `RV_STRIP_BUILD_TYPE_SUFFIX`: Neutralize a Gradle build-type suffix on the declared applicationId before using it as the scope key. **Honored standalone**, same precedence. When the package detector is also on, the detector wins.
 
 The standalone gambiarra is documented in `CLAUDE.md` and tracked for proper architectural fix at `openspec/changes/gh-tbd-env-vars-architecture/`.
 
@@ -113,11 +125,15 @@ The standalone gambiarra is documented in `CLAUDE.md` and tracked for proper arc
 ```bash
 cd modules/rv-static-analysis
 
-uv run pytest tests/ -v              # All tests (142)
-uv run pytest tests/parser/ -v       # Parser tests (76)
-uv run pytest tests/analysis/ -v     # Analyzer tests (21)
-uv run pytest tests/cli/ -v          # CLI flag tests (32)
-uv run pytest tests/test_config.py -v # Config tests (13)
+# The --import-mode/addopts pair is the workspace CI contract; without it
+# conftest isolation breaks across modules and collection fails.
+PYTEST="uv run pytest --import-mode=importlib -o addopts="
+
+$PYTEST tests/ -v               # All tests (163)
+$PYTEST tests/parser/ -v        # Parser tests (76)
+$PYTEST tests/analysis/ -v      # Analyzer + denominator gate + scope key (42)
+$PYTEST tests/cli/ -v           # CLI flag tests (32)
+$PYTEST tests/test_config.py -v # Config tests (13)
 ```
 
 ## Dependencies

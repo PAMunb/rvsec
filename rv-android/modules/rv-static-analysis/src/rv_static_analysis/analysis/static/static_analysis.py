@@ -14,9 +14,10 @@ windows, then transitions).
   the coordination overhead of three separate tools (GESDA, GATOR, REACH)
 - Priority-ordered output: the client flushes reachability before windows and
   windows before transitions, so timeout yields gracefully degraded data
-- File-level caching: if the output JSON already exists, the analysis is
-  skipped entirely (no content validation — existence implies completion or
-  partial timeout output that the parser can recover)
+- File-level caching under the artefact's own key: an existing output JSON is
+  reused when it records the scope key this run would use, or no key at all
+  (INV-ANA-70). Nothing else about the content is validated — a partial file
+  from a timeout is still a hit, because the parser recovers it
 
 ### Role in the System:
 
@@ -52,6 +53,11 @@ from rv_android_core.util.logging.constants import CONTEXT_COMPONENT
 from rv_android_core.util.logging.context_adapter import ContextAdapter
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_android_core.util.validation import BaseValidatedModel, validated_model
+from rv_static_analysis.analysis.static.denominator_gate import (
+    REFUSED_ARTIFACT_SUFFIX,
+    DenominatorImplausibleError,
+    check_denominator,
+)
 from rv_static_analysis.config import RVStaticAnalysisConfig
 from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
 
@@ -86,7 +92,11 @@ class StaticAnalysisResult(BaseValidatedModel):
         default="", description="Package key used to scope app-owned classes"
     )
     code_package_source: str = Field(
-        default="", description="Origin of the key: 'manifest' or 'detector'"
+        default="",
+        description="Origin of the key: 'manifest', 'manifest-neutralized' or "
+        "'detector'. 'manifest-neutralized' means the build-type suffix policy "
+        "removed a segment; the policy being on with nothing to remove still "
+        "reports 'manifest', because the value names what produced the key",
     )
 
 
@@ -247,6 +257,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
         try:
             self._run_analysis()
             self.result.execution_times = self.execution_times
+            self._check_denominator()
 
             self.logger.info(
                 "Static analysis completed",
@@ -255,6 +266,27 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
                     "total_time": sum(self.execution_times.values()),
                 },
             )
+            return self.result
+
+        except DenominatorImplausibleError as e:
+            # A refused denominator fails this APK's analysis and no more. It is
+            # reported through the same channel as an execution failure — a
+            # failed result carrying the message — rather than propagating,
+            # because the decorator above would swallow a raise and return
+            # `None`, which is the silence the gate exists to end. Stopping a
+            # 200-APK campaign is not warranted either: the refusal names the
+            # parsed count, the compiled count and the key, so the operator
+            # re-runs that APK once the jar or the key is corrected.
+            self.logger.error(
+                "Static analysis refused: implausible denominator",
+                extra={
+                    "error_message": str(e),
+                    "code_package": self.result.code_package,
+                },
+            )
+            self.result.success = False
+            self.result.errors.append(str(e))
+            self._quarantine_refused_artifact()
             return self.result
 
         except StaticAnalysisException as e:
@@ -268,6 +300,78 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             self.result.errors.append(str(e))
             return self.result
 
+    def _quarantine_refused_artifact(self) -> None:
+        """Move a refused artefact out of the path every consumer reads.
+
+        Without this the gate is a log line. Everything downstream keys on the
+        artefact's **presence**, not on the result object the analysis returned:
+        `pre_processor._report_missing_static_analysis` builds its list with
+        `os.path.exists(<apk>.apk.json)`, and `result_processor._resolve_static_data`
+        calls `read_static_analysis_files(results_dir, apk)`, which finds the file
+        by name. So a refused artefact left on disk is parsed and its collapsed
+        class list is published as a coverage percentage with `measured=true` —
+        the outcome INV-ANA-69's scenario forbids in as many words ("the pipeline
+        MUST NOT publish a coverage percentage for that APK").
+
+        The file is **renamed, not deleted**. The refusal is a tripwire on a
+        stale `lib/gator/` jar or on a key the deny-list could not resolve, and
+        both are diagnosed from the artefact itself — the recorded key, its
+        origin and `class_defs_under_key` are what name the cause. With the
+        suffix gone the consumers see it as absent, so the row takes the honest
+        path that already exists: empty coverage cells, `measured=false`
+        (INV-PLT-35), violation columns written as usual.
+        """
+        if not os.path.isfile(self.analysis_file):
+            return
+        quarantined = self.analysis_file + REFUSED_ARTIFACT_SUFFIX
+        os.replace(self.analysis_file, quarantined)
+        self.logger.warning(
+            f"Refused artefact moved to {quarantined}: the APK will run without a "
+            "coverage denominator (empty cells, measured=false) rather than "
+            "publish a percentage over a denominator the gate rejected"
+        )
+
+    def _check_denominator(self) -> None:
+        """Judge the denominator the run just produced (INV-ANA-69).
+
+        `analyze()` is the only place that holds both the APK and the key, which
+        is why the gate is wired here and the parser stays keyless (INV-ANA-61).
+        It costs a parse: `analyze()` does not read the artefact today — that
+        happens in `get_static_data()` — so this is a read that did not exist.
+
+        **The gate raises.** It landed warn-only only while the run had no way
+        to supply a key that resolves: under the literal manifest key 75 of the
+        162 corpus APKs have no compiled class at all, and aborting 46% of a
+        campaign for a reason the run itself could not fix would have been a
+        tripwire on the operator rather than on the pipeline. The build-type
+        suffix policy is that way, so the tolerance goes: a warning is what the
+        code already emitted at several of these points, and it is why these
+        defects survived three changes.
+
+        A legacy artefact that records no `class_defs_under_key` is still not
+        judged: the gate has no universe to divide by, and inventing one would
+        be the silent measurement this whole change removes.
+
+        Raises:
+            DenominatorImplausibleError: the artefact's class list cannot be the
+                app's class universe under the key that produced it.
+        """
+        try:
+            data = StaticAnalysisParser().parse_file(self.analysis_file)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.warning(f"Denominator not checked: artefact unreadable ({exc})")
+            return
+
+        if data.class_defs_under_key is None:
+            self.logger.debug(
+                "Denominator not checked: the artefact records no "
+                "class_defs_under_key (pre-INV-ANA-66 producer)"
+            )
+            return
+
+        key = data.code_package or self.result.code_package or ""
+        check_denominator(data.classes, data.class_defs_under_key, key)
+
     def _run_analysis(self) -> None:
         """Build and execute the GATOR analysis command."""
         cmd_args = self.config.get_tool_command(
@@ -275,6 +379,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             self.app.path,
             self.analysis_file,
             code_package=self.app.code_package,
+            code_package_source=self.app.code_package_source,
         )
         cmd = Command(cmd_args[0], cmd_args[1:], timeout=self.config.analysis_timeout)
         self._execute_command("ANALYSIS", self.analysis_file, cmd)
@@ -289,6 +394,47 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
                 f"GATOR did not produce output JSON at {self.analysis_file}; "
                 "check that the python interpreter and gator launcher are reachable."
             )
+
+    def _disagreeing_recorded_key(self, result_file: str) -> Optional[str]:
+        """The scope key a stored artefact records, when it is not this run's.
+
+        `None` means the artefact may be reused, and it covers two different
+        situations deliberately. An artefact that records **no** key — every one
+        produced before INV-ANA-66, which is all 162 of the article corpus — is
+        reused: the `package` member is the manifest package whatever key
+        filtered the file, so resolving a key from it would be exactly the
+        invented measurement this change removes (INV-ANA-58). And an artefact
+        recording this run's own key is reused because it is the same artefact
+        this run would produce.
+
+        An unreadable artefact is also reused rather than regenerated: the
+        parser recovers truncated JSON on purpose (INV-ANA-06), so a parse
+        failure here says something about this method, not about the file.
+
+        The key is read through the parser and not with a bare `json.load`, and
+        the cost is real — 2258 ms against 318 ms on the corpus's largest
+        artefact (`org.quantumbadger.redreader_117`, 48 MB), because the parser
+        builds four domain aggregates to answer one string. It is paid on
+        purpose: a timed-out GATOR run leaves a **truncated** artefact, which
+        `json.load` rejects outright and the parser recovers by bracket closing.
+        Reading it the fast way would turn exactly those artefacts — the ones a
+        key change is most likely to have stranded — into unverifiable reuses,
+        which is the check's own failure mode. This runs once per APK during
+        pre-processing, never on resume; `result_processor` is what re-reads
+        artefacts there, and it does not call this.
+        """
+        try:
+            recorded = StaticAnalysisParser().parse_file(result_file).code_package
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.warning(
+                f"Scope key of {result_file} not verified: artefact unreadable "
+                f"({exc}); reusing it"
+            )
+            return None
+
+        if not recorded or recorded == self.app.code_package:
+            return None
+        return recorded
 
     def _execute_command(
         self, name: str, result_file: str, command: Command
@@ -320,19 +466,33 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             tool_name=name,
             app_name=self.app.name,
         ):
-            # File-level caching: if the output JSON exists, skip execution entirely.
-            # We do not validate content -- existence implies a previous run completed
-            # (or timed out with partial output the parser can recover). This enables
-            # experiment resume without re-running the expensive GATOR analysis.
+            # File-level caching: an existing output JSON answers for this run, but
+            # only under its own scope key (INV-ANA-70). Existence alone used to
+            # imply completion, which silently reused an artefact produced under a
+            # different key the moment a run's key policy changed — and the
+            # denominator gate would then have judged the old artefact by the new
+            # key. What survives unchanged is the reuse itself, which is what makes
+            # experiment resume cheap.
             if os.path.isfile(result_file):
-                self.logger.info(
-                    "Analysis result already exists, skipping",
-                    extra={
-                        "tool_name": name,
-                        "result_file": result_file,
-                    },
+                stale_key = self._disagreeing_recorded_key(result_file)
+                if stale_key is None:
+                    self.logger.info(
+                        "Analysis result already exists, skipping",
+                        extra={
+                            "tool_name": name,
+                            "result_file": result_file,
+                        },
+                    )
+                    return CommandResult(0, b"", b"")
+
+                self.logger.warning(
+                    f"Regenerating {result_file}: it was produced under scope key "
+                    f"'{stale_key}' and this run scopes by "
+                    f"'{self.app.code_package}'. Reusing it would publish a "
+                    "denominator built from one key against coverage measured "
+                    "under another."
                 )
-                return CommandResult(0, b"", b"")
+                os.remove(result_file)
 
             self.logger.info(
                 f"Executing analysis: {name}",

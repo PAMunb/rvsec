@@ -157,12 +157,17 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		//    without modifying the writer.
 		SootClass mainActivity = output.getMainActivity();
 		String appPackage = output.getAppPackageName();
+		// The enricher also carries the run's provenance into the artefact: the effective
+		// key, where it came from, and the compiled universe under it (INV-ANA-66). Nothing
+		// downstream can recover any of the three from a stored file otherwise.
 		presto.android.gui.clients.reach.ReachabilityEnricher enricher =
 				new presto.android.gui.clients.reach.ReachabilityEnricher(
 						index,
 						appPackage,
 						codePackage,
-						mainActivity != null ? mainActivity.getName() : null);
+						mainActivity != null ? mainActivity.getName() : null,
+						getCodePackageSource(),
+						countClassDefsUnderKey(filterPackage));
 
 		// 5. Write JSON with reachability FIRST (survives timeout during WTG).
 		//    This write claims completeness only when it is the run's last one,
@@ -249,6 +254,20 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		return param.substring("codePackage=".length());
 	}
 
+	/**
+	 * Origin of the scope key: {@code manifest}, {@code manifest-neutralized} or
+	 * {@code detector}. It is decided on the Python side (App.code_package_source) and
+	 * has no other channel into the artefact, so a run that does not pass it records an
+	 * empty origin rather than a guessed one (INV-ANA-66).
+	 */
+	private String getCodePackageSource() {
+		String param = Configs.getClientParamCode("codePackageSource=");
+		if (param == null) {
+			return null;
+		}
+		return param.substring("codePackageSource=".length());
+	}
+
 	private boolean skipWtg() {
 		String param = Configs.getClientParamCode("skipWtg=");
 		return param != null && "true".equalsIgnoreCase(param.substring("skipWtg=".length()));
@@ -283,18 +302,67 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	/**
 	 * Check if a fully-qualified class name belongs to the application package.
 	 * Returns false for library classes (different package prefix) and for
-	 * generated classes (R, R$*, BuildConfig) which inflate coverage denominator.
+	 * generated resource classes, which inflate the coverage denominator.
+	 *
+	 * <p>The generated-class test is anchored at the class name's LAST segment, not at
+	 * the scope key's root (INV-ANA-71). Anchoring it at the root only removed
+	 * {@code <key>.R} and missed both the module-level form ({@code app.pachli.core.database.R},
+	 * which a multi-module Gradle build emits once per module) and the case where the key
+	 * is an <em>ancestor</em> of the resource namespace ({@code com.github.cvzi} over
+	 * {@code com.github.cvzi.screenshottile.R$string}), where every resource class escaped.
+	 * Measured over the 162-artefact corpus: 505 such classes were in the denominator,
+	 * carrying 547 methods of which zero are non-trivial — constant tables that can never
+	 * be covered.
+	 *
+	 * <p>The rule stops at resource classes. Annotation-processor output
+	 * ({@code _Factory}, {@code _Impl}, {@code $$serializer}, {@code Hilt_*}, DataBinding)
+	 * is 5,816 classes carrying 36,264 non-trivial methods that DO execute; removing them
+	 * would redefine the denominator rather than close a leak, and is a research decision.
 	 */
 	// Package-private for unit testing
 	static boolean isAppClass(String className, String filterPackage) {
 		if (!className.startsWith(filterPackage)) {
 			return false;
 		}
-		String suffix = className.substring(filterPackage.length());
-		if (suffix.equals(".R") || suffix.startsWith(".R$") || suffix.equals(".BuildConfig")) {
-			return false;
+		return !isGeneratedResourceClass(className);
+	}
+
+	/**
+	 * True when the class name's last dotted segment names a generated resource class:
+	 * {@code R}, {@code R$*}, {@code BuildConfig}, {@code Manifest} or {@code Manifest$*}.
+	 */
+	// Package-private for unit testing
+	static boolean isGeneratedResourceClass(String className) {
+		int lastDot = className.lastIndexOf('.');
+		String segment = (lastDot < 0) ? className : className.substring(lastDot + 1);
+		return segment.equals("R")
+				|| segment.startsWith("R$")
+				|| segment.equals("BuildConfig")
+				|| segment.equals("Manifest")
+				|| segment.startsWith("Manifest$");
+	}
+
+	/**
+	 * The compiled class universe under {@code filterPackage} that survives
+	 * {@link #isAppClass} — the NET count the denominator gate divides by (INV-ANA-66).
+	 *
+	 * <p>Read from {@code Scene.v().getClasses()}, not {@code getApplicationClasses()}:
+	 * the library demotion in {@code AnalysisEntrypoint} calls {@code setLibraryClass()},
+	 * which reclassifies without removing, so {@code getClasses()} is the compiled universe
+	 * regardless of what the guard did — which is exactly the property that lets a stale
+	 * guard be detected downstream.
+	 *
+	 * <p>The count is recorded net rather than raw because no consumer can correct a raw
+	 * one: the gate receives an {@code int}, and filtering by name needs the names.
+	 */
+	static int countClassDefsUnderKey(String filterPackage) {
+		int count = 0;
+		for (SootClass cls : Scene.v().getClasses()) {
+			if (isAppClass(cls.getName(), filterPackage)) {
+				count++;
+			}
 		}
-		return true;
+		return count;
 	}
 
 	// ========================================================================

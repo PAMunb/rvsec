@@ -78,8 +78,14 @@ RESULTS = DATASET / "RESULTS"
 APKS_30 = Path(__file__).resolve().parent.parent / "30_apks.csv"
 
 KEY_COLS = ("apk", "rep", "timeout", "tool")
-COV_COLS = ("cov_act", "cov_class", "cov_method", "cov_reachable",
-            "cov_reaches_target", "cov_directly_reaches_target")
+COV_COLS = (
+    "cov_act",
+    "cov_class",
+    "cov_method",
+    "cov_reachable",
+    "cov_reaches_target",
+    "cov_directly_reaches_target",
+)
 MOP_COLS = ("mop_errors_total", "mop_errors_unique")
 
 # errors:   apk,rep,timeout,tool,time,spec,class,method,message,unique_msg
@@ -103,7 +109,10 @@ class Report:
     def check(self, ok: bool, label: str, detail: str = "") -> bool:
         if not ok:
             self.failed = True
-        print(f"  [{'PASS' if ok else 'FAIL'}] {label}" + (f" - {detail}" if detail else ""))
+        print(
+            f"  [{'PASS' if ok else 'FAIL'}] {label}"
+            + (f" - {detail}" if detail else "")
+        )
         return ok
 
     def note(self, label: str, detail: str = "") -> None:
@@ -120,7 +129,9 @@ def load_summary(path: Path) -> dict[tuple, dict]:
         return {tuple(r[c] for c in KEY_COLS): r for r in csv.DictReader(fh)}
 
 
-def multiset_per_apk(path: Path, cols: tuple[int, ...] | None) -> dict[str, tuple[int, int]]:
+def multiset_per_apk(
+    path: Path, cols: tuple[int, ...] | None
+) -> dict[str, tuple[int, int]]:
     """Commutative (order-blind) hash of each app's rows, optionally projected onto `cols`.
 
     Returns apk -> (row_count, digest_sum). Summing row digests is associative and
@@ -154,34 +165,74 @@ def compare_summary(report: Report, apks30: set[str]) -> None:
     base = load_summary(RESULTS / "summary_all.csv")
     regen = load_summary(RESULTS / "summary_regen.csv")
 
-    report.check(len(regen) == EXPECTED_ROWS, f"grid has {EXPECTED_ROWS} rows", f"found {len(regen)}")
-    report.check(set(base) == set(regen), "the (apk,rep,timeout,tool) key set is unchanged",
-                 f"+{len(set(regen) - set(base))} -{len(set(base) - set(regen))}")
-    report.check(len({k[0] for k in regen}) == EXPECTED_APPS, f"{EXPECTED_APPS} distinct apps")
+    report.check(
+        len(regen) == EXPECTED_ROWS,
+        f"grid has {EXPECTED_ROWS} rows",
+        f"found {len(regen)}",
+    )
+    report.check(
+        set(base) == set(regen),
+        "the (apk,rep,timeout,tool) key set is unchanged",
+        f"+{len(set(regen) - set(base))} -{len(set(base) - set(regen))}",
+    )
+    report.check(
+        len({k[0] for k in regen}) == EXPECTED_APPS, f"{EXPECTED_APPS} distinct apps"
+    )
 
     shared = set(base) & set(regen)
 
     # --- S1: no violation gained or lost, anywhere (task 5.4) --------------------------------
-    tot_moved = {k[0] for k in shared if base[k]["mop_errors_total"] != regen[k]["mop_errors_total"]}
-    report.check(not tot_moved, "S1 mop_errors_TOTAL identical for all 219 apps",
-                 f"moved in {len(tot_moved)}: {sorted(tot_moved)[:8]}")
+    tot_moved = {
+        k[0]
+        for k in shared
+        if base[k]["mop_errors_total"] != regen[k]["mop_errors_total"]
+    }
+    report.check(
+        not tot_moved,
+        "S1 mop_errors_TOTAL identical for all 219 apps",
+        f"moved in {len(tot_moved)}: {sorted(tot_moved)[:8]}",
+    )
 
     # mop_errors_unique is EXPECTED to move, downward only, on the #89 apps.
-    uniq_moved = {k[0] for k in shared if base[k]["mop_errors_unique"] != regen[k]["mop_errors_unique"]}
-    up = [k for k in shared if int(regen[k]["mop_errors_unique"]) > int(base[k]["mop_errors_unique"])]
-    down = [k for k in shared if int(regen[k]["mop_errors_unique"]) < int(base[k]["mop_errors_unique"])]
-    report.check(not up, "S1b mop_errors_unique never INCREASED (a dedup fix can only merge)",
-                 f"{len(up)} rows increased")
-    report.note(f"mop_errors_unique decreased in {len(down)} rows across {len(uniq_moved)} apps",
-                "expected: cf234788 / issue #89")
+    uniq_moved = {
+        k[0]
+        for k in shared
+        if base[k]["mop_errors_unique"] != regen[k]["mop_errors_unique"]
+    }
+    up = [
+        k
+        for k in shared
+        if int(regen[k]["mop_errors_unique"]) > int(base[k]["mop_errors_unique"])
+    ]
+    down = [
+        k
+        for k in shared
+        if int(regen[k]["mop_errors_unique"]) < int(base[k]["mop_errors_unique"])
+    ]
+    report.check(
+        not up,
+        "S1b mop_errors_unique never INCREASED (a dedup fix can only merge)",
+        f"{len(up)} rows increased",
+    )
+    report.note(
+        f"mop_errors_unique decreased in {len(down)} rows across {len(uniq_moved)} apps",
+        "expected: cf234788 / issue #89",
+    )
 
     # --- S2: the scope effect is confined to the 30 (task 5.3) ------------------------------
-    cov_moved = {k[0] for k in shared if any(base[k][c] != regen[k][c] for c in COV_COLS)}
+    cov_moved = {
+        k[0] for k in shared if any(base[k][c] != regen[k][c] for c in COV_COLS)
+    }
     outside = sorted(cov_moved - apks30)
-    report.check(not outside, "S2 cov_* changed only for apps in 30_apks.csv",
-                 f"{len(outside)} outside: {outside[:8]}")
-    report.note(f"cov_* moved in {len(cov_moved)} of the 30",
-                f"unchanged: {sorted(apks30 - cov_moved)}")
+    report.check(
+        not outside,
+        "S2 cov_* changed only for apps in 30_apks.csv",
+        f"{len(outside)} outside: {outside[:8]}",
+    )
+    report.note(
+        f"cov_* moved in {len(cov_moved)} of the 30",
+        f"unchanged: {sorted(apks30 - cov_moved)}",
+    )
 
 
 def compare_errors(report: Report, apks30: set[str]) -> None:
@@ -194,11 +245,17 @@ def compare_errors(report: Report, apks30: set[str]) -> None:
     vb = multiset_per_apk(base, ERRORS_VIOLATION_COLS)
     vr = multiset_per_apk(regen, ERRORS_VIOLATION_COLS)
     moved = diff_apps(vb, vr)
-    report.check(not moved,
-                 "E1 violation identity (apk,rep,timeout,tool,spec,message) multiset "
-                 "identical for all 219", f"{len(moved)} app(s) moved: {moved[:8]}")
-    report.note("total error rows", f"base {sum(c for c, _ in vb.values())} / "
-                                    f"regen {sum(c for c, _ in vr.values())}")
+    report.check(
+        not moved,
+        "E1 violation identity (apk,rep,timeout,tool,spec,message) multiset "
+        "identical for all 219",
+        f"{len(moved)} app(s) moved: {moved[:8]}",
+    )
+    report.note(
+        "total error rows",
+        f"base {sum(c for c, _ in vb.values())} / "
+        f"regen {sum(c for c, _ in vr.values())}",
+    )
 
     # --- E1b: the `time` column, which the key CAN legitimately move -------------------------
     # regenerate_container.py derives t0 as the earliest registered event and writes
@@ -209,20 +266,31 @@ def compare_errors(report: Report, apks30: set[str]) -> None:
     er = multiset_per_apk(regen, ERRORS_EVENT_COLS)
     t_moved = set(diff_apps(eb, er))
     outside = sorted(t_moved - apks30)
-    report.check(not outside, "E1b `time` shifted only for apps in 30_apks.csv",
-                 f"{len(outside)} outside: {outside[:8]}")
-    report.note(f"`time` shifted in {len(t_moved)} app(s), all inside the 30",
-                ", ".join(sorted(t_moved)))
+    report.check(
+        not outside,
+        "E1b `time` shifted only for apps in 30_apks.csv",
+        f"{len(outside)} outside: {outside[:8]}",
+    )
+    report.note(
+        f"`time` shifted in {len(t_moved)} app(s), all inside the 30",
+        ", ".join(sorted(t_moved)),
+    )
 
     # --- E2: where the attribution was reshaped ----------------------------------------------
     fb = multiset_per_apk(base, None)
     fr = multiset_per_apk(regen, None)
     full_moved = diff_apps(fb, fr)
-    report.note(f"E2 full-row differences in {len(full_moved)} app(s) — the class/method "
-                f"reshape of #89", ", ".join(full_moved[:6]))
+    report.note(
+        f"E2 full-row differences in {len(full_moved)} app(s) — the class/method "
+        f"reshape of #89",
+        ", ".join(full_moved[:6]),
+    )
     counts = [a for a in full_moved if fb.get(a, (0, 0))[0] != fr.get(a, (0, 0))[0]]
-    report.check(not counts, "E2 no app changed its error ROW COUNT",
-                 f"{len(counts)} app(s) changed count: {counts[:8]}")
+    report.check(
+        not counts,
+        "E2 no app changed its error ROW COUNT",
+        f"{len(counts)} app(s) changed count: {counts[:8]}",
+    )
 
     compare_frame_key_repair(report)
 
@@ -243,13 +311,18 @@ def compare_frame_key_repair(report: Report) -> None:
     class/method columns exactly. Skipped, not failed, when the paper repo is absent.
     """
     print("\n== E3: at-source fix (cf234788) vs ase-journal's in-place repair ==")
-    repair_dir = Path("/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/"
-                      "workspace-rv/ase-journal/data-analysis")
+    repair_dir = Path(
+        "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/"
+        "workspace-rv/ase-journal/data-analysis"
+    )
     if not (repair_dir / "repair_frame_keys.py").is_file():
         report.note("SKIP - ase-journal/data-analysis/repair_frame_keys.py not found")
         return
     sys.path.insert(0, str(repair_dir))
-    from repair_frame_keys import is_frame, split_frame  # noqa: E402  (their algorithm, verbatim)
+    from repair_frame_keys import (  # noqa: E402  (their algorithm, verbatim)
+        is_frame,
+        split_frame,
+    )
 
     def scan(path: Path, repair: bool) -> tuple[dict[str, tuple[int, int]], int]:
         acc: dict[str, list[int]] = defaultdict(lambda: [0, 0])
@@ -264,7 +337,9 @@ def compare_frame_key_repair(report: Report) -> None:
                     if repair:
                         cls, mth = split_frame(cls)
                 # `time` is excluded: the t0 shift of E1b is a separate, legitimate effect.
-                payload = "\0".join([row[0], row[1], row[2], row[3], row[5], cls, mth, row[8]])
+                payload = "\0".join(
+                    [row[0], row[1], row[2], row[3], row[5], cls, mth, row[8]]
+                )
                 digest = int.from_bytes(hashlib.md5(payload.encode()).digest(), "big")
                 slot = acc[row[0]]
                 slot[0] += 1
@@ -274,14 +349,21 @@ def compare_frame_key_repair(report: Report) -> None:
     base_repaired, frames_base = scan(RESULTS / "errors_all.csv", repair=True)
     regen_rows, frames_regen = scan(RESULTS / "errors_regen.csv", repair=False)
 
-    report.check(frames_regen == 0, "E3 the regenerated CSV emits no frame-form key at all",
-                 f"{frames_regen} frame-form values found")
+    report.check(
+        frames_regen == 0,
+        "E3 the regenerated CSV emits no frame-form key at all",
+        f"{frames_regen} frame-form values found",
+    )
     moved = diff_apps(base_repaired, regen_rows)
-    report.check(not moved,
-                 "E3 their repair applied to the baseline reproduces our class/method exactly",
-                 f"{len(moved)} app(s) differ: {moved[:8]}")
-    report.note(f"{frames_base} frame-form values in the baseline were repaired and matched",
-                "so repair_frame_keys.py is a byte-level no-op on the delivered CSVs")
+    report.check(
+        not moved,
+        "E3 their repair applied to the baseline reproduces our class/method exactly",
+        f"{len(moved)} app(s) differ: {moved[:8]}",
+    )
+    report.note(
+        f"{frames_base} frame-form values in the baseline were repaired and matched",
+        "so repair_frame_keys.py is a byte-level no-op on the delivered CSVs",
+    )
 
 
 def compare_coverage(report: Report, apks30: set[str]) -> None:
@@ -293,12 +375,21 @@ def compare_coverage(report: Report, apks30: set[str]) -> None:
     er = multiset_per_apk(regen, COVERAGE_EVENT_COLS)
     moved = set(diff_apps(eb, er))
     outside = sorted(moved - apks30)
-    report.check(not outside,
-                 "C1 event identity (apk,rep,timeout,tool,time,class,method,signature) "
-                 "unchanged outside the 30", f"{len(outside)} outside: {outside[:8]}")
-    report.note(f"event multiset moved in {len(moved)} app(s)", f"{len(moved & apks30)} inside the 30")
-    report.note("total coverage rows", f"base {sum(c for c, _ in eb.values())} / "
-                                       f"regen {sum(c for c, _ in er.values())}")
+    report.check(
+        not outside,
+        "C1 event identity (apk,rep,timeout,tool,time,class,method,signature) "
+        "unchanged outside the 30",
+        f"{len(outside)} outside: {outside[:8]}",
+    )
+    report.note(
+        f"event multiset moved in {len(moved)} app(s)",
+        f"{len(moved & apks30)} inside the 30",
+    )
+    report.note(
+        "total coverage rows",
+        f"base {sum(c for c, _ in eb.values())} / "
+        f"regen {sum(c for c, _ in er.values())}",
+    )
 
     # --- C2: the coverage curve itself --------------------------------------------------------
     # Outside the 30, full rows DO differ, and the reason is neither the key nor lost data:
@@ -315,15 +406,22 @@ def compare_coverage(report: Report, apks30: set[str]) -> None:
     # and only one of them introduces a new class, the intermediate cumulative value depends
     # on which ran first, while the events and the endpoint do not. Asserting it would be
     # asserting a property the data never had.
-    cov_moved = {k[0] for k in set(cb_cov) | set(cr_cov) if cb_cov.get(k) != cr_cov.get(k)}
-    report.note(f"C2 the ordered cov_* curve differs in {len(cov_moved)} app(s)",
-                f"{len(cov_moved - apks30)} outside the 30 — transient tie-order effect; "
-                f"the endpoint is asserted by C4/S2")
+    cov_moved = {
+        k[0] for k in set(cb_cov) | set(cr_cov) if cb_cov.get(k) != cr_cov.get(k)
+    }
+    report.note(
+        f"C2 the ordered cov_* curve differs in {len(cov_moved)} app(s)",
+        f"{len(cov_moved - apks30)} outside the 30 — transient tie-order effect; "
+        f"the endpoint is asserted by C4/S2",
+    )
 
     ev_moved = {k[0] for k in set(cb_ev) | set(cr_ev) if cb_ev.get(k) != cr_ev.get(k)}
     outside_ev = sorted(ev_moved - apks30)
-    report.check(not outside_ev, "C3 the per-task event multiset is unchanged outside the 30",
-                 f"{len(outside_ev)} outside: {outside_ev[:8]}")
+    report.check(
+        not outside_ev,
+        "C3 the per-task event multiset is unchanged outside the 30",
+        f"{len(outside_ev)} outside: {outside_ev[:8]}",
+    )
 
     # --- C4: the endpoint, which IS order-independent -----------------------------------------
     # cov_* is cumulative, so the per-task maximum is the final value regardless of row order.
@@ -331,15 +429,23 @@ def compare_coverage(report: Report, apks30: set[str]) -> None:
     fin_r = per_task_final(regen)
     fin_moved = {k[0] for k in set(fin_b) | set(fin_r) if fin_b.get(k) != fin_r.get(k)}
     outside_fin = sorted(fin_moved - apks30)
-    report.check(not outside_fin, "C4 the FINAL cov_* per task changed only inside the 30",
-                 f"{len(outside_fin)} outside: {outside_fin[:8]}")
-    report.note(f"final cov_* moved in {len(fin_moved)} app(s)", f"{len(fin_moved & apks30)} inside the 30")
+    report.check(
+        not outside_fin,
+        "C4 the FINAL cov_* per task changed only inside the 30",
+        f"{len(outside_fin)} outside: {outside_fin[:8]}",
+    )
+    report.note(
+        f"final cov_* moved in {len(fin_moved)} app(s)",
+        f"{len(fin_moved & apks30)} inside the 30",
+    )
 
     fb = multiset_per_apk(base, None)
     fr = multiset_per_apk(regen, None)
     full_moved = set(diff_apps(fb, fr))
-    report.note(f"full coverage rows differ in {len(full_moved)} app(s)",
-                f"{len(full_moved - apks30)} of them outside the 30 — the tie-order effect above")
+    report.note(
+        f"full coverage rows differ in {len(full_moved)} app(s)",
+        f"{len(full_moved - apks30)} of them outside the 30 — the tie-order effect above",
+    )
 
 
 def per_task_final(path: Path) -> dict[tuple, tuple[float, ...]]:
@@ -358,6 +464,13 @@ def per_task_final(path: Path) -> dict[tuple, tuple[float, ...]]:
                 continue
             slot = acc[(row[0], row[1], row[2], row[3])]
             for i, cell in enumerate(row[8:12]):
+                # Reachable with an empty cell since gh111: a task with no
+                # coverage denominator writes "" in all four of these columns
+                # rather than 0.00 (INV-PLT-35), and `float("")` raises. The cell
+                # is SKIPPED rather than coerced to 0 — coercing would put the
+                # exact ambiguity this script is comparing back into the maximum.
+                if not cell.strip():
+                    continue
                 value = float(cell)
                 if value > slot[i]:
                     slot[i] = value
@@ -380,18 +493,28 @@ def per_task_sequences(path: Path) -> tuple[dict[tuple, int], dict[tuple, int]]:
             if not row:
                 continue
             task = (row[0], row[1], row[2], row[3])
-            cov = int.from_bytes(hashlib.md5("\0".join(row[8:12]).encode()).digest()[:8], "big")
-            curve[task] = (curve[task] * 1_000_003 + cov) % (1 << 127)  # order-sensitive
-            ev = int.from_bytes(hashlib.md5("\0".join(row[4:8]).encode()).digest()[:8], "big")
-            events[task] = (events[task] + ev) % (1 << 127)             # order-blind
+            cov = int.from_bytes(
+                hashlib.md5("\0".join(row[8:12]).encode()).digest()[:8], "big"
+            )
+            curve[task] = (curve[task] * 1_000_003 + cov) % (
+                1 << 127
+            )  # order-sensitive
+            ev = int.from_bytes(
+                hashlib.md5("\0".join(row[4:8]).encode()).digest()[:8], "big"
+            )
+            events[task] = (events[task] + ev) % (1 << 127)  # order-blind
     return dict(curve), dict(events)
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--with-coverage", action="store_true",
-                    help="also compare coverage_*.csv per app (~6 GB per side)")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--with-coverage",
+        action="store_true",
+        help="also compare coverage_*.csv per app (~6 GB per side)",
+    )
     args = ap.parse_args()
 
     apks30 = load_30()
@@ -401,9 +524,15 @@ def main() -> int:
         print(f"  [FAIL] 30_apks.csv holds {len(apks30)} rows")
         return 1
 
-    missing = [n for n in ("summary_regen.csv", "errors_regen.csv") if not (RESULTS / n).is_file()]
+    missing = [
+        n
+        for n in ("summary_regen.csv", "errors_regen.csv")
+        if not (RESULTS / n).is_file()
+    ]
     if missing:
-        print(f"  [FAIL] regenerated CSVs not found: {missing} - has the consolidation finished?")
+        print(
+            f"  [FAIL] regenerated CSVs not found: {missing} - has the consolidation finished?"
+        )
         return 1
 
     report = Report()

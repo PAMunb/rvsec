@@ -21,6 +21,10 @@ from pathlib import Path
 
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from summary_measured import measured_rows  # noqa: E402  (path must be set first)
+
 
 @dataclass
 class Check:
@@ -381,6 +385,22 @@ def verify_phase_e(
                 ]
                 val_rv = df[df["tool"].str.startswith("rvagent")]
 
+                # Informational, but still a number a reader will quote, so it
+                # is computed over measured rows only (INV-PLT-36): `.mean()`
+                # skips an empty cell silently and would report the mean of a
+                # smaller population as if it were the mean of this one.
+                base_total, val_total = len(base_rv), len(val_rv)
+                base_rv = measured_rows(base_rv, context="baseline summary.csv")
+                val_rv = measured_rows(val_rv, context="phase summary.csv")
+                # This script has no logger, so `measured_rows(log=)` has nowhere
+                # to write. The surviving counts go into the check's own detail
+                # instead: a drop that nobody can see is the failure the filter
+                # exists to prevent, relocated one layer out.
+                measured_note = (
+                    f"; measured rows {len(base_rv)}/{base_total} baseline, "
+                    f"{len(val_rv)}/{val_total} phase"
+                )
+
                 if len(base_rv) > 0 and len(val_rv) > 0:
                     base_cov = base_rv["cov_method"].mean()
                     val_cov = val_rv["cov_method"].mean()
@@ -390,7 +410,11 @@ def verify_phase_e(
                         Check(
                             name="coverage_comparison",
                             passed=True,  # Informational — no hard gate
-                            detail=f"Baseline RVAgent: {base_cov:.2f}%, Calibrated: {val_cov:.2f}% (diff: {improvement:+.2f}%)",
+                            detail=(
+                                f"Baseline RVAgent: {base_cov:.2f}%, "
+                                f"Calibrated: {val_cov:.2f}% "
+                                f"(diff: {improvement:+.2f}%){measured_note}"
+                            ),
                         )
                     )
 
@@ -401,7 +425,7 @@ def verify_phase_e(
                             Check(
                                 name="error_comparison",
                                 passed=True,  # Informational
-                                detail=f"Baseline errors: {base_err:.2f}, Calibrated: {val_err:.2f}",
+                                detail=f"Baseline errors: {base_err:.2f}, Calibrated: {val_err:.2f}{measured_note}",
                             )
                         )
     else:

@@ -87,6 +87,15 @@ class PlatformConfig(BaseValidatedModel):
             "the declared applicationId"
         ),
     )
+    # Same provenance and the same reasons as the field above: resolved at the
+    # entry point, arrives by value, belongs to the run rather than to a task.
+    strip_build_type_suffix: bool = Field(
+        default=False,
+        description=(
+            "Neutralize the Gradle build-type suffix of the declared applicationId "
+            "before using it as the scope key"
+        ),
+    )
     results_dir: str = Field(
         default="results", description="Output directory for results"
     )

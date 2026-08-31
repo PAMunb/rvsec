@@ -771,36 +771,30 @@ class TestLogcatRepository(ModelTestBase):
             repository.get_errors()
         )
 
-    def test_diagnose(
+    def test_the_counts_diagnose_reported_are_published_instead(
         self, repository, class_data, method_data, coverage_log, error_log
     ):
-        """Test the diagnose method."""
-        # Empty repository
-        empty_diagnostics = repository.diagnose()
-        assert empty_diagnostics["class_count"] == 0
-        assert empty_diagnostics["activity_count"] == 0
-        assert empty_diagnostics["method_count"] == 0
-        assert "No methods found in repository" in empty_diagnostics["issues"]
+        """`diagnose()` is gone; what it summarised now reaches a reader.
 
-        # Add data
+        It had zero production callers, so its counts existed only for whoever
+        called it in a debugger. The same numbers are published: the crossing
+        and discard counters through `ParserDiagnostics.to_dict()`, the class
+        and method totals through `calculate_metrics()` and the `summary.csv`
+        denominators. This test pins that nothing was lost with the method.
+        """
         class_data.add_method(method_data)
         repository.add_class(class_data)
         repository.register_method_call(coverage_log)
         repository.register_rv_error(error_log)
 
-        # Force calculation of static totals before diagnosis
-        repository._calculate_static_totals()
+        assert not hasattr(repository, "diagnose")
 
-        # Get diagnostics
-        diagnostics = repository.diagnose()
-        assert diagnostics["class_count"] == 1
-        assert diagnostics["activity_count"] == 1
-        assert diagnostics["method_count"] == 1
-        assert diagnostics["called_method_count"] == 1
-        assert diagnostics["error_count"] == 1
-        assert diagnostics["unique_error_count"] == 1
-        assert diagnostics["static_totals"] is not None
-        assert len(diagnostics["issues"]) == 0  # No issues expected
+        metrics = repository.calculate_metrics().to_dict()
+        assert metrics["called_methods"] == 1
+        assert metrics["total_errors"] == 1
+        assert len(repository.classes) == 1
+        assert repository.get_static_method_count() == 1
+        assert repository.parser_diagnostics.to_dict()["unmatched_in_scope"] == 0
 
     @pytest.fixture
     def diagnostic_event(self):
@@ -940,19 +934,19 @@ class TestLogcatRepository(ModelTestBase):
         assert "total_errors" in result
         assert "timestamp" in result
 
-    def test_diagnose_static_totals_zero_methods(self, repository):
-        """diagnose() flags static totals that report zero methods.
+    def test_a_class_with_no_methods_gives_a_zero_static_total(self, repository):
+        """The state `diagnose()` used to flag, asserted on the number itself.
 
-        Covers line 815: a class WITH NO methods makes _calculate_static_totals
-        produce total_methods == 0 (not None), tripping the `elif` branch.
+        A class with no methods makes `_calculate_static_totals` produce
+        `total_methods == 0` rather than `None`. That is a real condition worth
+        pinning; what went with `diagnose()` is only the English sentence it
+        wrapped the number in.
         """
         repository.add_class(ClassCoverageData(name="com.example.Empty"))
-        # Force _static_totals to a non-None dict whose total_methods is 0.
-        repository.get_static_method_count()
 
-        diagnostics = repository.diagnose()
-
-        assert "Static totals shows zero methods" in diagnostics["issues"]
+        assert repository.get_static_method_count() == 0
+        assert repository._static_totals is not None
+        assert repository._static_totals["total_methods"] == 0
 
     def test_to_dict(self, repository, class_data, method_data, error_log):
         """to_dict() serializes metrics, classes, and error aggregates.

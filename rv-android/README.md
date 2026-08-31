@@ -374,6 +374,7 @@ documentation, and source code. Pattern rationale: `docs/adr/0001-env-var-patter
 | `RV_SA_TIMEOUT` | `--analysis-timeout` | `600` | rv-experiment (L5) | Static analysis timeout (s); CLI > env > default |
 | `RV_JVM_MEMORY` | `--jvm-memory` | `4g` | rv-experiment (L5) | JVM memory for SA; CLI > env > default |
 | `RV_PACKAGE_DETECTOR` | `--package-detector` / `--no-package-detector` | `false` | rv-experiment (L5), rv-static-analysis (entry point) | Elect the implementation package heuristically instead of reporting the declared applicationId; CLI > env > default |
+| `RV_STRIP_BUILD_TYPE_SUFFIX` | `--strip-build-type-suffix` / `--no-strip-build-type-suffix` | `false` | rv-experiment (L5), rv-static-analysis (entry point) | Neutralize the Gradle build-type suffix of the declared applicationId before using it as the scope key (`com.example.app.debug` → `com.example.app`); the suffix renames the application, not the code, so under the declared id nothing was compiled. The ajc instrumenter is excluded (INV-EXP-36); CLI > env > default |
 | `RV_HUMANOID_URL` | — | `127.0.0.1:50405` | rv-experiment (L5) → ToolConfig.parameters | Humanoid inference server URL (variant default in tool) |
 | `RV_DEBUG` | `--debug` | `false` | rv-experiment (L5) | Verbose logging |
 | `RV_PYDANTIC` | — | `false` | rv-android-core (L1, validation/config) | Full Pydantic validation (development) |

@@ -1,0 +1,2 @@
+dab75ca733988aad427d08c8bafa7988bbc6e9c0062eceac59f9b2253561fbda  openspec/changes/gh111-cadeia-medicao/evidence/jars-pre/rvsec-analysis-client.jar
+4708d63c2fbc46e120e4ba09836d63d85fd67fa86971d8876d929f4993bb7f40  openspec/changes/gh111-cadeia-medicao/evidence/jars-pre/rvsec-gator.jar

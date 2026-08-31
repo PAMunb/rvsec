@@ -15,10 +15,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import rv_android_core.domain.app as app_module
-from pydantic import ValidationError
 from rv_android_core.domain.app import App
 from rv_android_core.util.android.package_detector import PackageDetectionResult
-from rv_android_core.util.error.exceptions import ConfigurationError
 
 
 def _app_with_manifest_package(package: str, **kwargs) -> App:
@@ -200,6 +198,63 @@ class TestCodePackagePolicy:
 
         assert app.code_package == "org.fossify.calendar.debug"
         assert app.code_package_source == "manifest"
+
+    def test_strip_build_type_suffix_defaults_to_off(self):
+        """The manifest verbatim stays the rule; neutralization is a run policy."""
+        app = App("/tmp/test.apk", validate_on_init=False)
+
+        assert app.strip_build_type_suffix is False
+
+    def test_neutralization_applies_when_the_policy_is_on(self):
+        app = _app_with_manifest_package(
+            "org.fossify.calendar.debug", strip_build_type_suffix=True
+        )
+
+        assert app.package_name == "org.fossify.calendar.debug"
+        assert app.code_package == "org.fossify.calendar"
+        assert app.code_package_source == "manifest-neutralized"
+
+    def test_stacked_suffix_reaches_the_App_through_one_rule(self):
+        app = _app_with_manifest_package(
+            "com.example.app.qa.debug", strip_build_type_suffix=True
+        )
+
+        assert app.code_package == "com.example.app"
+        assert app.code_package_source == "manifest-neutralized"
+
+    def test_source_reports_manifest_when_the_policy_removed_nothing(self):
+        """The value names what produced the key, not what was requested — a
+        reader asking why a key looks the way it does is asking about the former.
+        """
+        app = _app_with_manifest_package(
+            "de.grobox.liberario", strip_build_type_suffix=True
+        )
+
+        assert app.code_package == "de.grobox.liberario"
+        assert app.code_package_source == "manifest"
+
+    def test_package_name_is_unaffected_by_the_policy(self):
+        """Device operations install and launch the declared id, whatever key the
+        study scopes classes by."""
+        app = _app_with_manifest_package(
+            "br.com.colman.petals.debug", strip_build_type_suffix=True
+        )
+
+        assert app.package_name == "br.com.colman.petals.debug"
+        assert app.code_package == "br.com.colman.petals"
+
+    def test_detector_wins_over_neutralization(self):
+        """Both policies on is not a conflict to resolve here: the detector
+        answers from the compiled classes themselves, which is strictly more
+        evidence than a denylist over the declared id."""
+        app = _app_with_manifest_package(
+            self.GODOT_MANIFEST, package_detector=True, strip_build_type_suffix=True
+        )
+        detector_cls = self._detector_returning(self.GODOT_MANIFEST, self.GODOT_CODE)
+
+        with patch("rv_android_core.domain.app.PackageDetector", detector_cls):
+            assert app.code_package == self.GODOT_CODE
+        assert app.code_package_source == "detector"
 
     def test_package_detector_defaults_to_false(self):
         """Constructing App positionally keeps the manifest policy."""

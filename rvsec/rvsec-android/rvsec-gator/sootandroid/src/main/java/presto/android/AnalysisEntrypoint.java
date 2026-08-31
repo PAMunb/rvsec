@@ -27,6 +27,14 @@ public class AnalysisEntrypoint {
   private static AnalysisEntrypoint theInstance;
 
   final String TAG = AnalysisEntrypoint.class.getSimpleName();
+
+  /**
+   * The client parameter that carries the scope key. {@code Configs.getClientParamCode}
+   * returns the <em>whole</em> parameter string, prefix included, so every reader has to
+   * strip it — see {@code RvsecAnalysisClient.getCodePackage()}, which carries the same strip.
+   */
+  static final String CODE_PACKAGE_PARAM = "codePackage=";
+
   private AnalysisEntrypoint() {
   }
 
@@ -108,15 +116,28 @@ public class AnalysisEntrypoint {
       throw new RuntimeException(e);
     }
 
+    // INV-ANA-65 — the guard below and the client's own filter must answer to the SAME key.
+    // The client filters by codePackage (falling back to the manifest); this loop used to
+    // protect only what started with the manifest package, so whenever the two differed the
+    // demotion below stripped exactly the classes the client was about to count, and the
+    // denominator collapsed to whatever libPackages.txt happened not to match.
+    String scopeKey = resolveScopeKey(Configs.getClientParamCode(CODE_PACKAGE_PARAM), appPkg);
+    Logger.stat("scope key for app/library classification: " + scopeKey);
+
     for (SootClass c : Scene.v().getClasses()) {
       if (activityNames.contains(c.getName())) {
+        // The <activity> rescue. It is no longer load-bearing FOR THE DENOMINATOR — with the
+        // guard reading the effective key, every class under that key already leaves the loop
+        // below. It stays load-bearing for the reachability predicates: it promotes declared
+        // activities into Hierarchy.appClasses, which is what reachable / reachesTarget /
+        // directlyReachesTarget are computed over.
         if (!c.isApplicationClass()) {
           Logger.warn(TAG, "soot reckons " + c.getName() + " as lib class which is not.");
           c.setApplicationClass();
         }
         continue;
       }
-      if (c.getName().startsWith(appPkg))
+      if (c.getName().startsWith(scopeKey))
         continue;
       if (Configs.isLibraryClass(c.getName())) {
         if ((!c.isPhantomClass()) && c.isApplicationClass()) {
@@ -303,4 +324,30 @@ public class AnalysisEntrypoint {
       throw new RuntimeException(message);
     }
   }
+
+  /**
+   * Resolve the scope key that decides which classes this run treats as app-owned.
+   *
+   * <p>Four cases, and the third is the one that matters: an empty key would make
+   * {@code startsWith("")} true for every class in the Scene and promote the whole
+   * universe — including every library — into the denominator. It falls back to the
+   * manifest package instead.
+   *
+   * @param clientParam the raw {@code codePackage=<key>} parameter as
+   *                    {@code Configs.getClientParamCode} returns it (prefix included),
+   *                    or {@code null} when the run did not pass one
+   * @param manifestPackage the package declared in AndroidManifest.xml
+   * @return the effective scope key; never {@code null} unless the manifest package is
+   */
+  static String resolveScopeKey(String clientParam, String manifestPackage) {
+    if (clientParam == null || !clientParam.startsWith(CODE_PACKAGE_PARAM)) {
+      return manifestPackage;
+    }
+    String key = clientParam.substring(CODE_PACKAGE_PARAM.length()).trim();
+    if (key.isEmpty()) {
+      return manifestPackage;
+    }
+    return key;
+  }
+
 }

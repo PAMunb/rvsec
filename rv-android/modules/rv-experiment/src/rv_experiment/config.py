@@ -26,6 +26,7 @@ from rv_android_core.constants import (
     ENV_PACKAGE_DETECTOR,
     ENV_RVSEC_HOME,
     ENV_SA_TIMEOUT,
+    ENV_STRIP_BUILD_TYPE_SUFFIX,
     EXTENSION_MOP,
 )
 from rv_android_core.domain.task import ToolConfig
@@ -87,6 +88,30 @@ def resolve_package_detector(cli_value: Optional[bool]) -> bool:
     """
     return resolve_bool_setting(
         cli_value, os.environ.get(ENV_PACKAGE_DETECTOR), ENV_PACKAGE_DETECTOR
+    )
+
+
+def resolve_strip_build_type_suffix(cli_value: Optional[bool]) -> bool:
+    """Resolve the build-type suffix policy under CLI > env > default.
+
+    The same shape as `resolve_package_detector` and for the same reason: this
+    is the single site in `rv-experiment` that reads the variable, it reads it
+    through the constant rather than a literal, and the precedence lives in the
+    shared helper so the two entry points cannot drift (INV-EXP-35).
+
+    Args:
+        cli_value: The flag as Click resolved it (`None` when absent)
+
+    Returns:
+        Whether the declared applicationId is neutralized before use as the key
+
+    Raises:
+        ValueError: the variable holds a value the convention cannot parse
+    """
+    return resolve_bool_setting(
+        cli_value,
+        os.environ.get(ENV_STRIP_BUILD_TYPE_SUFFIX),
+        ENV_STRIP_BUILD_TYPE_SUFFIX,
     )
 
 
@@ -239,6 +264,21 @@ class ExperimentConfig(BaseValidatedModel):
             "Elect the implementation package heuristically instead of reporting "
             "the declared applicationId. CLI flag --package-detector overrides "
             "RV_PACKAGE_DETECTOR."
+        ),
+    )
+
+    # The other half of the same question, and it travels the same way: resolved
+    # once at the entry point, forwarded to every App the workflow constructs and
+    # copied into PlatformConfig — with one deliberate exception. The ajc
+    # instrumenter keeps receiving the DECLARED applicationId, because it weaves
+    # into the APK the device will install and that APK is identified by what it
+    # declares (INV-EXP-36).
+    strip_build_type_suffix: bool = Field(
+        default=False,
+        description=(
+            "Neutralize the Gradle build-type suffix of the declared applicationId "
+            "before using it as the scope key. CLI flag --strip-build-type-suffix "
+            "overrides RV_STRIP_BUILD_TYPE_SUFFIX."
         ),
     )
 

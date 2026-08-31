@@ -55,7 +55,11 @@ from rv_android_core.util.logging.constants import (
     LOG_START,
 )
 from rv_android_core.util.logging.manager import LoggingManager
-from rv_experiment.config import ExperimentConfig, resolve_package_detector
+from rv_experiment.config import (
+    ExperimentConfig,
+    resolve_package_detector,
+    resolve_strip_build_type_suffix,
+)
 from rv_experiment.constants import (
     DEFAULT_APKS_DIR,
     DEFAULT_REPETITIONS,
@@ -136,7 +140,8 @@ class CLIContext:
         # Configure logging manager for CLI usage (replaces any basicConfig handlers)
         self.logging_manager.configure_output(
             console=True,
-            file=False,  # File logging enabled during experiment execution
+            file=False,  # The run installs its own file handler once it knows
+            # where it writes — CLIContext.enable_file_logging (INV-CORE-62)
             console_level=level,
             file_level=logging.DEBUG,
             console_format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -159,6 +164,39 @@ class CLIContext:
 
         self.debug = debug
         self.logger.info("CLI logging configured successfully")
+
+    @ErrorHandler.handle_errors(component="CLIContext", phase="enable_file_logging")
+    def enable_file_logging(self, output_dir: str, experiment_id: str) -> None:
+        """Install the run's file handler, once the run knows where it writes.
+
+        This is the production caller INV-CORE-62 asks for, and it has to be
+        created rather than re-enabled: `configure_output` calls
+        `setup_file_logging` under `if self.log_path:`, and `log_path` is
+        assigned only inside `setup_file_logging` — a guard that can never be
+        true unless the method has already run. Both existing `configure_output`
+        callers pass `file=False`, so nothing ever ran it.
+
+        It is called here and not at `configure_logging` time because the
+        directory is not known then: `--name`, `--resume-dir` and the generated
+        experiment id all decide it, and they are resolved further down. It is
+        called *before* execution starts so that pre-processing is inside the
+        capture — which is what puts the effective scope key on disk, the line
+        `StaticAnalyzer.analyze()` logs at INFO and that reached no file at all.
+
+        `setup_file_logging` is called directly rather than through
+        `configure_output(file=True)`, and that is not a shortcut. The guarded
+        branch re-derives the experiment id from `basename(self.log_path)` — a
+        name that already carries a timestamp — so routing through it appends a
+        second timestamp on every call and the path grows until the filesystem
+        refuses it. Installing the handler is this method's whole job; the
+        console configuration `configure_logging` already made stands.
+
+        Args:
+            output_dir: The run's results directory; created if absent.
+            experiment_id: Names the log file, with a timestamp appended.
+        """
+        self.logging_manager.setup_file_logging(output_dir, experiment_id)
+        self.logger.info(f"Run log: {self.logging_manager.log_path}")
 
     def parse_tool_specification(self, tool_spec: str) -> List[ToolConfig]:
         """
@@ -293,6 +331,20 @@ def _package_detector_callback(ctx, param, value: Optional[bool]) -> bool:
     """
     try:
         return resolve_package_detector(value)
+    except ValueError as e:
+        raise click.BadParameter(str(e)) from e
+
+
+def _strip_build_type_suffix_callback(ctx, param, value: Optional[bool]) -> bool:
+    """Click callback resolving ``--strip-build-type-suffix`` against its variable.
+
+    Same placement and same reason as ``_package_detector_callback``: it runs
+    during parameter processing, so an unparseable environment value aborts with
+    a usage error instead of reaching experiment setup, where it would silently
+    decide which package scopes every catalogued class (INV-EXP-35).
+    """
+    try:
+        return resolve_strip_build_type_suffix(value)
     except ValueError as e:
         raise click.BadParameter(str(e)) from e
 
@@ -592,6 +644,22 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
         "package_detector in the file instead."
     ),
 )
+# No `envvar=` here either, and for the same reason as the pair above.
+@click.option(
+    "--strip-build-type-suffix/--no-strip-build-type-suffix",
+    default=None,
+    callback=_strip_build_type_suffix_callback,
+    help=(
+        "Neutralize the Gradle build-type suffix of the declared applicationId "
+        "before using it as the scope key: 'com.example.app.debug' becomes "
+        "'com.example.app' (default: off). Overrides RV_STRIP_BUILD_TYPE_SUFFIX "
+        "(CLI > env > default). The suffix renames the application, not the code, "
+        "so under the declared id nothing was ever compiled — 75 of the 162 "
+        "article-corpus APKs are in that state. The instrumenter is deliberately "
+        "excluded and keeps receiving the declared id (INV-EXP-36). Ignored under "
+        "--config: put strip_build_type_suffix in the file instead."
+    ),
+)
 @pass_context
 @ErrorHandler.handle_errors(component="CLIContext", phase="run_experiment")
 def run(
@@ -620,6 +688,7 @@ def run(
     analysis_timeout: Optional[int],
     jvm_memory: Optional[str],
     package_detector: bool,
+    strip_build_type_suffix: bool,
 ):
     """
     Execute an experiment from CLI arguments or a JSON configuration file.
@@ -721,6 +790,7 @@ def run(
                     jvm_memory=jvm_memory,
                     logcat_diagnostics=logcat_diagnostics,
                     package_detector=package_detector,
+                    strip_build_type_suffix=strip_build_type_suffix,
                 )
 
             # Validate before execution to catch errors early (missing APKs, unknown tools,
@@ -729,6 +799,14 @@ def run(
             # Scenario "Configuration File Mode": validate() MUST run before
             # execution in both CLI and --config modes.
             experiment_config.validate()
+
+            # From here on the run has a directory, so its own log can reach disk
+            # (INV-CORE-62). Installed before execution rather than after, so
+            # pre-processing — where the effective scope key is decided and
+            # logged — is inside the capture.
+            ctx.enable_file_logging(
+                experiment_config.output_dir, experiment_config.name
+            )
 
             # Display experiment information
             tool_names = [tc.name for tc in experiment_config.tool_configs]
@@ -1180,6 +1258,10 @@ def _create_experiment_config_from_cli(
     # _package_detector_callback. False is the manifest package, the default a
     # run gets when nobody stated a preference.
     package_detector: bool = False,
+    # gh111 build-type suffix policy — already resolved (CLI > env > default) by
+    # _strip_build_type_suffix_callback. False is the declared applicationId
+    # verbatim, which is what every recorded run so far used.
+    strip_build_type_suffix: bool = False,
 ) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments.
@@ -1323,6 +1405,7 @@ def _create_experiment_config_from_cli(
             enable_quarantine=enable_quarantine,
             logcat_diagnostics=logcat_diagnostics,
             package_detector=package_detector,
+            strip_build_type_suffix=strip_build_type_suffix,
             specification_set=specification_set,
             custom_specs_dir=custom_specs_dir,
             custom_aspects_dir=custom_aspects_dir,

@@ -512,6 +512,20 @@ def _process_results_standalone(results_dir: str) -> int:
         processor = ResultProcessorComponent(tasks, results_dir)
         processor.initialize({})
         processor.execute({})
+
+        # Same reason as Platform._process_results: the processor records
+        # per-artefact write losses onto the task objects it was handed, and
+        # `get_tasks()` returns references, so the counts are already in the
+        # store and only the write is missing (INV-CORE-61). This path is the one
+        # a re-consolidation uses, which is exactly when a write failure is most
+        # likely to be the thing under investigation.
+        if not task_storage.save():
+            print(
+                "⚠️  tasks.json could not be saved: write-error counts recorded "
+                "during this consolidation are lost",
+                file=sys.stderr,
+            )
+
         processor.cleanup()
 
         print("✅ Results processing completed successfully")

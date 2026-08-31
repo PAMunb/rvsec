@@ -1,0 +1,75 @@
+{
+  "rows": [
+    {
+      "apk": "com.tk.quicksearch_65",
+      "expected_corrupted": 305,
+      "classes_on_disk": 6059,
+      "classes_parsed": 6059,
+      "names_changed_by_the_parser": 0,
+      "windows": 6,
+      "activity_windows": 6,
+      "sample": []
+    },
+    {
+      "apk": "com.afkanerd.deku_83",
+      "expected_corrupted": 75,
+      "classes_on_disk": 505,
+      "classes_parsed": 505,
+      "names_changed_by_the_parser": 0,
+      "windows": 3,
+      "activity_windows": 2,
+      "sample": []
+    },
+    {
+      "apk": "app.michaelwuensch.bitbanana_79",
+      "expected_corrupted": 35,
+      "classes_on_disk": 2147,
+      "classes_parsed": 2147,
+      "names_changed_by_the_parser": 0,
+      "windows": 180,
+      "activity_windows": 59,
+      "sample": []
+    },
+    {
+      "apk": "de.luhmer.owncloudnewsreader_196",
+      "expected_corrupted": 19,
+      "classes_on_disk": 528,
+      "classes_parsed": 528,
+      "names_changed_by_the_parser": 0,
+      "windows": 11,
+      "activity_windows": 7,
+      "sample": []
+    },
+    {
+      "apk": "com.gelakinetic.mtgfam_99",
+      "expected_corrupted": 15,
+      "classes_on_disk": 457,
+      "classes_parsed": 457,
+      "names_changed_by_the_parser": 0,
+      "windows": 7,
+      "activity_windows": 2,
+      "sample": []
+    },
+    {
+      "apk": "com.smartpack.packagemanager_79",
+      "expected_corrupted": 14,
+      "classes_on_disk": 390,
+      "classes_parsed": 390,
+      "names_changed_by_the_parser": 0,
+      "windows": 15,
+      "activity_windows": 11,
+      "sample": []
+    },
+    {
+      "apk": "com.hwloc.lstopo_80283",
+      "expected_corrupted": 2,
+      "classes_on_disk": 37,
+      "classes_parsed": 37,
+      "names_changed_by_the_parser": 0,
+      "windows": 6,
+      "activity_windows": 4,
+      "sample": []
+    }
+  ],
+  "total_names_changed": 0
+}

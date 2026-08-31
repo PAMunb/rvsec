@@ -62,6 +62,36 @@ before weaving and restored afterwards. Enabled by default; driven by
 inline — empirical use only, to compare recovery rate vs MOP visibility loss.
 dexlib2 has no quarantine equivalent.
 
+#### The anti-quarantine guard, and why this module holds a different scope key
+
+Quarantine protects app code from its own glob patterns with a guard keyed on
+`app.code_package` (`ajc_instrumentation.py:854-885`): a file whose path starts
+with the key's directory form is never quarantined, however broadly a pattern
+matches. On a corpus built with `assembleDebug` that guard is **inert**, and
+silently so — the declared applicationId is `org.fossify.calendar.debug` while
+the classes compile under `org/fossify/calendar/`, so the prefix
+`org/fossify/calendar/debug/` matches no file and the skip branch is never
+taken. The code says so out loud since gh111 and logs a warning naming the
+condition; it does not repair it by electing a different key, which would put a
+second, invisible package policy in the pipeline.
+
+That is why **`strip_build_type_suffix` is deliberately not propagated here**
+(INV-EXP-36). Neutralizing the key would make the guard live in exactly the apps
+where it is inert today, which changes what gets woven — a change on the
+instrumentation path, decided on instrumentation evidence, not a side effect of
+a repair to the analysis denominator. The pipeline therefore holds two answers
+for `code_package`, by consumer: the analysis path may neutralize, this module
+receives the declared id. `instrument_apks()` constructs its `App`s at `:193`
+and `:199` with `package_detector` alone, and that arity is the exclusion.
+
+The exclusion is **asymmetric, and the asymmetry is not covered by the reason
+above**: this module is excluded from the suffix policy but not from
+`package_detector`, which it does forward (`:193`, `:199`). A run with
+`--package-detector` already elects a code package here, so the guard activation
+cited as the reason for the exclusion already happens today under that flag.
+Recorded, not repaired — repairing the ajc instrumenter is out of scope by
+researcher decision.
+
 ## Configuration
 
 `AjcInstrumentationConfig` (`config.py`) resolves paths by priority:

@@ -23,7 +23,7 @@ import json
 import os
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Mapping, Optional
 
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
@@ -64,6 +64,55 @@ ERRORS_CSV_COLUMNS = [
 # writes none, and neither did anything persisted before gh104. Never an empty string —
 # a reader must be able to tell "no envelope" from "envelope with an empty value".
 SENTINEL_UNSPECIFIED = "UNSPECIFIED"
+
+
+# The `summary.csv` contract (INV-PLT-19). Seventeen columns, in this order, and
+# the order is the contract: the five gh111 columns are appended after
+# `mop_errors_unique` so a reader addressing the first twelve positionally still
+# reads what it read before. `cov_rv_method` is deliberately absent — in a
+# row-constant summary it would alias `cov_reaches_target`; it lives in
+# `coverage.csv`, where it carries progressive semantics.
+#
+# Exported because `scripts/regenerate_results/regenerate_container.py` writes the
+# same file on the offline consolidation path. It used to hard-code a copy under a
+# comment claiming the headers were "exact", which is how a regenerated campaign
+# could silently carry a narrower CSV than a live one.
+SUMMARY_HEADER = [
+    "apk",
+    "rep",
+    "timeout",
+    "tool",
+    "cov_act",
+    "cov_class",
+    "cov_method",
+    "cov_reachable",
+    "cov_reaches_target",
+    "cov_directly_reaches_target",
+    "mop_errors_total",
+    "mop_errors_unique",
+    "classes_total",
+    "methods_total",
+    "unmatched_out_of_scope",
+    "unmatched_in_scope",
+    "measured",
+]
+
+
+def summary_row_is_measured(metrics_dict: Mapping[str, Any]) -> bool:
+    """Whether this row's coverage cells were computed from a real denominator.
+
+    The discriminator is the denominator itself, and it has to be: a task whose
+    static analysis failed runs to completion on the live path with an
+    empty-classes repository (INV-PLT-05) and never enters
+    `_unresolved_task_ids`, which only the resume path populates. Keying on a
+    recorded scope key is equally wrong — all 162 stored artefacts record none
+    while all 162 carry a non-empty `reachability`, so that would empty the
+    coverage of every resumed task in the existing campaign.
+
+    `_percentage` returns `0.0` for `0/0`, so without this test "no denominator"
+    and "covered nothing" publish the same number (INV-PLT-35).
+    """
+    return int(metrics_dict.get("total_classes", 0) or 0) > 0
 
 
 class ResultProcessorComponent:
@@ -204,10 +253,10 @@ class ResultProcessorComponent:
             if unresolved:
                 self.logger.warning(
                     f"Resume coverage health: {unresolved}/{len(completed_tasks)} "
-                    "resumed tasks had unresolved static data — coverage zeroed for "
-                    "those tasks (MOP errors preserved). Verify the static-analysis "
-                    "JSON is co-located with each logcat if non-zero coverage was "
-                    "expected."
+                    "resumed tasks had unresolved static data — coverage cells "
+                    "left empty for those tasks (MOP errors preserved). Verify "
+                    "the static-analysis JSON is co-located with each logcat if "
+                    "coverage was expected."
                 )
 
             self.logger.info(LOG_COMPLETE.format(phase="experiment result processing"))
@@ -317,8 +366,8 @@ class ResultProcessorComponent:
                 self._unresolved_task_ids.add(task.id)
                 self.logger.warning(
                     f"Static analysis JSON unresolved for task {task.id} "
-                    f"(apk={task.config.apk_name}) — per-method coverage zeroed, "
-                    "MOP violations preserved"
+                    f"(apk={task.config.apk_name}) — no per-method coverage rows "
+                    "and empty coverage cells, MOP violations preserved"
                 )
             return None
 
@@ -480,16 +529,25 @@ class ResultProcessorComponent:
             # Final-state denominators from CoverageMetrics for the row-constant
             # columns (INV-PLT-17: cov_class = class_coverage, not method_coverage).
             metrics_dict = repository.calculate_metrics().to_dict()
-            cov_class_final = round(metrics_dict.get("class_coverage", 0) or 0, 2)
-            cov_reachable_final = round(
-                metrics_dict.get("reachable_method_coverage", 0) or 0, 2
-            )
-            cov_reaches_target_final = round(
-                metrics_dict.get("mop_method_coverage", 0) or 0, 2
-            )
-            cov_directly_reaches_target_final = round(
-                metrics_dict.get("direct_mop_method_coverage", 0) or 0, 2
-            )
+
+            # Same rule as summary.csv, and this file needs it stated twice
+            # because it publishes percentages by two mechanisms: four
+            # row-constant `cov_*_final` values computed here, and three
+            # progressive ones computed inside the row loop below. Both write
+            # empty rather than `0.00` when there is no denominator
+            # (INV-PLT-35); a `0.00` there says the app covered nothing, which
+            # is a measurement, and none was made.
+            measured = summary_row_is_measured(metrics_dict)
+
+            def _final(key: str) -> Any:
+                if not measured:
+                    return ""
+                return round(metrics_dict.get(key, 0) or 0, 2)
+
+            cov_class_final = _final("class_coverage")
+            cov_reachable_final = _final("reachable_method_coverage")
+            cov_reaches_target_final = _final("mop_method_coverage")
+            cov_directly_reaches_target_final = _final("direct_mop_method_coverage")
 
             method_calls = repository.get_method_calls()
 
@@ -552,9 +610,9 @@ class ResultProcessorComponent:
                         call.get("method_name", ""),
                         signature,
                         cov_class_final,
-                        round(activity_coverage, 2),
-                        round(method_coverage, 2),
-                        round(mop_coverage, 2),
+                        round(activity_coverage, 2) if measured else "",
+                        round(method_coverage, 2) if measured else "",
+                        round(mop_coverage, 2) if measured else "",
                         cov_reachable_final,
                         cov_reaches_target_final,
                         cov_directly_reaches_target_final,
@@ -699,6 +757,32 @@ class ResultProcessorComponent:
             )
 
     @staticmethod
+    def _unmatched_cells(task: Any) -> tuple:
+        """The two crossing-discard counters for this task's row (INV-PLT-34).
+
+        Empty when the task carries no repository — a run in which nothing was
+        counted must not publish `0`, which reads as "counted, and the answer was
+        none". No repository is exactly the case where no logcat was parsed:
+        `LogcatRepository.__init__` assigns `ParserDiagnostics()` unconditionally
+        (`domain/coverage.py:641`), so a repository that exists is a repository
+        whose parser ran, and its zeros are a measurement.
+
+        A task whose artefact recorded no scope key — the state of all 162 stored
+        ones — counts its discards as `unmatched_unclassified` and leaves these
+        two at zero, which is correct: the crossing genuinely could not classify
+        them. That costs the row these two cells and nothing else; its coverage
+        still measures, from the artefact's own denominator.
+        """
+        repository = getattr(task, "repository", None)
+        diagnostics = getattr(repository, "parser_diagnostics", None)
+        if diagnostics is None:
+            return ("", "")
+        return (
+            int(getattr(diagnostics, "unmatched_out_of_scope", 0) or 0),
+            int(getattr(diagnostics, "unmatched_in_scope", 0) or 0),
+        )
+
+    @staticmethod
     def _count_write_error(task: Any, artefact: str) -> None:
         """Record on the task's own result that a write of ``artefact`` failed
         (INV-PLT-32), so the loss is readable from the result and not only from a log.
@@ -838,28 +922,7 @@ class ResultProcessorComponent:
             with open(summary_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
 
-                # Extended schema (gh58): 12 columns, all values from
-                # repository.calculate_metrics().to_dict() after reconstruct.
-                # cov_rv_method is intentionally NOT included — in summary
-                # (row-constant final values) it would alias cov_reaches_target.
-                # It is retained in coverage.csv where it carries progressive
-                # semantics distinct from cov_reaches_target.
-                writer.writerow(
-                    [
-                        "apk",
-                        "rep",
-                        "timeout",
-                        "tool",
-                        "cov_act",
-                        "cov_class",
-                        "cov_method",
-                        "cov_reachable",
-                        "cov_reaches_target",
-                        "cov_directly_reaches_target",
-                        "mop_errors_total",
-                        "mop_errors_unique",
-                    ]
-                )
+                writer.writerow(SUMMARY_HEADER)
 
                 # Process each completed task
                 for task in completed_tasks:
@@ -900,8 +963,31 @@ class ResultProcessorComponent:
                 )
                 metrics_dict = {}
 
-            def _val(key: str) -> float:
+            # All six percentages answer to one denominator, and when it is zero
+            # `_percentage` returns `0.0` for each — publishing "covered nothing"
+            # where the truth is "nothing to cover" (INV-PLT-35). The cell stays
+            # empty in that case, and `measured` carries the distinction into
+            # aggregates, which an empty cell cannot: pandas turns it into `NaN`,
+            # and `.mean()` skips `NaN` silently while `trim_mean` returns `nan`.
+            measured = summary_row_is_measured(metrics_dict)
+
+            def _val(key: str) -> Any:
+                if not measured:
+                    return ""
                 return round(metrics_dict.get(key, 0) or 0, 2)
+
+            def _denominator(key: str) -> Any:
+                if not measured:
+                    return ""
+                return int(metrics_dict.get(key, 0) or 0)
+
+            # The two crossing counters are separate columns and MUST NOT be
+            # summed: "the app did not use it" and "the analysis did not see it"
+            # are different facts (INV-PLT-34). A run whose parser produced no
+            # diagnostics writes empty cells, not zeros — and a task with no
+            # recorded scope key has its discards counted as unclassified, so its
+            # two cells are empty while its coverage still measures.
+            unmatched_out, unmatched_in = self._unmatched_cells(task)
 
             writer.writerow(
                 [
@@ -915,8 +1001,15 @@ class ResultProcessorComponent:
                     _val("reachable_method_coverage"),
                     _val("mop_method_coverage"),
                     _val("direct_mop_method_coverage"),
+                    # Violations do not depend on static analysis, so they are
+                    # written whether or not a denominator existed (INV-EXP-16).
                     int(metrics_dict.get("total_errors", 0) or 0),
                     int(metrics_dict.get("unique_errors", 0) or 0),
+                    _denominator("total_classes"),
+                    _denominator("total_methods"),
+                    unmatched_out,
+                    unmatched_in,
+                    "true" if measured else "false",
                 ]
             )
 
@@ -1022,16 +1115,24 @@ class ResultProcessorComponent:
                 metrics = task.repository.calculate_metrics()
                 metrics_dict = metrics.to_dict()
 
+                # `null`, not `0`, when there was no denominator: JSON can carry
+                # the absence and a `0` cannot (INV-PLT-35). The call counts stay
+                # numbers — they were counted, and counting nothing is a
+                # measurement; it is the percentages that would be inventions.
+                measured = summary_row_is_measured(metrics_dict)
+
+                def _pct(key: str) -> Optional[float]:
+                    return metrics_dict[key] if measured else None
+
                 task_data["summary"] = {
                     "called_activities": metrics.called_activities,
                     "called_methods": metrics.called_methods,
                     "called_methods_mop_reachable": metrics.called_target_methods,
-                    "activities_coverage": metrics_dict["activity_coverage"],
-                    "method_coverage": metrics_dict["method_coverage"],
-                    "methods_mop_reachable_coverage": metrics_dict[
-                        "mop_method_coverage"
-                    ],
+                    "activities_coverage": _pct("activity_coverage"),
+                    "method_coverage": _pct("method_coverage"),
+                    "methods_mop_reachable_coverage": _pct("mop_method_coverage"),
                     "monitored_operations_errors_count": metrics.total_errors,
+                    "measured": measured,
                 }
 
                 # Get error details
@@ -1047,7 +1148,16 @@ class ResultProcessorComponent:
                 task_data["monitored_operations_errors"]["details"] = errors
 
             else:
-                # Fallback to task result metrics for summary data
+                # Reached only when the repository was never populated — the
+                # logcat is genuinely missing, since the coverage and summary
+                # writers run first and reconstruct on resume. The serialized
+                # `coverage_metrics` is read here rather than recomputed, and
+                # `tasks.json` deliberately keeps `0.0` for the unmeasured case
+                # (it is consumed as a number by the resume protocol). What must
+                # not happen is that `0.0` arriving in `results.json` as a
+                # measured percentage: there is no repository here, so no
+                # denominator was established, and the percentages are `null`
+                # (INV-PLT-35).
                 metrics = getattr(task.result, "coverage_metrics", {})
                 task_data["summary"] = {
                     "called_activities": metrics.get("called_activities", 0),
@@ -1055,12 +1165,11 @@ class ResultProcessorComponent:
                     "called_methods_mop_reachable": metrics.get(
                         "called_target_methods", 0
                     ),
-                    "activities_coverage": metrics.get("activities_coverage", 0),
-                    "method_coverage": metrics.get("method_coverage", 0),
-                    "methods_mop_reachable_coverage": metrics.get(
-                        "methods_mop_reachable_coverage", 0
-                    ),
+                    "activities_coverage": None,
+                    "method_coverage": None,
+                    "methods_mop_reachable_coverage": None,
                     "monitored_operations_errors_count": metrics.get("total_errors", 0),
+                    "measured": False,
                 }
 
                 # Reconstruct MOP violation details from logcat

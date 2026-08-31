@@ -5,6 +5,8 @@ This module provides structured data models for representing the complete
 static analysis results from multiple analysis tools.
 """
 
+from typing import Optional
+
 from pydantic import ConfigDict, Field
 
 # Direct imports - static.py should be imported after other domain modules
@@ -61,6 +63,33 @@ class StaticAnalysisData(BaseValidatedModel):
     components: Components = Field(
         default_factory=Components,
         description="Component data (Activities, Services, Receivers, Providers) with intent-filters, authorities, and MOP reachability",
+    )
+    code_package: Optional[str] = Field(
+        default=None,
+        description=(
+            "The scope key the GATOR run actually filtered by, as the producer "
+            "recorded it (INV-ANA-66). None for the 162 artefacts written before "
+            "the key reached disk, and for any artefact whose producer passed no "
+            "codePackage — the `package` member is the MANIFEST package whatever "
+            "key was used, so it cannot stand in for this one (INV-ANA-58)."
+        ),
+    )
+    code_package_source: Optional[str] = Field(
+        default=None,
+        description=(
+            'Origin of `code_package`: "manifest", "manifest-neutralized" or '
+            '"detector". None when the artefact does not record one.'
+        ),
+    )
+    class_defs_under_key: Optional[int] = Field(
+        default=None,
+        description=(
+            "Compiled classes under `code_package` that survive the client's own "
+            "isAppClass filter — the NET count the denominator gate divides by "
+            "(INV-ANA-66, INV-ANA-69). None when the artefact does not record one; "
+            "the producer writes -1 in that case and the parser maps it to None, so "
+            "'not recorded' stays distinguishable from a genuine zero universe."
+        ),
     )
     complete: bool = Field(
         default=False,

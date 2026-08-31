@@ -2,7 +2,7 @@
 
 ## Overview
 
-rv-static-analysis runs unified GATOR-based static analysis on Android APKs and parses the resulting JSON into domain objects consumed by the rest of the RV-Android system. It provides two distinct capabilities: (1) analysis orchestration -- invoking the Java GATOR client as a subprocess with timeout handling and file-level caching, and (2) data transformation -- converting the raw JSON output into `StaticAnalysisData` domain objects (Classes, Windows, WindowTransitionGraph, Components). The module occupies the pre-processing phase of the experiment pipeline, producing the method universe for coverage calculations and the navigation graph for LLM-driven exploration.
+rv-static-analysis runs unified GATOR-based static analysis on Android APKs and parses the resulting JSON into domain objects consumed by the rest of the RV-Android system. It provides three distinct capabilities: (1) analysis orchestration -- invoking the Java GATOR client as a subprocess with timeout handling and scope-keyed caching, (2) data transformation -- converting the raw JSON output into `StaticAnalysisData` domain objects (Classes, Windows, WindowTransitionGraph, Components), and (3) a denominator gate that refuses to publish a coverage denominator the artefact cannot support. The module occupies the pre-processing phase of the experiment pipeline, producing the method universe for coverage calculations and the navigation graph for LLM-driven exploration.
 
 ## Specification Alignment
 
@@ -22,14 +22,16 @@ All three FRs are satisfied by a single GATOR client invocation (`RvsecAnalysisC
 
 | Invariant | Description | Enforcement Mechanism |
 |-----------|-------------|----------------------|
-| INV-ANA-02 | SignatureNormalizer applied to all class names and method signatures | `StaticAnalysisParser` calls `SignatureNormalizer` in all three JSON section parsers before storing names in domain models |
+| INV-ANA-67 | No identifier is transformed on the consumption path | `_parse_classes()` and `_parse_windows()` store `className` and window `name` exactly as the artefact spells them; the parser imports no normalizer and holds no transformation. Replaces the withdrawn INV-ANA-02, which mandated the opposite |
 | INV-ANA-06 | Parser does not propagate exceptions; returns empty domain objects per-section | Each `_parse_*()` method is wrapped in try/except; failures produce `Classes()`, `Windows()`, `WindowTransitionGraph()`, or `Components()` |
-| INV-ANA-11 | Intelligent caching -- skip execution if output JSON exists | `StaticAnalyzer._execute_command()` checks file existence before invoking GATOR; returns `CommandResult(0, b"", b"")` on cache hit |
+| INV-ANA-11 / INV-ANA-70 | An existing output JSON is reused, but only under its own scope key | `StaticAnalyzer._execute_command()` checks file existence and then `_disagreeing_recorded_key()`; a recorded key that is not this run's makes the run regenerate rather than reuse (an artefact recording no key is reused, which is the state of all 162 stored ones) |
 | INV-ANA-14 | PackageDetector applies heuristics in priority order, and only when the run enabled it | `PackageDetector` (in rv-android-core) resolves `code_package` via its 7-strategy priority chain under `--package-detector` / `RV_PACKAGE_DETECTOR`; by default `App` reports the declared applicationId and no strategy runs |
 | INV-ANA-58 | A run that *performs* an analysis records the key it used; no key is inferred from an artefact | `StaticAnalysisResult.code_package` / `.code_package_source` are set in `analyze()`; nothing reads the JSON's `package` member as a key (it holds the manifest package whatever key filtered the file) |
 | INV-ANA-59 | `reachability` is loaded whole; the parsed method universe equals it exactly | `_parse_classes()` has no package parameter and no filter — every entry becomes a `Clazz`. The universe is the coverage denominator |
-| INV-ANA-60 | An `ACTIVITY` window is admitted iff its class is present in `reachability`; other window types are admitted unconditionally | `_parse_windows()` tests `classes.get_clazz(normalized_name)` for `w_type_str == "ACTIVITY"` only |
+| INV-ANA-60 | An `ACTIVITY` window is admitted iff its class is present in `reachability`; other window types are admitted unconditionally | `_parse_windows()` tests `classes.get_clazz(window_name)` for `w_type_str == "ACTIVITY"` only, comparing both sides in the artefact's own spelling |
 | INV-ANA-61 | No consumption-path function accepts, resolves, or passes a package key | Signatures are `parse_file(file_path)` and `read_static_analysis_files(results_dir, apk)`, both on `StaticAnalysisParser` and on the module-level singleton wrappers; the rv-platform call sites pass no key |
+| INV-ANA-66 | The artefact records the key that produced it, that key's origin, and the compiled-class count under it | `get_tool_command()` emits `-clientParam codePackage=` and `-clientParam codePackageSource=`; `parse_file()` reads `codePackage`, `codePackageSource` and `class_defs_under_key` back into `StaticAnalysisData`, mapping the producer's `""`/`-1` sentinels to `None` so *unrecorded* stays distinct from *empty* |
+| INV-ANA-69 | A denominator that cannot be right is refused, not published | `denominator_gate.check_denominator()` raises `DenominatorImplausibleError` on a zero compiled universe, an empty parsed side, or a ratio below `MIN_PARSED_RATIO` (0.15); `StaticAnalyzer._check_denominator()` wires it into `analyze()` and turns a refusal into a failed `StaticAnalysisResult` for that APK |
 
 ### Specification Scenarios
 
@@ -37,7 +39,8 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 
 - **Successful static analysis with valid APK**: Traces through `StaticAnalyzer._run_analysis()` -> GATOR subprocess -> JSON file -> `StaticAnalysisParser.parse_file()` -> `StaticAnalysisData` with non-empty Classes, Windows, WTG, and Components
 - **Timeout with partial JSON output**: Traces through `Command` timeout -> `kill_process_tree()` -> partial JSON preserved -> `StaticAnalysisParser` truncated JSON recovery via bracket completion -> valid sections parsed, missing sections return empty domain objects
-- **Analysis result is cached**: Traces through `StaticAnalyzer._execute_command()` -> file existence check -> execution skipped -> `CommandResult(0, b"", b"")` returned with `execution_status='cached'` log
+- **Analysis result is cached**: Traces through `StaticAnalyzer._execute_command()` -> file existence check -> `_disagreeing_recorded_key()` -> execution skipped -> `CommandResult(0, b"", b"")` returned with `execution_status='cached'` log. A recorded key that is not this run's removes the file and falls through to execution instead (INV-ANA-70)
+- **A degenerate denominator is refused**: Traces through `analyze()` -> `_check_denominator()` -> `parse_file()` -> `check_denominator(classes, class_defs_under_key, key)` -> `DenominatorImplausibleError` -> `StaticAnalysisResult(success=False)` carrying the parsed count, the compiled count and the key
 - **Partial JSON parse failure**: Individual section parsing fails -> `_parse_classes()` catches exception, returns empty `Classes()` -> other sections (`_parse_windows()`, `_parse_transitions()`) parse independently and succeed
 
 ## Key Architectural Decisions
@@ -50,17 +53,21 @@ The original pipeline ran three separate Java tools in sequence -- GESDA (GUI el
 
 **Spec reference**: This decision directly enables FR04, FR05, and FR06 from a single process. The priority-ordered output satisfies INV-ANA-06 (parser does not propagate exceptions; returns empty domain objects per-section).
 
-### ADR-2: File-Level Caching Without Content Validation
+### ADR-2: File-Level Caching, Keyed by the Artefact's Own Scope
 
-`StaticAnalyzer._execute_command()` checks whether the output JSON file exists before invoking GATOR. If the file exists, execution is skipped entirely -- no content validation, no checksum, no schema check.
+`StaticAnalyzer._execute_command()` checks whether the output JSON exists before invoking GATOR, and then asks `_disagreeing_recorded_key()` which scope key that file records. An artefact recording this run's key, or no key at all, is reused; one recording a different key is removed and regenerated, with a warning naming both keys. Nothing else about the content is validated -- no checksum, no schema check.
 
-**Why**: GATOR analysis takes 2-10 minutes per APK. In experiments with 100+ APKs, re-running the pre-processing phase after a crash would waste hours. File existence is a sufficient signal because: (a) a complete run produces valid JSON, and (b) a timed-out run produces truncated JSON that the parser can recover via bracket completion. The only scenario where the file exists but is unusable is a disk-full write, which is rare and detectable at the experiment level. This satisfies INV-ANA-11.
+**Why**: GATOR analysis takes 2-10 minutes per APK. In experiments with 100+ APKs, re-running the pre-processing phase after a crash would waste hours, so the reuse itself is what makes resume cheap. Existence alone was a sufficient signal only while every run scoped by the same rule: (a) a complete run produces valid JSON, and (b) a timed-out run produces truncated JSON the parser recovers via bracket completion. Once a run's key policy can change -- the build-type suffix rule, the package detector -- existence silently reuses an artefact filtered by the *previous* key, and the denominator gate would then judge an old artefact against a new key. The key check is the minimum that makes that mismatch detectable; it costs one parse of a file the run was about to skip. This satisfies INV-ANA-11 as amended by INV-ANA-70.
+
+**Two deliberate reuses.** An artefact recording *no* key is reused rather than regenerated: all 162 artefacts of the article corpus predate INV-ANA-66, and the `package` member holds the manifest package whatever key filtered the file, so resolving a key from it would be the invented measurement INV-ANA-58 forbids. An *unreadable* artefact is reused too -- the parser recovers truncated JSON on purpose (INV-ANA-06), so a parse failure inside the check says something about the check, not about the file.
+
+**Deliberate invalidation** is `--force`, which removes the artefact before `analyze()` runs (`_discard_cached_artifact()`). It is the path for a fresh artefact under the *same* key; the automatic regeneration above fires only when the key changed.
 
 ### ADR-3: Two-Layer Architecture (Analysis + Parser)
 
 The module is split into two independent layers: analysis orchestration (`StaticAnalyzer`) and data transformation (`StaticAnalysisParser`). The parser has no dependency on the analyzer and can operate on any JSON file matching the expected schema.
 
-**Why**: This separation serves two use cases. In the experiment pipeline, the analyzer runs GATOR and then the parser transforms the output. In batch/offline scenarios, researchers parse pre-existing JSON files without running GATOR. The parser's independence also enables unit testing with JSON fixtures (55 tests) without requiring GATOR installation.
+**Why**: This separation serves two use cases. In the experiment pipeline, the analyzer runs GATOR and then the parser transforms the output. In batch/offline scenarios, researchers parse pre-existing JSON files without running GATOR. The parser's independence also enables unit testing with JSON fixtures (76 tests) without requiring GATOR installation.
 
 ### ADR-4: Per-Section Independent Parsing with Graceful Degradation
 
@@ -68,11 +75,18 @@ Each JSON section (reachability, windows, transitions, components) is parsed in 
 
 **Why**: The GATOR client writes sections sequentially and flushes between each. On timeout (the most common failure mode at 600s default), the file is truncated mid-section. Reachability is written first because it provides the coverage denominator -- the most critical data for experiment validity. Even if transitions are entirely lost, the coverage calculation and MOP tracking still function. This pattern is validated by the "Timeout with partial JSON output" scenario from the spec.
 
-### ADR-5: SignatureNormalizer as Defensive Safety Net
+### ADR-5: SignatureNormalizer as Defensive Safety Net — SUPERSEDED (2026-08-30, gh111)
 
-`StaticAnalysisParser` applies `SignatureNormalizer` to all class names (INV-ANA-02), converting `.` inner-class notation to `$` notation. The GATOR client already writes `$` notation via `SootClass.getName()`, so the normalizer is expected to be a no-op on well-formed output.
+> **Superseded.** The decision below is kept for the record; its diagnosis is inverted and
+> its mechanism is deleted. `SignatureNormalizer` no longer exists, INV-ANA-02 is withdrawn,
+> and INV-ANA-67 states the opposite rule: the parser transforms no identifier. See the
+> correction after the original text.
 
-**Why**: The normalizer exists as a guard against upstream changes in the GATOR client. If a future version of Soot or GATOR changes its output format, the parser continues to produce consistent class names. The cost is negligible (string scan per class name), and the safety benefit was validated when a GATOR version briefly produced mixed notation.
+*Original decision:* `StaticAnalysisParser` applies `SignatureNormalizer` to all class names (INV-ANA-02), converting `.` inner-class notation to `$` notation. The GATOR client already writes `$` notation via `SootClass.getName()`, so the normalizer is expected to be a no-op on well-formed output. **Why**: the normalizer exists as a guard against upstream changes in the GATOR client. If a future version of Soot or GATOR changes its output format, the parser continues to produce consistent class names. The cost is negligible (string scan per class name), and the safety benefit was validated when a GATOR version briefly produced mixed notation.
+
+**The correction.** A safety net is only harmless if it can be a no-op, and this one could not be. The heuristic converts a dot to a `$` whenever both sides start with an uppercase letter — but `SootClass.getName()` writes the JVM binary name, in which such a dot is *always* a package boundary. So on well-formed GATOR output the rule is not a no-op waiting for a format change; it is wrong every time it fires, and it fired on **465 classes across 7 of the 162 corpus artefacts**. It was applied to one side of an equality test whose other side is the raw logcat, which no normalizer touches, so each firing broke a match that would otherwise have succeeded. `com.hwloc.lstopo.ZoomView.ZoomView` — a class in a capitalized package, not a nested class — published `0.00%` against 1080 `RVSEC-COV` events that named it correctly.
+
+The premise that motivated the guard is also falsified rather than merely unproven: the "future GATOR emitting dotted inner classes" it defended against would contradict `SootClass.getName()`, and the archived logcat shows the spurious `$` never existed upstream — it came from here. Under P1 and P3 the class is deleted rather than disabled; the backup lives at `backup/gh111-removed/`.
 
 ### ADR-6: ETL Pipeline Pattern
 
@@ -86,7 +100,23 @@ Choosing which classes count as the application's own is a decision made **once*
 
 **Why**: When the parser re-derived the scope from a key resolved at consumption time, it could disagree with the producer, and it did. The artefact does not record the key that filtered it (INV-ANA-58) and no heuristic recovers it: on applications built with an `applicationIdSuffix`, the consumer key carried the suffix while the analysed classes did not, so the prefix test matched nothing and the coverage denominator collapsed to zero. Deriving the ACTIVITY decision from `reachability` instead of from a key preserves the useful half of the old filter -- keeping framework activities such as `androidx.activity.ComponentActivity` out of the activity denominator -- while making disagreement structurally impossible. Verified on the 162-artefact corpus: parsed class count equals `len(reachability)` in 162/162, and the ACTIVITY decision reproduces the producer-key decision on 1526/1526 activities.
 
-**Boundary**: this is a consumption-path decision only. `analyze()` still resolves `app.code_package`, still passes it to GATOR, and still records `code_package` / `code_package_source` on its `StaticAnalysisResult`. An artefact produced under a wrong key still yields a wrong denominator -- that is a data-management fact, not something the parser resolves.
+**Boundary**: this is a consumption-path decision only. `analyze()` still resolves `app.code_package`, still passes it to GATOR, and still records `code_package` / `code_package_source` on its `StaticAnalysisResult`. An artefact produced under a wrong key still yields a wrong denominator -- ADR-8 is what stops that denominator from being published.
+
+### ADR-8: A Denominator Gate That Refuses Rather Than Publishes
+
+`denominator_gate.check_denominator(classes, compiled_under_key, key)` is a pure predicate over one artefact. It refuses three conditions -- a compiled universe of zero, an empty parsed side, and a ratio of parsed to compiled classes below `MIN_PARSED_RATIO` (0.15) -- by raising `DenominatorImplausibleError`. `StaticAnalyzer.analyze()` calls it after `_run_analysis()` and converts a refusal into a failed `StaticAnalysisResult` for that APK.
+
+**Why refuse at all**: a collapsed denominator does not look wrong to a reader. It publishes a small percentage of a small number, which is indistinguishable from an app that was barely exercised. Four APKs of the 162-artefact corpus reached publication that way, with denominators of 1, 2, 6 and 21 classes against universes of 762, 1952, 3578 and 535. A gate testing only for emptiness would have admitted all four.
+
+**Why a ratio and not a subtraction**: the gate divides and nothing else, because `class_defs_under_key` is recorded already net -- the producer applies `RvsecAnalysisClient.isAppClass`, the same predicate that filtered the parsed side, at write time (INV-ANA-66). One predicate on both terms makes the two counts comparable by construction. The subtraction cannot live here in any case: the gate holds a count, not the names.
+
+**Why 0.15**: with both terms answering to one predicate, the 158 healthy corpus artefacts sit at exactly 1.0 and the four collapsed ones between 0.0010 and 0.0393. The threshold stands 3.8x above the collapsed ceiling and 6.7x below the healthy floor, inside a 25x separation -- calibrated against the gap, not against either band. Once the producer-side guard resolves the same key as the client, the degenerate branch is a tripwire on a stale `lib/gator/` jar and on any regression of INV-ANA-65, rather than a discriminator over healthy applications.
+
+**Why the ordering**: the zero-universe test comes first because `0/0` is not a low ratio but no ratio -- it is the signature of a key matching nothing compiled, the state of 75 of the 162 corpus APKs under the literal manifest key, and the condition the build-type suffix policy exists to resolve before the gate judges anything.
+
+**Why it raises loudly but does not propagate**: `analyze()` catches the error and returns `success=False` with the message in `errors`, rather than letting it escape. The `ErrorHandler` decorator on `analyze()` would swallow a raise and return `None` -- the exact silence the gate exists to end -- and aborting a 200-APK campaign for one artefact is not warranted when the message already names the parsed count, the compiled count and the key. An artefact recording no `class_defs_under_key` is skipped rather than judged: there is no universe to divide by, and inventing one would reintroduce the silent measurement.
+
+**Why the exception lives in `denominator_gate.py`**: `static_analysis.py` imports the gate to wire it, so defining `DenominatorImplausibleError` there and importing it back would close a cycle.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
@@ -95,7 +125,7 @@ Choosing which classes count as the application's own is a decision made **once*
 | Primary Pattern | ETL Pipeline (Extract-Transform-Load) | APK -> GATOR subprocess (extract) -> JSON parsing (transform) -> domain objects (load) |
 | Control Strategy | Call-based, synchronous | Single subprocess execution with timeout; no concurrency within the module |
 | Distribution | Single machine, subprocess | GATOR runs as a Java subprocess on the same host; no network communication |
-| Caching Strategy | File-level existence check | If output JSON exists, execution is skipped entirely. No content validation -- existence implies usable data |
+| Caching Strategy | File-level existence check, gated by the recorded scope key | An existing output JSON is reused when it records this run's key or no key; a disagreeing key regenerates it (INV-ANA-70). Nothing else about the content is validated |
 
 ## Data Flow
 
@@ -113,9 +143,11 @@ flowchart LR
 
     subgraph rv-static-analysis
         SA["StaticAnalyzer"]
-        CACHE{"JSON exists?"}
+        CACHE{"JSON exists and\nrecords this run's key?"}
         GATOR["GATOR subprocess\n(RvsecAnalysisClient)"]
-        JSON["analysis JSON\n{reachability, windows,\ntransitions, components}"]
+        JSON["analysis JSON\n{reachability, windows,\ntransitions, components,\ncodePackage, class_defs_under_key}"]
+        GATE{"check_denominator\n(INV-ANA-69)"}
+        FAIL["StaticAnalysisResult\n(success=False)"]
         SAP["StaticAnalysisParser"]
     end
 
@@ -135,10 +167,12 @@ flowchart LR
     APK --> SA
     MOP --> SA
     SA --> CACHE
-    CACHE -->|no| GATOR
-    CACHE -->|yes, skip| SAP
+    CACHE -->|absent, or recorded key disagrees| GATOR
+    CACHE -->|recorded key matches, or none| SAP
     GATOR --> JSON
-    JSON --> SAP
+    JSON --> GATE
+    GATE -->|refused| FAIL
+    GATE -->|plausible| SAP
     SAP --> CLS
     SAP --> WIN
     SAP --> WTG
@@ -165,7 +199,9 @@ flowchart LR
    - `WindowTransitionGraph`: a `networkx.DiGraph` where nodes are `Window` objects and edges carry `WindowTransition` lists (widget ID, event type, handler method). Widgets referenced in transitions but absent from windows are back-filled on the fly.
    - `Components`: activities, receivers, services, and providers with intent filters, exported status, and MOP reachability data.
 
-4. **Load**: The `StaticAnalysisData` aggregate is passed to downstream consumers. rv-coverage uses `Classes.methods` as the denominator for coverage percentages. rv-agent uses the WTG for navigation guidance and MOP flags for action prioritization. rv-platform makes the data available to all task executor components.
+4. **Gate**: `StaticAnalyzer._check_denominator()` re-parses the artefact it just wrote and divides the parsed class count by the `class_defs_under_key` the producer recorded. A ratio below `0.15`, an empty parsed side, or a compiled universe of zero fails this APK with `success=False` rather than letting a collapsed denominator publish as a small percentage (INV-ANA-69). An artefact recording no count is not judged.
+
+5. **Load**: The `StaticAnalysisData` aggregate is passed to downstream consumers. rv-coverage uses `Classes.methods` as the denominator for coverage percentages. rv-agent uses the WTG for navigation guidance and MOP flags for action prioritization. rv-platform makes the data available to all task executor components.
 
 ### JSON Section Priority and Timeout Behavior
 
@@ -236,7 +272,9 @@ When the GATOR client is killed by timeout, the JSON file is truncated at the po
 | `RVStaticAnalysisConfig` | Validates and resolves paths for GATOR tools; generates command lines |
 | `StaticAnalysisParser` | Converts GATOR JSON output into `StaticAnalysisData` domain objects |
 | `StaticAnalysisResult` | Value object capturing analysis outcome (file path, success, timeout, errors) |
-| `StaticAnalysisData` | Aggregate domain object holding Classes, Windows, WTG, and Components (defined in rv-android-core) |
+| `StaticAnalysisData` | Aggregate domain object holding Classes, Windows, WTG, Components, and the artefact's recorded scope (`code_package`, `code_package_source`, `class_defs_under_key`); defined in rv-android-core |
+| `check_denominator` | Pure predicate over one artefact: refuses an empty, degenerate, or universe-less coverage denominator (`denominator_gate.py`) |
+| `DenominatorImplausibleError` | Refusal raised by the gate and turned into a failed `StaticAnalysisResult` by `analyze()` |
 
 ### Component Architecture
 
@@ -253,7 +291,10 @@ flowchart TB
         subgraph Parsing["Data Transformation"]
             direction LR
             SAP["StaticAnalysisParser"]
-            SN["SignatureNormalizer"]
+        end
+        subgraph Gating["Denominator Gate"]
+            direction LR
+            GATE["check_denominator"]
         end
         subgraph EntryPoints["Entry Points"]
             direction LR
@@ -280,8 +321,8 @@ flowchart TB
     SA --> GATOR
     GATOR --> FS
     SA --> SAP
+    SA --> GATE
     SAP --> FS
-    SAP --> SN
     SAP --> DOM
     SA --> APP
     CFG --> Core
@@ -301,19 +342,27 @@ rv-static-analysis/
 │   ├── config.py                       # RVStaticAnalysisConfig (Pydantic)
 │   ├── analysis/
 │   │   └── static/
-│   │       └── static_analysis.py      # StaticAnalyzer, StaticAnalysisResult
+│   │       ├── static_analysis.py      # StaticAnalyzer, StaticAnalysisResult
+│   │       └── denominator_gate.py     # check_denominator, DenominatorImplausibleError
 │   └── parser/
 │       └── static/
 │           └── static_analysis_parser.py  # StaticAnalysisParser (JSON -> domain)
-├── tests/
+├── tests/                              # 163 tests
 │   ├── conftest.py                     # Shared fixtures
-│   ├── test_config.py                  # Config validation tests
-│   ├── analysis/static/
-│   │   └── test_static_analysis.py     # Analyzer tests (13 tests)
-│   ├── parser/static/
-│   │   └── test_static_analysis_parser.py  # Parser tests (55 tests)
+│   ├── test_config.py                  # Config validation (13)
+│   ├── analysis/
+│   │   ├── test_targets_file_cli.py    # --targets-file behaviour
+│   │   └── static/
+│   │       ├── test_static_analysis.py     # Analyzer: caching, timeout, errors
+│   │       ├── test_denominator_gate.py    # Gate: refusals, admissions, wiring
+│   │       └── test_scope_key_policy.py    # Key travel: run -> GATOR -> artefact -> reuse
+│   ├── cli/                            # CLI flag tests (32)
+│   ├── parser/                         # Parser tests (76)
+│   │   ├── test_sentinel.py
+│   │   └── static/test_static_analysis_parser.py
 │   └── resources/
-│       └── cryptoapp.apk.json          # Reference analysis output
+│       ├── cryptoapp.apk.json          # Reference analysis output
+│       └── baselines/MANIFEST.json     # Baseline checksums
 └── pyproject.toml
 ```
 
@@ -329,6 +378,7 @@ flowchart TB
     subgraph Analysis["Analysis Layer"]
         ANALYZER["static_analysis.py\n(StaticAnalyzer)"]
         CONFIG["config.py\n(RVStaticAnalysisConfig)"]
+        GATE["denominator_gate.py\n(check_denominator)"]
     end
     subgraph Parser["Parser Layer"]
         PARSER["static_analysis_parser.py\n(StaticAnalysisParser)"]
@@ -336,7 +386,7 @@ flowchart TB
     subgraph CoreDep["rv-android-core"]
         BASE["BaseAnalyzer\nCommand\nErrorHandler"]
         DOMAIN["App, Classes\nWindows, WTG\nComponents"]
-        UTIL["SignatureNormalizer\nLoggingManager"]
+        UTIL["LoggingManager"]
     end
 
     INIT --> ANALYZER
@@ -345,6 +395,8 @@ flowchart TB
     MAIN --> CONFIG
     ANALYZER --> CONFIG
     ANALYZER --> PARSER
+    ANALYZER --> GATE
+    GATE --> DOMAIN
     PARSER --> DOMAIN
     PARSER --> UTIL
     ANALYZER --> BASE
@@ -378,15 +430,18 @@ sequenceDiagram
     participant CMD as Command
     participant GATOR as GATOR subprocess
     participant SAP as StaticAnalysisParser
+    participant GATE as check_denominator
     participant FS as Filesystem
 
     Caller->>SA: analyze(app)
     SA->>CFG: get_tool_command(apk, output, mop_dir)
     CFG-->>SA: command args list
     SA->>FS: check if output JSON exists
-    alt Cache hit
+    SA->>SAP: parse_file(json_path) to read its recorded key
+    alt Cache hit (recorded key equals this run's, or none recorded)
         SA-->>Caller: StaticAnalysisResult(cached)
-    else Cache miss
+    else Cache miss, or recorded key disagrees
+        Note over SA,FS: A disagreeing key is removed<br/>and regenerated (INV-ANA-70)
         SA->>CMD: execute(command, timeout)
         CMD->>GATOR: subprocess.run(...)
         Note over GATOR: Writes reachability, then<br/>windows, then transitions,<br/>then components (with flush)
@@ -397,7 +452,15 @@ sequenceDiagram
         else Success
             GATOR-->>CMD: exit code 0
             CMD-->>SA: CommandResult
-            SA-->>Caller: StaticAnalysisResult(success=True)
+            SA->>SAP: parse_file(json_path)
+            SAP-->>SA: StaticAnalysisData
+            SA->>GATE: check_denominator(classes, class_defs_under_key, key)
+            alt Denominator refused
+                GATE-->>SA: DenominatorImplausibleError
+                SA-->>Caller: StaticAnalysisResult(success=False, errors=[...])
+            else Denominator plausible
+                SA-->>Caller: StaticAnalysisResult(success=True)
+            end
         end
     end
 
@@ -418,7 +481,7 @@ sequenceDiagram
 
 ### StaticAnalyzer
 
-**Purpose**: Orchestrates GATOR execution with file-level caching and timeout handling. Provides `analyze()` for running the analysis and `get_static_data()` for retrieving parsed results.
+**Purpose**: Orchestrates GATOR execution with scope-keyed caching and timeout handling, and judges the denominator the run produced. Provides `analyze()` for running the analysis and `get_static_data()` for retrieving parsed results.
 
 **Location**: `src/rv_static_analysis/analysis/static/static_analysis.py`
 
@@ -427,8 +490,13 @@ sequenceDiagram
 - `StaticAnalysisResult(BaseValidatedModel)`: Value object for analysis outcomes
 - `StaticAnalysisException(RVAndroidError)`: Domain-specific exception
 
+**Key methods added by the scope-key work**:
+- `_disagreeing_recorded_key(result_file)`: the key a stored artefact records when it is not this run's; `None` (reuse) covers an artefact with no key, one with this run's key, and one that cannot be parsed
+- `_check_denominator()`: parses the artefact just written and hands `classes`, `class_defs_under_key` and the effective key to the gate; skips artefacts recording no count
+- `_run_analysis()`: passes both `code_package` and `code_package_source` to `get_tool_command()`
+
 **Dependencies**:
-- Internal: `RVStaticAnalysisConfig`, `StaticAnalysisParser`
+- Internal: `RVStaticAnalysisConfig`, `StaticAnalysisParser`, `denominator_gate`
 - External: rv-android-core (`Command`, `App`, `BaseAnalyzer`, `ErrorHandler`)
 
 ### RVStaticAnalysisConfig
@@ -450,10 +518,24 @@ sequenceDiagram
 **Location**: `src/rv_static_analysis/parser/static/static_analysis_parser.py`
 
 **Key Classes**:
-- `StaticAnalysisParser`: Stateful parser with `SignatureNormalizer`; a module-level singleton (`_instance`) provides convenience functions (`parse_file()`)
+- `StaticAnalysisParser`: parser holding only its logger; a module-level singleton (`_instance`) provides convenience functions (`parse_file()`)
 
 **Dependencies**:
-- External: rv-android-core (all domain models: `Classes`, `Method`, `Windows`, `Window`, `Widget`, `WidgetEvent`, `WindowTransitionGraph`, `Components`, `ComponentInfo`, `IntentFilter`, `SignatureNormalizer`)
+- External: rv-android-core (all domain models: `Classes`, `Method`, `Windows`, `Window`, `Widget`, `WidgetEvent`, `WindowTransitionGraph`, `Components`, `ComponentInfo`, `IntentFilter`)
+
+### Denominator Gate
+
+**Purpose**: Refuses a coverage denominator the artefact cannot support, so a collapsed measurement fails loudly instead of publishing as a small percentage. See ADR-8 for the reasoning and the threshold calibration.
+
+**Location**: `src/rv_static_analysis/analysis/static/denominator_gate.py`
+
+**Key names**:
+- `check_denominator(classes, compiled_under_key, key) -> None`: raises on a zero compiled universe, an empty parsed side, or a ratio below the threshold; the message always names the key it judged, because a refusal that does not is not actionable
+- `MIN_PARSED_RATIO = 0.15`: calibrated over the 162-APK corpus (healthy at 1.0, collapsed at 0.0010-0.0393)
+- `DenominatorImplausibleError(RVAndroidError)`: defined here, not in `static_analysis.py`, which imports this module
+
+**Dependencies**:
+- External: rv-android-core (`Classes`, `RVAndroidError`) only. It holds no config, no APK and no filesystem access -- everything it judges arrives in its arguments.
 
 ### CLI Entry Point
 
@@ -466,7 +548,9 @@ sequenceDiagram
 
 **CLI Library**: `argparse` (NOT Click). This matters for env-var handling: `argparse` has no `envvar=` analogue, so this entry-point does NOT honor `RV_SA_TIMEOUT` or `RV_JVM_MEMORY` directly. The env-var bridge only exists through `rv-experiment` (gh55 §9 Click `envvar=` gambiarra). Standalone runs must pass `--analysis-timeout` (gh55 added) or `--jvm-memory` explicitly. The architectural fix that gives every L5 entry-point uniform env-var resolution lives at `openspec/changes/gh-tbd-env-vars-architecture/`.
 
-**CLI Flags (selected)**: `--analysis-timeout SECS` overrides per-APK GATOR timeout; `--skip-wtg` (gh57) propagates to GATOR as `-clientParam skipWtg=true` so the client emits reachability + `windows[]` and returns without invoking `WTGBuilder.build()`; `--jvm-memory SIZE` sets the JVM `-Xmx` for the GATOR subprocess.
+**CLI Flags (selected)**: `--analysis-timeout SECS` overrides per-APK GATOR timeout; `--skip-wtg` (gh57) propagates to GATOR as `-clientParam skipWtg=true` so the client emits reachability + `windows[]` and returns without invoking `WTGBuilder.build()`; `--jvm-memory SIZE` sets the JVM `-Xmx` for the GATOR subprocess; `--package-detector` / `--strip-build-type-suffix` choose the scope key; `--force` removes the stored artefact so the run regenerates it under the same key.
+
+**Env-var exceptions**: `RV_PACKAGE_DETECTOR` and `RV_STRIP_BUILD_TYPE_SUFFIX` *are* honored here, resolved in `main()` by `resolve_package_detector()` / `resolve_strip_build_type_suffix()` under flag > env > default. Both delegate to `rv_android_core.util.utils.resolve_bool_setting`, the same helper `rv-experiment` uses, so the two CLIs cannot drift on what a given string means; an unparseable value exits nonzero before any APK is opened. This is deliberate (gh98 D4): a standalone invocation is a run, not a step inside one, and only entry points may read the environment (INV-EXP-35).
 
 ---
 
@@ -478,10 +562,10 @@ How the architecture supports non-functional requirements from `docs/PRD.md` Sec
 |-----|--------|----------|----------------------|
 | Modularity | NFR01 | P0 | Single uv workspace module with one internal dependency (rv-android-core). Clean Facade API via `__init__.py`. Analysis and parser layers are independent packages. |
 | Extensibility | NFR02 | P0 | `BaseAnalyzer` interface allows adding new analysis types. Parser sections are independent -- adding a new JSON section requires only a new `_parse_*()` method. |
-| Testability | NFR03 | P1 | Parser tests (55) operate on JSON fixtures without GATOR. Analyzer tests use mocked `Command`. Reference JSON (`cryptoapp.apk.json`) enables baseline equivalence tests. |
-| Resilience | NFR04 | P1 | Graceful degradation: per-section error isolation (INV-ANA-06). Truncated JSON recovery via bracket completion. File-level caching avoids redundant execution. Timeout handling preserves partial results. |
+| Testability | NFR03 | P1 | Parser tests (76) operate on JSON fixtures without GATOR. Analyzer tests (42) use mocked `Command`. Reference JSON (`cryptoapp.apk.json`) enables baseline equivalence tests. The gate is tested twice over -- as a bare function and through `analyze()` -- because a gate that is written but never called leaves every function-level test green. |
+| Resilience | NFR04 | P1 | Graceful degradation: per-section error isolation (INV-ANA-06). Truncated JSON recovery via bracket completion. Scope-keyed caching avoids redundant execution without reusing an artefact filtered by another key. Timeout handling preserves partial results. A refused denominator fails one APK, not the campaign. |
 | Configurability | NFR05 | P1 | Pydantic model with 4-level path resolution. Environment variables (`RVSEC_HOME`, `ANDROID_HOME`). CLI arguments for standalone use. Configurable JVM memory and analysis timeout. |
-| Reproducibility | NFR08 | P2 | File-level caching ensures re-runs produce identical results. Deterministic JSON output from GATOR. Reference test fixtures for parser validation. |
+| Reproducibility | NFR08 | P2 | Caching ensures re-runs produce identical results *under the same key*, and regenerate when the key changed (INV-ANA-70). The artefact records the key, its origin and the compiled-class count that produced it (INV-ANA-66), so a stored result can be re-audited without the APK. Deterministic JSON output from GATOR. Reference test fixtures for parser validation. |
 
 ---
 
@@ -557,11 +641,12 @@ classDiagram
 
 **Flow**:
 1. `PreProcessor` creates `StaticAnalyzer` with `App` and `RVStaticAnalysisConfig`
-2. `StaticAnalyzer.analyze()` checks if output JSON exists (cache); if not, invokes GATOR subprocess
-3. GATOR writes reachability, windows, transitions, components to JSON in priority order
-4. `StaticAnalyzer.get_static_data()` delegates to `StaticAnalysisParser.parse_file()`
-5. Parser produces `StaticAnalysisData` with `Classes`, `Windows`, `WTG`, `Components`
-6. `StaticAnalysisComponent` in rv-platform passes data to `CoverageTracker` (method universe) and makes it available to rv-agent (WTG navigation, MOP prioritization)
+2. `StaticAnalyzer.analyze()` checks if output JSON exists and whether it records this run's scope key; if it is absent or records another key, it invokes the GATOR subprocess
+3. GATOR writes reachability, windows, transitions, components to JSON in priority order, plus the key, its origin and `class_defs_under_key`
+4. `_check_denominator()` parses the artefact and divides the parsed class count by `class_defs_under_key`; a refusal ends this APK with `success=False` and the pipeline moves to the next
+5. `StaticAnalyzer.get_static_data()` delegates to `StaticAnalysisParser.parse_file()`
+6. Parser produces `StaticAnalysisData` with `Classes`, `Windows`, `WTG`, `Components` and the recorded scope
+7. `StaticAnalysisComponent` in rv-platform passes data to `CoverageTracker` (method universe) and makes it available to rv-agent (WTG navigation, MOP prioritization)
 
 ### Scenario 2: Timeout with Partial Data Recovery
 
@@ -585,7 +670,7 @@ classDiagram
 1. CLI receives `batch --apks-dir /apks --output /output` command
 2. `handle_batch_command()` iterates APK files in the directory
 3. For each APK, creates `StaticAnalyzer` and calls `analyze()`
-4. File-level caching skips previously analyzed APKs
+4. Caching skips previously analyzed APKs whose artefact records this run's scope key (or none); `--force` skips the cache entirely
 5. Continue-on-error flag allows the batch to proceed past individual failures
 6. Aggregate summary reports total, successful, failed, cached counts
 
@@ -596,6 +681,7 @@ classDiagram
 - **New analysis sections**: Add a new `_parse_*()` method to `StaticAnalysisParser` and extend `StaticAnalysisData` in rv-android-core. The per-section independence means existing sections are unaffected.
 - **Alternative analysis backends**: Implement `BaseAnalyzer` interface with a different tool (e.g., FlowDroid, Amandroid). The parser layer can be reused if the tool produces compatible JSON.
 - **Configuration**: `RVStaticAnalysisConfig` accepts explicit paths at each level, enabling custom tool installations and non-standard directory layouts.
+- **Plausibility checks**: `denominator_gate` takes only the parsed classes, a compiled count and a key, so a further check over the same three arguments is a new function in that module plus one call in `_check_denominator()`. A check needing anything else does not belong there -- the gate's value is that it is evaluable at every consumption point, including resume and `--process-results`, which re-parse `.apk.json` with no APK within reach.
 
 ## Dependencies
 
@@ -603,7 +689,7 @@ classDiagram
 
 | Module | Purpose |
 |--------|---------|
-| rv-android-core | Domain models (`App`, `StaticAnalysisData`, `Classes`, `Windows`, `WTG`, `Components`), base classes (`BaseAnalyzer`, `BaseValidatedModel`), utilities (`Command`, `ErrorHandler`, `SignatureNormalizer`, `LoggingManager`), constants |
+| rv-android-core | Domain models (`App`, `StaticAnalysisData`, `Classes`, `Windows`, `WTG`, `Components`), base classes (`BaseAnalyzer`, `BaseValidatedModel`), utilities (`Command`, `ErrorHandler`, `LoggingManager`), constants |
 
 ### External
 
@@ -625,10 +711,15 @@ classDiagram
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit (parser) | `tests/parser/static/test_static_analysis_parser.py` | 72 tests covering all JSON sections, edge cases, truncated JSON recovery, SignatureNormalizer, and artefact-scoped parsing (INV-ANA-59/60/61) |
-| Unit (analyzer) | `tests/analysis/static/test_static_analysis.py` | 19 tests covering caching, timeout handling, error scenarios (mocked Command) |
-| Unit (config) | `tests/test_config.py` | 13 tests covering path resolution, validation, command generation (including `-clientParam codePackage=`) |
+| Unit (parser) | `tests/parser/static/test_static_analysis_parser.py` | JSON sections, edge cases, truncated JSON recovery, artefact-scoped parsing (INV-ANA-59/60/61) and artefact-spelling preservation (INV-ANA-67) |
+| Unit (analyzer) | `tests/analysis/static/test_static_analysis.py` | Caching, timeout handling, error scenarios (mocked Command) |
+| Unit (gate) | `tests/analysis/static/test_denominator_gate.py` | The three refusals and the admission that matters (a genuinely small app), plus wiring tests through `StaticAnalyzer.analyze()` -- without those, the gate could be written and never called with every other test still green |
+| Integration (scope key) | `tests/analysis/static/test_scope_key_policy.py` | The key's whole journey: what the run tells GATOR, what the artefact carries back, and what a stored artefact is allowed to answer for (INV-ANA-66/70) |
+| Unit (CLI) | `tests/cli/` | 32 tests over flag parsing, mutual exclusion, and env-var resolution |
+| Unit (config) | `tests/test_config.py` | 13 tests covering path resolution, validation, command generation (including `-clientParam codePackage=` and `codePackageSource=`) |
 | Fixture | `tests/resources/cryptoapp.apk.json` | Reference analysis output for baseline equivalence tests |
+
+Total: 163 tests. Run them with the CI contract flags: `uv run pytest tests/ --import-mode=importlib -o "addopts="`.
 
 ## Related Documentation
 

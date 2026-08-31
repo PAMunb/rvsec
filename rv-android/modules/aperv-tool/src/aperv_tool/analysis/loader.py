@@ -100,6 +100,17 @@ _PAYLOAD_COLUMNS = {
         "cov_directly_reaches_target",
         "mop_errors_total",
         "mop_errors_unique",
+        "classes_total",
+        "methods_total",
+        "unmatched_out_of_scope",
+        "unmatched_in_scope",
+        # The half of the emptiness signal that survives aggregation
+        # (INV-PLT-36). An empty coverage cell becomes `NaN` here and `.mean()`
+        # skips it without saying so; a boolean does not go missing, so a reader
+        # of the joined frame can still tell "not measured" from "measured as
+        # zero". Campaigns consolidated before the column existed carry `NaN`
+        # for it, which is itself readable.
+        "measured",
     ),
     PERFORMANCE_CSV: tuple(_PERFORMANCE_RENAME.values()),
 }

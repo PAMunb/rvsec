@@ -111,6 +111,7 @@ def parse_logcat_file(
     log_file: str,
     static_data=None,
     tool_execution_start: Optional[datetime] = None,
+    scope_key: Optional[str] = None,
 ) -> LogcatRepository:
     """
     Parse a logcat file and return a populated LogcatRepository.
@@ -133,12 +134,20 @@ def parse_logcat_file(
             with reachable classes and methods.
         tool_execution_start: Optional tool execution start epoch (e.g.,
             ``TaskResult.tool_execution_start`` restored from tasks.json).
+        scope_key: The effective scope key the artefact recorded (INV-ANA-66),
+            used to classify crossing discards (INV-CORE-60). Defaults to the key
+            ``static_data`` carries, which is where it belongs when the caller has
+            an artefact at all; an explicit value is for the callers that hold the
+            key without the artefact. Never re-derived from a package name
+            (INV-ANA-58) — ``None`` counts the discards as unclassified.
 
     Returns:
         LogcatRepository containing all parsed errors and method calls.
     """
     # Initialize the repository
-    repository = LogcatRepository()
+    if scope_key is None:
+        scope_key = getattr(static_data, "code_package", None)
+    repository = LogcatRepository(scope_key=scope_key)
     logger = logging.getLogger(__name__)
 
     # The repository owns the counters and the parser increments them, so a caller

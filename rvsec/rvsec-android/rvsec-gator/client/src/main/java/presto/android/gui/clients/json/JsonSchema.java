@@ -29,6 +29,15 @@ public final class JsonSchema {
 		public static final String MAIN_ACTIVITY = "mainActivity";
 		public static final String COMPLETE = "complete";
 
+		// gh111 (INV-ANA-66) — the run's scope provenance. The artefact must answer,
+		// on its own, which key filtered its contents, where that key came from, and
+		// how many compiled classes it covered; PACKAGE is the manifest package
+		// whatever key was used, so it cannot stand in for any of the three.
+		// CLASS_DEFS_UNDER_KEY is the NET count (after RvsecAnalysisClient.isAppClass).
+		public static final String CODE_PACKAGE = "codePackage";
+		public static final String CODE_PACKAGE_SOURCE = "codePackageSource";
+		public static final String CLASS_DEFS_UNDER_KEY = "class_defs_under_key";
+
 		// Top-level sections
 		public static final String REACHABILITY = "reachability";
 		public static final String WINDOWS = "windows";

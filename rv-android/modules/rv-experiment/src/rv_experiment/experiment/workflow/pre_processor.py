@@ -10,6 +10,7 @@ from typing import List
 from rv_android_core.constants import EXTENSION_APK, EXTENSION_STATIC_ANALYSIS
 from rv_android_core.domain.app import App
 from rv_android_core.util.error.error_handler import ErrorHandler
+from rv_android_core.util.error.exceptions import RVAndroidError
 from rv_android_core.util.logging.constants import (
     CONTEXT_COMPONENT,
     LOG_COMPLETE,
@@ -17,8 +18,20 @@ from rv_android_core.util.logging.constants import (
 )
 from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.config import ExperimentConfig
-from rv_experiment.constants import INSTRUMENTED_APKS_DIR, MONITORS_DIR
+from rv_experiment.constants import (
+    INSTRUMENTED_APKS_DIR,
+    MONITORS_DIR,
+    MONITORS_PROVENANCE_FILE,
+)
 from rv_instrumentation import get_instrumenter
+
+
+class PreProcessingConfigurationError(RVAndroidError):
+    """A flag combination that would silently disable a requested step.
+
+    Raised before any work starts, so the operator fixes the invocation instead
+    of reading a finished run's empty denominators (INV-EXP-37).
+    """
 
 
 class PreProcessor:
@@ -80,14 +93,22 @@ class PreProcessor:
         #   Input:  Original APKs from apks_dir + monitors from Step 1
         #   Output: Instrumented APKs in out/instrumented_apks/
         #
-        # Step 3: Run GATOR static analysis on original APKs
-        #   Input:  Original APKs from apks_dir (NOT instrumented — see below)
-        #   Output: Static analysis JSON alongside instrumented APKs
+        # Step 3: Run GATOR static analysis on the ORIGINAL APKs of those that
+        #   were successfully instrumented
+        #   Input:  Original APKs from apks_dir, filtered by the presence of an
+        #           instrumented counterpart (INV-EXP-15) — so this step DOES
+        #           depend on Step 2, whatever the reading order suggests
+        #   Output: Static analysis JSON alongside the instrumented APKs
         #
         # FR15: Phase 1 operations MUST execute in this order — monitor
-        # generation, then instrumentation, then static analysis. Step 2
-        # depends on Step 1's generated monitors; static analysis is placed
-        # last by convention (it reads original APKs, not Step 1/2 output).
+        # generation, then instrumentation, then static analysis. Step 2 depends
+        # on Step 1's generated monitors, and Step 3 depends on Step 2: it reads
+        # unmodified DEX (AspectJ-woven bytecode breaks GATOR's TypeResolver) but
+        # only for the APKs that will actually enter the experiment, which is
+        # what instrumented_apks/ records. Skipping Step 2 while asking for
+        # Step 3 therefore leaves Step 3 with nothing to analyse — which is why
+        # that combination now aborts instead of running to a silent zero
+        # (INV-EXP-37).
         #
         # On resume, INV-EXP-13 forces all three skip flags at the CLI layer
         # so the pre-processing artifacts from the original run are reused
@@ -103,6 +124,7 @@ class PreProcessor:
                 self._generate_monitors()
             else:
                 self.logger.warning("Skipping monitor generation")
+                self._check_monitors_provenance()
 
             # Step 2: Instrument APKs with generated monitors (dex2jar + AspectJ + d8)
             if instrument:
@@ -112,12 +134,146 @@ class PreProcessor:
 
             # Step 3: Run GATOR static analysis on original APKs
             if static_analysis:
+                self._assert_instrumentation_available_for_static(instrument)
                 self._run_static_analysis()
             else:
                 self.logger.warning("Skipping static analysis")
 
+            self._report_missing_static_analysis(static_analysis)
+
             self.logger.info(LOG_COMPLETE.format(phase="APK pre-processing"))
             self.logger.info("Pre-processing phase completed")
+
+    def _write_monitors_provenance(self, monitor_output_dir: str) -> None:
+        """Record which specification set produced these monitors (INV-EXP-38)."""
+        marker = os.path.join(monitor_output_dir, MONITORS_PROVENANCE_FILE)
+        with open(marker, "w", encoding="utf-8") as handle:
+            handle.write(f"{self.config.specification_set}\n")
+        self.logger.debug(f"Monitors provenance recorded: {marker}")
+
+    def _check_monitors_provenance(self) -> None:
+        """Refuse reused monitors that were generated from another set.
+
+        Under `--skip-monitors` the run instruments with whatever is in
+        `out/monitors/`. Inferring the set from the monitor file names does not
+        work — the sets share most names, and the ones they do not share are
+        exactly the ones a mismatch would hide — so the generator writes a
+        marker and this reads it.
+
+        **An absent marker warns; it does not abort.** Both resume paths force
+        `generate_monitors=False`, and no existing `out/monitors/` carries a
+        marker, so aborting on absence would make every experiment produced
+        before this change unresumable.
+        """
+        marker = os.path.join(
+            self.config.output_dir, MONITORS_DIR, MONITORS_PROVENANCE_FILE
+        )
+        if not os.path.isfile(marker):
+            self.logger.warning(
+                f"Reusing monitors with no provenance marker ({marker}): cannot "
+                f"verify they were generated from '{self.config.specification_set}'. "
+                "Monitors generated before this marker existed carry none — "
+                "regenerate them if the set is in doubt."
+            )
+            return
+
+        recorded = open(marker, encoding="utf-8").read().strip()
+        if recorded != self.config.specification_set:
+            raise PreProcessingConfigurationError(
+                f"the monitors in {os.path.dirname(marker)} were generated from "
+                f"specification set '{recorded}', and this run asks for "
+                f"'{self.config.specification_set}'. Instrumenting with the wrong "
+                "set produces an experiment that monitors the wrong properties and "
+                "says nothing about it. Run ./clear.sh, or drop --skip-monitors."
+            )
+        self.logger.info(
+            f"Reusing monitors generated from specification set '{recorded}'"
+        )
+
+    def _assert_instrumentation_available_for_static(self, instrument: bool) -> None:
+        """Refuse the flag combination that silently disables static analysis.
+
+        `--skip-instrument` with `--static-analysis` used to produce a run in
+        which Step 3 filtered every APK away — `_get_target_apks_for_analysis`
+        returns `[]` when `instrumented_apks/` does not exist — logged one
+        warning, and continued to an experiment whose coverage denominators were
+        all empty. The user asked for static analysis and got none, and nothing
+        in the results said so (INV-EXP-37).
+
+        A previous run's `instrumented_apks/` is a legitimate input, so the test
+        is the directory, not the flag alone.
+        """
+        if instrument:
+            return
+
+        instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
+        has_apks = os.path.isdir(instrumented_dir) and any(
+            f.endswith(EXTENSION_APK) for f in os.listdir(instrumented_dir)
+        )
+        if has_apks:
+            self.logger.info(
+                "Static analysis requested with instrumentation skipped: reusing "
+                f"the instrumented APKs already in {instrumented_dir}"
+            )
+            return
+
+        raise PreProcessingConfigurationError(
+            "--skip-instrument was given together with --static-analysis, and "
+            f"{instrumented_dir} holds no instrumented APK. Static analysis runs "
+            "only for APKs that have an instrumented counterpart (INV-EXP-15), so "
+            "this combination would analyse nothing and publish empty coverage "
+            "denominators for the whole run. Drop --skip-instrument, or point "
+            "--apks-dir at a previous run's instrumented_apks/."
+        )
+
+    def _report_missing_static_analysis(self, static_analysis: bool) -> None:
+        """One consolidated statement of what will run without a denominator.
+
+        The run continues either way (INV-EXP-39): stopping a 200-APK campaign
+        because GATOR failed on three is a cost the failure does not justify.
+        What was missing was the statement — the per-APK warnings scrolled past
+        during a long pre-processing phase and nothing summarised them.
+
+        Under `--skip-static` the report names the flag (INV-EXP-39 as amended by
+        task 6.6): "no artefact" and "no artefact because you asked for none" are
+        different facts, and only the second is a decision the reader made.
+        """
+        instrumented_dir = os.path.join(self.config.output_dir, INSTRUMENTED_APKS_DIR)
+        if not os.path.isdir(instrumented_dir):
+            return
+
+        apks = sorted(
+            f for f in os.listdir(instrumented_dir) if f.endswith(EXTENSION_APK)
+        )
+        missing = [
+            f
+            for f in apks
+            if not os.path.exists(
+                os.path.join(instrumented_dir, f + EXTENSION_STATIC_ANALYSIS)
+            )
+        ]
+        if not apks:
+            return
+
+        if not static_analysis:
+            self.logger.warning(
+                f"Static analysis skipped by flag (--skip-static): "
+                f"{len(missing)} of {len(apks)} APKs will run without a coverage "
+                f"denominator. Their coverage cells are left empty and their rows "
+                f"are marked measured=false (INV-PLT-35); their violation columns "
+                f"are written as usual."
+            )
+        elif missing:
+            self.logger.warning(
+                f"Static analysis produced no artefact for {len(missing)} of "
+                f"{len(apks)} APKs. They will still run — violations do not depend "
+                f"on static analysis — with empty coverage cells and measured=false "
+                f"(INV-PLT-35). Affected: {', '.join(missing)}"
+            )
+        else:
+            self.logger.info(
+                f"Static analysis artefact present for all {len(apks)} APKs"
+            )
 
     def _generate_monitors(self):
         """Generate runtime verification monitors using JavaMOP and RV-Monitor."""
@@ -158,6 +314,7 @@ class PreProcessor:
                 if not success:
                     self.logger.warning("Monitor generation failed")
                 else:
+                    self._write_monitors_provenance(monitor_output_dir)
                     self.logger.info(LOG_COMPLETE.format(phase="monitor generation"))
                     self.logger.info("Monitors generated")
 
@@ -344,10 +501,7 @@ class PreProcessor:
                             # Create App instance and analyzer under the run's
                             # package policy (INV-EXP-34): the key this analysis
                             # filters on is the run's decision, not a lookup.
-                            app = App(
-                                app_path=apk_path,
-                                package_detector=self.config.package_detector,
-                            )
+                            app = self._build_app(apk_path)
 
                             analyzer = StaticAnalyzer(
                                 app=app, config=static_config, output_dir=apk_output_dir
@@ -429,49 +583,46 @@ class PreProcessor:
 
     def get_instrumented_apks(self) -> List[App]:
         """
-        Get instrumented APKs that have static analysis data.
+        Every instrumented APK, whether or not it has static analysis data.
 
-        Enforces INV-EXP-16: only returns APKs from instrumented_apks/ that have
-        a corresponding .apk.json file (static analysis output); APKs without SA
-        data are logged with a warning and excluded from execution because they
-        produce meaningless coverage results. The filter keys on file presence,
-        not flags, so it works with both --static-analysis and --skip-static
-        when pre-existing artifacts are available.
+        INV-EXP-16 is made true by executing, not by excluding (researcher
+        decision, 29/08). An APK in `instrumented_apks/` with no `.apk.json`
+        runs; the log says it will run without a coverage denominator instead of
+        claiming an exclusion, and its coverage cells are left empty while its
+        violation columns are written as usual (INV-PLT-35).
+
+        Three prior decisions force it. Violations do not depend on static
+        analysis at all — running an instrumented APK with no static analysis is
+        a scenario the report layer already implements — so excluding the APK
+        here would destroy that scenario one layer earlier. Excluding APKs so a
+        number closes is a named anti-pattern that has already cost this corpus
+        55 applications. And once the denominator is a published column
+        (INV-PLT-33), dropping a denominator-less row becomes a reader-side
+        decision, explicit and revisable, instead of a pipeline-side one that is
+        irreversible and invisible.
+
+        The list must stay non-empty when APKs exist: the caller treats an empty
+        one as a fatal "No APKs available for execution", which is why the
+        fallback to originals below survives — for the case where there are no
+        instrumented APKs at all, not for the case where none has an artefact.
 
         Returns:
-            List of App objects for APKs with both instrumentation and SA data
+            List of App objects for every instrumented APK found
         """
-        # Called by ExperimentController._run_execution() to feed APKs into Phase 2.
-        # Filtering by .json presence ensures only APKs with useful SA data
-        # enter the experiment. When no APK passes the filter, falls back to
-        # original APKs from apks_dir (Scenario "Experiment With All
-        # Pre-Processing Skipped"). This also closes the INV-EXP-08 loop:
-        # originals copied by _copy_original_apks() lack .apk.json, so INV-EXP-16
-        # excludes them and this fallback runs the experiment on originals.
         with self.logger.with_context(phase="find_instrumented_apks"):
             apks = []
+            without_static = []
             instrumented_dir = os.path.join(
                 self.config.output_dir, INSTRUMENTED_APKS_DIR
             )
 
             if os.path.exists(instrumented_dir):
-                for file in os.listdir(instrumented_dir):
+                for file in sorted(os.listdir(instrumented_dir)):
                     if file.endswith(EXTENSION_APK):
                         app_path = os.path.join(instrumented_dir, file)
                         sa_json = app_path + EXTENSION_STATIC_ANALYSIS
-                        if not os.path.exists(sa_json):
-                            self.logger.warning(
-                                f"Excluding {file} from execution: "
-                                f"no static analysis data ({file}{EXTENSION_STATIC_ANALYSIS})"
-                            )
-                            continue
                         try:
-                            app = App(
-                                app_path=app_path,
-                                package_detector=self.config.package_detector,
-                            )
-                            apks.append(app)
-                            self.logger.debug(f"Found instrumented APK with SA: {file}")
+                            app = self._build_app(app_path)
                         except Exception as e:
                             error_context = {
                                 "component": "PreProcessor",
@@ -480,15 +631,43 @@ class PreProcessor:
                                 "instrumented_dir": instrumented_dir,
                             }
                             self.error_handler.handle_error(e, error_context)
+                            continue
+                        apks.append(app)
+                        if os.path.exists(sa_json):
+                            self.logger.debug(f"Found instrumented APK with SA: {file}")
+                        else:
+                            without_static.append(file)
 
-            # Fallback to original APKs if no instrumented found
+            # The logged set and the executed set are the same set (INV-EXP-16 as
+            # modified). The message names what is actually missing rather than
+            # announcing an exclusion that does not happen.
+            if without_static:
+                self.logger.warning(
+                    f"{len(without_static)} of {len(apks)} instrumented APKs have no "
+                    f"static analysis artefact and will run WITHOUT a coverage "
+                    f"denominator: {', '.join(without_static)}"
+                )
+
+            # No instrumented APK at all — a different situation from "none has an
+            # artefact", and the only one the fallback answers.
             if not apks:
                 self.logger.warning("No instrumented APKs found, using original APKs")
                 for apk_path in self.config.get_apk_list():
-                    app = App(
-                        app_path=apk_path,
-                        package_detector=self.config.package_detector,
-                    )
-                    apks.append(app)
+                    apks.append(self._build_app(apk_path))
 
+            self.logger.info(f"Executing {len(apks)} APKs")
             return apks
+
+    def _build_app(self, app_path: str) -> App:
+        """One place where this workflow constructs an App under the run policy.
+
+        Both package policies are the run's decision and arrive already resolved
+        (INV-EXP-34, INV-EXP-35); nothing below this layer looks either of them
+        up. The instrumenter is deliberately not built through here — it
+        receives the DECLARED applicationId (INV-EXP-36).
+        """
+        return App(
+            app_path=app_path,
+            package_detector=self.config.package_detector,
+            strip_build_type_suffix=self.config.strip_build_type_suffix,
+        )

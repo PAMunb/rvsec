@@ -37,6 +37,7 @@ Usage:
 """
 
 import argparse
+import logging
 import sqlite3
 import sys
 from collections import defaultdict
@@ -45,6 +46,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from scipy.stats import trim_mean
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from summary_measured import measured_rows  # noqa: E402  (path must be set first)
+
+# Rows excluded for want of a denominator are reported, never dropped silently.
+log = logging.getLogger(__name__)
 
 # Must match aperv_objective.py so analysis scores are consistent with calibration
 TRIM_PROPORTION = 0.1
@@ -65,12 +73,14 @@ BASELINE_COLS = {
     "errors": "total_errors",
 }
 
-# Calibration summary.csv column mapping (rv-platform ResultProcessor format)
+# Calibration summary.csv column mapping (rv-platform ResultProcessor format).
+# Both names on the right are the ones `summary.csv` actually carries: it has
+# never held `cov_rv_method` (a coverage.csv column) nor a bare `errors`.
 TRIAL_COLS = {
     "method": "cov_method",
-    "mop": "cov_rv_method",  # "rv_method" = RV-instrumented methods reached
+    "mop": "cov_reaches_target",  # methods reaching a monitored operation
     "activity": "cov_act",
-    "errors": "errors",
+    "errors": "mop_errors_total",
 }
 
 
@@ -166,7 +176,11 @@ def load_trial_summary(study_dir: Path, trial_num: int) -> pd.DataFrame | None:
     p = study_dir / f"trial_{trial_num}" / f"trial_{trial_num}" / "summary.csv"
     if not p.exists():
         return None
-    return pd.read_csv(p)
+    # Filtered at the read, not at each aggregate: `trim_mean` does not skip
+    # `NaN`, so one unmeasured row would turn a trial's every metric into `nan`
+    # (INV-PLT-36). Violation counts of dropped rows are valid but belong to a
+    # different question than coverage.
+    return measured_rows(pd.read_csv(p), context=str(p), log=log)
 
 
 def compute_trial_metrics(df: pd.DataFrame) -> dict:
@@ -219,7 +233,7 @@ def load_baselines(csv_path: Path, filter_apks: set[str]) -> dict[str, dict]:
         Dict mapping tool name to a metrics dict with the same structure as
         ``compute_trial_metrics`` output, plus ``n_reps``.
     """
-    df = pd.read_csv(csv_path)
+    df = measured_rows(pd.read_csv(csv_path), context=str(csv_path), log=log)
     df = df[df["apk"].isin(filter_apks)].copy()
 
     results = {}
@@ -249,7 +263,11 @@ def load_baselines(csv_path: Path, filter_apks: set[str]) -> dict[str, dict]:
         n_reps = int(gdf.groupby("apk").size().iloc[0])
         n_apks = len(apk_means)
 
-        # Trimmed mean for robustness, matching calibration objective methodology
+        # Trimmed mean for robustness, matching calibration objective methodology.
+        # The baseline CSVs come from `consolidate_exp*.py`, whose schema is not
+        # `summary.csv`'s and carries no `measured` column; `measured_rows` is a
+        # no-op there and applied anyway, so a future baseline written in the
+        # rv-platform schema is filtered without anyone remembering to add it.
         method = trim_mean(apk_means[BASELINE_COLS["method"]].values, TRIM_PROPORTION)
         mop = trim_mean(apk_means[BASELINE_COLS["mop"]].values, TRIM_PROPORTION)
         activity = trim_mean(

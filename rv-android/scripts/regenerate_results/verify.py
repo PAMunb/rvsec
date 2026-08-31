@@ -6,9 +6,15 @@ Checks performed (see docs/20260514_regenerar_planilhas.md §8):
      lines in the .logcat must equal the count of rows in errors_regen.csv.
   C2 coverage upper bound: rows in coverage_regen.csv for the tuple must be
      <= count of "RVSEC-COV:" lines in the .logcat (deduplicated).
-  C3 summary <-> coverage coherence: cov_act, cov_class, cov_method,
-     cov_rv_method on the summary row must equal the last chronological row of
-     coverage_regen.csv (within +-0.01) for the same tuple.
+  C3 summary <-> coverage coherence, DIRECTIONAL (INV-PLT-37): cov_act,
+     cov_class, cov_method, cov_rv_method on the summary row must equal the last
+     chronological row of coverage_regen.csv (within +-0.01) for the same tuple.
+     When there are no coverage rows the check splits by which of two situations
+     produced them, and the summary row itself says which:
+       - measured=false -> no denominator: the cells MUST be empty, never 0.00.
+       - measured=true  -> a denominator nothing covered: the cells MUST be 0.00.
+     The old form asserted `cov_* == 0 whenever coverage_rows == 0`, which after
+     INV-PLT-35 is false for every unmeasured row — those cells are empty.
   C4 sanity: number of summary rows == number of .logcat files discovered.
   C5 errors parity vs original errors_all.csv (optional, --compare-errors):
      row count delta and per-tuple delta.
@@ -180,20 +186,55 @@ def verify(
             ("cov_reaches_target", "cov_rv_method"),
         ]
         if not cov_rows:
-            # No coverage rows means either no RVSEC-COV in the logcat or the APK
-            # had no static_data. summary cov_* must be 0 in that case.
+            # Zero coverage rows has two causes and they publish differently
+            # (INV-PLT-37). The summary row's own `measured` column says which,
+            # which is the whole reason that column exists — before it, both
+            # cases wrote 0.00 and this check could not tell them apart.
+            #
+            # A pre-INV-PLT-36 file carries no `measured` column at all; it is
+            # read as measured, because that era wrote 0.00 for both cases and
+            # the old assertion is the only one its data can answer.
+            measured = str(s.get("measured", "true")).strip().lower() != "false"
             for s_col, _ in summary_to_coverage:
-                if float(s.get(s_col, "0") or 0) != 0:
+                cell = (s.get(s_col) or "").strip()
+                if not measured:
+                    if cell != "":
+                        c3_failures.append(
+                            f"  {key}: {s_col}={cell!r} but measured=false — a "
+                            "row with no denominator must leave the cell empty, "
+                            "not publish a number (INV-PLT-35)"
+                        )
+                    continue
+                if cell == "":
                     c3_failures.append(
-                        f"  {key}: {s_col}={s[s_col]} but coverage_rows=0"
+                        f"  {key}: {s_col} is empty but measured=true — a row "
+                        "with a denominator must publish its coverage, even when "
+                        "that coverage is 0.00"
+                    )
+                elif float(cell) != 0:
+                    c3_failures.append(
+                        f"  {key}: {s_col}={cell} but coverage_rows=0"
                     )
             continue
         last = cov_rows[
             -1
         ]  # CSV order preserved; chronological per regenerate_container.py
         for s_col, c_col in summary_to_coverage:
-            sv = float(s.get(s_col, "0") or 0)
-            cv = float(last.get(c_col, "0") or 0)
+            s_cell = (s.get(s_col) or "").strip()
+            c_cell = (last.get(c_col) or "").strip()
+            if s_cell == "" and c_cell == "":
+                # Both writers agreed there was no denominator. That is the
+                # coherent state, not a missing comparison.
+                continue
+            if (s_cell == "") != (c_cell == ""):
+                c3_failures.append(
+                    f"  {key}: summary.{s_col}={s_cell!r} and "
+                    f"last_coverage.{c_col}={c_cell!r} disagree on whether this "
+                    "task had a denominator"
+                )
+                continue
+            sv = float(s_cell)
+            cv = float(c_cell)
             if abs(sv - cv) > 0.01:
                 c3_failures.append(
                     f"  {key}: summary.{s_col}={sv} vs last_coverage.{c_col}={cv} (delta={sv - cv:.4f})"

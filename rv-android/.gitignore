@@ -278,3 +278,8 @@ cython_debug/
 .claude/.mcp.json
 .claude/memory.json
 .claude/settings.local.json
+
+# The pre-change GATOR tree, restored for the task 1.8 A/B run. ~76 MB of jars
+# plus the launcher; evidence/jars-pre/SHA256SUMS.txt is what records them, and
+# evidence/jars-pre/.gitignore already decided that those jars are not versioned.
+lib/gator-pre/

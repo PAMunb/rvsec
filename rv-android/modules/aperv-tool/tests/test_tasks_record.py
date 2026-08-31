@@ -50,6 +50,7 @@ def _record(
     seconds: int = 361,
     method_coverage: float = 10.0,
     transitions: int = 0,
+    write_errors: Dict[str, int] | None = None,
 ) -> Dict[str, Any]:
     """One task record in the shape rv-platform writes it."""
     return {
@@ -78,6 +79,7 @@ def _record(
                 "total_method_calls": 789.0,
             },
             "detected_errors_count": 0,
+            "write_errors": write_errors or {},
             "state_transitions": [
                 {
                     "state": "COMPLETED",
@@ -233,6 +235,31 @@ def test_tie_with_identical_payload_is_not_a_conflict(tmp_path: Path) -> None:
             [
                 _record("aaaaaaaa-0000-0000-0000-000000000001", transitions=3),
                 _record("bbbbbbbb-0000-0000-0000-000000000002", transitions=7),
+            ],
+        )
+    )
+    assert len(frame) == 1
+    assert diagnostics.collisions == 1
+
+
+def test_tie_differing_only_in_write_errors_is_not_a_conflict(tmp_path: Path) -> None:
+    """`write_errors` counts rows this run failed to write — per-run I/O noise.
+
+    It reached the wire when gh111 serialized it (INV-CORE-61), and it is
+    exactly the category `_payload` excludes by construction: two attempts that
+    observed the same application differ here only because one of them hit a
+    disk problem while writing its CSVs. Without the exclusion that disk problem
+    raises `IdentityCollisionUnresolved` and aborts the whole load.
+    """
+    frame, diagnostics = load(
+        _write(
+            tmp_path,
+            [
+                _record("aaaaaaaa-0000-0000-0000-000000000001", write_errors={}),
+                _record(
+                    "bbbbbbbb-0000-0000-0000-000000000002",
+                    write_errors={"errors.csv": 3},
+                ),
             ],
         )
     )
