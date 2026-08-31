@@ -154,7 +154,9 @@ class CoverageTracker:
 
         # Empty repository -- will be populated from static data (if available) and
         # incrementally from logcat lines as the background thread processes them.
-        self.repository = LogcatRepository()
+        self.repository = LogcatRepository(
+            scope_key=getattr(static_data, "code_package", None)
+        )
 
         # Stateful parser for diagnostic events (crashes/VerifyError/ANR). Fed every
         # line alongside parse_logcat_line; events land in the isolated collection and

@@ -272,17 +272,26 @@ def _coverage_rank(record: Mapping[str, Any]) -> float:
     return float(value)
 
 
+# Fields a retry changes by construction, and which therefore say nothing about
+# whether two attempts observed different things.
+_RETRY_VOLATILE = frozenset({"state_transitions", "write_errors"})
+
+
 def _payload(record: Mapping[str, Any]) -> Tuple[Any, Any]:
     """The record's content, minus what a retry changes by construction.
 
-    The id differs between any two records, and `state_transitions[]` records
-    wall-clock instants; neither says the two attempts observed different
-    things. What is left is what a tie has to be judged on.
+    The id differs between any two records; `state_transitions[]` records
+    wall-clock instants; and `write_errors` counts rows this run's result
+    processing failed to write — per-run I/O noise, not an observation about the
+    application. Two tied `COMPLETED` records differing only in `write_errors`
+    would otherwise raise `IdentityCollisionUnresolved` and abort the whole load,
+    on the strength of a disk hiccup. What is left is what a tie has to be judged
+    on.
     """
     result = {
         key: value
         for key, value in (record.get("result") or {}).items()
-        if key != "state_transitions"
+        if key not in _RETRY_VOLATILE
     }
     return (record.get("config"), result)
 

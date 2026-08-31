@@ -55,7 +55,9 @@ class CoverageComponent:
         # It is attached to the task so ResultProcessorComponent can access
         # violation data during CSV/JSON generation. For resumed tasks, this
         # repository is reconstructed from the persisted logcat file.
-        self.repository = LogcatRepository()
+        self.repository = LogcatRepository(
+            scope_key=getattr(task.static_data, "code_package", None)
+        )
         self.task.repository = self.repository
         self.tracker_process = None
         self.coverage_tracker = None
@@ -142,6 +144,7 @@ class CoverageComponent:
                 self.repository = parse_logcat_file(
                     self.task.result.logcat_file,
                     tool_execution_start=self.task.result.tool_execution_start,
+                    scope_key=self.repository.scope_key,
                 )
                 self.task.repository = self.repository
             except Exception as e:
