@@ -81,7 +81,7 @@ def analyze(args, unknown):
     apktool_dir = decode_res_from_apk(args.apkpath)
     print('...... resource decoded to %s' % apktool_dir)
 
-    target_level = get_target_level(args, apktool_dir)
+    target_level = get_target_level(args, apktool_dir, sdk_path)
     print('...... target level: {}'.format(target_level))
 
     # sootandroid_dir = os.path.join(gator_dir, 'sootandroid')
@@ -152,7 +152,33 @@ def process_google_api(args, sdk_path, target_level, android_jar):
     return android_jar
 
 
-def get_target_level(args, apktool_dir):
+def installed_platform_levels(sdk_path):
+    """API levels usable as a `-apiLevel` value, ascending.
+
+    Only `android-<int>` directories holding a real android.jar count, and the
+    integer constraint is not cosmetic: presto.android.Configs both parses the
+    -apiLevel string with Integer.parseInt (Configs.java:229) and reuses it
+    verbatim as the platform directory name (Configs.java:230,249). The one
+    string therefore has to be an integer AND a directory. Google now also
+    ships minor-versioned platforms -- android-36.1, android-37.0 -- and those
+    satisfy only the second half, so they cannot be handed to GATOR as-is.
+    """
+    platforms_dir = os.path.join(sdk_path, 'platforms')
+    if not os.path.isdir(platforms_dir):
+        return []
+    levels = []
+    for name in os.listdir(platforms_dir):
+        if not name.startswith('android-'):
+            continue
+        suffix = name[len('android-'):]
+        if not suffix.isdigit():
+            continue
+        if path_exists(os.path.join(platforms_dir, name, 'android.jar')):
+            levels.append(int(suffix))
+    return sorted(levels)
+
+
+def get_target_level(args, apktool_dir, sdk_path):
     if args.apilevel != '-1':
         target_level = int(args.apilevel)
     else:
@@ -163,6 +189,41 @@ def get_target_level(args, apktool_dir):
         elif target_level < 10:
             print('...... target API level is below 10. Force to use 10.')
             target_level = 10
+
+    # Ceiling. The floor above has always been here; the ceiling was missing,
+    # and without it an APK targeting a level this SDK does not carry sends
+    # GATOR at a nonexistent android.jar. Soot then dies in about five seconds,
+    # no output JSON is written, and the caller only logs a warning
+    # (pre_processor.py:519) -- so the run continues and every coverage cell
+    # silently reads zero. Observed on smk111 with android-37: 48 of the 348
+    # APKs in the pool (22 of the campaign's 162) target 37, and the image
+    # carries android-10 through android-36.
+    #
+    # Clamping DOWN to the highest installed level at or below the target also
+    # covers a gap in the middle of the range, which fails the same way, and
+    # costs nothing extra to express. Analysing against a slightly older
+    # platform is an approximation; crashing is not an alternative to it. The
+    # message is loud on purpose, because the approximation has to be visible
+    # in the run log of anyone reading the numbers afterwards.
+    #
+    # The real repair is to carry the platform the APK asks for. That needs the
+    # SDK package `platforms;android-37.0` installed in docker/android and
+    # symlinked to `android-37`, because there is no `platforms;android-37`
+    # package to install -- see installed_platform_levels above for why the
+    # symlink, and not the bare minor-versioned name, is what GATOR can use.
+    levels = installed_platform_levels(sdk_path)
+    usable = [level for level in levels if level <= target_level]
+    if levels and not usable:
+        print('...... no installed Android platform at or below API level %d; '
+              'GATOR will very likely fail. Installed: %s'
+              % (target_level, ', '.join(str(level) for level in levels)))
+    elif usable and usable[-1] != target_level:
+        print('...... target API level %d has no android.jar in this SDK. '
+              'Falling back to the highest installed level at or below it: %d. '
+              'The analysis is an approximation for this APK.'
+              % (target_level, usable[-1]))
+        target_level = usable[-1]
+
     return target_level
 
 
