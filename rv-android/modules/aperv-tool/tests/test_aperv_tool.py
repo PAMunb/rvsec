@@ -1548,15 +1548,16 @@ class TestDeriveMopArtifact:
         )
 
     def test_failed_derivation_leaves_no_file(self, tmp_path):
-        # Spec scenario "failed derivation leaves no artifact behind": a truncated
-        # analysis must not arm a run, and must leave no temp behind either.
-        _write_source(tmp_path, {**SOURCE_DOCUMENT, "complete": False})
+        # Spec scenario "failed derivation leaves no artifact behind": a section of
+        # the wrong type is a producer bug that must not arm a run, and must leave
+        # no temp behind either.
+        _write_source(tmp_path, {**SOURCE_DOCUMENT, "windows": "none"})
         before = set(os.listdir(tmp_path))
 
         with pytest.raises(RVToolExecutionError) as raised:
             self.tool._derive_mop_artifact(self._task(tmp_path))
 
-        assert "complete" in str(raised.value)
+        assert "windows" in str(raised.value)
         assert not self._artifact_path(tmp_path).exists()
         assert set(os.listdir(tmp_path)) == before
 
@@ -1951,14 +1952,34 @@ class TestExecuteMopArtifactFlow:
         assert not any(push[1] == APERV_DEVICE_PROPERTIES_PATH for push in self.pushed)
 
     def test_mop_arm_derivation_error_raises(self, tmp_path):
-        # Spec scenario "sata_mop execution when derivation fails": nothing is
-        # pushed and the jar is never launched.
-        _write_source(tmp_path, {**SOURCE_DOCUMENT, "complete": False})
+        # Spec scenario "sata_mop execution when derivation fails": a section of the
+        # wrong type refuses derivation, nothing is pushed and the jar is never
+        # launched.
+        _write_source(tmp_path, {**SOURCE_DOCUMENT, "windows": "none"})
 
         with pytest.raises(RVToolExecutionError):
             self._run(tmp_path, self.MOP_ARM)
 
         assert self._artifact_pushes() == []
+
+    @pytest.mark.parametrize("arm_name", ["mop_on_llm_off", "mop_off_llm_off"])
+    def test_mop_arm_arms_on_wtgless_document(self, tmp_path, arm_name):
+        # Spec scenario "WTG-less document arms both aperv arms": the producer's
+        # first-pass document carries substrate but no WTG, and both arms declare
+        # mop_data: static_analysis (INV-APV-30 zeroes the control's weights, it does
+        # not remove the document), so before this change both failed on it.
+        wtgless = {**SOURCE_DOCUMENT, "transitions": []}
+        del wtgless["complete"]
+        _write_source(tmp_path, wtgless)
+
+        self._run(tmp_path, ApeRVTool.get_variants()[arm_name])
+
+        pushes = self._artifact_pushes()
+        assert len(pushes) == 1
+        artifact = json.loads(pushes[0][2])
+        assert artifact["wtg"] == {}
+        assert artifact["stats"]["wtgEdges"] == 0
+        assert (tmp_path / "app.apk.mop.json").exists()
 
     def test_non_mop_arm_untouched(self, tmp_path, monkeypatch):
         # Spec scenario "Successful APE-RV execution with sata variant": no

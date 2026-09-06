@@ -80,7 +80,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - `ConfigurationError` -- raised by `configure()` when `strategy` is absent or outside `["sata", "random"]`, when `preset` is absent or empty, when `overrides` is not a dict, when a top-level key is neither mapped nor a recognised orchestration key (INV-APV-39), when an `overrides` key has no `APERV_PROPERTY_MAPPING` entry, and when `corpus_basis` is present but does not match `^[A-Za-z0-9._-]+:[0-9a-f]{64}$`. All are raised before any device interaction, so a malformed value costs no emulator time and produces no partially-configured run
 - Jar-side abort -- an unknown key, a retired key, an invalid type, or a non-neutral value of an inactive feature aborts the run before step 1; visible in the trace, never silent
 - `RVToolExecutionError` -- raised when `ape-rv.jar` cannot be found in any search path, when an ADB push fails, when a MOP arm has no full JSON or its derivation fails, or when the exploration returns materially short of its budget (INV-APV-60). Non-MOP arms are unaffected by the MOP cases
-- `DerivationError` -- raised by `derive()` when the document is structurally unusable (`complete` absent or false, missing `package`, a section of the wrong type). No partial artifact is produced; the caller re-raises it as `RVToolExecutionError`
+- `DerivationError` -- raised by `derive()` when the document is structurally unusable (not an object, missing `package`, a section of the wrong type). The absence or falsity of `complete` is NOT among the causes. No partial artifact is produced; the caller re-raises it as `RVToolExecutionError`
 - `RVToolTimeoutError` -- raised when execution exceeds `task.config.timeout + 45` seconds (expected normal exit for exploration tools)
 - `SystemExit(2)` -- the offline clock-to-violation join utility on usage error (missing or unreadable run directory)
 - Provenance query failures are non-fatal: the run proceeds and the provenance fields record the failure rather than a fabricated value (INV-APV-33)
@@ -185,6 +185,11 @@ which the sibling `ape` change already references by number.
   caught it. The full JSON SHALL remain unmodified on the host.
 - **INV-DRV-07**: Each emitted activity SHALL carry `deepLinkUri` derived by the rule the jar applies
   today; the intent-filter structure itself SHALL NOT be on the wire.
+
+- **INV-DRV-08**: `derive()` SHALL NOT read `document["complete"]` for any control-flow decision. A
+  document whose sections are well-typed SHALL yield an artifact regardless of the sentinel's
+  presence, falsity or absence. WTG absence SHALL be expressed as an empty `wtg` map with
+  `stats["wtgEdges"] == 0`, never as a refusal.
 
 - **INV-APV-38**: Every arm whose `preset` is `llm` or `llm_mop` MUST carry `llm_url` in its
   `overrides`. The preset deliberately omits the server URL because it names a machine rather than an
@@ -1209,6 +1214,10 @@ of the full JSON (INV-APV-47, INV-DRV-05). This method replaces `_compact_static
 which is deleted together with its fallback-to-source push: there is no longer any condition under
 which the full JSON reaches the device (INV-APV-46).
 
+Derivation failure means the document is structurally unusable, not that the analysis stopped early.
+An unreadable or unparseable file fails here through `json.loads` before `derive()` is reached; a
+well-formed document that lacks the WTG stage does not fail at all (INV-DRV-08).
+
 #### Scenario: cache hit skips derivation
 - **WHEN** `<results_dir>/com.example_1.apk.mop.json` exists carrying
   `source.digest == "sha256:ab12…"` and the SHA-256 of `com.example_1.apk.json` is `ab12…`
@@ -1222,10 +1231,18 @@ which the full JSON reaches the device (INV-APV-46).
 - **AND** the pushed bytes SHALL equal a fresh derivation of the current full JSON
 
 #### Scenario: failed derivation leaves no artifact behind
-- **WHEN** `derive()` raises `DerivationError` because the document carries `complete: false`
+- **WHEN** `derive()` raises `DerivationError` because `document["windows"]` is the string `"none"`
+  instead of a list
 - **THEN** no `<apk_name>.mop.json` SHALL exist afterwards, and any partially written temporary file
   SHALL be removed
 - **AND** `RVToolExecutionError` SHALL be raised carrying the derivation error
+
+#### Scenario: WTG-less document arms both aperv arms
+- **WHEN** `<results_dir>/app.pachli_50.apk.json` carries 6336 `reachability` entries, 45 `windows`,
+  `transitions: []` and no `complete` key
+- **THEN** `_derive_mop_artifact(task)` SHALL return the path of a written `app.pachli_50.apk.mop.json`
+- **AND** the task SHALL NOT fail, for the `mop_on_llm_off` arm and for the `mop_off_llm_off` arm alike
+- **AND** the artifact SHALL carry `wtg == {}` and `stats["wtgEdges"] == 0`
 
 ---
 
@@ -1265,9 +1282,14 @@ the projection the explorer consumes:
    `widgetsTotal` and `flagged` SHALL count the widget map after the dialog merge and before the
    emission filter of item 3, so they remain the numbers the jar's load record reported.
 
-Derivation preconditions: `document["complete"] is True` and a non-null `package`; otherwise
-`DerivationError`. A truncated analysis SHALL never yield an artifact — the completeness sentinel
-becomes a generation precondition instead of a device-side check.
+Derivation preconditions: the document is an object, carries a non-null `package`, and every section
+it does carry is of the expected type; otherwise `DerivationError`. The producer's `"complete": true`
+sentinel is NOT a precondition (INV-DRV-08). A document written by the producer's first pass — valid
+JSON with populated `reachability` and `windows` per INV-ANA-20, and an empty `transitions` array —
+SHALL yield an artifact whose `wtg` is empty, which the device reads through `MopData.hasWtgData()`
+to disable the WTG-dependent scoring passes on its own. Structural corruption from a write interrupted
+mid-pass is caught earlier, by `json.loads` in `_derive_mop_artifact()`, because the producer truncates
+its output file on open and cannot leave a parseable stale tail.
 
 #### Scenario: cryptoapp derivation matches the known ground truth
 - **WHEN** `derive()` runs on `cryptoapp.apk.gh60-fresh.json`
@@ -1283,10 +1305,27 @@ becomes a generation precondition instead of a device-side check.
   `authorities == "br.unb.cic.cryptoapp.androidx-startup"`, every component `reachesMop == false`
 - **AND** `stats.windows` SHALL be 5, `stats.flagged` 3 and `stats.recovered` 1
 
-#### Scenario: incomplete full JSON refuses to derive
-- **WHEN** `derive()` runs on a document whose `complete` key is absent or `false`
+#### Scenario: absent sentinel does not stop derivation
+- **WHEN** `derive()` runs on a document with a valid `package`, well-typed sections, `transitions: []`
+  and no `complete` key
+- **THEN** an artifact SHALL be returned
+- **AND** `artifact["wtg"]` SHALL equal `{}` and `artifact["stats"]["wtgEdges"]` SHALL equal `0`
+- **AND** `mopActivities`, `optionsMenus` and `widgets` SHALL be derived from `reachability` and
+  `windows` exactly as they would be with the sentinel present
+
+#### Scenario: false sentinel does not stop derivation
+- **WHEN** `derive()` runs on the same document with `complete: False` written explicitly
+- **THEN** the emitted artifact SHALL be byte-identical to the one derived with the key absent
+
+#### Scenario: missing package still refuses
+- **WHEN** `derive()` runs on a document carrying `complete: True` and no `package` key
 - **THEN** `DerivationError` SHALL be raised
-- **AND** no artifact SHALL be produced
+- **AND** no artifact SHALL be returned
+
+#### Scenario: malformed section still refuses
+- **WHEN** `derive()` runs on a document whose `reachability` is the integer `7` instead of a list
+- **THEN** `DerivationError` SHALL be raised
+- **AND** no artifact SHALL be returned
 
 #### Scenario: no Target vocabulary and no call graph on the wire
 - **WHEN** an artifact is generated from a document declaring receivers and services

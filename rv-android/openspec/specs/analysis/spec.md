@@ -1626,10 +1626,15 @@ The static-analysis chain SHALL gain exactly one new downstream consumer: the ho
 SHALL read the full JSON and SHALL NOT modify it. The artifact SHALL be device input only — pushed by
 `aperv-tool`, parsed by the jar, and read by nothing else.
 
-The `"complete": true` sentinel SHALL be a precondition of derivation: a document whose
-`StaticAnalysisData.complete` is `False` SHALL NOT yield an artifact. This preserves the sentinel's
-meaning (the producer reached the end of write) while moving the consequence of its absence from the
-device to the host, where it fails loudly instead of degrading a run.
+The `"complete": true` sentinel SHALL NOT be a precondition of derivation. A document written by the
+producer's first pass — valid JSON with populated `reachability` and `windows` per `INV-ANA-20`, and an
+empty `transitions` array — SHALL yield an artifact whose `wtg` is empty and whose
+`stats["wtgEdges"]` is `0`, which is how WTG absence reaches the device (`INV-DRV-08` in the `aperv`
+capability). The sentinel keeps its producer-side meaning unchanged (`INV-ANA-31`) and remains
+available to the consumers that do require completeness; the derivation is no longer one of them. A
+genuinely interrupted write is still refused, one step earlier: the producer truncates its output file
+on open, so a killed second pass leaves unparseable bytes that fail in `json.loads` before `derive()`
+runs.
 
 #### Scenario: derivation leaves the producer output untouched
 - **WHEN** `aperv-tool` derives an artifact for `com.example_1.apk`
@@ -1637,10 +1642,20 @@ device to the host, where it fails loudly instead of degrading a run.
   derivation
 - **AND** `<results_dir>/com.example_1.apk.mop.json` SHALL exist alongside it
 
-#### Scenario: truncated analysis yields no artifact
-- **WHEN** the full JSON lacks the `"complete": true` sentinel because GATOR was killed mid-write
+#### Scenario: WTG-less analysis still yields an artifact
+- **WHEN** the full JSON lacks the `"complete": true` sentinel because `WTGBuilder` did not finish, and
+  it carries populated `reachability` and `windows` with `transitions: []`
+- **THEN** a `*.mop.json` SHALL be produced for that app
+- **AND** it SHALL carry `wtg == {}` and `stats["wtgEdges"] == 0`
+- **AND** the MOP arm for that app SHALL run, with the jar disabling its WTG-dependent scoring passes
+  through `MopData.hasWtgData()`
+
+#### Scenario: unparseable analysis output still yields no artifact
+- **WHEN** the full JSON is syntactically invalid because the producer was killed during its second
+  write pass, which truncated the file on open
 - **THEN** no `*.mop.json` SHALL be produced for that app
-- **AND** the MOP arm for that app SHALL fail loudly rather than run without MOP guidance
+- **AND** the failure SHALL be raised by `json.loads` in `_derive_mop_artifact()` as
+  `RVToolExecutionError`, before `derive()` is reached
 
 #### Scenario: producer is unaware of the derivation
 - **WHEN** static analysis runs for an app

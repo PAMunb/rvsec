@@ -38,6 +38,13 @@ fixture, so a rule can be read, changed and defended one at a time.
   section are skipped rather than raised on: the producer is an external tool and
   one odd widget must not cost a whole app. A malformed *section* is a
   `DerivationError`, and no partial artifact is ever returned.
+  The producer's `"complete": true` sentinel is deliberately not read (INV-DRV-08).
+  It says the second write pass happened, not that the file is intact: a killed
+  pass leaves unparseable bytes, because the producer truncates its output on open,
+  and those fail in `json.loads` before this module runs. A document without the
+  sentinel is the producer's intended first-pass report — populated `reachability`
+  and `windows`, empty `transitions` — and derives to an artifact whose `wtg` is
+  empty, which is how the device learns the WTG stage did not finish.
 
 ### Integration Points:
 
@@ -150,9 +157,9 @@ class DerivationError(Exception):
     """
     The document is structurally unusable and no artifact may be produced.
 
-    Raised for a missing completion sentinel, a missing package, or a section
-    whose type contradicts the schema. Never raised for a malformed entry inside
-    a well-typed section — those are skipped, because the producer is an external
+    Raised for a document that is not an object, a missing package, or a section
+    whose type contradicts the schema. Never raised for a malformed entry inside a
+    well-typed section — those are skipped, because the producer is an external
     tool whose noise must not cost a whole app.
     """
 
@@ -232,24 +239,16 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
         - "stats" (dict): The `STAT_FIELDS` counters, all present.
 
     Raises:
-        DerivationError: The document carries no `"complete": true` sentinel, no
-            package, or a section of the wrong type. Nothing partial is returned —
-            a truncated analysis must fail generation rather than arm a run with
-            half a substrate.
+        DerivationError: The document is not an object, carries no package, or
+            holds a section of the wrong type. Nothing partial is returned. What
+            fails is a document the schema contradicts; a document the producer
+            merely did not finish derives, carrying its unfinished state as an
+            empty `wtg` (INV-DRV-08).
     """
     # Step 1: Refuse a document that cannot be trusted as a whole
     if not isinstance(document, dict):
         raise DerivationError(
             f"static-analysis document must be an object, got {type(document).__name__}"
-        )
-
-    # The sentinel is the producer's "write finished" bit. It gates generation
-    # host-side, which is where a truncated analysis fails loudly instead of
-    # degrading a run into a silently thin substrate.
-    if document.get("complete") is not True:
-        raise DerivationError(
-            "static-analysis document lacks the '\"complete\": true' sentinel "
-            "(truncated analysis)"
         )
 
     package = document.get("package")

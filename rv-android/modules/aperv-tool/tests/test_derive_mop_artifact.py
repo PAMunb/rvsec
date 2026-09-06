@@ -97,6 +97,42 @@ def _reaching_class(class_name, methods, component_type="class") -> dict:
     }
 
 
+def _wtgless_document() -> dict:
+    """The producer's first-pass shape: substrate present, WTG stage unfinished.
+
+    `reachability` and `windows` are populated as `INV-ANA-20` requires of either
+    pass, `transitions` is empty and the `"complete": true` sentinel was never
+    written — the exact document 45 of the 164 `jca_android` APKs produce.
+    """
+    document = _document(
+        reachability=[
+            _reaching_class(
+                "com.example.MainActivity", [_method("<A: void h()>", reaches=True)]
+            )
+        ],
+        windows=[
+            _window(
+                1,
+                "com.example.MainActivity",
+                [
+                    _widget(
+                        "btn_crypto", listeners=[_listener("click", "<A: void h()>")]
+                    ),
+                    _widget("field_user", hint="user"),
+                ],
+            ),
+            _window(
+                2,
+                "com.example.MainActivity#OptionsMenu",
+                [_widget("menu_run", listeners=[_listener("click", "<A: void h()>")])],
+                window_type="OPTIONSMENU",
+            ),
+        ],
+    )
+    del document["complete"]
+    return document
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -261,16 +297,46 @@ def test_index_reachability_skips_malformed_entries():
 # ---------------------------------------------------------------------------
 
 
-def test_derive_requires_completion_sentinel():
-    document = _document()
-    del document["complete"]
-    with pytest.raises(DerivationError, match="complete"):
-        derive(document)
+def test_derive_accepts_document_without_sentinel():
+    """
+    The first-pass document is the producer's deliberate intermediate report, not
+    a truncated file, so it derives. Its missing WTG surfaces as an empty `wtg`
+    map, which is where the device already looks for it (INV-DRV-08).
+    """
+    artifact = derive(_wtgless_document())
+    assert artifact["wtg"] == {}
+    assert artifact["stats"]["wtgEdges"] == 0
+    # Not a vacuous pass: the substrate the explorer scores against is there.
+    assert artifact["mopActivities"] == ["com.example.MainActivity"]
 
 
-def test_derive_refuses_incomplete_document():
-    with pytest.raises(DerivationError, match="complete"):
-        derive(_document(complete=False))
+def test_derive_accepts_false_sentinel():
+    """A false sentinel derives, and derives to the same bytes as an absent one.
+
+    Two documents differing only in a field `derive()` no longer reads must encode
+    identically, which is `INV-DRV-05` determinism applied to this change.
+    """
+    explicit = _wtgless_document()
+    explicit["complete"] = False
+    assert serialize_canonical(derive(explicit)) == serialize_canonical(
+        derive(_wtgless_document())
+    )
+
+
+def test_derive_wtgless_still_derives_widget_sections():
+    """
+    `mopActivities`, `optionsMenus` and `widgets` are joined out of `reachability`
+    and `windows`, so the WTG stage cannot influence them. Pinning the equality
+    keeps a future reader from assuming a sentinel-less run yields a thin artifact.
+    """
+    sealed_document = _wtgless_document()
+    sealed_document["complete"] = True
+    wtgless = derive(_wtgless_document())
+    sealed = derive(sealed_document)
+
+    for section in ("mopActivities", "optionsMenus", "widgets"):
+        assert wtgless[section] == sealed[section]
+    assert wtgless["mopActivities"] and wtgless["optionsMenus"] and wtgless["widgets"]
 
 
 def test_derive_requires_package():
@@ -281,6 +347,11 @@ def test_derive_requires_package():
 def test_derive_refuses_non_dict_components():
     with pytest.raises(DerivationError, match="components"):
         derive(_document(components=["activities"]))
+
+
+def test_derive_refuses_non_list_reachability():
+    with pytest.raises(DerivationError, match="reachability"):
+        derive(_document(reachability=7))
 
 
 def test_derive_refuses_non_list_windows():
