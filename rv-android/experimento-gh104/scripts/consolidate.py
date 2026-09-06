@@ -53,7 +53,14 @@ RESULTS = EXP / "results"
 OUT = EXP / "consolidado"
 MANIFEST = json.loads((EXP / "manifest.json").read_text())
 
-RVSEC = re.compile(r"\bRVSEC\s*:\s*([A-Za-z]+Spec,.+)$")
+# O nome da spec pode conter dígito: o `jca_android` de hoje declara
+# `MGF1ParameterSpecSpec` e `X509EncodedKeySpecSpec`, e um `[A-Za-z]+Spec` os perde
+# em SILÊNCIO — a linha não conta e `mop_total` sai menor sem aviso nenhum. O
+# conjunto `jca` congelado não tem nenhum nome assim, então as campanhas antigas não
+# são afetadas; esta é a régua do conjunto novo. O `:` logo depois de `RVSEC` é o que
+# separa violação de cobertura: `RVSEC-COV` é prefixo de `RVSEC`, e afrouxar isso
+# fabricaria uma violação a cada linha de cobertura.
+RVSEC = re.compile(r"\bRVSEC\s*:\s*([A-Za-z][A-Za-z0-9_$]*Spec,.+)$")
 METRICS = ["cov_method", "cov_act", "cov_mop", "mop_unique", "mop_total", "crashes"]
 WMETRICS = ["cov_mop", "mop_unique", "cov_method", "cov_act", "mop_total"]
 
