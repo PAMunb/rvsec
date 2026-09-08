@@ -145,7 +145,7 @@ Also record, without a row, the DEX-only dead residue the weave log lists as `pl
 ## What is explicitly out of scope here
 
 - The 51 `layer-2` and 42 `predicate-graph` gh101 hunks, and the `CipherSpec` 17→14 / `MacSpec` 8→11 alphabet re-budgets that came with them. If a repair above needed a new `Cipher` event, the ceiling would still bind (INV-INS-115: 17 events generate in 53 s / 3.3 GB, 18 raise `StackOverflowError`) — none of them does.
-- `SecretKeySpec` (the null detector) and `RandomStringPassword` — both left the set in Group 2.
+- `SecretKeySpec` (the null detector) and `RandomStringPassword` — both **stay** in the set: D-11 withdrew the removal Group 2 was originally to perform. Their G-2a/G-2d hits carry over to the successor and are allowlisted with that reason, rather than disappearing with the files.
 - Any allow-list content: settled in Group 2 tasks 2.4-2.7 and held by gate G-CONF.
 - The dispatcher lock (INV-INS-129): a generator repair, owned by Group 3 tasks 3.6-3.8, not by any `.mop`.
 - Moving `KeyPairGeneratorSpec`'s `UnsafeAlgorithm` accusation to `g3`; reviving the two pointcuts of 8.7; repairing any of the divergences (a)-(i) of 8.12; anything in `MetaCrySL`.

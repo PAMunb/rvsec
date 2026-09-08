@@ -268,7 +268,7 @@ The group's only generating task — the orchestrator dispatches it when no othe
 cd ../rvsec/rvsec && git mv rvsec-mop/src/main/resources/jca_android rvsec-mop/src/main/resources/jca_android_bug_predicate
 git status --short -- rvsec-mop/src/main/resources/jca_android rvsec-mop/src/main/resources/jca_android_bug_predicate | grep -c '^R ' && git diff --cached --stat --find-renames -- rvsec-mop/src/main/resources/jca_android rvsec-mop/src/main/resources/jca_android_bug_predicate   # 23 renames, 0 insertions, 0 deletions
 # 2.2 — then seed
-cd rvsec-mop/src/main/resources && cp -r jca jca_android && rm jca_android/RandomStringPassword.mop jca_android/SecretKeySpec.mop && ls jca_android/*.mop | wc -l   # 21
+cd rvsec-mop/src/main/resources && cp -r jca jca_android && ls jca_android/*.mop | wc -l   # 23 — D-11 withdrew the removal of RandomStringPassword.mop and SecretKeySpec.mop; the seed is copied whole
 cd /home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android && uv run pytest --import-mode=importlib -o "addopts=" tests/parity/test_gh101_specset_gates.py -q   # 5 passed — only after task 2.13 repointed the three gh101 scripts to jca_android_bug_predicate; before it, 3 passed / 2 failed
 uv run rv-experiment run --help | grep -A1 specification-set     # still exactly four choices; jca_android among them, jca_android_bug_predicate absent
 uv run pytest --import-mode=importlib -o "addopts=" modules/rv-experiment/tests -q
