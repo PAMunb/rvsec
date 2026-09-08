@@ -1,0 +1,183 @@
+# Comparacao 'estudo02' — gerado por rv-experiment-compare.
+# Tools: monkey,droidbot:dfs_greedy,droidbot:bfs_greedy,droidbot:dfs_naive,droidbot:bfs_naive,ape,droidmate,humanoid,ares,fastbot,qtesting
+# 10 containers, timeouts [60, 180, 300]s, 3 reps, specs jca_android.
+# ares/qtesting rodam como containers irmaos via /var/run/docker.sock:
+#   o HOST precisa ter phtcosta/ares:latest e phtcosta/qtesting:latest.
+# humanoid: sidecar rv-humanoid (phtcosta/humanoid:1.0), RV_HUMANOID_URL=rv-humanoid:50405.
+# Plano: docs/20260908_estudo02.md
+# Uso:
+#   docker compose -f docker/docker-compose.estudo02.yml up -d
+#   .claude/skills/rv-experiment-compare/scripts/monitor_compare.sh estudo02
+#   # passada de resume final ao terminar: re-rodar o up -d (recupera FAILED transientes)
+#   # NAO dar 'down' antes de extrair traces (artefatos efemeros no device)
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.9.3
+  environment: &rvandroid-env
+    RV_TOOLS: "monkey,droidbot:dfs_greedy,droidbot:bfs_greedy,droidbot:dfs_naive,droidbot:bfs_naive,ape,droidmate,humanoid,ares,fastbot,qtesting"
+    RV_TIMEOUTS: "60,180,300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca_android"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RV_HUMANOID_URL: "rv-humanoid:50405"
+    RV_LOGCAT_DIAGNOSTICS: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+  depends_on:
+    humanoid:
+      condition: service_started
+
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: rv-humanoid
+
+  estudo02_00:
+    <<: *rvandroid-base
+    container_name: estudo02_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_00:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02_01:
+    <<: *rvandroid-base
+    container_name: estudo02_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_01:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02_02:
+    <<: *rvandroid-base
+    container_name: estudo02_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_02:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02_03:
+    <<: *rvandroid-base
+    container_name: estudo02_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_03:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02_04:
+    <<: *rvandroid-base
+    container_name: estudo02_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_04:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02_05:
+    <<: *rvandroid-base
+    container_name: estudo02_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_05:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02_06:
+    <<: *rvandroid-base
+    container_name: estudo02_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_06:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02_07:
+    <<: *rvandroid-base
+    container_name: estudo02_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_07:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02_08:
+    <<: *rvandroid-base
+    container_name: estudo02_08
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_08
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_08.txt"
+      RV_DELAY: "80"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_08:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02_09:
+    <<: *rvandroid-base
+    container_name: estudo02_09
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02_09
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_09.txt"
+      RV_DELAY: "90"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02_09:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock

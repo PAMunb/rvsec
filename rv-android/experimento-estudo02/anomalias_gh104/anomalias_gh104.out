@@ -1,0 +1,52 @@
+identidades: 1476  registros brutos: 1509  APKs: 164  containers: 8
+identidades com >1 registro: 26
+estados finais: Counter({'COMPLETED': 1470, 'ERROR': 6})
+C1 reprova em 6 identidades
+C2 reprova em 6 identidades
+C3 reprova em 0 identidades
+C4 reprova em 0 identidades
+C5 reprova em 10 identidades
+C2 com piso da campanha (255s): 0 identidades
+sem logcat: 0  sem trace: 0
+
+== APKs com flag ==
+com.google.android.stardroid_1678.apk            COMPLETEDx3,ERRORx6        t=64/363   covM=0.0/0.0      covA=0.0/0.0      C1..5=66009 crash=0 anr=0 :: FALHA_TODAS:C5;BRACO_SEM_REP_ADMISSIVEL:ape,aperv:mop_off_llm_off,aperv:mop_on_llm_off;cov_method=0_todas;cov_method<1_todas;cov_act=0_todas;COMPLETED_com_0_chamadas;JA_EXCLUIDO_manifest
+
+== identidades inadmissíveis (parciais) ==
+com.google.android.stardroid_1678.apk            ape                    rep1 gh104_04 COMPLETED t= 362 covM=0.0 covA=0.0 steps=102 sigs=61 :: C5 :: 
+com.google.android.stardroid_1678.apk            ape                    rep2 gh104_04 COMPLETED t= 354 covM=0.0 covA=0.0 steps=104 sigs=61 :: C5 :: 
+com.google.android.stardroid_1678.apk            ape                    rep3 gh104_04 COMPLETED t= 363 covM=0.0 covA=0.0 steps=99 sigs=61 :: C5 :: 
+com.google.android.stardroid_1678.apk            aperv:mop_off_llm_off  rep1 gh104_04 ERROR     t=  64 covM=0.0 covA=0.0 steps=12 sigs=61 :: C1+C2+C5 :: TaskExecutionError: Component ToolExecutionComponent execution failed 
+com.google.android.stardroid_1678.apk            aperv:mop_off_llm_off  rep2 gh104_04 ERROR     t=  65 covM=0.0 covA=0.0 steps=11 sigs=61 :: C1+C2+C5 :: TaskExecutionError: Component ToolExecutionComponent execution failed 
+com.google.android.stardroid_1678.apk            aperv:mop_off_llm_off  rep3 gh104_04 ERROR     t=  66 covM=0.0 covA=0.0 steps=6 sigs=61 :: C1+C2+C5 :: TaskExecutionError: Component ToolExecutionComponent execution failed 
+com.google.android.stardroid_1678.apk            aperv:mop_on_llm_off   rep1 gh104_04 ERROR     t=  80 covM=0.0 covA=0.0 steps=17 sigs=61 :: C1+C2+C5 :: TaskExecutionError: Component ToolExecutionComponent execution failed 
+com.google.android.stardroid_1678.apk            aperv:mop_on_llm_off   rep2 gh104_04 ERROR     t=  81 covM=0.0 covA=0.0 steps=13 sigs=61 :: C1+C2+C5 :: TaskExecutionError: Component ToolExecutionComponent execution failed 
+com.google.android.stardroid_1678.apk            aperv:mop_on_llm_off   rep3 gh104_04 ERROR     t=  83 covM=0.0 covA=0.0 steps=14 sigs=61 :: C1+C2+C5 :: TaskExecutionError: Component ToolExecutionComponent execution failed 
+com.shatteredpixel.shatteredpixeldungeon_896.apk aperv:mop_on_llm_off   rep1 gh104_03 COMPLETED t= 367 covM=0.22894755670029332 covA=0.0 steps=172 sigs=327 :: C5 :: 
+
+== top-10 viol_lines por identidade ==
+com.flxrs.dankchat_40038.apk                     ape                    rep3 viol=639 distinct=16 mop_unique=16.0
+com.flxrs.dankchat_40038.apk                     ape                    rep2 viol=559 distinct=16 mop_unique=16.0
+com.flxrs.dankchat_40038.apk                     ape                    rep1 viol=373 distinct=16 mop_unique=16.0
+com.tananaev.passportreader_22.apk               aperv:mop_on_llm_off   rep2 viol=271 distinct=40 mop_unique=38.0
+com.tananaev.passportreader_22.apk               aperv:mop_off_llm_off  rep1 viol=268 distinct=40 mop_unique=38.0
+com.tananaev.passportreader_22.apk               aperv:mop_off_llm_off  rep2 viol=231 distinct=40 mop_unique=38.0
+com.tananaev.passportreader_22.apk               aperv:mop_off_llm_off  rep3 viol=225 distinct=40 mop_unique=37.0
+com.tananaev.passportreader_22.apk               ape                    rep2 viol=190 distinct=40 mop_unique=37.0
+com.tananaev.passportreader_22.apk               aperv:mop_on_llm_off   rep1 viol=190 distinct=40 mop_unique=38.0
+com.tananaev.passportreader_22.apk               aperv:mop_on_llm_off   rep3 viol=188 distinct=40 mop_unique=37.0
+
+== top-10 crashes por APK (app_events) ==
+com.matedroid_178120864.apk                      crash=57 anr=0 ident_c_crash=8/9 first=19/198 proc_own/all=57/57
+rocks.poopjournal.metadataremover_20020.apk      crash=31 anr=0 ident_c_crash=6/9 first=27/169 proc_own/all=31/31
+se.arctosoft.vault_41.apk                        crash=29 anr=0 ident_c_crash=7/9 first=37/194 proc_own/all=29/29
+com.luk.saucenao_27.apk                          crash=22 anr=0 ident_c_crash=3/9 first=55/65 proc_own/all=22/22
+com.vermont.possin_8.apk                         crash=18 anr=0 ident_c_crash=6/9 first=108/217 proc_own/all=18/18
+swati4star.createpdf_110.apk                     crash=18 anr=0 ident_c_crash=3/9 first=60/83 proc_own/all=18/18
+org.openhab.habdroid_589.apk                     crash=16 anr=2 ident_c_crash=9/9 first=11/156 proc_own/all=18/18
+vadimerenkov.aucards_21.apk                      crash=16 anr=0 ident_c_crash=4/9 first=63/253 proc_own/all=16/16
+com.password.monitor_102.apk                     crash=14 anr=0 ident_c_crash=4/9 first=26/180 proc_own/all=14/14
+org.piepmeyer.gauguin_75.apk                     crash=14 anr=0 ident_c_crash=9/9 first=18/246 proc_own/all=14/14
+
+CSV: /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/a82426d7-e78b-46f2-b6bc-3dc9042bdb2b/scratchpad/anomalias_gh104_identidades.csv
+CSV: /tmp/claude-1000/-pedro-desenvolvimento-workspaces-workspaces-doutorado-workspace-rv-rvsec-rv-android/a82426d7-e78b-46f2-b6bc-3dc9042bdb2b/scratchpad/anomalias_gh104_por_apk.csv

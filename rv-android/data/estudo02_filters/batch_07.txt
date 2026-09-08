@@ -1,0 +1,16 @@
+be.digitalia.fosdem_2300230.apk
+com.apps.adrcotfas.goodtime_348.apk
+com.defname.localshare_14.apk
+com.fredhappyface.ewesticker_20250217.apk
+com.iyps_158.apk
+com.matedroid_178120864.apk
+com.rastislavkish.vscan_24.apk
+com.starry.greenstash_440.apk
+de.luhmer.owncloudnewsreader_196.apk
+dev.sebaubuntu.athena_17.apk
+io.github.jd1378.otphelper_52000.apk
+me.rosuh.easywatermark_21000.apk
+nz.eloque.foss_wallet_111.apk
+org.fossify.paint_7.apk
+org.openhab.habdroid_589.apk
+systems.sieber.droid_scep_7.apk

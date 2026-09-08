@@ -1,0 +1,71 @@
+# Comparacao 'estudo02smoke' — gerado por rv-experiment-compare.
+# Tools: monkey,droidbot:dfs_greedy,droidbot:bfs_greedy,droidbot:dfs_naive,droidbot:bfs_naive,ape,droidmate,humanoid,ares,fastbot,qtesting
+# 2 containers, timeouts [60]s, 1 reps, specs jca_android.
+# ares/qtesting rodam como containers irmaos via /var/run/docker.sock:
+#   o HOST precisa ter phtcosta/ares:latest e phtcosta/qtesting:latest.
+# humanoid: sidecar rv-humanoid (phtcosta/humanoid:1.0), RV_HUMANOID_URL=rv-humanoid:50405.
+# Plano: docs/20260908_estudo02smoke.md
+# Uso:
+#   docker compose -f docker/docker-compose.estudo02smoke.yml up -d
+#   .claude/skills/rv-experiment-compare/scripts/monitor_compare.sh estudo02smoke
+#   # passada de resume final ao terminar: re-rodar o up -d (recupera FAILED transientes)
+#   # NAO dar 'down' antes de extrair traces (artefatos efemeros no device)
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.9.3
+  environment: &rvandroid-env
+    RV_TOOLS: "monkey,droidbot:dfs_greedy,droidbot:bfs_greedy,droidbot:dfs_naive,droidbot:bfs_naive,ape,droidmate,humanoid,ares,fastbot,qtesting"
+    RV_TIMEOUTS: "60"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca_android"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+    RV_HUMANOID_URL: "rv-humanoid:50405"
+    RV_LOGCAT_DIAGNOSTICS: "true"
+  devices:
+    - /dev/kvm:/dev/kvm
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+  depends_on:
+    humanoid:
+      condition: service_started
+
+services:
+  humanoid:
+    image: phtcosta/humanoid:1.0
+    container_name: rv-humanoid
+
+  estudo02smoke_00:
+    <<: *rvandroid-base
+    container_name: estudo02smoke_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02smoke_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02smoke_00:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  estudo02smoke_01:
+    <<: *rvandroid-base
+    container_name: estudo02smoke_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: estudo02smoke_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /home/pedro/desenvolvimento/RV_ANDROID_DATASET_FINAL/APKS_INSTRUMENTED_jca_android_dexlib2:/opt/rvsec/rv-android/apks:ro
+      - ../data/estudo02smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/estudo02smoke_01:/opt/rvsec/rv-android/results
+      - /var/run/docker.sock:/var/run/docker.sock
