@@ -21,9 +21,11 @@ in `Signature`) and the one `behavioural` case (`OAEPWithSHA1AndMGF1Padding`,
 which no Conscrypt registration explains and which therefore gets no alias row).
 They are statements about the set, not about a diff, and G-CONF reads them here.
 
-The successor carries all 23 specifications of the seed, predicates included, so
-neither set holds a file the other lacks; a `removed-file` or `new-file` hunk would
-therefore be a real divergence and needs a row like any other.
+The successor carried all 23 specifications of the seed until a599be6b dropped
+`RandomStringPassword.mop`, so a `removed-file` or `new-file` hunk is a real
+divergence and needs a row like any other. A removal keys as `(file, "removed-file")`
+and is not narrative: the file it names is gone, so its recorded hunk rows go stale
+with it and the removal row is what carries their reason forward.
 
 Usage:
     gh104_divergence_record.py --check    [--record <csv>]   # exit 1 on any mismatch
@@ -109,6 +111,14 @@ KINDS = {
     # files is one rule moving from unspecified to `covered` in the matrix.
     "coverage-spec",  # a specification the seed did not carry, written for a rule of
     # the pinned expert oracle that the seed left unspecified
+    # The one act no kind above names: a file of the seed leaving the successor
+    # entirely. `predicate-removal` retires a site and `coverage-spec` adds a file;
+    # neither says a specification stopped existing, and filing a whole-file removal
+    # under a site-level word would put the reason where no reader looks for it.
+    # The removal also takes that file's hunk rows with it -- they key on a diff that
+    # no longer has two sides -- so this row is the only place their reason survives.
+    "removed-spec",  # a specification of the seed that the successor does not carry,
+    # with the argument that the set loses no accusation by it
 }
 
 # Kinds that describe the set rather than a diff, so they carry no hunk key.
