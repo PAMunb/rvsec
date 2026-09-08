@@ -99,16 +99,49 @@ plano da comparação sem erro visível em runtime.
 
 ## Conceitos críticos: skips, timeouts e resume
 
-### Skips de pré-processamento (sempre ligados nesta skill)
+### Skips de pré-processamento (o default desta skill) — e o modo `--full-chain`
 São 3 flags independentes (env no compose / flags `--skip-*` no CLI):
 - `RV_SKIP_MONITORS=true` — não (re)gera os monitores JavaMOP/RV-Monitor.
 - `RV_SKIP_INSTRUMENT=true` — não instrumenta o APK (usa o APK como está).
 - `RV_SKIP_STATIC_ANALYSIS=true` — não roda o GATOR.
 
 Por que pular: o dataset já é **dexlib2-instrumentado** e traz o `<apk>.json` (análise estática GATOR)
-**co-localizado**. **Gotcha**: com os skips, `--apks-dir`/dataset DEVE apontar para os APKs **já
+**co-localizado**. Com os três skips ligados, `RV_STRIP_BUILD_TYPE_SUFFIX` e `RV_PACKAGE_DETECTOR`
+**não mudam nada**: a chave de escopo (`codePackage`) e o denominador de cobertura já estão
+congelados no `.apk.json`, e o `scope_key` da medição vem dele, não do `App`. O escopo foi decidido
+quando a análise estática foi gerada — a linha à mão no compose da gh104 era inofensiva, e não é
+preciso repeti-la. **Gotcha**: com os skips, `--apks-dir`/dataset DEVE apontar para os APKs **já
 instrumentados** — apontar para originais zera a cobertura. O `<apk>.json` co-localizado é copiado para
 o results-dir mesmo com `--skip-static`, então os braços MOP recebem o dado estático normalmente.
+
+#### `--full-chain`: rodar a cadeia inteira DENTRO de cada container
+
+`gen_compare.py --full-chain` **omite** as três `RV_SKIP_*` do compose (o entrypoint só traduz o
+valor `"true"` para a flag negativa, então ausência = default do Click = fazer as três etapas) e
+emite `RV_INSTRUMENTATION_VARIANT`, mais `--sa-timeout`/`--jvm-memory`/`--strip-build-type-suffix`/
+`--package-detector` quando dados. Use quando o objetivo é **validar a cadeia**, não comparar
+ferramentas — o dataset então tem de ser de APKs **originais**, sem `.apk.json` co-locado.
+
+Quatro coisas mudam de figura nesse modo, e as quatro já custaram caro:
+
+- **Paralelizar a geração de monitores só é seguro porque cada container tem o seu `/opt/rvsec`.**
+  O JavaMOP estagia os `.rvm` no diretório de specs compartilhado e o gerador os **move** de lá; N
+  gerações sobre UM diretório se roubam os arquivos, o `ErrorHandler` engole e o lote sai tecido
+  sem monitores **reportando sucesso**. Containers não compartilham nada — mas nunca faça isso em
+  processos do mesmo host.
+- **`monitor_compare.sh` precisa de `--no-resume` enquanto o pré-processamento corre.** O
+  auto-resume reinicia container "Up sem progresso", e o pré-processamento fica dezenas de minutos
+  sem mover a contagem. Antes de o `tasks.json` existir o restart nem é resume: a cadeia recomeça
+  do zero. Depois que ele existe, o resume força os 3 skips a `True` — o que aí é correto, porque
+  monitores e APKs tecidos já estão no volume.
+- **O teto de memória do container tem de ser maior que `RV_JVM_MEMORY`.** O default do gerador é
+  10 g e o heap default do GATOR é 12 g: OOM certo, com o sintoma de "container que saiu sozinho".
+- **A instrumentação falha em silêncio para o lado do sucesso.** INV-EXP-08 copia o APK original
+  para `instrumented_apks/` quando a tecelagem falha, para não abortar o experimento. Compare os
+  sha256 contra o original antes de acreditar em qualquer número — é o que
+  `scripts/smk111_gates.py` (G2) faz.
+
+Exemplo real: `docs/20260830_smk111.md` + `scripts/smk111_gates.py` + `scripts/smk111_preflight.sh`.
 
 ### Timeouts (são TRÊS, não confundir)
 - **Timeout de task** (`RV_TIMEOUTS` / `--timeout`, ex. **300 s**) — wall-clock de cada task de
@@ -185,6 +218,23 @@ hipóteses/expectativas/riscos específicos antes de rodar.
 
 - `--filter-abi`: filtra APKs por ABI compatível com a AVD (x86_64 / arm64-v8a / sem-nativo). Use se
   o dataset não estiver pré-filtrado (memória: ~20% de perda histórica por arch incompatível).
+- `--timeout 60,180,300`: lista CSV = os três orçamentos **na mesma corrida** (`RV_TIMEOUTS`, gh75).
+  A ordem de execução do platform é `apk → tool → rep → timeout`, então cada APK fecha os três
+  orçamentos antes de trocar de ferramenta; o total é `braços × APKs × reps × timeouts`, e o
+  `monitor_compare.sh` lê `n_timeouts` do meta. A consolidação pareia por `(apk, timeout)` e roda o
+  Wilcoxon por timeout — nunca mistura orçamentos na mesma média.
+- `--exclude a.apk,b.apk` / `--only a.apk,b.apk`: retira (ou seleciona só) APKs **pelo nome, sem
+  copiar o dataset** — um corpus de 4 GB montado `:ro` não precisa de segunda cópia para tirar o
+  APK que derruba o emulador, nem para um smoke de 2 APKs. Nome inexistente aborta (um typo
+  excluiria nada, em silêncio). O gerador grava `data/<name>_filters/corpus.txt` com a lista final
+  ordenada: o sha256 do seu conteúdo é o `corpus_basis` da campanha.
+- **Sidecar e docker.sock são derivados dos braços, não de flag.** `humanoid` é o droidbot falando
+  HTTP com um serviço separado, e o default do variant (`127.0.0.1:50405`) não alcança um sidecar:
+  com esse braço o compose sobe `rv-humanoid` (`--humanoid-image`, default `phtcosta/humanoid:1.0`)
+  e emite `RV_HUMANOID_URL=rv-humanoid:50405`. `ares` e `qtesting` rodam como containers **irmãos**
+  (`docker create/start` pelo daemon do host): com um deles o compose monta `/var/run/docker.sock`
+  e **o host** precisa ter `phtcosta/ares:latest` e `phtcosta/qtesting:latest` — não adianta
+  estarem só dentro da imagem rvandroid.
 - `--logcat-diagnostics` (gh72): liga a captura **opt-in** de eventos diagnósticos do app
   (crashes/VerifyError/ANR) → emite `RV_LOGCAT_DIAGNOSTICS: "true"` no compose e gera `app_events.csv`.
   **Default OFF** — sem a flag o comando `adb logcat` e os logcats são **byte-idênticos** ao baseline

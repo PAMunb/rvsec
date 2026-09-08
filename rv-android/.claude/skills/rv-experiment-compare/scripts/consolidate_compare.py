@@ -81,7 +81,7 @@ def main():
             except FileNotFoundError:
                 pass
             rows.append(dict(
-                apk=c["apk_name"], rep=c["repetition"], tool=tool,
+                apk=c["apk_name"], timeout=c["timeout"], rep=c["repetition"], tool=tool,
                 cov_method=cm.get("method_coverage", 0) or 0,
                 cov_act=cm.get("activities_coverage", 0) or 0,
                 cov_mop=cm.get("methods_mop_reachable_coverage", 0) or 0,
@@ -96,40 +96,51 @@ def main():
     with open(out / "per_task.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
 
+    # A unidade pareada e' (apk, timeout): a media das reps so' faz sentido dentro do mesmo
+    # orcamento. Numa campanha com varios timeouts na mesma corrida (RV_TIMEOUTS em lista),
+    # juntar 60 s com 300 s na mesma media compararia orcamentos, nao ferramentas.
     byat = defaultdict(lambda: defaultdict(list))
     for r in rows:
         for m in METRICS:
-            byat[(r["apk"], r["tool"])][m].append(r[m])
+            byat[(r["apk"], r["timeout"], r["tool"])][m].append(r[m])
     apk_tool = {k: {m: st.mean(v[m]) for m in METRICS} for k, v in byat.items()}
-    apks = sorted({a for a, _ in apk_tool})
-    tools = [t for t in tool_labels if any((a, t) in apk_tool for a in apks)]
+    units = sorted({(a, to) for a, to, _ in apk_tool})
+    timeouts = sorted({to for _, to in units})
+    tools = [t for t in tool_labels if any((a, to, t) in apk_tool for a, to in units)]
 
     with open(out / "per_apk_paired.csv", "w", newline="") as f:
-        cols = ["apk"] + [f"{t}__{m}" for t in tools for m in METRICS]
+        cols = ["apk", "timeout"] + [f"{t}__{m}" for t in tools for m in METRICS]
         w = csv.writer(f); w.writerow(cols)
-        for apk in apks:
-            row = [apk]
+        for apk, to in units:
+            row = [apk, to]
             for t in tools:
-                d = apk_tool.get((apk, t), {})
+                d = apk_tool.get((apk, to, t), {})
                 row += [round(d.get(m, float("nan")), 4) for m in METRICS]
             w.writerow(row)
 
     with open(out / "per_tool_summary.csv", "w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["tool", "n_apks"] + [f"{m}_mean" for m in METRICS] + [f"{m}_median" for m in METRICS])
-        for t in tools:
-            vals = {m: [apk_tool[(a, t)][m] for a in apks if (a, t) in apk_tool] for m in METRICS}
-            w.writerow([t, len(vals["cov_mop"])]
-                       + [round(st.mean(vals[m]), 3) for m in METRICS]
-                       + [round(st.median(vals[m]), 3) for m in METRICS])
+        w.writerow(["tool", "timeout", "n_apks"] + [f"{m}_mean" for m in METRICS] + [f"{m}_median" for m in METRICS])
+        for to in timeouts:
+            for t in tools:
+                vals = {m: [apk_tool[(a, to, t)][m] for a, x in units if x == to and (a, to, t) in apk_tool]
+                        for m in METRICS}
+                if not vals["cov_mop"]:
+                    continue
+                w.writerow([t, to, len(vals["cov_mop"])]
+                           + [round(st.mean(vals[m]), 3) for m in METRICS]
+                           + [round(st.median(vals[m]), 3) for m in METRICS])
 
     wres = []
-    for A, B in itertools.combinations(tools, 2):
+    for to in timeouts:
+      for A, B in itertools.combinations(tools, 2):
         for m in WMETRICS:
             xs, ys = [], []
-            for apk in apks:
-                if (apk, A) in apk_tool and (apk, B) in apk_tool:
-                    xs.append(apk_tool[(apk, A)][m]); ys.append(apk_tool[(apk, B)][m])
+            for apk, x in units:
+                if x == to and (apk, to, A) in apk_tool and (apk, to, B) in apk_tool:
+                    xs.append(apk_tool[(apk, to, A)][m]); ys.append(apk_tool[(apk, to, B)][m])
+            if not xs:
+                continue
             diffs = [x - y for x, y in zip(xs, ys)]
             wins = sum(d > 0 for d in diffs); losses = sum(d < 0 for d in diffs)
             if any(d != 0 for d in diffs):
@@ -140,7 +151,7 @@ def main():
             else:
                 W, p = float("nan"), 1.0
             wres.append(dict(
-                A=A, B=B, metric=m, n=len(xs),
+                timeout=to, A=A, B=B, metric=m, n=len(xs),
                 median_A=round(st.median(xs), 3) if xs else "nan",
                 median_B=round(st.median(ys), 3) if ys else "nan",
                 median_diff=round(st.median(diffs), 3) if diffs else "nan",
@@ -149,14 +160,24 @@ def main():
                 p_value=(round(p, 5) if p == p else "nan"),
                 significant=("sim" if (p == p and p < 0.05) else "nao"),
             ))
-    with open(out / "wilcoxon.csv", "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=list(wres[0].keys())); w.writeheader(); w.writerows(wres)
+    # Uma campanha de UM braco nao tem par intra-campanha: `combinations` devolve vazio e o
+    # Wilcoxon nao tem o que comparar. Nao e' erro — e' o desenho (o contraste dessas campanhas
+    # atravessa campanhas, como em `experimento-cal163/scripts/pair_gh104.py`). Sem esta guarda
+    # o script escrevia os tres CSVs reais e morria na ultima linha, com um `wilcoxon.csv` vazio
+    # deixado para tras: parece falha da consolidacao, e nao e'.
+    if wres:
+        with open(out / "wilcoxon.csv", "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=list(wres[0].keys())); w.writeheader(); w.writerows(wres)
 
-    print(f"APKs pareados: {len(apks)} | tasks: {len(rows)} | tools: {tools}")
+    print(f"unidades (apk, timeout) pareadas: {len(units)} | timeouts: {timeouts} | "
+          f"tasks: {len(rows)} | tools: {tools}")
     print(f"CSVs em: {out}\n")
-    print(f"{'A':22s} {'B':22s} {'metric':10s} {'medA':>7s} {'medB':>7s} {'A>B':>4s} {'A<B':>4s} {'p':>8s} sig")
+    if not wres:
+        print("braco unico: sem contraste intra-campanha (wilcoxon.csv nao escrito)")
+        return
+    print(f"{'T':>4s} {'A':22s} {'B':22s} {'metric':10s} {'medA':>7s} {'medB':>7s} {'A>B':>4s} {'A<B':>4s} {'p':>8s} sig")
     for r in wres:
-        print(f"{r['A']:22s} {r['B']:22s} {r['metric']:10s} "
+        print(f"{r['timeout']:4d} {r['A']:22s} {r['B']:22s} {r['metric']:10s} "
               f"{str(r['median_A']):>7s} {str(r['median_B']):>7s} {r['wins_A']:4d} {r['losses_A']:4d} "
               f"{str(r['p_value']):>8s} {r['significant']}")
 

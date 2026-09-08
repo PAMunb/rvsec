@@ -28,13 +28,10 @@ Tool string completa: `{{tools}}`
 |-----|-----------------|-----|-----|-------|
 {{arms_table}}
 
-## 3. Dataset e skip de pré-processamento
+## 3. Dataset e pré-processamento
 
-- **{{n_apks}} APKs** (+ `.apk.json` co-localizado, se houver análise estática).
-- Skip integral do pré-processamento: `RV_SKIP_MONITORS/INSTRUMENT/STATIC_ANALYSIS=true`.
-- **Spec set:** `{{spec_set}}`.
-- Gotcha: o platform copia o `<apk>.json` co-localizado para o results-dir de cada task
-  (`StaticAnalysisComponent.copy_static_analysis_files`) — `--skip-static` não priva os braços MOP do dado.
+- **{{n_apks}} APKs.**
+{{preprocessing}}
 
 ### 3.1. AVD / ABI
 AVD da imagem: API 30 `google_apis` `x86_64`. Em x86_64 com NDK Translation são elegíveis APKs
@@ -46,10 +43,10 @@ estratificar (use `--filter-abi` no gen_compare se o dataset não estiver pré-f
 | Parâmetro | Valor |
 |-----------|-------|
 | Containers | {{containers}} |
-| Timeout | {{timeout}} s |
+| Timeouts | {{timeouts}} s ({{n_timeouts}} valor(es), na mesma corrida — `RV_TIMEOUTS`) |
 | Repetições | {{reps}} |
 | Braços | {{n_tools}} |
-| **Total de tasks** | {{n_tools}} × {{n_apks}} × {{reps}} = **{{total_tasks}}** |
+| **Total de tasks** | {{n_tools}} × {{n_apks}} × {{reps}} × {{n_timeouts}} = **{{total_tasks}}** |
 | Wall-clock estimado | **~<estimar>** (≈ (timeout + boot/install/coverage) × tasks ÷ containers) |
 | Spec set | {{spec_set}} |
 | Janela | headless (`RV_NO_WINDOW=true`) |

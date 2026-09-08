@@ -32,6 +32,7 @@ python3 - "$NAME" "$META" <<'PY' > "/tmp/${NAME}_done_now.txt"
 import json, sys, os
 name, meta = sys.argv[1], json.load(open(sys.argv[2]))
 n_tools, reps, containers = meta["n_tools"], meta["reps"], meta["containers"]
+n_timeouts = meta.get("n_timeouts", 1)  # metas de campanhas de um timeout so nao tem o campo
 fdir = meta["filters_dir"]
 for i in range(containers):
     nn = f"{i:02d}"
@@ -47,7 +48,7 @@ for i in range(containers):
         done = len(seen)
     bf = os.path.join(fdir, f"batch_{nn}.txt")
     apks = sum(1 for ln in open(bf) if ln.strip()) if os.path.exists(bf) else 0
-    print(nn, done, apks * n_tools * reps)
+    print(nn, done, apks * n_tools * reps * n_timeouts)
 PY
 
 declare -A PREV
