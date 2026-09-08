@@ -403,7 +403,8 @@ The three stream readers:
 |--------|-------|----------|
 | `trace_ndjson.py` | the stage-4 NDJSON trace | one row per exploration step, with the `ACT`/`STATE` dictionaries resolved, omitted defaults materialized, and the run-relative clock expanded through `RUN_START.t0` |
 | `coverage_dump.py` | the `UICOV` / `UICOV-ACT` lines of the trace | parsed coverage records; unaffected by the NDJSON change, which does not touch those lines |
-| `clock_logcat_join.py` | a run's logcat plus `trace_ndjson` rows | each `RVSEC` violation placed at the step of the last `ApeRvHb` heartbeat at or before it |
+| `clock_logcat_join.py` | a run's logcat plus `trace_ndjson` rows | each `RVSEC` violation placed at the step of the last `ApeRvHb` heartbeat at or before it. Also owns `read_tagged_lines`, the exact-match reader of one logcat tag shared by all three streams (INV-APV-63), returning a `TaggedLines` list subclass whose `.skipped` makes unparseable tagged lines visible without changing the eight existing call sites |
+| `violations.py` | the `RVSEC` lines of a run's logcat, or rv-platform's consolidated `errors.csv` | `ViolationEvent` records with the seven comma fields and the v1 message envelope decomposed, plus `LogcatDiagnostics` / `CsvDiagnostics` accounting for every line that did not survive intact |
 
 The campaign analysis layer, in five layers plus a callers directory:
 
@@ -418,7 +419,54 @@ The campaign analysis layer, in five layers plus a callers directory:
 
 **Constraints**: nothing here is imported by the run path, and none of it holds a clock reconstruction. `clock_logcat_join` works because both series come out of the same logcat, so their identical unknowns (no year, no zone) cancel in the difference. No `*.mop.json` is ever opened (INV-ANA-53). No research-question identifier appears outside `callers/` (INV-CAN-22). Every knob the pre-registration decides — the margin, the corpus, the replica rule, the dedup convention, the GLM offset and reference level, the multiplicity strategy — is a required parameter with no default (INV-CAN-11), so a call that omits one raises rather than choosing on the author's behalf.
 
-Full narrative, including the two fixture classes and why the activity-visit is the analysis unit: [docs/analysis-layer.md](../../../docs/analysis-layer.md).
+Full narrative, including the two fixture classes and why the activity-visit is the analysis unit: [docs/20260815_gh103_analysis_layer.md](../../../docs/20260815_gh103_analysis_layer.md).
+
+#### The violation record
+
+The violation stream has two sources and one decomposition. `violations.parse_payload` is the
+module's only payload parser — `clock_logcat_join` imports it (inside the function, since
+`violations` imports `clock_logcat_join` for the tagged-line reader) rather than keeping the
+second copy it used to hold, so the seven-field split exists once and the two readers cannot
+drift apart.
+
+Below the seventh comma field sits the **v1 message envelope** the `jca_android` monitors emit:
+`v=1 code=<SPEC>-<KIND>-<NN> ev=<event> obj=<SimpleClass> val='…' exp='…' msg='…'`. Reading it
+turns `code`, `event`, `obj`, `val`, `exp` and `msg` into fields, so a downstream question about
+which automaton event failed is answered by a column rather than by a regex over prose. The
+grammar is restated in `violations.py` rather than imported from `rv_coverage`, which parses the
+same envelope for the platform: `rv_coverage` is not a declared dependency of this module, and a
+Layer-3 reader that could not open a recorded artifact without the platform installed would not
+be a reader of recorded artifacts.
+
+Nothing that fails to parse is dropped, and the failures are kept apart because they mean
+different things:
+
+| Counter | Condition | Why it is its own number |
+|---|---|---|
+| `shape_bad` | the payload did not split into seven comma fields | the line is kept whole in `message` and stays countable (INV-CAN-04) |
+| `envelope_malformed` | the seventh field declared `v=1` and then did not match the grammar | the seven comma fields are still populated, so the event is usable at the coarser grain |
+| `envelope_truncated` | the last quoted value was never closed | logcat cuts a payload at 4068 bytes with no marker, so an unclosed quote is the only evidence the record is half a record — a transport limit, not a producer defect |
+| `skipped_lines` | the tag matched exactly and the threadtime shape did not parse | counted by `read_tagged_lines`; a line under a longer tag (`RVSEC-COV` under a request for `RVSEC`) is not a skip, it belongs to another stream |
+| `envelope_status = absent` | the message carries no `v=1` | **not** a failure: a pre-change message is a legitimate shape |
+
+`step_bundle.BundleDiagnostics.violations` carries `LogcatDiagnostics` onto each bundle. Without
+it a step whose lines were discarded upstream would be indistinguishable from a step that simply
+produced no violation, since the bundle's per-tag counters account only for lines the reader
+returned.
+
+Reading rv-platform's consolidated `errors.csv` is the second source. `ERRORS_CSV_HEADER` states
+its 13 columns exactly as the platform writes them, so a header change fails loudly at the reader
+instead of surfacing as a missing column three layers up. `CsvDiagnostics` counts two conditions
+the CSV can carry: `unique_msg_unparsed`, rows whose `:::`-joined `unique_msg` did not decompose
+(the event itself is intact, so it is counted, not raised), and `unique_msg_disagrees`, rows whose
+`code`/`event` recovered from `unique_msg` contradict the CSV's own `code`/`event` columns. Both
+are written by one producer from one object, so a disagreement is a transport defect worth a
+number rather than a preference the reader exercises silently.
+
+**Changing the message breaks consumers that regex it.** `data/gh104/consumer_matrix.md` (repository
+root) names every reader of `message`, `unique_msg` or `errors.csv` with its verdict — migrated, or
+frozen with the reason — closed by a grep over `modules/`, `scripts/`, the experiment directories and
+`audit/`, so every hit that is code has a row and data files are listed once as data.
 
 ### Constants and Configuration Mapping
 
@@ -679,7 +727,17 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| (none) | - | aperv-tool has no external dependencies beyond rv-android-core and rv-tools |
+| `pandas` | `>=3.0.0` | the analysis layer's tidy carrier — every reader returns a frame |
+| `numpy` | `>=2.4.0` | numerics under the estimators |
+| `scipy` | `>=1.17.0` | the estimator stack (resampling, paired tests, variance) |
+| `statsmodels` | `>=0.14.6` | the negative-binomial GLM in `analysis/estimators/count_glm.py`, imported lazily inside that module so the three stream readers and the collection path never pay its import cost |
+
+These are declared here rather than inherited transitively from a sibling module on purpose: the
+campaign analysis is a first-class consumer of these versions, and a version drift arriving through
+someone else's dependency set would move the parity tests without naming a cause.
+
+The tool path itself needs none of them — it needs the Android SDK's `adb` on `PATH` for device push
+and shell execution.
 
 ## Testing Strategy
 
@@ -692,7 +750,7 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 
 ## Related Documentation
 
-- [Tool Infrastructure Spec](../../openspec/specs/tools/spec.md) - Requirements and invariants for the tool plugin system
-- [PRD](../../docs/PRD.md) - Product Requirements Document (FR18-FR20, NFR01-08)
-- [CLAUDE.md](../../CLAUDE.md) - Quick reference for Claude Code
-- [rv-platform Architecture](../rv-platform/docs/architecture.md) - How rv-platform registers and dispatches external tools
+- [Tool Infrastructure Spec](../../../openspec/specs/tools/spec.md) - Requirements and invariants for the tool plugin system
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR18-FR20, NFR01-08)
+- [CLAUDE.md](../../../CLAUDE.md) - Quick reference for Claude Code
+- [rv-platform Architecture](../../rv-platform/docs/architecture.md) - How rv-platform registers and dispatches external tools

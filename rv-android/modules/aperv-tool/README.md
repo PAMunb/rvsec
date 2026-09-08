@@ -118,7 +118,7 @@ The end-to-end smoke runs the whole chain over two applications with no device:
     --import-mode=importlib -o "addopts=" -q
 ```
 
-Full narrative — the layers, the freeze-item rule, the two fixture classes, and why the activity-visit is the unit: [docs/analysis-layer.md](../../docs/analysis-layer.md).
+Full narrative — the layers, the freeze-item rule, the two fixture classes, and why the activity-visit is the unit: [docs/20260815_gh103_analysis_layer.md](../../docs/20260815_gh103_analysis_layer.md).
 
 ## Dependencies
 
@@ -128,6 +128,8 @@ Full narrative — the layers, the freeze-item rule, the two fixture classes, an
 
 ### External
 - Android SDK (`adb`) - Device interaction via ADB push and shell commands
+- `pandas` / `numpy` / `scipy` - the analysis layer's tidy carrier, numerics and estimator stack
+- `statsmodels` - the negative-binomial GLM, imported lazily inside `analysis/estimators/count_glm.py` so the stream readers and the collection path do not pay its import cost
 
 ## Documentation
 
