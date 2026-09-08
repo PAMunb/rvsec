@@ -43,13 +43,17 @@ class AlphabetMapTest {
             "resources", "jca_android").normalize();
 
     /**
-     * The two specifications the map declares as G-ORDER skips, by owning no data row at all.
+     * The specification the map declares as a G-ORDER skip, by owning no data row at all.
      *
      * <p>Declared, not derived: which files are skipped is the mapping decision this file records,
      * and its reason is prose in the map's own header.
+     *
+     * <p>Only a file the corpus still holds belongs here. {@code RandomStringPassword} was a second
+     * skip while it was in the set and left {@code jca_android} altogether on 2026-09-02; subtracting
+     * it from {@link #corpusSize()} would take it off that count twice and demand one row-group fewer
+     * than the map carries.
      */
-    private static final Set<String> ORDER_SKIPS =
-            Set.of("IvChainJunction", "RandomStringPassword");
+    private static final Set<String> ORDER_SKIPS = Set.of("IvChainJunction");
 
     private static int corpusSize() throws IOException {
         assertTrue(Files.isDirectory(CORPUS), "the .mop corpus is not at " + CORPUS.toAbsolutePath());
@@ -79,8 +83,8 @@ class AlphabetMapTest {
         AlphabetMap map = AlphabetMap.read(committed);
 
         assertEquals(corpusSize() - ORDER_SKIPS.size(), map.rows().size(),
-                "one group per specification carrying rows; the two G-ORDER skips are prose in the "
-                        + "header and never data rows, which is what keeps them skips: "
+                "one group per specification carrying rows; the G-ORDER skip is prose in the "
+                        + "header and never a data row, which is what keeps it a skip: "
                         + map.rows().keySet());
 
         List<AlphabetMap.Row> keyGenerator = map.rowsOf("KeyGeneratorSpec");

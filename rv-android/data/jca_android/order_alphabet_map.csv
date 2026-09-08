@@ -69,17 +69,19 @@
 # SecretKeySpec. Two of them had grown events since the census that named them:
 # KeyGeneratorSpec went from 5 to 8 and MacSpec from 8 to 12.
 #
-# Two of the set's 24 specifications are declared G-ORDER skips rather than missing
-# rows, and a declared skip is prose here and never a data row: `read_map` groups by
+# One specification of the set is a declared G-ORDER skip rather than missing rows,
+# and a declared skip is prose here and never a data row: `read_map` groups by
 # specification and `build_automata` skips on `if not rows`, so any row at all -- even
 # an empty one -- would take the file out of the skip and make the gate look for a rule
 # that does not exist.
 #
-#   RandomStringPassword  api30 states no RandomStringPassword.cryptsl. The file is the
-#     set's dataflow bridge over `String.valueOf(Object)` and `String.toCharArray()`,
-#     two JDK conversions no CrySL rule of the oracle orders. Its `ere : vo gb` is a
-#     claim about a conversion, not about an API's typestate, and there is nothing to
-#     compare it against.
+#   RandomStringPassword was the second skip, on the same ground -- api30 states no
+#     RandomStringPassword.cryptsl, and its `ere : vo gb` is a claim about a conversion
+#     over `String.valueOf(Object)` and `String.toCharArray()`, not about an API's
+#     typestate. It stopped being a skip of this map on 2026-09-02, when it left
+#     `jca_android` altogether: it cannot accuse under any trace and writes no predicate.
+#     A file outside the set is not skipped by the mapping, it is simply not in it, and
+#     the row-group count is the set's file count minus the skips that remain.
 #
 #   IvChainJunction  api30 states no IvChainJunction.cryptsl. The file reads three of
 #     `Cipher.cryptsl`'s REQUIRES clauses over arguments CipherSpec cannot bind, and it

@@ -131,7 +131,7 @@ class MopLiftCorpusTest {
     }
 
     @Test
-    @DisplayName("the aggregate is 975 events and 407 parameters, with the counting rules as data")
+    @DisplayName("the aggregate is 973 events and 406 parameters, with the counting rules as data")
     void test_aggregate_events_and_parameters() {
         // These two numbers are the corpus drift tripwire, and Corpora reads the LIVE corpus, so a
         // specification repair is expected to move them. When it does, the repair re-measures and
@@ -179,15 +179,23 @@ class MopLiftCorpusTest {
         // `g2`'s guard is positive and `g3`'s pointcut is one-argument. No new formal parameter
         // travels with the event, so only the first number moves.
         //
-        // Both stay pinned, and both move with EVERY group that adds specifications to the live
-        // set -- re-measure them at the start of a group rather than discovering them one build
+        // 975 -> 973 and 407 -> 406 is the only move so far in the other direction, and it is the
+        // one that shows why the two numbers are counted under different rules: jca_android dropped
+        // RandomStringPassword.mop on 2026-09-02, a specification that cannot accuse under any trace
+        // and writes no predicate. It took its two events (`vo` over String.valueOf(Object) and `gb`
+        // over String.toCharArray()) and its single formal parameter with it -- two off the first
+        // number because events are counted per event, one off the second because parameters are
+        // counted per specification and RandomStringPasswordSpec declared exactly one.
+        //
+        // Both stay pinned, and both move with EVERY group that adds OR removes specifications in
+        // the live set -- re-measure them when the set moves rather than discovering them one build
         // cycle at a time. Note that the events assertion running first is why the parameter
         // drift went unseen: CI reported only the event failure for three runs while this line had
         // already been false for all three.
         assertEquals("spec.getEvents().size()", total.eventCountingRule());
         assertEquals("spec.getParameters().size()", total.parameterCountingRule());
-        assertEquals(975, total.events(), "aggregate event count under " + total.eventCountingRule());
-        assertEquals(407, total.parameters(),
+        assertEquals(973, total.events(), "aggregate event count under " + total.eventCountingRule());
+        assertEquals(406, total.parameters(),
                 "aggregate parameter count under " + total.parameterCountingRule());
     }
 
@@ -239,7 +247,7 @@ class MopLiftCorpusTest {
                 checked++;
             }
         }
-        assertEquals(975, checked, "one provenance check per declared event");
+        assertEquals(973, checked, "one provenance check per declared event");
     }
 
     @Test
