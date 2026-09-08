@@ -42,7 +42,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -104,9 +103,7 @@ def _ensure_lenient_output() -> Path | None:
 def lenient_output() -> Path:
     out = _ensure_lenient_output()
     if out is None:
-        required_or_skip(
-            "GATOR prerequisites missing — cannot exercise wire format"
-        )
+        required_or_skip("GATOR prerequisites missing — cannot exercise wire format")
     return out
 
 
@@ -145,8 +142,12 @@ def test_real_gator_json_has_exactly_one_complete_key(lenient_output: Path) -> N
 
 
 def test_real_gator_json_parses_with_complete_true(lenient_output: Path) -> None:
-    """End-to-end consistency: wire-format claim agrees with parser."""
-    data = StaticAnalysisParser().parse_file(str(lenient_output), "br.unb.cic.cryptoapp")
+    """End-to-end consistency: wire-format claim agrees with parser.
+
+    The parser takes only the path: the artefact is read at the scope its
+    producer gave it and no package key participates (INV-ANA-61).
+    """
+    data = StaticAnalysisParser().parse_file(str(lenient_output))
     assert data.complete is True, (
         "wire format claims complete=true but parser disagrees — sentinel "
         "is being written under a key the parser does not look for"
@@ -161,7 +162,7 @@ def test_sentinel_value_is_literal_true_not_string(lenient_output: Path) -> None
     """
     payload = json.loads(lenient_output.read_text())
     value = payload.get("complete")
-    assert isinstance(value, bool), (
-        f"sentinel value must be a JSON boolean literal; got {type(value).__name__}: {value!r}"
-    )
+    assert isinstance(
+        value, bool
+    ), f"sentinel value must be a JSON boolean literal; got {type(value).__name__}: {value!r}"
     assert value is True
