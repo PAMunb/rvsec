@@ -177,6 +177,24 @@ jobs:
           done
           exit $failed
 
+      # The cross-cutting gates at rv-android/tests/. They are NOT a module's suite and the
+      # loop above cannot reach them: it iterates modules/*/, so a suite at the root is
+      # invisible to CI no matter how many gates it holds. That is not hypothetical -- three
+      # of these gates were red for six days after a599be6b removed a .mop from jca_android,
+      # and nothing reported it, because the corpora they guard live in the sibling Java
+      # reactor and belong to no Python module. They stay at the root for that reason (moving
+      # a gate over the .mop corpus into rv-static-analysis would file it under a module that
+      # does not own it) and are run here instead. RVSEC_HOME is already exported above, which
+      # is what lets them read the specification sets; the ones whose heavy inputs a checkout
+      # lacks skip and name the missing path, which -rs prints.
+      - name: Run cross-cutting gates (rv-android/tests)
+        working-directory: rv-android
+        run: |
+          uv run pytest tests/ \
+            -m "not (slow or online or sglang or performance or dataset)" \
+            --import-mode=importlib --tb=short -q -rs \
+            -o "addopts="
+
       - name: Combine coverage reports
         if: always()
         working-directory: rv-android
