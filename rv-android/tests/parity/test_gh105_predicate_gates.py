@@ -2383,17 +2383,15 @@ def test_a_specification_without_a_mapping_is_skipped_and_never_inferred(tmp_pat
 
     Task 7.1 took the first kind from 13 specifications to 2, which is the whole of
     the census this test used to sample from: it mapped the twelve that translate an
-    api30 rule, and what is left are the two that translate none -- RandomStringPassword,
-    a bridge over two JDK string conversions, and IvChainJunction, a junction file whose
-    `ere` states no ordering at all. Neither can ever gain a row, so the sample here is
-    the set's permanent one rather than a backlog.
+    api30 rule, and what was left were the two that translate none. One of those two,
+    RandomStringPassword -- a bridge over two JDK string conversions -- left the set
+    itself at a599be6b, so what remains is IvChainJunction, a junction file whose `ere`
+    states no ordering at all. It can never gain a row, so the sample here is the set's
+    permanent one rather than a backlog.
     """
     result = _order_run()
     skipped = dict(result.skipped)
-    assert set(skipped) == {
-        "jca_android/RandomStringPassword",
-        "jca_android/IvChainJunction",
-    }
+    assert set(skipped) == {"jca_android/IvChainJunction"}
     assert "no rows in the alphabet mapping" in skipped["jca_android/IvChainJunction"]
 
     partial = tmp_path / "order_alphabet_map.csv"
@@ -2522,18 +2520,21 @@ def test_the_order_gate_accuses_when_the_allow_list_stops_covering_the_witness(
     # after the allowances, the skips and that one accusation, because it is arithmetic of the
     # set size and moves with every group. The two numbers that stay literal are the ones that
     # carry a decision: 7 is the healthy allow-list minus the row the mutant replaced, and the
-    # skip count does not move with the set at all -- it is the two files that pair with no rule
-    # in either catalogue, and a new specification entering it would be one G-ORDER had stopped
-    # comparing. 5 -> 7 at gh109 group G4, which adds two rows and neither is a relaxation:
+    # skip count does not move with the set for the reason a new specification would not enter
+    # it -- it is the files that pair with no rule in either catalogue, and one entering would be
+    # a specification G-ORDER had stopped comparing. It is 1 and not 2 because a599be6b removed
+    # RandomStringPassword.mop from the set: a file outside the corpus is not a skip, so the
+    # subtraction moves from the skip term to the set size and the passed count is unchanged in
+    # substance while both its terms move. 5 -> 7 at gh109 group G4, which adds two rows and neither is a relaxation:
     # both forgive a witness the PINNED RULE produces and the specification refuses, because
     # `SSLEngine.crysl:12` binds `EnableProtocol` to an undeclared `cp1` and
     # `KeyAgreement.crysl:31` binds `GenSecretBuffer` to the `getInstance` overload `g2` where
     # `gs2` is meant. The oracle is never edited (D-21), so the witnesses cannot be repaired
     # away and are recorded instead.
     assert (len(result.passed), len(result.allowed), len(result.skipped)) == (
-        _specset_size() - 7 - 2 - 1,
+        _specset_size() - 7 - 1 - 1,
         7,
-        2,
+        1,
     )
 
     # And the run beside it, from the same code path: the difference between the
