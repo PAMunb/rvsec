@@ -49,6 +49,21 @@ Allowlist (case-sensitive paths)
     rvsec-android/rvsec-gator/client/src/test/java/presto/android/gui/clients/BytecodeScanMatchTest.java
     rvsec-android/rvsec-gator/client/src/test/java/presto/android/gui/clients/MopSignatureLoaderTest.java
                                                        (MOP→Target adapter and its tests)
+    modules/aperv-tool/src/aperv_tool/tools/aperv/derive_mop_artifact.py
+    modules/aperv-tool/tests/test_derive_mop_artifact.py
+                                                       (APE-RV wire boundary — see below)
+
+The APE-RV wire boundary
+------------------------
+`reachesMop` is not a leftover of the gh60 rename on the aperv-tool side —
+it is the key APE-RV reads. `MopData.parseCompactComponents` consumes
+`co.optBoolean("reachesMop", false)` at four sites, and `ComponentInfo`
+stores it in a field named `reachesTarget` whose javadoc says so:
+"The wire's `reachesMop`". The Java side already keeps the neutral word
+internally and the MOP word on the wire; `_project_components` is the
+mirror of that on the producing side. Renaming the key here would break
+a consumer this repo does not build, so the boundary is allowlisted the
+same way `MopSpecsTargetSource` is.
 
 Scope (positive search roots)
 -----------------------------
@@ -112,6 +127,14 @@ ALLOWLIST_SUFFIXES = (
     # diff a pre-gh60 baseline sweep against a post-gh60 fresh sweep
     # without requiring both sides to be re-run. See design.md line 433.
     "check_gh60_sweep_delta.py",
+    # APE-RV wire boundary. `_project_components` emits `reachesMop`
+    # because that is the key the jar reads — `MopData.parseCompactComponents`
+    # calls `co.optBoolean("reachesMop", false)` and stores it in
+    # `ComponentInfo.reachesTarget`. The neutral vocabulary stops at the
+    # wire on both sides; renaming here would break a consumer this repo
+    # does not build.
+    "derive_mop_artifact.py",
+    "test_derive_mop_artifact.py",
 )
 
 # Path-substring allowlist (matches anywhere in the relative path). This
@@ -120,8 +143,8 @@ ALLOWLIST_SUFFIXES = (
 # scanner needing to know the depth in advance.
 ALLOWLIST_DIR_SUBSTRINGS = (
     "/backup/",
-    "backup/",                         # at the start of the relative path
-    "/rv-agent/",                      # deprecated module, per CLAUDE.md + memory
+    "backup/",  # at the start of the relative path
+    "/rv-agent/",  # deprecated module, per CLAUDE.md + memory
     "/rvsec-mop/",
     "/rvsec-mop-extractor/",
     "/openspec/",
@@ -129,7 +152,7 @@ ALLOWLIST_DIR_SUBSTRINGS = (
     "/.planning/",
     "/.claude/",
     "/.qwen/",
-    "/target/classes/",                # maven build output
+    "/target/classes/",  # maven build output
     "/target/test-classes/",
     "/.git/",
     "/__pycache__/",
@@ -143,9 +166,9 @@ ALLOWLIST_DIR_SUBSTRINGS = (
 # upward to reach it. The roots are stored as `(label, path)` pairs purely
 # for clearer diagnostics.
 SCAN_ROOTS = (
-    ("modules",        "modules"),
-    ("scripts",        "scripts"),
-    ("rvsec-gator",    "../rvsec/rvsec-android/rvsec-gator"),
+    ("modules", "modules"),
+    ("scripts", "scripts"),
+    ("rvsec-gator", "../rvsec/rvsec-android/rvsec-gator"),
 )
 
 # File-extension whitelist — restrict scanning to source files. JAR/PNG/etc.
