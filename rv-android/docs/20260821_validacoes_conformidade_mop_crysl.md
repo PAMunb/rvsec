@@ -200,6 +200,12 @@ funciona**: `java.base` não vem do `java.class.path`, vem da camada de módulos
 
 ### O impacto medido é zero
 
+> **Corrigido em 22/08/2026 (R6).** Os três números desta subseção são de leitor **partilhado**, a
+> configuração que o §12 do plano descarta. Sob leitor **novo por regra** são **30** arquivos, e as
+> **129 linhas** estão na lista de pendências do plano (`:862-863`, `:1674`) como carentes de
+> remedição *antes* de a proposta ser aberta — logo "impacto medido zero" não pode ser lido como
+> fechado. Ver `docs/20260822_adjudicacao_revisoes_externas.md` §2.1.
+
 Os 31 arquivos que carregam produzem **129 linhas de assinatura resolvida idênticas** com e sem o
 `android.jar` — `diff` = 0.
 
@@ -227,13 +233,21 @@ E `jca_android/HMACParameterSpecSpec.mop` monitora essa segunda: uma das 23 spec
 **31/33** carregam. As duas residuais são as conhecidas: `AlgorithmParameters:47` e
 `DigestOutputStream:20`.
 
+> **Corrigido em 22/08/2026 (R6).** Sob leitor novo por regra — a configuração que o §12 do plano
+> decide — são **30/33**, e as residuais são **três**: entra o `Signature:51,59,65`, que só carregava
+> por vazamento de escopo de `OBJECTS` de outra regra lida antes no mesmo leitor. As três são defeitos
+> reais do gerador MetaCrySL, nenhuma alcançável por substituição léxica. Ver a adjudicação §2.1/§2.2
+> e o plano `:794-805`.
+
 ---
 
 ## V4 — determinizar o `StateMachineGraph` ✅
 
 **A NFA de Glushkov é real e nenhuma regra do corpus a exibe.** A sintética `ORDER con, a?, a`
 produz mesmo duas arestas `append` do mesmo nó. Varridas as 31 regras `api30` que carregam:
-**31 determinísticas, 0 não-determinísticas**. A determinização é obrigatória por correção geral e é
+**31 determinísticas, 0 não-determinísticas**. *(Corrigido em 22/08/2026, R6: sob leitor novo por
+regra são **30/30** — o 31 vem do leitor partilhado que o §12 do plano proíbe. O resultado
+qualitativo não muda: nenhuma regra do corpus exibe não-determinismo.)* A determinização é obrigatória por correção geral e é
 *no-op* neste corpus. `wrapUpCreation()` precisa mesmo ser chamado à mão.
 
 ### Os cinco vereditos, agora sobre o autômato que o parser entrega
@@ -244,7 +258,7 @@ produz mesmo duas arestas `append` do mesmo nó. Varridas as 31 regras `api30` q
 | `SignatureSpec` | EQUIVALENTES | **EQUIVALENTES** | EQUIVALENTES |
 | `KeyGeneratorSpec` | EQUIVALENTES | MOP mais permissiva — `g1 g1 gk1` | **EQUIVALENTES** |
 | `SecureRandomSpec` | MOP mais permissiva | MOP mais permissiva — `c1 c1` | **MOP mais permissiva** — `SecureRandom(); generateSeed(int); setSeed(byte[])`, testemunha idêntica à do §5.2 |
-| `CipherSpec` | INCOMPARÁVEIS | **INCOMPARÁVEIS** | INCOMPARÁVEIS — testemunhas **idênticas** às do §5.2: `g1 i2 doFinal()` e `g1 i2 i2 doFinal(byte[])` |
+| `CipherSpec` | INCOMPARÁVEIS | **INCOMPARÁVEIS** | INCOMPARÁVEIS — **pela segunda direção apenas (R6)**: `g1 i2 i2 doFinal(byte[])`, testemunha `ABSTRACT`. A primeira, `g1 i2 doFinal()`, está **refutada por execução** — o `.mop` declara um `f1` literal que dispara antes do `f2` no mesmo *join point*, a palavra é `f1 f2` e as duas letras acusam (plano `:399-410`, adjudicação §2.3) |
 
 O motor é `m2/Aut.java` + `m2/M2.java`: parser de ERE, parser do bloco `fsm`, subconjunto,
 reetiquetagem pelo mapa de alfabeto, filtro N1, e equivalência por busca no produto com testemunha
@@ -423,7 +437,10 @@ a `rvsec/pom.xml`. `BUILD SUCCESS` nos quatro.
 
 - **Guava: a sobrescrita funciona como §11.5 previa.** `<guava.version>33.5.0-jre</guava.version>` no
   pom-pai do componente → propriedade efetiva `33.5.0-jre`, e a árvore mostra
-  `com.google.guava:guava:jar:33.5.0-jre:compile` nos dois filhos de tecnologia. O
+  `com.google.guava:guava:jar:33.5.0-jre:compile` **num filho só, o `-crysl`** — corrigido em
+  22/08/2026 (R6): dizia "nos dois filhos de tecnologia", e o `-mop` não tem Guava nenhum no
+  classpath resolvido, porque o `javamop` não a puxa. Gerenciar uma versão não a coloca no classpath
+  de quem não a pede. O
   `dependencyManagement` da raiz é *property-driven*, então a herança segue junto.
 - **`slf4j-simple` excluído**: sobra só `org.slf4j:slf4j-api:2.0.17`.
 - **Scala**: `rvsec-crysl-mop` recebe `scala-library:2.11.12` transitivamente por
@@ -432,7 +449,8 @@ a `rvsec/pom.xml`. `BUILD SUCCESS` nos quatro.
 - **`main.basedir` resolve.** O `directory-maven-plugin` roda em `initialize` no módulo novo.
   (`mvn help:evaluate` devolve `null` para essa propriedade **em qualquer módulo**, inclusive no
   `rvsec-agent` que a usa — é artefato de o `help:evaluate` não rodar o ciclo de vida.)
-  **Ressalva**: resolve para o alias `/pedro/...`, que não abre na JVM.
+  **Ressalva retirada em 22/08/2026 (R6)**: resolve para `/pedro/...`, que é ponto de montagem real e
+  a JVM do host o abre. A causa registrada antes estava invertida (plano `:1381-1383`, auditoria A11).
 - **A árvore foi restaurada**: `rvsec/pom.xml` sem diff, `rvsec/rvsec-crysl/` removido. O esqueleto
   medido ficou em `docs/handoff/20260821_arnes_validacoes/v10/`.
 
