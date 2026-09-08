@@ -52,6 +52,18 @@ def _load_copy(name: str, path: Path):
     return module
 
 
+# Neither copy is tracked: both live under an experiment directory that a checkout does
+# not carry. This gate compares two files against each other, so with either one absent it
+# has nothing to compare and skips naming the path — module level, because the load happens
+# at import and a FileNotFoundError there aborts collection for the whole directory rather
+# than failing this one file.
+_missing = [str(path) for path in COPIES.values() if not path.is_file()]
+if _missing:
+    pytest.skip(
+        "the rv_status.py copies this gate compares are absent: " + ", ".join(_missing),
+        allow_module_level=True,
+    )
+
 MODULES = {name: _load_copy(name, path) for name, path in COPIES.items()}
 
 # (label, error_message, expected_bucket). `label` names the failure mode; the
