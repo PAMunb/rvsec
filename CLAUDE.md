@@ -9,9 +9,17 @@ Aggregator / build orchestration for pre-processing (monitor generation) and run
 ## Reactor build order
 ```
 rv-monitor  →  javamop  →  mop-maven-plugin  →  rvsec
-                                                  (rvsec-mop, rvsec-mop-extractor, rvsec-core,
-                                                   rvsec-logger-csv, rvsec-agent, rvsec-android)
+                                                  (rvsec-mop, rvsec-mop-extractor, rvsec-crysl,
+                                                   rvsec-core, rvsec-logger-csv, rvsec-agent,
+                                                   rvsec-android)
+
+                                                  rvsec-crysl is itself an aggregator:
+                                                  (rvsec-crysl-core → rvsec-crysl-mop
+                                                                    → rvsec-crysl-crysl)
 ```
+`rvsec-crysl` sits after `rvsec-mop-extractor` and before `rvsec-core` because `rvsec-crysl-mop`
+links against `javamop` (already built by then) and against no other reactor module.
+
 `rv-android` is commented out of `<modules>` — it is a sibling Python/Android project, not part of this Java reactor. See `rv-android/modules/*/CLAUDE.md` for its docs.
 
 ## Module map
@@ -21,11 +29,28 @@ rv-monitor  →  javamop  →  mop-maven-plugin  →  rvsec
 | `javamop` | `javamop/CLAUDE.md` | `.mop` → `.rvm`/`.aj` (+ local JSON descriptor patch). |
 | `mop-maven-plugin` | `mop-maven-plugin/CLAUDE.md` | Maven glue: `mop-gen`/`agent-gen` mojos drive javamop + rv-monitor. |
 | `rvsec/*` | (out of scope here; see `rvsec-android` module docs where present) | JSE agent, Android instrumentation, MOP specs. |
+| `rvsec/rvsec-crysl` | `rvsec/rvsec-crysl/CLAUDE.md` | MOP/CrySL conformance component: lifts `.mop` and `.crysl` into one model and reports M0–M4. |
+
+`rvsec-crysl` (packaging `pom`) is the only subtree that overrides a reactor-wide dependency
+property, and the asymmetry is deliberate:
+- **`guava.version` is overridden to `33.5.0-jre`.** The root pins 19.0 for Soot; this component
+  does not use Soot, and `CrySLParser 4.0.6` calls `ImmutableMap.Builder#buildOrThrow`, which 19.0
+  does not have — the inherited pin compiles clean and dies at runtime with `NoSuchMethodError`.
+  The root `dependencyManagement` is property-driven, so redefining the property in the subtree
+  parent is enough to move the managed version.
+- **`scala.version` is deliberately NOT overridden.** It looks like the same fix and is not:
+  raising it to 2.13.x breaks `ptltl` (reached transitively via `javamop` → `rv-monitor`) with
+  `NoClassDefFoundError: scala/Serializable`, and `ptltl` may not be excluded. The reactor's
+  2.11.12 is inherited unchanged.
+- **`rvsec-crysl-core` publishes a `test-jar`** (`maven-jar-plugin`, `test-jar` goal) that carries
+  `CiTags` — the single holder of the JUnit tag name the CI step excludes by name. `-mop` and
+  `-crysl` consume that test-jar in `test` scope so the tag name lives in one place instead of
+  three.
 
 ## Shared build properties (root `pom.xml`)
 - `java.version` = **21** (compiler source/target).
 - `aspectj.version` = **1.9.25.1** — comment in the pom flags this as a **TODO: "bater com a versao do docker"** (must match the Docker image's AspectJ version; not verified in sync here).
-- `soot.version` = **4.7.1**, `scala.version` = 2.11.12, `guava.version` = 19.0, `javaparser.version` = 3.25.0, `android.version` = 4.1.1.4 (scope `provided`).
+- `soot.version` = **4.7.1**, `scala.version` = 2.11.12, `guava.version` = 19.0 (overridden to 33.5.0-jre inside the `rvsec-crysl` subtree — see Module map), `javaparser.version` = 3.25.0, `android.version` = 4.1.1.4 (scope `provided`).
 - Profile **`-Pcheck`**: sets `skipMopAgent=true`/`skipTests=true`, `defaultGoal=verify`, and runs `spotbugs-maven-plugin` + `org.owasp:dependency-check-maven` — the CI/static-analysis profile, not a normal build.
 
 ## `main.basedir` mechanism

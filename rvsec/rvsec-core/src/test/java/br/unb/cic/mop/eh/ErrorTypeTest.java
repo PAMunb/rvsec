@@ -44,7 +44,7 @@ public class ErrorTypeTest {
 	 *
 	 * <p>
 	 * {@code PBEKeySpecSpec}'s {@code f1}/{@code f2} encode the two constructors
-	 * {@code generated/api30/PBEKeySpec.cryptsl} forbids. They used to report
+	 * the pinned expert {@code PBEKeySpec.crysl:9-11} forbids. They used to report
 	 * {@code InvalidSequenceOfMethodCalls}, which describes a call the developer failed to make;
 	 * the finding is the call they did make.
 	 */

@@ -8,7 +8,7 @@
 <modules>
   <module>rvsec-mop</module>
   <module>rvsec-mop-extractor</module>
-  <module>rvsec-mop-defsuses</module>
+  <module>rvsec-crysl</module>
   <module>rvsec-core</module>
   <module>rvsec-logger-csv</module>
   <module>rvsec-agent</module>
@@ -20,7 +20,7 @@
 |---|---|
 | `rvsec-mop` | Repository of 168 JavaMOP `.mop` specs (jca/generic/generic_new) + `Coverage.aj`; resources only, no Java. |
 | `rvsec-mop-extractor` | CLI extracting the class/method API surface of a spec set; feeds `rv-android/lib/mop-extractor` and GATOR reachability. |
-| `rvsec-mop-defsuses` | Dev-only, orphan def/use → PlantUML utility; no consumers, hardcoded path. |
+| `rvsec-crysl` | MOP/CrySL conformance component (parent pom + `-core`/`-mop`/`-crysl`); measures the `.mop` sets against the upstream CrySL rules on five metrics (M0–M4). Own doc: `rvsec-crysl/CLAUDE.md`. |
 | `rvsec-core` | Shared runtime types (`ExecutionContext`, `Property`, `eh.*`, `org.aspectj.lang` shim); zero dependencies. |
 | `rvsec-logger-csv` | JSE-side `ErrorCollector` writing `output/summary.csv`. |
 | `rvsec-agent` | JSE `-javaagent` generated from the jca spec set + CogniCrypt-derived JUnit suite (18 classes / 213 `@Test`). |
