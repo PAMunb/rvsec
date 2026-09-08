@@ -539,7 +539,7 @@ class M2OrderCorpusTest {
      * specifications moves no literal here.
      */
     private static final Set<String> UNPAIRED = Set.of("IvChainJunction", "OAEPParameterSpecSpec",
-            "RandomStringPassword", "SSLEngineSpec");
+            "SSLEngineSpec");
 
     /**
      * The paired specifications M0 refuses, which therefore receive no M2 verdict (INV-CONF-09).

@@ -242,14 +242,14 @@ class M4PredicateCorpusTest {
 
         assertEquals(corpusSize() - UNPAIRED.size(), paired,
                 "the pairing of record: SpecRulePairing, by declared type and INJECTIVE "
-                        + "(INV-CONF-11 plus the injectivity the corpus forces). The four that "
-                        + "pair with nothing are RandomStringPassword.mop, whose declared type is "
-                        + "String; IvChainJunction.mop, which declares Cipher and loses "
-                        + "Cipher.crysl to CipherSpec on signature coverage; and, since gh109, "
+                        + "(INV-CONF-11 plus the injectivity the corpus forces). The three that "
+                        + "pair with nothing are IvChainJunction.mop, which declares Cipher and "
+                        + "loses Cipher.crysl to CipherSpec on signature coverage; and, since "
+                        + "gh109, "
                         + "OAEPParameterSpecSpec.mop and SSLEngineSpec.mop, whose rules are the "
                         + "two the lift rejects");
         assertEquals(List.of("IvChainJunction.mop", "OAEPParameterSpecSpec.mop",
-                        "RandomStringPassword.mop", "SSLEngineSpec.mop"),
+                        "SSLEngineSpec.mop"),
                 pairing.unpairedNames(),
                 "and the losers are named rather than dropped in silence");
         assertEquals(107, present,
@@ -410,13 +410,13 @@ class M4PredicateCorpusTest {
     /**
      * The specifications of the set that pair with no rule of the lifted oracle.
      *
-     * <p>Declared, because each name is a judgement — and the four are named with their reasons
+     * <p>Declared, because each name is a judgement — and the three are named with their reasons
      * in the assertion right below the count. Only the arithmetic derives from the list, which is
      * what keeps a group of new specifications from moving a literal that says nothing about
      * predicates.
      */
     private static final Set<String> UNPAIRED = Set.of("IvChainJunction", "OAEPParameterSpecSpec",
-            "RandomStringPassword", "SSLEngineSpec");
+            "SSLEngineSpec");
 
     /** How many {@code .mop} files the Android set holds right now. Derived: no judgement in it. */
     private static int corpusSize() {

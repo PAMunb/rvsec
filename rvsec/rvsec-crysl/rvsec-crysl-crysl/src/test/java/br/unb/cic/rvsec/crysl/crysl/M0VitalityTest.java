@@ -163,9 +163,12 @@ class M0VitalityTest {
         // match the event, and the specification indexes per key as its own comment always said
         // it did -- which is what the write at `@match` needs, since a broadcast body could stage
         // one key's material on another key's monitor.
-        assertEquals(List.of("HMACParameterSpecSpec", "RandomStringPassword"),
+        // Two became one at a599be6b, which removed RandomStringPassword.mop from the set
+        // altogether: a specification that is not in the corpus is not a specification that fails
+        // to index. The remaining entry is the fact this pin is about.
+        assertEquals(List.of("HMACParameterSpecSpec"),
                 notIndexing,
-                "the two specifications that compile to one monitor for the whole program");
+                "the one specification that compiles to one monitor for the whole program");
 
         // The counting rule as data rather than as prose: the two ways a specification fails to
         // index are different facts about different files, and a test that only counted five would
@@ -184,9 +187,8 @@ class M0VitalityTest {
         // "no parameter" all declare one since gh105, so the half that applies to them stopped
         // applying; KeySpec was 0/1 until gh109 task 7.1 renamed its declared parameter to the
         // name its one event binds, and it now binds what it declares.
-        assertEquals(Map.of(
-                        "HMACParameterSpecSpec", "0/1",
-                        "RandomStringPassword", "0/2"),
+        // a599be6b took RandomStringPassword.mop (0/2) out of the set, so the half has one member.
+        assertEquals(Map.of("HMACParameterSpecSpec", "0/1"),
                 binding,
                 "0/N binding, plus specifications declared with no parameter — the two halves of "
                         + "the rule, each with the file it applies to");
@@ -214,7 +216,11 @@ class M0VitalityTest {
     @Test
     @DisplayName("6.7: RandomStringPassword is refused, and M1-M4 never run for it")
     void test_the_specification_with_no_accusation_site_is_refused() throws LiftFailure {
-        M0Result result = examineOne(ANDROID, "RandomStringPassword.mop");
+        // The witness reads from the frozen jca rather than from jca_android, which dropped the
+        // file at a599be6b. The refusal is what this test is about and it does not move with the
+        // corpus: the emitted statement asserted below says so itself -- "property of the file and
+        // not of any corpus" -- and jca is where the file that has the property still is.
+        M0Result result = examineOne(JCA, "RandomStringPassword.mop");
 
         assertFalse(result.accusationSiteReachable(),
                 "ere : vo gb, an empty @match and no @fail: no trace can make it accuse");
@@ -264,8 +270,10 @@ class M0VitalityTest {
                 .map(M0Result::specification)
                 .sorted()
                 .toList();
-        assertEquals(List.of("KeySpec", "RandomStringPassword", "SecretKeySpec"), refused,
-                "three of the 38, not one. SecretKeySpec.mop is one of the pairs D-06 names, so "
+        assertEquals(List.of("KeySpec", "SecretKeySpec"), refused,
+                "two of the 47, not one. RandomStringPassword.mop was the third until a599be6b "
+                        + "removed it from this corpus; it is refused wherever it is read, and "
+                        + "test 6.7 above reads it from jca. SecretKeySpec.mop is one of the pairs D-06 names, so "
                         + "refusing it removes a pair from what M1-M4 report on, and that "
                         + "consequence is named here rather than discovered downstream. KeySpec.mop "
                         + "joins it at gh109 task 2.14 and for the same reason, by design: Key.crysl "
@@ -531,9 +539,9 @@ class M0VitalityTest {
                 }
             }
         }
-        assertEquals(List.of("KeySpec", "RandomStringPassword", "SecretKeySpec"),
+        assertEquals(List.of("KeySpec", "SecretKeySpec"),
                 List.copyOf(new java.util.TreeSet<>(unreachable.keySet())),
-                "INV-CONF-09: the three refusals of the set are emitted as typed Unknowns and not "
+                "INV-CONF-09: the two refusals of the set are emitted as typed Unknowns and not "
                         + "only as Silence rows, so they are counted in the same vocabulary as "
                         + "every other refusal of the report");
     }

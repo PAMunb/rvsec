@@ -159,7 +159,7 @@ class M1EventsCorpusTest {
         assertEquals(corpusSize(), pairing.pairs().size() + pairing.unpaired().size(),
                 "every specification of the set is accounted for, paired or not");
         assertEquals(pairedSize(), pairing.pairs().size(),
-                "all but the four unpaired pair by declared type; counting rule = "
+                "all but the three unpaired pair by declared type; counting rule = "
                         + SpecRulePairing.PAIRING_RULE);
         assertEquals(pairedSize(), pairing.pairedRules(),
                 "and as many distinct rules are claimed, because the pairing is injective - "
@@ -203,9 +203,6 @@ class M1EventsCorpusTest {
                         + "this specification and it is named here rather than discovered as a "
                         + "hole in a denominator");
 
-        assertEquals(SpecRulePairing.Reason.NO_RULE_DECLARES_THE_TYPE,
-                reasonFor(pairing, "RandomStringPassword"),
-                "RandomStringPassword is about java.lang.String and no rule of the oracle is");
         assertEquals(SpecRulePairing.Reason.RULE_CLAIMED_BY_ANOTHER_SPECIFICATION,
                 reasonFor(pairing, "IvChainJunction"),
                 "IvChainJunction declares Cipher c exactly as CipherSpec does, so the declared "
@@ -316,15 +313,18 @@ class M1EventsCorpusTest {
      * judgement, and the reason for it is asserted beside the name in
      * {@link #test_pairing_leaves_over_the_two_specifications_the_alphabet_map_skips()}. What
      * derives from the list is only arithmetic — the pairing denominator is the corpus minus these
-     * four — and deriving it is what keeps a group of new specifications from moving half a dozen
+     * three — and deriving it is what keeps a group of new specifications from moving half a dozen
      * literals that say nothing about the oracle.
      *
      * <p>Three until gh109 group G4 added {@code SSLEngineSpec}, whose rule is the second of the
-     * two the lift rejects. A name enters this list only with a measured reason, and that one is a
-     * parser failure over the pinned oracle, not a mapping decision.
+     * two the lift rejects, then four, and three again since a599be6b removed
+     * {@code RandomStringPassword} from the set: it was unpaired because no rule is about
+     * java.lang.String, and a file the corpus does not hold is neither paired nor unpaired. A name
+     * enters this list only with a measured reason, and SSLEngineSpec's is a parser failure over
+     * the pinned oracle, not a mapping decision.
      */
     private static final Set<String> UNPAIRED = Set.of("IvChainJunction", "OAEPParameterSpecSpec",
-            "RandomStringPassword", "SSLEngineSpec");
+            "SSLEngineSpec");
 
     /** How many {@code .mop} files the set holds right now. Derived: it carries no judgement. */
     private static int corpusSize() {

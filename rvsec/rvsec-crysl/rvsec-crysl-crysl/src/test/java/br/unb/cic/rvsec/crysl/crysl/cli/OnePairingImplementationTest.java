@@ -60,7 +60,7 @@ class OnePairingImplementationTest {
      * directory moves no literal in this class.
      */
     private static final Set<String> UNPAIRED = Set.of("IvChainJunction", "OAEPParameterSpecSpec",
-            "RandomStringPassword", "SSLEngineSpec");
+            "SSLEngineSpec");
 
     private static final Set<String> M0_REFUSED = Set.of("SecretKeySpec", "KeySpec");
 
