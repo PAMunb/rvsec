@@ -27,14 +27,25 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-import gh91_campaign as campaign  # noqa: E402
-import gh91_sa_rerun as drv  # noqa: E402
+try:
+    import gh91_campaign as campaign  # noqa: E402
+    import gh91_sa_rerun as drv  # noqa: E402
+except SystemExit as exc:  # noqa: F841
+    # The driver reuses Phase 7's classification from the sibling rvsec-dataset checkout
+    # (design D5) and exits at import time when that checkout is absent, which a CI runner's
+    # is. SystemExit escapes pytest's collection error handling and aborts the whole session
+    # as an INTERNALERROR, so the skip has to happen here rather than being left to pytest:
+    # one absent sibling repository would otherwise take every gate in this directory with it.
+    # Both imports are inside the fence because gh91_campaign imports the driver too, so
+    # guarding only the driver's own line leaves the same exit reachable one level down.
+    pytest.skip(f"rvsec-dataset checkout unavailable: {exc}", allow_module_level=True)
 
 APK = "de.markusfisch.android.binaryeye_174.apk"
 
 
-def _write_run(out_dir: Path, *, transitions: list, timed_out: bool,
-               sentinel: bool = True) -> None:
+def _write_run(
+    out_dir: Path, *, transitions: list, timed_out: bool, sentinel: bool = True
+) -> None:
     """Put one APK's artefacts on disk exactly as a round leaves them.
 
     The JSON is written by hand rather than through the writer because what is under test is
@@ -48,13 +59,18 @@ def _write_run(out_dir: Path, *, transitions: list, timed_out: bool,
 
     progress = out_dir / "_progress"
     progress.mkdir(exist_ok=True)
-    (progress / f"{APK}.json").write_text(json.dumps({
-        "apk": APK,
-        "sa_status": "complete",
-        "returncode": -1 if timed_out else 0,
-        "seconds": 3600.0 if timed_out else 812.3,
-        "timed_out": timed_out,
-    }), encoding="utf-8")
+    (progress / f"{APK}.json").write_text(
+        json.dumps(
+            {
+                "apk": APK,
+                "sa_status": "complete",
+                "returncode": -1 if timed_out else 0,
+                "seconds": 3600.0 if timed_out else 812.3,
+                "timed_out": timed_out,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def _job(out_dir: Path) -> drv.Job:
@@ -119,7 +135,9 @@ def test_finished_run_with_a_graph_is_complete(tmp_path: Path) -> None:
 
 def test_truncated_json_is_not_complete(tmp_path: Path) -> None:
     """The sentinel keeps its original job: a file cut mid-write is still rejected."""
-    _write_run(tmp_path, transitions=[{"event": "click"}], timed_out=False, sentinel=False)
+    _write_run(
+        tmp_path, transitions=[{"event": "click"}], timed_out=False, sentinel=False
+    )
     assert campaign.is_complete(tmp_path, APK) is False
 
 
@@ -135,8 +153,9 @@ def test_json_without_its_outcome_record_is_not_complete(tmp_path: Path) -> None
 
 
 @pytest.mark.parametrize("timed_out,expected", [(True, False), (False, True)])
-def test_completeness_turns_on_the_timeout_flag_alone(tmp_path: Path, timed_out: bool,
-                                                      expected: bool) -> None:
+def test_completeness_turns_on_the_timeout_flag_alone(
+    tmp_path: Path, timed_out: bool, expected: bool
+) -> None:
     """Same bytes in the JSON, opposite verdicts — the flag is doing the work."""
     _write_run(tmp_path, transitions=[], timed_out=timed_out)
     assert campaign.is_complete(tmp_path, APK) is expected
