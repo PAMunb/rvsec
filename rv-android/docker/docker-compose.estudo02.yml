@@ -28,6 +28,14 @@ x-rvandroid: &rvandroid-base
     RV_LOGCAT_DIAGNOSTICS: "true"
   devices:
     - /dev/kvm:/dev/kvm
+  # O container cresce em memoria com as horas de uptime e bate no teto de 10 g: em 09/09, 7 dos 10
+  # sairam com exit 137 (OOMKilled=true) entre 3 h e 13 h apos o launch. O 137 nao corrompe nada --
+  # o resume por RV_EXPERIMENT_NAME pula as identidades COMPLETED e so a task em voo se perde --
+  # mas container morto nao anda: os 7 ficaram parados de 1 h a 13 h porque nada os religou, e a
+  # ocupacao caiu para 6,9 containers efetivos de 10 (51 h de container perdidas em 16 h de parede).
+  # `on-failure` poe o proprio daemon do Docker para religar, sem depender de vigia externo. Nao usar
+  # `unless-stopped`: no fim da campanha o rv-experiment sai 0 e o container seria religado em laco.
+  restart: on-failure:20
   deploy:
     resources:
       limits:
