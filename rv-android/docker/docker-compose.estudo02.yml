@@ -14,7 +14,35 @@
 x-rvandroid: &rvandroid-base
   image: phtcosta/rvandroid:0.9.3
   environment: &rvandroid-env
-    RV_TOOLS: "monkey,droidbot:dfs_greedy,droidbot:bfs_greedy,droidbot:dfs_naive,droidbot:bfs_naive,ape,droidmate,humanoid,ares,fastbot,qtesting"
+    # O monkey leva dois parametros pela DSL de tools (`@chave=valor`, INV-EXP-09).
+    #
+    # Sem eles o comando sai `monkey -v -v --ignore-security-exceptions`, e o monkey ABORTA com
+    # exit 219 quando o app da crash ou ANR ("** Monkey aborted due to error / System appears to
+    # have crashed at event 388 of 1000000000"). A task vira ERROR e a corrida sai truncada. Em
+    # 09/09 isso reprovava 201 de 330 identidades do monkey (60,9%), contra menos de 1% em cada
+    # um dos outros dez bracos; no artigo, com o `jca` de 23 specs, o monkey fechou 1961 de 1962.
+    # Os 47 monitores do `jca_android` deixam o app mais lento e o ANR aparece sob a chuva de
+    # eventos do monkey, que e' a ferramenta que injeta mais rapido.
+    #
+    # Os flags fazem o monkey seguir depois de crash/ANR, como as outras dez ferramentas ja fazem.
+    # Nao cegam a medicao: RVSEC/RVSEC-COV seguem no logcat e crash/ANR seguem em app_events.csv.
+    #
+    # Por que a DSL e nao a variante `monkey:fast` (que ja traz os dois flags): a `fast` tambem
+    # fixa `seed=12345`, e seed fixo faz as tres repeticoes injetarem a MESMA sequencia, colapsando
+    # o desenho de 3 reps do artigo; e baixa a verbosidade para 1, invalidando o oraculo de traco
+    # do smoke. A DSL sobrescreve so os dois flags sobre a variante `default`.
+    #
+    # Por que nao rebuild: o `parameters` do ToolConfig NAO entra na identidade do resume
+    # (platform.py:317-325 usa apenas apk/name/variant/rep/timeout), entao a identidade nao muda,
+    # as 129 identidades COMPLETED do monkey seguem puladas e as 204 em ERROR re-executam. Como o
+    # `parameters` e' gravado por task no tasks.json, fica auditavel no proprio dado quais corridas
+    # tiveram os flags. Efeito colateral esperado: o checksum da config muda e cada container loga
+    # uma vez "Config changed since last run — resuming anyway"; a identidade e' independente dele.
+    #
+    # CUIDADO na sintaxe: tem de ser `=true` em todos. A forma de flag nua nao funciona, porque o
+    # split de tools trata um identificador seguido de fim-de-token como NOVA ferramenta, e
+    # `ignore_timeouts` iria para o registry como nome de ferramenta.
+    RV_TOOLS: "monkey@ignore_crashes=true,ignore_timeouts=true,droidbot:dfs_greedy,droidbot:bfs_greedy,droidbot:dfs_naive,droidbot:bfs_naive,ape,droidmate,humanoid,ares,fastbot,qtesting"
     RV_TIMEOUTS: "60,180,300"
     RV_REPETITIONS: "3"
     RV_NO_WINDOW: "true"
