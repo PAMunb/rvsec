@@ -165,6 +165,42 @@ Exemplo real: `docs/20260830_smk111.md` + `scripts/smk111_gates.py` + `scripts/s
 - Efeito colateral: cada re-execução cria novo UUID → `tasks.json` acumula duplicatas → por isso
   **dedup por identidade** na contagem e na consolidação (nunca `task_id`, nunca grep cru).
 
+### Quem religa o container: o Docker, não o vigia (`restart: on-failure`)
+
+O `gen_compare.py` emite `restart: on-failure:20` na âncora do compose (`--restart` muda; `no`
+desliga). Isso não é enfeite: é o que separa "o container caiu" de "a campanha parou".
+
+**Por que existe.** O container **cresce em memória com as horas de uptime** e bate no teto de
+`--memory`. Na `estudo02` (08–09/09/2026, 10 containers de 10 g) **7 dos 10 saíram com exit 137**
+(`OOMKilled=true`) entre **3 h e 13 h** de corrida. O 137 não corrompe nada — o resume pula as
+identidades COMPLETED e só a task em voo se perde. O prejuízo é outro: **container morto não anda**.
+Sem ninguém para religá-los, os 7 ficaram parados de 1 h a 13 h, e a ocupação caiu para **6,9
+containers efetivos de 10 — 51 h de container perdidas em 16,4 h de parede**.
+
+**Por que `on-failure` e não `unless-stopped`.** Ao fim da campanha o `rv-experiment` sai **0**, e
+`unless-stopped` religaria o container num laço de saídas rápidas. `on-failure` só religa em saída
+não-zero, que é exatamente o caso do 137 — e também o do `exit 1` com FAILED transientes, o que faz
+a passada de resume final acontecer sozinha.
+
+**O sidecar `rv-humanoid` leva `unless-stopped`, e a assimetria é de propósito.** Ele é um servidor
+HTTP que **não tem saída legítima**: ao contrário dos containers de campanha, até um exit 0 nele é
+falha, então a regra que evita o laço lá não se aplica aqui. E a queda dele é **silenciosa** — o
+braço `humanoid` volta ao default do variant (`127.0.0.1:50405`), que não alcança sidecar nenhum, e
+as tasks seguem fechando COMPLETED com exploração pior. O portão 4 do smoke pega isso uma vez, no
+início; não cobre os dias de corrida. Por isso o daemon o mantém de pé.
+
+**Como diagnosticar depois.** `docker inspect <c> --format '{{.RestartCount}} {{.State.OOMKilled}}'`.
+Cuidado com uma pegadinha: **`RestartCount` NÃO conta `docker restart` manual** (só religamento por
+política), e um container religado à mão aparece `Up`, saudável, com `RestartCount=0`. Só o
+`StartedAt` denuncia.
+
+**Aplicar numa campanha já em curso, sem recriar container:**
+```bash
+for c in <name>_00 ... ; do docker update --restart=on-failure:20 "$c"; done
+```
+`docker update` muda a política de um container **rodando**, sem derrubar a task em voo. Editar o
+compose sozinho não basta: só vale no próximo `up -d`, que recria tudo.
+
 ### Diagnósticos de execução — `RV_LOGCAT_DIAGNOSTICS` + `app_events.csv` (gh72, opt-in)
 
 Por padrão o pipeline captura **só** `RVSEC`/`RVSEC-COV` (`adb logcat -s RVSEC:V RVSEC-COV:V`): o `-s`
@@ -267,6 +303,26 @@ Mostra, por container, `COMPLETED / total` (**identidades distintas**) e dá **a
 (`docker restart`) de container não-running antes de terminar ou travado (Up sem progresso desde a
 última checada). Rodar on-demand; para acompanhamento longo, agendar checagens periódicas.
 
+> ⚠️ **O auto-resume do monitor não é a rede de segurança — a política do Docker é.** Duas maneiras
+> de se queimar, ambas cobradas na `estudo02` em 08–09/09/2026:
+>
+> 1. **Vigia que mora na sessão morre com ela.** Um `/loop` ou monitor de background que religa
+>    container só funciona enquanto a sessão vive. Quando ela morreu, 7 containers OOMados ficaram
+>    parados até 13 h. Por isso `restart: on-failure` no compose (ver "Quem religa o container"):
+>    o daemon do Docker não depende de sessão.
+> 2. **Chamar o monitor com resume em intervalo curto vira laço de restart.** O critério "Up sem
+>    progresso desde a última checada" pressupõe intervalo **maior que o tempo até a PRIMEIRA task
+>    fechar** — que não é o tempo de uma task: inclui boot do emulador, install e setup. Medido:
+>    ~8 min com 2 containers, **mais de 15 min com 10** em contenção de I/O. Agrava se você rodar
+>    `--no-resume` logo após o launch para ver o baseline: isso **semeia**
+>    `/tmp/<name>_prev_counts.txt` com zeros, e o primeiro ciclo com resume lê `done=0 == prev=0`,
+>    reinicia tudo, mata a task em voo, e o ciclo seguinte reincide. Custou ~1 h de campanha, com os
+>    containers aparecendo `Up` e saudáveis o tempo todo.
+>
+> Num vigia próprio, religue automaticamente **só o caso inequívoco** — container que **saiu**
+> (`docker ps -a | grep -i exited` → `docker start`). Suspeita de travamento vira **alerta para
+> julgamento humano**, com limiar de ≥ 2 h sem uma única task fechada, nunca restart automático.
+
 > ⚠️ **Contagem correta**: o script conta `result.state` deduplicado por
 > `(apk,tool,variant,rep,timeout)`. **NUNCA** contar com `grep '"state": "COMPLETED"'` no tasks.json —
 > isso conta **em dobro**, porque o estado COMPLETED também aparece em `result.state_transitions[]`
@@ -323,6 +379,14 @@ Mostra, por container, `COMPLETED / total` (**identidades distintas**) e dá **a
 
 - **Contagem**: `result.state` dedup por identidade; nunca grep cru (double-count via
   `state_transitions`) nem `task_id` (resume infla com novos UUIDs).
+- **OOM (exit 137) é rotina numa campanha longa, e o Docker é quem religa**: o container cresce em
+  memória com o uptime e bate no teto de `--memory` (na `estudo02`, 7 de 10 entre 3 h e 13 h).
+  `restart: on-failure:20` vem no compose gerado. **`RestartCount` não conta `docker restart`
+  manual** — container religado à mão parece `Up` com `RestartCount=0`, só o `StartedAt` denuncia.
+  Em campanha já em curso, `docker update --restart=...` aplica sem recriar container.
+- **Vigia de sessão não é rede de segurança**: ele morre com a sessão e os containers ficam parados
+  por horas. E o auto-resume do `monitor_compare.sh` em intervalo curto vira **laço de restart**
+  (ver o aviso na Fase 3). Religue automático só o container que **saiu**.
 - **gh58**: consolidar dos **logcats**. A cobertura por-método pode zerar no CSV de tasks resumidas
   se o `<apk>.json` não resolver; o dado co-localizado evita isso (validar reconstrução
   "(with per-method coverage)" nos logs do `result_processor`).

@@ -196,6 +196,17 @@ def gen_compose(args, n):
     L += env
     L.append("  devices:")
     L.append("    - /dev/kvm:/dev/kvm")
+    # O container cresce em memoria com as horas de uptime e bate no teto de `--memory`; na
+    # estudo02 (08-09/09/2026) 7 dos 10 sairam com exit 137 (OOMKilled) entre 3 h e 13 h de
+    # corrida. O 137 nao corrompe nada -- o resume por RV_EXPERIMENT_NAME pula as identidades
+    # COMPLETED e so a task em voo se perde -- mas container morto nao anda, e sem ninguem para
+    # religa-lo os 7 ficaram parados de 1 h a 13 h (51 h de container perdidas em 16 h de parede).
+    # Com `on-failure` quem religa e' o daemon do Docker: nao depende de vigia externo nem de
+    # sessao viva. NAO usar `unless-stopped`: ao fim da campanha o rv-experiment sai 0 e o
+    # container seria religado em laco.
+    L.append("  # OOM (exit 137) e' rotina em campanha longa: o Docker religa e o resume por")
+    L.append("  # RV_EXPERIMENT_NAME pula as COMPLETED. Nao trocar por 'unless-stopped' (laco no fim).")
+    L.append(f"  restart: {args.restart}")
     L.append("  deploy:")
     L.append("    resources:")
     L.append("      limits:")
@@ -210,6 +221,13 @@ def gen_compose(args, n):
             "  humanoid:",
             f"    image: {args.humanoid_image}",
             "    container_name: rv-humanoid",
+            # `unless-stopped`, e nao o `on-failure` dos containers de campanha: o sidecar e' um
+            # servidor HTTP que NAO tem saida legitima, entao ate um exit 0 e' falha. Se ele cai,
+            # o braco `humanoid` degrada SEM erro visivel -- o droidbot segue com o default do
+            # variant (127.0.0.1:50405), que nao alcanca sidecar nenhum, e as tasks continuam
+            # fechando COMPLETED. E' o modo de falha silencioso que o portao 4 do smoke existe
+            # para pegar; aqui o daemon do Docker o mantem de pe.
+            "    restart: unless-stopped",
             "",
         ]
     if has_llm:
@@ -328,6 +346,10 @@ def main():
     p.add_argument("--image", default="phtcosta/rvandroid:0.9.3")
     p.add_argument("--cpus", default="4")
     p.add_argument("--memory", default="10g")
+    p.add_argument("--restart", default="on-failure:20",
+                   help="Politica de restart dos containers (default: on-failure:20). O Docker "
+                        "religa sozinho o container que sai por OOM (exit 137), sem depender de "
+                        "vigia externo. Use 'no' para desligar.")
     p.add_argument("--with-sglang", action="store_true", help="inclui servico SGLang (braco LLM)")
     p.add_argument("--sglang-image", default="lmsysorg/sglang:v0.5.6.post2")
     p.add_argument("--sglang-model", default="Qwen/Qwen3-VL-4B-Instruct")
@@ -434,7 +456,7 @@ def main():
         n_apks=len(apks), total_tasks=total, dataset=str(dataset),
         excluded_apks=sorted(exclude),
         with_sglang=args.with_sglang, filters_dir=str(filters_dir),
-        arms=arms, spec_set=args.spec_set, image=args.image,
+        arms=arms, spec_set=args.spec_set, image=args.image, restart=args.restart,
         full_chain=args.full_chain,
         instrumentation_variant=args.instrumentation_variant if args.full_chain else None,
         sa_timeout=args.sa_timeout, jvm_memory=args.jvm_memory,

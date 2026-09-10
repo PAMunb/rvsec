@@ -77,6 +77,13 @@ services:
   humanoid:
     image: phtcosta/humanoid:1.0
     container_name: rv-humanoid
+    # `unless-stopped`, e nao o `on-failure` dos containers de campanha: o sidecar e' um servidor
+    # HTTP que NAO tem saida legitima, entao ate um exit 0 e' falha. Se ele cai, o braco `humanoid`
+    # degrada SEM erro visivel -- o droidbot segue com o default do variant (127.0.0.1:50405), que
+    # nao alcanca sidecar nenhum, e as tasks continuam fechando COMPLETED com exploracao pior.
+    # Risco §12 do plano; o portao 4 do smoke pega isso uma vez, mas nao durante os ~4 dias de
+    # corrida. Aplicado no container em curso com `docker update`, sem recriar.
+    restart: unless-stopped
 
   estudo02_00:
     <<: *rvandroid-base
