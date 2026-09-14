@@ -93,7 +93,7 @@ sequenceDiagram
 
 4. **Coverage.aj logs via HashSet dedup**: The Coverage.aj aspect woven into instrumented APKs logs method calls via `Log.v("RVSEC-COV", signature)` with a `HashSet` to ensure each signature is logged only once per execution. The signature format is `<className: returnType methodName(params)>`. The `LogcatParser` also supports a legacy format (`class:::method:::params`) for backward compatibility.
 
-5. **SignatureNormalizer for inner class notation**: Static analysis tools (Soot) use `$` for inner classes (`OuterClass$InnerClass`), but the analysis JSON may use `.` notation (`OuterClass.InnerClass`). The `StaticAnalysisParser` uses `SignatureNormalizer` to convert `.` to `$` based on Java naming convention heuristics (uppercase after separator indicates inner class).
+5. **Identifiers are stored as the artefact spells them**: GATOR and the woven `Coverage.aj` both emit the JVM binary name — `$` at genuine nesting, `.` at every package boundary — so the `StaticAnalysisParser` stores class names, window names and method signatures verbatim, and no transformation is applied on either side of the coverage crossing (INV-ANA-67).
 
 6. **PackageDetector resolves manifest vs code package**: In approximately 27.5% of APKs, the AndroidManifest.xml package name differs from the actual code package (e.g., Godot games: manifest=`ir.hsn6.trans`, code=`org.godotengine.godot`). The `PackageDetector` uses a priority-based heuristic with 6 strategies: same-package check, game engine detection, single package, common prefix, frequency-based selection, and string similarity fallback. The key it elects scopes the analysis when one is **run** — it is passed to GATOR as `-clientParam codePackage=`. Parsing a produced artefact receives no key at all (INV-ANA-61).
 
@@ -289,6 +289,8 @@ rv-screen-parser:
 - `rvsec_root: str` -- Path to RVSEC installation (source: RVSEC_HOME env var or explicit, consumed by RVStaticAnalysisConfig for tool path resolution)
 - `mop_dir: str` -- Path to MOP specification directory (source: RVStaticAnalysisConfig, consumed by the analysis client via `-clientParam mopDir=<path>`). The directory may declare owners exactly with explicit imports (`jca`, `jca_android`) or by hierarchy with wildcard imports, `+` owners and wildcard method names (`generic_new`). `rv-experiment` passes the directory of the selected specification set (`ExperimentConfig.resolve_spec_set_dir`); `--specification-set generic` maps to `resources/generic` (synthetic `FSM*` specs), not to `generic_new`, which is reached through `--specification-set custom --custom-specs-dir` or `rv-static-analysis --mop-dir`
 - `Scene` -- The Soot whole-program scene of the APK (call sites, declaring classes/types), in which target owners are resolved (source: GATOR/Soot 4.7.1, INV-ANA-18)
+- `codePackageSource: str` -- The scope key's origin (`manifest`, `manifest-neutralized` or `detector`), delivered to GATOR on its own client parameter beside `codePackage` (INV-ANA-66)
+- `libraryPackageFile: str` -- Path to `libPackages.txt` (2,170 patterns), passed to GATOR unconditionally; it shapes the reachability predicates, not the class denominator (INV-ANA-69)
 - `targets_file: str` -- Path to a text file of Soot method signatures, one per line (`#` comments allowed); mutually exclusive with `mop_dir` (source: RVStaticAnalysisConfig CLI `--targets-file`, consumed via `-clientParam targetsFile=<path>`; INV-ANA-33)
 - `cg_algorithm: str` -- Soot call graph algorithm, one of `spark` (default), `cha`, `rta`, `vta` (source: RVStaticAnalysisConfig CLI `--cg-algorithm`, forwarded to GATOR as `-cgAlgorithm`)
 - `cg_delegation: bool` -- Whether WTG construction delegates virtual-dispatch resolution to the SPARK call graph (default `false` after M3 paridade-gate failure, 2026-05-15), passed via `-clientParam cgDelegation=<bool>`. When `true`, `FlowgraphRebuilder.buildCallGraph()` consults `Scene.v().getCallGraph()` and skips the local CHA-style rebuild (opt-in, 2–23× speedup for apps without hybrid-framework wiring). When `false` (default), legacy points-to + CHA-fallback behavior is preserved bit-for-bit (INV-ANA-21). See `docs/20260515_diagnostico_paridade_cgdelegation.md`.
@@ -307,13 +309,14 @@ rv-screen-parser:
 ### Output
 
 - `StaticAnalysisData` -- Unified static analysis results containing Classes, Windows, WTG, and Components (destination: rv-platform StaticAnalysisComponent, rv-agent, rv-coverage)
+- Analysis artefact scope members -- `code_package` and `code_package_source` (the effective scope key and its origin) and `class_defs_under_key` (the net count of compiled classes under the key that survive `isAppClass`), recorded beside the manifest `package` member (INV-ANA-66)
 - `StaticAnalysisResult` -- Analysis pipeline status with analysis file path, timeout flag, and errors (destination: rv-experiment pre-processing)
 - `Dict[str, float]` -- Coverage metrics dictionary with method_coverage, activity_coverage, mop_method_coverage, called_methods, total_errors (destination: rv-platform CoverageComponent)
 - `ScreenDescription` -- Complete screen state with items, actions, and coordinates (destination: rv-agent ScreenProcessor, LLM prompt generation)
 - `ScreenshotAnalysisResult` -- Visual analysis results with detected texts, buttons, errors, and interactive elements (destination: rv-agent screenshot analysis)
 - `PackageDetectionResult` -- Package detection result with code_package, confidence, and detection method (destination: App.code_package property)
 - `RvErrorLog` -- The six fields `spec`, `error_type`, `class_full_name`, `method`, `source`, `message` plus the envelope fields `code`, `event`, `obj`, `val`, `exp`, `msg` (all `str`) and the flag `truncated: bool`. `code` and `event` hold the sentinel `UNSPECIFIED` when the message is not an envelope; `obj`/`val`/`exp`/`msg` hold `""` then. `unique_msg` is a computed field owned by `core` (INV-CORE-25/41) and is not assigned by the parser (destination: `LogcatRepository.register_rv_error`, `CoverageTracker`, `result_processor`)
-- `ParserDiagnostics` -- Counter object defined in `rv-android-core` beside `LogcatRepository` (`domain/coverage.py`), carried by the returned repository as `parser_diagnostics` and shared by the live `CoverageTracker`; `parse_logcat_line(line, diagnostics=None)` counts into the object it is given and into a fresh one otherwise. Integer counters: `lines_not_threadtime`, `lines_other_tag`, `format1_regex_failed`, `format2_short`, `format3_unresolved`, `unrecognised`, `continuation_lines`, `truncated_envelopes`, `sentinel_error_type`, `sentinel_source`, `sentinel_code`, `sentinel_event`, `envelope_forbidden_chars`. No result artefact persists these counters: `result_processor` writes only `unmatched_out_of_scope` and `unmatched_in_scope` to `summary.csv` (destination: in-memory repository, tests)
+- `ParserDiagnostics` -- Counter object defined in `rv-android-core` beside `LogcatRepository` (`domain/coverage.py`), carried by the returned repository as `parser_diagnostics` and shared by the live `CoverageTracker`; `parse_logcat_line(line, diagnostics=None)` counts into the object it is given and into a fresh one otherwise. Integer counters: `lines_not_threadtime`, `lines_other_tag`, `format1_regex_failed`, `format2_short`, `format3_unresolved`, `unrecognised`, `continuation_lines`, `truncated_envelopes`, `sentinel_error_type`, `sentinel_source`, `sentinel_code`, `sentinel_event`, `envelope_forbidden_chars`, and the scope-split discard counters `unmatched_out_of_scope`, `unmatched_in_scope` and `unmatched_unclassified` (INV-ANA-68). No result artefact persists these counters: `result_processor` writes only `unmatched_out_of_scope` and `unmatched_in_scope` to `summary.csv` (destination: in-memory repository, tests)
 - `TargetMethod{className, methodName, params, signature, policy, includeSubtypes, nameIsPattern}` -- Resolved by `MopSpecsTargetSource.load()` from each `MopMethod` (destination: `TargetResolver.resolveInScene` and the direct bytecode scan)
 - `reachability[].methods[].{reachable, reachesTarget, directlyReachesTarget}: bool` -- Per-method flags in the GATOR JSON; the key set does not depend on the specification set (INV-ANA-44). Readers of the raw artefact that tolerate no key change: `static_analysis_parser.py` (the single parse point in `rv-static-analysis`), the gate and sweep scripts under `scripts/`, and `aperv-tool`, which parses `<apk>.json` itself (`analysis/static_artifact.py`, `tools/aperv/derive_mop_artifact.py`, where `method.get("reachesTarget") is True` turns a rename into a silent `False`). The device-side `MopData` reads the derived `*.mop.json`, where the key is renamed `reachesMop`, not this artefact. Two value gates watch these booleans against the `jca` default: `tests/parity/test_reachability_parity.py` (`G_paridade_targets`, the set of signatures with `reachesTarget=true`) and `tests/parity/test_historical_methods_coverage.py` (three methods pinned at `directlyReachesTarget=true`)
 
@@ -321,6 +324,8 @@ rv-screen-parser:
 
 - **File System (analysis)**: Creates `{app_name}.json` analysis output file in output directory containing reachability, windows, transitions, and components sections
 - **File System (logcat)**: CoverageTracker creates empty logcat file if it does not exist
+- **GATOR Scene**: `SootClass.setLibraryClass()` demotes every class outside the effective scope key; the demotion is irreversible within the run (INV-ANA-65)
+- **File System (analysis cache)**: a stored artefact whose recorded key differs from the run's effective key is regenerated rather than reused; `--force` discards it before the analysis runs (INV-ANA-70)
 - **Background Thread**: CoverageTracker starts a daemon thread for continuous logcat monitoring; thread terminates on stop() or context manager exit
 - **Logging (logcat parser)**: every counted discard is logged at WARNING with the line number and the counter name; a re-raised file-level exception is logged at ERROR with the line number before propagating
 - **Soot Scene (target matching)**: each declared target owner FQN is force-resolved into the Scene at HIERARCHY level before `canStoreType` is queried (INV-ANA-43)
@@ -330,6 +335,7 @@ rv-screen-parser:
 
 - `StaticAnalysisException` -- Raised when the analysis tool returns a non-zero exit code. Contains tool name ("ANALYSIS"), exit code, and stderr output.
 - `RVCommandTimeoutError` -- Raised when the analysis tool exceeds `analysis_timeout`. The `Command` class kills the process tree via `kill_process_tree()`.
+- `DenominatorImplausibleError` -- Raised by the denominator gate when the class denominator is empty, the compiled universe under the key is zero, or the parsed-to-compiled ratio falls below `0.15` (INV-ANA-69)
 - `ConfigurationError` -- Raised by RVStaticAnalysisConfig when required paths are missing (analysis client JAR, MOP directory, Android SDK).
 - Unresolvable target super-type -- Not raised: the owner degrades to exact `equals` matching with a logged warning rather than throwing or silently dropping the target (INV-ANA-43)
 - Any exception raised while iterating the file inside `parse_logcat_file` -- logged with the 1-based line number at which it occurred, then re-raised; a partially populated repository MUST NOT be returned in its place, because a caller that receives a repository is entitled to read its counts as the counts of the whole file (INV-ANA-62)
@@ -337,8 +343,6 @@ rv-screen-parser:
 - Parser errors -- Caught internally and logged; the parser returns empty domain objects per-section (empty Classes, empty Windows, empty WindowTransitionGraph, empty Components) on failure rather than propagating exceptions.
 
 ## Invariants
-
-- **INV-ANA-02**: The `StaticAnalysisParser` MUST apply `SignatureNormalizer` to all class names and method signatures before storing them in domain models. The normalization converts inner class dot notation (`OuterClass.InnerClass`) to dollar notation (`OuterClass$InnerClass`) using Java naming convention heuristics. The normalizer is applied in all three JSON sections (`windows`, `transitions`, `reachability`).
 
 - **INV-ANA-04**: The `CoverageTracker` MUST log coverage metric updates whenever coverage metrics change. It MUST log MOP error detections immediately when an RV error is detected. Log entries MUST include the `task_id` if one was provided during initialization.
 
@@ -630,7 +634,7 @@ rv-screen-parser:
 
 - **INV-ANA-59**: The `StaticAnalysisParser` MUST load every entry of the `reachability` member of an analysis artefact and MUST NOT filter that member by any package key. The artefact is scoped by its producer, so the parsed method universe MUST equal the artefact's `reachability` member exactly, and the coverage denominator MUST equal that universe.
 
-- **INV-ANA-60**: The `StaticAnalysisParser` MUST scope `ACTIVITY` windows by membership in the artefact's `reachability` member: an `ACTIVITY` window MUST be admitted if and only if its normalized class name is present there. Window types other than `ACTIVITY` MUST be admitted unconditionally, because they can be system-provided overlays triggered by application code. No package key MUST participate in this decision.
+- **INV-ANA-60**: The `StaticAnalysisParser` MUST scope `ACTIVITY` windows by membership in the artefact's `reachability` member: an `ACTIVITY` window MUST be admitted if and only if its class name, as the artefact spells it, is present there. Window types other than `ACTIVITY` MUST be admitted unconditionally, because they can be system-provided overlays triggered by application code. No package key MUST participate in this decision.
 
 - **INV-ANA-61**: No function on the analysis **consumption** path — `StaticAnalysisParser.parse_file`, `read_static_analysis_files`, and their callers in `rv-platform` — MUST accept, resolve, or pass a package key. Resolving a scope is a **production**-path concern only.
 
@@ -660,6 +664,20 @@ rv-screen-parser:
   (`test_directly_reaches_target_is_subset_of_reaches_target`), which runs GATOR over `cryptoapp` with
   the `jca` specs only; the two APKs where the unseeded engine violated it are outside that test, so the
   guarantee is the seeding, not the test's coverage.
+
+- **INV-ANA-65**: `AnalysisEntrypoint` MUST resolve the package that guards the application/library demotion from `Configs.getClientParamCode("codePackage=")`, falling back to the manifest `package` attribute only when the client parameter is absent. The guard in `AnalysisEntrypoint` and the filter in `RvsecAnalysisClient` MUST resolve to the same value in every run, so that the set the guard protects is exactly the set the client will filter.
+
+- **INV-ANA-66**: The analysis artefact MUST record the scope key that produced it, that key's origin, and the count of compiled classes under that key. The `package` member MUST continue to hold the manifest package as GATOR read it (INV-ANA-58), and the effective key MUST be recorded in a distinct member, so that no reader has to infer one from the other. The count — `class_defs_under_key` — MUST be recorded beside the key, because it is what makes the denominator gate a **pure predicate over the artefact**: evaluable at every consumption point, including resume and `--process-results`, which re-parse `.apk.json` with no APK within reach. It MUST be produced by applying `RvsecAnalysisClient.isAppClass` — the very predicate that filters the parsed side — to the compiled universe under the key, which the client reads from `Scene.getClasses()`; the demotion does not shrink that set, because `setLibraryClass()` reclassifies a class without removing it. One predicate, both sides: the ratio the gate computes compares like with like by construction, and no consumer is asked to perform a subtraction for which it holds a count and not the names. The origin MUST reach the producer on a channel of its own, `-clientParam codePackageSource=<manifest|manifest-neutralized|detector>`, because `codePackage=` carries the key and not where it came from.
+
+- **INV-ANA-67**: The `StaticAnalysisParser` MUST store class names, window names and method signatures exactly as the artefact spells them. No normalization, repair or transformation of any identifier MUST occur on the consumption path. The producers of both sides of the crossing emit the JVM binary name, so any transformation applied to one side alone breaks an agreement that already holds. Measured on the raw logcat of `com.hwloc.lstopo_271`: of its 17 distinct `RVSEC-COV` class names, every `$` sits at genuine nesting (`About$1`, `MainActivity$MenuItems`) and every package boundary is a dot.
+
+- **INV-ANA-68**: `ParserDiagnostics` MUST count every discarded runtime event, separating **out-of-scope** discards (the class is not under the effective scope key — the application did not own it) from **in-scope** discards (the class is under the key but absent from the denominator, or present with a signature that does not match), with a third counter, **unclassified**, for discards under a key of `None` (INV-CORE-60). The three are different failures and MUST NOT be summed with each other. None of the three MUST enter `ParserDiagnostics.discarded_lines`: they count lines that **did** become records, the same reason that property excludes the sentinel and grammar counters — so the INV-ANA-62 identity (records registered plus counted lines equals lines read) holds. The counters MUST be serialized by `to_dict()`; `unmatched_out_of_scope` and `unmatched_in_scope` MUST reach the run's CSV output as columns (INV-PLT-34), while `unmatched_unclassified` is serialized but has no published column — a row with no key is `measured=false`, which already carries the fact (INV-PLT-36).
+
+- **INV-ANA-69**: The denominator gate (`DenominatorImplausibleError`) MUST refuse three distinct conditions and MUST fail loudly rather than publishing a percentage: an **empty** denominator (`reachability` holds no entries); a **compiled universe of zero** (`class_defs_under_key == 0`, which under the default policy was measured as the state of 75 of the 162 corpus APKs, and which makes `parsed / compiled_under_key` a `ZeroDivisionError` rather than a refusal); and a **degenerate** denominator, whose ratio of parsed to compiled classes under the key falls below `0.15`. The ratio MUST be computed over a compiled count that `isAppClass` has already filtered at write time (INV-ANA-66), so that both of its terms answer to one predicate. The gate divides; it MUST NOT attempt a subtraction of its own, holding a count and not the names. A denominator of one class out of a compiled universe of 771 is not empty, and a gate testing only for emptiness would admit every collapsed artefact of that shape. The gate covers the **class** universe only: `cov_reachable`, `cov_reaches_target` and `cov_directly_reaches_target` carry denominators of their own that the gate does not inspect, and those denominators still answer to `libPackages.txt` — the demotion shapes `Hierarchy.appClasses` and from it the `reachable`, `reachesTarget` and `directlyReachesTarget` predicates. What INV-ANA-65 takes away from the deny-list is the **class** denominator, not those three.
+
+- **INV-ANA-70**: A stored analysis artefact MUST NOT be reused as a cache hit unless the key it records equals the run's effective scope key: the filename carries no key, and the artefact's `package` member holds the manifest package whatever key filtered the file, so only the recorded key (INV-ANA-66) identifies what produced it. A run whose effective key differs from the recorded one MUST regenerate the artefact or abort naming both keys; it MUST NOT evaluate an artefact produced under one key against another, which is what a denominator gate wired over a stale cache hit would do. `rv-static-analysis --force` MUST discard the artefact the cache would answer with, before the analysis runs; it is the one **deliberate** invalidation path, and it is not a substitute for the key comparison — an operator re-measuring the same key against a rebuilt jar needs a way to say so, and the comparison fires only when the keys disagree.
+
+- **INV-ANA-71**: Generated resource classes MUST leave the denominator at **every** package segment, not only at the scope key's root. The test in `RvsecAnalysisClient.isAppClass` MUST be on the **last segment** of the class name — `R`, `R$*`, `BuildConfig`, `Manifest`, `Manifest$*` — wherever that segment sits under the key: a suffix test against `<key>.R`, `<key>.R$*` and `<key>.BuildConfig` keeps `<key>.<module>.R`, and a key that is an ancestor of the resource namespace escapes it entirely. Measured over the 162 corpus artefacts produced by the root-only test, 505 such classes sat in the denominator (117 in `app.pachli_50` alone, 33 in `com.blacksquircle.ui_10028`), carrying 547 methods of which **zero** are non-trivial: they are constant tables with nothing to cover, and their only effect was to depress `cov_class`. Artefacts produced before this rule and after it are therefore not comparable on `cov_class`. Output of annotation processors (`_Factory`, `_Impl`, `_MembersInjector`, `$$serializer`, `Hilt_*`, `Dagger*`, DataBinding) is deliberately **not** covered: 5,816 such classes carry 36,264 non-trivial methods that execute at runtime, so removing them would redefine the denominator rather than close a leak; that measurement is an open question.
 ## Requirements
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
@@ -914,29 +932,32 @@ This limitation does NOT apply to `cgDelegation=false` (the default), which uses
 
 ### Requirement: Analysis Key Provenance Is Recorded, Never Inferred (FR04, FR05, FR06, NFR06)
 
-Every static analysis run MUST record the package key it filtered on and the origin of that key (`manifest` or `detector`), at the time the analysis is performed, in the run's own output. The record exists because the analysis artefact cannot carry the information: GATOR writes the manifest package into the JSON's `package` member irrespective of the `codePackage` client parameter it was invoked with, so the file is silent about its own scope.
+Every static analysis run MUST record the package key it filtered on and the origin of that key (`manifest`, `manifest-neutralized` or `detector`), at the time the analysis is performed, in the run's own output — and, with this change, in the analysis artefact itself (INV-ANA-66). GATOR keeps writing the manifest package into the JSON's `package` member irrespective of the `codePackage` client parameter (INV-ANA-58 unchanged); the effective key now occupies a distinct member beside it, so the artefact stops being silent about its own scope.
 
-The requirement governs the **production** path only. A run that performs an analysis chooses a scope, passes it to GATOR as `-clientParam codePackage=`, and records it. A run that merely reads an artefact chooses nothing: it consumes the file at the scope the producer gave it, so there is no key to record, to recover, or to disagree about. When two artefacts of a corpus were produced under different keys, that remains a data-management fact about the corpus, and no component MUST resolve it silently in either direction.
+The requirement still governs the **production** path: a run that performs an analysis chooses a scope, passes it to GATOR as `-clientParam codePackage=`, and records it. A run that merely reads an artefact still chooses nothing — it consumes the file at the scope the producer gave it — but where the artefact carries a record, that record is now read: it classifies discards at the crossing (INV-CORE-60) and feeds the denominator gate (INV-ANA-69), and a stored artefact is reused as a cache hit only under its own key (INV-ANA-70), so a disagreement between a run's key and an artefact's key is **detected**, never resolved silently in either direction. A legacy artefact that records no key supplies `None` — never a value recovered from the `package` member (INV-ANA-58).
 
 #### Scenario: The key and its origin are recorded with the analysis
 
-- **WHEN** a static analysis runs over `org.fossify.calendar_20.apk` with the detector disabled, so that the resolved key is the declared `org.fossify.calendar.debug`
+- **WHEN** a static analysis runs over `org.fossify.calendar_20.apk` with the detector disabled and no neutralization, so that the resolved key is the declared `org.fossify.calendar.debug`
 - **THEN** the run's record MUST state the key `org.fossify.calendar.debug` and the origin `manifest`
 - **AND** the same key MUST be the one passed to GATOR as `-clientParam codePackage=`
+- **AND** the artefact written by the run MUST record that key, its origin and `class_defs_under_key` beside the manifest `package` member (INV-ANA-66)
 
 #### Scenario: A stored artefact never supplies a key, because none is wanted
 
-- **WHEN** an analysis JSON exists at `<results_dir>/<apk>.json` whose `package` member reads `org.fossify.calendar.debug`, and a later run parses it
+- **WHEN** an analysis JSON exists at `<results_dir>/<apk>.json`, produced before this change, whose `package` member reads `org.fossify.calendar.debug` and which records no effective key, and a later run parses it
 - **THEN** the parser MUST load the artefact at the scope its producer gave it
-- **AND** the `package` member MUST NOT be read as a filtering key, and no other key MUST be resolved for the parse
+- **AND** the `package` member MUST NOT be read as a filtering key, and no filtering key MUST be resolved for the parse — the effective key for that task is `None` and its discards are counted as unclassified, while its coverage is computed from the artefact's denominator exactly as before: the missing key costs the row its two `unmatched_*` cells, not its measurement
 
 ### Requirement: The Analysis Artefact Defines Its Own Scope (FR04, FR05, FR06, FR12)
 
 The parser MUST treat the analysis artefact as authoritative about which classes belong to the application. It MUST load the `reachability` member whole, and it MUST NOT apply any package-based filter to it. The producer already removed out-of-scope classes when it wrote the file; a second filter over that output cannot add information and can only remove some of it.
 
-`ACTIVITY` windows MUST be scoped by membership in `reachability`, because the producer does not scope the `windows` member. Windows of other types MUST continue to be admitted unconditionally.
+The parser MUST also treat the artefact as authoritative about **how those classes are spelled**. It MUST store every class name, window name and method signature exactly as the artefact writes it, and MUST NOT apply `SignatureNormalizer` or any other transformation to an identifier on the consumption path. GATOR emits `SootClass.getName()`, the JVM binary name, in which a dot is always a package boundary and a dollar is always genuine nesting; both runtime producers emit the same form — the dexlib2 weaver converts the DEX type descriptor to a dotted FQN inside `SignatureFormatter.toFqn` before emitting, and the ajc aspect reads `method.getDeclaringClass().getName()`. The two sides of the crossing therefore agree without normalization, and the heuristic that converts a dot to a dollar when both adjacent segments start with an uppercase letter is always wrong at a capitalized package segment. The transformation was also applied inconsistently — to the class name and not to the method signature stored beside it — so when it fired it produced a record whose two halves disagreed.
 
-Neither `StaticAnalysisParser.parse_file` nor `read_static_analysis_files` MUST accept a package argument, and no caller on the consumption path MUST resolve one.
+`ACTIVITY` windows MUST be scoped by membership in `reachability`, because the producer does not scope the `windows` member. Windows of other types MUST continue to be admitted unconditionally. Both sides of that comparison MUST be read in the artefact's own spelling, which is why the two transformation sites are removed together: removing only the class-name site would leave windows dollar-separated and classes dotted, silently changing which activities are admitted.
+
+Neither `StaticAnalysisParser.parse_file` nor `read_static_analysis_files` MUST accept a package argument, and no caller on the consumption path MUST resolve a **filtering** key for the parse. The **classification** key the crossing uses (INV-CORE-60) is a different thing: it is read from the artefact's own record (INV-ANA-66), never resolved from outside, and it filters nothing — reading a recorded key is not resolving one.
 
 #### Scenario: An applicationId that scopes nothing no longer empties the universe
 
@@ -961,6 +982,25 @@ Neither `StaticAnalysisParser.parse_file` nor `read_static_analysis_files` MUST 
 - **WHEN** `rv-platform` loads static data for a task, or re-parses the artefact while reconstructing a repository from logcat on resume
 - **THEN** it MUST call `read_static_analysis_files` with the results directory and APK name only
 - **AND** it MUST NOT read `App.code_package`, so the parsed universe MUST be identical whether or not `PackageDetector` is enabled for the run
+
+#### Scenario: A capitalized package segment is stored as written
+
+- **WHEN** the artefact for `com.hwloc.lstopo_80283.apk` contains `className = com.hwloc.lstopo.ZoomView.ZoomView`, where `ZoomView` is both a package and a class
+- **THEN** the parser MUST store `com.hwloc.lstopo.ZoomView.ZoomView`
+- **AND** it MUST match the 1080 `RVSEC-COV` events that name the same string across the 99 archived logcats
+- **AND** the previously produced `com.hwloc.lstopo.ZoomView$ZoomView`, which matched zero events in 99 of 99 logcats, MUST NOT occur
+
+#### Scenario: A genuine inner class keeps its dollar
+
+- **WHEN** the artefact contains `className = com.hwloc.lstopo.ZoomView.ZoomView$ZoomViewListener`
+- **THEN** the parser MUST store it unchanged
+- **AND** the dollar MUST survive, because the producer already spelled the nesting
+
+#### Scenario: Windows and classes are compared in one spelling
+
+- **WHEN** an `ACTIVITY` window named `br.com.colman.petals.MainActivity` is checked against the `reachability` member
+- **THEN** both sides MUST be compared in the artefact's own spelling
+- **AND** the admission decision MUST be unchanged from the artefact's point of view
 
 ### Requirement: Target Method Source Abstraction (FR04)
 
@@ -2166,4 +2206,165 @@ on the **method-name axis**, never on the type axis — an earlier framing that 
 - **AND** when `m` carries no call-graph vertex at all (measured: 12 of the 14 current violations),
   `m` itself is still marked and only its unreachable ancestors stay unmarked — a false negative on the
   transitive axis, not a containment violation, and the run MUST NOT fail
+
+### Requirement: The Demotion Guard Resolves Scope From the Code Key
+
+`AnalysisEntrypoint` SHALL guard the application-to-library demotion with the same scope key the analysis client uses to filter its results. It MUST read `Configs.getClientParamCode("codePackage=")` and MUST fall back to the manifest `package` attribute only when that client parameter is absent. `Configs.clientParams` is populated by `Main.main` before `setupAndInvokeSoot()` runs, so no new dependency between `sootandroid` and `client` is introduced.
+
+The rescue branch that admits classes named in an `<activity>` element MUST remain unchanged. With the guard repaired it stops being load-bearing for application classes and becomes what it was written to be — a safety net for components Soot misclassified — so widening it to services, receivers and providers MUST NOT be part of this change.
+
+#### Scenario: An APK whose manifest package carries a build-type suffix
+- **WHEN** `br.com.colman.petals_3040000.apk` is analysed with manifest `package = br.com.colman.petals.debug` and `-clientParam codePackage=br.com.colman.petals`
+- **THEN** the guard MUST protect the 771 classes under `br.com.colman.petals`
+- **AND** the `libPackages.txt` pattern `br.com.*` MUST NOT demote them
+- **AND** the artefact MUST report 762 application classes instead of 1 — the 771 the guard protects, minus the nine generated classes (`.R`, `.R$*`) that `RvsecAnalysisClient.isAppClass` strips before writing
+
+#### Scenario: An APK whose code package matches no library pattern
+- **WHEN** `app.pachli_50.apk` is analysed with manifest `package = app.pachli.current` and `codePackage = app.pachli`
+- **THEN** the application class count MUST be 6467 both before and after the repair
+- **AND** the repair MUST be invariant for every application whose package matches no `libPackages.txt` pattern
+
+#### Scenario: The client parameter is absent
+- **WHEN** GATOR is invoked without `-clientParam codePackage=`
+- **THEN** the guard MUST use the manifest `package` attribute
+- **AND** the demotion MUST proceed exactly as it does under a manifest-key guard: no class protected or demoted differently than when the parameter is never supplied
+
+### Requirement: The Artefact Records the Key That Produced It
+
+A run that performs an analysis SHALL record the effective scope key and its origin in the artefact it writes. The `package` member MUST keep holding the manifest package as GATOR read it, because INV-ANA-58 forbids treating it as the filtering key; the effective key MUST occupy a distinct member so that the two are never conflated.
+
+Measured over the 162 artefacts of the article corpus, zero classes start with the recorded `package` and 162 of 162 start with the neutralized key — the artefact today records a value that describes nothing about its own contents.
+
+The run SHALL also record `class_defs_under_key`: the number of compiled classes whose name starts with the effective key, counted from the `class_defs` tables of the APK's DEX files at the moment the artefact is written. The reason is the wiring site of the denominator gate. The gate needs two numbers — what was parsed and what was compiled — and only the producer holds both: the parser's entry points are `parse_file(file_path)` (`static_analysis_parser.py:205`) and `read_static_analysis_files(results_dir, apk)` (`:267-286`, where `apk` is a filename **string**), so neither sees an APK, and INV-ANA-61 forbids passing a package key into that module at all (its docstring states *"No package key reaches this module"*). Recording the count at write time resolves that contradiction instead of arguing with it: the gate becomes a **pure predicate over the artefact**, evaluable wherever the artefact is read — including resume and `--process-results`, which re-parse `.apk.json` long after the APK is out of reach.
+
+#### Scenario: A run with a neutralized key
+- **WHEN** an analysis runs with manifest package `org.fossify.paint.debug` and effective key `org.fossify.paint`
+- **THEN** the artefact `package` member MUST be `org.fossify.paint.debug`
+- **AND** the artefact MUST record `org.fossify.paint` as the effective key
+- **AND** it MUST record the origin of that key
+
+#### Scenario: The artefact carries its own compiled-class count
+- **WHEN** `br.com.colman.petals_3040000.apk` is analysed with effective key `br.com.colman.petals`, and 771 compiled classes carry a name starting with that key, nine of them generated resource classes
+- **THEN** the artefact MUST record `class_defs_under_key = 762` beside the effective key — the count after `isAppClass`, the same predicate that filtered the parsed side
+- **AND** it MUST NOT record the raw 771, which no consumer could correct: the gate receives a count, never the names it would need to filter
+- **AND** a later `--process-results` run over the same results directory MUST be able to evaluate the denominator gate from the artefact alone, with no APK on hand and no package key passed to the parser
+
+### Requirement: Generated Resource Classes Leave the Denominator at Every Segment
+
+The analysis client SHALL exclude generated resource classes from the classes it writes, testing the **last segment** of each class name rather than the suffix that follows the scope key.
+
+The filter exists and is correct in intent; it leaks by construction. `isAppClass` computes `className.substring(filterPackage.length())` and compares that suffix to `.R`, `.R$*` and `.BuildConfig`, which answers only for a resource class sitting directly under the key. Two shapes escape it, and both are ordinary: a multi-module application, whose modules each generate their own `R` (`app.pachli.core.database.R`, `com.blacksquircle.ui.feature.editor.R$drawable`), and a scope key that is an ancestor of the resource namespace, where the whole suffix `.screenshottile.R` matches none of the three patterns.
+
+These classes are not app code by any reading: over the 162 corpus artefacts their 547 methods contain **zero** non-trivial members — no method that a test could call, nothing to cover — so their entire contribution is to enlarge the `cov_class` denominator with classes whose coverage can never rise above zero.
+
+#### Scenario: A multi-module application
+
+- **WHEN** `app.pachli_50.apk` is analysed with effective key `app.pachli` and its compiled classes include `app.pachli.core.database.R` and `app.pachli.feature.intentrouter.R$id`
+- **THEN** neither class MUST appear in `reachability`
+- **AND** the 117 classes of that shape now present in the artefact MUST all be absent
+- **AND** `class_defs_under_key` MUST be counted with the same predicate, so the gate's ratio is unaffected by the repair
+
+#### Scenario: A scope key that is an ancestor of the resource namespace
+
+- **WHEN** `com.github.cvzi.screenshottile_148.apk` is analysed under the detector-elected key `com.github.cvzi`, and the application's resource classes are named `com.github.cvzi.screenshottile.R` and `…R$*`
+- **THEN** those classes MUST NOT be counted, even though the suffix left after the key is `.screenshottile.R` and matches no root-anchored pattern
+- **AND** the denominator asserted for this APK MUST be the value measured **after** this repair — the pre-repair 550 counted the leaked resource classes and MUST NOT be carried forward as the expected number
+
+#### Scenario: Annotation-processor output stays
+
+- **WHEN** an artefact holds `com.example.MainViewModel_Factory`, `com.example.AppDatabase_Impl` and `com.example.Model$$serializer`
+- **THEN** all three MUST remain in the denominator
+- **AND** the rule MUST NOT be widened to them by analogy, because they carry methods that execute at runtime and their removal would be a redefinition of what the denominator means
+
+### Requirement: The Crossing Counts What It Discards
+
+The coverage crossing SHALL count every runtime event it does not register, and SHALL classify each discard as out-of-scope or in-scope. An out-of-scope discard means the event's class does not start with the effective key — the application does not own that code, and the discard is correct. An in-scope discard means the class is under the key but the denominator does not contain it, or contains it under a signature that does not match — which is a defect in the chain and MUST be visible.
+
+Both counts SHALL be serialized and SHALL reach the run's CSV output. Without them no repair in this chain is verifiable, and no scope-key rule is safe, because no rule is total.
+
+#### Scenario: A runtime event from a bundled library
+- **WHEN** `RVSEC-COV` reports `<okhttp3.internal.Util: void closeQuietly(java.io.Closeable)>` and the effective key is `br.com.colman.petals`
+- **THEN** the event MUST be discarded
+- **AND** the out-of-scope counter MUST be incremented
+- **AND** the in-scope counter MUST NOT be incremented
+
+#### Scenario: A runtime event whose class is in scope but absent from the denominator
+- **WHEN** `RVSEC-COV` reports a method of `br.com.colman.petals.settings.SettingsWorker`, the effective key is `br.com.colman.petals`, and that class is not present in the artefact's `reachability` member
+- **THEN** the event MUST be discarded
+- **AND** the in-scope counter MUST be incremented
+- **AND** the counter MUST be serialized in the parser diagnostics and MUST appear in `summary.csv`
+
+### Requirement: The Denominator Gate Refuses Empty and Degenerate Results
+
+The analysis pipeline SHALL apply a plausibility gate to every denominator it produces or consumes, and the gate SHALL fail loudly. The gate reads the two numbers the artefact records — the size of its `reachability` member and `class_defs_under_key` — and it MUST refuse three conditions, each named separately in the failure:
+
+1. **An empty denominator**: `reachability` holds no entries.
+2. **A compiled universe of zero**: `class_defs_under_key == 0`. This MUST be tested as its own refusal case, before any division. It is not a corner case — the build-type suffix policy defaults to `False` and 75 of the 162 corpus APKs have zero compiled classes under their manifest key, so a gate written as `parsed / compiled_under_key` raises `ZeroDivisionError` in the default configuration instead of `DenominatorImplausibleError`, and reports nothing about the key that produced the state.
+3. **A degenerate denominator**: the ratio of parsed classes to compiled classes under the key falls below `0.15` — the condition that publishes `cov_class = 100.00%` over one class.
+
+The ratio SHALL be computed over a compiled count already filtered by `isAppClass` at write time (INV-ANA-66) — one predicate on both terms. Without that, the raw ratio is depressed by exactly the application's resource classes, which `isAppClass` strips from the parsed side alone. Measured over all 162 corpus artefacts, the raw healthy floor is `0.5610` (`org.cry.otp_31`, 23 of 41) and 17 of 158 healthy applications sit below `0.90` — among them `com.tananaev.passportreader`, at 18 of 28, whose ten missing classes are its `.R` plus nine `R$*`. The claim that healthy small applications sit at 100% is therefore false on the raw counts and true only after the subtraction. With the subtraction applied, all 158 healthy artefacts sit at exactly 1.0 (the corrected ratio is the client's own filter re-derived, so the agreement is exact) and the four collapsed artefacts sit between 0.0010 and 0.0393, so a threshold of `0.15` stands 3.8× above the collapsed ceiling and 6.7× below the healthy floor, inside a 25.5× separation, rather than being calibrated against either band. The calibration holds under the **neutralized** key: under the literal manifest key, 75 of the 162 have no compiled class at all (a `0/0` is not a low ratio, it is the zero-universe refusal above).
+
+The gate covers the **class** universe only. `cov_reachable`, `cov_reaches_target` and `cov_directly_reaches_target` are published columns with denominators of their own (`reachable_methods_total`, `target_methods_total`) that the gate does not check; those predicates are shaped by `Hierarchy.appClasses` (`Hierarchy.java:305` → `FlowgraphRebuilder.java:72`), which `libPackages.txt` continues to govern even after the demotion guard is repaired. The repair takes the deny-list out of the **class** denominator, not out of those three.
+
+The gate is an instrument of detection, not a redefinition of the denominator: the list GATOR produces inside the informed package remains the 100% by definition.
+
+The 162 artefacts already on disk carry neither a recorded key nor `class_defs_under_key`, and `modules/rv-platform/src/rv_platform/components/result_processor.py:245-325` re-parses `.apk.json` on every resume and on every `--process-results` run, so these artefacts remain live inputs. An artefact that records no key SHALL be treated as one whose key is unknown, never as one whose key can be recovered: the key is `None`, the gate does not run, and the accounting degrades honestly rather than guessing. The key MUST NOT be re-derived from the artefact's `package` member — INV-ANA-58 forbids it, and re-derivation reproduces precisely the defect the recorded key exists to expose.
+
+#### Scenario: A collapsed denominator
+- **WHEN** an artefact for `br.com.colman.petals_3040000.apk` reports 1 class in `reachability` and records `class_defs_under_key = 762` under the effective key `br.com.colman.petals`
+- **THEN** the ratio MUST be `1 / 762 ≈ 0.0013`, below the `0.15` threshold
+- **AND** the gate MUST refuse the artefact
+- **AND** the run MUST fail with a message naming the class count, the compiled count and the effective key
+- **AND** the pipeline MUST NOT publish a coverage percentage for that APK
+
+#### Scenario: An empty denominator
+- **WHEN** an artefact's `reachability` member is empty
+- **THEN** the gate MUST refuse the artefact
+- **AND** the failure MUST name the effective key, because an empty result is the signature of a key that matches nothing
+
+#### Scenario: No class is compiled under the effective key
+- **WHEN** an artefact records `class_defs_under_key = 0` for effective key `br.com.colman.petals.debug`, the state of 75 of the 162 corpus APKs while the suffix-stripping policy is `False`
+- **THEN** the gate MUST refuse the artefact on that condition alone, before computing any ratio
+- **AND** the failure MUST name `br.com.colman.petals.debug` as the key under which zero classes were counted
+- **AND** the run MUST NOT raise `ZeroDivisionError`
+
+#### Scenario: A genuinely small application
+- **WHEN** an artefact for `com.tananaev.passportreader` reports 18 classes in `reachability` and records `class_defs_under_key = 18`, its 28 compiled classes minus the ten generated ones — one `com.tananaev.passportreader.R` and nine `R$*` — that `isAppClass` removed at write time
+- **THEN** the ratio MUST be `18 / 18 = 1.00`, above the `0.15` threshold
+- **AND** the gate MUST admit the artefact with no warning
+- **AND** the raw ratio `18 / 28 = 0.6429` MUST NOT be what the artefact records, because it would report a healthy application as an outlier
+
+#### Scenario: A legacy artefact that records no key
+- **WHEN** a resume or a `--process-results` run re-parses one of the 162 existing artefacts, which carries neither a recorded effective key nor `class_defs_under_key`
+- **THEN** the effective key for that task MUST be `None`
+- **AND** the gate MUST NOT run, because it has no compiled count to test against
+- **AND** every discard MUST be counted as **unclassified**, not attributed to the in-scope counter, since without a key neither scope can be decided
+- **AND** the two `unmatched_*` columns of that row MUST be empty, because no classification was possible
+- **AND** the coverage cells MUST still be computed from the artefact's own denominator: the effective key classifies discards and nothing else, and all 162 stored artefacts carry a non-empty `reachability` (from 1 to 14,860 classes). Emptying their coverage would delete, on every resume and every `--process-results`, the measurement INV-PLT-15 and INV-PLT-16 exist to recover. `measured` answers to the denominator alone (INV-PLT-35), never to the presence of a recorded key
+- **AND** no component MUST re-derive the key from the artefact's `package` member
+
+### Requirement: A Stored Artefact Is Reused Only Under Its Own Key
+
+A run that finds an analysis artefact already on disk SHALL compare the key that artefact records against the run's own effective scope key, and SHALL NOT reuse it silently when the two differ. It MUST either regenerate the artefact or abort with a message naming both keys.
+
+Nothing in the pipeline today can make that comparison. `StaticAnalyzer._execute_command` treats the mere existence of `<apk>.apk.json` as a cache hit (`static_analysis.py:323-335`), and the code says so out loud: *"We do not validate content -- existence implies a previous run completed"*. The filename carries no key (`:198-200`), and neither does the content: the artefact's `package` member is the **manifest** package whatever key actually filtered the file. Before this change there was no invalidation path either — the standalone `--force` flag was declared twice at `modules/rv-static-analysis/src/rv_static_analysis/__main__.py:214` and `:236` and never read, so the only way to invalidate a stale artefact was to delete it by hand.
+
+The consequence is specific to this change: a re-run whose scope-key policy changed reuses the artefact produced under the old policy, and the new denominator gate then evaluates an old artefact against a new key. The recorded key of INV-ANA-66 is what makes that mismatch detectable instead of invisible.
+
+#### Scenario: A re-run under a changed scope-key policy
+- **WHEN** `results/<id>/br.com.colman.petals_3040000.apk.json` records effective key `br.com.colman.petals.debug`, and the run is re-executed with the suffix-stripping policy enabled so that its effective key is `br.com.colman.petals`
+- **THEN** the stored artefact MUST NOT be treated as a cache hit
+- **AND** the run MUST regenerate it, or abort with a message naming both `br.com.colman.petals.debug` and `br.com.colman.petals`
+- **AND** the denominator gate MUST NOT be evaluated over the stored artefact under the new key
+
+#### Scenario: A re-run under the same key
+- **WHEN** the stored artefact records effective key `app.pachli` and the run's effective key is `app.pachli`
+- **THEN** the artefact MUST be reused as a cache hit, with GATOR not re-executed
+- **AND** the reuse MUST follow the existing cache-hit path unchanged — the key comparison adds a condition to reuse, never a new way of reusing
+
+#### Scenario: An explicit request to discard the cache
+- **WHEN** the stored artefact records effective key `com.github.cvzi.screenshottile` and the run's effective key is the same, but the run is invoked with `--force`
+- **THEN** the stored artefact MUST be discarded before the analysis runs, and GATOR MUST be re-executed
+- **AND** the log MUST show `Executing analysis`, never `Analysis result already exists`
+- **AND** this is the only path by which a matching key is deliberately not honoured — an A/B over one directory, or a re-measurement against a rebuilt jar, has no other way to say "measure again"
 

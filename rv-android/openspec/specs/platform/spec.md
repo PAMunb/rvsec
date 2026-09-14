@@ -127,9 +127,9 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 ### Output
 
-- `coverage.csv` -- Per-method coverage data with progressive metrics; columns: `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method`
+- `coverage.csv` -- Per-method coverage data with progressive metrics; columns: `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target` (15 columns, INV-PLT-19)
 - `errors.csv` -- Monitored operations violations; columns: `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` (13 columns; destination: `rvsec-dataset`, `aperv_tool.analysis.violations`, article scripts). Each row comes from `RvErrorLog.to_dict()` (from `task.repository.get_errors()` or the reconstructed repository), which carries `code`, `event` and `unique_msg` (core INV-CORE-25)
-- `summary.csv` -- Aggregate metrics per task; columns: `apk, rep, timeout, tool, cov_act, cov_method, cov_rv_method, errors`
+- `summary.csv` -- Aggregate metrics per task; columns: `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target, mop_errors_total, mop_errors_unique, classes_total, methods_total, unmatched_out_of_scope, unmatched_in_scope, measured` (17 columns, INV-PLT-19). The denominators and discard counters come from `LogcatRepository.calculate_metrics().to_dict()` and its `ParserDiagnostics` (both in `rv-android-core`); `scripts/regenerate_results/regenerate_container.py` writes the same file from the imported `SUMMARY_HEADER`
 - `results.json` -- Hierarchical JSON keyed by `apk > repetition > timeout > tool`, containing summary metrics and monitored operations error details; `monitored_operations_errors.messages` lists each record's `unique_msg` exactly as the domain object computed it
 - `performance.csv` -- Task execution timing; columns vary by mode (basic: `apk, rep, timeout, tool, execution_time_seconds, task_state, monitoring_enabled, timestamp`; detailed: `apk, rep, timeout, tool, metric_name, metric_value, metric_unit, metric_timestamp, task_id, context_info`)
 - `tasks.json` -- Persistent task state with experiment metadata and statistics for experiment continuation
@@ -183,15 +183,19 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 - **INV-PLT-14**: `ResultProcessorComponent` MUST generate all five output files (`coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, `performance.csv`) when at least one completed task exists. If no completed tasks exist, it MUST log a warning and skip file generation.
 
-- **INV-PLT-15**: `ResultProcessorComponent._resolve_static_data(task)` MUST obtain the per-APK results directory as follows: use `task.results_dir` when it is a non-empty string; otherwise, when `task.results_dir` is empty (the resume case, where it was not serialized) and `task.result.logcat_file` is set, derive it as `os.path.dirname(task.result.logcat_file)` (at runtime `task.results_dir == os.path.dirname(task.result.logcat_file)`, both built from `base_results_dir / apk_name`). With that directory, `_reconstruct_repository_from_logcat(task)` MUST invoke `parse_logcat_file(logcat_file, static_data)` with a non-`None` `static_data` whenever the static-analysis JSON exists at `<derived_dir>/f"{task.config.apk_name}.json"`. When `task.static_data` is already populated, that value MUST be reused; when it is `None`, the method MUST call `static_analysis_parser.read_static_analysis_files(<derived_dir>, task.config.apk_name, task.app.code_package if task.app else None)` (note `code_package=None` is tolerated — the GATOR JSON's reachability is already filtered to app classes). If the JSON is absent, the method MUST log a warning, record the task as having unresolved static data, and proceed with `static_data=None` for coverage purposes — in that degraded case `errors` (including the `total_errors`/`unique_errors` aggregates, see analysis INV-ANA-25) are still reliable but per-method coverage MUST be zero. The unresolved count MUST be **at most once per task**, achieved with two fields of disjoint responsibility (not a single overloaded sentinel): (1) `task.static_data` MUST be assigned a *valid* `StaticAnalysisData` on every path — an **empty** `StaticAnalysisData()` in the unresolved case (JSON absent or parser raised) — so it doubles as the parse memo (non-`None` short-circuits re-entry) AND remains a legal argument to `parse_logcat_file`; (2) the count MUST be tracked on a component-level set of task ids (`_unresolved_task_ids`), guarded by membership, so re-entry from any of the four reconstruction call sites (`_write_task_coverage_data`, `_write_task_summary_data`, `_write_task_error_data`, `_extract_task_data`) neither re-parses the JSON nor re-counts. Consequently `static_analysis_parser.read_static_analysis_files` MUST be invoked **at most once per task** across all writers (observable via call count). The count is a property of the task, not of the writer pass; the set MUST be (re)initialized at the start of `ResultProcessorComponent.execute()` so a subsequent consolidation pass reports only that pass.
+- **INV-PLT-15**: `ResultProcessorComponent._resolve_static_data(task)` MUST obtain the per-APK results directory as follows: use `task.results_dir` when it is a non-empty string; otherwise, when `task.results_dir` is empty (the resume case, where it was not serialized) and `task.result.logcat_file` is set, derive it as `os.path.dirname(task.result.logcat_file)` (at runtime `task.results_dir == os.path.dirname(task.result.logcat_file)`, both built from `base_results_dir / apk_name`). With that directory, `_reconstruct_repository_from_logcat(task)` MUST invoke `parse_logcat_file(logcat_file, static_data)` with a non-`None` `static_data` whenever the static-analysis JSON exists at `<derived_dir>/f"{task.config.apk_name}.json"`. When `task.static_data` is already populated, that value MUST be reused; when it is `None`, the method MUST call `static_analysis_parser.read_static_analysis_files(<derived_dir>, task.config.apk_name, task.app.code_package if task.app else None)` (note `code_package=None` is tolerated — the GATOR JSON's reachability is already filtered to app classes). If the JSON is absent, the method MUST log a warning, record the task as having unresolved static data, and proceed with `static_data=None` for coverage purposes — in that degraded case `errors` (including the `total_errors`/`unique_errors` aggregates, see analysis INV-ANA-25) are still reliable but per-method coverage rows MUST be absent and the task's coverage cells MUST be empty (INV-PLT-35). The unresolved count MUST be **at most once per task**, achieved with two fields of disjoint responsibility (not a single overloaded sentinel): (1) `task.static_data` MUST be assigned a *valid* `StaticAnalysisData` on every path — an **empty** `StaticAnalysisData()` in the unresolved case (JSON absent or parser raised) — so it doubles as the parse memo (non-`None` short-circuits re-entry) AND remains a legal argument to `parse_logcat_file`; (2) the count MUST be tracked on a component-level set of task ids (`_unresolved_task_ids`), guarded by membership, so re-entry from any of the four reconstruction call sites (`_write_task_coverage_data`, `_write_task_summary_data`, `_write_task_error_data`, `_extract_task_data`) neither re-parses the JSON nor re-counts. Consequently `static_analysis_parser.read_static_analysis_files` MUST be invoked **at most once per task** across all writers (observable via call count). The count is a property of the task, not of the writer pass; the set MUST be (re)initialized at the start of `ResultProcessorComponent.execute()` so a subsequent consolidation pass reports only that pass.
 
-- **INV-PLT-16**: `_write_task_coverage_data` and `_write_task_summary_data` MUST be unified to a single path that reads from `task.repository.calculate_metrics().to_dict()` after `_reconstruct_repository_from_logcat` has ensured `task.repository` is populated. The pre-existing cascade in `_write_task_summary_data` (3 tiers: `task.result.coverage_metrics` → `task.repository.calculate_metrics()` → zeros) and the `else` branch in `_write_task_coverage_data` (single fallback emitting empty `class/method/signature`) are removed entirely (P3, no backward-compatibility shim). When `_reconstruct_repository_from_logcat` returns `None` (logcat file missing), both writers MUST emit zeroed rows with an explicit warning — they MUST NOT fall back to reading stale serialized values from `task.result.coverage_metrics`.
+- **INV-PLT-16**: `_write_task_coverage_data` and `_write_task_summary_data` MUST be unified to a single path that reads from `task.repository.calculate_metrics().to_dict()` after `_reconstruct_repository_from_logcat` has ensured `task.repository` is populated. The pre-existing cascade in `_write_task_summary_data` (3 tiers: `task.result.coverage_metrics` → `task.repository.calculate_metrics()` → zeros) and the `else` branch in `_write_task_coverage_data` (single fallback emitting empty `class/method/signature`) are removed entirely (P3, no backward-compatibility shim). When `_reconstruct_repository_from_logcat` returns `None` (logcat file missing), both writers MUST emit empty coverage cells with an explicit warning (zero is not an admissible way to say "not measured", INV-PLT-35) — they MUST NOT fall back to reading stale serialized values from `task.result.coverage_metrics`.
 
 - **INV-PLT-17**: The `cov_class` column in both `coverage.csv` and `summary.csv` MUST contain the `class_coverage` metric from `CoverageMetrics.to_dict()` (the percentage of called classes over total static classes). This corrects a pre-existing bug where the runtime path in `_write_task_coverage_data` wrote `method_coverage` into the `cov_class` slot.
 
-- **INV-PLT-18**: Reconstructing a resumed task MUST produce CSV-equivalent results to the same task processed live. Formally, for any completed task `t`, the metrics computed from `Task.from_dict(t.to_dict())` followed by `_reconstruct_repository_from_logcat` (with the logcat and co-located static-analysis JSON present) MUST equal `t.repository.calculate_metrics().to_dict()` for every coverage and error field, within a rounding tolerance of `0.01`. This is the round-trip equivalence that any future change dropping a runtime field required for reconstruction MUST break. Additionally, when one or more resumed tasks have a non-empty logcat but reconstruct to zero per-method coverage (static data unresolved), `ResultProcessorComponent` MUST emit a single prominent aggregate WARNING reporting `N/M` affected tasks — the corruption MUST NOT be silent.
+- **INV-PLT-18**: Reconstructing a resumed task MUST produce CSV-equivalent results to the same task processed live. Formally, for any completed task `t`, the metrics computed from `Task.from_dict(t.to_dict())` followed by `_reconstruct_repository_from_logcat` (with the logcat and co-located static-analysis JSON present) MUST equal `t.repository.calculate_metrics().to_dict()` for every coverage and error field, within a rounding tolerance of `0.01`. This is the round-trip equivalence that any future change dropping a runtime field required for reconstruction MUST break. Additionally, when one or more resumed tasks have a non-empty logcat but have unresolved static data, `ResultProcessorComponent` MUST emit a single prominent aggregate WARNING — "Resume coverage health: N/M resumed tasks had unresolved static data — coverage cells left empty for those tasks" — so the loss is never silent; the wording MUST NOT say "zeroed", which would describe the behaviour INV-PLT-35 forbids.
 
-- **INV-PLT-19**: The headers and column order of `coverage.csv`, `errors.csv` and `summary.csv` MUST NOT be changed by the diagnostic-events feature — every diagnostic field belongs to `app_events.csv` alone. `errors.csv` carries exactly `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg`; `source` (gh89) and `code`, `event` (gh104) are the only additions since the baseline. `coverage.csv` and `summary.csv` remain byte-identical to baseline.
+- **INV-PLT-19**: The headers and column order of `coverage.csv`, `errors.csv` and `summary.csv` are contracts and MUST NOT drift except by restating this invariant. `coverage.csv` carries its fifteen-column header. `errors.csv` carries exactly `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` — `source` from gh89, `code` and `event` from gh104. `summary.csv` carries exactly, and in this order:
+
+  `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target, mop_errors_total, mop_errors_unique, classes_total, methods_total, unmatched_out_of_scope, unmatched_in_scope, measured`
+
+  The last five columns (gh111) are appended after `mop_errors_unique`, so a reader addressing the first twelve positionally reads what it read before. The byte-identity guarantee holds against this seventeen-column header: any change that adds, removes or reorders a column MUST restate this invariant with the new header, so the invariant stays a tripwire instead of quietly becoming false. Every other writer of `summary.csv` in the repository MUST emit this same header by importing `SUMMARY_HEADER` from `result_processor.py` — as `scripts/regenerate_results/regenerate_container.py` does — never by keeping a copy. The diagnostic-events feature writes every diagnostic field to `app_events.csv` alone.
 - **INV-PLT-20**: Diagnostic events MUST survive the resume reconstruction path — a task whose repository is rebuilt from its `.logcat` MUST still produce its `app_events.csv` rows.
 - **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set and no diagnostic tags. The baseline tag set is `LogcatManager.default_tags` — `RVSEC`, `RVSEC-COV` and `ApeRvHb` — and the emitted command is `adb -s <serial> logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V` (core INV-CORE-37). The component MUST NOT filter, reorder or subset `default_tags`: the baseline is defined in one place, and a platform-side copy of the list would be a second place for it to drift.
 
@@ -200,6 +204,26 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **INV-PLT-24**: CSV writers MUST NOT fabricate `time` values. The `time` column of `coverage.csv`, `errors.csv`, and `app_events.csv` MUST be exactly the entry's `time_since_task_start` (with `0` representable, meaning first-second occurrence). Substituting row indices, counters, or any other synthesized value for missing or zero timing is prohibited — this extends the INV-PLT-18 live/resume round-trip equivalence to the `time` column: for any completed task with `tool_execution_start` persisted, the `time` column produced from `Task.from_dict(t.to_dict())` + reconstruction MUST equal the one produced from the live repository.
 - **INV-PLT-25**: The `source` column MUST NOT participate in any key, count or aggregate. Adding it MUST NOT change `total_errors`, `unique_errors`, `mop_errors_unique`, or any coverage metric, because `RvErrorLog.unique_msg`, `__eq__` and `__hash__` exclude it (core INV-CORE-40).
 - **INV-PLT-26**: No value written to the `class` or `method` column of `errors.csv` MUST end with a `(<file>:<line>)` group. The source position belongs to the `source` column alone (analysis INV-ANA-50, core INV-CORE-42).
+
+- **INV-PLT-33**: `summary.csv` MUST publish the denominators alongside the percentages. A row carrying `cov_class` MUST also carry the class count that percentage divides by, and a row carrying `cov_method` MUST also carry the method count. A percentage whose denominator is not in the same row cannot be audited after the fact.
+
+- **INV-PLT-34**: `summary.csv` MUST publish the two discard counters as separate columns. They MUST NOT be summed into one, and a run in which the parser produced no diagnostics MUST write empty cells rather than zeros, so that "not measured" and "measured as zero" remain distinguishable.
+
+- **INV-PLT-35**: A task whose coverage has no denominator MUST write **empty** cells for every derived coverage value and MUST NOT write `0.00` or `0`. This covers all six percentage columns of `summary.csv` — `cov_act`, `cov_class`, `cov_method`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target` — because `_write_task_summary_data` builds all six through the same helper and `LogcatRepository.calculate_metrics()` returns early when `self.classes` is empty, leaving all six numerators and denominators at `0`. The denominator columns `classes_total` and `methods_total` MUST be empty in the same case.
+
+  The same rule reaches two further artefacts:
+  - `coverage.csv` — the four `cov_*_final` row-constant columns (`cov_class`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target`) **and** the three per-row progressive percentages (`cov_act`, `cov_method`, `cov_rv_method`) MUST be empty in the denominator-less case rather than `0.00`.
+  - `results.json` — the `summary` block and the stale-read branch that reads the serialized `coverage_metrics` MUST NOT emit `0` as a measured value when no denominator existed; the absence MUST be representable as `null`.
+
+  The rule stops at the CSVs and `results.json`: `tasks.json`'s `coverage_metrics` keeps `0.0` for the unmeasured case, by design. That field is consumed as a number by the resume protocol (`TaskResult.from_dict`) and by aperv-tool's loader, and the not-measured distinction is carried where readers aggregate — the empty cells and the `measured` column. aperv-tool's `_coverage_rank` ranks a missing number below every present one on its own side, so the two artefacts stay individually coherent.
+
+  The discriminator MUST be the denominator itself — `metrics_dict.get("total_classes", 0) == 0`. It MUST NOT be `self._unresolved_task_ids`: that set is populated only on the resume path (`_resolve_static_data`, reached through `_reconstruct_repository_from_logcat` when `not task.repository`), while on the live path a task whose static analysis failed runs to completion with an empty-classes repository (INV-PLT-05) and never enters the set. The denominator is the only discriminator true on both paths.
+
+  The row's violation columns MUST still be written, because violation detection does not depend on static analysis (INV-EXP-16).
+
+- **INV-PLT-36**: `summary.csv` MUST carry a `measured` boolean column stating whether the row's coverage cells were computed from a real denominator. Its value MUST be `true` exactly when the coverage cells are filled and `false` exactly when they are empty; it MUST never be empty itself, because a column whose purpose is to survive aggregation cannot itself go missing.
+
+- **INV-PLT-37**: The consistency between `summary.csv` and `coverage.csv` is directional — when a task has **no denominator**, its `coverage.csv` per-method rows number zero **and** its `summary.csv` coverage cells are empty with `measured=false`; when a task has a denominator and covered nothing, its rows number zero **and** its cells read `0.00` with `measured=true`. Any consistency check (such as `verify.py` C3 in `scripts/regenerate_results/`) MUST check this directional form. INV-PLT-17 is a different rule — `cov_class` holds `class_coverage` — and keeps its number.
 - **INV-PLT-32**: A failure to write a task's violation rows (`errors.csv`) or to extract a task's violation data (`results.json`) MUST be counted into that task's result and logged at ERROR level with the number of rows lost. It MUST NOT be swallowed as a WARNING that leaves the file silently short, and the writer MUST NOT re-key the record: `unique_msg` MUST be read from the domain object, never assembled in the writer (core INV-CORE-25).
 ## Requirements
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
@@ -466,7 +490,7 @@ The mechanism for achieving this is straightforward: `_process_results()` MUST u
 
 Tasks loaded from `tasks.json` (from previous sessions) do not have `task.repository` data — the `LogcatRepository` that `CoverageTracker` populates in-memory during task execution is runtime-only and never serialized. They also do not carry `task.results_dir` or `task.app`: `Task.to_dict()` serializes only `id/config/result`, so `Task.from_dict()` reconstructs them with `results_dir=""` and `app=None`. Without special handling, every CSV column derived from per-method calls would be empty, because `register_method_call` requires the `classes` dict populated from static-analysis data, and the JSON path built from an empty `results_dir` does not resolve. The solution reconstructs both pieces on demand: the per-APK directory is recovered from the serialized `task.result.logcat_file` via `os.path.dirname(...)` (at runtime `task.results_dir == os.path.dirname(task.result.logcat_file)`), and the static-analysis JSON co-located there is loaded by `static_analysis_parser.read_static_analysis_files(<derived_dir>, apk_name, code_package)`. `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` MUST obtain `static_data` this way, then invoke `parse_logcat_file(logcat_file, static_data)` to produce a `LogcatRepository` whose `classes` is populated and whose `register_method_call` correctly accumulates per-method coverage from `RVSEC-COV` entries. With this in place, the runtime path (Branch 1, current session) and the resume path (reconstruct) produce equivalent `LogcatRepository` objects, so all downstream CSV writers operate uniformly.
 
-The reconstruct path also captures `RVSEC` violation entries via `LogcatRepository.register_rv_error`, which stores violations unconditionally and does not need `static_data`. Therefore, even when the static-analysis JSON is absent (e.g., a campaign that ran without static analysis), `errors.csv` is reliable; per `analysis` INV-ANA-25, the `total_errors`/`unique_errors` aggregates from `calculate_metrics().to_dict()` MUST also remain accurate in that degraded case (they MUST NOT be zeroed by the absence of coverage data). Only the per-method coverage portion is degraded. The reconstruct method MUST log a warning AND increment a counter (at most once per task) when `static_data` is unavailable, so the researcher knows the resulting coverage rows are zero by construction, not by content, and the count of affected tasks is surfaced rather than silently absorbed.
+The reconstruct path also captures `RVSEC` violation entries via `LogcatRepository.register_rv_error`, which stores violations unconditionally and does not need `static_data`. Therefore, even when the static-analysis JSON is absent (e.g., a campaign that ran without static analysis), `errors.csv` is reliable; per `analysis` INV-ANA-25, the `total_errors`/`unique_errors` aggregates from `calculate_metrics().to_dict()` MUST also remain accurate in that degraded case (they MUST NOT be zeroed by the absence of coverage data). Only the per-method coverage portion is degraded — and it degrades to **empty cells with `measured=false`**, never to `0.00` (INV-PLT-35 — a zeroed column would be indistinguishable from a measured zero, which is exactly the ambiguity that invariant removes). The reconstruct method MUST log a warning AND increment a counter (at most once per task) when `static_data` is unavailable, so the researcher knows the resulting coverage cells are empty by construction, not covered-nothing by content, and the count of affected tasks is surfaced rather than silently absorbed.
 
 The execution summary (returned by `Platform.run()` and displayed by the CLI) MUST also reflect the complete experiment scope. It MUST include the count of skipped tasks (from previous runs) alongside the count of executed tasks, so the researcher sees the full picture: "Total tasks: 5 (2 executed, 3 skipped from previous runs)".
 
@@ -474,7 +498,7 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 
 - **WHEN** `Platform.run()` resumes an experiment by skipping N previously completed tasks and executing M new tasks
 - **THEN** `_process_results()` MUST pass all N+M completed tasks to `ResultProcessorComponent`
-- **AND** `summary.csv` MUST contain N+M rows (one per completed task, from all sessions) with all coverage and error columns populated from `LogcatRepository.calculate_metrics()`
+- **AND** `summary.csv` MUST contain N+M rows (one per completed task, from all sessions) with all coverage and error columns populated from `LogcatRepository.calculate_metrics()` — coverage cells empty, per INV-PLT-35, for any task without a denominator
 - **AND** `results.json` MUST contain summary data for all N+M completed tasks
 - **AND** `results.json` MUST contain MOP violation details (violation messages, spec names, class/method) for all N+M tasks that have logcat files
 - **AND** `errors.csv` MUST contain MOP violation rows for all N+M tasks that have logcat files with `RVSEC` entries
@@ -514,14 +538,14 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 - **AND** MUST call `parse_logcat_file(logcat_file, static_data=None)` so `RVSEC` entries are still captured
 - **AND** `errors.csv` MUST contain rows for that task
 - **AND** `summary.csv` for that task MUST report `mop_errors_total` and `mop_errors_unique` equal to the actual violation counts (NOT zeroed by the absence of coverage data)
-- **AND** every coverage-percentage column in `summary.csv` (`cov_act`, `cov_class`, `cov_method`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target`) MUST be `0.00` for that task (`cov_rv_method` is intentionally not a `summary.csv` column — see `result_processor._write_summary_data`, where it would alias `cov_reaches_target`; it exists only in `coverage.csv`)
+- **AND** every coverage-percentage column in `summary.csv` (`cov_act`, `cov_class`, `cov_method`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target`) MUST be **empty** for that task, with `classes_total` and `methods_total` empty and `measured = false` (INV-PLT-35, INV-PLT-36; `cov_rv_method` is intentionally not a `summary.csv` column — see `result_processor._write_summary_data`, where it would alias `cov_reaches_target`; it exists only in `coverage.csv`)
 - **AND** `coverage.csv` MUST have zero per-method rows for that task
 
 #### Scenario: No Fallback to Serialized Coverage Metrics When JSON Is Absent
 
 - **WHEN** coverage cannot be reconstructed for a task (logcat present but static-analysis JSON genuinely absent) and `task.result.coverage_metrics` carries serialized runtime values
 - **THEN** the writer MUST NOT use the serialized `coverage_metrics` to populate `summary.csv` `cov_*` columns
-- **AND** every coverage-percentage column in the `summary.csv` row for that task MUST be `0.00`, consistent with the zero per-method rows in `coverage.csv` (so `verify.py` C3 / INV-PLT-17 holds: `summary cov_* == 0` whenever `coverage_rows == 0`)
+- **AND** every coverage-percentage column in the `summary.csv` row for that task MUST be **empty** with `measured = false`, consistent with the zero per-method rows in `coverage.csv` under the directional form of the consistency check (INV-PLT-37: no denominator → zero rows **and** empty cells; denominator with nothing covered → zero rows **and** `0.00`)
 - **AND** the `mop_errors_total`/`mop_errors_unique` columns MUST still equal the actual violation counts (errors are independent of static data, see analysis INV-ANA-25)
 - **AND** the unresolved-static-data counter MUST be incremented (once for the task) and surfaced in the aggregate WARNING
 
@@ -538,13 +562,13 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 - **WHEN** a completed task `t` has a populated `LogcatRepository` from live execution, and its logcat plus co-located static-analysis JSON exist on disk
 - **AND** a resumed copy is built via `Task.from_dict(t.to_dict())` (so the copy has `results_dir=""`, `app=None`, `repository=None`) and processed through `_resolve_static_data` + `_reconstruct_repository_from_logcat`
 - **THEN** the resumed copy's `calculate_metrics().to_dict()` MUST equal `t.repository.calculate_metrics().to_dict()` for `cov_act`, `cov_class`, `cov_method`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target`, `mop_errors_total`, and `mop_errors_unique`, within a tolerance of `0.01` (INV-PLT-18)
-- **AND** this equivalence MUST hold across at least three logcat fixtures: one with MOP violations, one representing a `--skip-static` run (logcat present, no JSON → coverage zero but errors accurate), and one normal coverage-bearing run
+- **AND** this equivalence MUST hold across at least three logcat fixtures: one with MOP violations, one representing a `--skip-static` run (logcat present, no JSON → coverage cells empty but errors accurate), and one normal coverage-bearing run
 
 #### Scenario: Resume Coverage Health Check Warning
 
 - **WHEN** `ResultProcessorComponent.execute()` finishes processing all completed tasks
-- **AND** N of the M resumed tasks had a non-empty logcat file but reconstructed to zero per-method coverage because static data was unresolved
-- **THEN** the component MUST emit exactly one prominent aggregate WARNING of the form "Resume coverage health: N/M resumed tasks had unresolved static data — coverage zeroed for those tasks" (INV-PLT-18)
+- **AND** N of the M resumed tasks had a non-empty logcat file but reconstructed to empty coverage cells because static data was unresolved
+- **THEN** the component MUST emit exactly one prominent aggregate WARNING of the form "Resume coverage health: N/M resumed tasks had unresolved static data — coverage cells left empty for those tasks" (INV-PLT-18 as restated by this change)
 - **AND** `len(_unresolved_task_ids)` MUST equal N exactly (each affected task counted once)
 - **AND** when N is 0, no such warning MUST be emitted
 - **AND** a subsequent `execute()` pass MUST start from a re-initialized set, so its `N` reflects only that pass (not an accumulation across passes)
@@ -555,8 +579,8 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 - **AND** `task.result.logcat_file` does not exist on disk, or is `None`
 - **THEN** `ResultProcessorComponent` MUST log a warning: "No logcat file available for task {task.id} — MOP violation details cannot be reconstructed"
 - **AND** `errors.csv` MUST NOT have entries for that task (no data source to reconstruct from)
-- **AND** `results.json` MUST include the task with empty violation details and zeroed coverage metrics
-- **AND** `summary.csv` MUST include the task row with all coverage columns set to `0.00` and `mop_errors_total = mop_errors_unique = 0`
+- **AND** `results.json` MUST include the task with empty violation details and `null` coverage entries (INV-PLT-35)
+- **AND** `summary.csv` MUST include the task row with all coverage cells **empty**, `measured = false`, and `mop_errors_total = mop_errors_unique = 0`
 - **AND** `coverage.csv` MUST have zero per-method rows for that task
 
 #### Scenario: Execution Summary Includes Skipped Count
@@ -621,6 +645,8 @@ The platform MUST generate standardized output files from completed experiment t
 
 This requirement serves the research purpose of the project. The CSV files are the primary data format for statistical analysis of experiment results. The JSON file provides a hierarchical view for programmatic access. The performance file captures execution timing for experiment optimization.
 
+**Ordering dependency on `gh104-legible-violation-reports`.** That change modifies this same requirement, and it is 106 tasks done of 109 — it archives first. Its rewrite adds `code` and `event` to `errors.csv` and, in passing, **re-asserts** the twelve-column `summary.csv` scenario and restates INV-PLT-19. This block is therefore copied from gh104's modified version, not from the base spec, and edited only where `summary.csv` is concerned; gh104's `errors.csv` changes are carried through intact. Had this delta been written against the base instead, whichever of the two archived second would have silently overwritten the other's work on this requirement.
+
 Result processing is invoked by `Platform._process_results()` after all tasks have been executed. It creates a `ResultProcessorComponent` with the complete task list and the results directory, then calls `initialize() -> execute() -> cleanup()`. The component filters for completed tasks and generates each file independently, using `ErrorHandler` decorators to ensure that a failure in one file generation does not prevent the others.
 
 Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` are produced from the same `LogcatRepository.calculate_metrics()` source. There is no separate "Branch 2 fallback" path that bypasses repository data for resumed tasks; reconstruction of `task.repository` from logcat + static-analysis JSON (see Requirement "Result Consolidation on Resume (FR10-ext)") ensures both writers operate uniformly on a populated repository.
@@ -628,6 +654,8 @@ Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` a
 The `time` column of `coverage.csv` and `errors.csv` MUST contain the entry's `time_since_task_start` — integer seconds elapsed since tool execution start — on both the live path (stamped by `CoverageTracker`) and the reconstruction path (stamped by `parse_logcat_file` from the persisted `tool_execution_start`, INV-PLT-23). Writers MUST NOT substitute row indices or any other fabricated value when timing is `0` or missing (INV-PLT-24): `0` is a legitimate first-second timestamp, and a repository reconstructed without an epoch produces `0`s that MUST be written as-is with the degraded state logged.
 
 `errors.csv` carries thirteen columns: `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` (INV-PLT-19). `code` and `event` are the record's `code` and `event` fields — the `code=` and `ev=` values of the message envelope, or the sentinel `UNSPECIFIED` when the record carries no envelope — and `unique_msg` is the record's own key, read from the domain object. The writer MUST NOT assemble `unique_msg` from the other fields: the key is `__hash__` and `__eq__` of `RvErrorLog` and is built in exactly one place (core INV-CORE-25), so a formula copied into the writer would re-key a record under an identity the domain did not give it.
+
+`summary.csv` carries seventeen columns: the twelve of the previous header, followed by `classes_total`, `methods_total`, `unmatched_out_of_scope`, `unmatched_in_scope` and `measured` (INV-PLT-19 as restated by this change). The four accounting columns publish the denominators the percentages divide by and the two discard counters of `ParserDiagnostics`; `measured` states whether the coverage cells of the row were computed at all. Appending them after `mop_errors_unique` keeps the first twelve positions stable for readers that index by position.
 
 A failure while writing one task's rows to `errors.csv`, or while extracting one task's data for `results.json`, MUST be counted into that task's result and logged at ERROR level with the task id and the number of rows not written (INV-PLT-32). It MUST NOT be reduced to a WARNING and skipped, because the file then ends silently short of every row of that task and nothing downstream can tell a task with no violations from a task whose violations were lost. Generation of the remaining tasks and of the other files continues.
 
@@ -646,6 +674,7 @@ A failure while writing one task's rows to `errors.csv`, or while extracting one
 - **AND** `cov_method`, `cov_act`, `cov_rv_method` MUST be cumulative-progressive (each row reflects the cumulative state up to and including that call)
 - **AND** `cov_class`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target` MUST equal the final task value from `repository.calculate_metrics().to_dict()` and are row-constant — `cov_class` MUST be `class_coverage` (NOT `method_coverage` as in the pre-fix code), `cov_reachable` MUST be `reachable_method_coverage`, `cov_reaches_target` MUST be `mop_method_coverage`, `cov_directly_reaches_target` MUST be `direct_mop_method_coverage`. Rationale: these metrics are derived from static-analysis denominators that do not change during execution; row-constant values match the offline regen tooling and downstream notebooks already in use
 - **AND** coverage percentages MUST be rounded to 2 decimal places
+- **AND** when the task's denominator is absent (`total_classes == 0`), all seven coverage values of the row — the four row-constant `cov_*_final` columns and the three per-row progressive percentages — MUST be empty cells rather than `0.00` (INV-PLT-35)
 
 #### Scenario: Errors CSV Format
 
@@ -696,8 +725,8 @@ A failure while writing one task's rows to `errors.csv`, or while extracting one
 
 - **WHEN** `summary.csv` is generated
 - **THEN** each completed task MUST produce exactly one row
-- **AND** the header MUST be: `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target, mop_errors_total, mop_errors_unique`
-- **AND** each value MUST be read from `task.repository.calculate_metrics().to_dict()` after `_reconstruct_repository_from_logcat` populated `task.repository`
+- **AND** the header MUST be: `apk, rep, timeout, tool, cov_act, cov_class, cov_method, cov_reachable, cov_reaches_target, cov_directly_reaches_target, mop_errors_total, mop_errors_unique, classes_total, methods_total, unmatched_out_of_scope, unmatched_in_scope, measured`
+- **AND** each value of the first twelve columns MUST be read from `task.repository.calculate_metrics().to_dict()` after `_reconstruct_repository_from_logcat` populated `task.repository`
 - **AND** `cov_act` MUST be the `activity_coverage` key from the dict
 - **AND** `cov_class` MUST be the `class_coverage` key (NOT `method_coverage` as the pre-fix code wrote)
 - **AND** `cov_method` MUST be the `method_coverage` key
@@ -706,7 +735,11 @@ A failure while writing one task's rows to `errors.csv`, or while extracting one
 - **AND** `cov_directly_reaches_target` MUST be the `direct_mop_method_coverage` key
 - **AND** `mop_errors_total` MUST be the `total_errors` key (semantically equivalent to the renamed `errors` column from the pre-fix schema)
 - **AND** `mop_errors_unique` MUST be the `unique_errors` key
+- **AND** `classes_total` MUST be the `total_classes` key and `methods_total` the `total_methods` key — the denominators the percentages divide by (INV-PLT-33)
+- **AND** `unmatched_out_of_scope` and `unmatched_in_scope` MUST be the two `ParserDiagnostics` discard counters, written as separate columns and never summed (INV-PLT-34)
+- **AND** `measured` MUST be `true` when the coverage cells of the row were computed from a real denominator and `false` when they are empty (INV-PLT-36)
 - **AND** coverage values MUST be rounded to 2 decimal places
+- **AND** the twelve original columns MUST keep their positions, so a reader indexing the first twelve positionally is unaffected
 
 #### Scenario: Results JSON Hierarchical Structure
 
@@ -714,6 +747,7 @@ A failure while writing one task's rows to `errors.csv`, or while extracting one
 - **THEN** the JSON MUST be structured as: `{apk_name: {repetitions: {rep: {timeouts: {timeout: {tools: {tool_name: data}}}}}}}`
 - **AND** each tool data entry MUST contain `summary` (with coverage metrics) and `monitored_operations_errors` (with total, messages, and details)
 - **AND** each entry of `messages` MUST be the record's `unique_msg` as the domain object computed it, never re-assembled from the record's fields
+- **AND** when the task had no denominator, the coverage entries of `summary` MUST be `null` rather than `0` — in the repository branch (`result_processor.py:1034-1043`) and in the `else` branch that reads the serialized `coverage_metrics` (`:1050-1064`) alike (INV-PLT-35)
 
 #### Scenario: No Completed Tasks
 
@@ -886,4 +920,90 @@ Finalization MUST NOT raise. Both `cleanup()` methods already catch their own ex
 - **WHEN** `execution/executor.py` is inspected after this change
 - **THEN** it MUST contain no direct calls to `stop_tracking()`, `process_results()`, or `stop_capture()`
 - **AND** the only path to those methods MUST be through the components' `cleanup()`
+
+### Requirement: The Report Publishes Its Denominators
+
+`ResultProcessor` SHALL write the class and method denominators as columns of `summary.csv`, alongside the percentages computed from them.
+
+A percentage alone cannot be audited. The four collapsed artefacts of the article corpus publish `cov_class` values of `100.00` and `0.00` that are indistinguishable, in the CSV, from correct measurements — and the collapse was found by reading artefacts, not reports. With the denominator present, a reader sees `1` where the app has 771 classes without opening anything else.
+
+The denominator is also the writer's discriminator. `metrics_dict.get("total_classes", 0) == 0` is the single test that separates "no denominator" from "covered nothing", and it holds on both the live and the resume path (INV-PLT-35).
+
+#### Scenario: A healthy row
+- **WHEN** an APK with 550 classes in its denominator covers 96 of them
+- **THEN** `summary.csv` MUST carry `classes_total = 550`
+- **AND** it MUST carry `cov_class` computed from that denominator
+
+#### Scenario: A degenerate denominator that reached the report
+- **WHEN** an APK's denominator is 1 class and that class was covered
+- **THEN** `summary.csv` MUST carry `classes_total = 1` next to `cov_class = 100.00`
+- **AND** the two together MUST make the degeneracy readable without consulting the artefact
+
+#### Scenario: An APK that ran without static analysis
+- **WHEN** an APK executed with no `.apk.json` and its logcat carried 7 violations
+- **THEN** all six percentage cells — `cov_act`, `cov_class`, `cov_method`, `cov_reachable`, `cov_reaches_target`, `cov_directly_reaches_target` — MUST be empty, and so MUST `classes_total` and `methods_total`
+- **AND** `mop_errors_total` MUST be `7`
+- **AND** no coverage cell MUST read `0.00`, because that value asserts a measurement that had no denominator
+- **AND** the same task's `coverage.csv` rows MUST leave their seven `cov_*_final` cells empty, and its `results.json` coverage entries MUST be `null`
+
+#### Scenario: An APK that ran and genuinely covered nothing
+- **WHEN** an APK has a 705-class denominator and its logcat carried no `RVSEC-COV` line
+- **THEN** `classes_total` MUST be `705`
+- **AND** `cov_class` MUST be `0.00`
+- **AND** the pair MUST be distinguishable from the previous scenario by the presence of the denominator
+
+#### Scenario: The live path with failed static analysis is caught by the denominator, not by the resume set
+- **WHEN** a task runs to completion on the live path with an empty-classes repository, so `task.repository` is populated and `_reconstruct_repository_from_logcat` is never called
+- **THEN** the writer MUST still leave all six coverage cells empty, because it tests `metrics_dict.get("total_classes", 0) == 0`
+- **AND** it MUST NOT decide by membership in `self._unresolved_task_ids`, which this task never enters
+
+### Requirement: The Report Publishes What the Crossing Discarded
+
+`ResultProcessor` SHALL write the out-of-scope and in-scope discard counts as two separate columns of `summary.csv`.
+
+An out-of-scope count is expected and informative: the weavers instrument by a library deny-list rather than by the app key, so library events legitimately arrive and are legitimately dropped. An in-scope count is a defect signal — the class is under the effective key and the denominator does not hold it, or holds it under a signature that does not match. Summing them would erase exactly the distinction the counters exist to draw.
+
+#### Scenario: Library events dropped, nothing else
+- **WHEN** a task produced 4000 coverage events, 1200 of them from bundled libraries, and every in-scope event matched
+- **THEN** `unmatched_out_of_scope` MUST be `1200`
+- **AND** `unmatched_in_scope` MUST be `0`
+
+#### Scenario: A signature mismatch inside the scope
+- **WHEN** a task's coverage events include 37 in-scope signatures absent from the denominator
+- **THEN** `unmatched_in_scope` MUST be `37`
+- **AND** the value MUST be readable without inspecting any log
+
+#### Scenario: Diagnostics were not produced
+- **WHEN** a task ran under a configuration that produced no parser diagnostics
+- **THEN** both columns MUST be empty
+- **AND** they MUST NOT be written as `0`, because that would assert a measurement that was not made
+
+### Requirement: The Report States Whether It Measured
+
+`ResultProcessor` SHALL write a `measured` boolean column in `summary.csv`, `true` when the row's coverage cells were computed from a real denominator and `false` when those cells are empty. The empty cell itself remains the contract for the coverage values (the writer emits `""`); `measured` is what carries that fact through aggregation.
+
+An empty cell is not a signal under `pandas`, and every in-repo consumer of `summary.csv` reads it with `pd.read_csv` and no `dtype`. The cell becomes `NaN`, and `NaN` is precisely what the aggregators of this project skip: `.mean()` and `.groupby()` drop it, so the row count is unchanged while the denominator of every aggregate silently changes, with nothing recording the change. Without `measured`, INV-PLT-35 would relocate the silence one layer down instead of removing it — the same class of defect this change exists to end.
+
+Two measured consequences make this concrete:
+
+- `scripts/aperv_objective.py:76-78` and `scripts/analyze_calibration.py:186-192` both feed `scipy.stats.trim_mean`, which does **not** skip `NaN`. An APK whose rows are all empty yields a `NaN` APK mean, and the APE-RV calibration objective returns `nan` — a verdict-class consequence.
+- `scripts/verify_phase.py` is a gate over **errors only** (`:115`); its `cov_method` means at `:385-386` feed a check that is explicitly `passed=True  # Informational`. A row that ran without a denominator would vanish from those means instead of pulling them toward zero — a report whose meaning changes with nothing announcing it, though no verdict flips there.
+
+The column is live, not merely published: task 8.3 makes those consumers filter by it and adds it to aperv-tool's loader. A boolean column survives a `.mean()` — its mean is the fraction of rows that were actually measured. An empty cell does not.
+
+#### Scenario: A measured row
+- **WHEN** an APK with a 705-class denominator produces a row whose six coverage cells are filled, including `cov_class = 0.00` for a run that covered nothing
+- **THEN** `measured` MUST be `true`
+- **AND** the row MUST participate in every downstream `.mean()` exactly as it does today
+
+#### Scenario: An unmeasured row
+- **WHEN** an APK executed with no denominator, so its six coverage cells and both denominator cells are empty
+- **THEN** `measured` MUST be `false`
+- **AND** `measured` MUST NOT itself be empty
+- **AND** a consumer computing `df["measured"].mean()` MUST obtain the fraction of rows that carried a denominator, without reading any other file
+
+#### Scenario: A gate can tell a shrunken denominator from a stable one
+- **WHEN** a campaign of 40 rows produces 12 rows with `measured = false`
+- **THEN** `df["cov_method"].mean()` MUST be understood as the mean of the 28 measured rows
+- **AND** `df["measured"].sum() == 28` MUST make that denominator readable from the same file, so `scripts/verify_phase.py` and `scripts/aperv_objective.py` can refuse or qualify the comparison instead of averaging silently over a changed base
 
