@@ -447,7 +447,7 @@ rv-screen-parser:
   `CryptoUtils.createSecretKeyFromBytes` and `CryptographyActivity.executeSecretKeyOperation` to the
   direct axis.
 
-  (c) **`jca`/`jca_android`: `RandomStringPassword.mop` contributes its two static targets as STRICT.**
+  (c) **`jca`: `RandomStringPassword.mop` contributes its two static targets as STRICT.**
   Its two pointcuts name the owner `String` while the file imports only `java.util.stream.IntStream` and
   three `br.unb.cic.mop.*` packages, so the owner resolves only through the implicit `java.lang` step and
   both targets — `java.lang.String#valueOf(java.lang.Object)` and `java.lang.String#toCharArray()` — carry
@@ -458,7 +458,10 @@ rv-screen-parser:
   under LENIENT matching (class and name, signature ignored) `String#valueOf` matches every overload —
   over 3 corpus APKs, 74 call sites of `String.valueOf`/`toCharArray` of which only **17** match the
   woven signatures, leaving 57 false positives propagated to their callers by the transitive axis, on
-  the spec set that is the published ruler.
+  the spec set that is the published ruler. The successor `jca_android` does not carry the file (a
+  `removed-spec` row of `data/jca_android/divergence_record.csv`): it cannot accuse under any trace and
+  writes no predicate, while its two targets, even STRICT, reach every Kotlin string template, which
+  compiles to `String.valueOf(Object)`.
   **Both match points MUST honour `MatchPolicy.STRICT`.** A `className#methodName` key *is* the lenient
   policy — it readmits exactly the overloads STRICT excludes — and the reverse BFS is seeded with the
   direct set (INV-ANA-64), so a STRICT target admitted leniently on the direct axis returns its false
@@ -469,8 +472,8 @@ rv-screen-parser:
   single `String.valueOf` target, the policy being the only variable: **24** direct callers under LENIENT
   against **9** under STRICT (design D13).
   **The effect on the frozen set is enumerated** (measured 2026-08-28): the extractor emits `jca`
-  **122** signatures / **70** pairs / **23** owners and `jca_android` **211** signatures, the difference
-  from the unseeded extractor being exactly the two rows above in each set, with no row merged by the FQN
+  **122** signatures / **70** pairs / **23** owners, the difference from the unseeded extractor being
+  exactly the two rows above, with no row merged by the FQN
   parameter resolution (row count equals distinct-key count on both sides; the resolution respelled one
   parameter list in each JCA set — `SSLContext.init`, `javax.net.ssl.KeyManager[]` and
   `javax.net.ssl.TrustManager[]` — and 16 in `generic_new`, which stays at 72 rows). On the `cryptoapp`
