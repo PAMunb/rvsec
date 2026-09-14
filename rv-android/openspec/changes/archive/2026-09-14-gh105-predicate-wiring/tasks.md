@@ -1292,7 +1292,7 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       narratives), `check()` exit 0 — plus W3, W5, W6, W9, W10 and the 🟢 suggestions in prose.
       Four suites **97 passed** (was 91); the four gate outputs byte-identical before and after.
       Evidence: `data/gh105/evidence/f5-FinalVerification.md`
-- [ ] 8.8 [BLOCKED — external: gh104 archive, which follows the joint experiment; and internal:
+- [x] 8.8 [BLOCKED — external: gh104 archive, which follows the joint experiment; and internal:
       groups 9, 10 and 11, whose repairs land before this change reconciles] Reconcile
       with gh104 before archive: once gh104 has archived, add the formal `MODIFIED` entry for
       its requirement "The Successor Set Carries the Predicates of Its Seed Unchanged" to this
@@ -1304,12 +1304,12 @@ Subagent dispatch (docs/WORKFLOW.md §5):
       remain byte-identical") restated as current state, extended to the requirement
       "Reformulated Scope of G-PRED and Retirement of `rvsec-mop-defsuses`", which describes
       events rather than steady state — and verify the 19 IDs by grep (the gh104 task-10.8
-      pattern; `openspec-sync-specs` only processes the ADDED/MODIFIED headers)
-- [ ] 8.9 [final commit BLOCKED on 8.8 and on groups 9, 10 and 11] `openspec status` complete; commits use
+      pattern; `openspec-sync-specs` only processes the ADDED/MODIFIED headers) — **DONE 2026-09-14**, after gh104 archived. Via `/opsx:update`: the gh104 requirement received a **RENAMED + MODIFIED** entry rather than a bare MODIFIED (researcher's choice, 14/09), because its name — "…Carries the Predicates of Its Seed Unchanged" — would contradict any current-state body; it is now "Predicate Sites of the Frozen Seed and Their Record in the Successor Set", keeping both base scenario names; the supersession scenario lost its process sentence and "Reformulated Scope of G-PRED…" was restated as steady state. `openspec archive` then merged +6, ~3, →1. Hand-sync: INV-INS-130…148 appended after 129, and 118/123/125/128 restated in current state — measured on the tree, not copied from the delta: `jca_android` holds 47 `.mop` (`RandomStringPassword.mop` left it at `a599be6b`), the universe is 238, the store's only removal is `negate(p, bound)`, and D-16 makes the expert copy the sole oracle for every clause kind, which INV-INS-123/125 and the Data Contracts now say instead of the api30 anchor gh104 left. The api30-derived closure counts of INV-INS-137 give way to the derived `predicate_ledger.csv`. Verified: ids 118–148 each present once; the nine requirement blocks equal to the delta; the old requirement name absent; 11/11 specs valid; `test_gh105_predicate_gates.py` 73 passed
+- [x] 8.9 [final commit BLOCKED on 8.8 and on groups 9, 10 and 11] `openspec status` complete; commits use
       `refs #105`;
       final commit `closes #105` after the researcher signs off completion (D-9 single-change
       scope ratified 2026-08-20; Group 10 of gh104 and campaign validation stay with the joint
-      experiment in `experimento-gh104/`, which validates both changes at once)
+      experiment in `experimento-gh104/`, which validates both changes at once) — **DONE 2026-09-14**: the researcher approved closing #105; final commit carries `closes #105`
 
 ## 9. F6 — Repairs adjudicated from the external audit of 2026-08-25
 

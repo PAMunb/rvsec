@@ -437,7 +437,35 @@ negated reads, and the automaton, is retired to `backup/` and removed from the r
   4.11; membership is what the count asserts, not predicate sites. The 21-specification arithmetic
   of the original entry counted a removal that the tree does not show.
 
+## RENAMED Requirements
+
+- FROM: `### Requirement: The Successor Set Carries the Predicates of Its Seed Unchanged`
+- TO: `### Requirement: Predicate Sites of the Frozen Seed and Their Record in the Successor Set`
+
 ## MODIFIED Requirements
+
+### Requirement: Predicate Sites of the Frozen Seed and Their Record in the Successor Set
+
+Every `ExecutionContext` site of the frozen `jca` SHALL be present in `jca` itself at the same event and unrewritten (INV-INS-128): 134 lines across its 23 files — 23 `import`, 27 `validate(`, 49 `setProperty(`, 9 `remove(`, 25 `setObjectAsInAcceptingState`/`unsetObjectAsInAcceptingState` and the comment at `MessageDigestSpec.mop:25`. No `condition()` of `jca` loses a predicate conjunct, no predicate-only accuser loses its declaration, no `@match`/`@match1` body is emptied. The gate is **G-PRED**, a grep, so it cannot drift, and it runs over `jca` only.
+
+`jca_android` is seeded from those 23 files and carries no `ExecutionContext` site (INV-INS-130). Its predicates go through the set's own store (INV-INS-131), placed by INV-INS-133/134 and inventoried in `data/jca_android/predicate_graph.csv` under the closure gate G-PRED2 (INV-INS-137). Every departure of `jca_android` from the seed's predicate sites is a hunk recorded in `data/jca_android/divergence_record.csv` (INV-INS-141), and a departure that changes what is accused carries its satisfy/violate trace pair through the differential harness (INV-INS-144). No per-file count equality with the seed is asserted over `jca_android`.
+
+Deleting the seed's predicate machinery without a replacement is not an admissible form of this departure: it deletes detection at 11 of the 21 predicate-reading events of the seed — seven entirely (`IvParameterSpec c3/c4`, `PBEKeySpecSpec err2/err3`, `SecureRandomSpec c3/setSeed3`, `SecretKeySpecSpec c3`), one in part (`PBEParameterSpecSpec c3`) and three by cross-specification key provenance (`CipherSpec i2`, `MacSpec i1/i2`). The store is what carries those detections into the successor set.
+
+#### Scenario: the predicate gate finds every site of the seed
+
+- **WHEN** G-PRED compares every `.mop` under `jca/` against the frozen census
+- **THEN** every `ExecutionContext` site MUST be present at the same event, with the same `Property` and argument
+- **AND** a missing or rewritten site MUST fail the gate naming the file, the event and the kind — `validate`, `setProperty`, `remove` or accepting-state
+- **AND** the per-file counts MUST sum to 134 over the 23 files
+- **AND** G-PRED MUST NOT run over `jca_android`, where `grep -rlw 'ExecutionContext' --include='*.mop'` returns nothing
+
+#### Scenario: the two pure propagators are carried over
+
+- **WHEN** the two pure predicate propagators of the seed, `RandomStringPassword.mop` and `SecretKeySpec.mop`, are looked up in `jca_android`
+- **THEN** `SecretKeySpec.mop` MUST be present and its predicate sites MUST go through the store, its `e1` read recorded in `predicate_graph.csv` with disposition `propagation` — a propagation read is recorded, never armed with a report site
+- **AND** `RandomStringPassword.mop` MUST be absent, recorded as a `removed-spec` row of `divergence_record.csv`: it cannot accuse under any trace and writes no predicate, so the set loses no report by it
+
 
 ### Requirement: Predicate Contract Between Specifications
 
@@ -930,51 +958,29 @@ depend on it.
 
 ### Requirement: Reformulated Scope of G-PRED and Retirement of `rvsec-mop-defsuses`
 
-G-PRED (gh104) SHALL remain the byte-identity lock of the frozen `jca` predicate machinery and
-SHALL stop applying to `jca_android`, whose predicate contract is carried by INV-INS-130/131/137
-instead (INV-INS-141). The reformulation updates, in the same task, the collateral sites in
-`gh104_gates.py` that assume the old substrate (`accept_requires`, which decides G-2 by grepping
-`ExecutionContext`; the `PREDICATE_CALL` regex, blind to the new store and to arity N) and the
-INV-INS-128 pytest; every hunk the rewrite produces lands in `divergence_record.csv` under a
-kind its `KINDS` whitelist admits.
+G-PRED (gh104) SHALL be the byte-identity lock of the frozen `jca` predicate machinery and SHALL NOT apply to `jca_android`, whose predicate contract is carried by INV-INS-130/131/137 (INV-INS-141). The gh104 gate code that reads predicate sites SHALL recognise the `jca_android` store: in `gh104_gates.py`, `accept_requires`, which decides whether G-2 admits a `REQUIRES` clause family, and the `PREDICATE_CALL` regex, which covers the store and arity N. Every hunk of `jca_android` against its seed is recorded in `divergence_record.csv` under a kind its `KINDS` whitelist admits.
 
-`rvsec-mop-defsuses` SHALL be retired: moved to `backup/` and removed from the reactor
-`<modules>` (P3 — the module is dead: its `main()` points at an absolute path under an alias the
-JVM cannot resolve, `DefsUsesGraph.java:65-66`, its extractor discards the object argument and
-every negated read, and it knows nothing of the automaton). Its idea — def/use closure over
-predicates — is exactly G-PRED2 over `predicate_graph.csv`, which carries everything the module
-discards.
+`rvsec-mop-defsuses` SHALL NOT be part of the reactor: its copy lives in `backup/gh105-retired/rvsec-mop-defsuses/` and no pom lists it (P3 — its `main()` pointed at an absolute path under an alias the JVM cannot resolve, `DefsUsesGraph.java:65-66`, its extractor discarded the object argument and every negated read, and it knew nothing of the automaton). Def/use closure over predicates is G-PRED2 over `predicate_graph.csv`, which carries everything that module discarded.
 
 #### Scenario: The jca lock is untouched
 
-- **WHEN** the migration completes and the gh104 gates run
+- **WHEN** the gh104 gates run
 - **THEN** G-PRED over `jca` MUST be green, byte for byte
 - **AND** G-PRED MUST NOT run over `jca_android`
-- **AND** G-2's `accept_requires` MUST recognize the new store's read sites
+- **AND** G-2's `accept_requires` MUST recognize the store's read sites
 
 #### Scenario: The dead module is retired completely
 
-- **WHEN** the retirement task completes
-- **THEN** `rvsec/rvsec-mop-defsuses/` MUST be in `backup/` and absent from
-  `rvsec/rvsec/pom.xml` `<modules>` (the only pom that lists it)
-- **AND** `grep -r "defsuses"` over the reactor MUST return no reference outside documentation
-  and the historical record (the measured survivors, updated or exempted declaredly: module
-  CLAUDE.md rows, `docs/`, archived changes, the `check_no_legacy_mop.py` skip list, the
-  retired copy under `backup/` — which the move itself creates inside the grepped tree, since
-  `backup/` is tracked, not gitignored — and the active `gh48-project-finalization` artifacts,
-  whose `defsuses` rows are that change's own to update)
+- **WHEN** the reactor tree is inspected
+- **THEN** `rvsec/rvsec-mop-defsuses/` MUST NOT exist and `rvsec/rvsec/pom.xml` `<modules>` MUST NOT list it
+- **AND** `grep -r "defsuses"` over the reactor MUST return no reference outside documentation and the historical record (module CLAUDE.md rows, `docs/`, archived changes, the `check_no_legacy_mop.py` skip list, the retired copy under `backup/` — which is tracked, not gitignored, and so lies inside the grepped tree — and the active `gh48-project-finalization` artifacts, whose `defsuses` rows are that change's own to update)
 - **AND** the reactor MUST build
 
-#### Scenario: The gh104 successor-predicate requirement is superseded for the migrated set
+#### Scenario: The successor set departs from its seed's predicates by record
 
-- **WHEN** the first migrated specification lands (task 4.1) and the gh104 requirement "The
-  Successor Set Carries the Predicates of Its Seed Unchanged" is evaluated against `jca_android`
-- **THEN** its per-file count equality (summing to 134) MUST NOT be asserted any more — the
-  departure is enumerated by `divergence_record.csv` (INV-INS-141) instead
-- **AND** its "neither pure propagator receives a report site" scenario yields to the
-  propagation-read rule of this delta (a propagation read is recorded, never armed)
-- **AND** before this change archives, that requirement MUST receive its formal `MODIFIED`
-  entry in this delta once gh104 has archived it into the main specification
+- **WHEN** the requirement "Predicate Sites of the Frozen Seed and Their Record in the Successor Set" is evaluated against `jca_android`
+- **THEN** no per-file count equality with the seed (summing to 134) MUST be asserted — the departure is enumerated by `divergence_record.csv` (INV-INS-141)
+- **AND** a pure propagator of the seed carries a propagation read that is recorded, never armed
 
 ## REMOVED Requirements
 

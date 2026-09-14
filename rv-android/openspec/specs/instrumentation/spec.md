@@ -224,8 +224,9 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - `android_jar_path: str` -- Path to `android.jar` from Android SDK (source: `$ANDROID_HOME/platforms/android-29/android.jar`)
 - `monitor_output_dir: str` -- Directory with generated monitor artifacts (source: output of rv-monitor-generator)
 - `keystore_file: str` -- JKS keystore file for APK signing (source: bundled `assets/keystore.jks` or user-provided)
-- `RVSec-replication-package/tools/rules/<Class>.crysl` -- The 49 expert-validated CogniCrypt rules, pinned by sha256, read by the allow-list conformance gate as the oracle of every value clause of `jca_android` (INV-INS-125, D-15). Read-only
-- `MetaCrySL/generated/api30/<Class>.cryptsl` -- The generated CrySL rules for Android API 30, read as the oracle of `ORDER`, event alphabets and predicate clauses. Read-only; MetaCrySL itself is never edited
+- `RVSec-replication-package/tools/rules/<Class>.crysl` -- The 49 expert-validated CogniCrypt rules, pinned by sha256: the sole oracle of `jca_android` for every clause kind, read by G-CONF, G-ORDER, G-PRED2 and `scripts/gh105_expert_ledger.py` (INV-INS-125). Read-only
+- `rvsec/rvsec-mop/src/main/resources/{jca,jca_android,jca_android_bug_predicate,generic,generic_new}/*.mop` -- The specification universe the specification-set gates enumerate (238 files today; INV-INS-140)
+- `data/gh104/traces/` and `scripts/gh104_diff_harness.py` -- The differential harness every automaton, message, allow-list or predicate-wiring repair answers to (INV-INS-124, INV-INS-144)
 - `MultiSpec_1RuntimeMonitor.java` -- The generated monitor of a set (`results/<run>/monitors/`), read by the structural gates and the differential harness
 - `data/jca_android/{divergence_record,conformance_record,alias_table,gate_allowlist,constraint_table}.csv`, `rvsec-mop/src/main/resources/jca_android/codes.csv` -- The records the specification-set gates read
 - `descriptor: AspectDescriptor` -- The JavaMOP-emitted descriptor; each `AdviceSpec` carries `monitorCalls: List<MonitorCall>` with size ≥ 1 (source: `descriptor-reader`)
@@ -246,6 +247,10 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - One logcat line per violation report: `RVSEC: spec,classQualifiedName,className,methodName,location,errorType,<envelope>` (logcat `ErrorCollector`); for an envelope-producing set the seventh field is the envelope of `Requirement: Violation Report Message Envelope`
 - `advicesExcludedByArity` -- Per-APK counter in `instrument_results.json` (`BatchRunner` counts map): advices whose positional `args()` arity is incompatible with the merged wrapper's call — a measurement, not the effect of a filter (INV-INS-122)
 - `data/gh104/evidence/harness/<group>-<Spec>.md` -- Differential-harness evidence per specification and repair group, with before/after trace verdicts (INV-INS-124)
+- `data/jca_android/predicate_graph.csv` -- One row per predicate site of `jca_android`, 15 columns: `file, event, site_kind, polarity, guard, arity, predicate, position_types, splitter, clause, mechanism, verdict, disposition, reason, automaton_membership` (INV-INS-137); zero rows over a predicate-free set is the correct, green result
+- `data/jca_android/predicate_ledger.{csv,md}` -- Every `REQUIRES`/`ENSURES`/`NEGATES` clause of the expert rules with its disposition against the set, derived by `scripts/gh105_expert_ledger.py --check`
+- `data/jca_android/order_alphabet_map.csv` -- The versioned event-alphabet mapping G-ORDER consumes, one row per (`.mop` event → `ORDER` event) association (INV-INS-138)
+- `rvsec/rvsec-mop/src/main/resources/jca_android/codes.csv` -- One code per accuser, plus the *not observed* code family (INV-INS-143)
 - `instrument_results.json` -- Per-APK weaver counters written by the production `dexlib2` instrumentation path for every APK processed, successful or not (consumer: `rv-instrumentation-dexlib2`, which parses it into `InstrumentationResults`)
 - `validator/oracles/<apkBaseName>-oracle.yaml` -- Derived Layer-3 oracles, one per APK, each carrying its provenance block and each expected event's `location` (consumer: the Layer-3 comparator)
 - `validator/traces/<apkBaseName>/{ajc,dexlib2}.logcat` -- The reconstructed trace pair for each derived oracle, written in the collector's own line format so the comparator reads reconstruction and recording through one code path (consumer: the Layer-3 comparator)
@@ -257,6 +262,7 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **File System (Maven)**: Executes `mvn clean compile` to download and stage runtime dependencies into `lib_tmp/`
 - **File System (signing)**: Creates signed APK files in the instrumented output directory using the configured keystore
 - **Process execution**: Spawns external processes for JavaMOP, RV-Monitor, dex2jar, ajc, d8, jarsigner, Maven, and zip
+- **Java (predicate store)**: `PredicateStore` and its verdict type in `rvsec-core` serve `jca_android`; `ExecutionContext.java` is frozen with `jca`; `Property.java` grows append-only (INV-INS-132)
 - **Generation (gates and harness)**: the structural gates and the differential harness generate monitors in a scratch directory (`RVSEC_HOME` required); generation is not parallelisable and `TMPDIR` MUST be off tmpfs (`CipherSpec` at 17 events needs 3.3 GB)
 - **File System (dexlib2 results)**: The production `dexlib2` instrumentation path writes one results JSON per APK, alongside the error JSON
 - **Log (dexlib2)**: The resolved `android.jar` path is written to the weaver log at instrumentation start
@@ -268,8 +274,9 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - `CommandException` -- Raised when an external tool (JavaMOP, RV-Monitor, dex2jar, ajc, d8, jarsigner) returns a non-zero exit code or produces error output
 - `InstrumentationError` -- Raised when a pipeline phase fails (decompilation, weaving, compilation, signing) or when the instrumented APK hash matches the original (indicating instrumentation had no effect)
 - `RVAndroidError` -- Base exception class from rv-android-core; `ConfigurationError` inherits from it
-- `pytest` failure (specification-set gates) -- a gate violation without an allowlist entry; a freeze-check failure on `jca`; a `jca_android`/`jca` hunk without a divergence-record entry; a report site with three arguments; an unexpanded `__EVENTNAME` in a generated monitor; any occurrence of `ExecutionContext` in a `.mop` of the successor set; an allow-list entry that is neither a transcription of the expert clause nor covered by the declared normalisation rule nor a recorded departure; an edit reaching `CipherTransformationUtil.java` or `AndroidCipherTransformationUtil.java`; an alias row of the in-code table that differs from `data/jca_android/alias_table.csv`
+- `pytest` failure (specification-set gates) -- a predicate read inside `condition(...)`; a read without an accuser or without a `codes.csv` code; a read with no producer in the set and no record naming why; a write off the rule's acceptance point without a recorded reason; an orphan accuser in `jca_android` in either direction; a `.mop` parameter list that does not survive into the `.rvm`; an automaton not equivalent to its rule's `ORDER` under the versioned alphabet mapping; a wired edge closed without its trace pair; a gate violation without an allowlist entry; a freeze-check failure on `jca`; a `jca_android`/`jca` hunk without a divergence-record entry; a report site with three arguments; an unexpanded `__EVENTNAME` in a generated monitor; any occurrence of `ExecutionContext` in a `.mop` of the successor set; an allow-list entry that is neither a transcription of the expert clause nor covered by the declared normalisation rule nor a recorded departure; an edit reaching `CipherTransformationUtil.java` or `AndroidCipherTransformationUtil.java`; an alias row of the in-code table that differs from `data/jca_android/alias_table.csv`
 - `UnsupportedAspectConstructError` -- Raised by `dexlib2` pointcut parsing when an expression cannot be parsed; the weave fails instead of matching everything
+- `Logic Engine Error` / `StackOverflowError` (monitor generation) -- a generation failure; the generated artifact, not the exit code, decides success, since the toolchain returns 0 on failure (INV-INS-139, INV-INS-145)
 - `IllegalStateException` -- Raised by the `dexlib2` wrapper registry when a key is already bound to a different wrapper. The emitter produces one wrapper per original call site, so a rebinding is unreachable by construction and the guard asserts that emitter and registry agree
 
 ## Invariants
@@ -336,18 +343,37 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **INV-INS-115**: A specification's event count MUST be verified to generate. The monitor generator computes, for the `fail` category of any specification declaring an `@fail` handler, a coenable set of exactly `n × (2ⁿ − 1)` members over an alphabet of `n` events; measured on this machine, 17 events generate in 53 s, 18 raise `StackOverflowError` in the enable-set parser, and 24 exceed Java's maximum `String` length and cannot be built at all. The notation does not change this — `ere`, `ltl` and `ptltl` are rewritten into `fsm` and reach the same computation. A specification MUST therefore be generated end to end before its alphabet is accepted, and a design that cannot be generated MUST be recorded as such rather than left in the plan.
 - **INV-INS-116**: A Layer-3 oracle MUST key its expected events on `(apk, class, method, spec)` — the unique-misuse unit defined in the journal article at `results-rq1.tex:41` and implemented at `data-analysis/repair_summary_outcome.py:53`. The comparator that consumes it MUST match on every element of that key the oracle declares. An oracle keyed more finely than the comparator matches makes the gate weaker than the evidence it rests on; a comparator matching more finely than the oracle keys rejects agreements the ground truth never claimed. Neither direction is acceptable, and what a comparator happens to do is not an argument for changing the unit.
 - **INV-INS-117**: The Layer-3 comparator MUST parse the violation line the on-device collector emits (`ErrorCollector`, rvsec-logger-logcat), and its parsing MUST be justified against that producer and a recorded line that exhibits the format. A parser accepted on the authority of another parser is not evidence that the format is right: two parsers can agree with each other on a shape that nothing in the pipeline emits.
-- **INV-INS-118**: `jca_android` MUST be seeded from the frozen `jca` — never from the archived `jca_android_bug_predicate` — and MUST differ from that seed only by hunks entered in `data/jca_android/divergence_record.csv` with a reason and the task that introduced them. The seed is all 23 `.mop` files of `jca`, `RandomStringPassword.mop` and `SecretKeySpec.mop` included (D-11); a file a successor change adds beyond the seed is recorded by that change, which states the resulting count in its own contract. The freeze of `jca` (INV-INS-109) is unaffected: nothing seeds or repairs `jca_android` by editing `jca/`, `CipherTransformationUtil.java` or `AndroidCipherTransformationUtil.java`, and the freeze gate MUST stay green, with the three gh101 gate scripts (`gh101_divergence_record.py`, `gh101_predicate_pairing_check.py`, `gh101_conformance_check.py` — two test invocations in `tests/parity/test_gh101_specset_gates.py`) pointed at the archive `jca_android_bug_predicate`, which is the set they describe; the gh101 record itself is not edited. An unrecorded hunk between the seed and the set is a defect.
+- **INV-INS-118**: `jca_android` MUST be seeded from the frozen `jca` — never from the archived `jca_android_bug_predicate` — and every hunk between the seed and the set MUST carry a `data/jca_android/divergence_record.csv` row keyed by that hunk (INV-INS-141), with a reason and the task that introduced it. The seed is all 23 `.mop` files of `jca` (D-11). The set's membership is the tree's count, which a gate enumerates rather than asserts as a literal: 47 `.mop` files today — 22 of the seed (`RandomStringPassword.mop` left the set as a `removed-spec` row: it cannot accuse under any trace and writes no predicate), the junction specification `IvChainJunction.mop`, and the specifications added for rule coverage. Membership is what the count asserts, not predicate sites. The freeze of `jca` (INV-INS-109) is unaffected: nothing seeds or repairs `jca_android` by editing `jca/`, `CipherTransformationUtil.java`, `AndroidCipherTransformationUtil.java` or `ExecutionContext.java`, and the freeze gate MUST stay green, with the three gh101 gate scripts (`gh101_divergence_record.py`, `gh101_predicate_pairing_check.py`, `gh101_conformance_check.py` — two test invocations in `tests/parity/test_gh101_specset_gates.py`) pointed at the archive `jca_android_bug_predicate`, which is the set they describe. An unrecorded hunk between the seed and the set is a defect.
 - **INV-INS-119**: Every `new ErrorDescription(` in `jca_android` MUST use the four-argument constructor, and the fourth argument MUST be a v1 envelope. No report emitted from `jca_android` may carry the message `unknown` or an observed value that is empty because a monitor field was interpolated before any event wrote it: a `but found` message MUST interpolate the value read from the target object the reporting event binds (`getAlgorithm()`, `getType()`, `getProtocol()`), or the argument where the event binds it, and never a monitor field.
 - **INV-INS-120**: The monitor generator MUST expand the macro `__EVENTNAME` to the name of the event a report site belongs to — in an event body to the declared name of that event, in a handler body to a call of a per-class helper `RVM_eventName()` that returns the name of the event that last transitioned the monitor, decoding the index the way the monitor's own shape stores it (the atomic shape keeps `index + 1` and the helper subtracts one; the non-atomic shape keeps the index itself), and the sentinel `none` when no event has transitioned it. No specification file MUST carry hand-written event-name bookkeeping. No generated Java MUST contain the unexpanded literal `__EVENTNAME`. Two events of one specification MUST NOT share a name, because the generated monitor merges their transition rows silently.
 - **INV-INS-121**: A report message MUST agree with the check that guards it: every numeric literal in the message equals the literal of the guarding `condition()`; the `ErrorType` matches what the condition tests (a constraint on an argument is `UnsatisfiedConstraint`, an algorithm outside the allow-list is `UnsafeAlgorithm`, a call the rule's `FORBIDDEN` clause names is `ForbiddenMethod`); an expected list in a message is the file's allow-list, joined, never a hand-written subset or the literal `...`.
 - **INV-INS-122**: When `WrapperEmitter` groups advices into one merged wrapper for a concrete call, it MUST NOT remove any advice from the group. It MUST instead decide, per advice, whether the advice's positional `args()` arity is compatible with that call, under three clauses: an advice with no `args()` clause is never counted (absence means "no positional constraint"); the arity is read from `ArgsPC.types()`, so a trailing `..` means "at least"; the decision is taken in the grouping loop, where the concrete overload's parameter count is known. Every incompatible advice MUST be counted into the results JSON as `advicesExcludedByArity`, and the wrapper MUST fire every advice of its group. Measuring rather than filtering is deliberate: a filter would change what every campaign reports, and the counter is the measurement a filter would have to be judged against.
-- **INV-INS-123**: For any specification set, the structural gates over the generated monitor MUST run as pytest and MUST fail on a violation not named in `data/<set>/gate_allowlist.csv` with a reason: G-ERE (every symbol named in an `ere` or `fsm` has an event declaration — run before generation, since the generator drops an undeclared symbol silently), G-2 (an event with a transition row to `fail` from every state — INV-INS-110 — **and** no clause of the corresponding CrySL rule that the event encodes: `CONSTRAINTS`, `REQUIRES` or `FORBIDDEN` on the frozen `jca`; `CONSTRAINTS` or `FORBIDDEN` on `jca_android`, which encodes no `REQUIRES` by construction), G-2a (an event that never changes state: `∀s δ(s,e)=s`), G-2b′ (an event redundant at the start state: `δ(q0,e)=q0`), G-2c (a state unreachable from `q0` or from which no accepting state is reachable), G-2d (the highest-index state is not the `fail` category), G-6′ (the number of `Prop_N_event_*` methods differs from the number of `Prop_N_transition_*` rows). A green gate over a set with a known defect is a bug in the gate; the frozen `jca`, where the answers are known (G-ERE 1, G-2 3 `orphan-without-clause` under the mechanical mapping, G-2a 1, G-2b′ 8, G-2c 1, G-2d 2, G-6′ 1), is the baseline every extension is run against first. G-CONF (INV-INS-127) and G-PRED (INV-INS-128) run beside these but are not structural: they read the `.mop` sources and their oracle — the pinned expert rules for value clauses and the api30 rules for everything else — not the generated monitor.
+- **INV-INS-123**: For any specification set, the structural gates over the generated monitor MUST run as pytest and MUST fail on a violation not named in `data/<set>/gate_allowlist.csv` with a reason: G-ERE (every symbol named in an `ere` or `fsm` has an event declaration — run before generation, since the generator drops an undeclared symbol silently), G-2 (an event with a transition row to `fail` from every state — INV-INS-110 — **and** no clause of the corresponding CrySL rule that the event encodes: `CONSTRAINTS`, `REQUIRES` or `FORBIDDEN` on the frozen `jca`; `CONSTRAINTS`, `FORBIDDEN` or `REQUIRES` on `jca_android`, which encodes its `REQUIRES` clauses as body reads with accusers — INV-INS-133/137/146), G-2a (an event that never changes state: `∀s δ(s,e)=s`), G-2b′ (an event redundant at the start state: `δ(q0,e)=q0`), G-2c (a state unreachable from `q0` or from which no accepting state is reachable), G-2d (the highest-index state is not the `fail` category), G-6′ (the number of `Prop_N_event_*` methods differs from the number of `Prop_N_transition_*` rows). A green gate over a set with a known defect is a bug in the gate; the frozen `jca`, where the answers are known (G-ERE 1, G-2 3 `orphan-without-clause` under the mechanical mapping, G-2a 1, G-2b′ 8, G-2c 1, G-2d 2, G-6′ 1), is the baseline every extension is run against first. G-CONF (INV-INS-127) and G-PRED (INV-INS-128) run beside these but are not structural: they read the `.mop` sources and the set's oracle, the pinned expert rules (INV-INS-125), not the generated monitor.
 - **INV-INS-124**: No repair of an automaton, a message or an allow-list of a specification set MAY close without the differential harness having replayed the same traces through the monitor generated before and through the monitor generated after the repair, with the per-trace verdicts of both committed as evidence. A repair that changes which call is accused, without changing whether the trace is accused, is a moved defect and MUST be recorded as such, not as a fix.
-- **INV-INS-125**: The oracle of every **value clause** of `jca_android` — allow-lists and value tests, the Cipher transformation tables included — is the expert-validated CrySL rule in the pinned copy `RVSec-replication-package/tools/rules/`, whose 49 files are frozen by sha256 as a freeze item (D-15, with `docs/20260824_auditoria_specs_jca_android.md` as the measured reason); **ORDER, event alphabets and predicate clauses keep the generated api30 rule as their anchor** (the audit measured no value-class defect there). Recorded per specification in `data/jca_android/conformance_record.csv`. Five and only five kinds of departure from a literal transcription of the expert rule are admissible, and each MUST be recorded. (1) An entry of the declared normalisation table (INV-INS-127), in `data/jca_android/alias_table.csv` and nowhere else. (2) A **`platform-value`** row of `data/jca_android/divergence_record.csv`: a value the expert rule omits whose rejection would accuse a practice the platform itself recommends, cited to a primary source — the enumerated set is `TLS` in `SSLContext` and `{AndroidKeyStore, AndroidCAStore, BKS, BouncyCastle}` in `KeyStore`, and a candidate without a citation is dropped and stays accused. (3) An **`oracle-wart`** row: a measured quirk of the expert rule itself, transcribed faithfully rather than fixed (`OAEPWithMD5AndMGF1Padding` admitted while no SHA-1 OAEP variant is; `SHA-224` absent from `MessageDigest`; `SHA224withECDSA` and `SHA1withECDSA` absent from `Signature`; the `CCM` addition of the replication copy, which the upstream never carried). (4) A **`behavioural`** row for an observed spelling no registration explains (`OAEPWithSHA1AndMGF1Padding`, resolved by the platform's Bouncy Castle, not Conscrypt). (5) A **`deferred-constant`** row of `conformance_record.csv`: a `CONSTRAINTS` clause the expert rule declares and the set does not yet check, recorded with the rule file, the exact expert clause text, the reason, and the statement that leaving it out adds no accusation — the row MUST cite the expert clause, not the api30 reconstruction of it, because two api30 reconstructions (`pre_len > pre_off`, `len > off`) are mangled and promoting them would implement a bug. A value difference that is none of the five is a defect, and G-CONF MUST fail on it. Values the expert lists carry that Android does not offer (`SunX509`, `NativePRNG*`, `Windows-PRNG`, `PKCS11`, `JKS`, `JCEKS`, `DKS`) stay in the lists — inert entries, never removed by preference. In `jca_android`, `UnsafeAlgorithm` (code KIND `ALG`) therefore means what it means in the published `jca`: **cryptographically insecure per the expert rule**. Any report comparing counts across `jca`, the archived `jca_android_bug_predicate`, the pre-D-15 `jca_android` and the current set MUST say which oracle each answers to.
+- **INV-INS-125**: The sole oracle of `jca_android`, for every clause kind — allow-lists and value tests (the Cipher transformation tables included), `ORDER`, event alphabets and predicate clauses — is the expert-validated CrySL rule in the pinned copy `RVSec-replication-package/tools/rules/`, whose 49 files are frozen by sha256 as a freeze item (D-15 for values, with `docs/20260824_auditoria_specs_jca_android.md` as the measured reason — the generated chain admitted MD5, SHA-1 and AES/ECB; D-16 for every other kind). `MetaCrySL/generated/api30/` is not an authority for anything: it survives only as the input the records derived before D-16 cite. Recorded per specification in `data/jca_android/conformance_record.csv`. Five and only five kinds of departure from a literal transcription of the expert rule are admissible, and each MUST be recorded. (1) An entry of the declared normalisation table (INV-INS-127), in `data/jca_android/alias_table.csv` and nowhere else. (2) A **`platform-value`** row of `data/jca_android/divergence_record.csv`: a value the expert rule omits whose rejection would accuse a practice the platform itself recommends, cited to a primary source — the enumerated set is `TLS` in `SSLContext` and `{AndroidKeyStore, AndroidCAStore, BKS, BouncyCastle}` in `KeyStore`, and a candidate without a citation is dropped and stays accused. (3) An **`oracle-wart`** row: a measured quirk of the expert rule itself, transcribed faithfully rather than fixed (`OAEPWithMD5AndMGF1Padding` admitted while no SHA-1 OAEP variant is; `SHA-224` absent from `MessageDigest`; `SHA224withECDSA` and `SHA1withECDSA` absent from `Signature`; the `CCM` addition of the replication copy, which the upstream never carried). (4) A **`behavioural`** row for an observed spelling no registration explains (`OAEPWithSHA1AndMGF1Padding`, resolved by the platform's Bouncy Castle, not Conscrypt). (5) A **`deferred-constant`** row of `conformance_record.csv`: a `CONSTRAINTS` clause the expert rule declares and the set does not yet check, recorded with the rule file, the exact expert clause text, the reason, and the statement that leaving it out adds no accusation — the row MUST cite the expert clause, not the api30 reconstruction of it, because two api30 reconstructions (`pre_len > pre_off`, `len > off`) are mangled and promoting them would implement a bug. A value difference that is none of the five is a defect, and G-CONF MUST fail on it. Values the expert lists carry that Android does not offer (`SunX509`, `NativePRNG*`, `Windows-PRNG`, `PKCS11`, `JKS`, `JCEKS`, `DKS`) stay in the lists — inert entries, never removed by preference. In `jca_android`, `UnsafeAlgorithm` (code KIND `ALG`) therefore means what it means in the published `jca`: **cryptographically insecure per the expert rule**. Any report comparing counts across `jca`, the archived `jca_android_bug_predicate`, the pre-D-15 `jca_android` and the current set MUST say which oracle each answers to.
 - **INV-INS-126**: The dedupe identity of a violation report (`ErrorSummary.equals`/`hashCode`, `rvsec-core`) MUST include the report's `code` and `event` in addition to `spec`, `error`, `class`, `method` and `location`. The message free text stays outside it. A dedupe count under this identity is not comparable with a five-field count: on an input whose records carry no envelope the discontinuity is zero by construction, and on an input whose records carry `ev=` (the differential-harness traces, the device logcat) it MUST be non-zero (core INV-CORE-57).
 - **INV-INS-127**: Every allow-list of `jca_android` MUST be a literal transcription of the `CONSTRAINTS` clause of the corresponding rule in the pinned expert copy `RVSec-replication-package/tools/rules/`, warts included, widened only by the recorded departures INV-INS-125 enumerates, and compared under one declared normalisation rule: comparison is case-insensitive, and an observed value matches a list entry if a row of the set's alias table maps it to that entry. The gate that checks this is **G-CONF**, whose `--crysl` input points at the pinned expert copy for value clauses. The alias table is a file of its own, `data/jca_android/alias_table.csv`, and MUST NOT be folded into the conformance record or expanded into the allow-lists. Each alias row MUST name its primary source and, in its `service` column, the JCA service it applies to, and every row MUST cite the Conscrypt `android11-release` branch by file and line: there is no second class of row and no exemption from the pointer. The extraction MUST cover multi-line `put("Alg.Alias...")` registrations — 11 registrations span several lines (6 `Signature` composite OIDs → `SHA{224,256,384,512}withRSA` at `OpenSSLProvider.java:234-263`, 5 `Cipher.RSA/None/OAEP*` at `:339-355`), the `Signature` six being live false-accusation vectors — and the table carries them. An observed spelling that no registration in that file explains MUST NOT be given a row at all; it belongs in `data/jca_android/divergence_record.csv`, where its evidence is declared for what it is. The one measured case is `OAEPWithSHA1AndMGF1Padding`, unhyphenated, which the platform resolves through its Bouncy Castle provider (`Cipher.RSA` service + `engineSetPadding("OAEPWITHSHA1ANDMGF1PADDING")`, both verified in the AOSP `android11-release` sources), not through Conscrypt — so it has no Conscrypt line to cite and is recorded as a `behavioural` divergence. Resolution happens at runtime through `ConscryptAliasTable`, a utility class in `rvsec-core` that carries the table as code and that each `jca_android` specification names in its call (INV-INS-112), never by reading the CSV at runtime; a test MUST assert that the in-code table and the CSV are equal, so the record and the instrument cannot drift. A list entry with no clause behind it, and an alias with no pointer behind it, are the same defect: a verdict whose authority cannot be checked.
-- **INV-INS-128**: Every `ExecutionContext` site of the frozen `jca` MUST be present in `jca_android` at the same event and unrewritten — 134 lines over the 23 files. The gate that checks this is **G-PRED**, a grep. The set carries the seed's predicates unchanged, so INV-INS-111 (every written `Property` is read or recorded) governs it exactly as it governs `jca`, and gh101's `predicate_omissions.csv` — which records a `Property` written and never read — has nothing to hold and is not carried. What this set carries instead is one row per removed site — 55 rows: the 21 predicate-reading events, the 9 `remove(...)` sites and the 25 `setObjectAsInAcceptingState`/`unsetObjectAsInAcceptingState` calls, classified as guard, total-loss, partial-loss, provenance, remove or accepting-state; the 46 `setProperty` deletions, the 21 `import` deletions and the one comment (`MessageDigestSpec.mop:25`) are divergence-record entries, one per file, not rows. The two file names denote different records and MUST NOT be used interchangeably. The detections the removal costs MUST be enumerated there and in the divergence record rather than absorbed silently.
+- **INV-INS-128**: Every `ExecutionContext` site of the frozen `jca` — 134 lines over its 23 files — MUST be present in `jca` itself at the same event and unrewritten. The gate that checks this is **G-PRED**, a grep, and it is the `jca` lock and nothing else: `jca_android` carries no `ExecutionContext` site at all (INV-INS-130), and its predicate machinery is governed by INV-INS-131/133/137. INV-INS-111 (every written `Property` is read or recorded) governs both sets; for `jca_android` the record is `data/jca_android/predicate_graph.csv`.
 - **INV-INS-129**: Every generated monitor dispatcher that acquires the generated file's global lock MUST release it on every exit path, including an exception raised inside the guarded region. The generator MUST emit the framing that guarantees it; no generated dispatcher MUST acquire the lock outside such framing. The reason is that the lock is one object shared by every specification of the set and every other dispatcher waits on it by spinning (`tryLock()` inside a `Thread.yield()` loop), so a single unreleased acquisition does not fail one report — it converts the instrumented application into a busy-wait that never reports again and never terminates, and nothing in the record says so. The framing MUST be behaviour-preserving on non-throwing paths: the monitor generated from the frozen `jca` differs from one generated without the framing only in the framing, the event-name table and the `RVM_eventName()` helper of INV-INS-120 — the frozen set writes no `__EVENTNAME`, so no expanded macro appears in that diff.
+- **INV-INS-130**: Every predicate operation of a `jca_android` specification MUST go through the set's own store classes; no `.mop` of the set may mention `ExecutionContext` — checked as `grep -rlw 'ExecutionContext' jca_android/ --include='*.mop'` returning nothing, with `-w` so a fully-qualified use is caught as well as an import. `generic` and `generic_new` reference no predicate substrate (0 of 145 files) and are outside this invariant.
+- **INV-INS-131**: The `jca_android` predicate store (`PredicateStore`) MUST key hybridly — identity (`IdentityHashMap` semantics) on the object binding; value comparison, case-insensitive and with the oracle's splitters, only on positions whose declared type is `String`/`int`/`Integer` — MUST support arity N (the oracle's measured maximum is 2), MUST return a three-valued verdict (`SATISFIED`/`VIOLATED`/`NOT_OBSERVED`), MUST hold object keys weakly with purge, and MUST be thread-safe. The API MUST separate the bound object from the value positions — `ensure/validate(Property p, Object bound, Object... values)` — because a plain varargs head (`Object... args`) silently spreads a reference-array argument (`KeyManager[]`, `TrustManager[]` — exactly the TLS-chain bindings) into separate arguments, and an empty array yields zero arguments (measured under JDK 21; javac emits only an easily missed warning). It MUST NOT offer `hasEnsuredPredicate` (zero `.mop` sites in any set) nor a property-wide removal that ignores the object: its only removal, `negate(Property p, Object bound)`, names the object.
+- **INV-INS-132**: `ExecutionContext.java` MUST be byte-identical to its frozen state — no edit, not even an annotation (P3 bans deprecation annotations, and byte-identity without exception is the stronger freeze claim) — and serves the frozen `jca` and the archived `jca_android_bug_predicate`; it is one of the freeze gate's `FROZEN_PATHS`. The shared `Property` enum MAY gain constants **append-only** — never removed, renamed or reordered (measured safe: zero `ordinal()`/`values()` uses anywhere in the tree) — under a test that asserts the established constants and their relative order survive. Every other class the frozen set calls is untouched by the store, and the freeze gates of gh101/gh104 MUST stay green. The main spec's scenario "Shared runtime code the frozen set references is repaired" opens a repair path for `rvsec-core` code that specifications of **both** sets call; no `jca_android` specification calls `ExecutionContext` (INV-INS-130), so that scenario has no subject in this class, which serves one set and is frozen with it.
+- **INV-INS-133**: A predicate read (`REQUIRES` translation) MUST be placed in the event body, never inside `condition(...)`; a failed read MUST accuse at that event with `UnsatisfiedConstraint` and a `codes.csv` code, and a read whose verdict is `NOT_OBSERVED` MUST emit the *not observed* code, not the violation code. `condition(...)` MUST NOT contain a predicate read; overload discrimination, `ORDER` branching and `CONSTRAINTS` checks remain legitimate guard uses. A guarded clause (`X => pred[…]`) evaluates its guard in the event body **before** the read: a false guard suppresses the read and any report, never the transition, and the guard expression is recorded in the `guard` column of `predicate_graph.csv` — wiring the clause unconditionally would accuse every non-matching `Cipher.init` of a missing IV. A composite read site (a disjunction or conjunction of probes translating one clause, `CipherSpec.i2`'s key-origin trichotomy being the live case) keeps its boolean structure in the body and emits at most **one** report per violated clause, not one per probe.
+- **INV-INS-134**: A predicate write (`ENSURES` translation) MUST be placed at the rule's acceptance point — the `@match` handler, or the states of an `after L` clause — never in an arbitrary event body; each write names the object the rule's clause binds, at the rule's arity. A write kept elsewhere, or below the rule's arity, MUST carry a recorded reason in `predicate_graph.csv`. Arity is a contract between producer and consumer, because `PredicateStore.validate` compares the value tuple: a write at arity 2 read at arity 1 returns `VIOLATED` — a positive accusation about a conforming program — so a write below the rule's arity is admissible only while a consumer of that predicate still reads at the lower arity.
+- **INV-INS-135**: `jca_android` MUST have zero orphan accusers in both directions: every declared event appears in the `fsm`/`ere`, and every symbol the `fsm`/`ere` uses is declared exactly once (the alphabet is a multiset — a duplicate declaration is a defect; `jca/GCMParameterSpecSpec.mop` carries both defects at `:23,34,48` and is the gate's negative fixture). The gate is G-ACC, and on specification forms without an automaton (event-only) it MUST skip declaredly, never report "all events orphan". An orphan that is the **negated twin** of a conforming sibling — identical `call`/`args` pointcut, condition differing only in polarity — MUST be **fused** into the sibling (one event, the accusation moved into the body), never absorbed as a second event: two events matching the same call is itself the defect the automaton scenarios name. The two treatments are told apart by the orphan's body, not by the shape of its guard: an orphan whose body carries an accusation of its own MUST be absorbed, because absorbing preserves a report the set would otherwise lose; an orphan whose body only rebinds a monitor field accuses nothing of its own — the only report it emits is the spurious `InvalidSequenceOfMethodCalls` that its absence from the automaton produces — and MUST be fused. Such a twin can suppress the very finding its file exists to make: on `TrustManagerFactorySpec-sunx509.txt` the unfused form emits `TRUSTMANAGERFACTORY-ORDER-00` twice and never accuses the algorithm, because the orphan's `__RESET` leaves the monitor in a state where the next event's transition fails and the `@fail` path replaces the body that carries the check; the fused form produces exactly one report, the `TRUSTMANAGERFACTORY-ALG-00` the rule states. Where the twin is not an exact complement (`IvParameterSpec.c4` ignores its sibling's offset/length constraints; the three `PBEKeySpecSpec` accusers overlap, so one bad call fires up to three), the fusion decomposes the accusation per clause, one report each. To **absorb** an orphan is defined operationally by where the rule's `ORDER` puts the call it matches, in one of two forms. Where the `ORDER` has no symbol for that call — `SecureRandomSpec.g4` and the two `PBEKeySpecSpec` FORBIDDEN constructors, calls the rule turns down rather than sequences — the event enters the automaton's declared alphabet with benign self-loops at every state where its call is legal, and its `order_alphabet_map.csv` row records it as ORDER-unmapped. Where the `ORDER` does name the call — `KeyPairGeneratorSpec.initError` matches `initialize(int)`, which the rule states with the size bound under CONSTRAINTS — the event enters at that position, as one more alternative of the group its sibling belongs to, and its row is `mapped` to the same symbol; two events standing for one symbol is the non-bijection the mapping already models. G-ACC holds by membership either way, and so does G-ORDER: the first form because the comparison erases unmapped events first (INV-INS-138), the second because the erased languages are then literally unchanged. The second form is not a convenience: a self-loop does not satisfy the position the following event needs, so absorbing `initError` as a loop would draw a KEYPAIRGENERATOR-ORDER-00 on top of the KEYPAIRGENERATOR-KEYSIZE-00 of `getInstance("RSA"); initialize(3072); generateKeyPair()`, about an ordering the rule accepts (`data/gh105/evidence/harness/f1-KeyPairGeneratorSpec.md`, trace `-rsa3072`).
+- **INV-INS-136**: A junction specification (mechanism B) MUST obey four rules: (a) the consumer event is never `creation` — a consumer-created partial instance cannot see the chain and accuses the conforming trace; (b) every state reachable by a disconnected join (an instance combination whose parameters never met in one event) carries a benign self-loop, so cross-product instances stay silent instead of failing spuriously; (c) a chain position whose runtime type is a primitive array is declared `Object` and the overload is fixed in the `call(...)` signature — `args(x)` with `Object` alone matches any single argument, including autoboxed primitives; (d) state needed by `@match`/`@fail` handlers lives in monitor fields — specification parameters are not visible inside handlers. All four rules MUST be checked structurally, not by per-chain review: (c) by G-PARAM, and (a), (b), (d) by `gh105_predicate_graph.py`, because each is decidable from the `.mop` alone — (a) is the `creation` keyword on the consumer event declaration, (d) is handler state declared outside the monitor's field block, (b) is a reachability question over the declared automaton. A rule enforced only by a review that runs once per chain is not protected against the next edit.
+- **INV-INS-137**: `data/jca_android/predicate_graph.csv` is the versioned inventory of every predicate site of `jca_android`, and the closure gate G-PRED2 MUST hold over it: every read has at least one producer in the set or a record naming why it has none (the producing rule has no specification in the set, no rule produces the predicate, or the clause binds nothing the oracle can check); every write has a reader or a deliberate-omission record; every `ENSURES`/`REQUIRES` clause of a rule with a specification in the set maps to exactly its sites. Zero rows over a set without predicates is green. The clause-level dispositions against the whole oracle — which clauses are wireable, which lack a monitored consumer or producer, which are vacuous — are derived, not asserted, by `scripts/gh105_expert_ledger.py` into `data/jca_android/predicate_ledger.csv`, and move with the set. This inventory realizes INV-INS-111 for the successor set.
+- **INV-INS-138**: G-ORDER MUST decide language equivalence between a specification's `fsm`/`ere` and its rule's `ORDER` by DFA equivalence, under the event-alphabet mapping of `data/jca_android/order_alphabet_map.csv` — a versioned artifact, one row per association, revised with the specification that uses it. The gate MUST report `skipped` (with the reason) for a specification with no CrySL rule or no mapping, and MUST NOT infer a mapping heuristically. An event with no `ORDER` counterpart (an absorbed accuser such as `initError` or `g4`) maps to no `ORDER` symbol: its mapping row records the exemption, and the gate erases unmapped events from both languages before deciding equivalence — this is what lets an absorbed accuser satisfy G-ACC without breaking G-ORDER. A wrong mapping is a wrong verdict in both directions. The gate MUST parse an `ORDER` under the CrySL grammar's own precedence — `Sequence` (`,`) is the outermost production and therefore the *weakest* operator, so `a, b | c` is `a, (b | c)` (`CrySL.xtext:103-120`) — and MUST NOT reuse the juxtaposition precedence an `ere` needs, where concatenation binds tighter. The two readings agree on every rule that parenthesises its alternations and disagree only on one that does not, so a wrong reading presents as a single plausible witness rather than as a parse failure (`data/gh105/evidence/f1-order-gate-precedence.md`).
+- **INV-INS-139**: The parameter list of every `.mop` MUST survive intact into its generated `.rvm` (G-PARAM), checked over every file of the enumerated universe by comparing the two headers. The check MUST read the generated artifact and MUST NOT trust exit codes: JavaMOP deletes the entire list for a primitive-array parameter and returns 0 with the success message, and returns 0 even on hard pointcut parse errors.
+- **INV-INS-140**: Every specification-set gate MUST degrade declaredly over the full specification universe, which each gate MUST **enumerate** rather than assert as a literal — 238 `.mop` over the five sets today, a number that moves whenever a set gains or loses a file, so a gate that hard-codes it turns every such change into a failure: event-only specifications (17 in `generic_new`) are a legitimate form and are skipped by automaton gates; files that do not compile (11 duplicate-parameter files and the `FSM358.mop` import collision in `generic`) are skipped and counted, never crash the gate; specifications without a CrySL rule are `skipped`, never green-by-vacuity nor red-by-absence; helper methods that shadow API names (`validate(int)` in `KeyPairGeneratorSpec`; collection `.remove(`) MUST NOT be counted as predicate sites — the discriminator is the `(Property` argument; `@match1`-style handlers reached through `alias` MUST be resolved to their states.
+- **INV-INS-141**: INV-INS-128 binds the frozen `jca` only; the predicate contract of `jca_android` is INV-INS-130/131/137, and the requirement "Predicate Sites of the Frozen Seed and Their Record in the Successor Set" asserts no per-file count equality over `jca_android`. G-2 admits `REQUIRES` accusers on `jca_android` (INV-INS-123), and constraint provenance (G-CONF) holds. Every hunk of `jca_android` against its seed MUST appear as a `divergence_record.csv` entry **keyed by that hunk**, so the departure from the seed stays enumerable. The granularity is not a choice: `scripts/gh104_divergence_record.py` keys each row by a 12-hex sha1 of the diff hunk and its `check()` fails both ways — `unrecorded divergence` for a live hunk with no row, `stale entry` for a row whose hunk no longer exists — with an empty hunk key admitted only for the narrative kinds; its `KINDS` whitelist carries the predicate species (`predicate-store`, `placement`, `junction`, `predicate-removal`), because an unlisted kind makes `check()` report `unknown kind`, and `tests/parity/test_gh104_specset_gates.py::test_jca_android_hunks_all_recorded` (INV-INS-118) MUST stay green over every `.mop` edit. Per-site accounting lives in `predicate_graph.csv`, which is keyed for it; the divergence record answers a different question — what changed against the seed, and why. The gate code that reads predicate sites MUST recognise the store, or it produces false verdicts: in `gh104_gates.py`, `accept_requires` and the `PREDICATE_CALL` regex; in `gh104_message_gate.py`, `_clause_family`, which classifies an orphan's clause family and cannot read it from an emptied `condition(...)`; in `tests/parity/test_gh104_specset_gates.py`, the census constants that describe the frozen `jca` and not the successor; and in `data/jca_android/gate_allowlist.csv`, the justifications of rows that cite a condition read.
+- **INV-INS-142**: A predicate removal MUST translate a `NEGATES` clause of the rule, MUST name the object, and MUST occur at the clause's `after` event. The oracle has exactly two `NEGATES` clauses (`SecretKey: generatedKey[this, _] after Destroy`; `PBEKeySpec: speccedKey[this, _] after ClearPass`); only the second has a corresponding event in the set, `PBEKeySpecSpec`'s `clearPassword`. `jca_android` carries no `@fail` predicate removal — "undo the predicate when the automaton fails" is a semantics no CrySL generation has — and the store's only removal, `negate(Property p, Object bound)`, names the object (INV-INS-131), so a removal without the write it withdraws is dead code.
+- **INV-INS-143**: The *not observed* verdict MUST reach the violation-report envelope with its own `codes.csv` code family, distinct from the violation codes. A three-valued read whose third value is computed but indistinguishable downstream is a defect.
+- **INV-INS-144**: No wiring change (a predicate edge, a guard move, an orphan fusion or absorption, a removal of INV-INS-142) MAY close without a satisfy/violate trace pair replayed by the differential harness through the before and after monitors, verdicts committed — the per-edge refinement of INV-INS-124. A repair that moves which call is accused without changing whether the trace is accused is a moved defect, recorded as such.
+- **INV-INS-145**: The `CipherSpec` alphabet MUST NOT exceed 17 events (countable in the `.mop`). Seventeen events generate under `-Xmx1g` (~53 s); eighteen raise `StackOverflowError` in the parent's enable-set parser at any heap — the ceiling is the parser, not memory, and no flag lifts it (INV-INS-115 carries the same numbers). `CipherSpec` declares exactly 17 events, so its headroom is **zero**: every new `Cipher` binding routes through a junction specification or the store, both of which cost nothing there. A change to the `Cipher` alphabet MUST be generated through the real pipeline before it is accepted, with the heap used recorded.
+- **INV-INS-146**: A negated `REQUIRES` clause (`!pred[…]` — the oracle has exactly three: `Cipher: !macced[_, plainText]`; `Mac: !encrypted[output1, _]` and `!encrypted[output2, _]`) inverts the three-valued table: **no entry is the conforming case** and MUST stay silent — for `!macced`, `NOT_OBSERVED` is conformance, not a reach artifact — while an entry for a same-name predicate is the violation. The read API MUST carry the polarity explicitly (`validateAbsent(...)`), and `predicate_graph.csv` records the clause polarity. The three clauses are **wired** (researcher decision 2026-08-20), with the `MACED` producer write at Mac's acceptance point; wiring a negated clause through the positive table would emit *not observed* on every conforming `Mac.doFinal()`.
+- **INV-INS-147**: `jca_android` MUST contain zero `setObjectAsInAcceptingState`/`unsetObjectAsInAcceptingState` calls. The store does not offer the bookkeeping; the 25 calls the seed carries (19 set / 6 unset) fall inside recorded `divergence_record.csv` hunks of the successor (INV-INS-141). Production has zero readers of that bookkeeping: the maintained readers (`Assertions.mustBe…InAcceptingState`) live in the `rvsec-agent` test corpus, which weaves the frozen `jca`.
+- **INV-INS-148**: The differential harness MUST isolate the predicate substrate between traces. `TraceRunner.replay()` rebuilds a fresh class loader per trace and resets `ErrorCollector`, but the predicate singleton resolves through the **parent** loader — it sits on `java.class.path` — so its state survives every trace of a directory replay unless it is reset explicitly, exactly as the error sink is. Without the reset a satisfy trace's `ensure` silently satisfies the violate trace that follows it, and the pair evidence of INV-INS-144 reports a pass it did not earn. `replay()` MUST therefore reset the predicate store beside the error sink, and the isolation MUST be proved by a cross-trace test — a satisfy trace followed by a violate trace in one replay, asserting the violation is still accused — never assumed from the class-loader construction. This is the operational reason the store offers `reset()` despite having zero production callers.
 ## Requirements
 ### Requirement: Monitor Generation from JavaMOP Specifications (FR01, NFR07)
 
@@ -1858,85 +1884,235 @@ The distinction is between a correction of what counts as a misuse, which is con
 
 ### Requirement: Event Membership in the Specification Automaton
 
-Every event declared in a specification SHALL appear in that specification's `fsm` or `ere`. The monitor generator assigns an event absent from the automaton a transition row that moves every state to `fail`, so such an event does not merely go unmodelled — it makes the specification accuse unconditionally.
+Every event declared in a specification SHALL appear in that specification's `fsm` or `ere`, and
+every symbol the `fsm` or `ere` uses SHALL be a declared event — membership is checked in both
+directions, and the declared alphabet is a multiset: a duplicate declaration is a defect. The
+monitor generator assigns an event absent from the automaton a transition row that moves every
+state to `fail`, so such an event does not merely go unmodelled — it makes the specification
+accuse unconditionally; a symbol used but never declared is dropped by the generator silently. In
+`jca_android` this SHALL hold with zero exceptions after this change: the 17 orphan accusers (9
+specifications) are absorbed into their automata or fused into their conforming siblings, each
+change measured by the differential
+harness, rescuing the structural bucket of the archived attempt under fresh evidence rather than
+by copying its hunks. The gate is G-ACC, and it runs generically: on event-only specification
+forms (no `fsm`/`ere` block — 17 files in `generic_new`) it skips declaredly instead of calling
+every event an orphan, and on sets without predicates it reports an orphan as informative rather
+than as an accuser defect.
 
-This makes automaton membership part of any binding correction rather than a follow-up: repairing the binding of an event that is absent from the automaton converts a dead event into an unconditional accuser. `g3` in `TrustManagerFactorySpec` and `unsafe_protocol` in `SSLContextSpec` are both in this state today.
+The reverse direction and the multiset rule have a live negative fixture: the frozen
+`jca/GCMParameterSpecSpec.mop` declares `event c1` twice (lines 23 and 34) and its `ere` (line
+48) names a `c2` that is never declared — identical in the archived set; `jca_android` already
+carries the correction. The frozen file is not repaired (INV-INS-109); it anchors the gate's
+negative test.
+
+This makes automaton membership part of any binding correction rather than a follow-up:
+repairing the binding of an event that is absent from the automaton converts a dead event into
+an unconditional accuser. Kleene-star residue is declared where it exists: absorbing an orphan
+by a Kleene prefix resolves the `@fail` at the violating event but does not absorb obligatory
+calls that must follow it (`PBEKeySpec.cP` is the recorded case — the Kleene-prefix residue
+record, labeled `FEN-PBK-RESIDUO` in the Phase-0 plan).
 
 #### Scenario: Bound event absent from the automaton
 
-- **WHEN** a specification declares an event that appears in no row of its `fsm` or `ere`
-- **THEN** the specification MUST be treated as defective
-- **AND** the correction MUST add the event to the automaton in the same change that repairs its binding
+- **WHEN** a `jca_android` specification declares an event that appears in no row of its `fsm`
+  or `ere`
+- **THEN** G-ACC MUST fail
+- **AND** the correction MUST add the event to the automaton in the same change that repairs its
+  binding, with the satisfy/violate trace pair committed
+
+#### Scenario: Automaton symbol never declared
+
+- **WHEN** a specification's `fsm` or `ere` names a symbol that matches no declared event
+- **THEN** G-ACC MUST fail in the reverse direction
+- **AND** the frozen `GCMParameterSpecSpec` fixture MUST be reported and allowlisted with its
+  reason, never repaired
+
+#### Scenario: Event-only specification form
+
+- **WHEN** G-ACC runs over a specification with no `fsm`/`ere` block
+- **THEN** it MUST classify the file as event-only and skip it declaredly, counting the skip
+- **AND** it MUST NOT report its events as orphans
 
 #### Scenario: Binding repaired without automaton membership
 
 - **WHEN** an event's binding is corrected while the event remains absent from the automaton
-- **THEN** every call outside the allow-list MUST be expected to emit a spurious `InvalidSequenceOfMethodCalls`
+- **THEN** every call outside the allow-list MUST be expected to emit a spurious
+  `InvalidSequenceOfMethodCalls`
 - **AND** the change MUST NOT be accepted in that state
 
 #### Scenario: A fused pointcut leaves a required argument unbound
 
-- **WHEN** a specification collapses several of its rule's events into one pointcut, and a `REQUIRES`, `ENSURES`, `NEGATES` or `CONSTRAINTS` clause quantifies over an argument the fusion leaves unbound
-- **THEN** the fusion MUST be replaced by one event per distinct binding profile — the set of arguments the clauses mentioning that event need bound — each taking exactly the transitions of the fused event it replaces
+- **WHEN** a specification collapses several of its rule's events into one pointcut, and a
+  `REQUIRES`, `ENSURES`, `NEGATES` or `CONSTRAINTS` clause quantifies over an argument the
+  fusion leaves unbound
+- **THEN** the fusion MUST be replaced by one event per distinct binding profile — the set of
+  arguments the clauses mentioning that event need bound — each taking exactly the transitions
+  of the fused event it replaces
 - **AND** the automaton's accepted language MUST be unchanged, only its alphabet refined
-- **AND** signatures that share a binding profile and a body MUST stay fused, since the weaver resolves overloads on owner, name, return type and parameter types, so splitting them binds nothing new and spends alphabet that INV-INS-115 makes scarce
-- **AND** where a fusion binds the varying argument as `Object+` and discriminates by type in the body, the fused signatures MUST share an arity, because `args(a, b, third, ..)` requires arity ≥ 3 and drops a shorter overload out of the automaton entirely, and none of the varying positions may be primitive, because `Object+` rejects primitives
-- **AND** each resulting pointcut MUST be verified against the target API's real overload set, showing that the candidates jointly cover every signature the rule names and are pairwise disjoint
+- **AND** signatures that share a binding profile and a body MUST stay fused, since the weaver
+  resolves overloads on owner, name, return type and parameter types, so splitting them binds
+  nothing new and spends alphabet that INV-INS-115 makes scarce
+- **AND** where a fusion binds the varying argument as `Object+` and discriminates by type in
+  the body, the fused signatures MUST share an arity, because `args(a, b, third, ..)` requires
+  arity ≥ 3 and drops a shorter overload out of the automaton entirely, and none of the varying
+  positions may be primitive, because `Object+` rejects primitives — a static type-pattern fact
+  about the `call(...)` signature, distinct from INV-INS-136(c)'s `args(x)` with `Object`, a
+  dynamic test that autoboxing satisfies; the two constructs are not in contradiction
+- **AND** each resulting pointcut MUST be verified against the target API's real overload set,
+  showing that the candidates jointly cover every signature the rule names and are pairwise
+  disjoint
 
 #### Scenario: Two events match the same call
 
-- **WHEN** two pointcuts in one specification both match a single call, as an argument-less signature and the same signature with `(..)` do
+- **WHEN** two pointcuts in one specification both match a single call, as an argument-less
+  signature and the same signature with `(..)` do
 - **THEN** the specification MUST be treated as defective, because one call takes two transitions
-- **AND** the narrower pointcut MUST be made disjoint from the wider one
+- **AND** the **wider** pointcut MUST be made disjoint from the narrower one, which is the only
+  side that can move: the narrow one is an exact signature and admits no further narrowing.
+  `CipherSpec.f2` was made `doFinal(byte[], ..)` this way, leaving the argument-less call to `f1`
+- **AND** the repair MUST NOT spend alphabet: splitting the wider event into one per overload is
+  what INV-INS-145 makes unavailable, and restricting its signature is what does not
 
 ### Requirement: Predicate Contract Between Specifications
 
-A `Property` constant written through `ExecutionContext` by one specification and read by another SHALL be treated as a contract with two enforced properties: every constant written is read somewhere or recorded as a deliberate omission with its reason, and the inventory of writes and reads is a versioned artefact rather than an ad-hoc derivation.
+A `Property` predicate written by one specification and read by another SHALL be treated as a
+contract with two enforced properties: every constant written is read somewhere or recorded as a
+deliberate omission with its reason, and the inventory of writes and reads is a versioned
+artefact — `data/jca_android/predicate_graph.csv` — rather than an ad-hoc derivation. The
+inventory carries what earlier tooling discarded: the site kind (`condition`/body/`@match`/
+`@fail`), the polarity, the arity, the static type of each position, the splitter of value
+positions, the CrySL clause translated (rule file and line), and the automaton membership of the
+carrying event.
 
-Nothing links the constant written to the constant read. Both sides are enum members, so a specification that writes a neighbouring specification's constant compiles and runs and reports nothing; two specifications do this today. A read of an absent key returns false, so the failure is quiet in both directions — a missing write turns a guarded accusation into an unconditional one, and a wrong write turns a real accusation into silence.
+Nothing links the constant written to the constant read. Both sides are enum members, so a
+specification that writes a neighbouring specification's constant compiles and runs and reports
+nothing; two specifications do this today. A read of an absent key is quiet in both directions —
+a missing write turns a guarded accusation into an unconditional one, and a wrong write turns a
+real accusation into silence.
 
-The store SHALL identify objects the way the monitor index identifies them: **by identity**. JavaMOP keys a monitor by `System.identityHashCode` confirmed with `==`, so it never conflates two alike instances; a predicate store keyed by `equals` does, and the two halves of one mechanism then disagree about what "the same object" means. The consequence is not academic and runs in all three directions: a write over an object equal to a stored one adds nothing, so two monitors share a mark; a `REQUIRES` succeeds for an object that no monitored sequence produced, provided an equal one was; and a removal in one monitor's `@fail` takes another monitor's mark. It bites wherever `equals` is value-based — `Key` implementations, `String`, boxed primitives — and is invisible wherever it is not, which is why it survived a translation that is otherwise careful.
+The store serving `jca_android` SHALL be the set's own classes in `rvsec-core`, and SHALL
+identify objects the way the monitor index identifies them — **by identity** — while comparing
+**value positions** the way the oracle does: only positions whose declared type is
+`String`/`int`/`Integer` are compared, case-insensitively and with the oracle's splitters
+(`alg()`, `part(0,"/",transformation)`); every other position participates by identity or not at
+all. JavaMOP keys a monitor by `System.identityHashCode` confirmed with `==`, so it never
+conflates two alike instances; a predicate store keyed by `equals` does, and the two halves of
+one mechanism then disagree about what "the same object" means. The consequence is not academic
+and runs in all three directions: a write over an object equal to a stored one adds nothing, so
+two monitors share a mark; a `REQUIRES` succeeds for an object that no monitored sequence
+produced, provided an equal one was; and a removal in one monitor's `@fail` takes another
+monitor's mark. It bites wherever `equals` is value-based — `Key` implementations, `String`,
+boxed primitives — and is invisible wherever it is not, which is why it survived a translation
+that is otherwise careful. The store SHALL support the rule's arity (31 of the 90
+`ENSURES`/`REQUIRES` clauses are binary; the maximum arity in the api30 oracle is 2 — the
+apparent quaternary `generatedKey` was an artifact of counting commas inside a splitter),
+SHALL separate the bound object from the value positions in its API
+(`ensure/validate(Property p, Object bound, Object... values)` — a plain varargs head spreads a
+reference-array argument, so the TLS chain's `KeyManager[]`/`TrustManager[]` bindings would
+silently arrive element-by-element), SHALL hold object keys weakly and purge them, and SHALL be
+thread-safe — cryptography on Android rarely runs on the main thread, and the previous substrate
+synchronized nothing.
 
-Predicates that cannot be expressed by this mechanism SHALL be recorded rather than approximated. A predicate asserting **provenance** over a primitive remains inexpressible under identity keying, for a different reason than under `equals`: a boxed primitive has no stable identity across boxing operations, so `randomized[lSeed]` — that a `long` came from a CSPRNG — is asserted of a box that the next autoboxing of the same value does not reproduce. The residual unsoundness on the write side narrows to the `Integer` cache, where equal small values genuinely *are* one object, so marking one still marks every equal literal in the process.
+`validate` SHALL return three values, not two: **satisfied**, **violated**, and **not observed**.
+A `REQUIRES` may only accuse when the monitor has evidence it would have seen the corresponding
+`ENSURES`; in the absence of that evidence — the producer outside the instrumentation reach being
+the measured case, 88 % of published violations sitting in third-party code — the verdict is
+*not observed*, reported under its own code so downstream analysis can separate reach artifacts
+from violations. Because `condition(...)` compiles to a boolean guard, the three-valued verdict
+is consumable only in event bodies — which is where reads live under this contract. Polarity
+inverts the table (INV-INS-146): for a negated clause, no entry is the conforming case and stays
+silent, while a same-name entry violates — the read side of a negated clause goes through its
+own explicit entry point, never through the positive `validate`.
 
-The contract binds in both directions, and the converse failure is the more damaging one. A constant written and never read is inert: nothing consumes it, so nothing misreports because of it. A constant *read* and never written is the opposite, because a requirement that cannot be satisfied is not silent — a read placed in an event body reports whenever it fails, which is exactly why reads are placed there rather than in a `condition(...)`. So a `REQUIRES` whose producing rule has no specification in the set MUST NOT be given a reader on the strength of the rule alone: the rule names a producer this set does not model, and transcribing only the consumer half turns every conforming execution into a reported misuse. Such an edge SHALL be recorded as unclosable, naming the rule that would have produced it, so that the gap is attributable to a missing specification rather than mistaken for a translation defect.
+The frozen substrate is not repaired: `ExecutionContext` stays byte-identical — zero edits — and
+keeps serving the frozen `jca` and the archived set. This is what makes the
+freeze safe by construction — the path that failed before (`233df18a` → `e204e2a4`) changed the
+shared class believing the `.mop` freeze gate covered it. After the migration, the only
+consumers of the frozen class are the two read-only sets; `generic` and `generic_new` call
+no predicate substrate at all.
+
+Predicates that cannot be expressed by this mechanism SHALL be recorded rather than approximated.
+A predicate asserting **provenance** over a primitive remains inexpressible under identity
+keying: a boxed primitive has no stable identity across boxing operations, so `randomized[lSeed]`
+— that a `long` came from a CSPRNG — is asserted of a box that the next autoboxing of the same
+value does not reproduce; the residual write-side unsoundness narrows to the `Integer` cache,
+where equal small values genuinely are one object. A `REQUIRES` whose producing rule has no specification in the set MUST NOT be given
+a reader on the strength of the rule alone: the rule names a producer this set does not model,
+and transcribing only the consumer half turns every conforming execution into a reported misuse
+(`preparedEC` is the one such predicate in the api30 oracle). Such an edge SHALL be recorded as
+`unclosable` in the predicate graph, naming the rule that would have produced it.
 
 #### Scenario: Constant written and never read
 
-- **WHEN** the inventory shows a `Property` constant written by at least one specification and read by none
-- **THEN** the guard MUST fail
-- **AND** the constant MUST either gain a reader or be recorded in the deliberate-omission list with its reason
+- **WHEN** `predicate_graph.csv` shows a `Property` predicate written by at least one
+  specification and read by none
+- **THEN** G-PRED2 MUST fail
+- **AND** the predicate MUST either gain its reader (the rule's consuming clause, wired) or be
+  recorded as a deliberate omission with its reason
 
 #### Scenario: Specification writes a neighbouring specification's constant
 
-- **WHEN** a specification writes a `Property` constant that does not correspond to the predicate its CrySL rule ensures
-- **THEN** the guard MUST detect the mismatch from the inventory
+- **WHEN** a specification writes a predicate that does not correspond to the clause its CrySL
+  rule ensures (`KeyPairSpec` writing the private key under `GENERATED_PUBLIC_KEY` is the
+  measured case)
+- **THEN** G-PRED2 MUST detect the mismatch from the clause column of the inventory
 - **AND** the defect MUST NOT depend on code review to be caught
 
 #### Scenario: Two equal objects are monitored separately
 
-- **WHEN** an application constructs two `SecretKeySpec` instances with the same key material and algorithm, one through a conforming sequence and one through a violating branch
+- **WHEN** an application constructs two `SecretKeySpec` instances with the same key material and
+  algorithm, one through a conforming sequence and one through a violating branch
 - **THEN** the store MUST mark only the instance the conforming sequence produced
 - **AND** a later `Cipher.init` over the other instance MUST NOT be validated by the first
-- **AND** a `@fail` unmarking either MUST leave the other's mark untouched
+- **AND** a removal naming either MUST leave the other's mark untouched
 
 #### Scenario: A predicate's whole set is deleted
 
-- **WHEN** a specification's `@fail` removes a `Property` without naming the object it wrote
-- **THEN** every other monitor's mark for that predicate is erased as well
-- **AND** the removal MUST name the object, which requires the specification to hold it in a monitor field
+- **WHEN** a specification's handler would remove a `Property` without naming the object it
+  wrote — the semantics of the old store's one-argument `remove(Property)`, which the frozen
+  `jca` still calls at four sites
+- **THEN** every other monitor's mark for that predicate would be erased as well
+- **AND** the migrated set MUST NOT reproduce this: the new store offers no property-wide
+  removal (INV-INS-131), and a removal names the object, which requires the specification to
+  hold it in a monitor field
+
+#### Scenario: Value position compared the way the oracle compares
+
+- **WHEN** a rule's clause is `generatedKey[key, alg]` and the store holds the predicate for the
+  identical `key` object with value `"AES"` at the algorithm position
+- **THEN** a read passing the same `key` and `"aes"` MUST be satisfied (case-insensitive)
+- **AND** a read passing the same `key` and `"DES"` MUST be violated
+- **AND** a read passing an equal-but-distinct key object MUST NOT be satisfied by identity
+
+#### Scenario: Consumer without observed producer reports "not observed"
+
+- **WHEN** a `Cipher.init(mode, key, spec)` fires and no `ENSURES` for that `key` was observed
+  (the generating call sits outside the woven code)
+- **THEN** the read's verdict MUST be `NOT_OBSERVED`
+- **AND** the emitted envelope MUST carry the *not observed* code, not the violation code
+- **AND** the event MUST still take its automaton transition
 
 #### Scenario: Required predicate has no producer in the set
 
-- **WHEN** a rule's `REQUIRES` names a predicate whose producing rule has no specification in the set
-- **THEN** the requirement MUST be recorded as unclosable, naming the producing rule that is absent
-- **AND** a reader MUST NOT be added against a predicate no specification in the set writes, because a body read of an unwritten predicate reports on every execution
+- **WHEN** a rule's `REQUIRES` names a predicate whose producing rule has no specification in
+  the set
+- **THEN** the edge MUST be recorded as `unclosable` in `predicate_graph.csv`, naming the absent
+  producing rule
+- **AND** a reader MUST NOT be added for it
 
 #### Scenario: Inexpressible predicate is recorded, not approximated
 
 - **WHEN** a CrySL predicate asserts provenance over a primitive value
-- **THEN** it MUST be recorded as inexpressible with the reason, together with the unsoundness of the corresponding write side
-- **AND** it MUST NOT be approximated by a value-keyed entry that would conflate unrelated equal values
+- **THEN** it MUST be recorded as inexpressible with the reason
+- **AND** it MUST NOT be approximated by a value-keyed entry that would conflate unrelated equal
+  values
+
+#### Scenario: The frozen substrate is untouched
+
+- **WHEN** the migration of `jca_android` to the new store is complete
+- **THEN** `ExecutionContext.java` MUST be byte-identical to its pre-change state
+- **AND** the `jca` freeze gates MUST be green
+- **AND** `grep -rlw 'ExecutionContext'` over `jca_android/*.mop` MUST return nothing
 
 ### Requirement: Emission Cardinality for Fused Advices
 
@@ -2230,31 +2406,6 @@ The `Cipher` transformation tables SHALL stay in Java, and `jca_android/CipherSp
 - **THEN** it MUST be reported, the expert clause being `keyAlgorithm in {"AES", "HmacSHA256", "HmacSHA384", "HmacSHA512"}`
 - **AND** the list MUST be present in the file at all: D-10 removed it outright to conform to an api30 rule that states no algorithm clause, which the audit recorded as the clearest case of the withdrawn oracle destroying a check the monitor already had
 - **AND** the restored check MUST sit in the event bodies beside the predicate reads gh105 placed there, under codes of its own, and MUST NOT re-enter `condition(...)`, which INV-INS-141 forbids for this set
-
-### Requirement: The Successor Set Carries the Predicates of Its Seed Unchanged
-
-Every `ExecutionContext` site of the frozen `jca` SHALL be present in `jca_android` at the same event and unrewritten (INV-INS-128): 134 lines across the 23 files — 23 `import`, 27 `validate(`, 49 `setProperty(`, 9 `remove(`, 25 `setObjectAsInAcceptingState`/`unsetObjectAsInAcceptingState` and the comment at `MessageDigestSpec.mop:25`. No `condition()` loses a predicate conjunct, no predicate-only accuser loses its declaration, no `@match`/`@match1` body is emptied. The gate is **G-PRED**, a grep, so it cannot drift.
-
-An earlier revision of this delta required the opposite — zero occurrences of `ExecutionContext`, the two pure propagators deleted, a `predicate_removal.csv` recording 55 removed sites. That requirement is **withdrawn**. Removing the machinery is not a neutral simplification but the largest behavioural change the set could take: it deletes detection at 11 of the 21 predicate-reading events — seven entirely (`IvParameterSpec c3/c4`, `PBEKeySpecSpec err2/err3`, `SecureRandomSpec c3/setSeed3`, `SecretKeySpecSpec c3`), one in part (`PBEParameterSpecSpec c3`) and three by cross-specification key provenance (`CipherSpec i2`, `MacSpec i1/i2`) — with no before/after evidence, in a change whose own discipline is that anything altering what is accused is measured by the differential harness first (INV-INS-124).
-
-The arguments that motivated the removal survive only against *repairing* the graph inside this change, and they are recorded as such. That the three provenance checks are already inoperative on Android — keys from `AndroidKeyStore`, Tink or `KeyGenParameterSpec` never carry `GENERATED_KEY`, so 11,620 events over 80 misuses in 25 apps fail that check for a reason unrelated to misuse — is a reason to distrust their verdicts and record that, not a reason to delete the events that carry them. That the 9 `remove(...)` sites stand against only 2 `NEGATES` clauses in the whole api30 catalogue, exactly one of which a site encodes (`PBEKeySpecSpec:72` in `clearPassword`), is a measurement of how little of the graph the rules ever asked for — and it belongs to the change that rewires the graph, not to this one.
-
-Because nothing is removed, the set holds the seed's **23** specifications: `RandomStringPassword.mop` and `SecretKeySpec.mop` are pure predicate propagators and, with the predicates in place, they still have work to do. There is no `predicate_removal.csv` and no `predicate_omissions.csv` — the first would record a removal this change does not make, the second a `Property` written and never read, which INV-INS-111 already governs for this set exactly as it governs `jca`.
-
-#### Scenario: the predicate gate finds every site of the seed
-
-- **WHEN** the predicate gate compares every `.mop` under `jca_android/` against its counterpart under `jca/`
-- **THEN** every `ExecutionContext` site of the frozen file MUST be present in the successor file, at the same event and with the same `Property` and argument
-- **AND** a missing or rewritten site MUST fail the gate naming the file, the event and the kind — `validate`, `setProperty`, `remove` or accepting-state
-- **AND** the count per file MUST equal the frozen file's count, summing to 134 over the 23 files
-- **AND** neither nor `data/jca_android/predicate_omissions.csv` MUST exist
-
-#### Scenario: the two pure propagators are carried over
-
-- **WHEN** the seed is written
-- **THEN** `RandomStringPassword.mop` and `SecretKeySpec.mop` MUST be present, byte-identical to their `jca` originals
-- **AND** the set MUST hold 23 `.mop` files plus `codes.csv`
-- **AND** neither file MUST receive a report site, since neither has one in the seed and adding one would change what is accused
 
 ### Requirement: Violation Report Message Envelope
 
@@ -2563,4 +2714,307 @@ The `Cipher` transformation tables consulted by the archived set `jca_android_bu
 - **WHEN** an implementation would give two or three of the sets one utility whose tables are chosen by the active specification set
 - **THEN** it MUST be rejected under INV-INS-112
 - **AND** the reason MUST be recorded as the frozen set's verdict depending on state set outside its own specification
+
+### Requirement: Predicate Sites of the Frozen Seed and Their Record in the Successor Set
+
+Every `ExecutionContext` site of the frozen `jca` SHALL be present in `jca` itself at the same event and unrewritten (INV-INS-128): 134 lines across its 23 files — 23 `import`, 27 `validate(`, 49 `setProperty(`, 9 `remove(`, 25 `setObjectAsInAcceptingState`/`unsetObjectAsInAcceptingState` and the comment at `MessageDigestSpec.mop:25`. No `condition()` of `jca` loses a predicate conjunct, no predicate-only accuser loses its declaration, no `@match`/`@match1` body is emptied. The gate is **G-PRED**, a grep, so it cannot drift, and it runs over `jca` only.
+
+`jca_android` is seeded from those 23 files and carries no `ExecutionContext` site (INV-INS-130). Its predicates go through the set's own store (INV-INS-131), placed by INV-INS-133/134 and inventoried in `data/jca_android/predicate_graph.csv` under the closure gate G-PRED2 (INV-INS-137). Every departure of `jca_android` from the seed's predicate sites is a hunk recorded in `data/jca_android/divergence_record.csv` (INV-INS-141), and a departure that changes what is accused carries its satisfy/violate trace pair through the differential harness (INV-INS-144). No per-file count equality with the seed is asserted over `jca_android`.
+
+Deleting the seed's predicate machinery without a replacement is not an admissible form of this departure: it deletes detection at 11 of the 21 predicate-reading events of the seed — seven entirely (`IvParameterSpec c3/c4`, `PBEKeySpecSpec err2/err3`, `SecureRandomSpec c3/setSeed3`, `SecretKeySpecSpec c3`), one in part (`PBEParameterSpecSpec c3`) and three by cross-specification key provenance (`CipherSpec i2`, `MacSpec i1/i2`). The store is what carries those detections into the successor set.
+
+#### Scenario: the predicate gate finds every site of the seed
+
+- **WHEN** G-PRED compares every `.mop` under `jca/` against the frozen census
+- **THEN** every `ExecutionContext` site MUST be present at the same event, with the same `Property` and argument
+- **AND** a missing or rewritten site MUST fail the gate naming the file, the event and the kind — `validate`, `setProperty`, `remove` or accepting-state
+- **AND** the per-file counts MUST sum to 134 over the 23 files
+- **AND** G-PRED MUST NOT run over `jca_android`, where `grep -rlw 'ExecutionContext' --include='*.mop'` returns nothing
+
+#### Scenario: the two pure propagators are carried over
+
+- **WHEN** the two pure predicate propagators of the seed, `RandomStringPassword.mop` and `SecretKeySpec.mop`, are looked up in `jca_android`
+- **THEN** `SecretKeySpec.mop` MUST be present and its predicate sites MUST go through the store, its `e1` read recorded in `predicate_graph.csv` with disposition `propagation` — a propagation read is recorded, never armed with a report site
+- **AND** `RandomStringPassword.mop` MUST be absent, recorded as a `removed-spec` row of `divergence_record.csv`: it cannot accuse under any trace and writes no predicate, so the set loses no report by it
+
+### Requirement: Predicate Read and Write Placement
+
+A predicate read SHALL live in the event body, never inside `condition(...)`, and a predicate
+write SHALL live at the rule's acceptance point — the `@match` handler or the states of an
+`after L` clause — never in an arbitrary event body. The two placements are the same lesson from
+opposite sides. A guard read compiles to `return false` before the transition: the event leaves
+the automaton, the next call is accused of order, and the report names a defect the program does
+not have — today 27 of 27 reads are on the wrong side. A body write fires before the sequence is
+accepted: 42 of 49 writes today establish `ENSURES` facts for sequences the rule has not
+accepted, so a consumer downstream validates against a predicate the producer never earned.
+`condition(...)` may not contain a predicate read — overload discrimination, `ORDER` branching
+and `CONSTRAINTS` checks remain legitimate guards; violating a `REQUIRES` does not change the
+typestate, exactly as `ORDER` and `REQUIRES` are distinct sections of the rule.
+
+Every clause-translating read carries its accuser: a failed read reports `UnsatisfiedConstraint`
+at that event with its own `codes.csv` code, and a `NOT_OBSERVED` verdict reports the
+*not observed* code (INV-INS-143). Nine read events today have no accuser at all
+(`CipherSpec.i2`, `GCMParameterSpecSpec.c1/c2`, `MacSpec.i1/i2`, `PBEParameterSpecSpec.c2` —
+its would-be accuser `c3` binds only the 2-argument constructor while `c2` binds the 3-argument
+one — `RandomStringPassword.vo/gb`, `SecretKeySpec.e1`). Of the nine, the reads that translate a
+clause of their rule gain their accuser in the same task that moves them; the reads that
+translate **no clause** MUST NOT gain one — `MacSpec.i1/i2` read `generatedKey`, which the Mac
+rule does not require (it requires `preparedHMAC` and `!encrypted`); `RandomStringPassword.vo/gb`
+have no rule at all; `SecretKeySpec.e1` governs a propagation write — from its body since task
+4.12 — and the SecretKey rule has no `REQUIRES` section. Arming a propagation read fabricates a misuse class no rule describes.
+
+Of those that translate no clause, a read is propagation only when it **feeds a write** and that
+write **carries the predicate across**, and only then is it recorded as `propagation` in
+`predicate_graph.csv`. `SecretKeySpec.e1` is the one that meets both: `SecretKey.getEncoded()`
+returns the key's own bytes, so `RANDOMIZED` on the key is `RANDOMIZED` on what it returns.
+Measured at task 4.12, the carrying is not incidental but the whole reason the event exists:
+`getEncoded()` returns a fresh clone on every call, so a store keyed on object identity cannot
+see the material through the copy, and no other site of the set writes about the returned array.
+The same measurement bounds what the read may do — it governs the write and reports nothing, so
+`NOT_OBSERVED` and `VIOLATED` are indistinguishable there, and the write stays conditional
+because an unconditional one was measured to hand a hard-coded key's encoding on as randomised.
+
+A read that translates no clause **and feeds no write** propagates nothing — it computes a
+verdict no site consumes, and its only remaining effect is the transition its guard suppresses —
+so it MUST be deleted rather than recorded: `MacSpec.i1/i2` are deleted by task 4.9 (researcher,
+2026-08-21), which measured that guard turning a program that breaks no clause into an
+`InvalidSequenceOfMethodCalls`.
+
+A read whose write does **not** carry the predicate across MUST be deleted with that write, for
+the same reason and a sharper one: recording it as `propagation` would put the set's name on a
+fact the conversion does not support. `RandomStringPassword.vo/gb` are deleted with their two
+writes by task 4.11 (researcher, 2026-08-21) — this reverses the instruction that task carried.
+The file spans `Object` → `String` → `char[]` through `String.valueOf(Object)` and
+`String.toCharArray()`, and `String.valueOf(Object)` calls `Object.toString()`, which was measured
+over each of the three source types the set can hand it: a `byte[]` becomes its identity string
+(`[B@726f3b58`), the `SecureRandom` itself becomes the constant `SecureRandom`, and only an
+`Integer` becomes its own digits — and that one does not survive the new store, whose bound key is
+identity, because the box at the `ensure` and the box at the read are the same object only inside
+the `Integer` cache. So the two source types that propagate carry no randomness and the one that
+carries randomness does not propagate. Its only consumer is `PBEKeySpecSpec.c1`'s password read,
+which stands behind no clause either: api30 `PBEKeySpec.cryptsl` REQUIRES `randomized[salt]`, and
+its clause about the password is `neverTypeOf(password, java.lang.String)`. Measured on the frozen
+seed, the bridge is a false *negative* — a `PBEKeySpec` built from the `char[]` of `[B@6ae40994`
+is accepted as having a randomised password and nothing is reported. Deleting the four sites
+leaves the migrated tree's observable behaviour unchanged, because the bridge is already inert
+there: its reads are still on the old substrate while its producers moved at task 4.5. The file
+leaves `predicate_graph.csv` entirely, as `MacSpec` did at task 4.9.
+
+The real clauses are wired where they belong (F3).
+
+#### Scenario: Read moved from guard to body
+
+- **WHEN** a `Cipher.init` event fires with a key for which `GENERATED_KEY` was established
+- **THEN** the event MUST take its automaton transition
+- **AND** no report is emitted
+- **WHEN** the same event fires with a key for which the predicate was observed absent
+- **THEN** the event MUST still take its transition
+- **AND** an `UnsatisfiedConstraint` report MUST be emitted at that event, with its code and the
+  envelope naming the event
+
+#### Scenario: Guard read detected by the graph
+
+- **WHEN** `predicate_graph.csv` classifies any `jca_android` read site as `condition`
+- **THEN** the placement gate MUST fail naming the file, event and line
+
+#### Scenario: Write at the acceptance point only
+
+- **WHEN** a specification's rule ensures `preparedIV[this]` at the accepting state
+- **THEN** the write MUST sit in the `@match` handler (or the `after L` state's handler), naming
+  the object the clause binds
+- **AND** a write found in an event body without a recorded reason MUST fail the placement gate
+
+### Requirement: Junction Specifications for Co-Observable Predicate Chains
+
+Where a predicate edge is realized by a chain of calls that hand an object from producer to
+consumer — `SecureRandom.nextBytes(iv)` → `new IvParameterSpec(iv)` → `Cipher.init(…, spec)` —
+the wiring SHALL use a junction specification: one multi-parameter JavaMOP specification per
+chain, whose events bind overlapping parameter subsets so the runtime's own parametric indexing
+(`CachedWeakReference`, identity, weak references, `TerminatedMonitorCleaner`, synchronized
+monitors) carries the identity the store would otherwise have to reimplement. Two separate
+specifications sharing an object have no channel in JavaMOP — each has its own maps and
+monitors — so "specifications communicating" is by definition the store mechanism, not a
+junction. The executed pilot validated the mechanism on the hard case: with two `byte[]` in one
+process, the conforming chain matched silently and the violating chain failed at `mk` and at
+`use`, on the right instance with the right bindings.
+
+Four design rules are binding (INV-INS-136), each with a measured failure mode behind it: the
+consumer is never the `creation` event (a consumer-created partial instance cannot see the chain
+and accuses the conforming trace — the pilot reproduced this false positive); disconnected joins
+get benign self-loops (without them, the randomized `iv` of another chain produced a spurious
+fail); a primitive-array position is declared `Object` with the overload fixed in the
+`call(...)` signature (declaring `byte[]` deletes the whole parameter list silently — G-PARAM
+exists because of this); handler state lives in monitor fields. The silence of a consumer-only
+trace under rule (a) is the structural form of the *not observed* verdict: no monitor exists, so
+nothing accuses, and the reach limitation is not converted into a false violation.
+
+A junction coexists with the typestate specification at shared joinpoints — the pilot chain's
+consumer event fires on `Cipher.init`, inside `CipherSpec.i2`'s pointcut — and its reports
+SHALL be counted as their own accuser: a junction `@fail` carries its own specification name,
+code and event, so it never merges with the typestate specification's reports under the report
+dedup identity (spec, error, class, method, location, code, event) nor under the
+`(apk, class, method, spec)` unique-misuse key — a junction opens a new bucket at the same
+`(class, method)` by construction. The ledger routes each clause to exactly one accuser, so the
+same clause is never accused twice; downstream counting MUST NOT fold junction reports into the
+typestate specification's bucket, and MUST NOT read them as duplicates.
+
+#### Scenario: Junction and typestate specification fire at the same joinpoint
+
+- **WHEN** a junction's `@fail` and the typestate specification both emit at one `Cipher.init`
+  call on the same trace
+- **THEN** the two reports carry distinct spec/code/event identities and both reach the envelope
+- **AND** the accounting reads them as two accusers of distinct clauses, never as a duplicate
+  to suppress (the task 8.5 smoke run commits the observed co-fire counts)
+
+#### Scenario: The IV chain distinguishes instances
+
+- **WHEN** two `byte[]` arrays exist in one process, one filled by `SecureRandom.nextBytes` and
+  one not, and each is wrapped and used in a `Cipher.init`
+- **THEN** the chain over the randomized array MUST NOT be accused
+- **AND** the chain over the other array MUST be accused at the wrapping event (`randomized`
+  required) and at the consuming event (`preparedIV` required), on that instance only
+
+#### Scenario: Consumer-only trace stays silent
+
+- **WHEN** the first observed event of a chain is the consumer (`Cipher.init`) and no earlier
+  chain event was observed
+- **THEN** no junction monitor exists and no accusation is emitted
+- **AND** the *not observed* accounting of that consumer is carried by the store-side read, not
+  by the junction
+
+#### Scenario: A junction declares a primitive-array parameter
+
+- **WHEN** a junction specification declares `byte[]`, `int[]` or `char[]` in its parameter list
+- **THEN** G-PARAM MUST fail on the generated `.rvm` (empty parameter list)
+- **AND** the specification MUST be rewritten with the `Object` idiom, the overload fixed in the
+  `call(...)` signature
+
+### Requirement: Predicate Graph Record and Closure Gate (G-PRED2)
+
+`data/jca_android/predicate_graph.csv` SHALL be the versioned record of every predicate site of
+the set, one row per site, carrying the 15 columns of the Output contract: file, event, site
+kind, polarity, guard, arity, predicate, position types, splitter, the CrySL clause translated
+(rule file and line), the mechanism (A/B per chain), the verdict, the disposition, the reason,
+and the automaton membership of the carrying event. The closure gate G-PRED2 runs over it (INV-INS-137): every
+read has a producer or an `unclosable` record; every write has a reader or a deliberate
+omission; every clause of a rule with a specification in the set maps to exactly its sites. The
+graph is diagrammable (Graphviz/Mermaid from the CSV, dead edges in red), which retires the
+`rvsec-mop-defsuses` idea into an instrument that actually carries the object argument, the
+negated reads and the automaton — everything the 2023 module discarded.
+
+The record is generic: over a set without predicates, zero rows is the correct content and the
+gate is green; helper methods shadowing API names are excluded by the `(Property` discriminator
+(the set's own `KeyPairGeneratorSpec` carries a private `validate(int)` that a name-based count
+miscounts as 4 extra reads).
+
+#### Scenario: Closure over the wired set
+
+- **WHEN** F3 completes and G-PRED2 runs over `jca_android`
+- **THEN** each of the 21 wired `REQUIRES` clauses (the 25 wireable minus the two vacuous, #30
+  and #23, which can have no read site, and #17 and #21, whose read no conforming program could
+  satisfy) MUST map to a read site with an accuser
+- **AND** those last two MUST each carry the reason its own measurement gives, not a shared
+  label: #21 is `unreachable-composition` because its producer class is absent from the api30
+  `android.jar` and no `Mac` of the rule's allow-list accepts its type, and #17 is
+  `unmonitored-producer` because the type the JCA accepts at that call, `DHParameterSpec`, is
+  ensured by the oracle and specified by no `.mop` (D-17). The counts do not move; a record that
+  says "nothing could close this" where a specification could is the defect the distinction
+  exists to catch
+- **AND** each of the 10 non-wireable clauses MUST map to an `unmonitored-consumer`/
+  `unmonitored-producer` record naming the absent specification
+- **AND** the one predicate with no producer in any rule (`preparedEC`) MUST appear as
+  `unclosable`, and `SSLContext randomized[sr]` as `vacuous` (the rule binds `sr` in no event)
+- **AND** each written `Property` value with no reader MUST carry a write-side disposition —
+  `omission` or `propagation`, never a read-side one: `unmonitored-consumer` categorises the
+  clause and closes a read, and a write with no reader is closed by the record of the omission
+
+#### Scenario: Zero rows on a predicate-free set
+
+- **WHEN** G-PRED2 runs over `generic` (118 files, no predicates)
+- **THEN** the graph has zero rows and the gate MUST be green
+- **AND** the report MUST say the set was covered, not skipped
+
+### Requirement: Automaton–Order Equivalence Gate (G-ORDER)
+
+For every `jca_android` specification with a CrySL rule, the language accepted by its
+`fsm`/`ere` SHALL be equivalent to the language of the rule's `ORDER` clause, decided by DFA
+equivalence — both languages are regular: the `Order` grammar is sequence, alternative,
+cardinality (`*`, `+`, `?`) and grouping only, and event aggregates (`Gets := g1 | g2`) are
+regular too. The comparison runs under the event-alphabet mapping of
+`data/jca_android/order_alphabet_map.csv` (INV-INS-138): the `.mop` separates overloads to bind
+arguments, so the mapping is not a bijection, and it is the gate's real work — versioned,
+revised with its specification, never inferred. Specifications without a rule (`generic/*`,
+`generic_new/*`, `RandomStringPassword.mop`) are skipped declaredly.
+
+This gate would have caught the measured false positive on its own: the api30 `SecureRandom`
+rule's `ORDER` is `Ins, Seeds?, Ends*` — Kleene star — while the specification's `end` state
+omits `next2`, so calling `nextBytes()` twice is accused; 12,400 events, 99.98 % in libraries.
+
+#### Scenario: SecureRandom order equivalence
+
+- **WHEN** G-ORDER compares the repaired `SecureRandomSpec` automaton with `Ins, Seeds?, Ends*`
+  under its mapping
+- **THEN** the two DFAs MUST accept the same language
+- **AND** a `nextBytes(); nextBytes()` trace MUST be accepted by both
+
+#### Scenario: Specification without a rule
+
+- **WHEN** G-ORDER reaches a specification with no api30 rule
+- **THEN** it MUST report `skipped` with the reason
+- **AND** it MUST NOT synthesize a mapping
+
+### Requirement: Parameter-List Survival Gate (G-PARAM)
+
+For every `.mop` of the five sets whose generation succeeds, the parameter list declared by the
+specification SHALL survive intact into the generated `.rvm` header, and the gate that asserts
+it SHALL read the artifacts, never the exit codes (INV-INS-139). The toolchain's failure is
+silent twice over — measured: a primitive-array parameter makes JavaMOP delete the entire list
+(not just the offending parameter) and return 0 with the success message, and rv-monitor then
+emits a global monitor with zero `CachedWeakReference`; even a hard pointcut parse error returns
+0. Today zero of the 215 specifications declares a primitive-array parameter, so G-PARAM
+protects the work F3 introduces (junction specifications) rather than repairing a present
+defect. The root cause is located and recorded (`javamop.jj:1456` `SimpleTypePattern` versus
+`:1470` `TypePattern`, silent `catch` in both translators' `JavaParserAdapter`); an upstream
+double patch is a recorded option outside this change's scope — the `Object` idiom does not
+depend on it.
+
+#### Scenario: Collapse detected from the artifact
+
+- **WHEN** a specification declaring `byte[] iv` in its parameter list is generated
+- **THEN** the generator exits 0 with the success message
+- **AND** G-PARAM MUST fail by comparing the `.mop` header's parameter list with the empty list
+  of the generated `.rvm`
+
+#### Scenario: The Object idiom passes
+
+- **WHEN** the same chain is declared with `Object iv` and the overload fixed in the
+  `call(...)` signature
+- **THEN** the `.rvm` header MUST carry the full parameter list
+- **AND** the generated monitor MUST slice by `CachedWeakReference` on that parameter
+
+### Requirement: Reformulated Scope of G-PRED and Retirement of `rvsec-mop-defsuses`
+
+G-PRED (gh104) SHALL be the byte-identity lock of the frozen `jca` predicate machinery and SHALL NOT apply to `jca_android`, whose predicate contract is carried by INV-INS-130/131/137 (INV-INS-141). The gh104 gate code that reads predicate sites SHALL recognise the `jca_android` store: in `gh104_gates.py`, `accept_requires`, which decides whether G-2 admits a `REQUIRES` clause family, and the `PREDICATE_CALL` regex, which covers the store and arity N. Every hunk of `jca_android` against its seed is recorded in `divergence_record.csv` under a kind its `KINDS` whitelist admits.
+
+`rvsec-mop-defsuses` SHALL NOT be part of the reactor: its copy lives in `backup/gh105-retired/rvsec-mop-defsuses/` and no pom lists it (P3 — its `main()` pointed at an absolute path under an alias the JVM cannot resolve, `DefsUsesGraph.java:65-66`, its extractor discarded the object argument and every negated read, and it knew nothing of the automaton). Def/use closure over predicates is G-PRED2 over `predicate_graph.csv`, which carries everything that module discarded.
+
+#### Scenario: The jca lock is untouched
+
+- **WHEN** the gh104 gates run
+- **THEN** G-PRED over `jca` MUST be green, byte for byte
+- **AND** G-PRED MUST NOT run over `jca_android`
+- **AND** G-2's `accept_requires` MUST recognize the store's read sites
+
+#### Scenario: The dead module is retired completely
+
+- **WHEN** the reactor tree is inspected
+- **THEN** `rvsec/rvsec-mop-defsuses/` MUST NOT exist and `rvsec/rvsec/pom.xml` `<modules>` MUST NOT list it
+- **AND** `grep -r "defsuses"` over the reactor MUST return no reference outside documentation and the historical record (module CLAUDE.md rows, `docs/`, archived changes, the `check_no_legacy_mop.py` skip list, the retired copy under `backup/` — which is tracked, not gitignored, and so lies inside the grepped tree — and the active `gh48-project-finalization` artifacts, whose `defsuses` rows are that change's own to update)
+- **AND** the reactor MUST build
+
+#### Scenario: The successor set departs from its seed's predicates by record
+
+- **WHEN** the requirement "Predicate Sites of the Frozen Seed and Their Record in the Successor Set" is evaluated against `jca_android`
+- **THEN** no per-file count equality with the seed (summing to 134) MUST be asserted — the departure is enumerated by `divergence_record.csv` (INV-INS-141)
+- **AND** a pure propagator of the seed carries a propagation read that is recorded, never armed
 
