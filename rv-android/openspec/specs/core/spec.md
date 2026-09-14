@@ -171,6 +171,8 @@ RvErrorLog(BaseValidatedModel):
 - `RV_PYDANTIC_LOG: str` -- Environment variable for validation event logging. Source: system environment.
 - `app_path: str` -- Absolute path to an Android APK file. Source: rv-experiment CLI or rv-platform task generation.
 - `command: str` -- System command name to execute. Source: all modules that invoke external tools.
+- `RvErrorLog.message: str` -- The violation description as the monitor emitted it. Source: `logcat_parser`, the CSV collector, or a persisted `tasks.json`. When the emitter is an envelope-producing set the message is `v=1 code=<SPEC>-<KIND>-<NN> ev=<event> obj=<SimpleClass> val='<observed>' exp='<expected>' msg='<text>'`; otherwise it is free text. In both cases it MUST NOT contain the substring `:::` (INV-CORE-56).
+- `RvErrorLog.code: str` / `RvErrorLog.event: str` -- The `code=` and `ev=` values of the envelope, or the sentinel `UNSPECIFIED` when the message carries no envelope. Source: the parser that built the record.
 
 ### Output
 
@@ -179,6 +181,8 @@ RvErrorLog(BaseValidatedModel):
 - `Task` instance -- Task with configuration, result, and coverage repository. Destination: rv-platform executor.
 - `CoverageMetrics` -- Calculated coverage percentages. Destination: rv-platform result processor.
 - `Metric` / `TimingMetric` -- Performance measurements. Destination: PerformanceMonitor subscribers.
+- `RvErrorLog.unique_msg: str` -- Computed, seven `:::`-separated parts `class_full_name, method, spec, error_type, code, event, message`. Destination: `LogcatRepository` dedupe, `errors.csv`, `results.json`, every reader that splits on `:::`.
+- `RvErrorLog.to_dict()` -- Carries the keys `code` and `event` beside the other fields. Destination: `tasks.json`, `errors.csv`.
 
 ### Side-Effects
 
@@ -186,6 +190,7 @@ RvErrorLog(BaseValidatedModel):
 - **Process termination**: `kill_process_tree()` recursively kills process trees via `psutil` and `os.kill(SIGKILL)`.
 - **File system**: Task.initialize() creates results directories via `os.makedirs()`. LoggingManager.setup_file_logging() creates log files.
 - **APK analysis**: App model_post_init() loads APK via Androguard (I/O operation reading APK file).
+- **Counts**: `unique_errors` and every figure derived from it (`mop_errors_unique`, the `unique_msg` column of `errors.csv`) differ between the five-part and the seven-part identity for any input where two records of one `(class, method, spec, error_type, message)` differ in `code` or `event` — a declared discontinuity (INV-CORE-57).
 
 ### Error
 
@@ -196,6 +201,7 @@ RvErrorLog(BaseValidatedModel):
 - `RVAndroidError` -- Base exception for all framework-specific errors. Contains `message` and `cause`.
 - `CommandNotFoundError` -- OS command not found (OSError wrapper).
 - Pydantic `ValidationError` -- Raised by BaseValidatedModel when field validation fails (not caught by ErrorHandler).
+- `RvErrorLog` raises nothing on a message containing `:::`: the prohibition is enforced by the producer and detected by the readers, which count a key with a part count other than seven as unparsed (INV-CORE-56).
 
 ## Invariants
 
@@ -237,7 +243,7 @@ RvErrorLog(BaseValidatedModel):
 
 - **INV-CORE-24**: LogcatRepository.register_method_call() MUST only register calls to methods that exist in the static analysis data (classes dictionary). Calls to unknown classes or methods MUST be silently ignored with a debug log.
 
-- **INV-CORE-25**: RvErrorLog.unique_msg MUST be computed as `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}"`. Two RvErrorLog instances with the same unique_msg MUST be considered equal.
+- **INV-CORE-25**: `RvErrorLog.unique_msg` MUST be computed as `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{message}"` — seven `:::`-separated parts, `code` and `event` read from the message envelope (`code=`, `ev=`) or equal to the sentinel `UNSPECIFIED` when the message carries no envelope. Two `RvErrorLog` instances with the same `unique_msg` MUST be considered equal. The key MUST be built in exactly one place, `RvErrorLog.unique_msg` in `rv_android_core/domain/log.py`; no other module MUST assemble it from the fields.
 
 - **INV-CORE-33**: After commit C1f, no Pydantic model in `rv_android_core.domain` MUST contain a field whose name ends with `_mop`, `_directly_mop`, or equals `mop_methods`. Verified by AST inspection in `tests/domain/test_no_legacy_mop_fields.py` (part of the `G_no_legacy_mop` CI gate scope).
 - **INV-CORE-34**: The `target_reaches_target` member on `WindowTransition` MUST be implemented via the `@property` decorator, not as a stored Pydantic field. Verified by `tests/domain/test_wtg.py` asserting `isinstance(WindowTransition.__dict__['target_reaches_target'], property)`. Storing it as a field would duplicate derivable data (P1 violation).
@@ -253,10 +259,12 @@ RvErrorLog(BaseValidatedModel):
 - **INV-CORE-38**: The diagnostic tag set MUST be *additive* — when enabled, `RVSEC:V` and `RVSEC-COV:V` MUST remain in the filter; the diagnostic tags MUST NOT replace or reorder them.
 - **INV-CORE-39**: Registering any number of `RvDiagnosticEvent`s into `LogcatRepository.diagnostic_events` MUST NOT change `calculate_metrics()` output, `total_errors`, `unique_errors`, or any coverage value; those computations MUST read only `self.classes`, `self.errors`, and `self.unique_errors`.
 - **INV-CORE-40**: `RvErrorLog.to_dict()` MUST include the `source` field. `source` MUST NOT appear in `unique_msg` and MUST NOT participate in `__eq__` or `__hash__`, so adding it cannot change any deduplicated count.
-- **INV-CORE-41**: `RvErrorLog.unique_msg` counts at event granularity (`class:::method:::spec:::error_type:::message`) and is deliberately finer than the `(apk, class, method, spec)` key used for unique-misuse analysis. Any documentation or export that reports `unique_errors` MUST NOT present it as equivalent to a unique-misuse count.
+- **INV-CORE-41**: `RvErrorLog.unique_msg` counts at event granularity (`class:::method:::spec:::error_type:::code:::event:::message`) and is deliberately finer than the `(apk, class, method, spec)` key used for unique-misuse analysis. Any documentation or export that reports `unique_errors` MUST NOT present it as equivalent to a unique-misuse count, and MUST state which identity era the count belongs to — five-part (the published dataset, comp162 and every campaign before gh104) or seven-part — because counts of the two eras are not comparable.
 - **INV-CORE-42**: No value written to the `class_full_name` or `method` field of an `RvErrorLog` MUST end with a `(<file>:<line>)` group. The source position belongs in `source` alone.
 
 - **INV-CORE-55**: `modules/rv-android-core/src/rv_android_core/domain/app.py` MUST NOT read the process environment. The `package_detector` value MUST reach `App` as a constructor argument. The three L1 canonical reader locations (`util/validation/config.py`, `util/jar_resolver.py`, `util/android/android.py`) MUST remain the complete set of environment readers inside `rv-android-core`, and `scripts/check_env_vars_drift.py` MUST keep enforcing it.
+- **INV-CORE-56**: The `message` part of `unique_msg` MUST NOT contain the substring `:::`. The producer of the message (the monitor's envelope grammar) forbids it inside every value; `RvErrorLog` MUST NOT rewrite the message to hide a violation of that rule, and a reader that splits `unique_msg` on `:::` and finds a part count other than seven MUST count the record as unparsed rather than reinterpret it.
+- **INV-CORE-57**: Every published deduplicated count of violations MUST carry the identity era it was computed under. A count of the seven-part era MUST NOT be compared to a count of the five-part era without the discontinuity being stated beside the comparison, and the discontinuity measured on the same input MUST be non-zero where that input's records carry an `ev=` envelope — a zero difference there would mean `code` and `event` added no information to the identity; on a pre-envelope input (the published dataset, comp162) the difference is zero by construction and is labelled so, not read as a failure.
 ## Requirements
 ### Requirement: Error Handling with Recovery Strategies (FR34, NFR04)
 
@@ -889,7 +897,7 @@ positionally do not.
 #### Scenario: source does not affect identity
 
 - **WHEN** two `RvErrorLog` instances agree on `class_full_name`, `method`, `spec`,
-  `error_type` and `message` but carry `source` = `ByteString.kt:83` and `ByteString.kt:84`
+  `error_type`, `code`, `event` and `message` but carry `source` = `ByteString.kt:83` and `ByteString.kt:84`
 - **THEN** their `unique_msg` values MUST be identical
 - **AND** `error1 == error2` MUST return True
 - **AND** `hash(error1) == hash(error2)` MUST return True
@@ -899,31 +907,8 @@ positionally do not.
 
 - **WHEN** `ResultProcessorComponent` generates `errors.csv` for a completed task
 - **THEN** the header MUST be
-  `apk,rep,timeout,tool,time,spec,class,method,source,message,unique_msg`
+  `apk,rep,timeout,tool,time,spec,class,method,source,code,event,message,unique_msg`
 - **AND** each row MUST carry the originating record's `source` value in that column
-
-### Requirement: Event Granularity of unique_msg Is Documented, Not Changed (FR13)
-
-`RvErrorLog.unique_msg` MUST remain `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{message}"`
-(INV-CORE-25 is unchanged). The model documentation MUST state that this key counts at event
-granularity and is finer than the `(apk, class, method, spec)` key used to count unique misuses
-in the thesis and the journal article, and MUST give the reason: `error_type` separates a
-sequence violation from a constraint violation in the same method, and `message` names the
-offending parameter, so two messages under one method are two different misuses.
-
-The documentation MUST state the consequence explicitly — that `unique_errors` and the
-`mop_errors_unique` column derived from it are not numerically comparable to a unique-misuse
-count — so that a reader comparing the two figures does not conclude that one is defective.
-
-#### Scenario: distinct offending parameters remain distinct events
-
-- **WHEN** two violations occur in `com.apk.axml.APKParser.getCertificateFingerprint` under
-  `MessageDigestSpec`, one with message `expecting one of {SHA-256, SHA-384, SHA-512} but found SHA1.`
-  and one with `… but found MD5.`
-- **THEN** their `unique_msg` values MUST differ
-- **AND** `unique_errors` MUST count them as 2
-- **AND** the `(apk, class, method, spec)` analysis key MUST count them as 1 unique misuse
-- **AND** both counts MUST be understood as correct at their own granularity
 
 ### Requirement: Emulator Boot Completion Gating (FR07, NFR04)
 
@@ -1093,4 +1078,88 @@ This matters beyond diagnostics. The AVD baked into `phtcosta/rvsec_android:0.9.
 - **WHEN** the first `adb install` fails with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`, the package is uninstalled, and the retry also fails with `INSTALL_FAILED_INSUFFICIENT_STORAGE`
 - **THEN** the reason propagated MUST be the one from the retry
 - **AND** it MUST include the ADB exit code
+
+### Requirement: Event Granularity of unique_msg Is Extended and Declared (FR13)
+
+`RvErrorLog.unique_msg` MUST be `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{message}"`
+(INV-CORE-25). `code` and `event` are the `code=` and `ev=` values of the message envelope the monitor emitted; when the
+message carries no envelope — every record produced by the frozen `jca` set, and every record persisted before this
+change — both parts MUST be the sentinel `UNSPECIFIED`, never an empty string, so a legacy record has a readable
+seven-part key that is distinguishable from an envelope record whose event was named. The `message` part MUST NOT
+contain `:::` (INV-CORE-56): the producer forbids it inside every envelope value, the model does not rewrite the
+message to hide a violation of that rule, and a reader that finds a part count other than seven counts the record
+as unparsed — a separator inside a part makes the key unreadable to every consumer that splits on it.
+
+The key MUST be built in exactly one place, `RvErrorLog.unique_msg` in `rv_android_core/domain/log.py`. The four
+other construction sites in the tree — `rv_platform/components/result_processor.py:631`, `:999`, `:1038` and
+`scripts/regenerate_results/regenerate_container.py:244` — MUST be deleted, and each caller MUST obtain the key
+from the domain object (P3). A key assembled elsewhere from the fields would fork the identity the moment the
+domain formula changed, which is what this change does.
+
+Because `unique_msg` is `__hash__` and `__eq__` of `RvErrorLog`, the identity of a violation record changes with
+this requirement. That is a declared count discontinuity, not a side effect: every deduplicated count computed
+before this change (five-part identity) is not comparable to one computed after it (seven-part identity), and any
+report of `unique_errors`, `mop_errors_unique` or the `unique_msg` column MUST say which era it belongs to
+(INV-CORE-41, INV-CORE-57). The discontinuity measured on the same envelope-carrying input MUST be non-zero; on a pre-envelope input it is zero by construction and is labelled so.
+
+The model documentation MUST state that this key counts at event granularity and is finer than the
+`(apk, class, method, spec)` key used to count unique misuses in the thesis and the journal article, and MUST give
+the reason: `error_type` separates a sequence violation from a constraint violation in the same method, `event` and
+`code` name the transition of the automaton that failed, and `message` names the offending parameter, so two events
+under one method are two different misuses.
+
+The documentation MUST state the consequence explicitly — that `unique_errors` and the `mop_errors_unique` column
+derived from it are not numerically comparable to a unique-misuse count, nor across identity eras — so that a
+reader comparing the two figures does not conclude that one is defective.
+
+#### Scenario: an envelope message yields code and event parts
+
+- **WHEN** an `RvErrorLog` is created with `class_full_name` = `com.example.vault.KeyDeriver`, `method` = `derive`,
+  `spec` = `PBEKeySpecSpec`, `error_type` = `ForbiddenMethod`, `code` = `PBEKEYSPEC-FORB-01`, `event` = `f1` and
+  `message` = `v=1 code=PBEKEYSPEC-FORB-01 ev=f1 obj=PBEKeySpec val='PBEKeySpec(char[])' exp='PBEKeySpec(char[],byte[],int,int)' msg='forbidden constructor'` (the `<SPEC>` token of a code is the specification name without its `Spec` suffix, upper-cased — `PBEKEYSPEC`, `MESSAGEDIGEST`, `TRUSTMANAGERFACTORY`; list-valued `exp` values are joined with `,`)
+- **THEN** `unique_msg` MUST be
+  `com.example.vault.KeyDeriver:::derive:::PBEKeySpecSpec:::ForbiddenMethod:::PBEKEYSPEC-FORB-01:::f1:::v=1 code=PBEKEYSPEC-FORB-01 ev=f1 obj=PBEKeySpec val='PBEKeySpec(char[])' exp='PBEKeySpec(char[],byte[],int,int)' msg='forbidden constructor'`
+- **AND** splitting it on `:::` MUST yield exactly seven parts, the fifth being `PBEKEYSPEC-FORB-01` and the sixth `f1`
+
+#### Scenario: a legacy `unknown` message yields the sentinels
+
+- **WHEN** an `RvErrorLog` is created from a record of the frozen `jca` set with `class_full_name` = `okio.ByteString`,
+  `method` = `digest$okio`, `spec` = `MessageDigestSpec`, `error_type` = `SequenceViolation` and `message` = `unknown`, no envelope present
+- **THEN** `code` MUST be `UNSPECIFIED` and `event` MUST be `UNSPECIFIED`
+- **AND** `unique_msg` MUST be `okio.ByteString:::digest$okio:::MessageDigestSpec:::SequenceViolation:::UNSPECIFIED:::UNSPECIFIED:::unknown`
+- **AND** two such records MUST compare equal and hash equal, so a legacy campaign deduplicates exactly as its records allow
+
+#### Scenario: distinct offending parameters remain distinct events
+
+- **WHEN** two violations occur in `com.apk.axml.APKParser.getCertificateFingerprint` under `MessageDigestSpec` with the same
+  `error_type` and the same `message`, one with `event` = `g1` and one with `event` = `d1`
+- **THEN** their `unique_msg` values MUST differ
+- **AND** `unique_errors` MUST count them as 2
+- **AND** the `(apk, class, method, spec)` analysis key MUST count them as 1 unique misuse
+- **AND** both counts MUST be understood as correct at their own granularity
+
+#### Scenario: a message containing the separator is counted, not reinterpreted
+
+- **WHEN** a record reaches a reader with `message` = `expecting one of {A:::B} but found C.` and its `unique_msg` therefore splits into eight parts on `:::`
+- **THEN** the reader MUST count the record as unparsed
+- **AND** MUST NOT take the fifth and sixth parts as `code` and `event`
+- **AND** the record MUST NOT be silently dropped from the row total
+
+#### Scenario: the key has one constructor
+
+- **WHEN** the tree is searched for the f-string pattern `:::{` outside `rv_android_core/domain/log.py`
+- **THEN** `rv_platform/components/result_processor.py` and `scripts/regenerate_results/regenerate_container.py` MUST contain no occurrence
+- **AND** each of those callers MUST read `unique_msg` from the `RvErrorLog` (or its `to_dict()`), never assemble it
+
+#### Scenario: the discontinuity is declared and non-zero
+
+- **WHEN** `unique_errors` is computed for a corpus whose records carry `ev=` envelopes (the differential-harness traces of the change, or the device logcat of its integration task) once with the five-part identity and once with the seven-part identity
+- **THEN** the two figures MUST be published side by side, each labelled with its era
+- **AND** their difference MUST be non-zero
+- **AND** neither figure MUST be presented as a correction of the other
+
+#### Scenario: a pre-envelope corpus is zero by construction
+
+- **WHEN** the same two computations run on `experimento-comp162` or the published dataset, whose records carry no envelope and whose `event` is therefore the sentinel on every row
+- **THEN** the two figures are equal, MUST be published labelled `zero by construction`, and MUST NOT be read as the failure of the seven-part identity
 

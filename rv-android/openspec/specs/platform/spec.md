@@ -128,9 +128,9 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 ### Output
 
 - `coverage.csv` -- Per-method coverage data with progressive metrics; columns: `apk, rep, timeout, tool, time, class, method, signature, cov_class, cov_act, cov_method, cov_rv_method`
-- `errors.csv` -- Monitored operations violations; columns: `apk, rep, timeout, tool, time, spec, class, method, source, message, unique_msg`
+- `errors.csv` -- Monitored operations violations; columns: `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` (13 columns; destination: `rvsec-dataset`, `aperv_tool.analysis.violations`, article scripts). Each row comes from `RvErrorLog.to_dict()` (from `task.repository.get_errors()` or the reconstructed repository), which carries `code`, `event` and `unique_msg` (core INV-CORE-25)
 - `summary.csv` -- Aggregate metrics per task; columns: `apk, rep, timeout, tool, cov_act, cov_method, cov_rv_method, errors`
-- `results.json` -- Hierarchical JSON keyed by `apk > repetition > timeout > tool`, containing summary metrics and monitored operations error details
+- `results.json` -- Hierarchical JSON keyed by `apk > repetition > timeout > tool`, containing summary metrics and monitored operations error details; `monitored_operations_errors.messages` lists each record's `unique_msg` exactly as the domain object computed it
 - `performance.csv` -- Task execution timing; columns vary by mode (basic: `apk, rep, timeout, tool, execution_time_seconds, task_state, monitoring_enabled, timestamp`; detailed: `apk, rep, timeout, tool, metric_name, metric_value, metric_unit, metric_timestamp, task_id, context_info`)
 - `tasks.json` -- Persistent task state with experiment metadata and statistics for experiment continuation
 - `Dict[str, Any]` -- Execution summary returned from `Platform.run()` containing `total_tasks`, `successful_tasks`, `failed_tasks`, `success_rate`, `total_execution_time`, `average_execution_time`, and per-task `results` list
@@ -141,6 +141,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **Logcat Capture**: Starts a background logcat capture process writing to a file on disk; stopped after tool execution
 - **File System**: Creates results directory, writes CSV/JSON output files, copies static analysis files from APK directory to task results directory, creates temporary files during atomic save (`.tmp` suffix)
 - **PerformanceMonitor**: Records timing metrics for task execution, component execution, and environment setup
+- **Task result**: a failure while writing a task's rows to `errors.csv` or while extracting a task's data for `results.json` increments an error count on that task's result and is logged at ERROR level with the task id and the number of rows not written (INV-PLT-32)
 
 ### Error
 
@@ -149,6 +150,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - `AnalysisError` -- Raised when coverage tracker initialization, start, stop, or result processing fails; handled by `CoverageComponent` with `ErrorHandler` decorator
 - `RVToolTimeoutError` -- Raised by testing tools when execution exceeds the configured timeout; caught by `ToolExecutionComponent` and treated as successful completion (returns `True`)
 - `RVToolExecutionError` -- Raised by testing tools when an actual execution failure occurs (not a timeout); caught by `ToolExecutionComponent` and returned as failure (returns `False`)
+- `Exception` from the CSV writer or from `to_dict()` during `_write_task_error_data` or the `results.json` extraction -- counted into the task result and logged as an error; never reduced to a WARNING that hides the rows of the task
 - `ValueError` -- Raised by `PlatformConfig` validators (empty APK directory, no APK files found, no tools specified, invalid repetitions, invalid timeouts, invalid log level) and by `Platform._load_tool()` when tool loading fails
 
 ## Invariants
@@ -189,7 +191,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 - **INV-PLT-18**: Reconstructing a resumed task MUST produce CSV-equivalent results to the same task processed live. Formally, for any completed task `t`, the metrics computed from `Task.from_dict(t.to_dict())` followed by `_reconstruct_repository_from_logcat` (with the logcat and co-located static-analysis JSON present) MUST equal `t.repository.calculate_metrics().to_dict()` for every coverage and error field, within a rounding tolerance of `0.01`. This is the round-trip equivalence that any future change dropping a runtime field required for reconstruction MUST break. Additionally, when one or more resumed tasks have a non-empty logcat but reconstruct to zero per-method coverage (static data unresolved), `ResultProcessorComponent` MUST emit a single prominent aggregate WARNING reporting `N/M` affected tasks — the corruption MUST NOT be silent.
 
-- **INV-PLT-19**: The headers and column order of `coverage.csv`, `errors.csv` and `summary.csv` MUST NOT be changed by the diagnostic-events feature — every diagnostic field belongs to `app_events.csv` alone. `errors.csv` carries exactly `apk, rep, timeout, tool, time, spec, class, method, source, message, unique_msg`; the `source` column is gh89's and is the only addition since the baseline. `coverage.csv` and `summary.csv` remain byte-identical to baseline.
+- **INV-PLT-19**: The headers and column order of `coverage.csv`, `errors.csv` and `summary.csv` MUST NOT be changed by the diagnostic-events feature — every diagnostic field belongs to `app_events.csv` alone. `errors.csv` carries exactly `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg`; `source` (gh89) and `code`, `event` (gh104) are the only additions since the baseline. `coverage.csv` and `summary.csv` remain byte-identical to baseline.
 - **INV-PLT-20**: Diagnostic events MUST survive the resume reconstruction path — a task whose repository is rebuilt from its `.logcat` MUST still produce its `app_events.csv` rows.
 - **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set and no diagnostic tags. The baseline tag set is `LogcatManager.default_tags` — `RVSEC`, `RVSEC-COV` and `ApeRvHb` — and the emitted command is `adb -s <serial> logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V` (core INV-CORE-37). The component MUST NOT filter, reorder or subset `default_tags`: the baseline is defined in one place, and a platform-side copy of the list would be a second place for it to drift.
 
@@ -198,6 +200,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **INV-PLT-24**: CSV writers MUST NOT fabricate `time` values. The `time` column of `coverage.csv`, `errors.csv`, and `app_events.csv` MUST be exactly the entry's `time_since_task_start` (with `0` representable, meaning first-second occurrence). Substituting row indices, counters, or any other synthesized value for missing or zero timing is prohibited — this extends the INV-PLT-18 live/resume round-trip equivalence to the `time` column: for any completed task with `tool_execution_start` persisted, the `time` column produced from `Task.from_dict(t.to_dict())` + reconstruction MUST equal the one produced from the live repository.
 - **INV-PLT-25**: The `source` column MUST NOT participate in any key, count or aggregate. Adding it MUST NOT change `total_errors`, `unique_errors`, `mop_errors_unique`, or any coverage metric, because `RvErrorLog.unique_msg`, `__eq__` and `__hash__` exclude it (core INV-CORE-40).
 - **INV-PLT-26**: No value written to the `class` or `method` column of `errors.csv` MUST end with a `(<file>:<line>)` group. The source position belongs to the `source` column alone (analysis INV-ANA-50, core INV-CORE-42).
+- **INV-PLT-32**: A failure to write a task's violation rows (`errors.csv`) or to extract a task's violation data (`results.json`) MUST be counted into that task's result and logged at ERROR level with the number of rows lost. It MUST NOT be swallowed as a WARNING that leaves the file silently short, and the writer MUST NOT re-key the record: `unique_msg` MUST be read from the domain object, never assembled in the writer (core INV-CORE-25).
 ## Requirements
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
@@ -624,6 +627,10 @@ Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` a
 
 The `time` column of `coverage.csv` and `errors.csv` MUST contain the entry's `time_since_task_start` — integer seconds elapsed since tool execution start — on both the live path (stamped by `CoverageTracker`) and the reconstruction path (stamped by `parse_logcat_file` from the persisted `tool_execution_start`, INV-PLT-23). Writers MUST NOT substitute row indices or any other fabricated value when timing is `0` or missing (INV-PLT-24): `0` is a legitimate first-second timestamp, and a repository reconstructed without an epoch produces `0`s that MUST be written as-is with the degraded state logged.
 
+`errors.csv` carries thirteen columns: `apk, rep, timeout, tool, time, spec, class, method, source, code, event, message, unique_msg` (INV-PLT-19). `code` and `event` are the record's `code` and `event` fields — the `code=` and `ev=` values of the message envelope, or the sentinel `UNSPECIFIED` when the record carries no envelope — and `unique_msg` is the record's own key, read from the domain object. The writer MUST NOT assemble `unique_msg` from the other fields: the key is `__hash__` and `__eq__` of `RvErrorLog` and is built in exactly one place (core INV-CORE-25), so a formula copied into the writer would re-key a record under an identity the domain did not give it.
+
+A failure while writing one task's rows to `errors.csv`, or while extracting one task's data for `results.json`, MUST be counted into that task's result and logged at ERROR level with the task id and the number of rows not written (INV-PLT-32). It MUST NOT be reduced to a WARNING and skipped, because the file then ends silently short of every row of that task and nothing downstream can tell a task with no violations from a task whose violations were lost. Generation of the remaining tasks and of the other files continues.
+
 #### Scenario: Full Result Generation
 
 - **WHEN** an experiment completes with 5 tasks, all in `COMPLETED` state
@@ -643,12 +650,35 @@ The `time` column of `coverage.csv` and `errors.csv` MUST contain the entry's `t
 #### Scenario: Errors CSV Format
 
 - **WHEN** `errors.csv` is generated for a completed task with monitored operations violations
-- **THEN** the header row MUST be: `apk, rep, timeout, tool, time, spec, class, method, source, message, unique_msg`
-- **AND** each violation MUST produce one row
+- **THEN** the header row MUST be exactly: `apk,rep,timeout,tool,time,spec,class,method,source,code,event,message,unique_msg`
+- **AND** each violation MUST produce one row of thirteen values
 - **AND** the `source` value MUST be the violation's `RvErrorLog.source` — the source position (`File.ext:NN`) where it occurred — written as-is, empty only when the emitter supplied none
+- **AND** the `code` and `event` values MUST be the violation's `RvErrorLog.code` and `RvErrorLog.event` — for a record whose message is `v=1 code=PBEKEYSPEC-FORB-01 ev=f1 obj=PBEKeySpec val='PBEKeySpec(char[])' exp='PBEKeySpec(char[],byte[],int,int)' msg='forbidden constructor'` they are `PBEKEYSPEC-FORB-01` and `f1`
 - **AND** `source` MUST NOT appear in `unique_msg`, so two violations of the same misuse at different source lines share one `unique_msg` and count as one unique error
 - **AND** the `time` value MUST be the violation's `time_since_task_start`, written as-is — a violation at second zero produces `0`, and no row index or counter is ever substituted (INV-PLT-24)
-- **AND** `unique_msg` MUST be constructed as `class:::method:::spec:::error_type:::message` if not already provided
+- **AND** `unique_msg` MUST be the record's `unique_msg` as computed by `RvErrorLog` — seven `:::`-separated parts — and the writer MUST NOT contain a fallback that assembles it from the other columns
+
+#### Scenario: Legacy Record Without Envelope Gets the Sentinels
+
+- **WHEN** `errors.csv` is generated for a task whose logcat was produced by the frozen `jca` set, with a violation whose message is `unknown` and carries no envelope
+- **THEN** the row's `code` column MUST be `UNSPECIFIED` and its `event` column MUST be `UNSPECIFIED`
+- **AND** neither MUST be an empty string, so a reader can distinguish "no envelope" from "envelope with an empty value"
+- **AND** the row's `unique_msg` MUST end in `:::UNSPECIFIED:::UNSPECIFIED:::unknown`
+
+#### Scenario: Write Failure Is Counted, Not Swallowed
+
+- **WHEN** `_write_task_error_data` is writing the 37 violation rows of task `t-0042` and the writer raises on the 12th row
+- **THEN** the failure MUST be logged at ERROR level naming task `t-0042` and stating that 26 rows were not written
+- **AND** the task's result MUST record one write error for `errors.csv`
+- **AND** the message MUST NOT be logged as a WARNING
+- **AND** `errors.csv` generation MUST continue with the next completed task, and the other four files MUST still be generated
+
+#### Scenario: results.json Extraction Failure Is Counted, Not Swallowed
+
+- **WHEN** `_extract_task_data` for task `t-0042` raises while listing its violations
+- **THEN** the failure MUST be logged at ERROR level naming task `t-0042`
+- **AND** the task's result MUST record one extraction error for `results.json`
+- **AND** the entry written for the task MUST make the loss visible, not present an empty `monitored_operations_errors` as if the task had none
 
 #### Scenario: Time Column Round-Trip Equivalence on Resume
 
@@ -683,6 +713,7 @@ The `time` column of `coverage.csv` and `errors.csv` MUST contain the entry's `t
 - **WHEN** `results.json` is generated for tasks across multiple APKs, repetitions, and timeouts
 - **THEN** the JSON MUST be structured as: `{apk_name: {repetitions: {rep: {timeouts: {timeout: {tools: {tool_name: data}}}}}}}`
 - **AND** each tool data entry MUST contain `summary` (with coverage metrics) and `monitored_operations_errors` (with total, messages, and details)
+- **AND** each entry of `messages` MUST be the record's `unique_msg` as the domain object computed it, never re-assembled from the record's fields
 
 #### Scenario: No Completed Tasks
 
@@ -696,11 +727,6 @@ The `time` column of `coverage.csv` and `errors.csv` MUST contain the entry's `t
 - **THEN** the system MUST load tasks from the results directory's `tasks.json`
 - **AND** MUST run `ResultProcessorComponent` on the loaded tasks
 - **AND** MUST write output files to the same results directory
-
-<!-- No REMOVED Requirements section: the cascade fallback paths were described inline inside the
-     existing "Result Consolidation on Resume (FR10-ext)" requirement, not as a standalone Requirement
-     entry. The MODIFIED rewrite of that requirement above replaces those paragraphs with the unified
-     reconstruct-via-static-data semantics. INV-PLT-16 forbids re-introduction of the fallback paths. -->
 
 ### Requirement: Tool-Configuration Channel via ToolConfig.parameters (NFR01, NFR02)
 
@@ -742,7 +768,8 @@ This is the sole sanctioned channel for delivering per-tool configuration values
 using `LogcatRepository.get_diagnostic_events()`, with the column set
 `apk,rep,timeout,tool,time,category,exception_class,method,source,message,process,pid,fatal,n_frames,stack_head`.
 The full multi-line stack trace SHALL NOT be written to the CSV (it remains in the `.logcat`). The
-existing `coverage.csv`/`errors.csv`/`summary.csv` writers and schemas SHALL remain unchanged.
+`coverage.csv` and `summary.csv` writers and schemas SHALL remain unchanged; `errors.csv` is governed by
+`Requirement: Result Generation (FR14)`, whose 13-column header carries `code` and `event`.
 
 The `time` value of each row MUST be the event's `time_since_task_start` (seconds since tool execution
 start), written as-is on both the live and reconstruction paths — `0` is a legitimate first-second
@@ -757,7 +784,8 @@ value, and no row index or counter is ever substituted (INV-PLT-24).
 
 #### Scenario: Existing CSV schemas unchanged
 - **WHEN** the run completes with diagnostics enabled
-- **THEN** the headers of `coverage.csv`, `errors.csv`, and `summary.csv` are byte-identical to baseline
+- **THEN** the headers of `coverage.csv` and `summary.csv` are byte-identical to baseline
+- **AND** the header of `errors.csv` is the 13-column header of `Requirement: Result Generation (FR14)`
 
 #### Scenario: app_events survives resume reconstruction
 - **WHEN** a task is processed via `_reconstruct_repository_from_logcat` (resume) and its `.logcat`

@@ -18,8 +18,8 @@ The library is validated on two fixture classes. **FIXTURE-REAL** is `experiment
 
 ### Input
 - `results_roots: list[Path]` — one or many batch directories (`results/<batch>/<batch>/…`, the double nesting is a bind-mount artefact and is tolerated). Read-only.
-- `tasks.json`, `summary.csv`, `errors.csv`, `coverage.csv`, `performance.csv`, `app_events.csv` — rv-platform's per-batch record and consolidated CSVs, keyed `(apk, rep, timeout, tool)`.
-- `<apk>/<apk>__<rep>__<timeout>__<arm>.trace` / `.logcat` — per-run raw streams; the `.trace` is read only through `trace_ndjson.TraceReader` for `aperv` arms and through `baseline_ape` / `baseline_droidbot` for the baselines.
+- `tasks.json`, `summary.csv`, `errors.csv`, `coverage.csv`, `performance.csv`, `app_events.csv` — rv-platform's per-batch record and consolidated CSVs, keyed `(apk, rep, timeout, tool)`. `errors.csv` has exactly the header `apk,rep,timeout,tool,time,spec,class,method,source,code,event,message,unique_msg` (13 columns; platform INV-PLT-19).
+- `<apk>/<apk>__<rep>__<timeout>__<arm>.trace` / `.logcat` — per-run raw streams; the `.trace` is read only through `trace_ndjson.TraceReader` for `aperv` arms and through `baseline_ape` / `baseline_droidbot` for the baselines. From the `.logcat` only lines under the `RVSEC` tag are read by the violation reader, and only their payload (`read_tagged_lines`): seven comma-separated fields `spec,classQualifiedName,className,methodName,location,errorType,expecting` written by the logcat `ErrorCollector`.
 - `<apk>.json` — the full static-analysis JSON (`components`, `reachability`, `windows`, `transitions`). Never `*.mop.json`.
 - `arm_table: Mapping[str, tuple[str, str]]` — arm string → `(tool, variant)`, supplied as data.
 - `clone_map: Path | None`, `corpus_subset: Path | None` — declared corpus transforms, with the reason recorded.
@@ -31,6 +31,8 @@ The library is validated on two fixture classes. **FIXTURE-REAL** is `experiment
 - `GateReport`: per gate × per arm, `pass | fail | not-run`, with the evidence form named.
 - Tables/figures from `emit.py`, consuming envelopes only.
 - `Provenance`: inputs, their sha256 or paths, the parameter set, timestamps — never inside an estimate.
+- `ViolationEvent` (frozen dataclass): `spec`, `class_name`, `simple_class`, `method`, `location`, `violation_type`, `message`, plus `code`, `event`, `obj`, `val`, `exp`, `msg` parsed from the envelope in `message` (`""` when the message is not an envelope), and `shape_ok: bool` — `False` when the payload did not decompose into seven comma fields or when its envelope is malformed or truncated. `read_logcat` returns `LogcatDiagnostics` (`lines`, `shape_bad`, `envelope_malformed`, `envelope_truncated`) beside the events.
+- `read_errors_csv` returns `(DataFrame, CsvDiagnostics)`: the CSV's columns with `time` renamed `violation_time_s`, plus `violation_type`, `code`, `event`, `unique_message` recovered from `unique_msg`; `CsvDiagnostics` carries `rows`, `unique_msg_unparsed` and `unique_msg_disagrees` (the CSV's own `code`/`event` differ from the parts of `unique_msg` on the same row).
 
 ### Side-Effects
 - **[Filesystem]**: none on inputs (INV-APV-35). Outputs are written only where a caller names a destination.
@@ -41,13 +43,14 @@ The library is validated on two fixture classes. **FIXTURE-REAL** is `experiment
 - `IdentityCollisionUnresolved` — two `COMPLETED` records for one identity with equal coverage and different payload.
 - `UnknownArm` — an arm string absent from the arm table; never decomposed heuristically.
 - `SchemaVersionMismatch` — `RUN_START.v` differs from the version the reader was written for.
+- `ValueError` — `read_errors_csv` finds a header other than `ERRORS_CSV_HEADER`; the message names the file, the header found and the header expected. A 10-column article file and an 11-column pre-envelope file both raise it (INV-CAN-25).
 
 ## Invariants
 
 - **INV-CAN-01**: The run-identity regex `^(?P<apk>.+\.apk)__(?P<repetition>\d+)__(?P<timeout>\d+)__(?P<arm>.+)$` SHALL exist exactly once in `aperv_tool`, in `analysis/run_identity.py`; `coverage_dump.py` and `clock_logcat_join.py` SHALL import it.
 - **INV-CAN-02**: Arm decomposition into `(tool, variant)` SHALL be driven by a data table supplied by the caller. An arm absent from the table SHALL raise `UnknownArm`; no module SHALL split an arm string heuristically.
 - **INV-CAN-03**: Task records SHALL be keyed by identity `(apk, tool, variant, repetition, timeout)`, never by `task_id`. On collision the `COMPLETED` record with the larger coverage SHALL be kept and the collision counted.
-- **INV-CAN-04**: No loader or reader SHALL silently drop a run, a record or a line. Every omission SHALL be counted and surfaced in the returned diagnostics.
+- **INV-CAN-04**: No loader or reader SHALL silently drop a run, a record or a line. Every omission SHALL be counted and surfaced in the returned diagnostics. For the violation readers this means: a `unique_msg` that does not split into exactly seven `:::` parts is kept and counted under `unique_msg_unparsed`; a `unique_msg` whose `code`/`event` parts differ from the CSV columns of the same name is kept and counted under `unique_msg_disagrees`; an `RVSEC` payload with fewer than seven comma fields is kept whole in `message` and counted under `shape_bad`; a payload whose envelope does not match the v1 grammar is kept and counted under `envelope_malformed`; a payload whose last quoted value is unclosed is kept, its parsed fields stopping before that value, and counted under `envelope_truncated`. A read that returns events SHALL return the counters with them.
 - **INV-CAN-05**: `liveness.py` SHALL be the sole owner of the per-run admissibility verdict. `gates.py` SHALL call it and SHALL NOT reimplement any of its predicates.
 - **INV-CAN-06**: The five validity gates SHALL run before any outcome is read. A gate result SHALL be one of `pass`, `fail`, `not-run`; `not-run` SHALL never be reported as `pass`, and the evidence form used SHALL be named per arm.
 - **INV-CAN-07**: The clean-control field pattern SHALL be anchored — `(?<![a-z_])mop=` — so that `activity_has_mop=1` never matches.
@@ -68,9 +71,9 @@ The library is validated on two fixture classes. **FIXTURE-REAL** is `experiment
 - **INV-CAN-22**: No research-question identifier (`E\d+`, `T\d+`, `R\d+`, `RQ`) SHALL appear in any module, function, class, column or flag under `analysis/` except `analysis/callers/` and `rq_map.toml`; enforced by a test over the package's source.
 - **INV-CAN-23**: The whole `analysis/` package SHALL be offline, read-only over recorded artefacts, and unreachable from the import graph of `tools/aperv/tool.py` (`INV-APV-48` generalised to the package).
 - **INV-CAN-24**: No metric or reader under `analysis/` SHALL read a `*.mop.json` artefact (`INV-ANA-53`); the full `<apk>.json` is the sole static input.
-
+- **INV-CAN-25**: `ERRORS_CSV_HEADER` SHALL be the 13-tuple `apk,rep,timeout,tool,time,spec,class,method,source,code,event,message,unique_msg` and `read_errors_csv` SHALL raise `ValueError` on any other header, naming the header expected. No reader under `analysis/` SHALL accept a historical `errors.csv` layout; a reader for the 10-column article dataset or the 11-column pre-envelope layout SHALL live outside the module, in the E0 baseline scripts, and SHALL be declared where its numbers are published.
+- **INV-CAN-26**: `unique_msg` SHALL be read as exactly seven `:::`-joined parts in the order `class, method, spec, error_type, code, event, message`, with `violation_type = parts[3]`, `code = parts[4]`, `event = parts[5]`, `unique_message = parts[6]`; the module SHALL NOT compose a `unique_msg` itself — `core` owns its construction (INV-CORE-25/41) — and SHALL NOT infer a part count from the corpus.
 ## Requirements
-
 ### Requirement: Run Identity as a Single Seat and Arm Table (FR20, NFR03)
 
 `analysis/run_identity.py` SHALL define the run-identity regex once, a frozen `RunKey(apk, repetition, timeout, arm)` value type, and `decompose_arm(arm, table) -> (tool, variant)` driven by a caller-supplied table (INV-CAN-01, INV-CAN-02). The two shipped readers SHALL import it. cmp162's arm strings contain a colon (`aperv:mop_on_llm_off`) and its paired columns are `{arm}__{metric}`, so a naive `split('_')` fails visibly on the fixture.
@@ -270,7 +273,7 @@ The library is validated on two fixture classes. **FIXTURE-REAL** is `experiment
 
 ### Requirement: Step Bundle Places Every Logcat Stream on the Step Timeline (FR11, FR13)
 
-`analysis/step_bundle.py` SHALL return one `StepBundle` per step: the `StepRow` plus `violations[]` (`RVSEC`), `monitored_ops[]` (`RVSEC-COV`) and `diagnostics[]` (the `RV_LOGCAT_DIAGNOSTICS` tags, via `rv_coverage`'s diagnostic parser) placed by the same heartbeat rule `clock_logcat_join` uses (INV-CAN-18), plus the per-state `UICOV` payload joined by `state_key` through `state_coverage_join.py` (intra-run only). It SHALL report the heartbeat⇄step discrepancy as a count — on cmp162, 15,701 heartbeats for 15,702 steps over 60 runs — and SHALL treat a run with no heartbeat as `UNALIGNED`, never repaired. It is intra-`aperv` by construction: `ape` and `droidbot` emit no NDJSON.
+`analysis/step_bundle.py` SHALL return one `StepBundle` per step: the `StepRow` plus `violations[]` (`RVSEC`), `monitored_ops[]` (`RVSEC-COV`) and `diagnostics[]` (the `RV_LOGCAT_DIAGNOSTICS` tags, via `rv_coverage`'s diagnostic parser) placed by the same heartbeat rule `clock_logcat_join` uses (INV-CAN-18), plus the per-state `UICOV` payload joined by `state_key` through `state_coverage_join.py` (intra-run only). It SHALL report the heartbeat⇄step discrepancy as a count — on cmp162, 15,701 heartbeats for 15,702 steps over 60 runs — and SHALL treat a run with no heartbeat as `UNALIGNED`, never repaired. It is intra-`aperv` by construction: `ape` and `droidbot` emit no NDJSON. The `violations[]` of a bundle SHALL be `ViolationEvent`s produced by `violations.parse_payload`, and `clock_logcat_join` SHALL decompose its `RVSEC` payloads through the same function, so the `code`, `event` and `shape_ok` of an event are the same on the step timeline, in the run join and in the event frame; a bundle SHALL carry the run's `LogcatDiagnostics` counters (`shape_bad`, `envelope_malformed`, `envelope_truncated`) beside its heartbeat gap.
 
 #### Scenario: RVSEC-COV lines reach the bundle
 - **WHEN** a run's logcat carries heartbeats and `RVSEC-COV` lines between heartbeat 7 and heartbeat 8
@@ -287,7 +290,11 @@ The library is validated on two fixture classes. **FIXTURE-REAL** is `experiment
 - **THEN** every `STATE.key` in the trace SHALL find at most one row and every UICOV row SHALL find its key (measured 3801/3801 on 120 cmp162 runs)
 - **AND** the joined `discovered/interacted/byType` SHALL be flagged cumulative-per-run, never per-visit
 
----
+#### Scenario: One payload parser on the step timeline and in the run join
+- **WHEN** a run's logcat carries, between heartbeat 3 and heartbeat 4, the `RVSEC` payload `MessageDigestSpec,okio.ByteString,ByteString,digest$okio,ByteString.kt:12,UnsafeAlgorithm,v=1 code=MESSAGEDIGEST-ALG-01 ev=update obj=MessageDigest val='MD2' exp='MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384' msg='expecting one of MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384 but found MD2'`
+- **THEN** step 3's `violations[]` SHALL hold one `ViolationEvent` with `code=MESSAGEDIGEST-ALG-01`, `event=update`, `shape_ok=True`
+- **AND** `clock_logcat_join.join_run` SHALL report the same event at step 3 with `violation_type=UnsafeAlgorithm` and the full envelope as `message`
+- **AND** the bundle's diagnostics SHALL read `envelope_malformed=0, envelope_truncated=0`
 
 ### Requirement: Static Artifact Reader Emits the Size Covariate (FR14, NFR08)
 
@@ -360,3 +367,49 @@ FIXTURE-REAL SHALL be pinned by `modules/aperv-tool/tests/fixtures/cmp162_manife
 #### Scenario: Entries with no caller are visible
 - **WHEN** `rq_map.toml` lists an entry with no caller
 - **THEN** the coverage report SHALL list it as uncovered
+
+### Requirement: Violation Readers Read the Envelope and the Consolidated Header (FR14, NFR06, NFR08)
+
+`analysis/violations.py` SHALL declare `ERRORS_CSV_HEADER` as the 13-column header rv-platform writes after gh104 (INV-CAN-25) and `read_errors_csv(path)` SHALL raise `ValueError` on any other header, naming the header found and the header expected. It SHALL recover `violation_type`, `code`, `event` and `unique_message` from `unique_msg` split into exactly seven `:::` parts (INV-CAN-26); any other part count SHALL leave the four columns `""` — `unique_message` holding the raw `unique_msg` — and increment `unique_msg_unparsed` on the `CsvDiagnostics` the function already returns as the second element of its `(rows, CsvDiagnostics)` result, which gains the two counters rather than being introduced; a row whose recovered `code`/`event` differ from the CSV's `code`/`event` columns SHALL be kept and increment `unique_msg_disagrees`, because both are written by the same producer from the same object and a disagreement is a transport defect worth a number, not a choice the reader makes silently.
+
+`parse_payload(payload)` SHALL split on `,` at most six times, so the seventh field keeps its commas, and SHALL then parse the seventh field as a v1 envelope: `v=1 code=… ev=… obj=… val='…' exp='…' msg='…'`, values single-quoted with `\'` as the escape, filling `code`, `event`, `obj`, `val`, `exp`, `msg` on `ViolationEvent`. When the seventh field is not an envelope (a legacy `unknown`, a free-text `expecting`, a cmp162 message) the six fields SHALL be `""` and `shape_ok` unaffected — a pre-change message is a legitimate shape, not a defect. When the envelope starts with `v=1` but does not match the grammar, or when its last quoted value is unclosed, `shape_ok` SHALL be `False`, the seven comma fields SHALL still be populated, the envelope fields parsed before the failure SHALL be kept, and `read_logcat` SHALL count the event under `envelope_malformed` or `envelope_truncated` respectively; `read_logcat` SHALL return `(events, LogcatDiagnostics)`. `clock_logcat_join` SHALL obtain `(spec, violation_type, message)` through the same `parse_payload`, so the two readers cannot disagree on a payload's shape.
+
+The historical layouts are not this module's concern: the 10-column article dataset and the 11-column pre-change layout are read by a declared separate reader in the E0 baseline scripts. cmp162 remains a fixture, not a corpus.
+
+#### Scenario: 13-column header is accepted
+
+- **WHEN** `read_errors_csv` opens a file whose header is `apk,rep,timeout,tool,time,spec,class,method,source,code,event,message,unique_msg` and whose one row has `unique_msg=okio.ByteString:::digest$okio:::MessageDigestSpec:::UnsafeAlgorithm:::MESSAGEDIGEST-ALG-01:::update:::v=1 code=MESSAGEDIGEST-ALG-01 ev=update obj=MessageDigest val='MD2' exp='MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384' msg='expecting one of MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384 but found MD2'`, `code=MESSAGEDIGEST-ALG-01`, `event=update`
+- **THEN** the frame SHALL have one row with `violation_type=UnsafeAlgorithm`, `code=MESSAGEDIGEST-ALG-01`, `event=update`, `unique_message` equal to the envelope text, and `violation_time_s` from `time`
+- **AND** `CsvDiagnostics` SHALL be `rows=1, unique_msg_unparsed=0, unique_msg_disagrees=0`
+
+#### Scenario: 11-column pre-change header is rejected by name
+
+- **WHEN** `read_errors_csv` opens a cmp162 `errors.csv` whose header is `apk,rep,timeout,tool,time,spec,class,method,source,message,unique_msg`
+- **THEN** it SHALL raise `ValueError` whose message contains the path, the 11-column header found and the text `expected ['apk', 'rep', 'timeout', 'tool', 'time', 'spec', 'class', 'method', 'source', 'code', 'event', 'message', 'unique_msg']`
+- **AND** no frame SHALL be returned; a 10-column article file SHALL raise the same error
+
+#### Scenario: A five-part `unique_msg` is counted unparsed
+
+- **WHEN** a row of a 13-column file carries `unique_msg=com.example.Hash:::digest:::MessageDigestSpec:::UnsafeAlgorithm:::unknown` (five parts) and `code=UNSPECIFIED`, `event=UNSPECIFIED`
+- **THEN** the row SHALL be kept with `violation_type=""`, `code=""`, `event=""` and `unique_message` equal to the raw five-part string
+- **AND** `unique_msg_unparsed` SHALL be 1 and `unique_msg_disagrees` SHALL be 0
+
+#### Scenario: A truncated envelope is kept with `shape_ok=False` and counted
+
+- **WHEN** `read_logcat` reads a run whose logcat carries the `RVSEC` payload `CipherSpec,com.example.Crypto,Crypto,doEncrypt,Crypto.java:15,UnsafeAlgorithm,v=1 code=CIPHER-ALG-02 ev=c1 obj=Cipher val='AES/ECB/PKCS5Padding' exp='AES/GCM/NoPadding,AES/CBC/PKCS7Pad` with no closing `'`
+- **THEN** the returned event SHALL have `spec=CipherSpec`, `class_name=com.example.Crypto`, `simple_class=Crypto`, `method=doEncrypt`, `location=Crypto.java:15`, `violation_type=UnsafeAlgorithm`, `code=CIPHER-ALG-02`, `event=c1`, `obj=Cipher`, `val=AES/ECB/PKCS5Padding`, `exp=""`, `msg=""`, `shape_ok=False`
+- **AND** `LogcatDiagnostics` SHALL be `lines=1, shape_bad=0, envelope_malformed=0, envelope_truncated=1`
+- **AND** `distinct(events, key=("class_name", "method", "spec"))` SHALL count the event
+
+#### Scenario: A pre-change free-text message is not a defect
+
+- **WHEN** `parse_payload("SSLContextSpec,com.example.Net,Net,open,Net.java:9,UnsafeProtocol,expecting one of TLSv1.2, TLSv1.3 but found SSLv3")` is called
+- **THEN** the event SHALL have `message=expecting one of TLSv1.2, TLSv1.3 but found SSLv3` with its comma, `code=""`, `event=""`, `shape_ok=True`
+- **AND** `envelope_malformed` SHALL NOT be incremented for it
+
+#### Scenario: A short payload is kept whole and counted
+
+- **WHEN** `parse_payload("SSLContextSpec,com.example.Net,Net")` is called
+- **THEN** the event SHALL have `spec=SSLContextSpec`, `message=SSLContextSpec,com.example.Net,Net`, `shape_ok=False`
+- **AND** `read_logcat` SHALL count it under `shape_bad`
+
