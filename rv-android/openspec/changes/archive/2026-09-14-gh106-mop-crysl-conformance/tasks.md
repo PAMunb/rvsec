@@ -216,4 +216,4 @@ reproduction evidence and schedules their retirement in a follow-up cleanup chan
 The full work list — lint, reactor build with tests enabled, `/rv-verify`, `/rv-code-reviewer`,
 `/rv-docs-sync` — lives in the group file, like every other group.
 
-- [ ] 16.1 G14 closed — every checkbox in [tasks/G14-final-verification.md](tasks/G14-final-verification.md) is `[x]`
+- [x] 16.1 G14 closed — every checkbox in [tasks/G14-final-verification.md](tasks/G14-final-verification.md) is `[x]`

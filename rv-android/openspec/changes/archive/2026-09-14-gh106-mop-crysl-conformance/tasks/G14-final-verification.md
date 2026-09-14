@@ -42,11 +42,12 @@
   invariant is how the next round re-implements the placeholder.
 - [x] 14.8 Verify the cross-referencing convention end to end: `proposal.md` carries `GitHub Issue: #106`; intermediate commits use `refs #106`; the final commit uses `closes #106`; the PR body carries `Closes #106`.
 - [x] 14.9 Check off every acceptance criterion in issue #106 that is satisfied, and annotate any that a scope change superseded — an unchecked box on a closed issue reads as incomplete work.
-- [ ] 14.10 Run `/opsx:verify` for the change, then `/opsx:archive` once the researcher approves.
-- [ ] 14.11 Move the Kanban card to Done via `gh project item-edit` (project `PVT_kwDOAJRqj84BPHtv`, status field `PVTSSF_lADOAJRqj84BPHtvzg9n4kM`, option `53305933`). The automation does not do this.
+- [x] 14.10 Run `/opsx:verify` for the change, then `/opsx:archive` once the researcher approves. **Approved by the researcher on 2026-09-14.** Done the same day: suite under JDK 21 `-core` 171, `-mop` 59, `-crysl` 102 (1 named skip, target 8), 0 failures — identical to 2026-08-25; `openspec archive` created `openspec/specs/conformance/spec.md` (+15).
+- [x] 14.11 Kanban card to Done — **handed to the researcher.** By the researcher's decision of 2026-09-14 this closure moves no Kanban card (the `gh` token also lacks the `read:project`/`project` scopes); the move is made by hand: project `PVT_kwDOAJRqj84BPHtv`, status field `PVTSSF_lADOAJRqj84BPHtvzg9n4kM`, option `53305933`. The automation does not do it. Checking this box records the hand-off, not the move.
+- [x] 14.12 Archive-time hand-sync. `openspec archive` rebuilds only `## Requirements`, so after it creates `openspec/specs/conformance/spec.md` the delta's `## Purpose`, `## Data Contracts` and `## Invariants` (INV-CONF-01…17) are applied by hand, in current-state wording (P4). One number is stale: the `jca_android` set is now 47 `.mop` files, not the 24 it held when the calibration targets were stamped, so the Purpose names the set without a fixed count and leaves the 24 to the calibration targets that were measured over it. Update `openspec/specs/README.md`: the `conformance` row links `conformance/spec.md`, and the paragraph saying the spec "still lives in a change directory" is removed. Verify: `grep -cE '^- \*\*INV-CONF-(0[1-9]|1[0-7])\*\*' openspec/specs/conformance/spec.md` = 17; 15 `### Requirement:` headers and 40 `#### Scenario:`; `grep -rn 'changes/gh106' openspec/specs/` empty; `openspec validate --specs --strict` green. **Done 2026-09-14**: Data Contracts and INV-CONF-01…17 inserted before `## Requirements`; the engine had already copied the Purpose, which lost its 24-file count and the clause "until this capability existed"; README row relinked and the stale paragraph removed. 17 ids, 15 requirements, 40 scenarios, no `changes/gh106` link, 11/11 specs valid.
 
 ## Closing
-G14 closes when 14.1–14.11 are `[x]`, **including 14.4-bis, 14.4-ter and 14.7-bis** (aprendizado nº 18), and with it the change.
+G14 closes when 14.1–14.12 are `[x]`, **including 14.4-bis, 14.4-ter and 14.7-bis** (aprendizado nº 18), and with it the change.
 
 ## O que foi medido no fechamento mecânico (24/08/2026)
 

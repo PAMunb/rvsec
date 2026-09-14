@@ -29,11 +29,9 @@ adding rows that carry no FR would break the accounting it is there to give.
 | **aperv** | `aperv-tool` — rv-platform plugin wrapping the APE-RV binary | `INV-APV` | [aperv/spec.md](aperv/spec.md) |
 | **calibration-control** | Control scaffold for the APE-RV LLM calibration campaign | `INV-CAL` | [calibration-control/spec.md](calibration-control/spec.md) |
 | **campaign-analysis** | Offline, read-only campaign analysis library under `aperv_tool/analysis/` | `INV-CAN` | [campaign-analysis/spec.md](campaign-analysis/spec.md) |
-| **conformance** | MOP/CrySL conformance: does a `.mop` set encode what the CrySL rules it was translated from require? Implemented in the sibling `rvsec` Maven reactor as `rvsec/rvsec-crysl` (Java), not in a Python module | `INV-CONF` | [changes/gh106-mop-crysl-conformance/specs/conformance/spec.md](../changes/gh106-mop-crysl-conformance/specs/conformance/spec.md) |
+| **conformance** | MOP/CrySL conformance: does a `.mop` set encode what the CrySL rules it was translated from require? Implemented in the sibling `rvsec` Maven reactor as `rvsec/rvsec-crysl` (Java), not in a Python module | `INV-CONF` | [conformance/spec.md](conformance/spec.md) |
 
-`conformance` is the only capability whose spec still lives in a change directory; it moves to
-`openspec/specs/conformance/spec.md` when gh106 is synced or archived. The other three are already
-synced. Note that a capability spec may **cite** invariants owned by another spec (`aperv` and
+Note that a capability spec may **cite** invariants owned by another spec (`aperv` and
 `campaign-analysis` cross-reference each other's IDs) — the prefix column names the IDs each spec
 **owns**, not every ID it mentions.
 
