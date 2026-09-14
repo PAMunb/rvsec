@@ -17,6 +17,7 @@
 	<properties>
 		<skipMopAgent>false</skipMopAgent>
 		<skipTests>false</skipTests>
+		<mop.spec.dir>${main.basedir}/${project.parent.artifactId}/rvsec-mop/src/main/resources/jca</mop.spec.dir>
 	</properties>
 
 	<dependencies>
@@ -103,7 +104,7 @@
 					</execution>
 				</executions>
 				<configuration>
-					<pathToMopFiles>${main.basedir}/${project.parent.artifactId}/rvsec-mop/src/main/resources/jca</pathToMopFiles>
+					<pathToMopFiles>${mop.spec.dir}</pathToMopFiles>
 					<pathToJavaMop>${main.basedir}/javamop/bin</pathToJavaMop>
 					<pathToMonitor>${main.basedir}/rv-monitor/bin</pathToMonitor>
 					<destinationFolder>${main.basedir}/${project.parent.artifactId}/${project.artifactId}/src/main/java/mop</destinationFolder>
