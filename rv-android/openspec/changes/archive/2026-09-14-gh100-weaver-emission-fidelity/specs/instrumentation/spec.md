@@ -283,7 +283,7 @@ A Layer-3 verdict obtained from derived oracles in this change is **characteriza
 - **AND** it MUST state that the verdict documents the defect rather than certifying its repair
 - **AND** it MUST name what a certifying verdict would require — a fresh `dexlib2` run, meaning L3-a or V4 — and that neither ran
 
-#### Scenario: Multidex profile unavailable
+#### Scenario: Multidex oracle profile unavailable
 
 - **WHEN** a ratification gate is scheduled and no multidex oracle has been committed to `validator/oracles/`
 - **THEN** `docs/LIMITATIONS.md` MUST carry an entry "multidex profile unverified" naming the scrutiny this invites

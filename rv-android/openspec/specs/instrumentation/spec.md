@@ -224,6 +224,9 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - `android_jar_path: str` -- Path to `android.jar` from Android SDK (source: `$ANDROID_HOME/platforms/android-29/android.jar`)
 - `monitor_output_dir: str` -- Directory with generated monitor artifacts (source: output of rv-monitor-generator)
 - `keystore_file: str` -- JKS keystore file for APK signing (source: bundled `assets/keystore.jks` or user-provided)
+- `descriptor: AspectDescriptor` -- The JavaMOP-emitted descriptor; each `AdviceSpec` carries `monitorCalls: List<MonitorCall>` with size ≥ 1 (source: `descriptor-reader`)
+- `events_fair_csv: Path` -- Paired `ajc` × `dexlib2` event records used to derive the L3-b oracle (source: `out/run_jca_compare_consolidated/events_fair.csv`)
+- `control_group_errors_csv: Path` -- The JVM `-javaagent` AspectJ control-group events used to derive the L3-c oracle (source: the campaign results tree, read-only)
 
 ### Output
 
@@ -234,8 +237,11 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
   - `coverage.aj` -- Coverage aspect (copied from aspects_dir)
   - `logging.aj` -- Logging aspect (copied from aspects_dir)
 - `instrumented_dir/` -- Directory containing signed instrumented APK files (consumer: rv-platform for emulator deployment)
-- `InstrumentationResults` -- Pydantic model with success/error counts (consumer: rv-experiment post-processing)
+- `InstrumentationResults` -- Pydantic model with success/error counts and the per-APK weaver counters in `weave_counts` (consumer: rv-experiment post-processing and the platform's result processing)
 - `instrument_errors.json` -- JSON file with per-APK error details (consumer: rv-experiment result manager)
+- `instrument_results.json` -- Per-APK weaver counters written by the production `dexlib2` instrumentation path for every APK processed, successful or not (consumer: `rv-instrumentation-dexlib2`, which parses it into `InstrumentationResults`)
+- `validator/oracles/<apkBaseName>-oracle.yaml` -- Derived Layer-3 oracles, one per APK, each carrying its provenance block and each expected event's `location` (consumer: the Layer-3 comparator)
+- `validator/traces/<apkBaseName>/{ajc,dexlib2}.logcat` -- The reconstructed trace pair for each derived oracle, written in the collector's own line format so the comparator reads reconstruction and recording through one code path (consumer: the Layer-3 comparator)
 
 ### Side-Effects
 
@@ -244,6 +250,9 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **File System (Maven)**: Executes `mvn clean compile` to download and stage runtime dependencies into `lib_tmp/`
 - **File System (signing)**: Creates signed APK files in the instrumented output directory using the configured keystore
 - **Process execution**: Spawns external processes for JavaMOP, RV-Monitor, dex2jar, ajc, d8, jarsigner, Maven, and zip
+- **File System (dexlib2 results)**: The production `dexlib2` instrumentation path writes one results JSON per APK, alongside the error JSON
+- **Log (dexlib2)**: The resolved `android.jar` path is written to the weaver log at instrumentation start
+- **Build (dexlib2)**: Emitting every monitor call of a fused advice increases the invokes spliced per site, which may trigger register-pressure handling in the mutator; discarded sites are counted in the results JSON
 
 ### Error
 
@@ -251,6 +260,8 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - `CommandException` -- Raised when an external tool (JavaMOP, RV-Monitor, dex2jar, ajc, d8, jarsigner) returns a non-zero exit code or produces error output
 - `InstrumentationError` -- Raised when a pipeline phase fails (decompilation, weaving, compilation, signing) or when the instrumented APK hash matches the original (indicating instrumentation had no effect)
 - `RVAndroidError` -- Base exception class from rv-android-core; `ConfigurationError` inherits from it
+- `UnsupportedAspectConstructError` -- Raised by `dexlib2` pointcut parsing when an expression cannot be parsed; the weave fails instead of matching everything
+- `IllegalStateException` -- Raised by the `dexlib2` wrapper registry when a key is already bound to a different wrapper. The emitter produces one wrapper per original call site, so a rebinding is unreachable by construction and the guard asserts that emitter and registry agree
 
 ## Invariants
 
@@ -300,6 +311,11 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **INV-INS-101**: (Round-8 introduction — Z-decision per cross-LLM meta-review.) The §4.B `BaseAspectExpander` consumes a `List<String>` whose canonical length in production is twelve (per `DescriptorWriter.defaultBaseAspectExclusions()`); the matcher behaviour MUST be tested at N≥2 to guarantee future-proofing against descriptors that override `--baseaspect` with shorter lists. `NamedReferenceGrammarTest.baseAspectNotwithinExpandsTwelveExclusionsList` SHALL exercise (a) the canonical twelve-entry expansion (production baseline); (b) a synthetic two-entry list (smallest non-degenerate AND-chain — `["foo..*", "bar..*"]`); (c) a synthetic one-entry list (degenerate AND-of-one returns the single `NotWithinPC` directly); (d) the empty-list fail-closed case (`LegacyDescriptorException` per INV-INS-97).
 - **INV-INS-102**: (Round-8 introduction — W-decision per cross-LLM meta-review.) `docs/aspectj_grammar_coverage.md` is the **single source of truth** for the dexlib2 AspectJ surface. The legacy inventory documents at `docs/AJ_CONSTRUCTIONS_INVENTORY.md` and `docs/AJ_TO_DEXLIB2_MAPPING.md` SHALL carry a header banner declaring "SUPERSEDED — see `docs/aspectj_grammar_coverage.md` as the live contract; this file preserved as historical inventory only" and SHALL NOT be cited by any test, scenario, or invariant in this delta spec. `MatrixIntegrityTest.testNoCompetingSourceOfTruth` SHALL fail the build if either legacy document is amended without the banner present (a `git grep -L 'SUPERSEDED' docs/AJ_CONSTRUCTIONS_INVENTORY.md docs/AJ_TO_DEXLIB2_MAPPING.md` style check).
 - **INV-INS-103**: For a `call(...)` pointcut with trailing varargs, `CallPC.paramSpecs` is exactly the fixed positional head and `CallPC.varargs` is the sole varargs signal. Overload expansion MUST verify all `paramSpecs.size()` fixed parameters positionally against a candidate overload's leading parameters and MUST reject candidates with fewer parameters than the fixed head. A `".."` descriptor inside `paramSpecs` is necessarily a non-trailing `..` and MUST cause the whole pointcut to be rejected (empty expansion).
+- **INV-INS-104**: An advice carrying N `monitorCalls` MUST emit exactly N monitor invokes, in descriptor order, on **every** emission path — inline and wrapper alike. No emission path may read only the first element of `monitorCalls`.
+- **INV-INS-105**: The production single-APK instrumentation path MUST write a results JSON for every APK it processes, successful or not. A results tree containing `instrument_errors.json` files and no `instrument_results.json` file is a violation of this invariant, not a reporting preference.
+- **INV-INS-106**: No component of the validator MAY attribute a woven artefact to a specification by reading only the first element of `monitorCalls`. A validator that shares the emission premise cannot certify the emission contract.
+- **INV-INS-107**: A ground-truth oracle MAY be derived from recorded execution data only when the recording comes from a weaver implementation **other than** the one under validation, and the derived YAML is frozen — content-addressed, with its source file and derivation script named in a provenance block — before the Layer-3 comparison that consumes it runs. An oracle derived from the implementation under test is inadmissible.
+- **INV-INS-108**: An acceptance test for an emission repair MUST be executed against the pre-repair code and its failure recorded as an artefact of the change before the repair is integrated. A test that has only ever been observed passing does not establish that it discriminates.
 - **INV-INS-109**: The `jca` specification set and the `CipherTransformationUtil` it delegates to MUST remain byte-identical to their state at this change's base commit, and every divergence between `jca_android` and `jca` outside allow-list content MUST appear in the divergence record with its reason. An unrecorded divergence is a defect; a recorded one is a deliberate repair confined to the derived set. Any edit reaching the frozen paths fails the check regardless of its merit.
 
   The check bounds what it can establish, and the bound is part of the invariant rather than a caveat on it. Byte-identity of the frozen paths, and of the monitor generated from them, does **not** establish that the frozen set behaves as it did: shared runtime code the specifications call is outside both, so a repair there changes behaviour with every mechanical check still passing. Such a repair is governed by the admissibility conditions above, and its effect on the frozen set MUST be enumerated site by site in the change's records. Establishing the effect empirically would require the corpus re-measured, which this change does not do.
@@ -309,6 +325,8 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **INV-INS-113**: Every `.mop` in the `jca_android` set MUST carry a conformance verdict against the generated rules for its target API level: anchored to a named rule, or declared uncontradicted with the rule that was checked, or declared to have no anchor with the reason. A file with no verdict is unverified, not verbatim.
 - **INV-INS-114**: A specification's events MUST be granular enough to bind every argument its rule's clauses quantify over. Fusing several method signatures into one pointcut is admissible only where no `REQUIRES`, `ENSURES`, `NEGATES` or `CONSTRAINTS` clause refers to an argument the fusion leaves unbound. Fusion is lossless for the `ORDER`, which names only the rule's aggregate, and lossy for everything that names its individual events — which is why a fused specification can look well-formed and still be unable to state most of its rule. The converse also binds: an event that carries no binding and no body another event does not already carry MUST NOT be split out, because the alphabet is a scarce resource under INV-INS-115.
 - **INV-INS-115**: A specification's event count MUST be verified to generate. The monitor generator computes, for the `fail` category of any specification declaring an `@fail` handler, a coenable set of exactly `n × (2ⁿ − 1)` members over an alphabet of `n` events; measured on this machine, 17 events generate in 53 s, 18 raise `StackOverflowError` in the enable-set parser, and 24 exceed Java's maximum `String` length and cannot be built at all. The notation does not change this — `ere`, `ltl` and `ptltl` are rewritten into `fsm` and reach the same computation. A specification MUST therefore be generated end to end before its alphabet is accepted, and a design that cannot be generated MUST be recorded as such rather than left in the plan.
+- **INV-INS-116**: A Layer-3 oracle MUST key its expected events on `(apk, class, method, spec)` — the unique-misuse unit defined in the journal article at `results-rq1.tex:41` and implemented at `data-analysis/repair_summary_outcome.py:53`. The comparator that consumes it MUST match on every element of that key the oracle declares. An oracle keyed more finely than the comparator matches makes the gate weaker than the evidence it rests on; a comparator matching more finely than the oracle keys rejects agreements the ground truth never claimed. Neither direction is acceptable, and what a comparator happens to do is not an argument for changing the unit.
+- **INV-INS-117**: The Layer-3 comparator MUST parse the violation line the on-device collector emits (`ErrorCollector`, rvsec-logger-logcat), and its parsing MUST be justified against that producer and a recorded line that exhibits the format. A parser accepted on the authority of another parser is not evidence that the format is right: two parsers can agree with each other on a shape that nothing in the pipeline emits.
 ## Requirements
 ### Requirement: Monitor Generation from JavaMOP Specifications (FR01, NFR07)
 
@@ -832,32 +850,85 @@ Three documents MUST be produced and kept current with the implementation: `docs
 
 ### Requirement: Ground-Truth Oracle Diversity for Equivalence Claims
 
-The claim that `dexlib2` is behaviorally equivalent to `ajc` on APKs that `ajc` handles correctly MUST be supported by at least three ground-truth oracle APKs exercising disjoint bytecode profiles, each with a hand-validated expected-event list committed to `validator/oracles/<name>-oracle.yaml` BEFORE Layer-3 or Layer-4 execution (so that oracles are not retrofitted to observed behavior). The three mandatory profiles are:
+The claim that `dexlib2` is behaviorally equivalent to `ajc` on APKs that `ajc` handles correctly MUST be supported by at least three ground-truth oracles exercising disjoint profiles, each with an expected-event list committed to `validator/oracles/<name>-oracle.yaml` BEFORE Layer-3 or Layer-4 execution (so that oracles are not retrofitted to observed behavior of the implementation under test).
 
-1. **Java-only, single DEX, pre-R8** — baseline profile. Canonical APK: `cryptoapp` with 8 known violations (see `docs/20260423_plano_validacao.md` §3.4 oracle table).
-2. **Kotlin + R8-optimized, single or multi DEX** — the profile that motivates this change. Canonical APK: `hateitorrateit` (validated by the prototype at 100% method instrumentation, zero `VerifyError`).
-3. **Multidex real-world APK from JCA-400** — exercises monitor-refs spillover and `classes.dex` + `classes2.dex` preservation (INV-INS-52). Concrete APK MUST be selected from JCA-400 and recorded in `validator/oracles/<name>-oracle.yaml` before Phase 5 execution.
+An oracle's expected-event list MUST be established by one of two admissible provenances, and the YAML MUST declare which one in a provenance block:
+
+- **Hand-validated** — the list is derived from source inspection or manual UI validation, with source files, line numbers or validation steps cited.
+- **Derived from an independent weaver** — the list is derived from recorded executions of a weaver implementation **other than** the one under validation, with the source data file, its content hash, and the derivation script named. This provenance is admissible because it states what an independent implementation of the same specification observed; it is NOT admissible when the recording comes from the implementation under test, which would be circular.
+
+The three mandatory profiles are:
+
+1. **Java-only, single DEX, pre-R8** — baseline profile. Canonical APK: `cryptoapp` with 8 known violations (see `docs/20260423_plano_validacao.md` §3.4 oracle table). Provenance: hand-validated.
+2. **Paired-execution profile (L3-b)** — the profile that discriminates the wrapper-collision defect. Derived from the 55,169 paired `ajc` × `dexlib2` events over the 8 APKs executed under both variants, recorded in `out/run_jca_compare_consolidated/events_fair.csv`. Provenance: derived from an independent weaver.
+3. **Control-group profile (L3-c)** — the profile that discriminates the inline-truncation defect. Derived from the JVM `-javaagent` AspectJ control group, which is the only recorded regime in which `ErrorType.UnsatisfiedConstraint` is observable at all. Provenance: derived from an independent weaver. The provenance filter that selects which control-group records enter the oracle MUST be stated in the YAML and justified in the change.
+
+A derived oracle SHALL be written one file per APK, named `<apkBaseName>-oracle.yaml` after the convention `TraceComparator.resolveOracleForApk` implements — the `.apk` suffix and any trailing `_<digits>` version suffix stripped. This is not a filing preference. `apk` is the first element of the key INV-INS-116 mandates, and it is the one element a violation line does not carry: the collector logs class, method, specification and error type, never the APK. The only place the APK is recoverable is the oracle's identity and the result-tree filename, so an oracle pooling several APKs into one file cannot honour the key at all, and in batch mode is never resolved for any APK.
+
+A derivation reading a recorded campaign SHALL repair frame-form `(class, method)` values before keying, and SHALL declare the repair in the provenance block. When the on-device summarizer failed to split a stack frame it copied the whole frame — source position included — into both columns, so the line number silently joined the key and one misuse counted once per line. The repair is the algorithm the producer now performs at `ErrorDescription.FRAME_SUFFIX`: strip a trailing parenthesised group that contains no nested parenthesis and ends in `:<digits>`, then split the remainder at its last dot. The repair rule in the article's `data-analysis/repair_frame_keys.py` SHALL NOT be substituted for it: that rule additionally requires the stripped group to look like `File.ext:NN`, which the campaign's `(Unknown Source:1)` and `(r8-map-id-…:17)` forms do not satisfy, and it therefore repairs none of the 2,476 affected rows of `events_fair.csv`. Two rules that agree on the article's own sheets disagree here, and the producer's is the one that describes this data.
+
+Provenance admission SHALL be enforced on the path that executes the comparison. `OracleLoader` decides admission today, but `TraceComparator.compare` lists the oracle directory itself and `run_phase5_validators.sh` never invokes the `oracles` subcommand before `layer3`, so a circular or unattributed oracle is scored normally by the gate it was written to be excluded from. An admission rule that only the operator can trigger is not an admission rule.
+
+The multidex profile from JCA-400, mandated by the earlier form of this requirement and never written, is NOT one of the three. Its absence MUST carry an entry in `docs/LIMITATIONS.md` naming the unverified profile.
 
 Additional oracles MAY be added, but dropping below three is permitted only if `LIMITATIONS.md` carries an explicit entry naming the unverified profile and acknowledging the reviewer scrutiny that concession invites. A single oracle (cryptoapp alone) is insufficient for Phase-6 promotion.
 
+The runtime per-APK arm of Layer 3 — driving one APK deterministically inside a booted emulator and comparing the captured logcat — is out of scope of the current change and remains unexecuted. The substituted acceptance criterion for emission repairs is Java-side (V0 and V2 under `Requirement: Pre-Fix Red Evidence for Emission Repairs`), and it proves emission and arrival in the woven DEX, not arrival in logcat at runtime. That substitution MUST be stated wherever a Layer-3 verdict is reported, so the weaker claim is not read as the stronger one.
+
+A Layer-3 verdict obtained from derived oracles in this change is **characterization, not certification**, and MUST be reported as such. Both sides available to L3-b and L3-c are frozen pre-repair recordings: the comparison can show that the defect is present and what shape it takes, but it cannot flip from red to green when the repair lands, because a green side would require a fresh `dexlib2` execution over the same APKs — an emulator session (L3-a) or a corpus re-run (V4), both out of scope. A gate clause that reads a derived-oracle verdict as evidence that the repair worked claims what frozen data cannot deliver.
+
 #### Scenario: Layer 3 runs against three oracles
 
-- **WHEN** `TraceComparator` is invoked for the Phase-5 ratification gate
+- **WHEN** `TraceComparator` is invoked for the ratification gate
 - **THEN** at least three oracle YAMLs MUST be present in `validator/oracles/`
+- **AND** each oracle MUST carry a provenance block declaring hand-validated or derived-from-an-independent-weaver
 - **AND** each oracle MUST satisfy its expected event list with F1 ≥ 0.98 and κ ≥ 0.9 under both variants
-- **AND** the report MUST name the three oracles and their bytecode profiles in its header
+- **AND** the report MUST name the three oracles, their profiles and their provenances in its header
+
+#### Scenario: Oracle derived from the implementation under test is rejected
+
+- **WHEN** an oracle YAML declares a provenance whose source recording came from the `dexlib2` pipeline being validated
+- **THEN** `OracleLoader` MUST reject it
+- **AND** the rejection message MUST name the circularity, not merely report a malformed file
 
 #### Scenario: Oracle added after execution
 
 - **WHEN** a new oracle YAML is committed after a Layer-3 run already produced a report
 - **THEN** the report MUST be regenerated with the new oracle before any gate ratification
-- **AND** the commit message MUST cite the expected events and their provenance explicitly (source files, line numbers, or manual UI validation steps) — never "observed in run X"
+- **AND** the commit message MUST cite the expected events and their provenance explicitly (source files, line numbers, manual UI validation steps, or the source recording's content hash and derivation script) — never "observed in run X" of the implementation under test
+
+#### Scenario: Derived oracle is frozen before the comparison
+
+- **WHEN** an oracle derived from an independent weaver's recording is used in a Layer-3 comparison
+- **THEN** the YAML MUST already carry the content hash of its source data and the name of its derivation script
+- **AND** re-deriving it after the comparison, for any reason, MUST invalidate that comparison's verdict
+
+#### Scenario: Derived oracle is written per APK and keyed on the article's unit
+
+- **WHEN** an oracle is derived from a recorded campaign spanning more than one APK
+- **THEN** one oracle file MUST be written per APK, named `<apkBaseName>-oracle.yaml` after `TraceComparator.resolveOracleForApk`
+- **AND** each expected event MUST carry the `class` and `method` of its site, so the file keys on `(apk, class, method, spec)`
+- **AND** the derivation MUST repair frame-form values with the producer's rule and say so in the provenance block
+
+#### Scenario: A circular oracle reaches the comparison
+
+- **WHEN** `TraceComparator` is invoked for a Layer-3 verdict over a directory containing an oracle whose provenance names the implementation under test
+- **THEN** that oracle MUST NOT contribute to the verdict
+- **AND** its rejection MUST appear in the report, so a shortfall is visible rather than silent
+- **AND** listing the directory without consulting the admission rule MUST NOT be how the comparison selects its oracles
+
+#### Scenario: A derived-oracle verdict is reported as characterization
+
+- **WHEN** a Layer-3 verdict obtained from L3-b or L3-c is recorded in this change
+- **THEN** it MUST state that both sides are frozen pre-repair recordings
+- **AND** it MUST state that the verdict documents the defect rather than certifying its repair
+- **AND** it MUST name what a certifying verdict would require — a fresh `dexlib2` run, meaning L3-a or V4 — and that neither ran
 
 #### Scenario: Multidex oracle profile unavailable
 
-- **WHEN** the Phase-5 ratification gate is scheduled but no multidex oracle has been committed to `validator/oracles/`
-- **THEN** the gate MUST be held
-- **AND** either (a) a multidex oracle MUST be selected from JCA-400 and its expected-event list committed, OR (b) `docs/LIMITATIONS.md` MUST be updated with an entry "multidex profile unverified" naming the scrutiny this invites — no silent continuation is allowed
+- **WHEN** a ratification gate is scheduled and no multidex oracle has been committed to `validator/oracles/`
+- **THEN** `docs/LIMITATIONS.md` MUST carry an entry "multidex profile unverified" naming the scrutiny this invites
+- **AND** the three mandatory profiles above MUST all be present — no silent continuation on two
 
 ### Requirement: Pure Abstractions Module `rv-instrumentation-core`
 
@@ -1871,3 +1942,143 @@ The contract binds in both directions, and the converse failure is the more dama
 - **WHEN** a CrySL predicate asserts provenance over a primitive value
 - **THEN** it MUST be recorded as inexpressible with the reason, together with the unsoundness of the corresponding write side
 - **AND** it MUST NOT be approximated by a value-keyed entry that would conflate unrelated equal values
+
+### Requirement: Emission Cardinality for Fused Advices
+
+The weaver SHALL emit one monitor invoke per entry of an advice's `monitorCalls` list, preserving descriptor order, on both the inline and the wrapper emission path. Advices are fused by JavaMOP when position and pointcut coincide, so an advice with N > 1 is a normal descriptor shape and not an edge case: the production descriptor `results/gh92_e2e2/monitors/MultiSpec_1MonitorAspect.json` holds 115 advices of which 17 carry more than one monitor call.
+
+The inline path currently reads `getMonitorCalls().get(0)` at `EmitContext.java:51-52`, in `MonitorInvokeBuilder.java:238-241` (reached from `:50`, `:136` and `:217`), at `StaticInitializationEmitter.java:145-148` and at `AfterThrowingEmitter.java:72`. The wrapper path at `WrapperEmitter.java:637` already iterates correctly and is the reference behaviour. Because `WrapperEmitter.shouldWrap(a)` is `"after".equals(a.getPosition())` and every fused advice in the production descriptor is `after`, the truncating path is reached through the explicit constructor `continue` at `WrapperEmitter.java:215-219`.
+
+Repairing cardinality increases the invokes spliced per site. The change SHALL read the weaver counters after the repair to establish whether any site was discarded under register pressure, and record the result.
+
+#### Scenario: Fused advice with three monitor calls emits three invokes inline
+
+- **WHEN** the weaver processes an advice whose `monitorCalls` list has 3 entries and whose emission plan resolves to the inline path
+- **THEN** the woven method MUST contain 3 `invoke-static` instructions to the monitor, one per entry
+- **AND** their order MUST match the order of `monitorCalls` in the descriptor
+- **AND** the same advice emitted through the wrapper path MUST produce the same 3 invokes in the same order
+
+#### Scenario: The nine erased events reach the woven DEX
+
+- **WHEN** an APK is woven with the `jca_android` specification set after this change
+- **THEN** the 9 events previously dropped by the inline path MUST appear as `invoke-static` instructions in the woven DEX
+- **AND** the 8 of them that raise an error MUST include `SecretKeySpecSpec`/`UnsatisfiedConstraint`
+- **AND** the ninth, `SecureRandomSpec`/`c3`, MUST be emitted too — it raises nothing itself, so a criterion demanding an error from all 9 would fail against a correct weave
+
+#### Scenario: Register pressure after cardinality repair is observed, not assumed
+
+- **WHEN** the weaver counters are read after the repair over the same APK set used before it
+- **THEN** the number of sites discarded under register pressure MUST be recorded in the change
+- **AND** an increase MUST be reported explicitly rather than absorbed as a silent cost
+
+### Requirement: Wrapper Registry Key Uniqueness
+
+The wrapper registry SHALL NOT overwrite an entry already bound to a different advice. The key computed at `DexWeaver.java:145` collides for distinct advices, and `:159` writes without a guard. The key is the call site's own `MethodReference` and cannot be widened, so the collision has to be removed where it is created — in the emitter, by emitting one wrapper per original call whose body fires every advice bound to it (D-B1); a guard at the registry write cannot resolve it on its own, because dropping the second binding is as wrong as overwriting the first. The collision has a direction — it fabricates violations by binding a call site to the wrong specification — and it is also the mechanism by which a corrected specification allow-list is read from a variable that never gets written, which is why issue #101 depends on this requirement and on nothing else in this change.
+
+#### Scenario: Two advices producing the same registry key
+
+- **WHEN** two distinct advices compute the same wrapper registry key
+- **THEN** the registry MUST NOT silently overwrite the first binding
+- **AND** the weaver MUST either disambiguate the key or fail loud, never bind the second advice's wrapper to the first advice's site
+
+#### Scenario: Allow-list variable is written after the guard is in place
+
+- **WHEN** a specification whose event lives in the empty parameter slice is woven
+- **THEN** the variable the allow-list is compared against MUST be written
+- **AND** a corrected allow-list MUST become observable in the reported events
+
+### Requirement: Fail-Closed Pointcut Parsing
+
+`parseCommonPointcut` SHALL raise `UnsupportedAspectConstructError` when it cannot parse a pointcut expression, rather than returning a matcher that matches everything. A fail-open parse produces instrumentation that is wrong with neither error nor warning, and code review cannot catch it because the source that fails to parse is machine-generated.
+
+#### Scenario: Unparseable pointcut fails the weave
+
+- **WHEN** `parseCommonPointcut` encounters an expression it does not recognise
+- **THEN** it MUST raise `UnsupportedAspectConstructError` naming the expression and the aspect
+- **AND** the weave MUST fail rather than produce an APK instrumented against an always-true matcher
+
+### Requirement: Instrumentation Result Reporting on the Production Path
+
+The production single-APK instrumentation path SHALL write a results JSON carrying the weaver counters, and the Python layer SHALL parse it into `InstrumentationResults`. Today `--results-json` exists only on the `batch` subcommand (`InstrumentationCli.java:129-137`) while production instruments through the `instrument` subcommand (`dexlib_instrumentation.py:245-252`), so the file is never produced — the evidence is 289 `instrument_errors.json` and zero `instrument_results.json` in the results tree. Repairing `_parse_results_json` or `InstrumentationResults` alone restores nothing, because the input does not exist.
+
+The weaver SHALL additionally log the resolved `android.jar` path at instrumentation start, so that a mismatch between the expected and the actually resolved platform jar is diagnosable from the log alone.
+
+#### Scenario: Production instrumentation produces counters
+
+- **WHEN** an APK is instrumented through the production path used by `rv-experiment`
+- **THEN** a results JSON MUST be written for that APK
+- **AND** `rv-instrumentation-dexlib2` MUST parse it into an `InstrumentationResults` instance
+- **AND** the counters MUST be available to the platform's result processing
+
+#### Scenario: Resolved android.jar is diagnosable from the log
+
+- **WHEN** the weaver begins instrumenting an APK
+- **THEN** the resolved `android.jar` path MUST appear in the weaver log
+- **AND** the log line MUST make it possible to tell which platform jar was used without re-running the resolution
+
+### Requirement: Validator Independence from the Emission Premise
+
+No component of the validator SHALL attribute a woven artefact to a specification by reading only the first element of `monitorCalls`. `BaksmaliDiffer.java:216` does exactly that today, which makes the static oracle structurally unable to observe the repair it is meant to certify. The unit-test fixtures that build advices the same way — `EmitPlanShapeTest:74`, `StaticInitializationEmitterSignatureTest:143-154`, `AfterThrowingEmitterTest:60/77/105/121` — SHALL exercise at least one advice with N > 1, since no test in the suite does so today.
+
+#### Scenario: Static differ attributes a multi-call advice correctly
+
+- **WHEN** `BaksmaliDiffer` encounters a woven wrapper generated from an advice with 3 monitor calls
+- **THEN** it MUST attribute the artefact using all 3 calls, not the first
+- **AND** the Layer-1 hook comparison MUST reflect the repaired emission
+
+#### Scenario: Fixtures exercise N greater than one
+
+- **WHEN** the emitter test suite runs
+- **THEN** at least one fixture MUST construct an advice with more than one monitor call
+- **AND** its assertions MUST fail if any emission path truncates to the first call
+
+### Requirement: Pre-Fix Red Evidence for Emission Repairs
+
+The acceptance tests for the emission repairs — V0 (an advice with N `monitorCalls` emits N invokes, in descriptor order) and V2 (the 9 previously dropped events appear as `invoke-static` in the woven DEX) — SHALL be executed against the pre-repair code and their failure recorded as an artefact of this change before any repair is integrated.
+
+This is not process ceremony. The defect this change repairs survived because a discriminating instrument was replaced by an aggregate that cannot observe it: the truncation removes additional monitor calls from a site that remains woven, so method coverage is byte-identical with and without the defect. A test first observed after the fix cannot distinguish "the repair works" from "the test never discriminated".
+
+#### Scenario: Red evidence precedes the repair
+
+- **WHEN** the change is ready to integrate the emission repairs
+- **THEN** V0 and V2 MUST already have been executed against the pre-repair code
+- **AND** their failing output MUST be committed as an artefact of the change
+- **AND** the repair commit MUST reference that artefact
+- **AND** the descriptor and generated monitor sources used by the failing run MUST be content-addressed in the recorded artefact, and the post-repair run MUST use exactly those inputs — a green run over different inputs does not answer the red one
+
+#### Scenario: A test that passes before the fix is rejected as evidence
+
+- **WHEN** an acceptance test for an emission repair passes against the pre-repair code
+- **THEN** that test MUST NOT be accepted as evidence for the repair
+- **AND** the change MUST record why it does not discriminate, and replace it
+
+### Requirement: Layer-3 Trace Parsing and Matching Fidelity
+
+The Layer-3 comparator SHALL read the violation line format the on-device collector emits, and SHALL match an observed event against an oracle event on every key element the oracle declares.
+
+The producer is `ErrorCollector.java:37`, which logs `ErrorSummary.toString()` followed by the `expecting` text under the `RVSEC` tag: seven fields, `spec,classQualifiedName,className,methodName,location,errorType,expecting`. Fields 0 through 5 are positional; field 6 onward is rejoined, because the `expecting` text carries commas of its own. The logcat tag is padded to a fixed column, so it appears as `RVSEC   :` rather than `RVSEC:`. `rv-android`'s `logcat_parser.py:319` already reads exactly this and is the reference implementation; the two SHALL agree, and where they disagree the producer decides.
+
+The class arrives twice on every line — fully qualified in field 1, short in field 2. An oracle's `location.class` SHALL match against either, because the two admissible provenances name classes differently: the hand-validated `cryptoapp` oracle names `MessageDigestUtil`, while an oracle derived from a recorded campaign names `okhttp3.internal.platform.Platform`. Requiring one form would make one whole provenance class unmatchable.
+
+Matching on location is not an enhancement; it is what the oracles already claim. `cryptoapp-oracle.yaml` states that "presence of the `(spec, errorType, class, method)` tuple is sufficient" and declares `location: { class, method }` on all eight of its events, and `TraceComparator.matched` has never read either field. Until it does, two unrelated misuses of the same specification in different classes score as one agreement.
+
+#### Scenario: The comparator reads a line the device actually emitted
+
+- **WHEN** `parseObserved` is given a logcat containing a line whose tag is `RVSEC` and whose message carries the seven collector fields
+- **THEN** it MUST yield an observed event whose spec, error type, qualified class, short class and method come from fields 0, 5, 1, 2 and 3 respectively
+- **AND** the message MUST be fields 6 onward rejoined with commas, so an `expecting` text such as `expecting one of PKIX,SunX509 but found .` survives intact
+- **AND** the padded tag form `RVSEC   :` MUST be accepted, since that is how logcat writes it
+
+#### Scenario: An event at a different site is not an agreement
+
+- **WHEN** an oracle event declares `location: { class: jh.h, method: c }` for a specification, and the observed trace reports that same specification and error type at `okio.ByteString.digest$okio`
+- **THEN** the oracle event MUST count as a false negative for that pipeline, not a true positive
+- **AND** the observed event MUST count as a false positive, since it matches no oracle entry
+- **AND** an oracle event that declares no location MUST keep matching on `(spec, errorType)` alone, so an oracle may under-specify deliberately but never by accident
+
+#### Scenario: A parser is justified against the producer, not against another parser
+
+- **WHEN** the trace parsing behaviour of the comparator is changed or extended
+- **THEN** the change MUST cite the producing code and a recorded line that exhibits the format
+- **AND** citing another parser's agreement MUST NOT be accepted as justification, because that is how the current pattern — copied from `drive_cryptoapp.py:89-94` and never checked against `ErrorCollector` — survived from gh52 to this change
+
