@@ -366,12 +366,13 @@ Mostra, por container, `COMPLETED / total` (**identidades distintas**) e dá **a
    `repair_tasks.py`.
 4. **Consolidar + Wilcoxon**:
    ```bash
-   python3 .claude/skills/rv-experiment-compare/scripts/consolidate_compare.py <name>
-   # se faltar scipy no python do sistema:
-   uv run python .claude/skills/rv-experiment-compare/scripts/consolidate_compare.py <name>
+   uv run python .claude/skills/rv-experiment-compare/scripts/consolidate_compare.py <name> \
+       [--admissibility <veredictos.json>]     # colunas category/admissible/fails, sem filtrar
    ```
-   Gera em `data/results/<name>_consolidado/`: `per_task.csv`, `per_apk_paired.csv`
-   (média das reps), `per_tool_summary.csv`, `wilcoxon.csv` (**todos os pares × todas as métricas**).
+   Gera em `data/results/<name>_consolidado/`: `per_task.csv`, `per_apk_static.csv` (covariável
+   estática por APK), `per_apk_paired.csv` (média das reps), `per_tool_summary.csv`,
+   `wilcoxon.csv` (**todos os pares × todas as métricas**). O logcat de cada identidade vem de
+   `result.logcat_file`; logcat ausente **aborta** — zero não medido não entra em média.
 
 ---
 
@@ -391,14 +392,27 @@ Mostra, por container, `COMPLETED / total` (**identidades distintas**) e dá **a
   se o `<apk>.json` não resolver; o dado co-localizado evita isso (validar reconstrução
   "(with per-method coverage)" nos logs do `result_processor`).
 - **Métricas MOP**: `cov_mop = methods_mop_reachable_coverage`; `mop_unique =
-  coverage_metrics.total_errors` (= violações distintas por `Spec,classe,método,tipo`); `mop_total` =
-  linhas `RVSEC : <Spec>,...` no logcat.
+  coverage_metrics.total_errors`, que é a chave de **sete** partes de `unique_msg`
+  (`class:::method:::spec:::error_type:::code:::event:::message`); `mop_unique4` = distintos
+  `(class, method, spec)` recontados do logcat — a chave do artigo, a única comparável ao número
+  publicado (na `estudo02`, `mop_unique ≈ 2,4 × mop_unique4`); `mop_total` = linhas
+  `RVSEC : <spec>,...` no logcat (o nome pode ter dígitos). `crashes`/`anrs` contam
+  `FATAL EXCEPTION`/`ANR in` no logcat: o `detected_errors_count` do índice nunca é preenchido
+  e sai 0 por construção. `tool_seconds = end_time − tool_execution_start` é a exposição real;
+  `execution_time_seconds` inclui boot, instalação e teardown (~53 s a mais).
+- **Rótulo do braço**: `variant='default'` colapsa para o nome seco (`monkey`), igual ao
+  `admissibility.py`; um rótulo `monkey:default` não casa com o meta e derruba o braço do
+  pareamento em silêncio.
 - **Diagnósticos (gh72)**: só existem se a campanha rodou com `--logcat-diagnostics`. Ficam em
-  `app_events.csv` (por container), **fora** de toda métrica — não entram no `consolidate_compare.py`
-  (que cobre cobertura/MOP). Para analisá-los, ler os `app_events.csv` por container e filtrar offline
+  `app_events.csv` (por container); o `consolidate_compare.py` só carrega as contagens brutas
+  `crashes`/`anrs`. Para analisá-los, ler os `app_events.csv` por container e filtrar offline
   por `process == <pacote do APK da task>` (atribuição é pelo bloco `Process:`/`ANR in`, não por PID).
   Reprocessar logcats **antigos** (pré-gh72) **não** recupera crashes — eles nunca foram capturados.
 - **Resume final** recupera FAILED transientes; **não `down`** até extrair traces.
+- **A exportação final do container morre por OOM** quando o lote é grande: `result_processor.py`
+  memoiza o modelo estático **por task** e morre dentro do primeiro escritor (`coverage.csv`).
+  `tasks.json`, logcats e traces ficam íntegros; as tabelas se regeram offline, um logcat por vez
+  (`experimento-estudo02/scripts/regenerate_tables.py`), sem religar container.
 - **`FLAG_SECURE`**: apps com janela segura bloqueiam screenshot → o braço LLM degrada para SATA puro
   (0 chamadas LLM). É degradação correta, não bug — marcar/excluir essas identidades na comparação
   `*_llm` vs `*_mop`.

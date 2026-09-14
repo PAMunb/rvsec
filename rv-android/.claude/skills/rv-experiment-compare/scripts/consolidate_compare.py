@@ -1,29 +1,50 @@
 #!/usr/bin/env python3
 """Consolidacao offline + Wilcoxon all-pairs de uma comparacao gerada por gen_compare.py.
 
-Uso: consolidate_compare.py <name>
+Uso: consolidate_compare.py <name> [--admissibility veredictos.json]
 
-Regras (licoes da corrida 2026-06-19):
+Regras (licoes das corridas 2026-06-19 e 2026-09-14):
   - FONTE DA VERDADE = logcats; CSVs por container podem ter cobertura zerada em tasks
     resumidas se o <apk>.json nao estiver co-localizado (bug gh58). Aqui lemos tasks.json
-    (coberturas + mop_unique) e logcats (mop_total).
+    (coberturas + mop_unique) e logcats (mop_total, mop_unique4, crashes, anrs).
+  - O logcat de cada identidade e' o que `result.logcat_file` aponta, nunca um nome montado:
+    os bracos sem variante gravam `variant='default'` no indice e `__monkey.logcat` no disco,
+    e um nome montado com `:default` nao existe. Logcat ausente ABORTA a consolidacao em vez
+    de virar zero — zero que nao foi medido nao entra em media nenhuma.
   - DEDUP por identidade (apk,tool,variant,rep,timeout) — nunca por task_id (resume infla).
+    Fica o ULTIMO registro COMPLETED, o mesmo que `admissibility.py` julga.
   - Pareamento: cada APK = media das R reps; Wilcoxon signed-rank em TODOS os pares de tools.
 
-Metricas:
-  cov_method = coverage_metrics.method_coverage
-  cov_act    = coverage_metrics.activities_coverage
-  cov_mop    = coverage_metrics.methods_mop_reachable_coverage
-  mop_unique = coverage_metrics.total_errors  (violacoes distintas Spec,classe,metodo,tipo)
-  mop_total  = nº de linhas 'RVSEC : <Spec>,...' no logcat
-  crashes    = detected_errors_count
+Metricas por identidade (per_task.csv):
+  cov_method  = coverage_metrics.method_coverage
+  cov_act     = coverage_metrics.activities_coverage
+  cov_mop     = coverage_metrics.methods_mop_reachable_coverage
+  mop_unique  = coverage_metrics.total_errors — chave de SETE partes de `RvErrorLog.unique_msg`
+                (class:::method:::spec:::error_type:::code:::event:::message)
+  mop_unique4 = |{(class, method, spec)}| recontado do logcat — a chave de QUATRO partes
+                (apk, class, method, spec) que o artigo chama de "unique misuse". As duas
+                convivem porque nao sao numericamente comparaveis (mop_unique ~ 2,4 x mop_unique4
+                na estudo02) e qualquer numero publicado tem de dizer a qual pertence.
+  mop_total   = nº de linhas 'RVSEC : <spec>,...' no logcat (o nome da spec pode ter digitos:
+                X509EncodedKeySpecSpec, MGF1ParameterSpecSpec)
+  crashes     = nº de 'FATAL EXCEPTION' no logcat (o campo detected_errors_count do indice
+                nunca e' preenchido pelo pipeline e sai 0 por construcao)
+  anrs        = nº de 'ANR in' no logcat
+  sa_methods_reaches_mop = metodos do modelo estatico (<apk>.json co-localizado) que alcancam
+                uma API monitorada — a covariavel log(...) do modelo binomial negativo do artigo;
+                recomputada aqui porque depende do conjunto de specs da campanha.
+  tool_seconds = end_time - tool_execution_start (exposicao real; o offset do modelo, nao o orcamento)
+  + colunas de admissibilidade (admissible, category, fails) quando --admissibility e' dado;
+    elas sao COLUNAS, a agregacao nao filtra por elas — excluir e' decisao humana.
 
 Saidas em data/results/<name>_consolidado/:
-  per_task.csv, per_apk_paired.csv, per_tool_summary.csv, wilcoxon.csv
+  per_task.csv, per_apk_static.csv, per_apk_paired.csv, per_tool_summary.csv, wilcoxon.csv
 """
-import json, os, re, csv, sys, itertools
+import argparse, json, os, re, csv, sys, itertools
+from datetime import datetime
 from pathlib import Path
 from collections import defaultdict
+from multiprocessing import Pool
 import statistics as st
 
 try:
@@ -32,13 +53,64 @@ except ImportError:
     sys.exit("scipy ausente — rode com: uv run python <este script> <name>")
 
 ROOT = Path(__file__).resolve().parents[4]
-RVSEC = re.compile(r'\bRVSEC\s*:\s*([A-Za-z]+Spec,.+)$')
-METRICS = ["cov_method", "cov_act", "cov_mop", "mop_unique", "mop_total", "crashes"]
-WMETRICS = ["cov_mop", "mop_unique", "cov_method", "mop_total"]
+# Linha de violacao: 'RVSEC : spec,classe,classeSimples,metodo,local,tipo,mensagem' (ErrorSummary.java).
+RVSEC = re.compile(r'\bRVSEC\s*:\s*([^,\s]+,.+)$')
+METRICS = ["cov_method", "cov_act", "cov_mop", "mop_unique", "mop_unique4", "mop_total", "crashes", "anrs"]
+WMETRICS = ["cov_mop", "mop_unique", "mop_unique4", "cov_method", "mop_total"]
+
+
+def tool_label(tc: dict) -> str:
+    """`ape` e os bracos sem variante real (`variant='default'`) viram o nome seco."""
+    variant = tc.get("variant")
+    return tc["name"] if tc["name"] == "ape" or not variant or variant == "default" \
+        else f"{tc['name']}:{variant}"
+
+
+def scan_logcat(path: str) -> dict:
+    """Uma passagem pelo logcat: mop_total, mop_unique4, crashes, anrs."""
+    total, crashes, anrs, keys4 = 0, 0, 0, set()
+    with open(path, errors="ignore") as fh:
+        for ln in fh:
+            if "RVSEC" in ln:
+                m = RVSEC.search(ln)
+                if m:
+                    total += 1
+                    p = m.group(1).split(",", 4)
+                    if len(p) >= 4:
+                        keys4.add((p[1], p[3], p[0]))
+            elif "FATAL EXCEPTION" in ln:
+                crashes += 1
+            elif "ANR in" in ln:
+                anrs += 1
+    return dict(mop_total=total, mop_unique4=len(keys4), crashes=crashes, anrs=anrs)
+
+
+def tool_seconds(r: dict) -> int:
+    """`end_time - tool_execution_start`: o tempo em que a ferramenta rodou. `execution_time_seconds`
+    e' a tarefa inteira (boot, instalacao, teardown; ~53 s a mais) e nao serve de exposicao."""
+    start, end = r.get("tool_execution_start"), r.get("end_time")
+    if not start or not end:
+        return int(r.get("execution_time_seconds") or 0)
+    return int((datetime.fromisoformat(end) - datetime.fromisoformat(start)).total_seconds())
+
+
+def static_covariate(path: Path) -> dict:
+    """`sa_methods` e `sa_methods_reaches_mop` do <apk>.json (GATOR): metodos cujo
+    `reachesTarget` e' verdadeiro alcancam uma API monitorada pelo conjunto de specs da campanha."""
+    d = json.loads(path.read_text())
+    methods = [m for c in d.get("reachability") or [] for m in (c.get("methods") or [])]
+    return dict(sa_methods=len(methods),
+                sa_methods_reaches_mop=sum(1 for m in methods if m.get("reachesTarget")))
 
 
 def main():
-    name = sys.argv[1] if len(sys.argv) > 1 else sys.exit("uso: consolidate_compare.py <name>")
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("name")
+    ap.add_argument("--admissibility", metavar="JSON",
+                    help="veredictos de experimento-estudo02/scripts/admissibility.py --json; "
+                         "entram como colunas de per_task.csv")
+    args = ap.parse_args()
+    name = args.name
     meta = json.loads((ROOT / "data" / "results" / f"{name}_compare_meta.json").read_text())
     containers, tools_order = meta["containers"], meta["tools"]
     # normaliza rotulos de tool: 'ape' ou 'aperv:<variant>' (sem @overrides).
@@ -54,7 +126,7 @@ def main():
     out = ROOT / "data" / "results" / f"{name}_consolidado"
     out.mkdir(parents=True, exist_ok=True)
 
-    rows, seen = [], set()
+    best, statics = {}, {}
     for i in range(containers):
         nn = f"{i:02d}"
         base = ROOT / "data" / "results" / f"{name}_{nn}" / f"{name}_{nn}"
@@ -65,36 +137,71 @@ def main():
             r = t.get("result") or {}
             if r.get("state") != "COMPLETED":
                 continue
-            c = t["config"]; tc = c["tool_config"]; variant = tc.get("variant")
-            ident = (c["apk_name"], tc["name"], variant, c["repetition"], c["timeout"])
-            if ident in seen:
-                continue
-            seen.add(ident)
-            tool = "ape" if tc["name"] == "ape" else f"{tc['name']}:{variant}"
-            cm = r.get("coverage_metrics") or {}
-            tf = "ape" if tc["name"] == "ape" else f"{tc['name']}:{variant}"
-            lc = base / c["apk_name"] / f'{c["apk_name"]}__{c["repetition"]}__{c["timeout"]}__{tf}.logcat'
-            mop_total = 0
-            try:
-                with open(lc, errors="ignore") as fh:
-                    mop_total = sum(1 for ln in fh if "RVSEC" in ln and RVSEC.search(ln))
-            except FileNotFoundError:
-                pass
-            rows.append(dict(
-                apk=c["apk_name"], timeout=c["timeout"], rep=c["repetition"], tool=tool,
-                cov_method=cm.get("method_coverage", 0) or 0,
-                cov_act=cm.get("activities_coverage", 0) or 0,
-                cov_mop=cm.get("methods_mop_reachable_coverage", 0) or 0,
-                mop_unique=cm.get("total_errors", 0) or 0,
-                mop_total=mop_total,
-                crashes=r.get("detected_errors_count", 0) or 0,
-            ))
+            c = t["config"]; tc = c["tool_config"]
+            ident = (c["apk_name"], tc["name"], tc.get("variant"), c["repetition"], c["timeout"])
+            # O container escreve `results/<cid>/<apk>/<arquivo>` relativo ao seu workdir; no
+            # host isso vive sob data/results/<cid>/<cid>/. Sem `logcat_file` (indices antigos)
+            # o nome e' montado com o rotulo ja colapsado.
+            rel = r.get("logcat_file")
+            lc = base / rel.replace(f"results/{name}_{nn}/", "", 1) if rel else \
+                base / c["apk_name"] / f'{c["apk_name"]}__{c["repetition"]}__{c["timeout"]}__{tool_label(tc)}.logcat'
+            best[ident] = (c, r, lc)
+            if c["apk_name"] not in statics:
+                statics[c["apk_name"]] = base / c["apk_name"] / f'{c["apk_name"]}.json'
 
-    if not rows:
+    if not best:
         sys.exit("nenhuma task COMPLETED encontrada")
+    missing = sorted(str(lc) for _, _, lc in best.values() if not lc.exists())
+    if missing:
+        sys.exit(f"{len(missing)} logcat(s) ausentes — nada consolidado. Primeiros:\n  "
+                 + "\n  ".join(missing[:10]))
+    missing = sorted(str(p) for p in statics.values() if not p.exists())
+    if missing:
+        sys.exit(f"{len(missing)} <apk>.json ausentes — nada consolidado. Primeiros:\n  "
+                 + "\n  ".join(missing[:10]))
+
+    idents = sorted(best)
+    with Pool(max(1, (os.cpu_count() or 2) // 2)) as pool:
+        scans = pool.map(scan_logcat, [str(best[i][2]) for i in idents], chunksize=64)
+    covariates = {apk: static_covariate(p) for apk, p in statics.items()}
+
+    verdicts = json.loads(Path(args.admissibility).read_text()) if args.admissibility else None
+    rows = []
+    for ident, scan in zip(idents, scans):
+        c, r, _ = best[ident]; tc = c["tool_config"]; tool = tool_label(tc)
+        cm = r.get("coverage_metrics") or {}
+        row = dict(
+            apk=c["apk_name"], timeout=c["timeout"], rep=c["repetition"], tool=tool,
+            cov_method=cm.get("method_coverage", 0) or 0,
+            cov_act=cm.get("activities_coverage", 0) or 0,
+            cov_mop=cm.get("methods_mop_reachable_coverage", 0) or 0,
+            mop_unique=cm.get("total_errors", 0) or 0,
+            **scan,
+            tool_seconds=tool_seconds(r),
+            **covariates[c["apk_name"]],
+        )
+        if verdicts is not None:
+            v = verdicts.get(f'{c["apk_name"]}|{tool}|{c["repetition"]}|{c["timeout"]}') or {}
+            row["category"] = ("estrutural" if v.get("structural") else
+                               "parada_ferramenta" if v.get("tool_stop") else
+                               "lancamento_externo" if v.get("foreign_launcher") else
+                               "inadmissivel" if v.get("fails") else
+                               "admissivel" if v else "sem_veredicto")
+            row["admissible"] = int(row["category"] == "admissivel")
+            row["fails"] = "+".join(v.get("fails") or [])
+        rows.append(row)
 
     with open(out / "per_task.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
+    with open(out / "per_apk_static.csv", "w", newline="") as f:
+        w = csv.writer(f); w.writerow(["apk", "sa_methods", "sa_methods_reaches_mop"])
+        for apk in sorted(covariates):
+            w.writerow([apk, covariates[apk]["sa_methods"], covariates[apk]["sa_methods_reaches_mop"]])
+    if verdicts is not None:
+        cats = defaultdict(int)
+        for row in rows:
+            cats[row["category"]] += 1
+        print("admissibilidade (colunas, nao filtro):", dict(cats))
 
     # A unidade pareada e' (apk, timeout): a media das reps so' faz sentido dentro do mesmo
     # orcamento. Numa campanha com varios timeouts na mesma corrida (RV_TIMEOUTS em lista),

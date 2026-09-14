@@ -31,9 +31,21 @@ arquivo: sem ela, consertar o defeito destruiria a evidência dele no mesmo ato.
 - **Nunca devolve à fila o zero estrutural do `qtesting`.** São 19 APKs cujo `aapt` não emite
   `launchable-activity`, e repetir produz o mesmo zero — 171 identidades entrando em laço e o C6
   jamais fechando.
-- **Nunca repara a mesma identidade duas vezes.** Identidade com dois ou mais registros já passou
-  por re-execução; repará-la de novo arriscaria laço infinito se a causa for determinística do
-  par (APK, braço). Esses casos saem como `REVISAR`, para decisão humana.
+- **Nunca devolve à fila o lançamento fora do app.** A família droidbot que entrou por uma
+  activity de outro app (o LeakCanary da `org.wikipedia_50595`) escolhe a mesma entrada em todo
+  run (`admissibility.py`, cabeçalho).
+- **Nunca devolve à fila a parada da ferramenta.** Célula em que as três réplicas pararam abaixo
+  do piso com o marcador da própria ferramenta no traço: repetir reproduz a parada. Fica na
+  análise como categoria declarada (`admissibility.py`, cabeçalho).
+- **Nunca repara a mesma identidade duas vezes por conta própria.** Identidade com dois ou mais
+  registros já passou por re-execução; repará-la de novo arriscaria laço infinito se a causa for
+  determinística do par (APK, braço). Esses casos saem como `REVISAR`. A decisão humana de tentar
+  outra vez entra por `--rerun apk,braço,rep,orçamento` (repetível): só as identidades nomeadas
+  são tocadas, e só se continuarem inadmissíveis fora de categoria declarada. Os artefatos de cada
+  tentativa ficam lado a lado em `backup/` (`<nome>`, `<nome>.2`, …).
+
+      uv run python experimento-estudo02/scripts/repair.py estudo02_00 \
+          --rerun com.gelakinetic.mtgfam_99.apk,ares,1,300
 - **Nunca escreve no `tasks.json` de container vivo.** A escrita do container é atômica
   (tmp→fsync→rename) e reescrever por fora perde a corrida com ela. O script confere e recusa.
 """
@@ -84,7 +96,10 @@ def is_running(cid: str) -> bool | None:
 
 
 def preserve(result: dict, cid: str, apply: bool) -> list[str]:
-    """Copia logcat/trace para `backup/`. Devolve o que foi (ou seria) copiado."""
+    """Copia logcat/trace para `backup/`. Devolve o que foi (ou seria) copiado.
+
+    A re-execução escreve nos mesmos nomes, então a cópia de uma tentativa posterior ganha
+    sufixo `.2`, `.3`, … em vez de apagar a evidência da anterior."""
     saved, dest = [], BACKUP_DIR / cid
     for key in ("logcat_file", "trace_file"):
         rel = result.get(key)
@@ -94,10 +109,13 @@ def preserve(result: dict, cid: str, apply: bool) -> list[str]:
         for src in (base, base.with_name(base.name + ".ndjson.gz")):
             if not src.exists():
                 continue
-            saved.append(src.name)
+            target, n = dest / src.name, 2
+            while target.exists():
+                target, n = dest / f"{src.name}.{n}", n + 1
+            saved.append(target.name)
             if apply:
                 dest.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src, dest / src.name)
+                shutil.copy2(src, target)
     return saved
 
 
@@ -112,7 +130,9 @@ def chown_tree(path: Path) -> None:
             pass
 
 
-def repair_container(cid: str, verdicts: dict, apply: bool) -> dict:
+def repair_container(cid: str, verdicts: dict, apply: bool, rerun: set[tuple]) -> dict:
+    """Com `rerun` vazio, julga o container inteiro; com `rerun`, toca só as identidades nomeadas
+    (chave do `verdict_key`) e dispensa para elas a regra dos dois registros."""
     tasks_file = RESULTS / cid / cid / "tasks.json"
     if not tasks_file.exists():
         return {"cid": cid, "missing": True}
@@ -124,20 +144,27 @@ def repair_container(cid: str, verdicts: dict, apply: bool) -> dict:
     for rec in records:
         by_identity.setdefault(identity(rec.get("config") or {}), []).append(rec)
 
-    repaired, review, already, structural = [], [], [], []
+    repaired, review, already, structural, refused = [], [], [], [], []
     for ident, recs in by_identity.items():
-        v = verdicts.get(verdict_key(recs[0].get("config") or {}))
-        if v is None or v.admissible:
+        key = verdict_key(recs[0].get("config") or {})
+        if rerun and key not in rerun:
             continue
-        if v.structural:
+        v = verdicts.get(key)
+        if v is None or v.admissible:
+            if rerun:
+                refused.append((key, "admissível" if v else "sem veredicto"))
+            continue
+        if v.structural or v.tool_stop or v.foreign_launcher:
             structural.append(ident)
+            if rerun:
+                refused.append((key, "em categoria declarada"))
             continue
 
         completed = [r for r in recs if (r.get("result") or {}).get("state") == "COMPLETED"]
         if not completed:
             already.append(ident)   # já está ERROR; o resume comum alcança
             continue
-        if len(recs) >= 2:
+        if len(recs) >= 2 and not rerun:
             review.append((ident, v))
             continue
 
@@ -147,8 +174,8 @@ def repair_container(cid: str, verdicts: dict, apply: bool) -> dict:
         if apply:
             result["state"] = "ERROR"
             result["error_message"] = (
-                f"inadmissível ({'+'.join(v.fails)}): {v.elapsed}s de um orçamento de "
-                f"{v.timeout}s; devolvida à fila por experimento-estudo02/scripts/repair.py"
+                f"inadmissível ({'+'.join(v.fails)}): {v.tool_seconds}s de ferramenta num "
+                f"orçamento de {v.timeout}s; devolvida à fila por experimento-estudo02/scripts/repair.py"
             )
         repaired.append((ident, v, len(saved)))
 
@@ -159,7 +186,7 @@ def repair_container(cid: str, verdicts: dict, apply: bool) -> dict:
         chown_tree(BACKUP_DIR)
 
     return {"cid": cid, "repaired": repaired, "review": review,
-            "already": already, "structural": structural}
+            "already": already, "structural": structural, "refused": refused}
 
 
 def main() -> int:
@@ -168,7 +195,13 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true", help="sem isto, nada é mutado")
     ap.add_argument("--assume-stopped", action="store_true",
                     help="segue mesmo sem conseguir consultar o docker (use com cuidado)")
+    ap.add_argument("--rerun", action="append", default=[], metavar="APK,BRAÇO,REP,ORÇAMENTO",
+                    help="decisão humana: devolve à fila só esta identidade, mesmo com dois ou mais registros")
     args = ap.parse_args()
+    rerun = set()
+    for spec in args.rerun:
+        apk, arm, rep, timeout = spec.split(",")
+        rerun.add((apk, arm, int(rep), int(timeout)))
 
     # Recusa antes de qualquer leitura pesada: container vivo reescreve por baixo.
     for cid in args.containers:
@@ -188,15 +221,18 @@ def main() -> int:
 
     n_rep = n_rev = n_alr = n_str = 0
     for cid in args.containers:
-        out = repair_container(cid, verdicts, args.apply)
+        out = repair_container(cid, verdicts, args.apply, rerun)
         if out.get("missing"):
             print(f"{cid}: sem tasks.json")
             continue
+        for key, why in out["refused"]:
+            print(f"{cid}: RECUSADA {key[0]} {key[1]} rep{key[2]} {key[3]}s — {why}; nada feito")
         for ident, v, n_saved in out["repaired"]:
             verb = "reparada" if args.apply else "reparável"
             arm = adm.arm_label(ident[1], ident[2])
             print(f"{cid}: {verb} {ident[0]} {arm} rep{ident[3]} {ident[4]}s — "
-                  f"{'+'.join(v.fails)}, {v.elapsed}s ({n_saved} artefatos preservados)")
+                  f"{'+'.join(v.fails)}, {v.tool_seconds}s de ferramenta "
+                  f"({n_saved} artefatos preservados)")
         for ident, v in out["review"]:
             arm = adm.arm_label(ident[1], ident[2])
             print(f"{cid}: REVISAR {ident[0]} {arm} rep{ident[3]} {ident[4]}s — "
@@ -209,7 +245,8 @@ def main() -> int:
     print()
     print(f"resumo: {n_rep} {'reparadas' if args.apply else 'a reparar'}, "
           f"{n_rev} para revisar, {n_alr} já em ERROR (o resume alcança), "
-          f"{n_str} zero estrutural (não voltam à fila)")
+          f"{n_str} em categoria declarada — zero estrutural, parada da ferramenta, "
+          f"lançamento fora do app (não voltam à fila)")
     print("nenhum APK foi excluído, filtrado ou removido — isso não é atribuição deste script")
     return 0
 
