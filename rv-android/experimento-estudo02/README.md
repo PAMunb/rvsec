@@ -16,7 +16,9 @@ gh100–gh111). Reusa os APKs instrumentados e a análise estática do corpus
 
 - **Corpus = 163**: os 164 do funil menos `com.google.android.stardroid_1678.apk` (derruba o
   emulador; evidência na gh104). O par `.apk`/`.apk.json` foi movido do diretório do dataset
-  para `RV_ANDROID_DATASET_FINAL/excluidos/` em 08/09; o corte ainda não está no `rvsec-dataset`.
+  para `RV_ANDROID_DATASET_FINAL/excluidos/` em 08/09; o corte está registrado no funil
+  (`rvsec-dataset/jca_android/FUNIL.md`, "Coverage-scope cut", `weaver_pkgfilter_zero`, o
+  mesmo critério que o funil `jca` publicado já aplicava a este APK).
 - **Nenhuma exclusão nova**: a análise de anomalias da gh104 (`docs/20260908_anomalias_gh104.md`)
   só reprova o `stardroid`. `org.fossify.messages_20` (sem árvore de UI para o APE) e
   `it.danieleverducci.nextcloudmaps_9` (muro de login) ficam, para o critério do artigo
@@ -137,6 +139,7 @@ experimento-estudo02/
 ├── docs/20260914_admissibilidade.json    # veredictos C1–C6 por identidade
 ├── docs/20260914_tabelas_por_ferramenta.md  # as tabelas do artigo recomputadas, lado a lado
 ├── docs/20260914_modelo_rq1.txt          # modelo NB do artigo, sensibilidades, contrastes do ape
+├── docs/20260914_contrastes_ferramentas.md  # os 55 pares de ferramentas, artigo × campanha, Holm
 ├── docs/20260914_specs_jca_vs_android.md # maus usos por spec, artigo × campanha
 ├── docs/20260914_veredito.md             # o que muda nas conclusões entre jca e jca_android
 └── scripts/
@@ -145,6 +148,7 @@ experimento-estudo02/
     ├── regenerate_tables.py              # coverage/errors/app_events/summary por container, offline
     ├── tabelas_artigo.py                 # as quatro tabelas por ferramenta do artigo
     ├── rq1_estudo02.py                   # o modelo RQ1 do artigo sobre a campanha
+    ├── contrastes_ferramentas.py         # os 55 contrastes entre ferramentas, nas duas campanhas
     ├── specs_jca_vs_android.py           # errors.csv do artigo × da campanha, por spec
     ├── validacao/                        # detectores da validação de 14/09 (README próprio)
     ├── anomalias_gh104.py                # a análise da gh104 (ainda aponta para gh104_*)
