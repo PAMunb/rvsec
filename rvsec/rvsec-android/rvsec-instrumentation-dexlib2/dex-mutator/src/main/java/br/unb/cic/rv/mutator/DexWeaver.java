@@ -95,11 +95,29 @@ public final class DexWeaver {
      */
     private final java.util.List<WrapperEmitter.WrapperEntry> registeredWrappers;
     /**
-     * Number of additional lookup keys registered by
-     * {@link #expandWrapperReplacementsForApk} (i.e. subtype keys beyond the
-     * original parent FQN key). Surfaced via {@link WeaveReport#wrappersAliasedToSubtype}.
+     * Number of subtype owners routed to a wrapper registered for a supertype:
+     * the APK-defined subtypes keyed by {@link #expandWrapperReplacementsForApk}
+     * plus the call-site signatures resolved by {@link #resolveSubtypeAlias}.
+     * Accumulates over every {@link #weave} call on this instance. Surfaced via
+     * {@link WeaveReport#wrappersAliasedToSubtype}.
      */
     private int wrappersAliasedToSubtype;
+    /**
+     * Invokes with no exact wrapper key, resolved once per call-site signature
+     * ({@code owner#name(params)return}) by {@link #resolveSubtypeAlias}: the
+     * wrapper the invoke is routed to, or {@link #NO_ALIAS}. Kept apart from
+     * {@link #wrapperReplacements} so the rebinding guard of
+     * {@link #registerWrapper} keeps meaning "two wrappers for one call".
+     */
+    private final Map<String, MethodReference> subtypeAliases = new java.util.HashMap<>();
+    private static final MethodReference NO_ALIAS = new ImmutableMethodReference(
+            WrapperEmitter.WRAPPER_CLASS_DESC, "<no-alias>", List.of(), "V");
+    /**
+     * Call-site signatures whose owner is a subtype of several wrapped owners
+     * none of which is a subtype of all the others, so no registered wrapper
+     * carries every applicable advice. Such invokes are left unwoven.
+     */
+    private int wrapperAliasesUnmerged;
 
     /**
      * §4.PERF.P2.1 instrumentation counter: number of times the class-invariant
@@ -267,7 +285,7 @@ public final class DexWeaver {
                 + String.join(",", params) + ")" + r.getReturnType();
     }
 
-    private MethodReference findWrapperReplacement(Instruction insn) {
+    private MethodReference findWrapperReplacement(Instruction insn, InheritanceResolver inheritance) {
         if (wrapperReplacements.isEmpty()) return null;
         if (!(insn instanceof ReferenceInstruction)) return null;
         // Accept every invoke opcode the InstructionInjector knows how to
@@ -277,7 +295,90 @@ public final class DexWeaver {
         if (!isInvokeOpcode(insn.getOpcode())) return null;
         Object refObj = ((ReferenceInstruction) insn).getReference();
         if (!(refObj instanceof MethodReference)) return null;
-        return wrapperReplacements.get(refKey((MethodReference) refObj));
+        MethodReference ref = (MethodReference) refObj;
+        String key = refKey(ref);
+        MethodReference exact = wrapperReplacements.get(key);
+        if (exact != null) return exact;
+        if (inheritance == null || !isVirtualDispatch(insn.getOpcode())) return null;
+        MethodReference alias = subtypeAliases.computeIfAbsent(key,
+                k -> resolveSubtypeAlias(ref, inheritance));
+        return alias == NO_ALIAS ? null : alias;
+    }
+
+    /**
+     * Route an invoke whose static owner {@code T} has no wrapper key of its own
+     * to the wrapper of a wrapped owner {@code T} is assignable to, for the same
+     * name, parameter list and return type (INV-INS-160). APK-defined subtypes
+     * already have keys from {@link #expandWrapperReplacementsForApk}, so the
+     * owners that reach this lookup are framework types such as
+     * {@code Ljava/security/PublicKey;} under a wrapper for
+     * {@code Ljava/security/Key;}. The wrapper's receiver formal is the wrapped
+     * owner, a supertype of {@code T}, so the rewritten {@code invoke-static}
+     * verifies.
+     *
+     * <p>When several wrapped owners admit {@code T}, the invoke goes to the one
+     * that is a subtype of all the others. Its wrapper is the merged one:
+     * {@code WrapperEmitter} folds into the wrapper of each wrapped owner the
+     * advices of every {@code Owner+} pattern that admits it, so the most specific
+     * wrapped owner already fires every advice that applies to {@code T}. When no
+     * candidate is a subtype of all the others, no registered wrapper carries them
+     * all; the invoke is left unwoven, counted in {@code wrapperAliasesUnmerged}
+     * and logged with the owners involved.
+     *
+     * @return the wrapper to route to, or {@link #NO_ALIAS}
+     */
+    private MethodReference resolveSubtypeAlias(MethodReference ref, InheritanceResolver inheritance) {
+        String owner = ref.getDefiningClass();
+        if (!owner.startsWith("L") || !owner.endsWith(";")) return NO_ALIAS;  // array receivers
+        String ownerFqn = owner.substring(1, owner.length() - 1).replace('/', '.');
+        String signature = refKey(ref).substring(owner.length());
+
+        List<WrapperEmitter.WrapperEntry> candidates = new ArrayList<>();
+        for (WrapperEmitter.WrapperEntry w : registeredWrappers) {
+            if (w.isStatic || !w.originalMethodName.equals(ref.getName())
+                    || w.originalClassFqn.equals(ownerFqn)) continue;
+            if (!signature.equals(signatureOf(w))) continue;
+            if (inheritance.isAssignableFrom(w.originalClassFqn, ownerFqn)) candidates.add(w);
+        }
+        if (candidates.isEmpty()) return NO_ALIAS;
+
+        for (WrapperEmitter.WrapperEntry c : candidates) {
+            boolean mostSpecific = true;
+            for (WrapperEmitter.WrapperEntry other : candidates) {
+                if (!inheritance.isAssignableFrom(other.originalClassFqn, c.originalClassFqn)) {
+                    mostSpecific = false;
+                    break;
+                }
+            }
+            if (mostSpecific) {
+                wrappersAliasedToSubtype++;
+                return wrapperReplacements.get(fqnToDescriptor(c.originalClassFqn) + signature);
+            }
+        }
+        wrapperAliasesUnmerged++;
+        List<String> owners = new ArrayList<>();
+        for (WrapperEmitter.WrapperEntry c : candidates) owners.add(c.originalClassFqn);
+        System.err.println("[dexlib2] unwoven " + refKey(ref)
+                + ": no wrapper merges the advices of " + owners);
+        return NO_ALIAS;
+    }
+
+    /** {@code #name(params)return} of a wrapper's original call, in DEX descriptors. */
+    private static String signatureOf(WrapperEmitter.WrapperEntry w) {
+        java.util.List<String> params = new ArrayList<>(w.originalParamFqn.size());
+        for (String p : w.originalParamFqn) params.add(fqnToDescriptor(p));
+        return "#" + w.originalMethodName + "(" + String.join(",", params) + ")"
+                + fqnToDescriptor(w.originalReturnFqn);
+    }
+
+    private static boolean isVirtualDispatch(Opcode op) {
+        switch (op) {
+            case INVOKE_VIRTUAL: case INVOKE_VIRTUAL_RANGE:
+            case INVOKE_INTERFACE: case INVOKE_INTERFACE_RANGE:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static boolean isInvokeOpcode(Opcode op) {
@@ -393,7 +494,7 @@ public final class DexWeaver {
                 java.util.Set<Integer> substitutedIndices = new java.util.HashSet<>();
                 for (int idx = 0; idx < instructions.size(); idx++) {
                     Instruction ins = instructions.get(idx);
-                    MethodReference wrapper = findWrapperReplacement(ins);
+                    MethodReference wrapper = findWrapperReplacement(ins, inheritance);
                     if (wrapper != null) {
                         if (mutCached == null) mutCached = mutableSupplier.forMethod(method);
                         if (mutCached != null) {
@@ -497,7 +598,13 @@ public final class DexWeaver {
                         // for that narrow case. The defensive
                         // resultRegisterAliasesBindings() check below
                         // surfaces any unexpected aliasing under a
-                        // dedicated counter.
+                        // dedicated counter. A plain `after` (no returning,
+                        // no throwing) on a constructor also runs on the
+                        // exceptional path (INV-INS-163): its handler plan is
+                        // emitted a second time from the same context, so the
+                        // handler carries its own instructions with the same
+                        // bound registers.
+                        EmitPlan finallyHandler = null;
                         if (plan.insertionPoint() == InsertionPoint.AFTER) {
                             if (isConstructorInvoke(ins)) {
                                 if (resultRegisterAliasesBindings(
@@ -507,6 +614,7 @@ public final class DexWeaver {
                                 }
                                 // fall through to apply the inline plan
                                 constructorInlineApplied++;
+                                if (isPlainAfter(advice)) finallyHandler = emitter.emit(ctx);
                             } else {
                                 plansSkippedAliasing++;
                                 continue;
@@ -529,7 +637,9 @@ public final class DexWeaver {
                         // serialization reads the method. Doing applyPlan on the
                         // pre-growth `mut` would emit into an MMI the supplier no
                         // longer serves, losing the extra registers on disk.
-                        RegisterAllocation alloc = allocator.allocate(mut, plan.registers());
+                        RegisterAllocation alloc = allocator.allocate(mut,
+                                finallyHandler == null ? plan.registers()
+                                        : withExceptionScratch(plan.registers()));
                         if (alloc.newImpl() != null) {
                             // Frame growth via clone returned a fresh MMI;
                             // swap the local + cached refs and notify the
@@ -539,8 +649,9 @@ public final class DexWeaver {
                             mutCached = mut;
                             mutableSupplier.replaceImpl(method, mut);
                         }
-                        MutableMethodImplementation rebuilt =
-                                applyPlan(mut, idx, plan, alloc);
+                        MutableMethodImplementation rebuilt = finallyHandler == null
+                                ? applyPlan(mut, idx, plan, alloc)
+                                : applyConstructorAfterFinally(mut, idx, plan, finallyHandler, alloc);
                         if (rebuilt != null) {
                             // §4.T range-splitting rebuilt the MMI (dexlib2's
                             // try-block list is read-only); adopt it as the
@@ -561,7 +672,8 @@ public final class DexWeaver {
                 constructorInlineApplied, constructorInlineSkippedAliasing,
                 plansSkippedHighRegister,
                 plansSkippedUnresolvedBinding,
-                staticInitSynthesized, staticInitPrepended);
+                staticInitSynthesized, staticInitPrepended,
+                wrapperAliasesUnmerged);
     }
 
     /** Outcome of the §4.Y staticinit pre-pass. */
@@ -966,6 +1078,69 @@ public final class DexWeaver {
         return null;
     }
 
+    /**
+     * Apply a plain {@code after} advice to the constructor invoke at {@code idx}
+     * so its monitor calls run whether the constructor returns or throws
+     * (INV-INS-163):
+     * <pre>
+     *   invoke-direct {vObj, ...}, T.&lt;init&gt;(...)V   ; try range [idx, idx+1), catch-all
+     *   &lt;monitor calls&gt;                              ; normal path
+     *   ...
+     *   :handler
+     *     move-exception vException
+     *     &lt;monitor calls&gt;                            ; same bound registers
+     *     throw vException
+     * </pre>
+     * The normal-path calls are inserted first; they land after {@code idx}, so
+     * the range {@link InstructionInjector#installTryCatch} then installs covers
+     * the constructor invoke alone and a throwing monitor call is never caught by
+     * its own handler. The handler uses a catch-all {@link EmitPlan.TryCatchSpec}
+     * with no throwing operand, since a plain {@code after} binds no exception.
+     *
+     * <p>The object under construction is not initialised on the exceptional
+     * path, and the verifier rejects any use of it there. A plain {@code after}
+     * cannot bind it: {@code target} is not bound at a constructor call, and the
+     * constructed object is reachable only through {@code returning}, whose advice
+     * keeps the normal path alone. Its arguments and the caller's bindings are
+     * initialised values on both paths.
+     *
+     * <p>Registers: the exception register is the highest allocated slot, and a
+     * {@code !Thread.holdsLock} guard's scratch the next one below, which both
+     * the normal-path guard and the handler guard use.
+     *
+     * @return the rebuilt MMI carrying the new try range; the caller swaps it in
+     */
+    private MutableMethodImplementation applyConstructorAfterFinally(
+            MutableMethodImplementation mut, int idx, EmitPlan plan, EmitPlan handler,
+            RegisterAllocation alloc) {
+        List<Integer> scratch = alloc.scratch();
+        int exceptionRegister = scratch.get(scratch.size() - 1);
+        InstructionInjector inj = new InstructionInjector(mut);
+        if (plan.guardSpec() != null
+                && plan.guardSpec().kind() == EmitPlan.GuardKind.NOT_HOLDS_LOCK) {
+            inj.withGuardScratch(scratch.get(scratch.size() - 2));
+        }
+        inj.insertAfter(idx, plan);
+        EmitPlan handlerPlan = new EmitPlan(handler.toInsert(), InsertionPoint.TRY_CATCH_WRAP,
+                handler.registers(), EmitPlan.TryCatchSpec.catchAll(List.of()),
+                handler.guardSpec());
+        return inj.installTryCatch(idx, handlerPlan, exceptionRegister);
+    }
+
+    /** {@code after} advice with neither {@code returning} nor {@code throwing}. */
+    private static boolean isPlainAfter(AdviceDescriptor advice) {
+        return "after".equals(advice.getPosition())
+                && (advice.getReturning() == null || advice.getReturning().isEmpty())
+                && (advice.getThrowing() == null || advice.getThrowing().isEmpty());
+    }
+
+    /** {@code request} plus one scratch register for the caught exception. */
+    private static br.unb.cic.rv.emitter.RegisterRequest withExceptionScratch(
+            br.unb.cic.rv.emitter.RegisterRequest request) {
+        return new br.unb.cic.rv.emitter.RegisterRequest(request.scratchCount() + 1,
+                request.needsWidePair(), request.mustBeLowRange());
+    }
+
     private String monitorOwnerFor(AspectDescriptor d) {
         // Convention: the generated RuntimeMonitor lives in the "mop" package
         // under a name derived from the merged aspect name. For this
@@ -1005,5 +1180,12 @@ public final class DexWeaver {
                                // delivery at method entry. Both feed
                                // matchesApplied.
                                int staticInitSynthesized,
-                               int staticInitPrepended) {}
+                               int staticInitPrepended,
+                               // Call-site signatures left unwoven because
+                               // their owner is a subtype of several wrapped
+                               // owners and no registered wrapper merges their
+                               // advices (resolveSubtypeAlias). Accumulates
+                               // over the weaver instance, like
+                               // wrappersAliasedToSubtype.
+                               int wrapperAliasesUnmerged) {}
 }

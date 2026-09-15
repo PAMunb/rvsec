@@ -4,11 +4,17 @@ import br.unb.cic.rv.emitter.EmitPlan;
 import br.unb.cic.rv.emitter.InsertionPoint;
 
 import com.android.tools.smali.dexlib2.Opcode;
+import com.android.tools.smali.dexlib2.builder.BuilderDebugItem;
 import com.android.tools.smali.dexlib2.builder.BuilderInstruction;
+import com.android.tools.smali.dexlib2.builder.BuilderOffsetInstruction;
+import com.android.tools.smali.dexlib2.builder.BuilderSwitchPayload;
 import com.android.tools.smali.dexlib2.builder.BuilderTryBlock;
 import com.android.tools.smali.dexlib2.builder.Label;
+import com.android.tools.smali.dexlib2.builder.MethodLocation;
 import com.android.tools.smali.dexlib2.builder.MutableMethodImplementation;
+import com.android.tools.smali.dexlib2.builder.debug.BuilderLineNumber;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction11x;
+import com.android.tools.smali.dexlib2.builder.instruction.BuilderSwitchElement;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction21t;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction35c;
 import com.android.tools.smali.dexlib2.builder.instruction.BuilderInstruction3rc;
@@ -37,7 +43,8 @@ import java.util.Objects;
  * <p>What it does:
  * <ul>
  *   <li>{@link #insertBefore} — inserts {@code plan.toInsert()} immediately
- *       before the instruction at {@code index}.</li>
+ *       before the instruction at {@code index}, moving the branch targets and
+ *       the line entry of that instruction onto the block.</li>
  *   <li>{@link #insertAfter} — after the instruction at {@code index}.</li>
  *   <li>{@link #replaceInvoke} — rewrites the method reference of an
  *       existing invoke at {@code index} (used by
@@ -77,13 +84,76 @@ public final class InstructionInjector {
         return this;
     }
 
+    /**
+     * Insert {@code plan.toInsert()} (and its {@code if(...)} guard, when the plan
+     * carries one) before the instruction at {@code index}, so that every path
+     * reaching that instruction runs the block first (INV-INS-161).
+     *
+     * <p>{@link MutableMethodImplementation#addInstruction(int, BuilderInstruction)}
+     * creates new locations ahead of the call and leaves the call's labels and
+     * debug items where they are. A branch or switch case that targets the call
+     * would therefore jump over the block, and the block would inherit the line
+     * of the previous instruction. The labels an {@code if-*}, {@code goto*} or
+     * switch payload targets at the call, and the line-number items at the call,
+     * are captured before the insertion and moved afterwards to the first
+     * inserted instruction (the guard prefix when present). Nothing else moves:
+     * try-range boundaries keep covering what they covered, local-variable items
+     * stay, and the guard's own skip label, created after the capture, stays on
+     * the call.
+     */
     public void insertBefore(int index, EmitPlan plan) {
         if (plan.insertionPoint() == InsertionPoint.AFTER) {
             throw new IllegalArgumentException(
                     "plan declared InsertionPoint.AFTER but insertBefore was called");
         }
+        MethodLocation call = impl.getInstructions().get(index).getLocation();
+        List<Label> branchTargets = branchTargetsAt(call);
+        List<BuilderDebugItem> lineItems = new ArrayList<>();
+        for (BuilderDebugItem item : call.getDebugItems()) {
+            if (item instanceof BuilderLineNumber) lineItems.add(item);
+        }
+
         insertAll(index, plan.toInsert());
         installGuard(index, plan);
+
+        MethodLocation first = impl.getInstructions().get(index).getLocation();
+        if (first == call) return;  // nothing was inserted
+        for (Label label : branchTargets) {
+            call.getLabels().remove(label);
+            first.getLabels().add(label);
+        }
+        for (BuilderDebugItem item : lineItems) {
+            call.getDebugItems().remove(item);
+            first.getDebugItems().add(item);
+        }
+    }
+
+    /**
+     * Labels located at {@code location} that an {@code if-*} or {@code goto*}
+     * instruction, or a packed/sparse switch payload, of this method targets.
+     * Labels do not override {@code equals}, so collection membership is identity.
+     */
+    private List<Label> branchTargetsAt(MethodLocation location) {
+        List<Label> out = new ArrayList<>();
+        for (BuilderInstruction insn : impl.getInstructions()) {
+            switch (insn.getOpcode().format) {
+                case Format10t: case Format20t: case Format30t:
+                case Format21t: case Format22t: {
+                    Label target = ((BuilderOffsetInstruction) insn).getTarget();
+                    if (target.getLocation() == location && !out.contains(target)) out.add(target);
+                    break;
+                }
+                case PackedSwitchPayload: case SparseSwitchPayload:
+                    for (BuilderSwitchElement el : ((BuilderSwitchPayload) insn).getSwitchElements()) {
+                        Label target = el.getTarget();
+                        if (target.getLocation() == location && !out.contains(target)) out.add(target);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        return out;
     }
 
     public void insertAfter(int index, EmitPlan plan) {

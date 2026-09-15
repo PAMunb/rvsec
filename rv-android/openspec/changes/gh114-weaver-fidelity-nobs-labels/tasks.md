@@ -96,13 +96,13 @@ GitHub Issue: #114
 
 ## 4. dex-mutator: Branch Targets, Framework Aliases, Constructor After-Finally (WAVE 1, subagent G4)
 
-- [ ] 4.1 `InstructionInjector.insertBefore` (`:80-87`): snapshot the branch/switch-target labels and the line-number debug items at the call, insert, install the guard, move the snapshot to the first inserted instruction; try-range labels and local-variable items stay (INV-INS-161, design D3)
-- [ ] 4.2 `InstructionInjectorBranchTargetTest`: `if-*` target, `goto` target, packed and sparse switch case, guarded plan at a branch target, line entry moved to the block, try range beginning at the call unchanged
-- [ ] 4.3 `DexWeaver.findWrapperReplacement` (`:270-281`): on an exact miss for a framework owner, alias to registered wrappers whose owner is assignable from it; lazy merged wrapper per `(owner, name, descriptor)` (INV-INS-160)
-- [ ] 4.4 `DexWeaverFrameworkSubtypeAliasTest`: `PublicKey.getEncoded()` woven with `Key+` advice; no `IllegalStateException`
-- [ ] 4.5 `DexWeaver.applyPlan` AFTER on constructor (`:925-927`): use `installTryCatch` with a catch-all `TryCatchSpec` built by `DexWeaver` and a handler that runs the monitor calls and rethrows (INV-INS-163)
-- [ ] 4.6 `DexWeaverCtorAfterFinallyTest`: handler shape; existing `DexWeaverNestedTryCatchTest` and `DexWeaverIfGuardedAfterThrowingTest` still green
-- [ ] 4.7 `mvn -pl :dex-mutator test` green (no `-am`)
+- [x] 4.1 `InstructionInjector.insertBefore` (`:80-87`): snapshot the branch/switch-target labels and the line-number debug items at the call, insert, install the guard, move the snapshot to the first inserted instruction; try-range labels and local-variable items stay (INV-INS-161, design D3)
+- [x] 4.2 `InstructionInjectorBranchTargetTest`: `if-*` target, `goto` target, packed and sparse switch case, guarded plan at a branch target, line entry moved to the block, try range beginning at the call unchanged
+- [x] 4.3 `DexWeaver.findWrapperReplacement` (`:270-281`): on an exact miss for a framework owner, alias to registered wrappers whose owner is assignable from it; lazy merged wrapper per `(owner, name, descriptor)` (INV-INS-160)
+- [x] 4.4 `DexWeaverFrameworkSubtypeAliasTest`: `PublicKey.getEncoded()` woven with `Key+` advice; no `IllegalStateException`
+- [x] 4.5 `DexWeaver.applyPlan` AFTER on constructor (`:925-927`): use `installTryCatch` with a catch-all `TryCatchSpec` built by `DexWeaver` and a handler that runs the monitor calls and rethrows (INV-INS-163)
+- [x] 4.6 `DexWeaverCtorAfterFinallyTest`: handler shape; existing `DexWeaverNestedTryCatchTest` and `DexWeaverIfGuardedAfterThrowingTest` still green
+- [x] 4.7 `mvn -pl :dex-mutator test` green (no `-am`)
 
 ## 5. Weave Sweep Script and Before Counts (WAVE 1, subagent G5)
 
@@ -122,18 +122,18 @@ GitHub Issue: #114
 
 ## 7. jca_android Key-Material Cluster (WAVE 1, subagent G7)
 
-- [ ] 7.1 `SecretKeySpecSpec.mop` `c1`/`c2`: `upstream-refused` and `random-key-material` codes in the `NOT_OBSERVED` branches (`:116-120`, `:182-186`) with the precedence of the spec; mark the constructed spec `REPORTED_UPSTREAM` whenever the site reports; `-ORDER-01`; evidence
-- [ ] 7.2 `SecretKeySpec.mop` `e1` and `KeySpec.mop` `ge1`: mark the returned clone `REPORTED_UPSTREAM` when the key carries the mark
-- [ ] 7.3 `X509EncodedKeySpecSpec.mop`, `KeyFactorySpec.mop` (`genPublic`, `genPrivate`), `SecretKeyFactorySpec.mop` (`gen`), `KeyAgreementSpec.mop` (`dophase`, `gs1`, `gs2`), `SignatureSpec.mop` (`i4`): consumer `upstream-refused` codes and producer marks (value or origin reports only) as listed in the spec; `-ORDER-01` in each `@fail` of these files and of `KeyGeneratorSpec.mop`, which gets no upstream mark; evidence on every `-NOBS-`
-- [ ] 7.4 Fragment `fragments/codes_g7.csv` and traces `fragments/traces_g7/`: `random_bytes_as_key`, `ecdh_remote_peer_chain`, `keypair_generated_getpublic`
+- [x] 7.1 `SecretKeySpecSpec.mop` `c1`/`c2`: `upstream-refused` and `random-key-material` codes in the `NOT_OBSERVED` branches (`:116-120`, `:182-186`) with the precedence of the spec; mark the constructed spec `REPORTED_UPSTREAM` whenever the site reports; `-ORDER-01`; evidence
+- [x] 7.2 `SecretKeySpec.mop` `e1` and `KeySpec.mop` `ge1`: mark the returned clone `REPORTED_UPSTREAM` when the key carries the mark
+- [x] 7.3 `X509EncodedKeySpecSpec.mop`, `KeyFactorySpec.mop` (`genPublic`, `genPrivate`), `SecretKeyFactorySpec.mop` (`gen`), `KeyAgreementSpec.mop` (`dophase`, `gs1`, `gs2`), `SignatureSpec.mop` (`i4`): consumer `upstream-refused` codes and producer marks (value or origin reports only) as listed in the spec; `-ORDER-01` in each `@fail` of these files and of `KeyGeneratorSpec.mop`, which gets no upstream mark; evidence on every `-NOBS-`
+- [x] 7.4 Fragment `fragments/codes_g7.csv` and traces `fragments/traces_g7/`: `random_bytes_as_key`, `ecdh_remote_peer_chain`, `keypair_generated_getpublic`
 
 ## 8. jca_android IV, Random and Operation Cluster (WAVE 1, subagent G8)
 
-- [ ] 8.1 `IvParameterSpec.mop`, `GCMParameterSpecSpec.mop`, `PBEKeySpecSpec.mop`: producer marks on value or origin reports (their `RANDOMIZED` reads keep `not-observed`); `-ORDER-01`; evidence
-- [ ] 8.2 `IvChainJunction.mop` `use`: `upstream-refused` for `PREPARED_IV`/`PREPARED_GCM` reads; evidence on every `-NOBS-` (no `@fail` in this file)
-- [ ] 8.3 `SecureRandomSpec.mop`: `-ORDER-01` and evidence only (no upstream mark, no consumer label)
-- [ ] 8.4 `CipherSpec.mop` and `MacSpec.mop`: `upstream-refused` in `i2`/`i1`; `operationFinished` set in final-operation bodies, `reuseObserved`, `-ORDER-02` (`reuse-after-final`) and `-ORDER-01` in `@fail` with the handler precedence of the spec; update `CipherSpec.mop:414-418` and `MacSpec.mop:423-434` comments to current behaviour
-- [ ] 8.5 Fragment `fragments/codes_g8.csv` and traces `fragments/traces_g8/`: `pbe_stored_salt_chain`, `gcm_decrypt_received_nonce`, `cipher_reinit_after_dofinal`, `mac_reinit_after_dofinal`
+- [x] 8.1 `IvParameterSpec.mop`, `GCMParameterSpecSpec.mop`, `PBEKeySpecSpec.mop`: producer marks on value or origin reports (their `RANDOMIZED` reads keep `not-observed`); `-ORDER-01`; evidence
+- [x] 8.2 `IvChainJunction.mop` `use`: `upstream-refused` for `PREPARED_IV`/`PREPARED_GCM` reads; evidence on every `-NOBS-` (no `@fail` in this file)
+- [x] 8.3 `SecureRandomSpec.mop`: `-ORDER-01` and evidence only (no upstream mark, no consumer label)
+- [x] 8.4 `CipherSpec.mop` and `MacSpec.mop`: `upstream-refused` in `i2`/`i1`; `operationFinished` set in final-operation bodies, `reuseObserved`, `-ORDER-02` (`reuse-after-final`) and `-ORDER-01` in `@fail` with the handler precedence of the spec; update `CipherSpec.mop:414-418` and `MacSpec.mop:423-434` comments to current behaviour
+- [x] 8.5 Fragment `fragments/codes_g8.csv` and traces `fragments/traces_g8/`: `pbe_stored_salt_chain`, `gcm_decrypt_received_nonce`, `cipher_reinit_after_dofinal`, `mac_reinit_after_dofinal`
 
 ## 9. jca_android Remaining Specifications and RSA (WAVE 1, subagents G9a and G9b)
 
