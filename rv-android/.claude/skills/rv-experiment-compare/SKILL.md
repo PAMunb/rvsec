@@ -403,6 +403,11 @@ Mostra, por container, `COMPLETED / total` (**identidades distintas**) e dá **a
 - **Rótulo do braço**: `variant='default'` colapsa para o nome seco (`monkey`), igual ao
   `admissibility.py`; um rótulo `monkey:default` não casa com o meta e derruba o braço do
   pareamento em silêncio.
+- **Parâmetros com vírgula no `--tools`**: `monkey@ignore_crashes=true,ignore_timeouts=true,ape`
+  passa direto ao `gen_compare.py`, que corta os specs com a mesma heurística do `rv-experiment`
+  (INV-EXP-09: pedaço com `=` continua o spec anterior). Cada flag leva `=true`; flag nua é lida
+  como ferramenta nova, pelos dois. Cortar em toda vírgula contaria `ignore_timeouts=true` como
+  braço e inflaria o `total_tasks` do meta.
 - **Diagnósticos (gh72)**: só existem se a campanha rodou com `--logcat-diagnostics`. Ficam em
   `app_events.csv` (por container); o `consolidate_compare.py` só carrega as contagens brutas
   `crashes`/`anrs`. Para analisá-los, ler os `app_events.csv` por container e filtrar offline

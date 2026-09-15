@@ -18,7 +18,7 @@ Exemplo (comparacao sem LLM, sem GPU):
   python3 .../gen_compare.py --name baseline --dataset /caminho/apks \
     --tools "monkey,droidbot:dfs_greedy,aperv:sata" --containers 4
 """
-import argparse, json, os, sys
+import argparse, json, os, re, sys
 from datetime import datetime
 from pathlib import Path
 
@@ -70,6 +70,27 @@ def list_apks(dataset: Path, avd_abi: str, filter_abi: bool, exclude: set, only:
     return apks
 
 
+def split_specs(tools: str):
+    """Corta a string RV_TOOLS em specs, um por ferramenta, com os parametros junto.
+
+    A virgula separa tanto specs quanto os parametros depois do '@'
+    ('monkey@ignore_crashes=true,ignore_timeouts=true,ape'). O corte segue a mesma
+    heuristica de `_split_tool_specifications` do rv-experiment (INV-EXP-09): um pedaco
+    so' abre spec novo quando comeca por identificador seguido de ':', '@' ou fim;
+    'ignore_timeouts=true' continua o spec anterior. Cortar em toda virgula contaria
+    'ignore_timeouts=true' como um braco a mais e inflaria o total de tasks do meta.
+    """
+    specs = []
+    for part in (p.strip() for p in tools.split(",")):
+        if not part:
+            continue
+        if re.match(r"^[a-zA-Z_][a-zA-Z0-9_-]*(?::|@|$)", part) or not specs:
+            specs.append(part)
+        else:
+            specs[-1] += "," + part
+    return specs
+
+
 def arms_of(tools: str):
     """Expande a string RV_TOOLS na lista de BRACOS, que e' o que se conta.
 
@@ -79,7 +100,7 @@ def arms_of(tools: str):
     consolidate_compare.py ja' contornava com um expand() proprio.
     """
     labels = []
-    for spec in tools.split(","):
+    for spec in split_specs(tools):
         spec = spec.split("@")[0].strip()
         if not spec:
             continue
@@ -450,7 +471,7 @@ def main():
     plan_path.write_text(gen_plan(args, n, sizes, len(apks), n_tools, total))
     meta_path.parent.mkdir(parents=True, exist_ok=True)
     meta_path.write_text(json.dumps(dict(
-        name=args.name, tools=[t.strip() for t in args.tools.split(",") if t.strip()],
+        name=args.name, tools=split_specs(args.tools),
         n_tools=n_tools, reps=args.reps, timeouts=args.timeouts,
         n_timeouts=len(args.timeouts), containers=n,
         n_apks=len(apks), total_tasks=total, dataset=str(dataset),
