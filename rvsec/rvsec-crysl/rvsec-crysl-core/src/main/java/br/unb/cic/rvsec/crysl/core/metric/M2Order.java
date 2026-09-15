@@ -3,6 +3,7 @@ package br.unb.cic.rvsec.crysl.core.metric;
 import br.unb.cic.rvsec.crysl.core.automata.Automaton;
 import br.unb.cic.rvsec.crysl.core.automata.Determinizer;
 import br.unb.cic.rvsec.crysl.core.automata.InverseMorphism;
+import br.unb.cic.rvsec.crysl.core.automata.LabelAutomaton;
 import br.unb.cic.rvsec.crysl.core.automata.ProductSearch;
 import br.unb.cic.rvsec.crysl.core.compare.AlphabetMap;
 import br.unb.cic.rvsec.crysl.core.compare.CanonicalAlphabet;
@@ -33,12 +34,12 @@ import java.util.Set;
  * M2: what the specification's declared order accepts, against what the rule's {@code ORDER}
  * accepts.
  *
- * <p>Both languages arrive as automata over real signatures. Design D-20 moved the inverse morphism
- * {@code h⁻¹(L)} to lift time, so {@code SpecModel.order} is a signature language on both sides and
- * this class compares them directly - it does not build {@code h} and does not apply it a second
- * time. What it does is make the two alphabets one ({@link CanonicalAlphabet}), apply the
- * normalizations the inputs declare, determinize the rule side and search the product in both
- * directions.
+ * <p>Both languages are compared as automata over real signatures. The lift builds the inverse
+ * morphism {@code h} and keeps the specification's order over labels beside it (design D-20); this
+ * class takes the preimage {@code h⁻¹(L)} over the part of {@code h} it can read once the alphabet
+ * map has resolved the overlaps it reduces, makes the two alphabets one ({@link CanonicalAlphabet}),
+ * applies the normalizations the inputs declare, determinizes the rule side and searches the
+ * product in both directions.
  *
  * <p><strong>Every verdict is {@code M2-decl}.</strong> It is a statement about declared automata
  * and says nothing about what the generated monitor accuses at runtime. That is not a hedge added
@@ -47,13 +48,18 @@ import java.util.Set;
  * the generated monitor accuses order against a program the rule accepts. The emitter prints the
  * qualifier beside every row (INV-CONF-13), and no unqualified "equivalent" leaves this component.
  *
- * <p><strong>Refusals narrow the language, and the narrowing belongs to the refusal.</strong> Where
- * two labels claim one call and a guard separates them, the lift refuses the signature
- * ({@code Unknown{OverlappingDispatch}}) and it is not a letter of {@code SpecModel.order}. A
- * consumer that reads {@code order} without reading {@code morphism.refusals()} is therefore reading
- * a language narrower than the file, and would publish the specification as more restrictive than it
- * is. So this class takes the morphism, not just the automaton, and carries its refusals into
- * {@link M2Result#refusals()} where they are counted beside the verdict.
+ * <p><strong>A refused overlap is read through the map, and what stays refused narrows the
+ * language.</strong> Where two labels claim one call and a guard separates them, the lift refuses
+ * the signature ({@code Unknown{OverlappingDispatch}}) and builds {@code SpecModel.order} without
+ * it. The corpus's instance is the negated-twin idiom: an admitting event and a refused twin whose
+ * row in the alphabet map erases it, because an {@code ORDER} has no symbol for a call it rejects
+ * on a constraint. When the map erases every label of the overlap but one, the call is that label's
+ * letter and each erasure is reported as applied (INV-CONF-18). An overlap the map leaves with two
+ * or more labels stays refused and is not a letter of the language compared here; that language is
+ * narrower than the file, and a verdict over it would publish the specification as more
+ * restrictive than it is. So this class takes the morphism and the label order, not just the
+ * automaton, and carries the refusals it could not resolve into {@link M2Result#refusals()}, where
+ * they are counted beside the verdict.
  *
  * <p><strong>Erasure is read, never inferred.</strong> Every &epsilon;-erasure comes from the
  * {@code disposition} column of {@code order_alphabet_map.csv} (INV-CONF-10, design D-05), and the
@@ -70,7 +76,11 @@ public final class M2Order {
                     + "identification of " + CanonicalAlphabet.COUNTING_RULE + " "
                     + "Epsilon-erasure of a .mop event is taken from the disposition column of "
                     + "order_alphabet_map.csv and never from automaton shape (INV-CONF-10); an "
-                    + "event with no row there is a refusal, not an erasure. The rule automaton is "
+                    + "event with no row there is a refusal, not an erasure. A call the lift "
+                    + "refused as an overlapping dispatch is the letter of the one label of the "
+                    + "overlap the map does not erase, with the erasures of the others applied; "
+                    + "with two or more such labels it stays a refusal and is not a letter "
+                    + "(INV-CONF-18). The rule automaton is "
                     + "determinized before the search, always. Every verdict is labelled "
                     + M2Result.LABEL + " and every witness carries its status and the "
                     + "normalizations it was obtained under.";
@@ -93,23 +103,23 @@ public final class M2Order {
      * The caveat every verdict whose witness rests on a refused signature is published under.
      *
      * <p>This is the consumer caveat design D-20 leaves for M2, and it is not a footnote: it
-     * changes what the verdict is about. Where two labels claim one call and complementary
-     * {@code condition}s separate them - the negated-twin idiom, which most of this set uses for
-     * the rejected-algorithm accuser - the lift refuses the signature and it is not a letter of
-     * {@code SpecModel.order}. The specification's language is then narrower than the file, the
-     * rule accepts a word the specification cannot, and the verdict reads "MOP more restrictive"
-     * about a call the specification does in fact monitor. The narrowing belongs to the refusal and
-     * not to the specification, and saying so is the difference between a measurement and an
-     * accusation.
+     * changes what the verdict is about. Where two or more labels the alphabet map does not erase
+     * claim one call and a {@code condition} separates them, the overlap stays refused after the
+     * map is read (a twin the map erases does not count, see {@link InverseMorphism#resolvedBy}),
+     * and the call is not a letter of the language compared. The specification's language is then
+     * narrower than the file, the rule accepts a word the specification cannot, and the verdict
+     * reads "MOP more restrictive" about a call the specification does in fact monitor. The
+     * narrowing belongs to the refusal and not to the specification, and saying so is the
+     * difference between a measurement and an accusation.
      */
     public static final String NARROWING_CAVEAT =
-            "A witness marked refusal-borne contains a letter the lift refused as "
-                    + "Unknown{OverlappingDispatch}: two or more labels claim that call and a "
-                    + "condition separates them, so the morphism declines to say how many letters "
-                    + "it emits and the call is absent from SpecModel.order. The specification "
-                    + "does monitor that call. The verdict is about the language the component "
-                    + "could read, and that language is narrower than the file by exactly the "
-                    + "refused letters (design D-20).";
+            "A witness marked refusal-borne contains a letter M2 could not read: two or more "
+                    + "labels the alphabet map does not erase claim that call and a condition "
+                    + "separates them, so the morphism declines to say how many letters it emits "
+                    + "(Unknown{OverlappingDispatch}) and the call is absent from the compared "
+                    + "language. The specification does monitor that call. The verdict is about "
+                    + "the language the component could read, and that language is narrower than "
+                    + "the file by exactly the refused letters (design D-20, INV-CONF-18).";
 
     private M2Order() {
     }
@@ -181,7 +191,9 @@ public final class M2Order {
      * Compares one specification's declared order with its rule's.
      *
      * @param specification the specification's identifier, as the corpus names it
-     * @param specModel     the lifted specification; {@code order} is already {@code h⁻¹(L)}
+     * @param specModel     the lifted specification
+     * @param labelOrder    the specification's order over labels, from which the order over
+     *                      signatures is taken again once the map has resolved what it can
      * @param morphism      the morphism the lift built, for its images and its refusals
      * @param rule          the rule's identifier, paired by declared type (INV-CONF-11)
      * @param ruleModel     the lifted rule
@@ -189,25 +201,11 @@ public final class M2Order {
      * @param options       the facts M2 does not derive
      */
     public static Comparison compare(String specification, SpecModel specModel,
-                                     InverseMorphism morphism, String rule, SpecModel ruleModel,
-                                     AlphabetMap map, Options options) {
+                                     LabelAutomaton labelOrder, InverseMorphism morphism,
+                                     String rule, SpecModel ruleModel, AlphabetMap map,
+                                     Options options) {
         List<Normalization> normalizations = new ArrayList<>();
-        List<Unknown> refusals = new ArrayList<>(morphism.refusals());
-
-        // N4 is a construction step since D-02: the preimage already accounts for a call that
-        // emits several letters. Reported, because a comparison over a non-disjoint alphabet is a
-        // different claim from one over a disjoint alphabet.
-        if (morphism.images().values().stream().anyMatch(labels -> labels.size() > 1)) {
-            normalizations.add(Normalizations.N4_OVERLAPPING_POINTCUTS);
-        }
-
-        Automaton mop = specModel.order();
-        Automaton narrowed = OrderSurgery.withoutAccepting(mop,
-                options.predicateOnlyAcceptingStates());
-        if (narrowed != mop) {
-            normalizations.add(Normalizations.N3_ACCEPTANCE);
-        }
-        mop = narrowed;
+        List<Unknown> refusals = new ArrayList<>();
 
         Set<Label> erasedLabels = new LinkedHashSet<>();
         for (Event event : specModel.events()) {
@@ -221,9 +219,37 @@ public final class M2Order {
             }
         }
 
-        Map<Signature, List<Label>> images = morphism.images();
-        Set<Signature> erased = new LinkedHashSet<>();
+        // A refused overlap whose labels the map erases down to one is that label's letter
+        // (InverseMorphism.resolvedBy), so the order is taken again over the resolved morphism
+        // rather than read from SpecModel.order, which the lift built without those letters. The
+        // erasures that resolved an overlap are applied and reported like every other erasure.
+        InverseMorphism read = morphism.resolvedBy(erasedLabels);
+        refusals.addAll(0, read.refusals());
         Set<Label> effective = new LinkedHashSet<>();
+        for (Unknown refusal : morphism.refusals()) {
+            if (refusal instanceof OverlappingDispatch overlap && !read.refusals().contains(overlap)) {
+                overlap.labels().stream().map(Label::new).filter(erasedLabels::contains)
+                        .forEach(effective::add);
+            }
+        }
+
+        // N4 is a construction step since D-02: the preimage already accounts for a call that
+        // emits several letters. Reported, because a comparison over a non-disjoint alphabet is a
+        // different claim from one over a disjoint alphabet.
+        if (read.images().values().stream().anyMatch(labels -> labels.size() > 1)) {
+            normalizations.add(Normalizations.N4_OVERLAPPING_POINTCUTS);
+        }
+
+        Automaton mop = new InverseMorphism(read.images(), List.of()).preimage(labelOrder);
+        Automaton narrowed = OrderSurgery.withoutAccepting(mop,
+                options.predicateOnlyAcceptingStates());
+        if (narrowed != mop) {
+            normalizations.add(Normalizations.N3_ACCEPTANCE);
+        }
+        mop = narrowed;
+
+        Map<Signature, List<Label>> images = read.images();
+        Set<Signature> erased = new LinkedHashSet<>();
         for (Signature letter : mop.alphabet()) {
             List<Label> emitted = images.getOrDefault(letter, List.of());
             if (emitted.isEmpty() || !erasedLabels.containsAll(emitted)) {
@@ -286,7 +312,7 @@ public final class M2Order {
         Optional<Witness> mopOnly = comparison.mopOnlyWitness(applied);
         Optional<Witness> ruleOnly = comparison.cryslOnlyWitness(applied);
         return new Comparison(result, mopOnly, ruleOnly,
-                narrowing(specification, morphism, alphabet, mopOnly, ruleOnly));
+                narrowing(specification, read, alphabet, mopOnly, ruleOnly));
     }
 
     /**
@@ -357,16 +383,19 @@ public final class M2Order {
      * given that the component could not read some of the specification's alphabet; this one says
      * what they do over the alphabet it <em>could</em> read, by removing those letters from the
      * rule as well. The two together separate "the specification is more restrictive than its rule"
-     * from "the reader lost a letter" - and the separation is not academic: measured over
-     * {@code jca_android}, three of the seven refusal-borne verdicts become EQUIVALENT under it.
+     * from "the reader lost a letter".
+     *
+     * <p>The refusals are the ones M2 left, {@link M2Result#refusals()}, and not the lift's: a twin
+     * overlap the map resolved is a letter of the compared language, and deleting it from the rule
+     * would remove a call both sides order.
      *
      * <p>Deletion and not &epsilon;-erasure, for the reason {@link OrderSurgery#restrict} states:
      * erasing would let the rule accept the rest of a word without the call, which is a larger
      * language and a different question.
      */
-    public static SpecModel withoutRefusedLetters(SpecModel rule, InverseMorphism morphism) {
+    public static SpecModel withoutRefusedLetters(SpecModel rule, List<Unknown> refusals) {
         Set<Signature> removed = new LinkedHashSet<>();
-        for (Unknown item : morphism.refusals()) {
+        for (Unknown item : refusals) {
             if (item instanceof OverlappingDispatch overlap) {
                 for (Signature letter : rule.order().alphabet()) {
                     if (CanonicalAlphabet.identifies(overlap.signature(), letter)) {

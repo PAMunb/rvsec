@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javamop.parser.ast.ImportDeclaration;
+import javamop.parser.ast.aspectj.ArgsPointCut;
 import javamop.parser.ast.aspectj.CombinedPointCut;
 import javamop.parser.ast.aspectj.IDPointCut;
 import javamop.parser.ast.aspectj.MethodPattern;
@@ -48,6 +49,15 @@ public final class PointcutExpander {
     /** Memo of the {@code java.lang} lookup, shared because the answer is the same for every file. */
     private static final Map<String, Boolean> JAVA_LANG = new ConcurrentHashMap<>();
 
+    /** Memo of the platform class lookup behind {@link #binaryName(String)}, shared for the same reason. */
+    private static final Map<String, Boolean> PLATFORM_CLASS = new ConcurrentHashMap<>();
+
+    /** AspectJ's "any remaining parameters" pattern. */
+    private static final String ELLIPSIS = "..";
+
+    /** AspectJ's single-parameter wildcard. */
+    private static final String ANY = "*";
+
     private final Map<String, String> simpleNameToFqn = new HashMap<>();
 
     /**
@@ -85,7 +95,7 @@ public final class PointcutExpander {
      */
     public Set<Signature> expand(PointCut pointcut) {
         Set<Signature> signatures = new LinkedHashSet<>();
-        collect(pointcut, signatures);
+        collect(pointcut, signatures, null);
         return signatures;
     }
 
@@ -126,17 +136,30 @@ public final class PointcutExpander {
         }
     }
 
-    private void collect(PointCut pointcut, Set<Signature> out) {
+    /**
+     * @param args the positions of the {@code args(...)} clause conjoined with this pointcut, or
+     *             {@code null} when none is
+     */
+    private void collect(PointCut pointcut, Set<Signature> out, List<String> args) {
         if (pointcut == null) {
             return;
         }
         if (pointcut instanceof CombinedPointCut combined) {
             // Both "&&" and "||" are walked. For "||" the union is the point; for "&&" the call
-            // pattern is the only child that names a method at all, so the union is the call.
-            if (combined.getPointcuts() != null) {
-                for (PointCut child : combined.getPointcuts()) {
-                    collect(child, out);
+            // pattern is the only child that names a method at all, so the union is the call, and
+            // an args(...) child of the conjunction constrains the calls beside it.
+            List<PointCut> children = combined.getPointcuts() == null
+                    ? List.of() : combined.getPointcuts();
+            List<String> scope = args;
+            if ("&&".equals(combined.getType())) {
+                for (PointCut child : children) {
+                    if (child instanceof ArgsPointCut clause && clause.getArgs() != null) {
+                        scope = clause.getArgs().stream().map(PointcutExpander::op).toList();
+                    }
                 }
+            }
+            for (PointCut child : children) {
+                collect(child, out, scope);
             }
             return;
         }
@@ -146,11 +169,47 @@ public final class PointcutExpander {
             return;
         }
         if (pointcut instanceof MethodPointCut method) {
-            Signature signature = toSignature(method.getSignature());
+            Signature signature = withArity(toSignature(method.getSignature()), args);
             if (signature != null) {
                 out.add(signature);
             }
         }
+    }
+
+    /**
+     * The call pattern narrowed by the arity of the {@code args(...)} clause beside it.
+     *
+     * <p>{@code args(...)} without a {@code ..} matches a call of exactly as many arguments as it has
+     * positions, and the weaver enforces that on every {@code args} form (INV-INS-159). So
+     * {@code call(KeyManagerFactory.getInstance(String, ..)) && args(alg, *)} observes the
+     * two-argument overload and never {@code getInstance(String)}. Left as {@code (String, ..)}, the
+     * signature would claim the one-argument letter too, and the morphism would read an overlap with
+     * {@code getInstance(String)}'s own events that no woven program produces. The trailing
+     * {@code ..} therefore becomes one {@code *} per remaining position, the single-parameter
+     * wildcard M1 and M2 already read; a call pattern whose fixed arity the clause contradicts
+     * observes no call and names no signature. An {@code args(...)} carrying a {@code ..} bounds the
+     * arity only from below and fixes no position count to narrow to, so the call pattern is kept
+     * as written (INV-CONF-19).
+     */
+    private static Signature withArity(Signature signature, List<String> args) {
+        if (signature == null || args == null || args.contains(ELLIPSIS)) {
+            return signature;
+        }
+        List<String> params = signature.paramTypes();
+        boolean tail = !params.isEmpty() && ELLIPSIS.equals(params.get(params.size() - 1));
+        if (!tail) {
+            return params.size() == args.size() ? signature : null;
+        }
+        List<String> prefix = params.subList(0, params.size() - 1);
+        if (args.size() < prefix.size()) {
+            return null;
+        }
+        List<String> narrowed = new ArrayList<>(prefix);
+        while (narrowed.size() < args.size()) {
+            narrowed.add(ANY);
+        }
+        return new Signature(signature.declaringType(), signature.name(), narrowed,
+                signature.returnType());
     }
 
     private Signature toSignature(MethodPattern pattern) {
@@ -189,7 +248,8 @@ public final class PointcutExpander {
 
     /**
      * Resolves a simple name to the fully-qualified one the file imports it under, keeping array
-     * suffixes and wildcards untouched.
+     * suffixes and wildcards untouched and spelling a nested type by its binary name
+     * ({@link #binaryName(String)}).
      *
      * <p>A name no declaration covers is tried once against {@code java.lang}, which every
      * compilation unit imports implicitly. Primitives and wildcards fall out of that test on their
@@ -226,7 +286,45 @@ public final class PointcutExpander {
         if (resolved == null) {
             resolved = base.indexOf('.') < 0 && isJavaLang(base) ? "java.lang." + base : base;
         }
-        return resolved + suffix;
+        return binaryName(resolved) + suffix;
+    }
+
+    /**
+     * The binary name of a nested type, which is how the rule side spells it.
+     *
+     * <p>{@code import java.security.KeyStore.ProtectionParameter;} names a member type with the
+     * canonical, dotted spelling, and CrySL renders the same type as
+     * {@code java.security.KeyStore$ProtectionParameter}. Kept dotted, the {@code .mop}'s
+     * {@code KeyStore.getEntry} and the rule's are two letters, and M2 publishes a divergence over a
+     * call both sides order. The dots are replaced by {@code $} from the right until a name the
+     * platform class loader knows is found, the same existence-driven rule the weaver applies to
+     * pointcut signatures (INV-INS-162); a name that is already a class, or that no replacement
+     * turns into one, is returned unchanged, so a type absent from this JVM keeps its spelling and
+     * is judged against {@code android.jar} later, where it belongs.
+     */
+    private static String binaryName(String name) {
+        if (name.indexOf('.') < 0 || isPlatformClass(name)) {
+            return name;
+        }
+        StringBuilder candidate = new StringBuilder(name);
+        for (int dot = name.lastIndexOf('.'); dot > 0; dot = name.lastIndexOf('.', dot - 1)) {
+            candidate.setCharAt(dot, '$');
+            if (isPlatformClass(candidate.toString())) {
+                return candidate.toString();
+            }
+        }
+        return name;
+    }
+
+    private static boolean isPlatformClass(String name) {
+        return PLATFORM_CLASS.computeIfAbsent(name, candidate -> {
+            try {
+                Class.forName(candidate, false, ClassLoader.getPlatformClassLoader());
+                return Boolean.TRUE;
+            } catch (ClassNotFoundException | LinkageError e) {
+                return Boolean.FALSE;
+            }
+        });
     }
 
     /**

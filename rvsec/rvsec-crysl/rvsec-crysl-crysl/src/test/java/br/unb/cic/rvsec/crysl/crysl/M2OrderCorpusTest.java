@@ -64,9 +64,12 @@ import org.junit.jupiter.api.Test;
  *       because {@code api30} named no such event;
  *   <li>D-20 makes the negated-twin idiom - an accepted and a rejected event over one call,
  *       separated by complementary {@code condition}s - an {@code Unknown{OverlappingDispatch}} at
- *       lift, so that call is not a letter of {@code SpecModel.order} at all. Nine of the 24
- *       specifications use the idiom and eleven refusals come out of it, and the verdicts they
- *       carry are marked refusal-borne here.
+ *       lift, so that call is not a letter of {@code SpecModel.order}. M2 reads the refusal through
+ *       the alphabet map, which erases every twin (INV-CONF-18): the call is the admitted event's
+ *       letter and the twin's erasure is reported. Over {@code jca_android} the lift carries 19
+ *       refusals in ten specifications and M2 resolves 17 of them; the two it cannot are
+ *       {@code KeyPairGeneratorSpec}'s {@code initialize} overlaps, whose labels the map maps both,
+ *       and that verdict is marked refusal-borne here.
  * </ul>
  */
 @Tag(OracleCorpus.TAG)
@@ -118,85 +121,69 @@ class M2OrderCorpusTest {
     // ---------------------------------------------------------------- 10.10
 
     @Test
-    @DisplayName("10.10 · the recomputed KeyGeneratorSpec verdict, and how it differs")
+    @DisplayName("10.10 · KeyGeneratorSpec: both getInstance overlaps read as the admitted events, "
+            + "and the verdict is EQUIVALENT")
     void test_key_generator_spec_verdict_recomputed() throws Exception {
         Corpus corpus = Corpus.read();
         M2Order.Comparison comparison = corpus.compare("KeyGeneratorSpec");
 
-        assertEquals(M2Result.Verdict.MOP_MORE_RESTRICTIVE, comparison.result().verdict(),
-                "this DIFFERS from the published 'M2-decl: EQUIVALENTES, sob N1' (docs/"
-                        + "20260821_conformidade_mop_crysl.md §5.2), which was computed against "
-                        + "the abandoned api30 rule");
-        assertEquals(List.of("N-REN", "N1"), normalizationIds(comparison.result()),
-                "and it is not the ere that moved it: the four init* the ere gained all map to "
-                        + "the rule's i1..i5 and are absorbed by the letter identification, so no "
-                        + "witness of either direction mentions an init at all");
+        List<Unknown> lifted = corpus.lift("KeyGeneratorSpec").morphism().refusals();
+        assertEquals(List.of(List.of("g1", "g3"), List.of("g2", "g4")),
+                lifted.stream().map(refusal -> ((OverlappingDispatch) refusal).labels()).toList(),
+                "the lift refuses getInstance(String), claimed by g1 and its refused twin g3, and "
+                        + "getInstance(String, Object), claimed by g2 and its refused twin g4");
+        assertTrue(corpus.map.erases("KeyGeneratorSpec", "g3")
+                        && corpus.map.erases("KeyGeneratorSpec", "g4"),
+                "the map erases both twins, because an ORDER has no symbol for a call it rejects "
+                        + "on a constraint");
 
-        Witness ruleOnly = comparison.ruleOnly().orElseThrow(
-                () -> new AssertionError("MOP_MORE_RESTRICTIVE with no rule-side witness"));
-        assertEquals(WitnessStatus.ABSTRACT, ruleOnly.status());
-        assertEquals(List.of("javax.crypto.KeyGenerator.getInstance(java.lang.String)",
-                        "javax.crypto.KeyGenerator.generateKey()"),
-                render(ruleOnly),
-                "the sole distinguishing word, and every letter of it is a call the "
-                        + "specification does monitor");
-
-        assertTrue(comparison.refusalBorne(),
-                "because getInstance(String) is claimed by g1 and by its negated twin g3 with "
-                        + "complementary conditions, the lift refuses it and it is not a letter of "
-                        + "SpecModel.order. The narrowing belongs to the refusal: "
-                        + comparison.narrowing().orElse(""));
-        assertTrue(comparison.narrowing().orElseThrow().contains("g1")
-                        && comparison.narrowing().orElseThrow().contains("g3"),
-                "and the statement names the two labels that claim the call");
-
-        assertTrue(corpus.map.erases("KeyGeneratorSpec", "g3"),
-                "the map declares g3 erased, with a reason and a rule line");
-        assertFalse(normalizationIds(comparison.result()).stream()
-                        .anyMatch(id -> id.startsWith("N-EPS·KeyGeneratorSpec.g3")),
-                "and the erasure is nevertheless not reported as applied, because there is "
-                        + "nothing left to erase: g1 and g3 claim the same call, the lift refused "
-                        + "it, and the letter left the language before M2 saw it. The declared "
-                        + "erasure of the negated twin is unreachable for every specification "
-                        + "that uses the idiom, which is nine of the 24");
-
-        M2Order.Comparison projected = corpus.compareWithoutRefusedLetters("KeyGeneratorSpec");
-        assertEquals(M2Result.Verdict.EQUIVALENT, projected.result().verdict(),
-                "over the alphabet the component could read, the two languages agree exactly. So "
-                        + "the published EQUIVALENT survives modulo the refused letter, and the "
-                        + "difference this run reports is an instrument narrowing rather than a "
-                        + "divergence of the specification from its rule");
+        assertEquals(M2Result.Verdict.EQUIVALENT, comparison.result().verdict(),
+                "read as g1's and g2's letters, the creation calls are the rule's g1 and g2, and the "
+                        + "four init* of the ere map to the rule's i1..i5, so the two languages "
+                        + "agree; the published 'M2-decl: EQUIVALENTES, sob N1' (docs/"
+                        + "20260821_conformidade_mop_crysl.md §5.2) reproduces against the upstream "
+                        + "oracle, with the twins' erasures beside it");
+        assertEquals(List.of("N-EPS·KeyGeneratorSpec.g3", "N-EPS·KeyGeneratorSpec.g4", "N-REN",
+                        "N1"),
+                normalizationIds(comparison.result()));
+        assertTrue(comparison.result().refusals().isEmpty(),
+                "neither overlap is a refusal of the M2 result (INV-CONF-18)");
+        assertFalse(comparison.refusalBorne());
+        assertTrue(comparison.result().witness().isEmpty(),
+                "two languages that agree have nothing to show");
     }
 
     // ---------------------------------------------------------------- 10.11
 
     @Test
-    @DisplayName("10.11 · the three byte-identical automata, re-emitted as results")
-    void test_the_three_unchanged_automata_are_results_not_rederivations() throws Exception {
+    @DisplayName("10.11 · the three published verdicts of §5.2, re-emitted as results")
+    void test_the_three_published_verdicts_are_results_not_rederivations() throws Exception {
         Corpus corpus = Corpus.read();
 
-        // The ere/fsm lines of these three are byte-identical between the pinned 5fbe8173 and the
-        // current HEAD; 5bc5c893 rewrote value lists and left every formula alone. So what follows
-        // is a result over an unchanged input, and what moved is the oracle and the lift.
+        // MessageDigestSpec and SignatureSpec order the same calls their published verdicts were
+        // computed over, plus refused creation twins the map erases; SecureRandomSpec differs by
+        // the map's api30 anchoring, which test_secure_random_spec measures.
         M2Order.Comparison messageDigest = corpus.compare("MessageDigestSpec");
-        assertEquals(M2Result.Verdict.MOP_MORE_RESTRICTIVE, messageDigest.result().verdict(),
-                "published: EQUIVALENTES sob N1. It is refusal-borne - g1 and its negated twin "
-                        + "claim getInstance(String) - and equivalent once that letter leaves both "
-                        + "sides");
-        assertTrue(messageDigest.refusalBorne());
-        assertEquals(M2Result.Verdict.EQUIVALENT,
-                corpus.compareWithoutRefusedLetters("MessageDigestSpec").result().verdict());
-        assertEquals(List.of("N-AGG", "N-REN", "N1"), normalizationIds(messageDigest.result()));
+        assertEquals(M2Result.Verdict.EQUIVALENT, messageDigest.result().verdict(),
+                "published: EQUIVALENTES sob N1, and it reproduces: g1 and its refused twin g4 "
+                        + "overlap on getInstance(String), which reads as g1's letter");
+        assertEquals(List.of("N-EPS·MessageDigestSpec.g4", "N-EPS·MessageDigestSpec.g5", "N-AGG",
+                        "N-REN", "N1"),
+                normalizationIds(messageDigest.result()),
+                "g4 is erased as the twin of a resolved overlap; g5, the two-argument twin over "
+                        + "getInstance(String, Object+), claims a letter no admitted event claims "
+                        + "and is erased as that letter's only label");
+        assertTrue(messageDigest.result().refusals().isEmpty());
 
         M2Order.Comparison signature = corpus.compare("SignatureSpec");
         assertEquals(M2Result.Verdict.EQUIVALENT, signature.result().verdict(),
                 "published: EQUIVALENTES sob N1, and it reproduces against the upstream oracle");
-        assertEquals(List.of("N-AGG", "N-REN", "N1"), normalizationIds(signature.result()));
+        assertEquals(List.of("N-EPS·SignatureSpec.g3", "N-AGG", "N-REN", "N1"),
+                normalizationIds(signature.result()),
+                "g3 is the refused two-argument twin of g2, and the overlap reads as g2's letter");
         assertTrue(signature.result().witness().isEmpty(),
                 "two languages that agree have nothing to show");
-        assertTrue(signature.result().refusals().isEmpty(),
-                "and SignatureSpec carries no negated twin over a shared call, which is why it is "
-                        + "the one of the three that reproduces unqualified");
+        assertTrue(signature.result().refusals().isEmpty());
 
         M2Order.Comparison secureRandom = corpus.compare("SecureRandomSpec");
         assertEquals(M2Result.Verdict.MOP_MORE_RESTRICTIVE, secureRandom.result().verdict(),
@@ -229,81 +216,174 @@ class M2OrderCorpusTest {
                         + "artifact, and upstream SecureRandom.crysl orders nB, nI and nIR, all "
                         + "three public. Measured over android.jar, not asserted from a list");
 
-        assertTrue(comparison.refusalBorne(),
-                "g1/g2 and the negated twin g4 claim the same getInstance calls");
-        M2Order.Comparison projected = corpus.compareWithoutRefusedLetters("SecureRandomSpec");
-        assertEquals(M2Result.Verdict.MOP_MORE_RESTRICTIVE, projected.result().verdict(),
-                "and unlike KeyGeneratorSpec a real difference survives the projection");
+        assertTrue(comparison.result().refusals().isEmpty(),
+                "g1 and its refused twin g4 overlap on getInstance(String), g2 and g5 on "
+                        + "getInstance(String, *), and the map erases both twins, so no refusal is "
+                        + "left and the verdict is not refusal-borne");
+        assertFalse(comparison.refusalBorne());
         assertEquals(List.of("java.security.SecureRandom.SecureRandom()",
                         "java.security.SecureRandom.nextInt()"),
-                render(projected.ruleOnly().orElseThrow()),
-                "the residual is exactly the api30 anchoring of the map: the row "
+                render(comparison.ruleOnly().orElseThrow()),
+                "the difference is exactly the api30 anchoring of the map: the row "
                         + "'SecureRandomSpec,next3,,,SecureRandom.cryptsl,,order-unmapped' says "
                         + "the rule names no such event, which was true of api30 and is false of "
                         + "the upstream rule, whose nI is nextInt(). The erasure is honoured "
                         + "because the map declares it (INV-CONF-10) and the consequence is "
                         + "reported rather than repaired (INV-CONF-12)");
         assertTrue(normalizationIds(comparison.result()).contains("N-EPS·SecureRandomSpec.next3"));
-        assertEquals(WitnessStatus.ABSTRACT, projected.ruleOnly().orElseThrow().status());
+        assertEquals(WitnessStatus.ABSTRACT, comparison.ruleOnly().orElseThrow().status());
     }
 
     @Test
-    @DisplayName("10.13 · CipherSpec: incomparable, and the g1 i2 i2 f2 witness is still there")
+    @DisplayName("10.13 · CipherSpec: incomparable, with both witnesses alive")
     void test_cipher_spec() throws Exception {
         Corpus corpus = Corpus.read();
         M2Order.Comparison comparison = corpus.compare("CipherSpec");
+
+        assertEquals(2, corpus.lift("CipherSpec").morphism().refusals().size(),
+                "g3, the refused twin, is pointcut over getInstance(String, ..) with "
+                        + "args(transformation, ..), so it claims g1's getInstance(String) and g2's "
+                        + "getInstance(String, Object) and the lift refuses both");
+        assertTrue(comparison.result().refusals().isEmpty(),
+                "the map erases g3, so each overlap reads as the admitted event's letter");
+        assertFalse(comparison.refusalBorne());
+        assertTrue(normalizationIds(comparison.result()).contains("N-EPS·CipherSpec.g3"),
+                normalizationIds(comparison.result()).toString());
 
         assertEquals(M2Result.Verdict.INCOMPARABLE, comparison.result().verdict());
         assertTrue(normalizationIds(comparison.result()).contains("N3"),
                 "N3 because alias match2 = s3 is a predicate point rather than a legitimate end: "
                         + normalizationIds(comparison.result()));
         assertFalse(normalizationIds(comparison.result()).contains("N4"),
-                "and N4 is NOT applied here, which corrects the published reading. §5.2 offers "
-                        + "CipherSpec as the N4 case on the strength of doFinal(..) also matching "
-                        + "doFinal(). At HEAD that overlap is separated by complementary "
-                        + "conditions, so the lift refuses it instead of concatenating - it is the "
-                        + "specification's one refusal - and the only call in the whole "
-                        + "jca_android set that emits two letters is IvChainJunction's "
-                        + "Cipher.init(int, Key, AlgorithmParameterSpec, SecureRandom)");
+                "N4 is not applied: once g3 is erased no call of CipherSpec emits two letters. "
+                        + "The only call of the jca_android set that does is IvChainJunction's "
+                        + "Cipher.init(int, Key, AlgorithmParameterSpec, SecureRandom), and "
+                        + "IvChainJunction pairs with no rule");
 
         assertTrue(comparison.mopOnly().isPresent() && comparison.ruleOnly().isPresent(),
                 "BOTH directions are alive, which differs from the published reading that only "
-                        + "rule \\ MOP sustained the verdict. The direction that died in gh105 "
-                        + "task 6.6 was the f1/f2 one; another mop-only word took its place");
-        // The word shrank from four letters to two, and not because of gh109: measured, the
-        // `alias match3 = s2` that shortens it entered CipherSpec.mop at 62f65b3f (gh105 task
-        // 11.5(e)), and gh109's one commit over that file touched comments and a CONSTRAINTS
-        // helper - no alias, no event, no ere. An initialised-and-never-used Cipher is now the
-        // shortest sequence the specification accepts and the expert ORDER rejects, which is what
-        // the Python G-ORDER gate has asserted since that task (`cipher.witness == ("g1", "i1")`).
-        // This pin never followed, and it is re-pinned here rather than left red: the number
-        // belongs to gh105 and only the re-measurement belongs to gh109.
-        //
-        // What the D-10 note below says stays true of the word it describes - wrap after doFinal
-        // in ENCRYPT_MODE is still automaton-valid and still impossible in Java. It is no longer
-        // the SHORTEST such word, which is the only thing that moved.
-        assertEquals(List.of("javax.crypto.Cipher.getInstance(java.lang.String,AnyType)",
+                        + "rule \\ MOP sustained the verdict");
+        assertEquals(List.of("javax.crypto.Cipher.getInstance(java.lang.String)",
                         "javax.crypto.Cipher.init(int,java.security.Key)"),
                 render(comparison.mopOnly().orElseThrow()),
-                "and the replacement is the case design D-10 exists for: wrap after a doFinal in "
-                        + "ENCRYPT_MODE raises IllegalStateException before any monitor sees it, "
-                        + "so this word is automaton-valid and impossible in Java - which is "
-                        + "exactly why it stays ABSTRACT and carries no claim");
-
-        // The same gh105 movement that shortened the mop-only word above moved this one, and
-        // for the same reason: with `s2` accepting, the projected difference finds a shorter
-        // separating word than `g1 i2 i2 f2` and `updateAAD` stands where the repeated `init`
-        // did. The published reading is still about this direction being alive; which word
-        // witnesses it is a shortest-word search and not a claim, and re-pinning it is a
-        // re-measurement of gh105's change, not of gh109's.
-        M2Order.Comparison projected = corpus.compareWithoutRefusedLetters("CipherSpec");
-        assertEquals(List.of("javax.crypto.Cipher.getInstance(java.lang.String,AnyType)",
+                "an initialised Cipher that is never used: the specification accepts it at "
+                        + "alias match3 = s2, and the rule's ORDER requires an operation after init");
+        assertEquals(List.of("javax.crypto.Cipher.getInstance(java.lang.String)",
                         "javax.crypto.Cipher.init(int,java.security.Key)",
                         "javax.crypto.Cipher.updateAAD(byte[])",
                         "javax.crypto.Cipher.doFinal(byte[])"),
-                render(projected.ruleOnly().orElseThrow()),
-                "the rule \\ MOP direction is alive, letter for letter, once the refused "
-                        + "getInstance(String) is taken out of the rule as well");
+                render(comparison.ruleOnly().orElseThrow()),
+                "and a word the rule accepts and the specification does not, through an AAD "
+                        + "update before the final operation");
+    }
+
+    @Test
+    @DisplayName("INV-CONF-18 · KeyPairGeneratorSpec: the initialize overlaps the map keeps stay "
+            + "refused, and the verdict is refusal-borne")
+    void test_key_pair_generator_spec_keeps_its_guarded_overlaps() throws Exception {
+        Corpus corpus = Corpus.read();
+        M2Order.Comparison comparison = corpus.compare("KeyPairGeneratorSpec");
+
+        assertEquals(List.of(List.of("init1", "initError"), List.of("init2", "initError2")),
+                comparison.result().refusals().stream()
+                        .map(refusal -> ((OverlappingDispatch) refusal).labels()).toList(),
+                "init1 admits a key size and initError refuses it over the same initialize(int), "
+                        + "and the map maps both to the rule's i3, so two labels survive and M2 "
+                        + "cannot say which one the call emits; the same holds for init2 and "
+                        + "initError2 over initialize(int, SecureRandom)");
+        assertTrue(normalizationIds(comparison.result())
+                        .containsAll(List.of("N-EPS·KeyPairGeneratorSpec.g3",
+                                "N-EPS·KeyPairGeneratorSpec.g4")),
+                "the getInstance twin overlaps of the same file are resolved: "
+                        + normalizationIds(comparison.result()));
+
+        assertEquals(M2Result.Verdict.MOP_MORE_RESTRICTIVE, comparison.result().verdict());
+        assertTrue(comparison.refusalBorne(), comparison.narrowing().orElse(""));
+        assertEquals(List.of("java.security.KeyPairGenerator.getInstance(java.lang.String)",
+                        "java.security.KeyPairGenerator.initialize(int)",
+                        "java.security.KeyPairGenerator.genKeyPair()"),
+                render(comparison.ruleOnly().orElseThrow()),
+                "the distinguishing word runs through initialize(int), the refused letter");
+        assertEquals(M2Result.Verdict.EQUIVALENT,
+                corpus.compareWithoutRefusedLetters("KeyPairGeneratorSpec").result().verdict(),
+                "and over the alphabet the component could read the two languages agree, so the "
+                        + "restriction belongs to the refusal and not to the specification");
+    }
+
+    @Test
+    @DisplayName("INV-CONF-18 · MacSpec: incomparable over update(ByteBuffer), which the map erases")
+    void test_mac_spec() throws Exception {
+        Corpus corpus = Corpus.read();
+        M2Order.Comparison comparison = corpus.compare("MacSpec");
+
+        assertTrue(comparison.result().refusals().isEmpty(), "g3 and g4 are erased twins");
+        assertEquals(M2Result.Verdict.INCOMPARABLE, comparison.result().verdict(),
+                "reported and not reconciled (INV-CONF-14)");
+        assertTrue(normalizationIds(comparison.result()).contains("N-EPS·MacSpec.updateBuffer"),
+                "the api30-anchored map erases updateBuffer, the specification's update(ByteBuffer)");
+        assertEquals(List.of("javax.crypto.Mac.getInstance(java.lang.String)",
+                        "javax.crypto.Mac.init(java.security.Key)",
+                        "javax.crypto.Mac.doFinal()"),
+                render(comparison.mopOnly().orElseThrow()),
+                "a word the specification accepts and the rule does not: a doFinal() with no "
+                        + "update the compared alphabet can read before it");
+        assertEquals(List.of("javax.crypto.Mac.getInstance(java.lang.String)",
+                        "javax.crypto.Mac.init(java.security.Key)",
+                        "javax.crypto.Mac.update(java.nio.ByteBuffer)",
+                        "javax.crypto.Mac.doFinal()"),
+                render(comparison.ruleOnly().orElseThrow()),
+                "and the rule orders the update(ByteBuffer) the erasure took out of the "
+                        + "specification's alphabet");
+    }
+
+    @Test
+    @DisplayName("INV-CONF-18/19 · KeyStoreSpec: the nested types are the rule's, and the verdict "
+            + "is EQUIVALENT")
+    void test_key_store_spec() throws Exception {
+        Corpus corpus = Corpus.read();
+        Signature getEntry = new Signature("java.security.KeyStore", "getEntry",
+                List.of("java.lang.String", "java.security.KeyStore$ProtectionParameter"),
+                "java.security.KeyStore$Entry");
+        assertTrue(corpus.lift("KeyStoreSpec").morphism().images().containsKey(getEntry),
+                "the import java.security.KeyStore.ProtectionParameter lifts to the binary name "
+                        + "CrySL renders, so getEntry is one letter on both sides");
+
+        M2Order.Comparison comparison = corpus.compare("KeyStoreSpec");
+        assertEquals(M2Result.Verdict.EQUIVALENT, comparison.result().verdict());
+        assertTrue(comparison.result().refusals().isEmpty());
+        assertTrue(normalizationIds(comparison.result())
+                        .containsAll(List.of("N-EPS·KeyStoreSpec.g2", "N-EPS·KeyStoreSpec.g4")),
+                normalizationIds(comparison.result()).toString());
+    }
+
+    @Test
+    @DisplayName("INV-CONF-18 · over jca_android the lift carries 19 refusals and M2 leaves 2")
+    void test_the_refusals_m2_resolves_over_the_set() throws Exception {
+        Corpus corpus = Corpus.read();
+
+        int lifted = 0;
+        List<String> refusing = new ArrayList<>();
+        for (Map.Entry<String, MopLift> entry : corpus.lifts().entrySet()) {
+            int count = entry.getValue().morphism().refusals().size();
+            lifted += count;
+            if (count > 0) {
+                refusing.add(entry.getKey());
+            }
+        }
+        assertEquals(19, lifted, "one refusal per overload an admitted event shares with its "
+                + "refused twin, and KeyPairGeneratorSpec's two initialize overlaps");
+        assertEquals(10, refusing.size(), refusing.toString());
+
+        Map<String, Integer> left = new LinkedHashMap<>();
+        for (String specification : refusing) {
+            int count = (int) corpus.compare(specification).result().refusals().stream()
+                    .filter(OverlappingDispatch.class::isInstance).count();
+            if (count > 0) {
+                left.put(specification, count);
+            }
+        }
+        assertEquals(Map.of("KeyPairGeneratorSpec", 2), left,
+                "every twin the map erases is resolved; what is left has two labels the map maps");
     }
 
     // ---------------------------------------------------------------- 10.14, INV-CONF-09
@@ -368,11 +448,12 @@ class M2OrderCorpusTest {
                         + "concatenation is decidable and this is the case that makes the "
                         + "non-disjointness argument a corpus witness rather than a claim");
 
-        // The other half of the scenario: an overlap a guard separates, which this module has no
+        // The other half of the scenario: an overlap a guard separates, which the lift has no
         // solver for and therefore refuses rather than choosing. The corpus's instance of it is
-        // the negated-twin idiom, not the junction.
+        // the negated-twin idiom, not the junction, and the lift carries one refusal per
+        // getInstance overload that has a twin.
         List<Unknown> refusals = corpus.lift("KeyGeneratorSpec").morphism().refusals();
-        assertEquals(1, refusals.size());
+        assertEquals(2, refusals.size(), refusals.toString());
         OverlappingDispatch overlap = (OverlappingDispatch) refusals.get(0);
         assertEquals(List.of("g1", "g3"), overlap.labels(),
                 "INV-CONF-07: a refusal that does not name which labels overlap does not say how "
@@ -505,7 +586,7 @@ class M2OrderCorpusTest {
             SpecRulePairing.Pair pair = pairOf(specification);
             return compareAgainst(specification, pair.rule().name(),
                     M2Order.withoutRefusedLetters(pair.rule().model(),
-                            lifts.get(specification).morphism()));
+                            compare(specification).result().refusals()));
         }
 
         private M2Order.Comparison compareAgainst(String specification, String rule,
@@ -514,8 +595,8 @@ class M2OrderCorpusTest {
             M2Order.Options options = new M2Order.Options(lift.site(),
                     vitality.get(specification).indexes(),
                     PREDICATE_ONLY_STATES.getOrDefault(specification, Set.of()), platform);
-            return M2Order.compare(specification, lift.model(), lift.morphism(), rule, ruleModel,
-                    map, options);
+            return M2Order.compare(specification, lift.model(), lift.labelOrder(),
+                    lift.morphism(), rule, ruleModel, map, options);
         }
 
         private SpecRulePairing.Pair pairOf(String specification) {

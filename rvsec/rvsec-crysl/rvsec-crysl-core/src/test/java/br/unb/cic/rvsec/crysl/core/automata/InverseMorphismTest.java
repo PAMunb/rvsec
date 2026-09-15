@@ -12,9 +12,13 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import br.unb.cic.rvsec.crysl.core.model.Event;
 import br.unb.cic.rvsec.crysl.core.model.Label;
 import br.unb.cic.rvsec.crysl.core.model.OverlappingDispatch;
+import br.unb.cic.rvsec.crysl.core.model.Signature;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -30,6 +34,7 @@ import org.junit.jupiter.api.Test;
 @Tag("automata")
 class InverseMorphismTest {
 
+    private static final String TYPE = "br.unb.cic.Demo";
     private static final Label USE = new Label("use");
     private static final Label USE_RANDOM_SPEC = new Label("useRandomSpec");
 
@@ -88,6 +93,77 @@ class InverseMorphismTest {
         assertThrows(IllegalStateException.class,
                 () -> morphism.preimage(useThenUseRandomSpec()),
                 "a preimage over an unresolved overlap would be a confident answer built on a gap");
+    }
+
+    @Test
+    @DisplayName("a twin overlap the erasures reduce to one label is that label's letter")
+    void test_a_twin_overlap_is_resolved_by_the_erasure_of_the_twin() {
+        // The negated-twin idiom: g1 admits the algorithm, g3 is its refused twin over the same
+        // call under the complementary condition, and f1 uses the object.
+        InverseMorphism morphism = InverseMorphism.of(
+                List.of(guardedEvent("g1", 0, "admitted(alg)", "getInstance"),
+                        guardedEvent("g3", 1, "!admitted(alg)", "getInstance"),
+                        event("f1", 2, "use")),
+                SITE);
+        assertEquals(1, morphism.refusals().size(), "the lift refuses the overlap");
+
+        InverseMorphism resolved = morphism.resolvedBy(Set.of(new Label("g3")));
+
+        assertTrue(resolved.refusals().isEmpty(),
+                "with g3 erased only g1 can emit a letter over the call, so nothing is left to "
+                        + "refuse: " + resolved.refusals());
+        assertEquals(List.of(new Label("g1")), resolved.images().get(sig("getInstance")),
+                "the call is the survivor's letter alone");
+        assertEquals(List.of(new Label("f1")), resolved.images().get(sig("use")),
+                "letters that were never refused keep their image");
+        assertTrue(resolved.preimage(labelAutomaton("l0", "l2", "l0 g1 l1", "l1 f1 l2"))
+                        .accepts(word("getInstance", "use")),
+                "and the order over the resolved morphism reads the creation call again");
+        assertEquals(1, morphism.refusals().size(),
+                "the lift's morphism is not changed: the resolution is a new morphism");
+    }
+
+    @Test
+    @DisplayName("an overlap with two surviving labels stays refused")
+    void test_two_surviving_labels_stay_refused() {
+        InverseMorphism morphism = InverseMorphism.of(
+                List.of(guardedEvent("init1", 0, "size >= 2048", "initialize"),
+                        guardedEvent("initError", 1, "size < 2048", "initialize"),
+                        guardedEvent("initTwin", 2, "size == 0", "initialize")),
+                SITE);
+
+        InverseMorphism resolved = morphism.resolvedBy(Set.of(new Label("initTwin")));
+
+        assertEquals(morphism.refusals(), resolved.refusals(),
+                "init1 and initError both survive the erasure, and which of them fires is a guard "
+                        + "this module cannot decide");
+        assertFalse(resolved.images().containsKey(sig("initialize")));
+    }
+
+    @Test
+    @DisplayName("* denotes one parameter of any type, and not two")
+    void test_a_star_denotes_exactly_one_parameter() {
+        Signature narrowed = new Signature(TYPE, "getInstance", List.of("java.lang.String", "*"),
+                TYPE);
+        Signature oneArgument = new Signature(TYPE, "getInstance", List.of("java.lang.String"),
+                TYPE);
+        Signature twoArguments = new Signature(TYPE, "getInstance",
+                List.of("java.lang.String", "java.security.Provider"), TYPE);
+        Signature threeArguments = new Signature(TYPE, "getInstance",
+                List.of("java.lang.String", "java.security.Provider", "int"), TYPE);
+        InverseMorphism morphism = InverseMorphism.of(List.of(
+                new Event(new Label("g1"), "g1()", Set.of(oneArgument), Optional.empty(), 0),
+                new Event(new Label("g2"), "g2()", Set.of(narrowed), Optional.empty(), 1),
+                new Event(new Label("g5"), "g5()", Set.of(twoArguments), Optional.empty(), 2),
+                new Event(new Label("g6"), "g6()", Set.of(threeArguments), Optional.empty(), 3)),
+                SITE);
+
+        assertEquals(List.of(new Label("g2"), new Label("g5")), morphism.images().get(twoArguments),
+                "(String, *) claims the two-argument call whatever its second type is");
+        assertEquals(List.of(new Label("g1")), morphism.images().get(oneArgument),
+                "and not the one-argument call");
+        assertEquals(List.of(new Label("g6")), morphism.images().get(threeArguments),
+                "nor the three-argument call: * is one position, .. is any number of them");
     }
 
     @Test

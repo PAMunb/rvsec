@@ -259,8 +259,8 @@ final class CompareRun {
         m1Out.add(m1);
 
         M2Order.Options options = new M2Order.Options(lift.site(), m0.indexes(), Set.of(), platform);
-        M2Result m2 = M2Order.compare(name, lift.model(), lift.morphism(), rule, ruleModel, map,
-                options).result();
+        M2Result m2 = M2Order.compare(name, lift.model(), lift.labelOrder(), lift.morphism(), rule,
+                ruleModel, map, options).result();
         m2Out.add(m2);
 
         M3Result m3 = M3Constraints.census(lift.model(), ruleModel,

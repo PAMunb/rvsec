@@ -408,8 +408,11 @@ public final class MopLifter {
      * language. That narrowing is an artefact of the refusal and not a claim of the specification,
      * which is exactly why the refusal has to be read. A consumer of {@code SpecModel.order} that
      * does not also read {@code morphism().refusals()} is reading a language narrower than the file
-     * it came from; 42 of the 239 files of the five corpora carry at least one such refusal,
-     * 56 refusals between them.
+     * it came from; 43 files of the five corpora carry at least one such refusal, 62 refusals
+     * between them ({@code MopLiftCorpusTest}). M2 does read them: it takes the preimage again from
+     * {@link MopLift#labelOrder()} once the alphabet map has resolved the twin overlaps it reduces
+     * to one label (INV-CONF-18), which is why the lift keeps every refusal rather than resolving
+     * any itself.
      */
     private static Automaton preimage(LabelAutomaton labelOrder, InverseMorphism morphism) {
         if (morphism.refusals().isEmpty()) {

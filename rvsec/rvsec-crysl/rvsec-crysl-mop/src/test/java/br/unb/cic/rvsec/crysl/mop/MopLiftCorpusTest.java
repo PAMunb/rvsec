@@ -333,16 +333,15 @@ class MopLiftCorpusTest {
                                 + "carries no image and cannot be a letter of the preimage");
             }
         }
-        // 57 -> 58 is gh109 task 8.9: `KeyPairGeneratorSpec.g4` claims the same
-        // `getInstance(String, Object+)` signature as `g2`, the way `g3` claims `g1`'s, so the
-        // file that already carried one refusal now carries two and the count of FILES does not
-        // move. Every negated twin of the set costs one refusal, which is what a refusal is for:
-        // the two labels are told apart by a `condition(...)` the alphabet cannot see.
-        // 58 -> 65 and 42 -> 43 is gh114 tasks 13.6 and 13.7: every guarded creation gained a refused
-        // twin for the two-argument overload, and each twin claims its admitted sibling's signature,
-        // so the refusals move by seven; the one file that carried no refusal before gains one.
+        // A negated twin costs one refusal per overload it shares with its admitted sibling: the
+        // two labels are told apart by a `condition(...)` the alphabet cannot see. In `jca_android`
+        // every guarded creation has a refused twin for each overload it admits, so
+        // `KeyGeneratorSpec` refuses `getInstance(String)` (g1/g3) and `getInstance(String, Object)`
+        // (g2/g4). The lift reads the arity of a conjoined `args(...)` (INV-CONF-19), so an event
+        // written `getInstance(String, ..) && args(alg, *)` claims the two-argument call only and
+        // adds no label, and no refusal, over the one-argument call.
         assertEquals(43, refusing, "files of the five corpora carrying at least one refusal");
-        assertEquals(65, refusals, "OverlappingDispatch refusals over the five corpora");
+        assertEquals(62, refusals, "OverlappingDispatch refusals over the five corpora");
     }
 
     @Test

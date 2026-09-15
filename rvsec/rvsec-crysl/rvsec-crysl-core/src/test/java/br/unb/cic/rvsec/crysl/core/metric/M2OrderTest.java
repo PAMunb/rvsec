@@ -19,6 +19,7 @@ import br.unb.cic.rvsec.crysl.core.model.Event;
 import br.unb.cic.rvsec.crysl.core.model.Guard;
 import br.unb.cic.rvsec.crysl.core.model.Label;
 import br.unb.cic.rvsec.crysl.core.model.Normalization;
+import br.unb.cic.rvsec.crysl.core.model.OverlappingDispatch;
 import br.unb.cic.rvsec.crysl.core.model.Provenance;
 import br.unb.cic.rvsec.crysl.core.model.Signature;
 import br.unb.cic.rvsec.crysl.core.model.SourceStamp;
@@ -110,6 +111,62 @@ class M2OrderTest {
                         + "wrong once (INV-CONF-10)");
     }
 
+    // ------------------------------------------------------------------ INV-CONF-18
+
+    @Test
+    @DisplayName("INV-CONF-18 · a twin overlap the map erases down to one label compares as that "
+            + "label's letter, with the twin's erasure reported")
+    void test_a_twin_overlap_resolved_by_the_map_is_equivalent(@TempDir Path dir)
+            throws IOException {
+        String reason = "an ORDER has no symbol for a call it rejects on a constraint";
+        AlphabetMap map = map(dir,
+                "Demo,e1,r1,event,Demo.crysl,10,mapped,",
+                "Demo,e2,r2,event,Demo.crysl,11,mapped,",
+                "Demo,e3,,,Demo.crysl,,order-unmapped,\"" + reason + "\"");
+        Fixture specification = twinSpecification();
+
+        M2Order.Comparison comparison = compare(map, specification, ruleGetThenPuts(),
+                M2Order.Options.of(SITE, false));
+
+        assertEquals(1, InverseMorphism.of(specification.model().events(), SITE).refusals().size(),
+                "the lift refuses get(), claimed by e1 and its twin e3");
+        assertEquals(M2Result.Verdict.EQUIVALENT, comparison.result().verdict(),
+                "read as e1's letter, get() is the creation call the rule orders first");
+        assertTrue(comparison.result().refusals().isEmpty(),
+                "the resolved overlap is not a refusal of the result: "
+                        + comparison.result().refusals());
+        assertFalse(comparison.refusalBorne());
+        Normalization erasure = comparison.result().normalizations().stream()
+                .filter(n -> n.id().equals("N-EPS·Demo.e3"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("the twin's erasure was not reported: "
+                        + comparison.result().normalizations()));
+        assertTrue(erasure.description().contains(reason), erasure.description());
+    }
+
+    @Test
+    @DisplayName("INV-CONF-18 · an overlap with two labels the map keeps stays OverlappingDispatch")
+    void test_an_overlap_with_two_surviving_labels_stays_refused(@TempDir Path dir)
+            throws IOException {
+        AlphabetMap map = map(dir,
+                "Demo,e1,r1,event,Demo.crysl,10,mapped,",
+                "Demo,e2,r2,event,Demo.crysl,11,mapped,",
+                "Demo,e3,r1,event,Demo.crysl,10,mapped,");
+
+        M2Order.Comparison comparison = compare(map, twinSpecification(), ruleGetThenPuts(),
+                M2Order.Options.of(SITE, false));
+
+        assertEquals(1, comparison.result().refusals().size(),
+                () -> comparison.result().refusals().toString());
+        OverlappingDispatch refusal = (OverlappingDispatch) comparison.result().refusals().get(0);
+        assertEquals(List.of("e1", "e3"), refusal.labels());
+        assertEquals(sig("get"), refusal.signature());
+        assertEquals(M2Result.Verdict.MOP_MORE_RESTRICTIVE, comparison.result().verdict(),
+                "without get() the specification's language loses every word the rule accepts");
+        assertTrue(comparison.refusalBorne(),
+                "and the verdict says the narrowing belongs to the refusal");
+    }
+
     // ------------------------------------------------------------------ 10.4
 
     @Test
@@ -165,7 +222,7 @@ class M2OrderTest {
     @DisplayName("10.9 · N1 runs only where M0.1 says the monitor indexes")
     void test_n1_is_not_a_general_rule(@TempDir Path dir) throws IOException {
         AlphabetMap map = map(dir, "Demo,e1,r1,event,Demo.crysl,10,mapped,");
-        SpecModel specification = oneEventSpecification("get", "get get");
+        Fixture specification = oneEventSpecification("get", "get get");
         SpecModel rule = rule(automaton("q0", "q1", edge("q0", "get", "q1")));
 
         M2Order.Comparison global = compare(map, specification, rule,
@@ -255,7 +312,7 @@ class M2OrderTest {
     // ------------------------------------------------------------------ fixtures
 
     /** {@code e1: get()} mapped, {@code e2: put()} whatever the map says; {@code ere: e1 e2*}. */
-    private static SpecModel twoEventSpecification() {
+    private static Fixture twoEventSpecification() {
         List<Event> events = List.of(
                 new Event(new Label("e1"), "call(void Demo.get())", Set.of(sig("get")),
                         Optional.empty(), 0),
@@ -267,8 +324,32 @@ class M2OrderTest {
         return specification(events, order);
     }
 
+    /**
+     * {@code e1: get()} under an admitting condition, {@code e3: get()} its refused twin under the
+     * complementary one, {@code e2: put()}; {@code ere: e3* e1 e2*}.
+     */
+    private static Fixture twinSpecification() {
+        List<Event> events = List.of(
+                new Event(new Label("e1"), "call(void Demo.get())", Set.of(sig("get")),
+                        Optional.of(new Guard("admitted(alg)")), 0),
+                new Event(new Label("e2"), "call(void Demo.put())", Set.of(sig("put")),
+                        Optional.empty(), 1),
+                new Event(new Label("e3"), "call(void Demo.get())", Set.of(sig("get")),
+                        Optional.of(new Guard("!admitted(alg)")), 2));
+        LabelAutomaton order = new LabelAutomaton(Set.of("s0", "s1"), "s0", Set.of("s1"),
+                List.of(new LabelTransition("s0", new Label("e3"), "s0"),
+                        new LabelTransition("s0", new Label("e1"), "s1"),
+                        new LabelTransition("s1", new Label("e2"), "s1")));
+        return specification(events, order);
+    }
+
+    /** The rule {@code ORDER get, put*}. */
+    private static SpecModel ruleGetThenPuts() {
+        return rule(automaton("q0", "q1", edge("q0", "get", "q1"), edge("q1", "put", "q1")));
+    }
+
     /** One event over {@code name}, with the label word given as the {@code ere} spelled out. */
-    private static SpecModel oneEventSpecification(String name, String word) {
+    private static Fixture oneEventSpecification(String name, String word) {
         // The signature returns the monitored type, which is what makes it a creator letter and
         // therefore what N1 is about. The rule's letter for it is the plain one: the identification
         // does not compare return types, exactly as R-M1 does not.
@@ -287,12 +368,18 @@ class M2OrderTest {
                 Set.of("s" + letters.length), transitions));
     }
 
-    private static SpecModel specification(List<Event> events, LabelAutomaton order) {
+    /** A specification as the lift hands it to M2: the model and the order over labels. */
+    private record Fixture(SpecModel model, LabelAutomaton order) {
+    }
+
+    private static Fixture specification(List<Event> events, LabelAutomaton order) {
         InverseMorphism morphism = InverseMorphism.of(events, SITE);
         Map<Object, Provenance> provenance = new LinkedHashMap<>();
         events.forEach(event -> provenance.put(event, SITE));
-        return new SpecModel(version(), TYPE, Set.of(), events, morphism.preimage(order),
-                List.of(), List.of(), List.of(), List.of(), Set.of(), provenance);
+        InverseMorphism resolved = new InverseMorphism(morphism.images(), List.of());
+        return new Fixture(new SpecModel(version(), TYPE, Set.of(), events,
+                resolved.preimage(order), List.of(), List.of(), List.of(), List.of(), Set.of(),
+                provenance), order);
     }
 
     /** The rule {@code ORDER get, put*}: what {@code twoEventSpecification} erases down to. */
@@ -305,10 +392,11 @@ class M2OrderTest {
                 List.of(), List.of(), Set.of(), Map.of());
     }
 
-    private static M2Order.Comparison compare(AlphabetMap map, SpecModel specification,
+    private static M2Order.Comparison compare(AlphabetMap map, Fixture specification,
                                               SpecModel rule, M2Order.Options options) {
-        InverseMorphism morphism = InverseMorphism.of(specification.events(), SITE);
-        return M2Order.compare("Demo", specification, morphism, "Demo", rule, map, options);
+        InverseMorphism morphism = InverseMorphism.of(specification.model().events(), SITE);
+        return M2Order.compare("Demo", specification.model(), specification.order(), morphism,
+                "Demo", rule, map, options);
     }
 
     private static AlphabetMap map(Path dir, String... rows) throws IOException {

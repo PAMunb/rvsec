@@ -58,7 +58,7 @@ run with findings — collapsing the two would make the known upstream residuals
 ## Corpora
 Read-only in every case (INV-CONF-12); nothing writes to a path it read.
 - `.mop` corpora: the sibling `rvsec-mop` module **in the working tree**, not copies in test
-  resources — `jca` (23), `jca_android` (48), `jca_android_bug_predicate` (23), `generic` (118),
+  resources — `jca` (23), `jca_android` (47), `jca_android_bug_predicate` (23), `generic` (118),
   `generic_new` (27). A test that passes against a frozen copy while the live set has moved is worse
   than no test.
 - CrySL oracle: `rvsec-cognicrypt/CrySL-Rules` — a **separate repository**, 49 `.crysl` files, read
@@ -71,7 +71,7 @@ Read-only in every case (INV-CONF-12); nothing writes to a path it read.
 
 **Editing a `.mop` in one of the five corpora is editing this component's inputs.** Reading the live
 set is what makes the census meaningful and it is also what makes it fragile: `MopLiftCorpusTest`
-pins the aggregate as a literal (currently 974 events, 407 parameters, 239 files), so a specification
+pins the aggregate as a literal (currently 980 events, 406 parameters, 238 files), so a specification
 repair that adds or removes an event or a parameter turns the CI red in `rvsec-crysl-mop` and nowhere
 else — the reactor build above it passes with `-DskipTests` and says nothing. Whoever moves the
 corpus re-runs the component and re-pins the census in the same change. That is the intended
@@ -86,6 +86,28 @@ conformance spec; all of them move together.
 parameter assertion in the same test, so a moved event count hides a moved parameter count: the three
 red runs above reported only `905 -> 907` while `381 -> 383` was equally false and invisible. Run the
 component and read the census off the run, rather than patching the number in the failure message.
+
+## Lift signatures, refusals and M2
+- **Signatures are what a woven program matches.** `PointcutExpander` resolves simple names through
+  the file's imports, the declared parameter types and `java.lang`; spells a nested type by its
+  binary name when the platform class loader knows it (`java.security.KeyStore$ProtectionParameter`,
+  as CrySL renders it; `MopLowerer` imports it back under the dotted name); and narrows a trailing
+  `..` by a conjoined `args(...)` without `..` — `getInstance(String, ..) && args(alg, *)` is
+  `getInstance(String, *)`, and a fixed-arity call the clause contradicts names no signature
+  (INV-CONF-19). `InverseMorphism` reads `*` as one parameter of any type and `..` as any number.
+- **The lift refuses, M2 resolves.** Two or more labels claiming one signature, any of them with a
+  `condition`, is `Unknown{OverlappingDispatch}` on `MopLift.morphism()`, and `SpecModel.order` is
+  built without that letter. The lift never resolves one, because only M2 reads the alphabet map.
+  M2 (`M2Order.compare`, which takes `MopLift.labelOrder()`) resolves an overlap whose labels the map
+  erases down to exactly one — the negated-twin idiom, whose twin row is `order-unmapped` — reads the
+  call as that label's letter, reports each erased label as `N-EPS·<spec>.<label>` and takes the
+  order again over the resolved morphism (INV-CONF-18). An overlap with two or more labels the map
+  keeps stays a refusal, and a verdict whose witness runs through it is refusal-borne. Over
+  `jca_android` the lift carries 19 refusals and M2 leaves 2 (`KeyPairGeneratorSpec` `init1`/
+  `initError`, `init2`/`initError2`); over the five corpora the lift carries 62 in 43 files.
+- **A twin or an `args` edit moves pins.** Adding a refused twin adds a lift refusal per overload it
+  shares (`MopLiftCorpusTest`) and an `N-EPS` to the specification's M2 row (`M2OrderCorpusTest`);
+  changing an `args(...)` arity can add or remove a claimed letter. Re-measure both suites.
 
 ## Build properties (parent `pom.xml`)
 - **`guava.version` = `33.5.0-jre`** — overrides the reactor's 19.0. The root pins 19.0 for Soot;
@@ -124,7 +146,7 @@ CI (`rvsec/.github/workflows/ci.yml`, step "MOP/CrySL conformance component test
 ```bash
 mvn -ntp -B -f rvsec/rvsec-crysl/pom.xml -DskipTests=false -DexcludedGroups=oracle-dependent test
 ```
-That excludes 65 of 326 tests (64 in `-crysl`, 1 in `-mop`). The one outside `-crysl` is deliberate:
+That excludes 69 of 345 tests (68 in `-crysl`, 1 in `-mop`). The one outside `-crysl` is deliberate:
 `RoundTripGateTest.test_the_fifth_check_resolves_pointcuts` resolves pointcuts against `android.jar`.
 
 ## Build

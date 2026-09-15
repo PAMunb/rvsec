@@ -29,7 +29,9 @@ import java.util.Objects;
  *       the file, and the {@code Unknown} refusals lose the only object that holds them.
  *       {@code morphism.refusals()} is where {@code Unknown{OverlappingDispatch}} arrives, because
  *       the morphism is built here and not in M2; see {@link MopLifter} for what
- *       {@code SpecModel.order} then contains for a specification that has one;
+ *       {@code SpecModel.order} then contains for a specification that has one. M2 takes the
+ *       preimage again from both halves once the alphabet map has resolved the overlaps it reduces
+ *       to one label (INV-CONF-18);
  *   <li>{@code handlers} — M0 decides whether a specification can accuse at all, and that is a
  *       question about {@code @match} and {@code @fail}, which CrySL has no counterpart for;
  *   <li>{@code predicateSites} — the substrate each predicate reference was written on, and the
@@ -43,7 +45,7 @@ import java.util.Objects;
  * <p>The three parser counts are carried as data rather than recomputed by each caller, and each
  * comes with the counting rule it was taken under, because a count published without its rule is
  * the failure INV-CONF-02 exists to prevent. They are the raw parser counts, and the aggregate over
- * the five corpora is 974 events and 407 parameters across 239 files.
+ * the five corpora is 980 events and 406 parameters across 238 files.
  *
  * <p>{@code eventsBindingParameters} is the third of them and it is here because M0.1 cannot be
  * answered without it and cannot recover it from the text: {@code getMOPParametersOnSpec()} is the

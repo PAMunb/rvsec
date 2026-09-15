@@ -47,6 +47,9 @@ public record InverseMorphism(Map<Signature, List<Label>> images, List<Unknown> 
     /** AspectJ's "any remaining parameters" pattern, as {@code PointcutExpander} writes it. */
     private static final String ELLIPSIS = "..";
 
+    /** AspectJ's single-parameter wildcard, as {@code PointcutExpander} writes it. */
+    private static final String ANY = "*";
+
     public InverseMorphism {
         images = Map.copyOf(images);
         refusals = List.copyOf(refusals);
@@ -108,25 +111,62 @@ public record InverseMorphism(Map<Signature, List<Label>> images, List<Unknown> 
     }
 
     /**
-     * Whether {@code pattern} denotes {@code letter}: they are the same signature, or {@code
-     * pattern} ends in AspectJ's {@code ..} and {@code letter} is one of the signatures that
-     * trailing ellipsis covers.
+     * This morphism with every refused overlap that the given erasures reduce to a single label
+     * resolved to that label.
      *
-     * <p>Without this rule the motivating case of design D-02 does not occur in the corpus at all.
-     * {@code IvChainJunction} writes {@code use} as
+     * <p>The overlap the corpus refuses is the negated-twin idiom: an admitting event and a refused
+     * twin over one call, separated by complementary {@code condition}s. The twin stands for the
+     * value the rule rejects in {@code CONSTRAINTS}, and the alphabet map erases it because an
+     * {@code ORDER} has no symbol for such a call. With the twin read as &epsilon;, the labels the
+     * call can emit in the order are the survivor's alone, so the call is the survivor's letter and
+     * the guard that chose between the two is left to M3, as every other guard is. An overlap with
+     * two or more surviving labels stays refused: which of them fires is still a guard this module
+     * cannot decide. An overlap whose labels are all erased stays refused too; the corpus has none,
+     * and no rule is offered for a shape nothing exercises.
+     *
+     * @param erased the labels the alphabet map erases, for the specification this morphism belongs
+     *               to. The map is read by M2 alone (INV-CONF-10), which is why this is a parameter
+     *               and not something the lift decides
+     */
+    public InverseMorphism resolvedBy(Set<Label> erased) {
+        Map<Signature, List<Label>> resolved = new LinkedHashMap<>(images);
+        List<Unknown> remaining = new ArrayList<>();
+        for (Unknown refusal : refusals) {
+            if (refusal instanceof OverlappingDispatch overlap) {
+                List<String> survivors = overlap.labels().stream()
+                        .filter(label -> !erased.contains(new Label(label)))
+                        .toList();
+                if (survivors.size() == 1) {
+                    resolved.put(overlap.signature(), List.of(new Label(survivors.get(0))));
+                    continue;
+                }
+            }
+            remaining.add(refusal);
+        }
+        return new InverseMorphism(resolved, remaining);
+    }
+
+    /**
+     * Whether {@code pattern} denotes {@code letter}: position by position the parameter types are
+     * equal or the pattern writes AspectJ's single-parameter {@code *} there, and the arities agree
+     * - exactly, or at least up to the prefix when the pattern ends in AspectJ's {@code ..}.
+     *
+     * <p>Without the ellipsis rule the motivating case of design D-02 does not occur in the corpus
+     * at all. {@code IvChainJunction} writes {@code use} as
      * {@code call(public void Cipher.init(int, Key, AlgorithmParameterSpec, ..))} and
      * {@code useRandomSpec} as
      * {@code call(public void Cipher.init(int, Key, AlgorithmParameterSpec, SecureRandom))}: one
      * call really does match both and really does emit two letters, and comparing the two
      * signatures for equality answers that it does not. The letters of the alphabet stay exactly
-     * the signatures the specification writes - this widens which events claim a letter, never how
-     * many letters there are.
+     * the signatures the lift writes - this widens which events claim a letter, never how many
+     * letters there are.
      *
-     * <p>Only the trailing ellipsis is given a rule. Measured over the 952 signatures the five
-     * corpora expand to, 97 carry a {@code ..} and every one of them carries it last; none carries
-     * a {@code *} in a parameter position. A rule for a shape the corpus does not contain could not
-     * be tested against anything, so there is none. A CrySL signature never carries either, which
-     * makes the whole rule inert on that side rather than a MOP-ism the model has to know about.
+     * <p>The {@code .mop} files write a {@code ..} only last and never write a {@code *} in a
+     * parameter position; the {@code *} comes from the lift, which narrows a trailing {@code ..} to
+     * the arity of the {@code args(...)} clause beside it, so {@code getInstance(String, ..)} with
+     * {@code args(alg, *)} is {@code getInstance(String, *)} and claims the two-argument letters
+     * only. A CrySL signature carries neither, which makes both rules inert on that side rather
+     * than a MOP-ism the model has to know about.
      */
     private static boolean denotes(Signature pattern, Signature letter) {
         if (!pattern.declaringType().equals(letter.declaringType())
@@ -135,12 +175,18 @@ public record InverseMorphism(Map<Signature, List<Label>> images, List<Unknown> 
             return false;
         }
         List<String> declared = pattern.paramTypes();
-        if (declared.isEmpty() || !ELLIPSIS.equals(declared.get(declared.size() - 1))) {
-            return declared.equals(letter.paramTypes());
+        List<String> actual = letter.paramTypes();
+        boolean tail = !declared.isEmpty() && ELLIPSIS.equals(declared.get(declared.size() - 1));
+        List<String> prefix = tail ? declared.subList(0, declared.size() - 1) : declared;
+        if (tail ? actual.size() < prefix.size() : actual.size() != prefix.size()) {
+            return false;
         }
-        List<String> prefix = declared.subList(0, declared.size() - 1);
-        return letter.paramTypes().size() >= prefix.size()
-                && letter.paramTypes().subList(0, prefix.size()).equals(prefix);
+        for (int i = 0; i < prefix.size(); i++) {
+            if (!ANY.equals(prefix.get(i)) && !prefix.get(i).equals(actual.get(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

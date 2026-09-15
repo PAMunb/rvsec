@@ -255,7 +255,10 @@ public final class MopLowerer {
      * every event as changed. The signatures are already resolved, so the imports are recoverable
      * from them exactly. Array suffixes, wildcards and AspectJ's {@code ..} are not importable names
      * and are filtered out; a type the original file never imported arrives here as a simple name,
-     * produces no import, and resolves back to itself.
+     * produces no import, and resolves back to itself. A nested type arrives under its binary name
+     * ({@code java.security.KeyStore$ProtectionParameter}) and is imported under its canonical one,
+     * with dots, because that is how Java source imports it and the simple name the pointcut writes
+     * is the segment after the last dot.
      */
     private static List<ImportDeclaration> importsOf(SpecModel model) {
         Set<String> names = new TreeSet<>();
@@ -279,7 +282,7 @@ public final class MopLowerer {
             base = base.substring(0, base.length() - 2);
         }
         if (IMPORTABLE.matcher(base).matches()) {
-            out.add(base);
+            out.add(base.replace('$', '.'));
         }
     }
 
