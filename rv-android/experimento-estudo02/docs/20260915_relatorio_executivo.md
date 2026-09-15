@@ -49,7 +49,7 @@ Três coisas atenuam o susto:
 
    O `jca_android` passou a dizer esse "não sei" às claras.
 3. **O CogniCrypt, a ferramenta estática de referência, tem o mesmo limite, e sem distinguir.** No
-   nosso corpus, 30 % dos achados dele são "origem não comprovada", 82 % desses caem no okhttp e o
+   nosso corpus, 44 % dos achados dele são "origem não comprovada", 82 % desses caem no okhttp e o
    método mais acusado é o mesmo que concentra o nosso `NOBS`. A diferença é que ele não separa
    "violou" de "não consegui ver": relata tudo como erro.
 
@@ -452,7 +452,7 @@ segue os valores pelo código. Conferido no código-fonte:
 Há relatórios do CogniCrypt 5.0.1 para o nosso corpus (`rvsec-dataset/cognicrypt/`, 144 dos 163
 apps da campanha):
 
-- 2 530 achados, dos quais **758 (30 %) são "origem não comprovada"**;
+- 1 708 achados, dos quais **758 (44 %) são "origem não comprovada"**;
 - **86 %** desses 758 são de `SSLContext` e `TrustManagerFactory`, e **82 %** caem no okhttp;
 - o método mais acusado é `Platform.newSslSocketFactory` (360), o mesmo que concentra o nosso
   `NOBS`;
@@ -878,9 +878,10 @@ APKs instrumentados. Assim, o efeito de cada um é conhecido antes de qualquer c
 | Acusações publicadas do artigo | `ase-journal/dataset/results/errors.csv` (somente leitura) |
 | Specs | `rvsec/rvsec/rvsec-mop/src/main/resources/{jca,jca_android}/` |
 | Regras CrySL fixadas | `rvsec-cognicrypt/CrySL-Rules/` |
-| Relatórios do CogniCrypt sobre o corpus | `rvsec-dataset/cognicrypt/*.csv` |
+| Relatórios do CogniCrypt sobre o corpus | `rvsec-dataset/cognicrypt/*_CryptoAnalysis-Report.csv` (os dois `cognicrypt_{summary,metrics}.csv` da mesma pasta são resumo da execução, não achados) |
+| Números das seções 7 e 8 (`jca` por mecanismo, valores do `jca_android`, CogniCrypt) | `experimento-estudo02/docs/20260915_jca_e_cognicrypt.md`, gerado por `scripts/jca_e_cognicrypt.py` |
 | Divergência do monitor "depois" | `docs/20260827_divergencia_after_dexlib2_ajc.md` |
 | Regenerador de tabelas | `experimento-estudo02/scripts/regenerate_tables.py` |
 | Modelo com a contagem limpa | `experimento-estudo02/docs/20260915_modelo_rq1_desfechos.md`, `20260915_modelo_rq1_sustentado.txt`; scripts `desfechos_sustentados.py` e `rq1_estudo02.py --outcome` |
-| Arquivos de acusação limpos e contagens por execução | `data/results/estudo02_consolidado/{errors_sustentado,errors_relevante,per_task_desfechos}.csv` (fora do git; regenerados pelo script) |
+| Arquivos de acusação limpos e contagens por execução | `experimento-estudo02/docs/desfechos_sustentados.zip` (contém `errors_sustentado.csv`, `errors_relevante.csv` e `per_task_desfechos.csv`; o script os regenera em `data/results/estudo02_consolidado/`) |
 | Dados da campanha | `data/results/estudo02_consolidado/` |
