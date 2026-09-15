@@ -44,7 +44,8 @@ from rv_static_analysis.parser.static import static_analysis_parser
 # The written contract of errors.csv (INV-PLT-19). `source` was added by gh89 and
 # `code`/`event` by gh104; those three are the only additions since the baseline, and
 # readers that address the columns by name — `aperv_tool.analysis.violations`,
-# `rvsec-dataset`, the article's scripts — tolerate them where positional readers do not.
+# `rvsec-dataset`, the article's scripts — tolerate them where positional readers
+# do not.
 ERRORS_CSV_COLUMNS = [
     "apk",
     "rep",
@@ -326,7 +327,7 @@ class ResultProcessorComponent:
         # No cleanup required for this component
 
     def _open_for_append(self, name: str):
-        """Open one output file of ``results_dir`` for appending rows after its header."""
+        """Open one output file of ``results_dir`` to append rows after its header."""
         return open(
             os.path.join(self.results_dir, name), "a", newline="", encoding="utf-8"
         )
@@ -351,7 +352,8 @@ class ResultProcessorComponent:
         ]
 
         self.logger.info(
-            f"Filtered {len(completed_tasks)} completed tasks out of {len(self.tasks)} total tasks"
+            f"Filtered {len(completed_tasks)} completed tasks "
+            f"out of {len(self.tasks)} total tasks"
         )
         return completed_tasks
 
@@ -756,7 +758,8 @@ class ResultProcessorComponent:
             # For MOP violation data (errors.csv), we CAN reconstruct from logcat
             # because violations are standalone log entries that don't need static
             # analysis context. This is the key asymmetry with coverage.csv:
-            # - errors.csv: reconstructible from logcat (RVSEC markers are self-contained)
+            # - errors.csv: reconstructible from logcat (RVSEC markers are
+            #   self-contained)
             # - coverage.csv: NOT reconstructible (needs static analysis class list)
             # Requirement "Result Consolidation on Resume (FR10-ext)": errors stay
             # reliable even when the static JSON is absent (analysis INV-ANA-25).
@@ -1285,7 +1288,8 @@ class ResultProcessorComponent:
                 performance_processor.generate()
                 summary = performance_processor.get_performance_summary()
                 self.logger.info(
-                    f"Performance processing completed: {summary.get('summary', 'Unknown status')}"
+                    "Performance processing completed: "
+                    f"{summary.get('summary', 'Unknown status')}"
                 )
 
             except Exception as e:
@@ -1337,8 +1341,11 @@ class ResultProcessorComponent:
                                 time.time(),
                             ]
                         )
-                    except Exception:
-                        pass  # Skip problematic tasks
+                    except Exception as e:
+                        self.logger.warning(
+                            f"Skipping task {getattr(task, 'id', '?')} "
+                            f"in empty performance CSV: {e}"
+                        )
 
             self.logger.info(f"Empty performance CSV created: {performance_file}")
 

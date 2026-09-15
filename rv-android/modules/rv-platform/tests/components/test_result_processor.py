@@ -310,7 +310,10 @@ class TestErrorsCSV:
                 "spec": "MessageDigestSpec",
                 "error_type": "MessageDigest",
                 "message": "found MD5",
-                "unique_msg": "okio.ByteString:::digest$okio:::MessageDigestSpec:::MessageDigest:::found MD5",
+                "unique_msg": (
+                    "okio.ByteString:::digest$okio:::MessageDigestSpec"
+                    ":::MessageDigest:::found MD5"
+                ),
                 "time_since_task_start": 5,
             }
             for line in (83, 84)
@@ -406,7 +409,9 @@ class TestErrorsCSV:
                 "spec": "CipherSpec",
                 "error_type": "UnsafeAlgorithm",
                 "message": "unknown",
-                "unique_msg": f"com.example.C:::enc:::CipherSpec:::UnsafeAlgorithm:::u{i}",
+                "unique_msg": (
+                    f"com.example.C:::enc:::CipherSpec:::UnsafeAlgorithm:::u{i}"
+                ),
                 "time_since_task_start": 0,
             }
             for i in range(37)
@@ -475,7 +480,7 @@ class TestErrorsCSV:
 
 
 def _diagnostic_event_dict(category="crash", time=2):
-    """A diagnostic-event dict as returned by LogcatRepository.get_diagnostic_events()."""
+    """A diagnostic-event dict as returned by get_diagnostic_events()."""
     return {
         "category": category,
         "class_full_name": "java.lang.NullPointerException",
@@ -486,7 +491,9 @@ def _diagnostic_event_dict(category="crash", time=2):
         "pid": "7071",
         "tid": "7071",
         "fatal": True,
-        "stack_head": "br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)",
+        "stack_head": (
+            "br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)"
+        ),
         "n_frames": 4,
         "original_msg": "FATAL EXCEPTION: main\n\tat ...",
         "time_since_task_start": time,
@@ -946,7 +953,10 @@ class TestGh83ReconstructionTimeStamping:
                 "spec": "KeyGeneratorSpec",
                 "error_type": "violation",
                 "message": "weak key",
-                "unique_msg": "KeyGenerator:::getInstance:::KeyGeneratorSpec:::violation:::weak key",
+                "unique_msg": (
+                    "KeyGenerator:::getInstance:::KeyGeneratorSpec"
+                    ":::violation:::weak key"
+                ),
                 "time_since_task_start": 17,
             },
         ]
@@ -984,7 +994,11 @@ class TestGh83ReconstructionTimeStamping:
 
 class TestExecutePipeline:
     def test_execute_generates_all_output_files(self, tmp_path):
-        """execute() produces coverage.csv, errors.csv, summary.csv, results.json, performance.csv."""
+        """execute() produces the four CSVs and results.json.
+
+        The files are coverage.csv, errors.csv, summary.csv, performance.csv and
+        results.json.
+        """
         metrics = {
             "activities_coverage": 50.0,
             "method_coverage": 25.0,
@@ -1999,7 +2013,9 @@ class TestWriteErrorsReachDisk:
                 "spec": "CipherSpec",
                 "error_type": "UnsafeAlgorithm",
                 "message": "unknown",
-                "unique_msg": f"com.example.C:::enc:::CipherSpec:::UnsafeAlgorithm:::u{i}",
+                "unique_msg": (
+                    f"com.example.C:::enc:::CipherSpec:::UnsafeAlgorithm:::u{i}"
+                ),
                 "time_since_task_start": 0,
             }
             for i in range(5)

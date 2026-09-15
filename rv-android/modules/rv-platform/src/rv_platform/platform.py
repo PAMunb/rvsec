@@ -111,10 +111,11 @@ class Platform:
         self.task_storage = TaskStorage(tasks_file, self.task_factory)
         self.task_storage.load()
 
-        # In-memory task list for the CURRENT session only. After _skip_completed_tasks(),
-        # this contains only pending tasks — previously completed tasks live only in
-        # TaskStorage. This separation is intentional: self.tasks drives the execution
-        # loop, while TaskStorage drives result processing (which needs ALL sessions).
+        # In-memory task list for the CURRENT session only. After
+        # _skip_completed_tasks(), this contains only pending tasks — previously
+        # completed tasks live only in TaskStorage. This separation is intentional:
+        # self.tasks drives the execution loop, while TaskStorage drives result
+        # processing (which needs ALL sessions).
         self.tasks: List[Task] = []
         self._skipped_count: int = 0
 
@@ -288,8 +289,9 @@ class Platform:
 
         # Validate configuration consistency via checksum (INV-PLT-12).
         # This is the platform-owned user-visible WARNING with the first 8 hex of
-        # the stored and current checksums; TaskStorage.check_continuation_compatibility()
-        # only logs the mismatch at DEBUG. Mismatch = Scenario "Resume With Changed
+        # the stored and current checksums;
+        # TaskStorage.check_continuation_compatibility() only logs the mismatch
+        # at DEBUG. Mismatch = Scenario "Resume With Changed
         # Configuration" (message below); match = Scenario "Resume With Same
         # Configuration". Either way, execution proceeds — a config change does not
         # block resume, because task identity is independent of the checksum.
@@ -304,7 +306,8 @@ class Platform:
                 json.dumps(config_dict, sort_keys=True).encode()
             ).hexdigest()[:8]
             self.logger.warning(
-                f"Config changed since last run (stored: {stored}, current: {current}) — resuming anyway"
+                f"Config changed since last run (stored: {stored}, "
+                f"current: {current}) — resuming anyway"
             )
 
         # Identity tuple uniquely identifies a task across sessions and is the
@@ -419,7 +422,8 @@ class Platform:
                 for component in components:
                     executor.register_component(component)
 
-                # Step 3: Execute the full component lifecycle (init -> execute -> cleanup).
+                # Step 3: Execute the full component lifecycle
+                # (init -> execute -> cleanup).
                 success = executor.execute()
 
                 # Step 4: Persist task result immediately after completion.
@@ -468,9 +472,9 @@ class Platform:
                 # atomic save of Requirement "Persistent Task Storage (FR10, NFR08)"
                 # (INV-PLT-03 + INV-PLT-08). Note the record does not suppress
                 # re-execution: per Scenario "Skip Completed Tasks During Resume",
-                # ERROR-state tasks are NOT skipped and re-run on the next resume — only
-                # COMPLETED tasks are skipped. Persisting them keeps the history complete
-                # and lets result processing see every attempt.
+                # ERROR-state tasks are NOT skipped and re-run on the next resume —
+                # only COMPLETED tasks are skipped. Persisting them keeps the history
+                # complete and lets result processing see every attempt.
                 self.task_storage.update_task(task)
 
                 # Same release as the success path (INV-PLT-38).
@@ -522,7 +526,10 @@ class Platform:
                 tool_name = getattr(current, "tool_name", "unknown tool")
                 timeout_seconds = getattr(current, "timeout_seconds", None)
                 if timeout_seconds:
-                    return f"{tool_name} execution timed out after {timeout_seconds} seconds (expected behavior)"
+                    return (
+                        f"{tool_name} execution timed out after "
+                        f"{timeout_seconds} seconds (expected behavior)"
+                    )
                 else:
                     return f"{tool_name} execution timed out (expected behavior)"
 

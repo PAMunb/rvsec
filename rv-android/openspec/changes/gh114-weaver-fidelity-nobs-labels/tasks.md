@@ -179,7 +179,7 @@ GitHub Issue: #114
   - `conformance_record.csv`: new RSA key-size row; rewrite `:116`, `:117`, `:119`, `:120` (advice kind is plain `after`; guards stay `deferred-constant`, platform refuses the call) and amend `:118`, `:121` (`len < 0` on a throwing call)
   - re-emit `coverage_matrix.csv` with `scripts/gh109_coverage_matrix.py --emit`
   - `RVSEC_HOME=… uv run python scripts/gh104_divergence_record.py --check` exits 0
-- [ ] 13.4 G13c: `tests/parity/test_gh105_predicate_gates.py:1362-1395`: restate the census pins with the new `REPORTED_UPSTREAM` and `GENERATED_TRUST_MANAGERS` sites; update `data/jca_android/predicate_graph.csv`
+- [x] 13.4 G13c: `tests/parity/test_gh105_predicate_gates.py:1362-1395`: restate the census pins with the new `REPORTED_UPSTREAM` and `GENERATED_TRUST_MANAGERS` sites; update `data/jca_android/predicate_graph.csv`
 - [ ] 13.5 G13a, after 13.1–13.2: Run the specification trace harness (`scripts/gh104_diff_harness.py`, which replays monitor event traces against two snapshots of the specification set; no weaver involved) over all traces: same `(spec, event, class, method, location)` sets before and after except the trust-manager per-element credit traces; store the report in `evidence/labels_same_sites.txt`
 - [ ] 13.6 Main window, after 13.1–13.5: Generate the monitor for `jca_android` (`uv run rv-monitor-generator generate --specs-dir …/jca_android --output <scratch>`) and run all gates: `uv run pytest tests/parity --import-mode=importlib -o "addopts="`; every moved G-2/G-ORDER allowlist row carries a reason
 
@@ -198,7 +198,7 @@ GitHub Issue: #114
 
 ## 16. Verification
 
-- [ ] 16.1 WAVE 2, subagents G16a (one per module, needs G10, G11): `/rv-qa-lint-fix` then `/rv-verify` for `rv-android-core`, `rv-coverage`, `rv-platform`
+- [x] 16.1 WAVE 2, subagents G16a (one per module, needs G10, G11): `/rv-qa-lint-fix` then `/rv-verify` for `rv-android-core`, `rv-coverage`, `rv-platform`
 - [ ] 16.2 WAVE 3, after G12: `/rv-qa-lint-fix rv-instrumentation-dexlib2` then `/rv-verify rv-instrumentation-dexlib2`
 - [ ] 16.3 Invoke `/rv-code-reviewer` via Skill tool
 - [ ] 16.4 Run `/opsx:verify gh114-weaver-fidelity-nobs-labels`
