@@ -108,10 +108,17 @@ Keyed by APK name, populated from each entry's `weaveCounts`. The Java
   is where extra invokes pushing a method over its register budget shows up.
 - `wrappersGenerated`, `wrappersSubstituted`, `wrappersAliasedToSubtype`,
   `constructorInlineApplied`, `constructorInlineSkippedAliasing` — wrapper emission.
-- `advicesExcludedByArity` (INV-INS-122) — a measurement, not a filter: advice/overload
-  pairs whose positional `args()` arity does not fit the overload they are grouped onto.
-  Every one of them still fires. Always written, so `0` means "measured none", not
-  "not measured". Counted over wrapper-path after-advices only.
+  `wrappersAliasedToSubtype` includes framework subtypes routed to a supertype's wrapper
+  (`PublicKey.getEncoded()` under `Key+`).
+- `wrapperTargetsUnresolved`, `wrapperAliasesUnmerged` (INV-INS-160) — wrapper targets the
+  weaver could not apply: advices whose call target resolved to no method even through a
+  framework ancestor, and framework-subtype invokes left unwoven because no single
+  registered wrapper carries all the advices that apply to them.
+- `advicesExcludedByArity` (INV-INS-159) — advice/overload pairs left out of a wrapper
+  because the positional `args()` arity does not fit the overload; the excluded advice
+  fires nothing from that wrapper. Always written, so `0` means "excluded none", not
+  "not measured". Counted over the wrapper grouping loop only; the inline path applies
+  the same rule in `PointcutMatcher` without counting.
 - `coverageInstrumented`, `coverageSpillFailed` — present only when the coverage
   weaver ran.
 

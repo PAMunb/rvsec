@@ -282,6 +282,10 @@ component (failures logged as warnings, never propagated — INV-PLT-06), the ta
 to COMPLETED, and post-execution hooks fire with `(task, True)`. `Platform` then persists the
 task through `TaskStorage`, whose `save()` writes to a temporary file, fsyncs, and renames —
 the storage file can never be half-written even if the process dies mid-save (INV-PLT-03).
+Right after persisting, `Platform` sets `task.repository` and `task.static_data` to `None`
+(INV-PLT-38): neither is serialized, the coverage metrics are already frozen on
+`task.result`, and result processing rebuilds the repository from the logcat, so keeping them
+would only grow a long session's memory with each finished execution.
 `tasks.json` now holds the `ExperimentMetadata` (with `config_checksum`) and this task's
 id/config/result, including `result.logcat_file` — the one field that makes later
 reconstruction possible. `TaskStorage` lives in
@@ -291,20 +295,28 @@ reconstruction possible. `TaskStorage` lives in
 
 **9. Result consolidation across all sessions.** `_process_results()` fetches ALL completed
 tasks from storage — this session's and any prior session's — and hands them to
-`ResultProcessorComponent`, which writes the five outputs: `coverage.csv` (per-method rows
-with timing), `errors.csv` (MOP violations), `summary.csv` (per-task aggregates),
-`performance.csv`, `results.json` (INV-PLT-14). For a live task the populated
-`task.repository` supplies `calculate_metrics()`; for a resumed task (`repository=None` after
-deserialization) the component calls `_reconstruct_repository_from_logcat(task)`: re-read
-`result.logcat_file`, derive the per-APK directory as `os.path.dirname(logcat_file)` when
-`results_dir` was not serialized, re-parse the co-located `cryptoapp.json` via
-`_resolve_static_data`, and re-run `parse_logcat_file` — producing metrics equal to the live
-path within 0.01 (INV-PLT-18 round-trip equivalence). Serialized `coverage_metrics` are never
-used as a fallback (INV-PLT-16). Finally `_generate_summary()` reports totals including
-`_skipped_count`. The four reconstruction call sites are `_write_task_coverage_data`,
-`_write_task_error_data`, `_write_task_summary_data`, and `_extract_task_data` in
-`modules/rv-platform/src/rv_platform/components/result_processor.py` (1,024 lines — the
-module's complexity hotspot, max CC 18).
+`ResultProcessorComponent`, which writes the six outputs: `coverage.csv` (per-method rows
+with timing), `errors.csv` (MOP violations), `app_events.csv` (crash / VerifyError / ANR),
+`summary.csv` (per-task aggregates), `results.json` and `performance.csv` (INV-PLT-14). No
+task arrives with a repository: a task of a previous session was deserialized with
+`repository=None`, and `Platform` released this session's task right after persisting it in
+step 8 (INV-PLT-38). The component sorts the tasks by `(apk, tool, rep, timeout)`, writes the
+four CSV headers once, and makes **one pass** over the tasks. For each task it calls
+`_reconstruct_repository_from_logcat(task)`: re-read `result.logcat_file`, take the APK's
+static model from `_resolve_static_data` (the per-APK directory is `task.results_dir`, or
+`os.path.dirname(logcat_file)` when `results_dir` was not serialized, and the co-located
+`cryptoapp.json` is parsed only when the cached model belongs to another APK — INV-PLT-15), and
+re-run `parse_logcat_file` — producing metrics equal to the live tracker's within 0.01
+(INV-PLT-18 round-trip equivalence). The four row writers and the `results.json` extractor run
+on that repository, and then `task.repository` and `task.static_data` are set to `None` before
+the next task, so memory holds one repository and one static model whatever the number of
+tasks. `results.json` is written once after the loop, then `performance.csv`. Serialized
+`coverage_metrics` are never used as a fallback (INV-PLT-16). Finally `_generate_summary()`
+reports totals including `_skipped_count`. The reconstruction call sites are
+`_write_task_coverage_data`, `_write_task_error_data`, `_write_task_summary_data`, and
+`_extract_task_data` in `modules/rv-platform/src/rv_platform/components/result_processor.py`
+(the module's complexity hotspot); the coverage writer stores the rebuilt repository on the
+task, and the other writers of the same task reuse it.
 
 ### 5. Core components
 
@@ -335,18 +347,26 @@ manager and reports install failure by returning False with the ADB reason in
 with capture — when diagnostics are enabled it appends `DIAGNOSTIC_TAGS`
 (`["AndroidRuntime:E", "art:E", "dalvikvm:E", "ActivityManager:W"]`, defined in
 `rv_android_core.util.android.logcat_manager`) to `logcat_manager.default_tags`, otherwise it
-passes no tags so the baseline capture command stays byte-identical; `ToolExecutionComponent`
+passes no tags so the baseline capture command stays byte-identical. Before every capture
+`LogcatManager` also sizes the device's log ring buffers with a separate
+`adb -s <serial> logcat -G 16M` (INV-CORE-64, logged at WARNING and ignored when it fails),
+because a line the device prunes before the host reader receives it is lost without a trace in
+the file; `ToolExecutionComponent`
 dispatches to the `AbstractTool` and encodes the timeout-is-success rule.
 
 **ResultProcessorComponent + PerformanceProcessorComponent** run the consolidation pass over
 every COMPLETED task in storage regardless of which session produced it (INV-PLT-10/14). Its
 defining behavior is uniformity: per-method rows in `coverage.csv` and aggregates in
 `summary.csv` are both computed from `LogcatRepository.calculate_metrics()` over a populated
-repository — for resumed tasks that repository is rebuilt from the persisted logcat plus the
-co-located static-analysis JSON. When the JSON is unresolvable it emits zeroed coverage rows
-(errors remain accurate), memoizes the miss per task, and surfaces one aggregate
-"N/M resumed tasks had unresolved static data" WARNING instead of failing or silently
-corrupting.
+repository — for every task that repository is rebuilt from the persisted logcat plus the
+co-located static-analysis JSON. It is a single task-major pass in `(apk, tool, rep, timeout)`
+order that releases each task's repository and static model after its rows, with the static
+model cached for one APK at a time, because a file-major export over a campaign's tasks
+exhausts memory. When the JSON is unresolvable the APK's cached model is an empty
+`StaticAnalysisData`, so the parse is not retried, coverage cells are written empty (errors
+remain accurate), each such task is recorded once, and one aggregate
+"N/M resumed tasks had unresolved static data" WARNING is surfaced instead of failing or
+silently corrupting.
 
 **TaskStorage + ExperimentMetadata** form the crash-recovery substrate: `save()` writes to a
 temp file, fsyncs, and renames so `tasks.json` is never half-written; all public methods take
@@ -511,7 +531,7 @@ serialized numbers. The chosen design re-parses the durable ground truth: the lo
 (whose dirname also locates the co-located static-analysis JSON, since `results_dir` is not
 serialized — INV-PLT-15) through the same `parse_logcat_file` grammar the live tracker uses.
 INV-PLT-18 pins the payoff as a testable round-trip: resumed metrics equal live metrics within
-0.01. When the JSON is genuinely absent the writers emit zeroed rows and one aggregate N/M
+0.01. When the JSON is genuinely absent the writers emit empty coverage cells and one aggregate N/M
 health-check WARNING — degradation is visible, never silent. (INV-PLT-16)
 
 **Registry/factory plugin seam with import-time registration.** The platform must run tools
@@ -747,12 +767,15 @@ tracking, and runs the tool. Any component failure is caught in `execute()`; cle
 regardless and the task lands in ERROR without propagating. After each task, `TaskStorage`
 (`storage/task_storage.py`, 853 lines) persists state with write-temp/fsync/rename atomicity,
 RLock thread safety, and transaction buffering. The tricky part of the module is result
-consolidation: `ResultProcessorComponent` (`components/result_processor.py`, 1,024 lines)
-must produce identical CSV output whether a task ran live (populated in-memory repository) or
-was loaded from tasks.json (`repository=None`) — the resume path re-derives the per-APK
-directory from the logcat path, re-parses the co-located static-analysis JSON at most once per
-task (memoized via an empty-but-valid StaticAnalysisData and a component-level
-`_unresolved_task_ids` set), and rebuilds the repository from the raw log.
+consolidation: `ResultProcessorComponent` (`components/result_processor.py`) must produce
+identical CSV output whether a task ran in this session or was loaded from tasks.json — and
+neither kind reaches it with a repository, because a finished task releases its repository and
+static model (INV-PLT-38). It makes one pass over the tasks ordered by `(apk, tool, rep,
+timeout)`, re-derives the per-APK directory from the logcat path when `results_dir` is empty,
+parses the co-located static-analysis JSON at most once per APK (a one-entry
+`{apk: StaticAnalysisData}` cache that holds an empty-but-valid model when the JSON is absent,
+plus a component-level `_unresolved_task_ids` set), rebuilds each task's repository from the
+raw log, writes that task's rows, and releases its parsed state before the next task.
 
 *Why separate:* rv-platform isolates "how one task executes and how results are consolidated"
 from both sides of its boundary: rv-experiment above it decides WHAT to run (pre-processing,
@@ -765,7 +788,8 @@ violated by tool or experiment code.
 
 *Gotchas:*
 - Deserialized tasks have `repository=None` and `results_dir=''` — `Task.to_dict` serializes
-  only id/config/result. All coverage for resumed tasks flows through
+  only id/config/result — and a task finished in the current session holds no `repository` or
+  `static_data` either, so no reader of a finished task may depend on them. All coverage flows through
   `_reconstruct_repository_from_logcat`; falling back to serialized
   `task.result.coverage_metrics` is forbidden (INV-PLT-16) because it would make summary.csv
   non-zero while coverage.csv is empty.
@@ -1033,9 +1057,9 @@ The pipeline varies along three axes, all in data rather than code. The tool slo
 variable: ToolExecutionComponent drives whatever AbstractTool the factory produced, so the
 same pipeline runs Monkey, DroidBot, or an LLM agent unchanged. The static-analysis input is
 optional by contract: phases 2–3 run identically with `static_data=None`, degrading only the
-coverage denominator. And the consolidation pass is source-agnostic: it treats live tasks
-(populated repository) and resumed tasks (repository rebuilt from files) through one code
-path, which is what allows sessions to be freely mixed. A publish-subscribe view was
+coverage denominator. And the consolidation pass is source-agnostic: it rebuilds the
+repository of every task, from this session or a previous one, from the same files through one
+code path, which is what allows sessions to be freely mixed. A publish-subscribe view was
 excluded deliberately: the pre/post execution hooks are direct synchronous callbacks with a
 single registrar (rv-experiment) — there is no event bus at this scope.
 
@@ -1051,16 +1075,17 @@ single registrar (rv-experiment) — there is no event bus at this scope.
 
 - **WHEN** a resumed task's logcat file exists at `results/exp1/cryptoapp/cryptoapp.logcat`
   but the co-located `cryptoapp.json` static-analysis file is absent **THEN**
-  ResultProcessorComponent assigns an empty-but-valid `StaticAnalysisData()` to
-  `task.static_data` (memoizing the miss), adds the task id to `_unresolved_task_ids`, and
-  emits zeroed per-method coverage rows while errors.csv rows remain accurate **AND**
+  ResultProcessorComponent caches an empty-but-valid `StaticAnalysisData()` as the model of
+  that APK (so the APK's later tasks do not retry the parse), adds the task id to
+  `_unresolved_task_ids`, and writes empty coverage cells while errors.csv rows remain accurate **AND**
   `execute()` ends with exactly one aggregate WARNING "Resume coverage health: N/M resumed
   tasks had unresolved static data — coverage zeroed for those tasks". *Why:* without the
   reachability denominator, per-method coverage is uncomputable — but violations parsed from
   the logcat need no denominator. The single aggregate warning (INV-PLT-18) makes the
-  degradation operator-visible without flooding logs, and the two disjoint memo fields
-  guarantee the JSON is parsed and the task counted at most once across the four
-  reconstruction call sites (INV-PLT-15).
+  degradation operator-visible without flooding logs, and the two disjoint fields — the
+  per-APK model cache and the unresolved-task set — guarantee the JSON is parsed at most once
+  per APK and the task counted at most once across the four reconstruction call sites
+  (INV-PLT-15).
 
 - **WHEN** adb install of the APK fails inside the phase-3 emulator session
   (`CommandResult.is_failure()`) **THEN** `EmulatorComponent.install_app()` returns False with
@@ -1244,7 +1269,7 @@ enforcement point.
 | Type | IDs | Where realized |
 |------|-----|----------------|
 | Functional requirements | FR07, FR08, FR09, FR10, FR11, FR14 | Platform task generation/execution (`platform.py`, `executor.py`), tool plugin system (rv-tools), coverage tracking (rv-coverage slice), result consolidation (`result_processor.py`) |
-| Invariants | INV-PLT-01…INV-PLT-22 | Task matrix (`_generate_tasks`, INV-PLT-01); atomic storage (`task_storage.py`, INV-PLT-03/07/08/11); timeout-as-success (`tool_execution.py`, INV-PLT-04); non-critical static analysis (INV-PLT-05); cleanup-always (`executor.py`, INV-PLT-06); config validation (`platform_config.py`, INV-PLT-09/22); all-session consolidation + resume reconstruction (`result_processor.py`, INV-PLT-10/14/15/16/17/18); three-phase execution (INV-PLT-13); diagnostics (INV-PLT-19/20/21); checksum (INV-PLT-12) |
+| Invariants | INV-PLT-01…INV-PLT-22, INV-PLT-38 | Task matrix (`_generate_tasks`, INV-PLT-01); atomic storage (`task_storage.py`, INV-PLT-03/07/08/11); timeout-as-success (`tool_execution.py`, INV-PLT-04); non-critical static analysis (INV-PLT-05); cleanup-always (`executor.py`, INV-PLT-06); config validation (`platform_config.py`, INV-PLT-09/22); all-session consolidation + resume reconstruction (`result_processor.py`, INV-PLT-10/14/15/16/17/18); release of a finished task's parsed state (`platform.py` and `result_processor.py`, INV-PLT-38); three-phase execution (INV-PLT-13); diagnostics (INV-PLT-19/20/21); checksum (INV-PLT-12) |
 | NFRs | NFR02, NFR04, NFR05, NFR06, NFR08 | see [Rationale](#7-rationale) |
 
 **Related documentation:** per-module 4+1 docs (`modules/<m>/docs/architecture.md`), ADRs

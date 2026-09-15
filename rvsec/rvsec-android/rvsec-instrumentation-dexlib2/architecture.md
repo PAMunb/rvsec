@@ -154,13 +154,21 @@ with which bound arguments). Concretely, the advice for our example has expressi
 event method; `descriptor.getCommonPointcut()` returns the class-level exclusions like
 `!within(RVMObject+) && !adviceexecution() && BaseAspect.notwithin()`.
 
-**Stage 2 — type resolution + Android index.** Phase 2 builds a `TypeResolver` from the
-descriptor's imports (so short names like `Cipher` resolve to `javax/crypto/Cipher`) and an
-`AndroidClassIndex` over the supplied `android.jar`. The index lets `WrapperEmitter` enumerate
+**Stage 2 — type resolution + Android index.** Phase 2 builds an `AndroidClassIndex` over the
+supplied `android.jar` and a `TypeResolver` from the descriptor's imports (so short names like
+`Cipher` resolve to `javax/crypto/Cipher`). The index lets `WrapperEmitter` enumerate
 the real Android API overloads of `getInstance` so generated wrappers carry the actual
 parameter types instead of guessed ones. Concretely,
 `AndroidClassIndex(cfg.androidJar())` indexes `android.jar`, and
-`TypeResolver(descriptor.getImports())` resolves `Cipher -> Ljavax/crypto/Cipher;`.
+`TypeResolver(descriptor.getImports(), androidIndex::exists)` resolves
+`Cipher -> Ljavax/crypto/Cipher;`. The second argument is a class-existence lookup, and it is
+what makes nested types resolve (INV-INS-162): a pointcut writes `KeyStore.ProtectionParameter`
+with a dot, as Java source does, but the DEX descriptor of that type is
+`Ljava/security/KeyStore$ProtectionParameter;`. The resolver asks the lookup for the dotted name
+first and, when no such class exists, replaces the dots with `$` from the right, one at a time,
+until the index knows the class; when no candidate exists the name is kept as written. Without
+the lookup the dotted name would become a package path, and `KeyStore.getEntry`/`setEntry` would
+never match a call.
 
 **Stage 3 — DEX extraction.** Phase 3 (`BatchRunner.extractDexes`) opens the APK as a ZIP and
 reads every `classes<N>.dex` entry into an in-memory `DexBackedDexFile`, keeping the original
@@ -173,10 +181,44 @@ fails fast with `phase=apk_read`.
 `WrapperEmitter.generate` writes `mop/MonitorWrappers.java` — one public static wrapper per
 advice whose hook would otherwise alias registers (the canonical after-returning case). It
 returns an `EmitResult`: the `WrapperEntry` metadata telling the `DexWeaver` which call-site
-signatures to redirect, plus `advicesExcludedByArity` — a count of the advice/overload pairs
-whose positional `args()` arity does not fit the overload they were grouped onto (INV-INS-122).
-That count is a measurement only: nothing is excluded, every advice still fires, and
-`BatchRunner` writes the number into `instrument_results.json` beside `wrappersGenerated`.
+signatures to redirect, plus two counters that `BatchRunner` writes into
+`instrument_results.json` beside `wrappersGenerated`.
+
+The grouping loop is where an advice meets each concrete overload of its call target, and three
+rules apply there. *Arity* (INV-INS-159): an advice whose positional `args()` clause cannot fit
+the overload — `k` positions without a trailing `..` against a call of other than `k` parameters,
+or `k` leading positions plus `..` against fewer than `k` — is left out of that overload's
+wrapper, so `getInstance(String)` fires the one-argument event and not the two-argument one. Each
+excluded pair is counted in `advicesExcludedByArity`; an advice with no `args()` clause is never
+constrained, because wrapper-path `after` advices bind parameters by position without one. The
+wrapper path groups advices without calling `PointcutMatcher`, so the rule lives here and in the
+matcher's `matchArgs`, which applies it on the inline path. *Inherited targets* (INV-INS-160):
+`expandCallTarget` asks the index for the methods the pattern's owner declares and, when there are
+none, calls `AndroidClassIndex.methodsInHierarchy`, which climbs the superclass chain and then the
+interfaces to the first ancestor that declares the name. `SecretKey+.getEncoded()` thus resolves
+to the `getEncoded` that `Key` declares, and the wrapper keeps `SecretKey` as its owner, because
+the call site names `SecretKey` and the weaver replaces invokes by exact owner. A target that
+resolves to no method even after the climb, and has no descriptor-literal fallback, produces no
+wrapper and is counted once in `wrapperTargetsUnresolved`, so a wrapper target never disappears
+silently. After grouping, the wrapper of an owner `T` also receives every `Owner+` advice grouped
+onto the same method of a proper supertype of `T`: an invoke on `SecretKey` is replaced by the
+`SecretKey` wrapper only, so that wrapper must fire the `Key+.getEncoded()` advice as well.
+*After-finally* (INV-INS-163): when a group carries a plain `after` advice (no `returning`, no
+`throwing`), the generated method guards the call:
+
+```java
+R result;
+try { result = call(args); }
+catch (Throwable t) { <plain after monitor calls>; throw t; }
+<every advice's monitor calls>;
+return result;
+```
+
+The handler passes the same bound arguments as the normal path and rethrows the original
+throwable, which is AspectJ's `after`: an `after` event on `KeyAgreement.doPhase` reaches the
+monitor even when `doPhase` throws `InvalidKeyException`. `throw t` compiles under the wrapper's
+`throws Exception` by precise rethrow. `after returning` and `after throwing` keep their shapes.
+
 A single `InheritanceResolver` is built across **every** DEX of the APK first, then
 `weaver.expandWrapperReplacementsForApk` widens each instance wrapper's lookup map to include
 app-internal subtypes of the target class (so a `CustomCipher extends Cipher` call site in
@@ -189,7 +231,19 @@ of each `DexFile`. It parses the `commonPointcut` once and, because that pointcu
 class-invariant, hoists it to a per-class gate (§4.PERF.P2.1): a class the `commonPointcut`
 rejects is skipped entirely. For each remaining method it runs two passes. **Pass 1 (wrapper
 substitution):** every invoke whose `MethodReference` matches a wrapper key is rewritten in
-place via `InstructionInjector.replaceInvoke` — size-stable, so indices stay valid. **Pass 2
+place via `InstructionInjector.replaceInvoke` — size-stable, so indices stay valid. A
+virtual or interface invoke with no exact key whose owner is a framework type (for example
+`Ljava/security/PublicKey;->getEncoded()[B` under a wrapper registered for `Key`) is resolved
+once per call-site signature by `DexWeaver.resolveSubtypeAlias` (INV-INS-160): among the
+registered instance wrappers with the same name, parameters and return type whose owner is
+assignable from the invoke's owner, it routes the invoke to the one that is a subtype of all
+the others. That wrapper already carries every applicable advice, because `WrapperEmitter`
+merged the `Owner+` advices into it, and its receiver formal is a supertype of the invoke's
+owner, so the rewritten `invoke-static` verifies. Each routed signature adds to
+`wrappersAliasedToSubtype`. When the candidates have no single most specific owner, no registered
+wrapper merges their advices; the invoke is left unwoven, logged with the owners involved and
+counted in `wrapperAliasesUnmerged`. These aliases are kept apart from the exact wrapper keys, so
+`registerWrapper` still raises `IllegalStateException` only for a genuine rebind. **Pass 2
 (inline advice, iterating right-to-left so insertions never shift unvisited indices):** for
 each non-substituted instruction it AND-composes the advice pointcut with the `commonPointcut`,
 runs `PointcutMatcher`, and on a match asks `EmitterDispatch` for the right emitter, which
@@ -209,6 +263,28 @@ BEFORE / AFTER / METHOD_ENTRY / TRY_CATCH_WRAP point. Concretely, `spillLowRegis
 as scratch by shifting every register reference up by 1 and growing `registerCount`; without
 it, a method with no locals VerifyErrors with
 *"tried to get class from non-reference register vN (type=Undefined)"*.
+
+Two injection shapes carry a semantic obligation beyond register safety. A **BEFORE** block must
+run on every path into the call (INV-INS-161). dexlib2's `addInstruction` creates the new
+locations ahead of the call and leaves the call's labels and debug items where they are, so a
+branch or switch case targeting the call would jump over the block, and the block would inherit
+the source line of the preceding instruction. `insertBefore` therefore snapshots, before
+inserting, the labels at the call that an `if-*`, `goto*` or packed/sparse switch payload targets,
+and the line-number items at the call, and afterwards moves exactly that snapshot to the first
+inserted instruction (the guard prefix when the plan has an `if(...)` guard). Try-range
+boundaries stay, so exception handling covers what it covered; local-variable items stay; and the
+guard's own skip label, created after the snapshot, stays on the call, which is what lets a false
+guard reach the call without running the monitor. A method whose frame is grown by clone or whose
+try blocks are rebuilt loses its line-number items in that rebuild, so there the line move has
+nothing to move. A plain **AFTER** on a constructor invoke must also run when the constructor
+throws (INV-INS-163). `DexWeaver.applyConstructorAfterFinally` inserts the normal-path calls after
+the invoke, then installs, through `InstructionInjector.installTryCatch`, a catch-all range over
+the invoke alone whose handler is a second emission of the same plan: `move-exception`, the
+monitor calls with the same bound registers, `throw`. The exception register is one extra scratch
+slot requested from the allocator. The handler cannot touch the object under construction, which
+is uninitialised on that path; a plain `after` cannot bind it (`target` is not bound at a
+constructor call and the constructed object is reachable only through `returning`, whose advice
+keeps the normal path alone).
 
 **Stage 7 — coverage weave + serialize.** If `--coverage` is on (default), `CoverageWeaver.weave`
 prepends `invoke-static Lmop/Coverage;.log(Ljava/lang/String;)V` to every non-excluded
@@ -435,12 +511,19 @@ subcommands. Optional stages degrade cleanly: omitting `--monitor-src-dir` stops
 
 *Observability (NFR06).* Weaving emits a rich `WeaveReport` of counters (`classesSeen`,
 `methodsSeen`, `matchesApplied`, `wrappersSubstituted`, `wrappersAliasedToSubtype`,
-`plansSkipped`, `plansSkippedAliasing`, `plansSkippedHighRegister`,
+`wrapperAliasesUnmerged`, `plansSkipped`, `plansSkippedAliasing`, `plansSkippedHighRegister`,
 `plansSkippedUnresolvedBinding`, `constructorInline*`, `staticInitSynthesized/Prepended`,
-`coverageInstrumented/SpillFailed`) that `BatchRunner` writes into `instrument_results.json`.
-These are not just logs: downstream `jq` guards in `run_phase5_validators.sh` fail the build when
-a regression counter is non-zero (e.g. `plansSkippedUnresolvedBinding` signals the cryptoapp
-VerifyError regression).
+`coverageInstrumented/SpillFailed`) that `BatchRunner` writes into `instrument_results.json`,
+beside the two counters `WrapperEmitter.EmitResult` carries: `advicesExcludedByArity`
+(advice/overload pairs left out of a wrapper by the arity rule, INV-INS-159) and
+`wrapperTargetsUnresolved` (wrapper-path advices whose call target resolved to no method,
+INV-INS-160). `wrappersAliasedToSubtype` and `wrapperAliasesUnmerged` accumulate over the weaver
+instance, so every per-DEX report already carries the APK total and the counts map stores rather
+than sums them; `advicesExcludedByArity` and `wrapperTargetsUnresolved` are always written, so `0`
+means "none", not "not measured". Every place the weaver declines to weave something it matched
+therefore has a number. These are not just logs: downstream `jq` guards in
+`run_phase5_validators.sh` fail the build when a regression counter is non-zero (e.g.
+`plansSkippedUnresolvedBinding` signals the cryptoapp VerifyError regression).
 
 *Testability (NFR03).* The matcher/emitter/mutator separation makes each stage independently
 testable: an `EmitPlan` is plain data, the matcher returns a `Match` with bindings, and
@@ -576,15 +659,20 @@ PCD AST (`CallPC`, `ExecutionPC`, `StaticInitPC`, `WithinPC`/`NotWithinPC`, `Arg
 `IfPC`, `NamedRefPC`, `NegationPC`, composed by `CombinedPC`). `PointcutMatcher` evaluates that
 AST against a `(ClassDef, Method, Instruction, index)` tuple and, on a match, returns a `Match`
 carrying argument and target register bindings. `TypeResolver` expands short names from the
-descriptor imports; `InheritanceResolver` answers subtype queries across all DEXes of the APK
-plus `android.jar`; `AndroidClassIndex` enumerates real API overloads; and a CPS-aware pass
+descriptor imports and, given a class-existence lookup, resolves `Outer.Inner` to its binary name
+`Outer$Inner` (INV-INS-162); `InheritanceResolver` answers subtype queries across all DEXes of the APK
+plus `android.jar`; `AndroidClassIndex` enumerates real API overloads, answers class existence
+(`exists`) and finds a method a framework type inherits without redeclaring it
+(`methodsInHierarchy`, INV-INS-160); and a CPS-aware pass
 (`CpsDetector`, INV-INS-61) unwraps Kotlin coroutine state machines so naming-based matchers see
 the user-facing suspend owner. It is separate because pointcut semantics are a distinct concern
 from bytecode mutation — the matcher decides "does this join point match and what are the
 bindings" with no knowledge of how a hook is emitted, which is what makes per-construct grammar
-testing and the validator's feature-mapping audit (INV-INS-54) tractable. *Gotchas:* `ArgsPC` and
-the binding form of `target(o)` are inert collectors (they gather bindings, never fail a match in
-isolation), while `target(Cipher)` does constrain the receiver type; `IfPC`/`NamedRefPC` match-
+testing and the validator's feature-mapping audit (INV-INS-54) tractable. *Gotchas:* `ArgsPC`
+constrains the call's arity in every form — binding names, `*` and Types alike — and the argument
+types at Type positions (INV-INS-159); the positions come from `ArgsPC.types()`, which keeps the
+trailing `..` that `names()` drops. The binding form of `target(o)` is an inert collector, while
+`target(Cipher)` does constrain the receiver type; `IfPC`/`NamedRefPC` match-
 true at the matcher level (guards are realized later by `IfGuardEmitter`); and the matcher peeks
 `instructions[i+1]` for a trailing `move-result*` to record the synthetic `$return` binding
 (INV-INS-72), skipped for constructors.
@@ -597,7 +685,12 @@ scratch-register demand (`RegisterRequest`), the `InsertionPoint`
 constructs the actual invoke into the `RuntimeMonitor`, choosing Format35c (4-bit) or Format3rc
 (range) and throwing `HighRegisterNonContiguous` or `UnresolvedBindingException` when bindings
 cannot be encoded or resolved. `WrapperEmitter` is the strategic piece: it writes
-`mop/MonitorWrappers.java` with one public static wrapper per register-aliasing-prone advice. The
+`mop/MonitorWrappers.java` with one public static wrapper per register-aliasing-prone advice,
+excluding arity-incompatible advices per overload, resolving inherited framework targets, merging
+`Owner+` advices into subtype wrappers, and guarding a plain `after` with a catch-all handler that
+fires the monitor and rethrows (see [Stage 4](#4-how-it-works--end-to-end)). `AfterEmitter` builds
+the plan of a plain `after`; its after-finally semantics on a constructor is completed by the
+handler `DexWeaver` installs around the invoke. The
 module is separate because it decides *what* to inject (an `EmitPlan` is pure data) while
 dex-mutator decides *how* and *where*. *Gotchas:* `MonitorInvokeBuilder` throws two checked-shape
 exceptions the weaver catches and counts rather than crashing — `HighRegisterNonContiguous`
@@ -620,7 +713,11 @@ in, mutations go out, and all DEX-format hazard is concentrated here. *Gotchas:*
 has no setter — the only safe grow is `bumpRegisterCount` (clones the whole MMI) and the caller
 MUST call `supplier.replaceImpl` after a grow (INV-INS-87/D5) or serialization drops the growth;
 inline AFTER advice on a non-constructor invoke is skipped defensively (`plansSkippedAliasing`)
-because the `move-result*` overwrites the binding registers; pass 2 iterates right-to-left so each
+because the `move-result*` overwrites the binding registers, while a plain AFTER on a constructor
+gets the catch-all rethrowing handler of INV-INS-163; `insertBefore` moves the branch and switch
+targets and the line entry of the call onto the inserted block (INV-INS-161) and nothing else, so
+try ranges keep their boundaries; a framework-subtype invoke with no exact wrapper key is routed to
+the most specific assignable wrapper or counted in `wrapperAliasesUnmerged` (INV-INS-160); pass 2 iterates right-to-left so each
 insertion shifts only already-processed indices; and `spillLowRegisters` is atomic-by-clone
 (INV-INS-80) so a mid-stream overflow never leaves a half-shifted method in the cache.
 
@@ -836,6 +933,23 @@ wrappers are skipped to avoid over-matching. *Why:* instance-method calls dispat
 subtypes, and the subclass and call site can be in different `classes<N>.dex`; a single-DEX
 inheritance view would miss the subtype and under-instrument (INV-INS-68 phase 2).
 
+*WHEN* an app calls `invoke-interface Ljava/security/PublicKey;->getEncoded()[B` and the descriptor
+wraps only `call(public byte[] Key+.getEncoded())`, *THEN* no wrapper key matches exactly, and
+`resolveSubtypeAlias` routes the invoke to the `Key` wrapper (the only, hence most specific,
+registered owner `PublicKey` is assignable to) and increments `wrappersAliasedToSubtype`, *AND* the
+call fires the `Key+` event with no `IllegalStateException` from `registerWrapper`. When the
+descriptor also wraps `SecretKey+.getEncoded()`, a `SecretKey` call site is replaced by the
+`SecretKey` wrapper, which `WrapperEmitter` has already given both events. *Why:* AspectJ's
+`call(Key+.getEncoded())` matches every subtype of `Key`, framework interfaces included; a lookup
+by exact owner alone loses those calls (INV-INS-160).
+
+*WHEN* a method holds `if-eqz v5, L` and `L: invoke-virtual Cipher.init(ILjava/security/Key;)V`
+with `line 69`, and a `before` advice is inserted at `L`, *THEN* the `if-eqz` target and the
+`line 69` entry move to the first inserted instruction, *AND* a try range that began at the call
+still begins at the call. *Why:* a branch that kept pointing at the call would skip the monitor,
+which then reports a sequence failure on the following operation; a report from the block would
+name the wrong line (INV-INS-161).
+
 **Rationale**
 
 Pipe-and-filter is the natural shape for a transformation that has a single direction of flow and
@@ -947,7 +1061,7 @@ narrated in the [Rationale](#7-rationale) section above.
 | Type | IDs | Where realized |
 |------|-----|----------------|
 | Functional requirements | FR01, FR02, FR03 | the full weave pipeline: `cli/BatchRunner.runPipeline` orchestrating descriptor-reader → pointcut-engine → advice-emitter → dex-mutator → coverage-weaver → monitor-builder → multidex-merger |
-| Invariants | INV-INS-52, INV-INS-53, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87, INV-INS-103 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-53 `coverage-weaver/PackageFilter` (canonical Coverage exclusion filter); INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator`; INV-INS-103 `advice-emitter/WrapperEmitter.expandCallTarget` |
+| Invariants | INV-INS-52, INV-INS-53, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87, INV-INS-103, INV-INS-159, INV-INS-160, INV-INS-161, INV-INS-162, INV-INS-163 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-53 `coverage-weaver/PackageFilter` (canonical Coverage exclusion filter); INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator`; INV-INS-103 `advice-emitter/WrapperEmitter.expandCallTarget`; INV-INS-159 `pointcut-engine/PointcutMatcher.matchArgs` + `advice-emitter/WrapperEmitter` grouping loop (`advicesExcludedByArity`); INV-INS-160 `pointcut-engine/AndroidClassIndex.methodsInHierarchy` + `advice-emitter/WrapperEmitter.expandCallTarget` (`wrapperTargetsUnresolved`) + `dex-mutator/DexWeaver.resolveSubtypeAlias` (`wrappersAliasedToSubtype`, `wrapperAliasesUnmerged`); INV-INS-161 `dex-mutator/InstructionInjector.insertBefore`; INV-INS-162 `pointcut-engine/TypeResolver` with `AndroidClassIndex.exists`; INV-INS-163 `advice-emitter/WrapperEmitter.appendWrapperMethod` + `dex-mutator/DexWeaver.applyConstructorAfterFinally` |
 | NFRs | NFR03, NFR04, NFR05, NFR06, NFR07 | see [Rationale](#7-rationale) |
 
 **Related documentation:** per-module 4+1 docs (`modules/<m>/docs/architecture.md`), ADRs

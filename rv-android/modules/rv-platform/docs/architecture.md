@@ -33,6 +33,9 @@ This module implements requirements from `openspec/specs/platform/spec.md`.
 | INV-PLT-09 | `PlatformConfig` validates all fields at construction time | Pydantic field validators check `apks_dir` existence, tool count, repetitions, timeouts, and log level |
 | INV-PLT-10 | Result processing only includes COMPLETED tasks | `ResultProcessorComponent` filters tasks by `TaskState.COMPLETED` before generating output |
 | INV-PLT-13 | Phase 3 executes within the emulator context manager | `TaskExecutor._execute_coordinated_components()` wraps Phase 3 in `EmulatorComponent.start_emulator()` context |
+| INV-PLT-14 | All six output files are generated when at least one completed task exists | `ResultProcessorComponent.execute()` writes the four CSV headers, makes one pass over the tasks, then writes `results.json` and `performance.csv`; with no completed task it logs a warning and writes nothing |
+| INV-PLT-15 | The static model is parsed at most once per APK per `execute()`, and the component holds at most one | `_resolve_static_data` keeps the one-entry cache `_static_data_by_apk` and replaces it when the task's APK changes; the tasks are sorted by APK first, so each APK's tasks are contiguous |
+| INV-PLT-38 | A finished task holds no `repository` and no `static_data` | `Platform` sets both to `None` after `task_storage.update_task(task)`; `ResultProcessorComponent.execute()` sets both to `None` after the task's last writer |
 | INV-PLT-19 | The headers and column order of `coverage.csv`, `errors.csv` and `summary.csv` are a written contract; diagnostic fields belong to `app_events.csv` alone | `ERRORS_CSV_COLUMNS` (module constant in `result_processor.py`) is the single definition of the `errors.csv` header; the coverage and summary headers are written inline and asserted by `tests/components/test_result_processor.py` |
 | INV-PLT-32 | A failed write of a task's violation rows (`errors.csv`) or extraction of its `results.json` data is counted, not swallowed | `ResultProcessorComponent._count_write_error()` increments `TaskResult.write_errors[artefact]` and the handler logs at ERROR with the number of rows lost |
 
@@ -434,18 +437,26 @@ During Phase 3, data flows through three concurrent channels:
 
 ### Output Data Flow
 
+When a task finishes, `Platform` stores it with `TaskStorage.update_task()` and immediately sets `task.repository` and `task.static_data` to `None` (INV-PLT-38). Neither field is serialized to `tasks.json`, the coverage metrics the run reports afterwards are already on `task.result`, and result processing rebuilds every repository from the logcat; keeping them alive would only make a long session's memory grow with each finished execution.
+
 After all tasks complete, `Platform._process_results()` calls `TaskStorage.get_completed_tasks()` to collect ALL completed tasks across all sessions (INV-PLT-10 filters for `TaskState.COMPLETED`). `ResultProcessorComponent` generates six output files:
 
 | Output File | Data Source | Content |
 |-------------|-------------|---------|
-| `coverage.csv` | `LogcatRepository` per-method data (current session) or `CoverageMetrics` summary (resumed tasks) | Progressive method coverage with timestamps |
-| `errors.csv` | `LogcatRepository` errors or `parse_logcat_file()` reconstruction | Monitored operations violations |
-| `summary.csv` | `CoverageMetrics` from `task.result.coverage_metrics` | Aggregate per-task metrics |
-| `results.json` | Combined coverage + violation data | Hierarchical JSON keyed by APK/rep/timeout/tool |
+| `coverage.csv` | `LogcatRepository` rebuilt from the task's logcat and the APK's static model | Progressive method coverage with timestamps |
+| `errors.csv` | The same repository's `RvErrorLog` records | Monitored operations violations |
+| `summary.csv` | The same repository's `calculate_metrics()` | Aggregate per-task metrics |
+| `results.json` | Per-task entries extracted from the same repository | Hierarchical JSON keyed by APK/rep/timeout/tool |
 | `performance.csv` | `PerformanceProcessorComponent` timing data | Task execution durations |
-| `app_events.csv` | `LogcatRepository` diagnostic events or logcat reconstruction | Crash / VerifyError / ANR events, `stack_head` summary only |
+| `app_events.csv` | The same repository's diagnostic events | Crash / VerifyError / ANR events, `stack_head` summary only |
 
-For resumed tasks (where `task.repository` is `None`), `ResultProcessorComponent` reconstructs MOP violation data by calling `parse_logcat_file()` from rv-coverage. Per-method progressive coverage data cannot be reconstructed because `register_method_call()` requires static analysis class data that is not serialized in `tasks.json`.
+Every task arrives without a repository — loaded from `tasks.json`, or released when it finished — so the component reconstructs it with `parse_logcat_file()` from rv-coverage, over `task.result.logcat_file` and the static-analysis JSON co-located with it. The rebuilt repository carries both per-method coverage and MOP violations; serialized `coverage_metrics` are never used instead (INV-PLT-16).
+
+The export is **one task-major pass**. `execute()` sorts the completed tasks by `(apk, tool, rep, timeout)`, writes the four CSV headers once, and then, for each task in that order: resolves the APK's static model, reconstructs the repository (the coverage writer stores it on the task, and the other writers of the same task reuse it), runs the coverage, errors, app-events and summary row writers, extracts the task's `results.json` entry, and sets `task.repository` and `task.static_data` back to `None`. `results.json` is written once after the loop from the accumulated entries, which hold no repository and no model, and `performance.csv` follows. Rows in every file therefore follow the sorted task order.
+
+The static model is cached for one APK at a time: `_resolve_static_data` keeps a single `{apk: StaticAnalysisData}` entry and parses the JSON only when the task's APK differs from the cached one (INV-PLT-15). Sorting by APK first makes the tasks of an APK contiguous, so each APK's JSON is parsed once per `execute()`. When the JSON is absent or the parser raises, the cached model is an empty `StaticAnalysisData`, so later tasks of that APK do not retry, their coverage cells are empty, their violations are still reliable, and each such task is recorded once in `_unresolved_task_ids` for the resume health-check warning.
+
+The loop is task-major rather than file-major because memory is the binding constraint of a campaign export. Writing one file at a time over all tasks keeps, for every task already visited, a reconstructed repository and a static model on the task object until the last file is done, and a campaign container of about 1,600 executions was killed by the kernel inside the first such pass. The task-major loop holds one repository and one static model at a time, independent of the number of tasks.
 
 ### Output Column Contracts
 
@@ -528,7 +539,7 @@ Appending a column is compatible because every known consumer addresses columns 
 
 ### ResultProcessorComponent
 
-**Purpose**: Generates the six standardized output files (CSV/JSON) from completed tasks, under the column contracts of [Output Column Contracts](#output-column-contracts). Handles result consolidation across sessions by re-reading logcat files for MOP violation reconstruction when `task.repository` is `None` (tasks loaded from `tasks.json`). Rows lost to a write or reconstruction failure are counted into `TaskResult.write_errors` (INV-PLT-32), not swallowed.
+**Purpose**: Generates the six standardized output files (CSV/JSON) from completed tasks, under the column contracts of [Output Column Contracts](#output-column-contracts), in one pass over the tasks ordered by `(apk, tool, rep, timeout)` (see [Output Data Flow](#output-data-flow)). Consolidates results across sessions by reconstructing each task's repository from its logcat file with a static model cached for one APK at a time, and releases each task's repository and static model after its rows are written (INV-PLT-15, INV-PLT-38). Rows lost to a write or reconstruction failure are counted into `TaskResult.write_errors` (INV-PLT-32), not swallowed.
 
 **Location**: `src/rv_platform/components/result_processor.py`
 
@@ -663,8 +674,8 @@ classDiagram
 5. For each task, `Platform` creates a `TaskExecutor`, registers 5 components, and calls `execute()`
 6. `TaskExecutor._execute_coordinated_components()` runs Phase 1 (static analysis), Phase 2 (coverage init), Phase 3 (emulator session with tool execution for 300 seconds)
 7. `ToolExecutionComponent` catches `RVToolTimeoutError` after 300 seconds and returns `True`
-8. `TaskStorage.update_task()` persists the completed task atomically
-9. After both tasks complete, `Platform._process_results()` generates 5 output files from all completed tasks
+8. `TaskStorage.update_task()` persists the completed task atomically, and `Platform` releases its `repository` and `static_data`
+9. After both tasks complete, `Platform._process_results()` generates the six output files from all completed tasks in one pass, reconstructing each task's repository from its logcat
 
 ### Scenario 2: Resume an Interrupted Experiment
 
@@ -676,7 +687,7 @@ classDiagram
 3. `Platform._skip_completed_tasks()` matches task identities (apk, tool, variant, rep, timeout) and removes 6 tasks from the execution list; stores `_skipped_count = 6`
 4. Only 4 remaining tasks are executed through the normal component lifecycle
 5. `Platform._process_results()` calls `TaskStorage.get_completed_tasks()` which returns all 10 completed tasks (6 from previous session + 4 from current session)
-6. `ResultProcessorComponent` generates output files covering all 10 tasks, using logcat re-reading (`parse_logcat_file()`) for MOP violation reconstruction on the 6 previously completed tasks
+6. `ResultProcessorComponent` generates output files covering all 10 tasks, reconstructing every task's repository from its logcat (`parse_logcat_file()`) — the 6 from `tasks.json` and the 4 released when they finished alike
 7. Execution summary reports "4 executed, 6 skipped from previous runs"
 
 ---
