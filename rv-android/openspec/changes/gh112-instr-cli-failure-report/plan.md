@@ -47,8 +47,10 @@ The measured shape of that case, which the acceptance criteria below rely on: in
 `info.dvkr.screenstream_44000.apk` the class named in the message,
 `androidx/core/view/WindowInsetsCompat$Impl20`, is defined in `classes28.dex`, whose header
 (offset `0x58`) reports `method_ids_size = 65521` — 15 slots below the ceiling. The APK has 29
-DEXes, so the failure lands near the end of the weave loop, with 27 DEXes already fully woven and
-their statistics held in exactly the local variables item 3 describes.
+DEXes and `classes28.dex` is the 21st the weave loop reaches, so the failure lands with 20 DEXes already fully woven
+(`extractDexes` orders entries with `String.compareTo`: `classes.dex`, `classes10`…`classes19`,
+`classes2`, `classes20`…) and their statistics held in exactly the local variables item 3
+describes.
 
 **Scope decision (researcher, 2026-09-06): Java side only.** With the CLI exiting 1, the wrapper's
 per-APK path (the only one rv-experiment uses) records "instr-cli exited with code 1" plus the
@@ -103,7 +105,7 @@ All paths relative to `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` in th
 | `cli/src/main/java/br/unb/cic/rv/cli/BatchRunner.java` (lines 232-243, 274-341) | Edit | Delete the twelve local `int` accumulators and accumulate straight into `counts`: `counts.merge("matchesApplied", wr.matchesApplied(), Integer::sum)` and one such call per counter, inside the loop, with `counts.put("wrappersAliasedToSubtype", wr.wrappersAliasedToSubtype())` for the APK-scoped one and the coverage pair still guarded by `coverageWeaver != null`. `counts.put("wovenDexes", …)` stays after the loop. This is what makes a mid-loop failure keep its statistics — a helper taking twelve parameters would say the same thing worse (P1). Every key is still written on the first iteration even when its value is 0, so the `plansSkippedUnresolvedBinding` jq guard in `run_phase5_validators.sh` keeps reading a present key; what changes is the insertion order of `weaveCounts` in the JSON, which no consumer reads positionally. |
 | `cli/src/main/java/br/unb/cic/rv/cli/BatchRunner.java` (lines 389-396) | Edit | In both `catch` blocks, build the message with a new package-private helper `causeChain(Throwable)` and call `ex.printStackTrace()` so the trace reaches stderr. Change `failed(Path, String, String)` to `failed(Path, String, String, Map<String, Integer>)`, **and widen it from `private` to package-private** so the test can call it directly. Pass the live `counts` from every call site (`:157`, `:171`, and the two catches). The early returns at `:157` (`config_validation`) and `:171` (`apk_read`) pass the same `counts`. |
 | `cli/src/main/java/br/unb/cic/rv/cli/BatchRunner.java` (new helper) | Add | `static String causeChain(Throwable ex)` walks `getCause()` and joins the messages with `"; caused by: "`. The walk stops after 10 links: a cause chain that points back at itself would otherwise spin forever, and the result is a JSON field, so a bounded string is wanted anyway. `ExceptionWithContext` also overrides `printStackTrace` to print its context lines, so the stderr trace carries more than the chain does. |
-| `cli/src/main/java/br/unb/cic/rv/cli/BatchRunner.java` (line 319) | Edit | Wrap `DexPool.writeTo(outDex.toString(), mutator.toDexFile())` in `try { … } catch (RuntimeException ex)` that prints the trace and returns `failed(apk, "DEX write failed for " + ed.entryName + ": " + causeChain(ex), "dex_write", counts)`. This is the failure the campaign hit; naming the entry tells the reader which DEX is at the ceiling without opening the APK, and with the accumulation change above, `counts` here holds the 27 DEXes' worth of statistics that the current code drops. |
+| `cli/src/main/java/br/unb/cic/rv/cli/BatchRunner.java` (line 319) | Edit | Wrap `DexPool.writeTo(outDex.toString(), mutator.toDexFile())` in `try { … } catch (RuntimeException ex)` that prints the trace and returns `failed(apk, "DEX write failed for " + ed.entryName + ": " + causeChain(ex), "dex_write", counts)`. This is the failure the campaign hit; naming the entry tells the reader which DEX is at the ceiling without opening the APK, and with the accumulation change above, `counts` here holds the 20 DEXes' worth of statistics that the current code drops. |
 | `cli/src/main/java/br/unb/cic/rv/cli/BatchRunner.java` (lines 93-99, 115-131) | Edit | `instrumentOne` returns `boolean` (`result.success()`); `instrumentBatch` returns `boolean` (every result `success()`). Both still write the JSON and print the summary before returning. |
 | `cli/src/main/java/br/unb/cic/rv/cli/BatchRunner.java` (Javadoc, lines 20-60) | Edit | Add `phase=dex_write` to the phase-outcome list, and one sentence stating the exit-code contract: 0 when every result succeeded, 1 otherwise — `dex_only` and `build_only` included — JSON always written first. Replace the phrase "the Python wrapper continues onto the next APK" with the current behaviour (the wrapper records the failure from the exit code and stderr, and continues). P4: describe what the code does now, no history. |
 | `cli/src/main/java/br/unb/cic/rv/cli/InstrumentationCli.java` (lines 124-146) | Edit | `Instrument` and `Batch` implement `Callable<Integer>` instead of `Runnable`; `call()` returns `BatchRunner.instrumentOne(...) ? 0 : 1` (resp. `instrumentBatch`). `main` (`:149-151`) is unchanged: picocli propagates the returned integer, and still returns its own non-zero code for usage errors and uncaught exceptions — including the `IllegalArgumentException` `ConfigResolver` throws when no android.jar resolves. The sibling `ValidationCli` calls `System.exit` from inside a `Runnable`; that idiom is not copied here, because it would make the exit code untestable in-process. |
@@ -113,7 +115,29 @@ All paths relative to `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/` in th
 
 ## 4. Execution Order
 
-Single linear sequence, one module, no parallel groups.
+One module, but not one line of work. The code tasks share `BatchRunner.java`,
+`InstrumentationCli.java` and the test class, so they run as a single sequence. Two pieces of work
+touch none of those files and run alongside it. The real-APK check is the long pole: it runs in the
+background while the read-only checks happen. Estimated critical path: 30–40 min. About 12 min of
+that is the real-APK run (the recorded run took 700.7 s before failing); the rest is editing plus
+two Maven runs of 1–2 min each.
+
+| Front | Tasks | Starts | Why it can or cannot run in parallel |
+|---|---|---|---|
+| A: code | 1.1–1.4, 2.1–2.8, 3.1, 4.2 | immediately | Every task edits the same three source files. Splitting them across agents would produce conflicting edits to the same lines. Sequential, one author. |
+| B: prepare the real-APK run | 4.1 | immediately, alongside A | Reads the campaign log and the host filesystem. Touches no source file and needs no jar. |
+| C: `architecture.md` | 3.2 | immediately, alongside A | A different file. The exit-code contract it documents is already fixed in §2, so it does not wait for the code. |
+| D: real-APK run | 4.3 | as soon as 4.2 produces the jar | ~12 min in the background, run from a copy of the jar so no later rebuild swaps the file under the running JVM. |
+| E: read-only checks | 5.1, 5.2, reading 3.1 against 3.2 | while D runs | Edits nothing D uses. Reading 3.1 and 3.2 together matters because A and C write the same contract in two places, by two hands. |
+| F: close | 5.3, 5.4 | after D and E | 5.3 ticks the real-APK criterion, which only D can supply. The commit waits for it. |
+
+Two steps stay even under time pressure. The RED run (1.4) costs about a minute and is the only
+evidence that 1.1 fails without the fix; §3 shows how that test can pass for the wrong reason. The
+real-APK run (4.3) is the only check that the counters of the 20 already-woven DEXes survive a
+failure inside the loop, and no unit test reaches that. Task 3.3 is conditional and expected to be
+skipped. Archiving (5.5) is off the critical path and can happen later.
+
+Front A, in order (fronts B and C run beside it; D, E and F follow as in the table):
 
 1. Write the three tests in `ResultsJsonReportingTest` and run them: (a) fails (exit is 0),
    (b) and (c) fail to compile (helper does not exist, `failed` is private and has three
@@ -121,7 +145,7 @@ Single linear sequence, one module, no parallel groups.
 2. Edit `BatchRunner` (helper, `failed` signature and visibility, catches, counter accumulation,
    `dex_write` wrap, return values) and `InstrumentationCli` (`Callable<Integer>`, option help).
    Run `mvn -pl cli test` from the module root. GREEN.
-3. Update the Javadoc table and `architecture.md`.
+3. Update the Javadoc table (`architecture.md` is front C and is written in parallel).
 4. Run `mvn -pl cli -am package -DskipTests=false` so `cli/target/instr-cli.jar` is rebuilt;
    the Docker image picks the jar up on its next build (`docker/rvandroid/build.sh`), which is
    not part of this change.
@@ -135,11 +159,11 @@ the sibling module snapshots are installed in the local repository.
 
 ## 5. Acceptance Criteria
 
-- [ ] `mvn -pl cli test` in `rvsec-instrumentation-dexlib2` passes with the three new tests green and no regression in `ResultsJsonReportingTest`, `BatchRunnerSmokeTest`, `DexVersionPreservationTest`.
-- [ ] `instrumentExitsOneWhenTheWeaveFails` passes with `ANDROID_HOME` unset in the test process, proving it does not depend on a local Android SDK.
-- [ ] `java -jar cli/target/instr-cli.jar instrument <empty.apk> --android-jar <any path> --results-json out.json` (no descriptor) exits 1, writes `out.json` with `success=false`, and prints a stack trace on stderr.
-- [ ] Running the rebuilt jar on `info.dvkr.screenstream_44000.apk` from `rvsec-dataset/head_apks` (with the campaign's descriptor and paths, and a fresh work dir) yields `phase=dex_write`, a message naming `classes28.dex` and containing `Unsigned short value out of range`, exit 1, and a `weaveCounts` that carries `matchesApplied`, `classesSeen` and `methodsSeen` with non-zero values — the 27 DEXes woven before the failing one. A merely non-empty `weaveCounts` does not satisfy this criterion; the pre-loop keys alone are what the current code would already have. This is the only run that touches a real APK; it needs no emulator.
-- [ ] `grep -n "Map.of()" BatchRunner.java` returns no hit inside `failed`; every `failed(...)` call passes `counts`; no local `int` accumulator survives the weave loop.
-- [ ] Javadoc phase list, the `--monitor-src-dir` option description and `architecture.md` all mention `dex_write` and the exit-code contract, and agree that `dex_only`/`build_only` exit 1; no migration wording (P4).
-- [ ] `git status --porcelain -- rvsec/rvsec-android/rvsec-instrumentation-dexlib2` lists only `cli/src/main/java/.../BatchRunner.java`, `cli/src/main/java/.../InstrumentationCli.java`, `cli/src/test/java/.../ResultsJsonReportingTest.java` and `architecture.md`. A bare `git status` proves nothing here: `rvsec` and `rv-android` are one repository (branch `modules`) whose tree already carries unrelated modifications from other work.
-- [ ] Final commit in the `rvsec/` tree with `closes #112`, made with an explicit pathspec, no `Co-Authored-By` trailer.
+- [x] `mvn -pl cli test` in `rvsec-instrumentation-dexlib2` passes with the three new tests green and no regression in `ResultsJsonReportingTest`, `BatchRunnerSmokeTest`, `DexVersionPreservationTest`.
+- [x] `instrumentExitsOneWhenTheWeaveFails` passes with `ANDROID_HOME` unset in the test process, proving it does not depend on a local Android SDK.
+- [x] `java -jar cli/target/instr-cli.jar instrument <empty.apk> --android-jar <any path> --results-json out.json` (no descriptor) exits 1 and writes `out.json` with `success=false` and `phase=config_validation`. No stack trace is expected on this path: it stops through an early `return failed(...)`, and nothing is thrown. The stack trace on stderr is checked by the real-APK criterion below, where the failure is thrown.
+- [x] Running the rebuilt jar on `info.dvkr.screenstream_44000.apk` from `rvsec-dataset/head_apks` (with the campaign's descriptor and paths, and a fresh work dir) yields `phase=dex_write`, a message naming `classes28.dex` and containing `Unsigned short value out of range`, exit 1, a stack trace on stderr, and a `weaveCounts` that carries `matchesApplied`, `classesSeen` and `methodsSeen` with non-zero values — the 20 DEXes woven before the failing one. A merely non-empty `weaveCounts` does not satisfy this criterion; the pre-loop keys alone are what the current code would already have. This is the only run that touches a real APK; it needs no emulator.
+- [x] `grep -n "Map.of()" BatchRunner.java` returns no hit inside `failed`; every `failed(...)` call passes `counts`; no local `int` accumulator survives the weave loop.
+- [x] Javadoc phase list, the `--monitor-src-dir` option description and `architecture.md` all mention `dex_write` and the exit-code contract, and agree that `dex_only`/`build_only` exit 1; no migration wording (P4).
+- [x] `git status --porcelain -- rvsec/rvsec-android/rvsec-instrumentation-dexlib2` lists only `cli/src/main/java/.../BatchRunner.java`, `cli/src/main/java/.../InstrumentationCli.java`, `cli/src/test/java/.../ResultsJsonReportingTest.java` and `architecture.md`. A bare `git status` proves nothing here: `rvsec` and `rv-android` are one repository (branch `modules`) whose tree already carries unrelated modifications from other work.
+- [x] Final commit in the `rvsec/` tree with `closes #112`, made with an explicit pathspec, no `Co-Authored-By` trailer.
