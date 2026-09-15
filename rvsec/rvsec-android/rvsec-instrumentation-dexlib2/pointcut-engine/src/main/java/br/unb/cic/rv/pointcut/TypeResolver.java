@@ -78,6 +78,17 @@ public final class TypeResolver {
 
     private final List<String> imports;
     private final Predicate<String> classExists;
+    /**
+     * Type name → DEX descriptor, and simple name → FQN, for this resolver
+     * (INV-INS-168). The weaver asks for the same names once per advice per
+     * instruction, and each answer costs an import scan plus, for a dotted name,
+     * one class-existence probe per dot. Both answers are functions of the name,
+     * the import list and the class index, all fixed for the life of a resolver,
+     * so they are computed once. A name whose resolution fails has an answer too
+     * — the name itself — and is memoised like any other.
+     */
+    private final Map<String, String> descriptors = new HashMap<>();
+    private final Map<String, String> fqns = new HashMap<>();
 
     /**
      * @param imports list as emitted by DescriptorWriter (e.g. {@code "java.util.Iterator"},
@@ -107,6 +118,14 @@ public final class TypeResolver {
      *         {@code "I"}).
      */
     public String toDescriptor(String simpleType) {
+        String memo = descriptors.get(simpleType);
+        if (memo != null) return memo;
+        String descriptor = computeDescriptor(simpleType);
+        descriptors.put(simpleType, descriptor);
+        return descriptor;
+    }
+
+    private String computeDescriptor(String simpleType) {
         String s = simpleType.trim();
         int arrayDepth = 0;
         while (s.endsWith("[]")) {
@@ -132,6 +151,14 @@ public final class TypeResolver {
      * knows it.
      */
     public String resolveFqn(String simpleName) {
+        String memo = fqns.get(simpleName);
+        if (memo != null) return memo;
+        String resolved = computeFqn(simpleName);
+        fqns.put(simpleName, resolved);
+        return resolved;
+    }
+
+    private String computeFqn(String simpleName) {
         String fqn = lookupFqn(simpleName);
         if (simpleName.contains(".")) {
             return resolveQualified(simpleName, fqn);

@@ -77,6 +77,20 @@ public final class DexWeaver {
     private final EmitterDispatch emitterDispatch;
     private final RegisterAllocator allocator;
     /**
+     * Advice expression text → its parsed pointcut, for the weave in progress
+     * (INV-INS-168). The matching path visits every advice at every instruction
+     * of every method of every class, and a pointcut expression is a constant of
+     * the descriptor: parsing it there is the same work repeated millions of
+     * times over one APK. An expression the parser rejects is memoised as
+     * {@code null}, so it is not re-parsed either — {@link #parseCached} answers
+     * from the map with {@code containsKey}. Handing out the same instance is
+     * sound because a pointcut AST is built of immutable records and
+     * {@link PointcutMatcher} keeps the state of a match in the context it
+     * creates per call. Cleared at the start of each {@link #weave} so a
+     * different descriptor cannot read another one's entries.
+     */
+    private final Map<String, PointcutExpression> pointcutAsts = new LinkedHashMap<>();
+    /**
      * Original {@link MethodReference} → wrapper {@link MethodReference}.
      * When an invoke instruction matches a key, the weaver REPLACES the
      * invoke's reference with the wrapper (instead of inserting an inline
@@ -408,6 +422,9 @@ public final class DexWeaver {
         Objects.requireNonNull(dexFile);
         Objects.requireNonNull(descriptor);
 
+        // INV-INS-168: the parse memo belongs to this weave and to this descriptor.
+        pointcutAsts.clear();
+
         PointcutMatcher matcher = new PointcutMatcher(typeResolver, inheritance);
 
         // §4.D.0: parse the descriptor's commonPointcut ONCE and AND-compose it onto every advice
@@ -473,6 +490,19 @@ public final class DexWeaver {
                 }
                 perInstructionCommon = null;
             }
+            // INV-INS-168: the expression the matcher receives for an advice depends on the
+            // advice and, through perInstructionCommon, on the class — never on the method or
+            // the instruction. It is built once here, in advice order, and read by index in the
+            // instruction loop. A staticinit advice (owned by the pre-pass) and an advice whose
+            // expression does not parse both leave a null entry; the instruction loop keeps
+            // counting the second one into plansSkipped once per instruction, as before.
+            List<AdviceDescriptor> advices = descriptor.getAdvices();
+            List<PointcutExpression> effectiveByAdvice = new ArrayList<>(advices.size());
+            for (AdviceDescriptor advice : advices) {
+                PointcutExpression pe = isStaticInitAdvice(advice) ? null : parseCached(advice);
+                effectiveByAdvice.add(pe == null || perInstructionCommon == null ? pe
+                        : new CombinedPC(CombinedPC.Op.AND, perInstructionCommon, pe));
+            }
             for (Method method : classDef.getMethods()) {
                 methodsSeen++;
                 MethodImplementation impl = method.getImplementation();
@@ -514,22 +544,23 @@ public final class DexWeaver {
                 for (int idx = instructions.size() - 1; idx >= 0; idx--) {
                     if (substitutedIndices.contains(idx)) continue;
                     Instruction ins = instructions.get(idx);
-                    for (AdviceDescriptor advice : descriptor.getAdvices()) {
+                    for (int ai = 0; ai < advices.size(); ai++) {
+                        AdviceDescriptor advice = advices.get(ai);
                         // staticinitialization(...) advice is owned entirely by
                         // the staticinit pre-pass (§4.Y): it must run for classes
                         // with NO <clinit> (never visited by this per-method loop)
                         // and for classes WITH one, uniformly. Skipping it here
                         // avoids a double-emit on existing <clinit>.
                         if (isStaticInitAdvice(advice)) continue;
-                        PointcutExpression pe = parseCached(advice);
-                        if (pe == null) { plansSkipped++; continue; }
-                        // §4.D.0: AND-compose the commonPointcut so its class-level exclusions gate
-                        // the match. The matcher resolves BaseAspect.notwithin() against the
-                        // descriptor's baseAspectExclusions (passed below). §4.PERF.P2.1: when the
-                        // commonPointcut was hoisted to the per-class gate above, perInstructionCommon
-                        // is null and we match the advice pe alone (the class already passed the gate).
-                        PointcutExpression effective = (perInstructionCommon == null) ? pe
-                                : new CombinedPC(CombinedPC.Op.AND, perInstructionCommon, pe);
+                        // §4.D.0: the expression already carries the commonPointcut AND-composed,
+                        // so its class-level exclusions gate the match; the matcher resolves
+                        // BaseAspect.notwithin() against the descriptor's baseAspectExclusions
+                        // (passed below). §4.PERF.P2.1: when the commonPointcut was hoisted to the
+                        // per-class gate above, the entry is the advice expression alone (the class
+                        // already passed the gate). A null entry is an expression that does not
+                        // parse.
+                        PointcutExpression effective = effectiveByAdvice.get(ai);
+                        if (effective == null) { plansSkipped++; continue; }
                         Optional<Match> m = matcher.match(effective, classDef, method, ins,
                                 idx, instructions.size(), instructions,
                                 baseAspectExclusions, aspectName);
@@ -970,14 +1001,18 @@ public final class DexWeaver {
     }
 
     /** Cached parsing; identical expressions across advices are rare but cheap to cache. */
-    private PointcutExpression parseCached(AdviceDescriptor advice) {
+    PointcutExpression parseCached(AdviceDescriptor advice) {
         String expr = advice.getExpression();
         if (expr == null || expr.isBlank()) return null;
+        if (pointcutAsts.containsKey(expr)) return pointcutAsts.get(expr);
+        PointcutExpression parsed;
         try {
-            return PointcutExpressionParser.parse(expr);
+            parsed = PointcutExpressionParser.parse(expr);
         } catch (RuntimeException ex) {
-            return null;
+            parsed = null;
         }
+        pointcutAsts.put(expr, parsed);
+        return parsed;
     }
 
     /**

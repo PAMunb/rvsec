@@ -209,12 +209,12 @@ GitHub Issue: #114
 
 ## 17. Weaver Cost: Parse Once, Resolve Once (WAVE 3, main window, before 15.2)
 
-- [ ] 17.1 `dex-mutator/.../DexWeaver.java`: `parseCached` (`:973-981`) memoises by expression text on a field cleared when a weave begins, a failed parse included, so no expression is parsed twice in one weave (INV-INS-168, design D19)
-- [ ] 17.2 `DexWeaver` weave loop (`:517-532`): compose the `commonPointcut` with each advice once per class instead of once per instruction; the hoisted path (`perInstructionCommon == null`) is unchanged
-- [ ] 17.3 `pointcut-engine/.../TypeResolver.java`: memoise `toDescriptor` per resolver instance, so the import scan and the nested-type probes of `existingBinaryName` run once per type name
-- [ ] 17.4 Tests: `DexWeaverParseMemoTest` (the same advice yields the same expression instance; a new weave parses again) and `TypeResolverTest.descriptorIsMemoised` (the class-existence predicate is queried once per name); `mvn -o -pl :dex-mutator test` and `-pl :pointcut-engine test` green
-- [ ] 17.5 Identity and cost: re-instrument `de.markusfisch.android.binaryeye_174.apk` with the repaired weaver and compare, against the APK the same descriptor produced before the repair, the SHA-256 of every `classes*.dex` entry and every counter of `instrument_results.json`; record both wall times (659.9 s before) in `evidence/weave_cost.md`
-- [ ] 17.6 Reactor build (JDK 21) green and `mvn -o test` green in `rvsec-instrumentation-dexlib2`; commit by path (`refs #114`)
+- [x] 17.1 `dex-mutator/.../DexWeaver.java`: `parseCached` (`:973-981`) memoises by expression text on a field cleared when a weave begins, a failed parse included, so no expression is parsed twice in one weave (INV-INS-168, design D19)
+- [x] 17.2 `DexWeaver` weave loop (`:517-532`): compose the `commonPointcut` with each advice once per class instead of once per instruction; the hoisted path (`perInstructionCommon == null`) is unchanged
+- [x] 17.3 `pointcut-engine/.../TypeResolver.java`: memoise `toDescriptor` per resolver instance, so the import scan and the nested-type probes of `existingBinaryName` run once per type name
+- [x] 17.4 Tests: `DexWeaverParseMemoTest` (the same advice yields the same expression instance; a new weave parses again) and `TypeResolverTest.descriptorIsMemoised` (the class-existence predicate is queried once per name); `mvn -o -pl :dex-mutator test` and `-pl :pointcut-engine test` green
+- [x] 17.5 Identity and cost: re-instrument `de.markusfisch.android.binaryeye_174.apk` with the repaired weaver and compare, against the APK the same descriptor produced before the repair, the SHA-256 of every `classes*.dex` entry and every counter of `instrument_results.json`; record both wall times (659.9 s before) in `evidence/weave_cost.md`
+- [x] 17.6 Reactor build (JDK 21) green and `mvn -o test` green in `rvsec-instrumentation-dexlib2`; commit by path (`refs #114`)
 
 ## 15. Build, Instrument, Measure and Smoke (WAVE 3, main window)
 

@@ -206,6 +206,35 @@ class TypeResolverTest {
         return androidJar != null;
     }
 
+    // --- one resolution per name (INV-INS-168) ------------------------------
+
+    @Test
+    void descriptorIsMemoisedPerName() {
+        // The weaver asks for the same type names once per advice per instruction, and a dotted
+        // name costs one class-existence probe per dot. The answer depends on the name, the
+        // imports and the index, all fixed for the life of a resolver.
+        List<String> probed = new java.util.ArrayList<>();
+        TypeResolver r = new TypeResolver(
+                List.of("java.security.KeyStore"),
+                name -> { probed.add(name); return KNOWN_CLASSES.contains(name); });
+
+        assertEquals("Ljava/security/KeyStore$Entry;", r.toDescriptor("KeyStore.Entry"));
+        int afterFirst = probed.size();
+        assertEquals("Ljava/security/KeyStore$Entry;", r.toDescriptor("KeyStore.Entry"));
+
+        assertEquals(afterFirst, probed.size(),
+                "the second resolution of the same name must not probe the class index again");
+    }
+
+    @Test
+    void memoisedFqnKeepsTheFallbackAnswer() {
+        // A name no import and no class explains resolves to the java.lang heuristic; the memo
+        // must return that answer too, not recompute it into something else.
+        TypeResolver r = new TypeResolver(Collections.emptyList());
+        assertEquals("java.lang.Something", r.resolveFqn("Something"));
+        assertEquals("java.lang.Something", r.resolveFqn("Something"));
+    }
+
     @Test
     @EnabledIf("hasAndroidJar")
     void nestedTypeResolvesAgainstTheFrameworkIndex() {
