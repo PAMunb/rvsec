@@ -1,0 +1,58 @@
+Byte-identity check of the one-pass result export (task 11.5, design D12,
+spec scenario "One Pass Reproduces the Reference Tables").
+Run on 2026-09-15.
+
+Reference
+---------
+data/results/estudo02_regen/estudo02_00/ : the tables that
+experimento-estudo02/scripts/regenerate_tables.py wrote for container estudo02_00
+with PYTHONHASHSEED=0 (2026-09-14 13:13), from
+data/results/estudo02_00/estudo02_00/tasks.json (2026-09-14 12:18).
+
+Inputs (copied to a scratch results dir)
+-----------------------------------------
+Source container: data/results/estudo02_00/estudo02_00/
+Scratch dir:      <scratchpad>/G11/identity/results/estudo02_00/
+- tasks.json: 4,076,820 bytes, sha256 f3ec04000fd83f6a668deca808d7791fb1499711f4cd3382917c9354ffca3e38
+  (the same bytes as the source). 1,752 records: 1,683 COMPLETED, 69 ERROR.
+  No identity has more than one COMPLETED record.
+- The logcats that tasks.json lists: 1,683 files, 1,029,554,334 bytes.
+- The static-analysis JSON of each of the 17 APKs (<apk>/<apk>.json):
+  17 files, 87,196,214 bytes.
+Traces, ape_output and the OOM-partial coverage.csv were not copied.
+
+tasks.json stores each logcat path relative to the working directory
+(results/estudo02_00/<apk>/<file>). To keep those paths unchanged, the command
+ran from the scratch parent directory (<scratchpad>/G11/identity) and pointed
+uv at the rv-android project. Running it from rv-android/ would resolve the
+paths under rv-android/results/, where these files do not exist.
+
+Command
+-------
+cd <scratchpad>/G11/identity && \
+  PYTHONHASHSEED=0 /usr/bin/time -v uv run --project <repo>/rv-android \
+  rv-platform run --process-results results/estudo02_00
+
+Exit status 0. The log has no ERROR lines.
+Wall time: 7:32 (7 min 32 s). User time: 449.3 s. System time: 2.6 s.
+Peak RSS (/usr/bin/time -v "Maximum resident set size"): 292,236 kB (285 MiB).
+Environment: Python 3.14.4, uv 0.12.0. The working tree was not committed:
+wave 1 of gh114 was in progress in other files.
+
+Per-file result (new output vs reference)
+-----------------------------------------
+coverage.csv     identical  586,170,327 bytes  sha256 444f20f879f27340...
+errors.csv       identical   14,125,756 bytes  sha256 a69cd97ca38e340a...
+app_events.csv   identical       63,078 bytes  sha256 90494193b679ebe2...
+summary.csv      identical      179,568 bytes  sha256 f220e5b4fafc9e38...
+results.json     identical   37,683,156 bytes  sha256 0eac223c098fe821...
+performance.csv  differs  (reference 155,242 bytes, new 155,223 bytes)
+  first differing line: 2
+    ref: app.eduroam.geteduroam_2685.apk,1,60,ape,121,TaskState.COMPLETED,1789402429.517632
+    new: app.eduroam.geteduroam_2685.apk,1,60,ape,121,TaskState.COMPLETED,1789499073.426483
+  Cause: the content of one column, not the row order.
+  PerformanceProcessorComponent._write_task_performance_data writes
+  datetime.now().timestamp() into the `timestamp` column when the file is
+  written, so no two runs can agree on that column. That includes two runs of
+  the reference script. With that column removed, all 1,684 rows (header plus
+  1,683 tasks) are identical, in the same order.

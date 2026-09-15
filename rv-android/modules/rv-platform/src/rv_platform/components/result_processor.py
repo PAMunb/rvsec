@@ -11,11 +11,12 @@ the five FR14 files (``coverage.csv``, ``errors.csv``, ``summary.csv``,
 during execution and run standalone later via ``rv-platform run
 --process-results`` (Scenario "Standalone Result Processing").
 
-On resume it also implements Requirement "Result Consolidation on Resume
-(FR10-ext)": tasks loaded from ``tasks.json`` arrive with ``repository=None`` /
-``results_dir=""`` / ``app=None``, so both MOP violations and per-method
-coverage are reconstructed on demand from the persisted logcat and the
-co-located static-analysis JSON.
+It also implements Requirement "Result Consolidation on Resume (FR10-ext)":
+tasks loaded from ``tasks.json`` arrive with ``repository=None`` /
+``results_dir=""`` / ``app=None``, and a task finished in the current session
+has already released its repository (INV-PLT-38), so both MOP violations and
+per-method coverage are reconstructed on demand from the persisted logcat and
+the co-located static-analysis JSON.
 """
 
 import csv
@@ -136,6 +137,10 @@ class ResultProcessorComponent:
       --process-results (Scenario "Standalone Result Processing").
 
     ### Key Features:
+    - One pass over the tasks ordered by ``(apk, tool, rep, timeout)``: all
+      writers run for a task, then its repository and static model are
+      released, and the static model is parsed once per APK (INV-PLT-15,
+      INV-PLT-38).
     - Per-method coverage rows with progressive and row-constant metrics.
     - Monitored-operations violation rows (reconstructible from logcat alone).
     - Aggregate per-task summary and hierarchical JSON.
@@ -163,12 +168,16 @@ class ResultProcessorComponent:
         # reconstruction (D-3a). Membership-guarded so a task is counted at most
         # once regardless of how many CSV writers trigger reconstruction; len()
         # is the aggregate N surfaced by the resume health-check WARNING
-        # (INV-PLT-18). This component-level counter is one of the two disjoint
-        # fields of INV-PLT-15 — it counts tasks, distinct from the per-task
-        # task.static_data parse-memo. (Re)initialized at the start of execute()
-        # so each pass reports only its own tasks (Scenario "Resume Coverage
-        # Health Check Warning").
+        # (INV-PLT-18). (Re)initialized at the start of execute() so each pass
+        # reports only its own tasks (Scenario "Resume Coverage Health Check
+        # Warning").
         self._unresolved_task_ids: set = set()
+
+        # The parsed static model of one APK, keyed by APK name (INV-PLT-15).
+        # Every execution of an APK shares the model, and execute() visits the
+        # tasks ordered by APK, so a single entry is the whole cache: it is
+        # replaced when the APK changes and emptied when the pass ends.
+        self._static_data_by_apk: Dict[str, StaticAnalysisData] = {}
 
         # Initialize logging with component context
         logging_manager = LoggingManager.get_instance()
@@ -212,6 +221,7 @@ class ResultProcessorComponent:
             # own tasks (D-3a; protects G3 reprocessing idempotency). Per-pass
             # re-init is Scenario "Resume Coverage Health Check Warning".
             self._unresolved_task_ids = set()
+            self._static_data_by_apk = {}
 
             # Filter for completed tasks. This includes tasks from ALL sessions
             # (previous runs loaded from tasks.json + current session), because
@@ -225,22 +235,70 @@ class ResultProcessorComponent:
                 self.logger.warning("No completed tasks found for result processing")
                 return
 
-            # Generate all output files. Each generator handles the distinction
-            # between tasks with in-memory repository (current session) and tasks
-            # without repository (loaded from tasks.json on resume). For the
-            # latter, BOTH MOP violations AND per-method coverage are reconstructed
-            # from the persisted logcat + co-located static-analysis JSON
-            # (re-parsed on demand). There is NO fallback to serialized
-            # coverage_metrics (INV-PLT-16): when the JSON is genuinely absent,
-            # coverage is zeroed by construction while MOP errors survive.
-            # The first five files are Requirement "Result Generation (FR14)";
-            # app_events.csv is Requirement "Diagnostic Events CSV Generation
-            # (FR14)".
-            self._generate_coverage_csv(completed_tasks)
-            self._generate_errors_csv(completed_tasks)
-            self._generate_app_events_csv(completed_tasks)
-            self._generate_summary_csv(completed_tasks)
-            self._generate_results_json(completed_tasks)
+            # Rows follow this order in every file. Ordering by APK first makes
+            # the tasks of one APK contiguous, which is what lets the static
+            # model cache hold a single entry.
+            completed_tasks.sort(
+                key=lambda task: (
+                    task.config.apk_name,
+                    task.config.tool_config.get_full_tool_name(),
+                    task.config.repetition,
+                    task.config.timeout,
+                )
+            )
+
+            # One pass, task-major (INV-PLT-38). A file-major loop keeps, for
+            # every task already visited, a reconstructed repository and a
+            # static model alive on the task object until the last file is
+            # written, and a campaign-sized export does not fit in memory that
+            # way. Here all writers run for one task and its parsed state is
+            # released before the next task, so memory is one repository plus
+            # one static model. The headers come from the per-file generators
+            # called with no task, and the files are then reopened for append.
+            #
+            # Each row writer handles both a task with an in-memory repository
+            # and one without (loaded from tasks.json, or released when it
+            # finished): for the latter, MOP violations AND per-method coverage
+            # are reconstructed from the persisted logcat + co-located
+            # static-analysis JSON. The coverage writer stores the reconstructed
+            # repository on the task, so the other writers of the same task
+            # reuse it. There is NO fallback to serialized coverage_metrics
+            # (INV-PLT-16). The first five files are Requirement "Result
+            # Generation (FR14)"; app_events.csv is Requirement "Diagnostic
+            # Events CSV Generation (FR14)".
+            self._generate_coverage_csv([])
+            self._generate_errors_csv([])
+            self._generate_app_events_csv([])
+            self._generate_summary_csv([])
+
+            results_data: Dict[str, Any] = {}
+            with (
+                self._open_for_append("coverage.csv") as coverage_file,
+                self._open_for_append("errors.csv") as errors_file,
+                self._open_for_append("app_events.csv") as app_events_file,
+                self._open_for_append("summary.csv") as summary_file,
+            ):
+                coverage_writer = csv.writer(coverage_file)
+                errors_writer = csv.writer(errors_file)
+                app_events_writer = csv.writer(app_events_file)
+                summary_writer = csv.writer(summary_file)
+
+                for task in completed_tasks:
+                    self._write_task_coverage_data(coverage_writer, task)
+                    self._write_task_error_data(errors_writer, task)
+                    self._write_task_app_events(app_events_writer, task)
+                    self._write_task_summary_data(summary_writer, task)
+                    self._add_results_entry(results_data, task)
+
+                    task.repository = None
+                    task.static_data = None
+
+            self._static_data_by_apk = {}
+
+            # results.json carries no repository and no static model, so it is
+            # built during the pass and written once at the end.
+            self._generate_results_json(results_data)
+            # Timing only; reads no repository.
             self._generate_performance_csv(completed_tasks)
 
             # Resume health check (INV-PLT-18 / G4): if any processed task
@@ -267,6 +325,12 @@ class ResultProcessorComponent:
         """
         # No cleanup required for this component
 
+    def _open_for_append(self, name: str):
+        """Open one output file of ``results_dir`` for appending rows after its header."""
+        return open(
+            os.path.join(self.results_dir, name), "a", newline="", encoding="utf-8"
+        )
+
     def _filter_completed_tasks(self) -> List[Any]:
         """
         Filter tasks to only include completed ones.
@@ -292,24 +356,28 @@ class ResultProcessorComponent:
         return completed_tasks
 
     def _resolve_static_data(self, task: Any) -> Optional[Any]:
-        """Return static-analysis data for a task, re-parsing the JSON on demand.
+        """Return static-analysis data for a task, parsing the JSON once per APK.
 
-        INV-PLT-15 (gh58 + gh65): the resume path obtains static data via an
-        on-demand re-parse rather than serializing it in tasks.json (which would
-        inflate the persistence by MBs per task). On resume, ``task.results_dir``
-        is empty — it is not serialized — so the per-APK directory is derived
-        from ``os.path.dirname(task.result.logcat_file)``: at runtime
+        INV-PLT-15: static data is obtained by parsing the co-located JSON rather
+        than serializing it in tasks.json (which would inflate the persistence by
+        MBs per task). ``task.results_dir`` is used when set; on resume it is
+        empty — it is not serialized — so the per-APK directory is derived from
+        ``os.path.dirname(task.result.logcat_file)``: at runtime
         ``task.results_dir == os.path.dirname(logcat_file)`` and the
         static-analysis JSON is co-located with the logcat (ADR 0003).
 
-        D-3a — two fields with disjoint roles keep the unresolved count robust:
+        Two fields with disjoint roles keep the parse bounded and the unresolved
+        count robust:
 
-        - ``task.static_data`` is the **parse memo**. A valid ``StaticAnalysisData``
-          is assigned on EVERY path (an empty one when the JSON is absent or the
-          parser raises), so a non-``None`` value short-circuits re-entry WITHOUT
-          re-parsing and is always a legal argument to ``parse_logcat_file``.
-          Consequently ``read_static_analysis_files`` runs at most once per task
-          across all CSV writers, independent of writer ordering.
+        - ``self._static_data_by_apk`` holds the **parsed model of one APK**. A
+          valid ``StaticAnalysisData`` is cached on EVERY path (an empty one when
+          the JSON is absent or the parser raises), so every later task of the
+          same APK reuses it WITHOUT re-parsing, and it is always a legal argument
+          to ``parse_logcat_file``. Consequently ``read_static_analysis_files``
+          runs at most once per APK while its tasks are contiguous, independent
+          of writer ordering. A task of another APK replaces the entry. The model
+          is also assigned to ``task.static_data``, which ``execute()`` releases
+          after the task's last writer.
         - ``self._unresolved_task_ids`` **counts** tasks whose static data could
           not be resolved (empty ``classes``), membership-guarded so the count is
           idempotent across writers; ``len(...)`` is the aggregate N reported by
@@ -328,36 +396,34 @@ class ResultProcessorComponent:
         JSON-absent case, MOP errors — including ``total_errors``/``unique_errors``
         — stay reliable per analysis INV-ANA-25; only per-method coverage zeroes.
         """
-        memo = getattr(task, "static_data", None)
-        if memo is not None:
-            # Parse memo holds — never re-parse. Empty classes => unresolved.
-            return memo if memo.classes.classes else None
-
-        static_data = None
-        try:
-            results_dir = getattr(task, "results_dir", None)
-            if not results_dir:
-                logcat_file = getattr(task.result, "logcat_file", None)
-                results_dir = os.path.dirname(logcat_file) if logcat_file else ""
-            apk_name = task.config.apk_name
-            static_data = static_analysis_parser.read_static_analysis_files(
-                results_dir, apk_name
-            )
-        except Exception as e:
-            self.logger.warning(
-                f"Failed to re-parse static analysis JSON for task {task.id}: {e} — "
-                "per-method coverage will be zero, only MOP violations will be reliable"
-            )
-            static_data = None
-
-        # Memoize a VALID StaticAnalysisData on every path (empty when the JSON
-        # is absent or the parser raised). The empty instance is non-None, so it
-        # short-circuits re-entry without re-parsing/re-counting, and it is a
-        # legal (zero-coverage) argument to parse_logcat_file.
+        apk_name = task.config.apk_name
+        static_data = self._static_data_by_apk.get(apk_name)
         if static_data is None:
-            static_data = StaticAnalysisData(
-                Classes(), Windows(), WindowTransitionGraph()
-            )
+            try:
+                results_dir = getattr(task, "results_dir", None)
+                if not results_dir:
+                    logcat_file = getattr(task.result, "logcat_file", None)
+                    results_dir = os.path.dirname(logcat_file) if logcat_file else ""
+                static_data = static_analysis_parser.read_static_analysis_files(
+                    results_dir, apk_name
+                )
+            except Exception as e:
+                self.logger.warning(
+                    f"Failed to parse static analysis JSON for apk {apk_name} "
+                    f"(task {task.id}): {e} — per-method coverage will be empty "
+                    "for its tasks, only MOP violations will be reliable"
+                )
+                static_data = None
+
+            # Cache a VALID StaticAnalysisData on every path (empty when the
+            # JSON is absent or the parser raised). The empty instance is
+            # non-None, so the APK's later tasks reuse it without re-parsing,
+            # and it is a legal (zero-coverage) argument to parse_logcat_file.
+            if static_data is None:
+                static_data = StaticAnalysisData(
+                    Classes(), Windows(), WindowTransitionGraph()
+                )
+            self._static_data_by_apk = {apk_name: static_data}
         task.static_data = static_data
 
         if not static_data.classes.classes:
@@ -390,8 +456,8 @@ class ResultProcessorComponent:
         logged and timing stays 0 — an explicit degraded state, never fabricated.
 
         Scenarios (Requirement "Result Consolidation on Resume (FR10-ext)"):
-        "Logcat Re-Reading with On-Demand Static Data Re-Parse" (re-parse JSON,
-        cache on ``task.static_data``, re-read the logcat) and "Logcat File
+        "Logcat Re-Reading with On-Demand Static Data Re-Parse" (parse the JSON
+        once per APK, re-read the logcat) and "Logcat File
         Missing on Resume" (return ``None`` only when the logcat file itself is
         missing).
 
@@ -1016,56 +1082,42 @@ class ResultProcessorComponent:
         except Exception as e:
             self.logger.warning(f"Failed to write summary data for task {task.id}: {e}")
 
-    @ErrorHandler.handle_errors(
-        component="ResultProcessorComponent", phase="results_json_generation"
-    )
-    def _generate_results_json(self, completed_tasks: List[Any]) -> None:
-        """
-        Generate the results JSON file with structured experiment data.
+    def _add_results_entry(self, results_data: Dict[str, Any], task: Any) -> None:
+        """Extract one task's ``results.json`` entry into ``results_data``.
 
         Requirement "Result Generation (FR14)", Scenario "Results JSON
         Hierarchical Structure": keyed apk -> repetitions -> rep -> timeouts ->
-        timeout -> tools -> tool_name, each entry carrying ``summary`` and
+        timeout -> tools -> tool_name. This nesting matches the experiment's
+        Cartesian product structure and makes it easy to compare tools for the
+        same APK/timeout pair. Called while the task's repository is still
+        alive, so the entry is extracted from it rather than reconstructed again.
+        """
+        config = task.config
+        tools = (
+            results_data.setdefault(config.apk_name, {"repetitions": {}})["repetitions"]
+            .setdefault(str(config.repetition), {"timeouts": {}})["timeouts"]
+            .setdefault(str(config.timeout), {"tools": {}})["tools"]
+        )
+        tools[config.tool_config.get_full_tool_name()] = self._extract_task_data(task)
+
+    @ErrorHandler.handle_errors(
+        component="ResultProcessorComponent", phase="results_json_generation"
+    )
+    def _generate_results_json(self, results_data: Dict[str, Any]) -> None:
+        """
+        Write the results JSON file with structured experiment data.
+
+        Requirement "Result Generation (FR14)", Scenario "Results JSON
+        Hierarchical Structure": each tool entry carries ``summary`` and
         ``monitored_operations_errors``.
 
         Args:
-            completed_tasks: List of completed tasks to process
+            results_data: The nested entries built by ``_add_results_entry``
         """
         with self.logger.with_context(phase="results_json_generation"):
             self.logger.info(LOG_START.format(phase="results JSON generation"))
 
             results_file = os.path.join(self.results_dir, "results.json")
-
-            # Build hierarchical JSON: apk -> repetition -> timeout -> tool.
-            # This nesting matches the experiment's Cartesian product structure
-            # and makes it easy to compare tools for the same APK/timeout pair.
-            results_data = {}
-            for task in completed_tasks:
-                apk_name = task.config.apk_name
-                rep = task.config.repetition
-                timeout = task.config.timeout
-                tool_name = task.config.tool_config.get_full_tool_name()
-
-                # Initialize nested structure
-                if apk_name not in results_data:
-                    results_data[apk_name] = {"repetitions": {}}
-
-                if str(rep) not in results_data[apk_name]["repetitions"]:
-                    results_data[apk_name]["repetitions"][str(rep)] = {"timeouts": {}}
-
-                if (
-                    str(timeout)
-                    not in results_data[apk_name]["repetitions"][str(rep)]["timeouts"]
-                ):
-                    results_data[apk_name]["repetitions"][str(rep)]["timeouts"][
-                        str(timeout)
-                    ] = {"tools": {}}
-
-                # Add tool-specific data
-                tool_data = self._extract_task_data(task)
-                results_data[apk_name]["repetitions"][str(rep)]["timeouts"][
-                    str(timeout)
-                ]["tools"][tool_name] = tool_data
 
             # Write JSON file
             with open(results_file, "w", encoding="utf-8") as f:

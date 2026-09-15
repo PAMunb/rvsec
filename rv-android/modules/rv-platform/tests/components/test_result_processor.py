@@ -720,7 +720,13 @@ class TestResultsJSON:
 
         results_dir = str(tmp_path / "results")
         processor = ResultProcessorComponent(tasks, results_dir)
-        processor._generate_results_json(tasks)
+        results_data = {}
+        with patch.object(
+            processor, "_reconstruct_repository_from_logcat", return_value=None
+        ):
+            for t in tasks:
+                processor._add_results_entry(results_data, t)
+        processor._generate_results_json(results_data)
 
         json_path = os.path.join(results_dir, "results.json")
         with open(json_path) as f:
@@ -1011,6 +1017,208 @@ class TestExecutePipeline:
         # No CSV files should be generated
         assert not os.path.isfile(os.path.join(results_dir, "coverage.csv"))
 
+    def test_execute_orders_rows_parses_once_per_apk_and_releases(self, tmp_path):
+        """One pass over tasks ordered by (apk, tool, rep, timeout): every file
+        follows that order, the static JSON of each APK is parsed once, and no
+        task keeps its repository or static model (INV-PLT-15, INV-PLT-38)."""
+        tasks = []
+        for apk, tool, rep in [
+            ("b.apk", "monkey", 1),
+            ("a.apk", "monkey", 2),
+            ("b.apk", "droidbot", 1),
+            ("a.apk", "monkey", 1),
+        ]:
+            _, logcat_path = _seed_apk_dir(tmp_path, apk)
+            task = _make_completed_task(apk=apk, tool=tool, rep=rep)
+            task.result.logcat_file = str(logcat_path)
+            tasks.append(task)
+
+        results_dir = str(tmp_path / "results")
+        processor = ResultProcessorComponent(tasks, results_dir)
+        with patch(
+            "rv_platform.components.result_processor."
+            "static_analysis_parser.read_static_analysis_files",
+            wraps=static_analysis_parser.read_static_analysis_files,
+        ) as spy:
+            processor.execute({})
+
+        assert sorted(call.args[1] for call in spy.call_args_list) == [
+            "a.apk",
+            "b.apk",
+        ]
+        expected = [
+            ["a.apk", "1", "300", "monkey"],
+            ["a.apk", "2", "300", "monkey"],
+            ["b.apk", "1", "300", "droidbot"],
+            ["b.apk", "1", "300", "monkey"],
+        ]
+        summary = _csv_rows(results_dir, "summary.csv")
+        assert [row[:4] for row in summary[1:]] == expected
+        assert [row[-1] for row in summary[1:]] == ["true"] * 4
+        errors = _csv_rows(results_dir, "errors.csv")
+        assert [row[:4] for row in errors[1:]] == [r for r in expected for _ in (1, 2)]
+        coverage = _csv_rows(results_dir, "coverage.csv")
+        assert [row[:4] for row in coverage[1:]] == [
+            r for r in expected for _ in range(5)
+        ]
+        for name in ("coverage.csv", "errors.csv", "app_events.csv", "summary.csv"):
+            rows = _csv_rows(results_dir, name)
+            assert rows[0][0] == "apk" and all(row[0] != "apk" for row in rows[1:])
+
+        with open(os.path.join(results_dir, "results.json")) as f:
+            data = json.load(f)
+        assert list(data) == ["a.apk", "b.apk"]
+        entry = data["b.apk"]["repetitions"]["1"]["timeouts"]["300"]["tools"]
+        assert list(entry) == ["droidbot", "monkey"]
+        assert entry["monkey"]["monitored_operations_errors"]["total"] == 2
+
+        assert all(t.repository is None and t.static_data is None for t in tasks)
+        assert processor._static_data_by_apk == {}
+
+
+class TestExportMemoryBound:
+    """Scenario "Memory Does Not Grow With the Number of Tasks".
+
+    600 tasks of one APK as in the scenario, but a logcat of 50 coverage lines
+    and a static model of 500 methods instead of 2,000 and 5,000, so the test
+    runs in seconds: what is asserted is how many parsed objects are alive at
+    once, and that does not depend on how big each one is. No `gc.collect()` is
+    made before sampling, so uncollected garbage would count as live as well.
+    """
+
+    N_TASKS = 600
+    N_CLASSES = 10
+    METHODS_PER_CLASS = 50
+    N_COVERAGE_LINES = 50
+
+    def _seed(self, tmp_path):
+        apk = "synthetic.apk"
+        apk_dir = tmp_path / apk
+        apk_dir.mkdir()
+        signatures = []
+        reachability = []
+        for c in range(self.N_CLASSES):
+            class_name = f"com.example.synthetic.C{c}"
+            methods = []
+            for m in range(self.METHODS_PER_CLASS):
+                signature = f"<{class_name}: void m{m}()>"
+                signatures.append(signature)
+                methods.append(
+                    {
+                        "name": f"m{m}",
+                        "signature": signature,
+                        "reachable": True,
+                        "reachesTarget": m % 2 == 0,
+                        "directlyReachesTarget": m % 4 == 0,
+                    }
+                )
+            entry = {"className": class_name, "methods": methods}
+            if c == 0:
+                entry.update({"componentType": "ACTIVITY", "isMain": True})
+            reachability.append(entry)
+        with open(apk_dir / f"{apk}.json", "w") as f:
+            json.dump(
+                {
+                    "package": "com.example.synthetic",
+                    "mainActivity": "com.example.synthetic.C0",
+                    "reachability": reachability,
+                    "windows": [],
+                    "transitions": [],
+                },
+                f,
+            )
+        logcat_path = apk_dir / "shared.logcat"
+        logcat_path.write_text(
+            "".join(
+                f"05-14 10:00:{i % 60:02d}.000  1234  5678 I RVSEC-COV: "
+                f"{signatures[i * 97 % len(signatures)]}\n"
+                for i in range(self.N_COVERAGE_LINES)
+            )
+        )
+        tasks = []
+        for rep in range(1, self.N_TASKS + 1):
+            task = _make_completed_task(apk=apk, rep=rep)
+            task.result.logcat_file = str(logcat_path)
+            tasks.append(task)
+        return tasks
+
+    def test_memory_does_not_grow_with_the_number_of_tasks(self, tmp_path):
+        import gc
+        import weakref
+
+        from rv_platform.components import result_processor as module
+
+        tasks = self._seed(tmp_path)
+        processor = ResultProcessorComponent(tasks, str(tmp_path / "results"))
+
+        repositories = []
+        models = []
+        read_static = static_analysis_parser.read_static_analysis_files
+
+        def tracking_parse_logcat(*args, **kwargs):
+            repository = parse_logcat_file(*args, **kwargs)
+            repositories.append(weakref.ref(repository))
+            return repository
+
+        def tracking_read_static(results_dir, apk):
+            model = read_static(results_dir, apk)
+            models.append(weakref.ref(model))
+            return model
+
+        # Sampled inside the last row writer of each task, when that task's
+        # repository is alive and every earlier task should have released its own.
+        live_counts = []
+        write_summary = processor._write_task_summary_data
+
+        def sampling_summary_writer(writer, task):
+            write_summary(writer, task)
+            live_counts.append(
+                (
+                    sum(ref() is not None for ref in repositories),
+                    sum(ref() is not None for ref in models),
+                    sum(t.repository is not None for t in tasks),
+                    len(
+                        {id(t.static_data) for t in tasks if t.static_data is not None}
+                    ),
+                )
+            )
+
+        with (
+            patch.object(
+                module, "parse_logcat_file", side_effect=tracking_parse_logcat
+            ),
+            patch.object(
+                module.static_analysis_parser,
+                "read_static_analysis_files",
+                side_effect=tracking_read_static,
+            ) as read_spy,
+            patch.object(
+                processor,
+                "_write_task_summary_data",
+                side_effect=sampling_summary_writer,
+            ),
+        ):
+            processor.execute({})
+
+        assert len(live_counts) == self.N_TASKS
+        assert len(repositories) == self.N_TASKS  # every task was really parsed
+        # THEN at most one repository and one static model are reachable at a time.
+        assert max(count[0] for count in live_counts) == 1
+        assert max(count[1] for count in live_counts) == 1
+        assert max(count[2] for count in live_counts) == 1
+        assert max(count[3] for count in live_counts) == 1
+        # AND after execute() no task holds either field.
+        assert all(t.repository is None and t.static_data is None for t in tasks)
+        # The static model holds reference cycles of its own, so it is freed by
+        # the collector rather than by reference counting.
+        gc.collect()
+        assert all(ref() is None for ref in repositories + models)
+        # AND the static JSON of the APK was parsed once.
+        assert read_spy.call_count == 1
+        summary = _csv_rows(str(tmp_path / "results"), "summary.csv")
+        assert len(summary) == self.N_TASKS + 1
+        assert all(row[-1] == "true" for row in summary[1:])
+
 
 # ===========================================================================
 # Performance CSV Fallback
@@ -1116,20 +1324,32 @@ class TestGh58ResolveStaticData:
     """Helper-level tests added after `_resolve_static_data` exists (task 2.3).
     Located here to avoid wrong-reason AttributeError during RED phase."""
 
-    def test_resolve_static_data_reuses_task_attribute(self, tmp_path):
-        """When task.static_data is already set, no re-parse occurs."""
-        task = _make_completed_task()
-        sentinel = MagicMock(name="cached_static_data")
-        task.static_data = sentinel
+    def test_resolve_static_data_parses_once_per_apk(self, tmp_path):
+        """Tasks of one APK share one parse; a task of another APK replaces the
+        single cached model (INV-PLT-15)."""
+        a1 = _make_completed_task(apk="a.apk", rep=1)
+        a2 = _make_completed_task(apk="a.apk", rep=2)
+        b1 = _make_completed_task(apk="b.apk", rep=1)
+        for t in (a1, a2, b1):
+            t.results_dir = str(tmp_path / t.config.apk_name)
 
-        processor = ResultProcessorComponent([task], str(tmp_path / "results"))
+        processor = ResultProcessorComponent([a1, a2, b1], str(tmp_path / "results"))
         with patch(
             "rv_platform.components.result_processor."
-            "static_analysis_parser.read_static_analysis_files"
+            "static_analysis_parser.read_static_analysis_files",
+            side_effect=lambda _dir, apk: MagicMock(name=f"model_{apk}"),
         ) as mock_read:
-            result = processor._resolve_static_data(task)
-            mock_read.assert_not_called()
-        assert result is sentinel
+            model_a1 = processor._resolve_static_data(a1)
+            model_a2 = processor._resolve_static_data(a2)
+            assert mock_read.call_count == 1
+            assert model_a2 is model_a1
+            assert a1.static_data is a2.static_data is model_a1
+
+            model_b1 = processor._resolve_static_data(b1)
+            assert mock_read.call_count == 2
+            assert model_b1 is not model_a1
+
+        assert processor._static_data_by_apk == {"b.apk": model_b1}
 
     def test_resolve_static_data_returns_none_when_json_missing(self, tmp_path):
         """Re-parse exception → warning + None; does NOT raise."""
@@ -1291,7 +1511,7 @@ class TestGh65ResumeResolution:
 
     def test_unresolved_counter_increments_once_per_task(self, tmp_path):
         """All three reconstruction call sites for one JSON-absent task →
-        counter == 1 AND the parser is invoked at most once (memo holds)."""
+        counter == 1 AND the parser is invoked once for the APK."""
         from rv_static_analysis.parser.static import (
             static_analysis_parser as _real_parser,
         )
@@ -1312,7 +1532,7 @@ class TestGh65ResumeResolution:
             processor._extract_task_data(task)
 
         assert len(processor._unresolved_task_ids) == 1
-        assert spy.call_count <= 1  # memo short-circuits re-parse across writers
+        assert spy.call_count == 1  # the per-APK cache serves the later writers
 
     def test_missing_json_summary_row_empty_no_fallback(self, tmp_path):
         """Serialized coverage_metrics present but JSON absent → summary.csv
@@ -1486,9 +1706,9 @@ class TestGh65RoundTripEquivalence:
 
 class TestGh65AccountingIntegrity:
     """G9 / D-3a: cartesian product of {writer permutations} × {JSON state}.
-    For each cell: counter == (1 if unresolved else 0); parser invoked at most
-    once (memo holds, incl. exception path); re-entry never raises; a second
-    execute()-style pass re-initializes the counter."""
+    For each cell: counter == (1 if unresolved else 0); parser invoked once
+    for the APK (the per-APK cache holds, incl. exception path); re-entry never
+    raises; a second execute()-style pass re-initializes the counter."""
 
     # The three reconstruction call sites, as callables over (processor, task).
     @staticmethod
@@ -1545,8 +1765,8 @@ class TestGh65AccountingIntegrity:
             for name in order:
                 # (c) re-entry must never raise, regardless of writer/state.
                 writers[name](processor, task)
-            # (b) parser invoked at most once across all writers (memo holds).
-            assert spy.call_count <= 1
+            # (b) parser invoked once for the APK across all writers.
+            assert spy.call_count == 1
 
         # (a) counter is exactly 1 when unresolved, 0 when populated.
         assert len(processor._unresolved_task_ids) == (1 if unresolved_expected else 0)

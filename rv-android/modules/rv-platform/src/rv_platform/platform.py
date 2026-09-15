@@ -429,6 +429,15 @@ class Platform:
                 # result is already on disk and resume will skip it.
                 self.task_storage.update_task(task)
 
+                # Release the parsed state of the finished task (INV-PLT-38). The
+                # store keeps the task until the end of the run, and neither field
+                # is serialized: the metrics a run needs afterwards are already on
+                # task.result, and result processing reconstructs the repository
+                # from the logcat. Kept alive, both would grow memory with every
+                # finished execution.
+                task.repository = None
+                task.static_data = None
+
                 # Collect result
                 result = {
                     "task_id": task.id,
@@ -463,6 +472,10 @@ class Platform:
                 # COMPLETED tasks are skipped. Persisting them keeps the history complete
                 # and lets result processing see every attempt.
                 self.task_storage.update_task(task)
+
+                # Same release as the success path (INV-PLT-38).
+                task.repository = None
+                task.static_data = None
 
                 result = {
                     "task_id": task.id,
@@ -612,7 +625,8 @@ class Platform:
         Get all task objects directly (no serialization).
 
         Returns:
-            List of Task objects with static_data preserved
+            List of Task objects; a finished task holds no repository or
+            static data (INV-PLT-38)
         """
         return self.tasks
 

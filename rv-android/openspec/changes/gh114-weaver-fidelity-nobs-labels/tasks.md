@@ -155,12 +155,12 @@ GitHub Issue: #114
 
 ## 11. Bounded Result Export (WAVE 1, subagent G11)
 
-- [ ] 11.1 `modules/rv-platform/src/rv_platform/components/result_processor.py` `execute()` (`:200-262`): order completed tasks by `(apk, tool, rep, timeout)`, headers once, one task-major pass over the four row writers and `_extract_task_data`, release after the last writer, `performance.csv` after the loop (design D12)
-- [ ] 11.2 `_resolve_static_data` (`:294-374`): one-entry per-APK cache; `read_static_analysis_files` once per APK; unresolved tasks recorded once each (INV-PLT-15)
-- [ ] 11.3 `modules/rv-platform/src/rv_platform/platform.py` `:430` and `:465`: release `task.repository` and `task.static_data` after `update_task` (INV-PLT-38)
-- [ ] 11.4 Update `test_result_processor.py` call-count assertions to once per APK; add the memory-bound scenario test (600 synthetic tasks) and `test_platform_release.py`
-- [ ] 11.5 Byte-identity check: copy one container's `tasks.json`, logcats and static JSONs to a scratch results dir, run `uv run rv-platform run --process-results <dir>` with `PYTHONHASHSEED=0`, compare the six files with `data/results/estudo02_regen/estudo02_00/`; record the result in `evidence/export_identity.txt`
-- [ ] 11.6 Run `/rv-test-run rv-platform`
+- [x] 11.1 `modules/rv-platform/src/rv_platform/components/result_processor.py` `execute()` (`:200-262`): order completed tasks by `(apk, tool, rep, timeout)`, headers once, one task-major pass over the four row writers and `_extract_task_data`, release after the last writer, `performance.csv` after the loop (design D12)
+- [x] 11.2 `_resolve_static_data` (`:294-374`): one-entry per-APK cache; `read_static_analysis_files` once per APK; unresolved tasks recorded once each (INV-PLT-15)
+- [x] 11.3 `modules/rv-platform/src/rv_platform/platform.py` `:430` and `:465`: release `task.repository` and `task.static_data` after `update_task` (INV-PLT-38)
+- [x] 11.4 Update `test_result_processor.py` call-count assertions to once per APK; add the memory-bound scenario test (600 synthetic tasks) and `test_platform_release.py`
+- [x] 11.5 Byte-identity check: copy one container's `tasks.json`, logcats and static JSONs to a scratch results dir, run `uv run rv-platform run --process-results <dir>` with `PYTHONHASHSEED=0`, compare the six files with `data/results/estudo02_regen/estudo02_00/`; record the result in `evidence/export_identity.txt`
+- [x] 11.6 Run `/rv-test-run rv-platform`
 
 ## 12. CLI Counters and Resolver Wiring (WAVE 2, subagent G12; needs 2, 3 and 4)
 
