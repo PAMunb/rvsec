@@ -88,11 +88,12 @@ class AlphabetMapTest {
                         + map.rows().keySet());
 
         List<AlphabetMap.Row> keyGenerator = map.rowsOf("KeyGeneratorSpec");
-        assertEquals(9, keyGenerator.size(),
-                "nine rows for eight events: init carries two, because one .mop event stands for "
+        assertEquals(10, keyGenerator.size(),
+                "ten rows for nine events: init carries two, because one .mop event stands for "
                         + "the rule's i1 and its i3, and the map is deliberately not a bijection");
-        assertEquals(8, keyGenerator.stream().map(AlphabetMap.Row::mopEvent).distinct().count(),
-                "KeyGeneratorSpec grew from 5 events to 8, as the map's own header records");
+        assertEquals(9, keyGenerator.stream().map(AlphabetMap.Row::mopEvent).distinct().count(),
+                "KeyGeneratorSpec has nine events: the one- and two-argument refused twins g3 and "
+                        + "g4 beside the admitted g1 and g2, and the five of its ORDER after them");
 
         // The reason column of this row carries two commas inside its quotes. A naive split gives
         // it seven fields and reads 'order-unmapped' out of the wrong column, which is how a reader

@@ -621,6 +621,15 @@ def test_message_gate_accepts_labels_that_agree_with_their_family(tmp_path):
     assert "evidence-only-on-nobs" not in report["counts"], report["findings"]
 
 
+def test_message_gate_accepts_creation_refused_on_order_only(tmp_path):
+    (tmp_path / "order").mkdir()
+    (tmp_path / "nobs").mkdir()
+    accepted = _gate_check()(_synthetic_set(tmp_path / "order", order_label="creation-refused"), None)
+    assert "label-vocabulary" not in accepted["counts"], accepted["findings"]
+    rejected = _gate_check()(_synthetic_set(tmp_path / "nobs", nobs_label="creation-refused"), None)
+    assert rejected["counts"].get("label-vocabulary") == 1, rejected["findings"]
+
+
 def test_message_gate_rejects_a_label_outside_the_vocabulary(tmp_path):
     report = _gate_check()(_synthetic_set(tmp_path, nobs_label="trust-all"), None)
     assert report["counts"].get("label-vocabulary") == 1, report["findings"]

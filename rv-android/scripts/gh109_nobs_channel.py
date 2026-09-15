@@ -26,7 +26,7 @@ through a side door. Here inconsistency is louder still: `load_site_kinds` raise
 **Labels beside the channel.** Inside a family, the `label` column of `codes.csv` names the
 situation a code reports (INV-INS-164): `not-observed`, `platform-default`,
 `upstream-refused`, `application-manager` and `random-key-material` inside `NOBS`;
-`sequence`, `creation-unobserved` and `reuse-after-final` inside `ORDER`; `violation` in
+`sequence`, `creation-unobserved`, `creation-refused` and `reuse-after-final` inside `ORDER`; `violation` in
 every other family. The channel stays keyed on `site_kind` -- a label never moves a line
 between channels -- and the label counts are printed next to it, so a reader can see how
 much of the not-observed channel is a documented platform default and how much of the

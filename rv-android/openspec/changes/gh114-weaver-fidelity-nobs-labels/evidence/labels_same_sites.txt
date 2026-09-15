@@ -59,15 +59,12 @@ Explicit exceptions (sites that differ)
   exp='[2048, 3072, 4096]'.
   Both RSA rows are the value-clause transcription of INV-INS-167, not a label.
 
-Label `sequence` pinned (design D7)
------------------------------------
-The five traces keep -ORDER-00 on B, identical to A:
-  CipherSpec-unsafe.txt                    CIPHER-ORDER-00 at i2 and f2
-  MessageDigestSpec-md5.txt                MESSAGEDIGEST-ORDER-00 at update and d1
-  SSLContextSpec-getdefault-engine.txt     SSLCONTEXT-ORDER-00 at engine
-  PBEKeySpecSpec-forbidden-then-clear.txt  PBEKEYSPEC-ORDER-00 at c2
-  KeyGeneratorSpec-unsafe.txt              KEYGENERATOR-ORDER-00 at init and gk1
-None emits -ORDER-01.
+Refused and forbidden creations
+-------------------------------
+In this run the five traces that exercise a refused or forbidden creation (CipherSpec-unsafe,
+MessageDigestSpec-md5, SSLContextSpec-getdefault-engine, PBEKeySpecSpec-forbidden-then-clear,
+KeyGeneratorSpec-unsafe) kept -ORDER-00 on B. The `creation-refused` label and the refused
+two-argument twins that relabel them are measured by the second run below (task 13.9).
 
 New traces against their stated expectation
 -------------------------------------------
@@ -267,3 +264,102 @@ Old code -> new code, number of site changes
   SSLCONTEXT-ORDER-00 -> SSLCONTEXT-ORDER-01: 3
   TRUSTMANAGERFACTORY-NOBS-00 -> TRUSTMANAGERFACTORY-NOBS-02: 7
   TRUSTMANAGERFACTORY-ORDER-00 -> TRUSTMANAGERFACTORY-ORDER-01: 4
+
+=====================================================================================================
+Second run: refused creation twins and the `creation-refused` label (task 13.9, design D7)
+Run on 2026-09-15.
+=====================================================================================================
+
+  A = the jca_android set at HEAD (77ab89a3: every label of the first run, no refused two-argument
+      twin, no `creation-refused`), extracted with git archive as above.
+  B = the working tree after tasks 13.6-13.8: the twelve .mop files of G13d and G13e and the
+      merged codes.csv, copied to scratch for the same reason as above.
+  Traces: the 245 of the first run plus the three of task 13.8
+  (CipherSpec-refused_with_provider, MessageDigestSpec-refused_with_provider,
+  TrustManagerFactorySpec-refused_with_provider).
+  Commands as above, with --group gh114b.
+
+traces: 248; harness verdicts: {'unchanged': 224, 'moved': 24}
+same (spec, event) multiset: 248; different: 0
+unresolved lines differing between sides: 0
+
+code changes (trace, spec, event, A code -> B code, B label) x count:
+  CipherSpec-d15-aes-ecb-nopadding.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-aes-ecb-nopadding.txt: CipherSpec.i1 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-aes-ecb-nopadding.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-aes-ecb-pkcs5.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-aes-ecb-pkcs5.txt: CipherSpec.i1 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-aes-ecb-pkcs5.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-arc4.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-arc4.txt: CipherSpec.i1 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-arc4.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-blowfish-ecb.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-blowfish-ecb.txt: CipherSpec.i1 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-blowfish-ecb.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-chacha20.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-chacha20.txt: CipherSpec.i1 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-chacha20.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-desede-cbc.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-desede-cbc.txt: CipherSpec.i1 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-d15-desede-cbc.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-refused_with_provider.txt: CipherSpec.f2 CIPHER-ORDER-01 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-refused_with_provider.txt: CipherSpec.i2 CIPHER-ORDER-01 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-unsafe.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  CipherSpec-unsafe.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  IvChainJunctionSpec-rangen-unobserved.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  IvChainJunctionSpec-rangen-unobserved.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  IvChainJunctionSpec-rangen.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  IvChainJunctionSpec-rangen.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  KeyGeneratorSpec-unsafe.txt: KeyGeneratorSpec.gk1 KEYGENERATOR-ORDER-00 -> KEYGENERATOR-ORDER-02 (creation-refused) x1
+  KeyGeneratorSpec-unsafe.txt: KeyGeneratorSpec.init KEYGENERATOR-ORDER-00 -> KEYGENERATOR-ORDER-02 (creation-refused) x1
+  KeyPairGeneratorSpec-rejected-algorithm-provider.txt: KeyPairGeneratorSpec.gen KEYPAIRGENERATOR-ORDER-00 -> KEYPAIRGENERATOR-ORDER-02 (creation-refused) x1
+  KeyPairGeneratorSpec-rejected-algorithm-provider.txt: KeyPairGeneratorSpec.initError KEYPAIRGENERATOR-ORDER-00 -> KEYPAIRGENERATOR-ORDER-02 (creation-refused) x1
+  KeyPairGeneratorSpec-rejected-algorithm.txt: KeyPairGeneratorSpec.gen KEYPAIRGENERATOR-ORDER-00 -> KEYPAIRGENERATOR-ORDER-02 (creation-refused) x1
+  KeyPairGeneratorSpec-rejected-algorithm.txt: KeyPairGeneratorSpec.initError KEYPAIRGENERATOR-ORDER-00 -> KEYPAIRGENERATOR-ORDER-02 (creation-refused) x1
+  MacSpec-mac-then-encrypt.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  MacSpec-mac-then-encrypt.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  MacSpec-update-then-encrypt.txt: CipherSpec.f2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  MacSpec-update-then-encrypt.txt: CipherSpec.i2 CIPHER-ORDER-00 -> CIPHER-ORDER-03 (creation-refused) x1
+  MessageDigestSpec-d15-md5.txt: MessageDigestSpec.d1 MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-d15-md5.txt: MessageDigestSpec.update MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-d15-sha1-alias.txt: MessageDigestSpec.d1 MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-d15-sha1-alias.txt: MessageDigestSpec.update MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-d15-sha1.txt: MessageDigestSpec.d1 MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-d15-sha1.txt: MessageDigestSpec.update MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-md5.txt: MessageDigestSpec.d1 MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-md5.txt: MessageDigestSpec.update MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-refused_with_provider.txt: MessageDigestSpec.d1 MESSAGEDIGEST-ORDER-01 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-sha1.txt: MessageDigestSpec.d1 MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  MessageDigestSpec-sha1.txt: MessageDigestSpec.update MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-02 (creation-refused) x1
+  PBEKeySpecSpec-forbidden-then-clear.txt: PBEKeySpecSpec.c2 PBEKEYSPEC-ORDER-00 -> PBEKEYSPEC-ORDER-02 (creation-refused) x1
+  SSLContextSpec-getdefault-engine.txt: SSLContextSpec.engine SSLCONTEXT-ORDER-00 -> SSLCONTEXT-ORDER-02 (creation-refused) x1
+  TrustManagerFactorySpec-refused_with_provider.txt: TrustManagerFactorySpec.init TRUSTMANAGERFACTORY-ORDER-01 -> TRUSTMANAGERFACTORY-ORDER-02 (creation-refused) x1
+
+problems:
+  none
+
+new traces, side B envelopes:
+  CipherSpec-refused_with_provider.txt unresolved: []
+     v=1 code=CIPHER-ALG-01 ev=i2 obj=Cipher val='DES' exp='a transformation admitted by CipherTransformationUtil (expert Cipher.crysl)'
+     v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names'
+     v=1 code=CIPHER-ORDER-03 ev=i2 obj=Cipher val='' exp=''
+     v=1 code=CIPHER-ORDER-03 ev=f2 obj=Cipher val='' exp=''
+   side A:
+     v=1 code=CIPHER-ALG-01 ev=i2 obj=Cipher val='DES' exp='a transformation admitted by CipherTransformationUtil (expert Cipher.crysl)'
+     v=1 code=CIPHER-NOBS-00 ev=i2 obj=Cipher val='' exp='a key produced by one of the generators the rule names'
+     v=1 code=CIPHER-ORDER-01 ev=i2 obj=Cipher val='' exp=''
+     v=1 code=CIPHER-ORDER-01 ev=f2 obj=Cipher val='' exp=''
+  MessageDigestSpec-refused_with_provider.txt unresolved: []
+     v=1 code=MESSAGEDIGEST-ALG-03 ev=d1 obj=MessageDigest val='MD5' exp='SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512'
+     v=1 code=MESSAGEDIGEST-ORDER-02 ev=d1 obj=MessageDigest val='' exp=''
+   side A:
+     v=1 code=MESSAGEDIGEST-ALG-03 ev=d1 obj=MessageDigest val='MD5' exp='SHA-256,SHA-384,SHA-512,SHA256,SHA384,SHA512'
+     v=1 code=MESSAGEDIGEST-ORDER-01 ev=d1 obj=MessageDigest val='' exp=''
+  TrustManagerFactorySpec-refused_with_provider.txt unresolved: []
+     v=1 code=TRUSTMANAGERFACTORY-ALG-00 ev=init obj=TrustManagerFactory val='SunPKIX' exp='PKIX,SunX509'
+     v=1 code=TRUSTMANAGERFACTORY-NOBS-02 ev=init obj=TrustManagerFactory val='SunPKIX' exp='a KeyStore this instrumentation observed being loaded'
+     v=1 code=TRUSTMANAGERFACTORY-ORDER-02 ev=init obj=TrustManagerFactory val='' exp=''
+   side A:
+     v=1 code=TRUSTMANAGERFACTORY-ALG-00 ev=init obj=TrustManagerFactory val='SunPKIX' exp='PKIX,SunX509'
+     v=1 code=TRUSTMANAGERFACTORY-NOBS-02 ev=init obj=TrustManagerFactory val='SunPKIX' exp='a KeyStore this instrumentation observed being loaded'
+     v=1 code=TRUSTMANAGERFACTORY-ORDER-01 ev=init obj=TrustManagerFactory val='' exp=''

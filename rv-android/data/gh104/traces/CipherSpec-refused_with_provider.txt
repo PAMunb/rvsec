@@ -1,0 +1,12 @@
+# a refused transformation requested through the provider overload. `g3` is pointcut over
+# `getInstance(String, ..)` with `args(transformation, ..)`, so it covers both overloads under
+# its negated guard; `getInstance("DES", "SunJCE")` fires it, it records the creation and
+# reports nothing. The `init` that follows reports the transformation (CIPHER-ALG-01) and the
+# key (CIPHER-NOBS-00), and fails the automaton, which admits no use of a Cipher
+# whose transformation it refused: CIPHER-ORDER-03, label `creation-refused`, at `i2` and at
+# `f2`. Without the widened pointcut no event fired on the first line and the same ordering
+# failures carried CIPHER-ORDER-01 (`creation-unobserved`).
+bind k = new SecretKeySpec(bytes, "AES")
+Cipher.getInstance("DES", "SunJCE") -> c
+c.init(1, k)
+c.doFinal(bytes)

@@ -22,6 +22,13 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // `@fail`.
         boolean creationObserved = false;
 
+        // Set by the forbidden creations `f1` and `f2` and never cleared. `@fail` reads it to
+        // report a failure of a spec built by a constructor the rule forbids under the `-ORDER-02`
+        // code (`creation-refused`): the ordering has no opening for such a spec, so its failure
+        // is the consequence of the FORB report the constructor already drew. The generated
+        // `reset()` does not clear it.
+        boolean creationRefused = false;
+
         // `f1` and `f2` are absorbed, not fused: each accuses a constructor the
         // rule FORBIDS outright, which is a report of its own and not the negation
         // of another event's guard. They enter the automaton through the Kleene
@@ -54,6 +61,7 @@ PBEKeySpecSpec(PBEKeySpec s) {
           call (public PBEKeySpec.new(char[])) &&
           args(password) {
             creationObserved = true;
+            creationRefused = true;
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,
                 "v=1 code=PBEKEYSPEC-FORB-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[]) is forbidden by the expert PBEKeySpec.crysl'"));
         }
@@ -62,6 +70,7 @@ PBEKeySpecSpec(PBEKeySpec s) {
           call (public PBEKeySpec.new(char[], byte[], int)) &&
           args(password, salt, keyLength) {
             creationObserved = true;
+            creationRefused = true;
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,
                 "v=1 code=PBEKEYSPEC-FORB-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[], byte[], int) is forbidden by the expert PBEKeySpec.crysl'"));
         }
@@ -210,9 +219,10 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // Kleene group silences the ordering report at the forbidden call itself, but
         // not the obligatory call that follows it. A program that builds a PBEKeySpec
         // with `PBEKeySpec(char[])` and then calls `clearPassword()` still reaches
-        // `c2` from a state where `c1` never happened, and still draws
-        // PBEKEYSPEC-ORDER-00 on top of the PBEKEYSPEC-FORB-00 the constructor
-        // already earned. Silencing that would mean modelling `f1` as an alternative
+        // `c2` from a state where `c1` never happened, and still draws an ordering
+        // report on top of the PBEKEYSPEC-FORB-00 the constructor already earned:
+        // PBEKEYSPEC-ORDER-02, labelled `creation-refused`, because `f1` set
+        // `creationRefused`. Silencing that would mean modelling `f1` as an alternative
         // opening of the ordering, which is the opposite of what FORBIDDEN says.
         ere : (f1 | f2)* c1 (f1 | f2)* c2 (f1 | f2)*
 
@@ -220,6 +230,10 @@ PBEKeySpecSpec(PBEKeySpec s) {
           if (!creationObserved) {
              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec", "" + __LOC,
                  "v=1 code=PBEKEYSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='' msg='the observed call sequence is not one PBEKeySpecSpec accepts and no creation of the PBEKeySpec was observed'"));
+          }
+          else if (creationRefused) {
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec", "" + __LOC,
+                 "v=1 code=PBEKEYSPEC-ORDER-02 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='' msg='the observed call sequence is not one PBEKeySpecSpec accepts, after a creation the specification refused'"));
           }
           else {
              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec", "" + __LOC,

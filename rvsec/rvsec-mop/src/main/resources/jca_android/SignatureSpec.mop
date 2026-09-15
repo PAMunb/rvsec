@@ -57,9 +57,17 @@ SignatureSpec(Signature s) {
        byte[] stagedSigned = null;
        byte[] stagedVerified = null;
 
-       // Set by `g1` and `g2` and read by `@fail` (SIGNATURE-ORDER-01). The generated `reset()`
-       // clears the state and not this field.
+       // Set by `g1`, `g2` and `g3` and read by `@fail` (SIGNATURE-ORDER-01). The generated
+       // `reset()` clears the state and not this field.
        boolean creationObserved = false;
+
+       // Set by the refused creation `g3` and never cleared. `@fail` reads it to report a failure
+       // of a signature whose two-argument `getInstance` asked for an algorithm the rule refuses
+       // under the `creation-refused` code (SIGNATURE-ORDER-02): the `ere` admits no use of such
+       // a signature, so its ordering failure is the consequence of the refusal and not an order
+       // the program chose. The one-argument `g1` accepts every algorithm and does not set it.
+       // The generated `reset()` clears the state and not this field.
+       boolean creationRefused = false;
 
        // One event over `getInstance(String)`, where there used to be two split by
        // the sign of a guard. The negated twin `g3` matched the same call with the
@@ -105,6 +113,23 @@ SignatureSpec(Signature s) {
          args(alg, provider) &&
          condition(ConscryptAliasTable.matches("Signature", alg, algorithms)) {
            creationObserved = true;
+       }
+
+       // The refused twin of `g2`: the two-argument `getInstance` with `g2`'s pointcut and `args`,
+       // under the negated allow-list guard. A false `condition(...)` runs no body, so without
+       // this event a refused algorithm requested with a provider matches no event, and the first
+       // use of the signature reads `creation-unobserved` although its creation ran in woven code.
+       // The body only records the creation: it reports nothing and writes no field another event
+       // reads. In the `ere` it is the Kleene prefix `g3*` before `(g1 | g2)`, so after it every
+       // use of the signature fails at the same event it fails at when no creation event fires.
+       // No reported site changes; only the code `@fail` chooses does, which is
+       // `creation-refused`.
+       event g3 after(String alg, Object provider) returning(Signature s):
+         call(public static Signature Signature.getInstance(String, Object+)) &&
+         args(alg, provider) &&
+         condition(!ConscryptAliasTable.matches("Signature", alg, algorithms)) {
+           creationObserved = true;
+           creationRefused = true;
        }
 
        // The rule states two REQUIRES clauses and this file read neither until this pass:
@@ -221,8 +246,8 @@ SignatureSpec(Signature s) {
        // `signed[output, inputByte] after Sign` (Signature.crysl:58, with :59 and :60
        // naming the same `output` against the other two input shapes). The clause carries
        // an `after L`, so its acceptance point is the states `Sign` leads to; read off the
-       // generated monitor, `s1` and `s2` both land in state 1 and the match category is
-       // `nextstate == 1 || nextstate == 4`, so those states are inside the accepting set
+       // generated monitor, `s1` and `s2` both land in state 3 and the match category is
+       // `nextstate == 3 || nextstate == 4`, so those states are inside the accepting set
        // and `@match` is the acceptance point for this clause as well as for `verified`.
        //
        // The clause is two-place -- the signature and the input it was computed over --
@@ -290,12 +315,16 @@ SignatureSpec(Signature s) {
        // bookkeeping: the new store does not offer it and the set never read it back
        // (INV-INS-147), which is also why the `Signature signature` field is gone -- that
        // call was the only thing that read it.
-       ere: (g1 | g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )
+       ere: g3* (g1 | g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )
 
        @fail {
           if (!creationObserved) {
               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC,
                   "v=1 code=SIGNATURE-ORDER-01 ev=" + __EVENTNAME + " obj=Signature val='' exp='' msg='the observed call sequence is not one SignatureSpec accepts, and no getInstance of this Signature was observed'"));
+          }
+          else if (creationRefused) {
+              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC,
+                  "v=1 code=SIGNATURE-ORDER-02 ev=" + __EVENTNAME + " obj=Signature val='' exp='' msg='the observed call sequence is not one SignatureSpec accepts, after a creation the specification refused'"));
           }
           else {
               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC,

@@ -79,13 +79,19 @@ MacSpec(Mac m) {
 
         Object maccedByFinal = null;
 
-        // Three facts about the monitored Mac that the `@fail` handler reads to choose its code.
-        // The generated `reset()` clears only the state and the category flags, so all three
+        // Four facts about the monitored Mac that the `@fail` handler reads to choose its code.
+        // The generated `reset()` clears only the state and the category flags, so all four
         // survive a failure, and once a label is reported every later failure of the same monitor
         // carries it: after a reset no creation event can arrive for the object, and the
         // automaton cannot return to a state its real history satisfies.
         //
-        // `creationObserved` is set by the creation events `g1`, `g2` and `g3`.
+        // `creationObserved` is set by the creation events `g1` to `g4`, the refused `g3` and `g4`
+        // included, so a Mac created in woven code is never counted as unobserved.
+        //
+        // `creationRefused` is set by the refused creation events `g3` (one argument) and `g4`
+        // (two arguments). The prefix `(g3 | g4)*` admits no use of such a Mac, so its ordering
+        // failure is the consequence of the refused algorithm, and `@fail` reports it with the
+        // `creation-refused` code, MAC-ORDER-03.
         //
         // `operationFinished` is set by the events that complete an operation, which are the
         // three finals of the `ere`: `f1`, `f1Input` and `f2`. It is set in the body, before the
@@ -97,6 +103,7 @@ MacSpec(Mac m) {
         // operation had finished: the API lets a used Mac be initialised again, and the rule's
         // ORDER does not (Mac.crysl:41).
         boolean creationObserved = false;
+        boolean creationRefused = false;
         boolean operationFinished = false;
         boolean reuseObserved = false;
 
@@ -128,6 +135,25 @@ MacSpec(Mac m) {
           args(alg) &&
           condition(!ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
             creationObserved = true;
+            creationRefused = true;
+        }
+
+        // The refused twin of `g2`: the same `Object+` pointcut over both two-argument
+        // `getInstance` overloads, under the negated guard -- the two-argument half of what `g3`
+        // is for the one-argument overload. Without it an algorithm the list refuses, requested
+        // with a provider, runs no body, and the Mac's failure would read `creation-unobserved`
+        // although its creation ran in woven code.
+        //
+        // The body only records the creation. It does not report and writes no field another
+        // event reads: the algorithm is accused at `i1` or `i2`, and the prefix `(g3 | g4)*` sends
+        // the Mac's first use to `@fail` exactly as a Mac no event saw would go, so no reported
+        // site changes and only the handler's code does.
+        event g4 after(String alg, Object provider) returning(Mac m):
+          call(public static Mac Mac.getInstance(String, Object+)) &&
+          args(alg, provider) &&
+          condition(!ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            creationObserved = true;
+            creationRefused = true;
         }
 
         // The rule's `Init`, the one-argument overload (Mac.crysl:23,25). Until this
@@ -446,10 +472,10 @@ MacSpec(Mac m) {
             }
         }
 
-        // `g3` is the unsafe-algorithm `getInstance`, and `g3*` is followed by a
-        // required `g1` or `g2` -- a safe one. A program that only ever asks for an
-        // unsafe algorithm therefore never leaves the prefix, and every such run
-        // ends in `MAC-ORDER-00` no matter what else it does correctly. It is the
+        // `g3` and `g4` are the unsafe-algorithm `getInstance` events, and `(g3 | g4)*` is
+        // followed by a required `g1` or `g2` -- a safe one. A program that only ever asks for
+        // an unsafe algorithm therefore never leaves the prefix, and every such run ends in
+        // `MAC-ORDER-03` (`creation-refused`) no matter what else it does correctly. It is the
         // third site of the family the CipherSpec `unsafeAlg` sink opened and the
         // GCMParameterSpecSpec unreachable `@fail` continued: an ordering
         // accusation standing in for a constraint the automaton has no way to
@@ -494,7 +520,7 @@ MacSpec(Mac m) {
         // an epsilon move, so with `updateBuffer` still erased the `+` above would be
         // satisfiable by no call at all and `g1 i1 f1` would survive the repair
         // untouched. That restoration is the commit before this one.
-        ere : (g3* g1 | g3* g2) (i1 | i2) (f1Input | ((update | updateBytes | updateRange | updateBuffer)+ (f1 | f1Input | f2)))
+        ere : ((g3 | g4)* g1 | (g3 | g4)* g2) (i1 | i2) (f1Input | ((update | updateBytes | updateRange | updateBuffer)+ (f1 | f1Input | f2)))
 
         @fail {
             // The withdrawal that stood in this handler went with the write it
@@ -511,6 +537,10 @@ MacSpec(Mac m) {
             if (!creationObserved) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
                     "v=1 code=MAC-ORDER-01 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts and no creation of the Mac was observed'"));
+            }
+            else if (creationRefused) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-ORDER-03 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts, after a creation the specification refused'"));
             }
             else if (reuseObserved) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,

@@ -104,7 +104,7 @@ class M4PredicateCorpusTest {
                         + "only way to compare against the published measurements");
         assertEquals(0, count(frozen, PredicateSubstrate.PREDICATE_STORE));
 
-        assertEquals(148, current.size(),
+        assertEquals(167, current.size(),
                 "70 -> 101 -> 111 across gh109: task 1.3(b) writes the three generatedMessageDigest "
                         + "sites the transcription had omitted; group G2's fourteen producer "
                         + "specifications carry 14 writes and 10 reads of their own; and group G1b "
@@ -123,13 +123,18 @@ class M4PredicateCorpusTest {
                         + "gives CipherSpec.i2 a SECOND probe of the one generatedKey clause, "
                         + "because the oracle puts two spellings on that string. Task 8.9 adds an "
                         + "event and no site, which is what a negated twin is: it accuses and "
-                        + "writes nothing. It moves with every group that adds sites -- "
+                        + "writes nothing. gh114 takes it to 167: its specification wave writes the "
+                        + "upstream-refusal mark with ensure at fifteen producer sites, reads "
+                        + "RANDOMIZED at the two SecretKeySpecSpec constructors to select a label, and "
+                        + "writes and reads GENERATED_TRUST_MANAGERS once each for the per-element "
+                        + "credit; its fourteen validateAny reads of the mark are not a site under "
+                        + "this counting rule. It moves with every group that adds sites -- "
                         + "re-measure it at the start of one rather than one build cycle at a "
                         + "time");
         assertEquals(0, count(current, PredicateSubstrate.EXECUTION_CONTEXT),
                 "so the substrate-A ceiling no longer binds this set: it is a property of the "
                         + "frozen set, not a defect of the current corpus");
-        assertEquals(148, count(current, PredicateSubstrate.PREDICATE_STORE));
+        assertEquals(167, count(current, PredicateSubstrate.PREDICATE_STORE));
 
         PredicateGraph frozenGraph = PredicateGraph.of(frozen);
         PredicateGraph currentGraph = PredicateGraph.of(current);
@@ -252,12 +257,14 @@ class M4PredicateCorpusTest {
                         "SSLEngineSpec.mop"),
                 pairing.unpairedNames(),
                 "and the losers are named rather than dropped in silence");
-        assertEquals(107, present,
+        assertEquals(109, present,
                 "edges present over the pairs, with no declared alias. 105 -> 107 at group G8, "
                         + "the same two sites the census above counts: 8.1's speccedKey write "
                         + "reaches its three readers, and 8.6's second probe is a second edge over "
-                        + "a clause that already had one");
-        assertEquals(39, absent,
+                        + "a clause that already had one. 107 -> 109 at gh114, from the sites it "
+                        + "adds under a predicate the rules name; the upstream-refusal mark names "
+                        + "none and pairs with no clause");
+        assertEquals(37, absent,
                 "44 -> 40 at gh109 group G2: four clauses that no site implemented now have one. "
                         + "The group adds pairs as well as sites, so this number could have moved "
                         + "either way -- a new pair brings its rule's unimplemented clauses in "
@@ -278,7 +285,9 @@ class M4PredicateCorpusTest {
                         + "rule and no site, while task 8.6's second probe reads a clause "
                         + "CipherSpec.i2 already implemented -- a second spelling of one string, "
                         + "not a second clause. The group adds no pair, so this number could only "
-                        + "fall");
+                        + "fall. 39 -> 37 at gh114, which adds no pair either: two clauses that had "
+                        + "a rule and no site now have one among the sites its specification wave "
+                        + "writes under a predicate the rules name");
         assertEquals(0, inverted,
                 "no site of the current corpus pairs with a clause and then disagrees with it on "
                         + "polarity or on argument order - including the one negated pair, "
@@ -297,18 +306,22 @@ class M4PredicateCorpusTest {
         // opposite directions over the same wave: two sites enter (8.1's speccedKey write, 8.6's
         // second probe) and one absence leaves (8.1's clause had a rule and no site), which is
         // 175 + 2 - 1. Task 8.9 moves neither half: a negated twin is an event, not a site.
-        assertEquals(176, rows, "one row per site of a paired specification, plus one per absence");
+        // 176 -> 193 at gh114: nineteen sites enter (the census above) and two absences leave
+        // (the two clauses those sites implement), 176 + 19 - 2.
+        assertEquals(193, rows, "one row per site of a paired specification, plus one per absence");
         // 134 -> 145 at group G4, eleven of the sixteen new rows: the derived fraction falls
         // slightly, from 0.843 to 0.829, because five of the new rows are absences and an absence
         // is not a class this metric derives. 145 -> 146 at group G8, and the fraction RISES to
         // 0.830, which is the same rule read from the other side: the wave's two new rows are both
         // sites and one of the absences left, so the numerator gains what the denominator gains
-        // and one non-derivable row is gone.
+        // and one non-derivable row is gone. At gh114 the count holds at 146 and the fraction
+        // falls to 0.756: none of the nineteen sites the wave adds is a row this metric derives a
+        // class for, and the two absences that leave were not derived either.
         assertEquals(146, derivedRows,
                 "rows whose fidelity class this metric derived, under Judgements.empty(): no "
                         + "declared alias and no supplied class, so every derived row was derived "
                         + "by this metric and by nothing else");
-        assertEquals(0.830, (double) derivedRows / rows, 0.001,
+        assertEquals(0.756, (double) derivedRows / rows, 0.001,
                 "the derived fraction, which is the honest measure of how much of the manual "
                         + "table this component replaced; it rises when the comparison improves "
                         + "and not when the component is handed more judgement");

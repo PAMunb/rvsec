@@ -64,13 +64,13 @@ public enum Property {
      * them apart. {@code KeyManagerFactory.crysl:35-36} ensures
      * {@code generatedKeyManager[this] after Init} over the factory and
      * {@code generatedKeyManagers[keyManager] after GetKeyMng} over the array; the live
-     * {@code jca_android} writes the first at {@code KeyManagerFactorySpec.mop:244} (the
-     * {@code init} acceptance point) and the second at {@code :191} (the {@code gkm1}
+     * {@code jca_android} writes the first at {@code KeyManagerFactorySpec.mop:276} (the
+     * {@code init} acceptance point) and the second at {@code :216} (the {@code gkm1}
      * event, which sees the array the call returned). {@link PredicateStore} keys on the
      * bound object, so a read against the array can never be answered by a mark left on
      * the factory, and one name for two clauses costs nothing.
      *
-     * <p>The reader is {@code SSLContextSpec.mop:249}, over the array
+     * <p>The reader is {@code SSLContextSpec.mop:257}, over the array
      * {@code SSLContext.init} receives -- the only half {@code SSLContext.crysl} requires.
      * The write over the factory is a transcription of the rule with no consumer among the
      * 49, kept for the same reason its {@code TrustManagerFactory} twin is.
@@ -85,9 +85,9 @@ public enum Property {
      * {@code generatedTrustManager[this] after Init} and
      * {@code generatedTrustManagers[trustManager] after GetTrustMng}. Both are written
      * under this one constant, told apart by the object bound:
-     * {@code TrustManagerFactorySpec.mop:287} writes the factory at the {@code init}
-     * acceptance point, {@code :235} writes the array at {@code gtm1}. The reader,
-     * {@code SSLContextSpec.mop:262}, asks over the array.
+     * {@code TrustManagerFactorySpec.mop:319} writes the factory at the {@code init}
+     * acceptance point, {@code :259} writes the array at {@code gtm1}. The reader,
+     * {@code SSLContextSpec.mop:270}, asks over the array.
      *
      * <p>Not to be confused with {@link #GENERATED_TRUST_MANAGERS}, the plural, which marks
      * the individual managers inside that array rather than the array itself.

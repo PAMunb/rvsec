@@ -41,10 +41,18 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     // and cleared the moment it is used or the sequence is rejected.
     KeyManagerFactory initialisedFactory = null;
 
-    // Set by the creation events `g1`, `g2` and `g3`. `@fail` reads it to tell a call sequence
-    // the rule refuses from a factory whose creation this monitor never saw; the generated
-    // `reset()` leaves user fields alone, so the fact survives a failure.
+    // Set by the creation events `g1` to `g4`, the refused `g3` and `g4` included. `@fail` reads
+    // it to tell a call sequence the rule refuses from a factory whose creation this monitor
+    // never saw; the generated `reset()` leaves user fields alone, so the fact survives a
+    // failure.
     boolean creationObserved = false;
+
+    // Set by the refused creation events `g3` (one argument) and `g4` (two arguments), and never
+    // cleared, for the same reason as `creationObserved`. `@fail` reads it after
+    // `creationObserved` to report the failure of a factory whose algorithm the list refused
+    // under KEYMANAGERFACTORY-ORDER-02 (`creation-refused`): `unsafeAlg` admits no use, so the
+    // ordering failure of such a factory is the consequence of the refusal.
+    boolean creationRefused = false;
 
     String expectedGeneratedKeyStore = "a KeyStore this instrumentation observed being loaded";
 
@@ -70,6 +78,23 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
       && args(alg)
       && condition(!ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms))  {
         creationObserved = true;
+        creationRefused = true;
+    }
+
+    // The refused twin of `g2`: the same two-argument `getInstance` pointcut under the negated
+    // guard, the two-argument half of what `g3` is for the one-argument overload. Without it an algorithm the list
+    // refuses, requested with a provider, runs no body, and the factory's failure would read
+    // `creation-unobserved` although its creation ran in woven code.
+    //
+    // The body only records the creation. It does not report and writes no field another event
+    // reads: `g4` leads to `unsafeAlg`, where the factory's first use fails exactly as it does on
+    // a factory no event saw, so no reported site changes and only the handler's code does.
+    event g4 after(String alg) returning(KeyManagerFactory k):
+      call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..))
+      && args(alg, *)
+      && condition(!ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms)) {
+        creationObserved = true;
+        creationRefused = true;
     }
 
     // `generatedKeyStore[keyStore]` (KeyManagerFactory.crysl:31, ledger clause #14) is read
@@ -88,7 +113,7 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     // ORDER code that is already published -- and it puts the algorithm accusation below in two
     // places. A separate consumer specification was the other, and the file of this set that
     // carries one says in its own header that a separate specification is the last resort,
-    // taken because `CipherSpec` had no event left to spend; this file declares five events and
+    // taken because `CipherSpec` had no event left to spend; this file declares six events and
     // has no ceiling (researcher decision, 2026-08-22).
     //
     // The wildcard lives in `args` and not in the `call(...)` signatures, which are written out
@@ -194,11 +219,13 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     fsm :
       start [
         g3 -> unsafeAlg
+        g4 -> unsafeAlg
         g1 -> waitingInit
         g2 -> waitingInit
       ]
       unsafeAlg [
         g3 -> unsafeAlg
+        g4 -> unsafeAlg
         g1 -> waitingInit
         g2 -> waitingInit
       ]
@@ -216,11 +243,16 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
 
     // A monitor that never observed `getInstance` reports every failure as
     // `creation-unobserved`: the factory was created where this monitor cannot see, and after a
-    // reset no creation event can arrive for it.
+    // reset no creation event can arrive for it. A monitor whose creation was `g3` or `g4` reports
+    // every failure as `creation-refused`, for the same reason.
     @fail {
         if (!creationObserved) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC,
                 "v=1 code=KEYMANAGERFACTORY-ORDER-01 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='' exp='' msg='" + __EVENTNAME + "() before getInstance()'"));
+        }
+        else if (creationRefused) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC,
+                "v=1 code=KEYMANAGERFACTORY-ORDER-02 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='' exp='' msg='the observed call sequence is not one KeyManagerFactorySpec accepts, after a creation the specification refused'"));
         }
         else {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC,

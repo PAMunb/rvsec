@@ -1,0 +1,9 @@
+# a refused algorithm requested through the provider overload. `g2` and `g3` admit only the
+# allow-list, so `getInstance("MD5", "SUN")` fires the refused two-argument twin `g5`, which
+# records the creation and reports nothing. `d1` reports the algorithm (MESSAGEDIGEST-ALG-03)
+# and fails the automaton, which admits no use of a refused digest: the ordering report is
+# MESSAGEDIGEST-ORDER-02, label `creation-refused`. Without the twin no event fired on this
+# line and the same `d1` report and ordering failure carried MESSAGEDIGEST-ORDER-01
+# (`creation-unobserved`): the reported (spec, event) pairs are the same, only the code moves.
+MessageDigest.getInstance("MD5", "SUN") -> md
+md.digest() -> out

@@ -65,6 +65,12 @@ SSLContextSpec(SSLContext ctx) {
    // generated `reset()` leaves user fields alone, so the fact survives a failure.
    boolean creationObserved = false;
 
+   // Set by the forbidden creation `getDefault` and never cleared. `@fail` reads it to report a
+   // failure of a context `getDefault()` returned under SSLCONTEXT-ORDER-02 (`creation-refused`):
+   // the ordering has no opening for such a context, so its failure is the consequence of the
+   // SSLCONTEXT-FORB-00 the call already drew. The generated `reset()` leaves it alone as well.
+   boolean creationRefused = false;
+
    // One event over `getInstance(String)`, where there used to be two split by the
    // sign of a guard. The negated twin `unsafe_protocol` matched the same call with
    // the same `args(protocol)` and named no state, and the generator gives an event
@@ -115,14 +121,14 @@ SSLContextSpec(SSLContext ctx) {
    //
    // Both oracles write the clause as `getDefault() => Gets`, which reads the forbidden call as
    // filling the ORDER position the legitimate `getInstance` fills. This file does not model it
-   // that way, and the reason is the one `PBEKeySpecSpec.mop:209-216` already wrote down for the
+   // that way, and the reason is the one `PBEKeySpecSpec.mop:218-226` already wrote down for the
    // identical `PBEKeySpec(char[]) => Con`: making a forbidden call an alternative opening of
    // the ordering is the opposite of what FORBIDDEN says. So the event is a self-loop at every
    // state -- it accuses in its body and moves the automaton nowhere -- and the residue is the
    // same one that file records: the obligatory call that follows a forbidden one still reaches
    // its own state from a state that call never left, so `getDefault(); init(...)` draws
-   // SSLCONTEXT-ORDER-00 on top of the SSLCONTEXT-FORB-00 the `getDefault` already earned.
-   // Recorded, not repaired (divergence_record.csv).
+   // SSLCONTEXT-ORDER-02 (`creation-refused`) on top of the SSLCONTEXT-FORB-00 the `getDefault`
+   // already earned. Recorded, not repaired (divergence_record.csv).
    //
    // The self-loops are not decoration. An event absent from the automaton gets a transition
    // row that moves every state to `fail`, so declaring this event without them would trade the
@@ -132,11 +138,13 @@ SSLContextSpec(SSLContext ctx) {
    // keeps this monitor wherever it already was, `@match1` is reachable only from `end`, and no
    // route from here arrives there -- a `getDefault()` context that is then `init`ed goes
    // `start -> fail`. A write no handler can read is exactly the bookkeeping INV-INS-137 says to
-   // stop writing. The one field it sets is `creationObserved`, which `@fail` does read: the
-   // context's creation was observed, so that `start -> fail` is reported as a sequence failure.
+   // stop writing. The two fields it sets are `creationObserved` and `creationRefused`, which
+   // `@fail` does read: the context's creation was observed and was one the rule forbids, so that
+   // `start -> fail` is reported under the `creation-refused` code.
    event getDefault after() returning(SSLContext ctx):
     call(public static SSLContext SSLContext.getDefault()) {
       creationObserved = true;
+      creationRefused = true;
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "SSLContextSpec", "" + __LOC,
           "v=1 code=SSLCONTEXT-FORB-00 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='SSLContext.getInstance(String)' msg='SSLContext.getDefault() is forbidden by the expert SSLContext.crysl'"));
    }
@@ -367,11 +375,16 @@ SSLContextSpec(SSLContext ctx) {
 
   // A monitor that never observed `getInstance` or `getDefault` reports every failure as
   // `creation-unobserved`: the context was created where this monitor cannot see, and after a
-  // reset no creation event can arrive for it.
+  // reset no creation event can arrive for it. A monitor whose creation was `getDefault` reports
+  // every failure as `creation-refused`.
   @fail {
     if (!creationObserved) {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC,
           "v=1 code=SSLCONTEXT-ORDER-01 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='' msg='" + __EVENTNAME + "() before getInstance() or getDefault()'"));
+    }
+    else if (creationRefused) {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC,
+          "v=1 code=SSLCONTEXT-ORDER-02 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='' msg='the observed call sequence is not one SSLContextSpec accepts, after a creation the specification refused'"));
     }
     else {
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC,

@@ -187,6 +187,12 @@ class MopLiftCorpusTest {
         // number because events are counted per event, one off the second because parameters are
         // counted per specification and RandomStringPasswordSpec declared exactly one.
         //
+        // 973 -> 980 is gh114 tasks 13.6 and 13.7, and again only the first number moves: seven
+        // specifications gained the refused two-argument creation twin (MessageDigestSpec, MacSpec,
+        // KeyStoreSpec, KeyGeneratorSpec, KeyManagerFactorySpec, TrustManagerFactorySpec,
+        // SignatureSpec), each binding the parameters its admitted sibling binds. CipherSpec, at the
+        // 17-event ceiling, widened its one-argument twin `g3` instead of adding an event.
+        //
         // Both stay pinned, and both move with EVERY group that adds OR removes specifications in
         // the live set -- re-measure them when the set moves rather than discovering them one build
         // cycle at a time. Note that the events assertion running first is why the parameter
@@ -194,7 +200,7 @@ class MopLiftCorpusTest {
         // already been false for all three.
         assertEquals("spec.getEvents().size()", total.eventCountingRule());
         assertEquals("spec.getParameters().size()", total.parameterCountingRule());
-        assertEquals(973, total.events(), "aggregate event count under " + total.eventCountingRule());
+        assertEquals(980, total.events(), "aggregate event count under " + total.eventCountingRule());
         assertEquals(406, total.parameters(),
                 "aggregate parameter count under " + total.parameterCountingRule());
     }
@@ -247,7 +253,7 @@ class MopLiftCorpusTest {
                 checked++;
             }
         }
-        assertEquals(973, checked, "one provenance check per declared event");
+        assertEquals(980, checked, "one provenance check per declared event");
     }
 
     @Test
@@ -332,8 +338,11 @@ class MopLiftCorpusTest {
         // file that already carried one refusal now carries two and the count of FILES does not
         // move. Every negated twin of the set costs one refusal, which is what a refusal is for:
         // the two labels are told apart by a `condition(...)` the alphabet cannot see.
-        assertEquals(42, refusing, "files of the five corpora carrying at least one refusal");
-        assertEquals(58, refusals, "OverlappingDispatch refusals over the five corpora");
+        // 58 -> 65 and 42 -> 43 is gh114 tasks 13.6 and 13.7: every guarded creation gained a refused
+        // twin for the two-argument overload, and each twin claims its admitted sibling's signature,
+        // so the refusals move by seven; the one file that carried no refusal before gains one.
+        assertEquals(43, refusing, "files of the five corpora carrying at least one refusal");
+        assertEquals(65, refusals, "OverlappingDispatch refusals over the five corpora");
     }
 
     @Test

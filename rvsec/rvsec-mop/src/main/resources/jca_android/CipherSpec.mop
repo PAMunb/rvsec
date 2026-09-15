@@ -95,13 +95,19 @@ CipherSpec(Cipher c) {
    // mark a Cipher the automaton was about to reject.
    Object initialisedCipher = null;
 
-   // Three facts about the monitored Cipher that the `@fail` handler reads to choose its code.
-   // The generated `reset()` clears only the state and the category flags, so all three survive
+   // Four facts about the monitored Cipher that the `@fail` handler reads to choose its code.
+   // The generated `reset()` clears only the state and the category flags, so all four survive
    // a failure, and once a label is reported every later failure of the same monitor carries it:
    // after a reset no creation event can arrive for the object, and the automaton cannot return
    // to a state its real history satisfies.
    //
-   // `creationObserved` is set by the creation events `g1`, `g2` and `g3`.
+   // `creationObserved` is set by the creation events `g1`, `g2` and `g3`, the refused `g3`
+   // included, so a Cipher created in woven code is never counted as unobserved.
+   //
+   // `creationRefused` is set by `g3`, the refused creation over both `getInstance` overloads.
+   // `unsafeAlg` admits no use, so the ordering failure of such a Cipher is the consequence of
+   // the refused transformation, and `@fail` reports it with the `creation-refused` code,
+   // CIPHER-ORDER-03.
    //
    // `operationFinished` is set by the events that complete an operation, which are the events
    // whose transitions enter `end`: `wkb1` and the six `doFinal` events `f1`, `f2`, `f3`, `f5`,
@@ -113,6 +119,7 @@ CipherSpec(Cipher c) {
    // operation had finished: the API lets a used Cipher be initialised again, and the rule's ORDER
    // does not (Cipher.crysl:85).
    boolean creationObserved = false;
+   boolean creationRefused = false;
    boolean operationFinished = false;
    boolean reuseObserved = false;
 
@@ -130,12 +137,23 @@ CipherSpec(Cipher c) {
        creationObserved = true;
    }
 
-
+   // The refused twin of both `g1` and `g2`: `getInstance(String, ..)` with
+   // `args(transformation, ..)` admits the one-argument overload and the two provider overloads,
+   // under the negation of their guard. One event covers both because the file is at the
+   // ceiling of 17 events. Without the two-argument half a transformation the rule refuses,
+   // requested with a provider, would run no body, and the Cipher's failure would read
+   // `creation-unobserved` although its creation ran in woven code.
+   //
+   // The body only records the creation. It does not report and writes no field another event
+   // reads: the transformation is accused at `i1` or `i2`, and `g3` leads to `unsafeAlg`, where
+   // the Cipher's first use fails exactly as it does on a Cipher no event saw, so no reported
+   // site changes and only the handler's code does.
    event g3 after(String transformation) returning(Cipher c):
-     call(public static Cipher Cipher.getInstance(String)) &&
-     args(transformation) &&
+     call(public static Cipher Cipher.getInstance(String, ..)) &&
+     args(transformation, ..) &&
      condition(!CipherTransformationNormalizer.isValid(transformation)) {
        creationObserved = true;
+       creationRefused = true;
    }
 
    event i1 before(int mode, Certificate cert, Cipher c):
@@ -541,6 +559,10 @@ CipherSpec(Cipher c) {
         if (!creationObserved) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,
                 "v=1 code=CIPHER-ORDER-01 ev=" + __EVENTNAME + " obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts and no creation of the Cipher was observed'"));
+        }
+        else if (creationRefused) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,
+                "v=1 code=CIPHER-ORDER-03 ev=" + __EVENTNAME + " obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts, after a creation the specification refused'"));
         }
         else if (reuseObserved) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,

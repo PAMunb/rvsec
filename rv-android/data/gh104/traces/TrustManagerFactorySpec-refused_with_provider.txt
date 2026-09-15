@@ -1,0 +1,10 @@
+# a refused algorithm requested through the provider overload. The one-argument `g1` accepts
+# any algorithm, `g2` admits only the allow-list, and `SunPKIX` is outside it and outside the
+# alias table. `getInstance("SunPKIX", "SunJSSE")` fires the refused two-argument twin `g3`,
+# which records the creation and moves to a state with no transitions, so `init` fails as it
+# fails when no event fires: TRUSTMANAGERFACTORY-ORDER-02, label `creation-refused`, instead of
+# TRUSTMANAGERFACTORY-ORDER-01 (`creation-unobserved`). The `init` body still reports the
+# `null` key store (TRUSTMANAGERFACTORY-NOBS-02, `platform-default`) and the algorithm
+# (TRUSTMANAGERFACTORY-ALG-00).
+TrustManagerFactory.getInstance("SunPKIX", "SunJSSE") -> tmf
+tmf.init(null)

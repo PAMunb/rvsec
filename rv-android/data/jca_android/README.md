@@ -67,9 +67,8 @@ keep resolving (INV-INS-118), and by the identity checks of tasks 2.11 and 10.1.
 
 ## What the successor set contains
 
-Twenty-four `.mop` files and `codes.csv`, and nothing else. It was twenty-three until Group 5
-added `IvChainJunction.mop`, the junction specification that carries a chain no single API's
-rule states. `codes.csv` (header
+Forty-seven `.mop` files and `codes.csv`, and nothing else. `IvChainJunction.mop` is the junction
+specification among them: it carries a chain no single API's rule states. `codes.csv` (header
 `spec,code,error_type,site_kind,event,file_line,label`) is the table of failure codes the set's
 envelopes emit; it is the **only** non-`.mop` file of the directory. The seed directory
 `jca/` also holds `MultiSpec_1MonitorAspect.aj`, a gitignored leftover of a generation run
@@ -445,7 +444,7 @@ Counted from the files with `scripts/gh104_mop_lint.py`'s own site parser:
 | `jca_android` after Group 2 | 25 | 25 | 1 | **50** |
 | `jca_android` at the end of gh105 | 0 | 115 | 0 | 115 |
 | `jca_android` at the end of gh109 | 0 | 252 | 0 | 252 |
-| `jca_android` today | 0 | **318** | 0 | **318** |
+| `jca_android` today | 0 | **330** | 0 | **330** |
 
 **Through Group 2 the census was the seed's, unchanged, and there was no difference to explain.**
 That followed from D-11: the successor keeps every event the seed declares, predicates included,
@@ -476,11 +475,11 @@ been left closed on the recorded ground that no producer existed; and the two ac
 clause that had lived only in a negated guard). Every one of the four numbers above can be recounted
 from `codes.csv` and the files.
 
-**Of today's 318 sites, 65 are label codes, and they do not widen what the set reports.** A label
+**Of today's 330 sites, 77 are label codes, and they do not widen what the set reports.** A label
 code is a second code at a report point that already existed: it is emitted under the same branch
 as the unlabelled code of its family, in an `else if` ahead of it, so a situation the family used to
 report under one code now reports under the code that names it (`NEW_SPEC_CONVENTIONS.md` §5 and
-§6). The 65 are 43 `creation-unobserved` and 2 `reuse-after-final` sites in `@fail` handlers, and
+§6). The 77 are 43 `creation-unobserved`, 12 `creation-refused` and 2 `reuse-after-final` sites in `@fail` handlers, and
 12 `upstream-refused`, 5 `platform-default`, 2 `random-key-material` and 1 `application-manager`
 sites at `NOT_OBSERVED` reads. The other 253 are the sites that carry `violation`, `sequence` or
 `not-observed`. The one rule among them that changes whether a site reports is the per-element
@@ -552,7 +551,7 @@ the eight and **cannot** separate the last two: a `NOBS` code and a `CONSTR` cod
 so the code and the `site_kind` column are the only place the difference lives. That is why
 consolidation keys on `site_kind` and not on `error_type` (INV-INS-158, `scripts/gh109_nobs_channel.py`).
 The table is bijective with the census above:
-**318 rows, 318 live sites**, and the message gate fails on either half of that going wrong. It
+**330 rows, 330 live sites**, and the message gate fails on either half of that going wrong. It
 also checks the anchor: since task 7.2 a `code-anchor` check compares each row's `file_line` with
 the line the code is actually emitted from, because the two times a batch re-anchored the file by
 script it moved anchors nobody had noticed.
@@ -567,13 +566,14 @@ observation"; the label answers "which one", so an analysis joins `errors.csv.co
 | `violation` | `ALG` 43, `CONSTR` 86, `FORB` 6, `KEYSIZE` 5, `PROTO` 4, `KSTYPE` 1 | 145 |
 | `sequence` | `ORDER` | 44 |
 | `creation-unobserved` | `ORDER` | 43 |
+| `creation-refused` | `ORDER` | 12 |
 | `reuse-after-final` | `ORDER` | 2 |
 | `not-observed` | `NOBS` | 64 |
 | `upstream-refused` | `NOBS` | 12 |
 | `platform-default` | `NOBS` | 5 |
 | `random-key-material` | `NOBS` | 2 |
 | `application-manager` | `NOBS` | 1 |
-| | | **318** |
+| | | **330** |
 
 So the `ORDER` family holds 89 codes and the `NOBS` family 84. What each label means, where it is
 emitted and in which precedence is written once, in `NEW_SPEC_CONVENTIONS.md` §5 and §6, together

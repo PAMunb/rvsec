@@ -52,14 +52,21 @@ KeyGeneratorSpec(KeyGenerator k) {
     // read out of `currentAlgorithmInstance` in the handler, for the reason every staged
     // value of this set carries: a value the automaton refused must not be carried into
     // the next accepting state, and the field the `getInstance` events write is never
-    // cleared. On the accepted route the two coincide -- `g3*` is a prefix and the `g1`
-    // or `g2` that follows it rebinds -- and staging is what keeps them coinciding.
+    // cleared. On the accepted route the two coincide -- `(g3 | g4)*` is a prefix and the
+    // `g1` or `g2` that follows it rebinds -- and staging is what keeps them coinciding.
     String generatedKeyAlgorithm = null;
 
-    // Set by the three `getInstance` events and read by `@fail` (KEYGENERATOR-ORDER-01). The
-    // generated `reset()` clears the state and not this field. This specification does not
-    // mark the key it produces with REPORTED_UPSTREAM.
+    // Set by the four `getInstance` events, the refused `g3` and `g4` included, and read by
+    // `@fail` (KEYGENERATOR-ORDER-01). The generated `reset()` clears the state and not this
+    // field. This specification does not mark the key it produces with REPORTED_UPSTREAM.
     boolean creationObserved = false;
+
+    // Set by the refused `getInstance` events `g3` (one argument) and `g4` (two arguments), and
+    // never cleared, for the same reason as `creationObserved`. `@fail` reads it after
+    // `creationObserved` to report the failure of a generator whose algorithm the list refused
+    // under KEYGENERATOR-ORDER-02 (`creation-refused`): the automaton admits no use of such a
+    // generator, so its ordering failure is the consequence of the refusal.
+    boolean creationRefused = false;
 
     event g1 after(String alg) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String))
@@ -90,7 +97,25 @@ KeyGeneratorSpec(KeyGenerator k) {
       && args(alg)
       && condition(!ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms))  {
         creationObserved = true;
+        creationRefused = true;
         currentAlgorithmInstance = alg;
+    }
+
+    // The refused twin of `g2`: the same two-argument pointcut, the rule's
+    // `getInstance(alg, _)`, under the negated guard. Without it an algorithm the list refuses,
+    // requested with a provider, runs no body, and the generator's failure would read
+    // `creation-unobserved` although its creation ran in woven code.
+    //
+    // The body only records the creation. It does not report, and it does not write
+    // `currentAlgorithmInstance` as `g3` does: the prefix `(g3 | g4)*` sends the generator's
+    // first use to `@fail` exactly as a generator no event saw would go, so no reported site
+    // changes and only the handler's code does.
+    event g4 after(String alg, Object provider) returning(KeyGenerator k):
+      call(public static KeyGenerator KeyGenerator.getInstance(String, Object+))
+      && args(alg, provider)
+      && condition(!ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms)) {
+        creationObserved = true;
+        creationRefused = true;
     }
 
     // The two `init` overloads the rule's `Inits` names that take no SecureRandom --
@@ -180,12 +205,16 @@ KeyGeneratorSpec(KeyGenerator k) {
         generatedKeyAlgorithm = currentAlgorithmInstance;
     }
 
-    ere : (g3* g1+ | g3* g2+) (((init | initRandom | initRandomSize | initRandomSpec) gk1) | gk1)
+    ere : ((g3 | g4)* g1+ | (g3 | g4)* g2+) (((init | initRandom | initRandomSize | initRandomSpec) gk1) | gk1)
 
     @fail {
         if (!creationObserved) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,
                 "v=1 code=KEYGENERATOR-ORDER-01 ev=" + __EVENTNAME + " obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts, and no getInstance of this KeyGenerator was observed'"));
+        }
+        else if (creationRefused) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYGENERATOR-ORDER-02 ev=" + __EVENTNAME + " obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts, after a creation the specification refused'"));
         }
         else {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,

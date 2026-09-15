@@ -55,8 +55,8 @@ that reads perfectly well:
   label-vocabulary          every `codes.csv` row carries one `label` from the
                             closed vocabulary of INV-INS-164, and the label
                             agrees with the row's family: `sequence`,
-                            `creation-unobserved` and `reuse-after-final` only on
-                            `ORDER`; `not-observed` and the four refinements of it
+                            `creation-unobserved`, `creation-refused` and
+                            `reuse-after-final` only on `ORDER`; `not-observed` and the four refinements of it
                             only on `NOBS`; `violation` on every other family.
 
   evidence-only-on-nobs     `Evidence.keysFor` (the `vfp`/`vcls` keys) is called only
@@ -119,7 +119,7 @@ ORDER_KIND = "ORDER"
 # label may sit in. A label code is a numbered code inside an existing family, so
 # a label filed under the wrong family would move a report between the
 # not-observed and accusation channels that every family reader keeps apart.
-ORDER_LABELS = {"sequence", "creation-unobserved", "reuse-after-final"}
+ORDER_LABELS = {"sequence", "creation-unobserved", "creation-refused", "reuse-after-final"}
 NOT_OBSERVED_LABELS = {
     "not-observed",
     "platform-default",

@@ -88,7 +88,7 @@ silently costs the whole specification.
 transition**. A construction that breaks the guard therefore takes no transition, reaches no
 accepting state, and is accused of nothing — measured on `GCMParameterSpecSpec`, where both events
 were guarded and every program the file could see produced zero reports
-(`GCMParameterSpecSpec.mop:26-44`). A failed `REQUIRES` is not a typestate failure.
+(`GCMParameterSpecSpec.mop:30-48`). A failed `REQUIRES` is not a typestate failure.
 
 So:
 
@@ -192,7 +192,7 @@ Two shapes to know:
 - A single-event `ORDER = Con` makes `@fail` **unreachable** — the transition row is `{1, 2, 2}` and
   the monitor is keyed on the constructed object, so no monitor sees a second event. Write the
   handler anyway (the generator and `codes.csv` bijection both expect it) and say in a comment that
-  it cannot fire, as `GCMParameterSpecSpec.mop:134-146` does.
+  it cannot fire, as `GCMParameterSpecSpec.mop:158-170` does.
 - A `+` over an alternation does not mean what it looks like when one alternative erases to ε
   against the rule's alphabet. That is the R4 defect (`CipherOutputStreamSpec.mop:62`, where
   `c1 fl cl` is accepted and the rule rejects it). Check the erasure before writing a `+`.
@@ -218,27 +218,37 @@ flags and never a user field, so a fact written before a failure is still there 
   `returning(...)`, whatever its condition or transition — refused and forbidden twins included
   (`CipherSpec.g3`, `SSLContextSpec.getDefault`, `PBEKeySpecSpec.f1`/`f2`). An event that binds the
   monitored parameter through `target(...)` is never a creation event
-  (`DigestInputStreamSpec.on`, `KeyAgreementSpec.gs3`). A refused creation followed by use is
-  therefore a `sequence` failure, not `creation-unobserved`: the monitor did see the object being
-  created. A creation route guarded by `condition(...)` that rejects the call runs no body (§3),
-  so it sets nothing, and a later failure of that object reads `creation-unobserved`.
+  (`DigestInputStreamSpec.on`, `KeyAgreementSpec.gs3`). A creation route guarded by
+  `condition(...)` that rejects the call runs no body (§3), so every creation event guarded by an
+  allow-list has a **refused twin** with the negated guard for every overload its pointcut admits;
+  otherwise a refused creation in woven code would read `creation-unobserved`. A twin added for
+  that purpose records the creation facts and nothing else, and sits in the automaton beside the
+  admitted creation so that the first use fails where it would fail with no event (a Kleene prefix
+  of the `ere`, an `fsm` state with no outgoing transition). When the event ceiling leaves no room
+  (`CipherSpec`), the one-argument twin is widened to `getInstance(String, ..)` with
+  `args(x, ..)` instead.
+- **`boolean creationRefused = false;`** in every specification with a refused creation, set to
+  `true` in the body of every refused twin and of every forbidden creation that reports `FORB`
+  (`PBEKeySpecSpec.f1`/`f2`, `SSLContextSpec.getDefault`). The automaton admits no use of such an
+  object, so its ordering failure is the consequence of the refusal, and the handler says so.
 - **`boolean operationFinished = false;`** in `CipherSpec` and `MacSpec` only, set in the body of
-  every event whose transition completes an operation (`CipherSpec.mop:104-117` lists them). It is
+  every event whose transition completes an operation (`CipherSpec.mop:112-116` lists them). It is
   set in the body, before the transition is decided, because the fact is about the object and not
   about the automaton.
 - **`boolean reuseObserved = false;`**, beside it, set by `@fail` itself when `operationFinished`
   holds and the failing event is an initialisation event, tested with `__EVENTNAME`, which the
   generator expands in handlers too.
 
-The handler then chooses one code, in this precedence (`CipherSpec.mop:537-552`):
+The handler then chooses one code, in this precedence (`CipherSpec.mop:555-586`):
 
 ```
 @fail {
     if (operationFinished && ("i1".equals(__EVENTNAME) || "i2".equals(__EVENTNAME))) {
         reuseObserved = true;
     }
-    if (!creationObserved) { ... <RULE>-ORDER-NN  label creation-unobserved ... }
-    else if (reuseObserved) { ... <RULE>-ORDER-NN  label reuse-after-final ... }
+    if (!creationObserved)     { ... <RULE>-ORDER-NN  label creation-unobserved ... }
+    else if (creationRefused)  { ... <RULE>-ORDER-NN  label creation-refused ... }
+    else if (reuseObserved)    { ... <RULE>-ORDER-NN  label reuse-after-final ... }
     else                    { ... <RULE>-ORDER-00  label sequence ... }
     ...
     __RESET;
@@ -246,7 +256,9 @@ The handler then chooses one code, in this precedence (`CipherSpec.mop:537-552`)
 ```
 
 `creation-unobserved` comes first because it qualifies everything after it: with no creation seen,
-the monitor's record of the object is partial, and so is any reuse it believes it saw. Both labels persist on the monitor: once one is reported,
+the monitor's record of the object is partial, and so is any reuse it believes it saw. A refused
+creation sets `creationObserved` too, so `creation-refused` is tested only once a creation was seen,
+and it comes before reuse because a refused object admits no use at all. The three labels persist on the monitor: once one is reported,
 every later failure of the same monitor carries it, because after a reset no creation event can
 arrive for the object and the automaton cannot return to a state its real history satisfies. A
 specification with no creation event (`SSLEngineSpec`) declares no field and has no
@@ -298,8 +310,9 @@ silently become an accusation in all of them. An analysis joins `errors.csv.code
 | `label` | Family | Emitted when |
 |---|---|---|
 | `violation` | every family other than `ORDER` and `NOBS` | the value, constraint or forbidden-call site reports |
-| `sequence` | `ORDER` | `@fail`, when neither label below applies |
+| `sequence` | `ORDER` | `@fail`, when none of the labels below applies |
 | `creation-unobserved` | `ORDER` | `@fail`, when no creation event was observed on the monitor (§5) |
+| `creation-refused` | `ORDER` | `@fail`, when the creation observed was a refused twin or a forbidden creation (§5) |
 | `reuse-after-final` | `ORDER` | `@fail` of `CipherSpec` and `MacSpec`, when an initialisation event fails after an operation finished (§5) |
 | `not-observed` | `NOBS` | a `NOT_OBSERVED` read none of the labels below explains |
 | `platform-default` | `NOBS` | the bound argument is a `null` the API documents as "use the platform default" (`TrustManagerFactory.init`, `KeyManagerFactory.init`, each of the three arguments of `SSLContext.init`) |
@@ -339,8 +352,8 @@ else if (verdict == PredicateVerdict.NOT_OBSERVED) {
 The same-line form is not taste. The message gate classifies a site by the nearest enclosing `if`
 line and requires a `NOBS` code under a `NOT_OBSERVED` test; a label test nested as its own `if`
 inside the `NOT_OBSERVED` branch hides the verdict from the gate, which then files a `NOBS` code
-under a branch with no verdict and fails. `TrustManagerFactorySpec.mop:156-170`,
-`SecretKeySpecSpec.mop:136-150` and `SSLContextSpec.mop:274-289` are the worked examples.
+under a branch with no verdict and fails. `TrustManagerFactorySpec.mop:180-194`,
+`SecretKeySpecSpec.mop:136-150` and `SSLContextSpec.mop:282-297` are the worked examples.
 
 When more than one label applies, the chain is ordered by this precedence: `platform-default`, then
 `upstream-refused`, then `application-manager` or `random-key-material`, then `not-observed`. A
@@ -352,7 +365,7 @@ randomness fact because it points at a report already made, which is where the r
 `TrustManagerFactorySpec.gtm1` marks every non-null element of the array it returns with
 `GENERATED_TRUST_MANAGERS`, beside the array itself, and `SSLContextSpec.init` answers `SATISFIED`
 for the trust-manager array when the array is marked, or when it is non-empty and **every** element
-is marked (`SSLContextSpec.mop:262-273`). An application that copies a factory-issued manager into
+is marked (`SSLContextSpec.mop:270-281`). An application that copies a factory-issued manager into
 a new array passes an array the store never saw, and the manager — the object the rule constrains —
 is exactly the one the factory issued. One unmarked element withholds the credit, which closes the
 case of an array that mixes a factory manager with one the application wrote. This is the one label

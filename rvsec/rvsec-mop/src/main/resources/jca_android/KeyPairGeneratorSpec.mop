@@ -51,6 +51,14 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     // (`creation-unobserved`) instead of the wrong-sequence code.
     boolean creationObserved = false;
 
+    // Set by the refused twins `g3` and `g4` and never cleared. `@fail` reads it to report a
+    // failure of a generator whose `getInstance` asked for an algorithm the rule refuses under
+    // `KEYPAIRGENERATOR-ORDER-02` (`creation-refused`): the `ere` wants an admitted `getInstance`
+    // before any Init, so no use of such a generator is admitted, and its ordering failure is the
+    // consequence of the refusal `g3` or `g4` already reported. Like `creationObserved`, it
+    // survives the generated `reset()`.
+    boolean creationRefused = false;
+
     private boolean validate(int keySize) {
       // D-15: the four key-size clauses of KeyPairGenerator.crysl. `3072` returns to the RSA
       // sizes -- the withdrawn generated rule had lost it and the frozen jca was right to
@@ -148,6 +156,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       args(alg) &&
       condition(!ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
         creationObserved = true;
+        creationRefused = true;
         algorithm = alg;
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyPairGeneratorSpec", "" + __LOC,
             "v=1 code=KEYPAIRGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
@@ -184,6 +193,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       args(alg, provider) &&
       condition(!ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
         creationObserved = true;
+        creationRefused = true;
         algorithm = alg;
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyPairGeneratorSpec", "" + __LOC,
             "v=1 code=KEYPAIRGENERATOR-ALG-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
@@ -375,6 +385,10 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       if (!creationObserved) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,
             "v=1 code=KEYPAIRGENERATOR-ORDER-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='' exp='' msg='the observed call sequence is not one KeyPairGeneratorSpec accepts and no creation of the generator was observed'"));
+      }
+      else if (creationRefused) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,
+            "v=1 code=KEYPAIRGENERATOR-ORDER-02 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='' exp='' msg='the observed call sequence is not one KeyPairGeneratorSpec accepts, after a creation the specification refused'"));
       }
       else {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,

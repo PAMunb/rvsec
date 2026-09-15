@@ -37,6 +37,13 @@ SecureRandomSpec(SecureRandom r) {
     // `@fail`.
     boolean creationObserved = false;
 
+    // Set by the refused creations `g4` and `g5` and never cleared. `@fail` reads it to report a
+    // failure of a SecureRandom whose `getInstance` asked for an algorithm the rule refuses under
+    // the `-ORDER-02` code (`creation-refused`): `g4` and `g5` loop at `start`, so no use of such
+    // an object is admitted, and its ordering failure is the consequence of the refusal those
+    // events already reported. The generated `reset()` does not clear it.
+    boolean creationRefused = false;
+
     // the expected algorithms for SecureRandom
     // D-15: the six entries of SecureRandom.crysl. Five of them name providers Android does
     // not ship, so no application can obtain them and no verdict depends on them -- inert,
@@ -158,6 +165,7 @@ SecureRandomSpec(SecureRandom r) {
       && condition(!ConscryptAliasTable.matches("SecureRandom", alg, algorithms))
     {
         creationObserved = true;
+        creationRefused = true;
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SecureRandomSpec", "" + __LOC,
             "v=1 code=SECURERANDOM-ALG-00 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
     }
@@ -176,6 +184,7 @@ SecureRandomSpec(SecureRandom r) {
       && condition(!ConscryptAliasTable.matches("SecureRandom", alg, algorithms))
     {
         creationObserved = true;
+        creationRefused = true;
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SecureRandomSpec", "" + __LOC,
             "v=1 code=SECURERANDOM-ALG-01 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
     }
@@ -383,6 +392,10 @@ SecureRandomSpec(SecureRandom r) {
       if (!creationObserved) {
          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC,
              "v=1 code=SECURERANDOM-ORDER-01 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts and no creation of the SecureRandom was observed'"));
+      }
+      else if (creationRefused) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC,
+             "v=1 code=SECURERANDOM-ORDER-02 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts, after a creation the specification refused'"));
       }
       else {
          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC,

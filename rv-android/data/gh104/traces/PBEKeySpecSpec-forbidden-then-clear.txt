@@ -2,7 +2,8 @@
 # repaired: the forbidden constructor is now inside the automaton, so it no longer
 # draws an ordering report of its own, but the clearPassword() that follows still
 # reaches c2 from a state where c1 never happened and still draws
-# PBEKEYSPEC-ORDER-00 beside the PBEKEYSPEC-FORB-00. The label is `sequence`: the forbidden
-# constructor `f1` is a creation event, so the monitor observed the spec's creation.
+# PBEKEYSPEC-ORDER-02 beside the PBEKEYSPEC-FORB-00. The label is `creation-refused`: the
+# forbidden constructor `f1` sets `creationRefused`, so the ordering failure is the consequence
+# of the forbidden creation already reported.
 new PBEKeySpec(chars) -> spec
 spec.clearPassword()

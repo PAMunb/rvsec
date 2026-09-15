@@ -92,6 +92,7 @@ SecureRandomSpec,next3,,,order-unmapped,,order-unmapped
 SecureRandomSpec,ints,,,order-unmapped,,order-unmapped
 SignatureSpec,g1,g1,g1,same-name,getInstance(alg),
 SignatureSpec,g2,g2,g2,same-name,"getInstance(alg, _)",
+SignatureSpec,g3,,,order-unmapped,,order-unmapped
 SignatureSpec,i1,i1,i1,same-name,initSign(priv),
 SignatureSpec,i2,i2,i2,same-name,"initSign(priv, _)",
 SignatureSpec,i3,i3,i3,same-name,initVerify(cert),
@@ -103,6 +104,7 @@ SignatureSpec,v1,v1,v1,same-name,verify(sign),
 SignatureSpec,v2,v2,v2,same-name,"verify(sign, offset, len)",
 TrustManagerFactorySpec,g1,g1,g1,same-name,getInstance(algo),
 TrustManagerFactorySpec,g2,g2,g2,same-name,"getInstance(algo, _)",
+TrustManagerFactorySpec,g3,,,order-unmapped,,order-unmapped
 TrustManagerFactorySpec,init,Init,Init,same-name,init(keyStore); init(params),
 TrustManagerFactorySpec,gtm1,gtm,GetTrustMng,renamed,tms = getTrustManagers(),
 CipherSpec,g1,g1,g1,same-name,getInstance(transformation),
@@ -147,6 +149,7 @@ HMACParameterSpecSpec,c,c1,Con,renamed,HMACParameterSpec(outputLength),
 KeyGeneratorSpec,g1,g1,g1,same-name,getInstance(alg),
 KeyGeneratorSpec,g2,g2,g2,same-name,"getInstance(alg, _)",
 KeyGeneratorSpec,g3,,,order-unmapped,,order-unmapped
+KeyGeneratorSpec,g4,,,order-unmapped,,order-unmapped
 KeyGeneratorSpec,init,i1,i1,same-name,init(keySize),
 KeyGeneratorSpec,init,i3,i3,same-name,init(params),
 KeyGeneratorSpec,initRandom,i5,i5,same-name,init(ranGen),
@@ -156,6 +159,7 @@ KeyGeneratorSpec,gk1,gk,GenKey,renamed,key = generateKey(),
 KeyManagerFactorySpec,g1,g1,g1,same-name,getInstance(algo),
 KeyManagerFactorySpec,g2,g2,g2,same-name,"getInstance(algo, _)",
 KeyManagerFactorySpec,g3,,,order-unmapped,,order-unmapped
+KeyManagerFactorySpec,g4,,,order-unmapped,,order-unmapped
 KeyManagerFactorySpec,init,Init,Init,same-name,"init(keyStore, password); init(params)",
 KeyManagerFactorySpec,gkm1,gkm,GetKeyMng,renamed,kms = getKeyManagers(),
 KeyPairSpec,c1,co,Con,renamed,"KeyPair(consPub, consPriv)",
@@ -163,6 +167,7 @@ KeyPairSpec,gpu,pu,GetPubl,renamed,retPub = getPublic(),
 KeyPairSpec,gpr,pr,GetPriv,renamed,retPriv = getPrivate(),
 KeyStoreSpec,g1,g1,g1,same-name,getInstance(keyStoreAlg),
 KeyStoreSpec,g2,,,order-unmapped,,order-unmapped
+KeyStoreSpec,g4,,,order-unmapped,,order-unmapped
 KeyStoreSpec,load,Loads,Load,renamed,"load(fileinput, passwordIn); load(paramLoad)",
 KeyStoreSpec,store,Stores,Store,renamed,"store(paramStore); store(fileoutput, passwordOut)",
 KeyStoreSpec,ge1,gE,GetEntry,renamed,"getEntry(aliasGet, protParamGet)",
@@ -172,6 +177,7 @@ KeyStoreSpec,g3,g2,g2,same-name,"getInstance(keyStoreAlg, _)",
 MacSpec,g1,g1,g1,duplicate-settled,getInstance(macAlg),"`getInstance(String)`; api30 declares this signature as both g1 and g2, and the expert rule writes it once, as g1"
 MacSpec,g2,g2,g2,duplicate-settled,getInstance(macAlg),"the provider overload the `.mop` event observes, `getInstance(String, String)`. api30's g2 repeats g1's one-argument signature; the expert rule writes the overload as `g2: getInstance(algorithm, _)`"
 MacSpec,g3,,,order-unmapped,,order-unmapped
+MacSpec,g4,,,order-unmapped,,order-unmapped
 MacSpec,i1,i1,i1,same-name,init(key),
 MacSpec,i2,i2,i2,same-name,"init(key, params)",
 MacSpec,update,u1,u1,same-name,update(inp),
@@ -186,6 +192,7 @@ MessageDigestSpec,g1,g1,g1,same-name,getInstance(digestAlg),
 MessageDigestSpec,g2,g2,g2,same-name,"getInstance(digestAlg, _)",
 MessageDigestSpec,g3,g2,g2,same-name,"getInstance(digestAlg, _)",
 MessageDigestSpec,g4,,,order-unmapped,,order-unmapped
+MessageDigestSpec,g5,,,order-unmapped,,order-unmapped
 MessageDigestSpec,update,Updates,Update,renamed,"update(pre_inbyte); update(pre_inbytearr); update(pre_inbytearr, pre_off, pre_len); update(pre_inpBuf)",
 MessageDigestSpec,d1,d1,d1,same-name,out = digest(),
 MessageDigestSpec,d2,d2,DWOU,renamed,out = digest(inbytearr),

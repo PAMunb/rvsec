@@ -98,6 +98,7 @@ SecureRandomSpec,next3,,,SecureRandom.crysl,,order-unmapped,"`nextInt()` with no
 SecureRandomSpec,ints,,,SecureRandom.crysl,,order-unmapped,"`ints(..)` returns an IntStream and the rule names no stream event; the site exists to mark the stream randomized, not to order anything"
 SignatureSpec,g1,g1,event,Signature.crysl,19,mapped,
 SignatureSpec,g2,g2,event,Signature.crysl,20,mapped,
+SignatureSpec,g3,,,Signature.crysl,,order-unmapped,"the refused-algorithm twin over the same `getInstance(String, Object+)` call as g2; it only records the creation and sits in a Kleene prefix before `(g1 | g2)`, so the first use fails as it does when no event fires. The algorithm is a CONSTRAINTS clause and an ORDER has no symbol for a call it rejects on a constraint"
 SignatureSpec,i1,i1,event,Signature.crysl,23,mapped,
 SignatureSpec,i2,i2,event,Signature.crysl,24,mapped,
 SignatureSpec,i3,i3,event,Signature.crysl,25,mapped,
@@ -109,11 +110,12 @@ SignatureSpec,v1,v1,event,Signature.crysl,40,mapped,
 SignatureSpec,v2,v2,event,Signature.crysl,41,mapped,
 TrustManagerFactorySpec,g1,g1,event,TrustManagerFactory.crysl,10,mapped,
 TrustManagerFactorySpec,g2,g2,event,TrustManagerFactory.crysl,11,mapped,
+TrustManagerFactorySpec,g3,,,TrustManagerFactory.crysl,,order-unmapped,"the refused-algorithm twin over the same two-argument `getInstance(String, ..)` call as g2; it only records the creation and leads to a state with no transitions, so the first use fails as it does when no event fires. The algorithm is a CONSTRAINTS clause and an ORDER has no symbol for a call it rejects on a constraint"
 TrustManagerFactorySpec,init,Init,aggregate,TrustManagerFactory.crysl,16,mapped,"one event over `init(KeyStore)` and `init(ManagerFactoryParameters)`, which is the aggregate whole"
 TrustManagerFactorySpec,gtm1,GetTrustMng,aggregate,TrustManagerFactory.crysl,19,mapped,"the association is with `getTrustManagers()`. Task 6.2 repaired the three defects that kept this event from ever firing -- the return type declared `KeyManager[]` where the API returns `TrustManager[]`, the parameter declared `TrustManager[][]`, and the target bound to a name the specification does not declare -- and none of them changed which rule event this is, only what it binds and whether it runs. The symbol is unchanged and so is this row; the `g1 i1 gtm` divergence the gate reports against this specification is the automatons and stays with task 7.1"
 CipherSpec,g1,g1,event,Cipher.crysl,40,mapped,
 CipherSpec,g2,g2,event,Cipher.crysl,41,mapped,
-CipherSpec,g3,,,Cipher.crysl,,order-unmapped,the invalid-transformation accuser over the same `getInstance(String)` call as g1; the transformation is a CONSTRAINTS matter
+CipherSpec,g3,,,Cipher.crysl,,order-unmapped,"the invalid-transformation accuser over the `getInstance(String)` call of g1 and the `getInstance(String, Object+)` call of g2 (its pointcut is `getInstance(String, ..)` with `args(transformation, ..)`); the transformation is a CONSTRAINTS matter"
 CipherSpec,i1,i1,event,Cipher.crysl,44,mapped,"`init(int, Certificate, ..)` is one event over the rule's two certificate overloads"
 CipherSpec,i1,i2,event,Cipher.crysl,45,mapped,"the second half of the same pointcut: `init(encmode, cert, ranGen)`"
 CipherSpec,i2,i3,event,Cipher.crysl,46,mapped,"`init(int, Key, ..)` is one event over the rule's six key overloads (i3 to i8); the six rows are the non-bijection INV-INS-138 warns about"
@@ -153,6 +155,7 @@ HMACParameterSpecSpec,c,Con,aggregate,HMACParameterSpec.crysl,8,mapped,"`new HMA
 KeyGeneratorSpec,g1,g1,event,KeyGenerator.crysl,11,mapped,`getInstance(String)` on the accepted-algorithm branch
 KeyGeneratorSpec,g2,g2,event,KeyGenerator.crysl,12,mapped,"`getInstance(String, Object+)` covers both provider overloads, which is the rule's `getInstance(alg, _)`"
 KeyGeneratorSpec,g3,,,KeyGenerator.crysl,,order-unmapped,the rejected-algorithm twin over the same `getInstance(String)` call as g1; the rule states the algorithm in CONSTRAINTS (:45) and an ORDER has no symbol for a call it rejects on a constraint
+KeyGeneratorSpec,g4,,,KeyGenerator.crysl,,order-unmapped,"the refused-algorithm twin over the same `getInstance(String, Object+)` call as g2; it only records the creation, and it is erased for g3's reason -- the rule states the algorithm in CONSTRAINTS and an ORDER has no symbol for a call it rejects on a constraint"
 KeyGeneratorSpec,init,i1,event,KeyGenerator.crysl,15,mapped,`init(int)` is the rule's keySize branch; this one event is also the rule's i3
 KeyGeneratorSpec,init,i3,event,KeyGenerator.crysl,17,mapped,the second half of the same pointcut: `init(AlgorithmParameterSpec)` is the rule's params branch
 KeyGeneratorSpec,initRandom,i5,event,KeyGenerator.crysl,19,mapped,`init(SecureRandom)`; split off the merged init event so `randomized[ranGen]` has the argument bound
@@ -162,6 +165,7 @@ KeyGeneratorSpec,gk1,GenKey,aggregate,KeyGenerator.crysl,23,mapped,`generateKey(
 KeyManagerFactorySpec,g1,g1,event,KeyManagerFactory.crysl,11,mapped,
 KeyManagerFactorySpec,g2,g2,event,KeyManagerFactory.crysl,12,mapped,
 KeyManagerFactorySpec,g3,,,KeyManagerFactory.crysl,,order-unmapped,"the invalid-algorithm accuser over the same `getInstance(String)` call as g1; the rule states `algo in {PKIX}` in CONSTRAINTS, and an ORDER has no symbol for a call it rejects on a constraint. Same reading as KeyPairGeneratorSpec.g3 and CipherSpec.g3"
+KeyManagerFactorySpec,g4,,,KeyManagerFactory.crysl,,order-unmapped,"the refused-algorithm twin over the same `getInstance(String, ..)` two-argument call as g2; it only records the creation, and it is erased for g3's reason -- the algorithm is a CONSTRAINTS clause and an ORDER has no symbol for a call it rejects on a constraint"
 KeyManagerFactorySpec,init,Init,aggregate,KeyManagerFactory.crysl,17,mapped,"one event over `init(KeyStore, char[])` and `init(ManagerFactoryParameters)`, which is the rule's `Init := i1 | i2` whole; the same shape as TrustManagerFactorySpec.init"
 KeyManagerFactorySpec,gkm1,GetKeyMng,aggregate,KeyManagerFactory.crysl,20,mapped,`kms = getKeyManagers()`; the `.mop` numbers it gkm1 and the rule gkm
 KeyPairSpec,c1,Con,aggregate,KeyPair.crysl,11,mapped,"`new KeyPair(PublicKey, PrivateKey)` is the rule's `c1: KeyPair(publicKey, privateKey)` (`KeyPair.crysl:10`), held by `Con` (`:11`); the two REQUIRES the body reads are CONSTRAINTS-side clauses and cost no symbol"
@@ -169,6 +173,7 @@ KeyPairSpec,gpu,GetPubl,aggregate,KeyPair.crysl,14,mapped,
 KeyPairSpec,gpr,GetPriv,aggregate,KeyPair.crysl,17,mapped,
 KeyStoreSpec,g1,g1,event,KeyStore.crysl,27,mapped,`getInstance(String)` on the accepted-type branch; the rule's g1 is the one-argument overload
 KeyStoreSpec,g2,,,KeyStore.crysl,,order-unmapped,"the rejected-type twin over the same `getInstance(String)` call as g1 -- the pointcut is the same one-argument overload under the negated `ConscryptAliasTable.matches` guard, so this is NOT the rule's g2, which is `getInstance(type, _)` (`KeyStore.crysl:28`). The type is a CONSTRAINTS clause (`type in {..}`, `:52`) and an ORDER has no symbol for a call it rejects on a constraint"
+KeyStoreSpec,g4,,,KeyStore.crysl,,order-unmapped,"the refused-type twin over the same `getInstance(String, Object+)` call as g3; it only records the creation, and it is erased for g2's reason -- the type is a CONSTRAINTS clause and an ORDER has no symbol for a call it rejects on a constraint"
 KeyStoreSpec,load,Load,aggregate,KeyStore.crysl,33,mapped,"one `load(..)` event over both `load(InputStream, char[])` and `load(LoadStoreParameter)`, which is the aggregate whole"
 KeyStoreSpec,store,Store,aggregate,KeyStore.crysl,37,mapped,"one `store(..)` event over both `store(LoadStoreParameter)` and `store(OutputStream, char[])`, which is the aggregate whole"
 KeyStoreSpec,ge1,GetEntry,aggregate,KeyStore.crysl,40,mapped,"`getEntry(String, ProtectionParameter)`"
@@ -178,6 +183,7 @@ KeyStoreSpec,g3,g2,event,KeyStore.crysl,28,mapped,"`getInstance(String, Object+)
 MacSpec,g1,g1,event,Mac.crysl,19,mapped,"`getInstance(String)`, the rule's `g1: getInstance(algorithm)` (`Mac.crysl:19`). The association needed a judgement under api30, whose rule declared `getInstance(macAlg)` twice -- as `g1` and again as `g2` -- so the two could not be told apart by their text; the expert rule writes the one-argument overload once and the row is now a plain reading"
 MacSpec,g2,g2,event,Mac.crysl,20,mapped,"`getInstance(String, String)`, the provider overload, which the rule writes as `g2: getInstance(algorithm, _)` (`Mac.crysl:20`). This is the row api30 could not support: its `g2` repeated `g1`'s one-argument signature, so the `.mop` event for the two-argument call was matched to a symbol that did not name it. `getInstance(String, Provider)` exists on android-30 and neither catalogue declares it"
 MacSpec,g3,,,Mac.crysl,,order-unmapped,the unsafe-algorithm accuser over the same `getInstance(String)` call as g1; `algorithm in {..}` is a CONSTRAINTS clause (`Mac.crysl:44`) and an ORDER has no symbol for a call it rejects on a constraint. Same reading as CipherSpec.g3 and KeyPairGeneratorSpec.g3. The erasure is also what makes the `ere`'s `g3* g1 | g3* g2` prefix read as the rule's `Get`
+MacSpec,g4,,,Mac.crysl,,order-unmapped,"the refused-algorithm twin over the same `getInstance(String, Object+)` call as g2; it only records the creation (the one-argument twin g3 covers `getInstance(String)`), and it is erased for g3's reason -- an ORDER has no symbol for a call it rejects on a constraint. Erasing both keeps the `ere`'s `(g3 | g4)* g1 | (g3 | g4)* g2` prefix reading as the rule's Gets"
 MacSpec,i1,i1,event,Mac.crysl,23,mapped,`init(Key)`
 MacSpec,i2,i2,event,Mac.crysl,24,mapped,"`init(Key, AlgorithmParameterSpec)`"
 MacSpec,update,u1,event,Mac.crysl,27,mapped,"`update(byte)`; the rule's `u1: update(inputByte)` is over the primitive `byte inputByte` (`Mac.crysl:6,27`). The `.mop` keeps the name `update` for this one overload after the aggregate split"
@@ -191,6 +197,7 @@ MessageDigestSpec,g1,g1,event,MessageDigest.crysl,16,mapped,`getInstance(String)
 MessageDigestSpec,g2,g2,event,MessageDigest.crysl,17,mapped,"`getInstance(String, String)`; the rule's g2 is `getInstance(digestAlg, _)`, one symbol over both provider overloads"
 MessageDigestSpec,g3,g2,event,MessageDigest.crysl,17,mapped,"`getInstance(String, Provider)`, the other half of the rule's `_`; two `.mop` events stand for the one symbol"
 MessageDigestSpec,g4,,,MessageDigest.crysl,,order-unmapped,"the rejected-algorithm accuser over the same `getInstance(String)` call as g1; it carries MESSAGEDIGEST-ALG-02 in its own body, so deleting it would lose a report, and the rule states the algorithm in CONSTRAINTS (:63), not in ORDER"
+MessageDigestSpec,g5,,,MessageDigest.crysl,,order-unmapped,"the refused-algorithm twin over the provider overloads g2 and g3 cover (`getInstance(String, Object+)`); it only records the creation, reports nothing, and is erased for g4's reason -- the rule states the algorithm in CONSTRAINTS, not in ORDER"
 MessageDigestSpec,update,Update,aggregate,MessageDigest.crysl,24,mapped,"one `update(..)` event over all four overloads the rule names apart, which is the aggregate whole"
 MessageDigestSpec,d1,d1,event,MessageDigest.crysl,26,mapped,`digest()`
 MessageDigestSpec,d2,DWOU,aggregate,MessageDigest.crysl,29,mapped,"`digest(byte[])`, the rule's DWOU"

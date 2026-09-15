@@ -38,15 +38,22 @@ MessageDigestSpec(MessageDigest digest) {
     // marking behind for the next one.
     byte[] stagedDigested = null;
 
-    // Set by the four creation events, `g1` to `g4`, the refused `g4` included, and never
-    // cleared: the generated `reset()` restores the automaton state and leaves this field, so
-    // the fact survives a failure. `@fail` reads it to report a digest whose creation no event
-    // of this specification observed -- one obtained through `clone()` is such a digest --
-    // under `MESSAGEDIGEST-ORDER-01` (`creation-unobserved`) instead of the wrong-sequence
-    // code. A two-argument `getInstance` of an algorithm the list refuses matches no event --
-    // the `condition(...)` of `g2` and `g3` is false, and a false guard runs no body -- so
-    // that digest counts as unobserved too.
+    // Set by the five creation events, `g1` to `g5`, the refused `g4` and `g5` included, and
+    // never cleared: the generated `reset()` restores the automaton state and leaves this
+    // field, so the fact survives a failure. `@fail` reads it to report a digest whose creation
+    // no event of this specification observed -- one obtained through `clone()` is such a
+    // digest -- under `MESSAGEDIGEST-ORDER-01` (`creation-unobserved`) instead of the
+    // wrong-sequence code. A `getInstance` of an algorithm the list refuses runs `g4` (one
+    // argument) or `g5` (two arguments), so a digest created in woven code is never counted
+    // as unobserved.
     boolean creationObserved = false;
+
+    // Set by the refused creation events `g4` and `g5`, and never cleared, for the same reason
+    // as `creationObserved`. `@fail` reads it after `creationObserved` to report the failure of
+    // a digest whose algorithm the list refused under `MESSAGEDIGEST-ORDER-02`
+    // (`creation-refused`): the automaton admits no use of such a digest, so its ordering
+    // failure is the consequence of the refusal and not a wrong order the program chose.
+    boolean creationRefused = false;
 
 	/*
 	getInstance events should not, by themselves, trigger UnsalfeAlgorithm errors. The reason is because the algorithm
@@ -61,16 +68,17 @@ MessageDigestSpec(MessageDigest digest) {
 	// `DigestOutputStream.crysl:34` require, so without this write their reads could answer
 	// only NOT_OBSERVED, for every program, forever.
 	//
-	// It is written by `g1`, `g2` and `g3` and not by `g4`. The three are the conforming
-	// route -- each guarded on `ConscryptAliasTable.matches` -- while `g4` is the
-	// complementary event over the same pointcut, whose body has just accused
-	// MESSAGEDIGEST-ALG-02. Writing there would hand the stream rules a digest this
-	// specification refused, and CrySL ensures a predicate for a use that satisfied the
+	// It is written by `g1`, `g2` and `g3` and not by `g4` or `g5`. The three are the
+	// conforming route -- each guarded on `ConscryptAliasTable.matches` -- while `g4` and
+	// `g5` are the complementary events over the one- and two-argument pointcuts; `g4`'s
+	// body accuses MESSAGEDIGEST-ALG-02. Writing there would hand the stream rules a digest
+	// this specification refused, and CrySL ensures a predicate for a use that satisfied the
 	// rule.
 	//
 	// The `condition(...)` on these three is not the mistake INV-INS-133 names. That rule
 	// is about a clause whose violated side is silence; here the violated side is `g4`,
-	// which reports. The guard partitions the calls, it does not hide them.
+	// which reports, and `g5`, whose digest is accused at its first digest event. The guard
+	// partitions the calls, it does not hide them.
 	event g1 after(String alg) returning(MessageDigest digest):
 	  call(public static MessageDigest MessageDigest.getInstance(String))
 	  && args(alg) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
@@ -110,9 +118,27 @@ MessageDigestSpec(MessageDigest digest) {
     	  && args(alg) && condition(!ConscryptAliasTable.matches("MessageDigest", alg, algorithms))
         {
           creationObserved = true;
+          creationRefused = true;
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
               "v=1 code=MESSAGEDIGEST-ALG-02 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
         }
+
+	// The refused twin of the rule's `getInstance(digestAlg, _)`, the overload `g2` and `g3`
+	// admit. `Object+` covers `(String, String)` and `(String, Provider)` in one pointcut, as
+	// `KeyStoreSpec.g3` records, and the guard is the negation of theirs. Without it a refused
+	// algorithm requested with a provider runs no body, and the digest's failure would read
+	// `creation-unobserved` although its creation ran in woven code.
+	//
+	// The body only records the creation. It does not report: the algorithm is accused where
+	// the digest is used, at `update`, `d1`, `d2` or `d3`, and the prefix `(g4 | g5)*` sends
+	// that first use to `@fail` exactly as a digest no event saw would go, so no reported site
+	// changes and only the handler's code does. It writes no field another event reads.
+	event g5 after(String alg, Object provider) returning(MessageDigest digest):
+	  call(public static MessageDigest MessageDigest.getInstance(String, Object+))
+	  && args(alg, provider) && condition(!ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
+	  creationObserved = true;
+	  creationRefused = true;
+	}
 
 	/*
 	It's inside the events that actually consume the algorithm that we catch UnsafeAlgorithm
@@ -200,12 +226,16 @@ MessageDigestSpec(MessageDigest digest) {
 	does not offer it and the set never read it back (INV-INS-147). That is also why the
 	`MessageDigest md` field is gone -- those two calls were the only things that read it.
 	 */
-	ere : (g4* g1 | g4* g2 | g4* g3) (d2 | (update+ (d1 | d2 | d3)))+
+	ere : ((g4 | g5)* g1 | (g4 | g5)* g2 | (g4 | g5)* g3) (d2 | (update+ (d1 | d2 | d3)))+
 
 	@fail {
            if (!creationObserved) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC,
                    "v=1 code=MESSAGEDIGEST-ORDER-01 ev=" + __EVENTNAME + " obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts and no creation of the digest was observed'"));
+           }
+           else if (creationRefused) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC,
+                   "v=1 code=MESSAGEDIGEST-ORDER-02 ev=" + __EVENTNAME + " obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts, after a creation the specification refused'"));
            }
            else {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC,

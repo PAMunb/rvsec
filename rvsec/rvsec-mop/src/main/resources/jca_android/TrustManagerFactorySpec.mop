@@ -41,10 +41,18 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // and cleared the moment it is used or the sequence is rejected.
     TrustManagerFactory initialisedFactory = null;
 
-    // Set by the creation events `g1` and `g2`. `@fail` reads it to tell a call sequence the
+    // Set by the creation events `g1`, `g2` and `g3`. `@fail` reads it to tell a call sequence the
     // rule refuses from a factory whose creation this monitor never saw; the generated
     // `reset()` leaves user fields alone, so the fact survives a failure.
     boolean creationObserved = false;
+
+    // Set by the refused creation `g3` and never cleared. `@fail` reads it to report a failure of
+    // a factory whose two-argument `getInstance` asked for an algorithm the rule refuses under the
+    // `creation-refused` code: the automaton admits no use of such a factory, so its ordering
+    // failure is the consequence of the refusal and not an order the program chose. The
+    // one-argument `g1` accepts every algorithm and does not set it. The generated `reset()`
+    // leaves it alone, so the fact survives a failure.
+    boolean creationRefused = false;
 
     String expectedGeneratedKeyStore = "a KeyStore this instrumentation observed being loaded";
 
@@ -95,6 +103,22 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
       && args(alg, *)
       && condition(ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms)) {
         creationObserved = true;
+    }
+
+    // The refused twin of `g2`: the two-argument `getInstance` with `g2`'s pointcut and `args`,
+    // under the negated allow-list guard. A false `condition(...)` runs no body, so without this
+    // event a refused algorithm requested with a provider matches no event, and the first use of
+    // the factory reads `creation-unobserved` although its creation ran in woven code. The body
+    // only records the creation: it reports nothing and writes no field another event reads.
+    // The transition leads to `refused`, a state with no transitions, so the first use of the
+    // factory fails at the same event it fails at when no creation event fires. No reported site
+    // changes; only the code `@fail` chooses does, which is `creation-refused`.
+    event g3 after(String alg) returning(TrustManagerFactory mf):
+      call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..))
+      && args(alg, *)
+      && condition(!ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms)) {
+        creationObserved = true;
+        creationRefused = true;
     }
 
     // `generatedKeyStore[keyStore]` (TrustManagerFactory.crysl:28, ledger clause #36) is read
@@ -225,8 +249,8 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // with any other is not credited.
     //
     // The placement. The clause carries no `after L`, so INV-INS-134 sends it to the accepting
-    // state, and that is where it runs: the transition row for `gtm1` is {4, 2, 4, 4, 4}, which
-    // lands on state 2 -- `@match2` -- so this body executes on the transition that accepts.
+    // state, and that is where it runs: the transition row for `gtm1` is {5, 5, 3, 5, 5, 5}, which
+    // lands on state 3 -- `@match2` -- so this body executes on the transition that accepts.
     // What keeps it out of the `@match2` handler is the array -- a handler sees no parameter of
     // the event it follows -- and the reason is in predicate_graph.csv.
     event gtm1 after(TrustManagerFactory mf) returning(TrustManager[] trustManager):
@@ -244,6 +268,9 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
       start [
         g1 -> waitingInit
         g2 -> waitingInit
+        g3 -> refused
+      ]
+      refused [
       ]
       waitingInit [
         init -> final
@@ -259,11 +286,16 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
 
     // A monitor that never observed `getInstance` reports every failure as
     // `creation-unobserved`: the factory was created where this monitor cannot see, and after a
-    // reset no creation event can arrive for it.
+    // reset no creation event can arrive for it. A monitor whose creation was the refused `g3`
+    // reports every failure as `creation-refused`, because `refused` admits no use.
     @fail {
         if (!creationObserved) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC,
                 "v=1 code=TRUSTMANAGERFACTORY-ORDER-01 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='' exp='' msg='" + __EVENTNAME + "() before getInstance()'"));
+        }
+        else if (creationRefused) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC,
+                "v=1 code=TRUSTMANAGERFACTORY-ORDER-02 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='' exp='' msg='the observed call sequence is not one TrustManagerFactorySpec accepts, after a creation the specification refused'"));
         }
         else {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC,
@@ -276,7 +308,7 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
 
     // The acceptance point of `generatedTrustManager[this] after Init`, where the two
     // routes INV-INS-134 admits are the same handler: `init` has the transition row
-    // {4, 4, 4, 1, 4} and the match category is `nextstate == 1`, so the state the Init leads
+    // {5, 2, 5, 5, 5, 5} and the match category is `nextstate == 2`, so the state the Init leads
     // to and the accepting state are one state, and `init` is the only event reaching it.
     //
     // No rule of the oracle requires this half of the clause -- `SSLContext.crysl:33` asks for

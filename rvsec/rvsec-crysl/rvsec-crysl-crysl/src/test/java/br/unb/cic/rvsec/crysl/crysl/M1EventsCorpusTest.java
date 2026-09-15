@@ -83,7 +83,9 @@ class M1EventsCorpusTest {
         assertEquals(List.of(
                         "java.security.MessageDigest.getInstance(java.lang.String,java.lang.String)",
                         "java.security.MessageDigest.getInstance(java.lang.String,"
-                                + "java.security.Provider)"),
+                                + "java.security.Provider)",
+                        "java.security.MessageDigest.getInstance(java.lang.String,"
+                                + "java.lang.Object)"),
                 render(result.mopOnly()),
                 "and the same two overloads are calls the specification monitors under a name the "
                         + "rule never writes - the other half of the difference, which a coverage "
@@ -91,7 +93,10 @@ class M1EventsCorpusTest {
                         + "java.lang.String: the expander applies the implicit java.lang import, "
                         + "which is what the CrySL side has always done, and the difference this "
                         + "pair reports is therefore about the unbound second argument and nothing "
-                        + "else. Neither declared (9) nor covered (8) moved when it was fixed");
+                        + "else. Neither declared (9) nor covered (8) moved when it was fixed. The third is the "
+                        + "refused two-argument twin g5, whose pointcut is `getInstance(String, "
+                        + "Object+)`: the lift renders the declared bound, Object, where the weaver "
+                        + "expands it to the two platform overloads");
 
         assertFalse(result.mopOnly().isEmpty(), "both lists are non-empty on this pair");
         assertFalse(result.ruleOnly().isEmpty(), "both lists are non-empty on this pair");
