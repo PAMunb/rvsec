@@ -85,14 +85,14 @@ GitHub Issue: #114
 
 ## 3. advice-emitter: Grouping, Inherited Targets, After-Finally Wrapper (WAVE 1, subagent G3)
 
-- [ ] 3.1 `WrapperEmitter` grouping loop (`:307-314`): exclude an arity-incompatible advice from the overload's group; `advicesExcludedByArity` counts excluded pairs (INV-INS-159)
-- [ ] 3.2 Replace `WrapperMergeTest.anArityIncompatibleAdviceIsCountedAndStillFires` with `anArityIncompatibleAdviceIsExcluded` (spec scenario "a one-argument call fires only the one-argument event"); keep `anAdviceWithNoArgsClauseIsNeverCounted` and `aTrailingRestIsHonouredAsAtLeast`
-- [ ] 3.3 `WrapperEmitter.expandCallTarget` (`:401-478`): fall back to `AndroidClassIndex.methodsInHierarchy` when the declared lookup is empty; at `:285-293` count `wrapperTargetsUnresolved` instead of a silent `continue`; add the counter to `EmitResult` (`:91`); construct `TypeResolver` at `:232` with `AndroidClassIndex::exists` and route dotted names in `resolveFqn` (`:647-676`) through it (INV-INS-162, design D4); rewrite the INV-INS-122 comments at `:74-77`, `:295-306`, `:346` to current behaviour (INV-INS-159)
-- [ ] 3.4 `WrapperEmitterInheritedTargetTest`: `SecretKey+.getEncoded()` resolves; unresolvable target counted
-- [ ] 3.5 `WrapperEmitter.appendWrapperMethod` (`:782-801`): for `after` advices without `returning`/`throwing`, emit the catch-all try block that runs the monitor calls and rethrows, then the normal-path monitor calls and return (INV-INS-163, design D5)
-- [ ] 3.6 `AfterEmitter.java:9-13`: javadoc states what both paths now do (P4, no history)
-- [ ] 3.7 `WrapperAfterFinallyShapeTest`: the generated wrapper source has `try` around the call, `catch (Throwable t)` invoking the monitor calls with the same bound arguments, `throw t`, and the normal-path calls and return (design D5; the compiled shape is checked in 15.3)
-- [ ] 3.8 `mvn -pl :advice-emitter test` green (no `-am`)
+- [x] 3.1 `WrapperEmitter` grouping loop (`:307-314`): exclude an arity-incompatible advice from the overload's group; `advicesExcludedByArity` counts excluded pairs (INV-INS-159)
+- [x] 3.2 Replace `WrapperMergeTest.anArityIncompatibleAdviceIsCountedAndStillFires` with `anArityIncompatibleAdviceIsExcluded` (spec scenario "a one-argument call fires only the one-argument event"); keep `anAdviceWithNoArgsClauseIsNeverCounted` and `aTrailingRestIsHonouredAsAtLeast`
+- [x] 3.3 `WrapperEmitter.expandCallTarget` (`:401-478`): fall back to `AndroidClassIndex.methodsInHierarchy` when the declared lookup is empty; at `:285-293` count `wrapperTargetsUnresolved` instead of a silent `continue`; add the counter to `EmitResult` (`:91`); construct `TypeResolver` at `:232` with `AndroidClassIndex::exists` and route dotted names in `resolveFqn` (`:647-676`) through it (INV-INS-162, design D4); rewrite the INV-INS-122 comments at `:74-77`, `:295-306`, `:346` to current behaviour (INV-INS-159)
+- [x] 3.4 `WrapperEmitterInheritedTargetTest`: `SecretKey+.getEncoded()` resolves; unresolvable target counted
+- [x] 3.5 `WrapperEmitter.appendWrapperMethod` (`:782-801`): for `after` advices without `returning`/`throwing`, emit the catch-all try block that runs the monitor calls and rethrows, then the normal-path monitor calls and return (INV-INS-163, design D5)
+- [x] 3.6 `AfterEmitter.java:9-13`: javadoc states what both paths now do (P4, no history)
+- [x] 3.7 `WrapperAfterFinallyShapeTest`: the generated wrapper source has `try` around the call, `catch (Throwable t)` invoking the monitor calls with the same bound arguments, `throw t`, and the normal-path calls and return (design D5; the compiled shape is checked in 15.3)
+- [x] 3.8 `mvn -pl :advice-emitter test` green (no `-am`)
 
 ## 4. dex-mutator: Branch Targets, Framework Aliases, Constructor After-Finally (WAVE 1, subagent G4)
 
@@ -115,10 +115,10 @@ GitHub Issue: #114
 
 ## 6. jca_android TLS Cluster (WAVE 1, subagent G6)
 
-- [ ] 6.1 `TrustManagerFactorySpec.mop`: `platform-default` code in the `NOT_OBSERVED` branch of `init` when `arg == null` (`:146-155`); `gtm1` marks every element with `GENERATED_TRUST_MANAGERS` (`:218`); `creationObserved` field and `-ORDER-01` in `@fail`; `Evidence.suffix` on every `-NOBS-` envelope
-- [ ] 6.2 `KeyManagerFactorySpec.mop`: `platform-default` code in the `NOT_OBSERVED` branch of `init` when `arg == null` (`:121-130`); `gkm1` unchanged; `-ORDER-01`; evidence
-- [ ] 6.3 `SSLContextSpec.mop` `init` (`:214-248`): per-element credit of the trust-manager array only, `platform-default` for each of the three `null`s, `application-manager` for the trust-manager array via `Evidence.isApplicationDefined`; `-ORDER-01`; evidence with trust-manager classes; update the decision comments to describe current behaviour (P4)
-- [ ] 6.4 Fragment `fragments/codes_g6.csv` with every new row (next free number per file and family) and traces `fragments/traces_g6/`: `tls_null_defaults`, `tls_copied_array`, `tls_mixed_array`, `tmf_init_before_getinstance`
+- [x] 6.1 `TrustManagerFactorySpec.mop`: `platform-default` code in the `NOT_OBSERVED` branch of `init` when `arg == null` (`:146-155`); `gtm1` marks every element with `GENERATED_TRUST_MANAGERS` (`:218`); `creationObserved` field and `-ORDER-01` in `@fail`; `Evidence.suffix` on every `-NOBS-` envelope
+- [x] 6.2 `KeyManagerFactorySpec.mop`: `platform-default` code in the `NOT_OBSERVED` branch of `init` when `arg == null` (`:121-130`); `gkm1` unchanged; `-ORDER-01`; evidence
+- [x] 6.3 `SSLContextSpec.mop` `init` (`:214-248`): per-element credit of the trust-manager array only, `platform-default` for each of the three `null`s, `application-manager` for the trust-manager array via `Evidence.isApplicationDefined`; `-ORDER-01`; evidence with trust-manager classes; update the decision comments to describe current behaviour (P4)
+- [x] 6.4 Fragment `fragments/codes_g6.csv` with every new row (next free number per file and family) and traces `fragments/traces_g6/`: `tls_null_defaults`, `tls_copied_array`, `tls_mixed_array`, `tmf_init_before_getinstance`
 
 ## 7. jca_android Key-Material Cluster (WAVE 1, subagent G7)
 
@@ -139,9 +139,9 @@ GitHub Issue: #114
 
 - [x] 9.1 G9a, the fourteen files listed for G9a in the dispatch hints: `creationObserved` field set by its creation events and `-ORDER-01` in `@fail` (creation events as defined in design D7, refused twins included, `target`-bound events excluded); `Evidence.suffix` on every `-NOBS-` envelope
 - [x] 9.2 G9a: fragment `fragments/codes_g9a.csv` (no traces)
-- [ ] 9.3 G9b, the fourteen files listed for G9b: the same as 9.1 (`SSLEngineSpec` has no creation event and gets no `-ORDER-01`)
-- [ ] 9.4 G9b: `RSAKeyGenParameterSpecSpec.mop:33-39`: `keySizes = Arrays.asList(2048, 3072, 4096)`; comment names both expert clauses, NIST SP 800-57 Part 1 and D-20.4, current behaviour only
-- [ ] 9.5 G9b: fragment `fragments/codes_g9b.csv` and traces `fragments/traces_g9b/`: `rsa_3072`, `rsa_1024`, `digest_clone_update`
+- [x] 9.3 G9b, the fourteen files listed for G9b: the same as 9.1 (`SSLEngineSpec` has no creation event and gets no `-ORDER-01`)
+- [x] 9.4 G9b: `RSAKeyGenParameterSpecSpec.mop:33-39`: `keySizes = Arrays.asList(2048, 3072, 4096)`; comment names both expert clauses, NIST SP 800-57 Part 1 and D-20.4, current behaviour only
+- [x] 9.5 G9b: fragment `fragments/codes_g9b.csv` and traces `fragments/traces_g9b/`: `rsa_3072`, `rsa_1024`, `digest_clone_update`
 
 ## 10. Record Identity and Parser Evidence Fields (WAVE 1, subagent G10)
 

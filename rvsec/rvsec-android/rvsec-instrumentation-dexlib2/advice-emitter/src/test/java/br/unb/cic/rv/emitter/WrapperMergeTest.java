@@ -4,6 +4,7 @@ import br.unb.cic.rv.descriptor.AdviceDescriptor;
 import br.unb.cic.rv.descriptor.AspectDescriptor;
 import br.unb.cic.rv.descriptor.MonitorCallDescriptor;
 import br.unb.cic.rv.descriptor.ParameterDescriptor;
+import br.unb.cic.rv.pointcut.AndroidClassIndex;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -13,8 +14,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -128,14 +131,12 @@ class WrapperMergeTest {
                 "two different original calls must keep two wrappers");
     }
 
-    // --- args() arity, counter mode (gh104 E2, INV-INS-122) ------------------
+    // --- args() arity (INV-INS-159) ------------------------------------------
     //
-    // The three cases below pin a measurement, never a filter. Each asserts BOTH
-    // the counter and the emission: the wrapper must keep firing every monitor
-    // call it fires today, and the counter must merely say how many advice/
-    // overload pairs a filter WOULD have excluded. If an emission assertion here
-    // ever goes red the counter has started filtering, which is the one outcome
-    // this group exists to prevent.
+    // An advice whose positional args() arity a concrete overload cannot satisfy
+    // is left out of that overload's wrapper, and each excluded advice/overload
+    // pair is counted in advicesExcludedByArity. An advice with no args() clause
+    // is never constrained.
 
     /**
      * One after-returning advice over a {@code TrustManagerFactory.getInstance}
@@ -173,10 +174,23 @@ class WrapperMergeTest {
 
     private static WrapperEmitter.EmitResult emit(Path outputDir, AdviceDescriptor... advices)
             throws IOException {
+        return emit(outputDir, (AndroidClassIndex) null, advices);
+    }
+
+    private static WrapperEmitter.EmitResult emit(Path outputDir, AndroidClassIndex index,
+                                                  AdviceDescriptor... advices)
+            throws IOException {
         AspectDescriptor descriptor = new AspectDescriptor();
         descriptor.setAspectName("MultiSpec_1MonitorAspect");
         descriptor.setAdvices(List.of(advices));
-        return WrapperEmitter.generate(descriptor, outputDir);
+        return WrapperEmitter.generate(descriptor, outputDir, index);
+    }
+
+    /** The wrapper method whose parameter list is exactly {@code paramList}. */
+    private static String wrapperMethod(String source, String paramList) {
+        int start = source.indexOf(paramList + " throws Exception {");
+        assertTrue(start >= 0, "no wrapper with parameters " + paramList + ":\n" + source);
+        return source.substring(start, source.indexOf("\n    }\n", start));
     }
 
     private static String wrapperSource(Path outputDir) throws IOException {
@@ -185,35 +199,83 @@ class WrapperMergeTest {
     }
 
     /**
-     * The positive case of the frozen {@code jca} descriptor, isolated: the
-     * {@code TrustManagerFactory} group alone. {@code g1} and {@code g3} carry
-     * {@code args(alg)} (arity 1), {@code g2} carries {@code args(alg, *)}
-     * (arity 2), and all three are grouped on the one-parameter
-     * {@code getInstance(String)} overload. Exactly one advice/overload pair is
-     * arity-incompatible, and all three monitor calls must still fire.
+     * The {@code TrustManagerFactory} group of the specification set: {@code g1}
+     * binds {@code args(alg)} (arity 1) and {@code g2} binds {@code args(alg, *)}
+     * (arity 2), both over {@code getInstance(String, ..)}, which the index
+     * expands to the one- and the two-parameter overload. Each wrapper fires only
+     * the advice its arity admits, and each overload excludes one pair.
      */
     @Test
-    void anArityIncompatibleAdviceIsCountedAndStillFires(@TempDir Path outputDir)
-            throws IOException {
-        WrapperEmitter.EmitResult result = emit(outputDir,
-                tmfAdvice("g1", "args(alg)", List.of("java.lang.String"), ALG_ONLY),
-                tmfAdvice("g2", "args(alg, *)", List.of("java.lang.String"), ALG_ONLY),
-                tmfAdvice("g3", "args(alg)", List.of("java.lang.String"), ALG_ONLY));
+    void anArityIncompatibleAdviceIsExcluded(@TempDir Path outputDir) throws IOException {
+        AndroidClassIndex index = new AndroidClassIndex(EmitterTestFixtures.writeClassJar(
+                outputDir.resolve("android-fixture.jar"),
+                Map.of("javax/net/ssl/TrustManagerFactory", List.of(
+                        "static getInstance (Ljava/lang/String;)Ljavax/net/ssl/TrustManagerFactory;",
+                        "static getInstance (Ljava/lang/String;Ljava/lang/String;)"
+                                + "Ljavax/net/ssl/TrustManagerFactory;"))));
+        List<String> stringRest = List.of("java.lang.String", "..");
+        WrapperEmitter.EmitResult result = emit(outputDir, index,
+                tmfAdvice("g1", "args(alg)", stringRest, ALG_ONLY),
+                tmfAdvice("g2", "args(alg, *)", stringRest, ALG_ONLY));
         String source = wrapperSource(outputDir);
 
-        assertEquals(1, result.advicesExcludedByArity(),
-                "g2 declares args(alg, *) — arity 2 — against a one-parameter "
-                        + "overload; the unit of the count is advice/overload pairs, "
-                        + "so exactly one pair is incompatible");
-        assertEquals(1, result.wrappers().size(),
-                "one original call still produces exactly one merged wrapper");
-        assertTrue(source.contains("MultiSpec_1RuntimeMonitor.TrustManagerFactorySpec_g1Event("),
-                "g1 must still fire:\n" + source);
-        assertTrue(source.contains("MultiSpec_1RuntimeMonitor.TrustManagerFactorySpec_g2Event("),
-                "g2 must STILL fire — it is counted, not excluded; this is the whole "
-                        + "difference between the counter and a filter:\n" + source);
-        assertTrue(source.contains("MultiSpec_1RuntimeMonitor.TrustManagerFactorySpec_g3Event("),
-                "g3 must still fire:\n" + source);
+        assertEquals(2, result.wrappers().size(), "one wrapper per overload");
+        String oneParam = wrapperMethod(source, "(java.lang.String p0)");
+        String twoParams = wrapperMethod(source, "(java.lang.String p0, java.lang.String p1)");
+        assertTrue(oneParam.contains("TrustManagerFactorySpec_g1Event("),
+                "getInstance(String) fires g1:\n" + source);
+        assertFalse(oneParam.contains("TrustManagerFactorySpec_g2Event("),
+                "getInstance(String) must not fire g2, whose args(alg, *) needs two "
+                        + "parameters:\n" + source);
+        assertTrue(twoParams.contains("TrustManagerFactorySpec_g2Event("),
+                "getInstance(String, String) fires g2:\n" + source);
+        assertFalse(twoParams.contains("TrustManagerFactorySpec_g1Event("),
+                "getInstance(String, String) must not fire g1, whose args(alg) needs "
+                        + "exactly one parameter:\n" + source);
+        assertEquals(2, result.advicesExcludedByArity(),
+                "one excluded advice/overload pair per overload");
+    }
+
+    /**
+     * An {@code after} advice that declares parameters but no {@code args()}
+     * clause binds them by position; it stays in the group of an overload whose
+     * parameter count differs from its own parameter list.
+     */
+    @Test
+    void anAdviceWithoutArgsIsUntouched(@TempDir Path outputDir) throws IOException {
+        AndroidClassIndex index = new AndroidClassIndex(EmitterTestFixtures.writeClassJar(
+                outputDir.resolve("android-fixture.jar"),
+                Map.of("javax/net/ssl/SSLContext", List.of(
+                        "init ([Ljavax/net/ssl/KeyManager;[Ljavax/net/ssl/TrustManager;"
+                                + "Ljava/security/SecureRandom;)V"))));
+        AdviceDescriptor init = new AdviceDescriptor();
+        init.setName("SSLContextSpec_init");
+        init.setSpecName("SSLContextSpec");
+        init.setPosition("after");
+        init.setAround(false);
+        init.setParameters(List.of(
+                new ParameterDescriptor("KeyManager[]", "km"),
+                new ParameterDescriptor("TrustManager[]", "tm"),
+                new ParameterDescriptor("SecureRandom", "sr"),
+                new ParameterDescriptor("SSLContext", "ctx")));
+        init.setExpression("call(public void javax.net.ssl.SSLContext.init(..)) && target(ctx)");
+        MonitorCallDescriptor mc = new MonitorCallDescriptor();
+        mc.setMethod("MultiSpec_1RuntimeMonitor.SSLContextSpec_initEvent");
+        mc.setSpecName("SSLContextSpec");
+        mc.setEventId("init");
+        mc.setUniqueId("init");
+        mc.setArgs(List.of("km", "tm", "sr", "ctx"));
+        init.setMonitorCalls(List.of(mc));
+
+        WrapperEmitter.EmitResult result = emit(outputDir, index, init);
+
+        assertEquals(1, result.wrappers().size());
+        assertTrue(wrapperSource(outputDir).contains(
+                        "MultiSpec_1RuntimeMonitor.SSLContextSpec_initEvent(p0, p1, p2, recv);"),
+                "the advice stays in the group and its monitor call is emitted:\n"
+                        + wrapperSource(outputDir));
+        assertEquals(0, result.advicesExcludedByArity(),
+                "an advice without args() contributes nothing to the counter");
     }
 
     /**
@@ -271,8 +333,10 @@ class WrapperMergeTest {
         assertEquals(1, fixed.advicesExcludedByArity(),
                 "args(alg, prov, ..) needs at least two parameters and the overload "
                         + "has one — the head count is what the trailing .. leaves fixed");
-        assertTrue(wrapperSource(fixedDir)
+        assertTrue(fixed.wrappers().isEmpty(),
+                "the only overload excluded the only advice, so no wrapper is emitted");
+        assertFalse(wrapperSource(fixedDir)
                         .contains("MultiSpec_1RuntimeMonitor.TrustManagerFactorySpec_g2Event("),
-                "counted, and still emitted");
+                "an excluded advice fires no monitor call");
     }
 }

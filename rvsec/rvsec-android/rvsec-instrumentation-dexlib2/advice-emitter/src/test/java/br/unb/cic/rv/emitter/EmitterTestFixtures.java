@@ -6,12 +6,20 @@ import br.unb.cic.rv.descriptor.ParameterDescriptor;
 import br.unb.cic.rv.pointcut.Match;
 import br.unb.cic.rv.pointcut.TypeResolver;
 
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Small builders for {@link AdviceDescriptor} / {@link EmitContext} used by
@@ -170,5 +178,39 @@ final class EmitterTestFixtures {
         // catch-handler convention explicitly.
         m.put("t", 0);
         return m;
+    }
+
+    /**
+     * Write a synthetic {@code android.jar} for {@code AndroidClassIndex}: one
+     * public class per key (internal name, superclass {@code java/lang/Object}),
+     * plus {@code java/lang/Object} itself. Each method is spelled
+     * {@code "name descriptor"}, prefixed with {@code "static "} for a static one,
+     * e.g. {@code "static getInstance (Ljava/lang/String;)Ljavax/crypto/Cipher;"}.
+     */
+    static Path writeClassJar(Path jar, Map<String, List<String>> methodsByClass)
+            throws IOException {
+        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(jar))) {
+            writeClass(zos, "java/lang/Object", null, List.of());
+            for (Map.Entry<String, List<String>> e : methodsByClass.entrySet()) {
+                writeClass(zos, e.getKey(), "java/lang/Object", e.getValue());
+            }
+        }
+        return jar;
+    }
+
+    private static void writeClass(ZipOutputStream zos, String internal, String superInternal,
+                                   List<String> methods) throws IOException {
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, internal, null, superInternal, null);
+        for (String m : methods) {
+            boolean isStatic = m.startsWith("static ");
+            String[] nameAndDesc = (isStatic ? m.substring("static ".length()) : m).split(" ");
+            int access = Opcodes.ACC_PUBLIC | (isStatic ? Opcodes.ACC_STATIC : 0);
+            cw.visitMethod(access, nameAndDesc[0], nameAndDesc[1], null, null).visitEnd();
+        }
+        cw.visitEnd();
+        zos.putNextEntry(new ZipEntry(internal + ".class"));
+        zos.write(cw.toByteArray());
+        zos.closeEntry();
     }
 }
