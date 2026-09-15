@@ -1,0 +1,6 @@
+apk,dex_files,wrappers,arity_pairs,arity_wrappers,arity_call_sites,arity_inline_hooks,arity_detail,subtype_unwoven,subtype_targets,subtype_detail,before_hooks,branch_target_hooks,branch_detail,keystore_entry_calls,keystore_entry_woven,error
+app.pachli_50.apk,24,141,0,0,0,0,,0,0,,145,0,,3,3,
+de.markusfisch.android.binaryeye_174.apk,19,141,0,0,0,0,,0,0,,379,0,,0,0,
+eu.faircode.email_2322.apk,24,141,0,0,0,0,,0,0,,451,0,,1,1,
+me.diamondforge.tokn_19.apk,28,141,0,0,0,0,,0,0,,278,0,,1,1,
+TOTAL,95,141,0,0,0,0,,0,0,,1253,0,,5,5,
