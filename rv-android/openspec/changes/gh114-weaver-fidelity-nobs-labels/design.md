@@ -8,7 +8,7 @@ The proposal groups three repairs that share one gate, the next campaign, and no
 
 - **Weaver** (`rvsec/rvsec-android/rvsec-instrumentation-dexlib2`, Java 21, Maven). Five divergences from AspectJ (A1–A5). FR02, NFR06.
 - **Specification set** (`rvsec/rvsec-mop/src/main/resources/jca_android`, 47 `.mop`; `rvsec/rvsec-core` for `Property` and helpers). Six label codes, per-element manager credit, the upstream-refusal mark, evidence keys, the RSA list. FR03, FR13.
-- **Consumers** (`rv-android`): `rv-android-core` (`RvErrorLog.unique_msg`), `rv-coverage` (logcat parser), `scripts/` gates and `tests/parity/`, `data/jca_android/` records. FR11, FR13.
+- **Consumers** (`rv-android`): `rv-android-core` (`RvErrorLog.unique_msg`, `LogcatManager` buffer size), `rv-coverage` (logcat parser), `scripts/` gates and `tests/parity/`, `data/jca_android/` records. FR11, FR13.
 - **Export** (`modules/rv-platform`). One pass over tasks, one static model per APK, release of parsed state. FR14, NFR08.
 
 Constraints carried from the discussion that produced this change:
@@ -96,6 +96,7 @@ Facts the decisions rest on, all measured on the current tree (file:line in the 
 | Event Granularity of unique_msg (modified) / INV-CORE-25, INV-CORE-63 | `rv_android_core/domain/log.py:157-160` | `test_log.py::test_unique_msg_strips_evidence_keys`, `::test_unique_msg_without_evidence_unchanged` |
 | Evidence Keys Are Parsed… / INV-ANA-72 | `logcat_parser._apply_envelope` `:462-495`; `RvErrorLog` fields | `test_logcat_parser.py::test_evidence_keys_copied`, `::test_label_code_opaque` |
 | Result Generation (modified) / INV-PLT-14, INV-PLT-15 | `ResultProcessorComponent.execute` `:200-262`, `_resolve_static_data` `:294-374` | `test_result_processor.py` (`read_static_analysis_files` once per APK; six files; memory-bound test); byte-identity check against `data/results/estudo02_regen/estudo02_00/` |
+| The Device Log Buffer Is Sized Before Capture / INV-CORE-64 | `rv_android_core/util/android/logcat_manager.py` `start_capture` (`:183-210`); `LOGCAT_BUFFER_SIZE` in `rv_android_core/constants.py` | `test_logcat_manager.py::test_buffer_sized_before_clear_and_capture`, `::test_sizing_failure_does_not_stop_capture` |
 | A Finished Task Releases Its Parsed State / INV-PLT-38 | `platform.py:430` and `:465` | `test_platform_release.py::test_finished_task_releases_parsed_state` |
 
 ## Goals / Non-Goals
@@ -164,6 +165,8 @@ Facts the decisions rest on, all measured on the current tree (file:line in the 
 
 The divergence-record gate (`scripts/gh104_divergence_record.py`, run by `tests/parity/test_gh104_specset_gates.py:77-91`) keys every changed hunk of a seeded `.mop` by its content, so every label, evidence or mark edit in the 22 seeded files invalidates the row of the hunk it lands in. The closing group updates the record once, after the last `.mop` edit: `--refresh` lists the live hunks, a small script carries each previous reason to the new key of the same file and appends the gh114 reason, and `--check` runs with `RVSEC_HOME` set (without it the test skips instead of failing). Only existing kinds are used: `message` for label codes, evidence keys and handler fields, `predicate-store` for the upstream mark and the per-element credit. Workers do not write divergence rows.
 
+**D15 — Size the device log buffer before each capture.** `start_capture` runs `adb -s <serial> logcat -G 16M`, then the existing `logcat -c`, then the unchanged capture command. Measured on the campaign image: 2 MiB per buffer, 46 s of history, `logd` already pruning the application's entries after one minute. A separate command keeps INV-CORE-37 byte-identical; running it on every capture covers a rebooted device. A failure logs a WARNING and the capture proceeds. Alternative: fewer coverage lines at start-up. Rejected because it changes what coverage records.
+
 ## API Design
 
 ### `AndroidClassIndex.exists(String internalName) -> boolean`
@@ -214,6 +217,7 @@ Post: INV-PLT-14, INV-PLT-15, INV-PLT-38. Rows follow the ordered task list.
 | DEX write failure after A3/A5 insertion | `DexPool.writeTo` | `phase=dex_write`, exit 1 | Inspect the named DEX; the sweep lists the method |
 | `NoSuchAlgorithmException` in `Evidence` | `MessageDigest.getInstance` | Omit `vfp` | None needed |
 | Malformed evidence value | parser | Existing truncation and forbidden-char counters | Record kept |
+| `logcat -G` fails | `LogcatManager.start_capture` | WARNING with serial and size | Capture proceeds with the device's default buffer |
 | Static JSON absent for an APK | `_resolve_static_data` | Empty model for the APK, tasks counted unresolved once each | Coverage cells empty (INV-PLT-35) |
 | Writer exception for one task | row writers | `write_errors` count, ERROR log (INV-PLT-32) | Continue with next writer and task |
 

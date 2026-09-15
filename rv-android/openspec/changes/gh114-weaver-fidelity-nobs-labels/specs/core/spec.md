@@ -4,6 +4,8 @@ This delta keeps the identity of a violation record stable when the monitor appe
 
 The identity therefore excludes the evidence keys while the record keeps them. No other part of the seven-part formula changes, no reader that splits `unique_msg` on `:::` sees a different part count, and a record without evidence keys has exactly the key it has today, so counts over envelopes that carry no evidence are unchanged.
 
+It also sizes the device's log ring buffer before each capture. `LogcatManager.start_capture` streams `adb logcat` from the host while the application runs, and `logd` keeps each buffer in a fixed-size ring. On the campaign emulator image (`phtcosta/rvandroid:0.9.3`, API 30, measured 2026-09-15 with `adb logcat -g` and `logcat -S`) every buffer is 2 MiB, the main buffer spanned 46 s of history, and `logd` had already pruned 82 entries of the application's process one minute into a monkey run. When the host reader falls behind — ten emulators share the host — entries pruned before delivery never reach the file, and nothing in the file marks the hole: no `chatty` line, no repeated `beginning of` header. The evidence campaign shows exactly that shape at application start-up, when coverage lines arrive by the hundred per second: blocks of 60 ms to 0.6 s of the application's lines are absent while the process stays alive, and at the okhttp `platformTrustManager` site 26 of 3,889 runs lost reports the same event body emits unconditionally.
+
 ## Data Contracts
 
 ### Input
@@ -13,7 +15,7 @@ The identity therefore excludes the evidence keys while the record keeps them. N
 - `RvErrorLog.unique_msg: str` — seven `:::`-separated parts whose seventh is the message without the trailing evidence keys
 
 ### Side-Effects
-- None
+- `adb -s <serial> logcat -G 16M` runs before each capture, setting the size of the device's log ring buffers for the rest of the device's life
 
 ### Error
 - None; a message without an envelope or without evidence keys is used verbatim
@@ -22,6 +24,27 @@ The identity therefore excludes the evidence keys while the record keeps them. N
 
 - **INV-CORE-25**: `RvErrorLog.unique_msg` MUST be computed as `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{identity_message}"` — seven `:::`-separated parts, `code` and `event` read from the message envelope (`code=`, `ev=`) or equal to the sentinel `UNSPECIFIED` when the message carries no envelope, and `identity_message` equal to `message` with the trailing evidence keys removed (INV-CORE-63). Two `RvErrorLog` instances with the same `unique_msg` MUST be considered equal. The key MUST be built in exactly one place, `RvErrorLog.unique_msg` in `rv_android_core/domain/log.py`; no other module MUST assemble it from the fields.
 - **INV-CORE-63**: `identity_message` MUST be `message` with every trailing ` vfp='<value>'` and ` vcls='<value>'` that follows the closing quote of `msg` removed, and nothing else removed. A message with no evidence key MUST be its own `identity_message`, byte for byte.
+- **INV-CORE-64**: Before every capture, `LogcatManager.start_capture` MUST run `adb -s <serial> logcat -G <LOGCAT_BUFFER_SIZE>` with `LOGCAT_BUFFER_SIZE = "16M"` from `rv_android_core/constants.py`, before the buffer is cleared and before the capture command starts. The capture command itself stays as INV-CORE-37 fixes it. A success MUST be logged at INFO with the device serial and the size; a failure MUST be logged at WARNING with the same two values and MUST NOT prevent the capture.
+
+## ADDED Requirements
+
+### Requirement: The Device Log Buffer Is Sized Before Capture (FR33, NFR06)
+
+`LogcatManager.start_capture` SHALL set the device's log ring buffers to 16 MiB with `adb -s <serial> logcat -G 16M` before it clears the buffer and starts the capture (INV-CORE-64). The size is a named constant, `LOGCAT_BUFFER_SIZE`, in `rv_android_core/constants.py`.
+
+A capture is a live stream of a ring buffer, so a line that `logd` prunes before the host reader receives it is lost without a trace in the file. The default of the campaign image is 2 MiB, which held 46 s of history in a one-minute run; 16 MiB, the largest size Android's developer settings offer, holds eight times that. The sizing runs on every capture rather than once per device because it is cheap and a device may have been rebooted between tasks. It is a separate command, not an extra flag on the capture command, so the capture command stays byte-identical to INV-CORE-37. A failure is logged and the capture proceeds: a smaller buffer loses lines under load, and no capture loses every line.
+
+#### Scenario: the buffer is sized before the capture starts
+
+- **WHEN** `start_capture` is called for serial `emulator-5554` with `clear_buffer=True`
+- **THEN** the commands MUST be issued in the order `adb -s emulator-5554 logcat -G 16M`, `adb -s emulator-5554 logcat -c`, `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V`
+- **AND** the third command MUST be byte-identical to the one INV-CORE-37 fixes
+
+#### Scenario: a failed sizing does not stop the capture
+
+- **WHEN** `adb -s emulator-5554 logcat -G 16M` exits non-zero
+- **THEN** a WARNING naming `emulator-5554` and the requested size MUST be logged
+- **AND** the capture command MUST still be started and `start_capture` MUST return `True` when the capture starts
 
 ## MODIFIED Requirements
 

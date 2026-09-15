@@ -37,6 +37,8 @@ This is the gate before the next campaign. It builds on #112 (archived): `instr-
 
 **Result export (`rv-platform`).** `ResultProcessorComponent` writes all output files in one pass over tasks ordered by APK, keeps one static model at a time, and releases each task's repository and static model after its rows are written; the platform releases both when a task finishes during the run. Files, columns and row content are unchanged.
 
+**Logcat capture (`rv-android-core`).** The capture reads the device's log ring buffer through `adb logcat` while the application runs. On the campaign's emulator image each buffer is 2 MiB and `logd` was already pruning entries of the application's process 60 s into a short run (measured 2026-09-15 on `phtcosta/rvandroid:0.9.3`, API 30). In the evidence campaign whole blocks of the application's lines are missing at process start-up, when coverage lines arrive by the hundred per second: at the okhttp `platformTrustManager` site 26 of 3,889 runs lost reports that the same event body emits unconditionally. `LogcatManager` sets the ring buffer to 16 MiB before every capture.
+
 **Out of scope, deliberately:** the frozen `jca` set (no change and no impact measurement); any per-site verdict catalogue (it is specific to a dataset); value lists of the expert oracle other than the RSA clause; producers the oracle does not have (`Certificate.getPublicKey`, `Cipher.unwrap`, `ECPublicKeySpec`); re-running the campaign used as evidence.
 
 ## Capabilities
@@ -49,7 +51,7 @@ None.
 
 - `instrumentation`: arity enforcement replaces the measure-only contract of INV-INS-122; weaving of methods inherited by framework subtypes and a published drop counter; branch-target preservation for inserted before-hooks; nested-type resolution in pointcut signatures; after-finally semantics for `after` advice on both weaving paths.
 - `instrumentation` (continued): the label codes of the successor set within the `-NOBS-` and `-ORDER-` families, the per-element manager credit, the upstream-refusal mark, the evidence keys appended to non-observation envelopes, and the RSA key-size transcription with its `oracle-wart` row. The `conformance` capability (the MOP–CrySL comparison component) is not touched: it does not read report codes.
-- `core`: the identity of a violation record (`unique_msg`, INV-CORE-25) excludes the evidence keys, so a fingerprint that differs per run does not multiply unique counts.
+- `core`: the identity of a violation record (`unique_msg`, INV-CORE-25) excludes the evidence keys, so a fingerprint that differs per run does not multiply unique counts; `LogcatManager` sizes the device log ring buffer before capture (INV-CORE-64).
 - `analysis`: the logcat parser accepts the new code families and report fields.
 - `platform`: `ResultProcessorComponent` processes tasks one at a time with a per-APK static model (INV-PLT-14, INV-PLT-15), and completed tasks release their repository and static model.
 
@@ -66,7 +68,7 @@ None.
 | `rvsec-mop` (`jca_android/`) | label codes, per-element credit, upstream-refusal mark, evidence keys, RSA list, `codes.csv` (new `label` column) |
 | `rvsec-core` | new `Property` entries and the fingerprint helper used by the specifications |
 
-**`rv-android`**: `rv-coverage` (logcat parser), `rv-platform` (`ResultProcessorComponent`, task release), campaign consolidation, `rv-android-core` (`RvErrorLog.unique_msg`), `data/jca_android/` records (`conformance_record.csv`, `divergence_record.csv`) and the structural and message gates under `scripts/` and `tests/parity/`.
+**`rv-android`**: `rv-coverage` (logcat parser), `rv-platform` (`ResultProcessorComponent`, task release), campaign consolidation, `rv-android-core` (`RvErrorLog.unique_msg`, `LogcatManager` buffer size), `data/jca_android/` records (`conformance_record.csv`, `divergence_record.csv`) and the structural and message gates under `scripts/` and `tests/parity/`.
 
 **Requirements**: FR02 (instrumentation), FR03 (specification sets), FR11 (logcat parsing), FR13 (violation detection), FR14 (result generation), NFR06 (observability), NFR08 (reproducibility).
 

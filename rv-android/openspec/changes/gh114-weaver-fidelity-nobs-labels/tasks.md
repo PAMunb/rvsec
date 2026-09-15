@@ -28,7 +28,7 @@ GitHub Issue: #114
                                      MessageDigestSpec, MGF1ParameterSpecSpec, OAEPParameterSpecSpec, PBEParameterSpecSpec,
                                      PKIXBuilderParametersSpec, PKIXParametersSpec, RSAKeyGenParameterSpecSpec, SSLEngineSpec,
                                      SSLParametersSpec, TrustAnchorSpec)
-       G10 rv-android-core + rv-coverage (identity_message, parser evidence fields)
+       G10 rv-android-core + rv-coverage (identity_message, parser evidence fields, logcat buffer size)
        G11 rv-platform              (ResultProcessorComponent one pass, Platform release)
        Spec workers (G6–G9b) do NOT edit codes.csv, Property.java or data/jca_android records: each writes its new
        codes.csv rows to openspec/changes/gh114-weaver-fidelity-nobs-labels/fragments/codes_g<n>.csv and its
@@ -149,7 +149,9 @@ GitHub Issue: #114
 - [ ] 10.2 Tests in `modules/rv-android-core/tests/`: evidence stripped; message without evidence byte-identical key; `vfp=` inside a quoted `msg` not stripped
 - [ ] 10.3 `modules/rv-coverage/src/rv_coverage/parser/log/logcat_parser.py` `_apply_envelope` (`:462-495`): copy `vfp`/`vcls` (INV-ANA-72)
 - [ ] 10.4 Tests in `modules/rv-coverage/tests/`: the three scenarios of the analysis spec
-- [ ] 10.5 Run `/rv-test-run rv-android-core` and `/rv-test-run rv-coverage`
+- [ ] 10.5 `modules/rv-android-core/src/rv_android_core/constants.py`: `LOGCAT_BUFFER_SIZE = "16M"`; `util/android/logcat_manager.py` `start_capture` (`:183-210`): run `adb -s <serial> logcat -G <size>` before the clear and the capture, INFO with serial and size on success, WARNING on failure, capture continues (INV-CORE-64, design D15)
+- [ ] 10.6 Tests in `modules/rv-android-core/tests/`: command order `-G`, `-c`, capture with the capture command byte-identical to INV-CORE-37; sizing failure logs WARNING and capture starts
+- [ ] 10.7 Run `/rv-test-run rv-android-core` and `/rv-test-run rv-coverage`
 
 ## 11. Bounded Result Export (WAVE 1, subagent G11)
 
@@ -192,7 +194,7 @@ GitHub Issue: #114
 - [ ] 15.1 Reactor build (JDK 21) green, then `mvn test` for `rvsec-instrumentation-dexlib2` and `rvsec-core` without `-DskipTests`
 - [ ] 15.2 In WAVE 2 (needs 5.3): choose the smoke APKs from `evidence/sweep_before.csv` by the design criteria (TLS client reaching `SSLContext.init`, embedded BouncyCastle, a hooked `Cipher.init` that is a branch target, a `KeyStore.getEntry` call). In WAVE 3, after 15.1: instrument them through the production path with `jca_android`
 - [ ] 15.3 Run `scripts/gh114_weave_sweep.py` on the newly instrumented APKs; `evidence/sweep_after.csv` shows (a)=0, (b)=0, (c)=0 and (d) woven where the call exists; disassemble the monitor DEX of one smoke APK and confirm the after-finally handler in the `KeyAgreement.doPhase` or `SSLContext.init` wrapper (INV-INS-163); commit both sweeps
-- [ ] 15.4 Smoke: `uv run rv-experiment run --tools ape --specification-set jca_android --apks-dir <smoke apks> --timeouts <budget chosen by the researcher> --name gh114_smoke` (the platform manages the emulator); confirm export completes, `errors.csv` has label codes, `vfp` on `-NOBS-` rows over byte arrays and `vcls` on trust-manager rows, `summary.csv` `mop_errors_unique` unaffected by evidence; record in `evidence/smoke.md`
+- [ ] 15.4 Smoke: `uv run rv-experiment run --tools ape --specification-set jca_android --apks-dir <smoke apks> --timeouts <budget chosen by the researcher> --name gh114_smoke` (the platform manages the emulator); confirm export completes, `errors.csv` has label codes, `vfp` on `-NOBS-` rows over byte arrays and `vcls` on trust-manager rows, `summary.csv` `mop_errors_unique` unaffected by evidence; the platform log shows the `logcat -G 16M` sizing for every task with no WARNING; record in `evidence/smoke.md`
 
 ## 16. Verification
 
