@@ -11,6 +11,8 @@
      - Port source for all concept groups: APE-RV branch mop-fairtest (working dir ape-mop-fairtest/), NEVER master.
      - Commits use `refs #77`; final commit uses `closes #77`. No Co-Authored-By. Never start/manage emulators manually — E2E gates go through rv-experiment. -->
 
+> **Closed incomplete on 2026-09-15 by researcher decision:** rv-agent will not be used and is to be deprecated. Tasks 5.8, 8.1, 8.2, 8.5 and 9.1–9.8 are dropped, not done; delta specs were not synced to the base.
+
 ## 1. Reactivation (CI + test hygiene)
 
 - [x] 1.1 Re-include rv-agent in the per-module CI loop in `.github/workflows/ci.yml` (at the **rvsec reactor root**, one level above `rv-android/`; the file's per-module loop excludes only `rv-agent` and `rv-agent-validation` — revert the `rv-agent` exclusion from commit `674642a0`), keeping the CI contract `--import-mode=importlib -o "addopts="`. `rvagent-tool` is NOT in the exclusion list — confirm its tests already run green in the loop and fix if red (no exclusion revert needed for it)
@@ -72,6 +74,7 @@
   - `tests/unit/test_gh77_fairtest.py` (35 tests, arm-neutral, uses `make_agent_config`): seed reproducibility + divergence (flat-score Gumbel probe), density 4/10=0.4, form fill/submit-exclusion/convergence, typed-input tokens-not-substring + nearby-label + password + own-beats-nearby, attribution precedence mop>wtg>form>coverage + mop_frontier→wtg + StateMopDensity-not-a-source + overrides + pure-arm=base, boost buckets, trace CSV header/row/clock/lazy, component-trigger wiring (fires on plateau + attributes + resets, no-fire without plateau/disabled/non-concrete-guard).
 - [ ] 5.8 Wire `ComponentTriggerService` into the exploration loop (delivered as a unit in 3.5 but not yet instantiated or called — INV-AGT-48 is unit-verified but never exercised at runtime): instantiate it in `AgentFactory`/strategy and call `maybe_trigger(...)` gated on `PlateauDetector.is_plateau_reached()` in the `execute`/`learn` node; when it returns non-None (a dispatch happened) set `decision_source='component_trigger'` (match 5.5) and feed `PlateauDetector.record_iteration` as progress so a successful trigger resets stagnation. Include an E2E `am`-dispatch smoke gate via rv-experiment — a unit test with a mocked `DeviceInterface` does NOT catch the real `am start-service` background-start restriction on API ≥ 26/30
   - OFFLINE PART DONE: instantiated in `RVAgent.__init__` (device + `static_data.components` + config); `learn_node._maybe_trigger_component` (Phase 4c) reads `strategy.plateau_detector.is_plateau_reached()`, calls `maybe_trigger`, on dispatch sets `strategy.last_decision_source='component_trigger'` + `plateau_detector.record_iteration(discovered_new_state=True)`; concrete-type guard. `ComponentTriggerService.__init__` now getattr-defaults the two config flags (bare-mock safety, Group-4 pattern). Unit tests in test_gh77_fairtest.py. **E2E `am`-dispatch smoke gate DEFERRED into the Group 7 E2E (user decision 2026-07-12).** Two prerequisites are Group-7-shaped: (A) `build_agent_config_dict` (rvagent-tool `config.py`) whitelists variant keys and does NOT carry `component_trigger_enabled`/`component_percentage` — completing that mapping is task 7.1/7.2, so no variant can enable the trigger today; (B) the only `apks_examples/` APK (cryptoapp) has 0 services / 0 receivers (empty trigger catalog per fresh GATOR `out/gh60_cryptoapp_fresh/`), so the MOP-census gate 7.7 must supply a MOP-reaching-service APK before the live `am` dispatch can fire (candidates exist in `data/compat_dataset/`, e.g. `info.zamojski.soft.towercollector` `CollectorService reachesTarget=True`). Offline baselines reconfirmed here: rv-agent 1876 passed / 76 skipped; parity+pipeline+rvagent-tool 30 passed. 5.8 stays open; Group 5 not closed.
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [x] 5.9 Run `/rv-test-run rv-agent`
   - rv-agent offline: 1876 passed, 76 skipped (baseline 1841 + 35 new). Pure-arm parity + scoring pipeline: 11 passed. rvagent-tool regression: 19 passed. pyflakes clean on touched files.
 
@@ -109,24 +112,35 @@
 
 - [ ] 8.1 Revalidate SGLang default URL/model (`http://192.168.0.36:30000/v1`, Qwen3-VL-4B) and hybrid tool calling (native `bind_tools` + XML fallback via `rv_agent/llm/tools/tool_call_parser.py`) against the SGLang version pinned by APE-RV (v0.5.6.post2)
   - OFFLINE PART DONE: defaults confirmed in `config/agent_config.py` (`llm_base_url=http://192.168.0.36:30000/v1`, `llm_model=Qwen/Qwen3-VL-4B-Instruct`, `prompt_version=v13`, `v17` present, `llm_temperature=0.01`). Hybrid parser logic unit-verified offline: `tests/unit/test_llm_client.py::{test_native_tool_calls_extracted,test_fallback_parsing_xml,test_fallback_parsing_json,test_fallback_parsing_pythonic}` (31 passed). **LIVE revalidation against SGLang v0.5.6.post2 PENDING** (machine busy with experiment; needs SGLang up). Task stays [ ] until the live check runs; changing pinned deps/URL/model would need explicit authorization (design Decision D).
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [ ] 8.2 Revalidate `llm_only` and `multimode` variants end-to-end (routing proportions, prompt v13/v17 selection); confirm LLM arms remain isolated from steering flags (INV-RVA-04) and no artificial call limits exist
   - OFFLINE PART DONE: INV-RVA-04 isolation + no call-limit guarded green — `rvagent-tool tests/unit/test_gh77_variants.py::{test_llm_arms_disable_all_steering,test_no_variant_imposes_llm_call_limit}`; source grep for any LLM call-limit/budget/cap key is empty (project policy holds). Routing proportion logic (multimode 70/30 seeded) covered offline by `routing_manager` unit/integration tests (`test_llm_percentage_calculation`). **LIVE end-to-end proportions/prompt selection PENDING** (needs SGLang up). Task stays [ ] until the live run.
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [x] 8.3 Add LLM observability: screenshot-failure counters in routing telemetry; `decision_source="llm"` attribution for LLM-decided actions
   - `RoutingManager.record_screenshot_failure()` + `screenshot_failed` counter surfaced in `get_decision_counters()` and the agent results dict; `capture_screenshot_node` calls it on both failure branches (optimization-fail + capture exception). LLM-decided actions now attribute `decision_source="llm"` and write a trace row: `RVAgentStrategy.record_llm_decision()` (shared `_emit_trace_row` refactor, whole-decision channel, zero boosts), wired from `llm_node._record_llm_trace` at decision time (analog of `_select_priority_action`). Offline-tested (see 8.4). Existing `get_decision_counters` mock fixtures updated to the new contract (4 test files). rv-agent offline: 1901 passed / 76 skipped; parity+pipeline+rvagent-tool 48 passed; pyflakes clean on touched files.
 - [x] 8.4 Add/adapt tests (skip-conditioned on SGLang availability, offline-green per Group 1)
   - `tests/unit/test_gh77_llm_observability.py` (11 tests, arm-neutral, `make_agent_config`): override-`llm` precedence; `record_llm_decision` sets source + zeros boosts + writes row (and no-op without a writer); `llm_node._record_llm_trace` wiring (delegates to strategy; no-op for strategies without the method); screenshot counter init/increment/exposure; `capture_screenshot_node` counts optimization-fail + capture-exception, not success. The 13 pre-existing SGLang-dependent tests stay skip-conditioned (offline-green, live only).
 - [ ] 8.5 E2E gate (LLM arm, local): `uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeouts 60` with SGLang up
   - **NOT RUN — deferred** (machine busy with a running experiment; requires emulator + SGLang up). Stays [ ] pending a machine-free window with SGLang.
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [x] 8.6 Run `/rv-test-run rv-agent`
   - 1637 unit tests passed, 0 failed (CI contract). Full offline suite reconfirmed: 1901 passed / 76 skipped.
 
 ## 9. Close-out & verification
 
 - [ ] 9.1 Revert DEPRECATED status: update rv-android `CLAUDE.md` module map, `modules/rv-agent/CLAUDE.md`, `modules/rvagent-tool/CLAUDE.md` and any docs stating rv-agent is deprecated (project memory updated at archive time)
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [ ] 9.2 Full offline suites green: `uv run pytest modules/rv-agent/tests --import-mode=importlib -o "addopts=" -q` and same for `modules/rvagent-tool/tests`
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [ ] 9.3 Final E2E gate + side-by-side smoke with `aperv` on cryptoapp (local, via rv-experiment; platform manages emulator) — compare `decision_source` taxonomies row-compatibility
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [ ] 9.4 Run `/rv-qa-lint-fix rv-agent` and `/rv-qa-lint-fix rvagent-tool`
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [ ] 9.5 Run `/rv-verify rv-agent`
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [ ] 9.6 Invoke `/rv-code-reviewer` via Skill tool ("Review gh77-revive-rvagent implementation")
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [ ] 9.7 Run `/rv-docs-sync rv-agent` (CLAUDE.md/architecture docs)
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
 - [ ] 9.8 `openspec validate gh77-revive-rvagent --strict`; verify acceptance criteria on issue #77 and check off satisfied boxes
+  - **DROPPED 2026-09-15** — change closed incomplete (see the note at the top).
