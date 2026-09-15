@@ -74,28 +74,26 @@ envelopes emit; it is the **only** non-`.mop` file of the directory. The seed di
 `jca/` also holds `MultiSpec_1MonitorAspect.aj`, a gitignored leftover of a generation run
 that is not tracked and does not travel with the seed.
 
-That count includes `RandomStringPassword.mop` and `SecretKeySpec.mop`, the two files that accuse
-nothing: `grep -c "new ErrorDescription("` returns 0 for both and neither has a `@fail`. They are
-no longer the same case. `SecretKeySpec.mop` is still the propagator the description fits -- it
-reads `GENERATED_KEY` over the key it observes and writes `PREPARED_KEY_MATERIAL` for the
-constructor that copies the bytes, so deleting it would silently disarm a read elsewhere in the
-set, which is the reason design D-11 withdrew the deletion an earlier revision of this change had
-planned.
+`SecretKeySpec.mop` is one of the forty-seven and accuses nothing: `grep -c "new ErrorDescription("`
+returns 0 and it has no `@fail`. It is a propagator -- it reads `GENERATED_KEY` over the key it
+observes and writes `PREPARED_KEY_MATERIAL` for the constructor that copies the bytes, so deleting it
+would silently disarm a read elsewhere in the set, which is the reason design D-11 withdrew the
+deletion an earlier revision of this change had planned.
 
-`RandomStringPassword.mop` writes nothing since `5f64c8de`, and no `condition()` reads it. It was
-the set's only dataflow bridge, carrying `randomized` across `Object -> String -> char[]` so that
-`PBEKeySpecSpec.c1`'s read over a `char[]` could be met, and its four predicate sites went because
-the bridge does not carry what it stamps -- measured over each of the three source types the set
+`RandomStringPassword.mop`, which the seed `jca/` holds, is not in the set. It carried `randomized`
+across `Object -> String -> char[]` so that `PBEKeySpecSpec.c1`'s read over a `char[]` could be met,
+and the bridge does not carry what it stamps -- measured over each of the three source types the set
 can hand it (researcher, 2026-08-21): a `byte[]` converts to its identity string, `"[B@726f3b58"`,
 which holds a heap identity hash and not one bit of the array; a `SecureRandom` converts to the
 constant `"SecureRandom"`, the same text in every program; and an `Integer` converts faithfully but
 does not survive the store's identity keying outside the `-128..127` cache, where for
 `nextInt(int)` the marked value is the bound and not the result. So the two source types that
-propagate carry no randomness and the one that carries randomness does not propagate. The file
-stays for what deleting it would cost -- its two events keep the calls modelled rather than
-unmarked -- and it stands in this directory as the negative record of that measurement: the reason
-the set does not launder a predicate across those conversions is written in the file itself, where
-the next reader tempted to rebuild the bridge will find it.
+propagate carry no randomness and the one that carries randomness does not propagate. Without its
+predicate sites the file could neither accuse nor feed a read, and as a reachability target it still
+counted: `String.valueOf(Object)` is the overload Kotlin string templates compile to, so an
+application with no cryptography at all reached the set through it. Static analysis, the generated monitors and the runtime
+read the same forty-seven specifications, and this paragraph is where the next reader tempted to
+rebuild the bridge finds why the set does not launder a predicate across those conversions.
 
 The predicates were carried over **byte-for-byte** until gh105 migrated the substrate. The seed
 still holds its 134 `ExecutionContext` lines (23 `import`, 27 `validate(`, 49 `setProperty(`,

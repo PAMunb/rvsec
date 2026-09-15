@@ -72,7 +72,7 @@ import br.unb.cic.mop.Property;
 
 - **Events realize the rule's `EVENTS`**, with constructor overloads fused only where the rule's own
   label fuses them (`Con := c1 | c2` fuses; two labels do not). A fused event keeps every conjunct
-  of both overloads — `IvParameterSpec.mop:80-101` records why assuming complementarity lost calls.
+  of both overloads — the comment above `IvParameterSpec.c2` records why assuming complementarity lost calls.
 - **Ceiling: 17 events per specification** (INV-INS-154). Every specification this change adds is
   ≤ 5; state the count in the task fiche anyway, because the check is the point.
 - **Comment density matches the set.** Each event carries a paragraph saying which clause of the
@@ -88,7 +88,7 @@ silently costs the whole specification.
 transition**. A construction that breaks the guard therefore takes no transition, reaches no
 accepting state, and is accused of nothing — measured on `GCMParameterSpecSpec`, where both events
 were guarded and every program the file could see produced zero reports
-(`GCMParameterSpecSpec.mop:30-48`). A failed `REQUIRES` is not a typestate failure.
+(the comment above `GCMParameterSpecSpec.c1`). A failed `REQUIRES` is not a typestate failure.
 
 So:
 
@@ -102,14 +102,14 @@ So:
   ever seen, which on Android is as often a reach limit of the instrumentation as a misuse. Folding
   them into one family counts a reach limit as a misuse.
 - **Accumulate, do not short-circuit.** Use the `boolean conforms = true;` form of
-  `GCMParameterSpecSpec.mop:65-84`: each failing clause reports and clears the flag, and the write
+  `GCMParameterSpecSpec.c1`: each failing clause reports and clears the flag, and the write
   happens under `if (conforms)`. An `else if` chain reports only the first failure of a construction
   that broke two clauses.
 - **A guard that cannot be false stays a guard.** Where the constructor itself throws before the
   `after ... returning` advice can run (negative offsets, lengths past the end of an array), the
   conjunct is kept in the write guard and *not* given a code: a code with no reachable emission is
-  an accusation against a program the platform forbids. `GCMParameterSpecSpec.mop:87-103` and
-  `IvParameterSpec.mop:89-101` are the two worked examples.
+  an accusation against a program the platform forbids. The comments above `GCMParameterSpecSpec.c2`
+  and `IvParameterSpec.c2` are the two worked examples.
 
 Predicate reads use the enum-typed API of `PredicateStore` (`ensure`, `validate`, `validateAny`,
 `validateAbsent`, `negate`; `PredicateStore.java:291-438`). There is no string path — the constant
@@ -130,7 +130,8 @@ use that satisfied the rule.
 **Algorithm-valued writes pass through `ConscryptAliasTable.canonical`** before they are stored
 (D-20.3, INV-INS-153). Readers query canonical names and `PredicateStore` only lowercases, so a raw
 user spelling (`HMAC/SHA256`, an OID, `RC4`) breaks propagation silently and shows up downstream as
-`NOT_OBSERVED` — the R8 defect this change repairs at `KeyGeneratorSpec.mop:215`.
+`NOT_OBSERVED`. The `@match` handler of `KeyGeneratorSpec.mop` writes the canonical name for this
+reason.
 
 ### The upstream-refusal mark
 
@@ -192,10 +193,11 @@ Two shapes to know:
 - A single-event `ORDER = Con` makes `@fail` **unreachable** — the transition row is `{1, 2, 2}` and
   the monitor is keyed on the constructed object, so no monitor sees a second event. Write the
   handler anyway (the generator and `codes.csv` bijection both expect it) and say in a comment that
-  it cannot fire, as `GCMParameterSpecSpec.mop:158-170` does.
+  it cannot fire, as the comment above the `@fail` of `GCMParameterSpecSpec.mop` does.
 - A `+` over an alternation does not mean what it looks like when one alternative erases to ε
-  against the rule's alphabet. That is the R4 defect (`CipherOutputStreamSpec.mop:62`, where
-  `c1 fl cl` is accepted and the rule rejects it). Check the erasure before writing a `+`.
+  against the rule's alphabet: under `(w1 | w2 | fl)+` the word `c1 fl cl` is accepted and the rule
+  rejects it, which is why `CipherOutputStreamSpec.mop` writes `fl*` around its writes (the comment
+  above its `ere`). Check the erasure before writing a `+`.
 
 **Every `@fail` block ends in `__RESET;`** — 21 of 21 in the live set do, since gh105 task 9.2.
 Without it the monitor stays in the failure category and every later event of the same binding
@@ -288,7 +290,7 @@ are `spec,code,error_type,site_kind,event,file_line,label`.
   workers editing two files never colliding on a number, and of a code meaning the same thing in
   every campaign that emitted it.
 - A code names a **site, not a clause**: one clause read at two constructors gets two codes, because
-  the report has to say which constructor it is about (`IvParameterSpec.mop:103-106`). One site
+  the report has to say which constructor it is about (the comment above `IvParameterSpec.c2`). One site
   with two labels is two sites and two codes (§6.2).
 - `file_line` is the line the `addError` call starts on. `gh104_message_gate.py` checks the anchor,
   the bijection (every site has one row, every row has one site) and that no standalone integer

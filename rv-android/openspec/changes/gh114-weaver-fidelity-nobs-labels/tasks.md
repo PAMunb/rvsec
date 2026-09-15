@@ -197,7 +197,7 @@ GitHub Issue: #114
 - [x] 13.15 Main window: re-measure and re-pin, each pin with a current-state reason: `MopLiftCorpusTest` (62 refusals over 43 files), `M2OrderCorpusTest` (the uncommitted provisional re-pins of the blinded comparison are discarded, not committed), `RoundTripGateTest`, and every M1/M4/calibration/report pin of `rvsec-crysl` that moves
 - [x] 13.16 Main window: `rvsec/rvsec-crysl/CLAUDE.md` where it describes refusals, the lift's signatures and M2 (P4)
 - [x] 13.17 Main window: CI step 3 (`mvn -o -f rvsec/rvsec-crysl/pom.xml -DskipTests=false -DexcludedGroups=oracle-dependent test`) and the full suite with the oracle and `RVSEC_GENERATED_MONITOR` green; commit by path (`refs #114`)
-- [ ] 13.11 Main window, after 13.1–13.10 and 13.12–13.17: Generate the monitor for `jca_android` (`uv run rv-monitor-generator generate --specs-dir …/jca_android --output <scratch>`) and run all gates: `uv run pytest tests/parity --import-mode=importlib -o "addopts="`; every moved G-2/G-ORDER allowlist row carries a reason
+- [x] 13.11 Main window, after 13.1–13.10 and 13.12–13.17: Generate the monitor for `jca_android` (`uv run rv-monitor-generator generate --specs-dir …/jca_android --output <scratch>`) and run all gates: `uv run pytest tests/parity --import-mode=importlib -o "addopts="`; every moved G-2/G-ORDER allowlist row carries a reason
 
 ## 14. Documentation (WAVE 2, subagent G14; needs 2–4)
 
