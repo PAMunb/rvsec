@@ -31,7 +31,7 @@ public final class Evidence {
      *         (runtime classes of the elements, comma-joined in array order) for a
      *         {@code TrustManager[]}, and {@code ""} for anything else, {@code null} included
      */
-    public static String suffix(Object bound) {
+    public static String keysFor(Object bound) {
         if (bound instanceof byte[]) {
             String fp = fingerprint((byte[]) bound);
             return fp.isEmpty() ? "" : " vfp='" + quote(fp) + "'";

@@ -32,9 +32,9 @@ public class EvidenceTest {
 
     @Test
     public void nullAndOtherObjectsCarryNoEvidence() {
-        assertEquals("", Evidence.suffix(null));
-        assertEquals("", Evidence.suffix("AES"));
-        assertEquals("", Evidence.suffix(new char[] {'a'}));
+        assertEquals("", Evidence.keysFor(null));
+        assertEquals("", Evidence.keysFor("AES"));
+        assertEquals("", Evidence.keysFor(new char[] {'a'}));
     }
 
     @Test
@@ -45,8 +45,8 @@ public class EvidenceTest {
         }
         // sha256 of the bytes 0x01..0x10 begins 5dfbabeedf318bf3
         assertEquals("sha256:5dfbabeedf318bf3", Evidence.fingerprint(key));
-        assertEquals(" vfp='sha256:5dfbabeedf318bf3'", Evidence.suffix(key));
-        assertEquals(Evidence.suffix(key), Evidence.suffix(key.clone()));
+        assertEquals(" vfp='sha256:5dfbabeedf318bf3'", Evidence.keysFor(key));
+        assertEquals(Evidence.keysFor(key), Evidence.keysFor(key.clone()));
     }
 
     @Test
@@ -57,7 +57,7 @@ public class EvidenceTest {
         TrustManager[] mixed = {platform, new TrustAll(), null};
 
         assertEquals(" vcls='" + platform.getClass().getName() + ","
-                + TrustAll.class.getName() + ",null'", Evidence.suffix(mixed));
+                + TrustAll.class.getName() + ",null'", Evidence.keysFor(mixed));
     }
 
     @Test
@@ -77,7 +77,7 @@ public class EvidenceTest {
         for (int i = 0; i < many.length; i++) {
             many[i] = new TrustAll();
         }
-        String suffix = Evidence.suffix(many);
+        String suffix = Evidence.keysFor(many);
         String value = suffix.substring(" vcls='".length(), suffix.length() - 1);
         assertEquals(512, value.length());
         assertFalse(value.contains("'"));

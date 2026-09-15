@@ -59,7 +59,7 @@ that reads perfectly well:
                             `ORDER`; `not-observed` and the four refinements of it
                             only on `NOBS`; `violation` on every other family.
 
-  evidence-only-on-nobs     `Evidence.suffix` (the `vfp`/`vcls` keys) is called only
+  evidence-only-on-nobs     `Evidence.keysFor` (the `vfp`/`vcls` keys) is called only
                             inside the message argument of a report site, and
                             only at sites whose codes are `NOBS` (INV-INS-166).
 
@@ -131,7 +131,7 @@ VIOLATION_LABEL = "violation"
 LABELS = ORDER_LABELS | NOT_OBSERVED_LABELS | {VIOLATION_LABEL}
 
 # The evidence helper every `-NOBS-` envelope appends after `msg` (INV-INS-166).
-EVIDENCE_CALL = re.compile(r"\bEvidence\s*\.\s*suffix\s*\(")
+EVIDENCE_CALL = re.compile(r"\bEvidence\s*\.\s*keysFor\s*\(")
 
 # Only the equality form is read. `v != PredicateVerdict.SATISFIED` names a verdict
 # without saying which branch this site is, and a gate that guessed there would
@@ -338,7 +338,7 @@ def _evidence_outside_sites(mop: MopSpec, sites: list[dict], path: Path) -> list
             "spec": mop.spec,
             "file": path.name,
             "line": 0,
-            "detail": f"`Evidence.suffix` is called {total - in_sites} time(s) outside the "
+            "detail": f"`Evidence.keysFor` is called {total - in_sites} time(s) outside the "
             "message argument of a report site",
         }
     ]

@@ -586,8 +586,8 @@ def _synthetic_set(
 
     set_dir = tmp_path / "set"
     set_dir.mkdir()
-    text = _SYNTHETIC_MOP.replace("__EVIDENCE__", " + Evidence.suffix(raw)" if evidence else "")
-    text = text.replace("__ORDER_EVIDENCE__", " + Evidence.suffix(spec)" if order_evidence else "")
+    text = _SYNTHETIC_MOP.replace("__EVIDENCE__", " + Evidence.keysFor(raw)" if evidence else "")
+    text = text.replace("__ORDER_EVIDENCE__", " + Evidence.keysFor(spec)" if order_evidence else "")
     (set_dir / "SyntheticSpec.mop").write_text(text, encoding="utf-8")
     lines = text.splitlines()
     nobs_line = next(i for i, line in enumerate(lines, 1) if "UnsatisfiedConstraint" in line)
@@ -648,7 +648,7 @@ def test_message_gate_rejects_evidence_read_outside_a_report(tmp_path):
     mop.write_text(
         mop.read_text(encoding="utf-8").replace(
             "   ere : c", "   event d before(): call(* SecretKeySpec.getEncoded()) "
-            "&& condition(Evidence.suffix(spec).isEmpty()) {}\n\n   ere : c"
+            "&& condition(Evidence.keysFor(spec).isEmpty()) {}\n\n   ere : c"
         ),
         encoding="utf-8",
     )
