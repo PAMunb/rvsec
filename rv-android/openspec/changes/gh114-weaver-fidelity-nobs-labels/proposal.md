@@ -40,6 +40,8 @@ This is the gate before the next campaign. It builds on #112 (archived): `instr-
 
 **Logcat capture (`rv-android-core`).** The capture reads the device's log ring buffer through `adb logcat` while the application runs. On the campaign's emulator image each buffer is 2 MiB and `logd` was already pruning entries of the application's process 60 s into a short run (measured 2026-09-15 on `phtcosta/rvandroid:0.9.3`, API 30). In the evidence campaign whole blocks of the application's lines are missing at process start-up, when coverage lines arrive by the hundred per second: at the okhttp `platformTrustManager` site 26 of 3,889 runs lost reports that the same event body emits unconditionally. `LogcatManager` sets the ring buffer to 16 MiB before every capture.
 
+**Conformance component (`rvsec-crysl`).** The refused two-argument creation twins make both `getInstance` letters of a specification overlaps the lift refuses (`Unknown{OverlappingDispatch}`), which leaves the order comparison (M2) of the MOP–CrySL conformance component with nothing to compare over those calls in every specification that uses the idiom: `CipherSpec` loses both witnesses of its incomparability. Three repairs, each a property of the component rather than of the set. M2 reads a refused overlap whose labels the alphabet map erases down to one as that label's letter, and reports the erasure it applied. The lift honours the arity of `args(...)`, the rule A1 gives the weaver, so `getInstance(String, ..) && args(alg, *)` no longer claims the one-argument call. The lift spells nested types by their binary name, the rule A4 gives the weaver, so `KeyStore.ProtectionParameter` is the type the rule names. Refusals the map cannot reduce stay refusals. **BREAKING** for pinned M2 verdicts of `jca_android`.
+
 **Out of scope, deliberately:** the frozen `jca` set (no change and no impact measurement); any per-site verdict catalogue (it is specific to a dataset); value lists of the expert oracle other than the RSA clause; producers the oracle does not have (`Certificate.getPublicKey`, `Cipher.unwrap`, `ECPublicKeySpec`); re-running the campaign used as evidence.
 
 ## Capabilities
@@ -51,7 +53,8 @@ None.
 ### Modified Capabilities
 
 - `instrumentation`: arity enforcement replaces the measure-only contract of INV-INS-122; weaving of methods inherited by framework subtypes and a published drop counter; branch-target preservation for inserted before-hooks; nested-type resolution in pointcut signatures; after-finally semantics for `after` advice on both weaving paths.
-- `instrumentation` (continued): the label codes of the successor set within the `-NOBS-` and `-ORDER-` families, the per-element manager credit, the upstream-refusal mark, the evidence keys appended to non-observation envelopes, and the RSA key-size transcription with its `oracle-wart` row. The `conformance` capability (the MOP–CrySL comparison component) is not touched: it does not read report codes.
+- `instrumentation` (continued): the label codes of the successor set within the `-NOBS-` and `-ORDER-` families, the per-element manager credit, the upstream-refusal mark, the evidence keys appended to non-observation envelopes, and the RSA key-size transcription with its `oracle-wart` row.
+- `conformance`: M2 resolves a refused overlap the alphabet map reduces to one label (INV-CONF-18); the MOP lift narrows a trailing `..` by the arity of a conjoined `args(...)` and resolves nested types to binary names (INV-CONF-19).
 - `core`: the identity of a violation record (`unique_msg`, INV-CORE-25) excludes the evidence keys, so a fingerprint that differs per run does not multiply unique counts; `LogcatManager` sizes the device log ring buffer before capture (INV-CORE-64).
 - `analysis`: the logcat parser accepts the new code families and report fields.
 - `platform`: `ResultProcessorComponent` processes tasks one at a time with a per-APK static model (INV-PLT-14, INV-PLT-15), and completed tasks release their repository and static model.
@@ -68,6 +71,7 @@ None.
 | `rvsec-instrumentation-dexlib2/cli` | new counters in the results JSON |
 | `rvsec-mop` (`jca_android/`) | label codes, refused creation twins, per-element credit, upstream-refusal mark, evidence keys, RSA list, `codes.csv` (new `label` column) |
 | `rvsec-core` | new `Property` entries and the fingerprint helper used by the specifications |
+| `rvsec-crysl` (`-core`, `-mop`, `-crysl`) | `InverseMorphism.resolvedBy`, `M2Order.compare`, `PointcutExpander`, `MopLowerer`, `CompareRun`; re-pinned corpus tests |
 
 **`rv-android`**: `rv-coverage` (logcat parser), `rv-platform` (`ResultProcessorComponent`, task release), campaign consolidation, `rv-android-core` (`RvErrorLog.unique_msg`, `LogcatManager` buffer size), `data/jca_android/` records (`conformance_record.csv`, `divergence_record.csv`) and the structural and message gates under `scripts/` and `tests/parity/`.
 

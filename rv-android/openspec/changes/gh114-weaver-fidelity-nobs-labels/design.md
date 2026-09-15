@@ -10,6 +10,7 @@ The proposal groups three repairs that share one gate, the next campaign, and no
 - **Specification set** (`rvsec/rvsec-mop/src/main/resources/jca_android`, 47 `.mop`; `rvsec/rvsec-core` for `Property` and helpers). Seven label codes, refused creation twins, per-element manager credit, the upstream-refusal mark, evidence keys, the RSA list. FR03, FR13.
 - **Consumers** (`rv-android`): `rv-android-core` (`RvErrorLog.unique_msg`, `LogcatManager` buffer size), `rv-coverage` (logcat parser), `scripts/` gates and `tests/parity/`, `data/jca_android/` records. FR11, FR13.
 - **Export** (`modules/rv-platform`). One pass over tasks, one static model per APK, release of parsed state. FR14, NFR08.
+- **Conformance component** (`rvsec/rvsec-crysl`, Java 21, Maven). The M2 reading of refused twin overlaps, and two lift rules the weaver repairs already imply (`args` arity, nested type names). FR03, NFR06.
 
 Constraints carried from the discussion that produced this change:
 
@@ -98,6 +99,8 @@ Facts the decisions rest on, all measured on the current tree (file:line in the 
 | Result Generation (modified) / INV-PLT-14, INV-PLT-15 | `ResultProcessorComponent.execute` `:200-262`, `_resolve_static_data` `:294-374` | `test_result_processor.py` (`read_static_analysis_files` once per APK; six files; memory-bound test); byte-identity check against `data/results/estudo02_regen/estudo02_00/` |
 | The Device Log Buffer Is Sized Before Capture / INV-CORE-64 | `rv_android_core/util/android/logcat_manager.py` `start_capture` (`:183-210`); `LOGCAT_BUFFER_SIZE` in `rv_android_core/constants.py` | `test_logcat_manager.py::test_buffer_sized_before_clear_and_capture`, `::test_sizing_failure_does_not_stop_capture` |
 | A Finished Task Releases Its Parsed State / INV-PLT-38 | `platform.py:430` and `:465` | `test_platform_release.py::test_finished_task_releases_parsed_state` |
+| M2 Order Comparison over the Inverse Morphism (modified) / INV-CONF-18 | `rvsec-crysl-core` `InverseMorphism.resolvedBy`, `M2Order.compare`, `M2Order.withoutRefusedLetters`; `rvsec-crysl-crysl` `CompareRun` | `InverseMorphismTest`, `M2OrderTest`, `M2OrderCorpusTest` |
+| The MOP Lift Reads args Arity and Nested Type Names / INV-CONF-19 | `rvsec-crysl-mop` `PointcutExpander.collect`/`withArity`/`resolve`, `MopLowerer.importsOf`; `InverseMorphism.denotes` | `PointcutExpanderTest`, `InverseMorphismTest`, `MopLiftCorpusTest`, `RoundTripGateTest` |
 
 ## Goals / Non-Goals
 
@@ -176,6 +179,26 @@ The divergence-record gate (`scripts/gh104_divergence_record.py`, run by `tests/
 
 **D15 — Size the device log buffer before each capture.** `start_capture` runs `adb -s <serial> logcat -G 16M`, then the existing `logcat -c`, then the unchanged capture command. Measured on the campaign image: 2 MiB per buffer, 46 s of history, `logd` already pruning the application's entries after one minute. A separate command keeps INV-CORE-37 byte-identical; running it on every capture covers a rebooted device. A failure logs a WARNING and the capture proceeds. Alternative: fewer coverage lines at start-up. Rejected because it changes what coverage records.
 
+**D16 — M2 resolves a twin overlap from the alphabet map.** `InverseMorphism.of` refuses every signature claimed by two or more labels when any of them has a guard, and the lift builds `SpecModel.order` without the refused letters. The negated-twin idiom always overlaps, so once every guarded creation gained a refused twin for each overload (D7), both `getInstance` letters of a specification left its order and M2 compared nothing over them. Every twin row of both alphabet maps (`order_alphabet_map.csv`, `order_alphabet_map_expert.csv`) is `order-unmapped` with the reason that an `ORDER` has no symbol for a call it rejects on a constraint.
+- **Rule:** at M2, a refused overlap whose labels the map erases down to exactly one surviving label is that label's letter: its image is the survivor alone, and each erased label of the overlap is reported as an applied `N-EPS·<spec>.<label>` with the map's reason. Which of the twins fires is decided by the guard, which is M3's subject as every other guard is.
+- **Unresolved:** an overlap with two or more surviving labels, or with every label erased (none in the corpus), stays `Unknown{OverlappingDispatch}`.
+- **Where:** in M2, because only M2 reads the map (INV-CONF-10). The lift keeps refusing and keeps carrying its refusals on `MopLift.morphism()`. `M2Order.compare` gains the `LabelAutomaton` the lift already keeps (`MopLift.labelOrder`) and takes the specification's order again over the resolved morphism. `InverseMorphism.resolvedBy(Set<Label>)` does the resolution. `M2Order.withoutRefusedLetters` takes the refusals of the M2 result, which are the ones left.
+- **Measured** on `jca_android` against the upstream rules with `order_alphabet_map.csv`, together with D17 and D18. The lift carries 19 refusals, M2 resolves 17, and the two left are `KeyPairGeneratorSpec` `initialize` claimed by `init1`/`initError` and by `init2`/`initError2`, genuine guarded overlaps. Verdicts:
+  - `CipherSpec` goes from MOP_MORE_RESTRICTIVE, refusal-borne, to INCOMPARABLE, with both witnesses alive.
+  - `KeyGeneratorSpec`, `MessageDigestSpec`, `SignatureSpec`, `TrustManagerFactorySpec`, `KeyManagerFactorySpec` and `KeyStoreSpec` go to EQUIVALENT with no refusal.
+  - `MacSpec` goes to INCOMPARABLE, over a witness the refusal hid: the map erases `updateBuffer`.
+  - `KeyPairGeneratorSpec` stays MOP_MORE_RESTRICTIVE, refusal-borne.
+  - `SecureRandomSpec` stays MOP_MORE_RESTRICTIVE, over the `next3` anchoring of the map.
+- **Alternative rejected:** the image `{survivor, ε}`. It admits words in which a creation call leaves the order, a language no reading of the rule gives.
+
+**D17 — The lift honours the arity of `args(...)`.** `PointcutExpander` expanded `getInstance(String, ..)` without reading the `args(alg, *)` beside it, so the event claimed the one-argument letter too, and the morphism read overlaps no woven program produces (INV-INS-159 enforces the arity).
+- **Rule:** an `args(...)` without `..` conjoined with a call pattern ending in `..` replaces the `..` by one `*` per remaining position. A call pattern of fixed arity that the clause contradicts names no signature. An `args(...)` carrying `..` narrows nothing. `InverseMorphism.denotes` reads `*` as one parameter of any type; M1 and the canonical alphabet already did.
+- **Measured:** lift refusals over the five corpora 65 → 62, files carrying one 43 unchanged. The three that go are `TrustManagerFactorySpec` `getInstance(String)` in `jca_android` and `SecureRandomSpec` `getInstance(String, ..)` in `jca` and in `jca_android_bug_predicate`; other refusals keep their count with fewer labels. In `generic`, six events whose `args` contradicts the call's arity name no signature.
+
+**D18 — The lift spells nested types by their binary name.** An import `java.security.KeyStore.ProtectionParameter` lifted to the dotted name while CrySL renders `java.security.KeyStore$ProtectionParameter`, so `KeyStore.getEntry` was two letters and M2 would publish a divergence over a call both sides order.
+- **Rule:** `PointcutExpander.resolve` replaces dots by `$` from the right until the platform class loader knows the name, the existence test `isJavaLang` already makes (INV-INS-162 gives the weaver the same rule). A name already a class, or one no replacement turns into a class, is kept.
+- **Round trip:** `MopLowerer` imports a nested type under its canonical dotted name, as Java source does, so a lowered file lifts back to the same signatures.
+
 ## API Design
 
 ### `AndroidClassIndex.exists(String internalName) -> boolean`
@@ -245,6 +268,7 @@ Post: INV-PLT-14, INV-PLT-15, INV-PLT-38. Rows follow the ordered task list.
 - [An analysis that discounts `creation-refused` loses a refused `KeyStore` never read by `getKey`, whose type is accused nowhere else] → Stated in D7 and in the label's `codes.csv` description; the label says the creation was refused, which is itself the accusation.
 - [A refused twin adds a monitor call on a creation call already wrapped by its admitted sibling] → The twin's body only assigns two fields; the call is on the same wrapper, so no new wrapper is generated.
 - [Readers of `unique_msg` outside this change] → `scripts/rv_oracle_common.py:114-117` and `modules/aperv-tool/.../violations.py:448-468` read its seventh part, which no longer carries the evidence keys; no count they compute moves. Noted, not edited.
+- [Pinned M2 verdicts of `jca_android` move (D16–D18), and they differ from the verdicts published in `docs/20260821_conformidade_mop_crysl.md`] → Re-measured and re-pinned with current-state reasons; the difference is reported, not reconciled (INV-CONF-14).
 - [Pre-existing defect outside this change] → `TaskStorage.get_pending_tasks()` uses a `TaskState.ARCHIVED` that does not exist; nothing calls it and a skipped test hides it. Noted, not edited.
 
 ## Testing Strategy
@@ -257,6 +281,7 @@ Post: INV-PLT-14, INV-PLT-15, INV-PLT-38. Rows follow the ordered task list.
 | Unit (Python) | `identity_message`, parser evidence fields, export one-pass, release | pytest `--import-mode=importlib -o "addopts="` in `rv-android-core`, `rv-coverage`, `rv-platform` | ~12 |
 | Static sweep | A1–A4 before (existing instrumented APKs) and after (APKs instrumented for the smoke) | `scripts/gh114_weave_sweep.py <apk_dir> <descriptor> <out.csv>` | 4 totals |
 | Regeneration | Export byte identity on one container (the `timestamp` column of `performance.csv`, which records when the file was generated, excluded) | `rv-platform run --process-results` against a copy of `estudo02_00` with `PYTHONHASHSEED=0` | 1 |
+| Unit and corpus (Java, conformance) | Twin resolution and unresolved overlaps at M2, `*` in `denotes`, `args` arity and nested names in the lift, re-pinned corpus numbers | JUnit in `rvsec-crysl-core`, `-mop`, `-crysl` (the corpus tests are `oracle-dependent`, run locally with the oracle and the generated monitor) | ~8 new + re-pins |
 | Smoke (end) | Full pipeline with `jca_android`, dexlib2, a handful of APKs, one short tool run; labels and evidence present in `errors.csv`; export completes | `uv run rv-experiment run …` (platform manages the emulator) | 1 |
 
 ## Open Questions
