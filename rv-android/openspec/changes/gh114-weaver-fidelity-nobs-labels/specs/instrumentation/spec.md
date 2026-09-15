@@ -8,7 +8,7 @@ The specification half is about the `-NOBS-` family. A non-observation report sa
 
 One value clause changes: the RSA key-size list of `RSAKeyGenParameterSpecSpec.mop` is transcribed from the sibling expert rule, because the two expert rules for the same key disagree and the literal list admits the weaker key.
 
-The frozen `jca` set is not edited. The weaver is shared code, so the arity and after-finally repairs reach a `jca` run as well; by decision of the researcher (2026-09-15) no impact on `jca` is measured, and the discontinuity is declared rather than enumerated.
+The frozen `jca` set is not edited. The weaver is shared code, so its five repairs reach a `jca` run as well; by decision of the researcher (2026-09-15) no impact on `jca` is measured, and the discontinuity is declared rather than enumerated.
 
 ## Data Contracts
 
@@ -25,7 +25,7 @@ The frozen `jca` set is not edited. The weaver is shared code, so the arity and 
 
 ### Side-Effects
 - **Report counts**: A1 removes artefactual `-ORDER-` reports; A5 adds reports on calls that throw; the RSA transcription moves one value in each direction. A campaign after this change is not count-comparable with one before it without the discontinuity stated.
-- **`data/jca_android/`**: new `divergence_record.csv` `oracle-wart` row for the RSA list; re-grounded `conformance_record.csv` reasons for the `after` window clauses; updated census pins of the predicate-graph gate.
+- **`data/jca_android/`**: `divergence_record.csv` rows refreshed for every edited hunk of a seeded `.mop`, the RSA `oracle-wart` row (`:376`) rewritten and `:269` amended, and the rows that assumed the skipped `after` advice rewritten; a `conformance_record.csv` key-size row for RSA and re-grounded rows for the digest streams; `coverage_matrix.csv` re-emitted; updated census pins of the predicate-graph gate.
 
 ### Error
 - `IllegalStateException` from `DexWeaver.registerWrapper` — still raised on a genuine wrapper rebind; aliasing a wrapper to a framework subtype MUST NOT raise it
@@ -40,7 +40,7 @@ The frozen `jca` set is not edited. The weaver is shared code, so the arity and 
 - **INV-INS-164**: In `jca_android`, a label code is a numbered code inside an existing family: `-NOBS-` for `platform-default`, `upstream-refused`, `application-manager` and `random-key-material`; `-ORDER-` for `creation-unobserved` and `reuse-after-final`. Every row of `codes.csv` carries exactly one `label` from the closed vocabulary `{violation, sequence, not-observed, platform-default, upstream-refused, application-manager, random-key-material, creation-unobserved, reuse-after-final}`, and a code's label MUST agree with its family (`sequence`, `creation-unobserved`, `reuse-after-final` only on `-ORDER-`; `not-observed` and the four `-NOBS-` labels only on `-NOBS-`; `violation` on every other family).
 - **INV-INS-165**: A label code MUST be emitted at the site, and under the branch, where the unlabelled code of the same family would otherwise be emitted. Applying the labels MUST NOT add or remove a reported `(class, method, spec, event, location)` except where the per-element trust-manager credit accepts an array whose every element a factory issued.
 - **INV-INS-166**: The evidence keys `vfp` and `vcls` MAY follow `msg` only in a `-NOBS-` envelope, in that order, each at most once, quoted like every other value. No guard, transition or predicate write MAY read them.
-- **INV-INS-167**: `RSAKeyGenParameterSpecSpec.mop` MUST admit exactly `{2048, 3072, 4096}`, the list of `KeyPairGenerator.crysl:29`, and `data/jca_android/divergence_record.csv` MUST carry the `oracle-wart` row that names both expert clauses. The pinned rule file MUST NOT be edited.
+- **INV-INS-167**: `RSAKeyGenParameterSpecSpec.mop` MUST admit exactly `{2048, 3072, 4096}`, the list of `KeyPairGenerator.crysl:29`, and the `oracle-wart` row of `data/jca_android/divergence_record.csv` that names both expert clauses MUST record that alignment. The pinned rule file MUST NOT be edited.
 
 ## ADDED Requirements
 
@@ -152,11 +152,13 @@ Resolution SHALL try the dotted name as a class first and, when no class of that
 
 ### Requirement: After Advice Runs on Normal and Exceptional Completion
 
-An `after` advice that declares neither `returning` nor `throwing` SHALL run its monitor calls whether the matched call returns or throws, and SHALL rethrow the original throwable afterwards (INV-INS-163). This is AspectJ's `after` (after-finally), and `AfterEmitter`'s own contract states it (`advice-emitter/.../AfterEmitter.java:9-13`), but neither weaving path implements it. The wrapper path emits `R result = call(...); <monitor calls>; return result;` with no handler (`WrapperEmitter.appendWrapperMethod`, `:782-801`), and the inline constructor path inserts after the call without a try range (`DexWeaver.applyPlan` case `AFTER`, `:925-927`). In `jca_android`, 58 of the 202 events are affected; `KeyAgreementSpec.dophase`, `SSLContextSpec.init` and `SecureRandomSpec.setSeed2` are among them, and the specification comments that describe their window clauses were written for AspectJ's semantics.
+An `after` advice that declares neither `returning` nor `throwing` SHALL run its monitor calls whether the matched call returns or throws, and SHALL rethrow the original throwable afterwards (INV-INS-163). This is AspectJ's `after` (after-finally), and `AfterEmitter`'s own contract states it (`advice-emitter/.../AfterEmitter.java:9-13`), but neither weaving path implements it. The wrapper path emits `R result = call(...); <monitor calls>; return result;` with no handler (`WrapperEmitter.appendWrapperMethod`, `:782-801`), and the inline constructor path inserts after the call without a try range (`DexWeaver.applyPlan` case `AFTER`, `:925-927`). In `jca_android`, 58 of the 202 events are plain `after`; `KeyAgreementSpec.dophase`, `SSLContextSpec.init` and `SecureRandomSpec.setSeed2` are among them.
 
-The wrapper SHALL guard the call with a catch-all handler that executes the same monitor calls with the same bound arguments and rethrows; the inline constructor path SHALL use the try-catch installation the `after-throwing` path already uses (`InstructionInjector.installTryCatch`, `:266-360`), with a handler that runs the monitor calls and rethrows instead of binding the throwable. `after returning` and `after throwing` keep their current shapes. The reasons recorded in `data/jca_android/conformance_record.csv` for the window clauses of the affected events, which were written for the skipped-advice behaviour, SHALL be rewritten for after-finally semantics.
+The wrapper SHALL guard the call with a catch-all handler that executes the same monitor calls with the same bound arguments and rethrows; the inline constructor path SHALL use the try-catch installation the `after-throwing` path already uses (`InstructionInjector.installTryCatch`, `:266-360`), with a handler that runs the monitor calls and rethrows instead of binding the throwable. `after returning` and `after throwing` keep their current shapes. The whole event body runs on a throwing call, so its predicate writes and staged values happen there as well as its reports.
 
-The repair is verified on the woven bytecode: a wrapper and an inline constructor site generated for such an advice carry a try range around the matched invoke whose handler invokes the same monitor calls and rethrows.
+Only the digest-stream records rest on the skipped-advice behaviour, and they SHALL be rewritten for after-finally semantics: `conformance_record.csv:116,117,119,120` (which also misname the plain `after` of `DigestInputStreamSpec.r2` and `DigestOutputStreamSpec.w2` as `after … returning`) and `:118,121` (a throwing call with `len < 0` now reaches the `len <= 0` site); `divergence_record.csv:45,46`, which record the nested-type and after-finally defects as not repaired, closed as repaired by this change; and `divergence_record.csv:105,106`, with the comment blocks `DigestInputStreamSpec.mop:75-89` and `DigestOutputStreamSpec.mop:76-88`. The two digest guards that become reachable (`off < 0`, `off + len > length`) stay `deferred-constant`, on the ground that the platform refuses the call (decision of 2026-09-15); no code is added.
+
+The repair is verified on the woven output: the generated wrapper source and an inline constructor site generated for such an advice carry a try range around the matched invoke whose handler invokes the same monitor calls and rethrows.
 
 #### Scenario: a throwing call still reaches the monitor
 
@@ -172,7 +174,7 @@ The repair is verified on the woven bytecode: a wrapper and an inline constructo
 
 #### Scenario: the woven wrapper carries the handler
 
-- **WHEN** the wrapper for `KeyAgreement.doPhase(Key, boolean)` under `KeyAgreementSpec_dophase` is disassembled
+- **WHEN** the wrapper for `KeyAgreement.doPhase(Key, boolean)` under `KeyAgreementSpec_dophase` is disassembled from the monitor DEX of an instrumented APK
 - **THEN** a try range MUST cover the `invoke-virtual` of `doPhase`, and its catch-all handler MUST invoke `KeyAgreementSpec_dophaseEvent` and end in `throw` of the caught register
 - **AND** the normal path MUST invoke `KeyAgreementSpec_dophaseEvent` once and return the call's result
 
@@ -184,9 +186,9 @@ The six labels, and where each is emitted:
 
 - **`platform-default`** (`-NOBS-`). In `TrustManagerFactorySpec.init` and `KeyManagerFactorySpec.init`, when the `KeyStore` argument is `null`, and in `SSLContextSpec.init`, separately for a `null` `KeyManager[]`, a `null` `TrustManager[]` and a `null` `SecureRandom`. Each of these `null`s is the documented request for the platform default; the current specifications read them on purpose (`TrustManagerFactorySpec.mop:102-112`, `KeyManagerFactorySpec.mop:91-104`, `SSLContextSpec.mop:176-185,204-208`) and the rule is not satisfiable by them, so they stay reported, under a code that says so.
 - **`application-manager`** (`-NOBS-`). In `SSLContextSpec.init`, for a non-null trust-manager array not credited per element (next requirement) that contains an element whose class was defined by a class loader other than the one that defined `javax.net.ssl.TrustManager` — the application's own class. Key-manager arrays get no such code and keep their current reads. The class loader, not a package name, decides, so the rule holds for any APK. This is the code under which a trust-all manager built by the application lands; a delegating manager lands there too, and the monitor cannot tell them apart.
-- **`upstream-refused`** (`-NOBS-`). At every consumer site that reports `-NOBS-` today, when the bound object carries the `REPORTED_UPSTREAM` mark of the requirement below.
+- **`upstream-refused`** (`-NOBS-`). At the consumer sites listed in the requirement below, when the bound object carries its `REPORTED_UPSTREAM` mark.
 - **`random-key-material`** (`-NOBS-`). In `SecretKeySpecSpec.c1` and `c2`, when the key material is not `PREPARED_KEY_MATERIAL` but is `RANDOMIZED`. The rule requires prepared material and the specification records that decision (`SecretKeySpecSpec.mop:79-91`); the code separates the recorded decision from an untraceable array.
-- **`creation-unobserved`** (`-ORDER-`). In the `@fail` handler of every specification whose automaton begins with a creation event, when no creation event was observed on that monitor. The object was created where the monitor cannot see — inside the framework, by a route the rule does not list, or by a subclass — and every failure of that monitor is reported with this code.
+- **`creation-unobserved`** (`-ORDER-`). In the `@fail` handler of every specification whose automaton begins with a creation event, when no creation event was observed on that monitor. A creation event is every constructor or static-factory event that binds the monitored parameter through `returning(...)`, refused and forbidden twins included; an event bound through `target(...)` never is. A refused creation followed by use is therefore `sequence`. The object was created where the monitor cannot see — inside the framework, by a route the rule does not list, or by a subclass — and every failure of that monitor is reported with this code.
 - **`reuse-after-final`** (`-ORDER-`). In the `@fail` handler of `CipherSpec` and `MacSpec`, when the failing event is an initialisation event and the object had completed an operation, and for every later failure of that monitor. The API permits reinitialising a used `Cipher` or `Mac`; the rule does not (`Cipher.crysl:85`, `Mac.crysl:41`) and the specification records it (`CipherSpec.mop:414-418`).
 
 The precedence when more than one applies at a `-NOBS-` site is `platform-default`, then `upstream-refused`, then `application-manager` or `random-key-material`, then `not-observed`. In an `@fail` handler it is `creation-unobserved`, then `reuse-after-final`, then `sequence`. Both `-ORDER-` labels persist on the monitor: once `creation-unobserved` or `reuse-after-final` is reported, every later failure of that monitor carries the same label, because after a reset no creation event can arrive for the object and the automaton cannot return to a state the object's real history satisfies (decision of 2026-09-15). A specification records "creation observed", "operation finished" and "reuse observed" in monitor fields written by the bodies of the corresponding events and by the handler; the generated `reset()` does not clear user fields (it only resets the state and the category flags), so both facts survive a failure of the same monitor.
@@ -247,7 +249,7 @@ This is the one label rule that changes which sites report, and it is admitted b
 
 A producer specification that reports on the object it produces SHALL mark that object with the new appended property `REPORTED_UPSTREAM`, and a consumer that is about to report `-NOBS-` for a bound object SHALL report the `upstream-refused` code instead when the object carries the mark. A consumer that reports on an object it produces in turn marks that product, so a chain reports its first failure with its own code and every later link with `upstream-refused`.
 
-The mark is written only by direct producers and by the `getEncoded()` bridge, and only when the site reports on the object by value or by origin (a code of the families `ALG`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`, `CONSTR` or `NOBS`, labels included); an `-ORDER-` report never marks. The producers and the object each marks: `SecretKeySpecSpec` (`c1`, `c2`) the constructed `SecretKeySpec`; `GCMParameterSpecSpec` (`c1`, `c2`) and `IvParameterSpec` (`c1`, `c2`) the constructed spec; `PBEKeySpecSpec.c1` the constructed spec; `X509EncodedKeySpecSpec.c1` the constructed spec; `KeyFactorySpec` (`genPublic`, `genPrivate`) and `SecretKeyFactorySpec.gen` the returned key; `KeyAgreementSpec` (`gs1`, `gs2`) the secret buffer when `conforms` is false; `KeySpec.ge1` and `SecretKeySpec.e1` the array `getEncoded()` returns when the key carries the mark. The bridge is included because without it the re-wrap `new SecretKeySpec(derived.getEncoded(), "AES")`, which `CipherSpec.mop:195-198` names as the conforming path after a key derivation, breaks the chain in the middle. The consumers are the `-NOBS-` sites whose bound object one of those producers can mark: `CipherSpec.i2`, `MacSpec.i1`, `IvChainJunction.use`, `SecretKeyFactorySpec.gen`, `KeyFactorySpec.genPublic`/`genPrivate`, `KeyAgreementSpec.dophase`, `SignatureSpec.i4`, `SecretKeySpecSpec.c1`/`c2`, `X509EncodedKeySpecSpec.c1`.
+The mark is written only by direct producers and by the `getEncoded()` bridge, and only when the site reports on the object by value or by origin (a code of the families `ALG`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`, `CONSTR` or `NOBS`, labels included); an `-ORDER-` report never marks. The producers and the object each marks: `SecretKeySpecSpec` (`c1`, `c2`) the constructed `SecretKeySpec`; `GCMParameterSpecSpec` (`c1`, `c2`) and `IvParameterSpec` (`c1`, `c2`) the constructed spec; `PBEKeySpecSpec.c1` the constructed spec; `X509EncodedKeySpecSpec.c1` the constructed spec; `KeyFactorySpec` (`genPublic`, `genPrivate`) and `SecretKeyFactorySpec.gen` the returned key; `KeyAgreementSpec` (`gs1`, `gs2`) the secret buffer when `conforms` is false; `KeySpec.ge1` and `SecretKeySpec.e1` the array `getEncoded()` returns when the key carries the mark. The bridge is included because without it the re-wrap `new SecretKeySpec(derived.getEncoded(), "AES")`, which `CipherSpec.mop:195-198` names as the conforming path after a key derivation, breaks the chain in the middle. The consumers are the `-NOBS-` sites whose bound object one of those producers can mark: `CipherSpec.i2`, `MacSpec.i1`, `IvChainJunction.use`, `SecretKeyFactorySpec.gen`, `KeyFactorySpec.genPublic`/`genPrivate`, `KeyAgreementSpec.dophase`, `SignatureSpec.i4`, `SecretKeySpecSpec.c1`/`c2`, `X509EncodedKeySpecSpec.c1`. Both lists are the ones decided on 2026-09-15 and are not closed: other producers that report on their product do not mark, and other `-NOBS-` sites keep `not-observed` even when a producer refused their object.
 
 `SecureRandomSpec` and `KeyGeneratorSpec` do not mark (decision of 2026-09-15). A `SecureRandom` of a refused algorithm, and the arrays `SecureRandomSpec` discards in `@fail`, would be marked by a sequence failure or by the discard itself, which mixes the order channel into the origin channel; the discard is also an open defect of the specification's wiring that a label would hide. No cascade measured on a complete campaign starts at either specification. Consequently the `RANDOMIZED` readers (`IvParameterSpec`, `GCMParameterSpecSpec`, `PBEKeySpecSpec`, `SecureRandomSpec.setSeed2`/`c2`, the `SecureRandom` argument of `SSLContextSpec.init`) keep their `not-observed` codes and are not consumers of the mark.
 
@@ -287,13 +289,13 @@ The keys exist so that an analysis can triage non-observation reports without re
 
 `RSAKeyGenParameterSpecSpec.mop` SHALL admit the RSA key sizes `{2048, 3072, 4096}` (INV-INS-167). The pinned expert rules disagree with each other about the same key: `RSAKeyGenParameterSpec.crysl:15` lists `{1024, 2048, 4096}` and `KeyPairGenerator.crysl:29` lists `{4096, 3072, 2048}`. Transcribed literally, an application that calls `initialize(1024)` is reported and one that calls `initialize(new RSAKeyGenParameterSpec(1024, F4))` is not, while a 3072-bit key — 128-bit security against 112 for 2048 and 80 for 1024 in NIST SP 800-57 Part 1 — is reported through the second route. The transcription follows the evident intent under the D-20.4 precedent (`data/jca_android/divergence_record.csv:31`, where `p >= 1^2048` was transcribed as a bit length): the value set comes from the same experts' sibling rule, the normative source is cited as support, and the pinned rule is not edited (D-21).
 
-The departure SHALL be recorded as an `oracle-wart` row of `divergence_record.csv` citing both expert clauses, the NIST reference and D-20.4, and G-CONF SHALL pass on it.
+`divergence_record.csv:376` is already the `oracle-wart` row for the two clauses and records that neither is edited; it SHALL be rewritten in place to record the alignment, citing both expert clauses, the NIST reference and D-20.4. Row `:269`, which says 1024 stays in the list, SHALL gain an addendum, and `conformance_record.csv` SHALL gain the key-size row.
 
 #### Scenario: 3072 is admitted and 1024 is reported
 
 - **WHEN** an application constructs `new RSAKeyGenParameterSpec(3072, RSAKeyGenParameterSpec.F4)`
 - **THEN** `RSAKeyGenParameterSpecSpec.c1` MUST NOT report `RSAKEYGENPARAMETERSPEC-KEYSIZE-00`
-- **AND** `new RSAKeyGenParameterSpec(1024, RSAKeyGenParameterSpec.F4)` MUST report it with `val='1024' exp='2048,3072,4096'`
+- **AND** `new RSAKeyGenParameterSpec(1024, RSAKeyGenParameterSpec.F4)` MUST report it with `val='1024'`
 
 ## MODIFIED Requirements
 
@@ -357,6 +359,60 @@ Message text SHALL agree with the check that guards it (INV-INS-121). The census
 - **WHEN** `SecretKeySpecSpec.c1` reports `SECRETKEYSPEC-NOBS-00` for a 16-byte array
 - **THEN** the envelope MUST be `v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='AES' exp='…' msg='…' vfp='sha256:<16 hex>'`
 - **AND** `ErrorDescription` MUST still extract `code=SECRETKEYSPEC-NOBS-00` and `ev=c1`
+
+### Requirement: The Java SE Specification Set Is Frozen
+
+The `jca` specification set, together with the `CipherTransformationUtil` its `CipherSpec` delegates to, SHALL remain byte-identical to its state at commit `7e7acb69`. A specification set that has produced published measurements is an experimental instrument, and altering it retroactively invalidates the reproduction of every result computed with it.
+
+Corrections to the platform-independent portion of a specification — an event binding, a pointcut signature, membership of an event in its own automaton, a handler, a report message, or an allow-list — SHALL therefore be applied to a set other than `jca`, even though the same defect is present in `jca`: the derived set under gh101, now archived as `jca_android_bug_predicate`, and the successor set `jca_android` under the legible-report programme. Each such correction SHALL be entered in that set's divergence record naming the hunk, the reason, and the task that introduced it. Divergence between the sets outside allow-lists is the expected outcome; divergence that is not recorded is not.
+
+Two consequences SHALL be carried in the change's records rather than left to be inferred. The `jca` set knowingly retains its defects and the spurious reports they produce, so results measured under it are reproducible without being correct. And a difference in outcome between `jca` and any other set can no longer be attributed to the platform allow-list alone, because it may equally arise from a repair present in one set only; no measurement separates the two contributions after the fact. `jca_android` widens that gap deliberately — it changes allow-lists, messages, automata and the predicate regime at once — so every comparison against it MUST name which of those it is attributing the difference to, and the differential harness exists to make that attribution per trace rather than per campaign.
+
+The freeze governs what the instrument **states** — the specifications and the transformation tables the frozen `CipherSpec` delegates to — and not the runtime it executes on, and not the monitor a `.mop` generates. Reproducing a published measurement is done by pinning the toolchain, and the pin SHALL name the **JDK**: the state numbering a generated monitor carries depends on the JDK that ran the generation, because the ERE-to-FSM conversion of the logic repository returns its states in a different order, so a monitor regenerated under a different JDK is isomorphic to the frozen control — same automaton, same verdicts, different state labels — and not byte-identical to it. Any diff of a regenerated monitor against an existing control MUST therefore name the JDK that produced the control (`data/gh104/evidence/g_regeneration.md`), and a gate MUST NOT read a raw state number as an identity. Additive changes to shared Java are admissible where the frozen set cannot observe them at all: a new `Property` constant that no `jca` specification references, or a new class that no `jca` specification imports, leaves the frozen set's generated monitor unchanged. The new transformation utility `jca_android/CipherSpec.mop` names is admissible on exactly this ground: it is a new class in `rvsec-core/src/main/java/br/unb/cic/mop/jca/util/` that neither `CipherTransformationUtil` nor `AndroidCipherTransformationUtil` is edited to accommodate, and that no `jca` specification imports. The alias utility of INV-INS-127 is admissible on the same ground and for the same reason.
+
+A **repair to shared runtime code the frozen set does reference** is also admissible, under two conditions and not otherwise. The repair MUST apply identically to both sets — shared code MUST NOT branch on the active specification set, because that would place the frozen set's verdict under state set outside its own specification, which is the hazard INV-INS-112 exists to prevent. And its effect on the frozen set MUST be enumerated site by site in the change's records rather than assumed absent, unless the researcher declares it as a count discontinuity instead, as for the weaver repairs below (decision of 2026-09-15). A defect in the machinery is not made correct by having been present when a measurement was taken, and a rule forbidding its repair would forbid repairing the weaver as well. The legible-report programme makes four such repairs that change what a `jca` run executes — the collector's escaping and null sentinel (`ErrorCollector`), the `ViolationRecorder` frame filter that fills `location`, the lock framing of the generated dispatcher (INV-INS-129), and the `ErrorSummary` dedupe identity — and enumerates their effect on `jca` in its records, in the consumer-matrix task of the transport group; the five weaver repairs of gh114 — positional arity, framework subtypes, branch targets, nested types and after-finally (INV-INS-159 to INV-INS-163) — change what a `jca` run executes and are declared as a count discontinuity, not enumerated; and the dedupe identity changes what `jca` reports and is declared as a count discontinuity, not hidden.
+
+The distinction is between a correction of what counts as a misuse, which is confined to a non-frozen set, and a correction of the mechanism that decides it, which is not confinable and is therefore recorded.
+
+#### Scenario: Correction reaches the frozen set
+
+- **WHEN** a layer-2 correction is applied to a file under `jca/`, or to `CipherTransformationUtil.java`
+- **THEN** the freeze check MUST fail against the base commit
+- **AND** the correction MUST be moved to a non-frozen set, however clearly it repairs a real defect
+
+#### Scenario: Correction does not land in the archived derived set
+
+- **WHEN** a binding defect present in `jca` and in `jca_android_bug_predicate` is corrected
+- **THEN** the correction MUST land in `jca_android`, never in the archived directory, which receives no repair from this contract
+- **AND** the freeze check MUST pass and both `jca/` and `jca_android_bug_predicate/` MUST stay byte-unchanged
+- **AND** both MUST retain the defect, recorded as knowingly retained
+
+#### Scenario: Correction lands in the derived set
+
+- **WHEN** a report message of `jca` is rewritten in `jca_android` only
+- **THEN** the freeze check MUST pass
+- **AND** `data/jca_android/divergence_record.csv` MUST gain an entry naming the hunk and the reason
+- **AND** the `jca` set MUST keep emitting `unknown` at that site, recorded as knowingly retained
+
+#### Scenario: Divergence appears without a record entry
+
+- **WHEN** the two sets differ outside allow-list content in a hunk that no divergence-record entry names
+- **THEN** the check MUST fail
+- **AND** the hunk MUST either gain an entry with its reason or be reverted
+
+#### Scenario: Shared Java gains a symbol the frozen set cannot observe
+
+- **WHEN** `rvsec-core/src/main/java/br/unb/cic/mop/jca/util/` gains the transformation utility `jca_android/CipherSpec.mop` names, and no `jca` specification imports it
+- **THEN** the freeze check MUST pass
+- **AND** the monitor generated from the `jca` set MUST be unchanged, which is what makes the addition admissible
+- **AND** `CipherTransformationUtil.java` and `AndroidCipherTransformationUtil.java` MUST both be byte-unchanged
+
+#### Scenario: Shared runtime code the frozen set references is repaired
+
+- **WHEN** a defect is corrected in runtime code that specifications of both sets execute — the collector's escape and null sentinel, the `ViolationRecorder` frame filter, the generated dispatcher's lock framing, or the `ErrorSummary` identity
+- **THEN** the repair MUST apply identically to both sets, with no branch on the active specification set
+- **AND** the four sites and their effect on a `jca` run MUST be enumerated in the change's records — a `jca` message with a comma or newline now arrives intact instead of splitting the line; a `jca` report whose frame is in the monitor now carries the application frame as `location`; a `jca` handler that throws now releases the lock instead of converting the run into a busy-wait; a `jca` record's `unique_msg` now has seven parts and the counts are discontinuous with the baseline — and the consumer-matrix task of the transport group records them
+- **AND** the freeze check passing MUST NOT be reported as evidence that the frozen set's behaviour is unchanged
 
 ## REMOVED Requirements
 
