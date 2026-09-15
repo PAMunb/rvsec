@@ -554,3 +554,100 @@ class TestSevenPartIdentity:
 
         assert error.unique_msg.count(":::") == 7
         assert len(error.unique_msg.split(":::")) == 8
+
+
+class TestEvidenceKeysOutsideTheIdentity:
+    """INV-CORE-25/63: the evidence keys `vfp` and `vcls` a `-NOBS-` envelope appends
+    after `msg` stay in `message` and leave `unique_msg`.
+
+    Their values change from object to object and from run to run; a key that kept them
+    would count every run of one misuse as a different violation.
+    """
+
+    ENVELOPE = (
+        "v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='AES' "
+        "exp='a key derived from a traced source' msg='key bytes were not observed'"
+    )
+
+    @staticmethod
+    def _error(message, **fields):
+        return RvErrorLog(
+            spec="SecretKeySpecSpec",
+            error_type="UnsatisfiedConstraint",
+            class_full_name="com.example.vault.Keys",
+            method="make",
+            source="Keys.java:12",
+            code="SECRETKEYSPEC-NOBS-00",
+            event="c1",
+            message=message,
+            **fields,
+        )
+
+    def test_evidence_keys_do_not_split_the_identity(self):
+        from rv_android_core.domain.coverage import LogcatRepository
+
+        first = self._error(self.ENVELOPE + " vfp='sha256:1111111111111111'")
+        second = self._error(self.ENVELOPE + " vfp='sha256:2222222222222222'")
+
+        assert first.unique_msg == second.unique_msg
+        assert first.unique_msg.endswith("msg='key bytes were not observed'")
+        assert "vfp" not in first.unique_msg
+        assert first.message.endswith("vfp='sha256:1111111111111111'")
+        assert second.message.endswith("vfp='sha256:2222222222222222'")
+        assert first == second
+        assert hash(first) == hash(second)
+
+        repo = LogcatRepository()
+        repo.register_rv_error(first)
+        repo.register_rv_error(second)
+        assert len(repo.unique_errors) == 1
+
+    def test_both_keys_are_stripped_in_order(self):
+        error = self._error(
+            self.ENVELOPE + " vfp='sha256:1111111111111111' vcls='com.example.TrustAll'"
+        )
+
+        assert error.identity_message == self.ENVELOPE
+        assert error.unique_msg.split(":::")[6] == self.ENVELOPE
+
+    def test_a_message_without_evidence_yields_a_byte_identical_key(self):
+        error = self._error(self.ENVELOPE)
+
+        assert error.identity_message == self.ENVELOPE
+        assert error.unique_msg == (
+            "com.example.vault.Keys:::make:::SecretKeySpecSpec:::UnsatisfiedConstraint"
+            ":::SECRETKEYSPEC-NOBS-00:::c1:::" + self.ENVELOPE
+        )
+
+    def test_a_non_envelope_message_is_its_own_identity_message(self):
+        for message in ("unknown", "", "expecting one of {SHA-256} but found MD5."):
+            assert self._error(message).identity_message == message
+
+    def test_a_vfp_inside_the_quoted_msg_is_not_stripped(self):
+        message = (
+            "v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='AES' exp='x' "
+            r"msg='the text names vfp=\'sha256:1111111111111111\''"
+        )
+
+        assert self._error(message).identity_message == message
+
+    def test_an_escaped_quote_inside_a_vcls_value_is_part_of_the_value(self):
+        message = self.ENVELOPE + r" vcls='com.example.It\'s,com.example.Other'"
+
+        assert self._error(message).identity_message == self.ENVELOPE
+
+    def test_evidence_fields_stay_out_of_identity_and_written_schema(self):
+        plain = self._error(self.ENVELOPE)
+        evidenced = self._error(
+            self.ENVELOPE + " vcls='com.example.TrustAll'",
+            value_class="com.example.TrustAll",
+            value_fingerprint="sha256:1111111111111111",
+        )
+
+        assert plain == evidenced
+        assert hash(plain) == hash(evidenced)
+        assert (plain.value_fingerprint, plain.value_class) == ("", "")
+        assert set(plain.to_dict()) == set(evidenced.to_dict())
+        assert not {"value_fingerprint", "value_class", "identity_message"} & set(
+            evidenced.to_dict()
+        )

@@ -1047,6 +1047,93 @@ class TestEnvelopeAndDiagnostics:
         assert diag.truncated_envelopes == 1
 
 
+class TestEvidenceKeys:
+    """INV-ANA-72: the evidence keys of a v1 envelope are copied onto their own record
+    fields, verbatim, and `message` keeps the whole envelope. Codes stay opaque."""
+
+    HEAD = "07-15 14:30:22.123  1234  5678 V RVSEC: "
+
+    def test_evidence_keys_copied(self):
+        diag = ParserDiagnostics()
+        envelope = (
+            "v=1 code=SSLCONTEXT-NOBS-06 ev=init obj=SSLContext val='' "
+            "exp='trust managers issued by a TrustManagerFactory' "
+            "msg='a trust manager of an application class was passed to SSLContext.init' "
+            "vcls='com.example.TrustAll'"
+        )
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "SSLContextSpec,okhttp3.internal.platform.Platform,Platform,"
+            "newSslSocketFactory,Platform.kt:168,UnsatisfiedConstraint," + envelope,
+            diag,
+        )
+
+        assert error.code == "SSLCONTEXT-NOBS-06"
+        assert error.event == "init"
+        assert error.value_fingerprint == ""
+        assert error.value_class == "com.example.TrustAll"
+        assert error.message == envelope
+        assert (diag.sentinel_code, diag.sentinel_event) == (0, 0)
+        assert (diag.sentinel_error_type, diag.sentinel_source) == (0, 0)
+
+    def test_a_fingerprint_is_copied(self):
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "SecretKeySpecSpec,com.example.K,K,make,K.java:3,UnsatisfiedConstraint,"
+            "v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='AES' exp='x' "
+            "msg='m' vfp='sha256:0123456789abcdef'",
+            ParserDiagnostics(),
+        )
+
+        assert error.value_fingerprint == "sha256:0123456789abcdef"
+        assert error.value_class == ""
+
+    def test_an_envelope_without_evidence_is_unchanged(self):
+        diag = ParserDiagnostics()
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "MessageDigestSpec,okio.ByteString,ByteString,digest$okio,ByteString.kt:12,"
+            "UnsafeAlgorithm,v=1 code=MESSAGEDIGEST-ALG-01 ev=update obj=MessageDigest "
+            "val='MD2' exp='SHA-256' msg='expecting one of SHA-256 but found MD2'",
+            diag,
+        )
+
+        assert (error.value_fingerprint, error.value_class) == ("", "")
+        assert (error.code, error.event, error.obj) == (
+            "MESSAGEDIGEST-ALG-01",
+            "update",
+            "MessageDigest",
+        )
+        assert (error.val, error.exp) == ("MD2", "SHA-256")
+        assert error.msg == "expecting one of SHA-256 but found MD2"
+        assert error.truncated is False
+        assert error.message.endswith("but found MD2'")
+        assert diag.to_dict() == ParserDiagnostics().to_dict()
+
+    def test_label_code_opaque(self):
+        diag = ParserDiagnostics()
+        error, _ = parse_logcat_line(
+            self.HEAD
+            + "KeyPairGeneratorSpec,com.example.G,G,gen,G.java:5,SequenceViolation,"
+            "v=1 code=KEYPAIR-ORDER-01 ev=generateKeyPair obj=KeyPairGenerator "
+            "val='' exp='' msg='m'",
+            diag,
+        )
+
+        assert error.code == "KEYPAIR-ORDER-01"
+        assert error.event == "generateKeyPair"
+        assert (error.value_fingerprint, error.value_class) == ("", "")
+        assert diag.to_dict() == ParserDiagnostics().to_dict()
+
+    def test_the_parser_has_no_branch_on_code_family_or_label(self):
+        """Codes are opaque: no family token or label suffix appears in the parser."""
+        import rv_coverage.parser.log.logcat_parser as parser_module
+
+        source = Path(parser_module.__file__).read_text(encoding="utf-8")
+        for token in ("-ORDER-", "-NOBS-", "NOBS"):
+            assert token not in source
+
+
 class TestCounterArithmetic:
     """INV-ANA-62: records registered plus counted lines equals lines read.
 

@@ -145,13 +145,13 @@ GitHub Issue: #114
 
 ## 10. Record Identity and Parser Evidence Fields (WAVE 1, subagent G10)
 
-- [ ] 10.1 `modules/rv-android-core/src/rv_android_core/domain/log.py`: `identity_message` computed field (anchored trailing `vfp`/`vcls`, escape-aware), `unique_msg` uses it; `value_fingerprint` and `value_class` fields excluded from equality (INV-CORE-25, INV-CORE-63)
-- [ ] 10.2 Tests in `modules/rv-android-core/tests/`: evidence stripped; message without evidence byte-identical key; `vfp=` inside a quoted `msg` not stripped
-- [ ] 10.3 `modules/rv-coverage/src/rv_coverage/parser/log/logcat_parser.py` `_apply_envelope` (`:462-495`): copy `vfp`/`vcls` (INV-ANA-72)
-- [ ] 10.4 Tests in `modules/rv-coverage/tests/`: the three scenarios of the analysis spec
-- [ ] 10.5 `modules/rv-android-core/src/rv_android_core/constants.py`: `LOGCAT_BUFFER_SIZE = "16M"`; `util/android/logcat_manager.py` `start_capture` (`:183-210`): run `adb -s <serial> logcat -G <size>` before the clear and the capture, INFO with serial and size on success, WARNING on failure, capture continues (INV-CORE-64, design D15)
-- [ ] 10.6 Tests in `modules/rv-android-core/tests/`: command order `-G`, `-c`, capture with the capture command byte-identical to INV-CORE-37; sizing failure logs WARNING and capture starts
-- [ ] 10.7 Run `/rv-test-run rv-android-core` and `/rv-test-run rv-coverage`
+- [x] 10.1 `modules/rv-android-core/src/rv_android_core/domain/log.py`: `identity_message` computed field (anchored trailing `vfp`/`vcls`, escape-aware), `unique_msg` uses it; `value_fingerprint` and `value_class` fields excluded from equality (INV-CORE-25, INV-CORE-63)
+- [x] 10.2 Tests in `modules/rv-android-core/tests/`: evidence stripped; message without evidence byte-identical key; `vfp=` inside a quoted `msg` not stripped
+- [x] 10.3 `modules/rv-coverage/src/rv_coverage/parser/log/logcat_parser.py` `_apply_envelope` (`:462-495`): copy `vfp`/`vcls` (INV-ANA-72)
+- [x] 10.4 Tests in `modules/rv-coverage/tests/`: the three scenarios of the analysis spec
+- [x] 10.5 `modules/rv-android-core/src/rv_android_core/constants.py`: `LOGCAT_BUFFER_SIZE = "16M"`; `util/android/logcat_manager.py` `start_capture` (`:183-210`): run `adb -s <serial> logcat -G <size>` before the clear and the capture, INFO with serial and size on success, WARNING on failure, capture continues (INV-CORE-64, design D15)
+- [x] 10.6 Tests in `modules/rv-android-core/tests/`: command order `-G`, `-c`, capture with the capture command byte-identical to INV-CORE-37; sizing failure logs WARNING and capture starts
+- [x] 10.7 Run `/rv-test-run rv-android-core` and `/rv-test-run rv-coverage`
 
 ## 11. Bounded Result Export (WAVE 1, subagent G11)
 

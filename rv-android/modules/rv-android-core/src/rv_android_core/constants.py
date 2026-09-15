@@ -127,6 +127,13 @@ ENV_EMULATOR_BOOT_TIMEOUT = "RV_EMULATOR_BOOT_TIMEOUT"
 ENV_ADB_CMD_TIMEOUT = "RV_ADB_CMD_TIMEOUT"
 ENV_APK_INSTALL_TIMEOUT = "RV_APK_INSTALL_TIMEOUT"
 
+# Size of the device's log ring buffers, set with `adb logcat -G` before every
+# capture (INV-CORE-64). A capture streams a ring buffer live, so a line `logd`
+# prunes before the host reader receives it is lost with no trace in the file; the
+# emulator default of 2 MiB is exhausted within a minute of a busy run, and 16 MiB is
+# the largest size Android's developer settings offer.
+LOGCAT_BUFFER_SIZE = "16M"
+
 # Variant system constants
 DEFAULT_VARIANT_NAME = "default"
 VARIANT_SEPARATOR = ":"

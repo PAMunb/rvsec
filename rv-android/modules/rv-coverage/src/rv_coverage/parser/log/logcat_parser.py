@@ -378,7 +378,8 @@ def _parse_envelope(message: str) -> Optional[Tuple[Dict[str, str], bool]]:
 
     The grammar is
     ``v=1 code=<SPEC>-<KIND>-<NN> ev=<event> obj=<SimpleClass> val='<observed>'
-    exp='<expected>' msg='<text>'``: bare values carry no space, quoted values are
+    exp='<expected>' msg='<text>'[ vfp='<fingerprint>'][ vcls='<class>']``: bare
+    values carry no space, quoted values are
     delimited by ``'`` with ``\'`` as the escape and ``\n`` for a newline the
     collector escaped so that logcat would not split the line in two.
 
@@ -480,6 +481,10 @@ def _apply_envelope(
         error.val = fields.get("val", "")
         error.exp = fields.get("exp", "")
         error.msg = fields.get("msg", "")
+        # Evidence keys, copied as written: what they mean is read from the value
+        # itself by an analysis, never decided here.
+        error.value_fingerprint = fields.get("vfp", "")
+        error.value_class = fields.get("vcls", "")
         error.truncated = truncated
         if truncated:
             diagnostics.truncated_envelopes += 1

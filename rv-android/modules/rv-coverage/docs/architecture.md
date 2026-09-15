@@ -49,7 +49,7 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 - **Frame-form normalization of violation records**: Validates that a whole `StackTraceElement` arriving in the class and method fields is recovered into `(class, method, source)` -- traces through `LogcatParser._parse_error_message()` -> `_normalize_frame()` -> `RvErrorLog`
 - **Multi-line diagnostic event assembly**: Validates that crash, `VerifyError` and ANR lines are grouped by `(tag, pid, tid)`, that a foreign-tag line interleaved by the shared stream is transparent (INV-ANA-56), and that a block open at end of input is emitted only by `flush()` (INV-ANA-57) -- traces through `DiagnosticEventParser.feed_line()` / `flush()` -> `LogcatRepository.diagnostic_events`
 - **Discard and sentinel accounting**: Validates that records registered plus counted lines equals lines read, and that no field is invented (INV-ANA-62) -- traces through `parse_logcat_line(line, diagnostics)` -> `ParserDiagnostics`
-- **v1 envelope decoding and truncation**: Validates `code`/`event`/`obj`/`val`/`exp`/`msg` extraction, the `UNSPECIFIED` sentinels for a non-envelope message, and an unclosed quote as truncation (INV-ANA-63) -- traces through `_parse_envelope()` / `_apply_envelope()` -> `RvErrorLog`
+- **v1 envelope decoding and truncation**: Validates `code`/`event`/`obj`/`val`/`exp`/`msg` extraction, the evidence keys `vfp`/`vcls` copied into `value_fingerprint`/`value_class` (INV-ANA-72), the `UNSPECIFIED` sentinels for a non-envelope message, and an unclosed quote as truncation (INV-ANA-63) -- traces through `_parse_envelope()` / `_apply_envelope()` -> `RvErrorLog`
 
 ## Key Architectural Decisions
 
@@ -117,7 +117,7 @@ Every line that leaves the parser without becoming a record increments a named c
 
 ### ADR-10: `unique_msg` Composed Once, at Event Granularity
 
-The violation key is built only in `RvErrorLog.unique_msg` (rv-android-core) and carries seven `:::` parts: `class:::method:::spec:::error_type:::code:::event:::message`.
+The violation key is built only in `RvErrorLog.unique_msg` (rv-android-core) and carries seven `:::` parts: `class:::method:::spec:::error_type:::code:::event:::message`, where the last part is the message without the trailing evidence keys `vfp` and `vcls`.
 
 **Why**: Recomposing the key wherever it is needed puts several compositions on the path from logcat to `errors.csv`, and compositions can disagree; a single definition cannot. An absent CSV column is therefore a `KeyError`, never a fallback that quietly rebuilds a second key. `code` and `event` come from the message envelope and name which automaton transition failed. Without `event`, two distinct causes at the same call site collapse into one record, and which of them survives the collector's `HashSet` is arrival order. `code` alone does not refine anything, since every specification in the set has at most one `@fail` -- its code is a function of the specification name. Records with no envelope hold `UNSPECIFIED` in both positions, which is what lets a reader tell a pre-envelope record apart from one whose event was named. The key is deliberately finer than the `(apk, class, method, spec)` key used downstream to count unique *misuses*; the two are different questions and are not interchangeable.
 
@@ -199,7 +199,7 @@ flowchart TB
 2. **Logcat line parsing**: The background thread reads new lines from the logcat file. Each line is passed to `parse_logcat_line()`, which:
    - Extracts date, time, PID, TID, level, tag, and message via regex matching against the Android logcat "threadtime" format
    - If the tag is `RVSEC-COV`: tries the Soot angle-bracket format (`<class: retType method(params)>`) first, then triple-colon (`class:::method:::params`), producing an `RvCoverageLog`
-   - If the tag is `RVSEC`: tries generic spec error, JCA CSV, then FSM triple-colon, producing an `RvErrorLog`. On the JCA CSV branch, `_normalize_frame()` repairs class/method fields that arrived as a whole stack frame before the record is built, and `_apply_envelope()` decodes the v1 envelope in the message field into `code`, `event`, `obj`, `val`, `exp`, `msg`
+   - If the tag is `RVSEC`: tries generic spec error, JCA CSV, then FSM triple-colon, producing an `RvErrorLog`. On the JCA CSV branch, `_normalize_frame()` repairs class/method fields that arrived as a whole stack frame before the record is built, and `_apply_envelope()` decodes the v1 envelope in the message field into `code`, `event`, `obj`, `val`, `exp`, `msg`, and copies the evidence keys `vfp` and `vcls` verbatim into `value_fingerprint` and `value_class` (INV-ANA-72)
    - If the line becomes no record at all, exactly one `ParserDiagnostics` counter is incremented, and every value the parser had to substitute increments its `sentinel_*` counter (INV-ANA-62). The counters belong to the repository, so the account is the run's, not a caller's
    - Both domain objects carry `time_occurred` (parsed from the logcat timestamp with year inference) and `original_msg` (raw line)
 

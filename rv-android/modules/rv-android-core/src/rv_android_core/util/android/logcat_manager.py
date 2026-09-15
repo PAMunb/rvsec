@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from pydantic import ConfigDict, Field, field_validator
 from rv_android_core.commands.command import Command
+from rv_android_core.constants import LOGCAT_BUFFER_SIZE
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import LogcatValidationError
 from rv_android_core.util.logging.constants import (
@@ -179,6 +180,35 @@ class LogcatManager(BaseValidatedModel):
                 output_dir = os.path.dirname(validated_output_file)
                 if output_dir and not os.path.exists(output_dir):
                     os.makedirs(output_dir, exist_ok=True)
+
+                # Size the device's log ring buffers before the clear and the capture
+                # (INV-CORE-64). A separate command rather than a flag on the capture
+                # command, so the capture command stays byte-identical (INV-CORE-37);
+                # it runs on every capture because a device may have been rebooted
+                # since the last one. A failure only warns: a smaller buffer loses
+                # lines under load, while no capture loses all of them.
+                try:
+                    size_result = Command(
+                        "adb",
+                        ["-s", self.device_serial, "logcat", "-G", LOGCAT_BUFFER_SIZE],
+                    ).invoke()
+                    size_error = (
+                        None
+                        if size_result.code == 0
+                        else f"exit code {size_result.code}"
+                    )
+                except Exception as e:
+                    size_error = str(e)
+                if size_error is None:
+                    self.logger.info(
+                        f"Set logcat buffer size {LOGCAT_BUFFER_SIZE} "
+                        f"on device {self.device_serial}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"Could not set logcat buffer size {LOGCAT_BUFFER_SIZE} "
+                        f"on device {self.device_serial}: {size_error}"
+                    )
 
                 # Clear logcat buffer if requested
                 if clear_buffer:

@@ -23,6 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import rv_android_core
+from rv_android_core.constants import LOGCAT_BUFFER_SIZE
 from rv_android_core.util.android.logcat_manager import DIAGNOSTIC_TAGS, LogcatManager
 from rv_android_core.util.logging.constants import (
     TAG_APERV_HEARTBEAT,
@@ -57,7 +58,10 @@ class TestLogcatManager:
 
         mock_process = MagicMock()
 
-        # Mock both command instances separately
+        # Mock the three command instances separately
+        mock_size_command = MagicMock()
+        mock_size_command.invoke.return_value = MagicMock(code=0)
+
         mock_clear_command = MagicMock()
         mock_clear_command.invoke.return_value = MagicMock()
 
@@ -65,7 +69,11 @@ class TestLogcatManager:
         mock_logcat_command.invoke_as_process.return_value = mock_process
 
         # Configure the Command mock to return different instances
-        mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
+        mock_command_class.side_effect = [
+            mock_size_command,
+            mock_clear_command,
+            mock_logcat_command,
+        ]
 
         # Call the method
         result = logcat_manager.start_capture("/test/output.log")
@@ -75,7 +83,10 @@ class TestLogcatManager:
 
         # Verify commands were created correctly with device serial
         # Tags get :V (Verbose) suffix for proper logcat filtering
-        assert mock_command_class.call_count == 2
+        assert mock_command_class.call_count == 3
+        mock_command_class.assert_any_call(
+            "adb", ["-s", "emulator-5554", "logcat", "-G", "16M"]
+        )
         mock_command_class.assert_any_call(
             "adb", ["-s", "emulator-5554", "logcat", "-c"]
         )
@@ -95,6 +106,7 @@ class TestLogcatManager:
         )
 
         # Verify commands were executed
+        mock_size_command.invoke.assert_called_once()
         mock_clear_command.invoke.assert_called_once()
         mock_logcat_command.invoke_as_process.assert_called_once_with(stdout=mock_file)
 
@@ -116,7 +128,10 @@ class TestLogcatManager:
 
         mock_process = MagicMock()
 
-        # Mock both command instances separately
+        # Mock the three command instances separately
+        mock_size_command = MagicMock()
+        mock_size_command.invoke.return_value = MagicMock(code=0)
+
         mock_clear_command = MagicMock()
         mock_clear_command.invoke.return_value = MagicMock()
 
@@ -124,7 +139,11 @@ class TestLogcatManager:
         mock_logcat_command.invoke_as_process.return_value = mock_process
 
         # Configure the Command mock to return different instances
-        mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
+        mock_command_class.side_effect = [
+            mock_size_command,
+            mock_clear_command,
+            mock_logcat_command,
+        ]
 
         # Call the method with custom tags
         result = logcat_manager.start_capture(
@@ -163,27 +182,32 @@ class TestLogcatManager:
         mock_logcat_command = MagicMock()
         mock_logcat_command.invoke_as_process.return_value = mock_process
 
-        mock_command_class.return_value = mock_logcat_command
+        mock_size_command = MagicMock()
+        mock_size_command.invoke.return_value = MagicMock(code=0)
+        mock_command_class.side_effect = [mock_size_command, mock_logcat_command]
 
         # Call the method without clearing buffer
         result = logcat_manager.start_capture("/test/output.log", clear_buffer=False)
 
-        # Verify command creation and execution with device serial
+        # The buffer is still sized; only the clear is skipped.
         # Tags get :V (Verbose) suffix for proper logcat filtering
-        mock_command_class.assert_called_once_with(
-            "adb",
-            [
-                "-s",
-                "emulator-5554",
-                "logcat",
-                "-v",
-                "threadtime",
-                "-s",
-                "RVSEC:V",
-                "RVSEC-COV:V",
-                "ApeRvHb:V",
-            ],
-        )
+        assert [c.args for c in mock_command_class.call_args_list] == [
+            ("adb", ["-s", "emulator-5554", "logcat", "-G", "16M"]),
+            (
+                "adb",
+                [
+                    "-s",
+                    "emulator-5554",
+                    "logcat",
+                    "-v",
+                    "threadtime",
+                    "-s",
+                    "RVSEC:V",
+                    "RVSEC-COV:V",
+                    "ApeRvHb:V",
+                ],
+            ),
+        ]
         mock_logcat_command.invoke_as_process.assert_called_once_with(stdout=mock_file)
 
         assert result is True
@@ -211,15 +235,21 @@ class TestLogcatManager:
         mock_file = MagicMock()
         mock_open_file.return_value = mock_file
 
-        # First command succeeds (clear buffer)
+        # Sizing and clearing succeed
+        mock_size_command = MagicMock()
+        mock_size_command.invoke.return_value = MagicMock(code=0)
         mock_clear_command = MagicMock()
         mock_clear_command.invoke.return_value = MagicMock()
 
-        # Second command fails (logcat)
+        # The capture command fails
         mock_logcat_command = MagicMock()
         mock_logcat_command.invoke_as_process.side_effect = Exception("Command failed")
 
-        mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
+        mock_command_class.side_effect = [
+            mock_size_command,
+            mock_clear_command,
+            mock_logcat_command,
+        ]
 
         # Call the method
         result = logcat_manager.start_capture("/test/output.log")
@@ -308,9 +338,15 @@ class TestLogcatManager:
         stream under a strict device-side allowlist: a heartbeat under an unadmitted
         tag is discarded before it reaches the file the offline join reads."""
         mock_open_file.return_value = MagicMock()
+        mock_size_command = MagicMock()
+        mock_size_command.invoke.return_value = MagicMock(code=0)
         mock_clear_command = MagicMock()
         mock_logcat_command = MagicMock()
-        mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
+        mock_command_class.side_effect = [
+            mock_size_command,
+            mock_clear_command,
+            mock_logcat_command,
+        ]
 
         result = logcat_manager.start_capture("/test/output.log")
 
@@ -340,9 +376,15 @@ class TestLogcatManager:
         (which are preserved unchanged and in order), and priority-bearing tags keep
         their `:E`/`:W` suffix verbatim (no spurious `:V`)."""
         mock_open_file.return_value = MagicMock()
+        mock_size_command = MagicMock()
+        mock_size_command.invoke.return_value = MagicMock(code=0)
         mock_clear_command = MagicMock()
         mock_logcat_command = MagicMock()
-        mock_command_class.side_effect = [mock_clear_command, mock_logcat_command]
+        mock_command_class.side_effect = [
+            mock_size_command,
+            mock_clear_command,
+            mock_logcat_command,
+        ]
 
         result = logcat_manager.start_capture(
             "/test/output.log",
@@ -367,6 +409,84 @@ class TestLogcatManager:
                 "ActivityManager:W",
             ],
         )
+        assert result is True
+
+    CAPTURE_ARGS = [
+        "-s",
+        "emulator-5554",
+        "logcat",
+        "-v",
+        "threadtime",
+        "-s",
+        "RVSEC:V",
+        "RVSEC-COV:V",
+        "ApeRvHb:V",
+    ]
+
+    @patch("rv_android_core.util.android.logcat_manager.Command")
+    @patch("builtins.open")
+    @patch("os.makedirs")
+    def test_buffer_sized_before_clear_and_capture(
+        self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
+    ):
+        """INV-CORE-64: `logcat -G 16M`, then `logcat -c`, then the capture command,
+        which stays byte-identical to INV-CORE-37."""
+        mock_open_file.return_value = MagicMock()
+        mock_size_command = MagicMock()
+        mock_size_command.invoke.return_value = MagicMock(code=0)
+        mock_command_class.side_effect = [
+            mock_size_command,
+            MagicMock(),
+            MagicMock(),
+        ]
+        logger = MagicMock()
+        object.__setattr__(logcat_manager, "logger", logger)
+
+        result = logcat_manager.start_capture("/test/output.log", clear_buffer=True)
+
+        assert [c.args for c in mock_command_class.call_args_list] == [
+            ("adb", ["-s", "emulator-5554", "logcat", "-G", "16M"]),
+            ("adb", ["-s", "emulator-5554", "logcat", "-c"]),
+            ("adb", self.CAPTURE_ARGS),
+        ]
+        assert LOGCAT_BUFFER_SIZE == "16M"
+        info = " ".join(str(c.args[0]) for c in logger.info.call_args_list)
+        assert "emulator-5554" in info and "16M" in info
+        logger.warning.assert_not_called()
+        assert result is True
+
+    @pytest.mark.parametrize("failure", ["exit", "exception"])
+    @patch("rv_android_core.util.android.logcat_manager.Command")
+    @patch("builtins.open")
+    @patch("os.makedirs")
+    def test_sizing_failure_does_not_stop_capture(
+        self, mock_makedirs, mock_open_file, mock_command_class, failure, logcat_manager
+    ):
+        """INV-CORE-64: a failed sizing (non-zero exit or an exception) logs a WARNING
+        naming the serial and the size, and the capture still starts."""
+        mock_file = MagicMock()
+        mock_open_file.return_value = mock_file
+        mock_size_command = MagicMock()
+        if failure == "exit":
+            mock_size_command.invoke.return_value = MagicMock(code=1)
+        else:
+            mock_size_command.invoke.side_effect = Exception("device offline")
+        mock_logcat_command = MagicMock()
+        mock_command_class.side_effect = [
+            mock_size_command,
+            MagicMock(),
+            mock_logcat_command,
+        ]
+        logger = MagicMock()
+        object.__setattr__(logcat_manager, "logger", logger)
+
+        result = logcat_manager.start_capture("/test/output.log", clear_buffer=True)
+
+        logger.warning.assert_called_once()
+        warning = str(logger.warning.call_args.args[0])
+        assert "emulator-5554" in warning and "16M" in warning
+        mock_command_class.assert_called_with("adb", self.CAPTURE_ARGS)
+        mock_logcat_command.invoke_as_process.assert_called_once_with(stdout=mock_file)
         assert result is True
 
     def test_heartbeat_tag_declared_once(self, logcat_manager):
