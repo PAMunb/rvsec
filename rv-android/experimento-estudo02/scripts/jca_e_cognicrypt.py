@@ -97,6 +97,21 @@ def jca() -> None:
         ["group", "maus usos"], ascending=[True, False])
     print(table(b))
     assert b["maus usos"].sum() == n
+    print("\n### Em quantos apps\n")
+    corpus = set(pd.read_csv(ARTICLE_ERRORS.parent / "summary.csv", usecols=["apk"])["apk"])
+    campaign = set(pd.read_csv(TABLES / "per_task.csv", usecols=["apk"])["apk"])
+    common = corpus & campaign
+    jca_apps = set(g["apk"])
+    android_apps = set(pd.read_csv(TABLES / "errors.csv", usecols=["apk"])["apk"])
+    groups = g.groupby("apk")["group"].agg(set)
+    only_ab = int(groups.map(lambda s: s <= {"A", "B"}).sum())
+    print(f"- `jca`: {len(jca_apps)} de {len(corpus)} apps com alguma acusação;"
+          f" `jca_android` (bruto da `estudo02`): {len(android_apps)} de {len(campaign)}.")
+    print(f"- Nos {len(common)} apps em comum: nos dois {len(jca_apps & android_apps & common)};"
+          f" só no `jca` {len((jca_apps - android_apps) & common)};"
+          f" só no `jca_android` {len((android_apps - jca_apps) & common)}.")
+    print(f"- Apps do `jca` só com acusações dos grupos A e B: {only_ab};"
+          f" com algo em C, D ou resto: {len(groups) - only_ab}.")
     empty = g[g["bucket"] == 'algoritmo vazio ("found .")'].groupby("spec").size()
     print("\n### Algoritmo vazio por spec\n")
     print(table(empty.rename("maus usos").reset_index()))

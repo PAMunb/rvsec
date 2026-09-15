@@ -64,6 +64,34 @@ Uma conclusão se mantém quando a IRR fica do mesmo lado de 1 **e** cada estima
 | ape × humanoid | 1.159 (p 5.77e-04) | 1.079 (p 0.0382) | 1.084 (p 0.0351) | 1.190 (p 0.0924) |
 | ape × qtesting | 1.343 (p 5.25e-04) | 1.222 (p 0.0098) | 1.245 (p 0.0072) | 1.162 (p 0.1549) |
 
+## Em quantos apps
+
+| recorte | apps | % do corpus |
+|---|---:|---:|
+| com alguma acusação (bruto) | 91 | 55.8 % |
+| com algum mau uso sustentado | 50 | 30.7 % |
+| com algum mau uso relevante | 14 | 8.6 % |
+
+Dos 50 apps com mau uso sustentado, 36 só têm casos sem relevância. Os 5 maiores somam 45.0 % dos 6278; os 10 maiores, 60.7 %.
+
+| app | discutível | mau uso real (NOBS) | relevante | sem relevância | total |
+|---|---:|---:|---:|---:|---:|
+| com.tananaev.passportreader_22.apk | 0 | 99 | 0 | 891 | 990 |
+| org.totschnig.myexpenses_858.apk | 198 | 396 | 0 | 0 | 594 |
+| org.glpi.inventory.agent_39469.apk | 80 | 0 | 0 | 495 | 575 |
+| org.quantumbadger.redreader_117.apk | 0 | 297 | 0 | 69 | 366 |
+| com.ds.avare_404.apk | 0 | 0 | 0 | 297 | 297 |
+| github.paroj.dsub2000_217.apk | 99 | 99 | 0 | 0 | 198 |
+| com.hegocre.nextcloudpasswords_38.apk | 0 | 0 | 0 | 198 | 198 |
+| com.afkanerd.deku_83.apk | 0 | 0 | 0 | 198 | 198 |
+| app.maskan.chat_90.apk | 0 | 0 | 0 | 198 | 198 |
+| com.nononsenseapps.feeder.play_4025.apk | 0 | 98 | 0 | 96 | 194 |
+| app.michaelwuensch.bitbanana_79.apk | 2 | 0 | 0 | 180 | 182 |
+| com.tk.quicksearch_65.apk | 0 | 0 | 0 | 180 | 180 |
+| com.sapuseven.untis_29198884.apk | 0 | 0 | 0 | 154 | 154 |
+| com.vrem.wifianalyzer_71.apk | 0 | 0 | 0 | 153 | 153 |
+| eu.faircode.email_2322.apk | 0 | 0 | 0 | 140 | 140 |
+
 ## Fração sustentada, descritiva
 
 | tool | bruto | sustentado | fração | relevante | fração |

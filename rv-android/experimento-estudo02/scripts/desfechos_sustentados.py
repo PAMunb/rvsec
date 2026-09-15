@@ -194,6 +194,34 @@ def report(out_path: Path) -> None:
         md.append(f"| ape × {rq1._glm_short(other)[5:-1]} | " + " | ".join(cells) + " |")
     md.append("")
 
+    md.append("## Em quantos apps")
+    md.append("")
+    part = pd.read_csv(PARTITION, usecols=["apk", "status", "strict", "sec"])
+    sus = part[part["strict"]]
+    n_corpus = raw["df"]["apk"].nunique()
+    md.append("| recorte | apps | % do corpus |")
+    md.append("|---|---:|---:|")
+    for label, apps in [("com alguma acusação (bruto)", part["apk"].nunique()),
+                        ("com algum mau uso sustentado", sus["apk"].nunique()),
+                        ("com algum mau uso relevante", part.loc[part["sec"], "apk"].nunique())]:
+        md.append(f"| {label} | {apps} | {100 * apps / n_corpus:.1f} % |")
+    md.append("")
+    kind = sus["status"].map({"NOBS:MISUSE": "mau uso real (NOBS)", "OTHER:GENUINE_yes": "relevante",
+                              "OTHER:GENUINE_debatable": "discutível"}).fillna("sem relevância")
+    per_app = pd.crosstab(sus["apk"], kind)
+    per_app["total"] = per_app.sum(axis=1)
+    per_app = per_app.sort_values("total", ascending=False)
+    only_irrelevant = int((per_app["total"] == per_app.get("sem relevância", 0)).sum())
+    md.append(f"Dos {len(per_app)} apps com mau uso sustentado, {only_irrelevant} só têm casos sem relevância. "
+              f"Os 5 maiores somam {100 * per_app['total'].head(5).sum() / len(sus):.1f} % dos {len(sus)}; "
+              f"os 10 maiores, {100 * per_app['total'].head(10).sum() / len(sus):.1f} %.")
+    md.append("")
+    md.append("| app | " + " | ".join(per_app.columns) + " |")
+    md.append("|---|" + "---:|" * len(per_app.columns))
+    for apk, row in per_app.head(15).iterrows():
+        md.append(f"| {apk} | " + " | ".join(str(int(v)) for v in row) + " |")
+    md.append("")
+
     md.append("## Fração sustentada, descritiva")
     md.append("")
     df = raw["df"].merge(pd.read_csv(rq1.DESFECHOS), on=RUN, how="left", validate="1:1")

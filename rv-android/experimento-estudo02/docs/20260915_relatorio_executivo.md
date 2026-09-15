@@ -21,7 +21,7 @@ campanha rodou inteira e bem. Ela contou **27 068 maus usos** no formato que o a
 
 Lendo esses maus usos um a um, a conclusão é que **a contagem mistura coisas muito diferentes**:
 
-- **23,2 %** (6 278) são o que a regra CrySL de fato proíbe;
+- **23,2 %** (6 278, em 50 dos 163 apps) são o que a regra CrySL de fato proíbe;
 - **5,8 %** (1 572, em só 14 apps) são problemas de segurança de verdade: trust manager que aceita
   qualquer certificado, chave ou IV fixos, salt fixo;
 - **64,3 %** (17 409) são **código correto que o monitor não consegue enxergar**. O monitor pergunta
@@ -149,6 +149,33 @@ Cada grupo, em palavras:
 - **Decisão da regra.** A regra acusa de propósito, e a transcrição é fiel. Dois casos:
   - bytes aleatórios usados como chave, quando a regra exige material preparado;
   - chaves do AndroidKeyStore obtidas por `getEntry`, quando a regra só credita `getKey`.
+
+### Em quantos apps
+
+| recorte | apps | % dos 163 |
+|---|---:|---:|
+| Com alguma acusação do monitor (bruto) | 91 | 55,8 % |
+| **Com algum mau uso sustentado (os 6 278)** | **50** | **30,7 %** |
+| Com algum mau uso relevante para segurança (os 1 572) | 14 | 8,6 % |
+
+Dos 50 apps com mau uso sustentado, **36 só têm casos sem relevância prática**, como MD5/SHA-1 para
+nomear cache. Os outros 14 têm algo relevante.
+
+A contagem é muito concentrada: 5 apps somam 45 % dos 6 278, e 10 apps somam 61 %.
+
+| app | total | mau uso real (`NOBS`) | discutível | sem relevância |
+|---|---:|---:|---:|---:|
+| `passportreader` | 990 | 99 | 0 | 891 |
+| `myexpenses` | 594 | 396 | 198 | 0 |
+| `glpi` | 575 | 0 | 80 | 495 |
+| `redreader` | 366 | 297 | 0 | 69 |
+| `avare` | 297 | 0 | 0 | 297 |
+| `dsub2000` | 198 | 99 | 99 | 0 |
+| `feeder` | 194 | 98 | 0 | 96 |
+
+Os números altos vêm de repetição, não de muitos problemas por app. Um trecho que roda na abertura
+do app aparece em quase todas as 99 execuções (11 ferramentas × 3 orçamentos × 3 repetições), e por
+isso muitos apps somam 99, 198 ou 297. Tabela completa em `docs/20260915_modelo_rq1_desfechos.md`.
 
 ## 4. O "não observado" (`NOBS`) explicado
 
@@ -397,6 +424,24 @@ do `jca` e nas regras CrySL:
 | **C. Origem da chave não vista, relatada como "sequência inválida"** | **4 145** | **14,3** |
 | **D. MD5/SHA-1** (fiel à regra, raramente relevante) | 2 705 | 9,3 |
 | Resto (criação não vista, reuso do `Mac`, OAEP-SHA1, "SSL", …) | 722 | 2,5 |
+
+**Em quantos apps.** No `jca`, **113 dos 163 apps (69,3 %)** tinham alguma acusação. No bruto da
+`estudo02`, são **91 dos 163 (55,8 %)**.
+- **São comparáveis:** a unidade é a mesma, app com qualquer acusação do monitor, sem julgamento.
+- **A ressalva:** mudaram as specs (é o fator estudado), a configuração do `monkey` e a imagem da
+  campanha.
+
+| nos 162 apps em comum | apps |
+|---|---:|
+| com acusação nos dois conjuntos | 90 |
+| só no `jca` | 22 |
+| só no `jca_android` | 1 |
+
+O `jca` não tem equivalente dos 50 apps com mau uso sustentado, porque as suas acusações não foram
+julgadas uma a uma. O que dá para dizer:
+- **54 dos 113 apps** só tinham acusações dos grupos A e B (valor correto recusado pela lista, ou
+  defeito da spec), que o `jca_android` já não faz;
+- **os outros 59** têm algo nos grupos C, D ou no resto, e não se sabe quantos se sustentariam.
 
 **O grupo C é o parentesco com o `NOBS`.** No `jca`, a pergunta de origem da chave estava escrita
 como condição do evento `Cipher.init`. No monitor gerado, uma condição falsa faz o evento

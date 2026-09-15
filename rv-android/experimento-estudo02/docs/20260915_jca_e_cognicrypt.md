@@ -51,6 +51,12 @@ Arquivo: `/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-
 | resto | KeyPairGeneratorSpec: invalid key size for algorithm RSA. | 5 |
 | resto | KeyPairGeneratorSpec: invalid key size for algorithm DSA. | 2 |
 
+### Em quantos apps
+
+- `jca`: 113 de 163 apps com alguma acusação; `jca_android` (bruto da `estudo02`): 91 de 163.
+- Nos 162 apps em comum: nos dois 90; só no `jca` 22; só no `jca_android` 1.
+- Apps do `jca` só com acusações dos grupos A e B: 54; com algo em C, D ou resto: 59.
+
 ### Algoritmo vazio por spec
 
 | spec | maus usos |
