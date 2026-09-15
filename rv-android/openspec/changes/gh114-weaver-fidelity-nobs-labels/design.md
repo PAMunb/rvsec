@@ -6,7 +6,7 @@ GitHub Issue: #114
 
 The proposal groups three repairs that share one gate, the next campaign, and no code. They touch two repositories and eight modules, and the implementation budget is short, so this design is organised around what can be done in parallel without two workers editing the same file.
 
-- **Weaver** (`rvsec/rvsec-android/rvsec-instrumentation-dexlib2`, Java 21, Maven). Five divergences from AspectJ (A1–A5). FR02, NFR06.
+- **Weaver** (`rvsec/rvsec-android/rvsec-instrumentation-dexlib2`, Java 21, Maven). Five divergences from AspectJ (A1–A5) and the repeated work on the matching path (A6). FR02, NFR06.
 - **Specification set** (`rvsec/rvsec-mop/src/main/resources/jca_android`, 47 `.mop`; `rvsec/rvsec-core` for `Property` and helpers). Seven label codes, refused creation twins, per-element manager credit, the upstream-refusal mark, evidence keys, the RSA list. FR03, FR13.
 - **Consumers** (`rv-android`): `rv-android-core` (`RvErrorLog.unique_msg`, `LogcatManager` buffer size), `rv-coverage` (logcat parser), `scripts/` gates and `tests/parity/`, `data/jca_android/` records. FR11, FR13.
 - **Export** (`modules/rv-platform`). One pass over tasks, one static model per APK, release of parsed state. FR14, NFR08.
@@ -88,6 +88,7 @@ Facts the decisions rest on, all measured on the current tree (file:line in the 
 | Inserted Before-Block Not Bypassed / INV-INS-161 | `InstructionInjector.insertBefore` `:80-87` (+ helper `moveLocatedItems`) | `InstructionInjectorBranchTargetTest` (if, goto, packed/sparse switch, guard, line entry moved, try range unchanged); sweep `branch_target_hooks == 0` |
 | Nested Types Resolve / INV-INS-162 | `TypeResolver.toDescriptor` `:87-107`, `resolveFqn` `:110-130`; `WrapperEmitter.resolveFqn` `:647-676`; `AndroidClassIndex.toInternal` `:223-225` | `TypeResolverTest.nestedImportedType`, `.nestedQualifiedType`, `.topLevelUnchanged`; sweep `keystore_entry_woven > 0` where the call exists |
 | After Advice Runs on … Exceptional Completion / INV-INS-163 | `WrapperEmitter.appendWrapperMethod` `:782-801`; `DexWeaver.applyPlan` AFTER `:925-927` via `installTryCatch`; `AfterEmitter` javadoc | `WrapperAfterFinallyShapeTest` (source shape), `DexWeaverCtorAfterFinallyTest`; monitor DEX disassembly in task 15.3 |
+| The Weaver Parses Each Pointcut Once… / INV-INS-168 | `DexWeaver.parseCached` memo and hoisted composition `:517-532`; `TypeResolver` descriptor memo | `DexWeaverParseMemoTest` (same instance per advice, cleared per weave), `TypeResolverTest.descriptorIsMemoised`; woven-DEX identity of task 17.5 |
 | Label Codes… / INV-INS-164, INV-INS-165 | `jca_android/*.mop` `@fail` handlers, `-NOBS-` branches and refused creation twins; `codes.csv` `label` | `scripts/gh104_message_gate.py` label check (`test_gh104_structural_gates.py`); `scripts/gh104_diff_harness.py` same-site comparison; harness traces of the two-argument refused route |
 | Per-Element Credit of Trust-Manager Arrays | `TrustManagerFactorySpec.gtm1` `:218`, `SSLContextSpec.init` `:231-239`; `Property.GENERATED_TRUST_MANAGERS` | harness traces `tls_copied_array`, `tls_mixed_array` |
 | Upstream-Refusal Mark | producer and consumer sites listed in the spec; `Property.REPORTED_UPSTREAM` | harness trace `pbe_stored_salt_chain`; census pins in `test_gh105_predicate_gates.py:1362-1395` |
@@ -106,6 +107,7 @@ Facts the decisions rest on, all measured on the current tree (file:line in the 
 
 **Goals:**
 - The DEX-native weaver matches, groups, inserts and completes advice as AspectJ does for the five measured cases, each proven by a before/after count or a bytecode-shape test.
+- The weaver does each of those decisions once per weave instead of once per instruction, with the woven output proven identical.
 - A `jca_android` report says which of seven known situations produced it, without changing which sites report (except the per-element credit), and carries evidence for triage.
 - A campaign export finishes within bounded memory with unchanged tables.
 - All work splits into waves of independent subagent groups with one owner per file.
@@ -199,6 +201,17 @@ The divergence-record gate (`scripts/gh104_divergence_record.py`, run by `tests/
 - **Rule:** `PointcutExpander.resolve` replaces dots by `$` from the right until the platform class loader knows the name, the existence test `isJavaLang` already makes (INV-INS-162 gives the weaver the same rule). A name already a class, or one no replacement turns into a class, is kept.
 - **Round trip:** `MopLowerer` imports a nested type under its canonical dotted name, as Java source does, so a lowered file lifts back to the same signatures.
 
+**D19 — The weaver memoises what is constant within a weave.** Three repetitions of work sit on the hottest path of the weaver, one per instruction of every method of every class, multiplied by the number of advices:
+- `DexWeaver.parseCached` (`:973-981`) calls `PointcutExpressionParser.parse` on every call (`:524`); the name has promised a cache since gh52 and there has never been a map. It gains a `Map<String, PointcutExpression>` keyed by the advice expression, filled lazily, cleared when a weave begins. An expression that fails to parse memoises its `null` too, so a malformed expression is not reparsed either.
+- The composition `new CombinedPC(AND, perInstructionCommon, pe)` (`:531-532`) is rebuilt per instruction although it depends only on the class (through `perInstructionCommon`) and the advice. It moves out of the instruction loop.
+- `TypeResolver.toDescriptor`/`resolveFqn` redo the import scan and, since A4, `existingBinaryName` probes the class index once per dot of the name — for every match of every advice. The resolver memoises `simpleType → descriptor` per instance; a resolver is built per weaving path (`WrapperEmitter.java:232`, `BatchRunner.java:182`) and its imports never change during a weave.
+
+The repair is safe because the pointcut AST is made of immutable records (`CallPC`, `ArgsPC`, `CombinedPC`, …) and `PointcutMatcher` keeps the state of a match in the `Context` it builds per call (`:99-103`); nothing writes to the expression. Returning the same instance therefore matches exactly as parsing a fresh one did.
+
+Acceptance is by identity, not by a stopwatch alone: the same APK woven with the same descriptor before and after the repair MUST give byte-identical `classes*.dex` and the same counters in `instrument_results.json`. A stopwatch accompanies it as the measurement the repair exists for.
+
+Alternative rejected: pre-compiling the pointcut ASTs into the descriptor file, which changes a file contract shared with the monitor generator for no gain over a map. Alternative rejected: leaving it out of this change, which would run the smoke and every later campaign on a weaver whose cost is dominated by work the same change made heavier (the A4 probe sits inside the loop).
+
 ## API Design
 
 ### `AndroidClassIndex.exists(String internalName) -> boolean`
@@ -269,6 +282,7 @@ Post: INV-PLT-14, INV-PLT-15, INV-PLT-38. Rows follow the ordered task list.
 - [A refused twin adds a monitor call on a creation call already wrapped by its admitted sibling] → The twin's body only assigns two fields; the call is on the same wrapper, so no new wrapper is generated.
 - [Readers of `unique_msg` outside this change] → `scripts/rv_oracle_common.py:114-117` and `modules/aperv-tool/.../violations.py:448-468` read its seventh part, which no longer carries the evidence keys; no count they compute moves. Noted, not edited.
 - [Pinned M2 verdicts of `jca_android` move (D16–D18), and they differ from the verdicts published in `docs/20260821_conformidade_mop_crysl.md`] → Re-measured and re-pinned with current-state reasons; the difference is reported, not reconciled (INV-CONF-14).
+- [A memo that outlives what it is valid for] → The parse memo is keyed by the expression text and holds immutable ASTs, and the descriptor memo lives on a `TypeResolver` whose imports never change; both are cleared with the object that owns them. Should a later change make an AST or a resolver mutable, the identity test of task 17.5 is what fails first.
 - [Pre-existing defect outside this change] → `TaskStorage.get_pending_tasks()` uses a `TaskState.ARCHIVED` that does not exist; nothing calls it and a skipped test hides it. Noted, not edited.
 
 ## Testing Strategy
@@ -280,6 +294,7 @@ Post: INV-PLT-14, INV-PLT-15, INV-PLT-38. Rows follow the ordered task list.
 | Gates (pytest) | codes.csv label column, evidence only on NOBS, G-CONF with RSA wart, census pins, set size 47 | `tests/parity/test_gh104_structural_gates.py`, `test_gh105_predicate_gates.py`, `test_gh109_nobs_channel.py` | existing + ~4 |
 | Unit (Python) | `identity_message`, parser evidence fields, export one-pass, release | pytest `--import-mode=importlib -o "addopts="` in `rv-android-core`, `rv-coverage`, `rv-platform` | ~12 |
 | Static sweep | A1–A4 before (existing instrumented APKs) and after (APKs instrumented for the smoke) | `scripts/gh114_weave_sweep.py <apk_dir> <descriptor> <out.csv>` | 4 totals |
+| Identity (A6) | One APK woven before and after the memo gives the same `classes*.dex` and the same counters | sha256 per DEX entry of the two instrumented APKs; `instrument_results.json` diff; wall time of both runs | 1 APK |
 | Regeneration | Export byte identity on one container (the `timestamp` column of `performance.csv`, which records when the file was generated, excluded) | `rv-platform run --process-results` against a copy of `estudo02_00` with `PYTHONHASHSEED=0` | 1 |
 | Unit and corpus (Java, conformance) | Twin resolution and unresolved overlaps at M2, `*` in `denotes`, `args` arity and nested names in the lift, re-pinned corpus numbers | JUnit in `rvsec-crysl-core`, `-mop`, `-crysl` (the corpus tests are `oracle-dependent`, run locally with the oracle and the generated monitor) | ~8 new + re-pins |
 | Smoke (end) | Full pipeline with `jca_android`, dexlib2, a handful of APKs, one short tool run; labels and evidence present in `errors.csv`; export completes | `uv run rv-experiment run …` (platform manages the emulator) | 1 |

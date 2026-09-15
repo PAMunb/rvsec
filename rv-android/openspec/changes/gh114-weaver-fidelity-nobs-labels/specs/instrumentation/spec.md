@@ -2,7 +2,7 @@
 
 This delta changes two things the `instrumentation` capability owns: how the DEX-native weaver (`rvsec-instrumentation-dexlib2`) turns an advice into bytecode, and what the successor specification set `jca_android` says when it reports.
 
-The weaver half closes five measured divergences from AspectJ semantics. AspectJ's semantics is the reference because the specifications are written in its pointcut language; no other weaver is run or compared. Each divergence was confirmed in the bytecode of instrumented APKs: an untyped `args(...)` matches a call of any arity, so a one-argument `getInstance` fires the two-argument event too; a call whose owner is a framework subtype that inherits the matched method gets no wrapper and nothing counts the drop; a branch whose target is a hooked call jumps over the inserted monitor call; a nested type written with a dot resolves as a package; and an `after` advice does not run when the matched call throws. The first and the last change what a campaign reports, in opposite directions, and each repair is accepted against a count taken before and after it on instrumented APKs rather than against a campaign.
+The weaver half closes five measured divergences from AspectJ semantics. AspectJ's semantics is the reference because the specifications are written in its pointcut language; no other weaver is run or compared. Each divergence was confirmed in the bytecode of instrumented APKs: an untyped `args(...)` matches a call of any arity, so a one-argument `getInstance` fires the two-argument event too; a call whose owner is a framework subtype that inherits the matched method gets no wrapper and nothing counts the drop; a branch whose target is a hooked call jumps over the inserted monitor call; a nested type written with a dot resolves as a package; and an `after` advice does not run when the matched call throws. The first and the last change what a campaign reports, in opposite directions, and each repair is accepted against a count taken before and after it on instrumented APKs rather than against a campaign. A sixth repair is about cost and not about semantics: the weaver reparses every pointcut and re-resolves every type name at every instruction it examines, and it is accepted on the identity of the woven output rather than on a report.
 
 The specification half is about the `-NOBS-` family. A non-observation report says that the predicate store has no entry for the object a rule constrains, and today that single answer covers situations an analysis must treat differently: a `null` the API documents as "use the platform default", a fresh array around a trust manager a factory did issue, an object whose producer already reported it, a first observed event that is not the creation of the object, a failure that follows a creation the specification refused, a second `init` after an operation finished, key material that was random where the rule asks for prepared material. This delta gives each of those its own code inside the existing families, keeps every reported site reported (with one stated exception, the per-element trust-manager credit), keeps the store comparing objects by identity, and appends evidence keys — a fingerprint of the value and the class of a manager — that no verdict reads. Every rule here is a statement about the JCA/Android API or the weaver and holds for any set of APKs; none names an application, a library or a dataset.
 
@@ -40,6 +40,7 @@ The frozen `jca` set is not edited. The weaver is shared code, so its five repai
 - **INV-INS-164**: In `jca_android`, a label code is a numbered code inside an existing family: `-NOBS-` for `platform-default`, `upstream-refused`, `application-manager` and `random-key-material`; `-ORDER-` for `creation-unobserved`, `creation-refused` and `reuse-after-final`. Every row of `codes.csv` carries exactly one `label` from the closed vocabulary `{violation, sequence, not-observed, platform-default, upstream-refused, application-manager, random-key-material, creation-unobserved, creation-refused, reuse-after-final}`, and a code's label MUST agree with its family (`sequence`, `creation-unobserved`, `creation-refused`, `reuse-after-final` only on `-ORDER-`; `not-observed` and the four `-NOBS-` labels only on `-NOBS-`; `violation` on every other family). Every creation event of `jca_android` guarded by an allow-list `condition(...)` MUST have a refused twin with the negated guard for every overload its pointcut admits, so that a creation call in woven code always runs a creation body; a twin added for that purpose MUST NOT report and MUST NOT write fields other than the creation facts.
 - **INV-INS-165**: A label code MUST be emitted at the site, and under the branch, where the unlabelled code of the same family would otherwise be emitted. Applying the labels MUST NOT add or remove a reported `(class, method, spec, event, location)` except where the per-element trust-manager credit accepts an array whose every element a factory issued.
 - **INV-INS-166**: The evidence keys `vfp` and `vcls` MAY follow `msg` only in a `-NOBS-` envelope, in that order, each at most once, quoted like every other value. No guard, transition or predicate write MAY read them.
+- **INV-INS-168**: Within one weave, the expression of an advice MUST be parsed at most once, the composition of the `commonPointcut` with an advice MUST NOT be rebuilt for each instruction, and a type name MUST be resolved to a descriptor at most once per `TypeResolver`. Memoisation MUST NOT change what is woven: for the same APK and the same descriptor, every woven `classes*.dex` MUST be byte-identical and every counter of `instrument_results.json` MUST be equal to the ones produced without it.
 - **INV-INS-167**: `RSAKeyGenParameterSpecSpec.mop` MUST admit exactly `{2048, 3072, 4096}`, the list of `KeyPairGenerator.crysl:29`, and the `oracle-wart` row of `data/jca_android/divergence_record.csv` that names both expert clauses MUST record that alignment. The pinned rule file MUST NOT be edited.
 
 ## ADDED Requirements
@@ -178,6 +179,33 @@ The repair is verified on the woven output: the generated wrapper source and an 
 - **WHEN** the wrapper for `KeyAgreement.doPhase(Key, boolean)` under `KeyAgreementSpec_dophase` is disassembled from the monitor DEX of an instrumented APK
 - **THEN** a try range MUST cover the `invoke-virtual` of `doPhase`, and its catch-all handler MUST invoke `KeyAgreementSpec_dophaseEvent` and end in `throw` of the caught register
 - **AND** the normal path MUST invoke `KeyAgreementSpec_dophaseEvent` once and return the call's result
+
+### Requirement: The Weaver Decides Once What Does Not Change Within a Weave
+
+The weaver SHALL parse an advice's pointcut expression once per weave, compose the `commonPointcut` with an advice once per class rather than once per instruction, and resolve a type name to a descriptor once per resolver (INV-INS-168). Three sites repeat work on the path taken for every instruction of every method of every class, multiplied by the number of advices in the descriptor. `DexWeaver.parseCached` (`dex-mutator/.../DexWeaver.java:973-981`) calls `PointcutExpressionParser.parse` on every call although its name has promised a cache since the weaver was written; the call site (`:524`) sits inside the class, method, instruction and advice loops (`:460`, `:476`, `:517`). The composition `new CombinedPC(CombinedPC.Op.AND, perInstructionCommon, pe)` (`:531-532`) allocates an AST node per instruction although both operands are fixed for the class and the advice. `TypeResolver.toDescriptor` (`pointcut-engine/.../TypeResolver.java:107-127`) rescans the imports and, since nested types resolve by existence, probes the class index once per dot of the name at every match.
+
+The repair is memoisation and nothing else: a map from expression text to the parsed expression on the weaver, the composition hoisted out of the instruction loop, and a map from type name to descriptor on the resolver. It is sound because the pointcut AST is built of immutable records and `PointcutMatcher` holds the state of a match in the `Context` it creates per call, so one instance serves every match; it is bounded because a descriptor has a fixed set of advices and a resolver a fixed set of imports; and it is emptied with the object that owns it.
+
+The requirement is about cost, so it is accepted on the woven output rather than on a clock: an APK woven before and after the memo MUST give the same DEXes and the same counters. The wall time is measured and reported beside that identity, because the measurement is the reason the repair exists.
+
+#### Scenario: an advice expression is parsed once
+
+- **WHEN** a DEX with two classes of ten methods each is woven against a descriptor with three advices
+- **THEN** `PointcutExpressionParser.parse` MUST be called at most once per distinct advice expression for that weave
+- **AND** the expression handed to the matcher for a given advice MUST be the same instance at every instruction
+
+#### Scenario: the woven output does not move
+
+- **WHEN** one APK is instrumented with the same descriptor by the weaver without the memo and by the weaver with it
+- **THEN** every `classes*.dex` entry of the two instrumented APKs MUST have the same SHA-256
+- **AND** every counter of `instrument_results.json` MUST be equal
+- **AND** the two wall times MUST be reported side by side
+
+#### Scenario: a type name is resolved once
+
+- **WHEN** `TypeResolver.toDescriptor("KeyStore.ProtectionParameter")` is called twice on the same resolver
+- **THEN** the second call MUST NOT query the class-existence predicate again
+- **AND** both calls MUST return equal descriptors
 
 ### Requirement: Label Codes of the Successor Specification Set
 

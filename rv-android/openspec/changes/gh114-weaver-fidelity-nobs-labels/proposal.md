@@ -19,6 +19,7 @@ This is the gate before the next campaign. It builds on #112 (archived): `instr-
 - **A3 — a before-hook is not bypassed by a branch.** Instructions inserted before a matched call leave the labels that target the call on the original instruction, so control arriving by a branch skips the monitor. Branch and switch targets, and the line-number entry of the call, are moved to the first inserted instruction; exception ranges are not touched; the `if(...)` guard, which relies on the current behaviour, keeps working.
 - **A4 — nested types resolve.** `KeyStore.ProtectionParameter` is resolved as a package, so `KeyStore.getEntry`/`setEntry` are never woven.
 - **A5 — `after` runs when the call throws.** The inline and wrapper paths skip an `after` advice when the matched call throws; AspectJ runs it (`after` = after-finally), and `AfterEmitter`'s own contract promises it. Both paths gain the handler-and-rethrow shape the `after-throwing` path already builds. **BREAKING** for reported counts: adds reports on throwing calls in 58 of the 202 events of `jca_android`.
+- **A6 — the weaver stops redoing work it has already done.** `DexWeaver.parseCached` parses the pointcut expression of an advice again at every instruction of every method of every class, the `commonPointcut` composition allocates one AST node per instruction although it depends only on the class and the advice, and `TypeResolver` resolves the same type name again at every match — a path this change made more expensive, because the nested-type fallback of A4 probes the class index once per dot. Stack sampling of `instr-cli` over one APK puts about nine frames in ten in the pointcut parser; a 19 MB APK took 659.9 s to instrument. The repair is memoisation: the pointcut AST is made of immutable records and the matcher keeps its state in the context it creates per call, so returning the same instance is the same match. Not breaking: the woven DEXes and the counters of `instrument_results.json` are identical before and after, and that identity is how the repair is accepted.
 
 **Specification set `jca_android` — labels, not verdicts.** No new code family is introduced: every label is a new numbered code inside the `-NOBS-` or `-ORDER-` family, described by a new `label` column of `codes.csv`, so every consumer that separates not-observed from accusation keeps working. With one exception stated below, no reported site stops being reported; only the code changes, so that an analysis can tell a violation from a limit of observation. The exception is the per-element trust-manager credit, which accepts an array whose every element a factory issued. `PredicateStore` keeps comparing bound objects by identity.
 
@@ -52,7 +53,7 @@ None.
 
 ### Modified Capabilities
 
-- `instrumentation`: arity enforcement replaces the measure-only contract of INV-INS-122; weaving of methods inherited by framework subtypes and a published drop counter; branch-target preservation for inserted before-hooks; nested-type resolution in pointcut signatures; after-finally semantics for `after` advice on both weaving paths.
+- `instrumentation`: arity enforcement replaces the measure-only contract of INV-INS-122; weaving of methods inherited by framework subtypes and a published drop counter; branch-target preservation for inserted before-hooks; nested-type resolution in pointcut signatures; after-finally semantics for `after` advice on both weaving paths; one parse per advice and one resolution per type name in a weave, with the woven output unchanged.
 - `instrumentation` (continued): the label codes of the successor set within the `-NOBS-` and `-ORDER-` families, the per-element manager credit, the upstream-refusal mark, the evidence keys appended to non-observation envelopes, and the RSA key-size transcription with its `oracle-wart` row.
 - `conformance`: M2 resolves a refused overlap the alphabet map reduces to one label (INV-CONF-18); the MOP lift narrows a trailing `..` by the arity of a conjoined `args(...)` and resolves nested types to binary names (INV-CONF-19).
 - `core`: the identity of a violation record (`unique_msg`, INV-CORE-25) excludes the evidence keys, so a fingerprint that differs per run does not multiply unique counts; `LogcatManager` sizes the device log ring buffer before capture (INV-CORE-64).
@@ -65,9 +66,9 @@ None.
 
 | Module | What changes |
 |---|---|
-| `rvsec-instrumentation-dexlib2/pointcut-engine` | arity check; nested-type resolution (`PointcutMatcher`, `TypeResolver`) |
+| `rvsec-instrumentation-dexlib2/pointcut-engine` | arity check; nested-type resolution and its memo (`PointcutMatcher`, `TypeResolver`) |
 | `rvsec-instrumentation-dexlib2/advice-emitter` | wrapper grouping and drop counter (`WrapperEmitter`); `AfterEmitter` after-finally |
-| `rvsec-instrumentation-dexlib2/dex-mutator` | branch-target and line-entry retargeting (`InstructionInjector`); framework-subtype owners (`DexWeaver`, `AndroidClassIndex`) |
+| `rvsec-instrumentation-dexlib2/dex-mutator` | branch-target and line-entry retargeting (`InstructionInjector`); framework-subtype owners (`DexWeaver`, `AndroidClassIndex`); pointcut parse memo and hoisted composition (`DexWeaver`) |
 | `rvsec-instrumentation-dexlib2/cli` | new counters in the results JSON |
 | `rvsec-mop` (`jca_android/`) | label codes, refused creation twins, per-element credit, upstream-refusal mark, evidence keys, RSA list, `codes.csv` (new `label` column) |
 | `rvsec-core` | new `Property` entries and the fingerprint helper used by the specifications |

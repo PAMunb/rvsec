@@ -54,7 +54,9 @@ GitHub Issue: #114
        13.12–13.17 (conformance component: M2 twin resolution, lift arity and nested names, re-pins),
        13.11 (monitor generation and all gates).
 
-     WAVE 3 — main window, serial: G15 (build, instrument, after sweep, smoke), then 16.2–16.5.
+     WAVE 3 — main window, serial: 15.1 (build and Java tests), then group 17 (weaver cost: parse once,
+       resolve once — its identity check needs an APK woven by the weaver without the memo), then G15
+       (instrument, after sweep, smoke), then 16.2–16.5.
 
      Critical path: 1 -> {2,3,4,6,7,8,9a,9b} -> {12,13a,13b,13c} -> {13d,13e} -> 13.8 -> 13.9 -> 13.10 -> 13.12..13.17 -> 13.11 -> 15 -> 16.2.
      This change touches ~70 files across two repositories — use subagent orchestration (11 + 7 dispatches).
@@ -205,10 +207,19 @@ GitHub Issue: #114
 - [x] 14.2 `rvsec-instrumentation-dexlib2/architecture.md` (`:176` INV-INS-122 → INV-INS-159; A2, A3, A5 behaviour; new counters) and `modules/rv-instrumentation-dexlib2/docs/architecture.md` (`:30`, `:316`), `modules/rv-instrumentation-dexlib2/CLAUDE.md` (`:111`)
 - [x] 14.3 `modules/rv-platform` docs/CLAUDE.md where result processing is described (one pass, release)
 
+## 17. Weaver Cost: Parse Once, Resolve Once (WAVE 3, main window, before 15.2)
+
+- [ ] 17.1 `dex-mutator/.../DexWeaver.java`: `parseCached` (`:973-981`) memoises by expression text on a field cleared when a weave begins, a failed parse included, so no expression is parsed twice in one weave (INV-INS-168, design D19)
+- [ ] 17.2 `DexWeaver` weave loop (`:517-532`): compose the `commonPointcut` with each advice once per class instead of once per instruction; the hoisted path (`perInstructionCommon == null`) is unchanged
+- [ ] 17.3 `pointcut-engine/.../TypeResolver.java`: memoise `toDescriptor` per resolver instance, so the import scan and the nested-type probes of `existingBinaryName` run once per type name
+- [ ] 17.4 Tests: `DexWeaverParseMemoTest` (the same advice yields the same expression instance; a new weave parses again) and `TypeResolverTest.descriptorIsMemoised` (the class-existence predicate is queried once per name); `mvn -o -pl :dex-mutator test` and `-pl :pointcut-engine test` green
+- [ ] 17.5 Identity and cost: re-instrument `de.markusfisch.android.binaryeye_174.apk` with the repaired weaver and compare, against the APK the same descriptor produced before the repair, the SHA-256 of every `classes*.dex` entry and every counter of `instrument_results.json`; record both wall times (659.9 s before) in `evidence/weave_cost.md`
+- [ ] 17.6 Reactor build (JDK 21) green and `mvn -o test` green in `rvsec-instrumentation-dexlib2`; commit by path (`refs #114`)
+
 ## 15. Build, Instrument, Measure and Smoke (WAVE 3, main window)
 
-- [ ] 15.1 Reactor build (JDK 21) green, then `mvn test` for `rvsec-instrumentation-dexlib2` and `rvsec-core` without `-DskipTests`
-- [ ] 15.2 In WAVE 2 (needs 5.3): choose the smoke APKs from `evidence/sweep_before.csv` by the design criteria (TLS client reaching `SSLContext.init`, embedded BouncyCastle, a hooked `Cipher.init` that is a branch target, a `KeyStore.getEntry` call). In WAVE 3, after 15.1: instrument the original APKs through the production path with `jca_android`, naming their source directory in `evidence/smoke_apks.md`
+- [x] 15.1 Reactor build (JDK 21) green, then `mvn test` for `rvsec-instrumentation-dexlib2` and `rvsec-core` without `-DskipTests`
+- [ ] 15.2 In WAVE 2 (needs 5.3): choose the smoke APKs from `evidence/sweep_before.csv` by the design criteria (TLS client reaching `SSLContext.init`, embedded BouncyCastle, a hooked `Cipher.init` that is a branch target, a `KeyStore.getEntry` call). In WAVE 3, after 15.1 and group 17: instrument the original APKs through the production path with `jca_android`, naming their source directory in `evidence/smoke_apks.md`
 - [ ] 15.3 Run `scripts/gh114_weave_sweep.py` on the newly instrumented APKs; `evidence/sweep_after.csv` shows (a)=0, (b)=0, (c)=0 and (d) woven where the call exists; disassemble the monitor DEX of one smoke APK and confirm the after-finally handler in the `KeyAgreement.doPhase` or `SSLContext.init` wrapper (INV-INS-163); commit both sweeps
 - [ ] 15.4 Smoke: `uv run rv-experiment run --tools ape --specification-set jca_android --apks-dir <smoke apks> --timeouts <budget chosen by the researcher> --name gh114_smoke` (the platform manages the emulator); confirm export completes, `errors.csv` has label codes, `vfp` on `-NOBS-` rows over byte arrays and `vcls` on trust-manager rows, `summary.csv` `mop_errors_unique` unaffected by evidence; the platform log shows the `logcat -G 16M` sizing for every task with no WARNING; record in `evidence/smoke.md`
 
