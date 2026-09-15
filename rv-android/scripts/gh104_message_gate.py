@@ -52,6 +52,17 @@ that reads perfectly well:
                             that admits it, and its family from the `site_kind`
                             column the code already carries in `codes.csv`.
 
+  label-vocabulary          every `codes.csv` row carries one `label` from the
+                            closed vocabulary of INV-INS-164, and the label
+                            agrees with the row's family: `sequence`,
+                            `creation-unobserved` and `reuse-after-final` only on
+                            `ORDER`; `not-observed` and the four refinements of it
+                            only on `NOBS`; `violation` on every other family.
+
+  evidence-only-on-nobs     `Evidence.suffix` (the `vfp`/`vcls` keys) is called only
+                            inside the message argument of a report site, and
+                            only at sites whose codes are `NOBS` (INV-INS-166).
+
 On the frozen `jca` the envelope flag is zero by construction: every guard-on-
 field site there reports the same field it guards ("but found ." when the field
 is empty). Those nine sites are reported as `guard-on-field` notes, because they
@@ -102,6 +113,25 @@ CODE_TOKEN = re.compile(r"\bcode=([A-Z0-9][A-Z0-9\-]*)")
 # and `codes.csv` carries the kind in its own column, so the family is read from
 # the row rather than parsed back out of the identifier.
 NOT_OBSERVED_KIND = "NOBS"
+ORDER_KIND = "ORDER"
+
+# The closed vocabulary of the `label` column (INV-INS-164), by the family each
+# label may sit in. A label code is a numbered code inside an existing family, so
+# a label filed under the wrong family would move a report between the
+# not-observed and accusation channels that every family reader keeps apart.
+ORDER_LABELS = {"sequence", "creation-unobserved", "reuse-after-final"}
+NOT_OBSERVED_LABELS = {
+    "not-observed",
+    "platform-default",
+    "upstream-refused",
+    "application-manager",
+    "random-key-material",
+}
+VIOLATION_LABEL = "violation"
+LABELS = ORDER_LABELS | NOT_OBSERVED_LABELS | {VIOLATION_LABEL}
+
+# The evidence helper every `-NOBS-` envelope appends after `msg` (INV-INS-166).
+EVIDENCE_CALL = re.compile(r"\bEvidence\s*\.\s*suffix\s*\(")
 
 # Only the equality form is read. `v != PredicateVerdict.SATISFIED` names a verdict
 # without saying which branch this site is, and a gate that guessed there would
@@ -237,6 +267,83 @@ def _clause_family(mop: MopSpec, event: MopEvent, crysl_dir: Path) -> str | None
     return "CONSTRAINTS-value"
 
 
+def _labels_for_kind(kind: str) -> set[str]:
+    """The labels a code of family `kind` may carry."""
+    if kind == ORDER_KIND:
+        return ORDER_LABELS
+    if kind == NOT_OBSERVED_KIND:
+        return NOT_OBSERVED_LABELS
+    return {VIOLATION_LABEL}
+
+
+def _label_findings(codes: dict[str, dict], has_label_column: bool) -> list[dict]:
+    """`label-vocabulary`: every row carries one label of the vocabulary, agreeing with its family."""
+    if not has_label_column:
+        return [
+            {
+                "kind": "label-vocabulary",
+                "spec": "",
+                "file": "codes.csv",
+                "line": 0,
+                "detail": "codes.csv has no `label` column",
+            }
+        ]
+    findings = []
+    for code, row in sorted(codes.items()):
+        label = (row.get("label") or "").strip()
+        kind = (row.get("site_kind") or "").strip()
+        if label not in LABELS:
+            detail = f"`{code}` carries the label `{label or 'nothing'}`, outside the vocabulary"
+        elif label not in _labels_for_kind(kind):
+            detail = (
+                f"`{code}` is filed under `{kind}` and labelled `{label}`; that family "
+                f"admits {sorted(_labels_for_kind(kind))}"
+            )
+        else:
+            continue
+        findings.append(
+            {
+                "kind": "label-vocabulary",
+                "spec": row.get("spec", ""),
+                "file": "codes.csv",
+                "line": 0,
+                "detail": detail,
+            }
+        )
+    return findings
+
+
+def _evidence_outside_sites(mop: MopSpec, sites: list[dict], path: Path) -> list[dict]:
+    """`evidence-only-on-nobs`, second half: the helper is called only inside report arguments.
+
+    A call anywhere else -- a guard, a transition, an `ensure`/`validate` argument, a
+    local the handler builds -- would let evidence reach a decision, which INV-INS-166
+    forbids. Comment lines are ignored.
+    """
+    uncommented = "\n".join(
+        "" if line.lstrip().startswith("//") else line for line in mop.text.splitlines()
+    )
+    in_sites = sum(
+        len(EVIDENCE_CALL.findall(argument))
+        for site in sites
+        if not site["commented"]
+        for argument in site["arguments"][3:]
+    )
+    total = len(EVIDENCE_CALL.findall(uncommented))
+    if total == in_sites:
+        return []
+    return [
+        {
+            "kind": "evidence-only-on-nobs",
+            "spec": mop.spec,
+            "file": path.name,
+            "line": 0,
+            "detail": f"`Evidence.suffix` is called {total - in_sites} time(s) outside the "
+            "message argument of a report site",
+        }
+    ]
+
+
 def check(directory: Path, crysl_dir: Path | None) -> dict:
     """
     Run the message-property gate over one set and return the report.
@@ -269,8 +376,10 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
     codes: dict[str, dict] = {}
     if codes_path.is_file():
         with codes_path.open(encoding="utf-8", newline="") as handle:
-            for row in csv.DictReader(handle):
+            reader = csv.DictReader(handle)
+            for row in reader:
                 codes[(row.get("code") or "").strip()] = row
+            findings.extend(_label_findings(codes, "label" in (reader.fieldnames or [])))
     else:
         skipped.append(f"code-bijection: {codes_path} does not exist")
 
@@ -279,7 +388,9 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
 
     for path in sorted(directory.glob("*.mop")):
         mop = parse_mop(path)
-        for site in error_sites(mop):
+        sites = error_sites(mop)
+        findings.extend(_evidence_outside_sites(mop, sites, path))
+        for site in sites:
             if site["commented"]:
                 continue  # a report the set holds and does not emit
             event = _enclosing_event(mop, site["line"])
@@ -418,6 +529,26 @@ def check(directory: Path, crysl_dir: Path | None) -> dict:
                             }
                         )
                     site_codes.add(code)
+
+                # -- evidence-only-on-nobs ------------------------------
+                carries_evidence = any(
+                    EVIDENCE_CALL.search(argument) for argument in site["arguments"][3:]
+                )
+                if carries_evidence:
+                    for code in sorted(emitted):
+                        family = (codes.get(code) or {}).get("site_kind", "").strip()
+                        if code in codes and family != NOT_OBSERVED_KIND:
+                            findings.append(
+                                {
+                                    "kind": "evidence-only-on-nobs",
+                                    "spec": mop.spec,
+                                    "file": path.name,
+                                    "line": site["line"],
+                                    "detail": f"`{code}` is filed under `{family}` and its "
+                                    "envelope appends evidence keys, which only a "
+                                    f"`{NOT_OBSERVED_KIND}` envelope may carry",
+                                }
+                            )
 
                 # -- not-observed family --------------------------------
                 branch = _verdict_branch(guard)

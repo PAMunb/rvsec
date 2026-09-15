@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Resolves a simple AspectJ type name (as it appears in a pointcut expression,
@@ -68,6 +69,7 @@ public final class TypeResolver {
     }
 
     private final List<String> imports;
+    private final Predicate<String> classExists;
 
     /**
      * @param imports list as emitted by DescriptorWriter (e.g. {@code "java.util.Iterator"},
@@ -75,7 +77,19 @@ public final class TypeResolver {
      *                {@code "static "} prefix — the resolver strips it during matching.
      */
     public TypeResolver(List<String> imports) {
+        this(imports, s -> false);
+    }
+
+    /**
+     * @param imports     as in {@link #TypeResolver(List)}
+     * @param classExists answers whether a class with the given internal name
+     *                    ({@code /}-separated, nested classes with {@code $}) exists in the
+     *                    framework index or the APK; it lets a dotted name such as
+     *                    {@code KeyStore.ProtectionParameter} resolve to a nested class
+     */
+    public TypeResolver(List<String> imports, Predicate<String> classExists) {
         this.imports = imports == null ? Collections.emptyList() : imports;
+        this.classExists = classExists == null ? s -> false : classExists;
     }
 
     /**

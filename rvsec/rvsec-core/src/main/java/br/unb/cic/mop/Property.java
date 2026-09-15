@@ -89,21 +89,24 @@ public enum Property {
      * acceptance point, {@code :218} writes the array at {@code gtm1}. The reader,
      * {@code SSLContextSpec.mop:231}, asks over the array.
      *
-     * <p>Not to be confused with {@link #GENERATED_TRUST_MANAGERS}, the plural, which no
-     * live set writes: the array edge runs through this constant, and that one survives as
-     * a frozen-set name and a neutral key in {@code PredicateStoreTest}.
+     * <p>Not to be confused with {@link #GENERATED_TRUST_MANAGERS}, the plural, which marks
+     * the individual managers inside that array rather than the array itself.
      */
     GENERATED_TRUST_MANAGER,
     /**
-     * The trust-manager array a monitored {@code TrustManagerFactory} produced.
+     * Each trust manager inside the array a monitored {@code TrustManagerFactory} produced.
      *
-     * <p>No set writes it. The frozen {@code jca/TrustManagerFactorySpec.mop:88} only
-     * {@code remove}s it in the failure handler -- a clearing of a mark nothing ever
-     * set -- and the archived {@code jca_android_bug_predicate} is where the matching
-     * write and the {@code SSLContextSpec} read live. The live {@code jca_android}
-     * wires that edge through {@link PredicateStore} instead, so the constant has no
-     * live producer and no live consumer; {@code PredicateStoreTest} uses it as a
-     * neutral key for the three-valued verdict cases.
+     * <p>The live {@code jca_android} writes it at {@code TrustManagerFactorySpec}'s
+     * {@code gtm1}, once per non-null element, beside the {@link #GENERATED_TRUST_MANAGER}
+     * write over the array. {@code SSLContextSpec}'s {@code init} reads it to credit an array
+     * the store has never seen when the array is non-empty and every element carries the
+     * mark: the rule constrains the managers, and an application that copies an issued
+     * manager into a fresh array passes exactly the manager the factory issued. Key-manager
+     * arrays have no per-element twin.
+     *
+     * <p>The frozen {@code jca/TrustManagerFactorySpec.mop:88} {@code remove}s it in its failure
+     * handler, and {@code PredicateStoreTest} uses it as a neutral key for the three-valued
+     * verdict cases.
      */
     GENERATED_TRUST_MANAGERS,
     GENERATED_KEY_STORE,
@@ -312,5 +315,31 @@ public enum Property {
      * {@code D}: that constant predates this file's naming and is left alone, because renaming it
      * would rewrite sites in three specifications for a letter.
      */
-    GENERATED_SSL_PARAMETERS
+    GENERATED_SSL_PARAMETERS,
+    /**
+     * An object whose producer already reported it, by value or by origin.
+     *
+     * <p>Not a CrySL predicate. It lets a consumer that finds no predicate for the object it
+     * binds say "refused upstream" instead of "not observed": the store has no entry because
+     * the producer refused to write one, not because the object came from where the
+     * instrument cannot see. A chain therefore reports its first failure with that site's own
+     * code and every later link with its {@code upstream-refused} label code.
+     *
+     * <p>Producers in {@code jca_android} mark the object they produce whenever the site calls
+     * {@code addError} with a value or origin code for it ({@code -ORDER-} reports never mark):
+     * {@code SecretKeySpecSpec} ({@code c1}, {@code c2}), {@code GCMParameterSpecSpec} and
+     * {@code IvParameterSpec} ({@code c1}, {@code c2}), {@code PBEKeySpecSpec.c1},
+     * {@code X509EncodedKeySpecSpec.c1}, {@code KeyFactorySpec} ({@code genPublic},
+     * {@code genPrivate}), {@code SecretKeyFactorySpec.gen} and {@code KeyAgreementSpec}
+     * ({@code gs1}, {@code gs2}). The {@code getEncoded()} bridges {@code KeySpec.ge1} and
+     * {@code SecretKeySpec.e1} carry the mark from a marked key to the array it returns.
+     *
+     * <p>Consumers read it with {@code validateAny} in their {@code NOT_OBSERVED} branch, before
+     * choosing the code: {@code CipherSpec.i2}, {@code MacSpec.i1}, {@code IvChainJunction.use},
+     * {@code SecretKeyFactorySpec.gen}, {@code KeyFactorySpec} ({@code genPublic},
+     * {@code genPrivate}), {@code KeyAgreementSpec.dophase}, {@code SignatureSpec.i4},
+     * {@code SecretKeySpecSpec} ({@code c1}, {@code c2}) and {@code X509EncodedKeySpecSpec.c1}.
+     * {@code SecureRandomSpec} and {@code KeyGeneratorSpec} do not mark.
+     */
+    REPORTED_UPSTREAM
 }

@@ -65,14 +65,14 @@ GitHub Issue: #114
 
 ## 1. Shared Contracts (WAVE 0, main window)
 
-- [ ] 1.1 `pointcut-engine/.../AndroidClassIndex.java`: add public `exists(String internalName)` and `methodsInHierarchy(String fqn, String name, boolean isStatic)` on top of `load`/`walkAncestors` (design D2, D4, API Design); unit tests in `AndroidClassIndexHierarchyTest` (declared hit, inherited hit via interface, unknown class → empty/false)
-- [ ] 1.2 `pointcut-engine/.../TypeResolver.java`: add the two-argument constructor `TypeResolver(List<String> imports, Predicate<String> classExists)`; the one-argument constructor delegates with `s -> false`; no behaviour change yet (G2 implements the fallback)
-- [ ] 1.3 `rvsec-core/.../Property.java`: append `REPORTED_UPSTREAM` at the end of the enum with javadoc naming producers and consumers; run `tests/parity/test_gh101_specset_gates.py::test_property_append_only`
-- [ ] 1.4 `rvsec-core/src/main/java/br/unb/cic/mop/eh/Evidence.java`: `suffix(Object)`, `isApplicationDefined(Object, Class<?>)`, `fingerprint(byte[])` (design D10); `EvidenceTest` covering null, `byte[]`, `TrustManager[]` with application and platform classes, any other object (empty suffix), escaping of `'`
-- [ ] 1.5 `rvsec-mop/src/main/resources/jca_android/codes.csv`: add the seventh column `label`; fill existing rows (`-ORDER-` → `sequence`, `-NOBS-` → `not-observed`, every other family → `violation`)
-- [ ] 1.6 `scripts/gh104_message_gate.py`: add checks `label-vocabulary` (INV-INS-164 closed set, family agreement) and `evidence-only-on-nobs` (INV-INS-166); make every reader of `codes.csv` in `scripts/` (`gh109_nobs_channel.py`, `gh104_message_gate.py`, `gh104_diff_harness.py`) read columns by name so the new column is transparent; add tests in `tests/parity/test_gh104_structural_gates.py`
-- [ ] 1.7 Create `openspec/changes/gh114-weaver-fidelity-nobs-labels/fragments/README.md` stating the fragment format (codes rows with the seven columns; one trace file per scenario) used by G6–G9b and consumed by G13a
-- [ ] 1.8 Reactor build (JDK 21) green; commit group 1 by path (`refs #114`)
+- [x] 1.1 `pointcut-engine/.../AndroidClassIndex.java`: add public `exists(String internalName)` and `methodsInHierarchy(String fqn, String name, boolean isStatic)` on top of `load`/`walkAncestors` (design D2, D4, API Design); unit tests in `AndroidClassIndexHierarchyTest` (declared hit, inherited hit via interface, unknown class → empty/false)
+- [x] 1.2 `pointcut-engine/.../TypeResolver.java`: add the two-argument constructor `TypeResolver(List<String> imports, Predicate<String> classExists)`; the one-argument constructor delegates with `s -> false`; no behaviour change yet (G2 implements the fallback)
+- [x] 1.3 `rvsec-core/.../Property.java`: append `REPORTED_UPSTREAM` at the end of the enum with javadoc naming producers and consumers; run `tests/parity/test_gh101_specset_gates.py::test_property_append_only`
+- [x] 1.4 `rvsec-core/src/main/java/br/unb/cic/mop/eh/Evidence.java`: `suffix(Object)`, `isApplicationDefined(Object, Class<?>)`, `fingerprint(byte[])` (design D10); `EvidenceTest` covering null, `byte[]`, `TrustManager[]` with application and platform classes, any other object (empty suffix), escaping of `'`
+- [x] 1.5 `rvsec-mop/src/main/resources/jca_android/codes.csv`: add the seventh column `label`; fill existing rows (`-ORDER-` → `sequence`, `-NOBS-` → `not-observed`, every other family → `violation`)
+- [x] 1.6 `scripts/gh104_message_gate.py`: add checks `label-vocabulary` (INV-INS-164 closed set, family agreement) and `evidence-only-on-nobs` (INV-INS-166); make every reader of `codes.csv` in `scripts/` (`gh109_nobs_channel.py`, `gh104_message_gate.py`, `gh104_diff_harness.py`) read columns by name so the new column is transparent; add tests in `tests/parity/test_gh104_structural_gates.py`
+- [x] 1.7 Create `openspec/changes/gh114-weaver-fidelity-nobs-labels/fragments/README.md` stating the fragment format (codes rows with the seven columns; one trace file per scenario) used by G6–G9b and consumed by G13a
+- [x] 1.8 Reactor build (JDK 21) green; commit group 1 by path (`refs #114`)
 
 ## 2. pointcut-engine: Arity and Nested Types (WAVE 1, subagent G2)
 

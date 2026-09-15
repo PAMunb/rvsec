@@ -9,6 +9,7 @@ import org.objectweb.asm.Type;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -116,6 +117,60 @@ public final class AndroidClassIndex implements AutoCloseable {
                                                   boolean onlyStatic) {
         ClassInfo ci = load(toInternal(classFqn));
         if (ci == null) return Collections.emptyList();
+        return declaredNamed(ci, methodName, onlyStatic);
+    }
+
+    /**
+     * True if {@code android.jar} carries the class whose internal name is
+     * {@code internalName} ({@code /}-separated, nested classes with {@code $}, e.g.
+     * {@code java/security/KeyStore$ProtectionParameter}). Presence and absence are
+     * cached. A malformed name, or no jar, yields {@code false}.
+     */
+    public synchronized boolean exists(String internalName) {
+        return load(internalName) != null;
+    }
+
+    /**
+     * Methods named {@code methodName} that a call on {@code classFqn} resolves to:
+     * the ones {@code classFqn} declares when it declares any, otherwise the ones of the
+     * first ancestor that declares the name — the superclass chain first, then the
+     * interfaces breadth-first. A call through {@code SecretKey.getEncoded()} resolves
+     * here to {@code Key.getEncoded()}, because the interface inherits the method without
+     * redeclaring it. When {@code onlyStatic} is true, only static methods count as a
+     * declaration. Empty when no class of the hierarchy declares the name or the class
+     * is not in android.jar.
+     */
+    public synchronized List<MethodInfo> methodsInHierarchy(String classFqn, String methodName,
+                                                            boolean onlyStatic) {
+        String start = toInternal(classFqn);
+        ClassInfo startInfo = load(start);
+        if (startInfo == null) return Collections.emptyList();
+
+        List<ClassInfo> chain = new ArrayList<>();
+        Set<String> visited = new HashSet<>();
+        for (ClassInfo ci = startInfo; ci != null && visited.add(ci.internalName);
+             ci = load(ci.superInternal)) {
+            List<MethodInfo> declared = declaredNamed(ci, methodName, onlyStatic);
+            if (!declared.isEmpty()) return declared;
+            chain.add(ci);
+        }
+
+        ArrayDeque<String> queue = new ArrayDeque<>();
+        for (ClassInfo ci : chain) queue.addAll(ci.interfaceInternals);
+        while (!queue.isEmpty()) {
+            String iface = queue.poll();
+            if (!visited.add(iface)) continue;
+            ClassInfo ci = load(iface);
+            if (ci == null) continue;
+            List<MethodInfo> declared = declaredNamed(ci, methodName, onlyStatic);
+            if (!declared.isEmpty()) return declared;
+            queue.addAll(ci.interfaceInternals);
+        }
+        return Collections.emptyList();
+    }
+
+    private static List<MethodInfo> declaredNamed(ClassInfo ci, String methodName,
+                                                  boolean onlyStatic) {
         List<MethodInfo> out = new ArrayList<>();
         for (MethodInfo m : ci.methods) {
             if (!m.name.equals(methodName)) continue;

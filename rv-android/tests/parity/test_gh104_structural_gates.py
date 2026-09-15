@@ -536,3 +536,121 @@ def test_jca_android_gates_exit_zero_and_say_which_gate_withdrew():
     assert report["skipped"] == []
     assert "predicate_graph.csv" in report["gates"]["G-PRED"]["superseded"]
     assert report["superseded"] == [report["gates"]["G-PRED"]["superseded"]]
+
+
+# --------------------------------------------------------------------------
+# label-vocabulary and evidence-only-on-nobs on synthetic sets (INV-INS-164, INV-INS-166)
+# --------------------------------------------------------------------------
+
+_SYNTHETIC_MOP = """package mop;
+
+import javax.crypto.spec.SecretKeySpec;
+
+import br.unb.cic.mop.eh.*;
+import br.unb.cic.mop.PredicateStore;
+import br.unb.cic.mop.PredicateVerdict;
+import br.unb.cic.mop.Property;
+
+SyntheticSpec(SecretKeySpec spec) {
+
+   event c after(byte[] raw) returning(SecretKeySpec s):
+    call(public SecretKeySpec.new(byte[], String)) && args(raw, *) {
+      PredicateVerdict v = PredicateStore.instance().validateAny(Property.PREPARED_KEY_MATERIAL, raw);
+      if (v == PredicateVerdict.NOT_OBSERVED) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SyntheticSpec", "" + __LOC,
+             "v=1 code=SYNTHETIC-NOBS-00 ev=" + __EVENTNAME + " obj=SecretKeySpec val='' exp='' msg='not observed'"__EVIDENCE__));
+      }
+   }
+
+   ere : c
+
+   @fail {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SyntheticSpec", "" + __LOC,
+          "v=1 code=SYNTHETIC-ORDER-00 ev=" + __EVENTNAME + " obj=SecretKeySpec val='' exp='' msg='sequence'"__ORDER_EVIDENCE__));
+      __RESET;
+   }
+}
+"""
+
+
+def _synthetic_set(
+    tmp_path: Path,
+    *,
+    nobs_label: str = "not-observed",
+    order_label: str = "sequence",
+    header_label: bool = True,
+    evidence: bool = True,
+    order_evidence: bool = False,
+) -> Path:
+    import csv
+
+    set_dir = tmp_path / "set"
+    set_dir.mkdir()
+    text = _SYNTHETIC_MOP.replace("__EVIDENCE__", " + Evidence.suffix(raw)" if evidence else "")
+    text = text.replace("__ORDER_EVIDENCE__", " + Evidence.suffix(spec)" if order_evidence else "")
+    (set_dir / "SyntheticSpec.mop").write_text(text, encoding="utf-8")
+    lines = text.splitlines()
+    nobs_line = next(i for i, line in enumerate(lines, 1) if "UnsatisfiedConstraint" in line)
+    order_line = next(i for i, line in enumerate(lines, 1) if "InvalidSequence" in line)
+    header = ["spec", "code", "error_type", "site_kind", "event", "file_line"]
+    rows = [
+        ["SyntheticSpec", "SYNTHETIC-NOBS-00", "UnsatisfiedConstraint", "NOBS", "c",
+         f"SyntheticSpec.mop:{nobs_line}", nobs_label],
+        ["SyntheticSpec", "SYNTHETIC-ORDER-00", "InvalidSequenceOfMethodCalls", "ORDER", "@fail",
+         f"SyntheticSpec.mop:{order_line}", order_label],
+    ]
+    with (set_dir / "codes.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(header + (["label"] if header_label else []))
+        for row in rows:
+            writer.writerow(row if header_label else row[:-1])
+    return set_dir
+
+
+def _gate_check():
+    sys.path.insert(0, str(SCRIPTS))
+    from gh104_message_gate import check
+
+    return check
+
+
+def test_message_gate_accepts_labels_that_agree_with_their_family(tmp_path):
+    report = _gate_check()(_synthetic_set(tmp_path, nobs_label="platform-default",
+                                          order_label="creation-unobserved"), None)
+    assert "label-vocabulary" not in report["counts"], report["findings"]
+    assert "evidence-only-on-nobs" not in report["counts"], report["findings"]
+
+
+def test_message_gate_rejects_a_label_outside_the_vocabulary(tmp_path):
+    report = _gate_check()(_synthetic_set(tmp_path, nobs_label="trust-all"), None)
+    assert report["counts"].get("label-vocabulary") == 1, report["findings"]
+
+
+def test_message_gate_rejects_a_label_in_the_wrong_family(tmp_path):
+    report = _gate_check()(_synthetic_set(tmp_path, nobs_label="creation-unobserved",
+                                          order_label="upstream-refused"), None)
+    assert report["counts"].get("label-vocabulary") == 2, report["findings"]
+
+
+def test_message_gate_requires_the_label_column(tmp_path):
+    report = _gate_check()(_synthetic_set(tmp_path, header_label=False), None)
+    assert report["counts"].get("label-vocabulary") == 1, report["findings"]
+
+
+def test_message_gate_rejects_evidence_on_a_non_nobs_site(tmp_path):
+    report = _gate_check()(_synthetic_set(tmp_path, order_evidence=True), None)
+    assert report["counts"].get("evidence-only-on-nobs") == 1, report["findings"]
+
+
+def test_message_gate_rejects_evidence_read_outside_a_report(tmp_path):
+    set_dir = _synthetic_set(tmp_path)
+    mop = set_dir / "SyntheticSpec.mop"
+    mop.write_text(
+        mop.read_text(encoding="utf-8").replace(
+            "   ere : c", "   event d before(): call(* SecretKeySpec.getEncoded()) "
+            "&& condition(Evidence.suffix(spec).isEmpty()) {}\n\n   ere : c"
+        ),
+        encoding="utf-8",
+    )
+    report = _gate_check()(set_dir, None)
+    assert report["counts"].get("evidence-only-on-nobs") == 1, report["findings"]
