@@ -32,9 +32,15 @@ Lendo esses maus usos um a um, a conclusão é que **a contagem mistura coisas m
 
 Três coisas atenuam o susto:
 
-1. **A comparação entre ferramentas parece resistir.** A fração de acusações sustentadas é quase a
-   mesma para todas (entre 0,22 e 0,25) e para os três orçamentos. O ruído não parece favorecer
-   ninguém. Isso ainda precisa ser confirmado reajustando o modelo estatístico com a contagem limpa.
+1. **Nenhuma conclusão sobre ferramentas se inverte, mas as diferenças encolhem.** Refizemos o
+   modelo estatístico do artigo contando só os maus usos sustentados (seção 10):
+   - **se mantêm:** mais tempo dá mais maus usos (+14 % em 180 s, +21 % em 300 s), e o `ape` fica
+     acima das demais ferramentas;
+   - **ficam mais fracas:** as desvantagens dos dois `droidbot` "naive" e do `qtesting` em relação
+     ao `monkey`, que continuam na mesma direção, mas não passam mais na correção para comparações
+     múltiplas;
+   - **desaparecem:** as desvantagens do `ares` e do `humanoid`, que vinham de acusações que não se
+     sustentam.
 2. **O problema não é novo nem exclusivo do `jca_android`.** O `jca`, usado no artigo, tinha
    totais parecidos (28 831 maus usos nos mesmos apps), mas uma composição ainda mais ruidosa:
    - cerca de 43 % eram listas das regras que recusam o jeito correto de fazer no Android;
@@ -60,13 +66,12 @@ eles acrescentam de falso pode ser retirado dos dados sem rodar nada de novo**.
 **Recomendação:**
 
 - não rodar a `estudo02` de novo;
-- limpar a contagem na análise;
+- limpar a contagem na análise, como já foi feito para o modelo (seção 10);
 - tratar o `NOBS` com um catálogo de vereditos por trecho de código;
-- reajustar o modelo estatístico como teste de sensibilidade;
 - preparar os consertos do instrumentador e do gerador de relatórios, que estourou a memória, para
   valerem nas próximas campanhas.
 
-O escopo desses consertos está no Apêndice A. As decisões pedidas à equipe estão na seção 12.
+O escopo desses consertos está no Apêndice A. As decisões pedidas à equipe estão na seção 13.
 
 ---
 
@@ -363,7 +368,7 @@ Documentada em 27/08 (`docs/20260827_divergencia_after_dexlib2_ajc.md`):
 - **Superfície:** 58 dos 202 eventos do `jca_android`.
 - **Efeito nesta campanha:** não medido.
 
-Não é um conserto trivial, porque muda o que é acusado. É uma decisão (seção 12).
+Não é um conserto trivial, porque muda o que é acusado. É uma decisão (seção 13).
 
 ### 6.6 Não é do monitor
 
@@ -404,6 +409,18 @@ como condição do evento `Cipher.init`. No monitor gerado, uma condição falsa
   (tink `AesSiv`, `AndroidKeystoreAesGcm`, `PrfAesCmac`).
 
 O `jca_android` mudou isso de propósito, e o comentário da spec explica o motivo.
+
+**O grupo B também já está corrigido no `jca_android`.**
+- **Algoritmo vazio.** O `jca` guardava o algoritmo numa variável preenchida pelo evento do
+  `getInstance`. O `jca_android` pergunta ao próprio objeto no momento do uso (`mf.getAlgorithm()`,
+  `jca_android/TrustManagerFactorySpec.mop:122-124`) e aceita os apelidos do Android ("X509" = PKIX).
+  Na `estudo02`, das 19 448 linhas de acusação de valor (algoritmo, protocolo, tamanho de chave),
+  **nenhuma tem valor vazio**, e o `TrustManagerFactory` não tem nenhuma acusação de algoritmo.
+- **Grupo A.** As listas passaram a aceitar os valores corretos da plataforma, como "TLS",
+  `AndroidKeyStore` e `BKS`.
+
+O que ainda aparece nos mesmos métodos do okhttp e do ktor é outra coisa: o disparo duplo (seção 6.1)
+e o `init(null)` lido como não observado (seção 4.2).
 
 **Então as specs `jca` estavam erradas?** A resposta depende da pergunta:
 
@@ -479,7 +496,86 @@ O `getEncoded` não entra aqui: ele só cria acusação falsa, nunca esconde uma
 Onde deu para medir, esse lado ausente foi pequeno. No código de app, o único ponto afetado que
 executou foi o do `aegis`, e em 4 de 6 execuções um mau uso sumiu.
 
-## 10. Como tratar o `NOBS`
+## 10. O modelo refeito com a contagem limpa
+
+### O que foi feito
+
+O artigo compara as ferramentas com um modelo estatístico:
+- **O que se conta:** uma linha por execução, com o número de maus usos distintos que ela achou.
+- **O que explica a contagem:** a ferramenta (referência: `monkey`), o orçamento (referência: 60 s)
+  e o tamanho do app em código que alcança APIs monitoradas.
+- **Tipo de modelo:** binomial negativo, com erros-padrão agrupados por app e correção de Holm sobre
+  as 10 comparações com o `monkey`.
+- **Leitura:** cada ferramenta ganha uma razão de taxas (IRR). 0,85 quer dizer "acha 15 % menos que o
+  `monkey`, com o resto igual".
+
+Refizemos o **mesmo** modelo trocando só o que se conta:
+
+| desfecho | maus usos | execuções com zero | apps com algum |
+|---|---:|---:|---:|
+| bruto (o do veredito de 14/09) | 27 068 | 61,1 % | 91 |
+| sustentado pelas regras | 6 278 | 82,0 % | 50 |
+| sustentado sem os 379 discutíveis | 5 899 | 82,0 % | 50 |
+| relevante para segurança | 1 572 | 95,3 % | 14 |
+
+Como foi feito:
+1. **Arquivos limpos.** `experimento-estudo02/scripts/desfechos_sustentados.py` gera
+   `errors_sustentado.csv` e `errors_relevante.csv` a partir do `errors.csv`, que não muda.
+2. **Contagem por execução.** O script conta os maus usos de cada arquivo. Antes de seguir, ele
+   confere que a mesma contagem feita no `errors.csv` original reproduz a do modelo original. Bateu
+   nas 16 137 execuções.
+3. **Modelo.** `rq1_estudo02.py` ganhou a opção `--outcome`. Sem ela, a saída continua idêntica, byte
+   a byte, à do veredito.
+4. **Resultados:** `docs/20260915_modelo_rq1_desfechos.md` (lado a lado) e
+   `docs/20260915_modelo_rq1_sustentado.txt` (completo, com as sensibilidades).
+
+**A regra de leitura foi fixada antes de rodar.** Uma conclusão se mantém quando a razão fica do
+mesmo lado de 1 **e** cada estimativa cai dentro do intervalo de 95 % da outra. O desfecho sustentado
+tem um quarto dos casos, então os intervalos alargam: perder significância com intervalos que se
+sobrepõem é menos dado, não efeito diferente.
+
+### O que mudou e o que não mudou
+
+**Orçamento: se mantém.** Mais tempo dá mais maus usos sustentados: +14 % em 180 s e +21 % em 300 s,
+com significância. No bruto, +17 % e +25 %.
+
+**Ferramentas contra o `monkey`: nenhuma troca de lado, e nenhuma passa mais em Holm.** No bruto,
+quatro passavam.
+
+| ferramenta | IRR bruto | IRR sustentado | leitura |
+|---|---:|---:|---|
+| `droidbot` bfs naive | 0,808 | 0,883 | continua abaixo (intervalo sem o 1, sem correção); não passa em Holm |
+| `droidbot` dfs naive | 0,808 | 0,874 | idem |
+| `qtesting` | 0,764 | 0,855 | idem; e some quando se tiram as execuções que a própria ferramenta interrompeu, como já acontecia no bruto |
+| `ares` | 0,912 | 0,973 | **a desvantagem desaparece**: a estimativa bruta cai fora do intervalo do sustentado |
+| `humanoid` | 0,885 | 0,969 | **idem** |
+
+**`ape` acima das outras ferramentas: a direção se mantém contra as nove.** Continua significativo,
+sem correção, contra sete delas. Contra `ares` (p 0,055) e `droidmate` (p 0,13) já não é. Os
+tamanhos diminuem: contra o `qtesting`, a razão cai de 1,34 para 1,22.
+
+**Os discutíveis não pesam.** Tirar os 379 dá praticamente o mesmo resultado, então a classificação
+deles não decide nada.
+
+**O tamanho do app perde o efeito.** A razão da covariável vai de 1,135 para 1,010. A associação "app
+maior, mais maus usos" vinha das acusações que não se sustentam.
+
+**O desfecho "relevante" não compara ferramentas.**
+- Em 6 dos 14 apps, o mau uso relevante aparece em 99 a 100 % das execuções, sempre com a mesma
+  contagem: `myexpenses`, `redreader`, `dsub2000`, `feeder`, `passportreader`, `metadataremover`.
+- Em outros 2, aparece em 76 a 81 % das execuções: `nextcloudcookbook` e `glpi`.
+
+É código que roda na abertura do app, e qualquer ferramenta o alcança: cada ferramenta acha entre 139
+e 159. Esse desfecho mede o app, não a ferramenta, e fica só descritivo.
+
+**Em uma frase:** o ruído não inverte nenhuma ferramenta, mas **infla as diferenças**. Com a contagem
+limpa, as ferramentas ficam mais parecidas entre si, duas desvantagens desaparecem, e continuam de pé
+o efeito do orçamento e a posição do `ape`.
+
+**Ressalva:** o desfecho sustentado herda a classificação da reanálise, inclusive os pontos da seção
+14 que não foram conferidos um a um.
+
+## 11. Como tratar o `NOBS`
 
 A proposta é tratar na **análise**, não no monitor. O `NOBS` é honesto: diz exatamente o que o
 monitor sabe. O erro foi somá-lo em "mau uso". Três camadas:
@@ -488,8 +584,10 @@ monitor sabe. O erro foi somá-lo em "mau uso". Três camadas:
 - **Bruto:** como hoje. Serve para comparar com o artigo.
 - **Sustentado pelas regras:** violações sem artefatos e sem cascata, mais os `NOBS` julgados mau
   uso real.
-- **Relevante para segurança:** 1 572 maus usos em só 14 apps. É esparso demais para o modelo
-  estatístico por ferramenta; usar de forma descritiva.
+- **Relevante para segurança:** 1 572 maus usos em só 14 apps. Não separa ferramentas (seção 10);
+  usar de forma descritiva.
+
+A camada 1 já está implementada para esta campanha (seção 10).
 
 **Camada 2 — um catálogo de vereditos por trecho de código, versionado como dado.**
 - A chave é (classe, método, spec, código), com a versão da biblioteca quando for o caso.
@@ -518,7 +616,7 @@ As camadas 1 e 2 mudam só a análise. A camada 3 e a ideia **mudam o que o moni
 deveriam ser medidas numa rodada à parte, sem misturar com os consertos do instrumentador. Misturar
 impede saber quanto cada mudança contribuiu.
 
-## 11. Rodar a `estudo02` de novo, ou consertar para as próximas?
+## 12. Rodar a `estudo02` de novo, ou consertar para as próximas?
 
 **Proporção antes de tudo:** os defeitos do instrumentador respondem por cerca de 3 % dos maus usos.
 A massa grande, os 64 % de código correto invisível, **não é defeito do instrumentador**, e rodar de
@@ -545,7 +643,7 @@ novo com ele consertado não a reduz.
 
 ### Opção 2 — limpar na análise agora, consertar para as próximas campanhas
 
-- A `estudo02` fica como está e é lida com os três desfechos (seção 10).
+- A `estudo02` fica como está e é lida com os três desfechos (seções 10 e 11).
 - Os consertos se validam **sem campanha**, porque os quatro defeitos são visíveis no APK
   instrumentado. A verificação é estática e determinística e roda em horas. Dá para contar antes e
   depois (Apêndice A).
@@ -560,12 +658,18 @@ novo com ele consertado não a reduz.
 3. A próxima campanha vale a pena quando houver outro motivo para rodar: o próximo estudo, ou as
    mudanças de spec do `NOBS`, medidas à parte.
 
-## 12. Decisões pedidas à equipe
+## 13. Decisões pedidas à equipe
 
-1. **Desfecho da `estudo02`.** Adotar o "sustentado pelas regras" como leitura principal, com o bruto
-   ao lado para comparar com o artigo?
-2. **Reajuste do modelo.** Reajustar o modelo binomial negativo com o desfecho sustentado, como teste
-   de sensibilidade do ranking das ferramentas? É só análise, sem campanha.
+1. **Desfecho da `estudo02`.** Adotar o "sustentado pelas regras" (6 278) como leitura principal,
+   com o bruto ao lado e a partição da seção 3 explícita? Se o texto disser "problema de segurança",
+   o número é o relevante (1 572), que é só descritivo.
+2. **Conclusões sobre ferramentas.** Aceitar a leitura da seção 10?
+   - nenhuma comparação com o `monkey` passa em Holm no desfecho sustentado;
+   - as desvantagens do `ares` e do `humanoid` desaparecem;
+   - orçamento e `ape` se mantêm.
+
+   Isso muda o que o veredito de 14/09 diz sobre `ares` e `qtesting`; o veredito comitado não foi
+   alterado.
 3. **Catálogo de vereditos.** Transformar os vereditos por trecho de código num artefato versionado,
    aplicado pela consolidação das próximas campanhas?
 4. **Rodar de novo ou não.** Confirmar a opção 2 (não rodar a `estudo02` de novo)?
@@ -578,7 +682,7 @@ novo com ele consertado não a reduz.
 8. **Mudanças de spec para o `NOBS`** (anotação por elemento, código próprio para `null`). Levar para
    uma rodada de medição separada?
 
-## 13. O que não está verificado
+## 14. O que não está verificado
 
 - **Os 956 e os 572.** A classificação de "objeto sem evento de criação" e de "reuso legal" foi feita
   por spec e classe. Os trechos foram lidos, mas os 6 710 maus usos do lado não-`NOBS` não foram
@@ -594,12 +698,16 @@ novo com ele consertado não a reduz.
   - Não foi medido como o ruído do `jca` se distribui entre as ferramentas.
 - **O CogniCrypt.** Não conferimos se o código lido e a versão 5.0.1 são idênticos nos trechos
   citados.
-- **O modelo estatístico** ainda não foi reajustado com o desfecho restrito.
+- **O `jca` no modelo.** O modelo com a contagem limpa foi refeito só para a `estudo02`. Como o `jca`
+  está fora de uso, não foi feito para o artigo.
 
-Um documento anterior precisa de leitura com ressalva: a seção 4 do veredito de 14/09 atribui o salto
-de linhas de `TrustManagerFactory`, `KeyManagerFactory` e `SecureRandom` à verbosidade do conjunto de
-specs. Para essas três specs, três em cada quatro linhas são o disparo duplo. O veredito comitado não
-foi alterado.
+O veredito de 14/09 precisa de leitura com ressalva em dois pontos. O veredito comitado não foi
+alterado.
+- **Seção 4:** atribui o salto de linhas de `TrustManagerFactory`, `KeyManagerFactory` e
+  `SecureRandom` à verbosidade do conjunto de specs. Para essas três specs, três em cada quatro linhas
+  são o disparo duplo.
+- **Conclusão sobre `ares` e `qtesting` abaixo do `monkey`:** vale para a contagem bruta. Na contagem
+  sustentada, a do `ares` desaparece e a do `qtesting` não passa em Holm (seção 10).
 
 ---
 
@@ -773,4 +881,6 @@ APKs instrumentados. Assim, o efeito de cada um é conhecido antes de qualquer c
 | Relatórios do CogniCrypt sobre o corpus | `rvsec-dataset/cognicrypt/*.csv` |
 | Divergência do monitor "depois" | `docs/20260827_divergencia_after_dexlib2_ajc.md` |
 | Regenerador de tabelas | `experimento-estudo02/scripts/regenerate_tables.py` |
+| Modelo com a contagem limpa | `experimento-estudo02/docs/20260915_modelo_rq1_desfechos.md`, `20260915_modelo_rq1_sustentado.txt`; scripts `desfechos_sustentados.py` e `rq1_estudo02.py --outcome` |
+| Arquivos de acusação limpos e contagens por execução | `data/results/estudo02_consolidado/{errors_sustentado,errors_relevante,per_task_desfechos}.csv` (fora do git; regenerados pelo script) |
 | Dados da campanha | `data/results/estudo02_consolidado/` |

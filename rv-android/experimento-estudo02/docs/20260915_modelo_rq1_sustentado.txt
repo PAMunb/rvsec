@@ -1,0 +1,103 @@
+## GLM — negative binomial regression on estudo02 (article spec, rq1_jca.py)
+
+### model specification
+  outcome (primary)  : mop_sustentado — per-run nunique(class, method, spec) over the misuses sustained by the rules (NOBS real misuse + genuine per rule; errors_sustentado.csv)
+  observations       : 1 row = apk x tool x timeout x rep; N = 16137
+  formula            : mop_sustentado ~ C(timeout) + C(tool, Treatment('monkey')) + log(sa_methods_reaches_mop)
+  estimator          : sm.NegativeBinomial (NB2), alpha estimated by ML
+  standard errors    : cluster-robust by apk (163 clusters)
+  size covariate     : sa_methods_reaches_mop from per_apk_static.csv (campaign .apk.json, jca_android targets); min 1, median 996, max 25136
+  dispersion context : var/mean = 3.54 (mean 0.39, var 1.38); zeros = 13226/16137 (82.0%); total = 6278
+  admissibility      : {'admissivel': 15650, 'parada_ferramenta': 249, 'estrutural': 171, 'lancamento_externo': 45, 'inadmissivel': 22}
+  interpretation     : associative (not causal); IRR = exp(beta), reference tool = monkey, reference timeout = 60s
+
+### alpha (overdispersion, primary model)
+  alpha = 6.0861   cluster-robust 95% CI [2.5491, 9.6232]
+  LR NB vs Poisson = 8439.40   p (0.5*chi2_1) = <1e-300
+
+### coefficients — primary model (mop_sustentado)
+  term                                    coef   rob_SE        z          p   CI95_lo   CI95_hi       IRR    IRR_lo    IRR_hi
+  Intercept                            -1.0601   0.8240    -1.29     0.1983   -2.6752    0.5550    0.3464    0.0689    1.7419
+  timeout[180]                          0.1305   0.0370     3.52   4.28e-04    0.0579    0.2030    1.1393    1.0596    1.2251
+  timeout[300]                          0.1896   0.0494     3.84   1.25e-04    0.0927    0.2865    1.2088    1.0972    1.3318
+  tool[ape]                             0.0438   0.0322     1.36     0.1744   -0.0194    0.1069    1.0447    0.9808    1.1128
+  tool[ares]                           -0.0274   0.0339    -0.81     0.4204   -0.0939    0.0392    0.9730    0.9104    1.0400
+  tool[droidbot:bfs_greedy]            -0.0660   0.0482    -1.37     0.1709   -0.1604    0.0284    0.9362    0.8518    1.0289
+  tool[droidbot:bfs_naive]             -0.1241   0.0604    -2.05     0.0400   -0.2424   -0.0057    0.8833    0.7847    0.9943
+  tool[droidbot:dfs_greedy]            -0.0684   0.0551    -1.24     0.2147   -0.1765    0.0397    0.9339    0.8382    1.0405
+  tool[droidbot:dfs_naive]             -0.1347   0.0631    -2.14     0.0326   -0.2583   -0.0111    0.8739    0.7723    0.9889
+  tool[droidmate]                      -0.0202   0.0468    -0.43     0.6662   -0.1120    0.0716    0.9800    0.8940    1.0742
+  tool[fastbot]                        -0.0676   0.0531    -1.27     0.2033   -0.1718    0.0365    0.9346    0.8422    1.0372
+  tool[humanoid]                       -0.0319   0.0323    -0.99     0.3235   -0.0951    0.0314    0.9686    0.9093    1.0319
+  tool[qtesting]                       -0.1569   0.0781    -2.01     0.0445   -0.3099   -0.0039    0.8548    0.7335    0.9961
+  log(sa_methods_reaches_mop)           0.0104   0.1123     0.09     0.9259   -0.2096    0.2305    1.0105    0.8109    1.2592
+  alpha (dispersion)                    6.0861   1.8046     3.37   7.45e-04    2.5491    9.6232         -         -         -
+  converged = True   llf = -11892.33   AIC = 23814.66   BIC = 23929.99
+
+### Holm-adjusted p-values for the 10 tool contrasts (vs monkey)
+  tool                            p_raw     p_holm  reject@0.05
+  tool[droidbot:dfs_naive]       0.0326     0.3262  no
+  tool[droidbot:bfs_naive]       0.0400     0.3596  no
+  tool[qtesting]                 0.0445     0.3596  no
+  tool[droidbot:bfs_greedy]      0.1709     1.0000  no
+  tool[ape]                      0.1744     1.0000  no
+  tool[fastbot]                  0.2033     1.0000  no
+  tool[droidbot:dfs_greedy]      0.2147     1.0000  no
+  tool[humanoid]                 0.3235     1.0000  no
+  tool[ares]                     0.4204     1.0000  no
+  tool[droidmate]                0.6662     1.0000  no
+
+### zeros: observed vs expected (primary model)
+  observed = 13226   expected (NB2) = 13224.8   obs/exp = 1.000
+
+### omnibus Wald test: tool x timeout interaction (cluster-robust)
+  chi2 = 17.85   df = 20   p = 0.5972
+
+### sensitivity analyses (primary outcome)
+  (s1) excluding inadmissible runs (C2/C4/C5 not in a declared category) -> N = 16115;  alpha = 6.0839
+  (s2) excluding inadmissible + tool stop + foreign launcher (keeps admissible and structural zero) -> N = 15821;  alpha = 6.1743
+  (s3) admissible runs only -> N = 15650;  alpha = 6.0952
+  (s4) excluding all-cov-zero runs (article's sensitivity i) -> N = 15965;  alpha = 6.0082
+  (s5) offset log(tool_seconds) — exposure is the tool's own time, not the budget (M1) -> N = 16137;  alpha = 6.0483
+  (s6) pure offset log(sa_methods_reaches_mop) instead of covariate (article's iii) -> N = 16137;  alpha = 21.8841
+
+  IRR comparison (focal terms; '*' = p < 0.05 raw, cluster-robust)
+  term                             main         s1         s2         s3         s4         s5         s6
+  timeout[180]                   1.139*     1.138*     1.156*     1.156*     1.139*     0.426*     1.084 
+  timeout[300]                   1.209*     1.207*     1.232*     1.233*     1.209*     0.279*     1.179 
+  tool[ape]                      1.045      1.044      1.044      1.044      1.045      1.044      1.034 
+  tool[ares]                     0.973      0.980      1.004      1.004      0.973      1.002      0.892 
+  tool[droidbot:bfs_greedy]      0.936      0.936      0.927      0.927      0.936      0.937      0.942 
+  tool[droidbot:bfs_naive]       0.883*     0.885*     0.909      0.909      0.883*     0.892      0.831 
+  tool[droidbot:dfs_greedy]      0.934      0.933      0.925      0.925      0.934      0.935      0.849 
+  tool[droidbot:dfs_naive]       0.874*     0.874*     0.936      0.936      0.874*     0.911      0.828 
+  tool[droidmate]                0.980      0.979      0.980      0.980      0.980      0.980      0.921 
+  tool[fastbot]                  0.935      0.935      0.935      0.935      0.935      0.925      0.986 
+  tool[humanoid]                 0.969      0.968      0.959      0.959      0.969      0.969      1.017 
+  tool[qtesting]                 0.855*     0.853*     0.853*     0.967      0.968      0.841*     0.946 
+  log(sa_methods_reaches_mop)     1.010      1.010      1.007      1.009      1.012      1.012         -- 
+
+  Holm (tool contrasts) reject@0.05 per fit:
+    main  none
+    s1    none
+    s2    none
+    s3    none
+    s4    none
+    s5    none
+    s6    none
+  main-significant terms: timeout[180], timeout[300], tool[droidbot:bfs_naive], tool[droidbot:dfs_naive], tool[qtesting]
+  direction changed: timeout[180] in s5, timeout[300] in s5
+  significance lost: timeout[180] in s6, timeout[300] in s6, tool[droidbot:bfs_naive] in s2, tool[droidbot:bfs_naive] in s3, tool[droidbot:bfs_naive] in s5, tool[droidbot:bfs_naive] in s6, tool[droidbot:dfs_naive] in s2, tool[droidbot:dfs_naive] in s3, tool[droidbot:dfs_naive] in s5, tool[droidbot:dfs_naive] in s6, tool[qtesting] in s3, tool[qtesting] in s4, tool[qtesting] in s6
+
+### ape against each non-reference arm (primary model; Wald, cluster-robust, p raw)
+  contrast                          article ratio  estudo02 IRR          p
+  ape vs ares                                  --         1.074     0.0549
+  ape vs droidbot:bfs_greedy                   --         1.116     0.0227
+  ape vs droidbot:bfs_naive                    --         1.183     0.0062
+  ape vs droidbot:dfs_greedy                   --         1.119     0.0397
+  ape vs droidbot:dfs_naive                    --         1.195     0.0054
+  ape vs droidmate                             --         1.066     0.1330
+  ape vs fastbot                               --         1.118     0.0204
+  ape vs humanoid                              --         1.079     0.0382
+  ape vs qtesting                              --         1.222     0.0098
+

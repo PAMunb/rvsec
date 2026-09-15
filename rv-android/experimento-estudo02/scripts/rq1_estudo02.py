@@ -16,7 +16,16 @@ the columns come from:
 - the admissibility `category` column of `per_task.csv` decides the sensitivity subsets; the
   main model, like the article's, keeps every run.
 
+`--outcome` swaps the counted misuses and nothing else. The default is `mop_unique4`, every
+misuse the monitor reported. The other outcomes are the same per-run count taken over the
+misuses the re-analysis of 15/09 sustained (`docs/20260915_reanalise_acusacoes.md`), read from
+`per_task_desfechos.csv`, which `desfechos_sustentados.py` writes. Formula, clustering, Holm and
+the admissibility sensitivities are identical. The sections that only make sense for the raw
+count are skipped for them: the event count, the seven-part key, and the article's IRRs, which
+answer to the raw `jca` count.
+
     uv run python experimento-estudo02/scripts/rq1_estudo02.py --out experimento-estudo02/docs/<data>_modelo_rq1.txt
+    uv run python experimento-estudo02/scripts/rq1_estudo02.py --outcome mop_sustentado --out experimento-estudo02/docs/<data>_modelo_rq1_sustentado.txt
 """
 import argparse
 import re
@@ -41,6 +50,19 @@ RHS_NO_COV = "C(timeout) + C(tool, Treatment('monkey'))"
 log = np.log
 COV_COLS = ["cov_act", "cov_class", "cov_method", "cov_reachable",
             "cov_reaches_target", "cov_directly_reaches_target"]
+RAW = "mop_unique4"
+#: Outcome column -> how its "outcome (primary)" line reads. All but RAW come from DESFECHOS.
+OUTCOMES = {
+    RAW: "mop_unique4 — per-run nunique(class, method, spec), the article's key,"
+         " recounted from the logcat (per_task.csv)",
+    "mop_sustentado": "mop_sustentado — per-run nunique(class, method, spec) over the misuses sustained by"
+                      " the rules (NOBS real misuse + genuine per rule; errors_sustentado.csv)",
+    "mop_sustentado_sem_discutivel": "mop_sustentado_sem_discutivel — mop_sustentado without the 379"
+                                     " debatable genuine misuses",
+    "mop_relevante": "mop_relevante — per-run nunique(class, method, spec) over the security-relevant"
+                     " misuses (NOBS real misuse + genuine relevant + debatable; errors_relevante.csv)",
+}
+DESFECHOS = TABLES / "per_task_desfechos.csv"
 
 
 def _glm_short(name: str) -> str:
@@ -137,12 +159,16 @@ def article_irrs() -> dict:
     return out
 
 
-def load() -> pd.DataFrame:
+def load(outcome: str = RAW) -> pd.DataFrame:
     task = pd.read_csv(TABLES / "per_task.csv")
     summary = pd.read_csv(TABLES / "summary.csv")
     key = ["apk", "tool", "rep", "timeout"]
     df = task.merge(summary[key + COV_COLS], on=key, how="left", validate="1:1",
                     suffixes=("", "_summary"))
+    if outcome != RAW:
+        desf = pd.read_csv(DESFECHOS)
+        df = df.merge(desf[key + [outcome]], on=key, how="left", validate="1:1")
+        assert df[outcome].notna().all(), f"{DESFECHOS.name} does not cover every run"
     assert len(df) == N_EXPECTED, f"expected {N_EXPECTED} runs, got {len(df)}"
     assert df["sa_methods_reaches_mop"].min() >= 1, "log undefined (min < 1)"
     assert df["category"].notna().all(), "per_task.csv without admissibility columns"
@@ -156,21 +182,24 @@ def load() -> pd.DataFrame:
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--out", required=True)
+    ap.add_argument("--outcome", choices=list(OUTCOMES), default=RAW)
     args = ap.parse_args()
-    df = load()
+    out = args.outcome
+    raw = out == RAW
+    df = load(out)
     lines = []
-    y = df["mop_unique4"]
+    y = df[out]
     cats = df["category"].value_counts().to_dict()
 
     lines.append("## GLM — negative binomial regression on estudo02 (article spec, rq1_jca.py)")
     lines.append("")
     lines.append("### model specification")
-    lines.append("  outcome (primary)  : mop_unique4 — per-run nunique(class, method, spec), the article's key,"
-                 " recounted from the logcat (per_task.csv)")
-    lines.append("  outcome (key sens.): mop_unique — seven-part unique_msg (class:::method:::spec:::error_type:::code:::event:::message)")
-    lines.append("  outcome (secondary): mop_total — violation events (RVSEC lines)")
+    lines.append(f"  outcome (primary)  : {OUTCOMES[out]}")
+    if raw:
+        lines.append("  outcome (key sens.): mop_unique — seven-part unique_msg (class:::method:::spec:::error_type:::code:::event:::message)")
+        lines.append("  outcome (secondary): mop_total — violation events (RVSEC lines)")
     lines.append(f"  observations       : 1 row = apk x tool x timeout x rep; N = {len(df)}")
-    lines.append(f"  formula            : mop_unique4 ~ {RHS}")
+    lines.append(f"  formula            : {out} ~ {RHS}")
     lines.append("  estimator          : sm.NegativeBinomial (NB2), alpha estimated by ML")
     lines.append(f"  standard errors    : cluster-robust by apk ({df['apk'].nunique()} clusters)")
     lines.append("  size covariate     : sa_methods_reaches_mop from per_apk_static.csv (campaign .apk.json,"
@@ -184,7 +213,7 @@ def main():
                  " reference timeout = 60s")
     lines.append("")
 
-    formula = f"mop_unique4 ~ {RHS}"
+    formula = f"{out} ~ {RHS}"
     nb = _glm_fit_nb(formula, df)
     alpha_ci = nb.conf_int().loc['alpha']
     lines.append("### alpha (overdispersion, primary model)")
@@ -193,7 +222,7 @@ def main():
     lr = 2.0 * (nb.llf - pois.llf)
     lines.append(f"  LR NB vs Poisson = {lr:.2f}   p (0.5*chi2_1) = {_glm_pfmt(0.5 * _scistats.chi2.sf(lr, 1))}")
     lines.append("")
-    lines.extend(_glm_param_table(nb, "coefficients — primary model (mop_unique4)"))
+    lines.extend(_glm_param_table(nb, f"coefficients — primary model ({out})"))
     lines.append("")
     lines.extend(_glm_holm_lines(nb))
     lines.append("")
@@ -204,7 +233,7 @@ def main():
 
     lines.append("### omnibus Wald test: tool x timeout interaction (cluster-robust)")
     try:
-        nb_int = _glm_fit_nb(f"mop_unique4 ~ C(timeout) * C(tool, Treatment('monkey')) + log(sa_methods_reaches_mop)", df)
+        nb_int = _glm_fit_nb(f"{out} ~ C(timeout) * C(tool, Treatment('monkey')) + log(sa_methods_reaches_mop)", df)
         names = list(nb_int.params.index)
         ipos = [i for i, n in enumerate(names) if ':C(' in n]
         R = np.zeros((len(ipos), len(names)))
@@ -216,14 +245,15 @@ def main():
         lines.append(f"  FAILED ({type(e).__name__}: {e})")
     lines.append("")
 
-    nb_tot = _glm_fit_nb(f"mop_total ~ {RHS}", df)
-    lines.append(f"### secondary outcome: mop_total (events; var/mean = {df['mop_total'].var() / df['mop_total'].mean():.1f})")
-    lines.extend(_glm_param_table(nb_tot, "coefficients — secondary model (mop_total)"))
-    lines.append("")
-    nb_k7 = _glm_fit_nb(f"mop_unique ~ {RHS}", df)
-    lines.append(f"### key sensitivity: mop_unique (seven-part key; total = {int(df['mop_unique'].sum())})")
-    lines.extend(_glm_param_table(nb_k7, "coefficients — seven-part key (mop_unique)"))
-    lines.append("")
+    if raw:
+        nb_tot = _glm_fit_nb(f"mop_total ~ {RHS}", df)
+        lines.append(f"### secondary outcome: mop_total (events; var/mean = {df['mop_total'].var() / df['mop_total'].mean():.1f})")
+        lines.extend(_glm_param_table(nb_tot, "coefficients — secondary model (mop_total)"))
+        lines.append("")
+        nb_k7 = _glm_fit_nb(f"mop_unique ~ {RHS}", df)
+        lines.append(f"### key sensitivity: mop_unique (seven-part key; total = {int(df['mop_unique'].sum())})")
+        lines.extend(_glm_param_table(nb_k7, "coefficients — seven-part key (mop_unique)"))
+        lines.append("")
 
     # --- sensitivities on the primary outcome --------------------------------
     subsets = {
@@ -242,15 +272,18 @@ def main():
     fits["s5"] = _glm_fit_nb(formula, df, offset=np.log(df["tool_seconds"].values))
     lines.append(f"  (s5) offset log(tool_seconds) — exposure is the tool's own time, not the budget (M1)"
                  f" -> N = {len(df)};  alpha = {fits['s5'].params['alpha']:.4f}")
-    fits["s6"] = _glm_fit_nb(f"mop_unique4 ~ {RHS_NO_COV}", df, offset=np.log(df["sa_methods_reaches_mop"].values))
+    fits["s6"] = _glm_fit_nb(f"{out} ~ {RHS_NO_COV}", df, offset=np.log(df["sa_methods_reaches_mop"].values))
     lines.append(f"  (s6) pure offset log(sa_methods_reaches_mop) instead of covariate (article's iii)"
                  f" -> N = {len(df)};  alpha = {fits['s6'].params['alpha']:.4f}")
     lines.append("")
 
     focal = [n for n in nb.params.index if n.startswith('C(') or n == 'log(sa_methods_reaches_mop)']
-    order = ["main", "s1", "s2", "s3", "s4", "s5", "s6", "k7"]
-    fits["k7"] = nb_k7
-    lines.append("  IRR comparison (focal terms; '*' = p < 0.05 raw, cluster-robust; k7 = seven-part key)")
+    order = ["main", "s1", "s2", "s3", "s4", "s5", "s6"]
+    if raw:
+        order.append("k7")
+        fits["k7"] = nb_k7
+    lines.append("  IRR comparison (focal terms; '*' = p < 0.05 raw, cluster-robust"
+                 + ("; k7 = seven-part key)" if raw else ")"))
     lines.append(f"  {'term':<26} " + " ".join(f"{t:>10}" for t in order))
     for name in focal:
         lines.append(f"  {_glm_short(name):<26} " + " ".join(_glm_irr_cell(fits[t], name) for t in order))
@@ -270,17 +303,20 @@ def main():
     lines.append("")
 
     # --- against the article --------------------------------------------------
-    art = article_irrs()
-    lines.append("### against the article (jca, rq1_jca_stats.txt primary model) — IRR (p raw)")
-    lines.append(f"  {'term':<26} {'article':>18} {'estudo02':>18}")
-    for name in nb.params.index:
-        if name == 'alpha':
-            continue
-        short = _glm_short(name)
-        a = art.get(short)
-        a_cell = f"{a[0]:.3f} ({a[1]})" if a else "--"
-        lines.append(f"  {short:<26} {a_cell:>18} {np.exp(nb.params[name]):.3f} ({_glm_pfmt(nb.pvalues[name])})".replace(") ", ")  "))
-    lines.append("")
+    # The article's IRRs answer to the raw jca count; set beside a sustained count they would
+    # read as a comparison the two numbers do not support, so the column is left empty then.
+    art = article_irrs() if raw else {}
+    if raw:
+        lines.append("### against the article (jca, rq1_jca_stats.txt primary model) — IRR (p raw)")
+        lines.append(f"  {'term':<26} {'article':>18} {'estudo02':>18}")
+        for name in nb.params.index:
+            if name == 'alpha':
+                continue
+            short = _glm_short(name)
+            a = art.get(short)
+            a_cell = f"{a[0]:.3f} ({a[1]})" if a else "--"
+            lines.append(f"  {short:<26} {a_cell:>18} {np.exp(nb.params[name]):.3f} ({_glm_pfmt(nb.pvalues[name])})".replace(") ", ")  "))
+        lines.append("")
 
     # --- ape against the other arms ---------------------------------------------
     # The reference arm is not the same program in the two campaigns: estudo02 runs monkey
