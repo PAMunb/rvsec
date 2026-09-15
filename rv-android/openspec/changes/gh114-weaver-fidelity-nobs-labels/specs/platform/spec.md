@@ -163,7 +163,8 @@ A failure while writing one task's rows to `errors.csv`, or while extracting one
 #### Scenario: One Pass Reproduces the Reference Tables
 
 - **WHEN** the tasks of one container of a completed campaign are processed with `PYTHONHASHSEED=0`
-- **THEN** `coverage.csv`, `errors.csv`, `app_events.csv`, `summary.csv`, `results.json` and `performance.csv` MUST be byte-identical to those written by `experimento-estudo02/scripts/regenerate_tables.py` for the same container under the same seed
+- **THEN** `coverage.csv`, `errors.csv`, `app_events.csv`, `summary.csv` and `results.json` MUST be byte-identical to those written by `experimento-estudo02/scripts/regenerate_tables.py` for the same container under the same seed
+- **AND** `performance.csv` MUST be identical to the reference in every column except `timestamp`, which records when the file was generated
 
 ## ADDED Requirements
 

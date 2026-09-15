@@ -26,6 +26,7 @@ This is the gate before the next campaign. It builds on #112 (archived): `instr-
 - A trust-manager array is credited per element: `SSLContext.init` accepts the array when **every** element was issued by a `TrustManagerFactory`; an element whose class was defined by the application's class loader gets its own code.
 - An object whose producer already refused it (value or origin) is reported downstream as "refused upstream", not as not observed.
 - The first event a monitor observes, when it is not a creation event of the specification, gets its own `-ORDER-` code.
+- An ordering failure of an object whose observed creation the specification refused — an algorithm, transformation or type outside the allow-list, or a forbidden constructor — gets its own `-ORDER-` code. Such a failure is the consequence of the refusal already reported, not a wrong order. Every creation guarded by an allow-list gets a refused twin for every overload, so a refused creation in woven code is always observed.
 - A second `init` on a `Cipher` or `Mac` after its operation finished gets its own `-ORDER-` code.
 - Key material that was observed to be random, where the rule requires prepared key material, gets its own code.
 - A `-NOBS-` report over a byte array carries a fingerprint of the bytes (truncated hash), and one over a trust-manager array carries the element classes. No verdict depends on either.
@@ -65,7 +66,7 @@ None.
 | `rvsec-instrumentation-dexlib2/advice-emitter` | wrapper grouping and drop counter (`WrapperEmitter`); `AfterEmitter` after-finally |
 | `rvsec-instrumentation-dexlib2/dex-mutator` | branch-target and line-entry retargeting (`InstructionInjector`); framework-subtype owners (`DexWeaver`, `AndroidClassIndex`) |
 | `rvsec-instrumentation-dexlib2/cli` | new counters in the results JSON |
-| `rvsec-mop` (`jca_android/`) | label codes, per-element credit, upstream-refusal mark, evidence keys, RSA list, `codes.csv` (new `label` column) |
+| `rvsec-mop` (`jca_android/`) | label codes, refused creation twins, per-element credit, upstream-refusal mark, evidence keys, RSA list, `codes.csv` (new `label` column) |
 | `rvsec-core` | new `Property` entries and the fingerprint helper used by the specifications |
 
 **`rv-android`**: `rv-coverage` (logcat parser), `rv-platform` (`ResultProcessorComponent`, task release), campaign consolidation, `rv-android-core` (`RvErrorLog.unique_msg`, `LogcatManager` buffer size), `data/jca_android/` records (`conformance_record.csv`, `divergence_record.csv`) and the structural and message gates under `scripts/` and `tests/parity/`.

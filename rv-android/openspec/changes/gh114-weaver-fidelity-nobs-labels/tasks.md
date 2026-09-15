@@ -47,11 +47,15 @@ GitHub Issue: #114
        G14  documentation            (needs G2–G4)
        G16a Python verification      (task 16.1; needs G10, G11; one subagent per module)
        main window: task 15.2 choice of smoke APKs (needs 5.3)
-       Then main window: task 13.6 (monitor generation and all gates; needs G13a–c).
+       Then, in parallel: G13d (task 13.6: CipherSpec, MacSpec, MessageDigestSpec, KeyStoreSpec, KeyGeneratorSpec,
+       KeyManagerFactorySpec) and G13e (task 13.7: TrustManagerFactorySpec, SignatureSpec, SecureRandomSpec,
+       KeyPairGeneratorSpec, PBEKeySpecSpec, SSLContextSpec) — refused creation twins and `creation-refused`; they write
+       codes fragments only. Then main window: 13.8 (codes, gate vocabulary, traces), 13.9 (harness), 13.10 (records),
+       13.11 (monitor generation and all gates).
 
      WAVE 3 — main window, serial: G15 (build, instrument, after sweep, smoke), then 16.2–16.5.
 
-     Critical path: 1 -> {2,3,4,6,7,8,9a,9b} -> {12,13a,13b,13c} -> 13.6 -> 15 -> 16.2.
+     Critical path: 1 -> {2,3,4,6,7,8,9a,9b} -> {12,13a,13b,13c} -> {13d,13e} -> 13.8 -> 13.9 -> 13.10 -> 13.11 -> 15 -> 16.2.
      This change touches ~70 files across two repositories — use subagent orchestration (11 + 7 dispatches).
 
      Common conventions for every worker:
@@ -68,7 +72,7 @@ GitHub Issue: #114
 - [x] 1.1 `pointcut-engine/.../AndroidClassIndex.java`: add public `exists(String internalName)` and `methodsInHierarchy(String fqn, String name, boolean isStatic)` on top of `load`/`walkAncestors` (design D2, D4, API Design); unit tests in `AndroidClassIndexHierarchyTest` (declared hit, inherited hit via interface, unknown class → empty/false)
 - [x] 1.2 `pointcut-engine/.../TypeResolver.java`: add the two-argument constructor `TypeResolver(List<String> imports, Predicate<String> classExists)`; the one-argument constructor delegates with `s -> false`; no behaviour change yet (G2 implements the fallback)
 - [x] 1.3 `rvsec-core/.../Property.java`: append `REPORTED_UPSTREAM` at the end of the enum with javadoc naming producers and consumers; run `tests/parity/test_gh101_specset_gates.py::test_property_append_only`
-- [x] 1.4 `rvsec-core/src/main/java/br/unb/cic/mop/eh/Evidence.java`: `suffix(Object)`, `isApplicationDefined(Object, Class<?>)`, `fingerprint(byte[])` (design D10); `EvidenceTest` covering null, `byte[]`, `TrustManager[]` with application and platform classes, any other object (empty suffix), escaping of `'`
+- [x] 1.4 `rvsec-core/src/main/java/br/unb/cic/mop/eh/Evidence.java`: `keysFor(Object)` (not `suffix`, a reserved token of the JavaMOP grammar), `isApplicationDefined(Object, Class<?>)`, `fingerprint(byte[])` (design D10); `EvidenceTest` covering null, `byte[]`, `TrustManager[]` with application and platform classes, any other object (empty suffix), escaping of `'`
 - [x] 1.5 `rvsec-mop/src/main/resources/jca_android/codes.csv`: add the seventh column `label`; fill existing rows (`-ORDER-` → `sequence`, `-NOBS-` → `not-observed`, every other family → `violation`)
 - [x] 1.6 `scripts/gh104_message_gate.py`: add checks `label-vocabulary` (INV-INS-164 closed set, family agreement) and `evidence-only-on-nobs` (INV-INS-166); make every reader of `codes.csv` in `scripts/` (`gh109_nobs_channel.py`, `gh104_message_gate.py`, `gh104_diff_harness.py`) read columns by name so the new column is transparent; add tests in `tests/parity/test_gh104_structural_gates.py`
 - [x] 1.7 Create `openspec/changes/gh114-weaver-fidelity-nobs-labels/fragments/README.md` stating the fragment format (codes rows with the seven columns; one trace file per scenario) used by G6–G9b and consumed by G13a
@@ -115,7 +119,7 @@ GitHub Issue: #114
 
 ## 6. jca_android TLS Cluster (WAVE 1, subagent G6)
 
-- [x] 6.1 `TrustManagerFactorySpec.mop`: `platform-default` code in the `NOT_OBSERVED` branch of `init` when `arg == null` (`:146-155`); `gtm1` marks every element with `GENERATED_TRUST_MANAGERS` (`:218`); `creationObserved` field and `-ORDER-01` in `@fail`; `Evidence.suffix` on every `-NOBS-` envelope
+- [x] 6.1 `TrustManagerFactorySpec.mop`: `platform-default` code in the `NOT_OBSERVED` branch of `init` when `arg == null` (`:146-155`); `gtm1` marks every element with `GENERATED_TRUST_MANAGERS` (`:218`); `creationObserved` field and `-ORDER-01` in `@fail`; `Evidence.keysFor` on every `-NOBS-` envelope
 - [x] 6.2 `KeyManagerFactorySpec.mop`: `platform-default` code in the `NOT_OBSERVED` branch of `init` when `arg == null` (`:121-130`); `gkm1` unchanged; `-ORDER-01`; evidence
 - [x] 6.3 `SSLContextSpec.mop` `init` (`:214-248`): per-element credit of the trust-manager array only, `platform-default` for each of the three `null`s, `application-manager` for the trust-manager array via `Evidence.isApplicationDefined`; `-ORDER-01`; evidence with trust-manager classes; update the decision comments to describe current behaviour (P4)
 - [x] 6.4 Fragment `fragments/codes_g6.csv` with every new row (next free number per file and family) and traces `fragments/traces_g6/`: `tls_null_defaults`, `tls_copied_array`, `tls_mixed_array`, `tmf_init_before_getinstance`
@@ -137,7 +141,7 @@ GitHub Issue: #114
 
 ## 9. jca_android Remaining Specifications and RSA (WAVE 1, subagents G9a and G9b)
 
-- [x] 9.1 G9a, the fourteen files listed for G9a in the dispatch hints: `creationObserved` field set by its creation events and `-ORDER-01` in `@fail` (creation events as defined in design D7, refused twins included, `target`-bound events excluded); `Evidence.suffix` on every `-NOBS-` envelope
+- [x] 9.1 G9a, the fourteen files listed for G9a in the dispatch hints: `creationObserved` field set by its creation events and `-ORDER-01` in `@fail` (creation events as defined in design D7, refused twins included, `target`-bound events excluded); `Evidence.keysFor` on every `-NOBS-` envelope
 - [x] 9.2 G9a: fragment `fragments/codes_g9a.csv` (no traces)
 - [x] 9.3 G9b, the fourteen files listed for G9b: the same as 9.1 (`SSLEngineSpec` has no creation event and gets no `-ORDER-01`)
 - [x] 9.4 G9b: `RSAKeyGenParameterSpecSpec.mop:33-39`: `keySizes = Arrays.asList(2048, 3072, 4096)`; comment names both expert clauses, NIST SP 800-57 Part 1 and D-20.4, current behaviour only
@@ -159,7 +163,7 @@ GitHub Issue: #114
 - [x] 11.2 `_resolve_static_data` (`:294-374`): one-entry per-APK cache; `read_static_analysis_files` once per APK; unresolved tasks recorded once each (INV-PLT-15)
 - [x] 11.3 `modules/rv-platform/src/rv_platform/platform.py` `:430` and `:465`: release `task.repository` and `task.static_data` after `update_task` (INV-PLT-38)
 - [x] 11.4 Update `test_result_processor.py` call-count assertions to once per APK; add the memory-bound scenario test (600 synthetic tasks) and `test_platform_release.py`
-- [x] 11.5 Byte-identity check: copy one container's `tasks.json`, logcats and static JSONs to a scratch results dir, run `uv run rv-platform run --process-results <dir>` with `PYTHONHASHSEED=0`, compare the six files with `data/results/estudo02_regen/estudo02_00/`; record the result in `evidence/export_identity.txt`
+- [x] 11.5 Byte-identity check: copy one container's `tasks.json`, logcats and static JSONs to a scratch results dir, run `uv run rv-platform run --process-results <dir>` with `PYTHONHASHSEED=0`, compare the six files with `data/results/estudo02_regen/estudo02_00/` (`performance.csv` without its `timestamp` column); record the result in `evidence/export_identity.txt`
 - [x] 11.6 Run `/rv-test-run rv-platform`
 
 ## 12. CLI Counters and Resolver Wiring (WAVE 2, subagent G12; needs 2, 3 and 4)
@@ -169,10 +173,10 @@ GitHub Issue: #114
 - [x] 12.3 `modules/rv-instrumentation-dexlib2` (Python) parser of `instrument_results.json` and its tests accept the new key (`tests/test_dexlib_instrumentation.py:901-958` pattern)
 - [x] 12.4 `mvn -pl :cli -am test` green; `/rv-test-run rv-instrumentation-dexlib2`
 
-## 13. Specification-Set Closing (WAVE 2, subagents G13a, G13b, G13c; needs 6–9b; 13.6 in the main window after all three)
+## 13. Specification-Set Closing (WAVE 2, subagents G13a, G13b, G13c; needs 6–9b; then G13d and G13e; 13.8–13.11 in the main window)
 
 - [x] 13.1 G13a: Merge `fragments/codes_g6.csv` … `codes_g9b.csv` into `jca_android/codes.csv` in file order; verify numbering is the next free per file and family
-- [x] 13.2 G13a: Move `fragments/traces_*` into `data/gh104/traces/` and add their expectations to the harness baseline; pin label `sequence` on the existing traces `CipherSpec-unsafe`, `MessageDigestSpec-md5`, `SSLContextSpec-getdefault-engine`, `PBEKeySpecSpec-forbidden-then-clear`, `KeyGeneratorSpec-unsafe` (design D7)
+- [x] 13.2 G13a: Move `fragments/traces_*` into `data/gh104/traces/` and add their expectations to the harness baseline (the label pins of the traces that exercise a refused or forbidden creation are task 13.8)
 - [x] 13.3 G13b: Records (design D13, D14), after the last `.mop` edit:
   - `.mop` comment blocks `DigestInputStreamSpec.mop:75-89`, `DigestOutputStreamSpec.mop:76-88` rewritten for after-finally (G13b edits them after G9a, first, so the refresh below sees them)
   - `divergence_record.csv`: run `scripts/gh104_divergence_record.py --refresh`, carry each previous reason to the new key of the same file and append the gh114 reason (kinds `message` and `predicate-store` only); rewrite `:376` in place for the RSA alignment (both clauses, NIST SP 800-57 Part 1, D-20.4, task `gh109:6.3;gh114:9.4`); addendum on `:269`; close `:45`, `:46` as repaired by gh114; rewrite `:105`, `:106` for after-finally
@@ -181,7 +185,12 @@ GitHub Issue: #114
   - `RVSEC_HOME=… uv run python scripts/gh104_divergence_record.py --check` exits 0
 - [x] 13.4 G13c: `tests/parity/test_gh105_predicate_gates.py:1362-1395`: restate the census pins with the new `REPORTED_UPSTREAM` and `GENERATED_TRUST_MANAGERS` sites; update `data/jca_android/predicate_graph.csv`
 - [x] 13.5 G13a, after 13.1–13.2: Run the specification trace harness (`scripts/gh104_diff_harness.py`, which replays monitor event traces against two snapshots of the specification set; no weaver involved) over all traces: same `(spec, event, class, method, location)` sets before and after except the trust-manager per-element credit traces; store the report in `evidence/labels_same_sites.txt`
-- [ ] 13.6 Main window, after 13.1–13.5: Generate the monitor for `jca_android` (`uv run rv-monitor-generator generate --specs-dir …/jca_android --output <scratch>`) and run all gates: `uv run pytest tests/parity --import-mode=importlib -o "addopts="`; every moved G-2/G-ORDER allowlist row carries a reason
+- [ ] 13.6 G13d (subagent): refused two-argument creation twins and `creation-refused` in `CipherSpec`, `MacSpec`, `MessageDigestSpec`, `KeyStoreSpec`, `KeyGeneratorSpec`, `KeyManagerFactorySpec` (design D7, instrumentation spec "Label Codes"): new two-argument twin event with the negated guard beside the one-argument twin in the automaton (`CipherSpec`: widen `g3` to `getInstance(String, ..)` with `args(transformation, ..)`, no new event, 17-event ceiling); twin body only `creationObserved = true; creationRefused = true;` (it does not copy the `currentAlgorithmInstance` write of `KeyGeneratorSpec.g3`); `boolean creationRefused = false;` set in every refused creation body of the file; `@fail` branch `creation-refused` after `creation-unobserved` (next free `-ORDER-` number of the file); comments describe current behaviour (P4) and stay line-count aware of `codes.csv` anchors; new rows to `fragments/codes_g13d.csv`; generate the monitor in scratch to check parsing and the event count (≤ 17)
+- [ ] 13.7 G13e (subagent): the same for `TrustManagerFactorySpec` and `SignatureSpec` (new two-argument twin leading where the first use fails: `fsm` state with no transitions; `ere` Kleene prefix before `(g1 | g2)`), and `creationRefused` plus the `creation-refused` `@fail` branch in `SecureRandomSpec` (`g4`, `g5`), `KeyPairGeneratorSpec` (`g3`, `g4`), `PBEKeySpecSpec` (`f1`, `f2`) and `SSLContextSpec` (`getDefault`), with no new event in those four; rows to `fragments/codes_g13e.csv`; monitor generated in scratch
+- [ ] 13.8 Main window, after 13.6–13.7: merge `codes_g13d.csv` and `codes_g13e.csv` into `codes.csv` (label `creation-refused`); add `creation-refused` to the closed vocabulary of `scripts/gh104_message_gate.py` (`ORDER_LABELS`) and its tests; traces: pin `creation-refused` on `CipherSpec-unsafe`, `MessageDigestSpec-md5`, `SSLContextSpec-getdefault-engine`, `PBEKeySpecSpec-forbidden-then-clear`, `KeyGeneratorSpec-unsafe`, and add one trace per twin shape over a refused two-argument `getInstance` (prefix twin: `MessageDigestSpec`; widened `CipherSpec.g3`; sink twin: `TrustManagerFactorySpec`); update the label table of `data/jca_android/NEW_SPEC_CONVENTIONS.md` and `data/jca_android/README.md`
+- [ ] 13.9 Main window: re-run the trace harness over all traces as in 13.5 and refresh `evidence/labels_same_sites.txt`: same `(spec, event, class, method, location)` sets except the trust-manager per-element credit traces, and every code change within its family
+- [ ] 13.10 Main window: `scripts/gh104_divergence_record.py --refresh`, carry reasons to the new keys (kind `message` for twins, fields and handler branches), `--check` with `RVSEC_HOME` exits 0; confirm `predicate_graph.csv` and the census pins do not move (the new bodies touch no store)
+- [ ] 13.11 Main window, after 13.1–13.10: Generate the monitor for `jca_android` (`uv run rv-monitor-generator generate --specs-dir …/jca_android --output <scratch>`) and run all gates: `uv run pytest tests/parity --import-mode=importlib -o "addopts="`; every moved G-2/G-ORDER allowlist row carries a reason
 
 ## 14. Documentation (WAVE 2, subagent G14; needs 2–4)
 
@@ -192,7 +201,7 @@ GitHub Issue: #114
 ## 15. Build, Instrument, Measure and Smoke (WAVE 3, main window)
 
 - [ ] 15.1 Reactor build (JDK 21) green, then `mvn test` for `rvsec-instrumentation-dexlib2` and `rvsec-core` without `-DskipTests`
-- [ ] 15.2 In WAVE 2 (needs 5.3): choose the smoke APKs from `evidence/sweep_before.csv` by the design criteria (TLS client reaching `SSLContext.init`, embedded BouncyCastle, a hooked `Cipher.init` that is a branch target, a `KeyStore.getEntry` call). In WAVE 3, after 15.1: instrument them through the production path with `jca_android`
+- [ ] 15.2 In WAVE 2 (needs 5.3): choose the smoke APKs from `evidence/sweep_before.csv` by the design criteria (TLS client reaching `SSLContext.init`, embedded BouncyCastle, a hooked `Cipher.init` that is a branch target, a `KeyStore.getEntry` call). In WAVE 3, after 15.1: instrument the original APKs through the production path with `jca_android`, naming their source directory in `evidence/smoke_apks.md`
 - [ ] 15.3 Run `scripts/gh114_weave_sweep.py` on the newly instrumented APKs; `evidence/sweep_after.csv` shows (a)=0, (b)=0, (c)=0 and (d) woven where the call exists; disassemble the monitor DEX of one smoke APK and confirm the after-finally handler in the `KeyAgreement.doPhase` or `SSLContext.init` wrapper (INV-INS-163); commit both sweeps
 - [ ] 15.4 Smoke: `uv run rv-experiment run --tools ape --specification-set jca_android --apks-dir <smoke apks> --timeouts <budget chosen by the researcher> --name gh114_smoke` (the platform manages the emulator); confirm export completes, `errors.csv` has label codes, `vfp` on `-NOBS-` rows over byte arrays and `vcls` on trust-manager rows, `summary.csv` `mop_errors_unique` unaffected by evidence; the platform log shows the `logcat -G 16M` sizing for every task with no WARNING; record in `evidence/smoke.md`
 
