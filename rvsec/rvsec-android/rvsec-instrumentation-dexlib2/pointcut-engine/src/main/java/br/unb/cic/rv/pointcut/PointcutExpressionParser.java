@@ -231,8 +231,8 @@ public final class PointcutExpressionParser {
      *   <li>{@code "*"} → accept-any-single;</li>
      *   <li>{@code ".."} → trailing accept-any-rest.</li>
      * </ul>
-     * When no element is a Type, {@link ArgsPC#hasTypeConstraint()} is false and the
-     * matcher behaviour is unchanged (always-match binding collector).
+     * The matcher reads the arity from {@code types}, whatever the classification of
+     * its elements (INV-INS-159).
      */
     private static ArgsPC parseArgsBody(String body) {
         List<String> names = new ArrayList<>();

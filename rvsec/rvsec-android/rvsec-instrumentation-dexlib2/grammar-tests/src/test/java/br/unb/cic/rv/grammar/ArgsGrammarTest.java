@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -41,8 +42,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * concrete-Type position is assignable from the actual arg type via the APK-dex
  * superclass chain (declared-type, not a runtime {@code instanceof} — the V-decision).
  * A binding-name / {@code *} position accepts any single arg; a trailing {@code ..}
- * accepts any remaining args. The pure-binding form ({@code args(o)}) stays an
- * always-match collector.
+ * accepts any remaining args. Every form constrains the arity (INV-INS-159): the
+ * pure-binding form {@code args(o)} carries no type filter but still requires exactly one
+ * argument.
  */
 class ArgsGrammarTest {
 
@@ -101,16 +103,22 @@ class ArgsGrammarTest {
                 "args(*, CharSequence, ..) must NOT match when position 1 is not a CharSequence");
     }
 
-    /** §4.AT: the pure-binding form {@code args(o)} carries no type filter — always matches. */
+    /** §4.AT: the pure-binding form {@code args(o)} carries no type filter and constrains the
+     *  arity: it matches any one-argument call and no two-argument call. */
     @Test
-    void argsBindingFormAlwaysMatches() {
+    void argsBindingFormMatchesOnlyItsArity() {
         PointcutExpression binding = PointcutExpressionParser.parse("args(o)");
 
         MethodReference acceptsInteger = new ImmutableMethodReference(
                 "Lcom/example/Sink;", "accept", List.of("Ljava/lang/Integer;"), "V");
         ClassDef integer = bareClass("Ljava/lang/Integer;", "Ljava/lang/Object;");
         assertTrue(matchAgainstArgs(binding, acceptsInteger, integer).isPresent(),
-                "args(o) is a binding (no type filter) and must always match");
+                "args(o) has no type filter and must match a one-argument call");
+
+        MethodReference acceptsTwo = new ImmutableMethodReference(
+                "Lcom/example/Sink;", "accept", List.of("Ljava/lang/Integer;", "Ljava/lang/Integer;"), "V");
+        assertFalse(matchAgainstArgs(binding, acceptsTwo, integer).isPresent(),
+                "args(o) must not match a two-argument call");
     }
 
     // --- fixture ---------------------------------------------------------------------------------

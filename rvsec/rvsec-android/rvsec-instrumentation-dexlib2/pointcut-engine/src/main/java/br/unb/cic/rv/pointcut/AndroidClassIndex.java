@@ -275,6 +275,7 @@ public final class AndroidClassIndex implements AutoCloseable {
         }
     }
 
+    /** {@code java.security.KeyStore$Entry} → {@code java/security/KeyStore$Entry}; {@code $} is kept. */
     private static String toInternal(String fqn) {
         return fqn == null ? null : fqn.replace('.', '/');
     }

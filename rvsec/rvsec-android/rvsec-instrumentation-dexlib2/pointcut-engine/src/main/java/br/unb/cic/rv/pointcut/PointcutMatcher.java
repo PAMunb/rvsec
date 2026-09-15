@@ -32,9 +32,10 @@ import java.util.Optional;
  *       {@code T+} semantics).</li>
  *   <li>{@link CombinedPC} implements logical {@code AND} / {@code OR} with
  *       merged bindings.</li>
- *   <li>{@link ArgsPC} and the binding form of {@link TargetPC} ({@code target(o)})
- *       are inert collectors on an established call-site match — they never fail a
- *       match in isolation. The type form of {@link TargetPC} ({@code target(Cipher)})
+ *   <li>{@link ArgsPC} constrains the call's arity in every form (INV-INS-159) and,
+ *       at Type positions, the declared argument types. The binding form of
+ *       {@link TargetPC} ({@code target(o)}) is an inert collector on an established
+ *       call-site match. The type form of {@link TargetPC} ({@code target(Cipher)})
  *       constrains the call receiver's declared type via {@link InheritanceResolver}
  *       (§4.TT, subtype-aware).</li>
  *   <li>{@link NotWithinPC} filters by class type pattern (prefix match on
@@ -204,7 +205,7 @@ public final class PointcutMatcher {
      *
      * <p>The binding form ({@code target(o)}, {@code type == null}) is inert — the
      * receiver is bound to the advice parameter at injection time, never filtered
-     * here; it stays an always-match collector exactly like {@link ArgsPC}.
+     * here; it stays an always-match collector.
      *
      * <p>The type form ({@code target(Cipher)} / {@code target(Cipher+)}) constrains
      * the call receiver. In the dexlib2 inline-call model the receiver's declared
@@ -248,27 +249,23 @@ public final class PointcutMatcher {
     /**
      * §4.AT: {@code args(...)} is the argument-list analogue of {@code target(...)}.
      *
-     * <p>The binding/wildcard form ({@code args(o)}, {@code args(*, enc)},
-     * {@code args(key, ..)} — no concrete Type at any position) is inert: arguments
-     * are bound to advice parameters at injection time, never filtered here. It stays
-     * an always-match collector exactly like the legacy behaviour.
+     * <p>Every form constrains the arity of the matched call (INV-INS-159): binding
+     * names ({@code args(o, o1)}), wildcards ({@code args(*, ..)}) and Types
+     * ({@code args(String)}) alike. The positions are read from {@link ArgsPC#types()},
+     * which keeps the trailing {@code ".."} that {@link ArgsPC#names()} drops. Without
+     * a trailing {@code ".."} the actual arity must equal the positional count; with it
+     * the arity must be at least the head count. The arguments themselves are bound to
+     * advice parameters at injection time from the call match's positional registers.
      *
-     * <p>The type form ({@code args(String)}, {@code args(CharSequence)} — at least
-     * one position is a concrete Type) constrains the matched call's actual argument
-     * descriptors POSITIONALLY. We walk the {@code MethodReference} parameter types
-     * (declared types, subtype-aware per the V-decision — NOT a runtime
-     * {@code instanceof}). A {@code null} position (binding name) or {@code "*"}
-     * accepts any single argument; a trailing {@code ".."} accepts any remaining
-     * arguments. Without a trailing {@code ".."} the actual arity must equal the
-     * positional count; with it the arity must be at least the head count. FQN
-     * conversion mirrors §4.TT/§4.O ({@code fromDescriptor(toDescriptor(x))}, since
-     * {@code resolveFqn} mangles already-qualified names). A non-{@code MethodReference}
-     * invoke cannot have argument types, so a type-form {@code args(...)} cannot match.
+     * <p>Within the arity, a Type position constrains the argument descriptor at that
+     * position. We walk the {@code MethodReference} parameter types (declared types,
+     * subtype-aware per the V-decision — NOT a runtime {@code instanceof}). A
+     * {@code null} position (binding name) or {@code "*"} accepts any single argument.
+     * FQN conversion mirrors §4.TT/§4.O ({@code fromDescriptor(toDescriptor(x))}).
+     * A non-{@code MethodReference} join point has no argument list, so no
+     * {@code args(...)} form matches it.
      */
     private Optional<Match> matchArgs(ArgsPC ap, Context ctx) {
-        if (!ap.hasTypeConstraint()) {
-            return Optional.of(Match.empty(ap));
-        }
         if (!(ctx.instruction instanceof ReferenceInstruction)) {
             return Optional.empty();
         }
@@ -288,8 +285,9 @@ public final class PointcutMatcher {
         }
         for (int i = 0; i < headCount; i++) {
             String expected = positions.get(i);
-            // A binding-name position (null) or "*" accepts any single argument.
-            if (expected == null || "*".equals(expected)) {
+            // A binding-name position (null), "*", or a non-trailing ".." counted as a
+            // position accepts any single argument.
+            if (expected == null || "*".equals(expected) || "..".equals(expected)) {
                 continue;
             }
             String patternType = expected;

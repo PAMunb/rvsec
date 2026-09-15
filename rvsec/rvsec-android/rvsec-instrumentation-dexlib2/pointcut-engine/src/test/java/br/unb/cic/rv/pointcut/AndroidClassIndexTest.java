@@ -97,6 +97,19 @@ class AndroidClassIndexTest {
     }
 
     @Test
+    @EnabledIf("hasAndroidJar")
+    void binaryNamesOfNestedClassesAreAccepted() {
+        // A nested class is addressed by its binary name, "$" before the nested part.
+        AndroidClassIndex index = new AndroidClassIndex(androidJar);
+        assertFalse(index.methods("java.security.KeyStore$PasswordProtection", "getPassword", false)
+                .isEmpty());
+        assertTrue(index.isAssignableFrom("java.security.KeyStore$ProtectionParameter",
+                "java.security.KeyStore$PasswordProtection"));
+        assertTrue(index.exists("java/security/KeyStore$ProtectionParameter"));
+        assertFalse(index.exists("java/security/KeyStore/ProtectionParameter"));
+    }
+
+    @Test
     void missingJarDegradesToEmptyResults() {
         // Constructing with a non-existent path must not throw; queries return empty.
         Path bogus = Path.of("/tmp/definitely-not-here.jar");

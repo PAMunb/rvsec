@@ -22,9 +22,17 @@ import java.util.function.Predicate;
  *   <li>Last resort: {@code java.lang.<name>}.</li>
  * </ol>
  *
- * <p>The descriptor's {@code imports} list is the authority — the resolver never
- * probes an external classpath (design D2: parsing is driven by the emitted JSON,
- * not by compile-time reflection).
+ * <p>Nested types (INV-INS-162): a dotted name reached by any of these steps, or written
+ * as {@code Outer.Inner} with {@code Outer} resolvable as a simple name, is first asked
+ * of the {@code classExists} lookup as written; when no class of that name exists, its
+ * dots are replaced by {@code $} from the right, one at a time, until the lookup answers
+ * true. {@code java.security.KeyStore.ProtectionParameter} thus resolves to
+ * {@code java.security.KeyStore$ProtectionParameter}. When no candidate exists, the name
+ * the steps above produced is kept.
+ *
+ * <p>The descriptor's {@code imports} list and the {@code classExists} lookup are the
+ * authority — the resolver never probes an external classpath itself (design D2: parsing
+ * is driven by the emitted JSON, not by compile-time reflection).
  */
 public final class TypeResolver {
 
@@ -109,10 +117,8 @@ public final class TypeResolver {
         String prim = PRIMITIVES.get(s);
         if (prim != null) {
             base = prim;
-        } else if (s.contains(".")) {
-            base = "L" + s.replace('.', '/') + ";";
         } else {
-            String fqn = resolveFqn(s);
+            String fqn = s.contains(".") ? resolveQualified(s, s) : resolveFqn(s);
             base = "L" + fqn.replace('.', '/') + ";";
         }
         StringBuilder prefix = new StringBuilder();
@@ -120,8 +126,53 @@ public final class TypeResolver {
         return prefix + base;
     }
 
-    /** Simple-name → FQN. */
+    /**
+     * Simple-name → FQN. A nested class comes back as its binary name
+     * ({@code java.security.KeyStore$ProtectionParameter}) when {@code classExists}
+     * knows it.
+     */
     public String resolveFqn(String simpleName) {
+        String fqn = lookupFqn(simpleName);
+        if (simpleName.contains(".")) {
+            return resolveQualified(simpleName, fqn);
+        }
+        String binary = existingBinaryName(fqn);
+        return binary != null ? binary : fqn;
+    }
+
+    /**
+     * A dotted name as written, then with its first segment resolved as a simple name
+     * ({@code KeyStore.Entry} under the import {@code java.security.KeyStore}); the first
+     * candidate {@code classExists} knows, in binary form, or {@code fallback}.
+     */
+    private String resolveQualified(String dotted, String fallback) {
+        String binary = existingBinaryName(dotted);
+        if (binary != null) return binary;
+        int dot = dotted.indexOf('.');
+        binary = existingBinaryName(lookupFqn(dotted.substring(0, dot)) + dotted.substring(dot));
+        return binary != null ? binary : fallback;
+    }
+
+    /**
+     * The dotted {@code fqn} in binary form ({@code .} between packages and the class,
+     * {@code $} before each nested class) for the first candidate {@code classExists}
+     * knows: the name as written, then with its dots replaced by {@code $} from the
+     * right, one at a time. {@code null} when no candidate exists.
+     */
+    private String existingBinaryName(String fqn) {
+        char[] internal = fqn.replace('.', '/').toCharArray();
+        for (int i = internal.length; i >= 0; i--) {
+            if (i < internal.length) {
+                if (internal[i] != '/') continue;
+                internal[i] = '$';
+            }
+            String candidate = new String(internal);
+            if (classExists.test(candidate)) return candidate.replace('/', '.');
+        }
+        return null;
+    }
+
+    private String lookupFqn(String simpleName) {
         // Exact import: "foo.bar.Cipher" ending in "Cipher".
         for (String imp : imports) {
             String i = imp.startsWith("static ") ? imp.substring("static ".length()) : imp;

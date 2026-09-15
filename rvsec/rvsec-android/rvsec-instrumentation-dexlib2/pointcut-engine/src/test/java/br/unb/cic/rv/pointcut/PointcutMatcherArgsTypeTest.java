@@ -20,24 +20,24 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * §4.AT — {@code args(Type)} type-matching at {@link PointcutMatcher#matchArgs}
- * (spec.md:1546). The type form constrains the matched call's DECLARED argument
- * descriptors POSITIONALLY (round-8 V-decision: declared static types, not
- * runtime instance-of), with subtype expansion via {@code isAssignableFrom}, a
- * trailing {@code ..} accept-rest, and {@code *} / binding-name positions that
+ * §4.AT — {@code args(...)} matching at {@link PointcutMatcher#matchArgs}. Every
+ * form constrains the call's arity positionally (INV-INS-159): {@code k} positions
+ * require exactly {@code k} parameters, a trailing {@code ..} after {@code k} positions
+ * requires at least {@code k}. A Type position further constrains the matched call's
+ * DECLARED argument descriptor (declared static types, not runtime instance-of), with
+ * subtype expansion via {@code isAssignableFrom}; {@code *} and binding-name positions
  * accept any single argument.
  *
- * <p>Coverage gap this closes: {@link ArgsPC} was 36.7% instruction / 0% branch —
- * {@link ArgsPC#hasTypeConstraint()} and the whole type-form body of
- * {@code matchArgs:268-306} were dark. The binding-only always-match path was the
- * only one exercised. The arity / mismatch / wildcard assertions here are the
- * regression guards: a type-form {@code args(...)} that silently reverted to the
- * inert always-match collector would flip every negative case to a match.
+ * <p>The arity / mismatch / wildcard assertions are the regression guards: an
+ * {@code args(...)} that stopped counting positions would flip every negative case
+ * to a match.
  */
 class PointcutMatcherArgsTypeTest {
 
@@ -129,29 +129,46 @@ class PointcutMatcherArgsTypeTest {
     }
 
     // ------------------------------------------------------------------
-    // Inert binding-only form: hasTypeConstraint() == false → always-match.
+    // Arity of the binding and wildcard forms (INV-INS-159).
     // ------------------------------------------------------------------
 
     @Test
-    void bindingOnlyArgsAlwaysMatchesRegardlessOfActualArity() {
-        // args(o, o1) — pure binding names, no positional Type. hasTypeConstraint()
-        // is false, so the matcher stays the inert always-match collector even when
-        // the actual call has a completely different arity.
+    void bindingFormRejectsADifferentArity() {
+        // args(o, o1) — two binding positions, no trailing '..': a three-parameter
+        // call MUST NOT match, although no position carries a type.
         PointcutMatcher pm = matcher();
-        ArgsPC bindingOnly = new ArgsPC(List.of("o", "o1"));  // types = []
+        PointcutExpression bindings = PointcutExpressionParser.parse("args(o, o1)");
         Fixture threeArgs = invokeStatic(List.of("I", STRING_DESC, PROVIDER_DESC));
-        assertTrue(match(pm, bindingOnly, threeArgs).isPresent(),
-                "a binding-only args(...) MUST always match (no positional type constraint)");
+        assertTrue(match(pm, bindings, threeArgs).isEmpty(),
+                "args(o, o1) MUST NOT match a 3-parameter call");
     }
 
     @Test
-    void wildcardAndRestOnlyArgsHaveNoTypeConstraint() {
-        // args(*, ..) — a '*' and a trailing '..' are NOT concrete types, so
-        // hasTypeConstraint() is false and the form stays inert.
+    void bindingFormMatchesItsArityAndKeepsTheBindings() {
+        // call(...) && args(o, o1) against a two-parameter call: the match carries
+        // the positional registers the emitter joins with the names o and o1.
         PointcutMatcher pm = matcher();
+        CombinedPC pe = (CombinedPC) PointcutExpressionParser.parse(
+                "call(* java.lang.StringBuilder.append(..)) && args(o, o1)");
         Fixture twoArgs = invokeStatic(List.of("I", STRING_DESC));
-        assertTrue(match(pm, argsType("*", ".."), twoArgs).isPresent(),
-                "args(*, ..) carries no type constraint and MUST always match");
+        Optional<Match> m = match(pm, pe, twoArgs);
+        assertTrue(m.isPresent(), "args(o, o1) MUST match a 2-parameter call");
+        assertEquals(List.of("o", "o1"), ((ArgsPC) pe.right()).names());
+        assertEquals(Map.of("arg00", 0, "arg01", 1), m.get().argBindings);
+    }
+
+    @Test
+    void wildcardWithTrailingRestRequiresAtLeastOneParameter() {
+        // args(*, ..) — one leading position and a trailing '..': one or more
+        // parameters match, none does not.
+        PointcutMatcher pm = matcher();
+        PointcutExpression pe = PointcutExpressionParser.parse("args(*, ..)");
+        assertTrue(match(pm, pe, invokeStatic(List.of("I"))).isPresent(),
+                "args(*, ..) MUST match a 1-parameter call");
+        assertTrue(match(pm, pe, invokeStatic(List.of("I", STRING_DESC))).isPresent(),
+                "args(*, ..) MUST match a 2-parameter call");
+        assertTrue(match(pm, pe, invokeStatic(List.of())).isEmpty(),
+                "args(*, ..) MUST NOT match a call without parameters");
     }
 
     // ------------------------------------------------------------------
@@ -262,7 +279,7 @@ class PointcutMatcherArgsTypeTest {
     @Test
     void argsTypeRejectsNonReferenceInstruction() {
         // A const/4 has no MethodReference, so a type-form args(...) cannot read
-        // argument descriptors — it MUST return no match (matchArgs:272 guard).
+        // argument descriptors — it MUST return no match (the non-reference guard).
         PointcutMatcher pm = matcher();
         assertTrue(match(pm, argsType("String"), nonReferenceInstruction()).isEmpty(),
                 "type-form args(...) MUST NOT match a non-ReferenceInstruction join point");

@@ -1,9 +1,16 @@
 package br.unb.cic.rv.pointcut;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -114,5 +121,103 @@ class TypeResolverTest {
         assertEquals("javax.crypto.Cipher", resolver.resolveFqn("Cipher"));
         assertEquals("java.lang.String", resolver.resolveFqn("String"));
         assertEquals("java.util.HashMap", resolver.resolveFqn("HashMap"));
+    }
+
+    // --- nested types (INV-INS-162) ----------------------------------------
+
+    /** Internal names a small framework would carry. */
+    private static final Set<String> KNOWN_CLASSES = Set.of(
+            "java/security/KeyStore",
+            "java/security/KeyStore$Entry",
+            "java/security/KeyStore$ProtectionParameter",
+            "java/lang/String");
+
+    private static TypeResolver nestedResolver(List<String> imports) {
+        return new TypeResolver(imports, KNOWN_CLASSES::contains);
+    }
+
+    @Test
+    void nestedImportedType() {
+        TypeResolver r = nestedResolver(List.of(
+                "java.security.KeyStore", "java.security.KeyStore.ProtectionParameter"));
+        assertEquals("Ljava/security/KeyStore$ProtectionParameter;",
+                r.toDescriptor("ProtectionParameter"));
+        assertEquals("Ljava/security/KeyStore$Entry;", r.toDescriptor("KeyStore.Entry"));
+        assertEquals("java.security.KeyStore$ProtectionParameter",
+                r.resolveFqn("ProtectionParameter"));
+        assertEquals("java.security.KeyStore$Entry", r.resolveFqn("KeyStore.Entry"));
+    }
+
+    @Test
+    void nestedQualifiedType() {
+        TypeResolver r = nestedResolver(Collections.emptyList());
+        assertEquals("Ljava/security/KeyStore$ProtectionParameter;",
+                r.toDescriptor("java.security.KeyStore.ProtectionParameter"));
+        assertEquals("[Ljava/security/KeyStore$Entry;",
+                r.toDescriptor("java.security.KeyStore.Entry[]"));
+    }
+
+    @Test
+    void topLevelUnchanged() {
+        TypeResolver r = nestedResolver(List.of("java.security.KeyStore"));
+        assertEquals("Ljava/security/KeyStore;", r.toDescriptor("java.security.KeyStore"));
+        assertEquals("Ljava/security/KeyStore;", r.toDescriptor("KeyStore"));
+        assertEquals("Ljava/lang/String;", r.toDescriptor("String"));
+    }
+
+    @Test
+    void unknownNestedKeepsCurrentDescriptor() {
+        TypeResolver r = nestedResolver(List.of("java.security.KeyStore"));
+        assertEquals("Ljava/security/KeyStore/Missing;",
+                r.toDescriptor("java.security.KeyStore.Missing"));
+        assertEquals("LKeyStore/Missing;", r.toDescriptor("KeyStore.Missing"));
+        assertEquals("Lcom/example/Unknown;", r.toDescriptor("com.example.Unknown"));
+        // Without a lookup, a nested spelling keeps the dotted descriptor.
+        TypeResolver noLookup = new TypeResolver(List.of("java.security.KeyStore"));
+        assertEquals("Ljava/security/KeyStore/ProtectionParameter;",
+                noLookup.toDescriptor("java.security.KeyStore.ProtectionParameter"));
+        assertEquals("LKeyStore/Entry;", noLookup.toDescriptor("KeyStore.Entry"));
+    }
+
+    // --- nested types against android.jar ----------------------------------
+
+    private static Path androidJar;
+
+    @BeforeAll
+    static void resolveAndroidJar() {
+        String home = System.getenv("ANDROID_HOME");
+        if (home == null || home.isEmpty()) return;
+        Path platforms = Path.of(home, "platforms");
+        if (!Files.isDirectory(platforms)) return;
+        try (Stream<Path> levels = Files.list(platforms)) {
+            androidJar = levels
+                    .filter(Files::isDirectory)
+                    .map(p -> p.resolve("android.jar"))
+                    .filter(Files::isRegularFile)
+                    .max((a, b) -> a.getParent().getFileName().toString()
+                            .compareTo(b.getParent().getFileName().toString()))
+                    .orElse(null);
+        } catch (IOException ex) {
+            androidJar = null;
+        }
+    }
+
+    static boolean hasAndroidJar() {
+        return androidJar != null;
+    }
+
+    @Test
+    @EnabledIf("hasAndroidJar")
+    void nestedTypeResolvesAgainstTheFrameworkIndex() {
+        try (AndroidClassIndex index = new AndroidClassIndex(androidJar)) {
+            TypeResolver r = new TypeResolver(
+                    List.of("java.security.KeyStore", "java.security.KeyStore.ProtectionParameter"),
+                    index::exists);
+            assertEquals("Ljava/security/KeyStore$ProtectionParameter;",
+                    r.toDescriptor("ProtectionParameter"));
+            assertEquals("Ljava/security/KeyStore$Entry;", r.toDescriptor("KeyStore.Entry"));
+            assertEquals("Ljava/security/KeyStore;", r.toDescriptor("java.security.KeyStore"));
+            assertEquals("Ljavax/crypto/Cipher;", r.toDescriptor("javax.crypto.Cipher"));
+        }
     }
 }

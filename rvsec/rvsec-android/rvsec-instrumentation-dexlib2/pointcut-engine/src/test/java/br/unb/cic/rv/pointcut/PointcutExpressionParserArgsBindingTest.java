@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <p>A single heuristic, {@code isBindingName}, decides whether an {@code args(...)}
  * or {@code target(...)} element is a captured BINDING (a lowercase simple identifier —
- * inert at match time) or a TYPE pattern (capitalized, qualified, or wildcarded —
+ * no type filter at match time) or a TYPE pattern (capitalized, qualified, or wildcarded —
  * drives subtype-aware matching, §4.TT/§4.AT). These tests exercise every arm of
  * that classification and the parallel {@code names}/{@code types} views {@code args}
  * builds, always paired with a positive control that flips the decision.
@@ -34,15 +34,13 @@ class PointcutExpressionParserArgsBindingTest {
         assertEquals(List.of("o", "Cipher", "*"), a.names(),
                 "'..' is not a binding and must not appear in names()");
         assertEquals(Arrays.asList(null, "Cipher", "*", ".."), a.types());
-        assertTrue(a.hasTypeConstraint(), "the 'Cipher' element is a real type");
 
-        // Positive control: an all-binding args carries NO type constraint, so the
-        // matcher stays the always-match collector (types are all null).
+        // Positive control: an all-binding args carries no type pattern (types are all
+        // null) but still one position per element, which the matcher reads as arity.
         ArgsPC bindings = assertInstanceOf(ArgsPC.class,
                 PointcutExpressionParser.parse("args(x, y)"));
         assertEquals(List.of("x", "y"), bindings.names());
         assertEquals(Arrays.asList(null, null), bindings.types());
-        assertFalse(bindings.hasTypeConstraint());
     }
 
     @Test
@@ -55,14 +53,12 @@ class PointcutExpressionParserArgsBindingTest {
         ArgsPC a = assertInstanceOf(ArgsPC.class,
                 PointcutExpressionParser.parse("args(javax.crypto.Cipher)"));
         assertEquals(Arrays.asList("javax.crypto.Cipher"), a.types());
-        assertTrue(a.hasTypeConstraint());
 
         // Positive control: the SAME leading-lowercase spelling WITHOUT a dot
-        // ("cipher") IS a binding -> null type, no constraint.
+        // ("cipher") IS a binding -> null type.
         ArgsPC binding = assertInstanceOf(ArgsPC.class,
                 PointcutExpressionParser.parse("args(cipher)"));
         assertEquals(Arrays.asList((String) null), binding.types());
-        assertFalse(binding.hasTypeConstraint());
     }
 
     @Test

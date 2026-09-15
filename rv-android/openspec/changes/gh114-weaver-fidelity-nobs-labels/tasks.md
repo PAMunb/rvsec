@@ -76,12 +76,12 @@ GitHub Issue: #114
 
 ## 2. pointcut-engine: Arity and Nested Types (WAVE 1, subagent G2)
 
-- [ ] 2.1 `PointcutMatcher.matchArgs` (`:268-306`): apply the arity rule to every `args` form (INV-INS-159) before type checks; remove the early return at `:269-271`
-- [ ] 2.2 Replace `PointcutMatcherArgsTypeTest.bindingOnlyArgsAlwaysMatchesRegardlessOfActualArity` and `wildcardAndRestOnlyArgsHaveNoTypeConstraint` with tests of the spec scenario "the binding form is constrained on the inline path" (delete the old ones, P3)
-- [ ] 2.3 `TypeResolver.toDescriptor`/`resolveFqn`: dotted name → `$` fallback from the right using `classExists` (INV-INS-162). The construction sites are wired by G3 (`WrapperEmitter`) and G12 (`BatchRunner`), design D4
-- [ ] 2.4 `AndroidClassIndex.toInternal` (`:223-225`): accept binary names with `$` unchanged
-- [ ] 2.5 `TypeResolverTest`: `nestedImportedType`, `nestedQualifiedType`, `topLevelUnchanged`, `unknownNestedKeepsCurrentDescriptor`
-- [ ] 2.6 `mvn -pl :pointcut-engine test` green
+- [x] 2.1 `PointcutMatcher.matchArgs` (`:268-306`): apply the arity rule to every `args` form (INV-INS-159) before type checks; remove the early return at `:269-271`
+- [x] 2.2 Replace `PointcutMatcherArgsTypeTest.bindingOnlyArgsAlwaysMatchesRegardlessOfActualArity` and `wildcardAndRestOnlyArgsHaveNoTypeConstraint` with tests of the spec scenario "the binding form is constrained on the inline path" (delete the old ones, P3)
+- [x] 2.3 `TypeResolver.toDescriptor`/`resolveFqn`: dotted name → `$` fallback from the right using `classExists` (INV-INS-162). The construction sites are wired by G3 (`WrapperEmitter`) and G12 (`BatchRunner`), design D4
+- [x] 2.4 `AndroidClassIndex.toInternal` (`:223-225`): accept binary names with `$` unchanged
+- [x] 2.5 `TypeResolverTest`: `nestedImportedType`, `nestedQualifiedType`, `topLevelUnchanged`, `unknownNestedKeepsCurrentDescriptor`
+- [x] 2.6 `mvn -pl :pointcut-engine test` green
 
 ## 3. advice-emitter: Grouping, Inherited Targets, After-Finally Wrapper (WAVE 1, subagent G3)
 
@@ -137,8 +137,8 @@ GitHub Issue: #114
 
 ## 9. jca_android Remaining Specifications and RSA (WAVE 1, subagents G9a and G9b)
 
-- [ ] 9.1 G9a, the fourteen files listed for G9a in the dispatch hints: `creationObserved` field set by its creation events and `-ORDER-01` in `@fail` (creation events as defined in design D7, refused twins included, `target`-bound events excluded); `Evidence.suffix` on every `-NOBS-` envelope
-- [ ] 9.2 G9a: fragment `fragments/codes_g9a.csv` (no traces)
+- [x] 9.1 G9a, the fourteen files listed for G9a in the dispatch hints: `creationObserved` field set by its creation events and `-ORDER-01` in `@fail` (creation events as defined in design D7, refused twins included, `target`-bound events excluded); `Evidence.suffix` on every `-NOBS-` envelope
+- [x] 9.2 G9a: fragment `fragments/codes_g9a.csv` (no traces)
 - [ ] 9.3 G9b, the fourteen files listed for G9b: the same as 9.1 (`SSLEngineSpec` has no creation event and gets no `-ORDER-01`)
 - [ ] 9.4 G9b: `RSAKeyGenParameterSpecSpec.mop:33-39`: `keySizes = Arrays.asList(2048, 3072, 4096)`; comment names both expert clauses, NIST SP 800-57 Part 1 and D-20.4, current behaviour only
 - [ ] 9.5 G9b: fragment `fragments/codes_g9b.csv` and traces `fragments/traces_g9b/`: `rsa_3072`, `rsa_1024`, `digest_clone_update`
