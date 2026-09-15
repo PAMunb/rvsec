@@ -6,10 +6,14 @@
                   separate them -- `-NOBS-` and `-CONSTR-` share `UnsatisfiedConstraint`
                   by construction
 
+    INV-INS-164   every `codes.csv` row carries one `label` that names the situation the
+                  code reports inside its family
+
 Two halves are asserted here. The first is the classification itself, over fixtures, and
 it holds in any checkout: a NOBS code lands in neither of the summable channels, an
-unknown code lands in neither either, and a catalogue that contradicts itself raises
-rather than picking a side. The second reads the real `jca_android/codes.csv` and asserts
+unknown code lands in neither either, a catalogue that contradicts itself raises
+rather than picking a side, and the label counts refine each channel without moving a
+line out of it. The second reads the real `jca_android/codes.csv` and asserts
 the premise the invariant rests on -- that the two families really are indistinguishable
 by `ErrorType` -- so that if a future set ever gave NOBS an `ErrorType` of its own, the
 reason this module exists would be re-examined rather than inherited.
@@ -39,13 +43,15 @@ from gh109_nobs_channel import (  # noqa: E402
     InconsistentCatalogue,
     channel,
     code_of,
+    label_counts,
+    load_labels,
     load_site_kinds,
     tally,
 )
 
 SUCCESSOR = "rvsec/rvsec-mop/src/main/resources/jca_android"
 
-HEADER = "spec,code,error_type,site_kind,event,file_line\n"
+HEADER = "spec,code,error_type,site_kind,event,file_line,label\n"
 
 
 def _codes_csv(tmp_path: Path, rows: str) -> Path:
@@ -87,8 +93,8 @@ class TestClassification:
         """
         codes = _codes_csv(
             tmp_path,
-            "CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i1,CipherSpec.mop:1\n"
-            "CipherSpec,CIPHER-CONSTR-00,UnsatisfiedConstraint,CONSTR,i1,CipherSpec.mop:2\n",
+            "CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i1,CipherSpec.mop:1,not-observed\n"
+            "CipherSpec,CIPHER-CONSTR-00,UnsatisfiedConstraint,CONSTR,i1,CipherSpec.mop:2,violation\n",
         )
         kinds = load_site_kinds(codes)
 
@@ -99,8 +105,8 @@ class TestClassification:
         """The invariant itself: NOBS is not conformance and not violation."""
         codes = _codes_csv(
             tmp_path,
-            "CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i1,CipherSpec.mop:1\n"
-            "CipherSpec,CIPHER-CONSTR-00,UnsatisfiedConstraint,CONSTR,i1,CipherSpec.mop:2\n",
+            "CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i1,CipherSpec.mop:1,not-observed\n"
+            "CipherSpec,CIPHER-CONSTR-00,UnsatisfiedConstraint,CONSTR,i1,CipherSpec.mop:2,violation\n",
         )
         kinds = load_site_kinds(codes)
         lines = [_report("CIPHER-NOBS-00")] * 3 + [_report("CIPHER-CONSTR-00")]
@@ -119,7 +125,7 @@ class TestClassification:
         """
         codes = _codes_csv(
             tmp_path,
-            "CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i1,CipherSpec.mop:1\n",
+            "CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i1,CipherSpec.mop:1,not-observed\n",
         )
         kinds = load_site_kinds(codes)
         legacy = (
@@ -141,7 +147,7 @@ class TestClassification:
         """
         codes = _codes_csv(
             tmp_path,
-            "CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,CONSTR,i1,CipherSpec.mop:1\n",
+            "CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,CONSTR,i1,CipherSpec.mop:1,violation\n",
         )
 
         with pytest.raises(InconsistentCatalogue):
@@ -153,6 +159,71 @@ class TestClassification:
             code_of("08-28 10:00:00.000 E RVSEC-COV: br.unb.App: void onCreate()")
             is None
         )
+
+
+class TestLabels:
+    """Label counts beside the channel (INV-INS-164): the family decides, the label names."""
+
+    def test_labels_are_counted_inside_their_channel(self, tmp_path):
+        """A label refines a channel and never moves a line out of it.
+
+        Two `NOBS` codes with different labels land in the same channel, and the counts
+        per `(channel, label)` sum to each channel's total.
+        """
+        codes = _codes_csv(
+            tmp_path,
+            "TMFSpec,TMF-NOBS-00,UnsatisfiedConstraint,NOBS,init,TMFSpec.mop:1,not-observed\n"
+            "TMFSpec,TMF-NOBS-01,UnsatisfiedConstraint,NOBS,init,TMFSpec.mop:2,platform-default\n"
+            "TMFSpec,TMF-ORDER-00,InvalidSequenceOfMethodCalls,ORDER,init,TMFSpec.mop:3,sequence\n"
+            "TMFSpec,TMF-ORDER-01,InvalidSequenceOfMethodCalls,ORDER,init,TMFSpec.mop:4,creation-unobserved\n",
+        )
+        kinds = load_site_kinds(codes)
+        labels = load_labels(codes)
+        lines = (
+            [_report("TMF-NOBS-01")] * 4
+            + [_report("TMF-NOBS-00")]
+            + [_report("TMF-ORDER-01")] * 2
+            + [_report("OTHER-CONSTR-00")]
+        )
+
+        by_channel, by_code = tally(lines, kinds)
+        by_label = label_counts(by_code, kinds, labels)
+
+        assert by_label == {
+            (CHANNEL_NOT_OBSERVED, "platform-default"): 4,
+            (CHANNEL_NOT_OBSERVED, "not-observed"): 1,
+            (CHANNEL_ACCUSATION, "creation-unobserved"): 2,
+            (CHANNEL_UNCLASSIFIED, CHANNEL_UNCLASSIFIED): 1,
+        }
+        for name in by_channel:
+            assert by_channel[name] == sum(
+                count
+                for (channel_name, _), count in by_label.items()
+                if channel_name == name
+            )
+
+    def test_the_label_column_is_read_by_name(self, tmp_path):
+        """Column order is not part of the contract: `label` is found wherever it sits."""
+        path = tmp_path / "codes.csv"
+        path.write_text(
+            "label,code,site_kind\nplatform-default,TMF-NOBS-01,NOBS\n",
+            encoding="utf-8",
+        )
+
+        assert load_labels(path) == {"TMF-NOBS-01": "platform-default"}
+        assert load_site_kinds(path) == {"TMF-NOBS-01": "NOBS"}
+
+    def test_a_code_without_a_label_raises(self, tmp_path):
+        """A line under no label would make the label counts fall short of the channels."""
+        path = tmp_path / "codes.csv"
+        path.write_text(
+            "spec,code,error_type,site_kind,event,file_line\n"
+            "CipherSpec,CIPHER-NOBS-00,UnsatisfiedConstraint,NOBS,i1,CipherSpec.mop:1\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(InconsistentCatalogue):
+            load_labels(path)
 
 
 class TestAgainstTheLiveSet:
@@ -179,6 +250,12 @@ class TestAgainstTheLiveSet:
         kinds = load_site_kinds(_set_dir() / "codes.csv")
 
         assert kinds, "the catalogue is empty"
-        assert NOT_OBSERVED_KIND in set(
-            kinds.values()
-        ), "no unobserved family to separate"
+        assert NOT_OBSERVED_KIND in set(kinds.values()), (
+            "no unobserved family to separate"
+        )
+
+    def test_every_live_code_carries_a_label(self):
+        """The label counts cover the whole catalogue of the set under measurement."""
+        codes = _set_dir() / "codes.csv"
+
+        assert set(load_labels(codes)) == set(load_site_kinds(codes))

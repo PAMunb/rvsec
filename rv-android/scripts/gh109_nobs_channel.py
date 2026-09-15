@@ -23,6 +23,16 @@ This is the opposite reading from `gh104_gates.py`, deliberately -- that gate de
 from the code so an inconsistent catalogue shows up as an unknown code instead of passing
 through a side door. Here inconsistency is louder still: `load_site_kinds` raises.
 
+**Labels beside the channel.** Inside a family, the `label` column of `codes.csv` names the
+situation a code reports (INV-INS-164): `not-observed`, `platform-default`,
+`upstream-refused`, `application-manager` and `random-key-material` inside `NOBS`;
+`sequence`, `creation-unobserved` and `reuse-after-final` inside `ORDER`; `violation` in
+every other family. The channel stays keyed on `site_kind` -- a label never moves a line
+between channels -- and the label counts are printed next to it, so a reader can see how
+much of the not-observed channel is a documented platform default and how much of the
+order channel is a creation the monitor never saw. Whether a label agrees with its family
+is checked by `gh104_message_gate.py`, not here.
+
 **What this module does not do.** It does not measure the NOBS rate -- that is gh109 task
 7.3, over the APK corpus, and it is the first reading of this channel; no earlier count is
 comparable to it, because before this module a `-NOBS-` line was summed indistinguishably
@@ -40,6 +50,9 @@ Usage:
     gh109_nobs_channel.py <logcat|errors.csv> [...]   # tally the channels
     gh109_nobs_channel.py --codes-csv <path> <file...>
     gh109_nobs_channel.py --by-code <file...>          # ... and per code
+
+The output prints the three channels, then one line per channel and label (`unclassified`
+for lines whose code the catalogue does not know).
 """
 
 from __future__ import annotations
@@ -61,6 +74,8 @@ DEFAULT_CODES_CSV = REACTOR / "rvsec/rvsec-mop/src/main/resources/jca_android/co
 #: `code` is the key a report line carries.
 CODE_COLUMN = "code"
 SITE_KIND_COLUMN = "site_kind"
+#: The situation a code reports, inside its family. Read for the label counts only.
+LABEL_COLUMN = "label"
 
 #: The one family that is neither conformance nor violation.
 NOT_OBSERVED_KIND = "NOBS"
@@ -92,7 +107,8 @@ CODE_RE = re.compile(r"^(?P<spec>[A-Z0-9]+)-(?P<kind>[A-Z]+)-(?P<nn>\d{2})$")
 
 
 class InconsistentCatalogue(Exception):
-    """A `codes.csv` whose `site_kind` column and code strings disagree.
+    """A `codes.csv` whose `site_kind` column and code strings disagree, or that leaves a
+    code without a `site_kind` or a `label`.
 
     Raised rather than resolved, because either answer would be a guess about which of the
     two the author meant, and a channel assigned by guess is exactly what INV-INS-158
@@ -142,6 +158,60 @@ def load_site_kinds(path: Path = DEFAULT_CODES_CSV) -> dict[str, str]:
                 )
             kinds[code] = declared
     return kinds
+
+
+def load_labels(path: Path = DEFAULT_CODES_CSV) -> dict[str, str]:
+    """Read `codes.csv` into `{code: label}`, by column name.
+
+    Args:
+        path: the `codes.csv` of the specification set under measurement.
+
+    Returns:
+        Every row's code mapped to its `label` cell.
+
+    Raises:
+        InconsistentCatalogue: when a code's `label` cell is empty -- which is also what a
+            catalogue without the column looks like -- because a line counted under no
+            label would make the label counts sum to less than the channels they sit beside.
+    """
+    labels: dict[str, str] = {}
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            code = (row.get(CODE_COLUMN) or "").strip()
+            if not code:
+                continue
+            label = (row.get(LABEL_COLUMN) or "").strip()
+            if not label:
+                raise InconsistentCatalogue(
+                    f"{path}: `{code}` declares no {LABEL_COLUMN}"
+                )
+            labels[code] = label
+    return labels
+
+
+def label_counts(
+    by_code: collections.Counter,
+    site_kinds: dict[str, str],
+    labels: dict[str, str],
+) -> collections.Counter:
+    """Fold per-code counts into counts per channel and label.
+
+    Args:
+        by_code: the second counter `tally` returned.
+        site_kinds: the catalogue `load_site_kinds` returned.
+        labels: the catalogue `load_labels` returned.
+
+    Returns:
+        Counts keyed on `(channel, label)`. The channel is the one `channel` assigns, so
+        the counts of one channel sum to that channel's total; a code the catalogue does
+        not know -- a line with no envelope, or from another set -- is keyed
+        `(CHANNEL_UNCLASSIFIED, CHANNEL_UNCLASSIFIED)`.
+    """
+    folded: collections.Counter = collections.Counter()
+    for code, count in by_code.items():
+        key = (channel(code, site_kinds), labels.get(code, CHANNEL_UNCLASSIFIED))
+        folded[key] += count
+    return folded
 
 
 def channel(code: str, site_kinds: dict[str, str]) -> str:
@@ -241,6 +311,7 @@ def main() -> int:
 
     try:
         site_kinds = load_site_kinds(args.codes_csv)
+        labels = load_labels(args.codes_csv)
     except (OSError, InconsistentCatalogue) as failure:
         print(failure, file=sys.stderr)
         return 1
@@ -265,6 +336,13 @@ def main() -> int:
         share = f"{100 * by_channel[name] / total:.1f} %" if total else "-"
         print(f"{name:>14s}  {by_channel[name]:8d}  {share:>7s}")
     print(f"{'total':>14s}  {total:8d}")
+    by_label = label_counts(by_code, site_kinds, labels)
+    print()
+    for name, label in sorted(
+        by_label, key=lambda key: (CHANNELS.index(key[0]), -by_label[key], key[1])
+    ):
+        share = f"{100 * by_label[(name, label)] / total:.1f} %" if total else "-"
+        print(f"{name:>14s}  {label:<20s}  {by_label[(name, label)]:8d}  {share:>7s}")
     if args.by_code:
         for code, count in by_code.most_common():
             print(

@@ -44,7 +44,7 @@ reprovado não verifica nada. Só a stdlib, então.
 | G2 | alguma mensagem termina em `but found .` — valor observado vazio (baseline: 98) |
 | G3 | o cabeçalho do `errors.csv` não é o de 13 colunas da gh104 |
 | G4 | algum `unique_msg` não tem sete partes `:::` |
-| G5 | alguma mensagem não casa o envelope v1, ou traz código fora do `codes.csv` |
+| G5 | alguma mensagem não casa o envelope v1, traz código fora do `codes.csv`, ou traz as chaves de evidência (`vfp`, `vcls`) num código que não é `NOBS` |
 | G6 | a macro `__EVENTNAME` aparece sem expandir |
 | G7 | há `\n` literal, `:::` ou envelope truncado dentro do envelope |
 | G8 | as colunas `code`/`event` estão vazias em vez de `UNSPECIFIED` |
@@ -155,11 +155,17 @@ ENVELOPE_KINDS_FALLBACK = frozenset(
     {"ORDER", "ALG", "CONSTR", "KEYSIZE", "KSTYPE", "PROTO", "FORB", "NOBS"}
 )
 
-#: A coluna do `codes.csv` (`spec,code,error_type,site_kind,event,file_line`) de onde o
-#: vocabulário é lido. O KIND é derivado do próprio código e não da coluna `site_kind`,
-#: que é redundante com ele: assim um `codes.csv` internamente inconsistente aparece como
-#: código desconhecido em vez de passar pela porta lateral.
+#: As colunas do `codes.csv` que este script lê, sempre pelo nome no cabeçalho — as demais
+#: (`spec`, `error_type`, `event`, `file_line`, `label`) são transparentes, e uma coluna nova
+#: não desloca nada. O vocabulário de KIND é derivado do próprio código e não da coluna
+#: `site_kind`: assim um `codes.csv` internamente inconsistente aparece como código
+#: desconhecido em vez de passar pela porta lateral. A `site_kind` é lida só para decidir a
+#: família de um código que traz chaves de evidência, porque é a coluna que declara a família.
 CODES_CSV_CODE_COLUMN = "code"
+CODES_CSV_FAMILY_COLUMN = "site_kind"
+
+#: A única família cujo envelope pode trazer as chaves de evidência (INV-INS-166).
+NOT_OBSERVED_KIND = "NOBS"
 
 #: Proibidos dentro de um valor do envelope: `\n` porque o logcat quebra a linha nele,
 #: `:::` porque é o separador de `unique_msg`.
@@ -169,11 +175,17 @@ FORBIDDEN_SEPARATOR = UNIQUE_SEPARATOR
 #: Um valor entre aspas simples: qualquer coisa que não seja aspa, ou uma aspa escapada.
 _QUOTED_VALUE = r"(?:\\'|[^'])*"
 
+#: As chaves de evidência `vfp` (impressão digital de um `byte[]`) e `vcls` (classes dos
+#: elementos de um `TrustManager[]`) vêm depois de `msg`, nessa ordem, cada uma no máximo
+#: uma vez e entre aspas como os demais valores. Nenhum veredito as lê; o G5 só confere que
+#: aparecem em envelope `NOBS`.
 ENVELOPE_RE = re.compile(
     r"^v=1 code=(?P<code>\S+) ev=(?P<ev>\S+) obj=(?P<obj>\S+) "
     rf"val='(?P<val>{_QUOTED_VALUE})' "
     rf"exp='(?P<exp>{_QUOTED_VALUE})' "
-    rf"msg='(?P<msg>{_QUOTED_VALUE})'$"
+    rf"msg='(?P<msg>{_QUOTED_VALUE})'"
+    rf"(?: vfp='(?P<vfp>{_QUOTED_VALUE})')?"
+    rf"(?: vcls='(?P<vcls>{_QUOTED_VALUE})')?$"
 )
 
 CODE_RE = re.compile(r"^(?P<spec>[A-Z0-9]+)-(?P<kind>[A-Z]+)-(?P<nn>\d{2})$")
@@ -192,6 +204,16 @@ class CodeVocabulary:
     kinds: frozenset
     codes: frozenset = frozenset()
     source: str = "lista congelada no script (sem --codes-csv)"
+    #: Código → família declarada na coluna `site_kind`. Vazio sem `--codes-csv`.
+    families: dict = field(default_factory=dict)
+
+    def family(self, code: str) -> str:
+        """A família de um código: a coluna `site_kind` quando o catálogo o traz, senão o KIND
+        escrito no próprio código (vazio quando o código não é bem-formado)."""
+        if code in self.families:
+            return self.families[code]
+        match = CODE_RE.match(code)
+        return match.group("kind") if match else ""
 
     @property
     def authoritative(self) -> bool:
@@ -207,15 +229,16 @@ def load_code_vocabulary(path: Path | None) -> CodeVocabulary:
     """
     if path is None:
         return CodeVocabulary(kinds=ENVELOPE_KINDS_FALLBACK)
+    families: dict[str, str] = {}
     try:
         with path.open("r", encoding="utf-8", newline="") as handle:
-            codes = {
-                (row.get(CODES_CSV_CODE_COLUMN) or "").strip()
-                for row in csv.DictReader(handle)
-            }
+            for row in csv.DictReader(handle):
+                code = (row.get(CODES_CSV_CODE_COLUMN) or "").strip()
+                if code:
+                    families[code] = (row.get(CODES_CSV_FAMILY_COLUMN) or "").strip()
     except OSError as error:
         raise SystemExit(f"FALHA: --codes-csv {path}: {error}") from error
-    codes.discard("")
+    codes = set(families)
     if not codes:
         raise SystemExit(
             f"FALHA: {path} não traz nenhum código na coluna '{CODES_CSV_CODE_COLUMN}'"
@@ -225,7 +248,7 @@ def load_code_vocabulary(path: Path | None) -> CodeVocabulary:
         for match in (CODE_RE.match(code) for code in codes)
         if match is not None
     }
-    return CodeVocabulary(frozenset(kinds), frozenset(codes), str(path))
+    return CodeVocabulary(frozenset(kinds), frozenset(codes), str(path), families)
 
 
 VIOLATION_TAG = "RVSEC"
@@ -296,6 +319,8 @@ class EnvelopeVerdict:
     #: Bem-formado, mas fora do catálogo do conjunto — só decidível com `--codes-csv`.
     #: É deriva de proveniência: o APK carrega monitores de um `codes.csv` que não é este.
     unknown_code: bool = False
+    #: Traz `vfp` ou `vcls` num código cuja família não é `NOBS` (INV-INS-166).
+    evidence_off_nobs: bool = False
     forbidden: tuple[str, ...] = ()
     code: str = ""
     event: str = ""
@@ -317,7 +342,11 @@ def _count_unescaped_quotes(text: str) -> int:
 
 
 def inspect_envelope(message: str, vocab: CodeVocabulary) -> EnvelopeVerdict:
-    """Julga uma mensagem contra a gramática `v=1 code=… ev=… obj=… val='…' exp='…' msg='…'`.
+    """Julga uma mensagem contra a gramática `v=1 code=… ev=… obj=… val='…' exp='…' msg='…'`,
+    seguida opcionalmente de ` vfp='…'` e ` vcls='…'`.
+
+    A família que decide se as chaves de evidência são admitidas vem da coluna `site_kind`
+    do catálogo quando há `--codes-csv`, e do KIND escrito no código quando não há.
 
     Nunca levanta: uma mensagem de qualquer forma recebe um veredito, porque a linha
     conta mesmo quando não é compreendida.
@@ -349,6 +378,7 @@ def inspect_envelope(message: str, vocab: CodeVocabulary) -> EnvelopeVerdict:
     code_match = CODE_RE.match(code)
     sentinel = code == SENTINEL or event == SENTINEL
     well_formed = code_match is not None and code_match.group("kind") in vocab.kinds
+    has_evidence = match.group("vfp") is not None or match.group("vcls") is not None
     return EnvelopeVerdict(
         claims=True,
         matched=well_formed and not sentinel,
@@ -361,6 +391,7 @@ def inspect_envelope(message: str, vocab: CodeVocabulary) -> EnvelopeVerdict:
             and vocab.authoritative
             and code not in vocab.codes
         ),
+        evidence_off_nobs=has_evidence and vocab.family(code) != NOT_OBSERVED_KIND,
         forbidden=tuple(forbidden),
         code=code,
         event=event,
@@ -407,6 +438,8 @@ class CsvReading:
     envelope_samples: Samples = field(default_factory=Samples)
     unknown_code: int = 0
     unknown_code_samples: Samples = field(default_factory=Samples)
+    evidence_off_nobs: int = 0
+    evidence_off_nobs_samples: Samples = field(default_factory=Samples)
     truncated: int = 0
     truncated_samples: Samples = field(default_factory=Samples)
     forbidden: Counter = field(default_factory=Counter)
@@ -480,6 +513,9 @@ def _accumulate_row(
         reading.unique_samples.add(where, unique)
 
     verdict = inspect_envelope(message, vocab)
+    if verdict.evidence_off_nobs:
+        reading.evidence_off_nobs += 1
+        reading.evidence_off_nobs_samples.add(where, message)
     if verdict.matched:
         reading.envelope_matched += 1
         if verdict.unknown_code:
@@ -547,6 +583,8 @@ class LogcatReading:
     envelope_samples: Samples = field(default_factory=Samples)
     unknown_code: int = 0
     unknown_code_samples: Samples = field(default_factory=Samples)
+    evidence_off_nobs: int = 0
+    evidence_off_nobs_samples: Samples = field(default_factory=Samples)
     truncated: int = 0
     truncated_samples: Samples = field(default_factory=Samples)
     forbidden: Counter = field(default_factory=Counter)
@@ -622,6 +660,9 @@ def _accumulate_violation(
         reading.empty_observed_samples.add(where, stripped)
 
     verdict = inspect_envelope(message, vocab)
+    if verdict.evidence_off_nobs:
+        reading.evidence_off_nobs += 1
+        reading.evidence_off_nobs_samples.add(where, message)
     if verdict.matched:
         reading.envelope_matched += 1
         reading.codes[verdict.code] += 1
@@ -874,19 +915,27 @@ def gate_g4(csv_data: CsvReading) -> Gate:
 def gate_g5(
     csv_data: CsvReading, log_data: LogcatReading, vocab: CodeVocabulary
 ) -> Gate:
-    """Envelope bem-formado — e, com catálogo, código que de fato existe.
+    """Envelope bem-formado — e, com catálogo, código que de fato existe; evidência só em `NOBS`.
 
     O código desconhecido reprova junto porque ele é deriva de proveniência: um envelope
     perfeito cujo código não está no `codes.csv` do conjunto sob medição significa que o
     APK carrega monitores de outro conjunto, e toda leitura a jusante estaria atribuindo
     a acusação à spec errada. Sem `--codes-csv` a pergunta não é respondível e o portão
     diz isso na linha, em vez de passar por omissão.
+
+    As chaves de evidência (`vfp`, `vcls`) num código de outra família reprovam também: a
+    gramática as admite depois de `msg`, mas só um envelope `NOBS` pode trazê-las
+    (INV-INS-166), e uma evidência numa acusação indica um sítio que anexou o sufixo no
+    ramo errado.
     """
     csv_unmatched = csv_data.envelope_absent + csv_data.envelope_malformed
     log_unmatched = log_data.envelope_absent + log_data.envelope_malformed
     unknown = csv_data.unknown_code + log_data.unknown_code
+    evidence = csv_data.evidence_off_nobs + log_data.evidence_off_nobs
     status = (
-        PASS if csv_unmatched == 0 and log_unmatched == 0 and unknown == 0 else FAIL
+        PASS
+        if csv_unmatched == 0 and log_unmatched == 0 and unknown == 0 and evidence == 0
+        else FAIL
     )
     catalogo = (
         f"catálogo: {len(vocab.codes)} códigos de {vocab.source}"
@@ -903,11 +952,13 @@ def gate_g5(
             "csv_absent": csv_data.envelope_absent,
             "csv_malformed": csv_data.envelope_malformed,
             "csv_unknown_code": csv_data.unknown_code,
+            "csv_evidence_off_nobs": csv_data.evidence_off_nobs,
             "logcat_matched": log_data.envelope_matched,
             "logcat_sentinel": log_data.envelope_sentinel,
             "logcat_absent": log_data.envelope_absent,
             "logcat_malformed": log_data.envelope_malformed,
             "logcat_unknown_code": log_data.unknown_code,
+            "logcat_evidence_off_nobs": log_data.evidence_off_nobs,
             "kinds": sorted(vocab.kinds),
             "codes_source": vocab.source,
             "codes_known": len(vocab.codes),
@@ -916,11 +967,13 @@ def gate_g5(
             f"errors.csv : casam {csv_data.envelope_matched} · sentinela "
             f"{csv_data.envelope_sentinel} · sem envelope {csv_data.envelope_absent} · "
             f"malformados {csv_data.envelope_malformed} · código fora do catálogo "
-            f"{csv_data.unknown_code}",
+            f"{csv_data.unknown_code} · evidência fora de {NOT_OBSERVED_KIND} "
+            f"{csv_data.evidence_off_nobs}",
             f"logcat     : casam {log_data.envelope_matched} · sentinela "
             f"{log_data.envelope_sentinel} · sem envelope {log_data.envelope_absent} · "
             f"malformados {log_data.envelope_malformed} · código fora do catálogo "
-            f"{log_data.unknown_code}",
+            f"{log_data.unknown_code} · evidência fora de {NOT_OBSERVED_KIND} "
+            f"{log_data.evidence_off_nobs}",
             "KIND admitidos: " + ", ".join(sorted(vocab.kinds)),
             catalogo,
         ],
@@ -929,6 +982,8 @@ def gate_g5(
             or log_data.envelope_samples.items
             or csv_data.unknown_code_samples.items
             or log_data.unknown_code_samples.items
+            or csv_data.evidence_off_nobs_samples.items
+            or log_data.evidence_off_nobs_samples.items
         ),
     )
 

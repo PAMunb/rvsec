@@ -106,12 +106,12 @@ GitHub Issue: #114
 
 ## 5. Weave Sweep Script and Before Counts (WAVE 1, subagent G5)
 
-- [ ] 5.1 New `scripts/gh114_weave_sweep.py <apk_dir> <descriptor.json> <out.csv>`: per APK counts of (a) wrappers of a one-parameter overload invoking an event whose advice declares more `args()` positions, (b) invokes whose owner is a framework subtype of a wrapped owner left unwoven, (c) hooked calls that are branch targets (logic of `experimento-estudo02/scripts/branch_target_hooks.py`, generalised and including switch targets), (d) `KeyStore.getEntry`/`setEntry` invokes and how many are woven; `dexdump` from `ANDROID_HOME`; totals trailer
-- [ ] 5.2 `tests/scripts/test_gh114_weave_sweep.py` on a small synthetic DEX built in the test (no corpus file)
-- [ ] 5.3 Run it over the instrumented APKs of the most recent `jca_android` instrumentation (directory passed on the command line) and store totals in `openspec/changes/gh114-weaver-fidelity-nobs-labels/evidence/sweep_before.csv`
-- [ ] 5.4 Run `/rv-doc-code scripts/gh114_weave_sweep.py`
-- [ ] 5.5 `scripts/gh109_nobs_channel.py`: report counts per `label` beside the family channel; tests
-- [ ] 5.6 `experimento-gh104/scripts/gh104_gates.py`: `ENVELOPE_RE` (`:172-177`) accepts optional trailing ` vfp='…'` and ` vcls='…'` after `msg` and G5 rejects them on non-`NOBS` codes; confirm `codes.csv` is read by column name; test on synthetic envelopes with and without evidence keys
+- [x] 5.1 New `scripts/gh114_weave_sweep.py <apk_dir> <descriptor.json> <out.csv>`: per APK counts of (a) wrappers of a one-parameter overload invoking an event whose advice declares more `args()` positions, (b) invokes whose owner is a framework subtype of a wrapped owner left unwoven, (c) hooked calls that are branch targets (logic of `experimento-estudo02/scripts/branch_target_hooks.py`, generalised and including switch targets), (d) `KeyStore.getEntry`/`setEntry` invokes and how many are woven; `dexdump` from `ANDROID_HOME`; totals trailer
+- [x] 5.2 `tests/scripts/test_gh114_weave_sweep.py` on a small synthetic DEX built in the test (no corpus file)
+- [x] 5.3 Run it over the instrumented APKs of the most recent `jca_android` instrumentation (directory passed on the command line) and store totals in `openspec/changes/gh114-weaver-fidelity-nobs-labels/evidence/sweep_before.csv`
+- [x] 5.4 Run `/rv-doc-code scripts/gh114_weave_sweep.py`
+- [x] 5.5 `scripts/gh109_nobs_channel.py`: report counts per `label` beside the family channel; tests
+- [x] 5.6 `experimento-gh104/scripts/gh104_gates.py`: `ENVELOPE_RE` (`:172-177`) accepts optional trailing ` vfp='…'` and ` vcls='…'` after `msg` and G5 rejects them on non-`NOBS` codes; confirm `codes.csv` is read by column name; test on synthetic envelopes with and without evidence keys
 
 ## 6. jca_android TLS Cluster (WAVE 1, subagent G6)
 
