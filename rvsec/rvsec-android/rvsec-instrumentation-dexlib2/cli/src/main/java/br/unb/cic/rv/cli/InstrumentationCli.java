@@ -7,6 +7,7 @@ import picocli.CommandLine.Parameters;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.Callable;
 
 /**
  * Picocli entry point for the DEX-native weaver.
@@ -97,7 +98,8 @@ public final class InstrumentationCli implements Runnable {
     @Option(names = "--monitor-src-dir",
             description = "Directory with rv-monitor-emitted .java sources (e.g. mop/MultiSpec_1RuntimeMonitor.java); "
                     + "when set, monitor-builder runs javac+d8 and multidex-merger produces a signed APK. "
-                    + "When omitted, the pipeline stops at written DEXes (phase=dex_only).",
+                    + "When omitted, the pipeline stops at written DEXes (phase=dex_only) and exits 1, "
+                    + "because no instrumented APK was produced.",
             scope = CommandLine.ScopeType.INHERIT)
     Path monitorSrcDir;
 
@@ -121,28 +123,28 @@ public final class InstrumentationCli implements Runnable {
     }
 
     @Command(name = "instrument", description = "Weave a single APK.")
-    public static final class Instrument implements Runnable {
+    public static final class Instrument implements Callable<Integer> {
         @Parameters(index = "0", description = "APK to instrument")
         Path apk;
         @picocli.CommandLine.ParentCommand InstrumentationCli parent;
 
         @Override
-        public void run() {
+        public Integer call() {
             EffectiveConfig cfg = ConfigResolver.resolve(parent);
-            BatchRunner.instrumentOne(cfg, apk, parent.resultsJson);
+            return BatchRunner.instrumentOne(cfg, apk, parent.resultsJson) ? 0 : 1;
         }
     }
 
     @Command(name = "batch", description = "Weave every .apk under a directory.")
-    public static final class Batch implements Runnable {
+    public static final class Batch implements Callable<Integer> {
         @Parameters(index = "0", description = "Directory containing APKs")
         Path apksDir;
         @picocli.CommandLine.ParentCommand InstrumentationCli parent;
 
         @Override
-        public void run() {
+        public Integer call() {
             EffectiveConfig cfg = ConfigResolver.resolve(parent);
-            BatchRunner.instrumentBatch(cfg, apksDir, parent.resultsJson);
+            return BatchRunner.instrumentBatch(cfg, apksDir, parent.resultsJson) ? 0 : 1;
         }
     }
 

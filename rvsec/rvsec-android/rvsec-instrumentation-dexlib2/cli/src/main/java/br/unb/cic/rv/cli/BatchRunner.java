@@ -63,10 +63,24 @@ import java.util.zip.ZipFile;
  *       didn't supply {@code --apksigner}/{@code --zipalign}/{@code --keystore}
  *       + {@code --output}). The mutated app DEXes and freshly built monitor
  *       DEX(es) live under {@code workDir}.</li>
+ *   <li>{@code phase=dex_write} + {@code success=false}: serializing one woven
+ *       DEX threw (e.g. the DEX no longer fits the format's 65,536
+ *       {@code method_ids}); the message names the DEX entry.</li>
  *   <li>{@code phase=apk_read|io_error|config_validation|uncaught} +
- *       {@code success=false}: well-formed failure; the Python wrapper
- *       continues onto the next APK.</li>
+ *       {@code success=false}: well-formed failure.</li>
  * </ul>
+ *
+ * <p>Every failure message carries the cause chain down to the innermost
+ * exception ({@link #causeChain}), the stack trace goes to stderr, and
+ * {@code weaveCounts} keeps the counters accumulated up to the failure.
+ *
+ * <p>Exit code of the {@code instrument} and {@code batch} subcommands: the
+ * results JSON is always written first; the process exits 0 when every
+ * {@link PerApkResult} is a success and 1 otherwise — {@code dex_only} and
+ * {@code build_only} included, because neither produced an installable APK. The
+ * phase tag is what separates a withheld flag from a broken weave. The Python
+ * wrapper records a failure from the non-zero exit code and stderr, and
+ * continues onto the next APK.
  */
 public final class BatchRunner {
 
@@ -89,13 +103,16 @@ public final class BatchRunner {
      *
      * @param resultsJson where to write this APK's counters; when {@code null},
      *                    the result is only printed (ad-hoc console runs)
+     * @return whether the result is a success; the caller turns it into the
+     *         process exit code
      */
-    public static void instrumentOne(EffectiveConfig cfg, Path apk, Path resultsJson) {
+    public static boolean instrumentOne(EffectiveConfig cfg, Path apk, Path resultsJson) {
         PerApkResult result = runPipeline(cfg, apk);
         if (resultsJson != null) {
             writeResultsJson(List.of(result), resultsJson);
         }
         System.out.println("instr-cli result: " + result);
+        return result.success();
     }
 
     /**
@@ -111,8 +128,10 @@ public final class BatchRunner {
      *                    when {@code null}, the results are only summarized to
      *                    stdout and no file is written (used by callers that
      *                    just want a quick console summary, e.g. ad-hoc runs).
+     * @return whether every result is a success; the caller turns it into the
+     *         process exit code
      */
-    public static void instrumentBatch(EffectiveConfig cfg, Path apksDir, Path resultsJson) {
+    public static boolean instrumentBatch(EffectiveConfig cfg, Path apksDir, Path resultsJson) {
         List<PerApkResult> results = new ArrayList<>();
         try (Stream<Path> apks = Files.list(apksDir)) {
             apks.filter(p -> p.toString().endsWith(".apk"))
@@ -127,6 +146,7 @@ public final class BatchRunner {
         }
         long successes = results.stream().filter(PerApkResult::success).count();
         System.out.println("instr-cli batch: " + successes + "/" + results.size() + " succeeded");
+        return successes == results.size();
     }
 
     /**
@@ -153,7 +173,7 @@ public final class BatchRunner {
         try {
             // Phase 1: descriptor.
             if (cfg.descriptorPath() == null) {
-                return failed(apk, "config.descriptorPath is null", "config_validation");
+                return failed(apk, "config.descriptorPath is null", "config_validation", counts);
             }
             AspectDescriptor descriptor = DescriptorReader.read(cfg.descriptorPath());
             counts.put("advices", descriptor.getAdvices().size());
@@ -166,7 +186,7 @@ public final class BatchRunner {
             ExtractedDex[] dexes = extractDexes(apk);
             counts.put("dexFiles", dexes.length);
             if (dexes.length == 0) {
-                return failed(apk, "no classes*.dex entries in APK", "apk_read");
+                return failed(apk, "no classes*.dex entries in APK", "apk_read", counts);
             }
 
             // Max DEX-format API across the APK's input dexes (each dex's
@@ -228,19 +248,6 @@ public final class BatchRunner {
 
             CoverageWeaver coverageWeaver = cfg.enableCoverage() ? new CoverageWeaver() : null;
             Map<String, Path> appDexEntries = new LinkedHashMap<>();
-            int matchesApplied = 0;
-            int plansSkipped = 0;
-            int plansSkippedAliasing = 0;
-            int wrappersSubstituted = 0;
-            int wrappersAliasedToSubtype = 0;
-            int constructorInlineApplied = 0;
-            int constructorInlineSkippedAliasing = 0;
-            int plansSkippedHighRegister = 0;
-            int plansSkippedUnresolvedBinding = 0;
-            int coverageInstrumented = 0;
-            int coverageSpillFailed = 0;
-            int classesSeen = 0;
-            int methodsSeen = 0;
 
             for (ExtractedDex ed : dexes) {
                 DexFile dx = ed.dex;
@@ -271,23 +278,29 @@ public final class BatchRunner {
 
                 // 4a. Advice weave (counts also accumulate the read-side stats
                 // matchesApplied = matches that produced an emit + injection).
+                // The loop accumulates straight into counts, so a failure in a
+                // later DEX still reports the statistics of the DEXes already
+                // woven. merge writes every key on the first DEX even when its
+                // value is 0 — the plansSkippedUnresolvedBinding jq guard in
+                // run_phase5_validators.sh (gh56 INV-INS-71) reads a present key.
                 DexWeaver.WeaveReport wr = weaver.weave(
                         dx, descriptor, typeResolver, inheritance, weaverSupplier);
-                matchesApplied += wr.matchesApplied();
-                plansSkipped += wr.plansSkipped();
-                plansSkippedAliasing += wr.plansSkippedAliasing();
-                wrappersSubstituted += wr.wrappersSubstituted();
+                counts.merge("classesSeen", wr.classesSeen(), Integer::sum);
+                counts.merge("methodsSeen", wr.methodsSeen(), Integer::sum);
+                counts.merge("matchesApplied", wr.matchesApplied(), Integer::sum);
+                counts.merge("plansSkipped", wr.plansSkipped(), Integer::sum);
+                counts.merge("plansSkippedAliasing", wr.plansSkippedAliasing(), Integer::sum);
+                counts.merge("wrappersSubstituted", wr.wrappersSubstituted(), Integer::sum);
                 // wrappersAliasedToSubtype is APK-scoped (set once by
-                // expandWrapperReplacementsForApk above) but the report carries
-                // the same value for every DEX; record it once via the first
-                // DEX's report.
-                wrappersAliasedToSubtype = wr.wrappersAliasedToSubtype();
-                constructorInlineApplied += wr.constructorInlineApplied();
-                constructorInlineSkippedAliasing += wr.constructorInlineSkippedAliasing();
-                plansSkippedHighRegister += wr.plansSkippedHighRegister();
-                plansSkippedUnresolvedBinding += wr.plansSkippedUnresolvedBinding();
-                classesSeen += wr.classesSeen();
-                methodsSeen += wr.methodsSeen();
+                // expandWrapperReplacementsForApk above) and the report carries
+                // the same value for every DEX, so it is stored, not summed.
+                counts.put("wrappersAliasedToSubtype", wr.wrappersAliasedToSubtype());
+                counts.merge("constructorInlineApplied", wr.constructorInlineApplied(), Integer::sum);
+                counts.merge("constructorInlineSkippedAliasing",
+                        wr.constructorInlineSkippedAliasing(), Integer::sum);
+                counts.merge("plansSkippedHighRegister", wr.plansSkippedHighRegister(), Integer::sum);
+                counts.merge("plansSkippedUnresolvedBinding",
+                        wr.plansSkippedUnresolvedBinding(), Integer::sum);
 
                 // 4b. Coverage weave (optional). Same wiring concern as the
                 // advice weaver above — replaceImpl MUST be plumbed through
@@ -307,37 +320,28 @@ public final class BatchRunner {
                     };
                     CoverageWeaver.CoverageReport cr =
                             coverageWeaver.weave(dx, covSupplier);
-                    coverageInstrumented += cr.methodsInstrumented();
-                    coverageSpillFailed += cr.methodsSpillFailed();
+                    counts.merge("coverageInstrumented", cr.methodsInstrumented(), Integer::sum);
+                    counts.merge("coverageSpillFailed", cr.methodsSpillFailed(), Integer::sum);
                 }
 
                 // 4c. Serialize. DexPool accepts the original DexFile for
                 // pass-through dexes (when no method was mutated) and the
-                // rewritten DexFile when mutations exist.
+                // rewritten DexFile when mutations exist. A DEX that no longer
+                // fits the format (e.g. more than 65,536 method_ids once the
+                // advice references are added) throws here; naming the entry
+                // tells the reader which DEX without opening the APK.
                 Path outDex = workDir.resolve("woven_" + ed.entryName);
                 Files.createDirectories(outDex.getParent() == null ? workDir : outDex.getParent());
-                DexPool.writeTo(outDex.toString(), mutator.toDexFile());
+                try {
+                    DexPool.writeTo(outDex.toString(), mutator.toDexFile());
+                } catch (RuntimeException ex) {
+                    ex.printStackTrace();
+                    return failed(apk, "DEX write failed for " + ed.entryName + ": "
+                            + causeChain(ex), "dex_write", counts);
+                }
                 appDexEntries.put(ed.entryName, outDex);
             }
 
-            counts.put("classesSeen", classesSeen);
-            counts.put("methodsSeen", methodsSeen);
-            counts.put("matchesApplied", matchesApplied);
-            counts.put("plansSkipped", plansSkipped);
-            counts.put("plansSkippedAliasing", plansSkippedAliasing);
-            counts.put("wrappersSubstituted", wrappersSubstituted);
-            counts.put("wrappersAliasedToSubtype", wrappersAliasedToSubtype);
-            counts.put("constructorInlineApplied", constructorInlineApplied);
-            counts.put("constructorInlineSkippedAliasing", constructorInlineSkippedAliasing);
-            counts.put("plansSkippedHighRegister", plansSkippedHighRegister);
-            // gh56 INV-INS-71: surfaced in instrument_results.json so the
-            // jq guard in run_phase5_validators.sh can fail the build when
-            // cryptoapp regresses (replaces the previous manual grep).
-            counts.put("plansSkippedUnresolvedBinding", plansSkippedUnresolvedBinding);
-            if (coverageWeaver != null) {
-                counts.put("coverageInstrumented", coverageInstrumented);
-                counts.put("coverageSpillFailed", coverageSpillFailed);
-            }
             counts.put("wovenDexes", appDexEntries.size());
 
             // Phase 5: monitor-builder javac+d8. Skipped unless the caller has
@@ -386,14 +390,38 @@ public final class BatchRunner {
                     "signed", counts);
 
         } catch (IOException ex) {
-            return failed(apk, "I/O error: " + ex.getMessage(), "io_error");
+            ex.printStackTrace();
+            return failed(apk, "I/O error: " + causeChain(ex), "io_error", counts);
         } catch (RuntimeException ex) {
-            return failed(apk, "uncaught error: " + ex.getMessage(), "uncaught");
+            ex.printStackTrace();
+            return failed(apk, "uncaught error: " + causeChain(ex), "uncaught", counts);
         }
     }
 
-    private static PerApkResult failed(Path apk, String message, String phase) {
-        return new PerApkResult(apk.getFileName().toString(), false, message, phase, Map.of());
+    /**
+     * A failed {@link PerApkResult} carrying the counters accumulated up to the
+     * failure, so a post-mortem keeps what was already measured.
+     */
+    static PerApkResult failed(Path apk, String message, String phase, Map<String, Integer> counts) {
+        return new PerApkResult(apk.getFileName().toString(), false, message, phase, counts);
+    }
+
+    /**
+     * The message of {@code ex} followed by the message of each cause, joined
+     * with {@code "; caused by: "}. dexlib2's {@code ExceptionWithContext} keeps
+     * the real cause only in {@link Throwable#getCause()}, so the outermost
+     * message alone names the symptom, not the cause. The walk stops after 10
+     * links: a cyclic cause chain would otherwise never end, and the result is a
+     * JSON field.
+     */
+    static String causeChain(Throwable ex) {
+        StringBuilder sb = new StringBuilder(String.valueOf(ex.getMessage()));
+        Throwable cause = ex.getCause();
+        for (int links = 1; cause != null && links < 10; links++) {
+            sb.append("; caused by: ").append(cause.getMessage());
+            cause = cause.getCause();
+        }
+        return sb.toString();
     }
 
     /**

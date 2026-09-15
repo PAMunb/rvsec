@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import picocli.CommandLine;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -60,6 +61,62 @@ class ResultsJsonReportingTest {
         assertFalse(entry.get("success").asBoolean());
         assertTrue(entry.hasNonNull("phase"), "phase pinpoints how far the pipeline got");
         assertTrue(entry.hasNonNull("message"));
+    }
+
+    /**
+     * A well-formed failure exits 1 after writing its document, so "exit 1 with
+     * JSON" is a failed weave and "no JSON" is a dead JVM.
+     *
+     * <p>{@code --android-jar} is what makes the exit assertion mean something:
+     * without it {@link ConfigResolver#resolve} throws on any host with no
+     * Android SDK, picocli returns 1 on its own, and the run never reaches
+     * {@link BatchRunner}. The path need not exist — the pipeline stops at
+     * {@code config_validation} before opening it.
+     */
+    @Test
+    void instrumentExitsOneWhenTheWeaveFails(@TempDir Path tmp) throws Exception {
+        Path apk = Files.createFile(tmp.resolve("sample.apk"));
+        Path out = tmp.resolve("sample.json");
+
+        int exit = new CommandLine(new InstrumentationCli()).execute(
+                "instrument", apk.toString(),
+                "--android-jar", tmp.resolve("android.jar").toString(),
+                "--results-json", out.toString());
+
+        assertEquals(1, exit, "a failed weave must not exit 0");
+        JsonNode entry = MAPPER.readTree(out.toFile()).get("results").get(0);
+        assertFalse(entry.get("success").asBoolean());
+        assertEquals("config_validation", entry.get("phase").asText());
+    }
+
+    /**
+     * dexlib2's {@code ExceptionWithContext} keeps the real cause ("Unsigned
+     * short value out of range") only in {@code getCause()}, so a message built
+     * from the outermost exception alone names the symptom and hides the cause.
+     */
+    @Test
+    void failureMessageCarriesTheInnermostCause() {
+        String chain = BatchRunner.causeChain(new RuntimeException("outer",
+                new RuntimeException("middle", new IllegalStateException("inner"))));
+
+        assertTrue(chain.contains("inner"), chain);
+        assertEquals(2, chain.split("; caused by: ", -1).length - 1, chain);
+    }
+
+    /**
+     * A failure keeps what was measured before it: an empty {@code weaveCounts}
+     * would erase the statistics of every DEX woven before the failing one.
+     */
+    @Test
+    void failureKeepsTheCountersAccumulatedSoFar(@TempDir Path tmp) throws Exception {
+        BatchRunner.PerApkResult failure = BatchRunner.failed(
+                tmp.resolve("sample.apk"), "m", "uncaught", Map.of("advices", 3));
+        Path out = tmp.resolve("results.json");
+
+        BatchRunner.writeResultsJson(List.of(failure), out);
+
+        JsonNode entry = MAPPER.readTree(out.toFile()).get("results").get(0);
+        assertEquals(3, entry.get("weaveCounts").get("advices").asInt());
     }
 
     @Test

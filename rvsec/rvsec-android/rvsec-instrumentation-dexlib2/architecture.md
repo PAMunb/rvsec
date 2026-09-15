@@ -370,12 +370,22 @@ weave budget. `commonAstEvals` is exposed for the performance non-regression tes
 **Phase-tagged partial results (well-formed failure).** Instrumentation runs over hundreds of
 APKs; a single malformed APK or a missing `javac` path must not abort the whole batch.
 `BatchRunner` catches `IOException` and `RuntimeException` and returns a `PerApkResult` tagged
-`signed` / `dex_only` / `build_only` / `apk_read` / `io_error` / `config_validation` / `uncaught`,
-with `success=false` for the partial/failed phases. The Python wrapper parses these into
-`InstrumentationResults` (INV-INS-55) and continues to the next APK. The rejected alternative
-(throwing out of the batch) would lose every successful APK after the first failure and force a
-full re-run; the phase tag also lets `dex_only`/`build_only` artifacts be consumed downstream for
-debugging.
+`signed` / `dex_only` / `build_only` / `apk_read` / `dex_write` / `io_error` /
+`config_validation` / `uncaught`, with `success=false` for the partial/failed phases; `dex_write`
+means `DexPool.writeTo` threw while writing one woven DEX, and its message names that entry (e.g.
+`classes28.dex`). Every failure message carries the cause chain down to the innermost exception
+(joined by `; caused by: `, at most 10 links), the stack trace goes to stderr, and `weaveCounts`
+keeps every counter accumulated up to the failure, per-DEX statistics of the DEXes already woven
+included, because the weave loop accumulates straight into the counts map. Both `instrument` and
+`batch` write the results JSON first, then exit 0 only when every `PerApkResult` is a success and
+1 otherwise — `dex_only` and `build_only` included, since neither produced an installable APK: the
+exit code answers "did this invocation instrument the APK", not "did the weaver misbehave", and the
+phase tag is what separates a withheld flag (`dex_only`/`build_only`) from a broken weave. Exit 1
+with a results JSON is therefore a well-formed failure; no JSON means the JVM died. The Python
+wrapper records the failure from the non-zero exit code and stderr (the per-APK path rv-experiment
+uses) and continues to the next APK (INV-INS-55). The rejected alternative (throwing out of the
+batch) would lose every successful APK after the first failure and force a full re-run; the phase
+tag also lets `dex_only`/`build_only` artifacts be consumed downstream for debugging.
 
 **Decisions at a glance**
 
