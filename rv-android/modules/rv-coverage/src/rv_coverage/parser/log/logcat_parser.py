@@ -330,7 +330,10 @@ def _parse_logcat_line(line: str) -> Optional[Dict[str, Any]]:
     # Standard Android logcat "threadtime" format:
     #   MM-DD HH:MM:SS.mmm  PID  TID  LEVEL  TAG: message
     # Note: logcat omits the year -- _convert_to_datetime infers it.
-    pattern = r"(\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})\s+(\d+)\s+(\d+)\s+(\w)\s+(\S+)\s*:\s*(.*)"
+    pattern = (
+        r"(\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}\.\d{3})"
+        r"\s+(\d+)\s+(\d+)\s+(\w)\s+(\S+)\s*:\s*(.*)"
+    )
     match = re.match(pattern, line)
     if not match:
         return None
@@ -540,7 +543,8 @@ def _parse_error_message(
         )
         return None
 
-    # Format 1: Generic spec error -- "class.method(file:line) ::: Spec went into an error state."
+    # Format 1: Generic spec error --
+    #   "class.method(file:line) ::: Spec went into an error state."
     #
     # The suffix alone does not select it: an FSM line (Format 3) ends in the same
     # words. What separates them is the punctuation — the generic emitter writes the
@@ -580,7 +584,8 @@ def _parse_error_message(
         )
         return None
 
-    # Format 2: JCA comma-separated -- "spec,class,className,method,source,error_type[,expecting]"
+    # Format 2: JCA comma-separated --
+    #   "spec,class,className,method,source,error_type[,expecting]"
     # The logcat ErrorCollector writes ErrorSummary.toString() then "," then the
     # expecting text, so fields beyond index 6 are the expecting text's own commas
     # rejoined: 27 % of the recorded messages carry one and every one of them is legal.
