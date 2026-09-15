@@ -80,8 +80,10 @@ MODULE_NAMES = sorted({Path(p).stem for p in RETIRED})
 
 # The change's own planning artifacts name these paths because they *describe*
 # the retirement; that is a statement about history, not a reference to a file
-# the tree is expected to have.
-PLANNING_ARTIFACTS = "openspec/changes/gh106-mop-crysl-conformance/"
+# the tree is expected to have. The directory name is matched without its parent,
+# so the exemption holds both under `openspec/changes/` and under
+# `openspec/changes/archive/<date>-`, where archiving moves it.
+PLANNING_ARTIFACTS = "gh106-mop-crysl-conformance/"
 
 
 SELF = "tests/parity/test_gh106_retirement.py"
