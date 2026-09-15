@@ -1,0 +1,6 @@
+com.beemdevelopment.aegis_81.apk,1,300,droidbot:dfs_greedy,com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher
+com.beemdevelopment.aegis_81.apk,1,300,humanoid,com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher
+com.beemdevelopment.aegis_81.apk,2,300,droidbot:bfs_greedy,com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher
+com.beemdevelopment.aegis_81.apk,2,300,droidbot:dfs_greedy,com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher
+com.beemdevelopment.aegis_81.apk,2,300,humanoid,com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher
+com.beemdevelopment.aegis_81.apk,3,300,droidbot:dfs_greedy,com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher

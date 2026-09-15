@@ -1,0 +1,16 @@
+cls,method,spec,code,category,mechanism,root,confidence,batch
+io.ktor.network.tls.TLSConfigBuilderKt,findTrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L3
+io.ktor.network.tls.TLSClientHandshakeKt,generateECKeys,KeyFactorySpec,KEYFACTORY-NOBS-01,SPEC_DEFECT,producer_missing_in_specset_and_oracle_ECPublicKeySpec,,high,L3
+io.ktor.network.tls.TLSClientHandshake,generatePreSecret,KeyAgreementSpec,KEYAGREEMENT-NOBS-08,SPEC_DEFECT,cascade,KEYFACTORY-NOBS-01 @ TLSClientHandshakeKt.generateECKeys,high,L3
+io.ktor.network.tls.TLSClientHandshake,handleServerDone,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,SPEC_DEFECT,cascade,KEYAGREEMENT-NOBS-08 @ TLSClientHandshake.generatePreSecret,high,L3
+io.ktor.network.tls.HashesKt,P_hash,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,tls_prf_derived_key_cascade_two_roots,SECRETKEYSPEC-NOBS-00 @ KeysKt.masterSecret,medium,L3
+io.ktor.network.tls.KeysKt,masterSecret,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,tls_prf_derived_key,,high,L3
+io.ktor.network.tls.KeysKt,clientKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,tls_prf_derived_key,,high,L3
+io.ktor.network.tls.KeysKt,serverKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,tls_prf_derived_key,,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmEncryptCipher,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ KeysKt.clientKey,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmEncryptCipher,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,derived_iv_by_construction_tls_record_nonce,,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmEncryptCipher,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ GCMCipherKt.gcmEncryptCipher,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmDecryptCipher,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ KeysKt.serverKey,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmDecryptCipher,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_received_record,,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmDecryptCipher,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ GCMCipherKt.gcmDecryptCipher,high,L3
+io.ktor.util.NonceKt$nonceGeneratorJob$1,invokeSuspend,SecureRandomSpec,SECURERANDOM-NOBS-00,WEAVER_ARTIFACT,producer_reset_by_g1_g2_double_match_INV-INS-122,,high,L3

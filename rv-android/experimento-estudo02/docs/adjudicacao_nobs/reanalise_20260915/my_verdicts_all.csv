@@ -1,0 +1,182 @@
+class,method,spec,code,category,mechanism,root,confidence,batch
+okhttp3.internal.platform.Platform,platformTrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L1
+okhttp3.internal.platform.Platform,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L1
+okhttp3.internal.platform.Platform,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,copy_loses_identity,,high,L1
+okhttp3.internal.platform.Platform,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L1
+okhttp3.internal.Util,platformTrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L1
+okhttp3.OkHttpClient,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L1
+okhttp3.OkHttpClient,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,copy_loses_identity,,high,L1
+okhttp3.OkHttpClient,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L1
+okhttp3.tls.HandshakeCertificates,sslContext,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,copy_loses_identity,,high,L1
+okhttp3.tls.HandshakeCertificates,sslContext,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,copy_loses_identity,,high,L1
+org.conscrypt.SSLParametersImpl,createDefaultX509KeyManager,KeyManagerFactorySpec,KEYMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_keystore,,high,L1
+org.conscrypt.SSLParametersImpl,createDefaultX509TrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L1
+com.google.crypto.tink.integration.android.AndroidKeystoreAesGcm,decryptInternal,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-01,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L2
+com.google.crypto.tink.integration.android.AndroidKeystoreAesGcm,decryptInternal,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-01 @ AndroidKeystoreAesGcm.decryptInternal,high,L2
+com.google.crypto.tink.subtle.PrfAesCmac,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.PrfAesCmac,generateSubKeys,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ subtle.PrfAesCmac.<init>,high,L2
+com.google.crypto.tink.subtle.PrfAesCmac,compute,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ subtle.PrfAesCmac.<init>,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,encrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ InsecureNonceAesGcmJce.<init>,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,getParams,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-01,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,decrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ InsecureNonceAesGcmJce.<init>,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-01 @ InsecureNonceAesGcmJce.getParams,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptDeterministically,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptDeterministically,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesSiv.encryptDeterministically,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptDeterministically,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,derived_iv_by_construction_siv,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptDeterministically,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-00,LEGIT_UNOBSERVABLE,cascade,IVPARAMETERSPEC-NOBS-00 @ AesSiv.encryptDeterministically,high,L2
+com.google.crypto.tink.subtle.AesSiv,decryptDeterministically,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesSiv,decryptDeterministically,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesSiv.decryptDeterministically,high,L2
+com.google.crypto.tink.subtle.AesSiv,decryptDeterministically,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L2
+com.google.crypto.tink.integration.android.AndroidKeystore$AeadImpl,decrypt,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-01,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L2
+com.google.crypto.tink.integration.android.AndroidKeystore$AeadImpl,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-01 @ AndroidKeystore$AeadImpl.decrypt,high,L2
+com.google.crypto.tink.prf.internal.PrfAesCmac,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.prf.internal.PrfAesCmac,generateSubKeys,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ prf.internal.PrfAesCmac.<init>,high,L2
+com.google.crypto.tink.prf.internal.PrfAesCmac,compute,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ prf.internal.PrfAesCmac.<init>,high,L2
+com.google.crypto.tink.aead.internal.AesGcmJceUtil,getSecretKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptInternal,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptInternal,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesSiv.encryptInternal,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptInternal,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,derived_iv_by_construction_siv,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptInternal,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-00,LEGIT_UNOBSERVABLE,cascade,IVPARAMETERSPEC-NOBS-00 @ AesSiv.encryptInternal,high,L2
+com.google.crypto.tink.subtle.AesGcmJce,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesGcmJce,encrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesGcmJce.<init>,high,L2
+com.google.crypto.tink.subtle.Hkdf,computeHkdf,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,RULE_DECISION,random_or_derived_bytes_not_key_material_recorded_decision,,high,L2
+com.google.crypto.tink.subtle.Hkdf,computeHkdf,MacSpec,MAC-NOBS-00,RULE_DECISION,cascade,SECRETKEYSPEC-NOBS-00 @ Hkdf.computeHkdf,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming,deriveKeySpec,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_derived_hkdf,,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming,paramsForSegment,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,derived_iv_by_construction_segment_nonce,,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamEncrypter,encryptSegment,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesGcmHkdfStreaming.deriveKeySpec,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamEncrypter,encryptSegment,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ AesGcmHkdfStreaming.paramsForSegment,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamDecrypter,decryptSegment,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesGcmHkdfStreaming.deriveKeySpec,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamDecrypter,decryptSegment,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ AesGcmHkdfStreaming.paramsForSegment,high,L2
+io.ktor.network.tls.TLSConfigBuilderKt,findTrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L3
+io.ktor.network.tls.TLSClientHandshakeKt,generateECKeys,KeyFactorySpec,KEYFACTORY-NOBS-01,SPEC_DEFECT,producer_missing_in_specset_and_oracle_ECPublicKeySpec,,high,L3
+io.ktor.network.tls.TLSClientHandshake,generatePreSecret,KeyAgreementSpec,KEYAGREEMENT-NOBS-08,SPEC_DEFECT,cascade,KEYFACTORY-NOBS-01 @ TLSClientHandshakeKt.generateECKeys,high,L3
+io.ktor.network.tls.TLSClientHandshake,handleServerDone,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,SPEC_DEFECT,cascade,KEYAGREEMENT-NOBS-08 @ TLSClientHandshake.generatePreSecret,high,L3
+io.ktor.network.tls.HashesKt,P_hash,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,tls_prf_derived_key_cascade_two_roots,SECRETKEYSPEC-NOBS-00 @ KeysKt.masterSecret,medium,L3
+io.ktor.network.tls.KeysKt,masterSecret,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,tls_prf_derived_key,,high,L3
+io.ktor.network.tls.KeysKt,clientKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,tls_prf_derived_key,,high,L3
+io.ktor.network.tls.KeysKt,serverKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,tls_prf_derived_key,,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmEncryptCipher,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ KeysKt.clientKey,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmEncryptCipher,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,derived_iv_by_construction_tls_record_nonce,,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmEncryptCipher,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ GCMCipherKt.gcmEncryptCipher,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmDecryptCipher,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ KeysKt.serverKey,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmDecryptCipher,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_received_record,,high,L3
+io.ktor.network.tls.cipher.GCMCipherKt,gcmDecryptCipher,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ GCMCipherKt.gcmDecryptCipher,high,L3
+io.ktor.util.NonceKt$nonceGeneratorJob$1,invokeSuspend,SecureRandomSpec,SECURERANDOM-NOBS-00,WEAVER_ARTIFACT,producer_reset_by_g1_g2_double_match_INV-INS-122,,high,L3
+ch.rmy.android.http_shortcuts.http.HttpClientFactory,configureTLS,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+ch.rmy.android.http_shortcuts.http.HttpClientFactory,configureTLS,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,copy_loses_identity_default_config_trustall_option,,medium,L4
+ch.rmy.android.http_shortcuts.http.HttpClientFactory,configureTLS,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L4
+at.bitfire.cert4android.CertUtils,getTrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L4
+com.etesync.syncadapter.HttpClient$Builder,build,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+com.etesync.syncadapter.HttpClient$Builder,build,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,custom_validating_trust_manager,,high,L4
+com.etesync.syncadapter.HttpClient$Builder,build,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L4
+com.nononsenseapps.jsonfeed.OkHttpBuilderExtensionsKt,trustAllCerts,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+com.nononsenseapps.jsonfeed.OkHttpBuilderExtensionsKt,trustAllCerts,SSLContextSpec,SSLCONTEXT-NOBS-01,MISUSE,trust_all_manager_default,,high,L4
+com.nononsenseapps.jsonfeed.OkHttpBuilderExtensionsKt,trustAllCerts,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L4
+eu.opencloud.android.lib.common.network.AdvancedX509TrustManager,<init>,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L4
+eu.opencloud.android.lib.common.http.HttpClient,getOkHttpClient,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+eu.opencloud.android.lib.common.http.HttpClient,getOkHttpClient,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,custom_validating_trust_manager,,high,L4
+eu.opencloud.android.lib.common.http.HttpClient,getOkHttpClient,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L4
+com.owncloud.android.lib.common.network.AdvancedX509TrustManager,<init>,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L4
+com.owncloud.android.lib.common.http.HttpClient,getOkHttpClient,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+com.owncloud.android.lib.common.http.HttpClient,getOkHttpClient,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,custom_validating_trust_manager,,high,L4
+com.owncloud.android.lib.common.http.HttpClient,getOkHttpClient,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L4
+net.osmtracker.layout.TLSSocketFactory,<init>,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+net.osmtracker.layout.TLSSocketFactory,<init>,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,null_default_trustmanagers,,high,L4
+net.osmtracker.layout.TLSSocketFactory,<init>,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L4
+github.paroj.dsub2000.service.RESTMusicService,<init>,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+github.paroj.dsub2000.service.RESTMusicService,<init>,SSLContextSpec,SSLCONTEXT-NOBS-01,MISUSE,trust_all_manager_gated,,high,L4
+com.ivanovsky.passnotes.data.repository.file.webdav.HttpClientFactory,createHttpClient,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+com.ivanovsky.passnotes.data.repository.file.webdav.HttpClientFactory,createHttpClient,SSLContextSpec,SSLCONTEXT-NOBS-01,MISUSE,trust_all_manager_debug_gated,,high,L4
+com.matedroid.di.TeslamateApiFactory,configureInsecureTls,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+com.matedroid.di.TeslamateApiFactory,configureInsecureTls,SSLContextSpec,SSLCONTEXT-NOBS-01,MISUSE,trust_all_manager_gated,,high,L4
+de.luhmer.owncloudnewsreader.ssl.MemorizingTrustManager,getTrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L4
+de.duenndns.ssl.MemorizingTrustManager,getTrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L4
+org.openhab.habdroid.core.connection.ConnectionFactory,updateHttpClientForClientCert,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+org.openhab.habdroid.core.connection.ConnectionFactory,updateHttpClientForClientCert,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,custom_validating_trust_manager,,high,L4
+org.openhab.habdroid.core.connection.ConnectionFactory,updateHttpClientForClientCert,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L4
+org.openhab.habdroid.core.connection.ConnectionFactory,<init>,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+org.openhab.habdroid.core.connection.ConnectionFactory,<init>,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,custom_validating_trust_manager,,high,L4
+org.openhab.habdroid.core.connection.ConnectionFactory,<init>,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L4
+de.lukasneugebauer.nextcloudcookbook.core.util.OkHttpClientProvider,configureTrustAllCertificates,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L4
+de.lukasneugebauer.nextcloudcookbook.core.util.OkHttpClientProvider,configureTrustAllCertificates,SSLContextSpec,SSLCONTEXT-NOBS-01,MISUSE,trust_all_manager_gated,,high,L4
+com.google.android.gms.internal.ads.zzbbe,zzb,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,hardcoded_key,,high,L5
+com.google.android.gms.internal.ads.zzbbe,zzb,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5
+com.google.android.gms.internal.ads.zzbbe,zzb,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,SECRETKEYSPEC-NOBS-00 @ zzbbe.zzb,high,L5
+org.quantumbadger.redreader.common.General,parseConfig,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,key_derived_from_public_data,,high,L5
+org.quantumbadger.redreader.common.General,parseConfig,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,MISUSE,constant_zero_iv,,high,L5
+org.quantumbadger.redreader.common.General,parseConfig,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,SECRETKEYSPEC-NOBS-00 @ General.parseConfig,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,MISUSE,hardcoded_salt,,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,MISUSE,cascade,PBEKEYSPEC-NOBS-01 @ AESObfuscator.<init>,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,cascade,PBEKEYSPEC-NOBS-01 @ AESObfuscator.<init>,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,MISUSE,hardcoded_iv,,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-00,MISUSE,cascade,IVPARAMETERSPEC-NOBS-00 @ AESObfuscator.<init>,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,PBEKEYSPEC-NOBS-01 @ AESObfuscator.<init>,high,L5
+com.leekleak.trafficlight.database.CryptoManager,decrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+com.leekleak.trafficlight.database.CryptoManager,decrypt,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5
+com.leekleak.trafficlight.database.CryptoManager,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ CryptoManager.decrypt,high,L5
+me.diamondforge.tokn.security.KeystoreManager,encrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+me.diamondforge.tokn.security.KeystoreManager,decrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+me.diamondforge.tokn.security.KeystoreManager,decrypt,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5
+me.diamondforge.tokn.security.KeystoreManager,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ KeystoreManager.decrypt,high,L5
+rocks.poopjournal.metadataremover.viewmodel.MainViewModel,<clinit>,SecureRandomSpec,SECURERANDOM-NOBS-01,MISUSE,hardcoded_seed,,high,L5
+com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,encryptWithKeyStore,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,decryptWithKeyStore,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,decryptWithKeyStore,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5
+com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,decryptWithKeyStore,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ Cryptography.decryptWithKeyStore,high,L5
+dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,generateVaultMasterKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,RULE_DECISION,random_bytes_not_credited_as_key_material,,high,L5
+dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,derivePasswordKeyEncryptionKey,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,salt_from_storage_unlock_path,,high,L5
+dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,derivePasswordKeyEncryptionKey,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ KeyGen.derivePasswordKeyEncryptionKey,high,L5
+dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,derivePasswordKeyEncryptionKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,WEAVER_GAP,getencoded_subtype_owner_not_woven_create_path,,high,L5
+dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,create,CipherSpec,CIPHER-NOBS-00,WEAVER_GAP,cascade,SECRETKEYSPEC-NOBS-00 @ KeyGen.derivePasswordKeyEncryptionKey,high,L5
+dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,unlock,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ KeyGen.derivePasswordKeyEncryptionKey,high,L5
+dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,unlock,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_storage,,high,L5
+dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,unlock,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_unwrap,,high,L5
+github.paroj.dsub2000.util.KeyStoreUtil,decrypt,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5
+com.gelakinetic.mtgfam.helpers.tcgp.MarketPriceFetcher$1,fetch,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,hardcoded_key,,high,L6
+com.gelakinetic.mtgfam.helpers.tcgp.MarketPriceFetcher$1,fetch,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,MISUSE,iv_equals_hardcoded_key,,high,L6
+com.gelakinetic.mtgfam.helpers.tcgp.MarketPriceFetcher,decrypt,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,SECRETKEYSPEC-NOBS-00 @ MarketPriceFetcher$1.fetch,high,L6
+org.spongycastle.jcajce.provider.asymmetric.x509.X509CertificateObject,checkSignature,SignatureSpec,SIGNATURE-NOBS-02,LEGIT_UNOBSERVABLE,pubkey_from_certificate,,medium,L6
+io.treehouses.remote.ssh.Encryptor,encrypt,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,adhoc_weak_password_kdf,,medium,L6
+io.treehouses.remote.ssh.Encryptor,encrypt,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,MISUSE,iv_derived_from_key_digest,,medium,L6
+io.treehouses.remote.ssh.Encryptor,encrypt,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,SECRETKEYSPEC-NOBS-00 @ Encryptor.encrypt,high,L6
+io.treehouses.remote.ssh.Encryptor,encrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-00,MISUSE,cascade,IVPARAMETERSPEC-NOBS-00 @ Encryptor.encrypt,high,L6
+org.fedorahosted.freeotp.encryptor.MasterKey,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,RULE_DECISION,random_bytes_not_credited_as_key_material,,high,L6
+org.fedorahosted.freeotp.encryptor.MasterKey,decrypt,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,salt_from_storage_or_clone,,high,L6
+org.fedorahosted.freeotp.encryptor.MasterKey,decrypt,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ MasterKey.decrypt,high,L6
+org.fedorahosted.freeotp.encryptor.EncryptedKey,decrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ MasterKey.decrypt,high,L6
+org.fedorahosted.freeotp.encryptor.EncryptedKey,decrypt,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_unwrap,,high,L6
+ua.com.radiokot.photoprism.features.ext.key.activation.logic.ParseEnteredKeyUseCase,getIssuerPublicKey$lambda$0,X509EncodedKeySpecSpec,X509ENCODEDKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,embedded_public_key,,high,L6
+ua.com.radiokot.photoprism.features.ext.key.activation.logic.ParseEnteredKeyUseCase,getIssuerPublicKey$lambda$0,KeyFactorySpec,KEYFACTORY-NOBS-01,LEGIT_UNOBSERVABLE,cascade,X509ENCODEDKEYSPEC-NOBS-00 @ ParseEnteredKeyUseCase.getIssuerPublicKey$lambda$0,high,L6
+app.michaelwuensch.bitbanana.util.UtilFunctions,encodePbkdf2,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,low_entropy_salt_via_int_and_prefs,,medium,L6
+app.michaelwuensch.bitbanana.util.UtilFunctions,encodePbkdf2,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ UtilFunctions.encodePbkdf2,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,generateKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,RULE_DECISION,random_bytes_not_credited_as_key_material,,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decodeKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_storage,,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decodeKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,key_from_storage,,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,encrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ AesCbcWithIntegrity.decodeKey,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,generateMac,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesCbcWithIntegrity.decodeKey,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ AesCbcWithIntegrity.decodeKey,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decrypt,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L6
+com.craxiom.networksurvey.util.CryptoManager,encrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L6
+com.craxiom.networksurvey.util.CryptoManager,decrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L6
+com.craxiom.networksurvey.util.CryptoManager,decrypt,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L6
+com.craxiom.networksurvey.util.CryptoManager,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ CryptoManager.decrypt,high,L6
+dev.whyoleg.cryptography.providers.jdk.algorithms.JdkPbkdf2SecretDerivation,deriveSecretToByteArrayBlocking,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,salt_from_storage,,high,L6
+dev.whyoleg.cryptography.providers.jdk.algorithms.JdkPbkdf2SecretDerivation,deriveSecretToByteArrayBlocking,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ JdkPbkdf2SecretDerivation.deriveSecretToByteArrayBlocking,high,L6
+se.arctosoft.vault.encryption.Encryption,getDirHash,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,salt_from_storage,,high,L6
+se.arctosoft.vault.encryption.Encryption,getDirHash,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ Encryption.getDirHash,high,L6
+org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder$1,get,SignatureSpec,SIGNATURE-NOBS-02,LEGIT_UNOBSERVABLE,pubkey_from_certificate,,high,L6
+org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder,createRawSig,SignatureSpec,SIGNATURE-NOBS-02,LEGIT_UNOBSERVABLE,pubkey_from_certificate,,high,L6
+org.cry.otp.HOTP,hmac_sha1,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_user_provisioned_secret,,high,L6
+org.cry.otp.HOTP,hmac_sha1,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ HOTP.hmac_sha1,high,L6
+org.cry.otp.TOTP,hmac_sha,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_user_provisioned_secret,,high,L6
+org.cry.otp.TOTP,hmac_sha,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ TOTP.hmac_sha,high,L6
+com.beemdevelopment.aegis.crypto.otp.HOTP,getHash,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_user_provisioned_secret,,high,L6
+com.beemdevelopment.aegis.crypto.otp.HOTP,getHash,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ HOTP.getHash,high,L6
+com.beemdevelopment.aegis.crypto.CryptoUtils,deriveKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,key_from_non_jca_kdf,,high,L6
+com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ CryptoUtils.deriveKey,high,L6
+com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L6
+com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ CryptoUtils.createCipher,high,L6
+org.flyve.inventory.CryptoUtil,stringToPublicKey,X509EncodedKeySpecSpec,X509ENCODEDKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,copy_loses_identity_string_roundtrip,,high,L6
+org.flyve.inventory.CryptoUtil,stringToPublicKey,KeyFactorySpec,KEYFACTORY-NOBS-01,LEGIT_UNOBSERVABLE,cascade,X509ENCODEDKEYSPEC-NOBS-00 @ CryptoUtil.stringToPublicKey,high,L6
+org.flyve.inventory.CryptoUtil,encrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,X509ENCODEDKEYSPEC-NOBS-00 @ CryptoUtil.stringToPublicKey,high,L6

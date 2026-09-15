@@ -1,0 +1,38 @@
+cls,method,spec,code,category,mechanism,root,confidence,batch
+com.google.crypto.tink.integration.android.AndroidKeystoreAesGcm,decryptInternal,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-01,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L2
+com.google.crypto.tink.integration.android.AndroidKeystoreAesGcm,decryptInternal,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-01 @ AndroidKeystoreAesGcm.decryptInternal,high,L2
+com.google.crypto.tink.subtle.PrfAesCmac,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.PrfAesCmac,generateSubKeys,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ subtle.PrfAesCmac.<init>,high,L2
+com.google.crypto.tink.subtle.PrfAesCmac,compute,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ subtle.PrfAesCmac.<init>,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,encrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ InsecureNonceAesGcmJce.<init>,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,getParams,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-01,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,decrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ InsecureNonceAesGcmJce.<init>,high,L2
+com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-01 @ InsecureNonceAesGcmJce.getParams,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptDeterministically,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptDeterministically,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesSiv.encryptDeterministically,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptDeterministically,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,derived_iv_by_construction_siv,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptDeterministically,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-00,LEGIT_UNOBSERVABLE,cascade,IVPARAMETERSPEC-NOBS-00 @ AesSiv.encryptDeterministically,high,L2
+com.google.crypto.tink.subtle.AesSiv,decryptDeterministically,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesSiv,decryptDeterministically,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesSiv.decryptDeterministically,high,L2
+com.google.crypto.tink.subtle.AesSiv,decryptDeterministically,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L2
+com.google.crypto.tink.integration.android.AndroidKeystore$AeadImpl,decrypt,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-01,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L2
+com.google.crypto.tink.integration.android.AndroidKeystore$AeadImpl,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-01 @ AndroidKeystore$AeadImpl.decrypt,high,L2
+com.google.crypto.tink.prf.internal.PrfAesCmac,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.prf.internal.PrfAesCmac,generateSubKeys,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ prf.internal.PrfAesCmac.<init>,high,L2
+com.google.crypto.tink.prf.internal.PrfAesCmac,compute,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ prf.internal.PrfAesCmac.<init>,high,L2
+com.google.crypto.tink.aead.internal.AesGcmJceUtil,getSecretKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptInternal,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptInternal,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesSiv.encryptInternal,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptInternal,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,derived_iv_by_construction_siv,,high,L2
+com.google.crypto.tink.subtle.AesSiv,encryptInternal,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-00,LEGIT_UNOBSERVABLE,cascade,IVPARAMETERSPEC-NOBS-00 @ AesSiv.encryptInternal,high,L2
+com.google.crypto.tink.subtle.AesGcmJce,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_keyset,,high,L2
+com.google.crypto.tink.subtle.AesGcmJce,encrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesGcmJce.<init>,high,L2
+com.google.crypto.tink.subtle.Hkdf,computeHkdf,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,RULE_DECISION,random_or_derived_bytes_not_key_material_recorded_decision,,high,L2
+com.google.crypto.tink.subtle.Hkdf,computeHkdf,MacSpec,MAC-NOBS-00,RULE_DECISION,cascade,SECRETKEYSPEC-NOBS-00 @ Hkdf.computeHkdf,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming,deriveKeySpec,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_derived_hkdf,,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming,paramsForSegment,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,derived_iv_by_construction_segment_nonce,,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamEncrypter,encryptSegment,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesGcmHkdfStreaming.deriveKeySpec,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamEncrypter,encryptSegment,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ AesGcmHkdfStreaming.paramsForSegment,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamDecrypter,decryptSegment,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesGcmHkdfStreaming.deriveKeySpec,high,L2
+com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamDecrypter,decryptSegment,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ AesGcmHkdfStreaming.paramsForSegment,high,L2

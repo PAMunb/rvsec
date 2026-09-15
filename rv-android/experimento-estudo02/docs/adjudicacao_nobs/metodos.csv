@@ -1,0 +1,100 @@
+id,lib,cls,method,codes,apks,runs,src
+0,bouncycastle,org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder,createRawSig,SIGNATURE#02,1,0,Unknown Source:13
+1,bouncycastle,org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder$1,get,SIGNATURE#02,1,1,Unknown Source:46
+2,ktor,io.ktor.network.tls.HashesKt,P_hash,MAC#00,4,0,Hashes.kt:23;Hashes.kt:24;Hashes.kt:26;Hashes.kt:28;Hashes.kt:29;Hashes.kt:31
+3,ktor,io.ktor.network.tls.KeysKt,clientKey,SECRETKEYSPEC#01,4,184,Keys.kt:37
+4,ktor,io.ktor.network.tls.KeysKt,masterSecret,SECRETKEYSPEC#00,4,184,Keys.kt:69
+5,ktor,io.ktor.network.tls.KeysKt,serverKey,SECRETKEYSPEC#01,4,183,Keys.kt:30
+6,ktor,io.ktor.network.tls.TLSClientHandshake,generatePreSecret,KEYAGREEMENT#08,4,184,TLSClientHandshake.kt:338;TLSClientHandshake.kt:362;TLSClientHandshake.kt:363
+7,ktor,io.ktor.network.tls.TLSClientHandshake,handleServerDone,SECRETKEYSPEC#00,4,184,TLSClientHandshake.kt:316;TLSClientHandshake.kt:339;TLSClientHandshake.kt:340
+8,ktor,io.ktor.network.tls.TLSClientHandshakeKt,generateECKeys,KEYFACTORY#01,4,184,TLSClientHandshake.kt:496;TLSClientHandshake.kt:522;TLSClientHandshake.kt:523
+9,ktor,io.ktor.network.tls.TLSConfigBuilderKt,findTrustManager,TRUSTMANAGERFACTORY#00,4,0,TLSConfigBuilder.kt:153;TLSConfigBuilder.kt:159
+10,ktor,io.ktor.network.tls.cipher.GCMCipherKt,gcmDecryptCipher,CIPHER#00 GCMPARAMETERSPEC#00 IVCHAINJUNCTION#01,4,183,GCMCipher.kt:107
+11,ktor,io.ktor.network.tls.cipher.GCMCipherKt,gcmEncryptCipher,CIPHER#00 GCMPARAMETERSPEC#00 IVCHAINJUNCTION#01,4,184,GCMCipher.kt:74
+12,ktor,io.ktor.util.NonceKt$nonceGeneratorJob$1,invokeSuspend,SECURERANDOM#00,1,0,Nonce.kt:43;Nonce.kt:63;Nonce.kt:66
+13,okhttp,okhttp3.OkHttpClient,newSslSocketFactory,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,2,197,OkHttpClient.java:264
+14,okhttp,okhttp3.internal.Util,platformTrustManager,TRUSTMANAGERFACTORY#00,2,0,Util.java:640
+15,okhttp,okhttp3.internal.platform.Platform,newSslSocketFactory,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,52,3688,Platform.kt:160;Platform.kt:168;Platform.kt:180;Platform.kt:191;Platform.kt:194;Platform.kt:197
+16,okhttp,okhttp3.internal.platform.Platform,platformTrustManager,TRUSTMANAGERFACTORY#00,54,0,Platform.kt:80;Platform.kt:83;Platform.kt:84;Platform.kt:85
+17,okhttp,okhttp3.tls.HandshakeCertificates,sslContext,SSLCONTEXT#00 SSLCONTEXT#01,2,198,HandshakeCertificates.kt:94;HandshakeCertificates.kt:97
+18,other,app.michaelwuensch.bitbanana.util.UtilFunctions,encodePbkdf2,PBEKEYSPEC#01 SECRETKEYFACTORY#00,1,0,UtilFunctions.java:93
+19,other,at.bitfire.cert4android.CertUtils,getTrustManager,TRUSTMANAGERFACTORY#00,1,0,CertUtils.kt:22
+20,other,ch.rmy.android.http_shortcuts.http.HttpClientFactory,configureTLS,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,1,23,HttpClientFactory.kt:211
+21,other,com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,decryptWithKeyStore,CIPHER#00 GCMPARAMETERSPEC#00 IVCHAINJUNCTION#01,1,15,Cryptography.kt:109
+22,other,com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,encryptWithKeyStore,CIPHER#00,1,99,Cryptography.kt:78
+23,other,com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher,CIPHER#00 GCMPARAMETERSPEC#00 IVCHAINJUNCTION#01,1,2,CryptoUtils.java:66
+24,other,com.beemdevelopment.aegis.crypto.CryptoUtils,deriveKey,SECRETKEYSPEC#01,1,6,CryptoUtils.java:38
+25,other,com.beemdevelopment.aegis.crypto.otp.HOTP,getHash,MAC#00 SECRETKEYSPEC#00,1,0,HOTP.java:41
+26,other,com.craxiom.networksurvey.util.CryptoManager,decrypt,CIPHER#00 GCMPARAMETERSPEC#00 IVCHAINJUNCTION#01,1,2,CryptoManager.kt:109
+27,other,com.craxiom.networksurvey.util.CryptoManager,encrypt,CIPHER#00,1,3,CryptoManager.kt:74
+28,other,com.etesync.syncadapter.HttpClient$Builder,build,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,1,5,HttpClient.kt:233
+29,other,com.gelakinetic.mtgfam.helpers.tcgp.MarketPriceFetcher,decrypt,CIPHER#00,1,5,MarketPriceFetcher.java:474
+30,other,com.gelakinetic.mtgfam.helpers.tcgp.MarketPriceFetcher$1,fetch,IVPARAMETERSPEC#00 SECRETKEYSPEC#00,1,5,MarketPriceFetcher.java:126
+31,other,com.google.android.gms.internal.ads.zzbbe,zzb,CIPHER#00 IVPARAMETERSPEC#00 SECRETKEYSPEC#00,1,99,com.google.android.gms:play-services-ads@@25.3.0:10
+32,other,com.google.android.vending.licensing.AESObfuscator,<init>,CIPHER#00 IVCHAINJUNCTION#00 IVPARAMETERSPEC#00 PBEKEYSPEC#01 SECRETKEYFACTORY#00 SECRETKEYSPEC#00,1,99,AESObfuscator.java:63;AESObfuscator.java:65
+33,other,com.ivanovsky.passnotes.data.repository.file.webdav.HttpClientFactory,createHttpClient,SSLCONTEXT#00 SSLCONTEXT#01,1,1,HttpClientFactory.kt:38
+34,other,com.leekleak.trafficlight.database.CryptoManager,decrypt,CIPHER#00 GCMPARAMETERSPEC#00 IVCHAINJUNCTION#01,1,98,CryptoManager.kt:61
+35,other,com.matedroid.di.TeslamateApiFactory,configureInsecureTls,SSLCONTEXT#00 SSLCONTEXT#01,1,1,NetworkModule.kt:216
+36,other,com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decodeKey,SECRETKEYSPEC#00 SECRETKEYSPEC#01,1,1,AesCbcWithIntegrity.kt:98
+37,other,com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decrypt,CIPHER#00 IVPARAMETERSPEC#00,1,1,AesCbcWithIntegrity.kt:363
+38,other,com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,encrypt,CIPHER#00,1,1,AesCbcWithIntegrity.kt:289
+39,other,com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,generateKey,SECRETKEYSPEC#00,1,99,AesCbcWithIntegrity.kt:130
+40,other,com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,generateMac,MAC#00,1,1,AesCbcWithIntegrity.kt:395
+41,other,com.nononsenseapps.jsonfeed.OkHttpBuilderExtensionsKt,trustAllCerts,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,1,98,OkHttpBuilderExtensions.kt:32
+42,other,com.owncloud.android.lib.common.http.HttpClient,getOkHttpClient,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,1,20,HttpClient.java:81
+43,other,com.owncloud.android.lib.common.network.AdvancedX509TrustManager,<init>,TRUSTMANAGERFACTORY#00,1,0,AdvancedX509TrustManager.java:59
+44,other,de.duenndns.ssl.MemorizingTrustManager,getTrustManager,TRUSTMANAGERFACTORY#00,1,0,MemorizingTrustManager.java:310
+45,other,de.luhmer.owncloudnewsreader.ssl.MemorizingTrustManager,getTrustManager,TRUSTMANAGERFACTORY#00,1,0,MemorizingTrustManager.java:282
+46,other,de.lukasneugebauer.nextcloudcookbook.core.util.OkHttpClientProvider,configureTrustAllCertificates,SSLCONTEXT#00 SSLCONTEXT#01,1,0,OkHttpClientProvider.kt:74
+47,other,dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,derivePasswordKeyEncryptionKey,PBEKEYSPEC#01 SECRETKEYFACTORY#00 SECRETKEYSPEC#00,1,47,KeyGen.kt:43
+48,other,dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,generateVaultMasterKey,SECRETKEYSPEC#00,1,47,KeyGen.kt:32
+49,other,dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,create,CIPHER#00,1,47,PasswordVaultProtectionHandler.kt:104
+50,other,dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,unlock,CIPHER#00 IVPARAMETERSPEC#00 SECRETKEYSPEC#00,1,47,PasswordVaultProtectionHandler.kt:70
+51,other,dev.whyoleg.cryptography.providers.jdk.algorithms.JdkPbkdf2SecretDerivation,deriveSecretToByteArrayBlocking,PBEKEYSPEC#01 SECRETKEYFACTORY#00,1,1,JdkPbkdf2.kt:40
+52,other,eu.opencloud.android.lib.common.http.HttpClient,getOkHttpClient,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,1,30,HttpClient.java:79
+53,other,eu.opencloud.android.lib.common.network.AdvancedX509TrustManager,<init>,TRUSTMANAGERFACTORY#00,1,0,AdvancedX509TrustManager.java:57
+54,other,github.paroj.dsub2000.service.RESTMusicService,<init>,SSLCONTEXT#00 SSLCONTEXT#01,1,99,RESTMusicService.java:138
+55,other,github.paroj.dsub2000.util.KeyStoreUtil,decrypt,IVPARAMETERSPEC#00,1,99,KeyStoreUtil.java:135
+56,other,io.treehouses.remote.ssh.Encryptor,encrypt,CIPHER#00 IVCHAINJUNCTION#00 IVPARAMETERSPEC#00 SECRETKEYSPEC#00,1,1,Encryptor.kt:81
+57,other,me.diamondforge.tokn.security.KeystoreManager,decrypt,CIPHER#00 GCMPARAMETERSPEC#00 IVCHAINJUNCTION#01,1,99,KeystoreManager.kt:68
+58,other,me.diamondforge.tokn.security.KeystoreManager,encrypt,CIPHER#00,1,99,KeystoreManager.kt:55
+59,other,net.osmtracker.layout.TLSSocketFactory,<init>,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,1,2,TLSSocketFactory.java:23
+60,other,org.conscrypt.SSLParametersImpl,createDefaultX509KeyManager,KEYMANAGERFACTORY#00,3,0,SSLParametersImpl.java:536
+61,other,org.conscrypt.SSLParametersImpl,createDefaultX509TrustManager,TRUSTMANAGERFACTORY#00,2,0,SSLParametersImpl.java:606
+62,other,org.cry.otp.HOTP,hmac_sha1,MAC#00 SECRETKEYSPEC#00,1,0,HOTP.java:32
+63,other,org.cry.otp.TOTP,hmac_sha,MAC#00 SECRETKEYSPEC#00,1,0,TOTP.java:46
+64,other,org.fedorahosted.freeotp.encryptor.EncryptedKey,decrypt,CIPHER#00 SECRETKEYSPEC#00,1,17,EncryptedKey.java:51;EncryptedKey.java:57
+65,other,org.fedorahosted.freeotp.encryptor.MasterKey,<init>,SECRETKEYSPEC#00,1,17,MasterKey.java:43
+66,other,org.fedorahosted.freeotp.encryptor.MasterKey,decrypt,PBEKEYSPEC#01 SECRETKEYFACTORY#00,1,17,MasterKey.java:72
+67,other,org.flyve.inventory.CryptoUtil,encrypt,CIPHER#00,1,0,CryptoUtil.java:83
+68,other,org.flyve.inventory.CryptoUtil,stringToPublicKey,KEYFACTORY#01 X509ENCODEDKEYSPEC#00,1,80,CryptoUtil.java:110
+69,other,org.openhab.habdroid.core.connection.ConnectionFactory,<init>,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,1,99,ConnectionFactory.kt:172
+70,other,org.openhab.habdroid.core.connection.ConnectionFactory,updateHttpClientForClientCert,SSLCONTEXT#00 SSLCONTEXT#01 SSLCONTEXT#02,1,97,ConnectionFactory.kt:324
+71,other,org.quantumbadger.redreader.common.General,parseConfig,CIPHER#00 IVPARAMETERSPEC#00 SECRETKEYSPEC#00,1,99,General.kt:699
+72,other,org.spongycastle.jcajce.provider.asymmetric.x509.X509CertificateObject,checkSignature,SIGNATURE#02,1,99,X509CertificateObject.java:805
+73,other,rocks.poopjournal.metadataremover.viewmodel.MainViewModel,<clinit>,SECURERANDOM#01,1,99,MainViewModel.kt:46
+74,other,se.arctosoft.vault.encryption.Encryption,getDirHash,PBEKEYSPEC#01 SECRETKEYFACTORY#00,1,10,Encryption.java:689
+75,other,ua.com.radiokot.photoprism.features.ext.key.activation.logic.ParseEnteredKeyUseCase,getIssuerPublicKey$lambda$0,KEYFACTORY#01 X509ENCODEDKEYSPEC#00,1,1,ParseEnteredKeyUseCase.kt:96
+76,tink,com.google.crypto.tink.aead.internal.AesGcmJceUtil,getSecretKey,SECRETKEYSPEC#00,1,99,AesGcmJceUtil.java:57
+77,tink,com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,<init>,SECRETKEYSPEC#00,6,447,InsecureNonceAesGcmJce.java:66
+78,tink,com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,decrypt,CIPHER#00 IVCHAINJUNCTION#01,5,107,InsecureNonceAesGcmJce.java:136
+79,tink,com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,encrypt,CIPHER#00,5,129,InsecureNonceAesGcmJce.java:93
+80,tink,com.google.crypto.tink.aead.internal.InsecureNonceAesGcmJce,getParams,GCMPARAMETERSPEC#01,5,107,InsecureNonceAesGcmJce.java:159
+81,tink,com.google.crypto.tink.integration.android.AndroidKeystore$AeadImpl,decrypt,GCMPARAMETERSPEC#01 IVCHAINJUNCTION#01,1,99,AndroidKeystore.java:175
+82,tink,com.google.crypto.tink.integration.android.AndroidKeystoreAesGcm,decryptInternal,GCMPARAMETERSPEC#01 IVCHAINJUNCTION#01,8,627,AndroidKeystoreAesGcm.java:110;AndroidKeystoreAesGcm.java:113
+83,tink,com.google.crypto.tink.prf.internal.PrfAesCmac,<init>,SECRETKEYSPEC#00,1,99,PrfAesCmac.java:76
+84,tink,com.google.crypto.tink.prf.internal.PrfAesCmac,compute,CIPHER#00,1,0,PrfAesCmac.java:106
+85,tink,com.google.crypto.tink.prf.internal.PrfAesCmac,generateSubKeys,CIPHER#00,1,0,PrfAesCmac.java:155
+86,tink,com.google.crypto.tink.subtle.AesGcmHkdfStreaming,deriveKeySpec,SECRETKEYSPEC#00,1,34,AesGcmHkdfStreaming.java:192
+87,tink,com.google.crypto.tink.subtle.AesGcmHkdfStreaming,paramsForSegment,GCMPARAMETERSPEC#00,1,34,AesGcmHkdfStreaming.java:183
+88,tink,com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamDecrypter,decryptSegment,CIPHER#00 IVCHAINJUNCTION#01,1,14,AesGcmHkdfStreaming.java:299
+89,tink,com.google.crypto.tink.subtle.AesGcmHkdfStreaming$AesGcmHkdfStreamEncrypter,encryptSegment,CIPHER#00 IVCHAINJUNCTION#01,1,34,AesGcmHkdfStreaming.java:234
+90,tink,com.google.crypto.tink.subtle.AesGcmJce,<init>,SECRETKEYSPEC#00,1,99,AesGcmJce.java:54
+91,tink,com.google.crypto.tink.subtle.AesGcmJce,encrypt,CIPHER#00,1,0,AesGcmJce.java:73
+92,tink,com.google.crypto.tink.subtle.AesSiv,decryptDeterministically,CIPHER#00 IVPARAMETERSPEC#00 SECRETKEYSPEC#00,1,33,AesSiv.java:143
+93,tink,com.google.crypto.tink.subtle.AesSiv,encryptDeterministically,CIPHER#00 IVCHAINJUNCTION#00 IVPARAMETERSPEC#00 SECRETKEYSPEC#00,7,448,AesSiv.java:109;AesSiv.java:119
+94,tink,com.google.crypto.tink.subtle.AesSiv,encryptInternal,CIPHER#00 IVCHAINJUNCTION#00 IVPARAMETERSPEC#00 SECRETKEYSPEC#00,1,99,AesSiv.java:191
+95,tink,com.google.crypto.tink.subtle.Hkdf,computeHkdf,MAC#00 SECRETKEYSPEC#00,1,34,Hkdf.java:59;Hkdf.java:65
+96,tink,com.google.crypto.tink.subtle.PrfAesCmac,<init>,SECRETKEYSPEC#00,7,546,PrfAesCmac.java:50;PrfAesCmac.java:57
+97,tink,com.google.crypto.tink.subtle.PrfAesCmac,compute,CIPHER#00,7,0,PrfAesCmac.java:62;PrfAesCmac.java:69
+98,tink,com.google.crypto.tink.subtle.PrfAesCmac,generateSubKeys,CIPHER#00,7,0,PrfAesCmac.java:103;PrfAesCmac.java:110

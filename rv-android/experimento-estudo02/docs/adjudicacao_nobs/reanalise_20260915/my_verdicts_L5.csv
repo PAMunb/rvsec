@@ -1,0 +1,34 @@
+cls,method,spec,code,category,mechanism,root,confidence,batch
+com.google.android.gms.internal.ads.zzbbe,zzb,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,hardcoded_key,,high,L5
+com.google.android.gms.internal.ads.zzbbe,zzb,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5
+com.google.android.gms.internal.ads.zzbbe,zzb,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,SECRETKEYSPEC-NOBS-00 @ zzbbe.zzb,high,L5
+org.quantumbadger.redreader.common.General,parseConfig,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,key_derived_from_public_data,,high,L5
+org.quantumbadger.redreader.common.General,parseConfig,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,MISUSE,constant_zero_iv,,high,L5
+org.quantumbadger.redreader.common.General,parseConfig,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,SECRETKEYSPEC-NOBS-00 @ General.parseConfig,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,MISUSE,hardcoded_salt,,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,MISUSE,cascade,PBEKEYSPEC-NOBS-01 @ AESObfuscator.<init>,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,cascade,PBEKEYSPEC-NOBS-01 @ AESObfuscator.<init>,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,MISUSE,hardcoded_iv,,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-00,MISUSE,cascade,IVPARAMETERSPEC-NOBS-00 @ AESObfuscator.<init>,high,L5
+com.google.android.vending.licensing.AESObfuscator,<init>,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,PBEKEYSPEC-NOBS-01 @ AESObfuscator.<init>,high,L5
+com.leekleak.trafficlight.database.CryptoManager,decrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+com.leekleak.trafficlight.database.CryptoManager,decrypt,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5
+com.leekleak.trafficlight.database.CryptoManager,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ CryptoManager.decrypt,high,L5
+me.diamondforge.tokn.security.KeystoreManager,encrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+me.diamondforge.tokn.security.KeystoreManager,decrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+me.diamondforge.tokn.security.KeystoreManager,decrypt,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5
+me.diamondforge.tokn.security.KeystoreManager,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ KeystoreManager.decrypt,high,L5
+rocks.poopjournal.metadataremover.viewmodel.MainViewModel,<clinit>,SecureRandomSpec,SECURERANDOM-NOBS-01,MISUSE,hardcoded_seed,,high,L5
+com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,encryptWithKeyStore,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,decryptWithKeyStore,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L5
+com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,decryptWithKeyStore,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5
+com.afkanerd.smswithoutborders_libsmsmms.data.Cryptography,decryptWithKeyStore,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ Cryptography.decryptWithKeyStore,high,L5
+dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,generateVaultMasterKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,RULE_DECISION,random_bytes_not_credited_as_key_material,,high,L5
+dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,derivePasswordKeyEncryptionKey,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,salt_from_storage_unlock_path,,high,L5
+dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,derivePasswordKeyEncryptionKey,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ KeyGen.derivePasswordKeyEncryptionKey,high,L5
+dev.leonlatsch.photok.encryption.domain.crypto.KeyGen,derivePasswordKeyEncryptionKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,WEAVER_GAP,getencoded_subtype_owner_not_woven_create_path,,high,L5
+dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,create,CipherSpec,CIPHER-NOBS-00,WEAVER_GAP,cascade,SECRETKEYSPEC-NOBS-00 @ KeyGen.derivePasswordKeyEncryptionKey,high,L5
+dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,unlock,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ KeyGen.derivePasswordKeyEncryptionKey,high,L5
+dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,unlock,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_storage,,high,L5
+dev.leonlatsch.photok.encryption.domain.handlers.PasswordVaultProtectionHandler,unlock,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_unwrap,,high,L5
+github.paroj.dsub2000.util.KeyStoreUtil,decrypt,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L5

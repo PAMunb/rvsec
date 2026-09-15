@@ -1,0 +1,13 @@
+cls,method,spec,code,category,mechanism,root,confidence,batch
+okhttp3.internal.platform.Platform,platformTrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L1
+okhttp3.internal.platform.Platform,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L1
+okhttp3.internal.platform.Platform,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,copy_loses_identity,,high,L1
+okhttp3.internal.platform.Platform,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L1
+okhttp3.internal.Util,platformTrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L1
+okhttp3.OkHttpClient,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,null_no_client_keymanager,,high,L1
+okhttp3.OkHttpClient,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,copy_loses_identity,,high,L1
+okhttp3.OkHttpClient,newSslSocketFactory,SSLContextSpec,SSLCONTEXT-NOBS-02,LEGIT_UNOBSERVABLE,null_default_securerandom,,high,L1
+okhttp3.tls.HandshakeCertificates,sslContext,SSLContextSpec,SSLCONTEXT-NOBS-00,LEGIT_UNOBSERVABLE,copy_loses_identity,,high,L1
+okhttp3.tls.HandshakeCertificates,sslContext,SSLContextSpec,SSLCONTEXT-NOBS-01,LEGIT_UNOBSERVABLE,copy_loses_identity,,high,L1
+org.conscrypt.SSLParametersImpl,createDefaultX509KeyManager,KeyManagerFactorySpec,KEYMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_keystore,,high,L1
+org.conscrypt.SSLParametersImpl,createDefaultX509TrustManager,TrustManagerFactorySpec,TRUSTMANAGERFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,null_default_truststore,,high,L1

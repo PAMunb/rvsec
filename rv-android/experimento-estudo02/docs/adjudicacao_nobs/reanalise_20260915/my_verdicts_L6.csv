@@ -1,0 +1,48 @@
+cls,method,spec,code,category,mechanism,root,confidence,batch
+com.gelakinetic.mtgfam.helpers.tcgp.MarketPriceFetcher$1,fetch,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,hardcoded_key,,high,L6
+com.gelakinetic.mtgfam.helpers.tcgp.MarketPriceFetcher$1,fetch,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,MISUSE,iv_equals_hardcoded_key,,high,L6
+com.gelakinetic.mtgfam.helpers.tcgp.MarketPriceFetcher,decrypt,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,SECRETKEYSPEC-NOBS-00 @ MarketPriceFetcher$1.fetch,high,L6
+org.spongycastle.jcajce.provider.asymmetric.x509.X509CertificateObject,checkSignature,SignatureSpec,SIGNATURE-NOBS-02,LEGIT_UNOBSERVABLE,pubkey_from_certificate,,medium,L6
+io.treehouses.remote.ssh.Encryptor,encrypt,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,MISUSE,adhoc_weak_password_kdf,,medium,L6
+io.treehouses.remote.ssh.Encryptor,encrypt,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,MISUSE,iv_derived_from_key_digest,,medium,L6
+io.treehouses.remote.ssh.Encryptor,encrypt,CipherSpec,CIPHER-NOBS-00,MISUSE,cascade,SECRETKEYSPEC-NOBS-00 @ Encryptor.encrypt,high,L6
+io.treehouses.remote.ssh.Encryptor,encrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-00,MISUSE,cascade,IVPARAMETERSPEC-NOBS-00 @ Encryptor.encrypt,high,L6
+org.fedorahosted.freeotp.encryptor.MasterKey,<init>,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,RULE_DECISION,random_bytes_not_credited_as_key_material,,high,L6
+org.fedorahosted.freeotp.encryptor.MasterKey,decrypt,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,salt_from_storage_or_clone,,high,L6
+org.fedorahosted.freeotp.encryptor.MasterKey,decrypt,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ MasterKey.decrypt,high,L6
+org.fedorahosted.freeotp.encryptor.EncryptedKey,decrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ MasterKey.decrypt,high,L6
+org.fedorahosted.freeotp.encryptor.EncryptedKey,decrypt,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_unwrap,,high,L6
+ua.com.radiokot.photoprism.features.ext.key.activation.logic.ParseEnteredKeyUseCase,getIssuerPublicKey$lambda$0,X509EncodedKeySpecSpec,X509ENCODEDKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,embedded_public_key,,high,L6
+ua.com.radiokot.photoprism.features.ext.key.activation.logic.ParseEnteredKeyUseCase,getIssuerPublicKey$lambda$0,KeyFactorySpec,KEYFACTORY-NOBS-01,LEGIT_UNOBSERVABLE,cascade,X509ENCODEDKEYSPEC-NOBS-00 @ ParseEnteredKeyUseCase.getIssuerPublicKey$lambda$0,high,L6
+app.michaelwuensch.bitbanana.util.UtilFunctions,encodePbkdf2,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,low_entropy_salt_via_int_and_prefs,,medium,L6
+app.michaelwuensch.bitbanana.util.UtilFunctions,encodePbkdf2,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ UtilFunctions.encodePbkdf2,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,generateKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,RULE_DECISION,random_bytes_not_credited_as_key_material,,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decodeKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_storage,,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decodeKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,key_from_storage,,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,encrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ AesCbcWithIntegrity.decodeKey,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,generateMac,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ AesCbcWithIntegrity.decodeKey,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ AesCbcWithIntegrity.decodeKey,high,L6
+com.nononsenseapps.feeder.crypto.AesCbcWithIntegrity,decrypt,IvParameterSpecSpec,IVPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L6
+com.craxiom.networksurvey.util.CryptoManager,encrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L6
+com.craxiom.networksurvey.util.CryptoManager,decrypt,CipherSpec,CIPHER-NOBS-00,RULE_DECISION,keystore_getentry_route_not_credited_oracle_names_getKey_only,,high,L6
+com.craxiom.networksurvey.util.CryptoManager,decrypt,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L6
+com.craxiom.networksurvey.util.CryptoManager,decrypt,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ CryptoManager.decrypt,high,L6
+dev.whyoleg.cryptography.providers.jdk.algorithms.JdkPbkdf2SecretDerivation,deriveSecretToByteArrayBlocking,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,salt_from_storage,,high,L6
+dev.whyoleg.cryptography.providers.jdk.algorithms.JdkPbkdf2SecretDerivation,deriveSecretToByteArrayBlocking,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ JdkPbkdf2SecretDerivation.deriveSecretToByteArrayBlocking,high,L6
+se.arctosoft.vault.encryption.Encryption,getDirHash,PBEKeySpecSpec,PBEKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,salt_from_storage,,high,L6
+se.arctosoft.vault.encryption.Encryption,getDirHash,SecretKeyFactorySpec,SECRETKEYFACTORY-NOBS-00,LEGIT_UNOBSERVABLE,cascade,PBEKEYSPEC-NOBS-01 @ Encryption.getDirHash,high,L6
+org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder$1,get,SignatureSpec,SIGNATURE-NOBS-02,LEGIT_UNOBSERVABLE,pubkey_from_certificate,,high,L6
+org.bouncycastle.operator.jcajce.JcaContentVerifierProviderBuilder,createRawSig,SignatureSpec,SIGNATURE-NOBS-02,LEGIT_UNOBSERVABLE,pubkey_from_certificate,,high,L6
+org.cry.otp.HOTP,hmac_sha1,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_user_provisioned_secret,,high,L6
+org.cry.otp.HOTP,hmac_sha1,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ HOTP.hmac_sha1,high,L6
+org.cry.otp.TOTP,hmac_sha,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_user_provisioned_secret,,high,L6
+org.cry.otp.TOTP,hmac_sha,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ TOTP.hmac_sha,high,L6
+com.beemdevelopment.aegis.crypto.otp.HOTP,getHash,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,key_from_user_provisioned_secret,,high,L6
+com.beemdevelopment.aegis.crypto.otp.HOTP,getHash,MacSpec,MAC-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-00 @ HOTP.getHash,high,L6
+com.beemdevelopment.aegis.crypto.CryptoUtils,deriveKey,SecretKeySpecSpec,SECRETKEYSPEC-NOBS-01,LEGIT_UNOBSERVABLE,key_from_non_jca_kdf,,high,L6
+com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,SECRETKEYSPEC-NOBS-01 @ CryptoUtils.deriveKey,high,L6
+com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher,GCMParameterSpecSpec,GCMPARAMETERSPEC-NOBS-00,LEGIT_UNOBSERVABLE,iv_from_ciphertext,,high,L6
+com.beemdevelopment.aegis.crypto.CryptoUtils,createCipher,IvChainJunctionSpec,IVCHAINJUNCTION-NOBS-01,LEGIT_UNOBSERVABLE,cascade,GCMPARAMETERSPEC-NOBS-00 @ CryptoUtils.createCipher,high,L6
+org.flyve.inventory.CryptoUtil,stringToPublicKey,X509EncodedKeySpecSpec,X509ENCODEDKEYSPEC-NOBS-00,LEGIT_UNOBSERVABLE,copy_loses_identity_string_roundtrip,,high,L6
+org.flyve.inventory.CryptoUtil,stringToPublicKey,KeyFactorySpec,KEYFACTORY-NOBS-01,LEGIT_UNOBSERVABLE,cascade,X509ENCODEDKEYSPEC-NOBS-00 @ CryptoUtil.stringToPublicKey,high,L6
+org.flyve.inventory.CryptoUtil,encrypt,CipherSpec,CIPHER-NOBS-00,LEGIT_UNOBSERVABLE,cascade,X509ENCODEDKEYSPEC-NOBS-00 @ CryptoUtil.stringToPublicKey,high,L6
