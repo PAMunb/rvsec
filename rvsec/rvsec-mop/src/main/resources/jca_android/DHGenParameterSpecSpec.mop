@@ -18,6 +18,10 @@ DHGenParameterSpecSpec(DHGenParameterSpec s) {
 
    DHGenParameterSpec spec;
 
+   // Set by the creation event `c1`. The generated `reset()` does not clear it, so every
+   // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+   boolean creationObserved = false;
+
    // The rule's single CONSTRAINTS clause, `exponentSize < primeSize`
    // (DHGenParameterSpec.crysl:15), read in the body with an accuser on the violated
    // branch. It has to be read here and not in a `condition(...)`: that clause
@@ -40,6 +44,7 @@ DHGenParameterSpecSpec(DHGenParameterSpec s) {
    event c1 after(int primeSize, int exponentSize) returning(DHGenParameterSpec s):
     call(public DHGenParameterSpec.new(int, int)) &&
     args(primeSize, exponentSize) {
+       creationObserved = true;
        if (exponentSize >= primeSize) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DHGenParameterSpecSpec", "" + __LOC,
                "v=1 code=DHGENPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=DHGenParameterSpec val='" + exponentSize + "' exp='an exponent size below the prime size " + primeSize + "' msg='the exponent size is not below the prime size'"));
@@ -52,8 +57,14 @@ DHGenParameterSpecSpec(DHGenParameterSpec s) {
    ere : c1
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHGenParameterSpecSpec", "" + __LOC,
-          "v=1 code=DHGENPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=DHGenParameterSpec val='' exp='' msg='the observed call sequence is not one DHGenParameterSpecSpec accepts'"));
+      if (!creationObserved) {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHGenParameterSpecSpec", "" + __LOC,
+              "v=1 code=DHGENPARAMETERSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=DHGenParameterSpec val='' exp='' msg='the observed call sequence is not one DHGenParameterSpecSpec accepts and no creation of the DHGenParameterSpec was observed'"));
+      }
+      else {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHGenParameterSpecSpec", "" + __LOC,
+              "v=1 code=DHGENPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=DHGenParameterSpec val='' exp='' msg='the observed call sequence is not one DHGenParameterSpecSpec accepts'"));
+      }
       __RESET;
    }
 

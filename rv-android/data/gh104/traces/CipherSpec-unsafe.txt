@@ -2,6 +2,9 @@
 # same reason CipherSpec.txt binds one -- `c.init(1, null)` is an ambiguous call
 # javac rejects, and an unnamed overload is not a program the woven monitor can
 # see.
+#
+# The ordering reports at `i2` and `f2` are CIPHER-ORDER-00, label `sequence`: the refused
+# `getInstance` is a creation event, so the monitor observed the Cipher's creation.
 bind k = new SecretKeySpec(bytes, "AES")
 Cipher.getInstance("DES") -> c
 c.init(1, k)

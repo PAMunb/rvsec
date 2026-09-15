@@ -38,6 +38,16 @@ MessageDigestSpec(MessageDigest digest) {
     // marking behind for the next one.
     byte[] stagedDigested = null;
 
+    // Set by the four creation events, `g1` to `g4`, the refused `g4` included, and never
+    // cleared: the generated `reset()` restores the automaton state and leaves this field, so
+    // the fact survives a failure. `@fail` reads it to report a digest whose creation no event
+    // of this specification observed -- one obtained through `clone()` is such a digest --
+    // under `MESSAGEDIGEST-ORDER-01` (`creation-unobserved`) instead of the wrong-sequence
+    // code. A two-argument `getInstance` of an algorithm the list refuses matches no event --
+    // the `condition(...)` of `g2` and `g3` is false, and a false guard runs no body -- so
+    // that digest counts as unobserved too.
+    boolean creationObserved = false;
+
 	/*
 	getInstance events should not, by themselves, trigger UnsalfeAlgorithm errors. The reason is because the algorithm
 	is only actually executed during the encryption phase (i.e., in calls to digest() and update(), in the case of MD.)
@@ -64,18 +74,21 @@ MessageDigestSpec(MessageDigest digest) {
 	event g1 after(String alg) returning(MessageDigest digest):
 	  call(public static MessageDigest MessageDigest.getInstance(String))
 	  && args(alg) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
+	  creationObserved = true;
 	  PredicateStore.instance().ensure(Property.GENERATED_MESSAGE_DIGEST, digest);
 	}
 
 	event g2 after(String alg, String provider) returning(MessageDigest digest):
       call(public static MessageDigest MessageDigest.getInstance(String, String))
       && args(alg, provider) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
+	  creationObserved = true;
 	  PredicateStore.instance().ensure(Property.GENERATED_MESSAGE_DIGEST, digest);
     }
 
     event g3 after(String alg, Provider provider) returning(MessageDigest digest):
       call(public static MessageDigest MessageDigest.getInstance(String, Provider))
       && args(alg, provider) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
+    	creationObserved = true;
     	PredicateStore.instance().ensure(Property.GENERATED_MESSAGE_DIGEST, digest);
     }
 
@@ -96,6 +109,7 @@ MessageDigestSpec(MessageDigest digest) {
 	  call(public static MessageDigest MessageDigest.getInstance(String))
     	  && args(alg) && condition(!ConscryptAliasTable.matches("MessageDigest", alg, algorithms))
         {
+          creationObserved = true;
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "MessageDigestSpec", "" + __LOC,
               "v=1 code=MESSAGEDIGEST-ALG-02 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
         }
@@ -189,8 +203,14 @@ MessageDigestSpec(MessageDigest digest) {
 	ere : (g4* g1 | g4* g2 | g4* g3) (d2 | (update+ (d1 | d2 | d3)))+
 
 	@fail {
-           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC,
-               "v=1 code=MESSAGEDIGEST-ORDER-00 ev=" + __EVENTNAME + " obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'"));
+           if (!creationObserved) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC,
+                   "v=1 code=MESSAGEDIGEST-ORDER-01 ev=" + __EVENTNAME + " obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts and no creation of the digest was observed'"));
+           }
+           else {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC,
+                   "v=1 code=MESSAGEDIGEST-ORDER-00 ev=" + __EVENTNAME + " obj=MessageDigest val='' exp='' msg='the observed call sequence is not one MessageDigestSpec accepts'"));
+           }
            stagedDigested = null;
            __RESET;
 	}

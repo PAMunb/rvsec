@@ -41,6 +41,11 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     // and cleared the moment it is used or the sequence is rejected.
     KeyManagerFactory initialisedFactory = null;
 
+    // Set by the creation events `g1`, `g2` and `g3`. `@fail` reads it to tell a call sequence
+    // the rule refuses from a factory whose creation this monitor never saw; the generated
+    // `reset()` leaves user fields alone, so the fact survives a failure.
+    boolean creationObserved = false;
+
     String expectedGeneratedKeyStore = "a KeyStore this instrumentation observed being loaded";
 
     String expectedGeneratedManagerFactoryParameters =
@@ -50,18 +55,21 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
       && condition(ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms)) {
+        creationObserved = true;
     }
 
     event g2 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..))
       && args(alg, *)
       && condition(ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms)) {
+        creationObserved = true;
     }
 
     event g3 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
       && condition(!ConscryptAliasTable.matches("KeyManagerFactory", alg, safeAlgorithms))  {
+        creationObserved = true;
     }
 
     // `generatedKeyStore[keyStore]` (KeyManagerFactory.crysl:31, ledger clause #14) is read
@@ -96,7 +104,10 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     // a null object, and that is what the rule states: the clause requires a key store this
     // instrumentation saw generated, and no argument is not one. A guard on null would fold
     // "the program handed over no key store" into silence, which is the shape of suppression
-    // this change exists to remove.
+    // this change exists to remove. What the null does get is a code of its own, labelled
+    // `platform-default`: `init(null, pw)` is the documented request for the platform's default
+    // key source, and an analysis must be able to separate it from a key store whose loading went
+    // unseen.
     //
     // The imprecision that buys, stated rather than hidden: a null carries no runtime type, so
     // `init((ManagerFactoryParameters) null)` -- the rule's `i2` with a null argument, a call no
@@ -124,9 +135,13 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
                     "v=1 code=KEYMANAGERFACTORY-CONSTR-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='the KeyStore given to KeyManagerFactory.init carries a generation predicate the rule does not admit'"));
             }
+            else if (generated == PredicateVerdict.NOT_OBSERVED && arg == null) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
+                    "v=1 code=KEYMANAGERFACTORY-NOBS-02 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='a null KeyStore given to KeyManagerFactory.init requests the platform default key source, whose loading was not observed'" + Evidence.keysFor(arg)));
+            }
             else if (generated == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
-                    "v=1 code=KEYMANAGERFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='no loading of the KeyStore given to KeyManagerFactory.init was observed'"));
+                    "v=1 code=KEYMANAGERFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='no loading of the KeyStore given to KeyManagerFactory.init was observed'" + Evidence.keysFor(arg)));
             }
         }
         // The rule's other REQUIRES clause, `generatedManagerFactoryParameters[params]`
@@ -151,7 +166,7 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
             }
             else if (prepared == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyManagerFactorySpec", "" + __LOC,
-                    "v=1 code=KEYMANAGERFACTORY-NOBS-01 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedManagerFactoryParameters) + "' msg='no construction of the ManagerFactoryParameters given to KeyManagerFactory.init was observed'"));
+                    "v=1 code=KEYMANAGERFACTORY-NOBS-01 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedManagerFactoryParameters) + "' msg='no construction of the ManagerFactoryParameters given to KeyManagerFactory.init was observed'" + Evidence.keysFor(arg)));
             }
         }
        initialisedFactory = k;
@@ -199,9 +214,18 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     alias match1 = final
     alias match2 = taken
 
+    // A monitor that never observed `getInstance` reports every failure as
+    // `creation-unobserved`: the factory was created where this monitor cannot see, and after a
+    // reset no creation event can arrive for it.
     @fail {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC,
-            "v=1 code=KEYMANAGERFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='' exp='' msg='the observed call sequence is not one KeyManagerFactorySpec accepts'"));
+        if (!creationObserved) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC,
+                "v=1 code=KEYMANAGERFACTORY-ORDER-01 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='' exp='' msg='" + __EVENTNAME + "() before getInstance()'"));
+        }
+        else {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyManagerFactorySpec", "" + __LOC,
+                "v=1 code=KEYMANAGERFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='' exp='' msg='the observed call sequence is not one KeyManagerFactorySpec accepts'"));
+        }
         initialisedFactory = null;
 
         __RESET;

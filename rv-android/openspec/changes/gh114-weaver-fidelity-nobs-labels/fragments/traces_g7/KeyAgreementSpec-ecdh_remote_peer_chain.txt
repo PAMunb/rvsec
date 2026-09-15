@@ -1,0 +1,37 @@
+# ECDH with a remote peer's public key. The peer's encoded key arrives from outside the monitored
+# program (bound silently here: nothing observed its production), is wrapped in an
+# X509EncodedKeySpec, decoded by a KeyFactory and handed to `doPhase`; the shared secret is then
+# wrapped as an AES key. The local private key comes from an observed KeyPairGenerator, so
+# `init` is satisfied and only the peer's branch of the chain is unobserved.
+#
+# After gh114 the chain reports its first link as not observed and every later link as refused
+# upstream, because each reporting producer marks what it produces:
+#   X509EncodedKeySpecSpec.c1   X509ENCODEDKEYSPEC-NOBS-00  label `not-observed` (with `vfp`)
+#   KeyFactorySpec.genPublic    KEYFACTORY-NOBS-03          label `upstream-refused`
+#   KeyAgreementSpec.dophase    KEYAGREEMENT-NOBS-09        label `upstream-refused`
+#   SecretKeySpecSpec.c1        SECRETKEYSPEC-NOBS-02       label `upstream-refused` (with `vfp`)
+# `KeyAgreementSpec.gs1` reports nothing: an agreement that does not conform marks the secret
+# buffer REPORTED_UPSTREAM instead of `preparedKeyMaterial`.
+# Before gh114: the same four (spec, event) pairs reported X509ENCODEDKEYSPEC-NOBS-00,
+# KEYFACTORY-NOBS-01, KEYAGREEMENT-NOBS-08 and SECRETKEYSPEC-NOBS-00.
+#
+# The KeyPair obtained from `generateKeyPair()` also draws KeyPairSpec's ordering report at
+# `getPrivate`, which is not part of this chain; its code and label are emitted by
+# KeyPairSpec.mop (the `creation-unobserved` code of that file, KEYPAIR-ORDER-00 before gh114).
+bind remoteGenerator = KeyPairGenerator.getInstance("EC")
+bind remoteReady = remoteGenerator.initialize(256)
+bind remotePair = remoteGenerator.generateKeyPair()
+bind remotePublic = remotePair.getPublic()
+bind peerBytes = remotePublic.getEncoded()
+new X509EncodedKeySpec(peerBytes) -> peerSpec
+KeyFactory.getInstance("EC") -> kf
+kf.generatePublic(peerSpec) -> peerKey
+KeyPairGenerator.getInstance("EC") -> kpg
+kpg.initialize(256) -> ready
+kpg.generateKeyPair() -> kp
+kp.getPrivate() -> priv
+KeyAgreement.getInstance("ECDH") -> ka
+ka.init(priv) -> inited
+ka.doPhase(peerKey, true) -> phased
+ka.generateSecret() -> secret
+new SecretKeySpec(secret, "AES") -> key

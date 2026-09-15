@@ -1,0 +1,22 @@
+# A GCM decryption whose nonce arrived with the ciphertext. The nonce is bound silently: it was
+# produced by the peer that encrypted, not by a SecureRandom this instrumentation observed, so the
+# GCMParameterSpec built over it cannot satisfy `randomized[src]` and is not prepared.
+#
+# The key comes from an observed KeyGenerator, so `CipherSpec.i2` finds its origin and stays
+# silent; the spec is the only object any report is about. `doFinal` is left out: the ciphertext
+# placeholder carries no valid tag, and the reports this trace is about are all raised before it.
+#
+# After gh114:
+#   GCMParameterSpecSpec.c1  GCMPARAMETERSPEC-NOBS-00  not-observed (and marks the spec)
+#   IvChainJunctionSpec.use  IVCHAINJUNCTION-NOBS-07   upstream-refused
+# and no IVCHAINJUNCTION-NOBS-01. The GCM read of `use` has no `encmode` conjunct, so a
+# decryption is asked for a prepared spec as an encryption is.
+# Before gh114: the same two (spec, event) sites reported, as GCMPARAMETERSPEC-NOBS-00 and
+# IVCHAINJUNCTION-NOBS-01.
+bind nonce = bytes(12)
+KeyGenerator.getInstance("AES") -> kg
+kg.init(256)
+kg.generateKey() -> key
+new GCMParameterSpec(128, nonce) -> spec
+Cipher.getInstance("AES/GCM/NoPadding") -> c
+c.init(2, key, spec)

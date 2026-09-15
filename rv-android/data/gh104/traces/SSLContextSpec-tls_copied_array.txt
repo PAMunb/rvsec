@@ -1,0 +1,29 @@
+# A trust manager the factory issued, handed to SSLContext.init inside an array the store has
+# never seen -- the per-element credit, and the one situation in which gh114 removes a report.
+#
+# `trustmanagers(tms)` is `new TrustManager[]{ tms[0] }`: the array carries no mark, and its only
+# element carries the GENERATED_TRUST_MANAGERS mark the dispatched `gtm1` wrote.
+#
+# The rest of the chain conforms, so the trust-manager read is the only one that could report:
+# the key store is really loaded, the key-manager array is the one KeyManagerFactory returned,
+# and the SecureRandom was obtained through an observed getInstance.
+#
+# After gh114: nothing is reported; SSLContextSpec.init credits `copy` because it is non-empty
+# and every element is marked.
+# Before gh114: SSLContextSpec.init reported SSLCONTEXT-NOBS-01 for the unmarked array. The
+# (SSLContextSpec, init) site disappears, as the per-element credit admits (INV-INS-165).
+KeyStore.getInstance("PKCS12") -> ks
+bind ready = ks.load(null)
+ks.load(null)
+KeyManagerFactory.getInstance("PKIX") -> kmf
+bind kmready = kmf.init(ks, chars)
+kmf.init(ks, chars)
+kmf.getKeyManagers() -> kms
+TrustManagerFactory.getInstance("PKIX") -> tmf
+bind tmready = tmf.init(ks)
+tmf.init(ks)
+tmf.getTrustManagers() -> tms
+bind copy = trustmanagers(tms)
+SecureRandom.getInstance("SHA1PRNG") -> r
+SSLContext.getInstance("TLSv1.2") -> ctx
+ctx.init(kms, copy, r)

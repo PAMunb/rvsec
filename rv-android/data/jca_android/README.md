@@ -70,7 +70,7 @@ keep resolving (INV-INS-118), and by the identity checks of tasks 2.11 and 10.1.
 Twenty-four `.mop` files and `codes.csv`, and nothing else. It was twenty-three until Group 5
 added `IvChainJunction.mop`, the junction specification that carries a chain no single API's
 rule states. `codes.csv` (header
-`spec,code,error_type,site_kind,event,file_line`) is the table of failure codes the set's
+`spec,code,error_type,site_kind,event,file_line,label`) is the table of failure codes the set's
 envelopes emit; it is the **only** non-`.mop` file of the directory. The seed directory
 `jca/` also holds `MultiSpec_1MonitorAspect.aj`, a gitignored leftover of a generation run
 that is not tracked and does not travel with the seed.
@@ -444,7 +444,8 @@ Counted from the files with `scripts/gh104_mop_lint.py`'s own site parser:
 | frozen `jca` (the seed) | 25 | 25 | 1 | **50** |
 | `jca_android` after Group 2 | 25 | 25 | 1 | **50** |
 | `jca_android` at the end of gh105 | 0 | 115 | 0 | 115 |
-| `jca_android` today | 0 | **252** | 0 | **252** |
+| `jca_android` at the end of gh109 | 0 | 252 | 0 | 252 |
+| `jca_android` today | 0 | **318** | 0 | **318** |
 
 **Through Group 2 the census was the seed's, unchanged, and there was no difference to explain.**
 That followed from D-11: the successor keeps every event the seed declares, predicates included,
@@ -464,8 +465,8 @@ successor, a read with a producer and an accusation of its own when the read ans
 three-argument form is gone entirely: Group 7 gave every site an envelope, so every site is
 four-argument and the set holds no commented report.
 
-**gh109 more than doubled it again, and the split is measurable rather than argued.** The census is
-**252** today, and it divides as 112 sites on the 24 specifications gh109 wrote (the 14 trivial
+**gh109 more than doubled it again, and the split is measurable rather than argued.** The census was
+**252** at the end of gh109, and it divided as 112 sites on the 24 specifications gh109 wrote (the 14 trivial
 producers of G2, the 7 medium of G3, the 3 complex of G4 -- coverage that did not exist before,
 because those rules had no `.mop` at all) and 140 on the files that predate it, up 25 from 115. Those
 25 are the change's repairs and the reads its producers unblocked: the 9 verified repairs of G1, each
@@ -474,6 +475,17 @@ been left closed on the recorded ground that no producer existed; and the two ac
 (`SECURERANDOM-ALG-01` for the arity the rule leaves open, `KEYPAIRGENERATOR-ALG-00` for a value
 clause that had lived only in a negated guard). Every one of the four numbers above can be recounted
 from `codes.csv` and the files.
+
+**Of today's 318 sites, 65 are label codes, and they do not widen what the set reports.** A label
+code is a second code at a report point that already existed: it is emitted under the same branch
+as the unlabelled code of its family, in an `else if` ahead of it, so a situation the family used to
+report under one code now reports under the code that names it (`NEW_SPEC_CONVENTIONS.md` §5 and
+§6). The 65 are 43 `creation-unobserved` and 2 `reuse-after-final` sites in `@fail` handlers, and
+12 `upstream-refused`, 5 `platform-default`, 2 `random-key-material` and 1 `application-manager`
+sites at `NOT_OBSERVED` reads. The other 253 are the sites that carry `violation`, `sequence` or
+`not-observed`. The one rule among them that changes whether a site reports is the per-element
+credit of trust-manager arrays, which accepts an array whose every element a `TrustManagerFactory`
+issued.
 
 **The count moved twice after Group 7, and both moves were accusations the set was missing.** It
 stood at 112 through Group 8. `5bc5c893` took it to 114: repairing the value lists put back the
@@ -507,7 +519,7 @@ the accusation it adds is measured rather than assumed. The set has no commented
 Of the seed's 50, the 25 three-argument sites were the 21 `@fail`/`@match1` handlers plus
 `IvParameterSpec` c3/c4 and `PBEKeySpecSpec`'s two `FORBIDDEN` sites, and the 25 four-argument
 sites were the value accusers. Group 7 gave every site an envelope, so the three-argument count is
-zero and every one of the successor's 252 rows in `codes.csv` names a four-argument site.
+zero and every row of the successor's `codes.csv` names a four-argument site.
 
 **Group 8 left the seed-inherited total where it found it, by two changes that cancel.** Task 8.6 removes the
 `UnsafeAlgorithm` report inside `KeyPairGeneratorSpec`'s `init1`, whose branch is unreachable — the
@@ -530,7 +542,7 @@ which is what made `KeyPairGenerator.crysl:28` a value clause realized only as a
 
 The set's report sites carry a failure code from Group 7 on, and `codes.csv` (inside the
 specification directory, not here) is the table of them: one row per live site, header
-`spec,code,error_type,site_kind,event,file_line`. A code is `<SPEC>-<KIND>-<NN>`, where `<SPEC>` is
+`spec,code,error_type,site_kind,event,file_line,label`. A code is `<SPEC>-<KIND>-<NN>`, where `<SPEC>` is
 the specification's name without its `Spec` suffix in upper case (`MESSAGEDIGEST`,
 `TRUSTMANAGERFACTORY`, `PBEKEYSPEC`) — derived mechanically, so no abbreviation table exists for two
 readers to disagree over — and `<KIND>` is the clause family the site belongs to: `ORDER`, `ALG`,
@@ -540,10 +552,32 @@ the eight and **cannot** separate the last two: a `NOBS` code and a `CONSTR` cod
 so the code and the `site_kind` column are the only place the difference lives. That is why
 consolidation keys on `site_kind` and not on `error_type` (INV-INS-158, `scripts/gh109_nobs_channel.py`).
 The table is bijective with the census above:
-**252 rows, 252 live sites**, and the message gate fails on either half of that going wrong. It
+**318 rows, 318 live sites**, and the message gate fails on either half of that going wrong. It
 also checks the anchor: since task 7.2 a `code-anchor` check compares each row's `file_line` with
 the line the code is actually emitted from, because the two times a batch re-anchored the file by
 script it moved anchors nobody had noticed.
+
+The `label` column says what situation a code stands for, from a closed vocabulary that must agree
+with the family (the gate's `label-vocabulary` check). The family answers "accusation or limit of
+observation"; the label answers "which one", so an analysis joins `errors.csv.code` with
+`codes.csv.label` and a reader that only knows families keeps counting correctly.
+
+| `label` | Family | Rows |
+|---|---|---|
+| `violation` | `ALG` 43, `CONSTR` 86, `FORB` 6, `KEYSIZE` 5, `PROTO` 4, `KSTYPE` 1 | 145 |
+| `sequence` | `ORDER` | 44 |
+| `creation-unobserved` | `ORDER` | 43 |
+| `reuse-after-final` | `ORDER` | 2 |
+| `not-observed` | `NOBS` | 64 |
+| `upstream-refused` | `NOBS` | 12 |
+| `platform-default` | `NOBS` | 5 |
+| `random-key-material` | `NOBS` | 2 |
+| `application-manager` | `NOBS` | 1 |
+| | | **318** |
+
+So the `ORDER` family holds 89 codes and the `NOBS` family 84. What each label means, where it is
+emitted and in which precedence is written once, in `NEW_SPEC_CONVENTIONS.md` §5 and §6, together
+with the evidence keys `vfp` and `vcls` that every `-NOBS-` envelope appends after `msg`.
 
 ## Generating the set, and the heap it takes
 

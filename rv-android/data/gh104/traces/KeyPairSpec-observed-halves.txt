@@ -12,7 +12,7 @@
 #
 # The producer's placement is what makes this work at all. `gpu` and `gpr` write in the event
 # body, and the pair they are called on came out of KeyPairGenerator rather than a monitored
-# constructor, so KeyPairSpec's own `ere` sends them to the fail state -- the KEYPAIR-ORDER-00
+# constructor, so KeyPairSpec's own `ere` sends them to the fail state -- the KEYPAIR-ORDER-01
 # recorded at task 4.13 and owned by 7.1. An acceptance-point write would leave this trace with
 # both halves unobserved and the conforming constructor accused twice.
 #

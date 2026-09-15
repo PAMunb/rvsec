@@ -44,6 +44,13 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     KeyPair kp = null;
     String algorithm;
 
+    // Set by the four creation events, `g1` to `g4`, the refused twins included, and never
+    // cleared: the generated `reset()` restores the automaton state and leaves this field, so
+    // the fact survives a failure. `@fail` reads it to report a generator whose creation no
+    // event of this specification observed under `KEYPAIRGENERATOR-ORDER-01`
+    // (`creation-unobserved`) instead of the wrong-sequence code.
+    boolean creationObserved = false;
+
     private boolean validate(int keySize) {
       // D-15: the four key-size clauses of KeyPairGenerator.crysl. `3072` returns to the RSA
       // sizes -- the withdrawn generated rule had lost it and the frozen jca was right to
@@ -95,6 +102,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
       args(alg) &&
       condition(ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
+        creationObserved = true;
         algorithm = alg;
     }
 
@@ -104,13 +112,14 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     // the overload this pointcut used to miss reached its next event with the monitor at state
     // 0, where every row is `fail`. It is `Object+` and not `..` on purpose: the trace harness's
     // resolver walks the declared parameter types of a `call(...)` signature and stops at the
-    // first wildcard (KeyManagerFactorySpec.mop:87-90), so a wildcard here would make every
+    // first wildcard (KeyManagerFactorySpec.mop:94-97), so a wildcard here would make every
     // `getInstance` fit this pointcut, while `Object+` keeps the arity known and the second
     // position typed. Precedent: `KeyGeneratorSpec.g2`.
     event g2 after(String alg, Object provider) returning(KeyPairGenerator k):
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, Object+)) &&
       args(alg, provider) &&
       condition(ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
+        creationObserved = true;
         algorithm = alg;
     }
 
@@ -138,6 +147,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
       args(alg) &&
       condition(!ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
+        creationObserved = true;
         algorithm = alg;
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyPairGeneratorSpec", "" + __LOC,
             "v=1 code=KEYPAIRGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
@@ -173,6 +183,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, Object+)) &&
       args(alg, provider) &&
       condition(!ConscryptAliasTable.matches("KeyPairGenerator", alg, safeAlgorithms)) {
+        creationObserved = true;
         algorithm = alg;
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyPairGeneratorSpec", "" + __LOC,
             "v=1 code=KEYPAIRGENERATOR-ALG-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
@@ -262,7 +273,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         }
         else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairGeneratorSpec", "" + __LOC,
-                "v=1 code=KEYPAIRGENERATOR-NOBS-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(algorithm) + "' exp='" + q(preparationName(required)) + "' msg='no preparation of the AlgorithmParameterSpec given to KeyPairGenerator.initialize was observed'"));
+                "v=1 code=KEYPAIRGENERATOR-NOBS-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(algorithm) + "' exp='" + q(preparationName(required)) + "' msg='no preparation of the AlgorithmParameterSpec given to KeyPairGenerator.initialize was observed'" + Evidence.keysFor(params)));
         }
     }
 
@@ -297,7 +308,7 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         }
         else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairGeneratorSpec", "" + __LOC,
-                "v=1 code=KEYPAIRGENERATOR-NOBS-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(algorithm) + "' exp='" + q(preparationName(required)) + "' msg='no preparation of the AlgorithmParameterSpec given to KeyPairGenerator.initialize was observed'"));
+                "v=1 code=KEYPAIRGENERATOR-NOBS-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(algorithm) + "' exp='" + q(preparationName(required)) + "' msg='no preparation of the AlgorithmParameterSpec given to KeyPairGenerator.initialize was observed'" + Evidence.keysFor(params)));
         }
     }
 
@@ -361,8 +372,14 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     ere: ((g3 | g4)* g1 | (g3 | g4)* g2) (init1 | init2 | init3 | init4 | initError | initError2) gen
 
     @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,
-          "v=1 code=KEYPAIRGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='' exp='' msg='the observed call sequence is not one KeyPairGeneratorSpec accepts'"));
+      if (!creationObserved) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,
+            "v=1 code=KEYPAIRGENERATOR-ORDER-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='' exp='' msg='the observed call sequence is not one KeyPairGeneratorSpec accepts and no creation of the generator was observed'"));
+      }
+      else {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,
+            "v=1 code=KEYPAIRGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='' exp='' msg='the observed call sequence is not one KeyPairGeneratorSpec accepts'"));
+      }
       kp = null;
 
       // The reset the other twenty `@fail` blocks of the set carry. Without it the

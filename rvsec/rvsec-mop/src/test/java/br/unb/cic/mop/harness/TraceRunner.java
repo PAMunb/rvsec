@@ -15,8 +15,11 @@ import java.lang.reflect.Modifier;
 import java.math.BigInteger;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import javax.crypto.spec.PSource;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
@@ -93,6 +96,9 @@ import java.util.stream.Stream;
  * the clauses stated as a magnitude. {@code truststore} is the platform's own {@code cacerts}
  * key store and {@code anchor} one X509 certificate out of it, for the certificate-path rules
  * whose objects cannot be built from literals; {@code psource} is the empty OAEP label.
+ * {@code trustmanagers(a, b)} is a fresh {@code TrustManager[]} built from bound names, and
+ * {@code applicationtrustmanager} a trust manager whose class the application's class loader
+ * defines, for the rules that read where each element of a manager array came from.
  *
  * <p>
  * An integer token also serves a position declared {@link BigInteger}. The notation has no
@@ -722,6 +728,28 @@ public final class TraceRunner implements AutoCloseable {
         if ("psource".equals(token)) {
             return PSource.PSpecified.DEFAULT;
         }
+        // `trustmanagers(tms, applicationtrustmanager)`: a fresh array the store has never seen,
+        // around elements whose own marks are what `SSLContext.init` reads. A bound manager is
+        // one element; a bound manager array contributes its elements in order, which is how a
+        // trace names the managers a factory issued.
+        if (token.startsWith("trustmanagers(") && token.endsWith(")")) {
+            List<TrustManager> elements = new ArrayList<>();
+            for (String name : Call.split(
+                    token.substring("trustmanagers(".length(), token.length() - 1))) {
+                Object value = literal(name);
+                if (value instanceof TrustManager[]) {
+                    elements.addAll(Arrays.asList((TrustManager[]) value));
+                } else {
+                    elements.add((TrustManager) value);
+                }
+            }
+            return elements.toArray(new TrustManager[0]);
+        }
+        // Every platform manager is defined by the boot loader, so the element whose class the
+        // application defines has to come from this test scope.
+        if ("applicationtrustmanager".equals(token)) {
+            return new ApplicationTrustManager();
+        }
         if (token.startsWith("bytes")) {
             return new byte[size(token, 16)];
         }
@@ -731,6 +759,26 @@ public final class TraceRunner implements AutoCloseable {
             return password;
         }
         return bindings.get(token);
+    }
+
+    /** A trust manager defined by the application's class loader; it trusts nothing. */
+    static final class ApplicationTrustManager implements X509TrustManager {
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType)
+                throws CertificateException {
+            throw new CertificateException("the harness trusts no client");
+        }
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType)
+                throws CertificateException {
+            throw new CertificateException("the harness trusts no server");
+        }
+
+        @Override
+        public X509Certificate[] getAcceptedIssuers() {
+            return new X509Certificate[0];
+        }
     }
 
     /** The platform `cacerts` store, and one certificate from it; loaded once, never mutated. */

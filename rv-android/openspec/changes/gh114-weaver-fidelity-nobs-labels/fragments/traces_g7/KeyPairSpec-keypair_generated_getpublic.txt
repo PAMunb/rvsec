@@ -1,0 +1,18 @@
+# A KeyPair obtained from `KeyPairGenerator.generateKeyPair()` has `getPublic()` and then
+# `getPrivate()` called on it. The pair was created inside the framework, so KeyPairSpec never
+# observes its constructor and its automaton fails on `gpu` and again on `gpr`.
+#
+# After gh114: both reports carry KeyPairSpec's `creation-unobserved` code (KEYPAIR-ORDER-01).
+# That code and label are emitted by KeyPairSpec.mop, which group G9b owns; this trace sits with
+# group G7 because the public key then reaches `SignatureSpec.i4`. The `gpu` body marks the key
+# `generatedPubkey` before the transition is decided, and an ordering report never marks
+# REPORTED_UPSTREAM, so `SignatureSpec.i4` reports nothing (no SIGNATURE-NOBS code of any label).
+# Before gh114: KeyPairSpec `gpu` and `gpr` reported KEYPAIR-ORDER-00; SignatureSpec reported
+# nothing.
+KeyPairGenerator.getInstance("RSA") -> kpg
+kpg.initialize(2048) -> ready
+kpg.generateKeyPair() -> kp
+kp.getPublic() -> pub
+kp.getPrivate() -> priv
+Signature.getInstance("SHA256withRSA") -> s
+s.initVerify(pub)

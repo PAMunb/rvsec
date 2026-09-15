@@ -60,6 +60,10 @@ KeyAgreementSpec(KeyAgreement ka) {
    // event; withdrawing the predicate would be a NEGATES this rule does not state.
    boolean conforms = true;
 
+   // Set by `get`, the one creation event, and read by `@fail` (KEYAGREEMENT-ORDER-01). The
+   // generated `reset()` clears the state and not this field.
+   boolean creationObserved = false;
+
    String expectedGeneratedPrivkey = "a private key this instrumentation observed being generated";
 
    String expectedGeneratedPubkey = "a public key this instrumentation observed being generated";
@@ -80,6 +84,7 @@ KeyAgreementSpec(KeyAgreement ka) {
        call(public static KeyAgreement KeyAgreement.getInstance(String, String)) ||
        call(public static KeyAgreement KeyAgreement.getInstance(String, java.security.Provider))
      ) && args(alg, ..) {
+       creationObserved = true;
        algorithm = ConscryptAliasTable.canonical("KeyAgreement", alg);
        if (!ConscryptAliasTable.matches("KeyAgreement", alg, safeAlgorithms)) {
            conforms = false;
@@ -98,7 +103,7 @@ KeyAgreementSpec(KeyAgreement ka) {
    // three clauses of the rule with no site at all; a fused event PLUS a binding event would
    // emit two letters for one call, where the ORDER has exactly one `Init` between the `Get`
    // and the `DoPhase`. The precedent and the measurement are
-   // `AlgorithmParameterGeneratorSpec.mop:62-74`.
+   // `AlgorithmParameterGeneratorSpec.mop:73-85`.
    //
    // `generatedPrivkey[privKey]` is read three-valued with a code per accusing outcome
    // (INV-INS-143). Its producers are `KeyFactorySpec.genPrivate`, `KeyPairSpec` and
@@ -115,7 +120,7 @@ KeyAgreementSpec(KeyAgreement ka) {
        else if (privateKey == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
-               "v=1 code=KEYAGREEMENT-NOBS-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'"));
+               "v=1 code=KEYAGREEMENT-NOBS-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'" + Evidence.keysFor(privKey)));
        }
    }
 
@@ -145,7 +150,7 @@ KeyAgreementSpec(KeyAgreement ka) {
        else if (privateKey == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
-               "v=1 code=KEYAGREEMENT-NOBS-01 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'"));
+               "v=1 code=KEYAGREEMENT-NOBS-01 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'" + Evidence.keysFor(privKey)));
        }
        PredicateVerdict prepared = PredicateVerdict.SATISFIED;
        String required = null;
@@ -165,7 +170,7 @@ KeyAgreementSpec(KeyAgreement ka) {
        else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
-               "v=1 code=KEYAGREEMENT-NOBS-02 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(required) + "' msg='no preparation of the parameter spec given to init was observed'"));
+               "v=1 code=KEYAGREEMENT-NOBS-02 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(required) + "' msg='no preparation of the parameter spec given to init was observed'" + Evidence.keysFor(params)));
        }
    }
 
@@ -184,7 +189,7 @@ KeyAgreementSpec(KeyAgreement ka) {
        else if (privateKey == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
-               "v=1 code=KEYAGREEMENT-NOBS-03 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'"));
+               "v=1 code=KEYAGREEMENT-NOBS-03 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'" + Evidence.keysFor(privKey)));
        }
        PredicateVerdict prepared = PredicateVerdict.SATISFIED;
        String required = null;
@@ -204,7 +209,7 @@ KeyAgreementSpec(KeyAgreement ka) {
        else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
-               "v=1 code=KEYAGREEMENT-NOBS-04 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(required) + "' msg='no preparation of the parameter spec given to init was observed'"));
+               "v=1 code=KEYAGREEMENT-NOBS-04 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(required) + "' msg='no preparation of the parameter spec given to init was observed'" + Evidence.keysFor(params)));
        }
        PredicateVerdict randomized = PredicateStore.instance().validate(Property.RANDOMIZED, random);
        if (randomized == PredicateVerdict.VIOLATED) {
@@ -215,7 +220,7 @@ KeyAgreementSpec(KeyAgreement ka) {
        else if (randomized == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
-               "v=1 code=KEYAGREEMENT-NOBS-05 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='no construction of the SecureRandom given to init was observed'"));
+               "v=1 code=KEYAGREEMENT-NOBS-05 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='no construction of the SecureRandom given to init was observed'" + Evidence.keysFor(random)));
        }
    }
 
@@ -234,7 +239,7 @@ KeyAgreementSpec(KeyAgreement ka) {
        else if (privateKey == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
-               "v=1 code=KEYAGREEMENT-NOBS-06 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'"));
+               "v=1 code=KEYAGREEMENT-NOBS-06 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPrivkey) + "' msg='no generation of the private key given to init was observed'" + Evidence.keysFor(privKey)));
        }
        PredicateVerdict randomized = PredicateStore.instance().validate(Property.RANDOMIZED, random);
        if (randomized == PredicateVerdict.VIOLATED) {
@@ -245,7 +250,7 @@ KeyAgreementSpec(KeyAgreement ka) {
        else if (randomized == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
-               "v=1 code=KEYAGREEMENT-NOBS-07 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='no construction of the SecureRandom given to init was observed'"));
+               "v=1 code=KEYAGREEMENT-NOBS-07 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedRandomized) + "' msg='no construction of the SecureRandom given to init was observed'" + Evidence.keysFor(random)));
        }
    }
 
@@ -256,6 +261,10 @@ KeyAgreementSpec(KeyAgreement ka) {
    //
    // The call returns a `Key` and the event does not bind it: no clause of the rule names
    // that return value, and a `returning(...)` of a value no clause reads is bookkeeping.
+   //
+   // A public key that carries REPORTED_UPSTREAM came out of a key factory or a key spec that
+   // was already reported -- a peer key decoded from bytes nobody saw being produced, for
+   // example -- and draws the `upstream-refused` code instead of KEYAGREEMENT-NOBS-08.
    event dophase after(Key pubKey, boolean lastPhase, KeyAgreement ka):
      call(public java.security.Key KeyAgreement.doPhase(java.security.Key, boolean)) &&
      args(pubKey, lastPhase) && target(ka) {
@@ -265,10 +274,15 @@ KeyAgreementSpec(KeyAgreement ka) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
                "v=1 code=KEYAGREEMENT-CONSTR-08 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPubkey) + "' msg='the public key given to doPhase carries a generation predicate the rule does not admit'"));
        }
+       else if (publicKey == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, pubKey) == PredicateVerdict.SATISFIED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
+               "v=1 code=KEYAGREEMENT-NOBS-09 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPubkey) + "' msg='the public key given to doPhase was already reported upstream'" + Evidence.keysFor(pubKey)));
+       }
        else if (publicKey == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyAgreementSpec", "" + __LOC,
-               "v=1 code=KEYAGREEMENT-NOBS-08 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPubkey) + "' msg='no generation of the public key given to doPhase was observed'"));
+               "v=1 code=KEYAGREEMENT-NOBS-08 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(algorithm) + "' exp='" + q(expectedGeneratedPubkey) + "' msg='no generation of the public key given to doPhase was observed'" + Evidence.keysFor(pubKey)));
        }
    }
 
@@ -291,11 +305,19 @@ KeyAgreementSpec(KeyAgreement ka) {
    // `preparedKeyMaterial` as a predicate with two producers -- `SecretKeySpec`'s
    // `getEncoded` route is the other -- and its consumers are `SecretKeySpecSpec` and
    // `X509EncodedKeySpecSpec`.
+   //
+   // An agreement that does not conform got there through a report of this specification --
+   // every site that clears `conforms` reports a value, an origin or a forbidden call -- so
+   // the buffer it produces is marked REPORTED_UPSTREAM instead, and those two consumers
+   // report it as refused upstream rather than as not observed.
    event gs1 after(KeyAgreement ka) returning(byte[] sharedSecretBuffer):
      call(public byte[] KeyAgreement.generateSecret()) &&
      target(ka) {
        if (conforms) {
            PredicateStore.instance().ensure(Property.PREPARED_KEY_MATERIAL, sharedSecretBuffer);
+       }
+       else {
+           PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, sharedSecretBuffer);
        }
    }
 
@@ -307,12 +329,15 @@ KeyAgreementSpec(KeyAgreement ka) {
    // for the reason the conventions note fixes: the buffer is the RETURN VALUE of one call
    // and the FIRST ARGUMENT of the other, so one event cannot bind both. The `offset` is
    // bound because the rule binds it and constrained by nothing, as `lastPhase` is at
-   // `doPhase`.
+   // `doPhase`. The buffer of an agreement that does not conform is marked as at `gs1`.
    event gs2 after(byte[] sharedSecretBuffer, int offset, KeyAgreement ka):
      call(public int KeyAgreement.generateSecret(byte[], int)) &&
      args(sharedSecretBuffer, offset) && target(ka) {
        if (conforms) {
            PredicateStore.instance().ensure(Property.PREPARED_KEY_MATERIAL, sharedSecretBuffer);
+       }
+       else {
+           PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, sharedSecretBuffer);
        }
    }
 
@@ -379,8 +404,14 @@ KeyAgreementSpec(KeyAgreement ka) {
    alias match = agreed
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyAgreementSpec", "" + __LOC,
-          "v=1 code=KEYAGREEMENT-ORDER-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='' exp='' msg='the observed call sequence is not one KeyAgreementSpec accepts'"));
+      if (!creationObserved) {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyAgreementSpec", "" + __LOC,
+              "v=1 code=KEYAGREEMENT-ORDER-01 ev=" + __EVENTNAME + " obj=KeyAgreement val='' exp='' msg='the observed call sequence is not one KeyAgreementSpec accepts, and no getInstance of this KeyAgreement was observed'"));
+      }
+      else {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyAgreementSpec", "" + __LOC,
+              "v=1 code=KEYAGREEMENT-ORDER-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='' exp='' msg='the observed call sequence is not one KeyAgreementSpec accepts'"));
+      }
       algorithm = null;
       conforms = true;
       __RESET;

@@ -1,0 +1,18 @@
+# A Mac reused: initialised, finished with `doFinal(input)`, and initialised again before a second
+# message. The API admits it; the rule's ORDER ends at the first final (Mac.crysl:41), so the
+# automaton fails at the second `init`, resets, and fails again at the `doFinal` that follows.
+#
+# Everything else conforms: the algorithm is admitted and the key comes from an observed
+# KeyGenerator, so no value or predicate site reports.
+#
+# After gh114:
+#   MacSpec @fail on i1        MAC-ORDER-02   reuse-after-final
+#   MacSpec @fail on f1Input   MAC-ORDER-02   reuse-after-final (the label persists on the monitor)
+# Before gh114: the same two (spec, event) sites reported MAC-ORDER-00.
+KeyGenerator.getInstance("HmacSHA256") -> kg
+kg.generateKey() -> key
+Mac.getInstance("HmacSHA256") -> m
+m.init(key)
+m.doFinal(bytes)
+m.init(key)
+m.doFinal(bytes)

@@ -23,6 +23,10 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
 
    List<Integer> validLengths = Arrays.asList(96, 104, 112, 120, 128);
 
+   // Set by the creation events `c1` and `c2`. The generated `reset()` does not clear it, so every
+   // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+   boolean creationObserved = false;
+
    // The two-argument constructor, the rule's `c1`. Until this pass both of this
    // file's events opened with a `condition(...)` that conjoined the rule's one
    // CONSTRAINTS clause with the read of its one REQUIRES predicate, and a guard
@@ -59,9 +63,15 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    // randomisation predicate that was withdrawn; NOT_OBSERVED says only that no
    // randomised source of it was ever seen -- on Android as often a reach limit
    // of the instrumentation as a misuse.
+   //
+   // A construction either body reports on is marked `REPORTED_UPSTREAM`, so the consumer of
+   // `PREPARED_GCM` (`IvChainJunction.use`) reports it as refused upstream rather than as not
+   // observed. The source read here is not a consumer of that mark: no producer of `RANDOMIZED`
+   // marks what it refuses, so NOT_OBSERVED keeps its own code.
    event c1 after(int tagLen, byte[] src) returning(GCMParameterSpec s):
     call(public GCMParameterSpec.new(int, byte[])) &&
     args(tagLen, src) {
+       creationObserved = true;
        boolean conforms = true;
        if (!validLengths.contains(tagLen)) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
@@ -76,11 +86,14 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
        }
        else if (randomisedSource == PredicateVerdict.NOT_OBSERVED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
-               "v=1 code=GCMPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='a randomized byte[]' msg='the IV material was not observed to come from a randomized source'"));
+               "v=1 code=GCMPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='a randomized byte[]' msg='the IV material was not observed to come from a randomized source'" + Evidence.keysFor(src)));
            conforms = false;
        }
        if (conforms) {
            spec = s;
+       }
+       else {
+           PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, s);
        }
     }
 
@@ -116,6 +129,7 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    event c2 after(int tagLen, byte[] src, int offset, int len) returning(GCMParameterSpec s):
      call(public GCMParameterSpec.new(int, byte[], int, int)) &&
      args(tagLen, src, offset, len) {
+        creationObserved = true;
         boolean conforms = true;
         if (!validLengths.contains(tagLen)) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
@@ -130,11 +144,14 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
         }
         else if (randomisedSource == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "GCMParameterSpecSpec", "" + __LOC,
-                "v=1 code=GCMPARAMETERSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='a randomized byte[]' msg='the IV material was not observed to come from a randomized source'"));
+                "v=1 code=GCMPARAMETERSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='a randomized byte[]' msg='the IV material was not observed to come from a randomized source'" + Evidence.keysFor(src)));
             conforms = false;
         }
         if (conforms) {
             spec = s;
+        }
+        else {
+            PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, s);
         }
      }
 
@@ -154,8 +171,14 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
    ere : c1 | c2
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "GCMParameterSpecSpec", "" + __LOC,
-          "v=1 code=GCMPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='' msg='the observed call sequence is not one GCMParameterSpecSpec accepts'"));
+      if (!creationObserved) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "GCMParameterSpecSpec", "" + __LOC,
+             "v=1 code=GCMPARAMETERSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='' msg='the observed call sequence is not one GCMParameterSpecSpec accepts and no creation of the GCMParameterSpec was observed'"));
+      }
+      else {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "GCMParameterSpecSpec", "" + __LOC,
+             "v=1 code=GCMPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=GCMParameterSpec val='' exp='' msg='the observed call sequence is not one GCMParameterSpecSpec accepts'"));
+      }
       __RESET;
    }
 

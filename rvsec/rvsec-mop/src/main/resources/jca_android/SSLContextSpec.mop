@@ -60,6 +60,11 @@ SSLContextSpec(SSLContext ctx) {
    // SecureRandom whose construction or getInstance this instrumentation observed.
    String expectedRandomized = "a SecureRandom this instrumentation observed being created";
 
+   // Set by the creation events `getDefault`, `g1` and `g2`. `@fail` reads it to tell a call
+   // sequence the rule refuses from a context whose creation this monitor never saw; the
+   // generated `reset()` leaves user fields alone, so the fact survives a failure.
+   boolean creationObserved = false;
+
    // One event over `getInstance(String)`, where there used to be two split by the
    // sign of a guard. The negated twin `unsafe_protocol` matched the same call with
    // the same `args(protocol)` and named no state, and the generator gives an event
@@ -110,7 +115,7 @@ SSLContextSpec(SSLContext ctx) {
    //
    // Both oracles write the clause as `getDefault() => Gets`, which reads the forbidden call as
    // filling the ORDER position the legitimate `getInstance` fills. This file does not model it
-   // that way, and the reason is the one `PBEKeySpecSpec.mop:183-189` already wrote down for the
+   // that way, and the reason is the one `PBEKeySpecSpec.mop:209-216` already wrote down for the
    // identical `PBEKeySpec(char[]) => Con`: making a forbidden call an alternative opening of
    // the ordering is the opposite of what FORBIDDEN says. So the event is a self-loop at every
    // state -- it accuses in its body and moves the automaton nowhere -- and the residue is the
@@ -123,12 +128,15 @@ SSLContextSpec(SSLContext ctx) {
    // row that moves every state to `fail`, so declaring this event without them would trade the
    // false negative for an ordering false positive -- the defect tasks 3.2 and 3.6 spent a
    // group removing from this very file.
-   // The body writes no monitor state, and that is not an omission: the self-loop keeps this
-   // monitor wherever it already was, `@match1` is reachable only from `end`, and no route from
-   // here arrives there -- a `getDefault()` context that is then `init`ed goes `start -> fail`.
-   // A write no handler can read is exactly the bookkeeping INV-INS-137 says to stop writing.
+   // The body writes no predicate or staged state, and that is not an omission: the self-loop
+   // keeps this monitor wherever it already was, `@match1` is reachable only from `end`, and no
+   // route from here arrives there -- a `getDefault()` context that is then `init`ed goes
+   // `start -> fail`. A write no handler can read is exactly the bookkeeping INV-INS-137 says to
+   // stop writing. The one field it sets is `creationObserved`, which `@fail` does read: the
+   // context's creation was observed, so that `start -> fail` is reported as a sequence failure.
    event getDefault after() returning(SSLContext ctx):
     call(public static SSLContext SSLContext.getDefault()) {
+      creationObserved = true;
       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "SSLContextSpec", "" + __LOC,
           "v=1 code=SSLCONTEXT-FORB-00 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='SSLContext.getInstance(String)' msg='SSLContext.getDefault() is forbidden by the expert SSLContext.crysl'"));
    }
@@ -136,6 +144,7 @@ SSLContextSpec(SSLContext ctx) {
    event g1 after(String protocol) returning(SSLContext ctx):
     call(public static SSLContext SSLContext.getInstance(String))
     && args(protocol) {
+      creationObserved = true;
       context = ctx;
     }
 
@@ -145,12 +154,13 @@ SSLContextSpec(SSLContext ctx) {
     // the overload this pointcut used to miss reached its next event with the monitor at state
     // 0, where every row is `fail`. It is `Object+` and not `..` on purpose: the trace harness's
     // resolver walks the declared parameter types of a `call(...)` signature and stops at the
-    // first wildcard (KeyManagerFactorySpec.mop:87-90), so a wildcard here would make every
+    // first wildcard (KeyManagerFactorySpec.mop:94-97), so a wildcard here would make every
     // `getInstance` fit this pointcut, while `Object+` keeps the arity known and the second
     // position typed. Precedent: `KeyGeneratorSpec.g2`.
     event g2 after(String protocol, Object provider) returning(SSLContext ctx):
       call(public static SSLContext SSLContext.getInstance(String, Object+)) &&
       args(protocol, provider) {
+        creationObserved = true;
         context = ctx;
     }
 
@@ -176,13 +186,11 @@ SSLContextSpec(SSLContext ctx) {
    // WHAT THIS READ ACCUSES, SAID PLAINLY, because it is the cost the decision weighed:
    // `init(km, tm, null)` is the documented way to ask for the platform's own SecureRandom,
    // and under the rule as written it does not satisfy `randomized[random]` -- a null is not
-   // a random this instrumentation saw produced. Every trace of the corpus that reaches this
-   // event passes `null` there, so every one of them gains a NOBS report. That is the same
-   // reading the two sibling clauses already carry by the researcher's decision of
-   // 2026-08-22 -- "the clause requires managers this instrumentation saw a factory produce,
-   // and no argument is not one" -- and reading the third differently would make the file
-   // answer to two rules at once. The NOBS code is what says "reach limit", and it says it
-   // here for the same reason it says it there.
+   // a random this instrumentation saw produced. That is the same reading the two sibling
+   // clauses carry by the researcher's decision of 2026-08-22 -- "the clause requires managers
+   // this instrumentation saw a factory produce, and no argument is not one" -- and reading the
+   // third differently would make the file answer to two rules at once. The NOBS family is what
+   // says "reach limit", and it says it here for the same reason it says it there.
    //
    // The two array positions are declared as the reference array types the API declares, and
    // all three are passed to the store as the *bound* object rather than as a value. That is
@@ -196,16 +204,35 @@ SSLContextSpec(SSLContext ctx) {
    // `getKeyManagers()`/`getTrustManagers()` into this `init`, all of it runs to completion.
    // And the platform does not already refuse what these clauses accuse -- `init(null, null,
    // null)` runs, and so does `init(null, trustEverything, sr)`, which is the trust-all manager
-   // this rule exists to catch. Both factories allocate a fresh array on every call, so the
-   // predicate travels with the array the call returned and with no copy of it; a program that
-   // rebuilds the array reaches this read with nothing written, which is a reach limit and is
-   // what the NOBS codes say.
+   // this rule exists to catch. Both factories allocate a fresh array on every call, so the mark
+   // over an array travels with the array the call returned and with no copy of it.
+   //
+   // The trust-manager array is credited per element as well. `TrustManagerFactorySpec.gtm1`
+   // marks every manager it hands out with `GENERATED_TRUST_MANAGERS`, and a trust-manager array
+   // the store has never seen reads SATISFIED here when it is non-empty and every element
+   // carries that mark: the rule constrains the managers, and a program that copies an issued
+   // manager into a fresh array passes exactly the manager the factory issued. One unmarked
+   // element withholds the credit, which is what keeps an array mixing an issued manager with
+   // one written by the application from passing. The credit applies only to a NOT_OBSERVED
+   // answer, so it never turns a withdrawn array into a satisfied one. Key-manager arrays are
+   // not credited per element (researcher decision, 2026-09-15): a rebuilt `KeyManager[]` reaches
+   // this read with nothing written, which is a reach limit and is what the NOBS code says.
    //
    // A null argument is read rather than exempted (researcher decision, 2026-08-22): the store
    // answers NOT_OBSERVED for it, and that is what the rule states -- the clause requires
-   // managers this instrumentation saw a factory produce, and no argument is not one. Every
-   // corpus trace of this specification calls `init(null, null, null)`, so this read is what
-   // makes them say so out loud.
+   // managers this instrumentation saw a factory produce, and no argument is not one. Each of the
+   // three nulls is the documented request for the platform default, so each is reported under a
+   // code of its own labelled `platform-default` rather than under the read's `not-observed`
+   // code, and `init(null, null, null)` draws three such reports.
+   //
+   // A non-null trust-manager array that is not credited and holds an element whose class a
+   // loader other than the platform's defined -- the application's own class, decided by the
+   // loader and not by a package name -- is reported under the `application-manager` code. A
+   // trust-all manager built by the application lands there, and so does a manager that
+   // delegates to an issued one; the monitor cannot tell the two apart. The precedence at each
+   // NOT_OBSERVED answer is `platform-default`, then `application-manager`, then `not-observed`,
+   // and every one of those envelopes carries the evidence of the bound argument, which for a
+   // trust-manager array is the classes of its elements.
    //
    // VIOLATED has no program that produces it today for either predicate -- both are written at
    // arity 1 and withdrawn nowhere -- and both branches are written anyway, for the reason the
@@ -224,27 +251,54 @@ SSLContextSpec(SSLContext ctx) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
             "v=1 code=SSLCONTEXT-CONSTR-00 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedKeyManagers) + "' msg='the KeyManager[] given to SSLContext.init carries a generation predicate the rule does not admit'"));
        }
+       else if (keyManagers == PredicateVerdict.NOT_OBSERVED && kms == null) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
+            "v=1 code=SSLCONTEXT-NOBS-03 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedKeyManagers) + "' msg='a null KeyManager[] given to SSLContext.init requests the platform default key managers, which were not observed coming from a KeyManagerFactory'" + Evidence.keysFor(kms)));
+       }
        else if (keyManagers == PredicateVerdict.NOT_OBSERVED) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
-            "v=1 code=SSLCONTEXT-NOBS-00 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedKeyManagers) + "' msg='the KeyManager[] given to SSLContext.init was not observed coming from a KeyManagerFactory'"));
+            "v=1 code=SSLCONTEXT-NOBS-00 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedKeyManagers) + "' msg='the KeyManager[] given to SSLContext.init was not observed coming from a KeyManagerFactory'" + Evidence.keysFor(kms)));
        }
        PredicateVerdict trustManagers = PredicateStore.instance().validate(Property.GENERATED_TRUST_MANAGER, tms);
+       boolean applicationManager = false;
+       if (tms != null) {
+        boolean everyManagerGenerated = tms.length > 0;
+        for (TrustManager manager : tms) {
+         everyManagerGenerated &= PredicateStore.instance().validate(Property.GENERATED_TRUST_MANAGERS, manager) == PredicateVerdict.SATISFIED;
+         applicationManager |= Evidence.isApplicationDefined(manager, TrustManager.class);
+        }
+        if (trustManagers == PredicateVerdict.NOT_OBSERVED && everyManagerGenerated) {
+         trustManagers = PredicateVerdict.SATISFIED;
+        }
+       }
        if (trustManagers == PredicateVerdict.VIOLATED) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
             "v=1 code=SSLCONTEXT-CONSTR-01 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedTrustManagers) + "' msg='the TrustManager[] given to SSLContext.init carries a generation predicate the rule does not admit'"));
        }
+       else if (trustManagers == PredicateVerdict.NOT_OBSERVED && tms == null) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
+            "v=1 code=SSLCONTEXT-NOBS-04 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedTrustManagers) + "' msg='a null TrustManager[] given to SSLContext.init requests the platform default trust managers, which were not observed coming from a TrustManagerFactory'" + Evidence.keysFor(tms)));
+       }
+       else if (trustManagers == PredicateVerdict.NOT_OBSERVED && applicationManager) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
+            "v=1 code=SSLCONTEXT-NOBS-05 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedTrustManagers) + "' msg='the TrustManager[] given to SSLContext.init holds a manager of a class the application defines and was not observed coming from a TrustManagerFactory'" + Evidence.keysFor(tms)));
+       }
        else if (trustManagers == PredicateVerdict.NOT_OBSERVED) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
-            "v=1 code=SSLCONTEXT-NOBS-01 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedTrustManagers) + "' msg='the TrustManager[] given to SSLContext.init was not observed coming from a TrustManagerFactory'"));
+            "v=1 code=SSLCONTEXT-NOBS-01 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedGeneratedTrustManagers) + "' msg='the TrustManager[] given to SSLContext.init was not observed coming from a TrustManagerFactory'" + Evidence.keysFor(tms)));
        }
        PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, random);
        if (randomised == PredicateVerdict.VIOLATED) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
             "v=1 code=SSLCONTEXT-CONSTR-02 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedRandomized) + "' msg='the SecureRandom given to SSLContext.init carries a randomization predicate the rule does not admit'"));
        }
+       else if (randomised == PredicateVerdict.NOT_OBSERVED && random == null) {
+        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
+            "v=1 code=SSLCONTEXT-NOBS-06 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedRandomized) + "' msg='a null SecureRandom given to SSLContext.init requests the platform default random source, which was not observed being created'" + Evidence.keysFor(random)));
+       }
        else if (randomised == PredicateVerdict.NOT_OBSERVED) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SSLContextSpec", "" + __LOC,
-            "v=1 code=SSLCONTEXT-NOBS-02 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedRandomized) + "' msg='the SecureRandom given to SSLContext.init was not observed coming from a randomized source'"));
+            "v=1 code=SSLCONTEXT-NOBS-02 ev=" + __EVENTNAME + " obj=SSLContext val='" + q(ctx.getProtocol()) + "' exp='" + q(expectedRandomized) + "' msg='the SecureRandom given to SSLContext.init was not observed coming from a randomized source'" + Evidence.keysFor(random)));
        }
    }
 
@@ -311,9 +365,18 @@ SSLContextSpec(SSLContext ctx) {
 
   alias match1 = end
 
+  // A monitor that never observed `getInstance` or `getDefault` reports every failure as
+  // `creation-unobserved`: the context was created where this monitor cannot see, and after a
+  // reset no creation event can arrive for it.
   @fail {
-    ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC,
-        "v=1 code=SSLCONTEXT-ORDER-00 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='' msg='the observed call sequence is not one SSLContextSpec accepts'"));
+    if (!creationObserved) {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC,
+          "v=1 code=SSLCONTEXT-ORDER-01 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='' msg='" + __EVENTNAME + "() before getInstance() or getDefault()'"));
+    }
+    else {
+      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLContextSpec", "" + __LOC,
+          "v=1 code=SSLCONTEXT-ORDER-00 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='' msg='the observed call sequence is not one SSLContextSpec accepts'"));
+    }
     stagedEngine = null;
     __RESET;
   }

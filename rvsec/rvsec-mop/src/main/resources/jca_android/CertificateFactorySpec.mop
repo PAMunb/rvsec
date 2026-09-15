@@ -43,6 +43,10 @@ CertificateFactorySpec(CertificateFactory f) {
    // Staged by `get` for the acceptance-point write, which sees no event parameter.
    String type = null;
 
+   // Set by the creation event `get`. The generated `reset()` does not clear it, so every
+   // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+   boolean creationObserved = false;
+
    // `Get := g1 | g2` (:9-11), fused on the zeroth position. api30 declares three
    // overloads and all three are the rule's `Get`.
    event get after(String t) returning(CertificateFactory f):
@@ -50,6 +54,7 @@ CertificateFactorySpec(CertificateFactory f) {
        call(public static CertificateFactory CertificateFactory.getInstance(String, String)) ||
        call(public static CertificateFactory CertificateFactory.getInstance(String, java.security.Provider))
      ) && args(t, ..) {
+       creationObserved = true;
        type = ConscryptAliasTable.canonical("CertificateFactory", t);
        if (!ConscryptAliasTable.matches("CertificateFactory", t, safeTypes)) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CertificateFactorySpec", "" + __LOC,
@@ -106,8 +111,14 @@ CertificateFactorySpec(CertificateFactory f) {
    ere : get (genCert | genCertPath | genCertPathEncoded | genCrl)+
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CertificateFactorySpec", "" + __LOC,
-          "v=1 code=CERTIFICATEFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=CertificateFactory val='' exp='' msg='the observed call sequence is not one CertificateFactorySpec accepts'"));
+      if (!creationObserved) {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CertificateFactorySpec", "" + __LOC,
+              "v=1 code=CERTIFICATEFACTORY-ORDER-01 ev=" + __EVENTNAME + " obj=CertificateFactory val='' exp='' msg='the observed call sequence is not one CertificateFactorySpec accepts and no creation of the CertificateFactory was observed'"));
+      }
+      else {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CertificateFactorySpec", "" + __LOC,
+              "v=1 code=CERTIFICATEFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=CertificateFactory val='' exp='' msg='the observed call sequence is not one CertificateFactorySpec accepts'"));
+      }
       __RESET;
    }
 

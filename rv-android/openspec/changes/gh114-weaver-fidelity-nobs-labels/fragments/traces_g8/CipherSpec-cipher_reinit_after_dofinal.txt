@@ -1,0 +1,27 @@
+# A Cipher reused: initialised, finished with `doFinal`, and initialised again for a second
+# message with a fresh IV. The API admits it; the rule's ORDER does not return from the finals to
+# `Inits` (Cipher.crysl:85), so the automaton fails at the second `init`, resets, and fails again
+# at the `doFinal` that follows.
+#
+# Everything else conforms: the key comes from an observed KeyGenerator and both GCM specs are
+# built over IVs an observed SecureRandom filled, so no value or predicate site reports.
+#
+# After gh114:
+#   CipherSpec @fail on i2   CIPHER-ORDER-02   reuse-after-final
+#   CipherSpec @fail on f2   CIPHER-ORDER-02   reuse-after-final (the label persists on the monitor)
+# Before gh114: the same two (spec, event) sites reported CIPHER-ORDER-00.
+KeyGenerator.getInstance("AES") -> kg
+kg.init(256)
+kg.generateKey() -> key
+SecureRandom.getInstance("SHA1PRNG") -> r
+bind iv1 = bytes(12)
+bind iv2 = bytes(12)
+r.nextBytes(iv1)
+r.nextBytes(iv2)
+new GCMParameterSpec(128, iv1) -> spec1
+new GCMParameterSpec(128, iv2) -> spec2
+Cipher.getInstance("AES/GCM/NoPadding") -> c
+c.init(1, key, spec1)
+c.doFinal(bytes)
+c.init(1, key, spec2)
+c.doFinal(bytes)

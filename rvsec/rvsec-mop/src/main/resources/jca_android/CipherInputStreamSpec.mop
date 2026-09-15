@@ -21,6 +21,10 @@ CipherInputStreamSpec(CipherInputStream cis) {
     // The `exp=` of the two report sites below, as a field so the two cannot drift apart.
     String expectedGeneratedCipher = "a Cipher this instrumentation observed being initialised";
 
+    // Set by the creation event `c1`. The generated `reset()` does not clear it, so every
+    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+    boolean creationObserved = false;
+
     // The constructor binds through `returning`, every other event through `target`: an event
     // of a parametric specification that binds no monitored object is handed the parameterless
     // map and runs on the root monitor and on every live monitor of the specification, which
@@ -45,6 +49,7 @@ CipherInputStreamSpec(CipherInputStream cis) {
     event c1 after(InputStream input, Cipher cipher) returning(CipherInputStream cis):
       call(public CipherInputStream.new(InputStream, Cipher)) &&
       args(input, cipher) {
+        creationObserved = true;
         PredicateVerdict origin = PredicateStore.instance().validate(Property.GENERATED_CIPHER, cipher);
         if (origin == PredicateVerdict.VIOLATED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherInputStreamSpec", "" + __LOC,
@@ -52,7 +57,7 @@ CipherInputStreamSpec(CipherInputStream cis) {
         }
         else if (origin == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherInputStreamSpec", "" + __LOC,
-                "v=1 code=CIPHERINPUTSTREAM-NOBS-00 ev=" + __EVENTNAME + " obj=CipherInputStream val='' exp='" + expectedGeneratedCipher + "' msg='the Cipher given to the CipherInputStream constructor was not observed being initialised'"));
+                "v=1 code=CIPHERINPUTSTREAM-NOBS-00 ev=" + __EVENTNAME + " obj=CipherInputStream val='' exp='" + expectedGeneratedCipher + "' msg='the Cipher given to the CipherInputStream constructor was not observed being initialised'" + Evidence.keysFor(cipher)));
         }
     }
 
@@ -73,8 +78,14 @@ CipherInputStreamSpec(CipherInputStream cis) {
     ere : c1 (r1 | r2)+ cl1
 
     @fail {
-       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherInputStreamSpec", "" + __LOC,
-           "v=1 code=CIPHERINPUTSTREAM-ORDER-00 ev=" + __EVENTNAME + " obj=CipherInputStream val='' exp='' msg='the observed call sequence is not one CipherInputStreamSpec accepts'"));
+       if (!creationObserved) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherInputStreamSpec", "" + __LOC,
+               "v=1 code=CIPHERINPUTSTREAM-ORDER-01 ev=" + __EVENTNAME + " obj=CipherInputStream val='' exp='' msg='the observed call sequence is not one CipherInputStreamSpec accepts and no creation of the CipherInputStream was observed'"));
+       }
+       else {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherInputStreamSpec", "" + __LOC,
+               "v=1 code=CIPHERINPUTSTREAM-ORDER-00 ev=" + __EVENTNAME + " obj=CipherInputStream val='' exp='' msg='the observed call sequence is not one CipherInputStreamSpec accepts'"));
+       }
        __RESET;
     }
 }

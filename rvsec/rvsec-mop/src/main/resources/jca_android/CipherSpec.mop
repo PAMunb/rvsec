@@ -95,16 +95,39 @@ CipherSpec(Cipher c) {
    // mark a Cipher the automaton was about to reject.
    Object initialisedCipher = null;
 
+   // Three facts about the monitored Cipher that the `@fail` handler reads to choose its code.
+   // The generated `reset()` clears only the state and the category flags, so all three survive
+   // a failure, and once a label is reported every later failure of the same monitor carries it:
+   // after a reset no creation event can arrive for the object, and the automaton cannot return
+   // to a state its real history satisfies.
+   //
+   // `creationObserved` is set by the creation events `g1`, `g2` and `g3`.
+   //
+   // `operationFinished` is set by the events that complete an operation, which are the events
+   // whose transitions enter `end`: `wkb1` and the six `doFinal` events `f1`, `f2`, `f3`, `f5`,
+   // `f6` and `f7`. It is set in the body, before the transition is decided, because the fact it
+   // records is about the object and not about the automaton: the program ran a final operation
+   // on this Cipher whether or not the sequence that led to it was one the rule accepts.
+   //
+   // `reuseObserved` is set by `@fail` when the failing event is `i1` or `i2` on a Cipher whose
+   // operation had finished: the API lets a used Cipher be initialised again, and the rule's ORDER
+   // does not (Cipher.crysl:85).
+   boolean creationObserved = false;
+   boolean operationFinished = false;
+   boolean reuseObserved = false;
+
    event g1 after(String transformation) returning(Cipher c):
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
      condition(CipherTransformationNormalizer.isValid(transformation)) {
+       creationObserved = true;
    }
 
    event g2 after(String transformation, Object provider) returning(Cipher c):
       call(public static Cipher Cipher.getInstance(String, Object+)) &&
       args(transformation, provider) &&
       condition(CipherTransformationNormalizer.isValid(transformation)) {
+       creationObserved = true;
    }
 
 
@@ -112,6 +135,7 @@ CipherSpec(Cipher c) {
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
      condition(!CipherTransformationNormalizer.isValid(transformation)) {
+       creationObserved = true;
    }
 
    event i1 before(int mode, Certificate cert, Cipher c):
@@ -165,6 +189,12 @@ CipherSpec(Cipher c) {
    // path the platform admits, and it is written for the reason its siblings are, that a
    // read which folded VIOLATED into NOT_OBSERVED would misreport the day some rule's
    // NEGATES clause withdraws a key origin.
+   //
+   // A key the store has no origin for is one of two situations, and the NOT_OBSERVED branch
+   // tells them apart by code. A key its producer already reported carries `REPORTED_UPSTREAM`
+   // (`SecretKeySpecSpec`, `KeyFactorySpec`, `SecretKeyFactorySpec`) and emits the
+   // `upstream-refused` code; a key with no mark, one that came from where this instrumentation
+   // cannot see, emits the `not-observed` code. The verdict and the site are the same.
    event i2 before(int mode, Key key, Cipher c):
      call(public void Cipher.init(int, Key,..)) &&
      args(mode, key, ..) &&
@@ -183,7 +213,7 @@ CipherSpec(Cipher c) {
         //   has no `/` to split on. That is the spelling `Cipher.crysl:134` asks for on the
         //   PBE route -- `Cipher.crysl:94-105` treats the whole PBE name as the
         //   transformation's algorithm -- and it is exactly the spelling
-        //   `SecretKeyFactorySpec.mop:108` writes, because `SecretKeyFactory` has one alias
+        //   `SecretKeyFactorySpec.mop:129` writes, because `SecretKeyFactory` has one alias
         //   row and it is not a PBE one, so `canonical` returns the name unchanged.
         //
         // Reading only the family accused a program the oracle declares conforming: the
@@ -227,9 +257,13 @@ CipherSpec(Cipher c) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
                 "v=1 code=CIPHER-CONSTR-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='the key given to Cipher.init carries a key-origin predicate the rule does not admit'"));
         }
+        else if (origin == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, key) == PredicateVerdict.SATISFIED) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
+                "v=1 code=CIPHER-NOBS-01 ev=" + __EVENTNAME + " obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='the key given to Cipher.init was already reported by the specification that produced it'" + Evidence.keysFor(key)));
+        }
         else if (origin == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
-                "v=1 code=CIPHER-NOBS-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'"));
+                "v=1 code=CIPHER-NOBS-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='a key produced by one of the generators the rule names' msg='no generator of the key given to Cipher.init was observed'" + Evidence.keysFor(key)));
         }
         if (!CipherTransformationNormalizer.isValid(c.getAlgorithm())) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "CipherSpec", "" + __LOC,
@@ -295,6 +329,7 @@ CipherSpec(Cipher c) {
    event wkb1 after(Cipher c) returning(byte[] wrappedKeyBytes):
      call(byte[] Cipher.wrap(Key)) &&
      target(c) {
+       operationFinished = true;
    }
 
    // The three `doFinal` events below return the ciphertext without binding the
@@ -319,6 +354,7 @@ CipherSpec(Cipher c) {
    event f1 after(Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.doFinal()) &&
      target(c) {
+      operationFinished = true;
       finalCipherText = cipherText;
       finalPlainText = null;
    }
@@ -326,6 +362,7 @@ CipherSpec(Cipher c) {
    event f2 after(Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.doFinal(byte[], ..)) &&
      target(c) {
+       operationFinished = true;
        finalCipherText = cipherText;
        finalPlainText = null;
    }
@@ -334,6 +371,7 @@ CipherSpec(Cipher c) {
      call(public int Cipher.doFinal(byte[], int)) &&
      args(cipherText, offset) &&
      target(c) {
+       operationFinished = true;
        finalCipherText = cipherText;
        finalPlainText = null;
    }
@@ -375,6 +413,7 @@ CipherSpec(Cipher c) {
       call(public int Cipher.doFinal(byte[], int, int, byte[])) &&
       args(plainText, offset, len, cipherText) &&
       target(c) {
+         operationFinished = true;
          if (PredicateStore.instance().validateAbsent(Property.MACED, plainText) == PredicateVerdict.VIOLATED) {
              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
                  "v=1 code=CIPHER-CONSTR-01 ev=" + __EVENTNAME + " obj=Cipher val='macced' exp='not macced' msg='the plaintext given to doFinal was already authenticated by a Mac'"));
@@ -387,6 +426,7 @@ CipherSpec(Cipher c) {
       call(public int Cipher.doFinal(byte[], int, int, byte[], int)) &&
       args(plainText, offset, len, cipherText, cipherOffset) &&
       target(c) {
+        operationFinished = true;
         if (PredicateStore.instance().validateAbsent(Property.MACED, plainText) == PredicateVerdict.VIOLATED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherSpec", "" + __LOC,
                 "v=1 code=CIPHER-CONSTR-02 ev=" + __EVENTNAME + " obj=Cipher val='macced' exp='not macced' msg='the plaintext given to doFinal was already authenticated by a Mac'"));
@@ -399,6 +439,7 @@ CipherSpec(Cipher c) {
        call(public int Cipher.doFinal(ByteBuffer, ByteBuffer)) &&
        args(plainTextBuffer, cipherTextBuffer) &&
        target(c) {
+         operationFinished = true;
          finalCipherText = cipherTextBuffer;
          finalPlainText = plainTextBuffer;
     }
@@ -413,9 +454,10 @@ CipherSpec(Cipher c) {
    //
    // What is deliberately NOT here is a re-`init` at `end` -- the "reused Cipher". Neither
    // ORDER returns from the finals group to `Inits`, so that transition would make this
-   // specification more permissive than both oracles; it was refused as a conformance repair
-   // by the researcher's decision of 2026-08-25 and would need a divergence row of its own if
-   // it is ever wanted as a project decision.
+   // specification more permissive than both oracles (researcher's decision of 2026-08-25). A
+   // reused Cipher therefore fails the automaton at its second `init`, and `@fail` reports it
+   // with the `reuse-after-final` code, CIPHER-ORDER-02, apart from a sequence the program got
+   // wrong: the API admits the reuse and only the rule refuses it.
    fsm :
      start [
         g3 -> unsafeAlg
@@ -493,8 +535,21 @@ CipherSpec(Cipher c) {
    alias match3 = s2
 
    @fail {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,
-            "v=1 code=CIPHER-ORDER-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'"));
+        if (operationFinished && ("i1".equals(__EVENTNAME) || "i2".equals(__EVENTNAME))) {
+            reuseObserved = true;
+        }
+        if (!creationObserved) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,
+                "v=1 code=CIPHER-ORDER-01 ev=" + __EVENTNAME + " obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts and no creation of the Cipher was observed'"));
+        }
+        else if (reuseObserved) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,
+                "v=1 code=CIPHER-ORDER-02 ev=" + __EVENTNAME + " obj=Cipher val='' exp='' msg='the Cipher was initialised again after it completed an operation, which the rule does not accept'"));
+        }
+        else {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherSpec", "" + __LOC,
+                "v=1 code=CIPHER-ORDER-00 ev=" + __EVENTNAME + " obj=Cipher val='' exp='' msg='the observed call sequence is not one CipherSpec accepts'"));
+        }
         updatedCipherText = null;
         updatedPlainText = null;
         finalCipherText = null;

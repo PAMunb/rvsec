@@ -1,0 +1,23 @@
+# The platform-default route end to end: `tmf.init((KeyStore) null)`, then
+# `ctx.init(null, tmf.getTrustManagers(), null)` with the array the factory returned.
+#
+# After gh114: TrustManagerFactorySpec.init reports TRUSTMANAGERFACTORY-NOBS-02 (label
+# `platform-default`) for the null key store; SSLContextSpec.init reports SSLCONTEXT-NOBS-03
+# (`platform-default`, the null KeyManager[]) and SSLCONTEXT-NOBS-06 (`platform-default`, the null
+# SecureRandom); the trust-manager read does not report, because `gtm1` marked this very array.
+# No `vfp` or `vcls` key: the bound objects are null or a KeyStore.
+# Before gh114: the same (spec, event) sites reported -- TrustManagerFactorySpec.init with
+# TRUSTMANAGERFACTORY-NOBS-00, SSLContextSpec.init with SSLCONTEXT-NOBS-00 and SSLCONTEXT-NOBS-02.
+# Only the codes move, each to a code of the same family.
+#
+# On the harness grammar: a line without `-> x` dispatches the advices and does not perform the
+# call, and a `bind` line performs it and dispatches nothing. `getTrustManagers()` raises
+# IllegalStateException before a real init, so the factory is really initialised by the `bind`
+# over the platform trust store (what a null key store selects) and the dispatched `init(null)`
+# is what the monitor sees.
+TrustManagerFactory.getInstance("PKIX") -> tmf
+bind tmready = tmf.init(truststore)
+tmf.init(null)
+tmf.getTrustManagers() -> tms
+SSLContext.getInstance("TLSv1.2") -> ctx
+ctx.init(null, tms, null)

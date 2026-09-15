@@ -1,0 +1,30 @@
+# A password-based key derived from a salt read from storage, re-wrapped as an AES key and used
+# to initialise a Cipher. The salt was never observed coming out of a SecureRandom, so the first
+# link of the chain refuses it and every later link finds no predicate for the object it binds.
+#
+# The salt is bound silently: its origin is outside the instrumented program. The IV is
+# randomised under observation and the rest of the chain names admitted algorithms, so the only
+# reports are the ones the refused salt causes. `k.getEncoded()` runs the two `getEncoded()`
+# bridges (`SecretKeySpec.e1`, `KeySpec.ge1`), which carry the mark from the derived key to the
+# returned array; the derived key has no key origin, so neither prepares the array.
+#
+# After gh114:
+#   PBEKeySpecSpec.c1        PBEKEYSPEC-NOBS-01        not-observed (and marks the spec)
+#   SecretKeyFactorySpec.gen SECRETKEYFACTORY-NOBS-01  upstream-refused (and marks the key)
+#   SecretKeySpecSpec.c1     SECRETKEYSPEC-NOBS-02     upstream-refused (and marks the spec)
+#   CipherSpec.i2            CIPHER-NOBS-01            upstream-refused
+# and none of SECRETKEYFACTORY-NOBS-00, SECRETKEYSPEC-NOBS-00, CIPHER-NOBS-00.
+# Before gh114: the same four (spec, event) sites reported, as PBEKEYSPEC-NOBS-01,
+# SECRETKEYFACTORY-NOBS-00, SECRETKEYSPEC-NOBS-00 and CIPHER-NOBS-00.
+bind salt = bytes(16)
+SecureRandom.getInstance("SHA1PRNG") -> r
+bind ivBytes = bytes(16)
+r.nextBytes(ivBytes)
+new IvParameterSpec(ivBytes) -> iv
+new PBEKeySpec(chars, salt, 100000, 256) -> spec
+SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256") -> skf
+skf.generateSecret(spec) -> k
+k.getEncoded() -> enc
+new SecretKeySpec(enc, "AES") -> aesKey
+Cipher.getInstance("AES/CBC/PKCS5Padding") -> c
+c.init(1, aesKey, iv)

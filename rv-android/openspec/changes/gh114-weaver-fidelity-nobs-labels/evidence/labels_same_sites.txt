@@ -1,0 +1,269 @@
+Same reporting sites before and after the gh114 labels (task 13.5, design D6-D9, D13).
+Run on 2026-09-15.
+
+What is compared
+----------------
+The specification trace harness replays every trace of rv-android/data/gh104/traces through
+two generated monitors and records, per trace, every report (envelope) and the event that raised
+it. No weaver is involved: TraceRunner calls the generated static dispatchers directly.
+
+  A = the jca_android set at HEAD (c819b721), extracted with
+      git archive HEAD rvsec/rvsec-mop/src/main/resources/jca_android | tar -x -C <scratch>/A
+  B = the jca_android set of the working tree (the .mop edits of G6, G7, G8, G9a, G9b and the
+      merged codes.csv of task 13.1), copied to <scratch>/B/jca_android. It was copied rather
+      than passed in place because monitor generation writes .rvm files into the specification
+      directory, and G13b was editing comments in that directory during the run. The copy
+      differs from the final working tree only in comment lines of DigestOutputStreamSpec.mop.
+
+A site is (spec, event, class, method, location). In the replay, class, method and location are
+the trace line itself: each report is raised by one dispatcher call made for one line of one
+trace, and both sides replay the same lines (the unresolved lines are identical on both sides,
+7 per side, all pre-existing: MessageDigestSpec-reset.txt `md.reset()` and six `String.valueOf`
+/ `toCharArray` lines of the RandomStringPasswordSpec traces). So the per-trace comparison is
+over the (spec, event) of every report, where spec is the envelope's `spec=` and event is the
+dispatcher's event (the outer `ev=`), counted with multiplicity.
+
+Commands
+--------
+  export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem; export PATH=$JAVA_HOME/bin:$PATH
+  cd rvsec && mvn -o -q test-compile dependency:build-classpath -pl rvsec/rvsec-mop \
+      -Dmdep.outputFile=rvsec/rvsec-mop/target/gh104-classpath.txt -Dmdep.includeScope=test
+  cd rv-android && uv run python scripts/gh104_diff_harness.py \
+      --a <scratch>/A/rvsec/rvsec-mop/src/main/resources/jca_android \
+      --b <scratch>/B/jca_android --traces data/gh104/traces \
+      --out <scratch>/harness --group gh114 --json <scratch>/harness.json
+  (exit 0; the same-site comparison below was computed from harness.json)
+
+Counts
+------
+Traces replayed: 245 (231 committed before gh114, 14 added by task 13.2).
+Harness verdicts, which compare (event, code) pairs, so a code change at the same event is `moved`:
+  unchanged   171  (71 accused by neither side, 100 with identical codes at identical events)
+  moved        71  (every one has the same (spec, event) multiset on both sides; only codes differ)
+  removed       2  SSLContextSpec-tls_copied_array.txt, RSAKeyGenParameterSpecSpec-rsa_3072.txt
+  introduced    1  RSAKeyGenParameterSpecSpec-rsa_1024.txt
+Reports: 367 on A, 366 on B (-1 tls_copied_array, -1 rsa_3072, +1 rsa_1024).
+Traces whose (spec, event) multiset differs between A and B: 3, exactly the exceptions below.
+Code changes at an unchanged site: 141, in 71 traces. Every one maps an old code to a new code of
+the same family; no report changed family, and no site gained or lost a report.
+
+Explicit exceptions (sites that differ)
+---------------------------------------
+- SSLContextSpec-tls_copied_array.txt: A reports SSLCONTEXT-NOBS-01 at (SSLContextSpec, init); B
+  reports nothing. The per-element trust-manager credit (INV-INS-165): a fresh array whose every
+  element a TrustManagerFactory issued is credited.
+- RSAKeyGenParameterSpecSpec-rsa_3072.txt: A reports RSAKEYGENPARAMETERSPEC-KEYSIZE-00 at
+  (RSAKeyGenParameterSpecSpec, c1) with val='3072'; B reports nothing.
+- RSAKeyGenParameterSpecSpec-rsa_1024.txt: A reports nothing; B reports
+  RSAKEYGENPARAMETERSPEC-KEYSIZE-00 at (RSAKeyGenParameterSpecSpec, c1) with val='1024'
+  exp='[2048, 3072, 4096]'.
+  Both RSA rows are the value-clause transcription of INV-INS-167, not a label.
+
+Label `sequence` pinned (design D7)
+-----------------------------------
+The five traces keep -ORDER-00 on B, identical to A:
+  CipherSpec-unsafe.txt                    CIPHER-ORDER-00 at i2 and f2
+  MessageDigestSpec-md5.txt                MESSAGEDIGEST-ORDER-00 at update and d1
+  SSLContextSpec-getdefault-engine.txt     SSLCONTEXT-ORDER-00 at engine
+  PBEKeySpecSpec-forbidden-then-clear.txt  PBEKEYSPEC-ORDER-00 at c2
+  KeyGeneratorSpec-unsafe.txt              KEYGENERATOR-ORDER-00 at init and gk1
+None emits -ORDER-01.
+
+New traces against their stated expectation
+-------------------------------------------
+Every trace added by task 13.2 produced on B the codes its comment states, including the
+evidence keys: SSLContextSpec-tls_mixed_array.txt reports SSLCONTEXT-NOBS-05 with
+vcls='sun.security.ssl.X509TrustManagerImpl,br.unb.cic.mop.harness.TraceRunner$ApplicationTrustManager'
+beside SSLCONTEXT-NOBS-03 and -06; the byte-array -NOBS- envelopes of
+SecretKeySpecSpec-random_bytes_as_key, KeyAgreementSpec-ecdh_remote_peer_chain,
+GCMParameterSpecSpec-gcm_decrypt_received_nonce and PBEKeySpecSpec-pbe_stored_salt_chain carry
+vfp='sha256:<16 hex>'. tls_mixed_array replays through two TraceRunner tokens added for it,
+`trustmanagers(...)` and `applicationtrustmanager`.
+
+Code changes per trace, grouped by the label of the new code
+-------------------------------------------------------------
+(trace  spec.event  old code (old label) -> new code)
+
+[application-manager] 1 site changes in 1 traces
+  SSLContextSpec-tls_mixed_array.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-01 (not-observed) -> SSLCONTEXT-NOBS-05
+
+[creation-unobserved] 48 site changes in 32 traces
+  CipherSpec-guard-on-field.txt  CipherSpec.i1  CIPHER-ORDER-00 (sequence) -> CIPHER-ORDER-01
+  CipherSpec-guard-on-field.txt  CipherSpec.i2  CIPHER-ORDER-00 (sequence) -> CIPHER-ORDER-01
+  KeyAgreementSpec-ecdh_remote_peer_chain.txt  KeyPairSpec.gpr  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyAgreementSpec-forbidden-namedsecret.txt  KeyPairSpec.gpr  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyAgreementSpec-forbidden-namedsecret.txt  KeyPairSpec.gpu  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyAgreementSpec-nodophase.txt  KeyPairSpec.gpr  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyAgreementSpec.txt  KeyPairSpec.gpr  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyAgreementSpec.txt  KeyPairSpec.gpu  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyGeneratorSpec-d15-arc4.txt  KeyGeneratorSpec.gk1  KEYGENERATOR-ORDER-00 (sequence) -> KEYGENERATOR-ORDER-01
+  KeyGeneratorSpec-d15-arc4.txt  KeyGeneratorSpec.init  KEYGENERATOR-ORDER-00 (sequence) -> KEYGENERATOR-ORDER-01
+  KeyGeneratorSpec-d15-desede.txt  KeyGeneratorSpec.gk1  KEYGENERATOR-ORDER-00 (sequence) -> KEYGENERATOR-ORDER-01
+  KeyGeneratorSpec-d15-desede.txt  KeyGeneratorSpec.init  KEYGENERATOR-ORDER-00 (sequence) -> KEYGENERATOR-ORDER-01
+  KeyGeneratorSpec-d15-hmacmd5.txt  KeyGeneratorSpec.gk1  KEYGENERATOR-ORDER-00 (sequence) -> KEYGENERATOR-ORDER-01
+  KeyGeneratorSpec-d15-hmacmd5.txt  KeyGeneratorSpec.init  KEYGENERATOR-ORDER-00 (sequence) -> KEYGENERATOR-ORDER-01
+  KeyGeneratorSpec-guard-on-field.txt  KeyGeneratorSpec.gk1  KEYGENERATOR-ORDER-00 (sequence) -> KEYGENERATOR-ORDER-01
+  KeyGeneratorSpec-guard-on-field.txt  KeyGeneratorSpec.init  KEYGENERATOR-ORDER-00 (sequence) -> KEYGENERATOR-ORDER-01
+  KeyManagerFactorySpec-d15-sunx509.txt  KeyManagerFactorySpec.init  KEYMANAGERFACTORY-ORDER-00 (sequence) -> KEYMANAGERFACTORY-ORDER-01
+  KeyManagerFactorySpec-guard-on-field.txt  KeyManagerFactorySpec.init  KEYMANAGERFACTORY-ORDER-00 (sequence) -> KEYMANAGERFACTORY-ORDER-01
+  KeyPairGeneratorSpec-init3-no-clause-applies.txt  KeyPairGeneratorSpec.init3  KEYPAIRGENERATOR-ORDER-00 (sequence) -> KEYPAIRGENERATOR-ORDER-01
+  KeyPairGeneratorSpec-sticky-fail.txt  KeyPairGeneratorSpec.gen  KEYPAIRGENERATOR-ORDER-00 (sequence) -> KEYPAIRGENERATOR-ORDER-01
+  KeyPairSpec-generated-cipher.txt  KeyPairSpec.gpu  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyPairSpec-generated.txt  KeyPairSpec.gpr  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyPairSpec-generated.txt  KeyPairSpec.gpu  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyPairSpec-keypair_generated_getpublic.txt  KeyPairSpec.gpr  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyPairSpec-keypair_generated_getpublic.txt  KeyPairSpec.gpu  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyPairSpec-observed-halves.txt  KeyPairSpec.gpr  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyPairSpec-observed-halves.txt  KeyPairSpec.gpu  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  KeyStoreSpec-guard-on-field.txt  KeyStoreSpec.gk1  KEYSTORE-ORDER-00 (sequence) -> KEYSTORE-ORDER-01
+  KeyStoreSpec-guard-on-field.txt  KeyStoreSpec.load  KEYSTORE-ORDER-00 (sequence) -> KEYSTORE-ORDER-01
+  MacSpec-d15-hmacpbesha1.txt  MacSpec.f1  MAC-ORDER-00 (sequence) -> MAC-ORDER-01
+  MacSpec-d15-hmacpbesha1.txt  MacSpec.i1  MAC-ORDER-00 (sequence) -> MAC-ORDER-01
+  MacSpec-d15-hmacpbesha1.txt  MacSpec.update  MAC-ORDER-00 (sequence) -> MAC-ORDER-01
+  MacSpec-d15-hmacpbesha1.txt  MacSpec.updateBytes  MAC-ORDER-00 (sequence) -> MAC-ORDER-01
+  MacSpec-guard-on-field.txt  MacSpec.i1  MAC-ORDER-00 (sequence) -> MAC-ORDER-01
+  MessageDigestSpec-digest_clone_update.txt  MessageDigestSpec.update  MESSAGEDIGEST-ORDER-00 (sequence) -> MESSAGEDIGEST-ORDER-01
+  MessageDigestSpec-guard-on-field.txt  MessageDigestSpec.d1  MESSAGEDIGEST-ORDER-00 (sequence) -> MESSAGEDIGEST-ORDER-01
+  MessageDigestSpec-guard-on-field.txt  MessageDigestSpec.update  MESSAGEDIGEST-ORDER-00 (sequence) -> MESSAGEDIGEST-ORDER-01
+  SSLContextSpec-d15-ssl.txt  SSLContextSpec.init  SSLCONTEXT-ORDER-00 (sequence) -> SSLCONTEXT-ORDER-01
+  SSLContextSpec-d15-tlsv1.txt  SSLContextSpec.init  SSLCONTEXT-ORDER-00 (sequence) -> SSLCONTEXT-ORDER-01
+  SSLContextSpec-guard-on-field.txt  SSLContextSpec.init  SSLCONTEXT-ORDER-00 (sequence) -> SSLCONTEXT-ORDER-01
+  SignatureSpec-generated-privkey.txt  KeyPairSpec.gpr  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  SignatureSpec-generated-pubkey.txt  KeyPairSpec.gpu  KEYPAIR-ORDER-00 (sequence) -> KEYPAIR-ORDER-01
+  SignatureSpec-guard-on-field.txt  SignatureSpec.i1  SIGNATURE-ORDER-00 (sequence) -> SIGNATURE-ORDER-01
+  SignatureSpec-sign-unobserved.txt  SignatureSpec.s1  SIGNATURE-ORDER-00 (sequence) -> SIGNATURE-ORDER-01
+  TrustManagerFactorySpec-d15-sunx509.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-ORDER-00 (sequence) -> TRUSTMANAGERFACTORY-ORDER-01
+  TrustManagerFactorySpec-guard-on-field.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-ORDER-00 (sequence) -> TRUSTMANAGERFACTORY-ORDER-01
+  TrustManagerFactorySpec-tmf_init_before_getinstance.txt  TrustManagerFactorySpec.gtm1  TRUSTMANAGERFACTORY-ORDER-00 (sequence) -> TRUSTMANAGERFACTORY-ORDER-01
+  TrustManagerFactorySpec-tmf_init_before_getinstance.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-ORDER-00 (sequence) -> TRUSTMANAGERFACTORY-ORDER-01
+
+[platform-default] 39 site changes in 20 traces
+  KeyManagerFactorySpec-d15-sunx509.txt  KeyManagerFactorySpec.init  KEYMANAGERFACTORY-NOBS-00 (not-observed) -> KEYMANAGERFACTORY-NOBS-02
+  KeyManagerFactorySpec-guard-on-field.txt  KeyManagerFactorySpec.init  KEYMANAGERFACTORY-NOBS-00 (not-observed) -> KEYMANAGERFACTORY-NOBS-02
+  KeyManagerFactorySpec.txt  KeyManagerFactorySpec.init  KEYMANAGERFACTORY-NOBS-00 (not-observed) -> KEYMANAGERFACTORY-NOBS-02
+  SSLContextSpec-d15-ssl.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec-d15-ssl.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-01 (not-observed) -> SSLCONTEXT-NOBS-04
+  SSLContextSpec-d15-ssl.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-d15-tlsv1.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec-d15-tlsv1.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-01 (not-observed) -> SSLCONTEXT-NOBS-04
+  SSLContextSpec-d15-tlsv1.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-guard-on-field.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec-guard-on-field.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-01 (not-observed) -> SSLCONTEXT-NOBS-04
+  SSLContextSpec-guard-on-field.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-provider-object.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec-provider-object.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-01 (not-observed) -> SSLCONTEXT-NOBS-04
+  SSLContextSpec-provider-object.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-provider-sslv3.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec-provider-sslv3.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-01 (not-observed) -> SSLCONTEXT-NOBS-04
+  SSLContextSpec-provider-sslv3.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-sslv3.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec-sslv3.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-01 (not-observed) -> SSLCONTEXT-NOBS-04
+  SSLContextSpec-sslv3.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-tls-chain.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-tls.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec-tls.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-01 (not-observed) -> SSLCONTEXT-NOBS-04
+  SSLContextSpec-tls.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-tls_mixed_array.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec-tls_mixed_array.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-tls_null_defaults.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec-tls_null_defaults.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  SSLContextSpec-tls_null_defaults.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-NOBS-00 (not-observed) -> TRUSTMANAGERFACTORY-NOBS-02
+  SSLContextSpec.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-00 (not-observed) -> SSLCONTEXT-NOBS-03
+  SSLContextSpec.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-01 (not-observed) -> SSLCONTEXT-NOBS-04
+  SSLContextSpec.txt  SSLContextSpec.init  SSLCONTEXT-NOBS-02 (not-observed) -> SSLCONTEXT-NOBS-06
+  TrustManagerFactorySpec-d15-sunx509.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-NOBS-00 (not-observed) -> TRUSTMANAGERFACTORY-NOBS-02
+  TrustManagerFactorySpec-guard-on-field.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-NOBS-00 (not-observed) -> TRUSTMANAGERFACTORY-NOBS-02
+  TrustManagerFactorySpec-pkix-init.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-NOBS-00 (not-observed) -> TRUSTMANAGERFACTORY-NOBS-02
+  TrustManagerFactorySpec-sunx509.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-NOBS-00 (not-observed) -> TRUSTMANAGERFACTORY-NOBS-02
+  TrustManagerFactorySpec-x509.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-NOBS-00 (not-observed) -> TRUSTMANAGERFACTORY-NOBS-02
+  TrustManagerFactorySpec.txt  TrustManagerFactorySpec.init  TRUSTMANAGERFACTORY-NOBS-00 (not-observed) -> TRUSTMANAGERFACTORY-NOBS-02
+
+[random-key-material] 22 site changes in 22 traces
+  CipherInputStreamSpec-initialised-cipher.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  CipherOutputStreamSpec-initialised-cipher.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  IvChainJunctionSpec-decrypt.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  IvChainJunctionSpec-gcm-unprepared.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  IvChainJunctionSpec-gcm.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  IvChainJunctionSpec-rangen-unobserved.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  IvChainJunctionSpec-rangen.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  IvChainJunctionSpec-unprepared.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  IvChainJunctionSpec.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  MacSpec-decrypt-buffer-updated.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  MacSpec-decrypt-buffer.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  MacSpec-encrypted-buffer-updated.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  MacSpec-encrypted-buffer.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  MacSpec-fresh-buffer-updated.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  MacSpec-fresh-buffer.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  MacSpec-mac-then-encrypt.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  MacSpec-update-then-encrypt.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  SecretKeySpec-encoded-iv.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  SecretKeySpecSpec-cipher-chain.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  SecretKeySpecSpec-offset.txt  SecretKeySpecSpec.c2  SECRETKEYSPEC-NOBS-01 (not-observed) -> SECRETKEYSPEC-NOBS-05
+  SecretKeySpecSpec-random_bytes_as_key.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+  SecretKeySpecSpec.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-03
+
+[reuse-after-final] 4 site changes in 2 traces
+  CipherSpec-cipher_reinit_after_dofinal.txt  CipherSpec.f2  CIPHER-ORDER-00 (sequence) -> CIPHER-ORDER-02
+  CipherSpec-cipher_reinit_after_dofinal.txt  CipherSpec.i2  CIPHER-ORDER-00 (sequence) -> CIPHER-ORDER-02
+  MacSpec-mac_reinit_after_dofinal.txt  MacSpec.f1Input  MAC-ORDER-00 (sequence) -> MAC-ORDER-02
+  MacSpec-mac_reinit_after_dofinal.txt  MacSpec.i1  MAC-ORDER-00 (sequence) -> MAC-ORDER-02
+
+[upstream-refused] 27 site changes in 21 traces
+  CipherInputStreamSpec-initialised-cipher.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  CipherOutputStreamSpec-initialised-cipher.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  GCMParameterSpecSpec-gcm_decrypt_received_nonce.txt  IvChainJunctionSpec.use  IVCHAINJUNCTION-NOBS-01 (not-observed) -> IVCHAINJUNCTION-NOBS-07
+  IvChainJunctionSpec-decrypt.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  IvChainJunctionSpec-gcm-unprepared.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  IvChainJunctionSpec-gcm-unprepared.txt  IvChainJunctionSpec.use  IVCHAINJUNCTION-NOBS-01 (not-observed) -> IVCHAINJUNCTION-NOBS-07
+  IvChainJunctionSpec-gcm.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  IvChainJunctionSpec-rangen-unobserved.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  IvChainJunctionSpec-rangen.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  IvChainJunctionSpec-unprepared.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  IvChainJunctionSpec-unprepared.txt  IvChainJunctionSpec.use  IVCHAINJUNCTION-NOBS-00 (not-observed) -> IVCHAINJUNCTION-NOBS-06
+  IvChainJunctionSpec.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  KeyAgreementSpec-ecdh_remote_peer_chain.txt  KeyAgreementSpec.dophase  KEYAGREEMENT-NOBS-08 (not-observed) -> KEYAGREEMENT-NOBS-09
+  KeyAgreementSpec-ecdh_remote_peer_chain.txt  KeyFactorySpec.genPublic  KEYFACTORY-NOBS-01 (not-observed) -> KEYFACTORY-NOBS-03
+  KeyAgreementSpec-ecdh_remote_peer_chain.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-02
+  MacSpec-decrypt-buffer-updated.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  MacSpec-decrypt-buffer.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  MacSpec-encrypted-buffer-updated.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  MacSpec-encrypted-buffer.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  MacSpec-fresh-buffer-updated.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  MacSpec-fresh-buffer.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  MacSpec-mac-then-encrypt.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  MacSpec-update-then-encrypt.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  PBEKeySpecSpec-pbe_stored_salt_chain.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+  PBEKeySpecSpec-pbe_stored_salt_chain.txt  SecretKeyFactorySpec.gen  SECRETKEYFACTORY-NOBS-00 (not-observed) -> SECRETKEYFACTORY-NOBS-01
+  PBEKeySpecSpec-pbe_stored_salt_chain.txt  SecretKeySpecSpec.c1  SECRETKEYSPEC-NOBS-00 (not-observed) -> SECRETKEYSPEC-NOBS-02
+  SecretKeySpecSpec-cipher-chain.txt  CipherSpec.i2  CIPHER-NOBS-00 (not-observed) -> CIPHER-NOBS-01
+
+Old code -> new code, number of site changes
+--------------------------------------------
+  CIPHER-NOBS-00 -> CIPHER-NOBS-01: 19
+  CIPHER-ORDER-00 -> CIPHER-ORDER-01: 2
+  CIPHER-ORDER-00 -> CIPHER-ORDER-02: 2
+  IVCHAINJUNCTION-NOBS-00 -> IVCHAINJUNCTION-NOBS-06: 1
+  IVCHAINJUNCTION-NOBS-01 -> IVCHAINJUNCTION-NOBS-07: 2
+  KEYAGREEMENT-NOBS-08 -> KEYAGREEMENT-NOBS-09: 1
+  KEYFACTORY-NOBS-01 -> KEYFACTORY-NOBS-03: 1
+  KEYGENERATOR-ORDER-00 -> KEYGENERATOR-ORDER-01: 8
+  KEYMANAGERFACTORY-NOBS-00 -> KEYMANAGERFACTORY-NOBS-02: 3
+  KEYMANAGERFACTORY-ORDER-00 -> KEYMANAGERFACTORY-ORDER-01: 2
+  KEYPAIR-ORDER-00 -> KEYPAIR-ORDER-01: 15
+  KEYPAIRGENERATOR-ORDER-00 -> KEYPAIRGENERATOR-ORDER-01: 2
+  KEYSTORE-ORDER-00 -> KEYSTORE-ORDER-01: 2
+  MAC-ORDER-00 -> MAC-ORDER-01: 5
+  MAC-ORDER-00 -> MAC-ORDER-02: 2
+  MESSAGEDIGEST-ORDER-00 -> MESSAGEDIGEST-ORDER-01: 3
+  SECRETKEYFACTORY-NOBS-00 -> SECRETKEYFACTORY-NOBS-01: 1
+  SECRETKEYSPEC-NOBS-00 -> SECRETKEYSPEC-NOBS-02: 2
+  SECRETKEYSPEC-NOBS-00 -> SECRETKEYSPEC-NOBS-03: 21
+  SECRETKEYSPEC-NOBS-01 -> SECRETKEYSPEC-NOBS-05: 1
+  SIGNATURE-ORDER-00 -> SIGNATURE-ORDER-01: 2
+  SSLCONTEXT-NOBS-00 -> SSLCONTEXT-NOBS-03: 10
+  SSLCONTEXT-NOBS-01 -> SSLCONTEXT-NOBS-04: 8
+  SSLCONTEXT-NOBS-01 -> SSLCONTEXT-NOBS-05: 1
+  SSLCONTEXT-NOBS-02 -> SSLCONTEXT-NOBS-06: 11
+  SSLCONTEXT-ORDER-00 -> SSLCONTEXT-ORDER-01: 3
+  TRUSTMANAGERFACTORY-NOBS-00 -> TRUSTMANAGERFACTORY-NOBS-02: 7
+  TRUSTMANAGERFACTORY-ORDER-00 -> TRUSTMANAGERFACTORY-ORDER-01: 4

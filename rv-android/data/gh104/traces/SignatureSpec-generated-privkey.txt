@@ -10,7 +10,7 @@
 # whose write stands in the event body rather than at the acceptance point. This trace is why
 # that placement matters: the pair came out of KeyPairGenerator and was never constructed by a
 # monitored `new KeyPair`, so KeyPairSpec's `ere` -- `c1 (gpu | gpr)*`, with the constructor
-# mandatory where the rule makes it optional -- sends `gpr` to the fail state. The KEYPAIR-ORDER-00
+# mandatory where the rule makes it optional -- sends `gpr` to the fail state. The KEYPAIR-ORDER-01
 # in this trace is that divergence, measured and recorded at task 4.13 and owned by task 7.1;
 # an acceptance-point write would leave this conforming signature accused of an unobserved key.
 #

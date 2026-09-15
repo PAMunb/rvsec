@@ -927,7 +927,11 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     # against the letter of the clause beside the folded family (D-26.4, task 8.6). It is
     # one clause probed twice and not two clauses, which is why the write count below does
     # not move with it.
-    assert counts.get("read", 0) + counts.get("read-absent", 0) == 87
+    # 87 -> 104 at gh114: fourteen `validateAny(REPORTED_UPSTREAM)` reads that pick the
+    # `upstream-refused` code at the consumers and the two `getEncoded()` bridges, the
+    # per-element `GENERATED_TRUST_MANAGERS` read of `SSLContextSpec.init`, and the two
+    # `RANDOMIZED` reads that pick the `random-key-material` code at `SecretKeySpecSpec.c1`/`c2`.
+    assert counts.get("read", 0) + counts.get("read-absent", 0) == 104
     assert read_placement.get("condition", 0) == 0
     # 32 -> 35 at gh109 task 1.3(b): the three `Get` events of `MessageDigestSpec` gain the
     # `generatedMessageDigest` write the transcription had omitted (`MessageDigest.crysl:46`).
@@ -940,7 +944,24 @@ def test_the_reader_reproduces_the_measured_census_of_the_derived_set():
     # 64 -> 65 at gh109 group G8: `SecretKeySpecSpec`'s `@match` writes `speccedKey`
     # (`SecretKeySpec.crysl:26`) beside the `generatedKey` it already wrote -- one handler,
     # two clauses, the ORDER being the single `Con` (D-26.5, task 8.1).
-    assert counts.get("write", 0) == 65
+    # 65 -> 81 at gh114: fifteen `ensure(REPORTED_UPSTREAM)` writes -- thirteen at the
+    # producers that report on their product, two at the `getEncoded()` bridges -- and the
+    # per-element `GENERATED_TRUST_MANAGERS` write of `TrustManagerFactorySpec.gtm1`.
+    assert counts.get("write", 0) == 81
+    # The two properties that sites of their own serve, pinned by predicate so that a site
+    # added or lost under either one names the property rather than only moving a total.
+    by_predicate: dict[tuple[str, str], int] = {}
+    for path in specs:
+        for site in read_mop(path).sites:
+            if site.predicate in ("REPORTED_UPSTREAM", "GENERATED_TRUST_MANAGERS"):
+                key = (site.predicate, site.operation)
+                by_predicate[key] = by_predicate.get(key, 0) + 1
+    assert by_predicate == {
+        ("REPORTED_UPSTREAM", "write"): 15,
+        ("REPORTED_UPSTREAM", "read"): 14,
+        ("GENERATED_TRUST_MANAGERS", "write"): 1,
+        ("GENERATED_TRUST_MANAGERS", "read"): 1,
+    }
     assert (
         counts.get("accepting-state", 0) + counts.get("accepting-state-unset", 0) == 0
     )
@@ -1365,7 +1386,11 @@ def test_the_graph_reproduces_the_measured_placement_census():
     # rediscovering one number per run.
     # 81 -> 82 at gh109 group G8: the second `generatedKey` probe of `CipherSpec.i2`
     # (task 8.6), read in the body beside the first.
-    assert counts.get("read:body", 0) == 82
+    # 82 -> 99 at gh114: the seventeen reads the reader census names -- fourteen
+    # `REPORTED_UPSTREAM`, one `GENERATED_TRUST_MANAGERS`, two `RANDOMIZED` -- all in event
+    # bodies, on the NOT_OBSERVED branch of a read that already decided the report, or in the
+    # bridge body that carries the mark across a copy.
+    assert counts.get("read:body", 0) == 99
     # The negated clauses read through `validateAbsent`, which the graph records as its
     # own verdict, so a row of theirs is invisible to the `read:body` count above. Task
     # 5.3 put the set's first one there, and the assertion exists so that the next one
@@ -1380,7 +1405,11 @@ def test_the_graph_reproduces_the_measured_placement_census():
     # `generateSecret` routes write `preparedKeyMaterial[sharedSecretBuffer] after
     # GenSecretBuffer`, which names the returned array at one and the first argument at the
     # other, so neither can be a handler.
-    assert counts.get("write:body", 0) == 16
+    # 16 -> 32 at gh114: the fifteen `REPORTED_UPSTREAM` marks and the per-element
+    # `GENERATED_TRUST_MANAGERS` write. No rule ENSURES the mark, so it has no acceptance point,
+    # and only the body knows whether it reported; the element write belongs to the array the
+    # event returns. Each row records that reason.
+    assert counts.get("write:body", 0) == 32
     # 41 -> 46 at group G3: five of that group's eleven writes name the monitored object or a
     # value a field can carry, so they sit in the acceptance-point handler. 46 -> 48 at group
     # G4: `generatedSSLEngine[this]` and `generatedSSLParameters[this]` carry no `after L`, so

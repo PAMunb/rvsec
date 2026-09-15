@@ -57,6 +57,10 @@ SignatureSpec(Signature s) {
        byte[] stagedSigned = null;
        byte[] stagedVerified = null;
 
+       // Set by `g1` and `g2` and read by `@fail` (SIGNATURE-ORDER-01). The generated `reset()`
+       // clears the state and not this field.
+       boolean creationObserved = false;
+
        // One event over `getInstance(String)`, where there used to be two split by
        // the sign of a guard. The negated twin `g3` matched the same call with the
        // same `args(alg)` and named no state in the `ere`, and the generator gives an
@@ -84,6 +88,7 @@ SignatureSpec(Signature s) {
        event g1 after(String alg) returning(Signature s):
          call(public static Signature Signature.getInstance(String)) &&
          args(alg) {
+           creationObserved = true;
        }
 
        // `Object+` covers both two-argument `getInstance` overloads the platform declares --
@@ -92,13 +97,14 @@ SignatureSpec(Signature s) {
        // the overload this pointcut used to miss reached its next event with the monitor at state
        // 0, where every row is `fail`. It is `Object+` and not `..` on purpose: the trace harness's
        // resolver walks the declared parameter types of a `call(...)` signature and stops at the
-       // first wildcard (KeyManagerFactorySpec.mop:87-90), so a wildcard here would make every
+       // first wildcard (KeyManagerFactorySpec.mop:94-97), so a wildcard here would make every
        // `getInstance` fit this pointcut, while `Object+` keeps the arity known and the second
        // position typed. Precedent: `KeyGeneratorSpec.g2`.
        event g2 after(String alg, Object provider) returning(Signature s):
          call(public static Signature Signature.getInstance(String, Object+)) &&
          args(alg, provider) &&
          condition(ConscryptAliasTable.matches("Signature", alg, algorithms)) {
+           creationObserved = true;
        }
 
        // The rule states two REQUIRES clauses and this file read neither until this pass:
@@ -148,7 +154,7 @@ SignatureSpec(Signature s) {
            }
            else if (origin == PredicateVerdict.NOT_OBSERVED) {
               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
-                  "v=1 code=SIGNATURE-NOBS-00 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPrivateKey) + "' msg='no generator of the private key given to initSign was observed'"));
+                  "v=1 code=SIGNATURE-NOBS-00 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPrivateKey) + "' msg='no generator of the private key given to initSign was observed'" + Evidence.keysFor(privateKey)));
            }
         }
 
@@ -167,7 +173,7 @@ SignatureSpec(Signature s) {
         }
               else if (origin == PredicateVerdict.NOT_OBSERVED) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
-                   "v=1 code=SIGNATURE-NOBS-01 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPrivateKey) + "' msg='no generator of the private key given to initSign was observed'"));
+                   "v=1 code=SIGNATURE-NOBS-01 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPrivateKey) + "' msg='no generator of the private key given to initSign was observed'" + Evidence.keysFor(privateKey)));
         }
         }
 
@@ -181,6 +187,8 @@ SignatureSpec(Signature s) {
         }
         }
 
+       // A public key that carries REPORTED_UPSTREAM came out of a key factory that was already
+       // reported, and draws the `upstream-refused` code instead of SIGNATURE-NOBS-02.
        event i4 before(PublicKey key, Signature s):
          call(public void Signature.initVerify(PublicKey)) &&
          args(key) &&
@@ -194,9 +202,13 @@ SignatureSpec(Signature s) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
                    "v=1 code=SIGNATURE-CONSTR-02 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPublicKey) + "' msg='the public key given to initVerify carries a key-origin predicate the rule does not admit'"));
         }
+              else if (origin == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, key) == PredicateVerdict.SATISFIED) {
+               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
+                   "v=1 code=SIGNATURE-NOBS-03 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPublicKey) + "' msg='the public key given to initVerify was already reported upstream'" + Evidence.keysFor(key)));
+        }
               else if (origin == PredicateVerdict.NOT_OBSERVED) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SignatureSpec", "" + __LOC,
-                   "v=1 code=SIGNATURE-NOBS-02 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPublicKey) + "' msg='no generator of the public key given to initVerify was observed'"));
+                   "v=1 code=SIGNATURE-NOBS-02 ev=" + __EVENTNAME + " obj=Signature val='" + q(s.getAlgorithm()) + "' exp='" + q(expectedPublicKey) + "' msg='no generator of the public key given to initVerify was observed'" + Evidence.keysFor(key)));
         }
         }
 
@@ -281,8 +293,14 @@ SignatureSpec(Signature s) {
        ere: (g1 | g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )
 
        @fail {
-          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC,
-              "v=1 code=SIGNATURE-ORDER-00 ev=" + __EVENTNAME + " obj=Signature val='' exp='' msg='the observed call sequence is not one SignatureSpec accepts'"));
+          if (!creationObserved) {
+              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC,
+                  "v=1 code=SIGNATURE-ORDER-01 ev=" + __EVENTNAME + " obj=Signature val='' exp='' msg='the observed call sequence is not one SignatureSpec accepts, and no getInstance of this Signature was observed'"));
+          }
+          else {
+              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC,
+                  "v=1 code=SIGNATURE-ORDER-00 ev=" + __EVENTNAME + " obj=Signature val='' exp='' msg='the observed call sequence is not one SignatureSpec accepts'"));
+          }
           stagedSigned = null;
           stagedVerified = null;
           __RESET;

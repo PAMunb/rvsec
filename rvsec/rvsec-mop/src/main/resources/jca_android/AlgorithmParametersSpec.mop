@@ -60,6 +60,10 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
 
    String expectedPreparedAlg = "parameter bytes this instrumentation observed being encoded";
 
+   // Set by the creation event `get`. The generated `reset()` does not clear it, so every
+   // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+   boolean creationObserved = false;
+
    // The rule's `Get := g1 | g2` (:11-13), fused. `g2` leaves its second position anonymous
    // (`getInstance(algorithm, _)`), so every overload the platform declares is that event:
    // api30 declares three -- `getInstance(String)`, `(String, String)` and
@@ -69,7 +73,7 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
    // the `call(...)` signatures, which are written out in full: the trace harness's resolver
    // walks the declared parameter types of the call and stops at the first wildcard, so a
    // wildcard in the signature would make every `getInstance` fit this pointcut
-   // (KeyManagerFactorySpec.mop:87-90).
+   // (KeyManagerFactorySpec.mop:94-97).
    //
    // The one CONSTRAINTS clause is accused HERE, in the body, and not in a `condition(...)`:
    // a guard compiles to `if (!(guard)) return false;` ahead of the transition, so a
@@ -81,6 +85,7 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
        call(public static AlgorithmParameters AlgorithmParameters.getInstance(String, String)) ||
        call(public static AlgorithmParameters AlgorithmParameters.getInstance(String, java.security.Provider))
      ) && args(alg, ..) {
+       creationObserved = true;
        algorithm = ConscryptAliasTable.canonical("AlgorithmParameters", alg);
        if (!ConscryptAliasTable.matches("AlgorithmParameters", alg, safeAlgorithms)) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "AlgorithmParametersSpec", "" + __LOC,
@@ -116,7 +121,7 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
    //
    // The four antecedents are tested with the SET'S OWN ALIAS SEMANTICS, like the other
    // comparison sites of `jca_android` and like the sibling that reads the same two
-   // predicates (`KeyAgreementSpec.mop:152,:156`). An antecedent is not a place where
+   // predicates (`KeyAgreementSpec.mop:157,:161`). An antecedent is not a place where
    // exact spelling may be demanded: `getInstance("dh")` is `DiffieHellman` to the
    // platform, and a raw case-sensitive `contains` made it fall out of all four branches
    // and reach no read at all -- neither NOT_OBSERVED nor VIOLATED, silence, which is the
@@ -137,7 +142,7 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
            }
            else if (prepared == PredicateVerdict.NOT_OBSERVED) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParametersSpec", "" + __LOC,
-                   "v=1 code=ALGORITHMPARAMETERS-NOBS-00 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='" + q(algorithm) + "' exp='" + q(expectedPreparedAlg) + "' msg='no preparation of the encoded parameters was observed'"));
+                   "v=1 code=ALGORITHMPARAMETERS-NOBS-00 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='" + q(algorithm) + "' exp='" + q(expectedPreparedAlg) + "' msg='no preparation of the encoded parameters was observed'" + Evidence.keysFor(arg)));
            }
        }
        else if (arg instanceof AlgorithmParameterSpec) {
@@ -165,7 +170,7 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
            }
            else if (required != null && prepared == PredicateVerdict.NOT_OBSERVED) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "AlgorithmParametersSpec", "" + __LOC,
-                   "v=1 code=ALGORITHMPARAMETERS-NOBS-01 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='" + q(algorithm) + "' exp='" + q(required) + "' msg='no preparation of the parameter spec was observed'"));
+                   "v=1 code=ALGORITHMPARAMETERS-NOBS-01 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='" + q(algorithm) + "' exp='" + q(required) + "' msg='no preparation of the parameter spec was observed'" + Evidence.keysFor(arg)));
            }
        }
        initialised = s;
@@ -190,7 +195,7 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
    // The rule's ORDER, `Get, Init, GetEncoded?` (:25). The trailing `?` is why this is an
    // `fsm` and not an `ere`: no `ere` of this set spells optionality, and the idiom for it
    // is a second accepting state that declares no event of its own
-   // (KeyManagerFactorySpec.mop:196-200, whose ORDER has the same shape).
+   // (KeyManagerFactorySpec.mop:211-215, whose ORDER has the same shape).
    fsm :
      start [
        get -> obtained
@@ -208,8 +213,14 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
    alias match2 = published
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "AlgorithmParametersSpec", "" + __LOC,
-          "v=1 code=ALGORITHMPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='' exp='' msg='the observed call sequence is not one AlgorithmParametersSpec accepts'"));
+      if (!creationObserved) {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "AlgorithmParametersSpec", "" + __LOC,
+              "v=1 code=ALGORITHMPARAMETERS-ORDER-01 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='' exp='' msg='the observed call sequence is not one AlgorithmParametersSpec accepts and no creation of the AlgorithmParameters was observed'"));
+      }
+      else {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "AlgorithmParametersSpec", "" + __LOC,
+              "v=1 code=ALGORITHMPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=AlgorithmParameters val='' exp='' msg='the observed call sequence is not one AlgorithmParametersSpec accepts'"));
+      }
       initialised = null;
       __RESET;
    }

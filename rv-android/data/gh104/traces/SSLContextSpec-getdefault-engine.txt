@@ -4,8 +4,9 @@
 # its dispatcher creates a monitor when none exists, and its row is fail at `start`.
 #
 # So this program draws SSLCONTEXT-FORB-00 for the forbidden call and SSLCONTEXT-ORDER-00
-# for the engine created on a context the ordering never opened. The second is the residue
-# `PBEKeySpecSpec.mop:183-189` already records for the identical
+# (label `sequence`: `getDefault` is a creation event, so the monitor observed the context's
+# creation) for the engine created on a context the ordering never opened. The second is the
+# residue `PBEKeySpecSpec.mop:183-189` already records for the identical
 # `PBEKeySpec(char[]) => Con`: silencing it would mean modelling a forbidden call as an
 # alternative opening of the ordering, which is the opposite of what FORBIDDEN says.
 SSLContext.getDefault() -> ctx

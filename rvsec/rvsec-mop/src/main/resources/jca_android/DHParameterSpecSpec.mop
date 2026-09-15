@@ -20,6 +20,10 @@ DHParameterSpecSpec(DHParameterSpec s) {
    // Bound only on the conforming branch, which is what carries the object to `@match`.
    DHParameterSpec spec;
 
+   // Set by the creation events `c1` and `c2`. The generated `reset()` does not clear it, so
+   // every failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+   boolean creationObserved = false;
+
    // The two-argument constructor, the rule's `c1` (:9) and one alternative of its
    // `Con := c1 | c2`. api30 declares both overloads and the rule declares both, so both
    // are events here: the rule labelling them separately is what says they stay separate
@@ -42,6 +46,7 @@ DHParameterSpecSpec(DHParameterSpec s) {
    event c1 after(BigInteger p, BigInteger g) returning(DHParameterSpec s):
      call(public DHParameterSpec.new(BigInteger, BigInteger)) &&
      args(p, g) {
+       creationObserved = true;
        boolean conforms = true;
        if (p == null || p.bitLength() < 2048) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DHParameterSpecSpec", "" + __LOC,
@@ -62,10 +67,11 @@ DHParameterSpecSpec(DHParameterSpec s) {
    // exponent size `l` among its objects and constrains it nowhere, so this body is `c1`'s
    // over this overload's first two arguments: the same two clauses over the same two
    // quantities, with codes of their own because a code names a site and not a clause
-   // (`IvParameterSpec.mop:108-111`).
+   // (`IvParameterSpec.mop:126-129`).
    event c2 after(BigInteger p, BigInteger g, int l) returning(DHParameterSpec s):
      call(public DHParameterSpec.new(BigInteger, BigInteger, int)) &&
      args(p, g, l) {
+       creationObserved = true;
        boolean conforms = true;
        if (p == null || p.bitLength() < 2048) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DHParameterSpecSpec", "" + __LOC,
@@ -86,12 +92,18 @@ DHParameterSpecSpec(DHParameterSpec s) {
    // transition row is {1, 2, 2} for both events and the monitor is keyed on the constructed
    // object, so no monitor ever sees a second event and state 2 is never entered. Written
    // because the generator and the `codes.csv` bijection expect it (precedent:
-   // `GCMParameterSpecSpec.mop:134-146`).
+   // `GCMParameterSpecSpec.mop:158-170`).
    ere : c1 | c2
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHParameterSpecSpec", "" + __LOC,
-          "v=1 code=DHPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=DHParameterSpec val='' exp='' msg='the observed call sequence is not one DHParameterSpecSpec accepts'"));
+      if (!creationObserved) {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHParameterSpecSpec", "" + __LOC,
+              "v=1 code=DHPARAMETERSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=DHParameterSpec val='' exp='' msg='the observed call sequence is not one DHParameterSpecSpec accepts and no creation of the DHParameterSpec was observed'"));
+      }
+      else {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DHParameterSpecSpec", "" + __LOC,
+              "v=1 code=DHPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=DHParameterSpec val='' exp='' msg='the observed call sequence is not one DHParameterSpecSpec accepts'"));
+      }
       __RESET;
    }
 

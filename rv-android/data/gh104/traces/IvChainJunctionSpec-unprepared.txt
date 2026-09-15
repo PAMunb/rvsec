@@ -10,7 +10,7 @@
 #
 # This trace is also where the cascade the IvParameterSpec file predicted at task 4.4 gets
 # measured: one reach limit on the iv now costs two reports, IVPARAMETERSPEC-NOBS-00 at the
-# construction and IVCHAIN-NOBS-00 at the init.
+# construction and IVCHAINJUNCTION-NOBS-06 (label `upstream-refused`) at the init.
 bind iv = bytes(16)
 bind km = bytes(32)
 SecureRandom.getInstance("SHA1PRNG") -> r

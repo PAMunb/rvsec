@@ -72,6 +72,11 @@ KeySpec(Key k) {
    // twin states: the read governs a write instead of a report, so NOT_OBSERVED and
    // VIOLATED both stage nothing and the difference between them has no reader to tell it
    // to.
+   //
+   // The copy also carries REPORTED_UPSTREAM, for the same reason and in the same body as
+   // `SecretKeySpec.e1`: a key whose producer already reported it hands the mark to the array
+   // it returns, so a consumer of those bytes reports them as refused upstream. Every
+   // subtype of `Key` passes through here, so a marked public or private key bridges too.
    event ge1 after(Key k) returning(byte[] material):
       call(public byte[] Key+.getEncoded()) &&
       target(k) {
@@ -81,6 +86,9 @@ KeySpec(Key k) {
             || PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, k) == PredicateVerdict.SATISFIED;
         if (originObserved) {
             stagedKeyMaterial = material;
+        }
+        if (PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, k) == PredicateVerdict.SATISFIED) {
+            PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, material);
         }
    }
 

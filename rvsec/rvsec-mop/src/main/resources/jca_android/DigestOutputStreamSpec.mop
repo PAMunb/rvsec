@@ -36,6 +36,10 @@ DigestOutputStreamSpec(DigestOutputStream s) {
    String expectedGeneratedMessageDigest =
        "a MessageDigest this instrumentation observed being obtained";
 
+   // Set by the creation event `c1`. The generated `reset()` does not clear it, so every
+   // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+   boolean creationObserved = false;
+
    // `c1: DigestOutputStream(stream, digest)` (:15), the whole of `Con`, and the site of the
    // rule's one REQUIRES.
    //
@@ -51,6 +55,7 @@ DigestOutputStreamSpec(DigestOutputStream s) {
    event c1 after(OutputStream stream, MessageDigest digest) returning(DigestOutputStream s):
      call(public DigestOutputStream.new(OutputStream, MessageDigest)) &&
      args(stream, digest) {
+       creationObserved = true;
        PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_MESSAGE_DIGEST, digest);
        if (generated == PredicateVerdict.VIOLATED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DigestOutputStreamSpec", "" + __LOC,
@@ -58,7 +63,7 @@ DigestOutputStreamSpec(DigestOutputStream s) {
        }
        else if (generated == PredicateVerdict.NOT_OBSERVED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "DigestOutputStreamSpec", "" + __LOC,
-               "v=1 code=DIGESTOUTPUTSTREAM-NOBS-00 ev=" + __EVENTNAME + " obj=DigestOutputStream val='' exp='" + q(expectedGeneratedMessageDigest) + "' msg='no obtaining of the message digest was observed'"));
+               "v=1 code=DIGESTOUTPUTSTREAM-NOBS-00 ev=" + __EVENTNAME + " obj=DigestOutputStream val='' exp='" + q(expectedGeneratedMessageDigest) + "' msg='no obtaining of the message digest was observed'" + Evidence.keysFor(digest)));
        }
        else {
            wrapped = stream;
@@ -76,16 +81,16 @@ DigestOutputStreamSpec(DigestOutputStream s) {
    // `r2: write(data, offset, len)` (:19), the other alternative, and the site of the three
    // array-bounds CONSTRAINTS (:29-31).
    //
-   // ONLY ONE OF THE THREE IS REACHABLE, and the other two are kept as guards without a code
-   // -- the rule the conventions note fixes for a conjunct the platform refuses first (the
-   // R9 measurement on `IvParameterSpec`). `DigestOutputStream.write(b, off, len)` writes to
-   // the wrapped stream before it updates the digest, and `OutputStream.write(byte[], int,
-   // int)` throws `IndexOutOfBoundsException` when `off < 0`, when `len < 0` or when
-   // `off + len > b.length`. An `after` advice never runs for a call that threw, so
-   // `offset >= 0` and `length[data] >= offset + len` have no reachable violated branch.
+   // ONLY ONE OF THE THREE CARRIES A CODE -- the rule the conventions note fixes for a conjunct
+   // the platform refuses first (the R9 measurement on `IvParameterSpec`).
+   // `DigestOutputStream.write(b, off, len)` writes to the wrapped stream before it updates the
+   // digest, and `OutputStream.write(byte[], int, int)` throws `IndexOutOfBoundsException` when
+   // `off < 0`, when `len < 0` or when `off + len > b.length`. This plain `after` advice runs its
+   // body when the call throws too (INV-INS-163), so a violated `offset >= 0` or
+   // `length[data] >= offset + len` reaches it only on a call the platform has already refused.
    //
-   // `len > 0` is the one that survives: `write(b, off, 0)` returns without throwing, and it
-   // is a call the rule refuses.
+   // `len > 0` is the one with a code: `write(b, off, 0)` returns without throwing, and a
+   // call with `len < 0` throws and still reaches the `len <= 0` branch below.
    event w2 after(byte[] data, int offset, int len, DigestOutputStream s):
      call(public void DigestOutputStream.write(byte[], int, int)) &&
      args(data, offset, len) && target(s) {
@@ -149,8 +154,14 @@ DigestOutputStreamSpec(DigestOutputStream s) {
    alias match = closed
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DigestOutputStreamSpec", "" + __LOC,
-          "v=1 code=DIGESTOUTPUTSTREAM-ORDER-00 ev=" + __EVENTNAME + " obj=DigestOutputStream val='' exp='' msg='the observed call sequence is not one DigestOutputStreamSpec accepts'"));
+      if (!creationObserved) {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DigestOutputStreamSpec", "" + __LOC,
+              "v=1 code=DIGESTOUTPUTSTREAM-ORDER-01 ev=" + __EVENTNAME + " obj=DigestOutputStream val='' exp='' msg='the observed call sequence is not one DigestOutputStreamSpec accepts and no creation of the DigestOutputStream was observed'"));
+      }
+      else {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DigestOutputStreamSpec", "" + __LOC,
+              "v=1 code=DIGESTOUTPUTSTREAM-ORDER-00 ev=" + __EVENTNAME + " obj=DigestOutputStream val='' exp='' msg='the observed call sequence is not one DigestOutputStreamSpec accepts'"));
+      }
       wrapped = null;
       digester = null;
       __RESET;

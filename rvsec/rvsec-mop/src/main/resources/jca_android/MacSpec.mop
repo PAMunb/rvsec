@@ -79,10 +79,32 @@ MacSpec(Mac m) {
 
         Object maccedByFinal = null;
 
+        // Three facts about the monitored Mac that the `@fail` handler reads to choose its code.
+        // The generated `reset()` clears only the state and the category flags, so all three
+        // survive a failure, and once a label is reported every later failure of the same monitor
+        // carries it: after a reset no creation event can arrive for the object, and the
+        // automaton cannot return to a state its real history satisfies.
+        //
+        // `creationObserved` is set by the creation events `g1`, `g2` and `g3`.
+        //
+        // `operationFinished` is set by the events that complete an operation, which are the
+        // three finals of the `ere`: `f1`, `f1Input` and `f2`. It is set in the body, before the
+        // transition is decided, because the fact it records is about the object and not about
+        // the automaton: the program ran a final operation on this Mac whether or not the
+        // sequence that led to it was one the rule accepts.
+        //
+        // `reuseObserved` is set by `@fail` when the failing event is `i1` or `i2` on a Mac whose
+        // operation had finished: the API lets a used Mac be initialised again, and the rule's
+        // ORDER does not (Mac.crysl:41).
+        boolean creationObserved = false;
+        boolean operationFinished = false;
+        boolean reuseObserved = false;
+
         event g1 after(String alg) returning(Mac m):
           call(public static Mac Mac.getInstance(String)) &&
           args(alg) &&
           condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            creationObserved = true;
         }
 
         // `Object+` covers both two-argument `getInstance` overloads the platform declares --
@@ -91,19 +113,21 @@ MacSpec(Mac m) {
         // the overload this pointcut used to miss reached its next event with the monitor at state
         // 0, where every row is `fail`. It is `Object+` and not `..` on purpose: the trace harness's
         // resolver walks the declared parameter types of a `call(...)` signature and stops at the
-        // first wildcard (KeyManagerFactorySpec.mop:87-90), so a wildcard here would make every
+        // first wildcard (KeyManagerFactorySpec.mop:94-97), so a wildcard here would make every
         // `getInstance` fit this pointcut, while `Object+` keeps the arity known and the second
         // position typed. Precedent: `KeyGeneratorSpec.g2`.
         event g2 after(String alg, Object provider) returning(Mac m):
           call(public static Mac Mac.getInstance(String, Object+)) &&
           args(alg, provider) &&
           condition(ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            creationObserved = true;
         }
 
         event g3 after(String alg) returning(Mac m):
           call(public static Mac Mac.getInstance(String)) &&
           args(alg) &&
           condition(!ConscryptAliasTable.matches("Mac", alg, safeAlgorithms)) {
+            creationObserved = true;
         }
 
         // The rule's `Init`, the one-argument overload (Mac.crysl:23,25). Until this
@@ -168,6 +192,12 @@ MacSpec(Mac m) {
         // `preparedHMAC` binds `params`, which the one-argument overload does not
         // have, and the two negated `encrypted` clauses bind the `doFinal` outputs.
         // The fourth is this one.
+        //
+        // A key the store has no origin for is one of two situations, and the NOT_OBSERVED
+        // branch tells them apart by code. A key its producer already reported carries
+        // `REPORTED_UPSTREAM` (`SecretKeySpecSpec`, `SecretKeyFactorySpec`) and emits the
+        // `upstream-refused` code; a key with no mark emits the `not-observed` code. The verdict
+        // and the site are the same.
         event i1 before(java.security.Key key, Mac m):
           call(public void Mac.init(java.security.Key)) &&
           args(key) &&
@@ -181,9 +211,13 @@ MacSpec(Mac m) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
                     "v=1 code=MAC-CONSTR-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init carries a key-origin predicate the rule does not admit'"));
             }
+            else if (keyOrigin == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, key) == PredicateVerdict.SATISFIED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-NOBS-02 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init was already reported by the specification that produced it'" + Evidence.keysFor(key)));
+            }
             else if (keyOrigin == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
-                    "v=1 code=MAC-NOBS-00 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init was not observed coming from a key generator, a key store or a key specification'"));
+                    "v=1 code=MAC-NOBS-00 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init was not observed coming from a key generator, a key store or a key specification'" + Evidence.keysFor(key)));
             }
         }
 
@@ -239,7 +273,7 @@ MacSpec(Mac m) {
             }
             else if (keyOrigin == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
-                    "v=1 code=MAC-NOBS-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init was not observed coming from a key generator, a key store or a key specification'"));
+                    "v=1 code=MAC-NOBS-01 ev=" + __EVENTNAME + " obj=Mac val='" + q(m.getAlgorithm()) + "' exp='" + q(expectedGeneratedKey) + "' msg='the key given to Mac.init was not observed coming from a key generator, a key store or a key specification'" + Evidence.keysFor(key)));
             }
         }
 
@@ -358,6 +392,7 @@ MacSpec(Mac m) {
         event f1 after(Mac m) returning(byte[] output):
           call(byte[] Mac.doFinal()) &&
           target(m){
+            operationFinished = true;
         }
 
         // The rule's `f2: output2 = doFinal(input)` (Mac.crysl:34), and the site of
@@ -374,6 +409,7 @@ MacSpec(Mac m) {
           call(byte[] Mac.doFinal(byte[])) &&
           args(input) &&
           target(m){
+            operationFinished = true;
             maccedByFinal = input;
         }
 
@@ -403,6 +439,7 @@ MacSpec(Mac m) {
           call(void Mac.doFinal(byte[], int)) &&
           args(output, outOffset) &&
           target(m){
+            operationFinished = true;
             if (PredicateStore.instance().validateAbsent(Property.ENCRYPTED, output) == PredicateVerdict.VIOLATED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "MacSpec", "" + __LOC,
                     "v=1 code=MAC-CONSTR-00 ev=" + __EVENTNAME + " obj=Mac val='encrypted' exp='not encrypted' msg='the buffer the mac is written into already holds ciphertext'"));
@@ -432,6 +469,11 @@ MacSpec(Mac m) {
         // a MAC over nothing -- and G-ORDER reported it as `g1 i1 f1`. The repair is
         // the rule transcribed: `f1Input` alone on the left, and `+` where the rule
         // writes `Update+`.
+        //
+        // The expression ends at the first final, as the rule's ORDER does: nothing leads back
+        // to `Init`. A Mac initialised again after a final therefore fails at that `init`, and
+        // `@fail` reports it with the `reuse-after-final` code, MAC-ORDER-02, apart from a
+        // sequence the program got wrong: the API admits the reuse and only the rule refuses it.
         //
         // Note that `f1Input` is the `.mop` name of the rule's `f2` and `f2` here is
         // the rule's `f3`; the numbering is crossed between the two files and the
@@ -463,8 +505,21 @@ MacSpec(Mac m) {
             // the `clearPassword` withdrawal -- a withdrawal travels with the write
             // it undoes, and both of this file's writes are deleted above. The
             // other seven remain 6.4's.
-            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
-                "v=1 code=MAC-ORDER-00 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'"));
+            if (operationFinished && ("i1".equals(__EVENTNAME) || "i2".equals(__EVENTNAME))) {
+                reuseObserved = true;
+            }
+            if (!creationObserved) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-ORDER-01 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts and no creation of the Mac was observed'"));
+            }
+            else if (reuseObserved) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-ORDER-02 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the Mac was initialised again after it completed an operation, which the rule does not accept'"));
+            }
+            else {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MacSpec", "" + __LOC,
+                    "v=1 code=MAC-ORDER-00 ev=" + __EVENTNAME + " obj=Mac val='' exp='' msg='the observed call sequence is not one MacSpec accepts'"));
+            }
             maccedByUpdate.clear();
             maccedByFinal = null;
             __RESET;

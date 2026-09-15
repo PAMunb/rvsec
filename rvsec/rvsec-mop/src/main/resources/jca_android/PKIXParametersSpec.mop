@@ -23,6 +23,12 @@ PKIXParametersSpec(PKIXParameters s) {
    // is nothing; see the note on that event.
    PKIXParameters spec;
 
+   // Set by the two creation events, `c1` and `c2`, whatever they report, and never cleared:
+   // the generated `reset()` restores the automaton state and leaves this field. `@fail` reads
+   // it to choose between `PKIXPARAMETERS-ORDER-01` (`creation-unobserved`) and the
+   // wrong-sequence code.
+   boolean creationObserved = false;
+
    // The key-store constructor, the rule's `c1` (:7) and one alternative of its
    // `Con := c1 | c2`. api30 declares both overloads and both throw on a bad argument, so
    // an `after ... returning` advice sees only the constructions that completed.
@@ -35,11 +41,12 @@ PKIXParametersSpec(PKIXParameters s) {
    // evidence that the store carries the predicate with other values or had it withdrawn,
    // NOT_OBSERVED says only that no `KeyStore.load` was ever seen for it.
    //
-   // The producer is the existing `KeyStoreSpec.mop:185`, which writes `generatedKeyStore`
+   // The producer is the existing `KeyStoreSpec.mop:214`, which writes `generatedKeyStore`
    // at the `Load` acceptance point, exactly as `KeyStore.crysl:59` states it.
    event c1 after(KeyStore keyStore) returning(PKIXParameters s):
      call(public PKIXParameters.new(KeyStore)) &&
      args(keyStore) {
+       creationObserved = true;
        PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_KEY_STORE, keyStore);
        if (generated == PredicateVerdict.VIOLATED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PKIXParametersSpec", "" + __LOC,
@@ -47,7 +54,7 @@ PKIXParametersSpec(PKIXParameters s) {
        }
        else if (generated == PredicateVerdict.NOT_OBSERVED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PKIXParametersSpec", "" + __LOC,
-               "v=1 code=PKIXPARAMETERS-NOBS-00 ev=" + __EVENTNAME + " obj=PKIXParameters val='' exp='a key store the monitor observed being loaded' msg='no load of the key store was observed'"));
+               "v=1 code=PKIXPARAMETERS-NOBS-00 ev=" + __EVENTNAME + " obj=PKIXParameters val='' exp='a key store the monitor observed being loaded' msg='no load of the key store was observed'" + Evidence.keysFor(keyStore)));
        }
        else {
            spec = s;
@@ -71,6 +78,7 @@ PKIXParametersSpec(PKIXParameters s) {
    event c2 after(Set trustAnchors) returning(PKIXParameters s):
      call(public PKIXParameters.new(Set)) &&
      args(trustAnchors) {
+       creationObserved = true;
        spec = s;
    }
 
@@ -78,12 +86,18 @@ PKIXParametersSpec(PKIXParameters s) {
    // transition row is {1, 2, 2} for both events and the monitor is keyed on the constructed
    // object, so no monitor ever sees a second event and state 2 is never entered. Written
    // because the generator and the `codes.csv` bijection expect it (precedent:
-   // `GCMParameterSpecSpec.mop:134-146`).
+   // `GCMParameterSpecSpec.mop:158-170`).
    ere : c1 | c2
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PKIXParametersSpec", "" + __LOC,
-          "v=1 code=PKIXPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=PKIXParameters val='' exp='' msg='the observed call sequence is not one PKIXParametersSpec accepts'"));
+      if (!creationObserved) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PKIXParametersSpec", "" + __LOC,
+             "v=1 code=PKIXPARAMETERS-ORDER-01 ev=" + __EVENTNAME + " obj=PKIXParameters val='' exp='' msg='the observed call sequence is not one PKIXParametersSpec accepts and no creation of the parameters was observed'"));
+      }
+      else {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PKIXParametersSpec", "" + __LOC,
+             "v=1 code=PKIXPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=PKIXParameters val='' exp='' msg='the observed call sequence is not one PKIXParametersSpec accepts'"));
+      }
       __RESET;
    }
 

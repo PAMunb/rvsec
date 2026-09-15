@@ -1,4 +1,6 @@
-# violating branch g3: an algorithm outside the allow-list
+# violating branch g3: an algorithm outside the allow-list. The ordering reports at `init` and
+# `gk1` are KEYGENERATOR-ORDER-00, label `sequence`: the refused `getInstance` is a creation
+# event, so the monitor observed the generator's creation.
 KeyGenerator.getInstance("DES") -> kg
 kg.init(56)
 kg.generateKey() -> key

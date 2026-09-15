@@ -56,10 +56,16 @@ KeyGeneratorSpec(KeyGenerator k) {
     // or `g2` that follows it rebinds -- and staging is what keeps them coinciding.
     String generatedKeyAlgorithm = null;
 
+    // Set by the three `getInstance` events and read by `@fail` (KEYGENERATOR-ORDER-01). The
+    // generated `reset()` clears the state and not this field. This specification does not
+    // mark the key it produces with REPORTED_UPSTREAM.
+    boolean creationObserved = false;
+
     event g1 after(String alg) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String))
       && args(alg)
       && condition(ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms)) {
+        creationObserved = true;
         currentAlgorithmInstance = alg;
     }
 
@@ -67,6 +73,7 @@ KeyGeneratorSpec(KeyGenerator k) {
       call(public static KeyGenerator KeyGenerator.getInstance(String, Object+))
       && args(alg, provider)
       && condition(ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms)) {
+        creationObserved = true;
         currentAlgorithmInstance = alg;
     }
 
@@ -82,6 +89,7 @@ KeyGeneratorSpec(KeyGenerator k) {
       call(public static KeyGenerator KeyGenerator.getInstance(String))
       && args(alg)
       && condition(!ConscryptAliasTable.matches("KeyGenerator", alg, safeAlgorithms))  {
+        creationObserved = true;
         currentAlgorithmInstance = alg;
     }
 
@@ -125,7 +133,7 @@ KeyGeneratorSpec(KeyGenerator k) {
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", "" + __LOC,
-                "v=1 code=KEYGENERATOR-NOBS-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='init() expects a SecureRandom observed to come from an observed construction'"));
+                "v=1 code=KEYGENERATOR-NOBS-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='init() expects a SecureRandom observed to come from an observed construction'" + Evidence.keysFor(ranGen)));
         }
     }
 
@@ -141,7 +149,7 @@ KeyGeneratorSpec(KeyGenerator k) {
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", "" + __LOC,
-                "v=1 code=KEYGENERATOR-NOBS-01 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='init() expects a SecureRandom observed to come from an observed construction'"));
+                "v=1 code=KEYGENERATOR-NOBS-01 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='init() expects a SecureRandom observed to come from an observed construction'" + Evidence.keysFor(ranGen)));
         }
     }
 
@@ -157,7 +165,7 @@ KeyGeneratorSpec(KeyGenerator k) {
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyGeneratorSpec", "" + __LOC,
-                "v=1 code=KEYGENERATOR-NOBS-02 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='init() expects a SecureRandom observed to come from an observed construction'"));
+                "v=1 code=KEYGENERATOR-NOBS-02 ev=" + __EVENTNAME + " obj=KeyGenerator val='" + q(k.getAlgorithm()) + "' exp='" + q("a SecureRandom this instrumentation observed being constructed") + "' msg='init() expects a SecureRandom observed to come from an observed construction'" + Evidence.keysFor(ranGen)));
         }
     }
 
@@ -175,8 +183,14 @@ KeyGeneratorSpec(KeyGenerator k) {
     ere : (g3* g1+ | g3* g2+) (((init | initRandom | initRandomSize | initRandomSpec) gk1) | gk1)
 
     @fail {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,
-            "v=1 code=KEYGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'"));
+        if (!creationObserved) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYGENERATOR-ORDER-01 ev=" + __EVENTNAME + " obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts, and no getInstance of this KeyGenerator was observed'"));
+        }
+        else {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,
+                "v=1 code=KEYGENERATOR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyGenerator val='' exp='' msg='the observed call sequence is not one KeyGeneratorSpec accepts'"));
+        }
         generatedKey = null;
         generatedKeyAlgorithm = null;
 

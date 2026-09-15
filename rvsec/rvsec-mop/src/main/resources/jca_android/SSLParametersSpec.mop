@@ -108,6 +108,13 @@ SSLParametersSpec(SSLParameters s) {
    SSLParameters constructed = null;
    boolean conforms = true;
 
+   // Set by the three creation events, `c1`, `c2` and `c3`, and never cleared: the generated
+   // `reset()` restores the automaton state and leaves this field, so the fact survives a
+   // failure. `@fail` reads it to report parameters whose construction no event of this
+   // specification observed under `SSLPARAMETERS-ORDER-01` (`creation-unobserved`) instead of
+   // the wrong-sequence code.
+   boolean creationObserved = false;
+
    String expectedTls12Suites = "a cipher suite the expert SSLParameters.crysl admits beside TLSv1.2";
 
    String expectedTls13Suites = "a cipher suite the expert SSLParameters.crysl admits beside TLSv1.3";
@@ -119,6 +126,7 @@ SSLParametersSpec(SSLParameters s) {
    // clause behind it (the `AlgorithmParameterGeneratorSpec.initSpec` precedent).
    event c1 after() returning(SSLParameters s):
      call(public SSLParameters.new()) {
+       creationObserved = true;
        constructed = s;
    }
 
@@ -128,6 +136,7 @@ SSLParametersSpec(SSLParameters s) {
    event c2 after(String[] cipherSuites) returning(SSLParameters s):
      call(public SSLParameters.new(String[])) &&
      args(cipherSuites) {
+       creationObserved = true;
        constructed = s;
        cipherSuiteList = cipherSuites;
    }
@@ -143,6 +152,7 @@ SSLParametersSpec(SSLParameters s) {
    event c3 after(String[] cipherSuites, String[] protocols) returning(SSLParameters s):
      call(public SSLParameters.new(String[], String[])) &&
      args(cipherSuites, protocols) {
+       creationObserved = true;
        constructed = s;
        cipherSuiteList = cipherSuites;
        protocolList = protocols;
@@ -243,8 +253,14 @@ SSLParametersSpec(SSLParameters s) {
    ere : (c1 ((cs sp) | (sp cs))) | (c2 sp) | c3
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLParametersSpec", "" + __LOC,
-          "v=1 code=SSLPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=SSLParameters val='' exp='' msg='the observed call sequence is not one SSLParametersSpec accepts'"));
+      if (!creationObserved) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLParametersSpec", "" + __LOC,
+             "v=1 code=SSLPARAMETERS-ORDER-01 ev=" + __EVENTNAME + " obj=SSLParameters val='' exp='' msg='the observed call sequence is not one SSLParametersSpec accepts and no creation of the parameters was observed'"));
+      }
+      else {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SSLParametersSpec", "" + __LOC,
+             "v=1 code=SSLPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=SSLParameters val='' exp='' msg='the observed call sequence is not one SSLParametersSpec accepts'"));
+      }
       constructed = null;
       protocolList = null;
       cipherSuiteList = null;

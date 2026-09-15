@@ -1,5 +1,7 @@
 # violating branch: MD5 reaches g4, and the accusation lands on the call that
-# consumes the algorithm (update), not on getInstance
+# consumes the algorithm (update), not on getInstance. The ordering reports at `update` and
+# `d1` are MESSAGEDIGEST-ORDER-00, label `sequence`: the refused `getInstance` (g4) is a
+# creation event, so the monitor observed the digest's creation.
 MessageDigest.getInstance("MD5") -> md
 md.update(bytes)
 md.digest() -> out

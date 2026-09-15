@@ -1,0 +1,26 @@
+# `sslContext.init(null, new TrustManager[]{ tm, trustAll }, null)`, with `tm` taken from
+# `TrustManagerFactory.getTrustManagers()` and `trustAll` an instance of a TrustManager class the
+# application defines.
+#
+# `trustmanagers(tms, applicationtrustmanager)` is that fresh array: the factory's managers in
+# order, then the application's. The key store is really loaded and the factory really
+# initialised, so the only reports are the ones of `SSLContextSpec.init`.
+#
+# After gh114: the array is not credited, because `trustAll` carries no GENERATED_TRUST_MANAGERS
+# mark, and `trustAll`'s class was defined by a loader other than the one that defined
+# javax.net.ssl.TrustManager, so SSLContextSpec.init reports SSLCONTEXT-NOBS-05 (label
+# `application-manager`) with `vcls='<class of tm>,<class of trustAll>'`, both classes in array
+# order. The null key-manager array and the null SecureRandom report SSLCONTEXT-NOBS-03 and
+# SSLCONTEXT-NOBS-06 (`platform-default`).
+# Before gh114: SSLContextSpec.init reported SSLCONTEXT-NOBS-01 for the same array, and
+# SSLCONTEXT-NOBS-00 and SSLCONTEXT-NOBS-02 for the two nulls; same (spec, event) site.
+KeyStore.getInstance("PKCS12") -> ks
+bind ready = ks.load(null)
+ks.load(null)
+TrustManagerFactory.getInstance("PKIX") -> tmf
+bind tmready = tmf.init(ks)
+tmf.init(ks)
+tmf.getTrustManagers() -> tms
+bind mixed = trustmanagers(tms, applicationtrustmanager)
+SSLContext.getInstance("TLSv1.2") -> ctx
+ctx.init(null, mixed, null)

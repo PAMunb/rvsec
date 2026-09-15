@@ -17,6 +17,11 @@ import br.unb.cic.mop.Property;
  */
 PBEKeySpecSpec(PBEKeySpec s) {
 
+        // Set by the creation events `f1`, `f2` and `c1`. The generated `reset()` does not clear
+        // it, so every failure of a monitor that saw no creation reports the `-ORDER-01` code in
+        // `@fail`.
+        boolean creationObserved = false;
+
         // `f1` and `f2` are absorbed, not fused: each accuses a constructor the
         // rule FORBIDS outright, which is a report of its own and not the negation
         // of another event's guard. They enter the automaton through the Kleene
@@ -48,6 +53,7 @@ PBEKeySpecSpec(PBEKeySpec s) {
         event f1 after(char[] password) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[])) &&
           args(password) {
+            creationObserved = true;
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,
                 "v=1 code=PBEKEYSPEC-FORB-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[]) is forbidden by the expert PBEKeySpec.crysl'"));
         }
@@ -55,6 +61,7 @@ PBEKeySpecSpec(PBEKeySpec s) {
         event f2 after(char[] password, byte[] salt, int keyLength) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[], byte[], int)) &&
           args(password, salt, keyLength) {
+            creationObserved = true;
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.ForbiddenMethod, "PBEKeySpecSpec", "" + __LOC,
                 "v=1 code=PBEKEYSPEC-FORB-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[], byte[], int) is forbidden by the expert PBEKeySpec.crysl'"));
         }
@@ -114,9 +121,15 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // and `f1`/`f2` are loops, so the body and the state after it coincide on
         // every trace. The write stays here with this reason recorded in
         // predicate_graph.csv, at the rule's arity: the object and the key length.
+        //
+        // A construction this body reports on is marked `REPORTED_UPSTREAM` instead, so the
+        // readers of `speccedKey` that consume the mark (`SecretKeyFactorySpec.gen`,
+        // `KeyFactorySpec`) report it as refused upstream rather than as not observed. The salt read here is not a consumer of that mark: no producer of
+        // `RANDOMIZED` marks what it refuses, so NOT_OBSERVED keeps its own code.
         event c1 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
           call(public PBEKeySpec.new(char[], byte[], int, int)) &&
           args(password, salt, iterationCount, keyLength) {
+           creationObserved = true;
            boolean conforms = true;
            if (iterationCount < 10000) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", ""  + __LOC,
@@ -153,11 +166,14 @@ PBEKeySpecSpec(PBEKeySpec s) {
            }
            else if (randomisedSalt == PredicateVerdict.NOT_OBSERVED) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
-                   "v=1 code=PBEKEYSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument was not observed to come from a randomized source'"));
+                   "v=1 code=PBEKEYSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='a randomized byte[]' msg='the second argument was not observed to come from a randomized source'" + Evidence.keysFor(salt)));
                conforms = false;
            }
            if (conforms) {
                PredicateStore.instance().ensure(Property.SPECCED_KEY, s, keyLength);
+           }
+           else {
+               PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, s);
            }
         }
 
@@ -174,8 +190,8 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // Who reads it, written down here because this is where the predicate is
         // produced. The oracle states `speccedKey[keySpec, _]` as the one REQUIRES of
         // `SecretKeyFactory` (SecretKeyFactory.crysl:28), and that rule has its `.mop` in
-        // this set, so the read is live: `SecretKeyFactorySpec.mop:96`, plus the two
-        // `KeyFactorySpec` sites (`:79`, `:105`) that read the same predicate over the
+        // this set, so the read is live: `SecretKeyFactorySpec.mop:109`, plus the two
+        // `KeyFactorySpec` sites (`:90`, `:128`) that read the same predicate over the
         // key spec their own rule requires. A cleared spec therefore reaches a reader
         // that can tell VIOLATED from NOT_OBSERVED, which is what the withdrawal above is
         // for. The oracle's other producer, `SecretKeySpec`, writes it too
@@ -201,8 +217,14 @@ PBEKeySpecSpec(PBEKeySpec s) {
         ere : (f1 | f2)* c1 (f1 | f2)* c2 (f1 | f2)*
 
         @fail {
-          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec", "" + __LOC,
-              "v=1 code=PBEKEYSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='' msg='the observed call sequence is not one PBEKeySpecSpec accepts'"));
+          if (!creationObserved) {
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec", "" + __LOC,
+                 "v=1 code=PBEKEYSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='' msg='the observed call sequence is not one PBEKeySpecSpec accepts and no creation of the PBEKeySpec was observed'"));
+          }
+          else {
+             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec", "" + __LOC,
+                 "v=1 code=PBEKEYSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='' msg='the observed call sequence is not one PBEKeySpecSpec accepts'"));
+          }
           __RESET;
         }
 

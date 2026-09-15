@@ -32,6 +32,11 @@ SecureRandomSpec(SecureRandom r) {
 
     SecureRandom sr;
 
+    // Set by the creation events `c1`, `c2` and `g1` to `g5`. The generated `reset()` does not
+    // clear it, so every failure of a monitor that saw no creation reports the `-ORDER-01` code in
+    // `@fail`.
+    boolean creationObserved = false;
+
     // the expected algorithms for SecureRandom
     // D-15: the six entries of SecureRandom.crysl. Five of them name providers Android does
     // not ship, so no application can obtain them and no verdict depends on them -- inert,
@@ -66,6 +71,7 @@ SecureRandomSpec(SecureRandom r) {
     //  - c1: SecureRandom();
     event c1 after() returning(SecureRandom r):
       call(public SecureRandom.new()) {
+        creationObserved = true;
         sr = r;
     }
 
@@ -95,6 +101,7 @@ SecureRandomSpec(SecureRandom r) {
     event c2 after(byte[] seed) returning(SecureRandom r):
       call(public SecureRandom.new(byte[])) &&
       args(seed) {
+         creationObserved = true;
          sr = r;
          PredicateVerdict randomisedSeed = PredicateStore.instance().validate(Property.RANDOMIZED, seed);
          if (randomisedSeed == PredicateVerdict.VIOLATED) {
@@ -103,7 +110,7 @@ SecureRandomSpec(SecureRandom r) {
          }
          else if (randomisedSeed == PredicateVerdict.NOT_OBSERVED) {
              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "" + __LOC,
-                 "v=1 code=SECURERANDOM-NOBS-01 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='the constructor expects a byte array observed to come from a randomized source'"));
+                 "v=1 code=SECURERANDOM-NOBS-01 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='the constructor expects a byte array observed to come from a randomized source'" + Evidence.keysFor(seed)));
          }
     }
 
@@ -114,6 +121,7 @@ SecureRandomSpec(SecureRandom r) {
       call(public static SecureRandom SecureRandom.getInstance(String))
       && args(alg)
       && condition(ConscryptAliasTable.matches("SecureRandom", alg, algorithms)) {
+       creationObserved = true;
        sr = r;
     }
 
@@ -123,12 +131,14 @@ SecureRandomSpec(SecureRandom r) {
       call(public static SecureRandom SecureRandom.getInstance(String, ..))
       && args(alg, *)
       && condition(ConscryptAliasTable.matches("SecureRandom", alg, algorithms)) {
+       creationObserved = true;
        sr = r;
     }
 
     // CrySL gI: getInstanceStrong() event
     event g3 after() returning(SecureRandom r):
       call(public static SecureRandom SecureRandom.getInstanceStrong()) {
+      creationObserved = true;
       sr = r;
     }
 
@@ -147,6 +157,7 @@ SecureRandomSpec(SecureRandom r) {
       && args(alg)
       && condition(!ConscryptAliasTable.matches("SecureRandom", alg, algorithms))
     {
+        creationObserved = true;
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SecureRandomSpec", "" + __LOC,
             "v=1 code=SECURERANDOM-ALG-00 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
     }
@@ -164,6 +175,7 @@ SecureRandomSpec(SecureRandom r) {
       && args(alg, *)
       && condition(!ConscryptAliasTable.matches("SecureRandom", alg, algorithms))
     {
+        creationObserved = true;
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "SecureRandomSpec", "" + __LOC,
             "v=1 code=SECURERANDOM-ALG-01 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
     }
@@ -234,7 +246,7 @@ SecureRandomSpec(SecureRandom r) {
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "SecureRandomSpec", "" + __LOC,
-                "v=1 code=SECURERANDOM-NOBS-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='setSeed() expects a byte array observed to come from a randomized source'"));
+                "v=1 code=SECURERANDOM-NOBS-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='a randomized byte[]' msg='setSeed() expects a byte array observed to come from a randomized source'" + Evidence.keysFor(seed)));
         }
     }
 
@@ -368,8 +380,14 @@ SecureRandomSpec(SecureRandom r) {
     alias match2 = end
 
     @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC,
-          "v=1 code=SECURERANDOM-ORDER-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts'"));
+      if (!creationObserved) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC,
+             "v=1 code=SECURERANDOM-ORDER-01 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts and no creation of the SecureRandom was observed'"));
+      }
+      else {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC,
+             "v=1 code=SECURERANDOM-ORDER-00 ev=" + __EVENTNAME + " obj=SecureRandom val='' exp='' msg='the observed call sequence is not one SecureRandomSpec accepts'"));
+      }
       stagedGeneratedSeed = null;
       stagedNextBytes = null;
       __RESET;

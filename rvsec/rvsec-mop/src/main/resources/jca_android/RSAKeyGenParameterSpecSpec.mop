@@ -30,13 +30,24 @@ RSAKeyGenParameterSpecSpec(RSAKeyGenParameterSpec s) {
        return value.replace("'", "\\'");
    }
 
-   // RSAKeyGenParameterSpec.crysl:15, transcribed as the rule writes it. 1024 is in the
-   // list and stays in it: the pinned expert oracle is the sole authority on what a value
-   // clause admits (D-16), and narrowing a list because a modern reading would narrow it
-   // is an edit to the oracle by another route. Whoever wants 1024 out takes it out
-   // upstream, or records a value decision of its own the way D-20 did for the eight PBE
-   // families.
-   List<Integer> keySizes = Arrays.asList(1024, 2048, 4096);
+   // The RSA key sizes of the sibling expert rule. The two pinned expert rules state the size
+   // of the same key differently: `RSAKeyGenParameterSpec.crysl:15` lists {1024, 2048, 4096}
+   // and `KeyPairGenerator.crysl:29` lists {4096, 3072, 2048}. Transcribed literally, this
+   // constructor would admit 1024 and refuse 3072 while `KeyPairGeneratorSpec` refuses 1024
+   // and admits 3072 for `initialize(int)`, so the weaker key would pass through this route
+   // and the stronger one would be reported. The list here is the one of
+   // `KeyPairGenerator.crysl:29`, taken as the evident intent of the same experts, on the
+   // precedent of D-20.4, which transcribed a value clause by its evident intent. NIST SP
+   // 800-57 Part 1 supports the choice: it rates a 3072-bit RSA key at 128 bits of security,
+   // 2048 at 112 and 1024 at 80. The pinned rule files are not edited (D-21); the
+   // `oracle-wart` row of `divergence_record.csv` for the two clauses records the alignment.
+   List<Integer> keySizes = Arrays.asList(2048, 3072, 4096);
+
+   // Set by the one creation event, `c1`, whatever it reports, and never cleared: the
+   // generated `reset()` restores the automaton state and leaves this field. `@fail` reads it
+   // to choose between `RSAKEYGENPARAMETERSPEC-ORDER-01` (`creation-unobserved`) and the
+   // wrong-sequence code.
+   boolean creationObserved = false;
 
    // Bound only on the conforming branch, which is what carries the object to `@match`.
    RSAKeyGenParameterSpec spec;
@@ -63,6 +74,7 @@ RSAKeyGenParameterSpecSpec(RSAKeyGenParameterSpec s) {
    event c1 after(int keysize, BigInteger publicExponent) returning(RSAKeyGenParameterSpec s):
      call(public RSAKeyGenParameterSpec.new(int, BigInteger)) &&
      args(keysize, publicExponent) {
+       creationObserved = true;
        boolean conforms = true;
        if (!keySizes.contains(keysize)) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidKeySize, "RSAKeyGenParameterSpecSpec", "" + __LOC,
@@ -84,12 +96,18 @@ RSAKeyGenParameterSpecSpec(RSAKeyGenParameterSpec s) {
    // {1, 2, 2} and the monitor is keyed on the constructed object, so no monitor of this
    // specification ever sees a second event and state 2 is never entered. The handler is
    // written anyway, because the generator and the `codes.csv` bijection both expect one
-   // (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   // (precedent: `GCMParameterSpecSpec.mop:158-170`).
    ere : c1
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "RSAKeyGenParameterSpecSpec", "" + __LOC,
-          "v=1 code=RSAKEYGENPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=RSAKeyGenParameterSpec val='' exp='' msg='the observed call sequence is not one RSAKeyGenParameterSpecSpec accepts'"));
+      if (!creationObserved) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "RSAKeyGenParameterSpecSpec", "" + __LOC,
+             "v=1 code=RSAKEYGENPARAMETERSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=RSAKeyGenParameterSpec val='' exp='' msg='the observed call sequence is not one RSAKeyGenParameterSpecSpec accepts and no creation of the parameters was observed'"));
+      }
+      else {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "RSAKeyGenParameterSpecSpec", "" + __LOC,
+             "v=1 code=RSAKEYGENPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=RSAKeyGenParameterSpec val='' exp='' msg='the observed call sequence is not one RSAKeyGenParameterSpecSpec accepts'"));
+      }
       __RESET;
    }
 

@@ -1,0 +1,9 @@
+# A 3072-bit RSA key-generation spec with the F4 exponent. RSAKeyGenParameterSpecSpec admits the
+# key sizes {2048, 3072, 4096}, the list of KeyPairGenerator.crysl:29, so neither value clause of
+# `c1` breaks: after gh114 the trace draws no report at all, and `preparedRSA` is staged.
+#
+# Before gh114 the list was RSAKeyGenParameterSpec.crysl:15 transcribed literally,
+# {1024, 2048, 4096}, and the same (RSAKeyGenParameterSpecSpec, c1) reported
+# RSAKEYGENPARAMETERSPEC-KEYSIZE-00 (label `violation`) with val='3072'. The removed report is the
+# RSA transcription, not a label: the harness classes this trace `removed`.
+new RSAKeyGenParameterSpec(3072, 65537) -> params

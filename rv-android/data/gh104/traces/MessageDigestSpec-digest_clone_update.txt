@@ -1,0 +1,12 @@
+# A digest obtained through `clone()` and then updated. The original comes from a `bind` line, so
+# no `getInstance` event fires for it, and `clone()` is no event of MessageDigestSpec: the monitor
+# of the clone first sees `update`. The automaton needs a `getInstance` first, so `update` sends it
+# to `fail`; no creation event set `creationObserved` on that monitor, so after gh114 the `@fail`
+# of (MessageDigestSpec, update) reports MESSAGEDIGEST-ORDER-01, label `creation-unobserved`. The
+# algorithm is SHA-256, which the list admits, so `update` draws no ALG-00.
+#
+# Before gh114 the same (MessageDigestSpec, update) reported MESSAGEDIGEST-ORDER-00 (label
+# `sequence`): same site, same family, new code.
+bind md = MessageDigest.getInstance("SHA-256")
+bind md2 = md.clone()
+md2.update(bytes)

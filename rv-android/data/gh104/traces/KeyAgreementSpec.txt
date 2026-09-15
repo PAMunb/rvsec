@@ -7,7 +7,7 @@
 # The separating trace is KeyAgreementSpec-nodophase.txt, identical but for the missing
 # `doPhase`, which draws KEYAGREEMENT-ORDER-00 at the same `generateSecret()`.
 #
-# The two KEYPAIR-ORDER-00 this trace does draw are not about this rule and are not noise: the
+# The two KEYPAIR-ORDER-01 (label `creation-unobserved`) this trace does draw are not about this rule and are not noise: the
 # pair came out of `generateKeyPair()` and was never built by a monitored `new KeyPair`, so
 # KeyPairSpec's `ere` -- `c1 (gpu | gpr)*`, with the constructor mandatory where the expert
 # rule makes it so -- sends `gpu` and `gpr` to the fail state. That is the divergence

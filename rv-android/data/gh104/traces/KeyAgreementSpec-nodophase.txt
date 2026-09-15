@@ -6,7 +6,7 @@
 #
 # What the pair separates is the ordering clause and nothing else. The private key still
 # carries `generatedPrivkey`, so `init` draws no KEYAGREEMENT-NOBS-00 and the report the reader
-# gets names the one thing that went wrong. The KEYPAIR-ORDER-00 is the recorded residue the
+# gets names the one thing that went wrong. The KEYPAIR-ORDER-01 is the recorded residue the
 # conforming half explains.
 KeyPairGenerator.getInstance("DH") -> kpg
 kpg.initialize(2048)

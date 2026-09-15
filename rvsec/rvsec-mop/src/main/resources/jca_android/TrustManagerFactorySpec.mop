@@ -41,6 +41,11 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // and cleared the moment it is used or the sequence is rejected.
     TrustManagerFactory initialisedFactory = null;
 
+    // Set by the creation events `g1` and `g2`. `@fail` reads it to tell a call sequence the
+    // rule refuses from a factory whose creation this monitor never saw; the generated
+    // `reset()` leaves user fields alone, so the fact survives a failure.
+    boolean creationObserved = false;
+
     String expectedGeneratedKeyStore = "a KeyStore this instrumentation observed being loaded";
 
     String expectedGeneratedManagerFactoryParameters =
@@ -82,12 +87,14 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     event g1 after(String alg) returning(TrustManagerFactory mf):
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String))
       && args(alg) {
+        creationObserved = true;
     }
 
     event g2 after(String alg) returning(TrustManagerFactory mf):
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..))
       && args(alg, *)
       && condition(ConscryptAliasTable.matches("TrustManagerFactory", alg, algorithms)) {
+        creationObserved = true;
     }
 
     // `generatedKeyStore[keyStore]` (TrustManagerFactory.crysl:28, ledger clause #36) is read
@@ -103,10 +110,13 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     // most: measured on Temurin 21, `tmf.init((KeyStore) null)` runs and is the documented
     // default-truststore route, which is a conforming program under every reading except the
     // rule's own. The rule requires a key store this instrumentation saw loaded, and a null is not
-    // one, so the read reports NOT_OBSERVED there. What the report says is exactly that -- no
-    // loading was observed -- and not that the program is broken; the distinction between a
-    // reach limit and a violation is the distinction the two codes below carry. Measured too,
-    // and it is why the read discriminates something rather than nothing:
+    // one, so the read reports NOT_OBSERVED there, under a code of its own labelled
+    // `platform-default`: the null is the documented request for the platform's trust store, and
+    // an analysis must be able to separate it from a key store whose loading went unseen. What
+    // either report says is that no loading was observed, and not that the program is broken;
+    // the distinction between a reach limit and a violation is the distinction the NOBS and
+    // CONSTR codes below carry. Measured too, and it is why the read discriminates something
+    // rather than nothing:
     // `tmf.init(unloadedStore)` runs on this platform, unlike its `KeyManagerFactory`
     // counterpart, so a key store that was never loaded reaches a trust manager factory and
     // nothing but this read says so (researcher decision, 2026-08-22).
@@ -149,9 +159,13 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustManagerFactorySpec", "" + __LOC,
                     "v=1 code=TRUSTMANAGERFACTORY-CONSTR-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='the KeyStore given to TrustManagerFactory.init carries a generation predicate the rule does not admit'"));
             }
+            else if (generated == PredicateVerdict.NOT_OBSERVED && arg == null) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustManagerFactorySpec", "" + __LOC,
+                    "v=1 code=TRUSTMANAGERFACTORY-NOBS-02 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='a null KeyStore given to TrustManagerFactory.init requests the platform default trust store, whose loading was not observed'" + Evidence.keysFor(arg)));
+            }
             else if (generated == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustManagerFactorySpec", "" + __LOC,
-                    "v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'"));
+                    "v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'" + Evidence.keysFor(arg)));
             }
         }
         // `generatedManagerFactoryParameters[params]`, on the branch a `ManagerFactoryParameters`
@@ -166,7 +180,7 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
             }
             else if (prepared == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "TrustManagerFactorySpec", "" + __LOC,
-                    "v=1 code=TRUSTMANAGERFACTORY-NOBS-01 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedManagerFactoryParameters) + "' msg='no construction of the ManagerFactoryParameters given to TrustManagerFactory.init was observed'"));
+                    "v=1 code=TRUSTMANAGERFACTORY-NOBS-01 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedManagerFactoryParameters) + "' msg='no construction of the ManagerFactoryParameters given to TrustManagerFactory.init was observed'" + Evidence.keysFor(arg)));
             }
         }
        initialisedFactory = mf;
@@ -202,10 +216,13 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     //
     // Measured on Temurin 21 before the write was relied on: `getTrustManagers()` raises
     // `IllegalStateException` before an `init`, so this event can only fire after one; and it
-    // allocates a fresh array on every call, so the predicate travels only with the array this
-    // call returned. A program that copies the array into another before handing it to
-    // `SSLContext.init` reaches the read with nothing written, which is a reach limit and is
-    // reported as one.
+    // allocates a fresh array on every call, around the same manager instances, so the mark over
+    // the array travels only with the array this call returned. The body therefore also marks
+    // every non-null element with `GENERATED_TRUST_MANAGERS`: the rule constrains the managers,
+    // and a program that copies an issued manager into another array hands `SSLContext.init`
+    // exactly the manager this factory issued. `SSLContextSpec.init` credits such an array when
+    // it is non-empty and every element carries the mark; an array that mixes an issued manager
+    // with any other is not credited.
     //
     // The placement. The clause carries no `after L`, so INV-INS-134 sends it to the accepting
     // state, and that is where it runs: the transition row for `gtm1` is {4, 2, 4, 4, 4}, which
@@ -216,6 +233,11 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
       call(public TrustManager[] TrustManagerFactory.getTrustManagers())
       && target(mf) {
         PredicateStore.instance().ensure(Property.GENERATED_TRUST_MANAGER, trustManager);
+        if (trustManager != null) {
+            for (TrustManager manager : trustManager) {
+                PredicateStore.instance().ensure(Property.GENERATED_TRUST_MANAGERS, manager);
+            }
+        }
     }
 
     fsm :
@@ -235,9 +257,18 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     alias match1 = final
     alias match2 = taken
 
+    // A monitor that never observed `getInstance` reports every failure as
+    // `creation-unobserved`: the factory was created where this monitor cannot see, and after a
+    // reset no creation event can arrive for it.
     @fail {
-        ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC,
-            "v=1 code=TRUSTMANAGERFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='' exp='' msg='the observed call sequence is not one TrustManagerFactorySpec accepts'"));
+        if (!creationObserved) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC,
+                "v=1 code=TRUSTMANAGERFACTORY-ORDER-01 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='' exp='' msg='" + __EVENTNAME + "() before getInstance()'"));
+        }
+        else {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustManagerFactorySpec", "" + __LOC,
+                "v=1 code=TRUSTMANAGERFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='' exp='' msg='the observed call sequence is not one TrustManagerFactorySpec accepts'"));
+        }
         initialisedFactory = null;
 
         __RESET;

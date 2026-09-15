@@ -3,7 +3,7 @@
 # that separates the two key-half predicates: the public key reaches initVerify(PublicKey),
 # which is the rule's i4, and the private-key clause is not asked here.
 #
-# The producer is KeyPairSpec.gpu. The same KEYPAIR-ORDER-00 appears for the same recorded
+# The producer is KeyPairSpec.gpu. The same KEYPAIR-ORDER-01 appears for the same recorded
 # reason as in the private-half trace.
 #
 # The trace stops at `update` and states no `verify`, which is deliberate and measured. A

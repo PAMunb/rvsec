@@ -7,7 +7,7 @@
 # goes to `fail`: the accepting state is unreachable on this route, and a write placed at
 # `@match` would never happen for the pairs almost every program has.
 #
-# The KEYPAIR-ORDER-00 in this trace is that divergence, not a defect of the program, and
+# The KEYPAIR-ORDER-01 (label `creation-unobserved`) in this trace is that divergence, not a defect of the program, and
 # it is not this pass's to repair: KeyPairSpec is one of the specifications task 7.1 still
 # has to map, so G-ORDER skips it today and would not have checked a change to the `ere`.
 # What this pass owes is that the CIPHER-NOBS-00 beside it goes away -- the chain closes

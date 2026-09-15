@@ -132,6 +132,56 @@ use that satisfied the rule.
 user spelling (`HMAC/SHA256`, an OID, `RC4`) breaks propagation silently and shows up downstream as
 `NOT_OBSERVED` — the R8 defect this change repairs at `KeyGeneratorSpec.mop:215`.
 
+### The upstream-refusal mark
+
+A producer that reports on the object it produces tells every later consumer so, through the
+property `REPORTED_UPSTREAM`. Without it a consumer of a refused object answers `NOT_OBSERVED` —
+the store has no producing predicate for the object, because the producer withheld the write — and
+the report reads like a reach limit of the instrumentation when the object was in fact seen and
+refused one link earlier. The mark changes only which `-NOBS-` code the consumer emits; it never
+turns a `SATISFIED` read into a report, because the ordinary read runs first.
+
+The producer idiom (`KeyFactorySpec.mop:90-114` is the worked example):
+
+```
+boolean conforms = true;
+boolean reported = false;
+... each value or origin report on the product ...
+    conforms = false;
+    ErrorCollector.instance().addError(...);
+    reported = true;
+...
+if (conforms) { PredicateStore.instance().ensure(Property.<P>, product); }
+if (reported) { PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, product); }
+```
+
+- **Only value and origin reports mark**: a code of the families `ALG`, `KEYSIZE`, `KSTYPE`,
+  `PROTO`, `FORB`, `CONSTR` or `NOBS`, labels included. An `-ORDER-` report never marks, because a
+  sequence failure says nothing about the value of the object, and mixing the order channel into
+  the origin channel would relabel reports that have nothing to do with the product's value.
+- **A consumer that produces marks in turn.** A chain therefore reports its first failure with its
+  own code and every later link with `upstream-refused`.
+- **Bridges carry the mark across a copy.** `KeySpec.ge1` and `SecretKeySpec.e1` mark the array
+  `getEncoded()` returns when the key carries the mark, so the re-wrap
+  `new SecretKeySpec(derived.getEncoded(), "AES")` does not break the chain in the middle.
+- **The producers and consumers are the ones the set names, and the lists are not closed.** The
+  producers are `SecretKeySpecSpec` (`c1`, `c2`), `GCMParameterSpecSpec` and `IvParameterSpec`
+  (`c1`, `c2`), `PBEKeySpecSpec.c1`, `X509EncodedKeySpecSpec.c1`, `KeyFactorySpec`
+  (`genPublic`, `genPrivate`), `SecretKeyFactorySpec.gen`, `KeyAgreementSpec` (`gs1`, `gs2`) and
+  the two bridges. The consumers are `CipherSpec.i2`, `MacSpec.i1`, `IvChainJunction.use`,
+  `SecretKeyFactorySpec.gen`, `KeyFactorySpec.genPublic`/`genPrivate`, `KeyAgreementSpec.dophase`,
+  `SignatureSpec.i4`, `SecretKeySpecSpec.c1`/`c2` and `X509EncodedKeySpecSpec.c1`. Other producers
+  that report on their product do not mark, and other `-NOBS-` sites keep `not-observed`. A new
+  specification joins either list only by a recorded decision.
+- **`SecureRandomSpec` and `KeyGeneratorSpec` do not mark.** A `SecureRandom` of a refused
+  algorithm, and the arrays `SecureRandomSpec` discards in `@fail`, would be marked by a sequence
+  failure or by the discard itself, which is the channel mixing the first bullet excludes. The
+  `RANDOMIZED` readers therefore keep `not-observed`.
+
+The consumer side is a `-NOBS-` label and is written as §6 describes: the read is
+`validateAny(Property.REPORTED_UPSTREAM, bound) == PredicateVerdict.SATISFIED`, in the same
+`else if` as the `NOT_OBSERVED` test.
+
 ## 5. ORDER and `@fail`
 
 The `ere` is the rule's `ORDER`, transcribed. Nothing else may govern a transition: a value clause
@@ -151,10 +201,64 @@ Two shapes to know:
 Without it the monitor stays in the failure category and every later event of the same binding
 re-raises the ordering code.
 
+### Labels in `@fail`: the monitor-field idiom
+
+An ordering failure is not always a program calling things in the wrong order. When the first
+event a monitor sees is not a creation of the object, the object was created where the monitor
+cannot see — inside the framework, by a route the rule does not list, by a subclass — and the
+automaton fails on a correct program. And the API lets a used `Cipher` or `Mac` be initialised
+again, which the rule's `ORDER` does not accept. The handler says which of the three it saw, by
+code, and it can only do so from facts the specification recorded while events arrived. Those
+facts are monitor fields, because the generated `reset()` clears only the state and the category
+flags and never a user field, so a fact written before a failure is still there after it.
+
+- **`boolean creationObserved = false;`** in every specification whose automaton begins with a
+  creation event, set to `true` in the body of **every creation event**. A creation event is a
+  constructor or static-factory event that binds the monitored parameter through
+  `returning(...)`, whatever its condition or transition — refused and forbidden twins included
+  (`CipherSpec.g3`, `SSLContextSpec.getDefault`, `PBEKeySpecSpec.f1`/`f2`). An event that binds the
+  monitored parameter through `target(...)` is never a creation event
+  (`DigestInputStreamSpec.on`, `KeyAgreementSpec.gs3`). A refused creation followed by use is
+  therefore a `sequence` failure, not `creation-unobserved`: the monitor did see the object being
+  created. A creation route guarded by `condition(...)` that rejects the call runs no body (§3),
+  so it sets nothing, and a later failure of that object reads `creation-unobserved`.
+- **`boolean operationFinished = false;`** in `CipherSpec` and `MacSpec` only, set in the body of
+  every event whose transition completes an operation (`CipherSpec.mop:104-117` lists them). It is
+  set in the body, before the transition is decided, because the fact is about the object and not
+  about the automaton.
+- **`boolean reuseObserved = false;`**, beside it, set by `@fail` itself when `operationFinished`
+  holds and the failing event is an initialisation event, tested with `__EVENTNAME`, which the
+  generator expands in handlers too.
+
+The handler then chooses one code, in this precedence (`CipherSpec.mop:537-552`):
+
+```
+@fail {
+    if (operationFinished && ("i1".equals(__EVENTNAME) || "i2".equals(__EVENTNAME))) {
+        reuseObserved = true;
+    }
+    if (!creationObserved) { ... <RULE>-ORDER-NN  label creation-unobserved ... }
+    else if (reuseObserved) { ... <RULE>-ORDER-NN  label reuse-after-final ... }
+    else                    { ... <RULE>-ORDER-00  label sequence ... }
+    ...
+    __RESET;
+}
+```
+
+`creation-unobserved` comes first because it qualifies everything after it: with no creation seen,
+the monitor's record of the object is partial, and so is any reuse it believes it saw. Both labels persist on the monitor: once one is reported,
+every later failure of the same monitor carries it, because after a reset no creation event can
+arrive for the object and the automaton cannot return to a state its real history satisfies. A
+specification with no creation event (`SSLEngineSpec`) declares no field and has no
+`creation-unobserved` code. A specification whose automaton is a single creation event has an
+unreachable `@fail` (above) and still carries both branches, so every row of `codes.csv` keeps its
+one site. The JavaMOP `creation` modifier is not a substitute for the field: it changes when
+monitors are created, and therefore what is reported.
+
 ## 6. Codes
 
 Append rows to `SET/codes.csv` **in the task that writes the `.mop`**, in file order. The columns
-are `spec,code,error_type,site_kind,event,file_line`.
+are `spec,code,error_type,site_kind,event,file_line,label`.
 
 - The code is `<RULE-UPPER>-<KIND>-<NN>`, where `<RULE-UPPER>` is the **rule** name uppercased with
   no separators (`GCMParameterSpec` → `GCMPARAMETERSPEC`), not the specification name.
@@ -164,18 +268,131 @@ are `spec,code,error_type,site_kind,event,file_line`.
   `UnsafeAlgorithm` for `ALG`, `ForbiddenMethod` for `FORB`. A `FORBIDDEN` clause reported as
   `InvalidSequenceOfMethodCalls` sends the reader hunting for a missing call
   (`ErrorType.java:12-18`).
-- `<NN>` numbers sites **within the file**, in emission order, per kind.
+- `<NN>` numbers sites **within the file**, per kind. A new file numbers them in emission order. A
+  code added to a file that already has codes takes the **next free number of its family in that
+  file** — the highest `<RULE-UPPER>-<KIND>-NN` in `codes.csv` plus one — wherever the site sits,
+  and no existing code is renumbered. Numbers are therefore not in line order in an edited file
+  (`SSLCONTEXT-NOBS-03` is emitted above `SSLCONTEXT-NOBS-00`), and that is the price of two
+  workers editing two files never colliding on a number, and of a code meaning the same thing in
+  every campaign that emitted it.
 - A code names a **site, not a clause**: one clause read at two constructors gets two codes, because
-  the report has to say which constructor it is about (`IvParameterSpec.mop:103-106`).
+  the report has to say which constructor it is about (`IvParameterSpec.mop:103-106`). One site
+  with two labels is two sites and two codes (§6.2).
 - `file_line` is the line the `addError` call starts on. `gh104_message_gate.py` checks the anchor,
   the bijection (every site has one row, every row has one site) and that no standalone integer
   appears in the message that the guard does not use. Re-anchor after any edit that moves lines.
+- `label` names what the code means, from a closed vocabulary (§6.1).
+
+### 6.1 The `label` column
+
+A report of the `-NOBS-` family says the predicate store has no entry for the object a rule
+constrains, and several structurally different situations produce that answer; an ordering report
+likewise covers more than a wrong order (§5). Each of those situations has its own code **inside
+the existing family**, and the `label` column says which situation a code stands for. The family is
+kept on purpose: every consumer that separates not-observed from accusation reads the family
+(`scripts/gh109_nobs_channel.py` counts every family other than `NOBS` as an accusation;
+`gh104_message_gate.py` requires `NOBS` under a `NOT_OBSERVED` branch), and a new family would
+silently become an accusation in all of them. An analysis joins `errors.csv.code` with
+`codes.csv.label`.
+
+| `label` | Family | Emitted when |
+|---|---|---|
+| `violation` | every family other than `ORDER` and `NOBS` | the value, constraint or forbidden-call site reports |
+| `sequence` | `ORDER` | `@fail`, when neither label below applies |
+| `creation-unobserved` | `ORDER` | `@fail`, when no creation event was observed on the monitor (§5) |
+| `reuse-after-final` | `ORDER` | `@fail` of `CipherSpec` and `MacSpec`, when an initialisation event fails after an operation finished (§5) |
+| `not-observed` | `NOBS` | a `NOT_OBSERVED` read none of the labels below explains |
+| `platform-default` | `NOBS` | the bound argument is a `null` the API documents as "use the platform default" (`TrustManagerFactory.init`, `KeyManagerFactory.init`, each of the three arguments of `SSLContext.init`) |
+| `upstream-refused` | `NOBS` | the bound object carries `REPORTED_UPSTREAM` (§4) |
+| `application-manager` | `NOBS` | `SSLContext.init`, a non-null trust-manager array not credited per element that holds an element of a class defined by a class loader other than the one that defined `TrustManager` (`Evidence.isApplicationDefined`) |
+| `random-key-material` | `NOBS` | `SecretKeySpecSpec.c1`/`c2`, key material that is not `PREPARED_KEY_MATERIAL` but is `RANDOMIZED` |
+
+A label must agree with its family, and the message gate's `label-vocabulary` check fails a row
+whose label is outside the vocabulary or filed under a family that does not admit it. The class
+loader, not a package name, decides `application-manager`, so the rule holds for any APK; a
+delegating manager written by the application lands there too, and the monitor cannot tell it from
+a trust-all one.
+
+### 6.2 Labels at a `-NOBS-` site
+
+A label code is emitted **at the site and under the branch where the unlabelled code of its family
+would otherwise be emitted**: a label adds a report site to `codes.csv` without adding or removing a
+reported `(class, method, spec, event, location)` at run time (§6.3 is the one exception). So a
+`NOT_OBSERVED` read with labels becomes an `else if` chain in which each label's condition is
+conjoined **on the same line** with the verdict test:
+
+```
+if (verdict == PredicateVerdict.VIOLATED) {
+    ... <RULE>-CONSTR-NN ...
+}
+else if (verdict == PredicateVerdict.NOT_OBSERVED && arg == null) {
+    ... <RULE>-NOBS-NN  platform-default ...
+}
+else if (verdict == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, arg) == PredicateVerdict.SATISFIED) {
+    ... <RULE>-NOBS-NN  upstream-refused ...
+}
+else if (verdict == PredicateVerdict.NOT_OBSERVED) {
+    ... <RULE>-NOBS-00  not-observed ...
+}
+```
+
+The same-line form is not taste. The message gate classifies a site by the nearest enclosing `if`
+line and requires a `NOBS` code under a `NOT_OBSERVED` test; a label test nested as its own `if`
+inside the `NOT_OBSERVED` branch hides the verdict from the gate, which then files a `NOBS` code
+under a branch with no verdict and fails. `TrustManagerFactorySpec.mop:156-170`,
+`SecretKeySpecSpec.mop:136-150` and `SSLContextSpec.mop:274-289` are the worked examples.
+
+When more than one label applies, the chain is ordered by this precedence: `platform-default`, then
+`upstream-refused`, then `application-manager` or `random-key-material`, then `not-observed`. A
+`null` is decided first because nothing else can be said about it; a mark comes before a class or a
+randomness fact because it points at a report already made, which is where the reader should go.
+
+### 6.3 The per-element trust-manager credit
+
+`TrustManagerFactorySpec.gtm1` marks every non-null element of the array it returns with
+`GENERATED_TRUST_MANAGERS`, beside the array itself, and `SSLContextSpec.init` answers `SATISFIED`
+for the trust-manager array when the array is marked, or when it is non-empty and **every** element
+is marked (`SSLContextSpec.mop:262-273`). An application that copies a factory-issued manager into
+a new array passes an array the store never saw, and the manager — the object the rule constrains —
+is exactly the one the factory issued. One unmarked element withholds the credit, which closes the
+case of an array that mixes a factory manager with one the application wrote. This is the one label
+rule that changes which sites report. Key-manager arrays are not credited per element.
+
+### 6.4 The envelope and its evidence keys
 
 The message envelope is fixed (D-3):
 
 ```
 "v=1 code=<CODE> ev=" + __EVENTNAME + " obj=<SpecClass> val='<observed>' exp='<what the rule admits>' msg='<one sentence, lower case>'"
 ```
+
+which puts on the wire
+
+```
+v=1 code=<CODE> ev=<event> obj=<SpecClass> val='<observed>' exp='<admitted>' msg='<sentence>'[ vfp='<fingerprint>'][ vcls='<classes>']
+```
+
+The two trailing keys are **evidence**, and they appear only in a `-NOBS-` envelope. Every `-NOBS-`
+site, of any label, ends its `ErrorDescription` argument with `+ Evidence.keysFor(<bound>)` right
+after the closing `'` of `msg`, where `<bound>` is the object whose read answered `NOT_OBSERVED`:
+
+```
+"... msg='no generator of the key given to Cipher.init was observed'" + Evidence.keysFor(key)));
+```
+
+`br.unb.cic.mop.eh.Evidence.keysFor` returns ` vfp='sha256:<16 hex>'` (the first eight bytes of the
+SHA-256 of the bytes) for a `byte[]`, ` vcls='<classes>'` (the runtime classes of the elements,
+comma-joined in array order) for a `TrustManager[]`, and the empty string for anything else, `null`
+included; values follow the `q()` rule (at most 512 characters, `'` escaped). The helper is not
+called `suffix` because `suffix` is a reserved token of the JavaMOP grammar, and a `.mop` that
+writes `Evidence.suffix(` does not parse. The keys exist so an analysis can triage non-observation
+reports without reading source — a fingerprint identical across installations points to a value
+embedded in the application, an application-defined class to a manager worth reading — and nothing
+in the specification may depend on them: the gate's `evidence-only-on-nobs` check fails a helper
+call outside a report argument, or inside the envelope of any other family. They sit after `msg`
+so every reader that locates `code`, `ev`, `val` and `exp` by position or leading key is
+unaffected, and `RvErrorLog.unique_msg` removes them from the record's identity, so a fingerprint
+that differs per run does not multiply unique counts.
 
 `val` must be the operand the guard actually read. A guard on a monitor field whose message prints
 the observed object's algorithm produces an envelope that can carry `val` inside the `exp` list it

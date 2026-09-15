@@ -129,12 +129,18 @@ IvChainJunctionSpec(Cipher c) {
     // store owns that question". `@match` there writes `preparedIV[this]` only for a
     // construction whose own `randomized[iv]` read answered SATISFIED, so an iv the
     // instrumentation never saw randomised produces no preparation, and the same reach
-    // limit is now reported twice: IVPARAMETERSPEC-NOBS-00 at the construction and
-    // IVCHAINJUNCTION-NOBS-00 here. Measured on the pair: the unprepared trace goes
-    // from one report to two, and the conforming trace stays silent. The alternative --
-    // preparing on NOT_OBSERVED so the limit costs one report instead of two -- would
-    // make an IvParameterSpec of unknown origin satisfy this clause, which is a
-    // behavioural change to a ratified decision and not this task's to make.
+    // limit is reported twice: IVPARAMETERSPEC-NOBS-00 at the construction and a
+    // report here. Measured on the pair: the unprepared trace draws two reports, and the
+    // conforming trace stays silent. The alternative -- preparing on NOT_OBSERVED so the
+    // limit costs one report instead of two -- would make an IvParameterSpec of unknown
+    // origin satisfy this clause, which is a behavioural change to a ratified decision.
+    //
+    // The second report says which of the two situations it is. A spec whose construction
+    // was reported carries `REPORTED_UPSTREAM` (`IvParameterSpec.c1/c2`,
+    // `GCMParameterSpecSpec.c1/c2`), and a NOT_OBSERVED read over such a spec emits the
+    // `upstream-refused` code; a spec with no mark, one this instrumentation never saw
+    // constructed, emits the `not-observed` code. Both branches are the same site and the
+    // same verdict, so the label moves no report.
     event use before(int encmode, AlgorithmParameterSpec params, Cipher c):
       call(public void Cipher.init(int, Key, AlgorithmParameterSpec, ..)) &&
       args(encmode, *, params, ..) &&
@@ -162,9 +168,13 @@ IvChainJunctionSpec(Cipher c) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
                     "v=1 code=IVCHAINJUNCTION-CONSTR-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedIv) + "' msg='the AlgorithmParameterSpec given to Cipher.init carries a preparation predicate the rule does not admit'"));
             }
+            else if (prepared == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, params) == PredicateVerdict.SATISFIED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                    "v=1 code=IVCHAINJUNCTION-NOBS-06 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedIv) + "' msg='the AlgorithmParameterSpec given to Cipher.init was already reported where it was constructed'" + Evidence.keysFor(params)));
+            }
             else if (prepared == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
-                    "v=1 code=IVCHAINJUNCTION-NOBS-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedIv) + "' msg='no preparation of the AlgorithmParameterSpec given to Cipher.init was observed'"));
+                    "v=1 code=IVCHAINJUNCTION-NOBS-00 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedIv) + "' msg='no preparation of the AlgorithmParameterSpec given to Cipher.init was observed'" + Evidence.keysFor(params)));
             }
         }
 
@@ -196,9 +206,13 @@ IvChainJunctionSpec(Cipher c) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
                     "v=1 code=IVCHAINJUNCTION-CONSTR-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedGcm) + "' msg='the AlgorithmParameterSpec given to Cipher.init carries a preparation predicate the rule does not admit'"));
             }
+            else if (prepared == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, params) == PredicateVerdict.SATISFIED) {
+                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
+                    "v=1 code=IVCHAINJUNCTION-NOBS-07 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedGcm) + "' msg='the AlgorithmParameterSpec given to Cipher.init was already reported where it was constructed'" + Evidence.keysFor(params)));
+            }
             else if (prepared == PredicateVerdict.NOT_OBSERVED) {
                 ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
-                    "v=1 code=IVCHAINJUNCTION-NOBS-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedGcm) + "' msg='no preparation of the AlgorithmParameterSpec given to Cipher.init was observed'"));
+                    "v=1 code=IVCHAINJUNCTION-NOBS-01 ev=" + __EVENTNAME + " obj=Cipher val='" + q(transformation) + "' exp='" + q(expectedPreparedGcm) + "' msg='no preparation of the AlgorithmParameterSpec given to Cipher.init was observed'" + Evidence.keysFor(params)));
             }
         }
     }
@@ -252,7 +266,7 @@ IvChainJunctionSpec(Cipher c) {
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
-                "v=1 code=IVCHAINJUNCTION-NOBS-02 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'"));
+                "v=1 code=IVCHAINJUNCTION-NOBS-02 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'" + Evidence.keysFor(ranGen)));
         }
     }
 
@@ -268,7 +282,7 @@ IvChainJunctionSpec(Cipher c) {
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
-                "v=1 code=IVCHAINJUNCTION-NOBS-03 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'"));
+                "v=1 code=IVCHAINJUNCTION-NOBS-03 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'" + Evidence.keysFor(ranGen)));
         }
     }
 
@@ -284,7 +298,7 @@ IvChainJunctionSpec(Cipher c) {
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
-                "v=1 code=IVCHAINJUNCTION-NOBS-04 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'"));
+                "v=1 code=IVCHAINJUNCTION-NOBS-04 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'" + Evidence.keysFor(ranGen)));
         }
     }
 
@@ -300,7 +314,7 @@ IvChainJunctionSpec(Cipher c) {
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvChainJunctionSpec", "" + __LOC,
-                "v=1 code=IVCHAINJUNCTION-NOBS-05 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'"));
+                "v=1 code=IVCHAINJUNCTION-NOBS-05 ev=" + __EVENTNAME + " obj=Cipher val='" + q(c.getAlgorithm()) + "' exp='" + q(expectedRandomGen) + "' msg='the SecureRandom given to Cipher.init was not observed to come from an observed construction'" + Evidence.keysFor(ranGen)));
         }
     }
 

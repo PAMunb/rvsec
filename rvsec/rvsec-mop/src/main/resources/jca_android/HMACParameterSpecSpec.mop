@@ -18,16 +18,27 @@ HMACParameterSpecSpec(HMACParameterSpec hmacParameterSpec) {
 
    HMACParameterSpec spec;
 
+   // Set by the creation event `c`. The generated `reset()` does not clear it, so every
+   // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+   boolean creationObserved = false;
+
    event c after() returning(HMACParameterSpec s):
     call(public HMACParameterSpec.new(int)) {
+      creationObserved = true;
       spec = s;
     }
 
    ere : c
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "HMACParameterSpecSpec", "" + __LOC,
-          "v=1 code=HMACPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=HMACParameterSpec val='' exp='' msg='the observed call sequence is not one HMACParameterSpecSpec accepts'"));
+      if (!creationObserved) {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "HMACParameterSpecSpec", "" + __LOC,
+              "v=1 code=HMACPARAMETERSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=HMACParameterSpec val='' exp='' msg='the observed call sequence is not one HMACParameterSpecSpec accepts and no creation of the HMACParameterSpec was observed'"));
+      }
+      else {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "HMACParameterSpecSpec", "" + __LOC,
+              "v=1 code=HMACPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=HMACParameterSpec val='' exp='' msg='the observed call sequence is not one HMACParameterSpecSpec accepts'"));
+      }
       __RESET;
    }
 

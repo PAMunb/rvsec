@@ -45,6 +45,12 @@ OAEPParameterSpecSpec(OAEPParameterSpec s) {
    // Bound only on the conforming branch, which is what carries the object to `@match`.
    OAEPParameterSpec spec;
 
+   // Set by the one creation event, `c1`, whatever it reports, and never cleared: the
+   // generated `reset()` restores the automaton state and leaves this field. `@fail` reads it
+   // to choose between `OAEPPARAMETERSPEC-ORDER-01` (`creation-unobserved`) and the
+   // wrong-sequence code.
+   boolean creationObserved = false;
+
    // The rule's one event, `c1: OAEPParameterSpec(mdName, mgfName, mgfSpec, pSrc)` (:11),
    // and the whole of its ORDER. api30 declares exactly this constructor; the class's
    // `DEFAULT` static constant is built inside the platform and never reaches this
@@ -74,6 +80,7 @@ OAEPParameterSpecSpec(OAEPParameterSpec s) {
    event c1 after(String mdName, String mgfName, AlgorithmParameterSpec mgfSpec, PSource pSrc) returning(OAEPParameterSpec s):
      call(public OAEPParameterSpec.new(String, String, AlgorithmParameterSpec, PSource)) &&
      args(mdName, mgfName, mgfSpec, pSrc) {
+       creationObserved = true;
        boolean conforms = true;
        if (!ConscryptAliasTable.matches("MessageDigest", mdName, digests)) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "OAEPParameterSpecSpec", "" + __LOC,
@@ -94,7 +101,7 @@ OAEPParameterSpecSpec(OAEPParameterSpec s) {
        }
        else if (preparedMask == PredicateVerdict.NOT_OBSERVED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "OAEPParameterSpecSpec", "" + __LOC,
-               "v=1 code=OAEPPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='" + q(mdName) + "' exp='a mask generation function prepared for the same digest' msg='no preparation of the mask generation parameters was observed'"));
+               "v=1 code=OAEPPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='" + q(mdName) + "' exp='a mask generation function prepared for the same digest' msg='no preparation of the mask generation parameters was observed'" + Evidence.keysFor(mgfSpec)));
            conforms = false;
        }
        if (conforms) {
@@ -105,12 +112,18 @@ OAEPParameterSpecSpec(OAEPParameterSpec s) {
    // `Con := c1` is the whole ORDER (:14-15), so the `@fail` handler cannot fire: one
    // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
    // no monitor ever sees a second event. Written because the generator and the
-   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:158-170`).
    ere : c1
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "OAEPParameterSpecSpec", "" + __LOC,
-          "v=1 code=OAEPPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='' exp='' msg='the observed call sequence is not one OAEPParameterSpecSpec accepts'"));
+      if (!creationObserved) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "OAEPParameterSpecSpec", "" + __LOC,
+             "v=1 code=OAEPPARAMETERSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='' exp='' msg='the observed call sequence is not one OAEPParameterSpecSpec accepts and no creation of the parameters was observed'"));
+      }
+      else {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "OAEPParameterSpecSpec", "" + __LOC,
+             "v=1 code=OAEPPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=OAEPParameterSpec val='' exp='' msg='the observed call sequence is not one OAEPParameterSpecSpec accepts'"));
+      }
       __RESET;
    }
 

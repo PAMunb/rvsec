@@ -1,0 +1,10 @@
+# A 1024-bit RSA key-generation spec with the F4 exponent. 1024 is not in {2048, 3072, 4096}, the
+# list of KeyPairGenerator.crysl:29 that RSAKeyGenParameterSpecSpec admits, so after gh114
+# (RSAKeyGenParameterSpecSpec, c1) reports RSAKEYGENPARAMETERSPEC-KEYSIZE-00, label `violation`,
+# with val='1024' and exp='[2048, 3072, 4096]'; the exponent clause holds, so no CONSTR-00, and
+# `preparedRSA` is not staged.
+#
+# Before gh114 the list was RSAKeyGenParameterSpec.crysl:15 transcribed literally,
+# {1024, 2048, 4096}, and the trace drew no report. The added report is the RSA transcription,
+# not a label: the harness classes this trace `introduced`.
+new RSAKeyGenParameterSpec(1024, 65537) -> params

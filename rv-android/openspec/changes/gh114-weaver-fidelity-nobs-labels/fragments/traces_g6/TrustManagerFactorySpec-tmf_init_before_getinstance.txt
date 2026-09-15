@@ -1,0 +1,19 @@
+# A factory whose creation the monitor never saw: it is obtained by a `bind` line, so no
+# getInstance reaches TrustManagerFactorySpec, and the first event its monitor observes is `init`.
+# The key store is really loaded, as in TrustManagerFactorySpec-loaded-keystore.txt, so the
+# `generatedKeyStore` read stays quiet and the sequence failure is the only report of `init`.
+# The dispatched `getTrustManagers()` that follows reaches the monitor `@fail` reset to `start`,
+# where `gtm1` is not declared, so it fails a second time.
+#
+# After gh114: `init` reports TRUSTMANAGERFACTORY-ORDER-01 (label `creation-unobserved`) with
+# `msg='init() before getInstance()'`, and `gtm1` reports TRUSTMANAGERFACTORY-ORDER-01 as well,
+# with `msg='gtm1() before getInstance()'` -- no creation event arrived after the reset, so the
+# label persists on the monitor.
+# Before gh114: the same (spec, event) sites reported TRUSTMANAGERFACTORY-ORDER-00 at `init` and at
+# `gtm1`.
+KeyStore.getInstance("PKCS12") -> ks
+bind ready = ks.load(null)
+ks.load(null)
+bind tmf = TrustManagerFactory.getInstance("PKIX")
+tmf.init(ks)
+tmf.getTrustManagers()

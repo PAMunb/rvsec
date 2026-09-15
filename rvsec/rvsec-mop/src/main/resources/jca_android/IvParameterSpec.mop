@@ -19,6 +19,10 @@ IvParameterSpecSpec(IvParameterSpec s) {
 
     IvParameterSpec spec;
 
+    // Set by the creation events `c1` and `c2`. The generated `reset()` does not clear it, so every
+    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+    boolean creationObserved = false;
+
     // One event over `IvParameterSpec(byte[])`, where there used to be two split by
     // the sign of a guard. The negated twin `c3` matched the same call with the same
     // `args(iv)` and named no state in the `ere`, so it was one of the 17 orphan
@@ -59,23 +63,35 @@ IvParameterSpecSpec(IvParameterSpec s) {
     // reach limit costs one report here instead of cascading into a second one
     // downstream -- is now measurable, and the sentence that stood here saying no
     // specification reads `PREPARED_IV` was false when it was written. Two do:
-    // `AlgorithmParametersSpec.mop:148`, on the `AES` antecedent of
-    // `AlgorithmParameters.crysl:35`, and `IvChainJunction.mop:160`. Whichever way that
+    // `AlgorithmParametersSpec.mop:153`, on the `AES` antecedent of
+    // `AlgorithmParameters.crysl:35`, and `IvChainJunction.mop:166`. Whichever way that
     // question is settled, it is settled against those two sites and not in the abstract.
+    //
+    // A construction this body reports on is marked `REPORTED_UPSTREAM`, so the consumer of
+    // `PREPARED_IV` (`IvChainJunction.use`) reports it as refused upstream rather than as not
+    // observed. The read of `randomized[iv]` here is not a consumer of that mark: no producer of
+    // `RANDOMIZED` marks what it refuses, so NOT_OBSERVED keeps its own code.
     event c1 after(byte[] iv) returning(IvParameterSpec s):
       call(public IvParameterSpec.new(byte[])) &&
       args(iv) {
+        creationObserved = true;
+        boolean reported = false;
         PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, iv);
         if (randomised == PredicateVerdict.VIOLATED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
                 "v=1 code=IVPARAMETERSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[]) carries a randomization predicate the rule does not admit'"));
+            reported = true;
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
-                "v=1 code=IVPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='no randomized source of the iv given to IvParameterSpec(byte[]) was observed'"));
+                "v=1 code=IVPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='no randomized source of the iv given to IvParameterSpec(byte[]) was observed'" + Evidence.keysFor(iv)));
+            reported = true;
         }
         else {
             spec = s;
+        }
+        if (reported) {
+            PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, s);
         }
     }
 
@@ -114,29 +130,43 @@ IvParameterSpecSpec(IvParameterSpec s) {
     event c2 after(byte[] iv, int offset, int len) returning(IvParameterSpec s):
       call(public IvParameterSpec.new(byte[], int, int)) &&
       args(iv, offset, len) {
+        creationObserved = true;
+        boolean reported = false;
         PredicateVerdict randomised = PredicateStore.instance().validate(Property.RANDOMIZED, iv);
         if (randomised == PredicateVerdict.VIOLATED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
                 "v=1 code=IVPARAMETERSPEC-CONSTR-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='the iv given to IvParameterSpec(byte[], int, int) carries a randomization predicate the rule does not admit'"));
+            reported = true;
         }
         else if (randomised == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
-                "v=1 code=IVPARAMETERSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='no randomized source of the iv given to IvParameterSpec(byte[], int, int) was observed'"));
+                "v=1 code=IVPARAMETERSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='a randomized byte[]' msg='no randomized source of the iv given to IvParameterSpec(byte[], int, int) was observed'" + Evidence.keysFor(iv)));
+            reported = true;
         }
         else if (len <= 0) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "IvParameterSpecSpec", "" + __LOC,
                 "v=1 code=IVPARAMETERSPEC-CONSTR-02 ev=" + __EVENTNAME + " obj=IvParameterSpec val='" + len + "' exp='a length greater than zero' msg='the iv length given to IvParameterSpec(byte[], int, int) is not greater than zero'"));
+            reported = true;
         }
         else if (offset >= 0 && iv.length >= offset + len) {
             spec = s;
+        }
+        if (reported) {
+            PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, s);
         }
     }
 
     ere : c1 | c2
 
     @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "IvParameterSpecSpec", "" + __LOC,
-          "v=1 code=IVPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='' msg='the observed call sequence is not one IvParameterSpecSpec accepts'"));
+      if (!creationObserved) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "IvParameterSpecSpec", "" + __LOC,
+             "v=1 code=IVPARAMETERSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='' msg='the observed call sequence is not one IvParameterSpecSpec accepts and no creation of the IvParameterSpec was observed'"));
+      }
+      else {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "IvParameterSpecSpec", "" + __LOC,
+             "v=1 code=IVPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=IvParameterSpec val='' exp='' msg='the observed call sequence is not one IvParameterSpecSpec accepts'"));
+      }
       __RESET;
     }
 

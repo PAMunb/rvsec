@@ -20,6 +20,10 @@ X509EncodedKeySpecSpec(X509EncodedKeySpec s) {
    // Bound only on the conforming branch, which is what carries the object to `@match`.
    X509EncodedKeySpec spec;
 
+   // Set by `c1` and read by `@fail` (X509ENCODEDKEYSPEC-ORDER-01). The generated `reset()`
+   // clears the state and not this field.
+   boolean creationObserved = false;
+
    // The rule's one event, `c1: X509EncodedKeySpec(encodedKey)` (:7), and the whole of its
    // ORDER. api30 declares exactly this constructor -- the `(byte[], String)` overload a
    // desktop JDK carries is not on this platform, which is why the viability check reads
@@ -33,42 +37,65 @@ X509EncodedKeySpecSpec(X509EncodedKeySpec s) {
    // something else about, NOT_OBSERVED says only that no producer of these bytes was ever
    // seen, which on Android is as often a reach limit as a misuse.
    //
-   // The producers are `SecretKeySpec.mop:145`, which bridges `SecretKey.getEncoded()`, and
+   // The producers are `SecretKeySpec.mop:154`, which bridges `SecretKey.getEncoded()`, and
    // `KeyAgreement.crysl:51` from task 4.3. Both write the array a key handed out, which is
    // exactly what an X.509 key spec is built from: the clause says *do not re-spec bytes
    // whose origin nobody watched*.
+   //
+   // Bytes that carry REPORTED_UPSTREAM came out of a key or an agreement that was already
+   // reported, and draw the `upstream-refused` code instead of X509ENCODEDKEYSPEC-NOBS-00.
+   // Either report is about the constructed spec, which is marked REPORTED_UPSTREAM in turn,
+   // so the key factory that decodes it says the same.
    event c1 after(byte[] encodedKey) returning(X509EncodedKeySpec s):
      call(public X509EncodedKeySpec.new(byte[])) &&
      args(encodedKey) {
+       creationObserved = true;
+       boolean reported = false;
        PredicateVerdict prepared = PredicateStore.instance().validate(Property.PREPARED_KEY_MATERIAL, encodedKey);
        if (prepared == PredicateVerdict.VIOLATED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "X509EncodedKeySpecSpec", "" + __LOC,
                "v=1 code=X509ENCODEDKEYSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=X509EncodedKeySpec val='' exp='key material the monitor observed being prepared' msg='the encoded key carries a preparation predicate the rule does not admit'"));
+           reported = true;
+       }
+       else if (prepared == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, encodedKey) == PredicateVerdict.SATISFIED) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "X509EncodedKeySpecSpec", "" + __LOC,
+               "v=1 code=X509ENCODEDKEYSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=X509EncodedKeySpec val='' exp='key material the monitor observed being prepared' msg='the encoded key material comes from an object that was already reported upstream'" + Evidence.keysFor(encodedKey)));
+           reported = true;
        }
        else if (prepared == PredicateVerdict.NOT_OBSERVED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "X509EncodedKeySpecSpec", "" + __LOC,
-               "v=1 code=X509ENCODEDKEYSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=X509EncodedKeySpec val='' exp='key material the monitor observed being prepared' msg='no preparation of the encoded key material was observed'"));
+               "v=1 code=X509ENCODEDKEYSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=X509EncodedKeySpec val='' exp='key material the monitor observed being prepared' msg='no preparation of the encoded key material was observed'" + Evidence.keysFor(encodedKey)));
+           reported = true;
        }
        else {
            spec = s;
+       }
+       if (reported) {
+           PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, s);
        }
    }
 
    // `Con := c1` is the whole ORDER (:10-11), so the `@fail` handler cannot fire: one
    // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
    // no monitor ever sees a second event. Written because the generator and the
-   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:134-146`).
+   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:158-170`).
    ere : c1
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "X509EncodedKeySpecSpec", "" + __LOC,
-          "v=1 code=X509ENCODEDKEYSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=X509EncodedKeySpec val='' exp='' msg='the observed call sequence is not one X509EncodedKeySpecSpec accepts'"));
+      if (!creationObserved) {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "X509EncodedKeySpecSpec", "" + __LOC,
+              "v=1 code=X509ENCODEDKEYSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=X509EncodedKeySpec val='' exp='' msg='the observed call sequence is not one X509EncodedKeySpecSpec accepts, and no construction of this X509EncodedKeySpec was observed'"));
+      }
+      else {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "X509EncodedKeySpecSpec", "" + __LOC,
+              "v=1 code=X509ENCODEDKEYSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=X509EncodedKeySpec val='' exp='' msg='the observed call sequence is not one X509EncodedKeySpecSpec accepts'"));
+      }
       __RESET;
    }
 
    // `ENSURES speccedKey[this, _] after Con` (:17). The qualification names the whole of
    // the ORDER, so the states `Con` leads to and the accepting states are the same states,
-   // and `@match` is both -- the same coincidence `SecretKeySpec.mop:129-135` measures for
+   // and `@match` is both -- the same coincidence `SecretKeySpec.mop:138-144` measures for
    // its own `after GetEnc`. `spec` is bound only where the read answered SATISFIED, and
    // `ensure` treats a null binding as a no-op.
    //
@@ -76,7 +103,7 @@ X509EncodedKeySpecSpec(X509EncodedKeySpec s) {
    // records the object and determines no value. That is what the readers ask for --
    // `KeyFactory.crysl:27` and `SecretKeyFactory.crysl:28` both read `speccedKey[keySpec, _]`,
    // which is `validateAny`, *this object carries the predicate, whatever it carries it
-   // with*. The set's other producer, `PBEKeySpecSpec.mop:160`, writes a key length in that
+   // with*. The set's other producer, `PBEKeySpecSpec.mop:173`, writes a key length in that
    // place because `PBEKeySpec.crysl:32` names one; both writes answer the same anonymous
    // read.
    @match {

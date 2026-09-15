@@ -171,23 +171,23 @@ GitHub Issue: #114
 
 ## 13. Specification-Set Closing (WAVE 2, subagents G13a, G13b, G13c; needs 6–9b; 13.6 in the main window after all three)
 
-- [ ] 13.1 G13a: Merge `fragments/codes_g6.csv` … `codes_g9b.csv` into `jca_android/codes.csv` in file order; verify numbering is the next free per file and family
-- [ ] 13.2 G13a: Move `fragments/traces_*` into `data/gh104/traces/` and add their expectations to the harness baseline; pin label `sequence` on the existing traces `CipherSpec-unsafe`, `MessageDigestSpec-md5`, `SSLContextSpec-getdefault-engine`, `PBEKeySpecSpec-forbidden-then-clear`, `KeyGeneratorSpec-unsafe` (design D7)
-- [ ] 13.3 G13b: Records (design D13, D14), after the last `.mop` edit:
+- [x] 13.1 G13a: Merge `fragments/codes_g6.csv` … `codes_g9b.csv` into `jca_android/codes.csv` in file order; verify numbering is the next free per file and family
+- [x] 13.2 G13a: Move `fragments/traces_*` into `data/gh104/traces/` and add their expectations to the harness baseline; pin label `sequence` on the existing traces `CipherSpec-unsafe`, `MessageDigestSpec-md5`, `SSLContextSpec-getdefault-engine`, `PBEKeySpecSpec-forbidden-then-clear`, `KeyGeneratorSpec-unsafe` (design D7)
+- [x] 13.3 G13b: Records (design D13, D14), after the last `.mop` edit:
   - `.mop` comment blocks `DigestInputStreamSpec.mop:75-89`, `DigestOutputStreamSpec.mop:76-88` rewritten for after-finally (G13b edits them after G9a, first, so the refresh below sees them)
   - `divergence_record.csv`: run `scripts/gh104_divergence_record.py --refresh`, carry each previous reason to the new key of the same file and append the gh114 reason (kinds `message` and `predicate-store` only); rewrite `:376` in place for the RSA alignment (both clauses, NIST SP 800-57 Part 1, D-20.4, task `gh109:6.3;gh114:9.4`); addendum on `:269`; close `:45`, `:46` as repaired by gh114; rewrite `:105`, `:106` for after-finally
   - `conformance_record.csv`: new RSA key-size row; rewrite `:116`, `:117`, `:119`, `:120` (advice kind is plain `after`; guards stay `deferred-constant`, platform refuses the call) and amend `:118`, `:121` (`len < 0` on a throwing call)
   - re-emit `coverage_matrix.csv` with `scripts/gh109_coverage_matrix.py --emit`
   - `RVSEC_HOME=… uv run python scripts/gh104_divergence_record.py --check` exits 0
 - [x] 13.4 G13c: `tests/parity/test_gh105_predicate_gates.py:1362-1395`: restate the census pins with the new `REPORTED_UPSTREAM` and `GENERATED_TRUST_MANAGERS` sites; update `data/jca_android/predicate_graph.csv`
-- [ ] 13.5 G13a, after 13.1–13.2: Run the specification trace harness (`scripts/gh104_diff_harness.py`, which replays monitor event traces against two snapshots of the specification set; no weaver involved) over all traces: same `(spec, event, class, method, location)` sets before and after except the trust-manager per-element credit traces; store the report in `evidence/labels_same_sites.txt`
+- [x] 13.5 G13a, after 13.1–13.2: Run the specification trace harness (`scripts/gh104_diff_harness.py`, which replays monitor event traces against two snapshots of the specification set; no weaver involved) over all traces: same `(spec, event, class, method, location)` sets before and after except the trust-manager per-element credit traces; store the report in `evidence/labels_same_sites.txt`
 - [ ] 13.6 Main window, after 13.1–13.5: Generate the monitor for `jca_android` (`uv run rv-monitor-generator generate --specs-dir …/jca_android --output <scratch>`) and run all gates: `uv run pytest tests/parity --import-mode=importlib -o "addopts="`; every moved G-2/G-ORDER allowlist row carries a reason
 
 ## 14. Documentation (WAVE 2, subagent G14; needs 2–4)
 
-- [ ] 14.1 `data/jca_android/NEW_SPEC_CONVENTIONS.md` (envelope grammar with evidence keys, `label` column, numbering of label codes, precedence) and `data/jca_android/README.md` (codes table count, labels)
-- [ ] 14.2 `rvsec-instrumentation-dexlib2/architecture.md` (`:176` INV-INS-122 → INV-INS-159; A2, A3, A5 behaviour; new counters) and `modules/rv-instrumentation-dexlib2/docs/architecture.md` (`:30`, `:316`), `modules/rv-instrumentation-dexlib2/CLAUDE.md` (`:111`)
-- [ ] 14.3 `modules/rv-platform` docs/CLAUDE.md where result processing is described (one pass, release)
+- [x] 14.1 `data/jca_android/NEW_SPEC_CONVENTIONS.md` (envelope grammar with evidence keys, `label` column, numbering of label codes, precedence) and `data/jca_android/README.md` (codes table count, labels)
+- [x] 14.2 `rvsec-instrumentation-dexlib2/architecture.md` (`:176` INV-INS-122 → INV-INS-159; A2, A3, A5 behaviour; new counters) and `modules/rv-instrumentation-dexlib2/docs/architecture.md` (`:30`, `:316`), `modules/rv-instrumentation-dexlib2/CLAUDE.md` (`:111`)
+- [x] 14.3 `modules/rv-platform` docs/CLAUDE.md where result processing is described (one pass, release)
 
 ## 15. Build, Instrument, Measure and Smoke (WAVE 3, main window)
 

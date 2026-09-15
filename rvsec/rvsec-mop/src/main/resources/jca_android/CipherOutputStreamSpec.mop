@@ -20,6 +20,11 @@ CipherOutputStreamSpec(CipherOutputStream cos) {
 
     // The `exp=` of the two report sites below, as a field so the two cannot drift apart.
     String expectedGeneratedCipher = "a Cipher this instrumentation observed being initialised";
+
+    // Set by the creation event `c1`. The generated `reset()` does not clear it, so every
+    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+    boolean creationObserved = false;
+
     // The constructor binds through `returning`, every other event through `target` -- same
     // reason as the sibling file: an unbound event of a parametric specification broadcasts
     // over the whole monitor set instead of naming one stream.
@@ -30,6 +35,7 @@ CipherOutputStreamSpec(CipherOutputStream cos) {
     event c1 after(OutputStream output, Cipher cipher) returning(CipherOutputStream cos):
       call(public CipherOutputStream.new(OutputStream, Cipher)) &&
       args(output, cipher) {
+        creationObserved = true;
         PredicateVerdict origin = PredicateStore.instance().validate(Property.GENERATED_CIPHER, cipher);
         if (origin == PredicateVerdict.VIOLATED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherOutputStreamSpec", "" + __LOC,
@@ -37,7 +43,7 @@ CipherOutputStreamSpec(CipherOutputStream cos) {
         }
         else if (origin == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "CipherOutputStreamSpec", "" + __LOC,
-                "v=1 code=CIPHEROUTPUTSTREAM-NOBS-00 ev=" + __EVENTNAME + " obj=CipherOutputStream val='' exp='" + expectedGeneratedCipher + "' msg='the Cipher given to the CipherOutputStream constructor was not observed being initialised'"));
+                "v=1 code=CIPHEROUTPUTSTREAM-NOBS-00 ev=" + __EVENTNAME + " obj=CipherOutputStream val='' exp='" + expectedGeneratedCipher + "' msg='the Cipher given to the CipherOutputStream constructor was not observed being initialised'" + Evidence.keysFor(cipher)));
         }
     }
 
@@ -72,8 +78,14 @@ CipherOutputStreamSpec(CipherOutputStream cos) {
     ere : c1 fl* ((w1 | w2) fl*)+ cl
 
     @fail {
-       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherOutputStreamSpec", "" + __LOC,
-           "v=1 code=CIPHEROUTPUTSTREAM-ORDER-00 ev=" + __EVENTNAME + " obj=CipherOutputStream val='' exp='' msg='the observed call sequence is not one CipherOutputStreamSpec accepts'"));
+       if (!creationObserved) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherOutputStreamSpec", "" + __LOC,
+               "v=1 code=CIPHEROUTPUTSTREAM-ORDER-01 ev=" + __EVENTNAME + " obj=CipherOutputStream val='' exp='' msg='the observed call sequence is not one CipherOutputStreamSpec accepts and no creation of the CipherOutputStream was observed'"));
+       }
+       else {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherOutputStreamSpec", "" + __LOC,
+               "v=1 code=CIPHEROUTPUTSTREAM-ORDER-00 ev=" + __EVENTNAME + " obj=CipherOutputStream val='' exp='' msg='the observed call sequence is not one CipherOutputStreamSpec accepts'"));
+       }
        __RESET;
     }
 }

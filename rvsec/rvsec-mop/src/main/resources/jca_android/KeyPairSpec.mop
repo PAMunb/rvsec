@@ -19,6 +19,14 @@ import br.unb.cic.mop.Property;
  */
 KeyPairSpec(KeyPair keyPair) {
 
+    // Set by the one creation event, `c1`, and never cleared: the generated `reset()` restores
+    // the automaton state and leaves this field, so the fact survives a failure. `@fail` reads
+    // it to report a pair whose construction no event of this specification observed -- a pair
+    // out of `KeyPairGenerator.generateKeyPair()` is one -- under `KEYPAIR-ORDER-01`
+    // (`creation-unobserved`) instead of the wrong-sequence code, on the first failure and on
+    // every later one.
+    boolean creationObserved = false;
+
     // KeyPair.crysl:27 also states `generatedKeypair[this, _] after Con`, and this
     // file has no write for it. None is fabricated, and task 5.10 has now made the record
     // this pass fed it: the predicate is required by no rule of the whole oracle, so a
@@ -79,6 +87,7 @@ KeyPairSpec(KeyPair keyPair) {
     event c1 after(PublicKey publicKey, PrivateKey privateKey) returning(KeyPair keyPair):
       call(public KeyPair.new(PublicKey, PrivateKey))
       && args(publicKey, privateKey) {
+        creationObserved = true;
         PredicateVerdict privOrigin = PredicateStore.instance().validate(Property.GENERATED_PRIVATE_KEY, privateKey);
         if (privOrigin == PredicateVerdict.VIOLATED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairSpec", "" + __LOC,
@@ -86,7 +95,7 @@ KeyPairSpec(KeyPair keyPair) {
         }
         else if (privOrigin == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairSpec", "" + __LOC,
-                "v=1 code=KEYPAIR-NOBS-00 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to the KeyPair constructor was observed'"));
+                "v=1 code=KEYPAIR-NOBS-00 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='a private key produced by one of the generators the rule names' msg='no generator of the private key given to the KeyPair constructor was observed'" + Evidence.keysFor(privateKey)));
         }
         PredicateVerdict pubOrigin = PredicateStore.instance().validate(Property.GENERATED_PUBLIC_KEY, publicKey);
         if (pubOrigin == PredicateVerdict.VIOLATED) {
@@ -95,7 +104,7 @@ KeyPairSpec(KeyPair keyPair) {
         }
         else if (pubOrigin == PredicateVerdict.NOT_OBSERVED) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyPairSpec", "" + __LOC,
-                "v=1 code=KEYPAIR-NOBS-01 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='a public key produced by one of the generators the rule names' msg='no generator of the public key given to the KeyPair constructor was observed'"));
+                "v=1 code=KEYPAIR-NOBS-01 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='a public key produced by one of the generators the rule names' msg='no generator of the public key given to the KeyPair constructor was observed'" + Evidence.keysFor(publicKey)));
         }
     }
 
@@ -113,8 +122,8 @@ KeyPairSpec(KeyPair keyPair) {
     // runs BEFORE the transition is decided, so the write happens anyway; a write at
     // `@match` would not, and `generatedPubkey` would go unwritten for every generated
     // pair in the corpus. That is not a hypothesis: the harness pair
-    // `data/gh105/evidence/harness/f8g-*.md` shows the five traces that gain
-    // KEYPAIR-ORDER-00 gaining nothing else, `SignatureSpec-generated-pubkey.txt` and
+    // `data/gh105/evidence/harness/f8g-*.md` shows the five traces that gain an
+    // ordering report gaining nothing else, `SignatureSpec-generated-pubkey.txt` and
     // `-privkey.txt` among them -- their reads still answer SATISFIED, so the chain the
     // ordering report sits beside is intact.
     //
@@ -167,10 +176,12 @@ KeyPairSpec(KeyPair keyPair) {
     // never wrong: practically every Android key pair comes out of `generateKeyPair()`,
     // which fires no `c1` at all, so every `getPublic()`/`getPrivate()` on a generated pair
     // is a sequence this automaton rejects. Measured again at 11.6 over the corpus as it
-    // now stands: seven new KEYPAIR-ORDER-00 in five traces -- `KeyPairSpec-generated` (2),
+    // now stands: seven new ordering reports in five traces -- `KeyPairSpec-generated` (2),
     // `-observed-halves` (2), `-generated-cipher` (1), `SignatureSpec-generated-pubkey` (1)
     // and `-generated-privkey` (1). In a campaign over real apps the report will be common,
-    // and the decision was taken with that on the table; the divergence row says it.
+    // and the decision was taken with that on the table; the divergence row says it. No `c1`
+    // reaches the monitor of a generated pair, so the report carries `KEYPAIR-ORDER-01`
+    // (`creation-unobserved`), which separates it from a constructed pair used out of order.
     //
     // What it does NOT cost is the predicate chain, and that is the fact the decision rests
     // on: the event body of `gpu`/`gpr` runs before the transition is decided, so both
@@ -189,8 +200,14 @@ KeyPairSpec(KeyPair keyPair) {
     ere: c1 (gpu | gpr)*
 
     @fail {
-       ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairSpec", "" + __LOC,
-           "v=1 code=KEYPAIR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='' msg='the observed call sequence is not one KeyPairSpec accepts'"));
+       if (!creationObserved) {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairSpec", "" + __LOC,
+               "v=1 code=KEYPAIR-ORDER-01 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='' msg='the observed call sequence is not one KeyPairSpec accepts and no construction of the key pair was observed'"));
+       }
+       else {
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairSpec", "" + __LOC,
+               "v=1 code=KEYPAIR-ORDER-00 ev=" + __EVENTNAME + " obj=KeyPair val='' exp='' msg='the observed call sequence is not one KeyPairSpec accepts'"));
+       }
        __RESET;
     }
 

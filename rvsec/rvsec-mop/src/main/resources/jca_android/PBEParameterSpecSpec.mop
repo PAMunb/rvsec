@@ -20,6 +20,12 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
 
         PBEParameterSpec spec;
 
+        // Set by the two creation events, `c1` and `c2`, whatever they report, and never
+        // cleared: the generated `reset()` restores the automaton state and leaves this
+        // field. `@fail` reads it to choose between `PBEPARAMETERSPEC-ORDER-01`
+        // (`creation-unobserved`) and the wrong-sequence code.
+        boolean creationObserved = false;
+
         // One event over `PBEParameterSpec(byte[], int)`, where there used to be two
         // split by the sign of a guard. The negated twin `c3` matched the same call
         // with the same `args(salt, iterationCount)` and named no state in the `ere`,
@@ -52,6 +58,7 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
         event c1 after(byte[] salt, int iterationCount) returning(PBEParameterSpec s):
           call(public PBEParameterSpec.new(byte[], int)) &&
           args(salt, iterationCount) {
+              creationObserved = true;
               boolean conforms = true;
               if (iterationCount < 10000) {
                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC,
@@ -66,7 +73,7 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
               }
               else if (randomisedSalt == PredicateVerdict.NOT_OBSERVED) {
                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC,
-                      "v=1 code=PBEPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='a randomized byte[]' msg='the salt was not observed to come from a randomized source'"));
+                      "v=1 code=PBEPARAMETERSPEC-NOBS-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='a randomized byte[]' msg='the salt was not observed to come from a randomized source'" + Evidence.keysFor(salt)));
                   conforms = false;
               }
               if (conforms) {
@@ -101,6 +108,7 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
         event c2 after(byte[] salt, int iterationCount, AlgorithmParameterSpec paramSpec) returning(PBEParameterSpec s):
           call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) &&
           args(salt, iterationCount, paramSpec) {
+              creationObserved = true;
               boolean conforms = true;
               if (iterationCount < 10000) {
                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC,
@@ -115,7 +123,7 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
               }
               else if (randomisedSalt == PredicateVerdict.NOT_OBSERVED) {
                   ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEParameterSpecSpec", "" + __LOC,
-                      "v=1 code=PBEPARAMETERSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='a randomized byte[]' msg='the salt was not observed to come from a randomized source'"));
+                      "v=1 code=PBEPARAMETERSPEC-NOBS-01 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='a randomized byte[]' msg='the salt was not observed to come from a randomized source'" + Evidence.keysFor(salt)));
                   conforms = false;
               }
               if (conforms) {
@@ -126,8 +134,14 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
         ere : c1 | c2
 
         @fail {
-          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpecSpec", "" + __LOC,
-              "v=1 code=PBEPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='' msg='the observed call sequence is not one PBEParameterSpecSpec accepts'"));
+          if (!creationObserved) {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpecSpec", "" + __LOC,
+                "v=1 code=PBEPARAMETERSPEC-ORDER-01 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='' msg='the observed call sequence is not one PBEParameterSpecSpec accepts and no creation of the parameters was observed'"));
+          }
+          else {
+            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEParameterSpecSpec", "" + __LOC,
+                "v=1 code=PBEPARAMETERSPEC-ORDER-00 ev=" + __EVENTNAME + " obj=PBEParameterSpec val='' exp='' msg='the observed call sequence is not one PBEParameterSpecSpec accepts'"));
+          }
           __RESET;
         }
 
@@ -146,7 +160,7 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
         // this rule's own ENSURES" -- was false when it was written:
         // `AlgorithmParameters.crysl:37-39` requires it, guarded by the eight
         // `PBEWithHmacSHA*AndAES_*` names, and gh109 task 3.1 landed the specification that
-        // reads it, at `AlgorithmParametersSpec.mop:156`. The dead-end disposition this
+        // reads it, at `AlgorithmParametersSpec.mop:161`. The dead-end disposition this
         // block recorded is retired with it; `predicate_graph.csv` carries the live edge.
         //
         // The accepting-state bookkeeping that stood beside this write is gone: the new

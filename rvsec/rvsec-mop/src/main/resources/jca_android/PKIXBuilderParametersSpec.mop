@@ -24,6 +24,12 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
    // is nothing; see the note on that event.
    PKIXBuilderParameters spec;
 
+   // Set by the two creation events, `c1` and `c2`, whatever they report, and never cleared:
+   // the generated `reset()` restores the automaton state and leaves this field. `@fail` reads
+   // it to choose between `PKIXBUILDERPARAMETERS-ORDER-01` (`creation-unobserved`) and the
+   // wrong-sequence code.
+   boolean creationObserved = false;
+
    // The key-store constructor, the rule's `c1` (:9) and one alternative of its
    // `Con := c1 | c2`. api30 declares both overloads with these exact parameter lists.
    //
@@ -31,7 +37,7 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
    // body rather than in a `condition(...)` -- a guard would compile to
    // `if (!(guard)) return false;` ahead of the transition (INV-INS-133), and a failed
    // REQUIRES is not a typestate failure. Three-valued, with VIOLATED and NOT_OBSERVED
-   // under different code families (INV-INS-143). The producer is `KeyStoreSpec.mop:185`.
+   // under different code families (INV-INS-143). The producer is `KeyStoreSpec.mop:214`.
    //
    // The rule states a second requirement and states it commented out:
    // `//generatedTrustAnchor[];` at :18, with no argument in its brackets. It is not wired,
@@ -43,6 +49,7 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
    event c1 after(KeyStore keystore, CertSelector targetConstraints) returning(PKIXBuilderParameters s):
      call(public PKIXBuilderParameters.new(KeyStore, CertSelector)) &&
      args(keystore, targetConstraints) {
+       creationObserved = true;
        PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_KEY_STORE, keystore);
        if (generated == PredicateVerdict.VIOLATED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PKIXBuilderParametersSpec", "" + __LOC,
@@ -50,7 +57,7 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
        }
        else if (generated == PredicateVerdict.NOT_OBSERVED) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PKIXBuilderParametersSpec", "" + __LOC,
-               "v=1 code=PKIXBUILDERPARAMETERS-NOBS-00 ev=" + __EVENTNAME + " obj=PKIXBuilderParameters val='' exp='a key store the monitor observed being loaded' msg='no load of the key store was observed'"));
+               "v=1 code=PKIXBUILDERPARAMETERS-NOBS-00 ev=" + __EVENTNAME + " obj=PKIXBuilderParameters val='' exp='a key store the monitor observed being loaded' msg='no load of the key store was observed'" + Evidence.keysFor(keystore)));
        }
        else {
            spec = s;
@@ -64,6 +71,7 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
    event c2 after(Set trustAnchors, CertSelector targetConstraints) returning(PKIXBuilderParameters s):
      call(public PKIXBuilderParameters.new(Set, CertSelector)) &&
      args(trustAnchors, targetConstraints) {
+       creationObserved = true;
        spec = s;
    }
 
@@ -71,12 +79,18 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
    // transition row is {1, 2, 2} for both events and the monitor is keyed on the constructed
    // object, so no monitor ever sees a second event and state 2 is never entered. Written
    // because the generator and the `codes.csv` bijection expect it (precedent:
-   // `GCMParameterSpecSpec.mop:134-146`).
+   // `GCMParameterSpecSpec.mop:158-170`).
    ere : c1 | c2
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PKIXBuilderParametersSpec", "" + __LOC,
-          "v=1 code=PKIXBUILDERPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=PKIXBuilderParameters val='' exp='' msg='the observed call sequence is not one PKIXBuilderParametersSpec accepts'"));
+      if (!creationObserved) {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PKIXBuilderParametersSpec", "" + __LOC,
+             "v=1 code=PKIXBUILDERPARAMETERS-ORDER-01 ev=" + __EVENTNAME + " obj=PKIXBuilderParameters val='' exp='' msg='the observed call sequence is not one PKIXBuilderParametersSpec accepts and no creation of the parameters was observed'"));
+      }
+      else {
+         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PKIXBuilderParametersSpec", "" + __LOC,
+             "v=1 code=PKIXBUILDERPARAMETERS-ORDER-00 ev=" + __EVENTNAME + " obj=PKIXBuilderParameters val='' exp='' msg='the observed call sequence is not one PKIXBuilderParametersSpec accepts'"));
+      }
       __RESET;
    }
 

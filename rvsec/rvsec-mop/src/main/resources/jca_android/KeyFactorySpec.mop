@@ -41,6 +41,10 @@ KeyFactorySpec(KeyFactory f) {
 
    String expectedSpeccedKey = "a key spec this instrumentation observed being built from key material";
 
+   // Set by `get` and read by `@fail` (KEYFACTORY-ORDER-01). The generated `reset()` clears
+   // the state and not this field.
+   boolean creationObserved = false;
+
    // `Get := g1 | g2` (:10-12), fused on the zeroth position. api30 declares three
    // overloads -- `(String)`, `(String, String)` and `(String, Provider)` -- and all three
    // are the rule's `Get`, so all three are named. Leaving one out sends an object obtained
@@ -51,6 +55,7 @@ KeyFactorySpec(KeyFactory f) {
        call(public static KeyFactory KeyFactory.getInstance(String, String)) ||
        call(public static KeyFactory KeyFactory.getInstance(String, java.security.Provider))
      ) && args(alg, ..) {
+       creationObserved = true;
        algorithm = ConscryptAliasTable.canonical("KeyFactory", alg);
        obtained = f;
        if (!ConscryptAliasTable.matches("KeyFactory", alg, safeAlgorithms)) {
@@ -72,23 +77,40 @@ KeyFactorySpec(KeyFactory f) {
    // a handler, because the clause names the RETURNED key (INV-INS-134, the `gkm1`
    // placement). Its readers exist: `KeyPairSpec` and `SignatureSpec` read the predicate.
    // The write is on the conforming branch only.
+   //
+   // A key spec that carries REPORTED_UPSTREAM was already reported by the specification that
+   // watched its construction, and draws the `upstream-refused` code instead of
+   // KEYFACTORY-NOBS-00. Either report is about the key this call returns, which is marked
+   // REPORTED_UPSTREAM in turn, so its own consumers say the same.
    event genPrivate after(KeySpec keySpec, KeyFactory f) returning(PrivateKey privateKey):
      call(public PrivateKey KeyFactory.generatePrivate(KeySpec)) &&
      args(keySpec) && target(f) {
        boolean conforms = true;
+       boolean reported = false;
        PredicateVerdict specced = PredicateStore.instance().validateAny(Property.SPECCED_KEY, keySpec);
        if (specced == PredicateVerdict.VIOLATED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
                "v=1 code=KEYFACTORY-CONSTR-00 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='the key spec carries a specification predicate the rule does not admit'"));
+           reported = true;
+       }
+       else if (specced == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, keySpec) == PredicateVerdict.SATISFIED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
+               "v=1 code=KEYFACTORY-NOBS-02 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='the key spec was already reported when it was constructed'" + Evidence.keysFor(keySpec)));
+           reported = true;
        }
        else if (specced == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
-               "v=1 code=KEYFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='no construction of the key spec was observed'"));
+               "v=1 code=KEYFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='no construction of the key spec was observed'" + Evidence.keysFor(keySpec)));
+           reported = true;
        }
        if (conforms) {
            PredicateStore.instance().ensure(Property.GENERATED_PRIVATE_KEY, privateKey);
+       }
+       if (reported) {
+           PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, privateKey);
        }
    }
 
@@ -97,24 +119,36 @@ KeyFactorySpec(KeyFactory f) {
    // to say which of the two calls it is about (INV-INS-143, the `IvParameterSpec` rule).
    //
    // `generatedPubkey[publicKey] after GenPubl` (:32) has readers too -- `TrustAnchorSpec`
-   // from task 2.12, and `KeyPairSpec`.
+   // from task 2.12, and `KeyPairSpec`. The upstream-refusal code and mark follow the twin.
    event genPublic after(KeySpec keySpec, KeyFactory f) returning(PublicKey publicKey):
      call(public PublicKey KeyFactory.generatePublic(KeySpec)) &&
      args(keySpec) && target(f) {
        boolean conforms = true;
+       boolean reported = false;
        PredicateVerdict specced = PredicateStore.instance().validateAny(Property.SPECCED_KEY, keySpec);
        if (specced == PredicateVerdict.VIOLATED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
                "v=1 code=KEYFACTORY-CONSTR-01 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='the key spec carries a specification predicate the rule does not admit'"));
+           reported = true;
+       }
+       else if (specced == PredicateVerdict.NOT_OBSERVED && PredicateStore.instance().validateAny(Property.REPORTED_UPSTREAM, keySpec) == PredicateVerdict.SATISFIED) {
+           conforms = false;
+           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
+               "v=1 code=KEYFACTORY-NOBS-03 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='the key spec was already reported when it was constructed'" + Evidence.keysFor(keySpec)));
+           reported = true;
        }
        else if (specced == PredicateVerdict.NOT_OBSERVED) {
            conforms = false;
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "KeyFactorySpec", "" + __LOC,
-               "v=1 code=KEYFACTORY-NOBS-01 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='no construction of the key spec was observed'"));
+               "v=1 code=KEYFACTORY-NOBS-01 ev=" + __EVENTNAME + " obj=KeyFactory val='" + q(algorithm) + "' exp='" + q(expectedSpeccedKey) + "' msg='no construction of the key spec was observed'" + Evidence.keysFor(keySpec)));
+           reported = true;
        }
        if (conforms) {
            PredicateStore.instance().ensure(Property.GENERATED_PUBLIC_KEY, publicKey);
+       }
+       if (reported) {
+           PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, publicKey);
        }
    }
 
@@ -124,8 +158,14 @@ KeyFactorySpec(KeyFactory f) {
    ere : get (genPrivate | genPublic)*
 
    @fail {
-      ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyFactorySpec", "" + __LOC,
-          "v=1 code=KEYFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=KeyFactory val='' exp='' msg='the observed call sequence is not one KeyFactorySpec accepts'"));
+      if (!creationObserved) {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyFactorySpec", "" + __LOC,
+              "v=1 code=KEYFACTORY-ORDER-01 ev=" + __EVENTNAME + " obj=KeyFactory val='' exp='' msg='the observed call sequence is not one KeyFactorySpec accepts, and no getInstance of this KeyFactory was observed'"));
+      }
+      else {
+          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyFactorySpec", "" + __LOC,
+              "v=1 code=KEYFACTORY-ORDER-00 ev=" + __EVENTNAME + " obj=KeyFactory val='' exp='' msg='the observed call sequence is not one KeyFactorySpec accepts'"));
+      }
       obtained = null;
       __RESET;
    }
