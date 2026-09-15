@@ -1,5 +1,8 @@
 package br.unb.cic.rv.cli;
 
+import com.android.tools.smali.dexlib2.Opcodes;
+import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile;
+import com.android.tools.smali.dexlib2.writer.pool.DexPool;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -8,8 +11,11 @@ import picocli.CommandLine;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -139,37 +145,78 @@ class ResultsJsonReportingTest {
     }
 
     /**
-     * {@code advicesExcludedByArity} (INV-INS-122) travels the same channel as
-     * {@code wrappersGenerated}, and a zero must be written rather than omitted:
-     * the Python wrapper copies {@code weaveCounts} through whole, so an absent
-     * key and a measured zero would be indistinguishable downstream — "no
-     * incompatible advice" would read as "this build did not measure".
+     * {@code advicesExcludedByArity} counts the advice/overload pairs the
+     * wrapper grouping loop left out of a wrapper because the advice's
+     * positional {@code args()} arity does not fit the overload (INV-INS-159):
+     * an advice excluded from two overloads counts 2. It travels beside
+     * {@code wrappersGenerated}, and a zero is written rather than omitted: the
+     * Python wrapper copies {@code weaveCounts} through whole, so an absent key
+     * and a zero would be indistinguishable downstream.
      *
      * <p>Like the case above this is a serialisation test: {@code counts} is
      * built by hand, so it pins the document shape, not the origin of the
-     * number. What produces the number is the wrapper grouping loop, and the
-     * instrument for that is the re-weave of the frozen descriptor recorded in
-     * {@code evidence/e2_reweave.md}.
+     * number. What produces the number is the grouping loop, covered by the
+     * advice-emitter tests.
      */
     @Test
     void resultsJsonCarriesTheArityCounterBesideWrappersGenerated(@TempDir Path tmp)
             throws Exception {
-        BatchRunner.PerApkResult measured = new BatchRunner.PerApkResult(
-                "cryptoapp.apk", true, "instrumented + signed", "signed",
-                Map.of("wrappersGenerated", 96, "advicesExcludedByArity", 10));
+        BatchRunner.PerApkResult excluded = new BatchRunner.PerApkResult(
+                "twoOverloads.apk", true, "instrumented + signed", "signed",
+                Map.of("wrappersGenerated", 2, "advicesExcludedByArity", 2));
         BatchRunner.PerApkResult none = new BatchRunner.PerApkResult(
                 "clean.apk", true, "instrumented + signed", "signed",
                 Map.of("wrappersGenerated", 4, "advicesExcludedByArity", 0));
         Path out = tmp.resolve("results.json");
 
-        BatchRunner.writeResultsJson(List.of(measured, none), out);
+        BatchRunner.writeResultsJson(List.of(excluded, none), out);
 
         JsonNode results = MAPPER.readTree(out.toFile()).get("results");
-        assertEquals(96, results.get(0).get("weaveCounts").get("wrappersGenerated").asInt());
-        assertEquals(10, results.get(0).get("weaveCounts").get("advicesExcludedByArity").asInt());
+        assertEquals(2, results.get(0).get("weaveCounts").get("wrappersGenerated").asInt());
+        assertEquals(2, results.get(0).get("weaveCounts").get("advicesExcludedByArity").asInt(),
+                "one excluded pair per overload");
         assertTrue(results.get(1).get("weaveCounts").hasNonNull("advicesExcludedByArity"),
-                "an APK with no incompatible advice carries the key, never omits it");
+                "an APK with no excluded pair carries the key, never omits it");
         assertEquals(0, results.get(1).get("weaveCounts").get("advicesExcludedByArity").asInt());
+    }
+
+    /**
+     * The pipeline itself writes every wrapper counter, zeros included:
+     * {@code wrappersGenerated}, {@code advicesExcludedByArity},
+     * {@code wrapperTargetsUnresolved} (INV-INS-160) and the two APK-scoped
+     * alias counters {@code wrappersAliasedToSubtype} and
+     * {@code wrapperAliasesUnmerged}. Driven through {@link BatchRunner#instrumentOne}
+     * on an APK holding one empty DEX and a descriptor with no advices, which
+     * stops at {@code dex_only} because no monitor build is configured.
+     */
+    @Test
+    void aWovenApkReportsEveryWrapperCounter(@TempDir Path tmp) throws Exception {
+        Path descriptor = Files.writeString(tmp.resolve("descriptor.json"),
+                "{\"aspectName\":\"EmptyMonitorAspect\",\"imports\":[],\"advices\":[]}");
+        Path dex = tmp.resolve("classes.dex");
+        DexPool.writeTo(dex.toString(),
+                new ImmutableDexFile(Opcodes.forDexVersion(35), Collections.emptySet()));
+        Path apk = tmp.resolve("empty.apk");
+        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(apk))) {
+            zip.putNextEntry(new ZipEntry("classes.dex"));
+            zip.write(Files.readAllBytes(dex));
+            zip.closeEntry();
+        }
+        EffectiveConfig cfg = new EffectiveConfig(descriptor, null,
+                Files.createDirectory(tmp.resolve("work")), null, List.of(),
+                null, null, null, false, null, "INFO");
+        Path out = tmp.resolve("empty.json");
+
+        BatchRunner.instrumentOne(cfg, apk, out);
+
+        JsonNode entry = MAPPER.readTree(out.toFile()).get("results").get(0);
+        assertEquals("dex_only", entry.get("phase").asText(), entry.get("message").asText());
+        JsonNode counts = entry.get("weaveCounts");
+        for (String key : List.of("wrappersGenerated", "advicesExcludedByArity",
+                "wrapperTargetsUnresolved", "wrappersAliasedToSubtype", "wrapperAliasesUnmerged")) {
+            assertTrue(counts.hasNonNull(key), key + " must be written, never omitted");
+            assertEquals(0, counts.get(key).asInt(), key);
+        }
     }
 
     @Test

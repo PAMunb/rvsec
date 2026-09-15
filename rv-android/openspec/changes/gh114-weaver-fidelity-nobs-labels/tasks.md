@@ -164,10 +164,10 @@ GitHub Issue: #114
 
 ## 12. CLI Counters and Resolver Wiring (WAVE 2, subagent G12; needs 2, 3 and 4)
 
-- [ ] 12.1 `cli/.../BatchRunner.java`: construct `TypeResolver` at `:182` with `AndroidClassIndex::exists` (design D4); publish `wrapperTargetsUnresolved` (from `EmitResult`) in the counts map beside `wrappersGenerated`; rewrite the INV-INS-122 comment at `:223-229` to current behaviour
-- [ ] 12.2 `ResultsJsonReportingTest`: `wrapperTargetsUnresolved` present; `advicesExcludedByArity` semantics test updated
-- [ ] 12.3 `modules/rv-instrumentation-dexlib2` (Python) parser of `instrument_results.json` and its tests accept the new key (`tests/test_dexlib_instrumentation.py:901-958` pattern)
-- [ ] 12.4 `mvn -pl :cli -am test` green; `/rv-test-run rv-instrumentation-dexlib2`
+- [x] 12.1 `cli/.../BatchRunner.java`: construct `TypeResolver` at `:182` with `AndroidClassIndex::exists` (design D4); publish `wrapperTargetsUnresolved` (from `EmitResult`) in the counts map beside `wrappersGenerated`; rewrite the INV-INS-122 comment at `:223-229` to current behaviour
+- [x] 12.2 `ResultsJsonReportingTest`: `wrapperTargetsUnresolved` present; `advicesExcludedByArity` semantics test updated
+- [x] 12.3 `modules/rv-instrumentation-dexlib2` (Python) parser of `instrument_results.json` and its tests accept the new key (`tests/test_dexlib_instrumentation.py:901-958` pattern)
+- [x] 12.4 `mvn -pl :cli -am test` green; `/rv-test-run rv-instrumentation-dexlib2`
 
 ## 13. Specification-Set Closing (WAVE 2, subagents G13a, G13b, G13c; needs 6–9b; 13.6 in the main window after all three)
 

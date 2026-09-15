@@ -897,20 +897,23 @@ def test_parse_results_json_carries_weave_counts(tmp_workspace):
     }
 
 
-def test_parse_results_json_carries_arity_counter(tmp_workspace):
-    """`advicesExcludedByArity` reaches Python without a production change.
+def test_parse_results_json_carries_wrapper_counters(tmp_workspace):
+    """The wrapper counters reach Python as the weaver wrote them.
 
-    The weaver measures how many advice/overload pairs a positional `args()`
-    arity filter would exclude (INV-INS-122) and writes the number into
-    `instrument_results.json` beside `wrappersGenerated`. `_parse_results_json`
-    copies each entry's whole `weaveCounts` dict through, so the key travels by
-    construction — this test is the surface that pins that, and it is the reason
-    no parser code had to learn the key's name.
+    Beside `wrappersGenerated`, `instrument_results.json` carries
+    `advicesExcludedByArity` (advice/overload pairs left out of a wrapper
+    because the positional `args()` arity does not fit, INV-INS-159),
+    `wrapperTargetsUnresolved` (wrapper targets that resolved to no method,
+    INV-INS-160) and `wrapperAliasesUnmerged` (call sites whose owner is a
+    subtype of several wrapped owners with no merged wrapper).
+    `_parse_results_json` copies each entry's whole `weaveCounts` dict through,
+    so every key travels by construction — this test is the surface that pins
+    that, and it is the reason no parser code names the keys.
 
-    The second APK carries the counter at zero on purpose: the Java side always
-    writes the key, so a zero must arrive as a zero. If it were omitted instead,
-    "no incompatible advice was found" and "this build did not measure" would be
-    the same observation downstream.
+    The second APK carries the counters at zero on purpose: the Java side always
+    writes the keys, so a zero must arrive as a zero. If it were omitted instead,
+    "nothing was excluded" and "this build did not count" would be the same
+    observation downstream.
     """
     cfg = DexlibInstrumentationConfig(
         cli_jar_path=tmp_workspace["cli_jar"],
@@ -933,6 +936,8 @@ def test_parse_results_json_carries_arity_counter(tmp_workspace):
                         "weaveCounts": {
                             "wrappersGenerated": 96,
                             "advicesExcludedByArity": 10,
+                            "wrapperTargetsUnresolved": 3,
+                            "wrapperAliasesUnmerged": 1,
                         },
                     },
                     {
@@ -943,6 +948,8 @@ def test_parse_results_json_carries_arity_counter(tmp_workspace):
                         "weaveCounts": {
                             "wrappersGenerated": 4,
                             "advicesExcludedByArity": 0,
+                            "wrapperTargetsUnresolved": 0,
+                            "wrapperAliasesUnmerged": 0,
                         },
                     },
                 ],
@@ -952,10 +959,15 @@ def test_parse_results_json_carries_arity_counter(tmp_workspace):
 
     results = inst._parse_results_json(path)
 
-    assert results.weave_counts["cryptoapp.apk"]["advicesExcludedByArity"] == 10
-    assert results.weave_counts["cryptoapp.apk"]["wrappersGenerated"] == 96
-    assert "advicesExcludedByArity" in results.weave_counts["clean.apk"]
-    assert results.weave_counts["clean.apk"]["advicesExcludedByArity"] == 0
+    assert results.weave_counts["cryptoapp.apk"] == {
+        "wrappersGenerated": 96,
+        "advicesExcludedByArity": 10,
+        "wrapperTargetsUnresolved": 3,
+        "wrapperAliasesUnmerged": 1,
+    }
+    for key in ("advicesExcludedByArity", "wrapperTargetsUnresolved", "wrapperAliasesUnmerged"):
+        assert key in results.weave_counts["clean.apk"]
+        assert results.weave_counts["clean.apk"][key] == 0
 
 
 def test_demote_silent_failures_preserves_weave_counts(tmp_workspace):

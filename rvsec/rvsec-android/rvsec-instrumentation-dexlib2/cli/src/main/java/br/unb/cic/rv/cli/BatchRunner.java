@@ -178,9 +178,14 @@ public final class BatchRunner {
             AspectDescriptor descriptor = DescriptorReader.read(cfg.descriptorPath());
             counts.put("advices", descriptor.getAdvices().size());
 
-            // Phase 2: type resolution + android index.
-            TypeResolver typeResolver = new TypeResolver(descriptor.getImports());
+            // Phase 2: type resolution + android index. The class-existence
+            // lookup lets a dotted descriptor name such as
+            // KeyStore.ProtectionParameter resolve to its nested binary name
+            // (INV-INS-162) in DexWeaver, MonitorInvokeBuilder and
+            // AfterThrowingEmitter; with no android.jar it answers false and
+            // dotted names stay as written.
             AndroidClassIndex androidIndex = new AndroidClassIndex(cfg.androidJar());
+            TypeResolver typeResolver = new TypeResolver(descriptor.getImports(), androidIndex::exists);
 
             // Phase 3: extract DEX files from APK (preserving entry names).
             ExtractedDex[] dexes = extractDexes(apk);
@@ -220,14 +225,17 @@ public final class BatchRunner {
                     WrapperEmitter.generate(descriptor, wrapperOutDir, androidIndex);
             List<WrapperEmitter.WrapperEntry> wrappers = emitResult.wrappers();
             counts.put("wrappersGenerated", wrappers.size());
-            // A measurement, not the effect of a filter (INV-INS-122): the number
-            // of advice/overload pairs whose positional args() arity does not fit
-            // the overload they are grouped onto. Every one of them still fires.
-            // Always written, so a 0 means "measured none" rather than "not
-            // measured"; and it is a count over the wrapper-path after-advices
-            // only — the before-side and constructor advices never reach the
-            // grouping loop and are invisible to it.
+            // The advice/overload pairs left out of a wrapper because the
+            // advice's positional args() arity does not fit the overload
+            // (INV-INS-159); an excluded advice fires nothing from that wrapper.
+            // It counts the wrapper grouping loop only: the inline path enforces
+            // the same rule in PointcutMatcher without counting. Always written,
+            // so a 0 means "excluded none" rather than "not measured".
             counts.put("advicesExcludedByArity", emitResult.advicesExcludedByArity());
+            // Wrapper-path advices whose call target resolved to no method, not
+            // even through a framework ancestor, and so produced no wrapper
+            // (INV-INS-160). Always written, like the counter above.
+            counts.put("wrapperTargetsUnresolved", emitResult.wrapperTargetsUnresolved());
             DexWeaver weaver = new DexWeaver(
                     new EmitterDispatch(), new RegisterAllocator(), wrappers);
 
@@ -291,10 +299,13 @@ public final class BatchRunner {
                 counts.merge("plansSkipped", wr.plansSkipped(), Integer::sum);
                 counts.merge("plansSkippedAliasing", wr.plansSkippedAliasing(), Integer::sum);
                 counts.merge("wrappersSubstituted", wr.wrappersSubstituted(), Integer::sum);
-                // wrappersAliasedToSubtype is APK-scoped (set once by
-                // expandWrapperReplacementsForApk above) and the report carries
-                // the same value for every DEX, so it is stored, not summed.
+                // wrappersAliasedToSubtype and wrapperAliasesUnmerged accumulate
+                // over the weaver instance — the APK subtypes keyed by
+                // expandWrapperReplacementsForApk above plus the call-site
+                // signatures resolved while weaving each DEX — so every report
+                // already carries the running APK total: stored, not summed.
                 counts.put("wrappersAliasedToSubtype", wr.wrappersAliasedToSubtype());
+                counts.put("wrapperAliasesUnmerged", wr.wrapperAliasesUnmerged());
                 counts.merge("constructorInlineApplied", wr.constructorInlineApplied(), Integer::sum);
                 counts.merge("constructorInlineSkippedAliasing",
                         wr.constructorInlineSkippedAliasing(), Integer::sum);
