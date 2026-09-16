@@ -69,6 +69,6 @@
 
 ## 11. Commit and archive
 
-- [ ] 11.1 `git commit -- <paths of plan.md §3>` with `closes #115`; `git show --stat HEAD` contains only those paths
-- [ ] 11.2 Archive via `/opsx:archive gh115-bump-094-snapshot`
-- [ ] 11.3 Report to the user; do NOT push (the user pushes `modules`), then move Kanban card #115 → Done after the push
+- [x] 11.1 `git commit -- <paths of plan.md §3>` with `closes #115`; `git show --stat HEAD` contains only those paths
+- [x] 11.2 Archive via `/opsx:archive gh115-bump-094-snapshot`
+- [x] 11.3 Report to the user; do NOT push (the user pushes `modules`), then move Kanban card #115 → Done after the push
