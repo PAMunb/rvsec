@@ -965,7 +965,11 @@ def test_parse_results_json_carries_wrapper_counters(tmp_workspace):
         "wrapperTargetsUnresolved": 3,
         "wrapperAliasesUnmerged": 1,
     }
-    for key in ("advicesExcludedByArity", "wrapperTargetsUnresolved", "wrapperAliasesUnmerged"):
+    for key in (
+        "advicesExcludedByArity",
+        "wrapperTargetsUnresolved",
+        "wrapperAliasesUnmerged",
+    ):
         assert key in results.weave_counts["clean.apk"]
         assert results.weave_counts["clean.apk"][key] == 0
 

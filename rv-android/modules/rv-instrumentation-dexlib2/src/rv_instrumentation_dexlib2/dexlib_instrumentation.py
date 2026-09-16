@@ -85,8 +85,8 @@ class DexlibInstrumentation(Instrumenter):
         if not self.config.cli_jar_path.is_file():
             raise FileNotFoundError(
                 f"instr-cli jar not found at {self.config.cli_jar_path}; "
-                f"run 'mvn -pl rvsec-android/rvsec-instrumentation-dexlib2/cli -am package' "
-                f"from the rvsec/ root to produce it"
+                "run 'mvn -pl rvsec-android/rvsec-instrumentation-dexlib2/cli "
+                "-am package' from the rvsec/ root to produce it"
             )
 
         # Populate runtime classpath via the ABC's Template Method (shared

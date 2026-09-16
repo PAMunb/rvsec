@@ -70,12 +70,15 @@ class DexlibInstrumentationConfig(BaseModel):
         default=None,
         description=(
             "Key alias inside the keystore. None falls back to the Java CLI's "
-            "default ('androiddebugkey'); rv-experiment's bundled keystore uses 'server'."
+            "default ('androiddebugkey'); rv-experiment's bundled keystore uses "
+            "'server'."
         ),
     )
     key_password: Optional[str] = Field(
         default=None,
-        description="Password for the signing key (defaults to keystore_password when None).",
+        description=(
+            "Password for the signing key (defaults to keystore_password when None)."
+        ),
     )
     extra_java_args: List[str] = Field(
         default_factory=list,
