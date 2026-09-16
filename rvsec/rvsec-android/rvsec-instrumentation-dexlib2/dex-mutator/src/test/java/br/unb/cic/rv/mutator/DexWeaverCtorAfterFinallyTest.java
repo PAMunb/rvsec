@@ -27,10 +27,13 @@ import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction35c;
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference;
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef;
 import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile;
+import com.android.tools.smali.dexlib2.immutable.ImmutableTryBlock;
+import com.android.tools.smali.dexlib2.immutable.ImmutableExceptionHandler;
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod;
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation;
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction;
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x;
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11x;
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c;
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction35c;
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference;
@@ -53,10 +56,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * INV-INS-163 on the inline constructor path: a plain {@code after} advice on
  * {@code IvParameterSpec.<init>([B)V} runs its monitor call when the constructor
  * returns and when it throws. The woven method is serialised through DexPool,
- * reloaded, and read instruction by instruction: a catch-all try range covers the
- * constructor invoke alone; its handler is {@code move-exception vX}, the monitor
- * call with the same operands as the normal path, and {@code throw vX}; the normal
- * path keeps the monitor call right after the constructor.
+ * reloaded, and read instruction by instruction: a try range covering the
+ * constructor invoke alone catches {@code Throwable}; its handler is
+ * {@code move-exception vX}, the monitor call with the same operands as the normal
+ * path, and {@code throw vX}; the normal path keeps the monitor call right after
+ * the constructor. A third case puts the constructor inside a user {@code finally},
+ * where a second catch-all entry on the same range would make the method
+ * unwritable.
  */
 class DexWeaverCtorAfterFinallyTest {
 
@@ -88,7 +94,8 @@ class DexWeaverCtorAfterFinallyTest {
                 "the range covers the constructor invoke alone, not the normal-path call");
         assertEquals(1, range.getExceptionHandlers().size());
         ExceptionHandler handler = range.getExceptionHandlers().get(0);
-        assertNull(handler.getExceptionType(), "catch-all handler");
+        assertEquals("Ljava/lang/Throwable;", handler.getExceptionType(),
+                "the handler catches Throwable, which a user catch-all can be listed beside");
 
         // Normal path: the monitor call immediately follows the constructor.
         Instruction normal = ins.get(ctorIdx + 1);
@@ -112,6 +119,35 @@ class DexWeaverCtorAfterFinallyTest {
         assertTrue(!operands((Instruction35c) handlerCall).contains(exceptionRegister)
                         && !operands((Instruction35c) handlerCall).contains(2),
                 "neither the exception nor the uninitialised object reaches the monitor call");
+    }
+
+    @Test
+    void aConstructorInsideAUserFinallyStillWrites() throws Exception {
+        // A DEX code unit carries at most one catch-all entry, so the advice handler cannot be a
+        // catch-all one when the user already wraps the call in a finally (or a catch (Throwable)):
+        // the two entries would collide and the method would be refused when it is written, failing
+        // the whole APK. The handler therefore catches Throwable, which is a typed entry.
+        DexWeaverNestedTryCatchTest.TrackingSupplier supplier =
+                new DexWeaverNestedTryCatchTest.TrackingSupplier();
+        DexFile dex = fixtureInsideFinally();
+        DexWeaver.WeaveReport report = weave(dex, advice(false), supplier);
+        assertEquals(1, report.constructorInlineApplied());
+
+        MethodImplementation impl = reload(supplier.toDexFile(dex));
+
+        List<Instruction> ins = new ArrayList<>();
+        impl.getInstructions().forEach(ins::add);
+        int ctorAddress = addressOf(ins, indexOf(ins, Opcode.INVOKE_DIRECT));
+        TryBlock<? extends ExceptionHandler> matched = null;
+        for (TryBlock<? extends ExceptionHandler> t : impl.getTryBlocks()) {
+            if (t.getStartCodeAddress() == ctorAddress) matched = t;
+        }
+        assertTrue(matched != null, "a range covers the constructor invoke");
+        List<? extends ExceptionHandler> handlers = matched.getExceptionHandlers();
+        assertEquals(2, handlers.size(), "the advice handler and the user's, on the same range");
+        assertEquals("Ljava/lang/Throwable;", handlers.get(0).getExceptionType(),
+                "the advice handler is listed first and is typed");
+        assertNull(handlers.get(1).getExceptionType(), "the user's catch-all keeps its place");
     }
 
     @Test
@@ -151,6 +187,36 @@ class DexWeaverCtorAfterFinallyTest {
         ImmutableMethod iv = new ImmutableMethod(FOO_DESC, "iv", List.of(), "V",
                 AccessFlags.PUBLIC.getValue() | AccessFlags.STATIC.getValue(), null, null,
                 new ImmutableMethodImplementation(4, body, null, null));
+        ClassDef foo = new ImmutableClassDef(FOO_DESC, AccessFlags.PUBLIC.getValue(),
+                "Ljava/lang/Object;", List.of(), null, null, List.of(), List.of(iv));
+        return new ImmutableDexFile(Opcodes.getDefault(), List.of(foo));
+    }
+
+    /**
+     * The same method with a user {@code finally} whose range covers the constructor invoke:
+     * <pre>
+     *   0: new-instance v2, IvParameterSpec
+     *   2: const-class v1, [B
+     *   4: invoke-direct {v2, v1}, IvParameterSpec.&lt;init&gt;([B)V   ; covered by the range
+     *   7: return-void
+     *   8: move-exception v0                                       ; the user's catch-all
+     *   9: throw v0
+     * </pre>
+     */
+    private static DexFile fixtureInsideFinally() {
+        MethodReference init = new ImmutableMethodReference(IV_DESC, "<init>", List.of("[B"), "V");
+        List<ImmutableInstruction> body = List.of(
+                new ImmutableInstruction21c(Opcode.NEW_INSTANCE, 2, new ImmutableTypeReference(IV_DESC)),
+                new ImmutableInstruction21c(Opcode.CONST_CLASS, 1, new ImmutableTypeReference("[B")),
+                new ImmutableInstruction35c(Opcode.INVOKE_DIRECT, 2, 2, 1, 0, 0, 0, init),
+                new ImmutableInstruction10x(Opcode.RETURN_VOID),
+                new ImmutableInstruction11x(Opcode.MOVE_EXCEPTION, 0),
+                new ImmutableInstruction11x(Opcode.THROW, 0));
+        ImmutableTryBlock userFinally = new ImmutableTryBlock(4, 3,
+                List.of(new ImmutableExceptionHandler(null, 8)));
+        ImmutableMethod iv = new ImmutableMethod(FOO_DESC, "iv", List.of(), "V",
+                AccessFlags.PUBLIC.getValue() | AccessFlags.STATIC.getValue(), null, null,
+                new ImmutableMethodImplementation(4, body, List.of(userFinally), null));
         ClassDef foo = new ImmutableClassDef(FOO_DESC, AccessFlags.PUBLIC.getValue(),
                 "Ljava/lang/Object;", List.of(), null, null, List.of(), List.of(iv));
         return new ImmutableDexFile(Opcodes.getDefault(), List.of(foo));

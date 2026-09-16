@@ -1129,8 +1129,13 @@ public final class DexWeaver {
      * The normal-path calls are inserted first; they land after {@code idx}, so
      * the range {@link InstructionInjector#installTryCatch} then installs covers
      * the constructor invoke alone and a throwing monitor call is never caught by
-     * its own handler. The handler uses a catch-all {@link EmitPlan.TryCatchSpec}
-     * with no throwing operand, since a plain {@code after} binds no exception.
+     * its own handler. The handler catches {@code java.lang.Throwable} with no
+     * throwing operand, since a plain {@code after} binds no exception. It is a
+     * typed handler and not a catch-all one because the advice handler is listed
+     * first on the matched range: a DEX code unit carries at most one catch-all
+     * entry, so a catch-all listed beside the catch-all of a user {@code finally}
+     * or {@code catch (Throwable)} around the same call is refused when the
+     * method is written. {@code Throwable} catches the same exceptions.
      *
      * <p>The object under construction is not initialised on the exceptional
      * path, and the verifier rejects any use of it there. A plain {@code after}
@@ -1157,7 +1162,8 @@ public final class DexWeaver {
         }
         inj.insertAfter(idx, plan);
         EmitPlan handlerPlan = new EmitPlan(handler.toInsert(), InsertionPoint.TRY_CATCH_WRAP,
-                handler.registers(), EmitPlan.TryCatchSpec.catchAll(List.of()),
+                handler.registers(), EmitPlan.TryCatchSpec.specific("Ljava/lang/Throwable;",
+                        List.of()),
                 handler.guardSpec());
         return inj.installTryCatch(idx, handlerPlan, exceptionRegister);
     }

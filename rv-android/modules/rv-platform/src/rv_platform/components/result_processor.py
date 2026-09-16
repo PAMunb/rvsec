@@ -1095,13 +1095,26 @@ class ResultProcessorComponent:
         same APK/timeout pair. Called while the task's repository is still
         alive, so the entry is extracted from it rather than reconstructed again.
         """
-        config = task.config
-        tools = (
-            results_data.setdefault(config.apk_name, {"repetitions": {}})["repetitions"]
-            .setdefault(str(config.repetition), {"timeouts": {}})["timeouts"]
-            .setdefault(str(config.timeout), {"tools": {}})["tools"]
-        )
-        tools[config.tool_config.get_full_tool_name()] = self._extract_task_data(task)
+        try:
+            config = task.config
+            tools = (
+                results_data.setdefault(config.apk_name, {"repetitions": {}})[
+                    "repetitions"
+                ]
+                .setdefault(str(config.repetition), {"timeouts": {}})["timeouts"]
+                .setdefault(str(config.timeout), {"tools": {}})["tools"]
+            )
+            tools[config.tool_config.get_full_tool_name()] = self._extract_task_data(
+                task
+            )
+        except Exception as e:
+            # The four row writers each count their own failure and let the pass go on
+            # (INV-PLT-32). This one keys the entry by the task's configuration, read
+            # outside `_extract_task_data`'s own handler: without this guard a task
+            # whose configuration cannot be read would abort the single pass, truncating
+            # the four CSVs and leaving results.json and performance.csv unwritten.
+            self._count_write_error(task, "results.json")
+            self.logger.error(f"Failed to place results entry for task {task.id}: {e}")
 
     @ErrorHandler.handle_errors(
         component="ResultProcessorComponent", phase="results_json_generation"

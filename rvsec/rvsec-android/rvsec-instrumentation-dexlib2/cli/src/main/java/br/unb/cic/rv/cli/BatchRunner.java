@@ -163,6 +163,9 @@ public final class BatchRunner {
      */
     static PerApkResult runPipeline(EffectiveConfig cfg, Path apk) {
         Map<String, Integer> counts = new LinkedHashMap<>();
+        // The index holds the android.jar zip open, and the batch subcommand runs this
+        // method once per APK in one JVM, so it is released on every exit of the method.
+        AndroidClassIndex androidIndex = null;
         // The platform jar decides which framework types the pointcut engine
         // can resolve, and ConfigResolver picks it from --android-jar, from
         // ANDROID_HOME, or from the highest API level installed — three inputs
@@ -184,8 +187,9 @@ public final class BatchRunner {
             // (INV-INS-162) in DexWeaver, MonitorInvokeBuilder and
             // AfterThrowingEmitter; with no android.jar it answers false and
             // dotted names stay as written.
-            AndroidClassIndex androidIndex = new AndroidClassIndex(cfg.androidJar());
-            TypeResolver typeResolver = new TypeResolver(descriptor.getImports(), androidIndex::exists);
+            androidIndex = new AndroidClassIndex(cfg.androidJar());
+            final AndroidClassIndex index = androidIndex;
+            TypeResolver typeResolver = new TypeResolver(descriptor.getImports(), index::exists);
 
             // Phase 3: extract DEX files from APK (preserving entry names).
             ExtractedDex[] dexes = extractDexes(apk);
@@ -406,6 +410,8 @@ public final class BatchRunner {
         } catch (RuntimeException ex) {
             ex.printStackTrace();
             return failed(apk, "uncaught error: " + causeChain(ex), "uncaught", counts);
+        } finally {
+            if (androidIndex != null) androidIndex.close();
         }
     }
 
