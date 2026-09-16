@@ -228,5 +228,5 @@ GitHub Issue: #114
 - [x] 16.1 WAVE 2, subagents G16a (one per module, needs G10, G11): `/rv-qa-lint-fix` then `/rv-verify` for `rv-android-core`, `rv-coverage`, `rv-platform`
 - [x] 16.2 WAVE 3, after G12: `/rv-qa-lint-fix rv-instrumentation-dexlib2` then `/rv-verify rv-instrumentation-dexlib2`
 - [x] 16.3 Invoke `/rv-code-reviewer` via Skill tool
-- [ ] 16.4 Run `/opsx:verify gh114-weaver-fidelity-nobs-labels`
+- [x] 16.4 Run `/opsx:verify gh114-weaver-fidelity-nobs-labels`
 - [ ] 16.5 Archive note: the `## Invariants` sections of the four delta specs (INV-INS-159..167, INV-CORE-25 restated and INV-CORE-63, INV-ANA-72, INV-PLT-14/15 restated and INV-PLT-38) are synced by hand into the base specs at archive; the REMOVED arity requirement also removes INV-INS-122 from the base, and the base `## Data Contracts` line for `advicesExcludedByArity` (`openspec/specs/instrumentation/spec.md:248`) is re-anchored to INV-INS-159 by hand; the MODIFIED `The Java SE Specification Set Is Frozen` is synced by the skill; the `conformance` delta's requirement blocks (MODIFIED `M2 Order Comparison over the Inverse Morphism` and `Closed Unknown Taxonomy`, ADDED `The MOP Lift Reads args Arity and Nested Type Names`) are synced by the skill and its `## Invariants` (INV-CONF-18, INV-CONF-19) by hand
