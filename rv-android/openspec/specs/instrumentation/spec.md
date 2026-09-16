@@ -245,7 +245,7 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - `InstrumentationResults` -- Pydantic model with success/error counts and the per-APK weaver counters in `weave_counts` (consumer: rv-experiment post-processing and the platform's result processing)
 - `instrument_errors.json` -- JSON file with per-APK error details (consumer: rv-experiment result manager)
 - One logcat line per violation report: `RVSEC: spec,classQualifiedName,className,methodName,location,errorType,<envelope>` (logcat `ErrorCollector`); for an envelope-producing set the seventh field is the envelope of `Requirement: Violation Report Message Envelope`
-- `advicesExcludedByArity` -- Per-APK counter in `instrument_results.json` (`BatchRunner` counts map): advices whose positional `args()` arity is incompatible with the merged wrapper's call — a measurement, not the effect of a filter (INV-INS-122)
+- `advicesExcludedByArity` -- Per-APK counter in `instrument_results.json` (`BatchRunner` counts map): advice/overload pairs excluded from a merged wrapper's group because the advice's positional `args()` arity cannot match that overload (INV-INS-159)
 - `data/gh104/evidence/harness/<group>-<Spec>.md` -- Differential-harness evidence per specification and repair group, with before/after trace verdicts (INV-INS-124)
 - `data/jca_android/predicate_graph.csv` -- One row per predicate site of `jca_android`, 15 columns: `file, event, site_kind, polarity, guard, arity, predicate, position_types, splitter, clause, mechanism, verdict, disposition, reason, automaton_membership` (INV-INS-137); zero rows over a predicate-free set is the correct, green result
 - `data/jca_android/predicate_ledger.{csv,md}` -- Every `REQUIRES`/`ENSURES`/`NEGATES` clause of the expert rules with its disposition against the set, derived by `scripts/gh105_expert_ledger.py --check`
@@ -348,7 +348,6 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **INV-INS-119**: Every `new ErrorDescription(` in `jca_android` MUST use the four-argument constructor, and the fourth argument MUST be a v1 envelope. No report emitted from `jca_android` may carry the message `unknown` or an observed value that is empty because a monitor field was interpolated before any event wrote it: a `but found` message MUST interpolate the value read from the target object the reporting event binds (`getAlgorithm()`, `getType()`, `getProtocol()`), or the argument where the event binds it, and never a monitor field.
 - **INV-INS-120**: The monitor generator MUST expand the macro `__EVENTNAME` to the name of the event a report site belongs to — in an event body to the declared name of that event, in a handler body to a call of a per-class helper `RVM_eventName()` that returns the name of the event that last transitioned the monitor, decoding the index the way the monitor's own shape stores it (the atomic shape keeps `index + 1` and the helper subtracts one; the non-atomic shape keeps the index itself), and the sentinel `none` when no event has transitioned it. No specification file MUST carry hand-written event-name bookkeeping. No generated Java MUST contain the unexpanded literal `__EVENTNAME`. Two events of one specification MUST NOT share a name, because the generated monitor merges their transition rows silently.
 - **INV-INS-121**: A report message MUST agree with the check that guards it: every numeric literal in the message equals the literal of the guarding `condition()`; the `ErrorType` matches what the condition tests (a constraint on an argument is `UnsatisfiedConstraint`, an algorithm outside the allow-list is `UnsafeAlgorithm`, a call the rule's `FORBIDDEN` clause names is `ForbiddenMethod`); an expected list in a message is the file's allow-list, joined, never a hand-written subset or the literal `...`.
-- **INV-INS-122**: When `WrapperEmitter` groups advices into one merged wrapper for a concrete call, it MUST NOT remove any advice from the group. It MUST instead decide, per advice, whether the advice's positional `args()` arity is compatible with that call, under three clauses: an advice with no `args()` clause is never counted (absence means "no positional constraint"); the arity is read from `ArgsPC.types()`, so a trailing `..` means "at least"; the decision is taken in the grouping loop, where the concrete overload's parameter count is known. Every incompatible advice MUST be counted into the results JSON as `advicesExcludedByArity`, and the wrapper MUST fire every advice of its group. Measuring rather than filtering is deliberate: a filter would change what every campaign reports, and the counter is the measurement a filter would have to be judged against.
 - **INV-INS-123**: For any specification set, the structural gates over the generated monitor MUST run as pytest and MUST fail on a violation not named in `data/<set>/gate_allowlist.csv` with a reason: G-ERE (every symbol named in an `ere` or `fsm` has an event declaration — run before generation, since the generator drops an undeclared symbol silently), G-2 (an event with a transition row to `fail` from every state — INV-INS-110 — **and** no clause of the corresponding CrySL rule that the event encodes: `CONSTRAINTS`, `REQUIRES` or `FORBIDDEN` on the frozen `jca`; `CONSTRAINTS`, `FORBIDDEN` or `REQUIRES` on `jca_android`, which encodes its `REQUIRES` clauses as body reads with accusers — INV-INS-133/137/146), G-2a (an event that never changes state: `∀s δ(s,e)=s`), G-2b′ (an event redundant at the start state: `δ(q0,e)=q0`), G-2c (a state unreachable from `q0` or from which no accepting state is reachable), G-2d (the highest-index state is not the `fail` category), G-6′ (the number of `Prop_N_event_*` methods differs from the number of `Prop_N_transition_*` rows). A green gate over a set with a known defect is a bug in the gate; the frozen `jca`, where the answers are known (G-ERE 1, G-2 3 `orphan-without-clause` under the mechanical mapping, G-2a 1, G-2b′ 8, G-2c 1, G-2d 2, G-6′ 1), is the baseline every extension is run against first. G-CONF (INV-INS-127) and G-PRED (INV-INS-128) run beside these but are not structural: they read the `.mop` sources and the set's oracle, the pinned expert rules (INV-INS-125), not the generated monitor.
 - **INV-INS-124**: No repair of an automaton, a message or an allow-list of a specification set MAY close without the differential harness having replayed the same traces through the monitor generated before and through the monitor generated after the repair, with the per-trace verdicts of both committed as evidence. A repair that changes which call is accused, without changing whether the trace is accused, is a moved defect and MUST be recorded as such, not as a fix.
 - **INV-INS-125**: The sole oracle of `jca_android`, for every clause kind — allow-lists and value tests (the Cipher transformation tables included), `ORDER`, event alphabets and predicate clauses — is the expert-validated CrySL rule in the pinned copy `RVSec-replication-package/tools/rules/`, whose 49 files are frozen by sha256 as a freeze item (D-15 for values, with `docs/20260824_auditoria_specs_jca_android.md` as the measured reason — the generated chain admitted MD5, SHA-1 and AES/ECB; D-16 for every other kind). `MetaCrySL/generated/api30/` is not an authority for anything: it survives only as the input the records derived before D-16 cite. Recorded per specification in `data/jca_android/conformance_record.csv`. Five and only five kinds of departure from a literal transcription of the expert rule are admissible, and each MUST be recorded. (1) An entry of the declared normalisation table (INV-INS-127), in `data/jca_android/alias_table.csv` and nowhere else. (2) A **`platform-value`** row of `data/jca_android/divergence_record.csv`: a value the expert rule omits whose rejection would accuse a practice the platform itself recommends, cited to a primary source — the enumerated set is `TLS` in `SSLContext` and `{AndroidKeyStore, AndroidCAStore, BKS, BouncyCastle}` in `KeyStore`, and a candidate without a citation is dropped and stays accused. (3) An **`oracle-wart`** row: a measured quirk of the expert rule itself, transcribed faithfully rather than fixed (`OAEPWithMD5AndMGF1Padding` admitted while no SHA-1 OAEP variant is; `SHA-224` absent from `MessageDigest`; `SHA224withECDSA` and `SHA1withECDSA` absent from `Signature`; the `CCM` addition of the replication copy, which the upstream never carried). (4) A **`behavioural`** row for an observed spelling no registration explains (`OAEPWithSHA1AndMGF1Padding`, resolved by the platform's Bouncy Castle, not Conscrypt). (5) A **`deferred-constant`** row of `conformance_record.csv`: a `CONSTRAINTS` clause the expert rule declares and the set does not yet check, recorded with the rule file, the exact expert clause text, the reason, and the statement that leaving it out adds no accusation — the row MUST cite the expert clause, not the api30 reconstruction of it, because two api30 reconstructions (`pre_len > pre_off`, `len > off`) are mangled and promoting them would implement a bug. A value difference that is none of the five is a defect, and G-CONF MUST fail on it. Values the expert lists carry that Android does not offer (`SunX509`, `NativePRNG*`, `Windows-PRNG`, `PKCS11`, `JKS`, `JCEKS`, `DKS`) stay in the lists — inert entries, never removed by preference. In `jca_android`, `UnsafeAlgorithm` (code KIND `ALG`) therefore means what it means in the published `jca`: **cryptographically insecure per the expert rule**. Any report comparing counts across `jca`, the archived `jca_android_bug_predicate`, the pre-D-15 `jca_android` and the current set MUST say which oracle each answers to.
@@ -384,6 +383,16 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **INV-INS-156**: A rule is *N/A-by-value* when no specification written for it could reach a verdict a reader would act on: every CONSTRAINTS clause is a static-analysis predicate the instrument cannot evaluate at run time, and the rule's ENSURES predicate has no consumer among the 49. The adjudication SHALL name both legs and SHALL record what the rule's ORDER would still accuse, so that the departure is measured rather than assumed away.
 - **INV-INS-157**: An event whose expert rule leaves an argument position anonymous (`getInstance(algorithm, _)`) SHALL realize that position for every overload the declared platform jar carries, or record why an overload is excluded. A pointcut that names a proper subset of the platform's overloads narrows the rule's alphabet without saying so: the unrealized route takes no event, its value clause cannot accuse, and the next observed call draws an ORDER verdict the rule does not state. The same obligation binds the accusing site's argument binding — an accuser bound at a fixed arity (`args(alg)`) does not realize an alphabet the rule wrote open.
 - **INV-INS-158**: A report line whose code marks an unobserved predicate (`-NOBS-`) SHALL NOT be aggregated as conformance nor as violation by any consumer of the results. The `ErrorType` alone does not separate them — `-NOBS-` and `-CONSTR-` share `UnsatisfiedConstraint` by construction — so the separation SHALL be keyed on the `site_kind` column of `codes.csv`. This invariant governs consolidation only; it does not change what the monitors emit on the device,, and it does not decide whether a NOBS branch retires.
+- **INV-INS-159**: An `args(...)` clause constrains the arity of the call in every form. With `k` positions and no trailing `..`, a call with a parameter count other than `k` MUST NOT match; with a trailing `..` after `k` leading positions, a call with fewer than `k` parameters MUST NOT match. This holds for binding names, `*` and typed positions alike, in `PointcutMatcher.matchArgs` (inline path) and in `WrapperEmitter` grouping (wrapper path). An advice with no `args(...)` clause is not constrained.
+- **INV-INS-160**: A call whose static owner `T` is a framework type SHALL be woven with every wrapper-path advice whose owner pattern admits `T` (`Owner+` with `Owner` assignable from `T`), whether `T` declares the method or inherits it. A wrapper target for which no method can be resolved after climbing the framework hierarchy MUST be counted in `wrapperTargetsUnresolved`, and an invoke on a framework subtype that no single registered wrapper covers (its candidate supertype owners have no most specific one) MUST be counted in `wrapperAliasesUnmerged`; no wrapper target and no such invoke MAY be dropped without being counted.
+- **INV-INS-161**: Control that reaches a call with an inserted `before` block, by fall-through, by an `if-*` or `goto*` branch, or by a switch case, MUST execute the inserted block (its `if(...)` guard included) before the call. Every label that an `if-*`, `goto*` or switch payload targets at the call, and every line-number debug item located at the call, MUST be located at the first inserted instruction after insertion. Try-range boundaries and local-variable debug items MUST stay where they were. In a method whose register frame grows or whose try ranges the weaver rebuilds, every line-number item is already lost, and the line clause has no object there.
+- **INV-INS-162**: A pointcut type written `Outer.Inner`, imported or qualified, MUST resolve to the binary name `Outer$Inner` when `Outer` names a class known to the framework index or the APK.
+- **INV-INS-163**: An `after` advice without `returning` or `throwing` MUST run its monitor calls when the matched call completes normally and when it throws, and in the throwing case the original throwable MUST be rethrown unchanged. This holds on the wrapper path and on the inline constructor path; the inline constructor path concerns a plain `after` on a constructor, which no event of `jca_android` declares today (its constructor events are `after … returning`).
+- **INV-INS-164**: In `jca_android`, a label code is a numbered code inside an existing family: `-NOBS-` for `platform-default`, `upstream-refused`, `application-manager` and `random-key-material`; `-ORDER-` for `creation-unobserved`, `creation-refused` and `reuse-after-final`. Every row of `codes.csv` carries exactly one `label` from the closed vocabulary `{violation, sequence, not-observed, platform-default, upstream-refused, application-manager, random-key-material, creation-unobserved, creation-refused, reuse-after-final}`, and a code's label MUST agree with its family (`sequence`, `creation-unobserved`, `creation-refused`, `reuse-after-final` only on `-ORDER-`; `not-observed` and the four `-NOBS-` labels only on `-NOBS-`; `violation` on every other family). Every creation event of `jca_android` guarded by an allow-list `condition(...)` MUST have a refused twin with the negated guard for every overload its pointcut admits, so that a creation call in woven code always runs a creation body; a twin added for that purpose MUST NOT report and MUST NOT write fields other than the creation facts.
+- **INV-INS-165**: A label code MUST be emitted at the site, and under the branch, where the unlabelled code of the same family would otherwise be emitted. Applying the labels MUST NOT add or remove a reported `(class, method, spec, event, location)` except where the per-element trust-manager credit accepts an array whose every element a factory issued.
+- **INV-INS-166**: The evidence keys `vfp` and `vcls` MAY follow `msg` only in a `-NOBS-` envelope, in that order, each at most once, quoted like every other value. No guard, transition or predicate write MAY read them.
+- **INV-INS-167**: `RSAKeyGenParameterSpecSpec.mop` MUST admit exactly `{2048, 3072, 4096}`, the list of `KeyPairGenerator.crysl:29`, and the `oracle-wart` row of `data/jca_android/divergence_record.csv` that names both expert clauses MUST record that alignment. The pinned rule file MUST NOT be edited.
+- **INV-INS-168**: Within one weave, the expression of an advice MUST be parsed at most once, the composition of the `commonPointcut` with an advice MUST NOT be rebuilt for each instruction, and a type name MUST be resolved to a descriptor at most once per `TypeResolver`. Memoisation MUST NOT change what is woven: for the same APK and the same descriptor, every woven `classes*.dex` MUST be byte-identical and every counter of `instrument_results.json` MUST be equal to the ones produced without it.
 ## Requirements
 ### Requirement: Monitor Generation from JavaMOP Specifications (FR01, NFR07)
 
@@ -1848,7 +1857,7 @@ Two consequences SHALL be carried in the change's records rather than left to be
 
 The freeze governs what the instrument **states** — the specifications and the transformation tables the frozen `CipherSpec` delegates to — and not the runtime it executes on, and not the monitor a `.mop` generates. Reproducing a published measurement is done by pinning the toolchain, and the pin SHALL name the **JDK**: the state numbering a generated monitor carries depends on the JDK that ran the generation, because the ERE-to-FSM conversion of the logic repository returns its states in a different order, so a monitor regenerated under a different JDK is isomorphic to the frozen control — same automaton, same verdicts, different state labels — and not byte-identical to it. Any diff of a regenerated monitor against an existing control MUST therefore name the JDK that produced the control (`data/gh104/evidence/g_regeneration.md`), and a gate MUST NOT read a raw state number as an identity. Additive changes to shared Java are admissible where the frozen set cannot observe them at all: a new `Property` constant that no `jca` specification references, or a new class that no `jca` specification imports, leaves the frozen set's generated monitor unchanged. The new transformation utility `jca_android/CipherSpec.mop` names is admissible on exactly this ground: it is a new class in `rvsec-core/src/main/java/br/unb/cic/mop/jca/util/` that neither `CipherTransformationUtil` nor `AndroidCipherTransformationUtil` is edited to accommodate, and that no `jca` specification imports. The alias utility of INV-INS-127 is admissible on the same ground and for the same reason.
 
-A **repair to shared runtime code the frozen set does reference** is also admissible, under two conditions and not otherwise. The repair MUST apply identically to both sets — shared code MUST NOT branch on the active specification set, because that would place the frozen set's verdict under state set outside its own specification, which is the hazard INV-INS-112 exists to prevent. And its effect on the frozen set MUST be enumerated site by site in the change's records rather than assumed absent. A defect in the machinery is not made correct by having been present when a measurement was taken, and a rule forbidding its repair would forbid repairing the weaver as well. The legible-report programme makes four such repairs that change what a `jca` run executes — the collector's escaping and null sentinel (`ErrorCollector`), the `ViolationRecorder` frame filter that fills `location`, the lock framing of the generated dispatcher (INV-INS-129), and the `ErrorSummary` dedupe identity — and enumerates their effect on `jca` in its records, in the consumer-matrix task of the transport group; the arity counter in the weaver is a fifth shared change that alters no behaviour by construction (INV-INS-122), and the dedupe identity changes what `jca` reports and is declared as a count discontinuity, not hidden.
+A **repair to shared runtime code the frozen set does reference** is also admissible, under two conditions and not otherwise. The repair MUST apply identically to both sets — shared code MUST NOT branch on the active specification set, because that would place the frozen set's verdict under state set outside its own specification, which is the hazard INV-INS-112 exists to prevent. And its effect on the frozen set MUST be enumerated site by site in the change's records rather than assumed absent, unless the researcher declares it as a count discontinuity instead, as for the weaver repairs below (decision of 2026-09-15). A defect in the machinery is not made correct by having been present when a measurement was taken, and a rule forbidding its repair would forbid repairing the weaver as well. The legible-report programme makes four such repairs that change what a `jca` run executes — the collector's escaping and null sentinel (`ErrorCollector`), the `ViolationRecorder` frame filter that fills `location`, the lock framing of the generated dispatcher (INV-INS-129), and the `ErrorSummary` dedupe identity — and enumerates their effect on `jca` in its records, in the consumer-matrix task of the transport group; the five weaver repairs of gh114 — positional arity, framework subtypes, branch targets, nested types and after-finally (INV-INS-159 to INV-INS-163) — change what a `jca` run executes and are declared as a count discontinuity, not enumerated; and the dedupe identity changes what `jca` reports and is declared as a count discontinuity, not hidden.
 
 The distinction is between a correction of what counts as a misuse, which is confined to a non-frozen set, and a correction of the mechanism that decides it, which is not confinable and is therefore recorded.
 
@@ -2422,10 +2431,10 @@ The `Cipher` transformation tables SHALL stay in Java. `CipherTransformationUtil
 Every report site in `jca_android` SHALL call the four-argument `ErrorDescription` constructor, and the fourth argument SHALL be a v1 envelope:
 
 ```
-v=1 code=<SPEC>-<KIND>-<NN> ev=<event> obj=<SimpleClass> val='<observed>' exp='<expected>' msg='<free text>'
+v=1 code=<SPEC>-<KIND>-<NN> ev=<event> obj=<SimpleClass> val='<observed>' exp='<expected>' msg='<free text>'[ vfp='<fingerprint>'][ vcls='<class>']
 ```
 
-`code` is the failure identifier of the site, one per `@fail` (`<SPEC>-ORDER-00`) and one per value site, listed in `jca_android/codes.csv` and cross-checked by the message-property gate; `ev` is the name of the event that fired, obtained from the `__EVENTNAME` macro the generator expands (INV-INS-120); `obj` is the simple class of the monitored object; `val` and `exp` carry the observed and the expected value, both quoted with `'`, a literal `'` escaped as `\'`; `msg` is the human sentence. There is no `st=` field: state indices are assigned after minimisation and do not follow declaration order, so a spec-side state name would be silently wrong. Commas are allowed inside values (27 % of today's messages contain them and every consumer rejoins field 7); `\n` and `:::` are not, because the first splits the logcat line and the second is the separator of `unique_msg`. Truncation is the consumer's problem to detect: the producer bounds `val` to 512 characters and the parser treats an unclosed quote as a truncated record.
+`code` is the failure identifier of the site: in a `@fail` handler, `<SPEC>-ORDER-00` and, where the specification carries them, the label codes `creation-unobserved`, `creation-refused` and `reuse-after-final` of the same family; at a value or predicate site, one code per site and label (Requirement: Label Codes of the Successor Specification Set). Every code is listed in `jca_android/codes.csv` with its `label` and cross-checked by the message-property gate; `ev` is the name of the event that fired, obtained from the `__EVENTNAME` macro the generator expands (INV-INS-120); `obj` is the simple class of the monitored object; `val` and `exp` carry the observed and the expected value, both quoted with `'`, a literal `'` escaped as `\'`; `msg` is the human sentence. The optional evidence keys `vfp` and `vcls` follow `msg`, in that order, only in a `-NOBS-` envelope (INV-INS-166); they sit after `msg` so that every reader that locates `code`, `ev`, `val` and `exp` by position or by a leading-key pattern (`ErrorDescription.java:63-65`, `scripts/gh104_diff_harness.py:64`) is unaffected. There is no `st=` field: state indices are assigned after minimisation and do not follow declaration order, so a spec-side state name would be silently wrong. Commas are allowed inside values (27 % of today's messages contain them and every consumer rejoins field 7); `\n` and `:::` are not, because the first splits the logcat line and the second is the separator of `unique_msg`. Truncation is the consumer's problem to detect: the producer bounds `val` to 512 characters and the parser treats an unclosed quote as a truncated record.
 
 `ErrorType` (`rvsec-core/.../eh/ErrorType.java`) SHALL gain `ForbiddenMethod`, with the `code` prefix `FORB` in `codes.csv`. A CrySL `FORBIDDEN` clause is not a predicate — it names a constructor or method that must never be called at all — and the set already encodes two of them, at `PBEKeySpecSpec.mop:24,30`, where they are reported as `InvalidSequenceOfMethodCalls`. That type says the calls arrived in the wrong order, which tells the developer to reorder something that no reordering can fix. `RequiredPredicate` SHALL NOT be added: `REQUIRES` clauses are what INV-INS-128 removes from this set, and an `ErrorType` no site can emit is a promise the enum makes and the specifications break.
 
@@ -2436,7 +2445,7 @@ Message text SHALL agree with the check that guards it (INV-INS-121). The census
 #### Scenario: a `@fail` handler names its event
 
 - **WHEN** `jca_android/TrustManagerFactorySpec` reaches `fail` on event `init` after `g1` and `g2` were never seen
-- **THEN** the report's message MUST be `v=1 code=TRUSTMANAGERFACTORY-ORDER-00 ev=init obj=TrustManagerFactory val='' exp='' msg='init() before getInstance()'` (free text as authored)
+- **THEN** the report's message MUST be `v=1 code=TRUSTMANAGERFACTORY-ORDER-01 ev=init obj=TrustManagerFactory val='' exp='' msg='init() before getInstance()'` (free text as authored), `TRUSTMANAGERFACTORY-ORDER-01` being the code labelled `creation-unobserved` because no creation event was observed on the monitor
 - **AND** the record's `error_type` MUST be `InvalidSequenceOfMethodCalls`
 - **AND** the envelope MUST be composed before `__RESET` runs
 
@@ -2459,6 +2468,7 @@ Message text SHALL agree with the check that guards it (INV-INS-121). The census
 - **WHEN** the message-property gate scans `jca_android/*.mop`
 - **THEN** it MUST find zero `new ErrorDescription(` calls with three arguments (the frozen `jca` has 25: 21 `@fail` blocks, `IvParameterSpec.mop:48,55`, `PBEKeySpecSpec.mop:24,30`)
 - **AND** every `code` it finds MUST exist in `codes.csv`, and every `codes.csv` row MUST be emitted by exactly one site
+- **AND** every `codes.csv` row MUST carry a `label` from the closed vocabulary of INV-INS-164 that agrees with the code's family
 
 #### Scenario: a numeric literal disagrees with its guard
 
@@ -2470,6 +2480,12 @@ Message text SHALL agree with the check that guards it (INV-INS-121). The census
 - **WHEN** the harness replays a trace of `MessageDigestSpec` whose digest was obtained through `clone()` and no `getInstance` was observed, and the `update` site reports `val='SHA-256' exp='MD5,SHA-224,SHA-256,SHA-1,SHA-512,SHA-384'`
 - **THEN** the harness report MUST flag the envelope as `self-contradicting` because `val` is a member of `exp`, and the message-property gate MUST flag any site whose guard tests a monitor field while its `val` reads a getter of the bound object
 - **AND** the site MUST have a row in `data/jca_android/conformance_record.csv` declaring the case, and the envelope itself MUST NOT be rewritten by the message repair — the guard change is measured in the automata group
+
+#### Scenario: evidence keys follow `msg` in a non-observation envelope
+
+- **WHEN** `SecretKeySpecSpec.c1` reports `SECRETKEYSPEC-NOBS-00` for a 16-byte array
+- **THEN** the envelope MUST be `v=1 code=SECRETKEYSPEC-NOBS-00 ev=c1 obj=SecretKeySpec val='AES' exp='…' msg='…' vfp='sha256:<16 hex>'`
+- **AND** `ErrorDescription` MUST still extract `code=SECRETKEYSPEC-NOBS-00` and `ev=c1`
 
 ### Requirement: Event-Name Emission by the Monitor Generator
 
@@ -2527,40 +2543,302 @@ The repair SHALL change nothing else about the dispatcher — not which advices 
 - **THEN** the only differences MUST be the lock framing, the event-name table and the `RVM_eventName()` helper (INV-INS-120) — no expanded `__EVENTNAME`, because the frozen `jca` writes none
 - **AND** the count of acquisitions MUST still equal the count of releases, now with every acquisition inside the framing
 
-### Requirement: Arity Mismatch Is Measured, Not Filtered, in Wrapper Grouping
+### Requirement: Positional Arity Is Enforced in Pointcut Matching and Wrapper Grouping
 
-When `WrapperEmitter` groups the advices bound to one concrete call into a single merged wrapper (`WrapperEmitter.java:246-274`, decision D-B1 of gh100), it SHALL NOT remove any advice from the group. It SHALL instead evaluate, per advice, whether the advice's positional `args()` arity is compatible with the call's parameter count, under three clauses (INV-INS-122): an advice with no `args()` clause is never counted; the arity is the length of `ArgsPC.types()`, with a trailing `..` meaning "at least this many" (`ArgsPC.names()` drops the `..` and would make `args(transformation, ..)` look like fixed arity 1); the evaluation runs inside the grouping loop, the only place where the advice and the concrete overload coexist. Every incompatible advice SHALL be counted per APK as `advicesExcludedByArity` and reach `instrument_results.json` through `BatchRunner`'s counts map, beside `wrappersGenerated`. The name is kept because the counter measures exactly the population a filter would exclude.
+An `args(...)` clause SHALL constrain the number of parameters of the call it matches, in every form it can take (INV-INS-159). `PointcutMatcher.matchArgs` (`pointcut-engine/.../PointcutMatcher.java:268-306`) today returns a match immediately when the clause has no type constraint (`:269-271`), so the binding form `args(alg, *)` matches a one-parameter call; and `WrapperEmitter` (`advice-emitter/.../WrapperEmitter.java:307-314`) counts an arity-incompatible advice into `advicesExcludedByArity` and then fires it anyway. The effect on a run is concrete: `TrustManagerFactory.getInstance(String)` fires both `g1` (`args(alg)`) and `g2` (`args(alg, *)`); `g2` arrives at a state that does not declare it, the monitor reports `-ORDER-00` and resets, and every later event of the same object reports `-ORDER-00` as well. The same happens in `KeyManagerFactorySpec` and `SecureRandomSpec`, and in `SecureRandomSpec` the `@fail` discards the arrays waiting for `RANDOMIZED`, which surfaces later as non-observation reports.
 
-Counting before filtering is the point of this contract, not a step towards it. Today `getInstance(String)` fires the two-argument advice's monitor call because the group is keyed on the call alone; the rule the lineage first wrote — drop any advice whose `args` length differs from the call's — would have dropped the **25** `after` advices that have parameters and no `args()`, counted on the frozen descriptor, and **none of them is a constructor advice** (constructor advices carry an empty parameter list, so they were never in this population at all). That is why the clause exempting them exists, and the corrected count makes the reason stronger rather than weaker: the rule the lineage wrote first would have silenced 25 advices, not the 13 its own count implied (16 claimed, 3 of them said to be constructor advices outside the wrapper path), among them `SSLContextSpec_init` and `MessageDigestSpec_update`, which alone raise 2,629 of the 3,950 legible rows of the E3 trial (66.6 %: 1,466 and 1,163). A filter shipped together with the specification-side repairs would change what every campaign reports in the same commit that first measures how much there is to change, and no measurement afterwards could separate the two contributions — the same conflation `The Java SE Specification Set Is Frozen` records for allow-list versus repair. The counter is published first; whether to filter is decided against the number it produces.
+The arity rule is the one AspectJ applies: `k` positions without a trailing `..` require exactly `k` parameters; a trailing `..` after `k` leading positions requires at least `k`. The number of positions is read from `ArgsPC.types()`, which keeps the `..` that `ArgsPC.names()` drops. The rule SHALL apply on both weaving paths: the inline path matches through `PointcutMatcher` (`DexWeaver.java:432`), and the wrapper path groups advices without calling the matcher (`DexWeaver.java:394-405`), so the grouping loop SHALL exclude an incompatible advice from the group of that concrete overload instead of counting and keeping it. `advicesExcludedByArity` keeps its name and its unit (advice/overload pairs) and now counts pairs that were actually excluded.
 
-The reach of the measurement SHALL be stated wherever it is reported, because it is partial by construction: the evaluation runs in the wrapper grouping loop, and that loop admits only `after` advices (`WrapperEmitter.java:161-163`) and skips constructors explicitly. Nothing outside `pointcut-engine` reads `args()` at all, and `PointcutMatcher.matchArgs` accepts the binding form (`args(alg)`, `args(alg, *)`) unconditionally, so the advices the wrapper path never sees are never counted. On the frozen descriptor (`results/gh101_group8_jca_frozen_control/monitors/MultiSpec_1MonitorAspect.json`) the 115 advices split as follows: **48** are wrapper-path `after` advices carrying `args()` — the only population the counter can evaluate; **44** carry no `args()` clause at all and clause 1 never counts them — 35 of the 44 are `after` advices, and 25 of those 35 declare parameters, which is the population the lineage's first rule would have dropped; **9** are `before` advices with `args()` (`CipherSpec_i1/i2`, `MacSpec_i1`, `SecureRandomSpec_next1/next2`, `SignatureSpec_i1/i2/i3/i4`); and **14** are `after`-on-constructor advices with `args()` (`DHGenParameterSpecSpec_c1`, `GCMParameterSpecSpec_c1_3`, `GCMParameterSpecSpec_c1_4`, `IvParameterSpecSpec_c1`, `IvParameterSpecSpec_c2`, `KeyPairSpec_c1`, `PBEKeySpecSpec_f1`, `PBEKeySpecSpec_f2`, `PBEKeySpecSpec_c1`, `PBEParameterSpecSpec_c1`, `PBEParameterSpecSpec_c2`, `SecretKeySpecSpec_c1`, `SecretKeySpecSpec_c2`, `SecureRandomSpec_c2`). The last two groups, 23 advices, are outside the wrapper path and the counter is blind to them. Four of the fourteen sit on the four non-`@fail` three-argument report sites of the frozen set: `PBEKeySpecSpec_f1/f2` are the sites at `PBEKeySpecSpec.mop:24,30`, which become `ForbiddenMethod`; the events `IvParameterSpecSpec_c1/c2` are guards, not report sites, but at advice level the `monitorCalls` of the `IvParameterSpecSpec_c1` advice fires both `c1Event` and `c3Event` (`.aj:305-310`), so that advice does sit on the `c3/c4` report sites at `IvParameterSpec.mop:48,55` — sites the predicate removal deletes from `jca_android`. A report from those sites may name its event and its observed value and still have been raised by an advice an arity check would have excluded, without the counter ever seeing it. Closing this at its root means the binding-form check in `PointcutMatcher`, which is recorded as future work.
+An advice with no `args(...)` clause is not constrained, and this is not a loophole but the reason the counter was introduced first: 25 wrapper-path `after` advices declare parameters without `args()` and bind them by position (`WrapperEmitter.java:822-832`); a rule that compared the advice's parameter list to the call instead of its `args()` clause would silence them.
 
-#### Scenario: an incompatible advice is counted and still fires
+#### Scenario: a one-argument call fires only the one-argument event
 
-- **WHEN** a descriptor carrying only the `TrustManagerFactory` group is woven, `TrustManagerFactory.getInstance(String)` is wrapped and the group carries `g1` with `args(alg)`, `g3` with `args(alg)` and `g2` with `args(alg, *)`
-- **THEN** the merged wrapper MUST still fire all three monitor calls, exactly as it does today
-- **AND** `advicesExcludedByArity` MUST be `1` for that APK — the unit is advice/overload pairs, and the single pair is `g2` (arity 2) against the one-parameter overload; on the full frozen `jca` descriptor the same rule yields 10 pairs over 4 advices (`SecureRandomSpec_g2` ×3 and `_g4` ×5, `KeyManagerFactorySpec_g2` ×1 besides this one)
-- **AND** no `IllegalStateException` MUST be raised and no advice MUST be dropped
+- **WHEN** `TrustManagerFactory.getInstance("PKIX")` is woven with a descriptor whose `TrustManagerFactorySpec` group carries `g1` with `args(alg)` and `g2` with `args(alg, *)`
+- **THEN** the wrapper of `getInstance(String)` MUST call `TrustManagerFactorySpec_g1Event` and MUST NOT call `TrustManagerFactorySpec_g2Event`
+- **AND** the wrapper of `getInstance(String, String)` MUST call `g2` and MUST NOT call `g1`
+- **AND** `advicesExcludedByArity` MUST be `2` for that APK, one pair per overload
 
-#### Scenario: an advice with no `args()` is never counted
+#### Scenario: the binding form is constrained on the inline path
 
-- **WHEN** the frozen `jca` descriptor is grouped
-- **THEN** the counter MUST evaluate only the 48 wrapper-path `after` advices that carry `args()`
-- **AND** the 44 advices with no `args()` clause MUST contribute `0` to `advicesExcludedByArity`, including the 25 wrapper-path ones that declare parameters (`CipherSpec_wkb1`, `CipherSpec_f1`, `CipherSpec_f2`, `KeyGeneratorSpec_gk1`, `KeyManagerFactorySpec_gkm1`, `KeyPairGeneratorSpec_gen`, `KeyPairSpec_gpu`, `KeyPairSpec_gpr`, `KeyStoreSpec_gk1`, `MacSpec_update`, `MacSpec_f1`, `MessageDigestSpec_update`, `MessageDigestSpec_d1`, `MessageDigestSpec_d2`, `PBEKeySpecSpec_c2`, `RandomStringPasswordSpec_gb`, `SecretKeySpec_e1`, `SecureRandomSpec_setSeed1`, `SecureRandomSpec_genSeed`, `SecureRandomSpec_next3`, `SecureRandomSpec_ints`, `SignatureSpec_s1`, `SSLContextSpec_init`, `SSLContextSpec_engine`, `TrustManagerFactorySpec_gtm1`), none of which is a constructor advice
-- **AND** the same population on `jca_android` is also 25, and the report MUST name the set it was taken on. An earlier revision of this clause put it at 23, on the ground that `RandomStringPasswordSpec_gb` and `SecretKeySpec_e1` belong to two specifications the successor set does not carry; D-11 withdrew that removal and the successor carries all 23 files, so both advices have successors
-- **AND** the 23 advices outside the wrapper path — the 9 `before` and the 14 `after`-on-constructor — MUST contribute `0` as well, and the report of the counter MUST say so rather than let `0` read as "none present"
+- **WHEN** `PointcutMatcher.matchArgs` evaluates `args(o, o1)` against a call with three parameters
+- **THEN** it MUST return no match
+- **AND** against a call with two parameters it MUST return a match binding `o` and `o1`
+- **AND** `args(*, ..)` MUST match a call with one or more parameters and MUST NOT match a call with none
 
-#### Scenario: trailing `..` is honoured
+#### Scenario: an advice without `args()` is untouched
 
-- **WHEN** an advice declares `args(transformation, ..)` and the concrete call has two parameters
-- **THEN** the advice MUST be judged compatible (arity ≥ 1) and MUST NOT be counted
-- **AND** the arity MUST be read from `ArgsPC.types()`, since `ArgsPC.names()` drops the `..` and would report a fixed arity of 1
+- **WHEN** `SSLContextSpec_init`, an `after` advice declaring `(KeyManager[], TrustManager[], SecureRandom, SSLContext)` with no `args()` clause, is grouped for `SSLContext.init(KeyManager[], TrustManager[], SecureRandom)`
+- **THEN** it MUST remain in the group and its monitor call MUST be emitted
+- **AND** it MUST contribute `0` to `advicesExcludedByArity`
 
-#### Scenario: the counter reaches the results JSON
+#### Scenario: the double fire disappears from an instrumented APK
 
-- **WHEN** a batch instrumentation run completes
-- **THEN** `instrument_results.json` MUST carry `advicesExcludedByArity` per APK beside `wrappersGenerated`
-- **AND** an APK whose descriptor contains no incompatible advice MUST carry the key with value `0`, never omit it
+- **WHEN** an APK that calls `getInstance(String)` on `TrustManagerFactory`, `KeyManagerFactory` and `SecureRandom` is instrumented before and after the repair and its woven DEX is disassembled
+- **THEN** after the repair no wrapper of a one-parameter `getInstance` MUST invoke a monitor event whose advice declares two `args()` positions
+- **AND** the per-wrapper event lists MUST differ between the two DEXes only in those pairs
+
+### Requirement: Methods Inherited by Framework Subtypes Are Woven and Every Unresolved Wrapper Target Is Counted
+
+A call whose static owner is a framework type SHALL be woven with every wrapper-path advice whose owner pattern admits that type, whether the type declares the called method or inherits it (INV-INS-160). Two mechanisms lose such calls today. First, `WrapperEmitter.expandCallTarget` (`WrapperEmitter.java:401-478`) asks `AndroidClassIndex.methods` for the methods **declared** by the pattern's owner (`:443-445`, index `AndroidClassIndex.java:115-126`); for `call(public byte[] SecretKey+.getEncoded())` the interface `javax.crypto.SecretKey` declares no `getEncoded`, the lookup is empty, `literalFallback` returns `null` for an instance target, and the target is dropped at `:291` with no counter. Second, a wrapper is registered under its exact owner descriptor and replaces only invokes whose defining class equals it (`DexWeaver.java:263-281`); aliases to subtypes are created only for classes defined inside the APK (`InheritanceResolver.java:79-96`), so an invoke of `Ljava/security/PublicKey;->getEncoded()[B` never reaches the wrapper registered for `Ljava/security/Key;`. AspectJ's `call(Key+.getEncoded())` matches both.
+
+Resolution SHALL climb the superclass chain and the interfaces of the framework type when the declared lookup is empty, using the ancestry `AndroidClassIndex` already reads (`walkAncestors`, `:142-154`); the resolved signature is the inherited one and the wrapper's owner is the type written at the call site, so the exact-owner replacement finds it. The emitter SHALL fold into the wrapper of each wrapped framework owner the advices of every `Owner+` pattern that admits that owner, so each wrapper fires every advice that applies to its owner. When an invoke's defining class is a framework type assignable to the owners of registered wrappers for the same name and parameter list, the invoke SHALL be routed to the wrapper of the most specific of those owners (the one assignable to all the others), counted in `wrappersAliasedToSubtype`; when no candidate is assignable to all the others, no registered wrapper carries every applicable advice, and the invoke SHALL be left unwoven and counted in `wrapperAliasesUnmerged`. A wrapper target that still resolves to no method SHALL be counted in `wrapperTargetsUnresolved`. The three counters are published in `instrument_results.json` beside `wrappersGenerated`. The lost calls only ever created false non-observation reports — the producer `getEncoded` writes `PREPARED_KEY_MATERIAL` and nothing retracts it — so the repair removes reports and cannot hide a violation.
+
+#### Scenario: an inherited method on a framework interface is wrapped
+
+- **WHEN** an APK calls `secretKey.getEncoded()` through `invoke-interface Ljavax/crypto/SecretKey;->getEncoded()[B` and the descriptor carries `SecretKeySpec_e1` on `call(public byte[] SecretKey+.getEncoded())` and `KeySpec_ge1` on `call(public byte[] Key+.getEncoded())`
+- **THEN** the invoke MUST be replaced by a wrapper whose owner is `Ljavax/crypto/SecretKey;`
+- **AND** the wrapper MUST call both `SecretKeySpec_e1Event` and `KeySpec_ge1Event`
+- **AND** `wrapperTargetsUnresolved` MUST be `0`
+
+#### Scenario: a framework subtype of a wrapped owner is aliased
+
+- **WHEN** an APK calls `invoke-interface Ljava/security/PublicKey;->getEncoded()[B` and only `KeySpec_ge1` on `Key+.getEncoded()` applies
+- **THEN** the invoke MUST be routed to the wrapper of `Ljava/security/Key;` and woven with `KeySpec_ge1Event`
+- **AND** no `IllegalStateException` MUST be raised by `registerWrapper`
+- **AND** `wrappersAliasedToSubtype` MUST be incremented by `1` and `wrapperAliasesUnmerged` MUST stay `0`
+
+#### Scenario: an unresolvable target is counted, not dropped
+
+- **WHEN** a wrapper-path advice names an instance method that neither the owner nor any of its framework ancestors declares
+- **THEN** no wrapper MUST be generated for it
+- **AND** `wrapperTargetsUnresolved` MUST be incremented by `1` and published in `instrument_results.json`
+
+### Requirement: An Inserted Before-Block Is Not Bypassed by Control Transfer
+
+Instructions inserted before a matched call SHALL be executed by every path that reaches the call (INV-INS-161). `InstructionInjector.insertBefore` (`dex-mutator/.../InstructionInjector.java:80-87`) inserts through `MutableMethodImplementation.addInstruction` (`:457-463`), which creates new locations and leaves the labels and debug items on the location of the original call. A branch or a switch case that targets the call therefore keeps pointing at the call and jumps over the monitor. In the bytecode of an instrumented APK a method of the shape `if (nonce == null) goto L; …; hook; Cipher.init(mode, key, spec); goto END; hook; L: Cipher.init(mode, key)` never runs the second hook on the path that arrives by `goto L`; the monitor loses that `init` and reports `-ORDER-00` on the following `doFinal`. The same mechanism leaves the debug line entry on the call, so the inserted instructions inherit the line of the previous instruction and a `before` report names the wrong source line.
+
+After the block (and its `if(...)` guard, when the plan carries one) is inserted, the labels located at the call that are targets of an `if-*`, `goto*` or switch payload, and the line-number debug items located at the call, SHALL be moved to the first inserted instruction. Nothing else moves. Try-range start and end labels stay: the inserted block is a static monitor call that throws only on a monitor defect, so which exception range covers it changes nothing the application observes, and moving range boundaries would touch exception handling for no measured gain. Local-variable debug items stay: they serve debuggers only. A method whose register frame grows or whose try ranges are rebuilt by the weaver (an after-throwing handler, a `!holdsLock` guard, a constructor after-finally handler) loses all its line-number items when it is rebuilt, so the line move has no effect in such a method; this requirement does not change that. Moving the line-number item makes the `source` of a `before` report name the line of the call; because the location is part of the collector's dedupe identity, this is a declared discontinuity against earlier campaigns, and the per-misuse count `(class, method, spec)` does not change. The guard's own skip label is created by `installGuard` (`:172-211`) on the call's location after the insertion and is not moved; the guard relies on it. `insertAfter` is not changed: a branch that targets the instruction after a call did not execute the call and must not execute its `after` block.
+
+#### Scenario: a branch to the hooked call runs the hook
+
+- **WHEN** a method `m` contains `if-eqz v5, L` and `L: invoke-virtual Ljavax/crypto/Cipher;->init(ILjava/security/Key;)V`, and a `before` advice on `Cipher.init(int, Key, ..)` is inserted at `L`
+- **THEN** after weaving, the target of `if-eqz v5` MUST be the first instruction of the inserted block
+- **AND** the fall-through path into the call MUST also pass through the inserted block exactly once
+
+#### Scenario: a switch case, a try range and the line at the call
+
+- **WHEN** a `packed-switch` case targets a hooked call, a try range begins at the same call, and the call carries the line-number entry `line 69`
+- **THEN** the case target MUST be the first inserted instruction
+- **AND** the try range MUST still begin at the call, not at the inserted block
+- **AND** the first inserted instruction MUST carry `line 69`, so a `before` report from that block names line 69
+
+#### Scenario: the guard keeps working
+
+- **WHEN** a `before` plan with an `if(...)` guard is inserted at a call that is also a branch target
+- **THEN** the branch MUST land on the first instruction of the guard prefix
+- **AND** when the guard condition is false, control MUST reach the call without executing the monitor calls
+
+#### Scenario: no hooked call remains a branch target in an instrumented APK
+
+- **WHEN** `experimento-estudo02/scripts/branch_target_hooks.py` scans an APK instrumented after the repair
+- **THEN** it MUST report `0` hooked calls whose address is the target of an `if-*`, `goto*` or switch
+
+### Requirement: Nested Types in Pointcut Signatures Resolve to Binary Names
+
+A type written `Outer.Inner` in a pointcut signature, whether imported by its dotted name or written fully qualified, SHALL resolve to the binary name `Outer$Inner` when `Outer` is a class (INV-INS-162). `TypeResolver.toDescriptor` (`pointcut-engine/.../TypeResolver.java:87-107`) replaces every `.` by `/`, so `java.security.KeyStore.ProtectionParameter` becomes `Ljava/security/KeyStore/ProtectionParameter;`, a descriptor no framework method carries; `KeyStoreSpec`'s events on `getEntry(String, KeyStore.ProtectionParameter)` and `setEntry(String, KeyStore.Entry, KeyStore.ProtectionParameter)` therefore never match. The same dotted assumption sits in `WrapperEmitter.resolveFqn` (`:647-676`) and `AndroidClassIndex.toInternal` (`:223-225`).
+
+Resolution SHALL try the dotted name as a class first and, when no class of that name exists, replace the dots from the right with `$` one at a time until a class exists in the framework index or among the APK's classes, using a public existence query on `AndroidClassIndex` (which already caches presence and absence, `:156-189`). When no candidate exists the current descriptor is kept, so a genuinely unknown type behaves as today.
+
+#### Scenario: an imported nested type resolves
+
+- **WHEN** a specification imports `java.security.KeyStore.ProtectionParameter` and declares `call(public KeyStore.Entry KeyStore.getEntry(String, ProtectionParameter))`
+- **THEN** the parameter descriptor MUST be `Ljava/security/KeyStore$ProtectionParameter;` and the return descriptor `Ljava/security/KeyStore$Entry;`
+- **AND** a call `invoke-virtual Ljava/security/KeyStore;->getEntry(Ljava/lang/String;Ljava/security/KeyStore$ProtectionParameter;)Ljava/security/KeyStore$Entry;` MUST be woven
+
+#### Scenario: a top-level type is unchanged
+
+- **WHEN** `java.security.KeyStore` is resolved
+- **THEN** the descriptor MUST be `Ljava/security/KeyStore;`
+
+### Requirement: After Advice Runs on Normal and Exceptional Completion
+
+An `after` advice that declares neither `returning` nor `throwing` SHALL run its monitor calls whether the matched call returns or throws, and SHALL rethrow the original throwable afterwards (INV-INS-163). This is AspectJ's `after` (after-finally), and `AfterEmitter`'s own contract states it (`advice-emitter/.../AfterEmitter.java:9-13`), but neither weaving path implements it. The wrapper path emits `R result = call(...); <monitor calls>; return result;` with no handler (`WrapperEmitter.appendWrapperMethod`, `:782-801`), and the inline constructor path inserts after the call without a try range (`DexWeaver.applyPlan` case `AFTER`, `:925-927`). In `jca_android`, 58 of the 202 events are plain `after`; `KeyAgreementSpec.dophase`, `SSLContextSpec.init` and `SecureRandomSpec.setSeed2` are among them.
+
+The wrapper SHALL guard the call with a catch-all handler that executes the same monitor calls with the same bound arguments and rethrows; the inline constructor path SHALL use the try-catch installation the `after-throwing` path already uses (`InstructionInjector.installTryCatch`, `:266-360`), with a handler that runs the monitor calls and rethrows instead of binding the throwable. The inline constructor path applies to a plain `after` on a constructor; every constructor event of `jca_android` is `after … returning`, so in that set the path weaves nothing today and the wrapper path carries the repair. `after returning` and `after throwing` keep their current shapes. The whole event body runs on a throwing call, so its predicate writes and staged values happen there as well as its reports.
+
+Only the digest-stream records rest on the skipped-advice behaviour, and they SHALL be rewritten for after-finally semantics: `conformance_record.csv:116,117,119,120` (which also misname the plain `after` of `DigestInputStreamSpec.r2` and `DigestOutputStreamSpec.w2` as `after … returning`) and `:118,121` (a throwing call with `len < 0` now reaches the `len <= 0` site); `divergence_record.csv:45,46`, which record the nested-type and after-finally defects as not repaired, closed as repaired by this change; and `divergence_record.csv:105,106`, with the comment blocks `DigestInputStreamSpec.mop:75-89` and `DigestOutputStreamSpec.mop:76-88`. The two digest guards that become reachable (`off < 0`, `off + len > length`) stay `deferred-constant`, on the ground that the platform refuses the call (decision of 2026-09-15); no code is added.
+
+The repair is verified on the woven output: the generated wrapper source and an inline constructor site generated for such an advice carry a try range around the matched invoke whose handler invokes the same monitor calls and rethrows.
+
+#### Scenario: a throwing call still reaches the monitor
+
+- **WHEN** a fixture calls `keyAgreement.doPhase(null, true)`, which throws `InvalidKeyException`, under the `after` advice `KeyAgreementSpec_dophase`
+- **THEN** `KeyAgreementSpec_dophaseEvent` MUST be invoked with `pubKey = null`, `lastPhase = true` and the target
+- **AND** the `InvalidKeyException` MUST propagate to the caller unchanged
+
+#### Scenario: a returning call behaves as before
+
+- **WHEN** the same call returns normally
+- **THEN** the monitor call MUST be invoked exactly once, after the call
+- **AND** the wrapper MUST return the call's result
+
+#### Scenario: the woven wrapper carries the handler
+
+- **WHEN** the wrapper for `KeyAgreement.doPhase(Key, boolean)` under `KeyAgreementSpec_dophase` is disassembled from the monitor DEX of an instrumented APK
+- **THEN** a try range MUST cover the `invoke-virtual` of `doPhase`, and its catch-all handler MUST invoke `KeyAgreementSpec_dophaseEvent` and end in `throw` of the caught register
+- **AND** the normal path MUST invoke `KeyAgreementSpec_dophaseEvent` once and return the call's result
+
+### Requirement: The Weaver Decides Once What Does Not Change Within a Weave
+
+The weaver SHALL parse an advice's pointcut expression once per weave, compose the `commonPointcut` with an advice once per class rather than once per instruction, and resolve a type name to a descriptor once per resolver (INV-INS-168). Three sites repeat work on the path taken for every instruction of every method of every class, multiplied by the number of advices in the descriptor. `DexWeaver.parseCached` (`dex-mutator/.../DexWeaver.java:973-981`) calls `PointcutExpressionParser.parse` on every call although its name has promised a cache since the weaver was written; the call site (`:524`) sits inside the class, method, instruction and advice loops (`:460`, `:476`, `:517`). The composition `new CombinedPC(CombinedPC.Op.AND, perInstructionCommon, pe)` (`:531-532`) allocates an AST node per instruction although both operands are fixed for the class and the advice. `TypeResolver.toDescriptor` (`pointcut-engine/.../TypeResolver.java:107-127`) rescans the imports and, since nested types resolve by existence, probes the class index once per dot of the name at every match.
+
+The repair is memoisation and nothing else: a map from expression text to the parsed expression on the weaver, the composition hoisted out of the instruction loop, and a map from type name to descriptor on the resolver. It is sound because the pointcut AST is built of immutable records and `PointcutMatcher` holds the state of a match in the `Context` it creates per call, so one instance serves every match; it is bounded because a descriptor has a fixed set of advices and a resolver a fixed set of imports; and it is emptied with the object that owns it.
+
+The requirement is about cost, so it is accepted on the woven output rather than on a clock: an APK woven before and after the memo MUST give the same DEXes and the same counters. The wall time is measured and reported beside that identity, because the measurement is the reason the repair exists.
+
+#### Scenario: an advice expression is parsed once
+
+- **WHEN** a DEX with two classes of ten methods each is woven against a descriptor with three advices
+- **THEN** `PointcutExpressionParser.parse` MUST be called at most once per distinct advice expression for that weave
+- **AND** the expression handed to the matcher for a given advice MUST be the same instance at every instruction
+
+#### Scenario: the woven output does not move
+
+- **WHEN** one APK is instrumented with the same descriptor by the weaver without the memo and by the weaver with it
+- **THEN** every `classes*.dex` entry of the two instrumented APKs MUST have the same SHA-256
+- **AND** every counter of `instrument_results.json` MUST be equal
+- **AND** the two wall times MUST be reported side by side
+
+#### Scenario: a type name is resolved once
+
+- **WHEN** `TypeResolver.toDescriptor("KeyStore.ProtectionParameter")` is called twice on the same resolver
+- **THEN** the second call MUST NOT query the class-existence predicate again
+- **AND** both calls MUST return equal descriptors
+
+### Requirement: Label Codes of the Successor Specification Set
+
+`jca_android` SHALL distinguish, by code, report situations that the `-NOBS-` and `-ORDER-` families today report under one code each (INV-INS-164, INV-INS-165). No new family is introduced: a label is the next free number of the family in its file (numbering per file and per family, as `NEW_SPEC_CONVENTIONS.md:167` fixes), and `codes.csv` gains a seventh column, `label`, that names what the code means. Keeping the families is deliberate: every consumer that separates "not observed" from "accused" reads the family (`scripts/gh109_nobs_channel.py:153-163` counts every family other than `NOBS` as an accusation; `scripts/gh104_message_gate.py:427-436` requires that a code emitted under a `NOT_OBSERVED` branch be `NOBS`), and a new family would silently become an accusation in all of them.
+
+The seven labels, and where each is emitted:
+
+- **`platform-default`** (`-NOBS-`). In `TrustManagerFactorySpec.init` and `KeyManagerFactorySpec.init`, when the `KeyStore` argument is `null`, and in `SSLContextSpec.init`, separately for a `null` `KeyManager[]`, a `null` `TrustManager[]` and a `null` `SecureRandom`. Each of these `null`s is the documented request for the platform default; the current specifications read them on purpose (`TrustManagerFactorySpec.mop:102-112`, `KeyManagerFactorySpec.mop:91-104`, `SSLContextSpec.mop:176-185,204-208`) and the rule is not satisfiable by them, so they stay reported, under a code that says so.
+- **`application-manager`** (`-NOBS-`). In `SSLContextSpec.init`, for a non-null trust-manager array not credited per element (next requirement) that contains an element whose class was defined by a class loader other than the one that defined `javax.net.ssl.TrustManager` — the application's own class. Key-manager arrays get no such code and keep their current reads. The class loader, not a package name, decides, so the rule holds for any APK. This is the code under which a trust-all manager built by the application lands; a delegating manager lands there too, and the monitor cannot tell them apart.
+- **`upstream-refused`** (`-NOBS-`). At the consumer sites listed in the requirement below, when the bound object carries its `REPORTED_UPSTREAM` mark.
+- **`random-key-material`** (`-NOBS-`). In `SecretKeySpecSpec.c1` and `c2`, when the key material is not `PREPARED_KEY_MATERIAL` but is `RANDOMIZED`. The rule requires prepared material and the specification records that decision (`SecretKeySpecSpec.mop:79-91`); the code separates the recorded decision from an untraceable array.
+- **`creation-unobserved`** (`-ORDER-`). In the `@fail` handler of every specification whose automaton begins with a creation event, when no creation event was observed on that monitor. A creation event is every constructor or static-factory event that binds the monitored parameter through `returning(...)`, refused and forbidden twins included; an event bound through `target(...)` never is. The object was created where the monitor cannot see — inside the framework, by a route the rule does not list, or by a subclass — and every failure of that monitor is reported with this code. A creation call in woven code is never such a route: every creation event guarded by an allow-list has a refused twin for every overload it admits (INV-INS-164, next paragraph), so a refused creation runs a body too.
+- **`creation-refused`** (`-ORDER-`). In the `@fail` handler of every specification with a refused creation, when the creation observed on that monitor was a refused one: a creation event whose guard is the negation of an allow-list test (`CipherSpec.g3`, `KeyGeneratorSpec.g3`, `KeyManagerFactorySpec.g3`, `KeyStoreSpec.g2`, `MacSpec.g3`, `MessageDigestSpec.g4`, `SecureRandomSpec.g4`/`g5`, `KeyPairGeneratorSpec.g3`/`g4`, and the two-argument twins below), or a forbidden creation that reports `FORB` (`PBEKeySpecSpec.f1`/`f2`, `SSLContextSpec.getDefault`). The automaton of such an object admits no use, so its ordering failure is the consequence of the refusal, not a wrong order the program chose; in the evidence campaign 16,429 report lines (11.7 %) were `-ORDER-00` failures that shared the misuse with a value code. In `KeyStoreSpec` the type is accused only at `getKey`, so for a refused store never read by `getKey` this report is the only one.
+
+The two-argument refused twins complete the set of refused creations. `MessageDigestSpec`, `MacSpec`, `KeyStoreSpec`, `KeyGeneratorSpec` and `KeyManagerFactorySpec` declare a refused twin only for the one-argument `getInstance`, so a refused algorithm or type requested with a provider matches no event: the admitting guard is false, a false guard runs no body, and the later failure would read `creation-unobserved` for an object created in woven code. Each of them SHALL declare a new event with the file's two-argument pointcut and the negated guard, placed in the automaton beside the one-argument twin (the `ere` Kleene prefix, or the `unsafeAlg` transitions of the `fsm`). `CipherSpec` is at the ceiling of 17 events (INV-INS-154), so instead of a new event its `g3` SHALL be widened to `call(public static Cipher Cipher.getInstance(String, ..)) && args(transformation, ..)`, which admits both overloads and whose body only records the creation. `TrustManagerFactorySpec` and `SignatureSpec` accept any algorithm in their one-argument creation and guard only the two-argument one; their new two-argument twin SHALL lead where the first use fails, as it does when no event fires (a `fsm` state with no transitions; an `ere` Kleene prefix before `(g1 | g2)`). A new twin records the creation facts and nothing else: it emits no report and writes none of the fields other events read. The first use of the object therefore fails at the same event as before, and only the handler's code moves.
+- **`reuse-after-final`** (`-ORDER-`). In the `@fail` handler of `CipherSpec` and `MacSpec`, when the failing event is an initialisation event and the object had completed an operation, and for every later failure of that monitor. The API permits reinitialising a used `Cipher` or `Mac`; the rule does not (`Cipher.crysl:85`, `Mac.crysl:41`) and the specification records it (`CipherSpec.mop:414-418`).
+
+The precedence when more than one applies at a `-NOBS-` site is `platform-default`, then `upstream-refused`, then `application-manager` or `random-key-material`, then `not-observed`. In an `@fail` handler it is `creation-unobserved`, then `creation-refused`, then `reuse-after-final`, then `sequence`. The three `-ORDER-` labels persist on the monitor: once one of them is reported, every later failure of that monitor carries the same label, because after a reset no creation event can arrive for the object and the automaton cannot return to a state the object's real history satisfies (decision of 2026-09-15). A specification records "creation observed", "creation refused", "operation finished" and "reuse observed" in monitor fields written by the bodies of the corresponding events and by the handler; a refused creation sets "creation observed" as well. The generated `reset()` does not clear user fields (it only resets the state and the category flags), so these facts survive a failure of the same monitor. In the fifteen specifications whose automaton is a single construction (`ere : c1`, `c1 | c2`, …) `@fail` cannot fire, and their `-ORDER-` rows exist only for the bijection between report sites and `codes.csv` rows.
+
+#### Scenario: the platform default is labelled
+
+- **WHEN** an application calls `TrustManagerFactory.getInstance("PKIX")` and then `init((KeyStore) null)`
+- **THEN** the report of `TrustManagerFactorySpec.init` MUST carry a `TRUSTMANAGERFACTORY-NOBS-NN` code whose `codes.csv` label is `platform-default`
+- **AND** no `TRUSTMANAGERFACTORY-NOBS-00` MUST be reported for that call
+
+#### Scenario: `SSLContext.init(null, tms, null)` yields two platform-default codes
+
+- **WHEN** an application calls `sslContext.init(null, factory.getTrustManagers(), null)` with the array returned by the factory
+- **THEN** the key-manager and random reads MUST report the two `platform-default` codes of `SSLContextSpec`
+- **AND** the trust-manager read MUST NOT report
+
+#### Scenario: an object created outside the monitor's view
+
+- **WHEN** a `KeyPair` obtained from `KeyPairGenerator.generateKeyPair()` has `getPublic()` called on it and `KeyPairSpec`'s automaton fails on `gpu`
+- **THEN** the report MUST carry `KEYPAIR-ORDER-01` with label `creation-unobserved`
+- **AND** a second failing event on the same monitor MUST also carry `KEYPAIR-ORDER-01`
+
+#### Scenario: a digest of a refused algorithm requested with a provider
+
+- **WHEN** an application calls `d = MessageDigest.getInstance("MD5", "BC")` and then `d.digest()`
+- **THEN** the refused two-argument twin of `MessageDigestSpec` MUST run and emit no report of its own
+- **AND** `d1` MUST report the value code for `MD5` and the `@fail` at `d1` MUST carry the `MessageDigestSpec` code labelled `creation-refused`, not `MESSAGEDIGEST-ORDER-01`
+- **AND** the reported `(spec, event)` pairs MUST be the ones reported without the twin
+
+#### Scenario: a forbidden constructor followed by use
+
+- **WHEN** an application calls `spec = new PBEKeySpec(chars)` and then `spec.clearPassword()`
+- **THEN** `PBEKeySpecSpec.f1` MUST report its `FORB` code
+- **AND** the ordering failure at `clearPassword` MUST carry the `PBEKeySpecSpec` code labelled `creation-refused`
+
+#### Scenario: a reinitialised cipher
+
+- **WHEN** an application calls `c = Cipher.getInstance("AES/GCM/NoPadding")`, `c.init(1, k, spec1)`, `c.doFinal(p1)`, `c.init(1, k, spec2)`
+- **THEN** the report of the second `init` MUST carry the `CipherSpec` code labelled `reuse-after-final`
+- **AND** a following `c.doFinal(p2)` that fails MUST carry the same label
+
+#### Scenario: random bytes used as key material
+
+- **WHEN** an application fills `byte[] raw = new byte[32]` with `SecureRandom.nextBytes` on an observed, admitted `SecureRandom` and calls `new SecretKeySpec(raw, "AES")`
+- **THEN** the report MUST carry the `SecretKeySpecSpec` code labelled `random-key-material`, not `SECRETKEYSPEC-NOBS-00`
+
+#### Scenario: the labels do not change which sites report
+
+- **WHEN** the differential harness (`scripts/gh104_diff_harness.py`) replays its traces against the specification set before and after the labels
+- **THEN** the set of reported `(spec, event, class, method, location)` MUST be equal, except for traces in which a trust-manager array is credited per element
+- **AND** every difference in code MUST map an old code to a new code of the same family
+
+### Requirement: Per-Element Credit of Trust-Manager Arrays
+
+`TrustManagerFactorySpec.gtm1` SHALL mark every non-null element of the array the factory returns with `GENERATED_TRUST_MANAGERS`, in addition to the array itself (the constant exists in `Property.java:97-108` and has no producer or consumer today). `SSLContextSpec.init` SHALL answer `SATISFIED` for the trust-manager array when the array itself is marked, or when the array read answers `NOT_OBSERVED` and the array is non-empty and **every** element is marked. A `VIOLATED` answer is not upgraded by the elements; no site withdraws `GENERATED_TRUST_MANAGER` today, so no program distinguishes the two readings. Key-manager arrays are not credited per element (decision of 2026-09-15): `KeyManagerFactorySpec.gkm1` and the key-manager read of `SSLContextSpec.init` keep their current behaviour, apart from the `platform-default` label for `null`. An array with one unmarked element is not credited. Requiring every element closes the case of an array that mixes a factory-issued manager with a manager written by the application.
+
+This is the one label rule that changes which sites report, and it is admitted because the object the rule constrains is the manager, and the manager is exactly the one the factory issued: an application that copies it into a new array (`arrayOf(trustManager)`) passes an array the store has never seen and today draws a non-observation report for a correct program.
+
+#### Scenario: a manager copied into a new array is credited
+
+- **WHEN** an application obtains `tms = factory.getTrustManagers()`, takes `tm = tms[0]` and calls `sslContext.init(null, new TrustManager[]{ tm }, null)`
+- **THEN** `SSLContextSpec.init` MUST NOT report on the trust-manager argument
+
+#### Scenario: a mixed array is not credited
+
+- **WHEN** the array passed is `new TrustManager[]{ tm, trustAll }` with `tm` from the factory and `trustAll` an instance of an application class
+- **THEN** `SSLContextSpec.init` MUST report the `application-manager` code
+- **AND** `vcls` MUST name both element classes, in array order
+
+### Requirement: Upstream-Refusal Mark
+
+A producer specification that reports on the object it produces SHALL mark that object with the new appended property `REPORTED_UPSTREAM`, and a consumer that is about to report `-NOBS-` for a bound object SHALL report the `upstream-refused` code instead when the object carries the mark. A consumer that reports on an object it produces in turn marks that product, so a chain reports its first failure with its own code and every later link with `upstream-refused`.
+
+The mark is written only by direct producers and by the `getEncoded()` bridge, and only when the site reports on the object by value or by origin (a code of the families `ALG`, `KEYSIZE`, `KSTYPE`, `PROTO`, `FORB`, `CONSTR` or `NOBS`, labels included); an `-ORDER-` report never marks. The producers and the object each marks: `SecretKeySpecSpec` (`c1`, `c2`) the constructed `SecretKeySpec`; `GCMParameterSpecSpec` (`c1`, `c2`) and `IvParameterSpec` (`c1`, `c2`) the constructed spec; `PBEKeySpecSpec.c1` the constructed spec; `X509EncodedKeySpecSpec.c1` the constructed spec; `KeyFactorySpec` (`genPublic`, `genPrivate`) and `SecretKeyFactorySpec.gen` the returned key; `KeyAgreementSpec` (`gs1`, `gs2`) the secret buffer when `conforms` is false; `KeySpec.ge1` and `SecretKeySpec.e1` the array `getEncoded()` returns when the key carries the mark. The bridge is included because without it the re-wrap `new SecretKeySpec(derived.getEncoded(), "AES")`, which `CipherSpec.mop:195-198` names as the conforming path after a key derivation, breaks the chain in the middle. The consumers are the `-NOBS-` sites whose bound object one of those producers can mark: `CipherSpec.i2`, `MacSpec.i1`, `IvChainJunction.use`, `SecretKeyFactorySpec.gen`, `KeyFactorySpec.genPublic`/`genPrivate`, `KeyAgreementSpec.dophase`, `SignatureSpec.i4`, `SecretKeySpecSpec.c1`/`c2`, `X509EncodedKeySpecSpec.c1`. Both lists are the ones decided on 2026-09-15 and are not closed: other producers that report on their product do not mark, and other `-NOBS-` sites keep `not-observed` even when a producer refused their object. In particular `MacSpec.i2`, whose key read is the same as `i1`'s, is not a consumer, and `PBEKeySpecSpec.f1`/`f2`, which report `FORB` on the spec they construct, do not mark it.
+
+`SecureRandomSpec` and `KeyGeneratorSpec` do not mark (decision of 2026-09-15). A `SecureRandom` of a refused algorithm, and the arrays `SecureRandomSpec` discards in `@fail`, would be marked by a sequence failure or by the discard itself, which mixes the order channel into the origin channel; the discard is also an open defect of the specification's wiring that a label would hide. No cascade measured on a complete campaign starts at either specification. Consequently the `RANDOMIZED` readers (`IvParameterSpec`, `GCMParameterSpecSpec`, `PBEKeySpecSpec`, `SecureRandomSpec.setSeed2`/`c2`, the `SecureRandom` argument of `SSLContextSpec.init`) keep their `not-observed` codes and are not consumers of the mark.
+
+The mark is written with `ensure` and read with `validateAny`; the census of the predicate-graph gate (`tests/parity/test_gh105_predicate_gates.py:1362-1395`) moves by the number of new sites and SHALL be restated with them.
+
+#### Scenario: a refused salt is reported once as not observed and then as refused
+
+- **WHEN** an application builds `new PBEKeySpec(pw, storedSalt, 100000, 256)` from a salt read from storage, derives `k = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec)`, and calls `cipher.init(1, new SecretKeySpec(k.getEncoded(), "AES"), iv)`
+- **THEN** `PBEKeySpecSpec.c1` MUST report `PBEKEYSPEC-NOBS-01` (label `not-observed`)
+- **AND** `SecretKeyFactorySpec.gen`, `SecretKeySpecSpec.c1` and `CipherSpec.i2` MUST each report their `upstream-refused` code
+- **AND** none of those three MUST report its `not-observed` code for this chain
+
+#### Scenario: an unmarked unknown object is still not observed
+
+- **WHEN** `cipher.init(1, key)` is called with a key the store has no entry of any kind for
+- **THEN** `CipherSpec.i2` MUST report `CIPHER-NOBS-00` with label `not-observed`
+
+### Requirement: Evidence Keys of a Non-Observation Report
+
+Every `-NOBS-` report of `jca_android`, of any label, SHALL append after `msg` the evidence key the specification can compute for the bound object (INV-INS-166): `vfp='sha256:<16 hex>'`, the first eight bytes of the SHA-256 of the bytes, when the bound object is a `byte[]`; `vcls='<binary class names>'`, the comma-joined runtime classes of the elements in array order, when the bound object is a `TrustManager[]`. No other bound object carries evidence, and a `null` bound object carries none (decision of 2026-09-15). The helper that computes them, `br.unb.cic.mop.eh.Evidence.keysFor(Object)`, lives in `rvsec-core` and is called from the specification bodies; it is not named `suffix`, a reserved token of the JavaMOP grammar that a `.mop` cannot use as a method name.
+
+The keys exist so that an analysis can triage non-observation reports without reading source: a fingerprint that is identical across independent installations points to a value embedded in the application, and an application-defined manager class points to a manager worth reading. Neither key decides anything, and the collector's dedupe identity (`ErrorSummary`: spec, error type, class, method, location, code, event) does not include the message, so a device logs the evidence of the first report of each identity per process.
+
+#### Scenario: a constant key material carries a stable fingerprint
+
+- **WHEN** `new SecretKeySpec(new byte[]{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}, "AES")` draws `SECRETKEYSPEC-NOBS-00`
+- **THEN** the envelope MUST end in `msg='…' vfp='sha256:<h>'` where `<h>` is the first 16 hex digits of SHA-256 over those 16 bytes, with no `vcls`
+- **AND** the same value in another process MUST yield the same `<h>`
+
+#### Scenario: evidence never follows another family
+
+- **WHEN** the message gate scans `jca_android/*.mop`
+- **THEN** every site that appends `vfp` or `vcls` MUST emit a `-NOBS-` code
+- **AND** no guard, transition or `ensure`/`validate` call MUST read the evidence helper's result
+
+### Requirement: RSA Key Sizes Follow the Sibling Expert Rule
+
+`RSAKeyGenParameterSpecSpec.mop` SHALL admit the RSA key sizes `{2048, 3072, 4096}` (INV-INS-167). The pinned expert rules disagree with each other about the same key: `RSAKeyGenParameterSpec.crysl:15` lists `{1024, 2048, 4096}` and `KeyPairGenerator.crysl:29` lists `{4096, 3072, 2048}`. Transcribed literally, an application that calls `initialize(1024)` is reported and one that calls `initialize(new RSAKeyGenParameterSpec(1024, F4))` is not, while a 3072-bit key — 128-bit security against 112 for 2048 and 80 for 1024 in NIST SP 800-57 Part 1 — is reported through the second route. The transcription follows the evident intent under the D-20.4 precedent (`data/jca_android/divergence_record.csv:31`, where `p >= 1^2048` was transcribed as a bit length): the value set comes from the same experts' sibling rule, the normative source is cited as support, and the pinned rule is not edited (D-21).
+
+`divergence_record.csv:376` is already the `oracle-wart` row for the two clauses and records that neither is edited; it SHALL be rewritten in place to record the alignment, citing both expert clauses, the NIST reference and D-20.4. Row `:269`, which says 1024 stays in the list, SHALL gain an addendum, and `conformance_record.csv` SHALL gain the key-size row.
+
+#### Scenario: 3072 is admitted and 1024 is reported
+
+- **WHEN** an application constructs `new RSAKeyGenParameterSpec(3072, RSAKeyGenParameterSpec.F4)`
+- **THEN** `RSAKeyGenParameterSpecSpec.c1` MUST NOT report `RSAKEYGENPARAMETERSPEC-KEYSIZE-00`
+- **AND** `new RSAKeyGenParameterSpec(1024, RSAKeyGenParameterSpec.F4)` MUST report it with `val='1024'`
 
 ### Requirement: Violation Line Emission by the Collector
 

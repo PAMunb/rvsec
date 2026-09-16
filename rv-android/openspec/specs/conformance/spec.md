@@ -67,6 +67,8 @@ The implementation lives in the sibling `rvsec` Maven reactor as `rvsec-crysl` p
 - **INV-CONF-15**: The M4 report MUST carry, beside every aggregate, the statement that the FIEL/PROJETADO/CONFLADO/AUSENTE classification is human judgement wherever it is inherited rather than derived, and MUST mark each row as derived or inherited.
 - **INV-CONF-16**: The component's parent pom MUST override `guava.version` and MUST NOT override `scala.version`. Overriding `scala.version` to `2.13.14` breaks `ptltl` with `NoClassDefFoundError: scala/Serializable`, and `ptltl` MUST NOT be excluded.
 - **INV-CONF-17**: `android.jar` MUST be used only as an a-posteriori signature index. The component MUST NOT attempt to restrict the CrySL parser's classpath to it: the virtual classpath is strictly additive and resolution is parent-first, so the host JDK wins every name it has.
+- **INV-CONF-18**: M2 MUST resolve a refused `OverlappingDispatch` exactly when the alphabet map erases all of its labels but one, and MUST then read the signature as that label's letter and report each erased label of the overlap as an applied declared erasure. An overlap with two or more unerased labels, or with every label erased, MUST stay a refusal. The resolution MUST happen in M2 and MUST NOT happen in the lift: the lift MUST keep carrying every refusal on `MopLift.morphism()`, because only M2 reads the map (INV-CONF-10).
+- **INV-CONF-19**: The MOP lift MUST narrow a call pattern ending in `..` by an `args(...)` without `..` conjoined with it, replacing the `..` by one `*` per remaining position, and a call pattern of fixed arity that such a clause contradicts MUST name no signature. An `args(...)` carrying `..` MUST NOT narrow. The lift MUST spell a nested type by its binary name when the platform class loader knows that name, and MUST keep a name no replacement of dots by `$` turns into a known class.
 
 ## Requirements
 ### Requirement: Canonical Model with Mandatory Version Stamp (FR03, NFR06)
@@ -122,6 +124,27 @@ The parameter half of that drift is why the two counts SHALL be re-measured toge
 - **WHEN** the component lifts a specification whose `@match` block is `{ }` and whose `getStmts()` therefore returns `null`
 - **THEN** the component SHALL record an empty handler rather than dereference `null`
 - **AND** the model SHALL distinguish "handler present and empty" from "handler absent", because M0 depends on that distinction
+
+### Requirement: The MOP Lift Reads args Arity and Nested Type Names (FR03)
+
+The lift SHALL expand an event's pointcut into the signatures a woven program can actually match. An `args(...)` clause without `..` fixes the arity of the call it is conjoined with, so a trailing `..` in the call pattern SHALL become one single-parameter wildcard `*` per remaining position, and a fixed-arity call pattern the clause contradicts SHALL name no signature. An `args(...)` carrying `..` bounds the arity only from below and SHALL NOT narrow. The morphism SHALL read `*` as one parameter of any type when it decides which letters an event claims (INV-CONF-19).
+
+The lift SHALL spell nested types the way the rule side does. A name resolved through the file's imports, through the declared parameter types or as written SHALL have its dots replaced by `$` from the right until the platform class loader knows the name, and SHALL be kept when no replacement does. The lower SHALL import a nested type under its canonical dotted name, which is how Java source imports it, so a lowered file lifts back to the same signatures.
+
+#### Scenario: A two-argument event does not claim the one-argument call
+- **WHEN** the lift reads `jca_android/KeyManagerFactorySpec.mop`, whose `g2` is `call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..)) && args(alg, *)` and whose `g1` is `call(public static KeyManagerFactory KeyManagerFactory.getInstance(String)) && args(alg)`
+- **THEN** `g2` SHALL name the signature `KeyManagerFactory.getInstance(String, *)`
+- **AND** the refusal over `getInstance(String)` SHALL name the labels `g1` and `g3` only, not `g2` or `g4`
+
+#### Scenario: A contradicted arity names no signature
+- **WHEN** the lift reads an event `call(* Condition.await(long, TimeUnit)) && target(c) && args(t)`
+- **THEN** the event SHALL name no signature, because a one-position `args` matches no two-argument call
+
+#### Scenario: A nested type is spelled by its binary name
+- **WHEN** the lift reads `jca_android/KeyStoreSpec.mop`, which imports `java.security.KeyStore.ProtectionParameter` and declares `call(public Entry KeyStore.getEntry(String, ProtectionParameter))`
+- **THEN** the event SHALL name `java.security.KeyStore.getEntry(java.lang.String, java.security.KeyStore$ProtectionParameter)` returning `java.security.KeyStore$Entry`
+- **AND** M2 SHALL identify that letter with the rule's `getEntry`
+- **AND** lowering the model and lifting it back SHALL give the same signatures
 
 ### Requirement: CrySL Lift with a Fresh Reader per Rule (FR03)
 
@@ -194,6 +217,8 @@ M2 SHALL determinize the rule automaton before comparing. Determinization is req
 
 M2 SHALL take ε-erasure from the `disposition` column of the alphabet map, never from automaton shape. An erasure that a comparator infers is a decision nobody reviewed; an erasure the map declares is an assertion with an owner, a written reason and provenance, and M2's job is to check it.
 
+M2 SHALL read a refused overlap through the same map (INV-CONF-18). The lift refuses, as `Unknown{OverlappingDispatch}`, every signature two or more labels claim when a guard separates them, and builds `SpecModel.order` without that letter. The corpus's instance is the negated-twin idiom: an admitting event and a refused twin over one call, under complementary `condition`s, whose twin row in the map is `order-unmapped` because an `ORDER` has no symbol for a call it rejects on a constraint. When the map erases every label of a refused overlap but one, the call SHALL be that label's letter, and each erased label of the overlap SHALL be reported as an applied declared erasure with its reason. The guard that chooses between the twins is M3's subject, as every guard is. M2 SHALL take the specification's order again, from the label automaton the lift keeps, over the morphism so resolved. Without this reading, a set in which every guarded creation has a refused twin for each overload leaves M2 with no creation letter to compare.
+
 #### Scenario: A verdict carries its label, its normalizations and its witness status
 - **WHEN** M2 compares `jca_android/SecureRandomSpec.mop` against `CrySL-Rules/SecureRandom.crysl`
 - **THEN** the verdict SHALL read `M2-decl: MOP more permissive, under N1 + N2`
@@ -214,7 +239,15 @@ M2 SHALL take ε-erasure from the `disposition` column of the alphabet map, neve
 #### Scenario: An overlapping dispatch with a non-static guard refuses
 - **WHEN** M2 builds `h` for `jca_android/IvChainJunction.mop`, where `use` and `useRandomSpec` both match `Cipher.init(int, Key, AlgorithmParameterSpec, SecureRandom)` and neither carries a `condition`
 - **THEN** `h` SHALL map that signature to the concatenation `use useRandomSpec`, in declaration order
-- **AND WHEN** an overlap is separated by a guard that is not statically decidable, M2 SHALL emit `Unknown{OverlappingDispatch, labels: [...]}` with the labels named (INV-CONF-07)
+- **AND WHEN** an overlap is separated by a guard that is not statically decidable and the alphabet map leaves two or more of its labels unerased, as `KeyPairGeneratorSpec` `init1` and `initError` over `KeyPairGenerator.initialize(int)`, M2 SHALL emit `Unknown{OverlappingDispatch, labels: [...]}` with the labels named (INV-CONF-07)
+
+#### Scenario: A twin overlap the map reduces to one label is that label's letter
+- **WHEN** the lift of `jca_android/KeyGeneratorSpec.mop` refuses `KeyGenerator.getInstance(String)`, claimed by `g1` and by its refused twin `g3` under complementary `condition`s, and `getInstance(String, Object)`, claimed by `g2` and `g4`
+- **AND** the alphabet map declares `g3` and `g4` `order-unmapped` and `g1` and `g2` `mapped`
+- **THEN** M2 SHALL read `getInstance(String)` as the letter of `g1` and `getInstance(String, Object)` as the letter of `g2`
+- **AND** the verdict SHALL list the normalizations `N-EPS·KeyGeneratorSpec.g3` and `N-EPS·KeyGeneratorSpec.g4` with the map's reasons
+- **AND** `M2Result.refusals` SHALL carry no `OverlappingDispatch` for either signature, while `MopLift.morphism().refusals()` still carries both
+- **AND** the verdict SHALL NOT be marked refusal-borne
 
 ### Requirement: M3 Constraint Census by Idiom (FR03)
 
@@ -266,7 +299,7 @@ The component SHALL emit refusals only under the five tags of the closed taxonom
 | Tag | Emitted when | Fields |
 |---|---|---|
 | `UnrecognizedConstraint` | the `condition`/`action` matches no known idiom | `{textoCru, site}` |
-| `OverlappingDispatch` | two or more labels match one signature and the guard is not statically decidable | `{labels, signature, site}` |
+| `OverlappingDispatch` | two or more labels match one signature and the guard is not statically decidable; at M2, only when the alphabet map leaves two or more of those labels unerased | `{labels, signature, site}` |
 | `MultiSlicedOrder` | a specification of *k* > 1 parameters whose `ORDER` interleaves events over different objects | `{params, site}` |
 | `UnresolvedSignature` | a resolved signature is absent from the `android.jar` index | `{signature, class, mode, site}` |
 | `UnreachableAccusationSite` | the specification has no `@fail` and no reachable `addError`, so no trace can make it accuse | `{spec, site}` |

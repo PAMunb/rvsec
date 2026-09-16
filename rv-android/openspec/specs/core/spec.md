@@ -245,7 +245,7 @@ RvErrorLog(BaseValidatedModel):
 
 - **INV-CORE-24**: LogcatRepository.register_method_call() MUST only register calls to methods that exist in the static analysis data (classes dictionary). Calls to unknown classes or methods MUST be silently ignored with a debug log.
 
-- **INV-CORE-25**: `RvErrorLog.unique_msg` MUST be computed as `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{message}"` — seven `:::`-separated parts, `code` and `event` read from the message envelope (`code=`, `ev=`) or equal to the sentinel `UNSPECIFIED` when the message carries no envelope. Two `RvErrorLog` instances with the same `unique_msg` MUST be considered equal. The key MUST be built in exactly one place, `RvErrorLog.unique_msg` in `rv_android_core/domain/log.py`; no other module MUST assemble it from the fields.
+- **INV-CORE-25**: `RvErrorLog.unique_msg` MUST be computed as `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{identity_message}"` — seven `:::`-separated parts, `code` and `event` read from the message envelope (`code=`, `ev=`) or equal to the sentinel `UNSPECIFIED` when the message carries no envelope, and `identity_message` equal to `message` with the trailing evidence keys removed (INV-CORE-63). Two `RvErrorLog` instances with the same `unique_msg` MUST be considered equal. The key MUST be built in exactly one place, `RvErrorLog.unique_msg` in `rv_android_core/domain/log.py`; no other module MUST assemble it from the fields.
 
 - **INV-CORE-33**: After commit C1f, no Pydantic model in `rv_android_core.domain` MUST contain a field whose name ends with `_mop`, `_directly_mop`, or equals `mop_methods`. Verified by AST inspection in `tests/domain/test_no_legacy_mop_fields.py` (part of the `G_no_legacy_mop` CI gate scope).
 - **INV-CORE-34**: The `target_reaches_target` member on `WindowTransition` MUST be implemented via the `@property` decorator, not as a stored Pydantic field. Verified by `tests/domain/test_wtg.py` asserting `isinstance(WindowTransition.__dict__['target_reaches_target'], property)`. Storing it as a field would duplicate derivable data (P1 violation).
@@ -277,6 +277,8 @@ RvErrorLog(BaseValidatedModel):
 - **INV-CORE-62**: `LoggingManager.setup_file_logging` MUST have a production caller at every entry point that runs an experiment or processes results, so the run's INFO log — including the effective scope key — reaches disk. The method's own `log_path` guard cannot supply the call, since `log_path` is assigned only inside the method it guards.
 - **INV-CORE-56**: The `message` part of `unique_msg` MUST NOT contain the substring `:::`. The producer of the message (the monitor's envelope grammar) forbids it inside every value; `RvErrorLog` MUST NOT rewrite the message to hide a violation of that rule, and a reader that splits `unique_msg` on `:::` and finds a part count other than seven MUST count the record as unparsed rather than reinterpret it.
 - **INV-CORE-57**: Every published deduplicated count of violations MUST carry the identity era it was computed under. A count of the seven-part era MUST NOT be compared to a count of the five-part era without the discontinuity being stated beside the comparison, and the discontinuity measured on the same input MUST be non-zero where that input's records carry an `ev=` envelope — a zero difference there would mean `code` and `event` added no information to the identity; on a pre-envelope input (the published dataset, comp162) the difference is zero by construction and is labelled so, not read as a failure.
+- **INV-CORE-63**: `identity_message` MUST be `message` with every trailing ` vfp='<value>'` and ` vcls='<value>'` that follows the closing quote of `msg` removed, and nothing else removed. A message with no evidence key MUST be its own `identity_message`, byte for byte.
+- **INV-CORE-64**: Before every capture, `LogcatManager.start_capture` MUST run `adb -s <serial> logcat -G <LOGCAT_BUFFER_SIZE>` with `LOGCAT_BUFFER_SIZE = "16M"` from `rv_android_core/constants.py`, before the buffer is cleared and before the capture command starts. The capture command itself stays as INV-CORE-37 fixes it. A success MUST be logged at INFO with the device serial and the size; a failure MUST be logged at WARNING with the same two values and MUST NOT prevent the capture.
 ## Requirements
 ### Requirement: Error Handling with Recovery Strategies (FR34, NFR04)
 
@@ -883,6 +885,24 @@ contributes to no coverage value, no violation, and no diagnostic event.
 - **THEN** the emitted command SHALL carry `ApeRvHb:V` like every other capture
 - **AND** the captured file SHALL contain no line under that tag, and every downstream value SHALL be what it was before this change
 
+### Requirement: The Device Log Buffer Is Sized Before Capture (FR33, NFR06)
+
+`LogcatManager.start_capture` SHALL set the device's log ring buffers to 16 MiB with `adb -s <serial> logcat -G 16M` before it clears the buffer and starts the capture (INV-CORE-64). The size is a named constant, `LOGCAT_BUFFER_SIZE`, in `rv_android_core/constants.py`.
+
+A capture is a live stream of a ring buffer, so a line that `logd` prunes before the host reader receives it is lost without a trace in the file. The default of the campaign image is 2 MiB, which held 46 s of history in a one-minute run; 16 MiB, the largest size Android's developer settings offer, holds eight times that. The sizing runs on every capture rather than once per device because it is cheap and a device may have been rebooted between tasks. It is a separate command, not an extra flag on the capture command, so the capture command stays byte-identical to INV-CORE-37. A failure is logged and the capture proceeds: a smaller buffer loses lines under load, and no capture loses every line.
+
+#### Scenario: the buffer is sized before the capture starts
+
+- **WHEN** `start_capture` is called for serial `emulator-5554` with `clear_buffer=True`
+- **THEN** the commands MUST be issued in the order `adb -s emulator-5554 logcat -G 16M`, `adb -s emulator-5554 logcat -c`, `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V`
+- **AND** the third command MUST be byte-identical to the one INV-CORE-37 fixes
+
+#### Scenario: a failed sizing does not stop the capture
+
+- **WHEN** `adb -s emulator-5554 logcat -G 16M` exits non-zero
+- **THEN** a WARNING naming `emulator-5554` and the requested size MUST be logged
+- **AND** the capture command MUST still be started and `start_capture` MUST return `True` when the capture starts
+
 ### Requirement: Diagnostic Event Domain Model (FR33)
 
 The core domain SHALL provide an `RvDiagnosticEvent` model in `domain/log.py` representing a single
@@ -1125,13 +1145,15 @@ This matters beyond diagnostics. The AVD baked into `phtcosta/rvsec_android:0.9.
 ### Requirement: Event Granularity of unique_msg Is Extended and Declared (FR13)
 
 `RvErrorLog.unique_msg` MUST be `"{class_full_name}:::{method}:::{spec}:::{error_type}:::{code}:::{event}:::{message}"`
-(INV-CORE-25). `code` and `event` are the `code=` and `ev=` values of the message envelope the monitor emitted; when the
+(INV-CORE-25), where `{message}` is the record's message with the evidence keys `vfp` and `vcls` removed (INV-CORE-63). `code` and `event` are the `code=` and `ev=` values of the message envelope the monitor emitted; when the
 message carries no envelope — every record produced by the frozen `jca` set, and every record persisted before this
 change — both parts MUST be the sentinel `UNSPECIFIED`, never an empty string, so a legacy record has a readable
 seven-part key that is distinguishable from an envelope record whose event was named. The `message` part MUST NOT
 contain `:::` (INV-CORE-56): the producer forbids it inside every envelope value, the model does not rewrite the
 message to hide a violation of that rule, and a reader that finds a part count other than seven counts the record
 as unparsed — a separator inside a part makes the key unreadable to every consumer that splits on it.
+
+The evidence keys are removed from the identity because they carry per-object values — a fingerprint of the bytes the monitor could not trace, the classes of a trust-manager array — and a key that included them would make every run of the same misuse a different record, multiplying `unique_errors` and `mop_errors_unique` by the number of distinct values rather than counting misuses. They stay in `message` itself, and therefore in the `message` column of `errors.csv`, which is where an analysis reads them. Removal is exact: the two keys are recognised only in the trailing position the envelope grammar gives them, after `msg`, and a `vfp=` or `vcls=` inside a quoted value is not a key.
 
 The key MUST be built in exactly one place, `RvErrorLog.unique_msg` in `rv_android_core/domain/log.py`. The four
 other construction sites in the tree — `rv_platform/components/result_processor.py:631`, `:999`, `:1038` and
@@ -1205,6 +1227,13 @@ reader comparing the two figures does not conclude that one is defective.
 
 - **WHEN** the same two computations run on `experimento-comp162` or the published dataset, whose records carry no envelope and whose `event` is therefore the sentinel on every row
 - **THEN** the two figures are equal, MUST be published labelled `zero by construction`, and MUST NOT be read as the failure of the seven-part identity
+
+#### Scenario: evidence keys do not split the identity
+
+- **WHEN** two `RvErrorLog` records have the same class, method, spec, error type, code `SECRETKEYSPEC-NOBS-00` and event `c1`, and messages that differ only in `vfp='sha256:1111111111111111'` and `vfp='sha256:2222222222222222'` after `msg`
+- **THEN** their `unique_msg` values MUST be equal and end in `msg='…'` with no `vfp`
+- **AND** each record's `message` MUST still contain its own `vfp`
+- **AND** `unique_errors` MUST count them as 1
 
 ### Requirement: Build-Type Suffix Neutralization as a Run Policy
 

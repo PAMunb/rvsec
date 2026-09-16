@@ -678,6 +678,7 @@ rv-screen-parser:
 - **INV-ANA-70**: A stored analysis artefact MUST NOT be reused as a cache hit unless the key it records equals the run's effective scope key: the filename carries no key, and the artefact's `package` member holds the manifest package whatever key filtered the file, so only the recorded key (INV-ANA-66) identifies what produced it. A run whose effective key differs from the recorded one MUST regenerate the artefact or abort naming both keys; it MUST NOT evaluate an artefact produced under one key against another, which is what a denominator gate wired over a stale cache hit would do. `rv-static-analysis --force` MUST discard the artefact the cache would answer with, before the analysis runs; it is the one **deliberate** invalidation path, and it is not a substitute for the key comparison — an operator re-measuring the same key against a rebuilt jar needs a way to say so, and the comparison fires only when the keys disagree.
 
 - **INV-ANA-71**: Generated resource classes MUST leave the denominator at **every** package segment, not only at the scope key's root. The test in `RvsecAnalysisClient.isAppClass` MUST be on the **last segment** of the class name — `R`, `R$*`, `BuildConfig`, `Manifest`, `Manifest$*` — wherever that segment sits under the key: a suffix test against `<key>.R`, `<key>.R$*` and `<key>.BuildConfig` keeps `<key>.<module>.R`, and a key that is an ancestor of the resource namespace escapes it entirely. Measured over the 162 corpus artefacts produced by the root-only test, 505 such classes sat in the denominator (117 in `app.pachli_50` alone, 33 in `com.blacksquircle.ui_10028`), carrying 547 methods of which **zero** are non-trivial: they are constant tables with nothing to cover, and their only effect was to depress `cov_class`. Artefacts produced before this rule and after it are therefore not comparable on `cov_class`. Output of annotation processors (`_Factory`, `_Impl`, `_MembersInjector`, `$$serializer`, `Hilt_*`, `Dagger*`, DataBinding) is deliberately **not** covered: 5,816 such classes carry 36,264 non-trivial methods that execute at runtime, so removing them would redefine the denominator rather than close a leak; that measurement is an open question.
+- **INV-ANA-72**: `_apply_envelope` MUST copy `vfp` into `RvErrorLog.value_fingerprint` and `vcls` into `RvErrorLog.value_class`, and MUST leave both `""` when the key is absent. The parser MUST NOT interpret, validate or classify either value, and MUST NOT branch on the family or label of `code`.
 ## Requirements
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
@@ -1618,6 +1619,29 @@ In the ICST study, the top 4 violation classes (SSLContextSpec, MessageDigestSpe
 - **WHEN** a logcat line has date `12-31` and is parsed in January of the following year
 - **THEN** _convert_to_datetime() MUST attribute the log to the previous year
 - **AND** all other months MUST use the current year
+
+### Requirement: Evidence Keys Are Parsed into Their Own Record Fields
+
+The parser SHALL copy the evidence keys of a v1 envelope into dedicated fields of `RvErrorLog` (INV-ANA-72) and SHALL keep `message` verbatim, so the same record serves both the identity rule of `core` (which removes the keys from `unique_msg`) and an analysis that reads the evidence. A record whose envelope has no evidence key gets empty fields and is otherwise identical to what the parser produces today; no counter moves for it.
+
+#### Scenario: a non-observation envelope with a trust-manager class
+
+- **WHEN** a logcat line contains `RVSEC: SSLContextSpec,okhttp3.internal.platform.Platform,Platform,newSslSocketFactory,Platform.kt:168,UnsatisfiedConstraint,v=1 code=SSLCONTEXT-NOBS-06 ev=init obj=SSLContext val='' exp='trust managers issued by a TrustManagerFactory' msg='a trust manager of an application class was passed to SSLContext.init' vcls='com.example.TrustAll'`
+- **THEN** `parse_logcat_line()` MUST return an `RvErrorLog` with `code=SSLCONTEXT-NOBS-06`, `event=init`, `value_fingerprint=""` and `value_class=com.example.TrustAll`
+- **AND** `message` MUST be the whole envelope from `v=1` to the closing `'` of `vcls`
+- **AND** no `sentinel_*` counter MUST be incremented
+
+#### Scenario: an envelope without evidence is unchanged
+
+- **WHEN** a logcat line carries `v=1 code=MESSAGEDIGEST-ALG-01 ev=update obj=MessageDigest val='MD2' exp='SHA-256' msg='expecting one of SHA-256 but found MD2'`
+- **THEN** `value_fingerprint` and `value_class` MUST be `""`
+- **AND** every other field and counter MUST be what the parser produced before this requirement
+
+#### Scenario: a label code is an ordinary code
+
+- **WHEN** a record carries `code=KEYPAIR-ORDER-01`
+- **THEN** the parser MUST store it verbatim in `code`
+- **AND** no parser branch MUST depend on the suffix `-01` or on the family `ORDER`
 
 ### Requirement: UI Screen Parsing (FR23 - Analysis Component)
 

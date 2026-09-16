@@ -181,9 +181,9 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 - **INV-PLT-13**: Phase 3 (emulator session) in `TaskExecutor._execute_coordinated_components()` MUST execute within the emulator context manager. If either the `EmulatorComponent` or `ToolExecutionComponent` is missing, the emulator session MUST be skipped with a warning.
 
-- **INV-PLT-14**: `ResultProcessorComponent` MUST generate all five output files (`coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, `performance.csv`) when at least one completed task exists. If no completed tasks exist, it MUST log a warning and skip file generation.
+- **INV-PLT-14**: `ResultProcessorComponent` MUST generate all six output files (`coverage.csv`, `errors.csv`, `app_events.csv`, `summary.csv`, `results.json`, `performance.csv`) when at least one completed task exists. If no completed tasks exist, it MUST log a warning and skip file generation.
 
-- **INV-PLT-15**: `ResultProcessorComponent._resolve_static_data(task)` MUST obtain the per-APK results directory as follows: use `task.results_dir` when it is a non-empty string; otherwise, when `task.results_dir` is empty (the resume case, where it was not serialized) and `task.result.logcat_file` is set, derive it as `os.path.dirname(task.result.logcat_file)` (at runtime `task.results_dir == os.path.dirname(task.result.logcat_file)`, both built from `base_results_dir / apk_name`). With that directory, `_reconstruct_repository_from_logcat(task)` MUST invoke `parse_logcat_file(logcat_file, static_data)` with a non-`None` `static_data` whenever the static-analysis JSON exists at `<derived_dir>/f"{task.config.apk_name}.json"`. When `task.static_data` is already populated, that value MUST be reused; when it is `None`, the method MUST call `static_analysis_parser.read_static_analysis_files(<derived_dir>, task.config.apk_name, task.app.code_package if task.app else None)` (note `code_package=None` is tolerated — the GATOR JSON's reachability is already filtered to app classes). If the JSON is absent, the method MUST log a warning, record the task as having unresolved static data, and proceed with `static_data=None` for coverage purposes — in that degraded case `errors` (including the `total_errors`/`unique_errors` aggregates, see analysis INV-ANA-25) are still reliable but per-method coverage rows MUST be absent and the task's coverage cells MUST be empty (INV-PLT-35). The unresolved count MUST be **at most once per task**, achieved with two fields of disjoint responsibility (not a single overloaded sentinel): (1) `task.static_data` MUST be assigned a *valid* `StaticAnalysisData` on every path — an **empty** `StaticAnalysisData()` in the unresolved case (JSON absent or parser raised) — so it doubles as the parse memo (non-`None` short-circuits re-entry) AND remains a legal argument to `parse_logcat_file`; (2) the count MUST be tracked on a component-level set of task ids (`_unresolved_task_ids`), guarded by membership, so re-entry from any of the four reconstruction call sites (`_write_task_coverage_data`, `_write_task_summary_data`, `_write_task_error_data`, `_extract_task_data`) neither re-parses the JSON nor re-counts. Consequently `static_analysis_parser.read_static_analysis_files` MUST be invoked **at most once per task** across all writers (observable via call count). The count is a property of the task, not of the writer pass; the set MUST be (re)initialized at the start of `ResultProcessorComponent.execute()` so a subsequent consolidation pass reports only that pass.
+- **INV-PLT-15**: `ResultProcessorComponent._resolve_static_data(task)` MUST obtain the per-APK results directory from `task.results_dir` when it is a non-empty string, and otherwise, when `task.result.logcat_file` is set, as `os.path.dirname(task.result.logcat_file)`. The component MUST hold at most one parsed static model, keyed by APK, and MUST call `static_analysis_parser.read_static_analysis_files` **at most once per APK per `execute()`** (observable via call count), replacing the cached model when the APK of the task changes. When the JSON is absent or the parser raises, the model for that APK MUST be an empty `StaticAnalysisData()`, a warning MUST be logged, and every task of that APK MUST be recorded once in `_unresolved_task_ids` (re-initialised at the start of `execute()`); such tasks keep reliable `errors` and write empty coverage cells (INV-PLT-35). `_reconstruct_repository_from_logcat(task)` MUST pass the APK's model to `parse_logcat_file`.
 
 - **INV-PLT-16**: `_write_task_coverage_data` and `_write_task_summary_data` MUST be unified to a single path that reads from `task.repository.calculate_metrics().to_dict()` after `_reconstruct_repository_from_logcat` has ensured `task.repository` is populated. The pre-existing cascade in `_write_task_summary_data` (3 tiers: `task.result.coverage_metrics` → `task.repository.calculate_metrics()` → zeros) and the `else` branch in `_write_task_coverage_data` (single fallback emitting empty `class/method/signature`) are removed entirely (P3, no backward-compatibility shim). When `_reconstruct_repository_from_logcat` returns `None` (logcat file missing), both writers MUST emit empty coverage cells with an explicit warning (zero is not an admissible way to say "not measured", INV-PLT-35) — they MUST NOT fall back to reading stale serialized values from `task.result.coverage_metrics`.
 
@@ -225,6 +225,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
 - **INV-PLT-37**: The consistency between `summary.csv` and `coverage.csv` is directional — when a task has **no denominator**, its `coverage.csv` per-method rows number zero **and** its `summary.csv` coverage cells are empty with `measured=false`; when a task has a denominator and covered nothing, its rows number zero **and** its cells read `0.00` with `measured=true`. Any consistency check (such as `verify.py` C3 in `scripts/regenerate_results/`) MUST check this directional form. INV-PLT-17 is a different rule — `cov_class` holds `class_coverage` — and keeps its number.
 - **INV-PLT-32**: A failure to write a task's violation rows (`errors.csv`) or to extract a task's violation data (`results.json`) MUST be counted into that task's result and logged at ERROR level with the number of rows lost. It MUST NOT be swallowed as a WARNING that leaves the file silently short, and the writer MUST NOT re-key the record: `unique_msg` MUST be read from the domain object, never assembled in the writer (core INV-CORE-25).
+- **INV-PLT-38**: A task's `repository` and `static_data` MUST be `None` (a) once `Platform` has stored the finished task in `TaskStorage`, and (b) once `ResultProcessorComponent` has written that task's rows and extracted its `results.json` entry. No reader of a finished task MAY depend on either field being populated.
 ## Requirements
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
@@ -641,15 +642,17 @@ Logcat capture starts after the emulator is running and the APK is installed, an
 
 ### Requirement: Result Generation (FR14)
 
-The platform MUST generate standardized output files from completed experiment tasks. `ResultProcessorComponent` processes only tasks with `TaskState.COMPLETED` and generates five output files: `coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, and `performance.csv`. Result processing can be skipped during execution (via `skip_result_processing=True`) and run standalone later using `rv-platform run --process-results <results_dir>`.
+The platform MUST generate standardized output files from completed experiment tasks. `ResultProcessorComponent` processes only tasks with `TaskState.COMPLETED` and generates six output files: `coverage.csv`, `errors.csv`, `app_events.csv`, `summary.csv`, `results.json`, and `performance.csv`. Result processing can be skipped during execution (via `skip_result_processing=True`) and run standalone later using `rv-platform run --process-results <results_dir>`.
 
 This requirement serves the research purpose of the project. The CSV files are the primary data format for statistical analysis of experiment results. The JSON file provides a hierarchical view for programmatic access. The performance file captures execution timing for experiment optimization.
 
 **Ordering dependency on `gh104-legible-violation-reports`.** That change modifies this same requirement, and it is 106 tasks done of 109 — it archives first. Its rewrite adds `code` and `event` to `errors.csv` and, in passing, **re-asserts** the twelve-column `summary.csv` scenario and restates INV-PLT-19. This block is therefore copied from gh104's modified version, not from the base spec, and edited only where `summary.csv` is concerned; gh104's `errors.csv` changes are carried through intact. Had this delta been written against the base instead, whichever of the two archived second would have silently overwritten the other's work on this requirement.
 
-Result processing is invoked by `Platform._process_results()` after all tasks have been executed. It creates a `ResultProcessorComponent` with the complete task list and the results directory, then calls `initialize() -> execute() -> cleanup()`. The component filters for completed tasks and generates each file independently, using `ErrorHandler` decorators to ensure that a failure in one file generation does not prevent the others.
+Result processing is invoked by `Platform._process_results()` after all tasks have been executed. It creates a `ResultProcessorComponent` with the complete task list and the results directory, then calls `initialize() -> execute() -> cleanup()`. The component filters for completed tasks, orders them by `(apk, tool, rep, timeout)`, opens the four streamed CSV files and writes their headers once, and then makes **one pass over the tasks**: for each task it resolves the static model, reconstructs the task's repository from its logcat, runs the four row writers and the `results.json` extractor, and releases the repository and the static model before the next task (INV-PLT-15, INV-PLT-38). The static model is cached for one APK at a time and replaced when the APK changes, which the ordering makes contiguous. `performance.csv` is generated after the pass; it reads no repository. A failure in one writer for one task is counted into that task's result and does not stop the other writers or the other tasks.
 
-Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` are produced from the same `LogcatRepository.calculate_metrics()` source. There is no separate "Branch 2 fallback" path that bypasses repository data for resumed tasks; reconstruction of `task.repository` from logcat + static-analysis JSON (see Requirement "Result Consolidation on Resume (FR10-ext)") ensures both writers operate uniformly on a populated repository.
+The pass is task-major rather than file-major because memory is the binding constraint of a campaign export. Six file-major passes each hold, for every task already visited, a parsed repository and a static model assigned to the task object; a campaign container of about 1,600 executions was killed by the kernel inside the first pass, after 179 to 726 tasks, with 2.8 to 4.7 million parsed methods in memory. The task-major order holds one repository and one static model at a time and was measured at 5 to 11 minutes and at most 365 MB of resident memory per container on the same data (`experimento-estudo02/scripts/regenerate_tables.py`). `results.json` is still built as one nested dictionary and written at the end; it carries no repository and no static model.
+
+Per-method coverage rows in `coverage.csv` AND aggregate rows in `summary.csv` are produced from the same `LogcatRepository.calculate_metrics()` source. There is no separate "Branch 2 fallback" path that bypasses repository data for resumed tasks, and there is no live-repository path either: a completed task releases its repository when it finishes (INV-PLT-38), so every task's repository is reconstructed from its logcat and static-analysis JSON (see Requirement "Result Consolidation on Resume (FR10-ext)"), live run and resume alike.
 
 The `time` column of `coverage.csv` and `errors.csv` MUST contain the entry's `time_since_task_start` — integer seconds elapsed since tool execution start — on both the live path (stamped by `CoverageTracker`) and the reconstruction path (stamped by `parse_logcat_file` from the persisted `tool_execution_start`, INV-PLT-23). Writers MUST NOT substitute row indices or any other fabricated value when timing is `0` or missing (INV-PLT-24): `0` is a legitimate first-second timestamp, and a repository reconstructed without an epoch produces `0`s that MUST be written as-is with the degraded state logged.
 
@@ -662,7 +665,7 @@ A failure while writing one task's rows to `errors.csv`, or while extracting one
 #### Scenario: Full Result Generation
 
 - **WHEN** an experiment completes with 5 tasks, all in `COMPLETED` state
-- **THEN** `ResultProcessorComponent` MUST generate all five files: `coverage.csv`, `errors.csv`, `summary.csv`, `results.json`, `performance.csv`
+- **THEN** `ResultProcessorComponent` MUST generate all six files: `coverage.csv`, `errors.csv`, `app_events.csv`, `summary.csv`, `results.json`, `performance.csv`
 - **AND** all files MUST be written to `config.results_dir`
 
 #### Scenario: Coverage CSV Format
@@ -700,7 +703,7 @@ A failure while writing one task's rows to `errors.csv`, or while extracting one
 - **THEN** the failure MUST be logged at ERROR level naming task `t-0042` and stating that 26 rows were not written
 - **AND** the task's result MUST record one write error for `errors.csv`
 - **AND** the message MUST NOT be logged as a WARNING
-- **AND** `errors.csv` generation MUST continue with the next completed task, and the other four files MUST still be generated
+- **AND** `errors.csv` generation MUST continue with the next completed task, and the other five files MUST still be generated
 
 #### Scenario: results.json Extraction Failure Is Counted, Not Swallowed
 
@@ -761,6 +764,30 @@ A failure while writing one task's rows to `errors.csv`, or while extracting one
 - **THEN** the system MUST load tasks from the results directory's `tasks.json`
 - **AND** MUST run `ResultProcessorComponent` on the loaded tasks
 - **AND** MUST write output files to the same results directory
+
+#### Scenario: Memory Does Not Grow With the Number of Tasks
+
+- **WHEN** `ResultProcessorComponent.execute()` runs over 600 synthetic completed tasks of one APK, each with a logcat of 2,000 coverage lines and a static-analysis JSON of 5,000 methods
+- **THEN** at most one `LogcatRepository` and one `StaticAnalysisData` MUST be reachable from the component and the tasks at any time after the first task
+- **AND** after `execute()` returns, every task's `repository` and `static_data` MUST be `None`
+- **AND** `static_analysis_parser.read_static_analysis_files` MUST have been called once for the APK
+
+#### Scenario: One Pass Reproduces the Reference Tables
+
+- **WHEN** the tasks of one container of a completed campaign are processed with `PYTHONHASHSEED=0`
+- **THEN** `coverage.csv`, `errors.csv`, `app_events.csv`, `summary.csv` and `results.json` MUST be byte-identical to those written by `experimento-estudo02/scripts/regenerate_tables.py` for the same container under the same seed
+- **AND** `performance.csv` MUST be identical to the reference in every column except `timestamp`, which records when the file was generated
+
+### Requirement: A Finished Task Releases Its Parsed State
+
+When a task finishes, `Platform` SHALL set `task.repository` and `task.static_data` to `None` after the task is stored in `TaskStorage` (INV-PLT-38). The coverage metrics a run needs after completion are already on `task.result` (`coverage.py:293`), `tasks.json` never serialises either field, and result generation reconstructs every repository from the logcat; keeping them alive only makes a long session's memory grow with each finished execution.
+
+#### Scenario: A finished task holds no parsed state
+
+- **WHEN** a task completes and `Platform` calls `task_storage.update_task(task)`
+- **THEN** immediately afterwards `task.repository` MUST be `None` and `task.static_data` MUST be `None`
+- **AND** `task.result.coverage_metrics` MUST be unchanged
+- **AND** the task's rows produced by `ResultProcessorComponent` at the end of the run MUST equal those produced for the same task by `rv-platform run --process-results`
 
 ### Requirement: Tool-Configuration Channel via ToolConfig.parameters (NFR01, NFR02)
 

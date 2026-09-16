@@ -67,7 +67,13 @@ the active tree resolves them by that path once this change is applied; campaign
   them carries `0.9.3` today); `scripts/e3_preflight_instrument.py:36-37` (Estudo 3 Phase B
   preflight, asserts properties of the `rvsec-core-0.9.3-SNAPSHOT.jar` in the local Maven
   repository).
-- **Records of what was measured:** dated docs `rv-android/docs/YYYYMMDD_*.md`; ADRs
+- **Records of what was measured:** dated docs `rv-android/docs/YYYYMMDD_*.md`; `rv-android/data/**`
+  (campaign evidence — `data/gh104/README.md:56` quotes the *title of commit* `4153939`, "open
+  0.9.3-SNAPSHOT dev cycle (refs #84)", inside the recipe for regenerating the gh104 control from
+  the generator as it stood before that change: rewriting it would falsify a commit reference;
+  `data/gh104/evidence/e2_reweave.md:70-72` records the classpath the E2 run actually executed, and
+  it keeps resolving after the bump because the `0.9.3-SNAPSHOT` artifacts stay in the local Maven
+  repository); ADRs
   (`docs/adr/0006-*.md:38`, "the AVD baked into `rvsec_android:0.9.3`");
   `openspec/specs/calibration-control/spec.md:10` (the fixed campaign image and its ID);
   `openspec/specs/core/spec.md:1110` (the AVD of the `0.9.3` image);
@@ -83,8 +89,11 @@ the active tree resolves them by that path once this change is applied; campaign
 
 ## 3. File Inventory
 
-Paths are relative to the `rvsec/` repository root. Line numbers measured at `30568f09`
-(2026-09-15); re-measure before applying.
+Paths are relative to the `rvsec/` repository root. Line numbers first measured at `30568f09` and
+**re-measured at `9caaf326`** (2026-09-15, #114's last commit), which is the tree this change is
+applied to. The re-measurement confirmed the inventory: the reactor carries exactly 48 version-bearing
+POMs (49 with `rv-android/pom.xml`), #114 shifted only one inventory line — `gen_compare.py`, 346 →
+367 — and the only hits outside §3 were the two `rv-android/data/gh104/` records now named in §2.
 
 ### Group A — Reactor POMs (via `versions-maven-plugin`)
 
@@ -155,7 +164,7 @@ this change.
 | `rv-android/scripts/baseline_docker.py:252-253` | Edit | `default` + help → `phtcosta/rvandroid:0.9.4` |
 | `rv-android/scripts/preprocess_docker.py:271-272` | Edit | `default` + help → `0.9.4` |
 | `rv-android/scripts/calibration_orchestrator.py:584-585` | Edit | `default` + help → `0.9.4` |
-| `rv-android/.claude/skills/rv-experiment-compare/scripts/gen_compare.py:346` | Edit | `--image` default → `phtcosta/rvandroid:0.9.4` |
+| `rv-android/.claude/skills/rv-experiment-compare/scripts/gen_compare.py:367` | Edit | `--image` default → `phtcosta/rvandroid:0.9.4` |
 
 ### Group F — Test asserts (`-SNAPSHOT` jar names)
 
@@ -212,5 +221,5 @@ this change.
 - [ ] From the repository root, with JDK 21 (`JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem`): `mvn clean install -DskipMopAgent -DskipTests` → EXIT=0, 48 modules built
 - [ ] `cd rv-android && uv run pytest modules/rv-instrumentation-core/tests/test_instrumenter.py modules/rv-instrumentation-dexlib2/tests/test_dexlib_instrumentation.py --import-mode=importlib -o "addopts="` → 0 failed
 - [ ] The §4 step 1 grep, re-run after the edits, returns only §2 exclusions
-- [ ] `git grep -n '0\.9\.4'` hits no excluded path (campaign composes, `experimento-*`, dated docs, ADRs, the two measurement-record specs)
+- [ ] `git grep -n '0\.9\.4'` hits no excluded path (campaign composes, `experimento-*`, `data/**`, dated docs, ADRs, the two measurement-record specs)
 - [ ] The commit contains only §3 paths (`git show --stat HEAD`)
