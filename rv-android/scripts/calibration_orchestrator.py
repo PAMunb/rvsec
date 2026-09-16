@@ -581,8 +581,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--image",
         type=str,
-        default="phtcosta/rvandroid:0.9.3",
-        help="Docker image for trial containers (default: phtcosta/rvandroid:0.9.3).",
+        default="phtcosta/rvandroid:0.9.4",
+        help="Docker image for trial containers (default: phtcosta/rvandroid:0.9.4).",
     )
     parser.add_argument(
         "--cpus",
@@ -875,9 +875,7 @@ def main() -> None:
         completed_count = len(
             [t for t in study.trials if t.state == TrialState.COMPLETE]
         )
-        failed_count = len(
-            [t for t in study.trials if t.state == TrialState.FAIL]
-        )
+        failed_count = len([t for t in study.trials if t.state == TrialState.FAIL])
         remaining = args.n_trials - completed_count
         logger.info(
             f"Progress: {completed_count}/{args.n_trials} complete, {failed_count} failed"

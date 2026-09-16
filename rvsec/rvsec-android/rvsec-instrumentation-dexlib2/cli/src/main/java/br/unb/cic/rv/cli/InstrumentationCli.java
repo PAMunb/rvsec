@@ -31,7 +31,7 @@ import java.util.concurrent.Callable;
 @Command(
         name = "instr-cli",
         mixinStandardHelpOptions = true,
-        version = "0.9.3-SNAPSHOT",
+        version = "0.9.4-SNAPSHOT",
         description = "DEX-native bytecode weaver for rvsec monitors. Spec-set agnostic.",
         subcommands = {InstrumentationCli.Instrument.class, InstrumentationCli.Batch.class}
 )

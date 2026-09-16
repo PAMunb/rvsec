@@ -45,7 +45,7 @@
 
 - [x] 7.1 `rv-android/modules/rv-instrumentation-core/tests/test_instrumenter.py:97-99` → `*-0.9.4-SNAPSHOT.jar`
 - [x] 7.2 `rv-android/modules/rv-instrumentation-dexlib2/tests/test_dexlib_instrumentation.py:613-615,623-625,657-659,671-673` → `*-0.9.4-SNAPSHOT.jar`
-- [ ] 7.3 Run `/rv-test-run rv-instrumentation-core` and `/rv-test-run rv-instrumentation-dexlib2` (`--import-mode=importlib -o "addopts="`) → 0 failed
+- [x] 7.3 Run `/rv-test-run rv-instrumentation-core` and `/rv-test-run rv-instrumentation-dexlib2` (`--import-mode=importlib -o "addopts="`) → 0 failed
 
 ## 8. Group H — Source version string
 
@@ -60,12 +60,12 @@
 
 ## 10. Verification
 
-- [ ] 10.1 `mvn versions:commit` from the repository root; `git ls-files --others | grep versionsBackup` is empty
-- [ ] 10.2 With `JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem`: `mvn clean install -DskipMopAgent -DskipTests` from the repository root → EXIT=0, 48 modules
-- [ ] 10.3 Run `/rv-qa-lint-fix rv-instrumentation-core` and `/rv-qa-lint-fix rv-instrumentation-dexlib2`; any change outside the edited lines is reverted (this change edits strings only)
-- [ ] 10.4 Run `/rv-verify rv-instrumentation-core` and `/rv-verify rv-instrumentation-dexlib2`
-- [ ] 10.5 Re-run the plan.md §4 step 1 grep → only §2 exclusions remain; `git grep -n '0\.9\.4'` hits no excluded path
-- [ ] 10.6 Verify every acceptance criterion in plan.md §5
+- [x] 10.1 `mvn versions:commit` from the repository root; `git ls-files --others | grep versionsBackup` is empty
+- [x] 10.2 With `JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.12-tem`: `mvn clean install -DskipMopAgent -DskipTests` from the repository root → EXIT=0, 48 modules
+- [x] 10.3 Run `/rv-qa-lint-fix rv-instrumentation-core` and `/rv-qa-lint-fix rv-instrumentation-dexlib2`; any change outside the edited lines is reverted (this change edits strings only)
+- [x] 10.4 Run `/rv-verify rv-instrumentation-core` and `/rv-verify rv-instrumentation-dexlib2`
+- [x] 10.5 Re-run the plan.md §4 step 1 grep → only §2 exclusions remain; `git grep -n '0\.9\.4'` hits no excluded path
+- [x] 10.6 Verify every acceptance criterion in plan.md §5
 
 ## 11. Commit and archive
 
