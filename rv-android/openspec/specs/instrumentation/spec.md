@@ -393,6 +393,7 @@ The 188 APKs used in the final dataset were the subset of 193 that also had REAC
 - **INV-INS-166**: The evidence keys `vfp` and `vcls` MAY follow `msg` only in a `-NOBS-` envelope, in that order, each at most once, quoted like every other value. No guard, transition or predicate write MAY read them.
 - **INV-INS-167**: `RSAKeyGenParameterSpecSpec.mop` MUST admit exactly `{2048, 3072, 4096}`, the list of `KeyPairGenerator.crysl:29`, and the `oracle-wart` row of `data/jca_android/divergence_record.csv` that names both expert clauses MUST record that alignment. The pinned rule file MUST NOT be edited.
 - **INV-INS-168**: Within one weave, the expression of an advice MUST be parsed at most once, the composition of the `commonPointcut` with an advice MUST NOT be rebuilt for each instruction, and a type name MUST be resolved to a descriptor at most once per `TypeResolver`. Memoisation MUST NOT change what is woven: for the same APK and the same descriptor, every woven `classes*.dex` MUST be byte-identical and every counter of `instrument_results.json` MUST be equal to the ones produced without it.
+- **INV-INS-169**: A comment of a `jca_android` specification or of a helper class listed in "Documentation Convention of the `jca_android` Specification Set" MUST NOT contain a line number of any file, an identifier of an OpenSpec invariant, decision, task, change or issue (`INV-INS-133`, `D-15`, `task 11.5`, `gh105`, `#101`), a date, a reference to a record under `data/jca_android/` or to a report, a campaign measurement, a reference to the `jca` set, or promotional or bias language ("modern", "sophisticated", "elegant", "state-of-the-art", "cutting-edge", "advanced"); the set's own `codes.csv` MAY be named. The review that establishes this MUST keep every comment that already complies and MUST leave every non-comment token of those files unchanged.
 ## Requirements
 ### Requirement: Monitor Generation from JavaMOP Specifications (FR01, NFR07)
 
@@ -2319,6 +2320,87 @@ The set SHALL be reachable at every site that enumerates specification sets: `va
 - **AND** the gate that recomputes the hunks between `jca/` and `jca_android/` MUST report every hunk as recorded
 - **AND** `jca/TrustManagerFactorySpec.mop` MUST be byte-identical to commit `7e7acb69`
 
+### Requirement: Documentation Convention of the `jca_android` Specification Set
+
+Every comment of a `.mop` file under `rvsec-mop/src/main/resources/jca_android/`, and of the helper classes `Property`, `PredicateStore`, `PredicateVerdict`, `ConscryptAliasTable`, `CipherTransformationNormalizer`, `ErrorType`, `ErrorDescription`, `ErrorSummary` and `Evidence` in `rvsec-core`, SHALL be self-contained: a reader MUST be able to understand it with the file open and nothing else. A comment SHALL describe what the code does now (P4) and SHALL NOT refer to anything outside the code and the CrySL rules — no change, issue, invariant, decision, task, date, record under `data/jca_android/`, report, measurement, other specification set, or line of any file — and SHALL NOT use promotional or bias language ("modern", "sophisticated", "elegant", "state-of-the-art", "cutting-edge", "advanced") (INV-INS-169). The set's own `codes.csv`, which maps each report code to its site, MAY be named.
+
+The documentation of the `.mop` set SHALL be detailed. Every event, predicate read and predicate write carries its own comment, even where a neighbouring event realises the same rule label, and a comment explains its site completely rather than briefly: the reader of a specification is reconstructing why a check exists or is absent, and a comment left out because the code looked self-evident is indistinguishable from an omission. A comment that already complies with this requirement SHALL be kept as it is.
+
+**Java helper classes.** The helper classes SHALL follow the Java documentation convention written in the "Documentation conventions" section of `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/CLAUDE.md`, which maps the `rv-doc-code` conventions onto Javadoc and keeps the house style of that module: (1) depth by tier — full Javadoc for public API and orchestrators, summary with `@param`/`@return` for internal methods over ten lines, one line for small helpers, and no Javadoc for self-evident accessors, setters and `toString`; (2) a package or class Javadoc opens with a noun phrase saying what it is, a method Javadoc with an imperative sentence ending in a period; (3) class sections are topical `<h2>`/`<h3>` headings, not a fixed vocabulary; (4) `@param`, `@return` and `@throws` carry no types, and `@throws` states its condition with "when" or "if"; (5) a field with meaningful state carries a one-line Javadoc; (6) a `@return` of a map or JSON document lists its keys; (7) inside a method, `// Phase N:` marks orchestration phases, `// Step N:` marks algorithm steps, and a rationale block sits directly above the code it explains; (8) contracts use `MUST`/`MUST NOT` and `Precondition:`/`Postcondition:`; (9) code is cited with `{@code}` and `{@link}`, and every `{@link}` target exists; (10) no invariant, decision, task, change or issue identifier, date, `file:line`, reference to `architecture.md` or to a report, history narrative, or promotional language; (11) `TODO(topic)` and `FIXME(topic)` name a module or topic, never an issue number. Unlike the `.mop` set, trivial Java members are not documented: a comment is written only where it tells the reader something the signature does not.
+
+**Relation to the CrySL rule.** The file header SHALL name the class the specification monitors and the CrySL rule it transcribes, summarise what the specification checks (the order, the value constraints, the predicates it requires and ensures), and state the divergences from the rule and the reach limits of the monitor. Its `@see` SHALL point to the rule in `CROSSINGTUD/Crypto-API-Rules` at commit `6d844ab402229aaefa4c5e45bf080987b787624b`, not at a moving branch or a ruleset release: that commit holds the JCA rules the specifications transcribe, and it is byte-identical to the rule set the CogniCrypt 5.0.1 baseline ran. Where a specification admits a value its cited rule does not list, the header SHALL state it as behaviour; in the set this is `CipherSpec`, which also admits `CCM` for AES, with `NoPadding`. Each event, predicate read and predicate write SHALL say which label or clause of the rule it realises, **quoting the clause by its text** — its section (`EVENTS`, `ORDER`, `CONSTRAINTS`, `REQUIRES`, `ENSURES`, `NEGATES`, `FORBIDDEN`), its label, and the clause between backticks — and SHALL NOT cite it by line number, because the clause text identifies the clause in every version of the rule and a line number identifies it in one.
+
+**Mechanism.** Where the placement or shape of the code is not obvious at the site, the comment SHALL explain it where it appears, even when the same explanation appears in another file: that a clause is checked in the event body because a `condition(...)` guard runs before the transition and would silence a violating call; that a predicate write is staged in a field because a handler receives no event arguments and runs after the transition is decided; that an `@fail` handler of a single-symbol order cannot fire and is written because the generator expects it; that a read separates a violated predicate from an unobserved one because the second is as often a reach limit of the instrumentation as a misuse. A comment MAY name another specification of the set, and its event, as the producer or consumer of a predicate, provided the comment is understandable without opening that file.
+
+**Divergences and constraints of the toolchain.** A difference between the specification and its rule SHALL be stated as behaviour with its technical reason, never as the decision that produced it. A constraint of the monitor generator that fixes the shape of a file — the 17-event ceiling, the deduplication of imports by class name across the merged monitor — SHALL be stated briefly where it applies.
+
+**Scope of the review.** A change that reviews comments under this requirement SHALL rewrite only the comments that do not comply, SHALL leave every non-comment token of the files unchanged, and SHALL update the `file_line` column of `jca_android/codes.csv` to the line each code is emitted from afterwards. `CipherTransformationUtil` SHALL NOT be edited, because the `jca` set freezes it byte-identical. `data/jca_android/NEW_SPEC_CONVENTIONS.md` SHALL state this convention, so a specification added to the set is written under it.
+
+#### Scenario: a value constraint is cited by its text
+
+- **WHEN** the comment above the digest list of `MGF1ParameterSpecSpec.mop` relates the list to its rule
+- **THEN** it MUST quote the clause as `CONSTRAINTS` of `MGF1ParameterSpec.crysl`: `mdName in {"SHA-256", "SHA-384", "SHA-512"}`
+- **AND** it MUST NOT contain `MGF1ParameterSpec.crysl:14` or any other line number
+
+#### Scenario: a mechanism is explained instead of cited
+
+- **WHEN** a comment of `CipherSpec.mop` explains why the key-origin read of event `i2` is in the event body
+- **THEN** it MUST say that a `condition(...)` guard compiles to an early return ahead of the body and of the transition, so a key whose producer was never observed would drop the `init` out of the automaton and the next call would be reported as a wrong call sequence
+- **AND** it MUST NOT contain `INV-INS-133`, a decision identifier, or the words "used to"
+
+#### Scenario: a reach limit is stated as behaviour
+
+- **WHEN** the comment of `MGF1ParameterSpecSpec.mop` explains objects obtained from the static constant `MGF1ParameterSpec.SHA256`
+- **THEN** it MUST say that the constant is built inside the platform, where nothing is instrumented, so the constructor event never fires for it and the object carries no `preparedMGF1` predicate
+- **AND** it MAY say that `OAEPParameterSpecSpec` therefore reports such an object as not observed rather than as a violation
+- **AND** it MUST NOT cite the invariant that separates the two report families or a campaign count
+
+#### Scenario: a file that exists because of a generator limit says why
+
+- **WHEN** the header of `IvChainJunction.mop` explains why the file exists beside `CipherSpec.mop`
+- **THEN** it MUST say that the clauses it reads bind the parameter-spec, `SecureRandom` and plaintext arguments of `Cipher` calls that `CipherSpec`'s events do not bind, and that `CipherSpec` cannot gain an event because it already declares 17, the most the monitor generator can build
+- **AND** it MUST NOT justify the file's name by the changes, traces or reports that cite it
+
+#### Scenario: the header cites the upstream rule at the pinned commit
+
+- **WHEN** the header of `CipherSpec.mop` is read
+- **THEN** its `@see` MUST be `https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/Cipher.crysl`
+- **AND** the header MUST state that the specification also admits `CCM` for AES, with `NoPadding`, which that rule does not list
+- **AND** no other header of the set MUST carry such a statement, because the other 48 rules the set answers to are identical to the cited commit
+
+#### Scenario: the rewrite leaves the code unchanged
+
+- **WHEN** the comments of `KeyStoreSpec.mop` are rewritten
+- **THEN** removing every comment from the file before and after the rewrite MUST yield the same token sequence
+- **AND** the `file_line` of every `KEYSTORE-*` row of `jca_android/codes.csv` MUST name the line that emits that code after the rewrite
+
+#### Scenario: a compliant comment is kept and every event keeps its own comment
+
+- **WHEN** the comments of `MGF1ParameterSpecSpec.mop` and `CipherSpec.mop` are reviewed, and the field comment `Bound only on the conforming branch, which is what carries the object to `@match`.` of `MGF1ParameterSpecSpec.mop` already complies
+- **THEN** that comment MUST be left byte-identical
+- **AND** each of the five `update` events `u1`–`u5` of `CipherSpec.mop` MUST carry its own comment naming the rule's `Update` label and the overload it binds, even though all five realise the same label
+- **AND** a comment MAY say that a report code is registered in the set's `codes.csv`, and MUST NOT name `data/jca_android/predicate_ledger.csv` or any other record under `data/jca_android/`
+- **AND** no comment MUST describe the set or its checks as "modern", "sophisticated", "elegant", "state-of-the-art", "cutting-edge" or "advanced"
+
+#### Scenario: a helper class follows the same convention
+
+- **WHEN** the class comment of `CipherTransformationNormalizer.java` is rewritten
+- **THEN** it MUST describe what the normaliser resolves and folds before delegating to `CipherTransformationUtil`, and MUST NOT name a class that is no longer in the tree, a decision identifier or a task
+- **AND** `CipherTransformationUtil.java` MUST be byte-identical before and after the change
+- **AND** a self-evident member such as a plain getter MUST carry no Javadoc, while `PredicateStore.validate` MUST carry a method Javadoc opening with an imperative sentence and stating what each `PredicateVerdict` answer means
+
+#### Scenario: the Java convention is written where the module keeps its conventions
+
+- **WHEN** `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/CLAUDE.md` is read after the change
+- **THEN** it MUST contain a section titled "Documentation conventions" that states the eleven rules of the Java convention of this requirement
+- **AND** that section MUST NOT cite invariant, decision, task or issue identifiers, and MUST NOT refer to `architecture.md` sections as a substitute for an explanation
+
+#### Scenario: the next specification is written under the convention
+
+- **WHEN** an author opens `data/jca_android/NEW_SPEC_CONVENTIONS.md` to write a new specification for the set
+- **THEN** the document MUST state the comment convention of this requirement: self-contained comments, clauses quoted by text, no line numbers, no references outside the code and the rules
+- **AND** its own guidance MUST NOT cite invariants, decisions or line numbers of `.mop` files
+
 ### Requirement: Allow-List Conformance to the Expert-Validated CrySL Rules
 
 Every allow-list of `jca_android` SHALL be a literal transcription of the `CONSTRAINTS` clause of the corresponding rule in the **pinned expert copy `RVSec-replication-package/tools/rules/`** — the 49 `.crysl` rules validated by the CogniCrypt authors, frozen here by sha256, and the copy the published RVSec numbers were measured against — and a gate SHALL compare the two mechanically for all 21 specifications (INV-INS-127). This requirement replaces, in force from D-15 (2026-08-24), the api30 anchor this change first adopted; the reason is measured and is stated in the audit `docs/20260824_auditoria_specs_jca_android.md`. The `.ref` tiers that refine the api30 lists were derived from **provider registries**, so a refined list answers "what does the platform offer" and not "what is safe to use". Transcribed into a clause whose purpose is security, that answer inverts the rule while leaving its syntax untouched: the api30 `MessageDigest` list admits `MD5` and `SHA-1`, `SSLContext` admits `SSL`/`TLSv1`/`TLSv1.1`, `Mac` admits `HmacMD5`/`HmacSHA1`, `KeyGenerator` admits `ARC4`/`DESede`/`BLOWFISH`, `Signature` admits `MD5withRSA`/`NONEwithRSA`/`SHA1withDSA`, and the api30 `Cipher` tables admit **`AES/ECB`**. A set faithful to that oracle cannot, by construction, accuse an insecure algorithm the platform ships — which is the opposite of what a crypto-misuse detector is for.
@@ -2343,7 +2425,7 @@ Expanding the aliases into the allow-lists instead SHALL NOT be done, for three 
 
 **The set SHALL NOT enlarge the class of clauses it checks.** An expert `CONSTRAINTS` clause the frozen `jca` left unimplemented stays unimplemented, recorded as a `deferred-constant` row citing the **expert** clause text. The re-anchoring restores the lists the experts wrote; it does not add accusations the validated set never made and whose false-positive behaviour on the corpus is unmeasured. The measured case is `KeyGenerator.crysl`'s `algorithm in {"AES"} => keysize in {128, 192, 256}`, which `jca/KeyGeneratorSpec.mop` never tested and which stays deferred (researcher decision, 2026-08-24).
 
-The `Cipher` transformation tables SHALL stay in Java. `CipherTransformationUtil` — the class of the frozen `jca`, which transcribes the expert `Cipher.crysl` and is what the published numbers were measured with — stays byte-identical: the freeze (INV-INS-109/118) forbids **editing** it, not **calling** it, and `jca_android/CipherSpec.mop` imports it and reaches it through `CipherTransformationNormalizer`, so no verdict of the frozen set moves. The normaliser is the one place the successor set's `Cipher` values move, under `Requirement: Cipher Transformation Tables of the Successor Set`: it reproduces `CipherTransformationUtil`'s value clauses, resolves the pinned Conscrypt aliases and folds case before comparing, and admits the eight `PBEWithHmacSHA{224,256,384,512}AndAES_{128,256}` families `Cipher.crysl` admits (D-20.1). G-CONF keeps comparing against the frozen class (its `--cipher-util` input names `CipherTransformationUtil.java` for both `jca` and `jca_android`). `Api30CipherTransformationUtil` SHALL NOT be deleted — it keeps no caller and stays as the record of what the withdrawn anchor said, which is what makes the two anchors comparable — and SHALL NOT be given a caller again.
+The `Cipher` transformation tables SHALL stay in Java. `CipherTransformationUtil` — the class of the frozen `jca`, which transcribes the expert `Cipher.crysl` and is what the published numbers were measured with — stays byte-identical: the freeze (INV-INS-109/118) forbids **editing** it, not **calling** it, and `jca_android/CipherSpec.mop` imports it and reaches it through `CipherTransformationNormalizer`, so no verdict of the frozen set moves. The normaliser is the one place the successor set's `Cipher` values move, under `Requirement: Cipher Transformation Tables of the Successor Set`: it reproduces `CipherTransformationUtil`'s value clauses, resolves the pinned Conscrypt aliases and folds case before comparing, and admits the eight `PBEWithHmacSHA{224,256,384,512}AndAES_{128,256}` families `Cipher.crysl` admits (D-20.1). G-CONF keeps comparing against the frozen class (its `--cipher-util` input names `CipherTransformationUtil.java` for both `jca` and `jca_android`).
 
 #### Scenario: the constraint table is what G-CONF reproduces on the seed
 
@@ -2364,7 +2446,7 @@ The `Cipher` transformation tables SHALL stay in Java. `CipherTransformationUtil
 
 - **WHEN** `Cipher.getInstance("AES/ECB/PKCS5Padding")` fires against `jca_android/CipherSpec.mop`
 - **THEN** it MUST be reported, because `CipherTransformationUtil` admits for `AES` only the modes `{CBC, CCM, GCM, PCBC, CTR, CTS, CFB, OFB}` and `ECB` is not among them
-- **AND** the same MUST hold for `AES/ECB/NoPadding`, `DESede/CBC/PKCS5Padding`, `DESede/ECB/PKCS5Padding`, `BLOWFISH/ECB/NoPadding`, `ARC4` and `ChaCha20`, every one of which `Api30CipherTransformationUtil` admits — verified by executing both classes over the same inputs
+- **AND** the same MUST hold for `AES/ECB/NoPadding`, `DESede/CBC/PKCS5Padding`, `DESede/ECB/PKCS5Padding`, `BLOWFISH/ECB/NoPadding`, `ARC4` and `ChaCha20`
 - **AND** this MUST be replayed by a trace of its own rather than by the C5 corpus: the published `CipherSpec` accusations are 109 rows all carrying the OAEP spelling, so no published number moves and the case would otherwise be an unwitnessed false negative
 - **AND** `CipherTransformationUtil.java` MUST be byte-unchanged, gaining a caller and no edit
 
@@ -2983,7 +3065,7 @@ The archived set's profile models **availability, not recommendation**, and a re
 
 The `Cipher` transformation tables consulted by the archived set `jca_android_bug_predicate` — the admissible algorithms, their modes, and per mode the admissible paddings — originate in the generated CrySL rule for its declared API level and are reached by `jca_android_bug_predicate/CipherSpec.mop` naming its own utility, `AndroidCipherTransformationUtil` (`rvsec-core/src/main/java/br/unb/cic/mop/jca/util/`), rather than by any runtime selection over a shared one. This requirement now describes that archived pair and only it: the utility belongs to the archived set, is frozen with it, and SHALL stay byte-unchanged, exactly as `CipherTransformationUtil` stays byte-unchanged for the frozen `jca`.
 
-`CipherSpec` is the only specification of any JCA set with no allow-list of its own: it delegates to `isValid(transformation)` in shared Java, where the tables are method locals. Selection by the *specification* rather than by the *runtime* is what keeps each set's verdict its own — a shared utility parameterised by the active set would place the `jca` verdict under the control of state set elsewhere (INV-INS-112) — and the successor set names its own utility, `CipherTransformationNormalizer`, which reads through the frozen `jca`'s `CipherTransformationUtil` without editing it (`Requirement: Cipher Transformation Tables of the Successor Set`). `Api30CipherTransformationUtil`, written against the withdrawn api30 anchor, stays in the tree as the record of what that anchor said and keeps no caller. Each set names the utility it answers to, and none is selected at runtime.
+`CipherSpec` is the only specification of any JCA set with no allow-list of its own: it delegates to `isValid(transformation)` in shared Java, where the tables are method locals. Selection by the *specification* rather than by the *runtime* is what keeps each set's verdict its own — a shared utility parameterised by the active set would place the `jca` verdict under the control of state set elsewhere (INV-INS-112) — and the successor set names its own utility, `CipherTransformationNormalizer`, which reads through the frozen `jca`'s `CipherTransformationUtil` without editing it (`Requirement: Cipher Transformation Tables of the Successor Set`). Each set names the utility it answers to, and none is selected at runtime.
 
 #### Scenario: The archived utility is unchanged
 

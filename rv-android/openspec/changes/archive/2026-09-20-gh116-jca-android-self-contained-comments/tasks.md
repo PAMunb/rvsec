@@ -16,7 +16,7 @@
        detailed comment (D2a). In Java, self-evident members get no Javadoc (D2c). A divergence whose technical
        cause is not known is stated as behaviour only.
      - "Self-check" means, for each file touched: (a) the token sequence with comments stripped equals the one
-       at `HEAD`; (b) no comment contains a pattern INV-INS-168 forbids (line numbers, `INV-`, `D-`, task,
+       at `HEAD`; (b) no comment contains a pattern INV-INS-169 forbids (line numbers, `INV-`, `D-`, task,
        `gh`/`#` identifiers, dates, names of `data/jca_android/` records, counts, the `jca` set, earlier-state
        narrative, promotional language); (c) for a `.mop`, the header `@see` is the URL of D4.
      - By the researcher's decision no monitor is generated and no gate or test is run (only comments change).
@@ -136,7 +136,7 @@
 
 ## 20. Commit and close (main window)
 
-- [ ] 20.1 Commit by path (`git add -A -- <paths>` then `git commit --only -- <paths>`) with `closes #116`
-- [ ] 20.2 Run `/opsx:verify` for `gh116-jca-android-self-contained-comments`
-- [ ] 20.3 Check off the acceptance criteria of issue #116
-- [ ] 20.4 Run `/opsx:archive`
+- [x] 20.1 Commit by path (`git add -A -- <paths>` then `git commit --only -- <paths>`) with `closes #116`
+- [x] 20.2 Run `/opsx:verify` for `gh116-jca-android-self-contained-comments`
+- [x] 20.3 Check off the acceptance criteria of issue #116
+- [x] 20.4 Run `/opsx:archive`

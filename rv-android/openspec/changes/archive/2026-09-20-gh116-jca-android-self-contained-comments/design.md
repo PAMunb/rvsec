@@ -55,7 +55,7 @@ No test is written or run, by decision. The right-hand column is the acceptance 
 | Documentation Convention — helper classes | Group 3 | Same reads over the nine classes, checked against the Java convention (trivial members without Javadoc); `CipherTransformationUtil.java` unchanged in `git diff --stat` |
 | Documentation Convention — `NEW_SPEC_CONVENTIONS.md` | Group 4 | The document states the convention and cites no invariant, decision or `.mop` line |
 | Documentation Convention — scope of the rewrite | All rewrite groups (self-check); `codes.csv` in group 19 | Comment-stripped token sequence identical before and after; every `file_line` names the emitting line |
-| INV-INS-168 | All rewrite groups | Each worker's pattern read of its own files returns nothing in comments |
+| INV-INS-169 | All rewrite groups | Each worker's pattern read of its own files returns nothing in comments |
 | MODIFIED Allow-List Conformance / Archived Derived Set | Group 4 move | `git grep Api30CipherTransformationUtil` outside `backup/`, `openspec/changes/archive/`, dated docs and data records returns nothing |
 
 ## Goals / Non-Goals
@@ -95,7 +95,7 @@ No test is written or run, by decision. The right-hand column is the acceptance 
 **D6 — Three waves, groups by predicate chain and by size, no human wait.** Everything inside a wave runs in parallel, and no step waits for a person:
 
 - **Wave 1 (five agents, no dependencies among them):** the citation check, the Java convention section of the dexlib2 `CLAUDE.md`, the nine Java helper classes (against the eleven Java rules of the delta spec, which exist before the section is written), the backup move with the authoring guide, and the predicate glossary. The glossary is the shortest of the five and is the only one wave 2 waits for.
-- **Wave 2 (nine agents):** all 47 `.mop` files. Files at the two ends of a predicate stay with one worker where the chain allows, and no group exceeds about 1,500 lines, so the slowest worker does not hold the wave: the two largest groups of a chain-only split (key generation and randomness, about 2,600 lines; TLS and trust, about 2,500) are each divided in two. Each worker checks its own files before returning — comment-stripped token comparison against `HEAD`, the patterns INV-INS-168 forbids, the `@see` URL.
+- **Wave 2 (nine agents):** all 47 `.mop` files. Files at the two ends of a predicate stay with one worker where the chain allows, and no group exceeds about 1,500 lines, so the slowest worker does not hold the wave: the two largest groups of a chain-only split (key generation and randomness, about 2,600 lines; TLS and trust, about 2,500) are each divided in two. Each worker checks its own files before returning — comment-stripped token comparison against `HEAD`, the patterns INV-INS-169 forbids, the `@see` URL.
 - **Wave 3 (four reviewer agents over disjoint file sets, about 3,000 lines each):** each reviewer reads every file of its set against the requirement and the glossary, fixes what departs from them, and re-runs the self-check on what it changed. A reviewer never reviews a group it wrote. This replaces a human approval.
 
 Group 19 then updates the `file_line` column of `codes.csv`, which needs every `.mop` final, and reads the `@see` of all headers. The commit by path follows; `/opsx:verify` and `/opsx:archive` run after the commit.
