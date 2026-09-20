@@ -10,64 +10,75 @@ import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
- * GCMParameterSpec
+ * GCMParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.crypto.spec.GCMParameterSpec.
+ * Monitors javax.crypto.spec.GCMParameterSpec against the CrySL rule GCMParameterSpec.crysl.
+ * The rule's ORDER is `Con` alone, and `Con := c1 | c2`, so constructing the spec is the whole
+ * call sequence this specification observes. At both constructors it enforces the CONSTRAINTS
+ * clause `tagLen in {96, 104, 112, 120, 128};` and reads the one REQUIRES clause
+ * `randomized[src];` over the nonce material, and at its acceptance point it writes the one
+ * ENSURES clause `preparedGCM[this];`.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/GCMParameterSpec.crysl
+ * Three CONSTRAINTS clauses of the rule have no site here, and each absence is behaviour:
+ *
+ *  - `length[src] >= offset + len;` and `offset >= 0;` cannot be reached. The four-argument
+ *    constructor throws IllegalArgumentException for a negative offset and for a sum past the
+ *    end of the array, and the events are `after ... returning` advice, so no call that breaks
+ *    either clause ever reaches a body;
+ *  - `len > 0;` can be reached -- the constructor rejects a negative length and admits a zero
+ *    one -- and is left unchecked, so a zero-length nonce range is not reported.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/GCMParameterSpec.crysl
  */
 GCMParameterSpecSpec(GCMParameterSpec s) {
 
+   // The object the acceptance handler writes the predicate over, staged by whichever
+   // constructor built it and only on its conforming branch.
    GCMParameterSpec spec;
 
+   // The CONSTRAINTS clause `tagLen in {96, 104, 112, 120, 128};` of GCMParameterSpec.crysl,
+   // transcribed.
    List<Integer> validLengths = Arrays.asList(96, 104, 112, 120, 128);
 
    // Set by the creation events `c1` and `c2`. The generated `reset()` does not clear it, so every
    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // The two-argument constructor, the rule's `c1`. Until this pass both of this
-   // file's events opened with a `condition(...)` that conjoined the rule's one
-   // CONSTRAINTS clause with the read of its one REQUIRES predicate, and a guard
-   // on a constructor event is not the harmless thing it looks like: measured in
-   // the generated monitor, `Prop_1_event_c1` opened with
-   // `if (!(validLengths.contains(tagLen) && <read>)) return false;` *ahead* of
-   // `handleEvent`, so a construction that broke either clause took no
-   // transition, reached no accepting state and was accused of nothing.
+   // `Con` of GCMParameterSpec.crysl: `c1: GCMParameterSpec(tagLen, src)`, the two-argument
+   // constructor. Two clauses land in this body and neither of them guards the transition.
    //
-   // Here that silence covered the whole specification rather than one event.
-   // The `fail` handler cannot make up for a suppressed transition, because it
-   // is unreachable by construction: the transition row is {1, 2, 2} for both
-   // events and the monitor is keyed on the constructed object, so a monitor
-   // receives at most one event and state 2 is never entered. Both events
-   // guarded, the ordering handler unreachable: every program this file could
-   // see produced zero reports. Measured on eight constructions over the whole
-   // ErrorCollector -- both overloads, both tag lengths, plain and randomised
-   // material -- all zero, and the four traces written for this pass are the
-   // corpus half of the same measurement.
+   // A `condition(...)` guard compiles to `if (!(guard)) return false;` ahead of both the body
+   // and the transition, so a construction that broke either clause would take no step, reach
+   // no accepting state and be accused of nothing. Here that silence would cover the whole
+   // specification rather than one event, because the ordering handler cannot make up for a
+   // suppressed transition: with `Con` the entire ORDER, `@fail` is unreachable by
+   // construction, as the comment on the `ere` below sets out.
    //
-   // So the body says what the rule says. The tag length is the CONSTRAINTS clause
-   // `GCMParameterSpec.crysl:18`, which both `CONSTR-00` here and `CONSTR-02` at the
-   // four-argument constructor implement, and the source is the REQUIRES predicate
-   // `:24`; neither may decide whether the
-   // constructor happened. Keeping the length as a guard is admitted for
-   // CONSTRAINTS checks in general, and was declined here for the reason task
-   // 4.7 declined it on the sibling file: it would leave the read this pass takes
-   // out of the guard sitting behind a second guard that suppresses the same
-   // transition, so the read would still not run on a construction with an
-   // unadmitted tag length.
+   // CONSTRAINTS `tagLen in {96, 104, 112, 120, 128};`: a tag length outside the list is
+   // reported under this site's own code, registered in `codes.csv`. Keeping a value clause as
+   // a `condition(...)` guard would be admissible in general and is declined here, because it
+   // would leave the REQUIRES read below sitting behind a guard that suppresses the same
+   // transition: the read would then not run at all on a construction with an unadmitted tag
+   // length.
    //
-   // The source read is three-valued, and the two accusing outcomes are
-   // different claims. VIOLATED is positive evidence that the array carries a
-   // randomisation predicate that was withdrawn; NOT_OBSERVED says only that no
-   // randomised source of it was ever seen -- on Android as often a reach limit
-   // of the instrumentation as a misuse.
+   // REQUIRES `randomized[src];`: the nonce material came from a `SecureRandom` the
+   // instrumentation observed -- the generator itself, or bytes it produced. The producing
+   // site is the handler of `SecureRandomSpec` over the arrays its `generateSeed` and
+   // `nextBytes` events stage. The read is three-valued, and the two accusing outcomes are
+   // different claims. VIOLATED is positive evidence: the store holds an entry for this array
+   // under this predicate that the clause does not admit. NOT_OBSERVED says only that the store
+   // holds no entry for it at all, so no randomised source of it was ever seen -- on Android as
+   // often a reach limit of the instrumentation as a misuse -- and it keeps a code of its own
+   // for that reason.
    //
    // A construction either body reports on is marked `REPORTED_UPSTREAM`, so the consumer of
    // `PREPARED_GCM` (`IvChainJunction.use`) reports it as refused upstream rather than as not
    // observed. The source read here is not a consumer of that mark: no producer of `RANDOMIZED`
    // marks what it refuses, so NOT_OBSERVED keeps its own code.
+   //
+   // `spec` is bound only on the branch where nothing was reported, and that binding is what
+   // carries the object to `@match`: the handler receives no event arguments, so the event that
+   // saw the object has to stage it in a field.
    event c1 after(int tagLen, byte[] src) returning(GCMParameterSpec s):
     call(public GCMParameterSpec.new(int, byte[])) &&
     args(tagLen, src) {
@@ -97,35 +108,28 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
        }
     }
 
-   // The four-argument constructor, the rule's `c2` and the other alternative of
-   // the rule's `Cons`. It carried the same guard as `c1` and three more
-   // conjuncts beside it -- `offset >= 0 && len >= 0 && src.length >= offset + len`
-   // -- which this pass deletes rather than moves. The ground has changed and the
-   // deletion has not: task 4.8 wrote that they translate no clause, which was true
-   // of the generated rule and is FALSE of the oracle -- GCMParameterSpec.crysl:19,
-   // :20 and :21 state `length[src] >= offset + len`, `offset >= 0` and `len > 0`,
-   // and conformance_record.csv defers all three against those lines. The second
-   // ground stands for TWO of the three and not for all three, which is what the
-   // record said and what re-measuring under gh109 task 6.3 refuted.
+   // `Con` of GCMParameterSpec.crysl: `c2: GCMParameterSpec(tagLen, src, offset, len)`, the
+   // other alternative of `Con := c1 | c2`. The body is `c1`'s over this overload's arguments
+   // and reads the rule the same way -- the same CONSTRAINTS clause over `tagLen`, the same
+   // REQUIRES predicate over `src` -- each with a code of its own, because a code names a site
+   // and not a clause. Neither check guards the transition, for the reason `c1` sets out: a
+   // `condition(...)` compiles to an early return ahead of the body and of the transition, and
+   // with `Con` the whole ORDER a suppressed transition is a construction nothing reports on.
    //
-   // The constructor throws IllegalArgumentException for a negative offset and for
-   // a sum past the end of the array, so an `after ... returning` advice never sees
-   // either: measured on a JVM, `(128, iv, -1, 4)` and `(128, iv, 0, 99)` both throw
-   // before any advice runs, and a body accusation for them would have no execution
-   // path.
+   // The rule's three bounds clauses are over this overload's extra arguments and none of them
+   // has a site in this body.
    //
-   // `len > 0` is different, and the claim "measured on all three, each throws" was
-   // FALSE for it: `new GCMParameterSpec(128, iv, 0, 0)` RETURNS. The constructor
-   // rejects a negative length and admits a zero one, so `GCMParameterSpec.crysl:21`
-   // IS reachable by this advice and a site for it would have an execution path.
-   // Giving it one changes what this specification accuses, so it is recorded rather
-   // than made: the deferral stays and now names the right reason -- no ratification,
-   // not no reachable trace.
+   // `length[src] >= offset + len;` and `offset >= 0;` have no execution path to sit on. The
+   // constructor throws IllegalArgumentException for a negative offset and for a sum past the
+   // end of the array, and this is an `after ... returning` advice: `(128, iv, -1, 4)` and
+   // `(128, iv, 0, 99)` both throw before any advice runs, so a body accusation for them could
+   // never be emitted.
    //
-   // What remains is `c1`'s body over this overload's arguments, and it is the
-   // same rule read the same way: the same CONSTRAINTS clause over `tagLen`, the
-   // same REQUIRES predicate over `src`, each with a code of its own, because a
-   // code names a site and not a clause.
+   // `len > 0;` is different. The constructor rejects a negative length and admits a zero one,
+   // so `new GCMParameterSpec(128, iv, 0, 0)` returns and an advice does see it. The clause is
+   // left unchecked all the same: a zero-length nonce range takes the transition, is reported
+   // by nothing here, and -- if the tag length and the source read pass -- is prepared like any
+   // other.
    event c2 after(int tagLen, byte[] src, int offset, int len) returning(GCMParameterSpec s):
      call(public GCMParameterSpec.new(int, byte[], int, int)) &&
      args(tagLen, src, offset, len) {
@@ -155,19 +159,17 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
         }
      }
 
-   // `Cons` is the whole of the rule's ORDER, and `Cons := c1 | c2`: constructing
+   // `Con` is the whole of the rule's ORDER, and `Con := c1 | c2`: constructing
    // a GCMParameterSpec is the entire ordering this specification observes. Two
    // consequences the rest of the file depends on. Neither the tag length nor the
    // source may govern a transition -- the first is a CONSTRAINTS clause and the
    // second a REQUIRES predicate, and both are accused in the event bodies above.
-   // And the `@fail` handler below cannot fire: the transition row the generator
-   // derives is {1, 2, 2} for both events, and the monitor is keyed on the
-   // constructed object, so no monitor of this specification ever sees a second
-   // event and state 2 is never entered. That is recorded rather than repaired --
-   // the repair is to the automaton, and this pass moves no symbol. Task 7.1 has since
-   // mapped this file (`c1` and `c2` in order_alphabet_map.csv), so G-ORDER compares it
-   // in both directions and reports no divergence: an unreachable handler is a report
-   // the automaton cannot make, not a sequence the two sides disagree about.
+   // And the `@fail` handler below cannot fire: a single-symbol expression has no
+   // second event to take, the transition row the generator derives is {1, 2, 2}
+   // for both events, and the monitor is keyed on the constructed object, so no
+   // monitor of this specification ever sees a second event and state 2 is never
+   // entered. The handler is written all the same, because the generator expects
+   // one and because every code it names belongs to a site the file declares.
    ere : c1 | c2
 
    @fail {
@@ -182,23 +184,19 @@ GCMParameterSpecSpec(GCMParameterSpec s) {
       __RESET;
    }
 
-   // The one place the rule's `ENSURES preparedGCM[this]` may be written. The rule
-   // states the clause (GCMParameterSpec.crysl:27) without an `after L`
-   // qualification, so its acceptance
-   // point is the accepting state itself, which in an `ere` is exactly what
-   // `@match` names. The monitor field is what carries the object here: a
-   // handler sees no event arguments, and the field is bound only by the
-   // conforming branch of either constructor, so a construction that broke a
-   // clause reaches this handler with nothing bound and the call is a no-op.
+   // ENSURES `preparedGCM[this];`: the GCMParameterSpec carries a tag length and
+   // a nonce the rule admits, and its nonce came from a source the instrumentation
+   // observed. The rule states the clause without an `after L` qualification, so
+   // its acceptance point is the accepting state itself, which in an `ere` is
+   // exactly what `@match` names. The monitor field is what carries the object
+   // here: a handler sees no event arguments and runs after the transition is
+   // decided, and the field is bound only by the conforming branch of either
+   // constructor, so a construction that broke a clause reaches this handler with
+   // nothing bound and `ensure` treats a null binding as a no-op.
    //
-   // Unlike `preparedPBE`, this predicate is not a dead end and carries no
-   // deliberate-omission record: the oracle requires it at Cipher.crysl:139,
-   // `mode(transformation) in {"GCM"} => preparedGCM[paramSpec]`, which is
-   // ledger clause #10 and is wired at task 5.8. The G-PRED2 finding on this
-   // write closes there, by a read, not here by a record.
-   //
-   // The accepting-state bookkeeping that stood beside this write is gone: the
-   // new substrate does not offer it, and the set never read it (INV-INS-147).
+   // The write has a reader: `IvChainJunction` reads it at `Cipher.init`, for the
+   // REQUIRES clause `mode(transformation) in {"GCM"} => preparedGCM[paramSpec];`
+   // of Cipher.crysl.
    @match {
       PredicateStore.instance().ensure(Property.PREPARED_GCM, spec);
    }

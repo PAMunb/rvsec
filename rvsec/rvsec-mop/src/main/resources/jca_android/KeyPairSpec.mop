@@ -12,10 +12,41 @@ import br.unb.cic.mop.Property;
 /**
  * KeyPairSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.KeyPair class.
+ * Monitors java.security.KeyPair against the CrySL rule KeyPair.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyPair.crysl
+ * ORDER. The rule orders `Con, (GetPubl | GetPriv)*`: the two-argument constructor, then any
+ * number of `getPublic()` and `getPrivate()` calls. The constructor is mandatory here, as the
+ * rule writes it. A sequence the automaton does not accept is reported under
+ * `KEYPAIR-ORDER-01` when no construction of the pair was observed and under
+ * `KEYPAIR-ORDER-00` otherwise; both codes are registered in `codes.csv`.
+ *
+ * CONSTRAINTS. The rule states none, so this specification checks no value.
+ *
+ * REQUIRES `generatedPrivkey[privateKey];` and `generatedPubkey[publicKey];`, both read at the
+ * constructor over the two halves a program hands to `new KeyPair(...)`. They are separate
+ * claims about separate objects and carry a code each.
+ *
+ * ENSURES three clauses, two of which have a site here.
+ * `generatedPubkey[retPublicKey] after GetPubl;` is written at `gpu` over the key
+ * `getPublic()` returned and `generatedPrivkey[retPrivateKey] after GetPriv;` at `gpr` over the
+ * key `getPrivate()` returned: the key was produced by a call the instrumentation observed.
+ * `generatedKeypair[this, _] after Con;` has no site: no rule this set transcribes requires
+ * that predicate, so a write here would record a fact nothing reads.
+ *
+ * Reach limits and divergences from the rule.
+ * - A program almost never constructs the `KeyPair` it reads from; it takes one out of
+ *   `KeyPairGenerator.generateKeyPair()`, a call no event of this specification observes. Such
+ *   a pair reaches `getPublic()`/`getPrivate()` from the start state, so the call is reported
+ *   as a wrong call sequence under `KEYPAIR-ORDER-01`. Following the rule's ORDER as written
+ *   is what makes that report common.
+ * - The two ENSURES writes sit in the event bodies, which run before the transition is
+ *   decided, so both halves are marked even on a pair whose sequence the automaton rejects:
+ *   the ordering report costs the chain nothing.
+ * - Either read at the constructor answers NOT_OBSERVED when the half came from a producer the
+ *   weaving does not reach. That is a reach limit and not a misuse, which is why it carries a
+ *   code of its own.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/KeyPair.crysl
  */
 KeyPairSpec(KeyPair keyPair) {
 
@@ -27,63 +58,45 @@ KeyPairSpec(KeyPair keyPair) {
     // every later one.
     boolean creationObserved = false;
 
-    // KeyPair.crysl:27 also states `generatedKeypair[this, _] after Con`, and this
-    // file has no write for it. None is fabricated, and task 5.10 has now made the record
-    // this pass fed it: the predicate is required by no rule of the whole oracle, so a
-    // write here would produce something nothing can consume; its other producing site is
-    // `KeyPairGeneratorSpec.mop` (task 4.14), which already carries a deliberate-omission
-    // record for it; and a clause with no site has no row in `predicate_graph.csv` to
-    // carry a record of its own, because that inventory is of sites and not of clauses.
-    // The record therefore lives in the change's ledger and in
-    // data/gh105/evidence/f3-PreparedKeyMaterial.md, which is where a clause without a
-    // site can be written down at all (researcher decision, 2026-08-22).
+    // The rule's `c1: KeyPair(publicKey, privateKey);`, its one `Con` event, and the site of
+    // both REQUIRES clauses: `generatedPrivkey[privateKey];` and `generatedPubkey[publicKey];`.
+    // They are the constructor's clauses -- what a program may hand to `new KeyPair(...)` --
+    // and they are separate claims about separate objects, so they carry a code each rather
+    // than being folded into one composite report.
     //
-    // What this event gains is the rule's own REQUIRES, both of them:
-    // `generatedPrivkey[privateKey]` and `generatedPubkey[publicKey]` (KeyPair.crysl:23-24,
-    // ledger clauses #15 and #16). They are the constructor's clauses -- what a program
-    // may hand to `new KeyPair(...)` -- and they are separate reports over separate
-    // objects, so they carry a code each rather than being folded into one composite the
-    // way `CipherSpec.i2` folds the three key-origin predicates behind one clause.
+    // Each read asks what its clause asks: whether the key was produced by a call the
+    // instrumentation observed. A private key is marked by `KeyFactorySpec` at `genPrivate`,
+    // by `KeyStoreSpec` when the key it retrieves is a `PrivateKey`, and by `gpr` below; a
+    // public key by `KeyFactorySpec` at `genPublic` and by `gpu` below. Both clauses are
+    // one-place in every rule that ensures them, so there is no value place: the bound key is
+    // compared by identity, and only the very object a producing call handed out carries the
+    // mark.
     //
-    // The reads are in the body, not in `condition(...)`: a false guard compiles to
-    // `if (!(guard)) return false;` ahead of the transition, so a key pair whose halves
+    // The reads are in the event body and not in a `condition(...)` guard: a guard compiles to
+    // an early return ahead of both the body and the transition, so a key pair whose halves
     // the monitor never saw would drop the constructor out of the automaton and the
-    // `getPublic` that follows would be accused of a wrong call sequence (INV-INS-133).
-    // A failed REQUIRES is not a typestate failure.
+    // `getPublic()` that follows would be reported as a wrong call sequence instead of as the
+    // unsatisfied requirement it is. A failed REQUIRES is not a typestate failure.
     //
-    // Measured before the reads were written -- the composition is real and the identity
-    // survives it: `new KeyPair(kp.getPublic(), kp.getPrivate())` over a generated pair
-    // runs, `getPublic()` and `getPrivate()` return the same object on every call, and the
-    // constructor stores the halves without copying, so what `gpu`/`gpr` marked is what
-    // this read asks about. Both halves are also produced by `KeyStoreSpec` for a private
-    // key, which task 5.6 wired in the same commit. `KeyPairSpec-public-cipher.txt` and
-    // `-private-cipher.txt` are the corpus traces that reach this event, and both take
-    // their halves from `bind` lines, which the harness performs without dispatching -- so
-    // both answer NOT_OBSERVED here, honestly: nothing the monitor saw produced them.
+    // The composition the clause describes survives at run time, which is what makes the read
+    // meaningful: `new KeyPair(kp.getPublic(), kp.getPrivate())` over a generated pair runs,
+    // `getPublic()` and `getPrivate()` return the same object on every call, and the
+    // constructor stores the halves without copying, so what `gpu`/`gpr` marked is the very
+    // object this read asks about.
     //
-    // Arity one on both, which is what the oracle writes: `generatedPrivkey` and
-    // `generatedPubkey` are one-place in every rule that ensures them -- KeyPair itself,
-    // KeyStore, and nothing else -- so there is no arity to move here.
+    // Each verdict is three-valued and its two accusing outcomes are different claims.
+    // VIOLATED is positive evidence about this key -- an entry exists and what it records is
+    // not what the clause demands -- reported under `KEYPAIR-CONSTR-00` for the private half
+    // and `KEYPAIR-CONSTR-01` for the public one. NOT_OBSERVED says only that nothing about
+    // the key was ever recorded, which happens when its producing call was not woven or runs
+    // inside a library the weaving does not reach -- reported under `KEYPAIR-NOBS-00` and
+    // `KEYPAIR-NOBS-01`. All four codes are registered in `codes.csv`.
+    //
     // `returning(KeyPair keyPair)` and not `returning(KeyPair kp)`: the generator keys a
     // parametric monitor on the event parameters whose NAMES are the specification's declared
     // parameters, so a `KeyPair` bound under any other name binds no monitored object at all.
-    // The event then gets the parameterless map and runs on the root monitor and on every live
-    // monitor of the specification -- the same broadcast task 9.3 closed at `PBEKeySpecSpec`,
-    // reached here through a name rather than through a missing clause, which is why G-BIND
-    // did not see it until task 9.11 extended it to compare the bound name.
-    //
-    // The binding was written at task 9.11 and it outlives the automaton shape that
-    // exposed it, which is why it is worth keeping the measurement here. Unbound, a `c1`
-    // is broadcast to every live monitor of the specification, and where it lands depends
-    // on the state those monitors are in: under the mandatory constructor the `gpu`/`gpr`
-    // of a generator-produced pair drive that pair's monitor to `fail`, `__RESET` returns
-    // it to `start`, and a broadcast `c1` is accepted there; under the optional one those
-    // reads leave the monitor accepting instead and the broadcast `c1` arrives where `c1`
-    // is `fail`, which is how the conforming trace `KeyPairSpec-observed-halves.txt`
-    // gained a KEYPAIR-ORDER-00 it had never drawn. Task 11.6 has since made the
-    // constructor mandatory again, so the second half of that measurement is history --
-    // but the binding is not a workaround for either shape. A constructor event is about
-    // the pair it constructs, and binding the name is what says so.
+    // The event would then get the parameterless map and run on the root monitor and on every
+    // live monitor of the specification, instead of reaching the pair it constructs.
     event c1 after(PublicKey publicKey, PrivateKey privateKey) returning(KeyPair keyPair):
       call(public KeyPair.new(PublicKey, PrivateKey))
       && args(publicKey, privateKey) {
@@ -108,97 +121,77 @@ KeyPairSpec(KeyPair keyPair) {
         }
     }
 
-    // `generatedPubkey[retPublicKey] after GetPubl` (KeyPair.crysl:28), read by `CipherSpec.i2`
-    // since task 4.1 -- so this is one of the two sites of this pass that closes a chain
-    // rather than recording a dead end.
+    // `ENSURES generatedPubkey[retPublicKey] after GetPubl;` over the key `getPublic()`
+    // returned. What the write establishes, for the readers in `CipherSpec`,
+    // `KeyAgreementSpec`, `SignatureSpec`, `TrustAnchorSpec`, `KeySpec` and `c1` above: the
+    // public key was produced by a call the instrumentation observed. The bound place is the
+    // key itself, compared by identity; the clause has no value place.
     //
-    // The write stays in the event body, against the default of INV-INS-134, and the
-    // reason is recorded in `predicate_graph.csv`. Since task 11.6 restored the
-    // constructor the rule makes mandatory (`KeyPair.crysl:20`), that placement is not a
-    // preference any more -- it is what keeps this chain alive. A program almost never
-    // constructs the `KeyPair` it reads from: it gets one out of
-    // `KeyPairGenerator.generateKeyPair()`, a call this specification does not observe,
-    // so `gpu` fires from the start state and the automaton rejects it. The event body
-    // runs BEFORE the transition is decided, so the write happens anyway; a write at
-    // `@match` would not, and `generatedPubkey` would go unwritten for every generated
-    // pair in the corpus. That is not a hypothesis: the harness pair
-    // `data/gh105/evidence/harness/f8g-*.md` shows the five traces that gain an
-    // ordering report gaining nothing else, `SignatureSpec-generated-pubkey.txt` and
-    // `-privkey.txt` among them -- their reads still answer SATISFIED, so the chain the
-    // ordering report sits beside is intact.
-    //
-    // Task 7.1 is likewise closed: `order_alphabet_map_expert.csv` maps this
-    // specification, so G-ORDER compares it rather than skipping it.
+    // The write is in the event body and not at the acceptance point, and that placement is
+    // what keeps the chain alive. A program almost never constructs the `KeyPair` it reads
+    // from: it takes one out of `KeyPairGenerator.generateKeyPair()`, a call this
+    // specification does not observe, so `gpu` fires from the start state and the automaton
+    // rejects the sequence. An event body runs before the transition is decided, so the write
+    // happens anyway; a write in a handler would not, and `generatedPubkey` would go unwritten
+    // for every generated pair. The ordering report and the predicate are independent of each
+    // other: a pair that draws `KEYPAIR-ORDER-01` here still marks both of its halves.
     event gpu after(KeyPair keyPair) returning(PublicKey publicKey):
       call(public PublicKey KeyPair.getPublic()) &&
       target(keyPair) {
         PredicateStore.instance().ensure(Property.GENERATED_PUBLIC_KEY, publicKey);
     }
 
-    // `generatedPrivkey[retPrivateKey] after GetPriv` (KeyPair.crysl:29) -- and the seed wrote the
-    // private key under `GENERATED_PUBLIC_KEY`, which is the defect task 6.1 names. It is
-    // repaired here, with the write, and not recorded like the `preparedKeyMaterial`
-    // conflation was, because the argument that kept that one recorded does not hold:
-    // measured, renaming this write closes exactly the same chain it closed before, since
-    // `CipherSpec.i2` reads the three key-origin predicates as one disjunction. What the
-    // seed's name costs is downstream. Task 5.7 wires Signature's `generatedPrivkey[priv]`
-    // and `generatedPubkey[pub]`, and it runs before 6.1: measured on the store, a private
-    // key marked as public answers NOT_OBSERVED to `initSign(priv)` -- a report about a
-    // conforming program -- and SATISFIED to `generatedPubkey`, which is a private key
-    // answering the public key's clause. The read side of `GENERATED_PRIVATE_KEY` already
-    // exists; this is the write that was missing.
+    // `ENSURES generatedPrivkey[retPrivateKey] after GetPriv;` over the key `getPrivate()`
+    // returned. What the write establishes, for the readers in `CipherSpec`,
+    // `KeyAgreementSpec`, `SignatureSpec`, `KeySpec` and `c1` above: the private key was
+    // produced by a call the instrumentation observed. The bound place is the key itself,
+    // compared by identity; the clause has no value place.
     //
-    // Same body placement as `gpu`, for the same recorded reason.
+    // The predicate is the private key's own and not the public key's. They are separate
+    // clauses of the rule and separate readers depend on them: `SignatureSpec` asks for
+    // `generatedPrivkey` at `initSign` and for `generatedPubkey` at `initVerify`, so a private
+    // key marked as public would answer NOT_OBSERVED to the first and SATISFIED to the second.
+    //
+    // Same body placement as `gpu`, for the same reason: a pair a program obtained from
+    // `KeyPairGenerator.generateKeyPair()` reaches this event from the start state, and an
+    // event body runs before the transition is decided, so the mark is written even though the
+    // sequence is rejected.
     event gpr after(KeyPair keyPair) returning(PrivateKey privateKey):
       call(public PrivateKey KeyPair.getPrivate()) &&
       target(keyPair) {
         PredicateStore.instance().ensure(Property.GENERATED_PRIVATE_KEY, privateKey);
     }
 
-    // The `KeyPair keyPair` field is gone with the accepting-state bookkeeping that was
-    // the only thing reading it: the new store does not offer that bookkeeping and the set
-    // never read it back (INV-INS-147). `@match` is left empty rather than deleted --
-    // an `ere` names its accepting category whether or not a handler uses it, and the
-    // write returns here at task 7.1.
-    // The constructor is MANDATORY, which is what `KeyPair.crysl:20` orders --
-    // `Con, (GetPubl | GetPriv)*` -- and what task 11.6 restored on the researcher's
-    // decision of 2026-08-26, under the rule that governs the whole group: adherence to
-    // the CrySL rule as the rule is written.
+    // The rule's ORDER, `Con, (GetPubl | GetPriv)*`. The constructor is mandatory, which is
+    // what the rule orders: a pair reaches `getPublic()`/`getPrivate()` legally only after the
+    // `c1` that built it.
     //
-    // The shape it replaces was `(c1 | epsilon) (gpu | gpr)*`, written at task 9.11 on two
-    // grounds that have both gone. The first was the withdrawn generated rule, which
-    // ordered `co?, (pu*, pr*)*`; the second was a project convention by which ORDER
-    // answered to that catalogue while values answered to the expert one. D-16
-    // (2026-08-25) ended the convention and left this file saying so in capitals, pointing
-    // here.
+    // What that costs is stated once, here. Practically every Android key pair comes out of
+    // `KeyPairGenerator.generateKeyPair()`, which fires no `c1` at all, so every
+    // `getPublic()`/`getPrivate()` on such a pair is a sequence this automaton rejects, and
+    // the report is common over real applications. No `c1` reaches that monitor, so it carries
+    // `KEYPAIR-ORDER-01` (`creation-unobserved`), which separates it from a constructed pair
+    // used out of order.
     //
-    // What the restoration costs is the 668-line measurement, and the measurement was
-    // never wrong: practically every Android key pair comes out of `generateKeyPair()`,
-    // which fires no `c1` at all, so every `getPublic()`/`getPrivate()` on a generated pair
-    // is a sequence this automaton rejects. Measured again at 11.6 over the corpus as it
-    // now stands: seven new ordering reports in five traces -- `KeyPairSpec-generated` (2),
-    // `-observed-halves` (2), `-generated-cipher` (1), `SignatureSpec-generated-pubkey` (1)
-    // and `-generated-privkey` (1). In a campaign over real apps the report will be common,
-    // and the decision was taken with that on the table; the divergence row says it. No `c1`
-    // reaches the monitor of a generated pair, so the report carries `KEYPAIR-ORDER-01`
-    // (`creation-unobserved`), which separates it from a constructed pair used out of order.
+    // What it does not cost is the predicate chain: the event bodies of `gpu` and `gpr` run
+    // before the transition is decided, so both halves of a rejected pair are still marked and
+    // every downstream read of `generatedPubkey`/`generatedPrivkey` answers as it would for an
+    // accepted one.
     //
-    // What it does NOT cost is the predicate chain, and that is the fact the decision rests
-    // on: the event body of `gpu`/`gpr` runs before the transition is decided, so both
-    // halves are still marked on a pair the automaton rejects. The harness pair shows the
-    // five traces gaining the ordering report and nothing else -- no NOBS anywhere, which
-    // is what a broken chain would look like.
-    //
-    // The alternative that was weighed and refused: `creation event c1`, which JavaMOP
-    // supports and `generic_new` uses in ten declarations. It would give a faithful ORDER
-    // and no accusation at all, imitating CogniCrypt's seed semantics. But without a
-    // monitor the event body does not run, and this file is the only producer of
-    // `generatedPubkey`/`generatedPrivkey` in the set besides `KeyStoreSpec` -- the two
-    // Signature traces and `-generated-cipher` would fall to NOBS. It trades seven ordering
-    // reports for about four NOBS reports and for the loss of a real chain, which is worse
-    // in both directions.
+    // JavaMOP offers `creation event c1`, which would instantiate a monitor only at the
+    // constructor and so report no ordering failure at all. It is not used: without a monitor
+    // the event body does not run, and this specification is the only producer of
+    // `generatedPubkey` and `generatedPrivkey` over the halves of a `KeyPair`, so the reads in
+    // `SignatureSpec`, `CipherSpec` and `KeyAgreementSpec` would fall to NOT_OBSERVED. That
+    // trades a report the rule's own ORDER states for the loss of a live chain.
     ere: c1 (gpu | gpr)*
 
+    // A call sequence the automaton rejects. The two codes separate the cases a reader has to
+    // tell apart: no construction of this pair was observed at all (`KEYPAIR-ORDER-01`, what a
+    // pair out of `KeyPairGenerator.generateKeyPair()` draws) and a constructed pair used out
+    // of order (`KEYPAIR-ORDER-00`). `creationObserved` is not touched by the generated
+    // `reset()`, so the distinction holds on every later failure as well. Both codes are
+    // registered in `codes.csv`.
     @fail {
        if (!creationObserved) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairSpec", "" + __LOC,
@@ -211,6 +204,12 @@ KeyPairSpec(KeyPair keyPair) {
        __RESET;
     }
 
+    // The acceptance point of this specification, declared and empty. No clause of the rule is
+    // established here: `generatedPubkey[retPublicKey] after GetPubl;` and
+    // `generatedPrivkey[retPrivateKey] after GetPriv;` are written in the bodies of `gpu` and
+    // `gpr`, and `generatedKeypair[this, _] after Con;` has no site at all, because no rule
+    // this set transcribes requires that predicate. The handler is kept because an `ere` names
+    // its accepting category whether or not a handler uses it.
     @match {
     }
 

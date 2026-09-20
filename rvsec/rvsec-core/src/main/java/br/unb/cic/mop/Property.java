@@ -1,8 +1,8 @@
 package br.unb.cic.mop;
 
 /**
- * The properties that we are interested in.
- *
+ * The CrySL predicates a monitored program can satisfy: the name a specification records an
+ * {@code ENSURES} clause under, and the name a {@code REQUIRES} clause reads it back by.
  */
 public enum Property {
 	GENERATED_KEY,
@@ -12,32 +12,28 @@ public enum Property {
      * CrySL's {@code generatedCipher[this] after Init}: a monitored {@code Cipher} whose
      * {@code init} the instrumentation observed, at the state {@code Init} leads to.
      *
-     * <p>The live {@code jca_android} writes it at {@code CipherSpec}'s {@code @match3}
-     * and reads it at both stream constructors, which is the chain
-     * {@code Cipher.crysl:144} produces and {@code CipherInputStream.crysl:31} /
-     * {@code CipherOutputStream.crysl:32} consume. All three of those clauses arrived
-     * with the expert oracle: the generated catalogue the set was first derived against
-     * declared none of them, which is why the constant sat unused until gh105 task
-     * 11.5(e) wired it. The archived {@code jca_android_bug_predicate} had sites of its
-     * own, at the three {@code init} events rather than at an acceptance point, and the
-     * frozen {@code jca} never named the constant at all.
+     * <p>{@code CipherSpec} writes it at the acceptance point of {@code init}, and both stream
+     * constructors read it: {@code CipherInputStream.crysl} and
+     * {@code CipherOutputStream.crysl} each {@code REQUIRES} {@code generatedCipher[cipher]}
+     * over the cipher handed to the constructor. Writing at the acceptance point rather than at
+     * each {@code init} event is what makes the mark mean "the automaton accepted this
+     * initialisation", not merely "an {@code init} call was seen".
      *
      * <p>Not to be confused with {@code cipheredInputStream} and
-     * {@code cipheredOutputStream}, which those two rules ENSURE and no rule of the 49
-     * requires: those stay dead ends and gain no site.
+     * {@code cipheredOutputStream}, which those two rules {@code ENSURE} and no expert rule
+     * requires: they have no reader and no site.
      */
     GENERATED_CIPHER,
     /**
-     * A MAC a monitored {@code Mac} produced, the first place of CrySL's
-     * {@code macced[M, D]}.
+     * A MAC a monitored {@code Mac} produced — the first place of CrySL's
+     * {@code macced[output1, inputByte]} and of its two siblings in the {@code ENSURES} of
+     * {@code Mac.crysl}, which is the byte array {@code doFinal} returned.
      *
-     * <p>Written and read only by frozen and archived sets: {@code jca/MacSpec.mop}
-     * writes it at its two {@code doFinal} events and removes it on failure, and the
-     * archived {@code jca_android_bug_predicate/MacSpec.mop} does the same. The live
-     * {@code jca_android} does not name it -- its {@code Mac} chain runs on
-     * {@link PredicateStore} through {@link #MACED} and {@link #ENCRYPTED}. The
-     * conformance component of {@code rvsec-crysl-mop} reads the {@code jca} sites as
-     * its arity-1 substrate fixture, so the name is load-bearing outside this enum too.
+     * <p>Kept as a one-place name for the MAC itself. The {@code Mac} chain of the
+     * {@code jca_android} set runs on {@link PredicateStore} through {@link #MACED} and
+     * {@link #ENCRYPTED} instead, because the two clauses it has to answer —
+     * {@code !macced[_, plainText]} of the {@code Cipher} rule and {@code !encrypted[output1, _]}
+     * of the {@code Mac} rule — each leave one place anonymous and quantify over the other.
      */
     GENERATED_MAC,
     /**
@@ -60,20 +56,19 @@ public enum Property {
      * A monitored {@code KeyManagerFactory}, and separately the key-manager array it
      * produced.
      *
-     * <p>Two clauses of one rule share this constant, and object identity is what tells
-     * them apart. {@code KeyManagerFactory.crysl:35-36} ensures
-     * {@code generatedKeyManager[this] after Init} over the factory and
-     * {@code generatedKeyManagers[keyManager] after GetKeyMng} over the array; the live
-     * {@code jca_android} writes the first at {@code KeyManagerFactorySpec.mop:276} (the
-     * {@code init} acceptance point) and the second at {@code :216} (the {@code gkm1}
-     * event, which sees the array the call returned). {@link PredicateStore} keys on the
-     * bound object, so a read against the array can never be answered by a mark left on
-     * the factory, and one name for two clauses costs nothing.
+     * <p>Two {@code ENSURES} clauses of {@code KeyManagerFactory.crysl} share this constant, and
+     * object identity is what tells them apart: {@code generatedKeyManager[this] after Init}
+     * over the factory and {@code generatedKeyManagers[keyManager] after GetKeyMng} over the
+     * array. {@code KeyManagerFactorySpec} writes the first at the acceptance point of
+     * {@code init} and the second at the event that sees the array {@code getKeyManagers}
+     * returned. {@link PredicateStore} keys on the bound object, so a read against the array can
+     * never be answered by a mark left on the factory, and one name for two clauses costs
+     * nothing.
      *
-     * <p>The reader is {@code SSLContextSpec.mop:257}, over the array
-     * {@code SSLContext.init} receives -- the only half {@code SSLContext.crysl} requires.
-     * The write over the factory is a transcription of the rule with no consumer among the
-     * 49, kept for the same reason its {@code TrustManagerFactory} twin is.
+     * <p>The reader is {@code SSLContextSpec}'s {@code init}, over the array
+     * {@code SSLContext.init} receives -- that is the half {@code SSLContext.crysl} requires,
+     * as {@code generatedKeyManagers[km]}. The write over the factory transcribes the rule and
+     * has no consumer, exactly like its {@code TrustManagerFactory} twin.
      */
     GENERATED_KEY_MANAGERS,
     GENERATED_KEY_PAIR,
@@ -81,13 +76,13 @@ public enum Property {
      * A monitored {@code TrustManagerFactory}, and separately the trust-manager array it
      * produced -- the exact analogue of {@link #GENERATED_KEY_MANAGERS}.
      *
-     * <p>{@code TrustManagerFactory.crysl:32-33} ensures
+     * <p>The {@code ENSURES} of {@code TrustManagerFactory.crysl} declares
      * {@code generatedTrustManager[this] after Init} and
      * {@code generatedTrustManagers[trustManager] after GetTrustMng}. Both are written
      * under this one constant, told apart by the object bound:
-     * {@code TrustManagerFactorySpec.mop:319} writes the factory at the {@code init}
-     * acceptance point, {@code :259} writes the array at {@code gtm1}. The reader,
-     * {@code SSLContextSpec.mop:270}, asks over the array.
+     * {@code TrustManagerFactorySpec} writes the factory at the acceptance point of
+     * {@code init} and the array at the event that sees {@code getTrustManagers} return. The
+     * reader is {@code SSLContextSpec}'s {@code init}, which asks over the array.
      *
      * <p>Not to be confused with {@link #GENERATED_TRUST_MANAGERS}, the plural, which marks
      * the individual managers inside that array rather than the array itself.
@@ -96,17 +91,12 @@ public enum Property {
     /**
      * Each trust manager inside the array a monitored {@code TrustManagerFactory} produced.
      *
-     * <p>The live {@code jca_android} writes it at {@code TrustManagerFactorySpec}'s
-     * {@code gtm1}, once per non-null element, beside the {@link #GENERATED_TRUST_MANAGER}
-     * write over the array. {@code SSLContextSpec}'s {@code init} reads it to credit an array
-     * the store has never seen when the array is non-empty and every element carries the
-     * mark: the rule constrains the managers, and an application that copies an issued
-     * manager into a fresh array passes exactly the manager the factory issued. Key-manager
-     * arrays have no per-element twin.
-     *
-     * <p>The frozen {@code jca/TrustManagerFactorySpec.mop:88} {@code remove}s it in its failure
-     * handler, and {@code PredicateStoreTest} uses it as a neutral key for the three-valued
-     * verdict cases.
+     * <p>{@code TrustManagerFactorySpec} writes it once per non-null element, beside the
+     * {@link #GENERATED_TRUST_MANAGER} write over the array itself.
+     * {@code SSLContextSpec}'s {@code init} reads it to credit an array the store has never
+     * seen, when the array is non-empty and every element carries the mark: the rule constrains
+     * the managers, and an application that copies an issued manager into a fresh array passes
+     * exactly the manager the factory issued. Key-manager arrays have no per-element twin.
      */
     GENERATED_TRUST_MANAGERS,
     GENERATED_KEY_STORE,
@@ -116,28 +106,29 @@ public enum Property {
     PREPARED_PBE,
     PREPARED_IV,
     RANDOMIZED,
+    /**
+     * The signature bytes a monitored {@code Signature.sign} returned — the first place of
+     * CrySL's {@code signed[output, inputByte] after Sign}.
+     */
     SIGNED,
     SPECCED_KEY,
+    /**
+     * The signature bytes a monitored {@code Signature.verify} was given — the <em>second</em>
+     * place of CrySL's {@code verified[verified, sign] after Verify}, not the first.
+     *
+     * <p>The first place is the {@code boolean} the call returned, and a primitive carries no
+     * identity a mark can be keyed on, so {@link PredicateStore} binds the byte array instead.
+     */
     VERIFIED,
     /**
      * The bytes a monitored {@code Cipher.wrap(Key)} returned.
      *
-     * <p>Write-only wherever it appears, and nowhere in a live set:
-     * {@code jca/CipherSpec.mop:118} sets it at the {@code wrap} event and no
-     * specification of any of the five sets validates it. {@code jca_android} deleted
-     * the write rather than relocating it (gh105 task 4.1).
-     *
-     * <p>The premise that deletion was recorded under was FALSE and is corrected here
-     * (gh109 task 6.4). It read "the {@code Cipher} rule names {@code w: wrap(wrappedKey)}
-     * in no {@code ENSURES} clause", which was true of the withdrawn
-     * {@code generated/api30/} catalogue, which D-16 withdrew, and is not true of the
-     * pinned expert oracle:
-     * {@code Cipher.crysl:148} declares {@code wrappedKey[wrappedKeyBytes, wrappedKey]},
-     * ensured by {@code wkb1: wrappedKeyBytes = wrap(wrappedKey)} ({@code :78}). The
-     * operational conclusion survives the correction, and for the other of the two reasons
-     * that were given: swept over all 49 rules of the oracle, {@code wrappedKey} appears
-     * exactly once and in an {@code ENSURES}. No rule REQUIRES it, so the mark has no
-     * reader and a write would be monitoring with no verdict surface.
+     * <p>The {@code ENSURES} of {@code Cipher.crysl} declares
+     * {@code wrappedKey[wrappedKeyBytes, wrappedKey]}, over the event
+     * {@code wkb1: wrappedKeyBytes = wrap(wrappedKey)}. That {@code ENSURES} is the only place
+     * {@code wrappedKey} appears in the expert rules: no rule {@code REQUIRES} it, so a mark
+     * would have no reader and the write would be monitoring with no verdict surface. No
+     * specification of the set writes it.
      */
     WRAPPED_KEY,
     /**
@@ -145,11 +136,12 @@ public enum Property {
      *
      * <p>CrySL states {@code preparedKeyMaterial[keyMaterial]}, ensured by
      * {@code SecretKey.getEncoded()} and required by the {@code SecretKeySpec}
-     * constructor. The set wrote and read that clause under {@link #RANDOMIZED}
-     * until this constant existed, which conflated two different obligations:
-     * key material that came out of a generated key, and a byte array that came
-     * out of a {@code SecureRandom}. A conforming program satisfies one without
-     * satisfying the other, so the conflation both missed misuse and accused
+     * constructor.
+     *
+     * <p>It carries its own name rather than sharing {@link #RANDOMIZED}, because the two are
+     * different obligations: key material that came out of a generated key, and a byte array
+     * that came out of a {@code SecureRandom}. A conforming program satisfies either without
+     * satisfying the other, so one name for both would at once miss misuse and accuse
      * conforming code.
      */
     PREPARED_KEY_MATERIAL,
@@ -157,163 +149,176 @@ public enum Property {
      * CrySL's {@code preparedRSA[this]} — an {@code RSAKeyGenParameterSpec} whose key size and
      * public exponent the rule admits.
      *
-     * <p>Ensured by {@code RSAKeyGenParameterSpec.crysl:19} and required by
-     * {@code KeyPairGenerator.crysl:35}, {@code algorithm in {"RSA"} => preparedRSA[params]}.
-     * Before gh109 the required side had no possible producer, so the consuming clause was left
-     * unread at {@code KeyPairGeneratorSpec}'s {@code init3}/{@code init4} rather than answering
-     * NOT_OBSERVED forever.
+     * <p>Ensured by {@code RSAKeyGenParameterSpec.crysl} and required by
+     * {@code KeyPairGenerator.crysl}: {@code algorithm in {"RSA"} => preparedRSA[params]}.
+     * {@code RSAKeyGenParameterSpecSpec} writes it; {@code KeyPairGeneratorSpec} reads it at the
+     * two {@code initialize} events that bind a parameter spec, choosing this constant from the
+     * algorithm the generator was obtained for.
      */
     PREPARED_RSA,
     /**
      * CrySL's {@code preparedDSA[this]} — a {@code DSAParameterSpec} whose modulus and generator
      * reach the bit length the rule intends.
      *
-     * <p>Ensured by {@code DSAParameterSpec.crysl:20} and required by
-     * {@code KeyPairGenerator.crysl:36}. The rule's sibling producer,
-     * {@code DSAGenParameterSpec.crysl:25}, is not specified: its class appears only from API 35,
-     * so its rule is adjudicated N/A-by-platform in the coverage matrix.
+     * <p>Ensured by {@code DSAParameterSpec.crysl} and required by
+     * {@code KeyPairGenerator.crysl}: {@code algorithm in {"DSA"} => preparedDSA[params]}. The
+     * rule's sibling producer, {@code DSAGenParameterSpec.crysl}, has no specification here: its
+     * class exists only from API 35, above the platform this set targets.
      *
-     * <p>The bit-length reading of the rule's {@code p >= 1^2048} is a recorded decision, not a
-     * transcription: CrySL has no exponentiation operator and the clause is literally {@code >= 1}
-     * (D-20.4, with an {@code oracle-wart} row against the rule).
+     * <p>{@code DSAParameterSpecSpec} reads the rule's {@code CONSTRAINTS} {@code p >= 1^2048}
+     * and {@code g >= 1^2048} as bit lengths, which is not what the clause literally says: CrySL
+     * has no exponentiation operator, so {@code 1^2048} evaluates to {@code 1} and the clause as
+     * written constrains nothing. The bit-length reading is the one that makes the clause mean
+     * something.
      */
     PREPARED_DSA,
     /**
      * CrySL's {@code preparedEC[this]} — an elliptic-curve parameter spec the rule admits.
      *
-     * <p>Two producers ensure it, {@code ECParameterSpec.crysl:17} and
-     * {@code ECGenParameterSpec.crysl:25}, the second constraining the curve by standard name;
-     * two rules require it, {@code KeyPairGenerator.crysl:38} and {@code KeyAgreement.crysl:48},
-     * both under an {@code algorithm in {"EC"}} / {@code {"ECDH"}} guard.
+     * <p>Two rules ensure it, {@code ECParameterSpec.crysl} and {@code ECGenParameterSpec.crysl},
+     * the second constraining the curve by standard name; two rules require it,
+     * {@code KeyPairGenerator.crysl} with {@code algorithm in {"EC"} => preparedEC[params]} and
+     * {@code KeyAgreement.crysl} with {@code algorithm in {"ECDH"} => preparedEC[params]}.
      */
     PREPARED_EC,
     /**
      * CrySL's {@code preparedMGF1[this, mdName]} — a mask-generation-function parameter spec,
      * carrying the digest it was built with.
      *
-     * <p>Ensured by {@code MGF1ParameterSpec.crysl:17} and required by
-     * {@code OAEPParameterSpec.crysl:22}, {@code preparedMGF1[mgfSpec, mdName]}. The second place
-     * is what makes the clause more than an existence check: the OAEP spec's own digest name and
-     * the MGF's must agree, and a two-place read is what compares them.
+     * <p>Ensured by {@code MGF1ParameterSpec.crysl} as {@code preparedMGF1[this, mdName]} and
+     * required by {@code OAEPParameterSpec.crysl} as {@code preparedMGF1[mgfSpec, mdName]}. The
+     * second place is what makes the clause more than an existence check: the OAEP spec's own
+     * digest name and the MGF's must agree, and a two-place read is what compares them.
      */
     PREPARED_MGF1,
     /**
      * CrySL's {@code preparedOAEP[this]} — an OAEP parameter spec whose digest and mask function
      * the rule admits.
      *
-     * <p>Ensured by {@code OAEPParameterSpec.crysl:25}. Two rules require it and they are not in
-     * the same state. {@code AlgorithmParameters.crysl:40} requires it under
-     * {@code algorithm in {"OAEP"}} and is wired. {@code Cipher.crysl:140-141} guards it with
-     * {@code mode(transformation)} over strings the same rule classifies as paddings, so the
-     * antecedent is unsatisfiable and the clause constrains no trace — a defect recorded as an
-     * {@code oracle-wart} row against the rule and transcribed by evident intent, never edited
-     * upstream (D-21).
+     * <p>Ensured by {@code OAEPParameterSpec.crysl}. Two rules require it, and only one of the
+     * two reads can fire. {@code AlgorithmParameters.crysl} requires it as
+     * {@code algorithm in {"OAEP"} => preparedOAEP[paramSpec]}, and
+     * {@code AlgorithmParametersSpec} reads it there. {@code Cipher.crysl} guards its own read
+     * with {@code mode(transformation) in {"OAEPWithMD5AndMGF1Padding", …}}, over strings the
+     * same rule classifies as paddings: the antecedent cannot be satisfied, so that clause
+     * constrains no trace. It is transcribed as the rule writes it rather than repaired.
      */
     PREPARED_OAEP,
     /**
      * CrySL's {@code preparedAlg[params, algorithm]} — an {@code AlgorithmParameters} object
      * initialised for a named algorithm.
      *
-     * <p>Ensured by {@code AlgorithmParameters.crysl:43-44} (after {@code Init} and after
-     * {@code GetEncoded}) and by {@code AlgorithmParameterGenerator.crysl:35} (after
-     * {@code GenParam}); required by {@code AlgorithmParameters.crysl:34} and by
-     * {@code Cipher.crysl:136}.
+     * <p>Ensured by {@code AlgorithmParameters.crysl} as {@code preparedAlg[this, algorithm]
+     * after Init} and {@code preparedAlg[encParams, algorithm] after GetEncoded}, and by
+     * {@code AlgorithmParameterGenerator.crysl} as {@code preparedAlg[algParams, algorithm]
+     * after GenParam}; required by {@code AlgorithmParameters.crysl} as
+     * {@code preparedAlg[params, algorithm]} and by {@code Cipher.crysl} as
+     * {@code preparedAlg[params, alg(transformation)]}.
      *
-     * <p>The {@code Cipher} read stays closed and the reason is structural, not editorial:
-     * {@code Cipher.crysl:136} binds {@code params} through the rule's {@code i5}/{@code i7}, and
-     * {@code CipherSpec}'s fused {@code i2} carries {@code args(mode, key, ..)} and binds no third
-     * argument. Giving it one, or adding an event, collides with the 17-of-17 generator ceiling
-     * the specification already sits at. Recorded as a measured impossibility rather than a
-     * silence (D-24).
+     * <p>The {@code Cipher} read is not wired, and the obstacle is structural. The rule binds
+     * {@code params} through {@code init} overloads that take an {@code AlgorithmParameters}
+     * argument, while {@code CipherSpec} fuses the {@code init} overloads into one event whose
+     * pointcut binds only the mode and the key. Binding a third argument means another event,
+     * and the specification already sits at the monitor generator's ceiling of seventeen events.
      */
     PREPARED_ALG,
     /**
      * CrySL's {@code generatedManagerFactoryParameters[this]} — the parameter object a key or
      * trust manager factory may be initialised from.
      *
-     * <p>Two producers ensure it, {@code KeyStoreBuilderParameters.crysl:14} and
-     * {@code CertPathTrustManagerParameters.crysl:17}; two consumers require it,
-     * {@code KeyManagerFactory.crysl:32} and {@code TrustManagerFactory.crysl:29}. Both consuming
-     * specifications already bind the argument and discriminate on its runtime type, and both
-     * recorded, in a comment, that the read was left closed only because no producer existed.
+     * <p>Two rules ensure it, {@code KeyStoreBuilderParameters.crysl} and
+     * {@code CertPathTrustManagerParameters.crysl}; two require it,
+     * {@code KeyManagerFactory.crysl} and {@code TrustManagerFactory.crysl}, both as
+     * {@code generatedManagerFactoryParameters[params]}. All four sites are wired: the two
+     * parameter specifications write the mark over the object they construct, and the two
+     * factory specifications read it when the argument {@code init} receives is a
+     * {@code ManagerFactoryParameters}.
      */
     GENERATED_MANAGER_FACTORY_PARAMETERS,
     /**
      * CrySL's {@code generatedCertPathParameters[this]} — PKIX parameters built over a key store
      * the instrument observed.
      *
-     * <p>Ensured by {@code PKIXParameters.crysl:18} and {@code PKIXBuilderParameters.crysl:21},
-     * both of which themselves require {@code generatedKeyStore}; required by
-     * {@code CertPathTrustManagerParameters.crysl:14}. The chain is three specifications deep and
-     * lands whole with gh109's trivial tier, which is why the middle link is worth naming here:
-     * a store nobody loaded produces parameters nobody may trust.
+     * <p>Ensured by {@code PKIXParameters.crysl} and {@code PKIXBuilderParameters.crysl}, both of
+     * which themselves require {@code generatedKeyStore}; required by
+     * {@code CertPathTrustManagerParameters.crysl}. The chain is three specifications deep, and
+     * the middle link is what carries its meaning: a store nobody loaded produces parameters
+     * nobody may trust.
      */
     GENERATED_CERT_PATH_PARAMETERS,
     /**
      * CrySL's {@code generatedTrustAnchor[this]} — a trust anchor built over a public key the
      * instrument observed.
      *
-     * <p>Ensured by {@code TrustAnchor.crysl:21}, which requires {@code generatedPubkey} in turn.
-     * It has no live consumer: the one clause that would require it,
-     * {@code PKIXBuilderParameters.crysl:18}, is commented out in the rule
-     * ({@code //generatedTrustAnchor[];}) and is deliberately not wired. That is a fact about the
-     * oracle, recorded in the predicate ledger, and not a defect of the set.
+     * <p>Ensured by {@code TrustAnchor.crysl}, which requires {@code generatedPubkey} in turn. It
+     * has no reader: the one clause that would require it is commented out in
+     * {@code PKIXBuilderParameters.crysl} ({@code //generatedTrustAnchor[];}), so there is no
+     * {@code REQUIRES} to transcribe. That is a property of the rules, not an omission of the
+     * set.
      */
     GENERATED_TRUST_ANCHOR,
     /**
-     * CrySL's {@code generatedCert[type]} — a certificate produced by a factory of an admitted
-     * type.
+     * CrySL's {@code generatedCert[type]} — a certificate produced by a factory obtained for this
+     * type and observed by the instrumentation.
      *
-     * <p>Ensured by {@code CertificateFactory.crysl:31}. No rule of the 49 requires it, so it is
-     * written and unread: coverage of the rule is the obligation, and the ledger classifies the
-     * predicate as unconsumed rather than as an omission.
+     * <p>Ensured by {@code CertificateFactory.crysl} as {@code generatedCert[type]}. No expert
+     * rule requires it, so {@code CertificateFactorySpec} writes it and nothing reads it:
+     * transcribing the {@code ENSURES} is what the rule asks for, and the predicate is
+     * unconsumed rather than missing a site.
+     *
+     * <p>The write is not gated on the rule's type clause: a factory obtained for a type the
+     * clause rejects is accused where it is obtained, and the certificate it produces still
+     * carries the mark. The predicate therefore records which type produced the certificate, not
+     * that the type was admitted.
      */
     GENERATED_CERT,
     /**
      * CrySL's {@code generatedKeyFactory[this, algorithm]} — a {@code KeyFactory} obtained for an
      * admitted algorithm.
      *
-     * <p>Ensured by {@code KeyFactory.crysl:30} after {@code Get}, and required by no rule of the
-     * 49. Written and unread, like {@link #GENERATED_CERT}.
+     * <p>Ensured by {@code KeyFactory.crysl} as {@code generatedKeyFactory[this, algorithm] after
+     * Get}, and required by no expert rule. Written and unread, like {@link #GENERATED_CERT}.
      */
     GENERATED_KEY_FACTORY,
     /**
      * CrySL's {@code generatedMessageDigest[this]} — a {@code MessageDigest} obtained for an
      * algorithm the rule admits.
      *
-     * <p>Ensured by {@code MessageDigest.crysl:46} after {@code Get}, and required by
-     * {@code DigestInputStream.crysl:33} and {@code DigestOutputStream.crysl:34}.
+     * <p>Ensured by {@code MessageDigest.crysl} as {@code generatedMessageDigest[this] after
+     * Get}, and required by {@code DigestInputStream.crysl} and
+     * {@code DigestOutputStream.crysl}, both as {@code generatedMessageDigest[digest]}.
      *
-     * <p>The set does not write it yet: {@code MessageDigestSpec.mop} ensures {@link #DIGESTED}
-     * and nothing else, so the two digest-stream specifications gh109 adds would read a predicate
-     * with no producer — the exact shape INV-INS-151 refuses. The constant exists here because the
-     * reads need it to compile; the producing site at {@code MessageDigestSpec}'s {@code Get}
-     * acceptance point is owed by whichever task wires those reads.
+     * <p>{@code MessageDigestSpec} writes it in the bodies of the three {@code getInstance}
+     * events whose algorithm the rule's value clause admits, and not in the complementary events
+     * that accuse the algorithm: ensuring a predicate for a call this specification just refused
+     * would hand the stream rules a digest it does not vouch for. The two stream specifications
+     * read it at their constructor, and separate {@code VIOLATED} from {@code NOT_OBSERVED} so
+     * that a digest obtained where the weaving does not reach is not accused.
      */
     GENERATED_MESSAGE_DIGEST,
     /**
      * CrySL's {@code digestedInputStream[stream, digest]} — a stream read through a digest the
      * instrument observed.
      *
-     * <p>Ensured by {@code DigestInputStream.crysl:36}; required by no rule of the 49.
+     * <p>Ensured by {@code DigestInputStream.crysl}; required by no expert rule.
      */
     DIGESTED_INPUT_STREAM,
     /**
      * CrySL's {@code digestedOutputStream[stream, digest]} — the output twin of
      * {@link #DIGESTED_INPUT_STREAM}.
      *
-     * <p>Ensured by {@code DigestOutputStream.crysl:37}; required by no rule of the 49.
+     * <p>Ensured by {@code DigestOutputStream.crysl}; required by no expert rule.
      */
     DIGESTED_OUTPUT_STREAM,
     /**
      * CrySL's {@code generatedSSLParameters[this]} — a TLS parameter object whose protocol and
      * cipher-suite lists the rule admits.
      *
-     * <p>Ensured by {@code SSLParameters.crysl:48}; required by no rule of the 49.
+     * <p>Ensured by {@code SSLParameters.crysl}; required by no expert rule.
      *
      * <p>Not to be confused with {@link #GENERATE_SSL_ENGINE}, which spells its verb without the
-     * {@code D}: that constant predates this file's naming and is left alone, because renaming it
-     * would rewrite sites in three specifications for a letter.
+     * {@code D} and names a different predicate. The two names differ by one letter, and the
+     * store answers about whichever of them a site passes.
      */
     GENERATED_SSL_PARAMETERS,
     /**

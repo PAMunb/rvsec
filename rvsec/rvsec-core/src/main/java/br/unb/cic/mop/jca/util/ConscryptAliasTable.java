@@ -11,13 +11,10 @@ import java.util.Map;
  * application passes is not the name the CrySL rule writes.
  *
  * <p>The allow-lists of the {@code jca_android} specification set are literal
- * transcriptions of the {@code CONSTRAINTS} clauses of the pinned expert copy
- * {@code RVSec-replication-package/tools/rules/} (D-15; they were transcriptions
- * of {@code MetaCrySL/generated/api30/} until D-15 withdrew it on 2026-08-24). A literal
- * transcription alone leaves
- * roughly three thousand of the measured events unmatched, because the rule
- * writes the JCA standard name and the application writes what the platform
- * provider registers: {@code X509} instead of {@code PKIX},
+ * transcriptions of the {@code CONSTRAINTS} clauses of the expert CrySL rules.
+ * A literal transcription on its own matches far fewer calls than it should,
+ * because the rule writes the JCA standard name while the application writes
+ * what the platform provider registers: {@code X509} instead of {@code PKIX},
  * {@code SHA1}/{@code SHA} instead of {@code SHA-1}, {@code SHA256WITHRSA}
  * instead of {@code SHA256withRSA}, an OID instead of a name.
  *
@@ -26,59 +23,57 @@ import java.util.Map;
  * entry when a row of this table maps it to that entry. Every row carries its
  * primary source -- a line of Conscrypt {@code OpenSSLProvider.java} on branch
  * {@code android11-release} -- and a spelling that no registration in that file
- * explains gets no row at all. The one measured case of that kind is
+ * explains gets no row at all. One spelling of that kind is
  * {@code RSA/ECB/OAEPWithSHA1AndMGF1Padding}, unhyphenated, which Conscrypt
- * registers only in its hyphenated form; it is recorded in
- * {@code data/jca_android/divergence_record.csv} with behavioural evidence
+ * registers only in its hyphenated form: it is judged on behavioural evidence
  * instead of being normalised here.
  *
  * <p>The table lives here as code and is never read from a file at run time: a
  * monitor woven into an APK has no filesystem contract with this repository, and
  * a specification whose verdict depended on a CSV nobody ships would not be
- * checkable. {@code data/jca_android/alias_table.csv} is the auditable registry
- * of the same 175 rows, and {@code ConscryptAliasTableTest} asserts the two are
- * equal row for row so they cannot drift. The count was 158 until task 11.6
- * (D-15) added the eleven multi-line {@code Alg.Alias} registrations a
- * single-line extraction had missed, and 169 until gh105 task 9.8 added the six
- * the extraction had skipped by service: the five {@code KeyFactory} OIDs
- * ({@code OpenSSLProvider.java:195-197}, {@code :200-201}) and
- * {@code CertificateFactory X.509 -> X509} ({@code :500}). The table now holds
- * every one of the 175 {@code Alg.Alias} registrations of the pinned file, which
- * is what makes the completeness claim below checkable rather than asserted.
+ * checkable. The rows transcribe every {@code Alg.Alias} registration of the
+ * pinned provider file, which is what makes the completeness claim checkable
+ * rather than asserted, and {@code ConscryptAliasTableTest} compares the class
+ * row for row against the auditable registry of the same rows, so the two cannot
+ * drift.
  *
- * <p>Each {@code jca_android} specification names this class in its allow-list
- * check. No specification of the frozen {@code jca} names it, so no verdict of
- * the frozen set moves because this class exists.
+ * <p>A specification that compares an algorithm, a protocol or a type against a
+ * list of names reaches this class: most name it directly in the allow-list
+ * check, and {@code CipherSpec} reaches it through
+ * {@link CipherTransformationNormalizer}, whose value is a whole transformation
+ * string and has to be split before it can be compared. A specification whose
+ * clauses constrain numbers rather than names calls neither.
  *
  * <p>Two limits of the table, stated because a table that hides them invites
  * false confidence. {@code KeyStore} has no alias coverage here:
  * {@code AndroidKeyStore} comes from {@code AndroidKeyStoreProvider} and
  * {@code BKS}/{@code BouncyCastle} from Bouncy Castle, neither of which is this
- * file. And {@code SSLContext.SSL} and {@code SSLContext.TLS}
- * ({@code OpenSSLProvider.java:80-81}) point at the same implementation class
- * but are not {@code Alg.Alias} registrations, so they are behavioural
- * equivalence rather than table rows.
+ * file. And {@code SSLContext.SSL} and {@code SSLContext.TLS} point at the same
+ * implementation class but are not {@code Alg.Alias} registrations, so they are
+ * behavioural equivalence rather than table rows.
  *
- * <p>The column {@code inApi30Allowlist} has one definition: {@code yes} when
- * the row's canonical name is an entry of the successor set's allow-list for
- * that service. From D-15 (2026-08-24) those lists are the expert-validated
- * ones, so the flag was recomputed against them and 65 rows changed: the
- * aliases whose canonical name is {@code SHA-1}, {@code MD5withRSA},
- * {@code ARC4} and their relatives now read {@code no}, which is the direction
- * that matters -- an alias row resolving to a name the expert list rejects makes
- * the accusation reach the calls that spell it otherwise, rather than excusing
- * them. A row in a service no specification of the set covers
- * ({@code AlgorithmParameters}, {@code SecretKeyFactory}, {@code KeyFactory},
- * {@code CertificateFactory}) is {@code no}, because there is no list for it to be
- * an entry of; it is kept in the table so that the extraction stays complete. No
- * specification calls {@link #matches} with any of those four services, so their
- * rows move no verdict -- they are there so the registry can be audited against
- * the provider file by count as well as by row. It is a property of the record, not an input to
- * {@link #matches}: resolution never consults it.
+ * <p>The fifth column is a record-keeping flag and nothing else: {@link #matches}
+ * never reads it and no resolution depends on it. It marks whether the row's
+ * canonical name is one this set admits, and the direction that matters is
+ * {@code no}: an alias resolving to {@code SHA-1}, {@code MD5withRSA},
+ * {@code ARC4} or one of their relatives carries the accusation to the calls
+ * that spell the rejected name, rather than excusing them.
+ *
+ * <p>Read the flag as a property of the record and never as a prediction of what
+ * a row does at run time; for some rows the two diverge. Every row filed
+ * under {@code AlgorithmParameters}, {@code SecretKeyFactory},
+ * {@code KeyFactory} and {@code CertificateFactory} reads {@code no}, and all
+ * four of those services are passed to {@link #matches} by specifications of the
+ * set; some of their rows decide a verdict.
+ * {@code KeyFactory.getInstance("1.2.840.113549.1.1.1")} resolves here to
+ * {@code RSA}, which {@code KeyFactorySpec}'s list carries, so the OID spelling
+ * is admitted where a raw comparison would report it, and the three
+ * {@code AlgorithmParameters} rows resolving to {@code AES} do the same for
+ * {@code AlgorithmParametersSpec}.
  */
 public final class ConscryptAliasTable {
 
-    /** service, alias, canonical, OpenSSLProvider.java line, inApi30Allowlist. */
+    /** service, alias, canonical, OpenSSLProvider.java line, allow-list flag. */
     private static final String[][] ROWS = {
         { "AlgorithmParameters", "2.16.840.1.101.3.4.1.2", "AES", "95", "no" },
         { "AlgorithmParameters", "2.16.840.1.101.3.4.1.22", "AES", "96", "no" },
@@ -276,9 +271,9 @@ public final class ConscryptAliasTable {
     }
 
     /**
-     * The name {@code observed} denotes in {@code service}: the canonical name of
-     * its alias row, or {@code observed} itself when no row explains it. Never
-     * null unless {@code observed} is.
+     * Resolve the name {@code observed} denotes in {@code service}: the canonical
+     * name of its alias row, or {@code observed} itself when no row explains it.
+     * Never null unless {@code observed} is.
      */
     public static String canonical(String service, String observed) {
         if (observed == null) {
@@ -293,10 +288,18 @@ public final class ConscryptAliasTable {
     }
 
     /**
-     * Whether {@code observed} is admitted by {@code allowList} for {@code service}
-     * under the set's one normalisation rule: case-insensitive comparison, plus
-     * this table. The allow-list stays exactly the rule's clause -- an alias never
-     * enters the list it resolves against.
+     * Decide whether {@code observed} is admitted by {@code allowList} for
+     * {@code service} under the set's one normalisation rule: case-insensitive
+     * comparison, plus this table.
+     *
+     * <p>The list is whatever the caller passes. Most callers pass the rule's
+     * clause transcribed; some pass more, {@code KeyStoreSpec} adding the store
+     * types this platform provides and {@code SecretKeySpecSpec} the hyphenated
+     * and slashed spellings of the HMAC names. An entry may also be an alias this
+     * table resolves -- {@code X.509} is both an entry of
+     * {@code CertificateFactorySpec}'s list, because its rule's clause names it,
+     * and a row of this table for that service -- and such a value then matches
+     * directly and by resolution alike.
      */
     public static boolean matches(String service, String observed, List<String> allowList) {
         if (observed == null || allowList == null) {
@@ -314,10 +317,10 @@ public final class ConscryptAliasTable {
     }
 
     /**
-     * The table as it is written, one {@code String[5]} per row in file order:
-     * service, alias, canonical, {@code OpenSSLProvider.java} line,
-     * {@code inApi30Allowlist}. Read by {@code ConscryptAliasTableTest} to compare
-     * the class against {@code data/jca_android/alias_table.csv}.
+     * Copy out the table as it is written, one {@code String[5]} per row in file
+     * order: service, alias, canonical, {@code OpenSSLProvider.java} line,
+     * allow-list flag. Read by {@code ConscryptAliasTableTest}, which compares the
+     * class against the auditable registry of the same rows.
      */
     public static List<String[]> rows() {
         List<String[]> copy = new ArrayList<>(ROWS.length);

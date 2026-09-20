@@ -10,18 +10,40 @@ import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
- * AlgorithmParameters
+ * AlgorithmParametersSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.AlgorithmParameters.
+ * Monitors java.security.AlgorithmParameters against the CrySL rule AlgorithmParameters.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/AlgorithmParameters.crysl
+ * The rule's ORDER is `Get, Init, GetEncoded?`: an instance is obtained from `getInstance`,
+ * initialised once, and may then be asked for its encoded form. The trailing `?` makes the
+ * last step optional, which is why the automaton is written as an `fsm` with two accepting
+ * states. Every other call sequence is reported as a wrong call sequence.
+ *
+ * The one CONSTRAINTS clause it enforces is the algorithm list, checked at the creation
+ * event. At the `init` event it reads five REQUIRES clauses, split by the runtime type of the
+ * argument: `preparedAlg[params, algorithm]` over the encoded bytes, and four implications
+ * guarded on the algorithm -- `preparedIV[paramSpec]` for `AES`, `preparedDH[paramSpec]` for
+ * Diffie-Hellman, `preparedPBE[paramSpec]` for the PBE families and `preparedOAEP[paramSpec]`
+ * for `OAEP` -- over the parameter spec. It ENSURES `preparedAlg[this, algorithm] after Init`
+ * at the state the `init` event leads to, and `preparedAlg[encParams, algorithm] after
+ * GetEncoded` over the array `getEncoded` returned.
+ *
+ * Reach limit of the predicate reads: a NOT_OBSERVED at any of them means the store holds
+ * nothing about the object -- bytes read from a file or a socket, or a parameter spec built
+ * where the weaving does not reach -- which is as often not a misuse, so that outcome carries
+ * a code of its own at every site.
+ *
+ * A parameter spec handed to an instance whose algorithm none of the four antecedents names
+ * reaches no predicate read at all, which is the rule speaking: the implications are the
+ * rule's own and constrain nothing outside their antecedents.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/AlgorithmParameters.crysl
  */
 AlgorithmParametersSpec(AlgorithmParameters s) {
 
-   // The envelope's quoting rule (design D-3): a null value is the empty string, a single
-   // quote is escaped so it cannot close the field early, and the value is capped so a
-   // pathological argument cannot push the record past the logcat payload limit.
+   // The report envelope's quoting rule: a null value is the empty string, a single quote is
+   // escaped so it cannot close the field early, and the value is capped so a pathological
+   // argument cannot push the record past the logcat payload limit.
    private String q(String str) {
        if (str == null) {
            return "";
@@ -30,56 +52,79 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
        return value.replace("'", "\\'");
    }
 
-   // AlgorithmParameters.crysl:28-31, transcribed. The eight PBE families are the same eight
-   // D-20.1 admits in `CipherTransformationNormalizer`, and they are here for the same
-   // reason: the expert rule states them, so refusing them would accuse a practice the
-   // oracle names.
+   // CONSTRAINTS of AlgorithmParameters.crysl: `algorithm in {"AES", "DiffieHellman", "DH",
+   // "OAEP", "PBEWithHmacSHA224AndAES_128", "PBEWithHmacSHA256AndAES_128",
+   // "PBEWithHmacSHA384AndAES_128", "PBEWithHmacSHA512AndAES_128",
+   // "PBEWithHmacSHA224AndAES_256", "PBEWithHmacSHA256AndAES_256",
+   // "PBEWithHmacSHA384AndAES_256", "PBEWithHmacSHA512AndAES_256"}`, transcribed entry for
+   // entry. The PBE families belong to the clause, so refusing them here would accuse a
+   // practice the rule names.
    List<String> safeAlgorithms = Arrays.asList("AES", "DiffieHellman", "DH", "OAEP",
        "PBEWithHmacSHA224AndAES_128", "PBEWithHmacSHA256AndAES_128",
        "PBEWithHmacSHA384AndAES_128", "PBEWithHmacSHA512AndAES_128",
        "PBEWithHmacSHA224AndAES_256", "PBEWithHmacSHA256AndAES_256",
        "PBEWithHmacSHA384AndAES_256", "PBEWithHmacSHA512AndAES_256");
 
-   // The eight entries of the third guarded REQUIRES (:37-39). Written out rather than
-   // derived from `safeAlgorithms` by a prefix test, because the clause is a list and a
-   // prefix test would silently admit a family the oracle does not name.
+   // The antecedent of the PBE implication in REQUIRES: `algorithm in
+   // {"PBEWithHmacSHA224AndAES_128", "PBEWithHmacSHA256AndAES_128",
+   // "PBEWithHmacSHA384AndAES_128", "PBEWithHmacSHA512AndAES_128",
+   // "PBEWithHmacSHA224AndAES_256", "PBEWithHmacSHA256AndAES_256",
+   // "PBEWithHmacSHA384AndAES_256", "PBEWithHmacSHA512AndAES_256"} => preparedPBE[paramSpec];`
+   // Written out rather than derived from `safeAlgorithms` by a prefix test, because the
+   // clause is a list and a prefix test would silently admit a family the rule does not
+   // name.
    List<String> pbeAlgorithms = Arrays.asList(
        "PBEWithHmacSHA224AndAES_128", "PBEWithHmacSHA256AndAES_128",
        "PBEWithHmacSHA384AndAES_128", "PBEWithHmacSHA512AndAES_128",
        "PBEWithHmacSHA224AndAES_256", "PBEWithHmacSHA256AndAES_256",
        "PBEWithHmacSHA384AndAES_256", "PBEWithHmacSHA512AndAES_256");
 
+   // The antecedent of the Diffie-Hellman implication in REQUIRES:
+   // `algorithm in {"DiffieHellman", "DH"} => preparedDH[paramSpec];`
    List<String> dhAlgorithms = Arrays.asList("DiffieHellman", "DH");
 
-   // Staged by `get` for the two writes, which are at acceptance points and see no event
-   // parameter of their own. The canonical spelling is what is stored (D-20.3,
-   // INV-INS-153): readers query canonical names, so a raw alias would break propagation
-   // silently and surface downstream as NOT_OBSERVED.
+   // Staged by `get` for the two predicate writes and for the four guarded reads: the
+   // creation call is the one site that carries the algorithm, and neither the handler nor
+   // the later events see it. The canonical spelling is what is stored, because readers ask
+   // with canonical names -- a raw alias would break the chain in silence and surface
+   // downstream as NOT_OBSERVED.
    String algorithm = null;
+
+   // The instance the `init` event bound, staged for `@match1`, which writes
+   // `preparedAlg[this, algorithm] after Init` over it. A handler receives no event arguments
+   // and runs after the transition is decided, so the event that saw the instance puts it
+   // here; `@fail` clears it, so an instance whose sequence the automaton refused is never
+   // marked at a later acceptance point.
    AlgorithmParameters initialised = null;
 
+   // The `exp=` text of the two reports the encoded-bytes branch of `init` emits, in one place
+   // so the VIOLATED and the NOT_OBSERVED record name the same expectation.
    String expectedPreparedAlg = "parameter bytes this instrumentation observed being encoded";
 
    // Set by the creation event `get`. The generated `reset()` does not clear it, so every
    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // The rule's `Get := g1 | g2` (:11-13), fused. `g2` leaves its second position anonymous
-   // (`getInstance(algorithm, _)`), so every overload the platform declares is that event:
-   // api30 declares three -- `getInstance(String)`, `(String, String)` and
-   // `(String, Provider)` -- and all three are named. Naming a proper subset would narrow
-   // the rule's alphabet without saying so (INV-INS-157). The position all three share is
-   // the zeroth, and `args(alg, ..)` binds it in each. The wildcard is in `args` and not in
-   // the `call(...)` signatures, which are written out in full: the trace harness's resolver
-   // walks the declared parameter types of the call and stops at the first wildcard, so a
-   // wildcard in the signature would make every `getInstance` fit this pointcut
-   // (KeyManagerFactorySpec.mop:94-97).
+   // `Get := g1 | g2` of AlgorithmParameters.crysl, whose alternatives are
+   // `g1: getInstance(algorithm);` and `g2: getInstance(algorithm, _);`, fused here. `g2`
+   // leaves its second position anonymous, so every overload the platform declares is that
+   // event: `getInstance(String)`, `(String, String)` and `(String, Provider)` are all three
+   // named. Naming a proper subset would narrow the rule's alphabet in silence. The position
+   // all three share is the zeroth, and `args(alg, ..)` binds it in each. The wildcard is in
+   // `args` and not in the `call(...)` signatures, which are written out in full: the trace
+   // harness's resolver walks the declared parameter types of a `call(...)` signature and
+   // stops at the first wildcard, so a wildcard there would make every `getInstance` fit this
+   // pointcut.
    //
-   // The one CONSTRAINTS clause is accused HERE, in the body, and not in a `condition(...)`:
-   // a guard compiles to `if (!(guard)) return false;` ahead of the transition, so a
-   // rejected algorithm would take no transition and be accused of nothing (INV-INS-133,
-   // INV-INS-152). The algorithm is staged either way, because the two ENSURES clauses name
-   // it and a rejected one must not silently become an empty string in a later report.
+   // CONSTRAINTS: the algorithm clause, checked here in the event body and not in a
+   // `condition(...)` guard. A guard compiles to an early return ahead of both the body and
+   // the transition, so an instance asked for an algorithm the rule refuses would leave the
+   // automaton in the state before the call and the next call would be reported as a wrong
+   // call sequence instead of as the refused algorithm it is. The comparison folds case and
+   // resolves the alias rows `ConscryptAliasTable` carries for this service; a name outside
+   // the clause is reported under the code registered in `codes.csv` for this site. The
+   // algorithm is staged whether it was admitted or not, because the two ENSURES clauses name
+   // it and a refused one must not reach a later report as an empty string.
    event get after(String alg) returning(AlgorithmParameters s):
      ( call(public static AlgorithmParameters AlgorithmParameters.getInstance(String)) ||
        call(public static AlgorithmParameters AlgorithmParameters.getInstance(String, String)) ||
@@ -93,42 +138,57 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
        }
    }
 
-   // The rule's `Init := i1 | i2 | i3` (:15-18), fused on the zeroth position for the same
-   // reason `get` fuses: `init(AlgorithmParameterSpec)`, `init(byte[])` and
-   // `init(byte[], String)` have no named position in common except the first. The body
-   // discriminates by runtime type, which is what separates the rule's `paramSpec` from its
-   // `params`.
+   // `Init := i1 | i2 | i3` of AlgorithmParameters.crysl, whose alternatives are
+   // `i1: init(paramSpec);`, `i2: init(params);` and `i3: init(params, _);`, fused here on
+   // the zeroth position for the same reason `get` fuses: the three overloads have no named
+   // position in common except the first. The body discriminates by runtime type, which is
+   // what separates the rule's `paramSpec` from its `params`.
    //
-   // FIVE REQUIRES clauses meet here, and they split cleanly along that discrimination.
+   // Five REQUIRES clauses meet here, and they split cleanly along that discrimination. All
+   // five are read in the body and not in a `condition(...)` guard: a guard compiles to an
+   // early return ahead of both the body and the transition, so an `init` with an object the
+   // clause refuses would leave the automaton in the state before the call and the next call
+   // would be reported as a wrong call sequence instead of as the misuse it is.
    //
-   // `preparedAlg[params, algorithm]` (:34) is about the BYTE ARRAY of `i2`/`i3` -- the
-   // encoded form -- and it is read at arity 2, against the algorithm the rule binds. Its
-   // producer is this same rule's second ENSURES, `preparedAlg[encParams, algorithm] after
-   // GetEncoded` (:44): the round trip is one instance encoding its parameters and another
-   // initialising from those bytes, and the clause says the bytes must come from parameters
-   // somebody prepared. A program that hands over bytes from a file or a network reaches
-   // NOT_OBSERVED, which is a reach limit and not a misuse -- hence the separate code family
-   // (INV-INS-143).
+   // REQUIRES `preparedAlg[params, algorithm]` is about the byte array of `i2` and `i3` --
+   // the encoded form -- and is read with both places named, against the algorithm this
+   // instance was obtained for. The predicate says the encoded bytes came from an
+   // `AlgorithmParameters` object initialised for the algorithm recorded with them; its
+   // producer is this same rule's ENSURES `preparedAlg[encParams, algorithm] after
+   // GetEncoded`, which the `encoded` event of this file writes. SATISFIED is silent.
+   // VIOLATED means some producing call was observed and what it recorded is not what the
+   // clause demands -- a different algorithm, most often -- and is reported under this site's
+   // constraint code. NOT_OBSERVED means nothing was ever recorded about those bytes: they
+   // came from a file, a socket or a library the weaving does not reach, which is a reach
+   // limit as often as it is a misuse, so it draws a code of its own.
    //
-   // The other four (:35-40) are GUARDED implications over the `paramSpec` of `i1`, and the
+   // The other four clauses are guarded implications over the `paramSpec` of `i1`, and the
    // guard is the rule's own: the algorithm selects which predicate is required, and a spec
-   // handed to an instance whose algorithm none of the four antecedents names reaches no
-   // read at all. Each names its predicate as a LITERAL `Property.` constant rather than
-   // through a selected variable, because the record reader anchors a predicate site on the
-   // literal first argument of the store call (`gh105_predicate_graph.py`, pass 1); a
-   // constant held in a variable would leave the clause out of the graph, the ledger and
-   // every gate while the monitor went on accusing.
+   // handed to an instance whose algorithm none of the four antecedents names reaches no read
+   // at all. Each branch names its predicate as a literal `Property.` constant rather than
+   // through a variable, so that the predicate a site reads can be seen at the call itself.
    //
-   // The four antecedents are tested with the SET'S OWN ALIAS SEMANTICS, like the other
-   // comparison sites of `jca_android` and like the sibling that reads the same two
-   // predicates (`KeyAgreementSpec.mop:157,:161`). An antecedent is not a place where
-   // exact spelling may be demanded: `getInstance("dh")` is `DiffieHellman` to the
-   // platform, and a raw case-sensitive `contains` made it fall out of all four branches
-   // and reach no read at all -- neither NOT_OBSERVED nor VIOLATED, silence, which is the
-   // one outcome a reader cannot act on. `matches` folds case and resolves the service's
-   // alias rows; the AES and OAEP antecedents use `equalsIgnoreCase` because `algorithm`
-   // reaches here already canonical from `get`, and those two names have no alias row of
-   // their own to resolve.
+   //   `algorithm in {"AES"} => preparedIV[paramSpec];` -- the `IvParameterSpec` was built
+   //   from bytes that came from a source the instrumentation observed.
+   //   `algorithm in {"DiffieHellman", "DH"} => preparedDH[paramSpec];` -- the parameter spec
+   //   carries Diffie-Hellman parameters the rule admits, checked where it was constructed.
+   //   The PBE implication -- the `PBEParameterSpec` carries a salt and an iteration count
+   //   the rule admits, and its salt came from a source the instrumentation observed.
+   //   `algorithm in {"OAEP"} => preparedOAEP[paramSpec];` -- the `OAEPParameterSpec` names a
+   //   digest and mask function the rule admits.
+   //
+   // Whichever branch is taken, SATISFIED is silent, VIOLATED is positive evidence that the
+   // spec was constructed with values the producing specification refused, and NOT_OBSERVED
+   // means the spec was built where the instrumentation does not reach -- a reach limit as
+   // often as a misuse -- so the two outcomes carry different codes.
+   //
+   // The four antecedents are tested with the set's own alias semantics rather than by exact
+   // spelling: `getInstance("dh")` is `DiffieHellman` to the platform, and a case-sensitive
+   // membership test would fall out of all four branches and reach no read at all -- neither
+   // NOT_OBSERVED nor VIOLATED, silence, which is the one outcome a reader cannot act on.
+   // `ConscryptAliasTable.matches` folds case and resolves the service's alias rows; the AES
+   // and OAEP antecedents use `equalsIgnoreCase` because `algorithm` reaches here already
+   // canonical from `get`, and those two names have no alias row of their own to resolve.
    event init after(Object arg, AlgorithmParameters s):
      ( call(public void AlgorithmParameters.init(AlgorithmParameterSpec)) ||
        call(public void AlgorithmParameters.init(byte[])) ||
@@ -176,15 +236,20 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
        initialised = s;
    }
 
-   // The rule's `GetEncoded := e1 | e2` (:20-22), fused on the return value: both overloads
-   // return the encoded bytes and only one of them names a format, which no clause of the
-   // rule constrains.
+   // `GetEncoded := e1 | e2` of AlgorithmParameters.crysl, whose alternatives are
+   // `e1: encParams = getEncoded();` and `e2: encParams = getEncoded(format);`, fused here on
+   // the return value: both overloads return the encoded bytes and only one names a format,
+   // which no clause of the rule constrains.
    //
-   // `preparedAlg[encParams, algorithm] after GetEncoded` (:44) is written HERE, in the
-   // body, and not in a handler, for the reason `KeyManagerFactorySpec.gkm1` records: the
-   // clause names the RETURNED ARRAY, a handler sees no parameter of the event it follows,
-   // and the array is the parameter. The placement is still the acceptance point the clause
-   // asks for -- this event is the one that reaches the second accepting state.
+   // ENSURES `preparedAlg[encParams, algorithm] after GetEncoded`: the bytes came from an
+   // `AlgorithmParameters` object initialised for the algorithm recorded with them, which is
+   // the canonical spelling `get` staged. The write sits in the event body and not in the
+   // handler of the state this event leads to, because the clause names the array the call
+   // returned, and a handler receives no event arguments and runs after the transition is
+   // decided, so it cannot see a return value. The placement is still the acceptance point
+   // the clause asks for: this event is the one that reaches the second accepting state. The
+   // consumer is the `init` event of this same specification, reading the round trip of one
+   // instance encoding its parameters and another initialising from those bytes.
    event encoded after(AlgorithmParameters s) returning(byte[] encParams):
      ( call(public byte[] AlgorithmParameters.getEncoded()) ||
        call(public byte[] AlgorithmParameters.getEncoded(String))
@@ -192,10 +257,10 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
        PredicateStore.instance().ensure(Property.PREPARED_ALG, encParams, algorithm);
    }
 
-   // The rule's ORDER, `Get, Init, GetEncoded?` (:25). The trailing `?` is why this is an
-   // `fsm` and not an `ere`: no `ere` of this set spells optionality, and the idiom for it
-   // is a second accepting state that declares no event of its own
-   // (KeyManagerFactorySpec.mop:211-215, whose ORDER has the same shape).
+   // The rule's ORDER: `Get, Init, GetEncoded?`. The trailing `?` is why this is an `fsm` and
+   // not an `ere`: no `ere` of this set spells optionality, and the idiom for it is a second
+   // accepting state that declares no event of its own, so that a trace stopping after `init`
+   // and a trace going on to `getEncoded` are both accepted.
    fsm :
      start [
        get -> obtained
@@ -212,6 +277,12 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
    alias match1 = initialised
    alias match2 = published
 
+   // Reached whenever the automaton cannot take the next event from the state it is in. Two
+   // codes, both registered in `codes.csv`: the plain wrong-call-sequence code, and a second
+   // one for an instance whose `getInstance` was never seen, which the `creationObserved`
+   // field separates -- a sequence that only looks wrong because the creation ran outside the
+   // woven code is a reach limit of the instrumentation and not a misuse. `__RESET` returns
+   // the monitor to the start state.
    @fail {
       if (!creationObserved) {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "AlgorithmParametersSpec", "" + __LOC,
@@ -225,14 +296,19 @@ AlgorithmParametersSpec(AlgorithmParameters s) {
       __RESET;
    }
 
-   // `preparedAlg[this, algorithm] after Init` (:43). The clause names the state the Init
-   // leads to, which is this one, and the object is the monitored instance -- reachable
-   // through a field where the returned array of `encoded` is not (INV-INS-134).
+   // ENSURES `preparedAlg[this, algorithm] after Init`: the `AlgorithmParameters` object was
+   // initialised for the algorithm recorded with it. The clause names the state the `Init`
+   // leads to, which is this one, so the write belongs in this handler.
    //
-   // The consumers are real and were the sixth producer gap INV-INS-151 counted:
-   // `Cipher.crysl:136` requires the predicate over an `AlgorithmParameters` and is recorded
-   // closed at task 1b.4 for a reason of its own, and this rule's own `init` reads it over
-   // the encoded bytes. `AlgorithmParameterGeneratorSpec` (task 3.2) is its second producer.
+   // The handler receives no event arguments and runs after the transition is decided, so the
+   // monitored instance and the algorithm reach it through the fields the `init` and `get`
+   // events staged them in; the guard skips a run where `init` staged nothing.
+   //
+   // Nothing inside this set reads a mark bound to an `AlgorithmParameters` object: the read
+   // this specification performs for the same predicate is over the encoded parameter bytes.
+   // `Cipher.crysl` states a clause that would read one, `preparedAlg[params,
+   // alg(transformation)]`, and no specification of the set realises it. This write records
+   // the fact and is not itself a check.
    @match1 {
       if (initialised != null) {
           PredicateStore.instance().ensure(Property.PREPARED_ALG, initialised, algorithm);

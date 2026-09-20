@@ -9,13 +9,30 @@ import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
+/**
+ * CipherInputStreamSpec
+ *
+ * Monitors javax.crypto.CipherInputStream against the CrySL rule CipherInputStream.crysl.
+ * The rule's ORDER is `Con, Read+, Close`: one construction, at least one read, one close.
+ * Its one REQUIRES clause, `generatedCipher[cipher];`, is read in the constructor body against
+ * the predicate store, so a stream built over a Cipher the instrumentation never saw
+ * initialised is reported where it is constructed.
+ *
+ * Two parts of the rule have no site here, and that is behaviour rather than an oversight:
+ *
+ *  - the CONSTRAINTS `length[data] >= offset + len;`, `offset >= 0;` and `len > 0;` are not
+ *    checked. The `r2` event binds the three arguments of `read(byte[], int, int)` and reports
+ *    nothing about them;
+ *  - the ENSURES `cipheredInputStream[inputStream, cipher];` is not written. No `Property`
+ *    constant of this set carries that predicate and no specification of the set reads one, so
+ *    a write would have no consumer.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/CipherInputStream.crysl
+ */
 // The declared parameter is the stream every event binds. Without one the generator emits a
 // single instance for the whole process, so two streams alive at once are one trace: the second
 // constructor arrives where the automaton is waiting for the first stream's own sequence, and a
-// conforming program is accused of a wrong call sequence. Corpus mass for that class was
-// measured at 0 rows of 97,018 -- the repair costs the published numbers nothing and removes
-// the last non-parametric specification of the family (`CipherSpec` and `KeyStoreSpec` are
-// parametric; this file and its sibling were the two that were not).
+// conforming program is accused of a wrong call sequence.
 CipherInputStreamSpec(CipherInputStream cis) {
 
     // The `exp=` of the two report sites below, as a field so the two cannot drift apart.
@@ -25,27 +42,34 @@ CipherInputStreamSpec(CipherInputStream cis) {
     // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
     boolean creationObserved = false;
 
-    // The constructor binds through `returning`, every other event through `target`: an event
-    // of a parametric specification that binds no monitored object is handed the parameterless
-    // map and runs on the root monitor and on every live monitor of the specification, which
-    // is the fan-out task 9.3 closed at `PBEKeySpecSpec` and 9.7's G-BIND now locks.
-    // `generatedCipher[cipher]` (CipherInputStream.crysl:31, ledger row 15), the rule's one
-    // REQUIRES and a clause the withdrawn catalogue did not state -- which is why this file
-    // carried no read of it and the constructor bound no argument at all. Task 11.5(e) wires
-    // it, by the researcher's decision of 2026-08-26, and it is the consuming half of the
-    // chain `CipherSpec`'s `@match3` produces.
+    // `Con` of CipherInputStream.crysl: `c1: CipherInputStream(inputStream, cipher)`, the
+    // rule's one creation event and the first symbol of its ORDER. The constructor binds the
+    // stream through `returning`, every other event through `target`: an event of a parametric
+    // specification that binds no monitored object is handed the parameterless map and runs on
+    // the root monitor and on every live monitor of the specification, so its report would name
+    // no particular stream.
     //
     // Both arguments are bound although only one is read: `args(input, cipher)` names the two
     // positions by type and carries no wildcard. A wildcard in the leading position would
     // generate a correct aspect and defeat the trace harness's resolver, which accepts any
-    // call from the first wildcard onward (finding 79), and there is nothing to gain by it --
-    // the `InputStream` costs one declared parameter and no report.
+    // call from the first wildcard onward, and there is nothing to gain by it -- the
+    // `InputStream` costs one declared parameter and no report.
     //
-    // The read is in the body, three-valued. VIOLATED is positive evidence that the Cipher
-    // carries a withdrawn `generatedCipher`; NOT_OBSERVED says the constructor was handed a
-    // Cipher whose `init` this instrumentation never saw, which is what the rule is about --
-    // a CipherInputStream over an uninitialised Cipher decrypts nothing. Every trace of this
-    // specification in the corpus is exactly that program, and until now nothing said so.
+    // REQUIRES `generatedCipher[cipher];`: the Cipher was initialised by a call the
+    // instrumentation observed. The read sits in the event body and not in a `condition(...)`
+    // guard, because a guard compiles to an early return ahead of the body and of the
+    // transition, so a stream built over an uninitialised Cipher would take no step and its
+    // first `read` would then be reported as a wrong call sequence instead of as the missing
+    // initialisation it is.
+    //
+    // The read is three-valued. SATISFIED is silent. VIOLATED is positive evidence: the store
+    // holds an entry for this Cipher under this predicate that the clause does not admit.
+    // NOT_OBSERVED means the store holds no entry for it at all -- the `init` ran inside a
+    // library or the platform the weaving does not reach, or before the monitor attached -- and
+    // an object whose producer was never instrumented is not a misuse, so the two outcomes are
+    // reported under separate codes, both registered in `codes.csv`. The producing site is the
+    // handler of `CipherSpec` at the state its `init` events lead to, which writes the same
+    // predicate over the Cipher.
     event c1 after(InputStream input, Cipher cipher) returning(CipherInputStream cis):
       call(public CipherInputStream.new(InputStream, Cipher)) &&
       args(input, cipher) {
@@ -61,22 +85,45 @@ CipherInputStreamSpec(CipherInputStream cis) {
         }
     }
 
+    // `Read` of CipherInputStream.crysl: `r1: read()` and `r2: read(data)`, the two overloads
+    // that carry no clause over their arguments, merged into one event because the rule's ORDER
+    // treats them alike. The body is empty: this event only takes its step of the `Read+`.
     event r1 after(CipherInputStream cis):
       ( call(public int CipherInputStream.read()) ||
         call(public int CipherInputStream.read(byte[]))
       ) && target(cis) {  }
 
+    // `Read` of CipherInputStream.crysl: `r3: read(data, offset, len)`, written as its own
+    // event because it is the overload the rule's bounds clauses are about. The CONSTRAINTS
+    // `length[data] >= offset + len;`, `offset >= 0;` and `len > 0;` are over exactly these
+    // three arguments and this body checks none of them: the positions are bound and nothing is
+    // reported about them. Like `r1`, the event only takes its step of the `Read+`.
     event r2 after(byte[] arr, int offset, int len, CipherInputStream cis):
       call(public int CipherInputStream.read(byte[], int, int)) &&
       args(arr, offset, len) &&
       target(cis) { }
 
+    // `Close` of CipherInputStream.crysl: `cl1: close()`, the last symbol of the ORDER. The
+    // body is empty. The rule states no clause over `close`, and its ENSURES
+    // `cipheredInputStream[inputStream, cipher];` is written nowhere in this specification:
+    // no `Property` constant of the set carries that predicate and no site would read it.
     event cl1 after(CipherInputStream cis):
       call(public void CipherInputStream.close()) &&
       target(cis) { }
 
+    // The rule's ORDER, `Con, Read+, Close`, transcribed symbol for symbol. A stream closed
+    // without ever being read, a read after the close, or a second construction over the same
+    // stream is not a word of this expression and reaches `@fail`.
     ere : c1 (r1 | r2)+ cl1
 
+    // The ordering report, and the one place this specification reports a call sequence.
+    // `creationObserved` separates the two cases: a monitor that never saw the constructor is
+    // looking at a stream whose creation the weaving did not reach, so its `read` and `close`
+    // arrive with the automaton still in its initial state and the sequence is reported under
+    // the `-ORDER-01` code; a monitor that did see the constructor is looking at a real
+    // ordering violation and is reported under `-ORDER-00`. `__RESET` returns the automaton to
+    // its initial state, so one wrong sequence is reported once and not again at every
+    // following event.
     @fail {
        if (!creationObserved) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherInputStreamSpec", "" + __LOC,

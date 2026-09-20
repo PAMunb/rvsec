@@ -14,16 +14,54 @@ import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
- * KeyAgreement
+ * KeyAgreementSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.crypto.KeyAgreement.
+ * Monitors javax.crypto.KeyAgreement against the CrySL rule KeyAgreement.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyAgreement.crysl
+ * The rule's ORDER is `Get, Init, DoPhase, GenSecretBuffer`: an agreement is obtained from
+ * `getInstance`, initialised with a private key, taken through one phase with the peer's
+ * public key, and then asked for the shared secret. Every other call sequence is reported as
+ * a wrong call sequence.
+ *
+ * The CONSTRAINTS enforced are `algorithm in {"DH", "DiffieHellman", "ECDH"}`, checked at the
+ * creation event, and `noCallTo[gs3]`, which forbids `generateSecret(String)` outright and is
+ * realised as an event that reports and moves the automaton nowhere.
+ *
+ * It reads four REQUIRES clauses: `generatedPrivkey[privKey]` at each of the four `init`
+ * overloads, `randomized[random]` at the two that bind a SecureRandom, and the two guarded
+ * parameter clauses -- `algorithm in {"DiffieHellman", "DH"} => preparedDH[params];` and
+ * `algorithm in {"ECDH"} => preparedEC[params];` -- at the two that bind a parameter spec.
+ * `generatedPubkey[pubKey]` is read at `doPhase`. It ENSURES
+ * `preparedKeyMaterial[sharedSecretBuffer] after GenSecretBuffer`, written at both
+ * `generateSecret` events that produce a buffer.
+ *
+ * Reach limit of every one of those reads: NOT_OBSERVED means the store holds nothing about
+ * the key, the parameter spec or the SecureRandom, which happens as often because the object
+ * was built where the weaving does not reach -- inside the platform, or in a library the
+ * instrumentation does not enter -- as because the program misused the API. That outcome
+ * therefore carries its own code at every site, separate from VIOLATED.
+ *
+ * Three things the rule states that this specification realises differently, stated as
+ * behaviour:
+ *
+ * - The cited rule's EVENTS section reads `GenSecretBuffer := gs1 | g2;`, where `g2` is the
+ *   two-argument `getInstance` and `gs2: generateSecret(sharedSecretBuffer, offset);` is the
+ *   two-argument `generateSecret`. Read literally, that label would let a second `getInstance`
+ *   close an agreement, would reject `generateSecret(byte[], int)`, and would put the ENSURES
+ *   over a call that binds no buffer. This specification takes the label as `gs1 | gs2`.
+ * - The rule also declares `GenSecret := gs3 | GenSecretBuffer;`, which appears in no ORDER
+ *   and in no CONSTRAINTS clause, so nothing here transcribes it.
+ * - `DoPhase` appears once in the ORDER. A Diffie-Hellman agreement between more than two
+ *   parties calls `doPhase` repeatedly, and such a trace is reported here as a wrong call
+ *   sequence, because the rule's ordering admits one.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/KeyAgreement.crysl
  */
 KeyAgreementSpec(KeyAgreement ka) {
 
-   // The envelope's quoting rule (design D-3).
+   // The report envelope's quoting rule: a null value becomes the empty string, a single
+   // quote is escaped so it cannot close the field early, and the value is capped so a
+   // pathological argument cannot push the record past the logcat payload limit.
    private String q(String str) {
        if (str == null) {
            return "";
@@ -32,53 +70,72 @@ KeyAgreementSpec(KeyAgreement ka) {
        return value.replace("'", "\\'");
    }
 
-   // KeyAgreement.crysl:40, transcribed. `DiffieHellman` and `DH` are both the rule's own
-   // entries and both stay -- an alias never enters the list it resolves against.
+   // CONSTRAINTS of KeyAgreement.crysl: `algorithm in {"DH", "DiffieHellman", "ECDH"}`,
+   // transcribed. `DiffieHellman` and `DH` are both the rule's own entries and both stay --
+   // an alias never enters the list it resolves against.
    List<String> safeAlgorithms = Arrays.asList("DH", "DiffieHellman", "ECDH");
 
-   // The antecedents of the two guarded REQUIRES clauses (:47 and :48). They are the rule's
-   // own partition of the algorithm list above: a Diffie-Hellman agreement wants DH domain
-   // parameters, an elliptic-curve one wants curve parameters.
+   // The antecedents of the two guarded REQUIRES clauses of KeyAgreement.crysl,
+   // `algorithm in {"DiffieHellman", "DH"} => preparedDH[params];` and
+   // `algorithm in {"ECDH"} => preparedEC[params];`. They are the rule's own partition of the
+   // algorithm list above: a Diffie-Hellman agreement wants DH domain parameters, an
+   // elliptic-curve one wants curve parameters.
    List<String> dhAlgorithms = Arrays.asList("DH", "DiffieHellman");
 
    List<String> ecAlgorithms = Arrays.asList("ECDH");
 
-   // Staged by `get`, because every guarded read below asks which algorithm this agreement
-   // is for and no `init` event binds it.
+   // Staged by `get`, because every guarded read below asks which algorithm this agreement is
+   // for and no `init` event binds it. The name is passed through
+   // `ConscryptAliasTable.canonical`, which is where the set resolves a provider alias to the
+   // standard spelling an antecedent is written with; the table carries no row under
+   // `KeyAgreement`, so what is stored here is the name the program spelled, and the
+   // antecedents below meet it through case folding alone.
    String algorithm = null;
 
-   // Bound by `get` and read by the two `GenSecretBuffer` events, which write the rule's one
-   // ENSURES. Unlike a single-event producer of this set, conformance here is NOT decidable
-   // inside the event that writes: the clauses live at `Get`, at the four `Init` overloads
-   // and at `DoPhase`, and the write happens at a later event still. `conforms` is the field
-   // that carries that verdict forward, and the reading of CrySL is unchanged -- a predicate
-   // is ensured for a use that satisfied the rule.
+   // Cleared by every site of this file that reports, and read by the two `generateSecret`
+   // events that write the rule's one ENSURES. Conformance here is not decidable inside the
+   // event that writes: the clauses sit at `Get`, at the four `init` overloads and at
+   // `doPhase`, and the write happens at a later event still, so this field is what carries
+   // the verdict forward. A predicate is ensured for a use that satisfied the rule.
    //
-   // Residue, recorded rather than repaired: a `gs3` that arrives AFTER the buffer was
-   // generated clears the flag too late to gate a write already made. The rule's
-   // `noCallTo[gs3]` is a statement about the whole trace and this instrument decides at the
-   // event; withdrawing the predicate would be a NEGATES this rule does not state.
+   // Behaviour worth knowing at the write sites: a forbidden `generateSecret(String)` that
+   // arrives after the buffer was produced clears the flag too late to gate a write already
+   // made. `noCallTo[gs3]` is a statement about the whole trace and this monitor decides at
+   // the event; negating the predicate afterwards would be a NEGATES the rule does not
+   // state.
    boolean conforms = true;
 
    // Set by `get`, the one creation event, and read by `@fail` (KEYAGREEMENT-ORDER-01). The
    // generated `reset()` clears the state and not this field.
    boolean creationObserved = false;
 
+   // The `exp=` texts of the report sites below, each as a field so the sites that share one
+   // cannot drift apart. The first answers the `generatedPrivkey[privKey]` reports at all four
+   // `init` overloads, the second the `generatedPubkey[pubKey]` reports at `doPhase`, and the
+   // third the `randomized[random]` reports at the two overloads that bind a `SecureRandom`.
    String expectedGeneratedPrivkey = "a private key this instrumentation observed being generated";
 
    String expectedGeneratedPubkey = "a public key this instrumentation observed being generated";
 
    String expectedRandomized = "a SecureRandom this instrumentation observed being created";
 
-   // `Get := g1 | g2` (:16-18), fused on the zeroth position because the rule's own label
-   // fuses them. api30 declares three overloads -- `(String)`, `(String, String)` and
-   // `(String, Provider)` -- and all three are the rule's `Get`; leaving one out sends an
-   // agreement obtained through it to its next event with the monitor at state 0, where
-   // every row is `fail` (the `KeyPairGeneratorSpec.g2` defect).
+   // `Get := g1 | g2` of KeyAgreement.crysl, whose alternatives are
+   // `g1: getInstance(algorithm);` and `g2: getInstance(algorithm, _);`, fused here on the
+   // zeroth position because the rule's own label fuses them. The platform declares three
+   // overloads -- `(String)`, `(String, String)` and `(String, Provider)` -- and all three are
+   // the rule's `Get`; leaving one out would send an agreement obtained through it to its next
+   // event with the monitor at the start state, where every row is `fail`.
    //
-   // The algorithm CONSTRAINT (:40) is accused in the body and not in a `condition(...)`: a
-   // guard would suppress the transition and an agreement asked for a protocol the rule
-   // refuses would be accused of nothing (INV-INS-133, INV-INS-152).
+   // CONSTRAINTS: `algorithm in {"DH", "DiffieHellman", "ECDH"}`, checked here in the event
+   // body and not in a `condition(...)` guard. A guard compiles to an early return ahead of
+   // both the body and the transition, so an agreement asked for a protocol the rule refuses
+   // would leave the automaton in the state before the call and the next call would be
+   // reported as a wrong call sequence instead of as the refused protocol it is. The
+   // comparison is `ConscryptAliasTable.matches`, which folds case on both sides and also
+   // compares the name the table's rows for the service resolve to; there are no rows under
+   // `KeyAgreement`, so here it is the case-insensitive comparison alone, which is what lets
+   // `getInstance("dh")` meet the clause's `DH`. A name outside the clause is reported under
+   // the code registered in `codes.csv` for this site and clears `conforms`.
    event get after(String alg) returning(KeyAgreement ka):
      ( call(public static KeyAgreement KeyAgreement.getInstance(String)) ||
        call(public static KeyAgreement KeyAgreement.getInstance(String, String)) ||
@@ -93,21 +150,35 @@ KeyAgreementSpec(KeyAgreement ka) {
        }
    }
 
-   // `i1: init(privKey)` (:20), the first alternative of `Init := i1 | i2 | i3 | i4` (:24).
+   // `i1: init(privKey);` of KeyAgreement.crysl, the first alternative of
+   // `Init := i1 | i2 | i3 | i4`.
    //
-   // THE FOUR OVERLOADS GET AN EVENT EACH and are not fused, although the rule's label fuses
-   // them, because they bind DIFFERENT arguments: `generatedPrivkey[privKey]` (:45) is about
-   // all four, `randomized[random]` (:44) only about the two that take a SecureRandom, and
-   // the two guarded parameter clauses (:47-48) only about the two that take a parameter
-   // spec. A fused event over `args(privKey, ..)` would bind the first position and leave
-   // three clauses of the rule with no site at all; a fused event PLUS a binding event would
-   // emit two letters for one call, where the ORDER has exactly one `Init` between the `Get`
-   // and the `DoPhase`. The precedent and the measurement are
-   // `AlgorithmParameterGeneratorSpec.mop:73-85`.
+   // The four overloads get an event each and are not fused, although the rule's label fuses
+   // them, because they bind different arguments: `generatedPrivkey[privKey]` is about all
+   // four, `randomized[random]` only about the two that take a SecureRandom, and the two
+   // guarded parameter clauses only about the two that take a parameter spec. A fused event
+   // over `args(privKey, ..)` would bind the first position and leave three clauses of the
+   // rule with no site at all; a fused event plus a binding event would emit two letters for
+   // one call, where the ORDER has exactly one `Init` between the `Get` and the `DoPhase`.
    //
-   // `generatedPrivkey[privKey]` is read three-valued with a code per accusing outcome
-   // (INV-INS-143). Its producers are `KeyFactorySpec.genPrivate`, `KeyPairSpec` and
-   // `KeyStoreSpec`.
+   // REQUIRES `generatedPrivkey[privKey]`: the private key was produced by a call the
+   // instrumentation observed. SATISFIED is silent and the call conforms. VIOLATED is
+   // positive evidence about this key -- a producing call was observed and what it
+   // established is not what the clause demands -- and is reported under this site's
+   // constraint code. NOT_OBSERVED means nothing about the key was ever recorded: it was
+   // built where the instrumentation does not reach, inside the platform or in a library the
+   // weaving does not enter, which is that reach limit as often as it is a misuse, so it is
+   // reported under a code of its own registered in `codes.csv`. Either accusing outcome
+   // clears `conforms`, so the shared secret this agreement later produces is marked as
+   // refused upstream rather than as key material. The producers inside this set are
+   // `KeyFactorySpec`, at its `generatePrivate` event, `KeyPairSpec`, at the call that hands
+   // out the private half, and `KeyStoreSpec`, at its acceptance point when the retrieved key
+   // is a `PrivateKey`.
+   //
+   // The read sits in the body and not in a `condition(...)` guard: a guard compiles to an
+   // early return ahead of both the body and the transition, so an `init` with a key of
+   // unknown origin would leave the automaton in the state before the call and the next call
+   // would be reported as a wrong call sequence instead of as the unobserved key it is.
    event init1 after(Key privKey, KeyAgreement ka):
      call(public void KeyAgreement.init(java.security.Key)) &&
      args(privKey) && target(ka) {
@@ -124,20 +195,38 @@ KeyAgreementSpec(KeyAgreement ka) {
        }
    }
 
-   // `i2: init(privKey, params)` (:21), the second alternative, and the first site of the two
-   // GUARDED clauses (:47-48): the algorithm the `Get` staged selects which parameter
-   // predicate is required, and an agreement whose algorithm neither antecedent names reaches
-   // no parameter read at all -- which is the rule speaking, not a gap.
+   // `i2: init(privKey, params);` of KeyAgreement.crysl, the second alternative of `Init`,
+   // and the first site of the two guarded clauses,
+   // `algorithm in {"DiffieHellman", "DH"} => preparedDH[params];` and
+   // `algorithm in {"ECDH"} => preparedEC[params];`. The algorithm the `Get` staged selects
+   // which parameter predicate is required, and an agreement whose algorithm neither
+   // antecedent names reaches no parameter read at all -- which is the rule speaking, not a
+   // gap here. Each branch names its predicate as a literal `Property.` constant rather than
+   // through a variable, so that the predicate a site reads can be seen at the call itself.
    //
-   // Each branch names its predicate as a LITERAL `Property.` constant rather than through a
-   // selected variable, because the record reader anchors a predicate site on the literal
-   // first argument of the store call (`gh105_predicate_graph.py`, pass 1); a constant held
-   // in a variable would leave the clause out of the graph, the ledger and every gate while
-   // the monitor went on accusing.
+   // REQUIRES `generatedPrivkey[privKey]`: the private key was produced by a call the
+   // instrumentation observed. SATISFIED is silent. VIOLATED is positive evidence about the
+   // key and draws this site's constraint code. NOT_OBSERVED means the store holds nothing
+   // about it -- a key built where the weaving does not reach -- which is that reach limit as
+   // often as it is a misuse, and draws a code of its own.
    //
-   // The two clauses meet the private-key clause here and they ACCUMULATE rather than
-   // short-circuit: an `init` that handed over an unobserved key AND unobserved parameters
-   // must draw both reports, not the first.
+   // REQUIRES `preparedDH[params]`, under the Diffie-Hellman antecedent: the parameter spec
+   // carries Diffie-Hellman parameters the rule admits, checked where it was constructed.
+   // REQUIRES `preparedEC[params]`, under the elliptic-curve antecedent: the parameter spec
+   // names a curve the rule admits. On either branch, SATISFIED is silent, VIOLATED says the
+   // producing specification saw this spec built with values it refuses, and NOT_OBSERVED
+   // says the spec was constructed where the instrumentation does not reach -- the same reach
+   // limit -- so the two outcomes carry different codes. The producers inside this set are
+   // `DHParameterSpecSpec` and `DHGenParameterSpecSpec` for the first, `ECParameterSpecSpec`
+   // and `ECGenParameterSpecSpec` for the second, each writing at its own acceptance point.
+   //
+   // The clauses accumulate rather than short-circuit: an `init` that handed over a key of
+   // unknown origin and parameters of unknown origin must draw both reports, not the first.
+   // Every accusing outcome clears `conforms`. Both reads sit in the body and not in a
+   // `condition(...)` guard: a guard compiles to an early return ahead of both the body and
+   // the transition, so the offending call would leave the automaton in the state before
+   // `init` and the next call would be reported as a wrong call sequence instead of as the
+   // misuse it is.
    event init2 after(Key privKey, AlgorithmParameterSpec params, KeyAgreement ka):
      call(public void KeyAgreement.init(java.security.Key, java.security.spec.AlgorithmParameterSpec)) &&
      args(privKey, params) && target(ka) {
@@ -174,9 +263,34 @@ KeyAgreementSpec(KeyAgreement ka) {
        }
    }
 
-   // `i3: init(privKey, params, random)` (:22), the third alternative, and the ONE overload
-   // that binds all three objects the rule's REQUIRES section names. Three clauses meet here,
-   // each with codes of its own, because a code names a site and not a clause.
+   // `i3: init(privKey, params, random);` of KeyAgreement.crysl, the third alternative of
+   // `Init`, and the one overload that binds all three objects the rule's REQUIRES section
+   // names. Three clauses meet here, each with codes of its own, because a code names a site
+   // and not a clause, and they accumulate rather than short-circuit.
+   //
+   // REQUIRES `generatedPrivkey[privKey]`: the private key was produced by a call the
+   // instrumentation observed. SATISFIED is silent; VIOLATED is positive evidence about the
+   // key; NOT_OBSERVED means nothing about it was recorded, which is the reach limit of the
+   // weaving as often as it is a misuse, and draws its own code.
+   //
+   // REQUIRES `preparedDH[params]` or `preparedEC[params]`, selected by the same antecedents
+   // as at the two-argument overload: the parameter spec carries Diffie-Hellman parameters
+   // the rule admits, checked where it was constructed, or names a curve the rule admits.
+   // SATISFIED is silent, VIOLATED says the producing specification refused the values the
+   // spec was built with, NOT_OBSERVED says its construction was never seen.
+   //
+   // REQUIRES `randomized[random]`: the object came from a `SecureRandom` the instrumentation
+   // observed -- the generator itself, or bytes it produced. SATISFIED is silent, VIOLATED is
+   // positive evidence about that `SecureRandom`, and NOT_OBSERVED means its construction ran
+   // outside the woven code or before the monitor attached. The producer inside this set is
+   // `SecureRandomSpec`, which marks a `SecureRandom` at the state its creation events lead
+   // to.
+   //
+   // Every accusing outcome clears `conforms`. All three reads sit in the body and not in a
+   // `condition(...)` guard: a guard compiles to an early return ahead of both the body and
+   // the transition, so the offending call would leave the automaton in the state before
+   // `init` and the next call would be reported as a wrong call sequence instead of as the
+   // misuse it is.
    event init3 after(Key privKey, AlgorithmParameterSpec params, SecureRandom random, KeyAgreement ka):
      call(public void KeyAgreement.init(java.security.Key, java.security.spec.AlgorithmParameterSpec, java.security.SecureRandom)) &&
      args(privKey, params, random) && target(ka) {
@@ -224,9 +338,27 @@ KeyAgreementSpec(KeyAgreement ka) {
        }
    }
 
-   // `i4: init(privKey, random)` (:23), the fourth alternative. It binds no parameter spec,
-   // so the two guarded clauses have nothing to read here and are not read: an implication
-   // whose consequent names an object this call does not pass is not about this call.
+   // `i4: init(privKey, random);` of KeyAgreement.crysl, the fourth alternative of `Init`. It
+   // binds no parameter spec, so the two guarded clauses have nothing to read here and are
+   // not read: an implication whose consequent names an object this call does not pass is not
+   // about this call.
+   //
+   // REQUIRES `generatedPrivkey[privKey]`: the private key was produced by a call the
+   // instrumentation observed. SATISFIED is silent; VIOLATED is positive evidence about the
+   // key and draws this site's constraint code; NOT_OBSERVED means the store holds nothing
+   // about it, a key built where the weaving does not reach, which is that reach limit as
+   // often as it is a misuse, and draws a code of its own.
+   //
+   // REQUIRES `randomized[random]`: the object came from a `SecureRandom` the instrumentation
+   // observed -- the generator itself, or bytes it produced. SATISFIED is silent, VIOLATED is
+   // positive evidence about that `SecureRandom`, and NOT_OBSERVED means nothing about it was
+   // ever recorded.
+   //
+   // Every accusing outcome clears `conforms`. Both reads sit in the body and not in a
+   // `condition(...)` guard: a guard compiles to an early return ahead of both the body and
+   // the transition, so the offending call would leave the automaton in the state before
+   // `init` and the next call would be reported as a wrong call sequence instead of as the
+   // misuse it is.
    event init4 after(Key privKey, SecureRandom random, KeyAgreement ka):
      call(public void KeyAgreement.init(java.security.Key, java.security.SecureRandom)) &&
      args(privKey, random) && target(ka) {
@@ -254,17 +386,37 @@ KeyAgreementSpec(KeyAgreement ka) {
        }
    }
 
-   // `dp1: doPhase(pubKey, lastPhase)` (:26), the whole of `DoPhase` (:27), and the site of
-   // `generatedPubkey[pubKey]` (:46). The `lastPhase` flag is bound because the rule binds
-   // it, and no clause constrains it -- the rule names it in no CONSTRAINT and in no
-   // REQUIRES, so the body has nothing to say about it, which is the rule speaking.
+   // `dp1: doPhase(pubKey, lastPhase);` of KeyAgreement.crysl, the whole of `DoPhase := dp1`,
+   // and the site of REQUIRES `generatedPubkey[pubKey]`. The `lastPhase` flag is bound
+   // because the rule binds it, and no clause constrains it -- the rule names it in no
+   // CONSTRAINTS and in no REQUIRES clause -- so the body has nothing to say about it, which
+   // is the rule speaking.
    //
    // The call returns a `Key` and the event does not bind it: no clause of the rule names
    // that return value, and a `returning(...)` of a value no clause reads is bookkeeping.
    //
-   // A public key that carries REPORTED_UPSTREAM came out of a key factory or a key spec that
-   // was already reported -- a peer key decoded from bytes nobody saw being produced, for
-   // example -- and draws the `upstream-refused` code instead of KEYAGREEMENT-NOBS-08.
+   // REQUIRES `generatedPubkey[pubKey]`: the public key was produced by a call the
+   // instrumentation observed. SATISFIED is silent and the call conforms. VIOLATED is
+   // positive evidence about this key -- a producing call was observed and what it
+   // established is not what the clause demands -- and draws this site's constraint code.
+   // NOT_OBSERVED means nothing about the peer key was ever recorded, which is as often the
+   // reach limit of the weaving -- a peer key decoded inside the platform, or by a library
+   // the instrumentation does not enter -- as it is a misuse, so it draws a code of its own.
+   // The producers inside this set are `KeyFactorySpec`, at its `generatePublic` event, and
+   // `KeyPairSpec`, at the call that hands out the public half.
+   //
+   // The NOT_OBSERVED branch first asks for `REPORTED_UPSTREAM` over the same key: the
+   // object's producer already reported it, so a later site that finds no predicate for it is
+   // looking at a refusal upstream and not at a gap in instrumentation reach. A peer key that
+   // carries the mark -- one a key factory or a key spec already refused -- therefore draws
+   // the upstream-refused code instead of the not-observed one. Both codes are registered in
+   // `codes.csv`, and every accusing outcome clears `conforms`.
+   //
+   // The read sits in the body and not in a `condition(...)` guard: a guard compiles to an
+   // early return ahead of both the body and the transition, so a `doPhase` with a peer key
+   // of unknown origin would leave the automaton in the state before the call and the next
+   // call would be reported as a wrong call sequence instead of as the unobserved key it
+   // is.
    event dophase after(Key pubKey, boolean lastPhase, KeyAgreement ka):
      call(public java.security.Key KeyAgreement.doPhase(java.security.Key, boolean)) &&
      args(pubKey, lastPhase) && target(ka) {
@@ -286,30 +438,34 @@ KeyAgreementSpec(KeyAgreement ka) {
        }
    }
 
-   // `gs1: sharedSecretBuffer = generateSecret()` (:29), the first alternative of
-   // `GenSecretBuffer` (:31), and one of the two acceptance points of
-   // `preparedKeyMaterial[sharedSecretBuffer] after GenSecretBuffer` (:51).
+   // `gs1: sharedSecretBuffer = generateSecret();` of KeyAgreement.crysl, the first
+   // alternative of `GenSecretBuffer`, and one of the two acceptance points of ENSURES
+   // `preparedKeyMaterial[sharedSecretBuffer] after GenSecretBuffer`.
    //
-   // THE LABEL THIS EVENT BELONGS TO IS MIS-BOUND IN THE PINNED RULE. `:31` reads
-   // `GenSecretBuffer := gs1 | g2;` -- `g2` is the two-argument `getInstance` of `:17`, a
-   // factory call, where `gs2` at `:30` is the two-argument `generateSecret` that is the
-   // evident twin of `gs1`. Read literally the ORDER (:37) would accept a second
-   // `getInstance` as the terminal event of a key agreement, would reject
-   // `generateSecret(buffer, offset)`, and the ENSURES would write over a call that binds no
-   // buffer. This file transcribes `gs1 | gs2`; the warrant is the `oracle-wart` row task
-   // gh109:0.1 recorded against `tools/rules/KeyAgreement.crysl` (D-21), and the pinned rule
-   // is not edited.
+   // The label this event belongs to is written `GenSecretBuffer := gs1 | g2;` in the cited
+   // rule, where `g2` is its two-argument `getInstance` and `gs2: generateSecret(
+   // sharedSecretBuffer, offset);` is the two-argument `generateSecret` that is the evident
+   // twin of `gs1`. Read literally, the ORDER would accept a second `getInstance` as the
+   // terminal event of a key agreement, would reject `generateSecret(byte[], int)`, and the
+   // ENSURES would write over a call that binds no buffer. This specification takes the label
+   // as `gs1 | gs2`.
    //
-   // The write is in the body and not in a handler because the clause names the RETURNED
-   // array, which a handler cannot see (INV-INS-134, the `gkm1` placement). It closes
-   // `preparedKeyMaterial` as a predicate with two producers -- `SecretKeySpec`'s
-   // `getEncoded` route is the other -- and its consumers are `SecretKeySpecSpec` and
-   // `X509EncodedKeySpecSpec`.
+   // ENSURES `preparedKeyMaterial[sharedSecretBuffer]`: the bytes are key material a
+   // monitored key or key agreement handed out. The write sits in the event body and not in
+   // the `@match` handler because the clause names the array the call returned, and a handler
+   // receives no event arguments and runs after the transition is decided, so it cannot see a
+   // return value. The consumers are `SecretKeySpecSpec`, which reads it over the key
+   // material a `SecretKeySpec` is built from, and `X509EncodedKeySpecSpec`, which reads it
+   // over the encoded key a spec is built from; the other producer of the same predicate is
+   // the `getEncoded` route of `KeySpec` and `SecretKeySpec`.
    //
    // An agreement that does not conform got there through a report of this specification --
    // every site that clears `conforms` reports a value, an origin or a forbidden call -- so
-   // the buffer it produces is marked REPORTED_UPSTREAM instead, and those two consumers
-   // report it as refused upstream rather than as not observed.
+   // the buffer it produces is marked `REPORTED_UPSTREAM` instead: the object's producer
+   // already reported it, so a later site that finds no predicate for it is looking at a
+   // refusal upstream and not at a gap in instrumentation reach, and those two consumers
+   // report it as refused upstream rather than as not observed. The array is compared by
+   // identity, so only the very buffer this call produced carries either mark.
    event gs1 after(KeyAgreement ka) returning(byte[] sharedSecretBuffer):
      call(public byte[] KeyAgreement.generateSecret()) &&
      target(ka) {
@@ -321,15 +477,22 @@ KeyAgreementSpec(KeyAgreement ka) {
        }
    }
 
-   // `gs2: generateSecret(sharedSecretBuffer, offset)` (:30), the second alternative of
-   // `GenSecretBuffer` under the reading the row above states, and the second acceptance
-   // point of the same ENSURES.
+   // `gs2: generateSecret(sharedSecretBuffer, offset);` of KeyAgreement.crysl, the second
+   // alternative of `GenSecretBuffer` under the reading stated at `gs1`, and the second
+   // acceptance point of the same ENSURES.
    //
    // It is a separate event and not fused with `gs1`, although the rule's label fuses them,
-   // for the reason the conventions note fixes: the buffer is the RETURN VALUE of one call
-   // and the FIRST ARGUMENT of the other, so one event cannot bind both. The `offset` is
-   // bound because the rule binds it and constrained by nothing, as `lastPhase` is at
-   // `doPhase`. The buffer of an agreement that does not conform is marked as at `gs1`.
+   // because the buffer is the return value of one call and the first argument of the other,
+   // so one event cannot bind both. The `offset` is bound because the rule binds it and is
+   // constrained by nothing, as `lastPhase` is at `doPhase`.
+   //
+   // ENSURES `preparedKeyMaterial[sharedSecretBuffer]`: the bytes are key material a
+   // monitored key or key agreement handed out. The write sits in the event body because the
+   // clause names the buffer this call was given, and a handler receives no event arguments
+   // and runs after the transition is decided. The buffer of an agreement that does not
+   // conform is marked `REPORTED_UPSTREAM` instead, exactly as at `gs1`, so that the two
+   // consumers of the key-material predicate report it as refused upstream rather than as not
+   // observed.
    event gs2 after(byte[] sharedSecretBuffer, int offset, KeyAgreement ka):
      call(public int KeyAgreement.generateSecret(byte[], int)) &&
      args(sharedSecretBuffer, offset) && target(ka) {
@@ -341,24 +504,25 @@ KeyAgreementSpec(KeyAgreement ka) {
        }
    }
 
-   // `gs3: sharedKey = generateSecret(symmetricKeyAlgorithm)` (:33), reached by the rule only
-   // through `noCallTo[gs3]` (:41) -- a CONSTRAINTS clause that forbids the call outright.
+   // `gs3: sharedKey = generateSecret(symmetricKeyAlgorithm);` of KeyAgreement.crysl, named
+   // by the rule only through the CONSTRAINTS clause `noCallTo[gs3];`, which forbids the call
+   // outright.
    //
-   // IT IS REALISED AS A FORBIDDEN EVENT AND NOT AS AN AUTOMATON POSITION, which is the
-   // `SSLContextSpec.getDefault` precedent: making a forbidden call an alternative of the
-   // ordering is the opposite of what forbidding it says. The event therefore self-loops at
-   // every state -- it accuses in its body and moves the automaton nowhere. The self-loops
-   // are not decoration: an event absent from the automaton gets a transition row that moves
-   // every state to `fail`, so declaring it without them would trade a false negative for an
-   // ordering false positive.
+   // It is realised as a forbidden event and not as a position of the automaton: making a
+   // forbidden call an alternative of the ordering is the opposite of what forbidding it
+   // says. The event therefore self-loops at every state -- it reports in its body and moves
+   // the automaton nowhere. The self-loops are not decoration: an event absent from the
+   // automaton gets a transition row that moves every state to `fail`, so declaring it
+   // without them would trade a silent miss for a wrong-call-sequence report about a program
+   // whose only fault is the forbidden call itself.
    //
-   // The `GenSecret := gs3 | GenSecretBuffer` alias the rule declares at `:34` appears in no
-   // ORDER and in no CONSTRAINT, so nothing transcribes it; the anomaly is recorded on the
-   // same `oracle-wart` row as the `g2`/`gs2` defect.
+   // The rule also declares `GenSecret := gs3 | GenSecretBuffer;`, which appears in no ORDER
+   // and in no CONSTRAINTS clause, so nothing here transcribes it.
    //
    // `ForbiddenMethod` and not `InvalidSequenceOfMethodCalls`: the finding is the call
-   // itself, and a sequencing type would send the reader hunting for a missing call
-   // (`ErrorType.java:12-18`, D-13).
+   // itself, and a sequencing type would send the reader hunting for a missing call. The call
+   // also clears `conforms`, so a secret already produced is not affected but one produced
+   // afterwards is marked as refused upstream.
    event gs3 after(String symmetricKeyAlgorithm, KeyAgreement ka):
      call(public javax.crypto.SecretKey KeyAgreement.generateSecret(String)) &&
      args(symmetricKeyAlgorithm) && target(ka) {
@@ -367,15 +531,13 @@ KeyAgreementSpec(KeyAgreement ka) {
            "v=1 code=KEYAGREEMENT-FORB-00 ev=" + __EVENTNAME + " obj=KeyAgreement val='" + q(symmetricKeyAlgorithm) + "' exp='KeyAgreement.generateSecret() or KeyAgreement.generateSecret(byte[], int)' msg='the expert KeyAgreement.crysl forbids deriving a named secret key from an agreement'"));
    }
 
-   // The rule's ORDER (:37), `Get, Init, DoPhase, GenSecretBuffer`, plus the self-loops that
-   // keep the forbidden `gs3` out of the language. It is an `fsm` and not an `ere` for
-   // exactly that reason: no `ere` of this set spells a self-loop, and `SSLContextSpec` --
-   // the other file with a FORBIDDEN call to place -- made the same choice for the same
-   // reason.
+   // The rule's ORDER: `Get, Init, DoPhase, GenSecretBuffer`, plus the self-loops that keep
+   // the forbidden `generateSecret(String)` out of the language. It is an `fsm` and not an
+   // `ere` for exactly that reason: no `ere` of this set spells a self-loop.
    //
-   // `DoPhase` appears once, as the rule writes it. A Diffie-Hellman agreement with more than
-   // two parties calls `doPhase` repeatedly, and such a trace is rejected here because the
-   // rule rejects it; that is a property of the oracle and is recorded, not repaired.
+   // `DoPhase` appears once, as the rule writes it. A Diffie-Hellman agreement between more
+   // than two parties calls `doPhase` repeatedly, and such a trace is reported here as a
+   // wrong call sequence, because the rule's ordering admits one.
    fsm :
      start [
        get -> gotten
@@ -403,6 +565,13 @@ KeyAgreementSpec(KeyAgreement ka) {
 
    alias match = agreed
 
+   // Reached whenever the automaton cannot take the next event from the state it is in. Two
+   // codes, both registered in `codes.csv`: the plain wrong-call-sequence code, and a second
+   // one for an agreement whose `getInstance` was never seen, which the `creationObserved`
+   // field separates -- a sequence that only looks wrong because the creation ran outside the
+   // woven code is a reach limit of the instrumentation and not a misuse. The staged
+   // algorithm and the conformance flag are cleared and `__RESET` returns the monitor to the
+   // start state, so a refusal never carries over into the next use of the object.
    @fail {
       if (!creationObserved) {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyAgreementSpec", "" + __LOC,
@@ -417,9 +586,10 @@ KeyAgreementSpec(KeyAgreement ka) {
       __RESET;
    }
 
-   // The rule states one ENSURES and it carries `after GenSecretBuffer`, so the write is at
-   // the two `gs` events and not here. The handler exists because the generator and the
-   // `codes.csv` bijection both expect one, and it stages nothing.
+   // The rule states one ENSURES and it carries `after GenSecretBuffer`, so the write sits at
+   // the two `generateSecret` events that produce a buffer and not here: each of them binds
+   // the array the clause names, which a handler cannot see. The handler is written because
+   // the generator and the `codes.csv` bijection both expect one, and it stages nothing.
    @match {
    }
 

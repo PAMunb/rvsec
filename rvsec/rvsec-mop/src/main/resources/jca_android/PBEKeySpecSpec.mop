@@ -10,10 +10,29 @@ import br.unb.cic.mop.Property;
 /**
  * PBEKeySpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.crypto.spec.PBEKeySpec
+ * Monitors javax.crypto.spec.PBEKeySpec against the CrySL rule PBEKeySpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/PBEKeySpec.crysl
+ * The rule's ORDER is `Con, ClearPass`: construct the key spec with
+ * `PBEKeySpec(password, salt, iterationCount, keyLength)`, then clear the password. The rule
+ * FORBIDS the two shorter constructors -- `PBEKeySpec(char[]) => Con` and
+ * `PBEKeySpec(char[],byte[],int) => Con` -- and this specification declares an event for each,
+ * so that such a call is reported where it happens. It checks the CONSTRAINTS clause
+ * `iterationCount >= 10000`, REQUIRES `randomized[salt]`, ENSURES
+ * `speccedKey[this, keyLength] after Con`, and NEGATES `speccedKey[this, _] after ClearPass`,
+ * which is the one predicate negation in this set.
+ *
+ * Two CONSTRAINTS clauses are not checked, and cannot be from an `after ... returning` advice
+ * over a constructor: `neverTypeOf[password, java.lang.String]` and `notHardCoded[password]`
+ * are claims about where the `char[]` came from in the program text, which a monitor that sees
+ * one call and its arguments has no way to decide.
+ *
+ * Reach limit of the ordering: absorbing a forbidden constructor into the automaton silences
+ * the ordering report at the forbidden call itself, but not at the obligatory call that
+ * follows it. A program that builds a PBEKeySpec with `PBEKeySpec(char[])` and then calls
+ * `clearPassword()` draws an ordering report on top of the forbidden-method one, under the
+ * code that says the creation was one this specification refused.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/PBEKeySpec.crysl
  */
 PBEKeySpecSpec(PBEKeySpec s) {
 
@@ -29,34 +48,29 @@ PBEKeySpecSpec(PBEKeySpec s) {
         // `reset()` does not clear it.
         boolean creationRefused = false;
 
-        // `f1` and `f2` are absorbed, not fused: each accuses a constructor the
-        // rule FORBIDS outright, which is a report of its own and not the negation
-        // of another event's guard. They enter the automaton through the Kleene
-        // groups of the `ere` below, at every position, because the ordering has
-        // nothing to say about a call the rule turns down.
+        // `f1` and `f2` are the rule's two FORBIDDEN entries, each given an event of its own:
+        // each accuses a constructor the rule turns down outright, which is a report in its own
+        // right and not the negation of another event's guard. They enter the automaton through
+        // the Kleene groups of the `ere` below, at every position, because the ordering has
+        // nothing to say about a call the rule refuses. An event left outside the automaton
+        // carries an all-`fail` transition row, so one forbidden construction anywhere in a
+        // program would push every live PBEKeySpec monitor into `fail`, accusing objects that
+        // had done nothing wrong.
         //
-        // Absorbing them matters more here than the noise argument alone suggests.
-        // Left outside the automaton they carried an all-`fail` transition row, so one
-        // forbidden construction anywhere in a program pushed *every* live PBEKeySpec
-        // monitor into `fail`, accusing objects that had done nothing wrong.
+        // Both bind the specification parameter, like `c1` below: on a `call` to a constructor
+        // the returned value is the object being built, so `returning(PBEKeySpec s)` names the
+        // very spec the event accuses. Without it the events name no `PBEKeySpec`, the generator
+        // hands them the parameterless map, and each body runs once on the root monitor and once
+        // on every live monitor of the specification -- a set-wide broadcast where the rule
+        // accuses one construction. What the binding buys is per-object trace semantics; the
+        // `ErrorCollector` deduplicates on the site, so it does not change how many rows a
+        // program draws.
         //
-        // Both bind the specification parameter, like `c1` below: on a `call` to a
-        // constructor the returned value is the object being built, so
-        // `returning(PBEKeySpec s)` names the very spec the event accuses. Without it
-        // the events named no `PBEKeySpec`, the generator handed them the parameterless
-        // map (`PBEKeySpecSpec__Map`, `stateTransitionedSet.event_f1`) and each ran its
-        // body once on the root monitor and once on every live monitor of the
-        // specification -- a set-wide broadcast where the rule accuses one construction.
-        // The `ErrorCollector` dedups on (spec, code, event, class, method, location),
-        // so the copies collapsed to one row and the fan-out never showed in the record;
-        // what the binding buys is per-object trace semantics, not fewer reports.
-        //
-        // The clauses the two accusations implement are the rule's two FORBIDDEN entries:
-        // `PBEKeySpec.crysl:10` (`PBEKeySpec(char[]) => Con`) for `f1` and `:11`
-        // (`PBEKeySpec(char[],byte[],int) => Con`) for `f2`. The emitted strings name the
-        // rule and not the line, because `gh104_message_gate.py` reads a numeral in a
-        // message as a value literal and compares it against the guard's -- so a line
-        // number in the envelope reads as a claim about the argument (task 11.8).
+        // FORBIDDEN `PBEKeySpec(char[]) => Con`: the one-argument constructor, which supplies
+        // neither salt nor iteration count. It is reported under the forbidden-method code
+        // registered in `codes.csv` for this site, and it sets `creationRefused`, which `@fail`
+        // reads so that the ordering failure such a construction leads to says the creation was
+        // one this specification refused.
         event f1 after(char[] password) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[])) &&
           args(password) {
@@ -66,6 +80,9 @@ PBEKeySpecSpec(PBEKeySpec s) {
                 "v=1 code=PBEKEYSPEC-FORB-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[]) is forbidden by the expert PBEKeySpec.crysl'"));
         }
 
+        // FORBIDDEN `PBEKeySpec(char[],byte[],int) => Con`: the three-argument constructor,
+        // which supplies salt and iteration count but no key length. Reported under a code of
+        // its own, because a code names a site, and like `f1` it sets `creationRefused`.
         event f2 after(char[] password, byte[] salt, int keyLength) returning(PBEKeySpec s):
           call (public PBEKeySpec.new(char[], byte[], int)) &&
           args(password, salt, keyLength) {
@@ -75,66 +92,48 @@ PBEKeySpecSpec(PBEKeySpec s) {
                 "v=1 code=PBEKEYSPEC-FORB-01 ev=" + __EVENTNAME + " obj=PBEKeySpec val='' exp='PBEKeySpec(char[], byte[], int, int)' msg='PBEKeySpec(char[], byte[], int) is forbidden by the expert PBEKeySpec.crysl'"));
         }
 
-        // One event over `PBEKeySpec(char[], byte[], int, int)`, where there used to
-        // be four. `err1`, `err2` and `err3` matched the same call with the same
-        // `args`, each negating one conjunct of this event's guard, and none of them
-        // named a state in the `ere`. They are three of the 17 orphan accusers, and
-        // they fuse into one arrow (INV-INS-135) rather than being absorbed as three
-        // more events: four events matching one construction would take four
-        // transitions.
+        // `Con`: `c1: PBEKeySpec(password, salt, iterationCount, keyLength)`, the rule's one
+        // admitted constructor and the opening of its ORDER.
         //
-        // The guard was a conjunction and the negations were per-conjunct, so the
-        // fused body decomposes the same way -- three independent tests, one report
-        // per violated clause, which is what the three orphans emitted between them.
-        // What leaves is the ordering noise: each orphan sat outside the automaton
-        // with an all-`fail` transition row, so a construction that broke all three
-        // clauses drew three PBEKEYSPEC-ORDER-00 on top of the three constraint
-        // reports, and the `clearPassword()` that followed drew a fourth, because the
-        // failing `c1` had never moved the monitor off `start`.
+        // CONSTRAINTS `iterationCount >= 10000`, checked first in the body. A lower count draws
+        // the constraint code registered in `codes.csv` for this site and clears `conforms`. The
+        // rule's other two CONSTRAINTS clauses, `neverTypeOf[password, java.lang.String]` and
+        // `notHardCoded[password]`, are claims about where the password array came from in the
+        // program text, which an advice over one call cannot decide; they are not checked here.
         //
-        // Two of those three tests were predicate reads, and a predicate read carries a
-        // three-valued verdict, because the two accusing outcomes are different claims:
-        // VIOLATED is positive evidence that the array carries a randomisation predicate
-        // that was withdrawn, while NOT_OBSERVED says only that no randomised source of
-        // it was ever seen -- on Android as often a reach limit of the instrumentation as
-        // a misuse. Both messages already said the second thing; the split makes the
-        // code say what the message always meant.
+        // REQUIRES `randomized[salt]`: the object came from a SecureRandom the instrumentation
+        // observed -- the generator itself, or bytes it produced. The read is three-valued.
+        // SATISFIED is silent. VIOLATED is positive evidence about this array -- an entry exists
+        // and is not what the clause demands -- and draws the constraint code. NOT_OBSERVED
+        // means no entry at all: no randomised source of the array was ever seen, which on this
+        // platform is as often a limit of what the weaving reaches as a misuse, so it draws a
+        // code of its own. The array is compared by identity, so only the very array a monitored
+        // SecureRandom filled carries the mark; a copy of it does not. The clause is about the
+        // salt alone -- the rule requires nothing of the password.
         //
-        // Two tests are left, and the middle clause is the one that went. It read
-        // `randomized[password]` and translated no clause of the rule: PBEKeySpec.crysl:29
-        // REQUIRES `randomized[salt]` and says nothing about randomising the password,
-        // whose CONSTRAINTS clauses are `neverTypeOf[password, java.lang.String]` and
-        // `notHardCoded[password]` (:25-26) -- different claims. It
-        // was the standing allow-list finding against `err2`, and the fusion moved the
-        // accusation without repairing it. Task 5.4 removed it, on the measurement the
-        // block above the surviving read states in full: over the whole set nothing
-        // ENSURES `randomized` over a `char[]`, so the read could only ever answer
-        // NOT_OBSERVED, and it accused every construction of a PBEKeySpec, the
-        // conforming ones included. Its two codes, PBEKEYSPEC-CONSTR-01 and
-        // PBEKEYSPEC-NOBS-00, left `codes.csv` with it, and the siblings kept their
-        // numbers because a code is an identifier in measurements already published.
-        // What survives here is the salt read, three-valued for the reason above.
+        // Both checks sit in the event body and not in a `condition(...)` guard: a guard
+        // compiles to an early return ahead of both the body and the transition, so a
+        // construction with a low count or an unwatched salt would leave the automaton in the
+        // state before the constructor, and the `clearPassword()` that followed would be
+        // reported as a wrong call sequence instead of as the misuse the construction was.
         //
-        // Where the write lands, and why it stays here (INV-INS-134's recorded
-        // reason). The rule qualifies the clause -- `speccedKey[this, keyLength] after
-        // Con` (PBEKeySpec.crysl:32) -- so the acceptance point is the state `Con` leads
-        // to. This file states
-        // its automaton as an `ere`, and the ERE plugin generates exactly one alias,
-        // `match`, over the accepting states: here that is the state after `c2`, which
-        // is where the rule NEGATES the predicate rather than ensuring it. Naming the
-        // post-`c1` state needs the `fsm` notation, and making it a `match` alias
-        // would also make the specification accept `c1` alone -- a sequence the rule's
-        // `ORDER c1, cP` rejects, measured against the gate's own DFA. Measured on the
-        // other side: no constructible program makes this transition fail for the
-        // object it binds, because the constructor returns a fresh object each call
-        // and `f1`/`f2` are loops, so the body and the state after it coincide on
-        // every trace. The write stays here with this reason recorded in
-        // predicate_graph.csv, at the rule's arity: the object and the key length.
+        // ENSURES `speccedKey[this, keyLength] after Con`: the key spec was constructed by a
+        // call the instrumentation observed and the rule admitted, and the value place carries
+        // the key length the rule names. The clause is qualified `after Con`, so it holds at the
+        // state `Con` leads to. This specification is stated as an `ere`, and the ERE notation
+        // generates exactly one alias, `match`, over the accepting states -- which here is the
+        // state after `clearPassword()`, where the rule negates the predicate rather than
+        // establishing it. So the write is made in this body, at the event the clause names, and
+        // made only where every clause held.
         //
-        // A construction this body reports on is marked `REPORTED_UPSTREAM` instead, so the
-        // readers of `speccedKey` that consume the mark (`SecretKeyFactorySpec.gen`,
-        // `KeyFactorySpec`) report it as refused upstream rather than as not observed. The salt read here is not a consumer of that mark: no producer of
-        // `RANDOMIZED` marks what it refuses, so NOT_OBSERVED keeps its own code.
+        // A construction this body reports on is marked REPORTED_UPSTREAM instead: the object's
+        // producer already reported it, so a later site that finds no predicate for it is
+        // looking at a refusal upstream and not at a gap in instrumentation reach. The readers
+        // of `speccedKey` -- `generateSecret` in `SecretKeyFactorySpec`, and `generatePrivate`
+        // and `generatePublic` in `KeyFactorySpec` -- consume that mark and report such a spec
+        // as refused upstream rather than as not observed. The salt read here is not a consumer
+        // of the mark: no producer of `randomized` marks what it refuses, so NOT_OBSERVED keeps
+        // its own code.
         event c1 after(char[] password, byte[] salt, int iterationCount, int keyLength) returning(PBEKeySpec s):
           call(public PBEKeySpec.new(char[], byte[], int, int)) &&
           args(password, salt, iterationCount, keyLength) {
@@ -145,28 +144,9 @@ PBEKeySpecSpec(PBEKeySpec s) {
                    "v=1 code=PBEKEYSPEC-CONSTR-00 ev=" + __EVENTNAME + " obj=PBEKeySpec val='" + iterationCount + "' exp='>= 10000' msg='the third argument should be >= 10000'"));
                conforms = false;
            }
-           // The read of `randomized[password]` that stood here is gone, and what it was
-           // is worth stating because it was the file's loudest report. The rule REQUIRES
-           // `randomized[salt]` (PBEKeySpec.crysl:29) and nothing about randomising the
-           // password -- its CONSTRAINTS clauses about it are
-           // `neverTypeOf[password, java.lang.String]` and `notHardCoded[password]`
-           // (:25-26), different claims -- so the read translated no clause. Measured
-           // against the oracle and
-           // against the set: `randomized` is ENSURED over four objects only
-           // (`this` at SecureRandom, `genSeed`, `next`, `numB`), none of them a
-           // `char[]`, and none of the set's six writes of RANDOMIZED binds one either.
-           // The read could therefore answer only NOT_OBSERVED, on every program, so
-           // PBEKEYSPEC-NOBS-00 fired at every construction of a PBEKeySpec, the
-           // conforming ones included -- and, because it cleared `conforms`, the
-           // `speccedKey` write below never ran at all. It was a false accuser of the
-           // shape the change is here to remove, not a reach limit
-           // (researcher decision, 2026-08-22).
-           //
-           // The two codes it emitted, PBEKEYSPEC-CONSTR-01 and PBEKEYSPEC-NOBS-00,
-           // leave `codes.csv` with it. The siblings that outlive them keep their
-           // numbers: a code is an identifier in measurements already published, and
-           // renumbering CONSTR-02 and NOBS-01 down would rewrite what the gh104
-           // campaign reported about a site that did not change.
+           // REQUIRES `randomized[salt]`, read here in the body: VIOLATED is positive evidence
+           // about the array, NOT_OBSERVED says only that no randomised source of it was ever
+           // seen, and the two draw different codes.
            PredicateVerdict randomisedSalt = PredicateStore.instance().validate(Property.RANDOMIZED, salt);
            if (randomisedSalt == PredicateVerdict.VIOLATED) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsatisfiedConstraint, "PBEKeySpecSpec", "" + __LOC,
@@ -186,46 +166,47 @@ PBEKeySpecSpec(PBEKeySpec s) {
            }
         }
 
-        // The one real NEGATES clause of the set: `speccedKey[this, _] after cP`, at
-        // the event the rule names. It reaches the new substrate here rather than in
-        // its own later task, because the write it withdraws is in this file and moved
-        // in this pass: a translation split across two tasks would leave the predicate
-        // ensured on one substrate and withdrawn from the other, so the withdrawal
-        // would be a no-op in between (researcher, 2026-08-21). The store remembers
-        // the withdrawal instead of forgetting the entry, so a later read of a cleared
-        // spec answers VIOLATED rather than NOT_OBSERVED -- which is what the clause
-        // states.
+        // `ClearPass`: `cp1: clearPassword()`, the second half of the rule's ORDER.
         //
-        // Who reads it, written down here because this is where the predicate is
-        // produced. The oracle states `speccedKey[keySpec, _]` as the one REQUIRES of
-        // `SecretKeyFactory` (SecretKeyFactory.crysl:28), and that rule has its `.mop` in
-        // this set, so the read is live: `SecretKeyFactorySpec.mop:109`, plus the two
-        // `KeyFactorySpec` sites (`:90`, `:128`) that read the same predicate over the
-        // key spec their own rule requires. A cleared spec therefore reaches a reader
-        // that can tell VIOLATED from NOT_OBSERVED, which is what the withdrawal above is
-        // for. The oracle's other producer, `SecretKeySpec`, writes it too
-        // (SecretKeySpecSpec.mop, the `@match`).
+        // NEGATES `speccedKey[this, _] after ClearPass` -- the one predicate negation in this
+        // set. The store remembers the negation instead of forgetting the entry, so a later
+        // read of a cleared spec answers VIOLATED and not NOT_OBSERVED: the store positively
+        // knows the predicate does not hold, which is what the clause states. The negation is
+        // written in the body because the clause names this event, and the object it names is
+        // the monitored spec, which the event binds.
+        //
+        // The readers that see it are `generateSecret` in `SecretKeyFactorySpec`, whose rule
+        // REQUIRES `speccedKey[keySpec, _]`, and `generatePrivate` and `generatePublic` in
+        // `KeyFactorySpec`, whose rule requires the same of the spec it decodes. A spec whose
+        // password was cleared and which is then handed to one of them is therefore accused under
+        // the verdict for a predicate the store saw negated, not under the one for a predicate it
+        // never saw.
         event c2 after(PBEKeySpec s):
 	      call(public void PBEKeySpec.clearPassword()) &&
           target(s) {
             PredicateStore.instance().negate(Property.SPECCED_KEY, s);
         }
 
-        // The Kleene groups are where `f1` and `f2` are absorbed. Erased before the
-        // G-ORDER comparison (they are ORDER-unmapped in order_alphabet_map.csv),
-        // this is still the rule's `ORDER c1, cP`.
+        // `ORDER Con, ClearPass`, with the two forbidden constructors absorbed into the Kleene
+        // groups: a call the rule refuses outright is reported by its own event and left
+        // otherwise free in the ordering, because the ordering has nothing to say about it.
         //
-        // Residue, recorded and not repaired: absorbing a forbidden constructor by a
-        // Kleene group silences the ordering report at the forbidden call itself, but
-        // not the obligatory call that follows it. A program that builds a PBEKeySpec
-        // with `PBEKeySpec(char[])` and then calls `clearPassword()` still reaches
-        // `c2` from a state where `c1` never happened, and still draws an ordering
-        // report on top of the PBEKEYSPEC-FORB-00 the constructor already earned:
-        // PBEKEYSPEC-ORDER-02, labelled `creation-refused`, because `f1` set
-        // `creationRefused`. Silencing that would mean modelling `f1` as an alternative
-        // opening of the ordering, which is the opposite of what FORBIDDEN says.
+        // Reach limit, stated as behaviour: absorbing a forbidden constructor silences the
+        // ordering report at the forbidden call itself, but not at the obligatory call that
+        // follows it. A program that builds a PBEKeySpec with `PBEKeySpec(char[])` and then
+        // calls `clearPassword()` still reaches `c2` from a state where `c1` never happened, and
+        // still draws an ordering report on top of the forbidden-method one the constructor
+        // already earned, under the code that says the creation was refused -- `f1` set
+        // `creationRefused`. Silencing it would mean modelling `f1` as an alternative opening of
+        // the ordering, which is the opposite of what FORBIDDEN says.
         ere : (f1 | f2)* c1 (f1 | f2)* c2 (f1 | f2)*
 
+        // Unlike the constructor-only specifications of this set, this handler can fire: the
+        // ordering has two obligatory events, so a spec whose password is cleared without a
+        // construction having been observed, or one constructed twice, reaches it. The three
+        // branches are three different claims about the same failure -- no creation observed at
+        // all, a creation this specification refused, or a plain wrong call sequence -- and each
+        // carries its own code in `codes.csv`.
         @fail {
           if (!creationObserved) {
              ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "PBEKeySpecSpec", "" + __LOC,
@@ -242,10 +223,5 @@ PBEKeySpecSpec(PBEKeySpec s) {
           __RESET;
         }
 
-        // The `@match` handler that stood here held nothing but the accepting-state
-        // bookkeeping the new substrate does not offer and the set never read
-        // (INV-INS-147), and the `spec` field existed only to carry the object into
-        // it. Both go: the write the rule does ask for names the object the event
-        // already binds.
 
 }

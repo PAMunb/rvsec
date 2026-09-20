@@ -11,12 +11,33 @@ import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
- * PKIXBuilderParameters
+ * PKIXBuilderParametersSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.cert.PKIXBuilderParameters.
+ * Monitors java.security.cert.PKIXBuilderParameters against the CrySL rule
+ * PKIXBuilderParameters.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/PKIXBuilderParameters.crysl
+ * The rule's ORDER is `Con`, that is `c1: PKIXBuilderParameters(keystore, targetConstraints);` or
+ * `c2: PKIXBuilderParameters(trustAnchors, targetConstraints);`. It states no CONSTRAINTS. Its
+ * one live REQUIRES clause, `generatedKeyStore[keystore]`, binds the argument of `c1` alone and
+ * is read in that event's body. Its one ENSURES clause, `generatedCertPathParameters[this]`, is
+ * written at the accepting state and read by `CertPathTrustManagerParametersSpec` at its
+ * constructor.
+ *
+ * Divergences from the rule and reach limits of this monitor:
+ *
+ * - The rule states a second requirement and states it commented out, `//generatedTrustAnchor[];`,
+ *   with no argument in its brackets. It is not transcribed: a clause the rule disables
+ *   constrains no trace. `TrustAnchorSpec` writes that predicate all the same, because its own
+ *   rule ensures it, and nothing in this set reads it.
+ * - Nothing is checked at the trust-anchor constructor, since the only clause that would read its
+ *   argument is the commented-out one.
+ * - The predicate is written only for a construction that satisfied the rule, so parameters built
+ *   over a key store whose loading was not observed carry no mark and are read downstream as
+ *   parameters whose own construction was not observed.
+ * - The `@fail` handler cannot fire, because a monitor keyed on the constructed object never sees
+ *   a second event.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/PKIXBuilderParameters.crysl
  */
 PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
 
@@ -30,22 +51,34 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
    // wrong-sequence code.
    boolean creationObserved = false;
 
-   // The key-store constructor, the rule's `c1` (:9) and one alternative of its
-   // `Con := c1 | c2`. api30 declares both overloads with these exact parameter lists.
+   // `Con` of PKIXBuilderParameters.crysl:
+   // `c1: PKIXBuilderParameters(keystore, targetConstraints);`, the key-store constructor and one
+   // alternative of `Con := c1 | c2`. The platform declares both overloads with these exact
+   // parameter lists.
    //
-   // The rule's one live REQUIRES is `generatedKeyStore[keystore]` (:17), read here in the
-   // body rather than in a `condition(...)` -- a guard would compile to
-   // `if (!(guard)) return false;` ahead of the transition (INV-INS-133), and a failed
-   // REQUIRES is not a typestate failure. Three-valued, with VIOLATED and NOT_OBSERVED
-   // under different code families (INV-INS-143). The producer is `KeyStoreSpec.mop:214`.
+   // REQUIRES of PKIXBuilderParameters.crysl: `generatedKeyStore[keystore];`. The predicate says
+   // that the `KeyStore` was loaded by a call the instrumentation observed; its producer in this
+   // set is `KeyStoreSpec`, which writes the mark at the acceptance point its `load` event leads
+   // to.
    //
-   // The rule states a second requirement and states it commented out:
-   // `//generatedTrustAnchor[];` at :18, with no argument in its brackets. It is not wired,
-   // and not because transcribing it would be hard: a clause the oracle disabled is a fact
-   // about the oracle, and reviving it here would put this file ahead of the rule it
-   // answers to. `TrustAnchorSpec` (2.12) writes `generatedTrustAnchor` all the same,
-   // because its own rule ENSURES it; the predicate simply has no live consumer, which the
-   // ledger records rather than repairs.
+   // The read sits in the event body and not in a `condition(...)` guard: a guard compiles to an
+   // early return ahead of both the body and the transition, so a construction over an unloaded
+   // store would drop out of the automaton silently and a later call would be reported as a
+   // wrong call sequence instead of as the unprepared key store it is. A failed REQUIRES is not a
+   // typestate failure.
+   //
+   // The verdict is three-valued and the two accusing outcomes are different claims, reported
+   // under different codes. VIOLATED is positive evidence about this store -- an entry exists
+   // whose values differ, or the predicate was revoked by a `negate`. NOT_OBSERVED says only that
+   // no entry exists: no `KeyStore.load` was ever seen for it, which happens when the loading ran
+   // before the monitor attached or inside code the weaving does not reach, and is a reach limit
+   // rather than a misuse. Only the SATISFIED branch stages the object, so parameters built over
+   // a store whose loading was not observed carry no mark out of this specification.
+   //
+   // The rule states a second requirement and states it commented out, `//generatedTrustAnchor[];`,
+   // with no argument in its brackets. It is not transcribed here, because a clause the rule
+   // disables constrains no trace. `TrustAnchorSpec` writes that predicate all the same, since
+   // its own rule ensures it, and no site of this set reads it.
    event c1 after(KeyStore keystore, CertSelector targetConstraints) returning(PKIXBuilderParameters s):
      call(public PKIXBuilderParameters.new(KeyStore, CertSelector)) &&
      args(keystore, targetConstraints) {
@@ -64,10 +97,13 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
        }
    }
 
-   // The trust-anchor constructor, the rule's `c2` (:10). It binds `trustAnchors`, and the
-   // only clause of the rule that would read that object is the commented-out one at :18.
-   // So there is nothing to check here and nothing to accuse, exactly as in the sibling
-   // `PKIXParametersSpec.c2`, and for the same reason: the rule says so.
+   // `Con` of PKIXBuilderParameters.crysl:
+   // `c2: PKIXBuilderParameters(trustAnchors, targetConstraints);`, the trust-anchor constructor
+   // and the other alternative of `Con := c1 | c2`. It binds `trustAnchors`, and the only clause
+   // of the rule that would read that object is the commented-out `//generatedTrustAnchor[];`.
+   // So there is nothing to check here and nothing to accuse, and the object is staged
+   // unconditionally: the rule says so, exactly as it does at the sibling constructor of
+   // `PKIXParametersSpec`.
    event c2 after(Set trustAnchors, CertSelector targetConstraints) returning(PKIXBuilderParameters s):
      call(public PKIXBuilderParameters.new(Set, CertSelector)) &&
      args(trustAnchors, targetConstraints) {
@@ -75,11 +111,10 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
        spec = s;
    }
 
-   // `Con := c1 | c2` is the whole ORDER (:13-14), so the `@fail` handler cannot fire: the
-   // transition row is {1, 2, 2} for both events and the monitor is keyed on the constructed
-   // object, so no monitor ever sees a second event and state 2 is never entered. Written
-   // because the generator and the `codes.csv` bijection expect it (precedent:
-   // `GCMParameterSpecSpec.mop:158-170`).
+   // `Con := c1 | c2` is the whole ORDER, so the `@fail` handler below cannot fire: each trace
+   // has one symbol, and the monitor is keyed on the constructed object, so no monitor ever sees
+   // a second event. It is written because the generator expects a handler and because the codes
+   // it names are registered in `codes.csv`.
    ere : c1 | c2
 
    @fail {
@@ -94,13 +129,19 @@ PKIXBuilderParametersSpec(PKIXBuilderParameters s) {
       __RESET;
    }
 
-   // `ENSURES generatedCertPathParameters[this]` (:21) carries no `after L`, so the
-   // acceptance point is the accepting state, which in an `ere` is `@match` (INV-INS-134).
-   // `spec` is bound by `c2` always and by `c1` only where the store's load was observed,
-   // and `ensure` treats a null binding as a no-op.
+   // ENSURES of PKIXBuilderParameters.crysl: `generatedCertPathParameters[this];`. The predicate
+   // says that the PKIX parameters were built over a key store the instrumentation observed
+   // being loaded. The clause carries no `after L`, so its acceptance point is the accepting
+   // state, which in a specification written as an `ere` is this handler: it fires whenever the
+   // trace so far is a word of the expression.
    //
-   // This is the second producer of the predicate; `PKIXParametersSpec` (2.10) is the
-   // first, and `CertPathTrustManagerParameters.crysl:14` is the consumer both answer to.
+   // The object travels here in a field because a handler receives no event arguments and runs
+   // after the transition has been decided. `spec` is staged by `c2` always and by `c1` only
+   // where the store's loading was observed, and `ensure` treats a null binding as a no-op, so
+   // parameters built over an unobserved store are not marked.
+   //
+   // This is the predicate's second producer in this set; `PKIXParametersSpec` is the other, and
+   // `CertPathTrustManagerParametersSpec` is the consumer both answer to.
    @match {
       PredicateStore.instance().ensure(Property.GENERATED_CERT_PATH_PARAMETERS, spec);
    }

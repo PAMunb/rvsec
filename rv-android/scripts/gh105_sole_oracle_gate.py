@@ -87,18 +87,9 @@ def default_core_dir() -> Path:
     return root / "rvsec/rvsec-core/src"
 
 
-#: Java of `rvsec-core` exempt by declaration, with the reason. `Api30CipherTransformationUtil`
-#: IS the record of what the withdrawn anchor said -- it exists for no other purpose, keeps no
-#: caller, and its own javadoc closes with "It is not to be given a caller again"
-#: (`CipherSpec.mop` names it in the same terms). A gate that flagged it would be asking the
-#: record of the withdrawal to stop naming what was withdrawn.
-EXEMPT_CORE = {
-    "Api30CipherTransformationUtil.java":
-        "the transcription of the withdrawn anchor, kept as the record of what it said and "
-        "given no caller (gh105 task 11.3)",
-    "Api30CipherTransformationUtilTest.java":
-        "the test of that transcription, which asserts what the withdrawn anchor admitted",
-}
+#: Java of `rvsec-core` exempt by declaration, keyed by file name and carrying the reason.
+#: No class of `rvsec-core` is exempt: every `.java` under the module is checked.
+EXEMPT_CORE: dict[str, str] = {}
 
 #: What naming the withdrawn catalogue looks like.
 #:

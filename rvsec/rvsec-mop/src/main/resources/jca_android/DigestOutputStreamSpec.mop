@@ -10,16 +10,28 @@ import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
- * DigestOutputStream
+ * DigestOutputStreamSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.DigestOutputStream.
+ * Monitors java.security.DigestOutputStream against the CrySL rule DigestOutputStream.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/DigestOutputStream.crysl
+ * The rule's ORDER is `Con, Write+, Close`: the stream is constructed over a
+ * java.io.OutputStream and a java.security.MessageDigest, written to at least once, and closed.
+ * Its one FORBIDDEN entry is `on(boolean)`, which this specification reports wherever it
+ * occurs. Of its three array-bounds CONSTRAINTS -- `length[data] >= offset + len`,
+ * `offset >= 0` and `len > 0` -- only `len > 0` carries a code here; the `w2` event below
+ * says why the other two do not.
+ *
+ * It REQUIRES `generatedMessageDigest[digest]`, read at the constructor, and ENSURES
+ * `digestedOutputStream[stream, digest]`, written at the state `close()` leads to. No rule of
+ * this set requires `digestedOutputStream`, so that write records a fact nothing consumes.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/DigestOutputStream.crysl
  */
 DigestOutputStreamSpec(DigestOutputStream s) {
 
-   // The envelope's quoting rule (design D-3).
+   // The envelope's quoting rule: a null value is the empty string, a single quote is escaped
+   // so it cannot close the field early, and the value is capped so a pathological argument
+   // cannot push the record past the logcat payload limit.
    private String q(String str) {
        if (str == null) {
            return "";
@@ -33,6 +45,8 @@ DigestOutputStreamSpec(DigestOutputStream s) {
    OutputStream wrapped = null;
    MessageDigest digester = null;
 
+   // The `exp=` field of both reports the constructor can draw, held in one place so the two
+   // sites cannot drift apart.
    String expectedGeneratedMessageDigest =
        "a MessageDigest this instrumentation observed being obtained";
 
@@ -40,18 +54,26 @@ DigestOutputStreamSpec(DigestOutputStream s) {
    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // `c1: DigestOutputStream(stream, digest)` (:15), the whole of `Con`, and the site of the
-   // rule's one REQUIRES.
+   // `Con` of DigestOutputStream.crysl: `c1: DigestOutputStream(stream, digest)`, the rule's only
+   // constructor event and the site of its one REQUIRES.
    //
-   // `generatedMessageDigest[digest]` (:34) is read here, three-valued, with a code per
-   // accusing outcome (INV-INS-143). Its producer is `MessageDigestSpec`'s `g1`/`g2`/`g3`,
-   // which write the predicate at `MessageDigest.crysl:46`'s `after Get` -- a write the
-   // transcription had omitted until gh109 task 1.3(b), and one this specification could not
-   // have been written before: a read whose producer never fires answers NOT_OBSERVED for
-   // every program, which is the shape INV-INS-151 refuses.
+   // REQUIRES `generatedMessageDigest[digest]`: the MessageDigest was obtained for an algorithm
+   // the rule admits. The read is three-valued and each accusing outcome carries its own code,
+   // registered in `codes.csv`. SATISFIED binds the two staging fields and reports nothing.
+   // VIOLATED is positive evidence -- an entry for this digest exists and does not match what
+   // the clause demands -- and draws the constraint code. NOT_OBSERVED means the store holds no
+   // entry for this digest at all: its `getInstance` ran where the weaving does not reach, or
+   // before the monitor attached, so what the report says is that no obtaining of this digest
+   // was observed, not that the program misused one. The two reach the envelope under different
+   // codes for exactly that reason.
    //
-   // The two fields are bound on the conforming branch only, so a stream built over a digest
-   // nobody watched does not go on to claim it digested anything.
+   // The producing end is `MessageDigestSpec`, whose `g1`, `g2` and `g3` events write the
+   // predicate in their bodies at the three `getInstance` overloads -- and only when the
+   // algorithm is one their list admits, so a digest that specification refused never arrives
+   // here carrying the mark.
+   //
+   // The two staging fields are bound on the conforming branch only, so a stream built over a
+   // digest nobody watched does not go on to claim it digested anything.
    event c1 after(OutputStream stream, MessageDigest digest) returning(DigestOutputStream s):
      call(public DigestOutputStream.new(OutputStream, MessageDigest)) &&
      args(stream, digest) {
@@ -71,26 +93,30 @@ DigestOutputStreamSpec(DigestOutputStream s) {
        }
    }
 
-   // `r1: write(specifiedByte)` (:18), one alternative of `Write`. The rule states no
-   // clause about it -- the byte it names appears in no CONSTRAINTS.
+   // `Write` of DigestOutputStream.crysl: `r1: write(specifiedByte)`, the single-byte overload.
+   // The rule states no CONSTRAINTS over `specifiedByte`, so the body is empty and the event
+   // exists to carry the transition the ORDER asks for.
    event w1 after(int specifiedByte, DigestOutputStream s):
      call(public void DigestOutputStream.write(int)) &&
      args(specifiedByte) && target(s) {
    }
 
-   // `r2: write(data, offset, len)` (:19), the other alternative, and the site of the three
-   // array-bounds CONSTRAINTS (:29-31).
+   // `Write` of DigestOutputStream.crysl: `r2: write(data, offset, len)`, the overload the
+   // rule's three array-bounds CONSTRAINTS speak about -- `length[data] >= offset + len`,
+   // `offset >= 0` and `len > 0`.
    //
-   // ONLY ONE OF THE THREE CARRIES A CODE -- the rule the conventions note fixes for a conjunct
-   // the platform refuses first (the R9 measurement on `IvParameterSpec`).
-   // `DigestOutputStream.write(b, off, len)` writes to the wrapped stream before it updates the
-   // digest, and `OutputStream.write(byte[], int, int)` throws `IndexOutOfBoundsException` when
-   // `off < 0`, when `len < 0` or when `off + len > b.length`. This plain `after` advice runs its
-   // body when the call throws too (INV-INS-163), so a violated `offset >= 0` or
-   // `length[data] >= offset + len` reaches it only on a call the platform has already refused.
+   // Only `len > 0` carries a code, and the other two are checked here by nothing. The reason
+   // is that the platform refuses them first: `DigestOutputStream.write(b, off, len)` writes to
+   // the wrapped stream before it updates the digest, and `OutputStream.write(byte[], int,
+   // int)` throws `IndexOutOfBoundsException` when `off < 0`, when `len < 0` or when
+   // `off + len > b.length`. This is a plain `after` advice, which the weaver compiles as
+   // after-finally, so the body does run on the throwing call -- but a call that violated
+   // `offset >= 0` or `length[data] >= offset + len` has already been refused by the platform,
+   // and a code for either would accuse a program of what the platform does not let it do.
    //
-   // `len > 0` is the one with a code: `write(b, off, 0)` returns without throwing, and a
-   // call with `len < 0` throws and still reaches the `len <= 0` branch below.
+   // `len > 0` is the one with a code, because a violation of it survives the platform:
+   // `write(b, off, 0)` returns without throwing, and a call with `len < 0` throws and still
+   // reaches the `len <= 0` branch below. The code is registered in `codes.csv`.
    event w2 after(byte[] data, int offset, int len, DigestOutputStream s):
      call(public void DigestOutputStream.write(byte[], int, int)) &&
      args(data, offset, len) && target(s) {
@@ -100,12 +126,15 @@ DigestOutputStreamSpec(DigestOutputStream s) {
        }
    }
 
-   // `cl1: close()` (:22), the whole of `Close`.
+   // `Close` of DigestOutputStream.crysl: `cl1: close()`, the rule's whole `Close`. It carries
+   // no clause, so the body is empty; what the event does is take the transition into the
+   // accepting state, which is where the rule's ENSURES is written.
    //
    // `DigestOutputStream` does not DECLARE `close()`: it inherits it from
    // `java.io.FilterOutputStream`. The pointcut names the subtype anyway, and that is
-   // measured rather than assumed -- javac emits the call site's static receiver type as the
-   // invoke owner, so `dis.close()` on a variable declared `DigestOutputStream` compiles to
+   // what the compilers emit rather than an assumption -- javac emits the call site's
+   // static receiver type as the invoke owner, so `dos.close()` on a variable declared
+   // `DigestOutputStream` compiles to
    // `invokevirtual java/security/DigestOutputStream.close:()V`, which is what both the
    // AspectJ matcher and the DEX matcher read. A pointcut on `FilterOutputStream.close()`
    // would instead match every filtered stream in the program.
@@ -114,12 +143,12 @@ DigestOutputStreamSpec(DigestOutputStream s) {
      target(s) {
    }
 
-   // The rule's one FORBIDDEN entry, `on(boolean)` (:12). It accuses in its body and moves
-   // the automaton nowhere -- a self-loop at every state -- for the reason
-   // `SSLContextSpec.getDefault` and `PBEKeySpecSpec` both record: making a forbidden call
-   // an alternative position of the ordering is the opposite of what FORBIDDEN says. The
-   // `fsm` is what lets an event self-loop; an `ere` cannot spell it, which is why this file
-   // has one where its siblings have an `ere`.
+   // FORBIDDEN of DigestOutputStream.crysl: `on(boolean)`. The event accuses in its body and
+   // moves the automaton nowhere -- it self-loops at every state of the `fsm` below. A
+   // forbidden call is forbidden wherever it appears, so giving it a position in the ordering
+   // would say the opposite of what FORBIDDEN says: it would make the call part of some
+   // accepted sequence and make its absence a failure. Self-looping is what an `fsm` can spell
+   // and an `ere` cannot, which is why this specification is written as an `fsm`.
    event on after(boolean flag, DigestOutputStream s):
      call(public void DigestOutputStream.on(boolean)) &&
      args(flag) && target(s) {
@@ -127,10 +156,10 @@ DigestOutputStreamSpec(DigestOutputStream s) {
            "v=1 code=DIGESTOUTPUTSTREAM-FORB-00 ev=" + __EVENTNAME + " obj=DigestOutputStream val='" + flag + "' exp='no call at all' msg='DigestOutputStream.on(boolean) is forbidden by the expert DigestOutputStream.crysl'"));
    }
 
-   // The rule's ORDER, `Con, Write+, Close` (:26), with the forbidden call self-looping at
-   // every state. The `+` is checked against the R4 lesson: neither `w1` nor `w2` erases to
-   // nothing against the rule's alphabet -- both stand for a labelled `Write` of the rule --
-   // so the `+` here means what it looks like.
+   // The rule's ORDER, `Con, Write+, Close`, with the forbidden call self-looping at every
+   // state. The `+` means what it looks like here: both `w1` and `w2` stand for a labelled
+   // `Write` of the rule, so neither can be taken as an empty move, and a stream closed with
+   // no write between construction and `close()` fails.
    fsm :
      start [
        c1 -> opened
@@ -153,6 +182,11 @@ DigestOutputStreamSpec(DigestOutputStream s) {
 
    alias match = closed
 
+   // Reached whenever the observed sequence is not a word of the `fsm` above. The two codes
+   // are registered in `codes.csv` and the `creationObserved` field is what tells them apart: a
+   // stream whose constructor no event of this specification saw is reported as an unobserved
+   // creation rather than as a sequence the program got wrong. The staging fields are cleared
+   // here so a refused sequence leaves no value for the next run of the handler.
    @fail {
       if (!creationObserved) {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "DigestOutputStreamSpec", "" + __LOC,
@@ -167,13 +201,18 @@ DigestOutputStreamSpec(DigestOutputStream s) {
       __RESET;
    }
 
-   // `ENSURES digestedOutputStream[stream, digest]` (:37), with no `after L`, so the
-   // acceptance point is the accepting state (INV-INS-134) -- here the state a `close()`
-   // leads to, which is what the rule's ORDER makes accepting.
+   // ENSURES `digestedOutputStream[stream, digest]`. The clause carries no `after L`, so its
+   // acceptance point is an accepting state of the ORDER -- here the state a `close()` leads
+   // to, `closed`, which `alias match` names. The write establishes that the stream was written
+   // through a digest the instrumentation observed.
    //
-   // No rule of the pinned oracle REQUIRES `digestedOutputStream`. The write stands because
-   // the rule ENSURES it and coverage is the obligation; no reader is fabricated for it
-   // (INV-INS-137) and the graph carries the omission.
+   // It reads the two fields the constructor staged, because a handler receives no event
+   // arguments and runs after the transition is decided: the wrapped stream and the digest are
+   // only visible at `c1`. Both are cleared after the write, so one construction yields one
+   // marking.
+   //
+   // No rule of this set REQUIRES `digestedOutputStream`, so nothing reads what is written
+   // here; the write stands because the rule states it.
    @match {
       if (wrapped != null && digester != null) {
           PredicateStore.instance().ensure(Property.DIGESTED_OUTPUT_STREAM, wrapped, digester);

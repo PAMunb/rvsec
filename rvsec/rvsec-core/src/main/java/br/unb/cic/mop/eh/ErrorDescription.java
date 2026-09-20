@@ -4,6 +4,23 @@ import java.io.Serializable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * One violation as a specification reports it: what kind of misuse it is, which specification saw
+ * it, the stack frame it was seen at, and the {@code expecting} text the specification builds, which
+ * across this set is the {@code v=1} message envelope.
+ *
+ * <p>
+ * The constructor derives an {@link ErrorSummary} from those four values and keeps it, and
+ * {@link #equals(Object)} and {@link #hashCode()} answer from the summary alone. The summary is
+ * what carries the identity of a report: the frame is split into a qualified class, a method and a
+ * source position, and the envelope's {@code code} and {@code ev} are read out of
+ * {@code expecting}.
+ *
+ * <p>
+ * A caller that has an envelope passes it as the fourth constructor argument; the three-argument
+ * constructor stands for a report without one, and its summary then carries the
+ * {@link #UNSPECIFIED} sentinel in both envelope fields.
+ */
 public class ErrorDescription implements Serializable {
 	private static final long serialVersionUID = 1L;
 
@@ -29,11 +46,10 @@ public class ErrorDescription implements Serializable {
 	 * What a report carries for {@code code} and {@code event} when its message has no envelope.
 	 *
 	 * <p>
-	 * A sentinel and not {@code null}, and not the empty string either. Both new fields are part
-	 * of the identity, so their absence has to be a value a reader can see and a
-	 * {@code HashSet} can compare: every record of a specification set that emits no envelope
-	 * then shares one readable identity, distinguishable at a glance from a record whose event
-	 * was actually named.
+	 * A sentinel and not {@code null}, and not the empty string either. Both fields are part of
+	 * the identity, so their absence has to be a value a reader can see and a {@code HashSet} can
+	 * compare: every record of a specification set that emits no envelope then shares one
+	 * readable identity, distinguishable at a glance from a record whose event is named.
 	 */
 	static final String UNSPECIFIED = "UNSPECIFIED";
 
@@ -42,9 +58,9 @@ public class ErrorDescription implements Serializable {
 	 *
 	 * <p>
 	 * Presence of this marker — not presence of the keys — is what decides whether a message is
-	 * an envelope. A pre-envelope sentence that happened to contain the characters {@code ev=}
-	 * must yield the sentinel, or the two identity eras would not be distinguishable in the
-	 * record, which is the one thing a declared discontinuity has to keep true.
+	 * an envelope. A free-text sentence that happens to contain the characters {@code ev=} must
+	 * still yield the sentinel, so that a record whose identity carries real envelope values can
+	 * never be confused with one that carries none.
 	 */
 	private static final String ENVELOPE_MARKER = "v=1 ";
 
@@ -55,10 +71,9 @@ public class ErrorDescription implements Serializable {
 	 * <p>
 	 * The boundary is what keeps the free-text {@code msg='...'} tail from supplying a value: the
 	 * grammar puts {@code code} and {@code ev} second and third, immediately after the marker, so
-	 * the first match is always the record's own. The Python reader that measured the identity
-	 * discontinuity applies the same two rules to the same field
-	 * ({@code rv-android/scripts/gh104_identity_discontinuity.py}); one grammar read two ways
-	 * drifts unless both readers are written from it.
+	 * the first match is always the record's own. Any offline reader of the same field has to
+	 * apply these same two rules, because one grammar read two ways drifts unless both readers
+	 * are written from it.
 	 */
 	private static final Pattern ENVELOPE_CODE = Pattern.compile("(?:^|\\s)code=(\\S+)");
 
@@ -103,7 +118,7 @@ public class ErrorDescription implements Serializable {
 	}
 
 	/**
-	 * Splits the reported {@link StackTraceElement} string into a class, a method and a source
+	 * Split the reported {@link StackTraceElement} string into a class, a method and a source
 	 * position.
 	 *
 	 * <p>
@@ -146,7 +161,7 @@ public class ErrorDescription implements Serializable {
 	}
 
 	/**
-	 * Reads one identity key out of the message envelope, or returns {@link #UNSPECIFIED}.
+	 * Read one identity key out of the message envelope, or return {@link #UNSPECIFIED}.
 	 *
 	 * <p>
 	 * The value is taken from {@code expecting} rather than passed in beside it because that is
@@ -173,7 +188,7 @@ public class ErrorDescription implements Serializable {
 	}
 
 	/**
-	 * Hashes exactly what {@link #equals(Object)} compares — the {@link ErrorSummary}, and
+	 * Hash exactly what {@link #equals(Object)} compares — the {@link ErrorSummary}, and
 	 * nothing else.
 	 *
 	 * <p>
@@ -189,10 +204,10 @@ public class ErrorDescription implements Serializable {
 	 * One consequence is worth knowing where dedup happens: the <em>free text</em> of
 	 * {@code expecting} is not part of the identity, so two reports that differ only in the
 	 * expected value are one record and which of them survives an in-JVM {@code HashSet} is
-	 * arrival order. What is <em>not</em> outside the identity any more is the {@code code=} and
-	 * {@code ev=} pair the same field carries when the message is an envelope: those two are
-	 * read out of it and enter the summary, so two reports that name different events are two
-	 * records even at one location.
+	 * arrival order. The {@code code=} and {@code ev=} pair the same field carries when the
+	 * message is an envelope is <em>inside</em> the identity, though: those two are read out of
+	 * it and enter the summary, so two reports that name different events are two records even
+	 * at one location.
 	 */
 	@Override
 	public int hashCode() {

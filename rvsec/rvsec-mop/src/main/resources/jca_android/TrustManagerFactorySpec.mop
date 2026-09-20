@@ -15,13 +15,42 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 /**
  * TrustManagerFactorySpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.net.ssl.TrustManagerFactory class.
+ * Monitors javax.net.ssl.TrustManagerFactory against the CrySL rule TrustManagerFactory.crysl.
  *
- * https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/TrustManagerFactory.crysl
+ * The rule's ORDER is `Get, Init, GetTrustMng?`: a factory is obtained from `getInstance`,
+ * initialised once, and its trust managers taken at most once. Its CONSTRAINTS clause,
+ * `algorithm in {"PKIX", "SunX509"}`, is enforced over the algorithm the factory reports, in the
+ * body of the `init` event. Its two REQUIRES clauses, `generatedKeyStore[keyStore]` and
+ * `generatedManagerFactoryParameters[params]`, are read at that same event, one per branch of the
+ * runtime type of its single argument. Its two ENSURES clauses,
+ * `generatedTrustManager[this] after Init` and
+ * `generatedTrustManagers[trustManager] after GetTrustMng`, are written at the state `init` leads
+ * to and in the body of `getTrustManagers` respectively.
+ *
+ * Divergences from the rule and reach limits of this monitor:
+ *
+ * - At the one-argument `getInstance` the algorithm governs no transition, because the rule
+ *   states it in CONSTRAINTS and not in ORDER, and the accusation therefore lives in the `init`
+ *   body. A factory obtained there for a refused algorithm and never initialised is accused of
+ *   nothing. At the two-argument overload the split described below does make the algorithm
+ *   decide the transition.
+ * - `SunX509` is an entry of the rule's clause and stays in the list, and no provider of this
+ *   platform registers it: `getInstance("SunX509")` cannot return a factory here, so the entry
+ *   admits nothing that can run.
+ * - The two-argument `getInstance` is split into an admitted event and a refused twin, so that a
+ *   factory whose creation ran in woven code is never reported as one whose creation was never
+ *   seen. The refused twin leads to a state with no transitions, which the rule does not have.
+ * - `generatedTrustManager[this] after Init` is written over the factory and no specification of
+ *   this set reads a mark bound to a `TrustManagerFactory`; the write records the initialisation
+ *   and nothing consumes it.
+ * - `init(null)` is read rather than exempted. It is the documented request for the platform's
+ *   own trust store, so no loading of a key store was observed for it and it is reported under a
+ *   code of its own, apart from a key store whose loading merely went unseen.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/TrustManagerFactory.crysl
  */
 TrustManagerFactorySpec(TrustManagerFactory mf) {
-    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // The envelope's quoting rule: a null value is the empty string,
     // a single quote is escaped so it cannot close the field early, and the value
     // is capped so a pathological argument cannot push the record past the
     // logcat payload limit.
@@ -33,8 +62,18 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
         return value.replace("'", "\\'");
     }
 
-    // D-15: TrustManagerFactory.crysl states `algorithm in {"PKIX", "SunX509"}`. Same
-    // disposition as KeyManagerFactorySpec: `SunX509` is inert on Android, not removable.
+    // The allow-list this specification enforces, and it is the CONSTRAINTS clause of
+    // TrustManagerFactory.crysl word for word: `algorithm in {"PKIX", "SunX509"}`.
+    //
+    // A value spelled otherwise can still reach an entry: every comparison goes through
+    // `ConscryptAliasTable.matches`, which folds case and resolves the alias rows the table
+    // carries for this service. For `TrustManagerFactory` it carries one, `X509` to `PKIX`, so a
+    // factory asked for `X509` or `x509` is admitted by the entry `PKIX`.
+    //
+    // `SunX509` is inert on this platform, stated as behaviour: it is the name of an algorithm a
+    // JSE provider registers and no provider here does, so `getInstance("SunX509")` cannot return
+    // a factory and no program running here can present this entry to the check. It stays in the
+    // list because it is an entry of the rule's clause.
     List<String> algorithms = Arrays.asList("PKIX", "SunX509");
 
     // Staged by `init` for the acceptance-point handler, which sees no event parameter,
@@ -59,45 +98,45 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
     String expectedGeneratedManagerFactoryParameters =
         "a ManagerFactoryParameters this instrumentation observed being constructed";
 
-    // One event over `getInstance(String)`, where there used to be two split by the
-    // sign of a guard. The negated twin `g3` matched the same call and named no
-    // state, and the generator gives an event absent from the automaton a
-    // transition row that moves every state to `fail`: a factory built with an
-    // algorithm the rule rejects was reported as a wrong call sequence, and then
-    // reported again at the `init` that followed it, because `g3`'s `__RESET` had
-    // dropped the monitor back to `start`, which does not declare `init`. That is
-    // the co-emission the published campaign measured -- 9,015 ordering reports
-    // against 9,014 algorithm reports, near one for one.
+    // `Get` of TrustManagerFactory.crysl: `g1: getInstance(algorithm);`, the one-argument
+    // overload, one alternative of `Get := g1 | g2`.
     //
-    // Worse than noise: the orphan suppressed the finding. `TrustManagerFactory
-    // .getInstance("SunX509")` followed by an `init` drew two
-    // TRUSTMANAGERFACTORY-ORDER-00 and no algorithm report at all, because the
-    // failing `init` transition takes the `@fail` path instead of the event body
-    // that carries the algorithm check
-    // (data/gh105/evidence/harness/f1-TrustManagerFactorySpec.md).
+    // The event carries no guard, and that is the rule speaking. The rule puts the algorithm in
+    // CONSTRAINTS and not in ORDER, so this overload is a creation whatever it was asked for: a
+    // factory obtained here for an algorithm outside `algorithm in {"PKIX", "SunX509"}` reaches
+    // the state where `init` is declared like any other, and the `init` body accuses it exactly
+    // once, under the code registered in `codes.csv` for that site. The two-argument overload
+    // below is split instead, and a refused algorithm requested there reaches a state that
+    // declares no `init`, so it is reported through the ordering code. Guarding the transition
+    // here instead
+    // would make the automaton refuse an ordering the rule accepts, and would then hide the
+    // algorithm accusation as well, because a failing transition runs `@fail` rather than the
+    // event body that carries the check.
     //
-    // The rule orders `Get, Init, GetTrustMng?` (TrustManagerFactory.crysl:22) with
-    // `Get := g1 | g2` and puts the
-    // algorithm in CONSTRAINTS, so the algorithm must not govern the transition:
-    // `getInstance` is a `Gets` whatever it was asked for. Dropping the guard lets
-    // the rejected factory reach `final` like any other, where the `init` body
-    // accuses it exactly once, with `TRUSTMANAGERFACTORY-ALG-00`. `g3`'s body
-    // accused nothing of its own, so nothing it reported is lost; what leaves is
-    // the pair of ordering reports
-    // about an ordering the rule accepts, and what arrives is the constraint
-    // report the rule states.
+    // The behaviour that follows from the placement, stated because a reader will look for it: a
+    // factory obtained here for a refused algorithm and never initialised is accused by nothing,
+    // since the only site that accuses an algorithm is the `init` body.
     //
-    // Residue, recorded and not repaired (divergence_record.csv): a rejected
-    // algorithm whose factory is never `init`ed is now accused by nothing, because
-    // the accusation lives in the `init` body. Moving it up into this event would
-    // create a report where none exists today and would need deduplicating against
-    // the `init` one -- a behavioural change, deliberately deferred.
+    // The body records that a creation was observed. `@fail` reads that field to tell a wrong
+    // call sequence on a factory this monitor saw created from one created where it cannot see.
     event g1 after(String alg) returning(TrustManagerFactory mf):
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String))
       && args(alg) {
         creationObserved = true;
     }
 
+    // `Get` of TrustManagerFactory.crysl: `g2: getInstance(algorithm, _);`, the overload that
+    // also names a provider. `args(alg, *)` binds the algorithm and leaves the provider free, and
+    // the `..` in the `call(...)` signature covers the `(String, String)` and `(String, Provider)`
+    // shapes of the platform in one pointcut.
+    //
+    // Unlike `g1`, this event does carry the allow-list guard, and the reason is not the clause
+    // but the twin below: `g3` matches the same call under the negated guard so that a factory
+    // asked for a refused algorithm is still recorded as created, and the two events must not
+    // both fire for one call. The guard is `ConscryptAliasTable.matches`, so an algorithm spelled
+    // as an alias the table carries -- `X509` for `PKIX` -- reaches the list entry and is
+    // admitted here. The algorithm accusation itself is not made here; it stays in the `init`
+    // body, where the factories of both overloads are accused alike.
     event g2 after(String alg) returning(TrustManagerFactory mf):
       call(public static TrustManagerFactory TrustManagerFactory.getInstance(String, ..))
       && args(alg, *)
@@ -121,34 +160,44 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
         creationRefused = true;
     }
 
-    // `generatedKeyStore[keyStore]` (TrustManagerFactory.crysl:28, ledger clause #36) is read
-    // here, in the only event of this file a key store ever reaches. The sibling
-    // `KeyManagerFactorySpec` reads the same clause of the neighbouring rule at the same shape,
-    // and the reasoning is stated there once for both files.
+    // `Init` of TrustManagerFactory.crysl: `i1: init(keyStore);` and `i2: init(params);`, joined
+    // by `Init := i1 | i2`, realised here as one event. Both overloads have arity one, so
+    // `args(arg)` binds the argument of either exactly rather than by a shared prefix, and the
+    // body discriminates on its runtime type.
     //
-    // Here the fusion is cheaper than there: the rule declares `i1: init(keyStore)` and
-    // `i2: init(params)`, and both overloads have arity one, so `args(arg)` binds the argument
-    // exactly rather than by a shared prefix. The body discriminates by runtime type.
+    // CONSTRAINTS of TrustManagerFactory.crysl: `algorithm in {"PKIX", "SunX509"}`. The check
+    // runs over the algorithm the factory reports, and it sits in the event body rather than in a
+    // `condition(...)` guard: a guard compiles to an early return ahead of both the body and the
+    // transition, so a factory built for a refused algorithm would leave the automaton in the
+    // state before `init`, and the next call on it would be reported as a wrong call sequence
+    // instead of as the refused algorithm it is. A value outside the list is reported under the
+    // code registered in `codes.csv` for this site. The comparison folds case and resolves the
+    // alias rows `ConscryptAliasTable` carries for this service, so a factory reporting `X509`
+    // reaches the entry `PKIX` and is admitted.
     //
-    // The null argument is read rather than exempted, and this file is where that costs the
-    // most: measured on Temurin 21, `tmf.init((KeyStore) null)` runs and is the documented
-    // default-truststore route, which is a conforming program under every reading except the
-    // rule's own. The rule requires a key store this instrumentation saw loaded, and a null is not
-    // one, so the read reports NOT_OBSERVED there, under a code of its own labelled
-    // `platform-default`: the null is the documented request for the platform's trust store, and
-    // an analysis must be able to separate it from a key store whose loading went unseen. What
-    // either report says is that no loading was observed, and not that the program is broken;
-    // the distinction between a reach limit and a violation is the distinction the NOBS and
-    // CONSTR codes below carry. Measured too, and it is why the read discriminates something
-    // rather than nothing:
-    // `tmf.init(unloadedStore)` runs on this platform, unlike its `KeyManagerFactory`
-    // counterpart, so a key store that was never loaded reaches a trust manager factory and
-    // nothing but this read says so (researcher decision, 2026-08-22).
+    // REQUIRES of TrustManagerFactory.crysl: `generatedKeyStore[keyStore];`. The predicate says
+    // that the `KeyStore` was loaded by a call the instrumentation observed; its producer in this
+    // set is `KeyStoreSpec`, which writes the mark at the acceptance point its `load` event leads
+    // to. This is the only event of this file a key store ever reaches.
     //
-    // VIOLATED has no program that produces it today -- `GENERATED_KEY_STORE` is written at
-    // arity 1 and withdrawn nowhere -- and the branch is written anyway, for the reason the
-    // sibling file records: a read that folded VIOLATED into NOT_OBSERVED would misreport a
-    // withdrawn key store the day some rule's NEGATES clause reaches this predicate.
+    // The read is three-valued and the three are not two. SATISFIED reports nothing. VIOLATED is
+    // positive evidence about this store -- an entry exists whose values differ, or the predicate
+    // was revoked by a `negate` -- and goes out under a constraint code. NOT_OBSERVED says only that no entry
+    // exists: no loading of this store was ever seen, which happens when the loading ran before
+    // the monitor attached or inside a library the weaving does not reach, and that is a reach
+    // limit rather than a misuse, so it goes out under a code of its own. No site of this set
+    // revokes this predicate, so VIOLATED has no program that produces it today; the branch is
+    // written so that a revocation would be reported as one rather than as an unobserved store.
+    //
+    // The null argument is read rather than exempted, and this file is where that matters most.
+    // `tmf.init((KeyStore) null)` is the documented request for the platform's own trust store: a
+    // null is not a key store this instrumentation saw loaded, so the read answers NOT_OBSERVED,
+    // and it takes a code of its own so that an analysis can separate the platform-default route
+    // from a key store whose loading merely went unseen. Neither report says the program is
+    // broken. And the read does discriminate something here that its `KeyManagerFactory`
+    // counterpart cannot: `TrustManagerFactory.init` accepts a store that was never loaded, where
+    // `KeyManagerFactory.init` raises `KeyStoreException` on one, so an unloaded store does reach
+    // a trust manager factory on this platform and nothing but this read says so.
     event init before(Object arg, TrustManagerFactory mf):
        ( call(public void TrustManagerFactory.init(KeyStore)) ||
          call(public void TrustManagerFactory.init(ManagerFactoryParameters))
@@ -157,26 +206,11 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "TrustManagerFactorySpec", "" + __LOC,
                 "v=1 code=TRUSTMANAGERFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + mf.getAlgorithm() + "'"));
         }
-        // The rule's other REQUIRES, `generatedManagerFactoryParameters[params]`
-        // (TrustManagerFactory.crysl:29, ledger clause #56), is about the argument of the
-        // `i2: init(params)` overload, and it is read on the sibling branch below.
-        //
-        // It was RECORDED AND NOT READ until gh109 group G2, and the reason was derived
-        // rather than assumed: the predicate is ENSURED by exactly two rules of the oracle,
-        // `CertPathTrustManagerParameters.crysl:17` and `KeyStoreBuilderParameters.crysl:14`
-        // (ledger #61 and #98), and neither had a `.mop` in this set. `unmonitored-producer`.
-        // The sentence that closed that derivation -- *what it would buy is an accuser that
-        // can answer NOT_OBSERVED and nothing else, for every program in the world* -- is the
-        // one G2 falsified: tasks 2.8 and 2.9 wrote both producers, so the read can now answer
-        // SATISFIED, and what stays NOT_OBSERVED is a measurable population of programs that
-        // built their parameters outside the monitored set rather than every program there is.
-        // 7.3 measures that population over the APK corpus.
-        //
-        // The site is as cheap as the old derivation measured it: the event already binds
-        // `arg` and already discriminates by runtime type, so the read is an
-        // `else if (arg instanceof ManagerFactoryParameters)` beside the key-store branch.
-        // The twin clause at `KeyManagerFactory.crysl:32` (#29) is opened the same way, on
-        // the same two producing rules, at task 1b.2.
+        // The key-store branch of the discrimination, which is where `generatedKeyStore` is
+        // read. It takes the `KeyStore` argument of the rule's `i1` and the null argument of
+        // either overload; the rule's other REQUIRES,
+        // `generatedManagerFactoryParameters[params];`, is about the argument of `i2` and is
+        // read on the sibling branch below.
         if (arg == null || arg instanceof KeyStore) {
             PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_KEY_STORE, arg);
             if (generated == PredicateVerdict.VIOLATED) {
@@ -192,8 +226,23 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
                     "v=1 code=TRUSTMANAGERFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=TrustManagerFactory val='" + q(mf.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='no loading of the KeyStore given to TrustManagerFactory.init was observed'" + Evidence.keysFor(arg)));
             }
         }
-        // `generatedManagerFactoryParameters[params]`, on the branch a `ManagerFactoryParameters`
-        // is the one to reach. The `null` case belongs to the key-store branch above and not to
+        // REQUIRES of TrustManagerFactory.crysl: `generatedManagerFactoryParameters[params];`,
+        // on the branch a `ManagerFactoryParameters` is the one to reach -- the argument of the
+        // rule's `i2: init(params)`. The predicate says that the parameter object was
+        // constructed by a call the instrumentation observed, so a key or trust manager factory
+        // may be initialised from it. Its producers in this set are
+        // `CertPathTrustManagerParametersSpec` and `KeyStoreBuilderParametersSpec`, each of
+        // which writes the mark when its constructor completes and, for the first of the two,
+        // only when the cert path parameters it was handed were themselves observed being built.
+        //
+        // The read is three-valued exactly as the key-store read above, and its two accusing
+        // outcomes carry different codes: VIOLATED is positive evidence about this object,
+        // NOT_OBSERVED says only that no construction of it was seen -- a program that builds
+        // its parameters through some other implementation of the interface, or in code the
+        // weaving does not reach.
+        //
+        // No new event and no new pointcut pays for this read: it is the same runtime-type test
+        // the key-store branch already makes. The `null` case belongs to that branch and not to
         // this one, for the reason stated there: null is the documented default-truststore route
         // and carries no runtime type to discriminate on.
         else if (arg instanceof ManagerFactoryParameters) {
@@ -210,49 +259,33 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
        initialisedFactory = mf;
     }
 
-    // `generatedTrustManagers[trustManager] after GetTrustMng` (TrustManagerFactory.crysl:33),
-    // and the write this rule's single consumer reads: `SSLContext.init` asks for the predicate
-    // over the TrustManager[] array, as `generatedTrustManagers[tm]` (SSLContext.crysl:33,
-    // ledger clause #29). The oracle names the predicate in the plural and qualifies it with an
-    // `after L` the generated rule did not carry; neither moves this site, because
-    // `GetTrustMng` is the aggregate `gtm1` belongs to and the write is already in its body.
+    // `GetTrustMng` of TrustManagerFactory.crysl: `gtm1: trustManager = getTrustManagers();`.
     //
-    // Three defects of this event are repaired here, and they were three faces of one: the
-    // advice had no execution path at all. The pointcut declared `getTrustManagers()` returning
-    // `KeyManager[]` where the API returns `TrustManager[]`, and both weavers match a return
-    // type exactly; the event parameter was declared `TrustManager[][]`, one dimension too
-    // many; and the target was bound to `k` where this specification declares `mf`, which sends
-    // the event to the empty parameter slice. The harness showed the same thing from the trace
-    // side -- `tmf.getTrustManagers()` resolved to no pointcut at all. That is gh104 8.7, and
-    // it had to be repaired in this commit rather than deferred, because the consumer wired in
-    // the same commit would otherwise have measured a clause against a producer that never
-    // runs, and every read would have answered NOT_OBSERVED for a reason that had nothing to do
-    // with the wiring.
+    // ENSURES of TrustManagerFactory.crysl:
+    // `generatedTrustManagers[trustManager] after GetTrustMng;`. The predicate says that the
+    // object came out of a `TrustManagerFactory` the instrumentation observed being initialised
+    // -- here the trust-manager array it issued. `GetTrustMng` is the aggregate this event
+    // belongs to, so the acceptance point the clause names is the state this transition leads
+    // to, and the write runs in the event body: the array is an event parameter, and the handler
+    // for that state receives no event arguments, so the body is the only place the array is
+    // visible.
     //
-    // What the repair makes live, stated in full rather than discovered later. The write
-    // happens, so a `SSLContext.init` that receives this array reads SATISFIED. And a second
-    // `getTrustManagers()` on one factory draws TRUSTMANAGERFACTORY-ORDER-00, because the
-    // transition below leads to a state where the event is not declared. That accusation is
-    // faithful: the rule orders `Get, Init, GetTrustMng?` and the `?` refuses the repetition too. It is
-    // also symmetric -- `KeyManagerFactorySpec.gkm1` declares the right return type, has always
-    // been live, and has always behaved this way -- so the repair restores two mirror
-    // specifications to being mirrors (researcher decision, 2026-08-22).
+    // Beside the array, the body marks every non-null element of it with the per-element
+    // refinement of the same clause: the individual trust manager was issued by a
+    // `TrustManagerFactory` the instrumentation observed. That is what makes the mark survive a
+    // program that repacks the managers, and the platform forces the question -- every call to
+    // `getTrustManagers()` allocates a fresh array around the same manager instances, so a mark
+    // bound to the array travels only with the array this very call returned. The consumer,
+    // `SSLContextSpec`, reads the array mark first and, for an array it has never seen, credits
+    // it when the array is non-empty and every element carries the element mark, because the
+    // rule constrains the managers and an application that copies an issued manager into an
+    // array of its own is passing exactly the manager this factory issued. An array that mixes
+    // an issued manager with any other is not credited.
     //
-    // Measured on Temurin 21 before the write was relied on: `getTrustManagers()` raises
-    // `IllegalStateException` before an `init`, so this event can only fire after one; and it
-    // allocates a fresh array on every call, around the same manager instances, so the mark over
-    // the array travels only with the array this call returned. The body therefore also marks
-    // every non-null element with `GENERATED_TRUST_MANAGERS`: the rule constrains the managers,
-    // and a program that copies an issued manager into another array hands `SSLContext.init`
-    // exactly the manager this factory issued. `SSLContextSpec.init` credits such an array when
-    // it is non-empty and every element carries the mark; an array that mixes an issued manager
-    // with any other is not credited.
-    //
-    // The placement. The clause carries no `after L`, so INV-INS-134 sends it to the accepting
-    // state, and that is where it runs: the transition row for `gtm1` is {5, 5, 3, 5, 5, 5}, which
-    // lands on state 3 -- `@match2` -- so this body executes on the transition that accepts.
-    // What keeps it out of the `@match2` handler is the array -- a handler sees no parameter of
-    // the event it follows -- and the reason is in predicate_graph.csv.
+    // The platform raises `IllegalStateException` from `getTrustManagers()` before an `init`, so
+    // this event can only fire after one. A second `getTrustManagers()` on one factory is
+    // reported as a wrong call sequence, because the transition below leads to a state that
+    // declares no event -- which is what the rule's `GetTrustMng?` says.
     event gtm1 after(TrustManagerFactory mf) returning(TrustManager[] trustManager):
       call(public TrustManager[] TrustManagerFactory.getTrustManagers())
       && target(mf) {
@@ -264,6 +297,12 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
         }
     }
 
+    // The rule's ORDER, `Get, Init, GetTrustMng?`, with one state this file adds: `refused`,
+    // where the refused creation `g3` leads. It declares no transition, so the first use of such
+    // a factory fails there, which is how a creation the allow-list refused is told apart from a
+    // creation this monitor never saw. `final` and `taken` both accept, and the two aliases
+    // below are how this file says so: `final` is the state `init` leads to, `taken` the state
+    // `gtm1` leads to, and the rule's `?` is the absence of any transition out of `taken`.
     fsm :
       start [
         g1 -> waitingInit
@@ -306,14 +345,22 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
         __RESET;
     }
 
-    // The acceptance point of `generatedTrustManager[this] after Init`, where the two
-    // routes INV-INS-134 admits are the same handler: `init` has the transition row
-    // {5, 2, 5, 5, 5, 5} and the match category is `nextstate == 2`, so the state the Init leads
-    // to and the accepting state are one state, and `init` is the only event reaching it.
+    // ENSURES of TrustManagerFactory.crysl: `generatedTrustManager[this] after Init;`. The
+    // predicate says that the object came out of a `TrustManagerFactory` the instrumentation
+    // observed being initialised -- here the factory itself. The state `Init` leads to, `final`,
+    // is also this automaton's accepting state, and `init` is the only event that reaches it, so
+    // the handler for that state is the acceptance point the clause names.
     //
-    // No rule of the oracle requires this half of the clause -- `SSLContext.crysl:33` asks for
-    // `generatedTrustManagers[tm]`, over the array, never over the factory -- so the site
-    // carries a deliberate-omission record (INV-INS-137) and no read is fabricated for it.
+    // The factory travels here in a field because a handler receives no event arguments and runs
+    // after the transition has been decided: the `init` event stages `mf`, this handler writes
+    // the predicate and clears the field, and `@fail` discards it, so a factory whose call
+    // sequence the automaton refused is never marked.
+    //
+    // Stated as behaviour: no specification of this set reads a mark bound to a
+    // `TrustManagerFactory`. The consumer of the rule's other ENSURES, `SSLContextSpec`, asks
+    // for the predicate over the trust-manager array and never over the factory. This write
+    // therefore records the initialisation and nothing consumes it; no read is fabricated for
+    // it.
     @match1 {
        if (initialisedFactory != null) {
            PredicateStore.instance().ensure(Property.GENERATED_TRUST_MANAGER, initialisedFactory);
@@ -321,12 +368,12 @@ TrustManagerFactorySpec(TrustManagerFactory mf) {
        }
     }
 
-    // The second accepting state, the mirror of `KeyManagerFactorySpec.taken`: the rule orders
-    // `Get, Init, GetTrustMng?`, so a factory whose trust managers were taken accepts and a second
-    // taking is refused. An alias is how this file says a state accepts, and G-ORDER reads it
-    // to decide equivalence. The handler is empty because there is nothing left to write --
-    // the write over the factory is `@match1`'s and the one over the array is in the `gtm1`
-    // body, the only place the array is visible.
+    // The second accepting state, which is what makes the rule's `GetTrustMng?` optional and
+    // terminal at once: the ORDER `Get, Init, GetTrustMng?` accepts a factory whose trust
+    // managers were taken, and the `?` refuses a second taking, so `taken` accepts and declares
+    // no event of its own. An alias is how this file says a state accepts. The handler is empty
+    // because there is nothing left to write -- the write over the factory is `@match1`'s, and
+    // the one over the array is in the `gtm1` body, the only place the array is visible.
     @match2 {
     }
     

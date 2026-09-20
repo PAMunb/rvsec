@@ -14,16 +14,56 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 /**
  * KeyPairGeneratorSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.KeyPairGenerator class.
+ * Monitors java.security.KeyPairGenerator against the CrySL rule KeyPairGenerator.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyPairGenerator.crysl
+ * ORDER. The rule orders `Get, Init, Gen`: a `getInstance`, one `initialize`, then
+ * `generateKeyPair()` or `genKeyPair()`. The `initialize` is mandatory, as the rule writes it.
+ * A sequence the automaton does not accept is reported under `KEYPAIRGENERATOR-ORDER-01` when
+ * no `getInstance` of the generator was observed, under `KEYPAIRGENERATOR-ORDER-02` when the
+ * observed `getInstance` asked for an algorithm this specification refuses, and under
+ * `KEYPAIRGENERATOR-ORDER-00` otherwise. The codes are registered in `codes.csv`.
+ *
+ * CONSTRAINTS. All five clauses of the rule are checked.
+ * `algorithm in {"RSA", "EC", "DSA", "DiffieHellman", "DH"}` is transcribed in
+ * `safeAlgorithms` and accused at `g3` and `g4`, the refused twins of the two `getInstance`
+ * events, under `KEYPAIRGENERATOR-ALG-00` and `-ALG-01`.
+ * The four key-size clauses -- `algorithm in {"RSA"} => keysize in {4096, 3072, 2048}`,
+ * `algorithm in {"DSA"} => keysize in {2048}`, `algorithm in {"DiffieHellman", "DH"} =>
+ * keysize in {2048}` and `algorithm in {"EC"} => keysize in {256}` -- are transcribed in
+ * `validate(int)` and accused at `initError` and `initError2` under
+ * `KEYPAIRGENERATOR-KEYSIZE-00` and `-KEYSIZE-01`.
+ *
+ * REQUIRES four guarded clauses -- `algorithm in {"RSA"} => preparedRSA[params];` and its DSA,
+ * DH and EC twins -- read at `init3` and `init4` over the `AlgorithmParameterSpec` the call
+ * carries, with the generator's algorithm selecting which of the four applies. Their producers
+ * are `RSAKeyGenParameterSpecSpec`, `DSAParameterSpecSpec`, `DHParameterSpecSpec`, and
+ * `ECParameterSpecSpec`/`ECGenParameterSpecSpec`.
+ *
+ * ENSURES `generatedKeypair[keyPair, algorithm];`, written at the accepting state over the
+ * pair the generating call returned: the key pair was produced by a `KeyPairGenerator` the
+ * instrumentation observed.
+ *
+ * Reach limits and divergences from the rule.
+ * - The ENSURES is written with one place where the rule writes two. No rule this set
+ *   transcribes requires `generatedKeypair`, so nothing reads the algorithm place; the write
+ *   records a fact and no site consumes it.
+ * - A key size is accused only when a `getInstance` of the generator was observed: `init1`,
+ *   `init2`, `initError` and `initError2` are all guarded on `algorithm != null`, so an
+ *   `initialize(int)` on a generator this specification never saw created matches no event at
+ *   all, takes no transition, and leaves the generating call that follows to be reported as a
+ *   wrong call sequence.
+ * - A generator whose algorithm this specification refused draws, besides the algorithm code,
+ *   a `KEYPAIRGENERATOR-KEYSIZE-00` on its next `initialize(int)` -- `validate` answers false
+ *   for an algorithm the rule does not name -- and the ordering code, because the automaton
+ *   wants an admitted `getInstance` before any `Init`. The algorithm code is the one of the
+ *   three that names the misuse.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/KeyPairGenerator.crysl
  */
 KeyPairGeneratorSpec(KeyPairGenerator k) {
-    // The envelope's quoting rule (design D-3): a null value is the empty string,
-    // a single quote is escaped so it cannot close the field early, and the value
-    // is capped so a pathological argument cannot push the record past the
-    // logcat payload limit.
+    // The quoting rule of the report envelope: a null value is the empty string, a single
+    // quote is escaped so it cannot close the field early, and the value is capped so a
+    // pathological argument cannot push the record past the logcat payload limit.
     private String q(String s) {
         if (s == null) {
             return "";
@@ -32,16 +72,24 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         return value.replace("'", "\\'");
     }
 
-    // D-15: the five entries of KeyPairGenerator.crysl. `DiffieHellman` returns -- the
-    // withdrawn generated clause named only its short form, and the frozen jca carried both.
-    // `EC` needs no divergence row any more: it is an expert entry, so the exception D-10
-    // recorded for it has dissolved. That row's kind is still spelled `api30-omits`: D-16
-    // keeps the spelling as a record key and not as an authority.
+    // The rule's first CONSTRAINTS clause, transcribed entry for entry:
+    // `algorithm in {"RSA", "EC", "DSA", "DiffieHellman", "DH"}`. Both spellings of
+    // Diffie-Hellman are the clause's own. `ConscryptAliasTable.matches("KeyPairGenerator",
+    // ...)` compares case-insensitively and resolves a provider alias -- an OID, for instance
+    // -- to its canonical name before comparing, so a call that spells `RSA` as
+    // `1.2.840.113549.1.1.1` is admitted as `RSA`. The list is also what the report shows as
+    // the expected value.
     List<String> safeAlgorithms = Arrays.asList("RSA", "EC", "DSA", "DiffieHellman", "DH");
 
     // Staged by `gen` for the acceptance-point handler, which sees no event parameter, and
     // cleared the moment it is used or the sequence is rejected.
     KeyPair kp = null;
+
+    // The algorithm a `getInstance` was handed, as the program spelled it. All four creation
+    // events write it, the refused twins included, and nothing clears it. Every later site
+    // selects its clause by it: `validate(int)` and `requiredPreparation()` both resolve it
+    // through `ConscryptAliasTable`, and the four `initialize` events test it for null, which
+    // is the case where no `getInstance` of this generator was observed and no clause applies.
     String algorithm;
 
     // Set by the four creation events, `g1` to `g4`, the refused twins included, and never
@@ -60,11 +108,18 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
     boolean creationRefused = false;
 
     private boolean validate(int keySize) {
-      // D-15: the four key-size clauses of KeyPairGenerator.crysl. `3072` returns to the RSA
-      // sizes -- the withdrawn generated rule had lost it and the frozen jca was right to
-      // carry it. The
-      // subject is upper-cased, so the label for `DiffieHellman` is its upper-case form; it
-      // shares the DH clause, `algorithm in {"DiffieHellman", "DH"} => keysize in {2048}`.
+      // The four key-size clauses of KeyPairGenerator.crysl, transcribed one branch each:
+      // `algorithm in {"RSA"} => keysize in {4096, 3072, 2048}`,
+      // `algorithm in {"DSA"} => keysize in {2048}`,
+      // `algorithm in {"DiffieHellman", "DH"} => keysize in {2048}` and
+      // `algorithm in {"EC"} => keysize in {256}`.
+      //
+      // The algorithm is resolved through `ConscryptAliasTable` and then upper-cased, so the
+      // two spellings of the Diffie-Hellman clause reach the same branch and an alias reaches
+      // the branch of the name it denotes. An algorithm none of the four clauses names falls
+      // through to `false`, which is why the callers of this helper are guarded on an observed
+      // creation: without that guard a generator built for an algorithm outside the rule's
+      // list would be accused of a key size no clause of the rule states for it.
       switch(ConscryptAliasTable.canonical("KeyPairGenerator", algorithm).toUpperCase()) {
         case "RSA": return Arrays.asList(4096, 3072, 2048).contains(keySize);
         case "DSA": return keySize == 2048;
@@ -75,13 +130,16 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       return false;
     }
 
-    // Which of the four guarded REQUIRES clauses of KeyPairGenerator.crysl:35-38 applies to
-    // the `params` an `initialize` was handed. The guard is the rule's own: the algorithm
-    // selects the clause, and an algorithm none of the four names -- or one this
-    // instrumentation never observed, which is the same case -- selects none, so `null` is
-    // the answer that means *no clause applies here*. Read at `init3` and `init4`, where the
-    // narrative of the reads lives; it is declared up here because javamop's parser takes the
-    // declaration block before the first `event` and nothing after it.
+    // Which of the rule's four guarded REQUIRES clauses -- `algorithm in {"RSA"} =>
+    // preparedRSA[params];`, `algorithm in {"DSA"} => preparedDSA[params];`,
+    // `algorithm in {"DiffieHellman", "DH"} => preparedDH[params];` and
+    // `algorithm in {"EC"} => preparedEC[params];` -- applies to the `params` an `initialize`
+    // was handed. The guard is the rule's own: the algorithm selects the clause, and an
+    // algorithm none of the four names -- or one this instrumentation never observed, which is
+    // the same case -- selects none, so `null` is the answer that means *no clause applies
+    // here*. Read at `init3` and `init4`, where the reads are explained; it is declared up
+    // here because javamop's parser takes the declaration block before the first `event` and
+    // nothing after it.
     private Property requiredPreparation() {
         if (algorithm == null) {
             return null;
@@ -106,6 +164,12 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         return "preparedEC";
     }
 
+    // `Get` of KeyPairGenerator.crysl: `g1: getInstance(algorithm);`, under the guard that
+    // admits the CONSTRAINTS clause `algorithm in {"RSA", "EC", "DSA", "DiffieHellman", "DH"}`.
+    // The body records that a creation was observed and keeps the requested name, which is
+    // what every later site of this specification selects its clause by: `validate(int)` and
+    // `requiredPreparation()` both read `algorithm`, and the four `initialize` events test it
+    // for null before they do anything. The calls this guard turns down are taken by `g3`.
     event g1 after(String alg) returning(KeyPairGenerator k):
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
       args(alg) &&
@@ -114,15 +178,16 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         algorithm = alg;
     }
 
+    // `Get` of KeyPairGenerator.crysl: `g2: getInstance(algorithm, _);`, under the same
+    // admitting guard as `g1` and with the same body.
+    //
     // `Object+` covers both two-argument `getInstance` overloads the platform declares --
     // `(String, String)` for the provider's name and `(String, Provider)` for the object -- in
-    // one pointcut, so no second event is spent on the same `Gets`. An object obtained through
-    // the overload this pointcut used to miss reached its next event with the monitor at state
-    // 0, where every row is `fail`. It is `Object+` and not `..` on purpose: the trace harness's
-    // resolver walks the declared parameter types of a `call(...)` signature and stops at the
-    // first wildcard (KeyManagerFactorySpec.mop:94-97), so a wildcard here would make every
-    // `getInstance` fit this pointcut, while `Object+` keeps the arity known and the second
-    // position typed. Precedent: `KeyGeneratorSpec.g2`.
+    // one pointcut, so no second event is spent on the same `Get`. It is `Object+` and not
+    // `..` on purpose: the trace harness's resolver walks the declared parameter types of a
+    // `call(...)` signature and stops at the first wildcard, so a wildcard here would make
+    // every `getInstance` fit this pointcut, while `Object+` keeps the arity known and the
+    // second position typed. The calls this guard turns down are taken by `g4`.
     event g2 after(String alg, Object provider) returning(KeyPairGenerator k):
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, Object+)) &&
       args(alg, provider) &&
@@ -131,26 +196,24 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         algorithm = alg;
     }
 
-    // The negated twin of `g1`, and the site of `KeyPairGenerator.crysl:28` --
-    // `algorithm in {"RSA", "EC", "DSA", "DiffieHellman", "DH"}`.
+    // The refused twin of `g1`: the same one-argument pointcut, the rule's
+    // `g1: getInstance(algorithm);`, under the negated guard, and the site of the CONSTRAINTS
+    // clause `algorithm in {"RSA", "EC", "DSA", "DiffieHellman", "DH"}`. A name outside the
+    // list is reported here under `KEYPAIRGENERATOR-ALG-00`, registered in `codes.csv`.
     //
-    // It accuses. Until it did, the clause was realized only as the negation in this
-    // event's own `condition(...)`, which is the shape INV-INS-152 calls defective: the
-    // rejected algorithm was absorbed and reported as nothing, and the whole specification
-    // carried no ALG code. What the reader saw instead was a `KEYPAIRGENERATOR-KEYSIZE-00`
-    // from `initError` -- `validate` returns false for any algorithm outside the five, so
-    // the first `initialize` accused the key size of a clause the rule does not state for
-    // that algorithm -- and two ORDER lines from the `ere`. Contrast `KEYGENERATOR-ALG-00`,
-    // which its own specification has had all along.
+    // The clause is accused by a separate event rather than by a `condition(...)` on `g1`
+    // alone: a guard compiles to an early return ahead of both the body and the transition, so
+    // a refused algorithm would run no body, make no report, and leave the generator at the
+    // state before the call, where its next call would be reported as a wrong call sequence
+    // instead of as the unsafe algorithm it is. Splitting the pointcut on the sign of the
+    // guard gives the refused call a symbol of its own, a body that accuses, and a place in
+    // the automaton.
     //
-    // TWO RESIDUES ARE LEFT STANDING, AND ARE RECORDED RATHER THAN REPAIRED HERE. Both
-    // follow a rejected algorithm and both would need a change beyond the clause this task
-    // transcribes: the `KEYPAIRGENERATOR-KEYSIZE-00` still fires on the next
-    // `initialize(int)`, because `validate` cannot answer for an algorithm the rule does
-    // not name; and the `ere` still fails on the sequence, because `(g3* g1 | g3* g2)`
-    // wants an admitted `getInstance` before any `Init`. The accusation this event makes is
-    // now the true one among the three, and the other two are the set's known noise on the
-    // same trace.
+    // Two further reports follow a refused algorithm, and a reader should read them as
+    // consequences of this one. `validate(int)` has no answer for an algorithm the rule does
+    // not name, so the next `initialize(int)` draws `KEYPAIRGENERATOR-KEYSIZE-00`; and the
+    // automaton wants an admitted `getInstance` before any `Init`, so the sequence also draws
+    // an ordering code. This event's report is the one that names the misuse.
     event g3 after(String alg) returning(KeyPairGenerator k):
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String)) &&
       args(alg) &&
@@ -162,32 +225,26 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
             "v=1 code=KEYPAIRGENERATOR-ALG-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
     }
 
-    // The negated twin of `g2`, and the same site of `KeyPairGenerator.crysl:28` one arity over.
+    // The refused twin of `g2`: the same two-argument pointcut, the rule's
+    // `g2: getInstance(algorithm, _);`, under the negated guard, and the same CONSTRAINTS
+    // clause one arity over. A name outside the list is reported here under
+    // `KEYPAIRGENERATOR-ALG-01`, registered in `codes.csv`.
     //
-    // Without it the clause was realized at one arity and not the other, which is a worse state
-    // than the one the file was in before `g3` existed. `g2`'s guard is POSITIVE and `g3`'s
-    // pointcut is one-argument, so a rejected algorithm passed through
-    // `getInstance(alg, provider)` matched no event of this specification at all -- and the cost
-    // here is larger than the missing value report. `algorithm` is the field `init1`,
-    // `init2`, `initError` and `initError2` all test for null before they do anything, so the
-    // object went on unbound and the whole specification stayed silent for it: no value code, no
-    // key-size code, not even the ordering report. The one-argument spelling of the same misuse
-    // drew all three.
+    // The clause needs a site at both arities. `g2`'s guard is positive and `g3`'s pointcut is
+    // one-argument, so without this event a refused algorithm passed through
+    // `getInstance(alg, provider)` would match no event of this specification at all -- and
+    // more than the value report would be lost. `algorithm` is the field `init1`, `init2`,
+    // `initError` and `initError2` all test for null before they do anything, so the generator
+    // would go on unbound and the specification would stay silent for it: no algorithm code,
+    // no key-size code, not even the ordering report.
     //
-    // It is the family gh105 task 10.8 registered for five other specifications -- a positive
-    // `matches(...)` on the two-argument overload with a one-argument negated twin -- and the
-    // second of them to be repaired rather than deferred, after `SecureRandomSpec.g5` (D-26.1,
-    // task 8.3). Ratified by the researcher on 2026-08-30 as the addendum to D-26.2.
+    // `algorithm = alg` is written here exactly as `g3` writes it, so the two arities answer
+    // the same thing to the same misuse, and the two consequent reports `g3` describes follow
+    // a refused algorithm through this route as well.
     //
-    // `algorithm = alg` is written here exactly as `g3` writes it, so that the two arities answer
-    // the same thing to the same misuse. The two residues `g3` records above therefore follow a
-    // rejected algorithm through this route as well: they are the set's known noise on that
-    // trace, and having them at one arity only would be a new asymmetry in place of the one this
-    // event removes.
-    //
-    // `Object+` and the explicit `args(alg, provider)` are `g2`'s, for `g2`'s reason: the pointcut
-    // covers both two-argument overloads the platform declares, and a `..` wildcard would make
-    // every `getInstance` fit it.
+    // `Object+` and the explicit `args(alg, provider)` are `g2`'s, for `g2`'s reason: the
+    // pointcut covers both two-argument overloads the platform declares, and a `..` wildcard
+    // would make every `getInstance` fit it.
     event g4 after(String alg, Object provider) returning(KeyPairGenerator k):
       call(public static KeyPairGenerator KeyPairGenerator.getInstance(String, Object+)) &&
       args(alg, provider) &&
@@ -199,72 +256,77 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
             "v=1 code=KEYPAIRGENERATOR-ALG-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + q(alg) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + alg + "'"));
     }
 
-    /*
-    It can be very difficult to format code properly inside these .mop files.
-     */
+    // `Init` of KeyPairGenerator.crysl: `i1: initialize(keysize);`, on the route where the key
+    // size satisfies the clause the generator's algorithm selects. The guard is what selects
+    // between this event and `initError`, its accusing twin over the same call: both are
+    // symbols of the automaton, so the call takes its `Init` transition either way and a
+    // refused key size is reported as the misuse it is rather than as a wrong call sequence.
+    //
+    // `algorithm != null` is the other half of the guard. When no `getInstance` of this
+    // generator was observed, neither this event nor `initError` matches, the call takes no
+    // transition at all, and the report that follows is the ordering one.
     event init1 after(int keySize, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(int)) &&
       args(keySize) &&
       target(k) &&
       condition(algorithm != null && validate(keySize)) { }
 
+    // `Init` of KeyPairGenerator.crysl: `i2: initialize(keysize, _);`, on the route where the
+    // key size satisfies the clause the generator's algorithm selects. Same guard, same empty
+    // body and same accusing twin arrangement as `init1`, one overload over: `initError2`
+    // takes the calls this guard turns down. The rule states nothing about the `SecureRandom`
+    // this overload carries, so the event binds it and checks nothing over it.
     event init2 after(int keySize, SecureRandom random, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(int, SecureRandom)) &&
       args(keySize, random) &&
       target(k) &&
       condition(algorithm != null && validate(keySize)) { }
 
-    // `init3` and `init4` bind the `params` of the rule's four guarded REQUIRES clauses --
-    // `{RSA} => preparedRSA[params]`, `{DSA} => preparedDSA[params]`,
-    // `{DiffieHellman, DH} => preparedDH[params]` and `{EC} => preparedEC[params]`
-    // (KeyPairGenerator.crysl:35-38, ledger #32, #33, #34, #35) -- and now read all four.
-    // Until gh109 group G2 they read none: no rule that ENSURES any of the four had a
-    // `.mop` in this set, so a read here would have answered NOT_OBSERVED for every
-    // conforming program, and the four clauses were recorded `unmonitored-producer`. G2
-    // wrote the producers -- `RSAKeyGenParameterSpecSpec` (preparedRSA),
-    // `DSAParameterSpecSpec` (preparedDSA), `DHParameterSpecSpec` (preparedDH),
-    // `ECGenParameterSpecSpec` and `ECParameterSpecSpec` (preparedEC) -- and D-24 is what
-    // makes opening the reads part of closing the gap: a predicate written by a brand-new
-    // specification and read by nobody is not a wired clause.
+    // `Init` of KeyPairGenerator.crysl: `i3: initialize(params);`, and the site of the rule's
+    // four guarded REQUIRES clauses -- `algorithm in {"RSA"} => preparedRSA[params];`,
+    // `algorithm in {"DSA"} => preparedDSA[params];`,
+    // `algorithm in {"DiffieHellman", "DH"} => preparedDH[params];` and
+    // `algorithm in {"EC"} => preparedEC[params];`.
     //
-    // The measurement that motivated the old conclusion stays true and stays relevant, so
-    // it is kept rather than deleted. On Temurin 21, re-run 2026-08-26:
-    // `KeyPairGenerator.getInstance("DH").initialize(new DHGenParameterSpec(2048, 0))`
-    // raises `InvalidAlgorithmParameterException: Inappropriate parameter type`, while
-    // `initialize(new DHParameterSpec(p, g))` over an RFC 3526 group is accepted, and the
-    // `DHGenParameterSpec` into `AlgorithmParameterGenerator.getInstance("DH").init(...)`
-    // -- the consumer that class exists for -- runs. That is why the producer this read
-    // needs is `DHParameterSpec` and not `DHGenParameterSpec`, and why
-    // `DHGenParameterSpecSpec`'s own write keeps its deliberate-omission record instead of
-    // being wired here (INV-INS-137, researcher decision 2026-08-22).
+    // What each read asks is what its producer writes: that the parameter spec carries values
+    // the rule admits, checked where it was constructed. `RSAKeyGenParameterSpecSpec` writes
+    // `preparedRSA` for a key size and public exponent the rule admits, `DSAParameterSpecSpec`
+    // writes `preparedDSA` for an admitted modulus and generator, `DHParameterSpecSpec` writes
+    // `preparedDH` for admitted Diffie-Hellman parameters, and `ECParameterSpecSpec` and
+    // `ECGenParameterSpecSpec` write `preparedEC` for an admitted curve.
     //
     // The clause is guarded, so the read is too: the algorithm selects which of the four
-    // predicates is required, and a `params` handed to a generator whose algorithm none of
-    // the four clauses names reaches no read at all. `algorithm` is null when no
-    // `getInstance` of this program was observed, and that is the same no-clause-applies
-    // case -- the rule states the requirement per algorithm, and an unobserved algorithm
-    // selects nothing.
+    // predicates is required, and a `params` handed to a generator whose algorithm none of the
+    // four clauses names reaches no read at all. `algorithm` is null when no `getInstance` of
+    // this generator was observed, and that is the same no-clause-applies case -- the rule
+    // states the requirement per algorithm, and an unobserved algorithm selects nothing.
     //
-    // The verdict is three-valued and its two accusing outcomes carry different codes, as
-    // at every other read of this set (INV-INS-143): VIOLATED says the program prepared the
-    // parameter object in a way the producing rule refuses, NOT_OBSERVED says this
-    // instrumentation never saw it prepared at all. Folding them together would count a
-    // reach limit of the monitored set as a misuse. The two events are two sites and so
-    // carry two pairs of codes -- a reader has to be able to tell which overload the report
-    // is about, which is the reason `initError`/`initError2` above have codes of their own.
+    // The read is in the event body and not in a `condition(...)` guard: a guard compiles to
+    // an early return ahead of both the body and the transition, so an unprepared parameter
+    // spec would leave the generator at the state before `initialize` and the generating call
+    // that follows would be reported as a wrong call sequence instead of as the unsatisfied
+    // requirement it is.
+    //
+    // The verdict is three-valued and its two accusing outcomes are different claims, so they
+    // carry different codes. VIOLATED says the store holds an entry for this parameter object
+    // and what it records is not what the clause demands -- the producing specification saw it
+    // built and refused it -- and is reported under `KEYPAIRGENERATOR-CONSTR-00`.
+    // NOT_OBSERVED says only that nothing about the object was ever recorded, which happens
+    // when its construction was not woven or runs inside a library the weaving does not reach,
+    // and is reported under `KEYPAIRGENERATOR-NOBS-00`. Folding them together would count a
+    // reach limit as a misuse. `init4` is a site of its own and carries codes of its own, so a
+    // reader can tell which overload a report is about. All four codes are registered in
+    // `codes.csv`.
     event init3 after(AlgorithmParameterSpec params, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec)) &&
       args(params) &&
       target(k)  {
         Property required = requiredPreparation();
         PredicateVerdict prepared = PredicateVerdict.SATISFIED;
-        // Each of the four clauses names its predicate as a LITERAL `Property.` constant, and
-        // the four-way `if` is what that costs. It is not a style: the record reader anchors a
-        // predicate site on the literal first argument of the store call
-        // (`gh105_predicate_graph.py`, pass 1), precisely so that a private helper named
-        // `validate` -- this file has one -- is not mistaken for the store's. A `Property` held
-        // in a variable is invisible to it, and the clause would vanish from the graph, from the
-        // ledger and from every gate that reads them while the monitor went on accusing.
+        // Each branch names its predicate as a literal `Property` constant rather than passing
+        // the one `requiredPreparation()` returned, so that each of the four clauses has a
+        // visible site in the source at the store call that realises it. The four-way `if` is
+        // what that costs.
         if (required == Property.PREPARED_RSA) {
             prepared = PredicateStore.instance().validate(Property.PREPARED_RSA, params);
         }
@@ -287,19 +349,37 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         }
     }
 
+    // `Init` of KeyPairGenerator.crysl: `i4: initialize(params, _);`, and the second site of
+    // the rule's four guarded REQUIRES clauses -- `algorithm in {"RSA"} =>
+    // preparedRSA[params];`, `algorithm in {"DSA"} => preparedDSA[params];`,
+    // `algorithm in {"DiffieHellman", "DH"} => preparedDH[params];` and
+    // `algorithm in {"EC"} => preparedEC[params];`.
+    //
+    // Everything the reads do is what `init3` does, over the same parameter object one
+    // overload later: the generator's algorithm selects which of the four predicates is
+    // required, an algorithm none of them names selects none and reaches no read, and the
+    // reads sit in the event body and not in a `condition(...)` guard -- a guard compiles to
+    // an early return ahead of both the body and the transition, so an unprepared parameter
+    // spec would leave the generator at the state before `initialize` and the generating call
+    // that follows would be reported as a wrong call sequence instead of as the unsatisfied
+    // requirement it is.
+    //
+    // This is a site of its own and so carries codes of its own: VIOLATED, which says the
+    // producing specification saw the parameter object built and refused it, is reported under
+    // `KEYPAIRGENERATOR-CONSTR-01`, and NOT_OBSERVED, which says nothing about the object was
+    // ever recorded, under `KEYPAIRGENERATOR-NOBS-01`. Both are registered in `codes.csv`. The
+    // rule states nothing about the `SecureRandom` this overload carries, so the event binds it
+    // and checks nothing over it.
     event init4 after(AlgorithmParameterSpec params, SecureRandom random, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(AlgorithmParameterSpec, SecureRandom)) &&
       args(params, random) &&
       target(k) {
         Property required = requiredPreparation();
         PredicateVerdict prepared = PredicateVerdict.SATISFIED;
-        // Each of the four clauses names its predicate as a LITERAL `Property.` constant, and
-        // the four-way `if` is what that costs. It is not a style: the record reader anchors a
-        // predicate site on the literal first argument of the store call
-        // (`gh105_predicate_graph.py`, pass 1), precisely so that a private helper named
-        // `validate` -- this file has one -- is not mistaken for the store's. A `Property` held
-        // in a variable is invisible to it, and the clause would vanish from the graph, from the
-        // ledger and from every gate that reads them while the monitor went on accusing.
+        // Each branch names its predicate as a literal `Property` constant rather than passing
+        // the one `requiredPreparation()` returned, so that each of the four clauses has a
+        // visible site in the source at the store call that realises it. The four-way `if` is
+        // what that costs.
         if (required == Property.PREPARED_RSA) {
             prepared = PredicateStore.instance().validate(Property.PREPARED_RSA, params);
         }
@@ -322,6 +402,24 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
         }
     }
 
+    // The accusing twin of `init1` over `initialize(int)`, and one site of the rule's four
+    // key-size clauses: `algorithm in {"RSA"} => keysize in {4096, 3072, 2048}`,
+    // `algorithm in {"DSA"} => keysize in {2048}`,
+    // `algorithm in {"DiffieHellman", "DH"} => keysize in {2048}` and
+    // `algorithm in {"EC"} => keysize in {256}`, all four transcribed in `validate(int)`.
+    //
+    // The clause is realised by a pair of events split on the sign of one guard, and not by a
+    // guard on `init1` alone, because a `condition(...)` compiles to an early return ahead of
+    // both the body and the transition: a call with a refused key size would then run no body,
+    // make no report, and leave the generator at the state before `initialize`, where the
+    // generating call that follows would be reported as a wrong call sequence instead of as
+    // the weak key it is. As its own symbol this event is an `Init` alternative of the
+    // automaton, at the only position where an `initialize` is legal -- which is what the rule
+    // says it is, since `i1: initialize(keysize);` is an `Init` whatever size it is handed and
+    // the size is stated separately, under CONSTRAINTS.
+    //
+    // A refused size is reported under `KEYPAIRGENERATOR-KEYSIZE-00`, registered in
+    // `codes.csv`.
     event initError after(int keySize, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(int)) &&
       args(keySize) &&
@@ -331,18 +429,17 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
              "v=1 code=KEYPAIRGENERATOR-KEYSIZE-00 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + keySize + "' exp='the key size the expert KeyPairGenerator.crysl declares for " + q(k.getAlgorithm()) + "' msg='invalid key size for algorithm " + k.getAlgorithm() + "'"));
     }
 
-    // The twin of `initError` over `initialize(int, SecureRandom)`. `init2` carries the
-    // same guard as `init1` -- `algorithm != null && validate(keySize)` -- and until this
-    // event existed it had no complement: a call with a key size the rule's CONSTRAINTS
-    // refuse took no transition, because a false `condition(...)` returns ahead of the
-    // body, and drew no report, because nothing else was watching that overload. The
-    // two-argument route was therefore silent on exactly the misuse the one-argument
-    // route accuses, and the difference between them was the presence of a `SecureRandom`
-    // the rule says nothing about.
+    // The accusing twin of `init2` over `initialize(int, SecureRandom)`, and the second site
+    // of the same four key-size clauses `initError` accuses, transcribed in `validate(int)`.
     //
-    // It is a site of its own and so it carries a code of its own: the report has to say
-    // which overload it is about (INV-INS-143, the same reason `IvParameterSpec` gives two
-    // codes to one clause read at two constructors).
+    // The clause needs a site at both overloads. Without this event a call with a key size the
+    // rule's CONSTRAINTS refuse would take no transition -- a false `condition(...)` returns
+    // ahead of the body -- and draw no report, because nothing else watches that overload; the
+    // two-argument route would be silent on exactly the misuse the one-argument route accuses,
+    // and the only difference between them is a `SecureRandom` the rule says nothing about.
+    //
+    // It is a site of its own and so carries a code of its own, `KEYPAIRGENERATOR-KEYSIZE-01`,
+    // registered in `codes.csv`: a report has to say which overload it is about.
     event initError2 after(int keySize, SecureRandom random, KeyPairGenerator k):
       call(public void KeyPairGenerator.initialize(int, SecureRandom)) &&
       args(keySize, random) &&
@@ -352,35 +449,43 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
              "v=1 code=KEYPAIRGENERATOR-KEYSIZE-01 ev=" + __EVENTNAME + " obj=KeyPairGenerator val='" + keySize + "' exp='the key size the expert KeyPairGenerator.crysl declares for " + q(k.getAlgorithm()) + "' msg='invalid key size for algorithm " + k.getAlgorithm() + "'"));
     }
 
+    // `Gen` of KeyPairGenerator.crysl, both of its events -- `k1: keyPair = generateKeyPair();`
+    // and `k2: keyPair = genKeyPair();` -- under one symbol, since the rule's ORDER puts them
+    // in one alternation and neither carries a clause the other does not.
+    //
+    // The body stages the pair for the acceptance-point handler, which receives no event
+    // arguments and so cannot see what the call returned. See `@match` below.
     event gen after(KeyPairGenerator k) returning(KeyPair keyPair):
       (call(public KeyPair KeyPairGenerator.generateKeyPair()) || call(public KeyPair KeyPairGenerator.genKeyPair())) &&
       target(k) {
        kp = keyPair;
     }
 
-    // `initError` is absorbed rather than fused: it accuses a key size the rule's
-    // CONSTRAINTS bound, which is a report of its own and not the negation of another
-    // event's guard. It enters the automaton as one more alternative of the `Inits`
-    // group, at the only position where an `initialize` call is legal, because that is
-    // what the rule says it is: `i1: initialize(keysize)` is an `Init` event
-    // whatever size it is handed, and the size is stated separately, under CONSTRAINTS.
-    // Outside the automaton it drew a KEYPAIRGENERATOR-ORDER-00 as well as its own
-    // KEYPAIRGENERATOR-KEYSIZE-00, for an ordering -- `Get, Init, Gen` -- that
-    // the rule accepts; a self-loop would have kept that second report, because a loop
-    // does not satisfy the `Inits` the `gen` that follows needs.
+    // The rule's ORDER, `Get, Init, Gen`: a `getInstance`, one `initialize`, then a generating
+    // call. The refused creations stand ahead of it as the prefix `(g3 | g4)*`, which reaches
+    // no accepting state on its own, so a generator whose algorithm the list turns down cannot
+    // complete an accepted sequence.
     //
-    // `order_alphabet_map.csv` therefore maps it to `i3`, like `init1`, instead of
-    // exempting it: the two events stand for the same rule symbol, the erased
-    // languages are the ones compared today, and G-ORDER sees no change.
-    //
-    // `initError2` is absorbed on the same ground and mapped the same way, but to
-    // `init2`'s symbol and not to `initError`'s: it stands for `i2: initialize(keysize,
-    // random)`, the rule's own two-argument `Init`, so it maps to `i4` in
-    // `order_alphabet_map.csv` and `i2` in `order_alphabet_map_expert.csv`. Mapping it to
-    // `initError`'s symbol would file the two-argument call under `initialize(keysize)`
-    // and erase the wrong language.
+    // The two accusing events enter the alternation beside the events they accuse, at the only
+    // position where an `initialize` call is legal, because that is what the rule says they
+    // are: `i1: initialize(keysize);` is an `Init` whatever size it is handed, and the size is
+    // stated separately, under CONSTRAINTS. Outside the automaton `initError` would draw a
+    // `KEYPAIRGENERATOR-ORDER-00` beside its own key-size code, for an ordering the rule
+    // accepts; a self-loop would keep that second report too, because a loop does not satisfy
+    // the `Init` the `gen` that follows needs.
     ere: ((g3 | g4)* g1 | (g3 | g4)* g2) (init1 | init2 | init3 | init4 | initError | initError2) gen
 
+    // A call sequence the automaton rejects. The three codes separate the three cases a reader
+    // has to tell apart: no `getInstance` of this generator was observed at all
+    // (`KEYPAIRGENERATOR-ORDER-01`), one was observed and this specification refused its
+    // algorithm (`KEYPAIRGENERATOR-ORDER-02`, where the ordering failure is the consequence of
+    // that refusal), and a plain wrong call sequence (`KEYPAIRGENERATOR-ORDER-00`).
+    // `creationObserved` and `creationRefused` are not touched by the generated `reset()`,
+    // which restores the automaton state and leaves the fields, so the distinction holds on
+    // every later failure as well. All three codes are registered in `codes.csv`.
+    //
+    // The staged key pair is discarded here, so a pair bound on a sequence the automaton
+    // refused is never marked at a later acceptance point.
     @fail {
       if (!creationObserved) {
         ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyPairGeneratorSpec", "" + __LOC,
@@ -408,21 +513,25 @@ KeyPairGeneratorSpec(KeyPairGenerator k) {
       __RESET;
     }
 
-    // The acceptance point of `generatedKeypair[kp, alg]`. The clause carries no `after L`,
-    // so it is established at the accepting state; read off the generated monitor, `gen`
-    // has the transition row {4, 4, 3, 4, 4} and the match category is `nextstate == 3`,
-    // so `gen` is the only event that reaches this handler.
+    // The acceptance point of `ENSURES generatedKeypair[keyPair, algorithm];`. The clause
+    // carries no `after L`, so it holds wherever the object's use so far is a complete,
+    // conforming call sequence; in a specification written as an `ere`, that is where this
+    // handler runs, and `gen` is the only event that reaches it.
     //
-    // `generatedKeypair` is required by no rule of the oracle -- it is the last of the seven
-    // dead-end predicates design.md counts over eleven sites, and this is that eleventh
-    // site. The write is relocated as the clause asks and carries a deliberate-omission
-    // record for its absent reader (INV-INS-137); no read is fabricated for it. The other
-    // half of the clause, `generatedKeypair[this, _] after Con` (KeyPair.crysl:27), has
-    // no site at all in `KeyPairSpec.c1`; task 4.13 measured it and routed the record to
-    // task 5.10, because a clause without a site has no row in this inventory of sites.
+    // A handler receives no event arguments and runs after the transition has been decided, so
+    // it cannot see the pair the generating call returned: `gen` puts it in a field and this
+    // handler reads the field and clears it. `@fail` discards it, so a pair bound on a sequence
+    // the automaton refused is never marked.
     //
-    // The arity stays at one place where the rule writes two, under INV-INS-134's arity
-    // exception -- there is no consumer to move with it, here or at task 5.6.
+    // What the write establishes: the key pair was produced by a `KeyPairGenerator` the
+    // instrumentation observed. The bound place is the `KeyPair`, compared by identity.
+    //
+    // Two things a reader should not take this write for. It is written with one place where
+    // the rule writes two, and nothing depends on the missing one: no rule this set
+    // transcribes requires `generatedKeypair`, so the predicate is written and never read, and
+    // no site here asks for the algorithm it was generated under. The rule's other producing
+    // clause, `generatedKeypair[this, _] after Con;` of KeyPair.crysl, has no site at all in
+    // the set.
     @match {
        if (kp != null) {
            PredicateStore.instance().ensure(Property.GENERATED_KEY_PAIR, kp);

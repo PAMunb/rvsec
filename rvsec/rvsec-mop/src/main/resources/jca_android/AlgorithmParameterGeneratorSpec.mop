@@ -11,16 +11,37 @@ import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
- * AlgorithmParameterGenerator
+ * AlgorithmParameterGeneratorSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.AlgorithmParameterGenerator.
+ * Monitors java.security.AlgorithmParameterGenerator against the CrySL rule
+ * AlgorithmParameterGenerator.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/AlgorithmParameterGenerator.crysl
+ * The rule's ORDER is `Get, Init, GenParam`: a generator is obtained from `getInstance`,
+ * initialised exactly once, and then asked for its parameters. Every other call sequence is
+ * reported as a wrong call sequence.
+ *
+ * The CONSTRAINTS enforced are `algorithm in {"DH", "DiffieHellman", "DSA"}`, checked at the
+ * creation event, and `size in {2048, 3072}`, checked at each of the two `init` overloads
+ * that take a size. The rule REQUIRES `randomized[random]`, read at the two `init` overloads
+ * that bind a SecureRandom, and ENSURES `preparedAlg[algParams, algorithm] after GenParam`,
+ * written at `generateParameters` over the object that call returned.
+ *
+ * Reach limit of the predicate read: `randomized[random]` answers NOT_OBSERVED for a
+ * SecureRandom built where the weaving does not reach or before the monitor attached, which
+ * is as often not a misuse, so that outcome carries a code of its own.
+ *
+ * The predicate this specification writes has no reader inside the set. The read that
+ * `AlgorithmParametersSpec` performs for the same clause is over the encoded parameter bytes
+ * and is answered by that specification's own `getEncoded` write; nothing reads a mark bound
+ * to an `AlgorithmParameters` object.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/AlgorithmParameterGenerator.crysl
  */
 AlgorithmParameterGeneratorSpec(AlgorithmParameterGenerator g) {
 
-   // The envelope's quoting rule (design D-3).
+   // The report envelope's quoting rule: a null value becomes the empty string, a single
+   // quote is escaped so it cannot close the field early, and the value is capped so a
+   // pathological argument cannot push the record past the logcat payload limit.
    private String q(String str) {
        if (str == null) {
            return "";
@@ -29,34 +50,61 @@ AlgorithmParameterGeneratorSpec(AlgorithmParameterGenerator g) {
        return value.replace("'", "\\'");
    }
 
-   // AlgorithmParameterGenerator.crysl:28, transcribed.
+   // CONSTRAINTS of AlgorithmParameterGenerator.crysl: `algorithm in {"DH", "DiffieHellman",
+   // "DSA"}`, transcribed. `DH` and `DiffieHellman` are both the rule's own entries and both
+   // stay -- an alias never enters the list it resolves against.
    List<String> safeAlgorithms = Arrays.asList("DH", "DiffieHellman", "DSA");
 
-   // AlgorithmParameterGenerator.crysl:29. The two admitted sizes are a list and not a
-   // threshold, so the check is membership: the rule admits 2048 and 3072 and says nothing
-   // about 4096, which a threshold would silently admit.
+   // CONSTRAINTS of AlgorithmParameterGenerator.crysl: `size in {2048, 3072}`. The two
+   // admitted sizes are a list and not a threshold, so the check is membership: the rule
+   // admits 2048 and 3072 and says nothing about 4096, which a threshold would silently
+   // admit.
    List<Integer> safeSizes = Arrays.asList(2048, 3072);
 
+   // Staged by `get` for the rule's ENSURES. The `generateParameters` event that writes the
+   // predicate binds only the object the call returned and sees no algorithm of its own: the
+   // creation call is the one site that carries the name. The name is passed through
+   // `ConscryptAliasTable.canonical`, which is where every producer of the set resolves a
+   // provider alias to the standard spelling a consumer asks with; the table carries no row
+   // under `AlgorithmParameterGenerator`, so what is stored here is the name the program
+   // spelled.
    String algorithm = null;
+
+   // The generator an `init` event bound. The four `init` events set it and `@fail` clears it;
+   // nothing reads it. The rule's one ENSURES names the object `generateParameters()` returned
+   // and is written in that event's own body, so no handler of this specification needs a
+   // staged generator.
    AlgorithmParameterGenerator initialised = null;
 
+   // The `exp=` text of the four `randomized[random]` reports at `i2` and `i4`, in one place so
+   // the two sites say the same thing about the same clause.
    String expectedRandomized = "a SecureRandom this instrumentation observed being constructed";
 
    // Set by the creation event `get`. The generated `reset()` does not clear it, so every
    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // `Get := g1 | g2` (:11-13), fused on the zeroth position. The rule leaves `g2`'s second
-   // position anonymous (`getInstance(algorithm, _)`), so every overload the platform
-   // declares is that event: api30 declares three -- `(String)`, `(String, String)` and
-   // `(String, Provider)` -- and all three are named here. Naming a proper subset narrows
-   // the rule's alphabet without saying so (INV-INS-157): the unnamed route takes no event
-   // at all, so its value clause cannot accuse, and the object reaches its next event with
-   // the monitor at state 0, where every row is `fail`. Idiom: `KeyFactorySpec.mop:54-56`.
+   // `Get := g1 | g2` of AlgorithmParameterGenerator.crysl, whose alternatives are
+   // `g1: getInstance(algorithm);` and `g2: getInstance(algorithm, _);`, fused here on the
+   // zeroth position. The rule leaves `g2`'s second position anonymous, so every overload the
+   // platform declares is that event: `getInstance(String)`, `(String, String)` and
+   // `(String, Provider)` are all three named here. Naming a proper subset would narrow the
+   // rule's alphabet in silence -- the unnamed route would take no event at all, so its value
+   // clause could not accuse, and the generator obtained through it would reach its next
+   // event with the monitor at the start state, where every row is `fail`.
    //
-   // The algorithm CONSTRAINT is accused in the body, never in a `condition(...)`
-   // (INV-INS-133, INV-INS-152), and the canonical spelling is staged for the ENSURES that
-   // names it (D-20.3, INV-INS-153).
+   // CONSTRAINTS: `algorithm in {"DH", "DiffieHellman", "DSA"}`. The check sits in the event
+   // body rather than in a `condition(...)` guard: a guard compiles to an early return ahead
+   // of both the body and the transition, so a generator asked for an algorithm the rule
+   // refuses would leave the automaton in the state before the call and the next call would
+   // be reported as a wrong call sequence instead of as the refused algorithm it is. The
+   // comparison is `ConscryptAliasTable.matches`, which folds case on both sides and also
+   // compares the name the table's rows for the service resolve to; there are no rows under
+   // `AlgorithmParameterGenerator`, so here it is the case-insensitive comparison alone. An
+   // algorithm outside the clause is reported under the code registered in `codes.csv` for
+   // this site. The name is staged whether the algorithm was admitted or not, because the
+   // rule's ENSURES names it and a refused one must not reach a later report as an empty
+   // value.
    event get after(String alg) returning(AlgorithmParameterGenerator g):
      ( call(public static AlgorithmParameterGenerator AlgorithmParameterGenerator.getInstance(String)) ||
        call(public static AlgorithmParameterGenerator AlgorithmParameterGenerator.getInstance(String, String)) ||
@@ -70,19 +118,23 @@ AlgorithmParameterGeneratorSpec(AlgorithmParameterGenerator g) {
        }
    }
 
-   // `i1: init(size)` (:15), one alternative of `Init := i1 | i2 | i3 | i4`, and the site of
-   // the size CONSTRAINT (:29) for the one-argument overload.
+   // `i1: init(size);` of AlgorithmParameterGenerator.crysl, one alternative of
+   // `Init := i1 | i2 | i3 | i4`, and the site of the size clause for the one-argument
+   // overload: CONSTRAINTS `size in {2048, 3072}`.
    //
-   // The two size overloads get an event EACH, and they are not fused, because the rule
-   // names them apart and only one of them binds the SecureRandom its REQUIRES needs. A
-   // fused event over both would emit two letters for one call -- the `.mop` would dispatch
-   // the fused event and the random-binding event on the same `init(size, random)` -- and
-   // the ordering the rule states has exactly one `Init` between the Get and the GenParam.
-   // Splitting them costs a duplicated value check and buys a language that compares.
+   // The two size overloads get an event each and are not fused, because the rule names them
+   // apart and only one of them binds the SecureRandom its REQUIRES needs. A fused event over
+   // both would emit two letters for one call -- the fused event and the random-binding event
+   // would both dispatch on the same `init(size, random)` -- where the rule's ORDER has
+   // exactly one `Init` between the `Get` and the `GenParam`. Splitting them costs a
+   // duplicated value check and buys a language that compares with the rule's.
    //
-   // The check is in the body with an accuser on the violated branch (INV-INS-152); in a
-   // `condition(...)` it would suppress the transition and the call would be accused of
-   // nothing (INV-INS-133).
+   // The check sits in the body rather than in a `condition(...)` guard: a guard compiles to
+   // an early return ahead of both the body and the transition, so a call with a size the
+   // rule refuses would leave the automaton in the state before `init` and the next call
+   // would be reported as a wrong call sequence instead of as the weak parameter size it is.
+   // A size outside the clause is reported under the code registered in `codes.csv` for this
+   // site.
    event initSize after(int size, AlgorithmParameterGenerator g):
      call(public void AlgorithmParameterGenerator.init(int)) &&
      args(size) && target(g) {
@@ -93,16 +145,27 @@ AlgorithmParameterGeneratorSpec(AlgorithmParameterGenerator g) {
        initialised = g;
    }
 
-   // `i2: init(size, random)` (:16), the other size alternative of `Init`, and the only
-   // event of this file that binds the `random` the rule's one REQUIRES names.
+   // `i2: init(size, random);` of AlgorithmParameterGenerator.crysl, the other size
+   // alternative of `Init`, and one of the two events of this file that bind the `random` the
+   // rule's REQUIRES names.
    //
-   // TWO clauses meet here and they ACCUMULATE rather than short-circuit, in the
-   // `boolean conforms` form the conventions note fixes: a call that broke the size clause
-   // AND handed over an unobserved SecureRandom must draw both reports, not the first.
+   // Two clauses meet here and they accumulate rather than short-circuit: a call that broke
+   // CONSTRAINTS `size in {2048, 3072}` and also handed over a SecureRandom whose origin was
+   // never seen must draw both reports, not the first. Both checks sit in the body and not in
+   // a `condition(...)` guard: a guard compiles to an early return ahead of both the body and
+   // the transition, so the offending call would leave the automaton in the state before
+   // `init` and the next call would be reported as a wrong call sequence instead of as the
+   // misuse it is.
    //
-   // `randomized[random]` (:32) is read three-valued with a code per accusing outcome
-   // (INV-INS-143); its producer is the existing `SecureRandomSpec`, which writes
-   // `randomized[this] after Ins`.
+   // REQUIRES `randomized[random]`: the object came from a `SecureRandom` the instrumentation
+   // observed -- the generator itself, or bytes it produced. SATISFIED is silent and the call
+   // conforms. VIOLATED is positive evidence about this SecureRandom -- a producing call was
+   // observed and what it established is not what the clause demands -- and is reported under
+   // this site's constraint code. NOT_OBSERVED means the store holds nothing at all about it:
+   // its construction ran where the weaving does not reach, or before the monitor attached,
+   // which is a reach limit as often as it is a misuse, so it is reported under a separate
+   // code registered in `codes.csv`. The producer inside this set is `SecureRandomSpec`,
+   // which marks a `SecureRandom` at the state its creation events lead to.
    event initSizeRandom after(int size, SecureRandom random, AlgorithmParameterGenerator g):
      call(public void AlgorithmParameterGenerator.init(int, SecureRandom)) &&
      args(size, random) && target(g) {
@@ -122,26 +185,37 @@ AlgorithmParameterGeneratorSpec(AlgorithmParameterGenerator g) {
        }
    }
 
-   // `i3: init(genParamSpec)` (:17), the third alternative of `Init`. No clause of the rule
-   // names its argument -- neither CONSTRAINTS nor REQUIRES mentions `genParamSpec` -- so the
-   // body is empty and that is the rule speaking, the shape `PKIXParametersSpec.c2` records
-   // for its own anonymous argument.
+   // `i3: init(genParamSpec);` of AlgorithmParameterGenerator.crysl, the third alternative of
+   // `Init`. No clause of the rule names its argument -- neither CONSTRAINTS nor REQUIRES
+   // mentions `genParamSpec` -- so the body checks nothing, and that silence is the rule's
+   // and not an omission of this file.
    //
-   // The event exists ANYWAY, and the reason is the language and not the clauses: G-ORDER
-   // compares the automaton against the rule's ORDER, and an `Init` alternative with no event
-   // leaves `Get, i3, GenParam` accepted by the rule and rejected by the specification. That
-   // is a divergence with no clause behind it, and it was measured on this file before the
-   // event existed.
+   // The event is declared anyway, and the reason is the language and not the clauses: an
+   // `Init` alternative with no event would leave `Get, i3, GenParam` accepted by the rule
+   // and rejected by this specification, so a conforming program would be reported for a
+   // wrong call sequence it did not commit.
    event initSpec after(java.security.spec.AlgorithmParameterSpec genParamSpec, AlgorithmParameterGenerator g):
      call(public void AlgorithmParameterGenerator.init(java.security.spec.AlgorithmParameterSpec)) &&
      args(genParamSpec) && target(g) {
        initialised = g;
    }
 
-   // `i4: init(genParamSpec, random)` (:18), the fourth alternative, and the SECOND site of
-   // `randomized[random]` (:32): the clause names the rule's `random`, which `i2` and `i4`
-   // both bind, so both are sites and each carries a code of its own (INV-INS-143). The
-   // parameter spec is still unconstrained, as at `i3`.
+   // `i4: init(genParamSpec, random);` of AlgorithmParameterGenerator.crysl, the fourth
+   // alternative, and the second site of REQUIRES `randomized[random]`: the clause names the
+   // rule's `random`, which `i2` and `i4` both bind, so both are sites and each carries codes
+   // of its own -- a code names a site and not a clause. The parameter spec is unconstrained
+   // here, as it is at `i3`.
+   //
+   // REQUIRES `randomized[random]`: the object came from a `SecureRandom` the instrumentation
+   // observed -- the generator itself, or bytes it produced. SATISFIED is silent and the call
+   // conforms. VIOLATED is positive evidence about this SecureRandom and is reported under
+   // this site's constraint code. NOT_OBSERVED means nothing about it was ever recorded --
+   // its construction ran outside the woven code or before the monitor attached -- which is a
+   // reach limit as often as it is a misuse, so it draws a separate code. The read sits in
+   // the body and not in a `condition(...)` guard: a guard compiles to an early return ahead
+   // of both the body and the transition, so the call would leave the automaton in the state
+   // before `init` and the next call would be reported as a wrong call sequence instead of as
+   // the unobserved randomness it is.
    event initSpecRandom after(java.security.spec.AlgorithmParameterSpec genParamSpec, SecureRandom random, AlgorithmParameterGenerator g):
      call(public void AlgorithmParameterGenerator.init(java.security.spec.AlgorithmParameterSpec, SecureRandom)) &&
      args(genParamSpec, random) && target(g) {
@@ -157,30 +231,44 @@ AlgorithmParameterGeneratorSpec(AlgorithmParameterGenerator g) {
        initialised = g;
    }
 
-   // `GenParam := gp1` (:21-22), and the acceptance point of
-   // `preparedAlg[algParams, algorithm] after GenParam` (:35). The write is in the body and
-   // not in the handler because the clause names the RETURNED AlgorithmParameters, which a
-   // handler cannot see -- the same placement `KeyManagerFactorySpec.gkm1` records
-   // (INV-INS-134). The value position carries the canonical algorithm, so that
-   // `AlgorithmParametersSpec`'s arity-2 read of the same predicate compares against the
-   // spelling the producers store (D-20.3).
+   // `GenParam := gp1` of AlgorithmParameterGenerator.crysl, whose one alternative is
+   // `gp1: algParams = generateParameters();`, and the acceptance point of ENSURES
+   // `preparedAlg[algParams, algorithm] after GenParam`.
+   //
+   // The `AlgorithmParameters` object the call returned was produced by a generator
+   // initialised for the algorithm recorded with it -- the name the creation event staged,
+   // passed through `ConscryptAliasTable.canonical` as every producer of the set does, though
+   // the table carries no row for this service to resolve.
+   //
+   // The write sits in the event body and not in the `@match` handler because the clause
+   // names the object the call returned, and a handler receives no event arguments and runs
+   // after the transition is decided, so it cannot see a return value. Nothing inside this
+   // set reads a mark bound to an `AlgorithmParameters` object: `AlgorithmParametersSpec`
+   // reads the same predicate over the encoded parameter bytes, which its own `getEncoded`
+   // event writes. This write records the fact and is not itself a check.
    event gen after(AlgorithmParameterGenerator g) returning(AlgorithmParameters algParams):
      call(public AlgorithmParameters AlgorithmParameterGenerator.generateParameters()) &&
      target(g) {
        PredicateStore.instance().ensure(Property.PREPARED_ALG, algParams, algorithm);
    }
 
-   // The rule's ORDER, `Get, Init, GenParam` (:25). Exactly one `Init` stands between the
-   // Get and the GenParam, and the two size events are alternatives of that one position --
-   // which is why they had to stop overlapping: a fused event plus a random-binding event
-   // would put two letters where the rule has one.
+   // The rule's ORDER: `Get, Init, GenParam`. Exactly one `Init` stands between the `Get` and
+   // the `GenParam`, and the four `init` events are the alternatives of that one position --
+   // which is why the two size overloads must not overlap: a fused event plus a
+   // random-binding event would put two letters where the rule has one.
    //
-   // All four `Init` alternatives are events, including the two whose argument no clause
-   // names: an alternative with no event leaves the rule accepting a sequence the
-   // specification rejects, which G-ORDER measured on this file and which is a divergence
-   // with no clause behind it.
+   // All four `Init` alternatives are declared as events, including the two whose argument no
+   // clause names: an alternative with no event would leave the rule accepting a sequence
+   // this specification rejects, and a conforming program would be reported for a wrong call
+   // sequence.
    ere : get (initSize | initSizeRandom | initSpec | initSpecRandom) gen
 
+   // Reached whenever the automaton cannot take the next event from the state it is in. Two
+   // codes, both registered in `codes.csv`: the plain wrong-call-sequence code, and a second
+   // one for a generator whose `getInstance` was never seen, which the `creationObserved`
+   // field separates -- a sequence that only looks wrong because the creation ran outside the
+   // woven code is a reach limit of the instrumentation and not a misuse. `__RESET` returns
+   // the monitor to the start state.
    @fail {
       if (!creationObserved) {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "AlgorithmParameterGeneratorSpec", "" + __LOC,

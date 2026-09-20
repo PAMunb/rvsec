@@ -7,40 +7,52 @@ import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 
 /**
- * DHGenParameterSpec
+ * DHGenParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.crypto.spec.DHGenParameterSpec;
+ * Monitors javax.crypto.spec.DHGenParameterSpec against the CrySL rule DHGenParameterSpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/DHGenParameterSpec.crysl
+ * The rule's ORDER is `Con`, with `Con := c1` naming its one event, the two-argument constructor,
+ * so a single construction is already a complete, conforming call sequence and there is no call
+ * order to police. What the specification checks is the rule's one CONSTRAINTS clause,
+ * `exponentSize < primeSize`, read in the constructor event itself. It REQUIRES no predicate and
+ * ENSURES one, `preparedDH[this]`, written for the constructed spec at the accepting state.
+ *
+ * The monitor reaches only constructions the weaving instrumented. A spec built inside a library
+ * or inside the platform carries no preparedDH, and the specifications that read the predicate
+ * answer NOT_OBSERVED for it rather than VIOLATED, so code whose producer was never observed is
+ * not accused.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/DHGenParameterSpec.crysl
  */
 DHGenParameterSpecSpec(DHGenParameterSpec s) {
 
+   // The object the ENSURES is written for. The write cannot happen in the event: a `@match`
+   // handler receives no event arguments and runs after the transition has been decided, so the
+   // event that saw the constructed object stages it here and the handler reads the field.
    DHGenParameterSpec spec;
 
    // Set by the creation event `c1`. The generated `reset()` does not clear it, so every
    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // The rule's single CONSTRAINTS clause, `exponentSize < primeSize`
-   // (DHGenParameterSpec.crysl:15), read in the body with an accuser on the violated
-   // branch. It has to be read here and not in a `condition(...)`: that clause
-   // compiles to `if (!(guard)) return false;` ahead of both the body and the
-   // transition, so a construction that breaks the constraint takes no transition,
-   // reaches no accepting state and is accused of nothing (INV-INS-133). A value
-   // clause whose violation is total silence is not a check.
+   // `c1` of DHGenParameterSpec.crysl: `c1: DHGenParameterSpec(primeSize, exponentSize);`, which
+   // is the whole of `Con := c1`. The rule's single CONSTRAINTS clause,
+   // `exponentSize < primeSize;`, is checked in the body with an accuser on the violated branch.
    //
-   // Both integers the message prints are operands of this guard: `val` carries the
-   // exponent size the constructor was given, `exp` names the bound it had to fall
-   // under. The rule states the constraint over the sizes and not over the values
-   // derived from them, so nothing else is read.
+   // It has to be read here and not in a `condition(...)` guard: a guard compiles to
+   // `if (!(guard)) return false;` ahead of both the body and the transition, so a construction
+   // that breaks the constraint would take no transition, reach no accepting state and be accused
+   // of nothing. A value clause whose violation is total silence is not a check.
    //
-   // `spec` is bound only on the conforming branch, which is what carries the write
-   // to `@match`: `ENSURES preparedDH[this]` (:18) has no `after L`, so its
-   // acceptance point is the accepting state (INV-INS-134), and a construction that
-   // broke the clause arrives there with nothing bound. `ensure` treats a null
-   // binding as a no-op, so it prepares nothing -- the literal reading of CrySL,
-   // where a predicate is ensured for a use that satisfied the rule.
+   // Both integers the message prints are operands of the clause: `val` carries the exponent size
+   // the constructor was given, `exp` names the bound it had to fall under. The clause is stated
+   // over the two sizes and not over anything derived from them, so nothing else is read. The
+   // violation is reported as an UnsatisfiedConstraint under the code this site is registered with
+   // in `codes.csv`.
+   //
+   // `spec` is assigned on the conforming branch alone, so a construction that broke the clause
+   // reaches the `@match` handler with the field unbound and prepares nothing -- the literal
+   // reading of CrySL, where a predicate is ensured for a use that satisfied the rule.
    event c1 after(int primeSize, int exponentSize) returning(DHGenParameterSpec s):
     call(public DHGenParameterSpec.new(int, int)) &&
     args(primeSize, exponentSize) {
@@ -54,6 +66,11 @@ DHGenParameterSpecSpec(DHGenParameterSpec s) {
        }
    }
 
+   // `Con := c1` is the whole ORDER, so this automaton has one symbol and the `@fail` handler
+   // below cannot fire: the transition row the generator derives is {1, 2, 2}, and the monitor is
+   // keyed on the constructed object, so no monitor of this specification ever sees a second event
+   // and state 2 is never entered. The handler is written anyway, because the generator expects
+   // one and its two codes are registered in `codes.csv` like every other site.
    ere : c1
 
    @fail {
@@ -68,6 +85,18 @@ DHGenParameterSpecSpec(DHGenParameterSpec s) {
       __RESET;
    }
 
+   // ENSURES `preparedDH[this];`: the clause carries no `after L`, so it holds wherever the
+   // object's use so far is a complete, conforming call sequence -- the accepting state of the
+   // ORDER, which in an `ere` is exactly where the `@match` handler runs. The predicate says: the
+   // parameter spec carries Diffie-Hellman parameters the rule admits, checked where it was
+   // constructed. It is bound to the spec and has no value place, so the consumers ask for
+   // nothing but the object.
+   //
+   // The object arrives through the `spec` field, because a handler receives no event arguments;
+   // `ensure` returns at once for a null binding, so only a construction that satisfied
+   // `exponentSize < primeSize` is prepared. `AlgorithmParametersSpec`, `KeyAgreementSpec` and
+   // `KeyPairGeneratorSpec` read this predicate for the spec they are initialised with when their
+   // own algorithm is Diffie-Hellman; a spec that prepared nothing reaches them as NOT_OBSERVED.
    @match {
       PredicateStore.instance().ensure(Property.PREPARED_DH, spec);
    }

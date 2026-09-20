@@ -12,15 +12,45 @@ import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
- * KeyManagerFactory
+ * KeyManagerFactorySpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.net.ssl.KeyManagerFactory class.
+ * Monitors javax.net.ssl.KeyManagerFactory against the CrySL rule KeyManagerFactory.crysl.
  *
- * https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyManagerFactory.crysl
+ * The rule's ORDER is `Get, Init, GetKeyMng?`: a factory is obtained from `getInstance`,
+ * initialised once, and its key managers taken at most once. Of its three CONSTRAINTS clauses
+ * this specification enforces one, `algorithm in {"PKIX", "SunX509"}`. Its two REQUIRES clauses,
+ * `generatedKeyStore[keyStore]` and `generatedManagerFactoryParameters[params]`, are read at the
+ * `init` event, one per branch of the runtime type of its first argument. Its two ENSURES
+ * clauses, `generatedKeyManager[this] after Init` and
+ * `generatedKeyManagers[keyManager] after GetKeyMng`, are written at the state `init` leads to
+ * and in the body of `getKeyManagers` respectively.
+ *
+ * Divergences from the rule and reach limits of this monitor:
+ *
+ * - The two password clauses, `neverTypeOf[password, java.lang.String]` and
+ *   `notHardCoded[password]`, are not checked. Both constrain the expression that produced the
+ *   `char[]` handed to `init`, and an event body sees the array and not the expression that
+ *   built it.
+ * - The rule states the algorithm in CONSTRAINTS, so it should govern no transition; here it
+ *   does. A `getInstance` for an algorithm outside the list is an event of its own that leads to
+ *   a state admitting no `init`, so such a factory is reported through the creation-refused
+ *   ordering code rather than through the algorithm code, and the algorithm check in the `init`
+ *   body is reached only by a factory whose creation the list admitted.
+ * - `SunX509` is an entry of the rule's clause and stays in the list, and no provider of this
+ *   platform registers it: `getInstance("SunX509")` cannot return a factory here, so the entry
+ *   admits nothing that can run.
+ * - `generatedKeyManager[this] after Init` is written over the factory and no specification of
+ *   this set reads a mark bound to a `KeyManagerFactory`; the write records the initialisation
+ *   and nothing consumes it. Key-manager arrays carry no per-element mark either, so a program
+ *   that repacks the issued managers into an array of its own is not credited.
+ * - The rule's `i1: init(keyStore, password)` and `i2: init(params)` are one fused event, and a
+ *   null argument carries no runtime type, so `init((ManagerFactoryParameters) null)` is read as
+ *   though it were `i1`.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/KeyManagerFactory.crysl
  */
 KeyManagerFactorySpec(KeyManagerFactory k) {
-    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // The envelope's quoting rule: a null value is the empty string,
     // a single quote is escaped so it cannot close the field early, and the value
     // is capped so a pathological argument cannot push the record past the
     // logcat payload limit.
@@ -32,9 +62,19 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         return value.replace("'", "\\'");
     }
 
-    // D-15: KeyManagerFactory.crysl states `algorithm in {"PKIX", "SunX509"}`. `SunX509`
-    // returns -- it names a JSE provider absent from Android, which makes it inert, not
-    // removable. `X509` keeps resolving to `PKIX` through the alias table.
+    // The allow-list this specification enforces, and it is the CONSTRAINTS clause of
+    // KeyManagerFactory.crysl word for word: `algorithm in {"PKIX", "SunX509"}`.
+    //
+    // A value spelled otherwise can still reach an entry: every comparison goes through
+    // `ConscryptAliasTable.matches`, which folds case and resolves the alias rows the table
+    // carries for the service it is called with. For `KeyManagerFactory` the table carries no
+    // rows, so here the comparison is case folding alone: `pkix` reaches the entry `PKIX`, and a
+    // provider spelling such as `X509` does not.
+    //
+    // `SunX509` is inert on this platform, stated as behaviour: it is the name of an algorithm a
+    // JSE provider registers and no provider here does, so `getInstance("SunX509")` cannot return
+    // a factory and no program running here can present this entry to the check. It stays in the
+    // list because it is an entry of the rule's clause.
     List<String> safeAlgorithms = Arrays.asList("PKIX", "SunX509");
 
     // Staged by `init` for the acceptance-point handler, which sees no event parameter,
@@ -59,6 +99,17 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
     String expectedGeneratedManagerFactoryParameters =
         "a ManagerFactoryParameters this instrumentation observed being constructed";
 
+    // `Get` of KeyManagerFactory.crysl: `g1: getInstance(algorithm);`, the one-argument overload,
+    // one alternative of `Get := g1 | g2`. The guard is the CONSTRAINTS clause
+    // `algorithm in {"PKIX", "SunX509"}`, read through `ConscryptAliasTable.matches`, which folds
+    // case and resolves the alias rows the table carries for the service -- none for this one, so
+    // only the spelling's case is free here.
+    //
+    // The guard governs the transition, and that is what this specification does with the clause:
+    // only a factory the list admits reaches the state where `init` is declared. A refused
+    // algorithm takes the twin `g3` below instead. The body records that a creation was observed,
+    // which `@fail` reads to tell a factory this monitor saw created from one created where it
+    // cannot see.
     event g1 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
@@ -66,6 +117,11 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         creationObserved = true;
     }
 
+    // `Get` of KeyManagerFactory.crysl: `g2: getInstance(algorithm, _);`, the overload that also
+    // names a provider. `args(alg, *)` binds the algorithm and leaves the provider free, and the
+    // `..` in the `call(...)` signature covers the `(String, String)` and `(String, Provider)`
+    // shapes of the platform in one pointcut. The guard is `g1`'s, over the same clause, and it
+    // governs the transition the same way; the refused twin of this event is `g4`.
     event g2 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String, ..))
       && args(alg, *)
@@ -73,6 +129,17 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         creationObserved = true;
     }
 
+    // The refused twin of `g1`: the one-argument `getInstance` pointcut under the negated
+    // allow-list guard. A false `condition(...)` runs no body, so without this event a factory
+    // asked for a refused algorithm would match no event at all, and its first use would read
+    // `creation-unobserved` although its creation ran in woven code.
+    //
+    // The body only records the creation; it reports nothing and writes no field another event
+    // reads. `g3` leads to `unsafeAlg`, which declares no `init`, so the factory's first use
+    // fails exactly where it fails for a factory no event saw, and the difference is the code
+    // `@fail` chooses -- `creation-refused`, which is how a refused algorithm is reported here.
+    // `unsafeAlg` does declare `g1` and `g2`, so a program that asks again for an admitted
+    // algorithm goes on with the factory that call returns.
     event g3 after(String alg) returning(KeyManagerFactory k):
       call(public static KeyManagerFactory KeyManagerFactory.getInstance(String))
       && args(alg)
@@ -97,55 +164,56 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         creationRefused = true;
     }
 
-    // `generatedKeyStore[keyStore]` (KeyManagerFactory.crysl:31, ledger clause #14) is read
-    // here, in the only event of this file that a key store ever reaches.
-    //
-    // The event stands for the rule's `i1` and `i2` at once -- the rule declares
-    // `i1: init(keyStore, password)`, `i2: init(params)` and `Init := i1 | i2` -- and the two
-    // overloads have different arities, so no named position exists in both signatures. What
-    // does exist is the position they share: each has a first argument, so `args(arg, ..)`
-    // binds it in both and the body discriminates by runtime type. That is the fusion idiom
-    // this change already states for a varying argument, used under the condition it states:
-    // the bound position is the zeroth, which every fused signature has, so no overload drops
-    // out of the automaton. The two alternatives were measured and both cost more. Splitting
-    // the event into the rule's own `i1`/`i2` grows the alphabet of two mirror automata, makes
-    // the ordering map be rewritten for the sibling file, and changes the `ev=` field of an
-    // ORDER code that is already published -- and it puts the algorithm accusation below in two
-    // places. A separate consumer specification was the other, and the file of this set that
-    // carries one says in its own header that a separate specification is the last resort,
-    // taken because `CipherSpec` had no event left to spend; this file declares six events and
-    // has no ceiling (researcher decision, 2026-08-22).
+    // `Init` of KeyManagerFactory.crysl: `i1: init(keyStore, password);` and `i2: init(params);`,
+    // joined by `Init := i1 | i2`, realised here as one event. The two overloads have different
+    // arities, so no named position exists in both signatures; what does exist is the position
+    // they share, since each has a first argument, so `args(arg, ..)` binds that position in
+    // both and the body discriminates on its runtime type. The bound position is the zeroth,
+    // which every fused signature has, so neither overload drops out of the automaton.
     //
     // The wildcard lives in `args` and not in the `call(...)` signatures, which are written out
-    // in full. That is the distinction the trace harness makes: its resolver walks the declared
-    // parameter types of the call and stops at the first that is a wildcard, so a wildcard in
-    // the signature would make every `init` fit this pointcut.
+    // in full: a matcher resolves a pointcut by walking the declared parameter types of the call
+    // and stops at the first wildcard, so a wildcard in the signature would make every `init`
+    // fit this pointcut.
     //
-    // Reading a null argument is deliberate, not an oversight (researcher decision,
-    // 2026-08-22). Measured on Temurin 21: `kmf.init(store, pw)` on a store that was never
-    // loaded raises `KeyStoreException: initialization failed`, so a key store that arrives
-    // here was loaded -- but a null one arrives freely, and the sibling `TrustManagerFactory`
-    // takes null as its documented default-truststore route. The store answers NOT_OBSERVED for
-    // a null object, and that is what the rule states: the clause requires a key store this
-    // instrumentation saw generated, and no argument is not one. A guard on null would fold
-    // "the program handed over no key store" into silence, which is the shape of suppression
-    // this change exists to remove. What the null does get is a code of its own, labelled
-    // `platform-default`: `init(null, pw)` is the documented request for the platform's default
-    // key source, and an analysis must be able to separate it from a key store whose loading went
-    // unseen.
+    // CONSTRAINTS of KeyManagerFactory.crysl: `algorithm in {"PKIX", "SunX509"}`, checked here
+    // over the algorithm the factory reports. The check sits in the event body rather than in a
+    // `condition(...)` guard: a guard compiles to an early return ahead of both the body and the
+    // transition, so a factory the check refused would leave the automaton in the state before
+    // `init` and its next call would be reported as a wrong call sequence instead of as the
+    // refused algorithm it is. Only a factory the creation events admitted reaches this event at
+    // all, so what this check catches is a factory that reports an algorithm other than the one
+    // `getInstance` was asked for; a refused request is reported at the creation instead, under
+    // the ordering code `@fail` selects from `creationRefused`.
+    //
+    // REQUIRES of KeyManagerFactory.crysl: `generatedKeyStore[keyStore];`. The predicate says
+    // that the `KeyStore` was loaded by a call the instrumentation observed; its producer in this
+    // set is `KeyStoreSpec`, which writes the mark at the acceptance point its `load` event leads
+    // to. This is the only event of this file a key store ever reaches.
+    //
+    // The read is three-valued and the three are not two. SATISFIED reports nothing. VIOLATED is
+    // positive evidence about this store -- an entry exists whose values differ, or the predicate
+    // was revoked by a `negate` -- and goes out under a constraint code. NOT_OBSERVED says only
+    // that no entry exists: no loading of this store was ever seen, which happens when the
+    // loading ran before the monitor attached or inside a library the weaving does not reach, and
+    // that is a reach limit rather than a misuse, so it goes out under a code of its own. No site
+    // of this set revokes this predicate, so VIOLATED has no program that produces it today; the
+    // branch is written so that a revocation would be reported as one rather than as an
+    // unobserved store.
+    //
+    // The null argument is read rather than exempted, and it takes a code of its own.
+    // `kmf.init(store, pw)` on a store that was never loaded raises
+    // `KeyStoreException: initialization failed`, so a key store that does arrive here was
+    // loaded; a null arrives freely, and `init(null, pw)` is the documented request for the
+    // platform's own key source. A null is not a key store this instrumentation saw loaded, so
+    // the read answers NOT_OBSERVED, and the separate code is what lets an analysis tell that
+    // route from a key store whose loading merely went unseen. Exempting the null instead would
+    // turn "the program handed over no key store" into silence.
     //
     // The imprecision that buys, stated rather than hidden: a null carries no runtime type, so
-    // `init((ManagerFactoryParameters) null)` -- the rule's `i2` with a null argument, a call no
-    // program of the corpus makes -- is read as if it were `i1`. Discriminating them would need
-    // the join point's static signature, which an event body does not see.
-    //
-    // The read is three-valued and its two accusing outcomes carry different codes, as at every
-    // other read of this set. VIOLATED has no program that produces it today: the predicate is
-    // written at arity 1 by `KeyStoreSpec` and withdrawn nowhere, so the store can only answer
-    // SATISFIED or NOT_OBSERVED. The branch is written anyway, and this is the record of why
-    // rather than a claim that it fires -- a predicate gains a withdrawal the day some rule's
-    // NEGATES clause is wired to it, and a read that had folded VIOLATED into NOT_OBSERVED
-    // would then report a withdrawn key store as an unobserved one.
+    // `init((ManagerFactoryParameters) null)` -- the rule's `i2` with a null argument -- is read
+    // as if it were `i1`. Telling them apart would need the join point's static signature, which
+    // an event body does not see.
     event init before(Object arg, KeyManagerFactory k):
        ( call(public void KeyManagerFactory.init(KeyStore, char[])) ||
          call(public void KeyManagerFactory.init(ManagerFactoryParameters))
@@ -154,6 +222,10 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.UnsafeAlgorithm, "KeyManagerFactorySpec", "" + __LOC,
                 "v=1 code=KEYMANAGERFACTORY-ALG-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(String.join(",", safeAlgorithms)) + "' msg='expecting one of " + String.join(",", safeAlgorithms) + " but found " + k.getAlgorithm() + "'"));
         }
+        // The key-store branch of the discrimination, which is where `generatedKeyStore` is read.
+        // It takes the `KeyStore` argument of the rule's `i1` and the null argument of either
+        // overload; the rule's other REQUIRES, `generatedManagerFactoryParameters[params];`, is
+        // about the argument of `i2` and is read on the sibling branch below.
         if (arg == null || arg instanceof KeyStore) {
             PredicateVerdict generated = PredicateStore.instance().validate(Property.GENERATED_KEY_STORE, arg);
             if (generated == PredicateVerdict.VIOLATED) {
@@ -169,20 +241,25 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
                     "v=1 code=KEYMANAGERFACTORY-NOBS-00 ev=" + __EVENTNAME + " obj=KeyManagerFactory val='" + q(k.getAlgorithm()) + "' exp='" + q(expectedGeneratedKeyStore) + "' msg='no loading of the KeyStore given to KeyManagerFactory.init was observed'" + Evidence.keysFor(arg)));
             }
         }
-        // The rule's other REQUIRES clause, `generatedManagerFactoryParameters[params]`
-        // (KeyManagerFactory.crysl:32, ledger clause #29), on the sibling branch of the same
-        // discrimination. `params` is what the rule's `i2` binds, so this is the branch where a
-        // `ManagerFactoryParameters` reaches this event at all, and the guard that separates the
-        // two clauses is the same runtime-type test the `generatedKeyStore` read above already
-        // makes -- no new event, no new pointcut, no arity to fuse.
+        // REQUIRES of KeyManagerFactory.crysl: `generatedManagerFactoryParameters[params];`, on
+        // the branch a `ManagerFactoryParameters` is the one to reach -- the argument of the
+        // rule's `i2: init(params)`. The predicate says that the parameter object was constructed
+        // by a call the instrumentation observed, so a key or trust manager factory may be
+        // initialised from it. Its producers in this set are `KeyStoreBuilderParametersSpec` and
+        // `CertPathTrustManagerParametersSpec`, each of which writes the mark when its
+        // constructor completes and, for the second of the two, only when the cert path
+        // parameters it was handed were themselves observed being built.
         //
-        // Until gh109 group G2 the clause was recorded `unmonitored-producer`: nothing in the set
-        // ensured the predicate, so the read could only ever have answered NOT_OBSERVED. G2 wrote
-        // both producers the oracle states -- `KeyStoreBuilderParametersSpec` (task 2.8) and
-        // `CertPathTrustManagerParametersSpec` (task 2.9), the two rules whose ENSURES names it --
-        // and D-24 is why writing them is not enough: a predicate no specification reads is a
-        // clause that moved no verdict. The `null` case belongs to the branch above and not to
-        // this one, for the reason stated there; a null argument is read as the rule's `i1`.
+        // The read is three-valued exactly as the key-store read above, and its two accusing
+        // outcomes carry different codes: VIOLATED is positive evidence about this object,
+        // NOT_OBSERVED says only that no construction of it was seen -- a program that builds its
+        // parameters through some other implementation of the interface, or in code the weaving
+        // does not reach.
+        //
+        // No new event and no new pointcut pays for this read: the guard that separates the two
+        // clauses is the same runtime-type test the key-store read above already makes. The
+        // `null` case belongs to that branch and not to this one, for the reason stated there; a
+        // null argument is read as the rule's `i1`.
         else if (arg instanceof ManagerFactoryParameters) {
             PredicateVerdict prepared = PredicateStore.instance().validate(Property.GENERATED_MANAGER_FACTORY_PARAMETERS, arg);
             if (prepared == PredicateVerdict.VIOLATED) {
@@ -197,25 +274,35 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
        initialisedFactory = k;
     }
 
-    // `generatedKeyManagers[keyManager] after GetKeyMng` (KeyManagerFactory.crysl:36), the
-    // predicate ledger #14's neighbour #28 and the one `SSLContext.init` reads at task 5.9.
-    // The oracle names the predicate in the plural and qualifies it with an `after L` the
-    // generated rule did not carry; neither moves this site, because `GetKeyMng` is the
-    // aggregate `gkm1` belongs to and the write is already in its body.
+    // `GetKeyMng` of KeyManagerFactory.crysl: `gkm1: keyManager = getKeyManagers();`.
     //
-    // The write is at the acceptance point, in the sense the monitor has one: `gkm1` carries
-    // the transition row {4, 4, 4, 2, 4} and lands on state 2, which is `@match2`, read off
-    // the generated monitor, so this body runs on the transition that accepts. What keeps it
-    // out of the `@match2` handler is the array and nothing else -- a handler sees no
-    // parameter of the event it follows, and `kms` is the parameter, where
-    // `initialisedFactory` is a field `@match1` can reach. The record is in
-    // predicate_graph.csv.
+    // ENSURES of KeyManagerFactory.crysl: `generatedKeyManagers[keyManager] after GetKeyMng;`.
+    // The predicate says that the object came out of a `KeyManagerFactory` the instrumentation
+    // observed being initialised -- here the key-manager array it issued. `GetKeyMng` is the
+    // aggregate this event belongs to, so the acceptance point the clause names is the state
+    // this transition leads to, and the write runs in the event body: the array is an event
+    // parameter, and the handler for that state receives no event arguments, so the body is the
+    // only place the array is visible. The factory-side write of the rule's other ENSURES
+    // travels in a field instead, which is why it can sit in a handler and this one cannot.
+    //
+    // The mark is bound to the array itself, compared by identity, and no per-element mark is
+    // written beside it. Stated as behaviour: `SSLContextSpec` reads this predicate over the
+    // array it is handed, so a program that copies the issued managers into an array of its own
+    // presents an array this monitor never marked, and the read there answers NOT_OBSERVED.
     event gkm1 after(KeyManagerFactory k) returning(KeyManager[] keyManager):
       call(public KeyManager[] KeyManagerFactory.getKeyManagers())
       && target(k) {
         PredicateStore.instance().ensure(Property.GENERATED_KEY_MANAGERS, keyManager);
     }
 
+    // The rule's ORDER, `Get, Init, GetKeyMng?`, with one state this file adds: `unsafeAlg`,
+    // where the refused creations `g3` and `g4` lead. It declares no `init`, so the first use of
+    // such a factory fails there, which is how a creation the allow-list refused is told apart
+    // from a creation this monitor never saw; it does declare `g1` and `g2`, so a program that
+    // asks again for an admitted algorithm goes on from the factory that call returns. `final`
+    // and `taken` both accept, and the two aliases below are how this file says so: `final` is
+    // the state `init` leads to, `taken` the state `gkm1` leads to, and the rule's `?` is the
+    // absence of any transition out of `taken`.
     fsm :
       start [
         g3 -> unsafeAlg
@@ -263,14 +350,21 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
         __RESET;
     }
 
-    // The acceptance point of `generatedKeyManager[this] after Init`, where the two routes
-    // INV-INS-134 admits are the same handler: `init` has the transition row {4, 3, 4, 4, 4}
-    // and the match category is `nextstate == 3`, so the state the Init leads to and the
-    // accepting state are one state, and `init` is the only event that reaches it.
+    // ENSURES of KeyManagerFactory.crysl: `generatedKeyManager[this] after Init;`. The predicate
+    // says that the object came out of a `KeyManagerFactory` the instrumentation observed being
+    // initialised -- here the factory itself. The state `Init` leads to, `final`, is also this
+    // automaton's accepting state, and `init` is the only event that reaches it, so the handler
+    // for that state is the acceptance point the clause names.
     //
-    // No rule of the oracle requires this half of the clause -- `SSLContext.crysl:32` asks
-    // for `generatedKeyManagers[km]`, over the array, never over the factory -- so the site
-    // carries a deliberate-omission record (INV-INS-137) and no read is fabricated for it.
+    // The factory travels here in a field because a handler receives no event arguments and runs
+    // after the transition has been decided: the `init` event stages `k`, this handler writes the
+    // predicate and clears the field, and `@fail` discards it, so a factory whose call sequence
+    // the automaton refused is never marked.
+    //
+    // Stated as behaviour: no specification of this set reads a mark bound to a
+    // `KeyManagerFactory`. The consumer of the rule's other ENSURES, `SSLContextSpec`, asks for
+    // the predicate over the key-manager array and never over the factory. This write therefore
+    // records the initialisation and nothing consumes it; no read is fabricated for it.
     @match1 {
        if (initialisedFactory != null) {
            PredicateStore.instance().ensure(Property.GENERATED_KEY_MANAGERS, initialisedFactory);
@@ -278,14 +372,14 @@ KeyManagerFactorySpec(KeyManagerFactory k) {
        }
     }
 
-    // The second accepting state, which is what makes the rule's `gkm?` optional and terminal
-    // at once: the rule's ORDER `Get, Init, GetKeyMng?` (KeyManagerFactory.crysl:23) accepts
-    // a factory whose key managers were taken, and the `?` refuses a
-    // second taking, so `taken` accepts and declares no event of its own. An alias is how this
-    // file says a state accepts -- it is also what G-ORDER reads to decide equivalence -- and
-    // the handler is empty because there is nothing left to write: the clause's write over the
-    // factory is `@match1`'s, and the one over the array is in the `gkm1` body, which is the
-    // only place the array is visible.
+    // The second accepting state, which is what makes the rule's `GetKeyMng?` optional and
+    // terminal at once: the ORDER `Get, Init, GetKeyMng?` accepts a factory whose key managers
+    // were taken, and the `?` refuses a second taking, so `taken` accepts and declares no event
+    // of its own -- a second `getKeyManagers()` on one factory is reported as a wrong call
+    // sequence. An alias is how this file says a state accepts. The handler is empty because
+    // there is nothing left to write: the clause's write over the factory is `@match1`'s, and
+    // the one over the array is in the `gkm1` body, which is the only place the array is
+    // visible.
     @match2 {
     }
 }

@@ -9,13 +9,34 @@ import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
+/**
+ * CipherOutputStreamSpec
+ *
+ * Monitors javax.crypto.CipherOutputStream against the CrySL rule CipherOutputStream.crysl.
+ * The rule's ORDER is `Con, Write+, Close`: one construction, at least one write, one close.
+ * Its one REQUIRES clause, `generatedCipher[cipher];`, is read in the constructor body against
+ * the predicate store, so a stream built over a Cipher the instrumentation never saw
+ * initialised is reported where it is constructed.
+ *
+ * Two parts of the rule have no site here, and that is behaviour rather than an oversight:
+ *
+ *  - the CONSTRAINTS `length[data] >= offset + len;`, `offset >= 0;` and `len > 0;` are not
+ *    checked. The `w2` event binds the three arguments of `write(byte[], int, int)` and reports
+ *    nothing about them;
+ *  - the ENSURES `cipheredOutputStream[outputStream, cipher];` is not written. No `Property`
+ *    constant of this set carries that predicate and no specification of the set reads one, so
+ *    a write would have no consumer.
+ *
+ * The specification accepts one call the rule's alphabet does not name, `flush()`, at every
+ * position a program may make it; see the comment on the `ere` below for why it may not stand
+ * in for a write.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/CipherOutputStream.crysl
+ */
 // The declared parameter is the stream every event binds. Without one the generator emits a
 // single instance for the whole process, so two streams alive at once are one trace: the second
 // constructor arrives where the automaton is waiting for the first stream's own sequence, and a
-// conforming program is accused of a wrong call sequence. Corpus mass for that class was
-// measured at 0 rows of 97,018 -- the repair costs the published numbers nothing and removes
-// the last non-parametric specification of the family (`CipherSpec` and `KeyStoreSpec` are
-// parametric; this file and its sibling were the two that were not).
+// conforming program is accused of a wrong call sequence.
 CipherOutputStreamSpec(CipherOutputStream cos) {
 
     // The `exp=` of the two report sites below, as a field so the two cannot drift apart.
@@ -25,13 +46,34 @@ CipherOutputStreamSpec(CipherOutputStream cos) {
     // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
     boolean creationObserved = false;
 
-    // The constructor binds through `returning`, every other event through `target` -- same
-    // reason as the sibling file: an unbound event of a parametric specification broadcasts
-    // over the whole monitor set instead of naming one stream.
-    // `generatedCipher[cipher]` (CipherOutputStream.crysl:32, ledger row 16), the mirror of
-    // the sibling file's clause and wired in the same commit for the same reason. The
-    // reasoning is stated once, at `CipherInputStreamSpec.c1`; what differs here is only the
-    // stream type and the two codes.
+    // `Con` of CipherOutputStream.crysl: `c1: CipherOutputStream(outputStream, cipher)`, the
+    // rule's one creation event and the first symbol of its ORDER. The constructor binds the
+    // stream through `returning`, every other event through `target`: an event of a parametric
+    // specification that binds no monitored object is handed the parameterless map and runs on
+    // the root monitor and on every live monitor of the specification, so its report would name
+    // no particular stream.
+    //
+    // Both arguments are bound although only one is read: `args(output, cipher)` names the two
+    // positions by type and carries no wildcard. A wildcard in the leading position would
+    // generate a correct aspect and defeat the trace harness's resolver, which accepts any
+    // call from the first wildcard onward, and there is nothing to gain by it -- the
+    // `OutputStream` costs one declared parameter and no report.
+    //
+    // REQUIRES `generatedCipher[cipher];`: the Cipher was initialised by a call the
+    // instrumentation observed. The read sits in the event body and not in a `condition(...)`
+    // guard, because a guard compiles to an early return ahead of the body and of the
+    // transition, so a stream built over an uninitialised Cipher would take no step and its
+    // first `write` would then be reported as a wrong call sequence instead of as the missing
+    // initialisation it is.
+    //
+    // The read is three-valued. SATISFIED is silent. VIOLATED is positive evidence: the store
+    // holds an entry for this Cipher under this predicate that the clause does not admit.
+    // NOT_OBSERVED means the store holds no entry for it at all -- the `init` ran inside a
+    // library or the platform the weaving does not reach, or before the monitor attached -- and
+    // an object whose producer was never instrumented is not a misuse, so the two outcomes are
+    // reported under separate codes, both registered in `codes.csv`. The producing site is the
+    // handler of `CipherSpec` at the state its `init` events lead to, which writes the same
+    // predicate over the Cipher.
     event c1 after(OutputStream output, Cipher cipher) returning(CipherOutputStream cos):
       call(public CipherOutputStream.new(OutputStream, Cipher)) &&
       args(output, cipher) {
@@ -47,25 +89,41 @@ CipherOutputStreamSpec(CipherOutputStream cos) {
         }
     }
 
+    // `Write` of CipherOutputStream.crysl: `w1: write(specifiedByte)` and `w2: write(data)`,
+    // the two overloads that carry no clause over their arguments, merged into one event
+    // because the rule's ORDER treats them alike. The body is empty: this event only takes its
+    // step of the `Write+`.
     event w1 after(CipherOutputStream cos):
       ( call(public void CipherOutputStream.write(int)) ||
         call(public void CipherOutputStream.write(byte[]))
       ) && target(cos) {  }
 
+    // `Write` of CipherOutputStream.crysl: `w3: write(data, offset, len)`, written as its own
+    // event because it is the overload the rule's bounds clauses are about. The CONSTRAINTS
+    // `length[data] >= offset + len;`, `offset >= 0;` and `len > 0;` are over exactly these
+    // three arguments and this body checks none of them: the positions are bound and nothing is
+    // reported about them. Like `w1`, the event only takes its step of the `Write+`.
     event w2 after(byte[] b, int off, int len, CipherOutputStream cos):
       call(public void CipherOutputStream.write(byte[], int, int)) &&
       args(b, off, len) &&
       target(cos) { }
 
+    // `flush()` is in no label of the rule's EVENTS. It is declared here so that a program that
+    // flushes its stream is not accused of a call the automaton cannot take; the body is empty
+    // and the `ere` below places it where it cannot stand in for a write.
     event fl after(CipherOutputStream cos):
       call(public void CipherOutputStream.flush()) &&
       target(cos) { }
 
+    // `Close` of CipherOutputStream.crysl: `cl1: close()`, the last symbol of the ORDER. The
+    // body is empty. The rule states no clause over `close`, and its ENSURES
+    // `cipheredOutputStream[outputStream, cipher];` is written nowhere in this specification:
+    // no `Property` constant of the set carries that predicate and no site would read it.
     event cl after(CipherOutputStream cos):
       call(public void CipherOutputStream.close()) &&
       target(cos) { }
 
-    // The rule's ORDER is `Con, Write+, Close` (CipherOutputStream.crysl:24), and `flush`
+    // The rule's ORDER is `Con, Write+, Close`, and `flush`
     // is not in its alphabet at all -- the rule's `Write` is `w1 | w2 | w3`, three
     // `write` overloads and nothing else. So `fl` erases to the empty word when this
     // language is compared with the rule's, and it must not be able to satisfy the `+`
@@ -77,6 +135,14 @@ CipherOutputStreamSpec(CipherOutputStream cos) {
     // position it may make it, while leaving the `+` quantifying only over writes.
     ere : c1 fl* ((w1 | w2) fl*)+ cl
 
+    // The ordering report, and the one place this specification reports a call sequence.
+    // `creationObserved` separates the two cases: a monitor that never saw the constructor is
+    // looking at a stream whose creation the weaving did not reach, so its `write` and `close`
+    // arrive with the automaton in its initial state and the sequence is reported under the
+    // `-ORDER-01` code; a monitor that did see the constructor is looking at a real ordering
+    // violation and is reported under `-ORDER-00`. `__RESET` returns the automaton to its
+    // initial state, so one wrong sequence is reported once and not again at every following
+    // event.
     @fail {
        if (!creationObserved) {
            ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CipherOutputStreamSpec", "" + __LOC,

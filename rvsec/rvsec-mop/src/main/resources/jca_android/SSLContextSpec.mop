@@ -15,13 +15,39 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 /**
  * SSLContextSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.net.ssl.SSLContext class.
+ * Monitors javax.net.ssl.SSLContext against the CrySL rule SSLContext.crysl.
+ * The rule orders `Get, Init, Engine?`: a context is obtained through `getInstance`, then
+ * initialised with `init(km, tm, random)`, and may then be asked for SSL engines. It states
+ * one FORBIDDEN clause, `getDefault() => Get`; it constrains the protocol with
+ * `protocol in {"TLSv1.2", "TLSv1.3"}`; it REQUIRES `generatedKeyManagers[km]`,
+ * `generatedTrustManagers[tm]` and `randomized[random]` of the three arguments of `init`;
+ * and it ENSURES `generatedSSLContext[this] after Init` and
+ * `generatedSSLEngine[eng] after Engine`.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/SSLContext.crysl
+ * Four behaviours of this specification depart from the rule as written.
+ *
+ * Beside the two names the protocol clause admits, the allow-list carries `TLS`, so a context
+ * obtained with `getInstance("TLS")` is accepted here and refused by the clause as written.
+ * `SSL` is not carried and is reported, although the platform binds both names to the same
+ * implementation.
+ *
+ * The FORBIDDEN clause reads the forbidden call as filling the same ordering position as
+ * `getInstance`. Here it fills none: `getDefault` accuses in its own body and moves the
+ * automaton nowhere, so a context it returned has no opening in the ordering and the `init`
+ * that follows draws an ordering report on top of the forbidden-call report.
+ *
+ * The rule's `Engine?` admits at most one `createSSLEngine`; the accepting state of this
+ * automaton admits any number of them, so a trace of `getInstance`, `init` and two
+ * `createSSLEngine` calls is accepted here and refused by the rule.
+ *
+ * The protocol clause is accused in the body of `init`, which is the one event that can
+ * reach the context and its three required arguments together. A context obtained for a
+ * protocol the rule rejects and never initialised therefore reaches no accusing site.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/SSLContext.crysl
  */
 SSLContextSpec(SSLContext ctx) {
-    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // The report envelope's quoting rule: a null value is the empty string,
     // a single quote is escaped so it cannot close the field early, and the value
     // is capped so a pathological argument cannot push the record past the
     // logcat payload limit.
@@ -33,21 +59,32 @@ SSLContextSpec(SSLContext ctx) {
         return value.replace("'", "\\'");
     }
 
-   // D-15: SSLContext.crysl states `protocol in {"TLSv1.2", "TLSv1.3"}` (the frozen jca
-   // spells them upper-case; comparison folds case). `TLS` is the single platform-value
-   // entry: Conscrypt binds SSLContext.TLS to the TLSv1.2/TLSv1.3 implementation
-   // (OpenSSLProvider.java:81), so an app asking for it provably gets a protocol the expert
-   // clause admits. `SSL` is NOT here -- Conscrypt binds it to the same implementation
-   // (:80), but through a `put`, not an Alg.Alias, and asking a provider for "SSL" is the
-   // misuse the rule is about (behavioural row in divergence_record.csv).
+   // CONSTRAINTS of SSLContext.crysl: `protocol in {"TLSv1.2", "TLSv1.3"}`, transcribed.
+   // The comparison runs through `ConscryptAliasTable.matches`, which folds case, so the
+   // spelling of the two protocol names carries no weight.
+   //
+   // `TLS` is admitted beside them, and it is admitted by being an entry of this list and by
+   // nothing else: `ConscryptAliasTable` carries no row under the `SSLContext` service, so
+   // `matches` resolves nothing here and the list is the whole of the decision. The entry is
+   // there as behaviour of the platform -- Conscrypt binds the `SSLContext.TLS` service to the
+   // same implementation that serves the two protocols the clause names, so an application that
+   // asks for `TLS` obtains a context running a protocol the clause admits. Reporting it
+   // would accuse the spelling the platform itself recommends.
+   //
+   // `SSL` is not in the list. Conscrypt binds that name to the same implementation as well,
+   // yet asking a provider for `SSL` is the misuse the rule is about, and the clause does not
+   // carry the name. So `SSLContext.getInstance("SSL")` is reported at `init` under
+   // SSLCONTEXT-PROTO-00 and `SSLContext.getInstance("TLS")` is not, although the two
+   // contexts speak the same protocols on the wire.
    List<String> protocols = Arrays.asList("TLSV1.2", "TLSV1.3", "TLS");
 
    SSLContext context;
 
-   // `generatedSSLEngine[eng]` is over the engine the call returns, which a handler
-   // cannot reach -- a handler sees no event parameter -- so the event stages it and the
-   // acceptance handler consumes it, clearing the field. The `SSLEngine engine` field the
-   // seed declared beside this one is gone: nothing ever assigned it.
+   // ENSURES `generatedSSLEngine[eng] after Engine` is about the engine `createSSLEngine`
+   // returned, and the acceptance handler cannot reach it: a handler receives no event
+   // arguments and runs after the transition is decided. So the `engine` event puts the
+   // returned object in this field and the handler writes the predicate over it and clears
+   // the field, which is what keeps one engine from being written twice.
    SSLEngine stagedEngine = null;
 
    String expectedGeneratedKeyManagers = "a KeyManager[] an observed KeyManagerFactory returned";
@@ -71,76 +108,29 @@ SSLContextSpec(SSLContext ctx) {
    // SSLCONTEXT-FORB-00 the call already drew. The generated `reset()` leaves it alone as well.
    boolean creationRefused = false;
 
-   // One event over `getInstance(String)`, where there used to be two split by the
-   // sign of a guard. The negated twin `unsafe_protocol` matched the same call with
-   // the same `args(protocol)` and named no state, and the generator gives an event
-   // absent from the automaton a transition row that moves every state to `fail`: a
-   // context built for a protocol the rule rejects was reported as a wrong call
-   // sequence, and the `init` that followed it was reported again, because
-   // `unsafe_protocol`'s failing transition had taken the `@fail` path -- which
-   // `__RESET`s the monitor to `start`, where `init` is not declared.
+   // FORBIDDEN of SSLContext.crysl: `getDefault() => Get`. This is the rule's one forbidden
+   // method, and the call is accused in the body of this event under SSLCONTEXT-FORB-00, the
+   // code registered in `codes.csv` for this site. It is the only site that accuses the call,
+   // so `SSLContext.getDefault().createSSLEngine()` is reported here and nowhere else.
    //
-   // It was worse than a second report about one context. `unsafe_protocol` bound no
-   // `SSLContext`: it was `after(String protocol)` with no `returning` and no
-   // `target`, so the generator dispatched it to the whole monitor set rather than
-   // to an instance, and one rejected protocol anywhere in the program pushed every
-   // live SSLContextSpec monitor to `fail`.
+   // The clause reads the forbidden call as filling the `Get` position of the ordering. This
+   // specification does not model it that way, because making a forbidden call an alternative
+   // opening of the ordering is the opposite of what FORBIDDEN states. The event is instead a
+   // self-loop at every state: it accuses in its body and moves the automaton nowhere.
    //
-   // The rule orders `Get, Init, Engine?` (SSLContext.crysl:26) with `Get := g1 | g2` and states
-   // the protocol under CONSTRAINTS, so the protocol must not govern the transition:
-   // `getInstance` is a `Gets` whatever it was asked for. Dropping the guard lets the
-   // rejected context reach `end` like any other, where the `init` body accuses it
-   // exactly once, with SSLCONTEXT-PROTO-00. `unsafe_protocol`'s body accused nothing
-   // of its own, so nothing it reported is lost.
+   // The self-loops are not decoration. An event a state does not declare gets a transition
+   // row to `fail`, so declaring this event without them would report every `getDefault` as a
+   // wrong call sequence as well as a forbidden call. What the self-loops leave behind is that
+   // the obligatory call which follows a forbidden one reaches its own state from a state the
+   // call never left, so `getDefault(); init(...)` draws SSLCONTEXT-ORDER-02
+   // (`creation-refused`) on top of the SSLCONTEXT-FORB-00 the `getDefault` already earned.
    //
-   // The two-argument `g2` below lost the same guard, for the same reason and with the
-   // same effect. It kept the guard when `g1` lost it only because it is not an orphan
-   // and the group that repaired `g1` reached only orphans. What the guard cost is a doubled
-   // report, and the harness measured it rather than the comment guessing: with the condition
-   // false the dispatcher still runs `FindOrCreateEntry`, so the object holds a monitor at
-   // state 0 and `init[0]` is `fail` -- while the `init` body runs anyway and accuses the
-   // protocol. Side A of the pair therefore raised SSLCONTEXT-ORDER-00 *and*
-   // SSLCONTEXT-PROTO-00 for one rejected context; side B raises PROTO-00 alone
-   // (data/gh105/evidence/f6-SSLContextSpec-g2-guard.md).
-   //
-   // Residue, recorded and not repaired (divergence_record.csv): a `getInstance`
-   // whose protocol the rule rejects and which is never `init`ed is now accused by
-   // nothing, because the accusation lives in the `init` body. That holds for both
-   // events now, and it is one behavioural residue, not two deferrals.
-   // `getDefault()` is FORBIDDEN by the oracle (`SSLContext.crysl:10-11`) -- and it was
-   // forbidden by the withdrawn generated rule too, so D-16 changes nothing here --
-   // and until this event the set had no accuser for it, so
-   // `SSLContext.getDefault().createSSLEngine()` was silence from end to end. The other
-   // FORBIDDEN clause with a `.mop` in this set, `PBEKeySpec`'s two constructors, has been
-   // accused since it was written; the asymmetry was an omission and not a decision, because it
-   // appeared in no record of the project.
-   //
-   // The clause is `SSLContext.crysl:11`, the rule's one FORBIDDEN entry. The emitted string
-   // names the rule and not the line, because `gh104_message_gate.py` reads a numeral in a
-   // message as a value literal and compares it against the guard's (task 11.8).
-   //
-   // Both oracles write the clause as `getDefault() => Gets`, which reads the forbidden call as
-   // filling the ORDER position the legitimate `getInstance` fills. This file does not model it
-   // that way, and the reason is the one `PBEKeySpecSpec.mop:218-226` already wrote down for the
-   // identical `PBEKeySpec(char[]) => Con`: making a forbidden call an alternative opening of
-   // the ordering is the opposite of what FORBIDDEN says. So the event is a self-loop at every
-   // state -- it accuses in its body and moves the automaton nowhere -- and the residue is the
-   // same one that file records: the obligatory call that follows a forbidden one still reaches
-   // its own state from a state that call never left, so `getDefault(); init(...)` draws
-   // SSLCONTEXT-ORDER-02 (`creation-refused`) on top of the SSLCONTEXT-FORB-00 the `getDefault`
-   // already earned. Recorded, not repaired (divergence_record.csv).
-   //
-   // The self-loops are not decoration. An event absent from the automaton gets a transition
-   // row that moves every state to `fail`, so declaring this event without them would trade the
-   // false negative for an ordering false positive -- the defect tasks 3.2 and 3.6 spent a
-   // group removing from this very file.
-   // The body writes no predicate or staged state, and that is not an omission: the self-loop
-   // keeps this monitor wherever it already was, `@match1` is reachable only from `end`, and no
-   // route from here arrives there -- a `getDefault()` context that is then `init`ed goes
-   // `start -> fail`. A write no handler can read is exactly the bookkeeping INV-INS-137 says to
-   // stop writing. The two fields it sets are `creationObserved` and `creationRefused`, which
-   // `@fail` does read: the context's creation was observed and was one the rule forbids, so that
-   // `start -> fail` is reported under the `creation-refused` code.
+   // The body writes no predicate and stages nothing, and that is not an omission: the
+   // self-loop keeps the monitor wherever it already was, `@match1` is reachable only from
+   // `end`, and no route from here arrives there -- a `getDefault()` context that is then
+   // `init`ed goes `start -> fail`. The two fields it does set, `creationObserved` and
+   // `creationRefused`, are the ones `@fail` reads, so that failure is reported as a sequence
+   // following a creation this specification refuses rather than as a plain ordering failure.
    event getDefault after() returning(SSLContext ctx):
     call(public static SSLContext SSLContext.getDefault()) {
       creationObserved = true;
@@ -149,6 +139,14 @@ SSLContextSpec(SSLContext ctx) {
           "v=1 code=SSLCONTEXT-FORB-00 ev=" + __EVENTNAME + " obj=SSLContext val='' exp='SSLContext.getInstance(String)' msg='SSLContext.getDefault() is forbidden by the expert SSLContext.crysl'"));
    }
 
+   // `Get := g1 | g2` of SSLContext.crysl: `g1: getInstance(protocol)`, the one-argument
+   // overload. The protocol is a CONSTRAINTS clause and not an ordering condition, so this
+   // event carries no `condition(...)`: `getInstance` opens the ordering whatever it was
+   // asked for. A guard here would compile to an early return ahead of both the body and the
+   // transition, so a context built for a protocol the rule rejects would stay outside the
+   // automaton and its `init` would then be reported as a wrong call sequence instead of as
+   // the rejected protocol it is. The body records that a creation was observed and binds the
+   // returned context for the acceptance handler, which receives no event arguments.
    event g1 after(String protocol) returning(SSLContext ctx):
     call(public static SSLContext SSLContext.getInstance(String))
     && args(protocol) {
@@ -156,15 +154,19 @@ SSLContextSpec(SSLContext ctx) {
       context = ctx;
     }
 
-    // `Object+` covers both two-argument `getInstance` overloads the platform declares --
-    // `(String, String)` for the provider's name and `(String, Provider)` for the object -- in
-    // one pointcut, so no second event is spent on the same `Gets`. An object obtained through
-    // the overload this pointcut used to miss reached its next event with the monitor at state
-    // 0, where every row is `fail`. It is `Object+` and not `..` on purpose: the trace harness's
-    // resolver walks the declared parameter types of a `call(...)` signature and stops at the
-    // first wildcard (KeyManagerFactorySpec.mop:94-97), so a wildcard here would make every
-    // `getInstance` fit this pointcut, while `Object+` keeps the arity known and the second
-    // position typed. Precedent: `KeyGeneratorSpec.g2`.
+    // `Get := g1 | g2` of SSLContext.crysl: `g2: getInstance(protocol, _)`. `Object+` covers
+    // both two-argument overloads the platform declares -- `(String, String)` for the
+    // provider's name and `(String, Provider)` for the provider object -- in one pointcut, so
+    // no second event is spent on the same `Get` and a context obtained through either of them
+    // reaches its next event with a monitor that saw its creation. It is `Object+` and not
+    // `..` on purpose: the trace harness's resolver walks the declared parameter types of a
+    // `call(...)` signature and stops at the first wildcard, so a wildcard here would make
+    // every `getInstance` fit this pointcut, while `Object+` keeps the arity known and the
+    // second position typed.
+    //
+    // As at `g1`, the protocol governs no transition and no `condition(...)` guards this
+    // event; it is accused in the body of `init`. The body records the creation and binds the
+    // returned context for the acceptance handler.
     event g2 after(String protocol, Object provider) returning(SSLContext ctx):
       call(public static SSLContext SSLContext.getInstance(String, Object+)) &&
       args(protocol, provider) {
@@ -172,80 +174,72 @@ SSLContextSpec(SSLContext ctx) {
         context = ctx;
     }
 
-   // ALL THREE REQUIRES clauses of the oracle's SSLContext that name an argument of this
-   // call, and the third arrived with the oracle: `generatedKeyManagers[km]`
-   // (SSLContext.crysl:32, ledger clause #28), `generatedTrustManagers[tm]` (:33, clause
-   // #29) and `randomized[random]` (:34, clause #47).
+   // `Init := i1` of SSLContext.crysl: `i1: init(km, tm, random)`. The rule declares one
+   // `init` and this file declares one event for it, with all three arguments bound and no
+   // wildcard, which is what lets this single site realise the rule's CONSTRAINTS clause and
+   // all three of its REQUIRES clauses.
    //
-   // The third carried `vacuous` until D-16 and the disposition FELL WITH THE SUBSTITUTION
-   // OF ORACLE: it was an artefact of the generated rule, whose `Init` reads
-   // `init(kms, tms, _)` -- the third position anonymous, so the variable the clause names
-   // was bound by no event and the clause had no site. The oracle's
-   // `i1: init(km, tm, random)` binds it. Task 11.5(b) opens the read, by the researcher's
-   // decision of 2026-08-26, under the 9.B discipline: harness pair, divergence row,
-   // go/no-go per clause.
+   // Every check below sits in the event body and not in a `condition(...)` guard. A guard
+   // compiles to an early return ahead of both the body and the transition, so a violating
+   // call would leave the automaton in the state before `init` and the next call would be
+   // reported as a wrong call sequence instead of as the misuse it is.
    //
-   // The rule declares one `init`, this file declares one event for it, and the signature is
-   // written out in full, so binding all three arguments costs nothing the automaton can
-   // see. The wildcard that stood in the third position of `args` is gone with the clause
-   // that had no use for it; there is now no wildcard at all, which is strictly safer for
-   // the trace harness's resolver than the trailing one it replaced.
+   // The three arguments are handed to the store as the *bound* object and never as a value.
+   // That is what the store's bound-first signature is for: a `KeyManager[]` passed into a
+   // varargs tail would be spread into one argument per element, and an empty array into no
+   // argument at all, with nothing but a compiler note to say so.
    //
-   // WHAT THIS READ ACCUSES, SAID PLAINLY, because it is the cost the decision weighed:
-   // `init(km, tm, null)` is the documented way to ask for the platform's own SecureRandom,
-   // and under the rule as written it does not satisfy `randomized[random]` -- a null is not
-   // a random this instrumentation saw produced. That is the same reading the two sibling
-   // clauses carry by the researcher's decision of 2026-08-22 -- "the clause requires managers
-   // this instrumentation saw a factory produce, and no argument is not one" -- and reading the
-   // third differently would make the file answer to two rules at once. The NOBS family is what
-   // says "reach limit", and it says it here for the same reason it says it there.
+   // CONSTRAINTS `protocol in {"TLSv1.2", "TLSv1.3"}`. The protocol is read back from the
+   // context with `getProtocol()` and compared against the list above through
+   // `ConscryptAliasTable.matches`; one outside the list is reported under
+   // SSLCONTEXT-PROTO-00.
    //
-   // The two array positions are declared as the reference array types the API declares, and
-   // all three are passed to the store as the *bound* object rather than as a value. That is
-   // what the store's bound-first signature is for: a `KeyManager[]` handed to a varargs tail
-   // would be spread into one argument per element, and an empty array into no argument at
-   // all, with nothing but a compiler note to say so.
+   // REQUIRES `generatedKeyManagers[km]`: the array came out of a `KeyManagerFactory` the
+   // instrumentation observed being initialised. SATISFIED produces no report. VIOLATED means
+   // the store holds an entry for this very array whose values differ, or one `negate` has
+   // revoked -- positive evidence that a producing call was seen and established something
+   // else -- and is reported under SSLCONTEXT-CONSTR-00. NOT_OBSERVED means the store holds
+   // nothing about the array at all, and it is split by what the argument is: a null is the
+   // documented request for the platform's default key managers and is reported under
+   // SSLCONTEXT-NOBS-03, any other unknown array under SSLCONTEXT-NOBS-00. The null is read
+   // rather than exempted, because the clause asks for managers a factory was seen to produce
+   // and no argument is not one. NOT_OBSERVED is kept apart from VIOLATED because an array
+   // whose producing factory the weaving never reached is not a misuse; a `KeyManager[]` the
+   // application rebuilt from issued managers lands there too, since key-manager arrays carry
+   // no per-element mark.
    //
-   // Measured on Temurin 21 before either read was written, because having a `.mop` at both
-   // ends is necessary and not sufficient. The chain composes: a loaded PKCS12 store into
-   // `KeyManagerFactory.init` and `TrustManagerFactory.init`, their
-   // `getKeyManagers()`/`getTrustManagers()` into this `init`, all of it runs to completion.
-   // And the platform does not already refuse what these clauses accuse -- `init(null, null,
-   // null)` runs, and so does `init(null, trustEverything, sr)`, which is the trust-all manager
-   // this rule exists to catch. Both factories allocate a fresh array on every call, so the mark
-   // over an array travels with the array the call returned and with no copy of it.
+   // REQUIRES `generatedTrustManagers[tm]`: the array came out of a `TrustManagerFactory` the
+   // instrumentation observed being initialised. The same three answers, with one refinement
+   // and one more split. The refinement: each element is asked for the per-element mark that
+   // `TrustManagerFactorySpec` writes over every manager it hands out -- the individual trust
+   // manager was issued by a `TrustManagerFactory` the instrumentation observed -- and an
+   // array the store has never seen is credited as SATISFIED when it is non-empty and every
+   // element carries that mark, because the clause constrains the managers and an application
+   // that copies an issued manager into a fresh array is passing exactly the manager the
+   // factory issued. One unmarked element withholds the credit, which is what keeps an array
+   // mixing an issued manager with one the application wrote from passing, and the credit
+   // applies only to a NOT_OBSERVED answer, so it never turns a revoked array into a
+   // satisfied one. The split: VIOLATED is reported under SSLCONTEXT-CONSTR-01; a null under
+   // SSLCONTEXT-NOBS-04; an uncredited array holding an element whose class a loader other
+   // than the platform's defined -- the application's own class, decided by the loader and not
+   // by a package name -- under SSLCONTEXT-NOBS-05, where a trust-all manager lands and so
+   // does one that delegates to an issued manager, the monitor being unable to tell them
+   // apart; and any other unknown array under SSLCONTEXT-NOBS-01.
    //
-   // The trust-manager array is credited per element as well. `TrustManagerFactorySpec.gtm1`
-   // marks every manager it hands out with `GENERATED_TRUST_MANAGERS`, and a trust-manager array
-   // the store has never seen reads SATISFIED here when it is non-empty and every element
-   // carries that mark: the rule constrains the managers, and a program that copies an issued
-   // manager into a fresh array passes exactly the manager the factory issued. One unmarked
-   // element withholds the credit, which is what keeps an array mixing an issued manager with
-   // one written by the application from passing. The credit applies only to a NOT_OBSERVED
-   // answer, so it never turns a withdrawn array into a satisfied one. Key-manager arrays are
-   // not credited per element (researcher decision, 2026-09-15): a rebuilt `KeyManager[]` reaches
-   // this read with nothing written, which is a reach limit and is what the NOBS code says.
+   // REQUIRES `randomized[random]`: the object came from a `SecureRandom` the instrumentation
+   // observed -- here the generator itself, which `SecureRandomSpec` marks at its own
+   // acceptance point. SATISFIED produces no report; VIOLATED is reported under
+   // SSLCONTEXT-CONSTR-02; NOT_OBSERVED under SSLCONTEXT-NOBS-06 when the argument is null,
+   // which is the documented way to ask for the platform's own source of randomness, and
+   // under SSLCONTEXT-NOBS-02 otherwise. The null is read for the same reason as the other
+   // two: a null is not a `SecureRandom` this instrumentation saw produced.
    //
-   // A null argument is read rather than exempted (researcher decision, 2026-08-22): the store
-   // answers NOT_OBSERVED for it, and that is what the rule states -- the clause requires
-   // managers this instrumentation saw a factory produce, and no argument is not one. Each of the
-   // three nulls is the documented request for the platform default, so each is reported under a
-   // code of its own labelled `platform-default` rather than under the read's `not-observed`
-   // code, and `init(null, null, null)` draws three such reports.
-   //
-   // A non-null trust-manager array that is not credited and holds an element whose class a
-   // loader other than the platform's defined -- the application's own class, decided by the
-   // loader and not by a package name -- is reported under the `application-manager` code. A
-   // trust-all manager built by the application lands there, and so does a manager that
-   // delegates to an issued one; the monitor cannot tell the two apart. The precedence at each
-   // NOT_OBSERVED answer is `platform-default`, then `application-manager`, then `not-observed`,
-   // and every one of those envelopes carries the evidence of the bound argument, which for a
-   // trust-manager array is the classes of its elements.
-   //
-   // VIOLATED has no program that produces it today for either predicate -- both are written at
-   // arity 1 and withdrawn nowhere -- and both branches are written anyway, for the reason the
-   // rest of the set records: a read that folded VIOLATED into NOT_OBSERVED would misreport a
-   // withdrawn predicate as an unobserved one the day a NEGATES clause reaches it.
+   // Every NOT_OBSERVED envelope carries the evidence of the bound argument, which for a
+   // trust-manager array is the classes of its elements. VIOLATED has no program that produces
+   // it today for any of the three predicates -- all are written at arity 1 and revoked
+   // nowhere -- and the branch is written anyway: a read that folded VIOLATED into
+   // NOT_OBSERVED would misreport a revoked predicate as an unobserved one the day a NEGATES
+   // clause reaches it.
    event init after(KeyManager[] kms, TrustManager[] tms, SecureRandom random, SSLContext ctx):
      call(public void SSLContext.init(KeyManager[], TrustManager[], SecureRandom)) &&
      args(kms, tms, random) &&
@@ -310,52 +304,42 @@ SSLContextSpec(SSLContext ctx) {
        }
    }
 
-   // The return type is the platform's, and it has to be: both weavers gate it exactly, so
-   // while this pointcut declared `void` against android-30's `public final SSLEngine
-   // createSSLEngine()` the advice was generated, sat in the monitor, and never fired. A
-   // signature sweep of all 143 `call(...)` sites of the set found this to be the only
-   // return-type mismatch, and 9.7's G-SIG is what keeps it the last one.
+   // `Engine := se1 | se2` of SSLContext.crysl: `se1: eng = createSSLEngine()` and
+   // `se2: eng = createSSLEngine(_,_)`, both matched by this one pointcut over the varargs
+   // signature. The declared return type is the platform's `SSLEngine` and it has to be: both
+   // weavers match the return type of a `call(...)` signature exactly, so an advice declared
+   // over a different one is generated, sits in the monitor and never fires.
    //
-   // Reviving the event is a behavioural change and was decided as one: the dispatcher runs
-   // FindOrCreateEntry, so an `SSLContext` whose birth this set never observed gets a monitor
-   // at state 0 here, and `engine[start]` is fail. The two births that were unobserved for no
-   // good reason are closed first -- the `(String, Provider)` overload by 9.16 and the
-   // `g2`-suppressed context by 9.17. The one that remains is `getDefault()`, which 9.9
-   // accuses in its own right and which keeps the ordering report on top, by the decision
-   // recorded at that event.
+   // The rule states no clause about this call beyond its position in the ordering, so the
+   // body only stages the returned engine for the acceptance handler, which receives no event
+   // arguments; the predicate itself is written there.
    //
-   // `createSSLEngine()` before `init` reaches nothing: it raises IllegalStateException, and
-   // an `after returning` advice does not run on a throw. So the `s1` row is unreachable in
-   // practice and is left as the automaton reads the rule.
+   // An `SSLContext` whose creation this monitor never saw reaches this event with a monitor
+   // in its initial state, where `engine` is not declared, so the call is reported as a wrong
+   // call sequence under the `creation-unobserved` code -- or, after `getDefault`, under the
+   // `creation-refused` one. A `createSSLEngine` between `getInstance` and `init` would be
+   // reported the same way, and that report is unreachable in practice: the call raises
+   // IllegalStateException, and an `after returning` advice does not run on a throw. The
+   // transition is left as the automaton reads the rule.
    event engine after(SSLContext ctx) returning(SSLEngine eng) :
      call(public SSLEngine SSLContext.createSSLEngine(..)) &&
      target(ctx) {
        stagedEngine = eng;
    }
 
-  // The two ENSURES clauses of SSLContext.crysl name the same acceptance point.
-  // `generatedSSLContext[this] after Init` (:37) carries an `after L`, and `Init` leads to
-  // `end`; `generatedSSLEngine[eng] after Engine` (:38) carries one too, and `Engine` leads
-  // to `end` as well -- which is what the alias below names. The generated rule left the
-  // second unqualified and the acceptance point was the accepting state as such; under the
-  // oracle both are `after L` clauses that name the same state, so the reading is the same
-  // and the route to it is not. Read off the
-  // generated monitor, `init` and `engine` both land in state 1 and the match category is
-  // `nextstate == 1`, so both routes INV-INS-134 admits name `@match1`.
+  // The automaton transcribes the rule's ORDER, `Get, Init, Engine?`, with one departure: the
+  // `end` state admits a second `engine`, where the rule's `?` admits at most one, so
+  // `getInstance`, `init`, `createSSLEngine`, `createSSLEngine` is accepted here and refused
+  // by the rule.
   //
-  // Neither predicate has a reader: both appear in the oracle only here, as this rule's
-  // own ENSURES, so they are two of the dead ends this change disposes of by recording
-  // the omission rather than by fabricating a consumer (INV-INS-137).
+  // `getDefault` is a self-loop at every state for the reason given at that event: a forbidden
+  // call must not open or advance the ordering, and an event a state does not declare would
+  // otherwise take the monitor to `fail`.
   //
-  // The context reaches the handler through the monitor field rather than through a
-  // staged one, because `g1`/`g2` bind it and `end` is unreachable without them. What
-  // leaves the two handlers is the accepting-state bookkeeping -- the new store does not
-  // offer it and the set never read it back (INV-INS-147).
-  //
-  // The ordering divergence this automaton carries against the rule's `Gets, Init,
-  // Engine?` -- the `end` state admits a second `engine`, which G-ORDER reports as
-  // `g1 Init se1 se1` -- is one of the four open ones and belongs to task 7.1. This pass
-  // does not touch the `fsm`.
+  // Both ENSURES clauses of SSLContext.crysl name the same state of this automaton.
+  // `generatedSSLContext[this] after Init` holds where `Init` leads, and
+  // `generatedSSLEngine[eng] after Engine` where `Engine` leads; both are `end`, which is what
+  // the alias below names, so one handler answers for both.
   fsm:
     start [
       g1 -> s1
@@ -394,6 +378,19 @@ SSLContextSpec(SSLContext ctx) {
     __RESET;
   }
 
+  // ENSURES `generatedSSLContext[this] after Init`: the `SSLContext` was initialised by a call
+  // the instrumentation observed. The context reaches this handler through the monitor field
+  // `context` rather than through a staged one, because `g1` and `g2` bind it and `end` is
+  // unreachable without them; a handler receives no event arguments and runs after the
+  // transition is decided, so it could not see the object otherwise.
+  //
+  // ENSURES `generatedSSLEngine[eng] after Engine`: the `SSLEngine` was produced or configured
+  // by a call the instrumentation observed. It is written only when an `engine` event staged
+  // one, since this same state is reached by an `init` alone, and the field is cleared after
+  // the write so one engine is written once.
+  //
+  // No rule of the set REQUIRES either predicate, so both writes stand for coverage of the
+  // rule and no reader consumes them.
   @match1 {
      PredicateStore.instance().ensure(Property.GENERATE_SSL_CONTEXT, context);
      if (stagedEngine != null) {

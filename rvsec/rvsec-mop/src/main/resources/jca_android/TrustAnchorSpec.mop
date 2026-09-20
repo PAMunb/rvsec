@@ -11,12 +11,19 @@ import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
- * TrustAnchor
+ * TrustAnchorSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.cert.TrustAnchor.
+ * Monitors java.security.cert.TrustAnchor against the CrySL rule TrustAnchor.crysl.
+ * The rule's ORDER is `Con`, the alternation of its three constructors, so a conforming trace
+ * is one construction and nothing else. It REQUIRES `generatedPubkey[publicKey]` of the
+ * public key two of those constructors take, and it ENSURES `generatedTrustAnchor[this]`,
+ * which this specification writes at its acceptance point.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/TrustAnchor.crysl
+ * Every clause of the rule has a site here. The REQUIRES clause has two of them and not
+ * three: the certificate constructor binds no public key of its own, so the clause is about
+ * nothing there, and that silence is the rule's.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/TrustAnchor.crysl
  */
 TrustAnchorSpec(TrustAnchor s) {
 
@@ -30,23 +37,31 @@ TrustAnchorSpec(TrustAnchor s) {
    // the wrong-sequence code.
    boolean creationObserved = false;
 
-   // The rule declares three events (:9-11) and api30 declares exactly three constructors,
-   // and they line up one for one: `c1` is `TrustAnchor(_, publicKey, _)`, the overload
-   // whose first parameter is the CA's distinguished name as a `String`; `c2` is
-   // `TrustAnchor(trustedCert, _)`, the certificate overload; `c3` is
-   // `TrustAnchor(caPrincipal, publicKey, _)`, the same shape as `c1` with an
-   // `X500Principal` in place of the string. Three events, three symbols, one alternation.
+   // `Con := c1 | c2 | c3` of TrustAnchor.crysl, first alternative: `c1: TrustAnchor(_,
+   // publicKey, _)`, the overload whose first parameter is the CA's distinguished name as a
+   // `String`. The rule declares three events, the platform declares three constructors, and
+   // they line up one for one, so each gets an event of its own and the alternation of the
+   // ORDER is the alternation of the three.
    //
-   // The rule's one REQUIRES is `generatedPubkey[publicKey]` (:18), and it binds the object
-   // that only `c1` and `c3` carry. The read therefore lives in those two bodies and in
-   // neither is it a `condition(...)`: a guard compiles to `if (!(guard)) return false;`
-   // ahead of the transition (INV-INS-133), and a failed REQUIRES is not a typestate
-   // failure. Three-valued, with VIOLATED and NOT_OBSERVED under different code families
-   // (INV-INS-143). Two sites, two pairs of codes, because a code names a site and not a
-   // clause.
+   // REQUIRES `generatedPubkey[publicKey]`: the public key was produced by a call the
+   // instrumentation observed -- `KeyPairSpec` writes it over the key `KeyPair.getPublic()`
+   // returned, and `KeyFactorySpec` over the key `generatePublic` returned. SATISFIED produces
+   // no report and is the one branch that binds the anchor for the acceptance handler.
+   // VIOLATED means the store holds an entry for this key whose values differ, or one `negate`
+   // has revoked -- positive evidence that a producing call was seen and established something
+   // else -- and is reported under the CONSTR code registered in `codes.csv` for this site.
+   // NOT_OBSERVED means the store holds nothing about the key at all, which happens when its
+   // producing call was not woven, ran before the monitor attached, or lives inside the
+   // platform or a library the instrumentation does not reach; it is reported under this
+   // site's NOBS code, with the evidence of the key, and it is kept apart from VIOLATED
+   // because a key whose producer was never instrumented is not a misuse.
    //
-   // The producers are the existing `KeyPairSpec.mop:135` (`KeyPair.crysl:24,:28`) and,
-   // from task 3.4, `KeyFactorySpec`'s `generatePublic`.
+   // The read is in the event body and not in a `condition(...)` guard: a guard compiles to an
+   // early return ahead of both the body and the transition, so an anchor built over a key of
+   // unknown origin would leave the automaton in the state before the constructor and a later
+   // call would be reported as a wrong call sequence instead of as the unsatisfied requirement
+   // it is. `c3` reads the same clause over the same object at its own site, and the two sites
+   // carry two pairs of codes, because a code names a site and not a clause.
    event c1 after(String caName, PublicKey pubKey, byte[] nameConstraints) returning(TrustAnchor s):
      call(public TrustAnchor.new(String, PublicKey, byte[])) &&
      args(caName, pubKey, nameConstraints) {
@@ -65,10 +80,12 @@ TrustAnchorSpec(TrustAnchor s) {
        }
    }
 
-   // The certificate overload, the rule's `c2` (:10). It binds `trustedCert` and the rule
-   // reads that object in no clause, so there is nothing to check here: the anchor is the
+   // `Con := c1 | c2 | c3` of TrustAnchor.crysl, second alternative: `c2: TrustAnchor(
+   // trustedCert, _)`, the certificate overload. It binds `trustedCert`, and the rule reads
+   // that object in no clause, so there is nothing to check here: the anchor is the
    // certificate, and the rule states its requirement about a public key handed over
-   // separately. Silence here is the rule, not an omission.
+   // separately. Silence here is the rule, not an omission. The body binds the anchor for the
+   // acceptance handler unconditionally, since no clause can withhold it.
    event c2 after(X509Certificate trustedCert, byte[] nameConstraints) returning(TrustAnchor s):
      call(public TrustAnchor.new(X509Certificate, byte[])) &&
      args(trustedCert, nameConstraints) {
@@ -76,8 +93,16 @@ TrustAnchorSpec(TrustAnchor s) {
        spec = s;
    }
 
-   // The principal overload, the rule's `c3` (:11). Same clause as `c1` over the same
-   // object, at a second site.
+   // `Con := c1 | c2 | c3` of TrustAnchor.crysl, third alternative: `c3: TrustAnchor(
+   // caPrincipal, publicKey, _)`, the same shape as `c1` with an `X500Principal` in place of
+   // the distinguished-name string.
+   //
+   // REQUIRES `generatedPubkey[publicKey]` over the same object as at `c1`: the public key was
+   // produced by a call the instrumentation observed. SATISFIED produces no report and binds
+   // the anchor for the acceptance handler; VIOLATED is reported under this site's CONSTR
+   // code; NOT_OBSERVED under its NOBS code, with the evidence of the key. The read is in the
+   // body and not in a `condition(...)` guard, for the reason given at `c1`: a guard returns
+   // ahead of the transition, and an unsatisfied requirement is not a typestate failure.
    event c3 after(X500Principal caPrincipal, PublicKey pubKey, byte[] nameConstraints) returning(TrustAnchor s):
      call(public TrustAnchor.new(X500Principal, PublicKey, byte[])) &&
      args(caPrincipal, pubKey, nameConstraints) {
@@ -96,13 +121,15 @@ TrustAnchorSpec(TrustAnchor s) {
        }
    }
 
-   // `Con := c1 | c2 | c3` is the whole ORDER (:14-15), so the `@fail` handler cannot fire:
-   // every event's transition row is {1, 2, 2} and the monitor is keyed on the constructed
-   // object, so no monitor ever sees a second event and state 2 is never entered. Written
-   // because the generator and the `codes.csv` bijection expect it (precedent:
-   // `GCMParameterSpecSpec.mop:158-170`).
+   // `Con := c1 | c2 | c3` is the whole ORDER of TrustAnchor.crysl: one construction and
+   // nothing else. A monitor is keyed on the constructed object, so it never sees a second
+   // event, and the only state a second event could take it to is never entered.
    ere : c1 | c2 | c3
 
+   // Unreachable. A single-symbol `ere` has no second event to take, and this monitor is keyed
+   // on the object one constructor returns, so no trace ever leaves the accepting state. The
+   // handler is written because the generator expects one and because each of its two codes is
+   // registered in `codes.csv`.
    @fail {
       if (!creationObserved) {
          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "TrustAnchorSpec", "" + __LOC,
@@ -115,17 +142,20 @@ TrustAnchorSpec(TrustAnchor s) {
       __RESET;
    }
 
-   // `ENSURES generatedTrustAnchor[this]` (:21) carries no `after L`, so the acceptance
-   // point is the accepting state, which in an `ere` is `@match` (INV-INS-134). `ensure`
-   // treats a null binding as a no-op, so an anchor built over a public key of unobserved
-   // origin writes nothing.
+   // ENSURES `generatedTrustAnchor[this]`: the trust anchor was built over a public key the
+   // instrumentation observed. The clause carries no `after L`, so its acceptance point is an
+   // accepting state of the ORDER, which in an `ere` is where this handler runs. The anchor
+   // reaches the handler through the monitor field because a handler receives no event
+   // arguments and runs after the transition is decided.
    //
-   // This predicate has no live consumer, and that is a fact about the oracle rather than a
-   // gap in the set: the one clause that would require it,
-   // `PKIXBuilderParameters.crysl:18`, is commented out in the rule
-   // (`//generatedTrustAnchor[];`) and is deliberately not wired. The write stands because
-   // the rule ENSURES it and coverage of the rule is what this change owes; the predicate
-   // ledger carries the unconsumed disposition with this reason.
+   // The field holds an anchor only where the REQUIRES read came back SATISFIED, or where the
+   // certificate overload made the clause moot, and `ensure` treats a null binding as a no-op:
+   // an anchor built over a public key of unobserved origin therefore writes nothing.
+   //
+   // No live clause consumes this predicate. `PKIXBuilderParameters.crysl` carries the
+   // would-be consumer commented out in the rule itself, as `//generatedTrustAnchor[];`, so
+   // the write stands for coverage of the rule and the absence of a reader is a property of
+   // the rules and not a gap here.
    @match {
       PredicateStore.instance().ensure(Property.GENERATED_TRUST_ANCHOR, spec);
    }

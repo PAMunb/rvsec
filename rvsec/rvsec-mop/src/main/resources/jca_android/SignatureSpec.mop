@@ -15,13 +15,50 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 /**
  * SignatureSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.Signature class.
+ * Monitors java.security.Signature against the CrySL rule Signature.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/Signature.crysl
+ * The rule's ORDER is `Get, ((InitSign+, (Update+, Sign+)+ )+ | (InitVerify+, (Update*,
+ * Verify+)+ )+ )`: a signature is obtained from `getInstance` and then used either for
+ * signing or for verifying, never for both. Update calls are required before a signature and
+ * optional before a verification. Every other call sequence is reported as a wrong call
+ * sequence.
+ *
+ * The CONSTRAINTS clause it enforces is the algorithm allow-list, checked at each of the four
+ * init events against the algorithm the instance reports, and carried as a guard on the
+ * two-argument creation event.
+ *
+ * It reads two REQUIRES clauses: `generatedPrivkey[privateKey]` at the two `initSign`
+ * overloads and `generatedPubkey[publicKey]` at `initVerify(PublicKey)`. It ENSURES the
+ * rule's three `signed` clauses -- `signed[output, inputByte] after Sign;`,
+ * `signed[output, input] after Sign;` and `signed[output, inputByteBuffer] after Sign;`,
+ * which name one output against three input shapes -- and `verified[verified, sign] after
+ * Verify;`, all written at the acceptance point from values the events stage in fields.
+ *
+ * Reach limit of both reads: NOT_OBSERVED means the store holds nothing about the key, which
+ * happens as often because the key was built where the instrumentation does not reach -- a
+ * key store the weaving does not enter, a provider's own code -- as because the program
+ * misused the API, so that outcome carries its own code. A `null` key reads NOT_OBSERVED
+ * likewise, because the monitor runs inside the application under test and never throws.
+ *
+ * Reach limits and divergences from the rule.
+ *
+ * - The three length clauses of the rule's CONSTRAINTS section -- `length[input] >= offset +
+ *   len;`, `offset >= 0;` and `len > 0;` -- have no site. The `update` event fuses the four
+ *   update overloads into one pointcut that binds no argument, and the `sign` and `verify`
+ *   overloads that name a range bind it without checking it.
+ * - `initVerify(Certificate)` reads no key-origin predicate. The rule's public-key clause
+ *   names `publicKey`, which that call does not pass, and the rule states no clause over its
+ *   `cert`, so a verification set up from a certificate has its key origin unchecked.
+ * - The one-argument `getInstance` carries no allow-list guard, so a signature obtained
+ *   through it with an algorithm the rule refuses and never initialised draws no algorithm
+ *   report: that report lives in the init bodies.
+ * - Neither predicate this specification writes has a reader. No rule of the set requires
+ *   `signed` or `verified`, so both writes record a fact that nothing consumes.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/Signature.crysl
  */
 SignatureSpec(Signature s) {
-    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // The report envelope's quoting rule: a null value is the empty string,
     // a single quote is escaped so it cannot close the field early, and the value
     // is capped so a pathological argument cannot push the record past the
     // logcat payload limit.
@@ -33,27 +70,40 @@ SignatureSpec(Signature s) {
         return value.replace("'", "\\'");
     }
 
-       // D-15: exactly the seven entries of Signature.crysl. The api30 catalogue admitted
-       // `NONEwithRSA` (raw RSA, no hash), `MD5withRSA`, `SHA1withRSA`, `SHA1withDSA`,
-       // `DSAwithSHA1` and `NONEwithDSA` -- the whole weak-signature family this
-       // specification exists to accuse. `SHA224withECDSA` and `SHA1withECDSA` are absent
-       // from the expert clause and stay absent (oracle-wart rows); the divergence row that
-       // added the four SHA*withECDSA is closed, three of them being expert entries. That
-       // row's kind is still spelled `api30-omits`: D-16 keeps the spelling as a record key
-       // and not as an authority.
+       // CONSTRAINTS of Signature.crysl: `algorithm in {"SHA256withRSA", "SHA256withECDSA",
+       // "SHA256withDSA", "SHA384withRSA", "SHA512withRSA", "SHA384withECDSA",
+       // "SHA512withECDSA"};`, transcribed entry for entry -- an alias never enters the list
+       // it resolves against, so a name such as `SHA256withRSAEncryption` is absent here and
+       // is admitted by resolution instead.
+       //
+       // A value reaches an entry of this list through `ConscryptAliasTable.matches`, which
+       // every site below calls. It folds case on both sides and compares the name twice:
+       // as the program spelled it, and as the alias rows the table carries for the
+       // `Signature` service resolve it. So a spelling that differs only in case matches, and
+       // so does a composite OID the platform registers for the same algorithm, such as
+       // `1.2.840.113549.1.1.11`. A name whose row resolves to an algorithm the clause does
+       // not list -- the rows landing on `MD5withRSA`, `SHA1withRSA` and their relatives --
+       // matches nothing and is reported, which is the direction that matters: the report
+       // reaches the call however the weak algorithm was spelled.
        List<String> algorithms = Arrays.asList("SHA256withRSA", "SHA256withECDSA", "SHA256withDSA",
             "SHA384withRSA", "SHA512withRSA", "SHA384withECDSA", "SHA512withECDSA");
 
+       // The `exp=` text of the private-key reports at `i1` and `i2`, in one place so the two
+       // sites say the same thing about the same clause.
        String expectedPrivateKey = "a private key produced by one of the generators the rule names";
 
+       // The `exp=` text of the public-key reports at `i4`, kept beside its private-key twin
+       // so the two clauses of the rule's REQUIRES section read alike in a report.
        String expectedPublicKey = "a public key produced by one of the generators the rule names";
 
-       // Signature.crysl:58-61 states four ENSURES clauses, and this file stages two
-       // objects for them: the signature `Sign` produces and the signature `Verify` was
-       // given. Neither is reachable from a handler -- a handler sees no event parameter --
-       // so each event stages what its clause names and the acceptance handler consumes it. The field
-       // is cleared when consumed, so a call whose event did not fire leaves no marking
-       // behind for the next one.
+       // The rule's ENSURES clauses name the signature `Sign` produces and the signature
+       // `Verify` was given, and both are written at the acceptance point. A handler receives
+       // no event arguments and runs after the transition is decided, so it can see neither
+       // the array a call returned nor the array a call was passed: each event stages what
+       // its clause names in one of these fields and the acceptance handler reads the field
+       // and writes the predicate. The field is cleared when consumed, and `@fail` discards
+       // it, so a staged value is written by exactly one handler run or thrown away, never
+       // written for a sequence the automaton refused.
        byte[] stagedSigned = null;
        byte[] stagedVerified = null;
 
@@ -69,45 +119,46 @@ SignatureSpec(Signature s) {
        // The generated `reset()` clears the state and not this field.
        boolean creationRefused = false;
 
-       // One event over `getInstance(String)`, where there used to be two split by
-       // the sign of a guard. The negated twin `g3` matched the same call with the
-       // same `args(alg)` and named no state in the `ere`, and the generator gives an
-       // event absent from the automaton a transition row that moves every state to
-       // the fail state: a signature built with an algorithm the rule rejects was
-       // reported as a wrong call sequence, and the `initSign`/`initVerify` that
-       // followed it was reported again, because `g3`'s failing transition had taken
-       // the `@fail` path, which `__RESET`s the monitor to the start state, where no
-       // init event is declared.
+       // `g1: getInstance(algorithm);` of Signature.crysl, one alternative of
+       // `Get := g1 | g2`, over the one-argument overload. It records that a creation was
+       // seen and applies no guard: the rule states the algorithm under CONSTRAINTS and not
+       // in its ORDER, so `getInstance` is a `Get` whatever it was asked for, and the
+       // algorithm is reported at the four init events instead, each under a code of its own
+       // registered in `codes.csv`.
        //
-       // The rule orders `Get, ((InitSign+, ...)+ | (InitVerify+, ...)+)` (Signature.crysl:45)
-       // with `Get := g1 | g2` (:21) and states the algorithm under CONSTRAINTS (:48), so
-       // the algorithm must not govern the transition: `getInstance` is a `Get` whatever
-       // it was asked for. Dropping the guard lets the rejected signature reach the
-       // init events like any other, where the four `i1`-`i4` bodies accuse it
-       // exactly once, with SIGNATURE-ALG-00 through SIGNATURE-ALG-03. `g3`'s body
-       // accused nothing of its own, so nothing it reported is lost.
+       // That placement is what keeps the two findings apart. An event matching this call
+       // under a negated guard would name no state of the `ere`, and the generator gives an
+       // event absent from the automaton a transition row that moves every state to the fail
+       // state: a signature built with an algorithm the rule refuses would be reported as a
+       // wrong call sequence, and the `initSign` or `initVerify` that followed would be
+       // reported again, because the failing transition takes the `@fail` path, which
+       // `__RESET`s the monitor to the start state, where no init event is declared.
        //
-       // Residue, recorded and not repaired (divergence_record.csv): a `getInstance`
-       // whose algorithm the rule rejects and which is never initialised is now
-       // accused by nothing, because the accusation lives in the init bodies. The
-       // two-argument `g2` still carries the guard this event lost, and with it the
-       // same suppression, for the same reason -- it is not an orphan, so no task of
-       // this group reaches it. Both are behavioural changes, deliberately deferred.
+       // Behaviour that follows: a `getInstance(String)` whose algorithm the rule refuses and
+       // which is never initialised draws no algorithm report, because that report lives in
+       // the init bodies.
        event g1 after(String alg) returning(Signature s):
          call(public static Signature Signature.getInstance(String)) &&
          args(alg) {
            creationObserved = true;
        }
 
+       // `g2: getInstance(algorithm, _);` of Signature.crysl, the other alternative of `Get`.
        // `Object+` covers both two-argument `getInstance` overloads the platform declares --
-       // `(String, String)` for the provider's name and `(String, Provider)` for the object -- in
-       // one pointcut, so no second event is spent on the same `Gets`. An object obtained through
-       // the overload this pointcut used to miss reached its next event with the monitor at state
-       // 0, where every row is `fail`. It is `Object+` and not `..` on purpose: the trace harness's
-       // resolver walks the declared parameter types of a `call(...)` signature and stops at the
-       // first wildcard (KeyManagerFactorySpec.mop:94-97), so a wildcard here would make every
-       // `getInstance` fit this pointcut, while `Object+` keeps the arity known and the second
-       // position typed. Precedent: `KeyGeneratorSpec.g2`.
+       // `(String, String)` for the provider's name and `(String, Provider)` for the object --
+       // in one pointcut, so no second event is spent on the same label; an object obtained
+       // through an overload the pointcut did not cover would reach its next event with the
+       // monitor at the start state, where every row is `fail`. It is `Object+` and not `..`
+       // on purpose: the trace harness's resolver walks the declared parameter types of a
+       // `call(...)` signature and stops at the first wildcard, so a wildcard here would make
+       // every `getInstance` fit this pointcut, while `Object+` keeps the arity known and the
+       // second position typed.
+       //
+       // This event carries the CONSTRAINTS allow-list as a `condition(...)` guard, so it
+       // takes the transition only for an algorithm the clause admits. A guard compiles to an
+       // early return ahead of both the body and the transition, and it is tolerable here
+       // only because the refused branch is not dropped: `g3` below matches the same call
+       // under the negated guard, so no creation falls out of the automaton unseen.
        event g2 after(String alg, Object provider) returning(Signature s):
          call(public static Signature Signature.getInstance(String, Object+)) &&
          args(alg, provider) &&
@@ -132,38 +183,31 @@ SignatureSpec(Signature s) {
            creationRefused = true;
        }
 
-       // The rule states two REQUIRES clauses and this file read neither until this pass:
-       // `generatedPrivkey[privateKey]` (Signature.crysl:54, ledger #34) over the key
-       // `initSign` is given, and `generatedPubkey[publicKey]` (:55, ledger #35) over the
-       // key `initVerify` is given. They are the rule's own clauses -- not `generatedKey`,
-       // which this rule never mentions -- so a secret key has no business answering them,
-       // and the three reads below name the two key-half predicates only.
+       // `i1: initSign(privateKey);` of Signature.crysl, one alternative of
+       // `InitSign := i1 | i2`.
        //
-       // Three sites for two clauses, because the rule binds `privateKey` in both `i1` and
-       // `i2` and `publicKey` in `i4`. `i3` reads nothing: it binds a `Certificate`, which
-       // is the rule's `cert` (Signature.crysl:12), and the rule states no clause over it
-       // -- the public half inside a certificate is never handed to this call as a
-       // `PublicKey`, so there is no object here the clause is about. That asymmetry is the
-       // oracle's and is recorded, not repaired.
+       // CONSTRAINTS, the algorithm allow-list, is checked here against the algorithm the
+       // instance reports, because the one-argument creation event applies no guard. Both
+       // this check and the predicate read sit in the event body and not in a
+       // `condition(...)` guard: a guard compiles to an early return ahead of both the body
+       // and the transition, so a signature built with a refused algorithm, or initialised
+       // with a key of unknown origin, would leave the automaton in the state before
+       // `initSign` and the next call would be reported as a wrong call sequence instead of
+       // as the misuse it is.
        //
-       // The reads are in the bodies, never in `condition(...)`: a guard would suppress
-       // the transition and turn "this key's origin was not observed" into a
-       // wrong-call-sequence report about a program whose sequence the rule accepts
-       // (INV-INS-133). Each carries its own pair of codes, VIOLATED and NOT_OBSERVED
-       // apart, because the first is positive evidence and the second is as often a reach
-       // limit of the instrumentation as it is a misuse.
-       //
-       // Measured before the reads were written: the chain composes end to end.
-       // `KeyPairGenerator.getInstance("RSA").generateKeyPair()`, then `getPrivate()` into
-       // `initSign` and `getPublic()` into `initVerify`, signs and verifies on Temurin 21,
-       // and the producer is `KeyPairSpec.gpu`/`gpr`, which mark the halves by identity in
-       // the event body -- the placement that makes them reachable for a pair the program
-       // did not construct itself. `KeyStoreSpec` is the second producer of the private
-       // half, wired in this same commit.
-       //
-       // The corpus had no trace that could measure this: all seven Signature traces pass
-       // `null` to `initSign`/`initVerify`, and a null bound object reads NOT_OBSERVED. The
-       // three traces this pass adds are what separate the verdicts.
+       // REQUIRES `generatedPrivkey[privateKey]`: the private key was produced by a call the
+       // instrumentation observed. It is the rule's own clause and not `generatedKey`, which
+       // this rule never names, so a secret key has no business answering it. SATISFIED is
+       // silent and the call conforms. VIOLATED is positive evidence about this key -- a
+       // producing call was observed and what it established is not what the clause demands
+       // -- and draws this site's constraint code. NOT_OBSERVED means nothing about the key
+       // was ever recorded: it was built where the instrumentation does not reach, or it is
+       // `null`, over which the store answers NOT_OBSERVED rather than throwing inside the
+       // application under test. That is a reach limit as often as it is a misuse, so it
+       // draws a code of its own. The producers inside this set are `KeyPairSpec`, at the
+       // call that hands out the private half of a generated pair, `KeyFactorySpec`, at its
+       // `generatePrivate` event, and `KeyStoreSpec`, at its acceptance point when the
+       // retrieved key is a `PrivateKey`.
        event i1 before(PrivateKey privateKey, Signature s):
          call(public void Signature.initSign(PrivateKey)) &&
          args(privateKey) &&
@@ -183,6 +227,18 @@ SignatureSpec(Signature s) {
            }
         }
 
+       // `i2: initSign(privateKey, _);` of Signature.crysl, the other alternative of
+       // `InitSign`, over the overload that also takes a `SecureRandom`. The rule leaves that
+       // position anonymous and states no clause over it, so the argument is bound only to
+       // match the overload and the body says nothing about it.
+       //
+       // The same two checks as at `i1`, each under a code of its own because a code names a
+       // site and not a clause: CONSTRAINTS, the algorithm allow-list, against the algorithm
+       // the instance reports; and REQUIRES `generatedPrivkey[privateKey]` -- the private key
+       // was produced by a call the instrumentation observed. SATISFIED is silent, VIOLATED
+       // is positive evidence about the key, and NOT_OBSERVED means nothing about it was
+       // recorded, which is the reach limit of the weaving as often as it is a misuse. Both
+       // sit in the body and not in a `condition(...)` guard, for the reason `i1` states.
        event i2 before(PrivateKey privateKey, SecureRandom random, Signature s):
          call(public void Signature.initSign(PrivateKey, SecureRandom)) &&
          args(privateKey, random) &&
@@ -202,6 +258,16 @@ SignatureSpec(Signature s) {
         }
         }
 
+       // `i3: initVerify(cert);` of Signature.crysl, one alternative of
+       // `InitVerify := i3 | i4`.
+       //
+       // CONSTRAINTS, the algorithm allow-list, is checked here as at the other init events,
+       // in the body and not in a `condition(...)` guard.
+       //
+       // No predicate is read. The rule's `generatedPubkey[publicKey]` names `publicKey`,
+       // which this call does not pass, and the rule states no clause over its `cert`, so
+       // there is no object here a clause is about: a verification set up from a certificate
+       // has its key origin unchecked.
        event i3 before(Certificate cert, Signature s):
          call(public void Signature.initVerify(Certificate)) &&
          args(cert) &&
@@ -212,8 +278,32 @@ SignatureSpec(Signature s) {
         }
         }
 
-       // A public key that carries REPORTED_UPSTREAM came out of a key factory that was already
-       // reported, and draws the `upstream-refused` code instead of SIGNATURE-NOBS-02.
+       // `i4: initVerify(publicKey);` of Signature.crysl, the other alternative of
+       // `InitVerify`, and the one site of REQUIRES `generatedPubkey[publicKey]`.
+       //
+       // CONSTRAINTS, the algorithm allow-list, is checked here as at the other init events.
+       // Both it and the predicate read sit in the body and not in a `condition(...)` guard:
+       // a guard compiles to an early return ahead of both the body and the transition, so
+       // the offending call would leave the automaton in the state before `initVerify` and
+       // the next call would be reported as a wrong call sequence instead of as the misuse it
+       // is.
+       //
+       // REQUIRES `generatedPubkey[publicKey]`: the public key was produced by a call the
+       // instrumentation observed. SATISFIED is silent and the call conforms. VIOLATED is
+       // positive evidence about this key and draws this site's constraint code.
+       // NOT_OBSERVED means nothing about the key was ever recorded -- it was decoded where
+       // the instrumentation does not reach, or it is `null`, over which the store answers
+       // NOT_OBSERVED rather than throwing -- which is a reach limit as often as it is a
+       // misuse, so it draws a code of its own. The producers inside this set are
+       // `KeyFactorySpec`, at its `generatePublic` event, and `KeyPairSpec`, at the call that
+       // hands out the public half of a generated pair.
+       //
+       // The NOT_OBSERVED branch first asks for `REPORTED_UPSTREAM` over the same key: the
+       // object's producer already reported it, so a later site that finds no predicate for
+       // it is looking at a refusal upstream and not at a gap in instrumentation reach. A key
+       // that carries the mark -- one a key factory already refused -- therefore draws the
+       // upstream-refused code instead of the not-observed one. Both codes are registered in
+       // `codes.csv`.
        event i4 before(PublicKey key, Signature s):
          call(public void Signature.initVerify(PublicKey)) &&
          args(key) &&
@@ -237,25 +327,37 @@ SignatureSpec(Signature s) {
         }
         }
 
+       // `Update := u1 | u2 | u3 | u4` of Signature.crysl -- `update(input)`,
+       // `update(inputByte)`, `update(input, offset, len)` and `update(inputByteBuffer)` --
+       // fused into one event by a pointcut that matches every `update` overload, which makes
+       // one letter of the automaton for all four. The rule's ORDER treats the four alike, so
+       // the fusion costs it nothing.
+       //
+       // The pointcut binds no argument and the body is empty, so the rule's three length
+       // clauses -- `length[input] >= offset + len;`, `offset >= 0;` and `len > 0;` -- have
+       // no site: this specification does not check them, here or anywhere else.
        event update before(Signature s):
          call(public void Signature.update(..)) &&
          target(s) {
 
         }
 
-       // `signed[output, inputByte] after Sign` (Signature.crysl:58, with :59 and :60
-       // naming the same `output` against the other two input shapes). The clause carries
-       // an `after L`, so its acceptance point is the states `Sign` leads to; read off the
-       // generated monitor, `s1` and `s2` both land in state 3 and the match category is
-       // `nextstate == 3 || nextstate == 4`, so those states are inside the accepting set
-       // and `@match` is the acceptance point for this clause as well as for `verified`.
+       // `s1: output = sign();` of Signature.crysl, one alternative of `Sign := s1 | s2`, and
+       // a staging site for ENSURES `signed[output, inputByte] after Sign` together with its
+       // two twins, `signed[output, input] after Sign` and
+       // `signed[output, inputByteBuffer] after Sign`, which name the same `output` against
+       // the other two input shapes.
        //
-       // The clause is two-place -- the signature and the input it was computed over --
-       // and this site writes one place. The arity stays where the seed had it and the
-       // reason is recorded in `predicate_graph.csv` row 67: no rule of the 49 requires
-       // `signed`, so there is no consumer whose arity this write has to meet, and raising
-       // it alone would be a claim about a chain that does not exist. Task 11.9(d) counts
-       // it among the four predicates the oracle ensures and no rule of the oracle reads.
+       // The clause carries an `after L`, so its acceptance point is the state the `Sign`
+       // events lead to, which is inside this specification's accepting set and is where
+       // `@match` runs. The array cannot be written from there directly: a handler receives
+       // no event arguments and runs after the transition is decided, so this event stages
+       // the array the call returned in a field and the handler writes the predicate from it.
+       //
+       // The clause names two places -- the signature and the input it was computed over --
+       // and this site records one: the bytes are a signature a monitored `Signature`
+       // produced. No rule of the set requires `signed`, so the write has no reader and there
+       // is no consumer whose second place it would have to meet.
        event s1 after(Signature s) returning(byte[] output):
          call(public byte[] Signature.sign()) &&
          target(s) {
@@ -263,6 +365,11 @@ SignatureSpec(Signature s) {
        }
 
 
+       // `s2: sign(output, offset, len);` of Signature.crysl, the other alternative of
+       // `Sign`, over the overload that writes into a caller-supplied array. It stages that
+       // array for the same ENSURES and for the same reason `s1` states: the handler that
+       // writes the predicate sees no event argument of its own. The `offset` and `len` are
+       // bound to match the overload, and the rule's clauses over them are not checked here.
        event s2 after(byte[] output, int offset, int len, Signature s):
          call(public int Signature.sign(byte[], int, int)) &&
          args(output, offset, len) &&
@@ -270,28 +377,22 @@ SignatureSpec(Signature s) {
            stagedSigned = output;
        }
 
-       // `verified[verified, sign] after Verify` (Signature.crysl:61). THE ORACLE STATES
-       // THIS CLAUSE AT ARITY 2 AND WITH AN `after L`, WHERE THE GENERATED RULE STATED
-       // `verified[sign]` AT ARITY 1 AND WITH NONE. Task 11.1's delta classes it
-       // `reshaped` and `predicate_graph.csv` row 68 carries the record; neither difference
-       // moves this site, for the two reasons below.
+       // `v1: verified = verify(sign);` of Signature.crysl, one alternative of
+       // `Verify := v1 | v2`, and a staging site for ENSURES
+       // `verified[verified, sign] after Verify`.
        //
-       // The write stays at arity 1, over the signature the call was given, where the seed
-       // wrote the boolean the call returned. That repair stands and the substitution
-       // strengthens it rather than touching it: the two are measurably different objects
-       // and one of them is not about this program at all -- an identity-keyed store handed
-       // `Boolean.TRUE` marks the JVM-wide cached instance, so
-       // `validate(VERIFIED, <any other true>)` answers SATISFIED. The oracle names both
-       // places, which is a reason to keep the signature and none at all to go back to the
-       // boolean. Measured, the repair costs nothing either way -- no rule of the 49
-       // requires `verified`, so both forms are read by nobody -- and raising the write to
-       // two places would claim a chain that does not exist, which is the ground `signed`
-       // keeps its own arity on above.
+       // The clause names two places -- the boolean the call returned and the signature it
+       // was given -- and this site records the signature: a monitored `Signature` verified
+       // these signature bytes. The boolean cannot carry the mark, because the store keys
+       // entries by object identity: handing it the boxed `true` would mark the instance the
+       // whole JVM caches, and a read over any other `true` would then answer SATISFIED for
+       // an object this program never verified.
        //
-       // The `after Verify` does not move the acceptance point either. `v1` and `v2` land
-       // in state 4, which the match category contains, so the states `Verify` leads to are
-       // inside the accepting set and `@match` names them (INV-INS-134) -- the same handler
-       // the clause reached when it was read as carrying no `after L`.
+       // The clause's acceptance point is the state the `Verify` events lead to, which is
+       // inside the accepting set and is where `@match` runs. The array reaches the handler
+       // through a field because a handler receives no event arguments and runs after the
+       // transition is decided. No rule of the set requires `verified`, so the write has no
+       // reader.
        event v1 after(byte[] sign, Signature s) returning(boolean signed):
          call(public boolean Signature.verify(byte[])) &&
          args(sign) &&
@@ -300,6 +401,11 @@ SignatureSpec(Signature s) {
        }
 
 
+       // `v2: verified = verify(sign, offset, len);` of Signature.crysl, the other
+       // alternative of `Verify`, over the overload that names a range inside the signature
+       // array. It stages the same array for the same ENSURES and for the same reason `v1`
+       // states. The `offset` and `len` are bound to match the overload, and the rule's
+       // clauses over them are not checked here.
        event v2 after(byte[] sign, int offset, int len, Signature s) returning(boolean signed):
          call(public boolean Signature.verify(byte[], int, int)) &&
          args(sign, offset, len) &&
@@ -307,16 +413,25 @@ SignatureSpec(Signature s) {
             stagedVerified = sign;
        }
 
-       // Both ENSURES objects are consumed at the accepting state, and neither predicate
-       // has a reader: across the 49 rules of the oracle, `signed` and `verified` appear
-       // only here, as this rule's own ENSURES, so they are two of the dead ends this change disposes
-       // of by recording the omission rather than by fabricating a consumer
-       // (INV-INS-137). What leaves the handlers besides is the accepting-state
-       // bookkeeping: the new store does not offer it and the set never read it back
-       // (INV-INS-147), which is also why the `Signature signature` field is gone -- that
-       // call was the only thing that read it.
+       // The rule's ORDER: `Get, ((InitSign+, (Update+, Sign+)+ )+ | (InitVerify+, (Update*,
+       // Verify+)+ )+ )`. A signature is obtained once and then used for signing or for
+       // verifying, never for both; update calls are required before a signature and optional
+       // before a verification, exactly as the rule writes it.
+       //
+       // The leading `g3*` is the refused two-argument creation, which takes no other
+       // position in the language: after it, every use of the signature fails at the same
+       // event it would fail at if no creation event had fired at all, and `@fail` reports it
+       // under the creation-refused code rather than the creation-unobserved one.
        ere: g3* (g1 | g2) ( ((i1 | i2)+ (update+ (s1 | s2)+)+)+ | ((i3 | i4)+ (update* (v1 | v2)+)+)+ )
 
+       // Reached whenever the automaton cannot take the next event from the state it is in.
+       // Three codes, all registered in `codes.csv`: the plain wrong-call-sequence code; one
+       // for a signature whose `getInstance` was never seen, which is a reach limit of the
+       // instrumentation and not a misuse; and one for a signature whose two-argument
+       // creation this specification refused, whose ordering failure is the consequence of
+       // that refusal and not an order the program chose. Both staged arrays are discarded,
+       // so no predicate is written for a sequence the automaton refused, and `__RESET`
+       // returns the monitor to the start state.
        @fail {
           if (!creationObserved) {
               ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SignatureSpec", "" + __LOC,
@@ -335,6 +450,17 @@ SignatureSpec(Signature s) {
           __RESET;
        }
 
+       // The acceptance point of both ENSURES clauses. `signed` is written over the array a
+       // `sign` event staged -- the bytes are a signature a monitored `Signature` produced --
+       // and `verified` over the array a `verify` event staged -- a monitored `Signature`
+       // verified these signature bytes. Each field is cleared as it is consumed, so a
+       // handler run writes only what its own event staged; the generated dispatcher
+       // recomputes the state categories after every event and calls this handler whenever
+       // the category holds, so it can run several times in one trace.
+       //
+       // Neither predicate has a reader: no rule of the set requires `signed` or `verified`,
+       // so both writes record a fact that nothing consumes, and a reader of this
+       // specification must not take them for checks.
        @match {
           if (stagedSigned != null) {
               PredicateStore.instance().ensure(Property.SIGNED, stagedSigned);

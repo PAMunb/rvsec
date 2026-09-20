@@ -4,11 +4,11 @@ package br.unb.cic.mop;
  * The result of reading a CrySL predicate in a {@code jca_android} specification.
  *
  * <p>
- * The old substrate answered a predicate read with a boolean, which forced two very different
- * situations into the same answer: <em>the object carries the predicate with the wrong values</em>
+ * A predicate read has three answers and not two, because a boolean would force two very
+ * different situations into one: <em>the object carries the predicate with the wrong values</em>
  * and <em>nothing about this object was ever observed</em>. The first is positive evidence of a
- * misuse; the second is usually a reach artifact — the producing call was not woven, ran before
- * the monitor attached, or happens in a library the instrumentation does not cover. Reporting
+ * misuse; the second is usually a reach artifact — the producing call is not woven, runs before
+ * the monitor attaches, or happens in a library the instrumentation does not cover. Reporting
  * both as a violation is what makes a runtime verifier accuse conforming code, so the two are
  * separated here and carry different codes in {@code codes.csv}.
  *
@@ -21,8 +21,8 @@ public enum PredicateVerdict {
 
 	/**
 	 * Positive evidence of a mismatch: an entry exists for the object under this predicate but
-	 * its value positions differ, or the predicate was explicitly withdrawn by
-	 * {@link PredicateStore#negate(Property, Object)}.
+	 * its value positions differ, or {@link PredicateStore#negate(Property, Object)} has
+	 * explicitly negated the predicate for that object.
 	 */
 	VIOLATED,
 

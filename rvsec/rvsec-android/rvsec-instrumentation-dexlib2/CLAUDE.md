@@ -57,6 +57,77 @@ Test/tooling only (never prod path): commons-math3 (validator), commonmark (gram
 - Main class `br.unb.cic.rv.cli.InstrumentationCli`; batch:
   `java -jar instr-cli.jar batch <apks-dir> --descriptor MultiSpec_1MonitorAspect.json --monitor-src-dir <mop> [--output <dir>]`.
 
+## Documentation conventions
+Java in this module is documented with **Javadoc**, and the `rvsec-core` helper
+classes the woven monitors call follow the same eleven rules.
+
+1. **Depth by tier.** A public API class and an orchestrator (`DexWeaver`,
+   `BatchRunner`, `MonitorBuilder`) carry a full class Javadoc; an internal
+   method over ten lines carries a summary plus `@param`/`@return`; a small
+   helper carries one line; a self-evident accessor, setter or `toString`
+   carries **none** — the descriptor POJOs are deliberately bare, because the
+   name and the signature already say everything there is to say.
+2. **Noun phrase for a thing, imperative for an action.** A package or class
+   Javadoc opens by saying what the thing *is* ("Register-level instruction
+   rewriter used by the coverage spill path."). A method Javadoc opens with an
+   imperative sentence ending in a period ("Compile the monitor sources, then
+   run d8.").
+3. **Topical `<h2>`/`<h3>` headings.** A long class Javadoc is sectioned by the
+   subject each part covers — `<h3>Frame growth via clone</h3>`,
+   `<h2>Register allocation strategy</h2>`, `<h2>Two mutation paths</h2>` — not
+   by a fixed list of section names. Name the problem the section discusses.
+4. **`@param`, `@return` and `@throws` carry no types** — the signature holds
+   them. `@throws` states the condition that raises it, opening with "when" or
+   "if":
+   ```java
+   /**
+    * Grow the register frame of {@code impl} by {@code delta} slots.
+    *
+    * @param delta slots carved out at the low end of the frame
+    * @return the rebuilt implementation; the caller swaps it in
+    * @throws IllegalStateException if a shifted register overflows its
+    *     format's field width
+    */
+   ```
+5. **A field holding meaningful state carries a one-line Javadoc** saying what
+   it holds and when it is valid (`/** Original {@link MethodReference} →
+   wrapper {@link MethodReference}. */`). A field that is only an injected
+   collaborator needs nothing.
+6. **A `@return` of a map or a JSON document lists its keys.** The reader must
+   not have to run the weaver to learn the shape of what comes back:
+   ```java
+   /**
+    * @return per-APK counters, keyed by {@code "advices"} (advices in the
+    *     descriptor), {@code "dexFiles"} (DEX entries extracted),
+    *     {@code "wrappersGenerated"} and {@code "wovenDexes"}
+    */
+   ```
+7. **`// Phase N:` for orchestration, `// Step N:` for an algorithm.** Phases
+   number the stages of a pipeline method (`// Phase 3: extract DEX files from
+   APK (preserving entry names).`); steps number the moves of a dense routine
+   such as register shifting or pointcut parsing. A rationale block sits
+   **directly above** the code it explains, never after it, and says *why* —
+   the mechanism that makes the code non-obvious, not a paraphrase of it.
+8. **Contracts use `MUST`/`MUST NOT` and `Precondition:`/`Postcondition:`.**
+   An obligation the caller cannot infer from the signature is stated as an
+   obligation ("the caller MUST replace its reference to the source
+   implementation with the returned one"); a state the method assumes or
+   guarantees is labelled as such.
+9. **Cite code with `{@code}` and `{@link}`.** Identifiers, literals, DEX
+   descriptors and instruction mnemonics go in `{@code}`; a type or member the
+   reader should jump to goes in `{@link}`. Every `{@link}` target must exist —
+   a dangling one is a broken reference the Javadoc build reports, and it is
+   the cheapest kind of documentation rot to introduce.
+10. **Nothing that lives outside the file.** No invariant, decision, task,
+    change or issue identifier; no date; no `file:line`; no pointer to a design
+    document or a report standing in for the explanation itself; no narrative
+    of what the code used to do; no promotional adjectives. A comment is read
+    with the file open and nothing else at hand, and it describes the code as
+    it is now.
+11. **`TODO(topic)` and `FIXME(topic)` name a module or a topic** —
+    `TODO(coverage-weaver)`, `FIXME(register-spill)` — never an issue number,
+    which ages out of the tracker and leaves the marker unreadable.
+
 ## References (do not duplicate)
 - `architecture.md` — deep canonical ref (931 lines).
 - Grammar coverage matrix (living contract, CI-enforced): **lives OUTSIDE this

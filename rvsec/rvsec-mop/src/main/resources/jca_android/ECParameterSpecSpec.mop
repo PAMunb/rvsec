@@ -10,12 +10,23 @@ import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 
 /**
- * ECParameterSpec
+ * ECParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.spec.ECParameterSpec.
+ * Monitors java.security.spec.ECParameterSpec against the CrySL rule ECParameterSpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/ECParameterSpec.crysl
+ * The rule's ORDER is `Con`, with `Con := c1` naming its one event, the four-argument constructor,
+ * so a single construction is already a complete, conforming call sequence. The rule states no
+ * CONSTRAINTS section and no REQUIRES section, so this specification checks no value and reads no
+ * predicate; it ENSURES one, `preparedEC[this]`, written for the constructed spec at the accepting
+ * state. Its only reports are the two wrong-sequence codes of the `@fail` handler, which this
+ * automaton cannot reach.
+ *
+ * The monitor reaches only constructions the weaving instrumented. A spec built inside a library
+ * or inside the platform carries no preparedEC, and the specifications that read the predicate
+ * answer NOT_OBSERVED for it rather than VIOLATED, so code whose producer was never observed is
+ * not accused.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/ECParameterSpec.crysl
  */
 ECParameterSpecSpec(ECParameterSpec s) {
 
@@ -27,31 +38,32 @@ ECParameterSpecSpec(ECParameterSpec s) {
    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // The rule's one event, `c1: ECParameterSpec(curve, g, n, h)` (:10), and the whole of
-   // its ORDER. api30 declares exactly this constructor.
+   // `c1` of ECParameterSpec.crysl: `c1: ECParameterSpec(curve, g, n, h);`, which is the whole of
+   // `Con := c1`. The platform declares exactly this constructor, so there is no other overload to
+   // bind.
    //
-   // This specification accuses nothing, and that is the rule and not an omission:
-   // ECParameterSpec.crysl states no CONSTRAINTS section and no REQUIRES section, so there
-   // is no clause to transcribe into a body and this file appears in `codes.csv` with its
-   // `@fail` rows alone. What it contributes is the ENSURES below -- one of the two
-   // producers of `preparedEC`, and the one that admits any curve the caller can build by
-   // hand. The sibling `ECGenParameterSpecSpec` is the one that constrains a curve by
-   // standard name.
+   // The body checks nothing, and that is the rule and not an omission: ECParameterSpec.crysl
+   // states no CONSTRAINTS section and no REQUIRES section, so there is no clause to read in the
+   // body and this file appears in `codes.csv` with its `@fail` rows alone. What the event
+   // contributes is the object for the ENSURES below -- this is one of the two producers of
+   // `preparedEC`, the one that admits any curve the caller assembled by hand, while
+   // `ECGenParameterSpecSpec` is the one that constrains a curve by standard name.
    //
-   // The four parameters of the rule's event are named in the pointcut signature and bound
-   // by nothing, because no clause of the rule reads them. The signature is spelled out
-   // rather than wildcarded so the trace harness's resolver can walk the declared parameter
-   // types (it stops at the first wildcard -- `KeyManagerFactorySpec.mop:94-97`).
+   // The four parameter types of the rule's event are spelled out in the pointcut signature and
+   // bound to nothing, because no clause of the rule reads their values. The signature is written
+   // out rather than wildcarded so the trace harness's resolver can walk the declared parameter
+   // types; it stops at the first wildcard.
    event c1 after() returning(ECParameterSpec s):
      call(public ECParameterSpec.new(EllipticCurve, ECPoint, BigInteger, int)) {
        creationObserved = true;
        spec = s;
    }
 
-   // `Con := c1` is the whole ORDER (:13-14), so the `@fail` handler cannot fire: one
-   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
-   // no monitor ever sees a second event. Written because the generator and the
-   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:158-170`).
+   // `Con := c1` is the whole ORDER, so this automaton has one symbol and the `@fail` handler
+   // below cannot fire: the transition row the generator derives is {1, 2, 2}, and the monitor is
+   // keyed on the constructed object, so no monitor of this specification ever sees a second event
+   // and state 2 is never entered. The handler is written anyway, because the generator expects
+   // one and its two codes are registered in `codes.csv` like every other site.
    ere : c1
 
    @fail {
@@ -66,10 +78,19 @@ ECParameterSpecSpec(ECParameterSpec s) {
       __RESET;
    }
 
-   // `ENSURES preparedEC[this]` (:17) carries no `after L`, so the acceptance point is the
-   // accepting state, which in an `ere` is `@match` (INV-INS-134). With no clause able to
-   // fail, `spec` is bound on every construction this monitor sees, and the write is
-   // unconditional in substance as well as in form.
+   // ENSURES `preparedEC[this];`: the clause carries no `after L`, so it holds wherever the
+   // object's use so far is a complete, conforming call sequence -- the accepting state of the
+   // ORDER, which in an `ere` is exactly where the `@match` handler runs. The predicate says: the
+   // elliptic-curve parameter spec names a curve the rule admits. It is bound to the spec and has
+   // no value place, so the consumers ask for nothing but the object.
+   //
+   // The object arrives through the `spec` field, because a handler receives no event arguments.
+   // With no clause able to fail, the field is bound on every construction this monitor sees, and
+   // the write is unconditional in substance as well as in form.
+   //
+   // `ECGenParameterSpecSpec` writes the same predicate, and does constrain the curve, by standard
+   // name. `KeyPairGeneratorSpec` reads the predicate when its algorithm is EC and
+   // `KeyAgreementSpec` when its algorithm is ECDH, for the spec each is initialised with.
    @match {
       PredicateStore.instance().ensure(Property.PREPARED_EC, spec);
    }

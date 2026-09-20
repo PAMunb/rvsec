@@ -18,19 +18,18 @@ import java.io.Serializable;
  * <b>{@code code} and {@code event} participate too, and {@code event} is the one that earns its
  * place.</b> Every specification of the set has at most one {@code @fail} handler, so the failure
  * code of a sequence violation is a function of the specification name and would refine nothing
- * on its own; it is the event that names <em>which</em> transition failed. Without it two
- * different causes reported at one call site are one record, and which of them survives the
- * {@code HashSet} is arrival order — measured on the differential-harness corpus, six such
- * identities split in two once the event enters, three of them with the code identical on both
- * sides (see {@code rv-android/data/gh104/identity_discontinuity.md}).
+ * on its own; it is the event that names <em>which</em> transition failed. Without it, two
+ * different causes reported at one call site collapse into a single record, and which of them
+ * survives the {@code HashSet} is arrival order — including the case where both causes carry the
+ * identical code and only the event tells them apart.
  *
  * <p>
  * Both values are read from the reported message envelope and are the sentinel
  * {@code UNSPECIFIED} when the message carries none, so a report from a specification set that
- * emits no envelope keeps a readable identity instead of a null one. The consequence is a
- * declared discontinuity, not a side effect: a deduplicated count taken under this identity is
- * not comparable to one taken under the five-field identity that preceded it, and a published
- * count must say which of the two it belongs to.
+ * emits no envelope keeps a readable identity instead of a null one. A deduplicated count is
+ * therefore taken over seven fields, and is not comparable to one taken over an identity that
+ * leaves {@code code} and {@code event} out; a published count has to say which of the two it
+ * belongs to.
  *
  * <p>
  * The coarser identity — {@code (apk, class, method, spec)}, one <em>unique misuse</em> — is
@@ -95,10 +94,6 @@ public class ErrorSummary implements Serializable {
 
 	private String className() {
 		String res = classQualifiedName;
-//        if(classQualifiedName.contains("$")) {
-//            int idx = classQualifiedName.indexOf("$");
-//            res =  res.substring(0, idx);
-//        }
 		return res.substring(res.lastIndexOf(".") + 1);
 	}
 
@@ -164,13 +159,14 @@ public class ErrorSummary implements Serializable {
 	}
 
 	/**
-	 * The six comma-separated fields of the reported line — unchanged by the arrival of
-	 * {@code code} and {@code event}, and deliberately so.
+	 * Emit the six comma-separated fields of the reported line: specification, qualified class,
+	 * simple class, method, source position and error kind.
 	 *
 	 * <p>
-	 * The two new fields are already on the line: they are read out of the message envelope,
-	 * which the collector appends as the seventh field. Emitting them a second time would widen
-	 * a positional record every downstream parser splits by count, for no information gained.
+	 * {@code code} and {@code event} are deliberately left out. They are already on the line —
+	 * they are read out of the message envelope, which the collector appends as the seventh
+	 * field. Emitting them a second time would widen a positional record every downstream parser
+	 * splits by count, for no information gained.
 	 */
 	@Override
 	public String toString() {

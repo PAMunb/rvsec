@@ -24,115 +24,115 @@
 
 ## 1. Wave 1 — Citation check (parallel — subagent)
 
-- [ ] 1.1 Hash `JavaCryptographicArchitecture/src/*.crysl` of `CROSSINGTUD/Crypto-API-Rules` at commit `6d844ab402229aaefa4c5e45bf080987b787624b` and compare with `data/jca_android/oracle/expert_rules.sha256`: expect 48 of 49 identical and `Cipher.crysl` differing only by `CCM` in the AES mode and AES `NoPadding` clauses
-- [ ] 1.2 Write the difference list (rule, clause, expert text, upstream text) handed to wave 2; any difference beyond `CCM` is stated as behaviour in the header of the affected specification
+- [x] 1.1 Hash `JavaCryptographicArchitecture/src/*.crysl` of `CROSSINGTUD/Crypto-API-Rules` at commit `6d844ab402229aaefa4c5e45bf080987b787624b` and compare with `data/jca_android/oracle/expert_rules.sha256`: expect 48 of 49 identical and `Cipher.crysl` differing only by `CCM` in the AES mode and AES `NoPadding` clauses
+- [x] 1.2 Write the difference list (rule, clause, expert text, upstream text) handed to wave 2; any difference beyond `CCM` is stated as behaviour in the header of the affected specification
 
 ## 2. Wave 1 — Java documentation convention (parallel — subagent)
 
-- [ ] 2.1 Write the "Documentation conventions" section of `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/CLAUDE.md` with the eleven Java rules of the delta spec (design D2c), derived from the module's current Javadoc practice and the `rv-doc-code` mapping; change no existing comment of the module
+- [x] 2.1 Write the "Documentation conventions" section of `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/CLAUDE.md` with the eleven Java rules of the delta spec (design D2c), derived from the module's current Javadoc practice and the `rv-doc-code` mapping; change no existing comment of the module
 
 ## 3. Wave 1 — Java helper classes (parallel — subagent)
 
-- [ ] 3.1 Review the comments of `rvsec-core/src/main/java/br/unb/cic/mop/Property.java`, `PredicateStore.java` and `PredicateVerdict.java` against the Java rules; self-check
-- [ ] 3.2 Review the comments of `jca/util/ConscryptAliasTable.java` and `jca/util/CipherTransformationNormalizer.java` (the normaliser stops naming `Api30CipherTransformationUtil`); self-check
-- [ ] 3.3 Review the comments of `eh/ErrorType.java`, `eh/ErrorDescription.java`, `eh/ErrorSummary.java` and `eh/Evidence.java`; self-check
-- [ ] 3.4 Confirm `jca/util/CipherTransformationUtil.java` is not in the diff
+- [x] 3.1 Review the comments of `rvsec-core/src/main/java/br/unb/cic/mop/Property.java`, `PredicateStore.java` and `PredicateVerdict.java` against the Java rules; self-check
+- [x] 3.2 Review the comments of `jca/util/ConscryptAliasTable.java` and `jca/util/CipherTransformationNormalizer.java` (the normaliser stops naming `Api30CipherTransformationUtil`); self-check
+- [x] 3.3 Review the comments of `eh/ErrorType.java`, `eh/ErrorDescription.java`, `eh/ErrorSummary.java` and `eh/Evidence.java`; self-check
+- [x] 3.4 Confirm `jca/util/CipherTransformationUtil.java` is not in the diff
 
 ## 4. Wave 1 — Backup and authoring guide (parallel — subagent)
 
-- [ ] 4.1 Move `rvsec-core/src/main/java/br/unb/cic/mop/jca/util/Api30CipherTransformationUtil.java` and `rvsec-core/src/test/java/br/unb/cic/mop/jca/util/Api30CipherTransformationUtilTest.java` to `backup/gh116/`, preserving their relative paths
-- [ ] 4.2 Delete the two `EXEMPT_CORE` entries naming the moved files in `rv-android/scripts/gh105_sole_oracle_gate.py`, with the comment block above them that describes the class
-- [ ] 4.3 Rewrite `rv-android/data/jca_android/NEW_SPEC_CONVENTIONS.md`: add the comment convention; remove its own citations of invariants, decisions, tasks and `.mop` line numbers while keeping every authoring rule it states
-- [ ] 4.4 `git grep Api30CipherTransformationUtil` returns nothing outside `backup/`, `openspec/changes/archive/`, dated documents under `docs/` and `audit/`, and data records
+- [x] 4.1 Move `rvsec-core/src/main/java/br/unb/cic/mop/jca/util/Api30CipherTransformationUtil.java` and `rvsec-core/src/test/java/br/unb/cic/mop/jca/util/Api30CipherTransformationUtilTest.java` to `backup/gh116/`, preserving their relative paths
+- [x] 4.2 Delete the two `EXEMPT_CORE` entries naming the moved files in `rv-android/scripts/gh105_sole_oracle_gate.py`, with the comment block above them that describes the class
+- [x] 4.3 Rewrite `rv-android/data/jca_android/NEW_SPEC_CONVENTIONS.md`: add the comment convention; remove its own citations of invariants, decisions, tasks and `.mop` line numbers while keeping every authoring rule it states
+- [x] 4.4 `git grep Api30CipherTransformationUtil` returns nothing outside `backup/`, `openspec/changes/archive/`, dated documents under `docs/` and `audit/`, and data records
 
 ## 5. Wave 1 — Predicate glossary (parallel — subagent; wave 2 starts when it ends)
 
-- [ ] 5.1 List every `Property` constant the 47 `.mop` files write or read
-- [ ] 5.2 Write one standard sentence per predicate stating what it asserts about its object and which rule clause produces it (design D5), as a working file handed to waves 2 and 3 and not committed
+- [x] 5.1 List every `Property` constant the 47 `.mop` files write or read
+- [x] 5.2 Write one standard sentence per predicate stating what it asserts about its object and which rule clause produces it (design D5), as a working file handed to waves 2 and 3 and not committed
 
 ## 6. Wave 2 — MGF1 and Cipher (parallel — subagent, ~730 lines)
 
-- [ ] 6.1 Review the comments of `MGF1ParameterSpecSpec.mop`
-- [ ] 6.2 Review the comments of `CipherSpec.mop` (header states the `CCM` difference, D4)
-- [ ] 6.3 Self-check the two files
+- [x] 6.1 Review the comments of `MGF1ParameterSpecSpec.mop`
+- [x] 6.2 Review the comments of `CipherSpec.mop` (header states the `CCM` difference, D4)
+- [x] 6.3 Self-check the two files
 
 ## 7. Wave 2 — Cipher chain (parallel — subagent, ~1,100 lines)
 
-- [ ] 7.1 Review the comments of `IvChainJunction.mop` (name kept; header says why the file exists beside `CipherSpec`)
-- [ ] 7.2 Review the comments of `CipherInputStreamSpec.mop` and `CipherOutputStreamSpec.mop`
-- [ ] 7.3 Review the comments of `GCMParameterSpecSpec.mop`, `IvParameterSpec.mop` and `OAEPParameterSpecSpec.mop`
-- [ ] 7.4 Self-check the six files
+- [x] 7.1 Review the comments of `IvChainJunction.mop` (name kept; header says why the file exists beside `CipherSpec`)
+- [x] 7.2 Review the comments of `CipherInputStreamSpec.mop` and `CipherOutputStreamSpec.mop`
+- [x] 7.3 Review the comments of `GCMParameterSpecSpec.mop`, `IvParameterSpec.mop` and `OAEPParameterSpecSpec.mop`
+- [x] 7.4 Self-check the six files
 
 ## 8. Wave 2 — Mac and digest (parallel — subagent, ~1,300 lines)
 
-- [ ] 8.1 Review the comments of `MacSpec.mop` and `HMACParameterSpecSpec.mop`
-- [ ] 8.2 Review the comments of `MessageDigestSpec.mop`, `DigestInputStreamSpec.mop` and `DigestOutputStreamSpec.mop`
-- [ ] 8.3 Self-check the five files
+- [x] 8.1 Review the comments of `MacSpec.mop` and `HMACParameterSpecSpec.mop`
+- [x] 8.2 Review the comments of `MessageDigestSpec.mop`, `DigestInputStreamSpec.mop` and `DigestOutputStreamSpec.mop`
+- [x] 8.3 Self-check the five files
 
 ## 9. Wave 2 — Key generation and randomness (parallel — subagent, ~1,230 lines)
 
-- [ ] 9.1 Review the comments of `KeyGeneratorSpec.mop` and `SecureRandomSpec.mop`
-- [ ] 9.2 Review the comments of `KeyPairGeneratorSpec.mop` and `KeyPairSpec.mop`
-- [ ] 9.3 Self-check the four files
+- [x] 9.1 Review the comments of `KeyGeneratorSpec.mop` and `SecureRandomSpec.mop`
+- [x] 9.2 Review the comments of `KeyPairGeneratorSpec.mop` and `KeyPairSpec.mop`
+- [x] 9.3 Self-check the four files
 
 ## 10. Wave 2 — Algorithm parameters, agreement and signature (parallel — subagent, ~1,130 lines)
 
-- [ ] 10.1 Review the comments of `AlgorithmParameterGeneratorSpec.mop` and `AlgorithmParametersSpec.mop`
-- [ ] 10.2 Review the comments of `KeyAgreementSpec.mop` and `SignatureSpec.mop`
-- [ ] 10.3 Self-check the four files
+- [x] 10.1 Review the comments of `AlgorithmParameterGeneratorSpec.mop` and `AlgorithmParametersSpec.mop`
+- [x] 10.2 Review the comments of `KeyAgreementSpec.mop` and `SignatureSpec.mop`
+- [x] 10.3 Self-check the four files
 
 ## 11. Wave 2 — Key material (parallel — subagent, ~1,500 lines)
 
-- [ ] 11.1 Review the comments of `SecretKeySpec.mop`, `SecretKeySpecSpec.mop` and `KeySpec.mop`
-- [ ] 11.2 Review the comments of `PBEKeySpecSpec.mop` and `PBEParameterSpecSpec.mop`
-- [ ] 11.3 Review the comments of `SecretKeyFactorySpec.mop`, `KeyFactorySpec.mop` and `X509EncodedKeySpecSpec.mop`
-- [ ] 11.4 Self-check the eight files
+- [x] 11.1 Review the comments of `SecretKeySpec.mop`, `SecretKeySpecSpec.mop` and `KeySpec.mop`
+- [x] 11.2 Review the comments of `PBEKeySpecSpec.mop` and `PBEParameterSpecSpec.mop`
+- [x] 11.3 Review the comments of `SecretKeyFactorySpec.mop`, `KeyFactorySpec.mop` and `X509EncodedKeySpecSpec.mop`
+- [x] 11.4 Self-check the eight files
 
 ## 12. Wave 2 — Algorithm parameter specifications (parallel — subagent, ~630 lines)
 
-- [ ] 12.1 Review the comments of `DHGenParameterSpecSpec.mop`, `DHParameterSpecSpec.mop` and `DSAParameterSpecSpec.mop`
-- [ ] 12.2 Review the comments of `ECGenParameterSpecSpec.mop`, `ECParameterSpecSpec.mop` and `RSAKeyGenParameterSpecSpec.mop`
-- [ ] 12.3 Self-check the six files
+- [x] 12.1 Review the comments of `DHGenParameterSpecSpec.mop`, `DHParameterSpecSpec.mop` and `DSAParameterSpecSpec.mop`
+- [x] 12.2 Review the comments of `ECGenParameterSpecSpec.mop`, `ECParameterSpecSpec.mop` and `RSAKeyGenParameterSpecSpec.mop`
+- [x] 12.3 Self-check the six files
 
 ## 13. Wave 2 — TLS contexts and certificates (parallel — subagent, ~1,090 lines)
 
-- [ ] 13.1 Review the comments of `SSLContextSpec.mop`, `SSLEngineSpec.mop` and `SSLParametersSpec.mop`
-- [ ] 13.2 Review the comments of `CertificateFactorySpec.mop` and `TrustAnchorSpec.mop`
-- [ ] 13.3 Self-check the five files
+- [x] 13.1 Review the comments of `SSLContextSpec.mop`, `SSLEngineSpec.mop` and `SSLParametersSpec.mop`
+- [x] 13.2 Review the comments of `CertificateFactorySpec.mop` and `TrustAnchorSpec.mop`
+- [x] 13.3 Self-check the five files
 
 ## 14. Wave 2 — Trust, key managers and key stores (parallel — subagent, ~1,070 lines)
 
-- [ ] 14.1 Review the comments of `TrustManagerFactorySpec.mop` and `KeyManagerFactorySpec.mop`
-- [ ] 14.2 Review the comments of `KeyStoreSpec.mop` and `KeyStoreBuilderParametersSpec.mop`
-- [ ] 14.3 Review the comments of `PKIXParametersSpec.mop`, `PKIXBuilderParametersSpec.mop` and `CertPathTrustManagerParametersSpec.mop`
-- [ ] 14.4 Self-check the seven files
+- [x] 14.1 Review the comments of `TrustManagerFactorySpec.mop` and `KeyManagerFactorySpec.mop`
+- [x] 14.2 Review the comments of `KeyStoreSpec.mop` and `KeyStoreBuilderParametersSpec.mop`
+- [x] 14.3 Review the comments of `PKIXParametersSpec.mop`, `PKIXBuilderParametersSpec.mop` and `CertPathTrustManagerParametersSpec.mop`
+- [x] 14.4 Self-check the seven files
 
 ## 15. Wave 3 — Review of groups 6, 7 and 8 (parallel — reviewer subagent, ~3,100 lines)
 
-- [ ] 15.1 Read every file of groups 6, 7 and 8 against the requirement and the glossary: clause quoted by text and matching the rule, mechanism explained, every event/read/write commented, divergences stated as behaviour, predicate descriptions matching the glossary; fix what departs
-- [ ] 15.2 Self-check every file changed in 15.1
+- [x] 15.1 Read every file of groups 6, 7 and 8 against the requirement and the glossary: clause quoted by text and matching the rule, mechanism explained, every event/read/write commented, divergences stated as behaviour, predicate descriptions matching the glossary; fix what departs
+- [x] 15.2 Self-check every file changed in 15.1
 
 ## 16. Wave 3 — Review of groups 9, 10 and 12 (parallel — reviewer subagent, ~3,000 lines)
 
-- [ ] 16.1 Read every file of groups 9, 10 and 12 against the requirement and the glossary, as in 15.1; fix what departs
-- [ ] 16.2 Self-check every file changed in 16.1
+- [x] 16.1 Read every file of groups 9, 10 and 12 against the requirement and the glossary, as in 15.1; fix what departs
+- [x] 16.2 Self-check every file changed in 16.1
 
 ## 17. Wave 3 — Review of groups 11 and 13 (parallel — reviewer subagent, ~2,600 lines)
 
-- [ ] 17.1 Read every file of groups 11 and 13 against the requirement and the glossary, as in 15.1; fix what departs
-- [ ] 17.2 Self-check every file changed in 17.1
+- [x] 17.1 Read every file of groups 11 and 13 against the requirement and the glossary, as in 15.1; fix what departs
+- [x] 17.2 Self-check every file changed in 17.1
 
 ## 18. Wave 3 — Review of group 14, the Java helpers and the guides (parallel — reviewer subagent, ~3,000 lines)
 
-- [ ] 18.1 Read every file of group 14 against the requirement and the glossary, as in 15.1; fix what departs
-- [ ] 18.2 Read the nine Java classes of group 3 against the eleven Java rules (no Javadoc on self-evident members, imperative method summaries, `@throws` with conditions, existing `{@link}` targets); fix what departs
-- [ ] 18.3 Read the dexlib2 "Documentation conventions" section and `NEW_SPEC_CONVENTIONS.md` against the requirement; fix what departs
-- [ ] 18.4 Self-check every file changed in 18.1–18.3
+- [x] 18.1 Read every file of group 14 against the requirement and the glossary, as in 15.1; fix what departs
+- [x] 18.2 Read the nine Java classes of group 3 against the eleven Java rules (no Javadoc on self-evident members, imperative method summaries, `@throws` with conditions, existing `{@link}` targets); fix what departs
+- [x] 18.3 Read the dexlib2 "Documentation conventions" section and `NEW_SPEC_CONVENTIONS.md` against the requirement; fix what departs
+- [x] 18.4 Self-check every file changed in 18.1–18.3
 
 ## 19. Anchors and headers (main window)
 
-- [ ] 19.1 Update the `file_line` column of `jca_android/codes.csv` per D9 over all 47 `.mop` files, and confirm every row names a line containing `code=<CODE> `
-- [ ] 19.2 Confirm every `.mop` header `@see` names `Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b`, and that only the headers named in the difference list of group 1 (`CipherSpec.mop` for `CCM`) state a difference from their cited rule
+- [x] 19.1 Update the `file_line` column of `jca_android/codes.csv` per D9 over all 47 `.mop` files, and confirm every row names a line containing `code=<CODE> `
+- [x] 19.2 Confirm every `.mop` header `@see` names `Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b`, and that only the headers named in the difference list of group 1 (`CipherSpec.mop` for `CCM`) state a difference from their cited rule
 
 ## 20. Commit and close (main window)
 

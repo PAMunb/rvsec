@@ -17,24 +17,21 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code ENSURES} clauses a monitored program satisfied and answers the {@code REQUIRES} clauses
  * that read them.
  *
- * <p>
- * It exists beside {@link ExecutionContext} rather than replacing it because that class is frozen:
- * it serves the {@code jca} set byte-identically, and a shared class cannot be re-keyed without
- * changing what the frozen set accuses. Four properties separate this store from the old one, and
- * each of them was a measured defect there:
+ * <h2>The four properties it is built around</h2>
  *
  * <ul>
  * <li><b>Identity keying.</b> The generated monitors index their parameter bindings by object
  * identity ({@code CachedWeakReference}). A store keyed by {@code equals} answers about a
  * <em>different</em> object whenever the API defines value equality — two {@code SecretKeySpec}s
- * over the same bytes are {@code equals}, and one of them being securely generated said nothing
+ * over the same bytes are {@code equals}, and one of them being securely generated says nothing
  * about the other.</li>
- * <li><b>Arity N.</b> CrySL predicates carry argument lists ({@code generatedKey[key, "AES"]});
- * 31 of the oracle's 90 clauses need at least two places. A store that records only the object
- * cannot tell {@code generatedKey[key, "AES"]} from {@code generatedKey[key, "DES"]}.</li>
+ * <li><b>Arity N.</b> CrySL predicates carry argument lists ({@code generatedKey[key, "AES"]}),
+ * and a large share of the oracle's clauses need at least two places. A store that records only
+ * the object cannot tell {@code generatedKey[key, "AES"]} from
+ * {@code generatedKey[key, "DES"]}.</li>
  * <li><b>Three-valued reads.</b> See {@link PredicateVerdict}.</li>
- * <li><b>Weak keys.</b> The old store held every marked object strongly for the process
- * lifetime.</li>
+ * <li><b>Weak keys.</b> A marked object is held only weakly, so marking it never keeps it alive
+ * for the lifetime of the process.</li>
  * </ul>
  *
  * <p>
@@ -60,24 +57,23 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>
  * Deliberately not offered: a predicate-wide query ("does this object carry any predicate?") and a
- * removal that names a property without naming an object. Both existed on the old store; the first
- * has no call site in any specification set, and the second withdraws a predicate from every object
- * that ever satisfied it, which is not a semantics CrySL has.
- * {@link #validateAny(Property, Object)} is not the first of those coming back: it names the
- * property and asks only about the positions the rule itself leaves anonymous.
+ * removal that names a property without naming an object. The first has no call site in any
+ * specification, and the second would negate a predicate for every object that ever satisfied it,
+ * which is not a semantics CrySL has. {@link #validateAny(Property, Object)} is not the first of
+ * those in disguise: it names the property and asks only about the positions the rule itself
+ * leaves anonymous.
  */
 public final class PredicateStore {
 
 	/**
-	 * The set of value tuples recorded for one (object, property) pair, plus the withdrawal flag.
+	 * The state every negation swaps in: nothing recorded, and positively negated.
 	 *
 	 * <p>
-	 * {@code negated} is what makes an explicit {@code NEGATES} distinguishable from never having
-	 * observed the predicate: dropping the entry would answer {@code NOT_OBSERVED}, which reads as
-	 * "the producer was not instrumented" and stays silent, whereas a withdrawn predicate is
+	 * The flag is what makes an explicit {@code NEGATES} distinguishable from never having
+	 * observed the predicate: dropping the entry instead would answer {@code NOT_OBSERVED}, which
+	 * reads as "the producer is not instrumented" and stays silent, whereas a negated predicate is
 	 * positive evidence and must accuse.
 	 */
-	/** The state every withdrawal swaps in: nothing recorded, and positively withdrawn. */
 	private static final State NEGATED = new State(true, Collections.<ValueTuple>emptySet());
 
 	private static final class Entry {
@@ -85,20 +81,21 @@ public final class PredicateStore {
 		 * The two facts an entry carries, held as one value behind one reference.
 		 *
 		 * <p>
-		 * Whether the predicate was withdrawn and which argument lists were recorded have to
-		 * be read together or not at all. As two fields they cannot be, however they are
+		 * Whether the predicate is negated and which argument lists are recorded have to be
+		 * read together or not at all. As two fields they cannot be, however they are
 		 * ordered: a reader that samples {@code negated} and then {@code tuples} can be
 		 * descheduled between the two reads and land on a pair that never existed at any one
 		 * instant. The pair it lands on is {@code negated == false} with no tuples, which
-		 * {@link #validate} reads as {@code NOT_OBSERVED} -- the one answer that suppresses
-		 * an accusation about an object the store positively knows something about. A single
-		 * volatile reference to an immutable state makes every read a snapshot.
+		 * {@link PredicateStore#validate(Property, Object, Object...)} reads as
+		 * {@code NOT_OBSERVED} -- the one answer that suppresses an accusation about an object
+		 * the store positively knows something about. A single volatile reference to an
+		 * immutable state makes every read a snapshot.
 		 */
 		private final AtomicReference<State> state = new AtomicReference<State>(State.EMPTY);
 	}
 
 	/**
-	 * One entry's whole content: withdrawn or not, and the argument lists recorded so far.
+	 * One entry's whole content: negated or not, and the argument lists recorded so far.
 	 *
 	 * <p>
 	 * Immutable, so a reader that holds one never sees it change under itself. {@code ensure}
@@ -251,8 +248,8 @@ public final class PredicateStore {
 	}
 
 	/**
-	 * Holder idiom: the class initializes on first use and the JVM guarantees the publication,
-	 * without the null check the old singleton raced on.
+	 * Holder idiom: the class initializes on first use and the JVM guarantees the publication, so
+	 * the singleton needs no lazy null check of its own and no two threads can race to build it.
 	 */
 	private static final class Holder {
 		private static final PredicateStore INSTANCE = new PredicateStore();
@@ -267,6 +264,13 @@ public final class PredicateStore {
 	}
 
 	/**
+	 * Obtain the process-wide store.
+	 *
+	 * <p>
+	 * The instance is built on first use and published by the class initializer, so every monitor
+	 * woven into the application shares one store and a mark written by one specification is
+	 * readable by another.
+	 *
 	 * @return the singleton store shared by every {@code jca_android} monitor in the process.
 	 */
 	public static PredicateStore instance() {
@@ -274,7 +278,7 @@ public final class PredicateStore {
 	}
 
 	/**
-	 * Records that {@code bound} satisfies {@code p} with the given argument list — the runtime
+	 * Record that {@code bound} satisfies {@code p} with the given argument list — the runtime
 	 * translation of an {@code ENSURES} clause.
 	 *
 	 * <p>
@@ -306,16 +310,16 @@ public final class PredicateStore {
 	}
 
 	/**
-	 * Withdraws {@code p} from exactly this object — the runtime translation of a {@code NEGATES}
+	 * Negate {@code p} for exactly this object — the runtime translation of a {@code NEGATES}
 	 * clause, whose live case is {@code PBEKeySpec.clearPassword}.
 	 *
 	 * <p>
-	 * The withdrawal is remembered rather than forgotten: a later {@link #validate} answers
+	 * The negation is remembered rather than forgotten: a later {@link #validate} answers
 	 * {@link PredicateVerdict#VIOLATED}, not {@link PredicateVerdict#NOT_OBSERVED}, because the
-	 * store positively knows the predicate no longer holds.
+	 * store positively knows that the predicate does not hold for this object.
 	 *
-	 * @param p the predicate being withdrawn
-	 * @param bound the object it is withdrawn from; {@code null} makes the call a no-op
+	 * @param p the predicate being negated
+	 * @param bound the object it is negated for; {@code null} makes the call a no-op
 	 */
 	public void negate(Property p, Object bound) {
 		if (bound == null) {
@@ -323,20 +327,37 @@ public final class PredicateStore {
 		}
 		purge();
 		Entry entry = entryFor(bound, p, true);
-		// A withdrawal discards whatever was recorded, so it needs no read of the old
-		// state: one unconditional swap to the withdrawn state, which a reader sees whole.
+		// A negation discards whatever is recorded, so it needs no read of the current
+		// state: one unconditional swap to the negated state, which a reader sees whole.
 		entry.state.set(NEGATED);
 	}
 
 	/**
-	 * Reads a positive {@code REQUIRES} clause.
+	 * Read a positive {@code REQUIRES} clause: does {@code bound} carry {@code p} with exactly
+	 * these remaining argument positions?
+	 *
+	 * <p>
+	 * Each of the three answers says something different, and a caller has to act on all three.
+	 * {@link PredicateVerdict#SATISFIED} means a recorded tuple matches position for position,
+	 * under the tracked-type rule this class documents — the clause is met and nothing is
+	 * reported. {@link PredicateVerdict#VIOLATED} is positive evidence of a misuse: the store
+	 * holds the predicate for this very object with other values, or
+	 * {@link #negate(Property, Object)} negated it, so the clause is broken by something the
+	 * instrumentation actually saw. {@link PredicateVerdict#NOT_OBSERVED} means the store has no
+	 * entry at all for this object under this predicate, which must not be reported as a misuse:
+	 * the producing call may simply be one the weaving does not reach.
+	 *
+	 * <p>
+	 * A {@code null} bound object answers {@link PredicateVerdict#NOT_OBSERVED} rather than
+	 * throwing, for the reason the class states: this runs inside woven advice in the program
+	 * under test.
 	 *
 	 * @param p the required predicate
 	 * @param bound the object the clause is about
 	 * @param values the remaining argument positions, splitters already applied
 	 * @return {@link PredicateVerdict#SATISFIED} when a recorded tuple matches,
 	 *         {@link PredicateVerdict#VIOLATED} when the object carries the predicate with other
-	 *         values or had it withdrawn, {@link PredicateVerdict#NOT_OBSERVED} when nothing was
+	 *         values or had it negated, {@link PredicateVerdict#NOT_OBSERVED} when nothing was
 	 *         ever recorded for this object under this predicate
 	 */
 	public PredicateVerdict validate(Property p, Object bound, Object... values) {
@@ -362,7 +383,7 @@ public final class PredicateStore {
 	}
 
 	/**
-	 * Reads a positive {@code REQUIRES} clause whose remaining positions the rule leaves
+	 * Read a positive {@code REQUIRES} clause whose remaining positions the rule leaves
 	 * <em>anonymous</em> — CrySL's {@code pred[bound, _]}.
 	 *
 	 * <p>
@@ -375,21 +396,21 @@ public final class PredicateStore {
 	 * committed none.
 	 *
 	 * <p>
-	 * Filling the {@code _} in at the call site is not the same thing and was measured not to be:
-	 * the three producers of {@code generatedKey} do not agree on what they write there —
+	 * Filling the {@code _} in at the call site is not the same thing: the three producers of
+	 * {@code generatedKey} do not agree on what they write there —
 	 * {@code KeyGeneratorSpec} writes the string the program handed {@code getInstance},
 	 * {@code KeyStoreSpec} and {@code SecretKeySpecSpec} write the key's own algorithm — so a
 	 * reader that guessed one of them would answer {@code VIOLATED} whenever a program spelled the
 	 * algorithm the other way, which on this platform is an ordinary Conscrypt alias.
 	 *
 	 * <p>
-	 * The withdrawal flag is honoured exactly as in {@code validate}: a predicate that was
-	 * explicitly negated is {@code VIOLATED} and not merely absent.
+	 * The negation flag is honoured exactly as in {@code validate}: a predicate that
+	 * {@link #negate(Property, Object)} negated is {@code VIOLATED} and not merely absent.
 	 *
 	 * @param p the required predicate
 	 * @param bound the object the clause is about
 	 * @return {@link PredicateVerdict#SATISFIED} when any tuple is recorded for this object under
-	 *         this predicate, {@link PredicateVerdict#VIOLATED} when it was withdrawn,
+	 *         this predicate, {@link PredicateVerdict#VIOLATED} when it was negated,
 	 *         {@link PredicateVerdict#NOT_OBSERVED} when nothing was ever recorded
 	 */
 	public PredicateVerdict validateAny(Property p, Object bound) {
@@ -412,7 +433,7 @@ public final class PredicateStore {
 	}
 
 	/**
-	 * Reads a negated {@code REQUIRES} clause ({@code !pred[…]}) — the oracle has exactly three,
+	 * Read a negated {@code REQUIRES} clause ({@code !pred[…]}) — the oracle has exactly three,
 	 * {@code Cipher: !macced[_, plainText]} and the two {@code Mac: !encrypted[…]}.
 	 *
 	 * <p>
@@ -452,7 +473,7 @@ public final class PredicateStore {
 	}
 
 	/**
-	 * Clears every recorded predicate.
+	 * Clear every recorded predicate.
 	 *
 	 * <p>
 	 * Test-only, and production has no caller — but it is not optional scaffolding. The
@@ -469,7 +490,7 @@ public final class PredicateStore {
 	}
 
 	/**
-	 * The number of bound objects the store still holds entries for, after draining the queue.
+	 * Count the bound objects the store still holds entries for, after draining the queue.
 	 *
 	 * <p>
 	 * Package-private and used by one test: purge is otherwise unobservable from outside, and an
@@ -483,7 +504,7 @@ public final class PredicateStore {
 	}
 
 	/**
-	 * Locates the entry for (object, property), creating it only for a write.
+	 * Locate the entry for (object, property), creating it only for a write.
 	 */
 	private Entry entryFor(Object bound, Property p, boolean create) {
 		// The lookup key is unregistered: only the key the map actually keeps may sit in the
@@ -512,7 +533,7 @@ public final class PredicateStore {
 	}
 
 	/**
-	 * Drops the entries whose bound object has been collected. Draining the queue on every
+	 * Drop the entries whose bound object has been collected. Draining the queue on every
 	 * operation keeps the map proportional to the live objects without a background thread.
 	 */
 	private void purge() {

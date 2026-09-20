@@ -12,16 +12,68 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 /**
  * SecureRandomSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.SecureRandom class.
+ * Monitors java.security.SecureRandom against the CrySL rule SecureRandom.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/SecureRandom.crysl
+ * ORDER. The rule orders `Ins, (Seed?, End*)*`: a creation -- a constructor, a `getInstance`
+ * or `getInstanceStrong()` -- then any number of rounds of an optional `setSeed` followed by
+ * any number of `generateSeed`/`nextBytes`/`nextInt` calls. A sequence the automaton does not
+ * accept is reported under `SECURERANDOM-ORDER-01` when no creation of the object was observed
+ * at all, under `SECURERANDOM-ORDER-02` when the observed creation asked for an algorithm this
+ * specification refuses, and under `SECURERANDOM-ORDER-00` otherwise. The codes are registered
+ * in `codes.csv`.
+ *
+ * CONSTRAINTS. The rule states one clause, `algorithm in {"SHA1PRNG", "Windows-PRNG",
+ * "NativePRNG", "NativePRNGBlocking", "NativePRNGNonBlocking", "PKCS11"}`. It is transcribed
+ * entry for entry in `algorithms` and accused at `g4` and `g5`, the refused twins of the two
+ * `getInstance` events, under `SECURERANDOM-ALG-00` and `-ALG-01`. Several of the clause's
+ * entries name providers the Android platform does not ship: no program running there can
+ * obtain a `SecureRandom` under those names, so the entries admit nothing that ever occurs and
+ * no verdict of this specification turns on them. They are inert, which is not the same as
+ * absent -- the list is the clause.
+ *
+ * REQUIRES two clauses over what a program seeds the generator with.
+ * `randomized[seed];` is over a `byte[]` and is read at both events that bind one: the
+ * constructor `SecureRandom(byte[])` and `setSeed(byte[])`. Its producer is another
+ * `SecureRandom` this specification watched, so what the read asks is whether the array came
+ * out of an observed generator.
+ * `randomized[lSeed];` is over a `long` and has no site -- see `setSeed1`, where the reason is
+ * given in full: `PredicateStore` keys the bound object by identity, a `long` reaches an advice
+ * boxed, and no ENSURES clause of any rule this set transcribes marks a `long`, so a read there
+ * could answer NOT_OBSERVED and nothing else.
+ *
+ * ENSURES `randomized` over five objects, three of which have a site here. What every one of
+ * them establishes: the object came from a `SecureRandom` the instrumentation observed -- the
+ * generator itself, or bytes it produced. There is no value place, and the bound object is
+ * compared by identity, so only the very array a generator filled carries the mark and a copy
+ * of it does not.
+ * `randomized[this] after Ins;` is written over the generator at the state the creation events
+ * lead to. `randomized[genSeed] after gS;` and `randomized[bytes] after nB;` are written over
+ * the array `generateSeed(int)` returns and the array `nextBytes(byte[])` fills, at the state
+ * the end events lead to. `randomized[randInt] after nI;` and
+ * `randomized[randIntInRange] after nIR;` have no site: an `int` cannot carry an
+ * identity-keyed mark.
+ * These three writes are what the `randomized` reads of `IvParameterSpec`,
+ * `GCMParameterSpecSpec`, `PBEKeySpecSpec`, `PBEParameterSpecSpec`, `KeyGeneratorSpec`,
+ * `KeyAgreementSpec`, `AlgorithmParameterGeneratorSpec`, `SSLContextSpec`, `SecretKeySpecSpec`,
+ * `IvChainJunction` and this specification itself answer.
+ *
+ * Reach limits and divergences from the rule.
+ * - `ints(..)` is declared by the platform and by no event of the rule, so the event covering
+ *   it translates no clause and marks nothing. It is kept so that the call is modelled by the
+ *   automaton rather than left unmodelled.
+ * - The state a creation leads to accepts the no-argument constructor again, where the rule's
+ *   ORDER has a single `Ins`, so a second `new SecureRandom()` on the same monitored object is
+ *   not reported.
+ * - This specification produces objects and does not mark them for a downstream site: it writes
+ *   no REPORTED_UPSTREAM, so a consumer that finds nothing recorded for an array reports it as
+ *   unobserved rather than as refused upstream.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/SecureRandom.crysl
  */
 SecureRandomSpec(SecureRandom r) {
-    // The envelope's quoting rule (design D-3): a null value is the empty string,
-    // a single quote is escaped so it cannot close the field early, and the value
-    // is capped so a pathological argument cannot push the record past the
-    // logcat payload limit.
+    // The quoting rule of the report envelope: a null value is the empty string, a single
+    // quote is escaped so it cannot close the field early, and the value is capped so a
+    // pathological argument cannot push the record past the logcat payload limit.
     private String q(String s) {
         if (s == null) {
             return "";
@@ -30,6 +82,12 @@ SecureRandomSpec(SecureRandom r) {
         return value.replace("'", "\\'");
     }
 
+    // The generator a creation event bound, staged for `@match1`, which writes
+    // `randomized[this] after Ins` over it. A handler receives no event arguments and runs
+    // after the transition is decided, so it cannot see the object the creation returned; the
+    // event that saw it puts it here. It stays null on the paths that re-enter the creation
+    // state without binding a generator -- `g4` and `g5`, which only accuse -- and a null bound
+    // object makes the write a no-op, so `@match1` needs no guard.
     SecureRandom sr;
 
     // Set by the creation events `c1`, `c2` and `g1` to `g5`. The generated `reset()` does not
@@ -44,67 +102,78 @@ SecureRandomSpec(SecureRandom r) {
     // events already reported. The generated `reset()` does not clear it.
     boolean creationRefused = false;
 
-    // the expected algorithms for SecureRandom
-    // D-15: the six entries of SecureRandom.crysl. Five of them name providers Android does
-    // not ship, so no application can obtain them and no verdict depends on them -- inert,
-    // not removable. Dropping an entry from an expert-validated list because the local
-    // platform lacks it is the unvalidated narrowing this re-anchoring exists to undo.
+    // The rule's one CONSTRAINTS clause, transcribed entry for entry:
+    // `algorithm in {"SHA1PRNG", "Windows-PRNG", "NativePRNG", "NativePRNGBlocking",
+    // "NativePRNGNonBlocking", "PKCS11"}`. Several of those entries name providers the Android
+    // platform does not ship, so no program running there can obtain a `SecureRandom` under
+    // them and no verdict of this specification turns on them: they are inert here, and they
+    // are kept because they are the clause. `ConscryptAliasTable.matches("SecureRandom", ...)`
+    // is the set's one comparison, which folds case on both sides and, where the table carries
+    // rows for the service, also compares the name those rows resolve to. It carries no row
+    // under `SecureRandom`, so here the call is the case-insensitive comparison and nothing
+    // more; it is used all the same, so this file gets its comparison from the same place as
+    // every other allow-list of the set. The list is also what the report shows as the
+    // expected value.
     List<String> algorithms = Arrays.asList("SHA1PRNG", "Windows-PRNG", "NativePRNG",
         "NativePRNGBlocking", "NativePRNGNonBlocking", "PKCS11");
 
-    // SecureRandom.crysl ensures `randomized` over five objects (:49-53): the generator
-    // itself `after Ins`, the seed `generateSeed(int)` returns `after gS`, the array
-    // `nextBytes(byte[])` fills `after nB`, and the two ints `nextInt()` and
-    // `nextInt(int)` return, `after nI` and `after nIR`. This file has events for the
-    // first three; the two int clauses are the delta task 11.2 measured and task 11.5
-    // owns. Every clause carries an `after L`, so each is ensured at the state its own
-    // aggregate leads to -- and Ins leads to one state while the Ends reach another, so
-    // this file has two
-    // acceptance points and the second one needs the object to travel: a handler is
-    // generated as a no-argument method and sees no event parameter. The event body
-    // stages the object here and the handler that runs immediately after the
-    // transition writes it and clears the field.
+    // SecureRandom.crysl ensures `randomized` over five objects: the generator itself
+    // `after Ins`, the array `generateSeed(int)` returns `after gS`, the array
+    // `nextBytes(byte[])` fills `after nB`, and the two ints `nextInt()` and `nextInt(int)`
+    // return, `after nI` and `after nIR`. This specification has a site for the first three;
+    // an `int` cannot carry a mark the store keys by identity, so the last two have none.
     //
-    // Staging rather than writing in the body is the whole point of the placement.
-    // An event body runs *before* the transition is decided (measured in the
-    // generated monitor at task 4.1), so a write there marks an array for a call
-    // sequence the automaton is about to reject -- and this file has such sequences:
-    // `getInstance("NativePRNG"); nextBytes(iv)` never reaches a state where
-    // `nextBytes` is legal, and the seed it produced is not one the rule accepts.
+    // Every clause carries an `after L`, so each is established at the state its own aggregate
+    // leads to -- the creations lead to one state and the end events to another, which is why
+    // this specification has two acceptance points. A handler is generated as a no-argument
+    // method and sees no event parameter, so the object has to travel: the event body puts it
+    // in one of these fields and the handler that runs immediately after the transition writes
+    // the predicate and clears the field.
+    //
+    // Staging rather than writing in the event body is the point of the placement. An event
+    // body runs before the transition is decided, so a write there would mark an array for a
+    // call sequence the automaton is about to reject -- and such sequences exist here:
+    // `getInstance("NotAPRNG"); nextBytes(iv)` never reaches a state where `nextBytes` is
+    // legal, and the bytes it produced are not bytes the rule accepts as randomised.
     byte[] stagedGeneratedSeed = null;
     byte[] stagedNextBytes = null;
 
-    // this event captures the following event in the original CrySL specification.
-    //  - c1: SecureRandom();
+    // `Con` of SecureRandom.crysl: `c1: SecureRandom();`. The rule states no clause over this
+    // constructor -- it takes no argument -- so the body only records that a creation was
+    // observed and stages the generator for `@match1`, which writes `randomized[this] after
+    // Ins` over it once the transition has been taken.
     event c1 after() returning(SecureRandom r):
       call(public SecureRandom.new()) {
         creationObserved = true;
         sr = r;
     }
 
-    // this event captures the following event in the original CrySL specification.
-    // - c2: SecureRandom(byte[]);
+    // `Con` of SecureRandom.crysl: `c2: SecureRandom(seed);`, and one of the two sites of
+    // `REQUIRES randomized[seed];`. The rule binds `seed` in two events -- this constructor and
+    // `s1: setSeed(seed)` -- so one clause has two binding sites and one accuser at each.
     //
-    // One event over the constructor, where there used to be two split by the sign
-    // of a guard. The negated twin `c3` matched the same call and was absent from
-    // the automaton, and the generator gives an absent event a row that moves every
-    // state to `fail`: a seed nobody had randomised was reported as a wrong call
-    // sequence. Neither half accused anything of its own -- both only rebound `sr`
-    // -- so removing the guard changes no reported constraint and removes the
-    // spurious ordering report.
+    // The read asks what the clause asks: whether the array seeding this generator came from a
+    // `SecureRandom` the instrumentation observed. Its producer is another generator's
+    // `@match2` write over `generateSeed(int)` or `nextBytes(byte[])`, so
+    // `new SecureRandom(sr.generateSeed(32))` composes and answers SATISFIED, while a literal
+    // seed answers NOT_OBSERVED. The array is compared by identity, so a copy of an observed
+    // array does not carry the mark.
     //
-    // This is the constructor's half of `randomized[seed]` (SecureRandom.crysl:45,
-    // ledger clause #33), the self-chain: the rule binds `seed` in two events, `s1:
-    // setSeed(seed)` and `c2: SecureRandom(seed)`, and task 3.1 wired `setSeed2`'s half
-    // and named this one as 5.5's in as many words. One clause, two binding sites, one
-    // accuser at each -- the shape `IvParameterSpec.c1/c2` and
-    // `PBEParameterSpecSpec.c1/c2` already carry, and not a second accuser of one site.
+    // The read is in the event body and not in a `condition(...)` guard, and the constructor is
+    // one event rather than a guarded pair: a guard compiles to an early return ahead of both
+    // the body and the transition, so a seed nobody had randomised would leave the automaton at
+    // the state before the constructor and the generator's next call would be reported as a
+    // wrong call sequence on top of the requirement it failed.
     //
-    // The producing site is another SecureRandom's `@match2` write over `generateSeed`
-    // or `nextBytes`, so what this read asks is whether the array seeding this generator
-    // came out of one the instrumentation watched. `new SecureRandom(sr.generateSeed(32))`
-    // composes -- measured -- and answers SATISFIED; a literal seed answers NOT_OBSERVED,
-    // which is the reach limit stated as such and not as a wrong call sequence.
+    // The verdict is three-valued and its two accusing outcomes are different claims. VIOLATED
+    // is positive evidence about this array -- an entry exists and what it records is not what
+    // the clause demands -- and is reported under `SECURERANDOM-CONSTR-01`. NOT_OBSERVED says
+    // only that nothing about the array was ever recorded, which is as often a reach limit of
+    // the weaving as it is a misuse, and is reported under `SECURERANDOM-NOBS-01`. Both codes
+    // are registered in `codes.csv`.
+    //
+    // The body also records the creation and stages the generator for `@match1`, exactly as
+    // `c1` does.
     event c2 after(byte[] seed) returning(SecureRandom r):
       call(public SecureRandom.new(byte[])) &&
       args(seed) {
@@ -122,8 +191,10 @@ SecureRandomSpec(SecureRandom r) {
     }
 
 
-    // this event captures the following event in the original CrySL specification.
-    //  - g1: getInstance(algorithm);
+    // `Get` of SecureRandom.crysl: `g1: getInstance(algorithm);`, under the guard that admits
+    // the CONSTRAINTS clause. The body records that a creation was observed and stages the
+    // generator for `@match1`; it makes no report, because the refused twin `g4` takes the
+    // calls this guard turns down and accuses them there.
     event g1 after(String alg) returning(SecureRandom r):
       call(public static SecureRandom SecureRandom.getInstance(String))
       && args(alg)
@@ -132,8 +203,10 @@ SecureRandomSpec(SecureRandom r) {
        sr = r;
     }
 
-    // this event captures the following event in the original CrySL specification.
-    //  - g2: getInstance(algorithm, provider);
+    // `Get` of SecureRandom.crysl: `g2: getInstance(algorithm, _);`, under the same admitting
+    // guard as `g1` and with the same body. `args(alg, *)` binds arity two exactly, which is
+    // the arity the rule's anonymous position has, so overloads with more arguments than the
+    // rule's alphabet declares stay outside this event. The refused twin is `g5`.
     event g2 after(String alg) returning(SecureRandom r):
       call(public static SecureRandom SecureRandom.getInstance(String, ..))
       && args(alg, *)
@@ -142,23 +215,32 @@ SecureRandomSpec(SecureRandom r) {
        sr = r;
     }
 
-    // CrySL gI: getInstanceStrong() event
+    // `Get` of SecureRandom.crysl: `gI: getInstanceStrong();`. The call names no algorithm, so
+    // the CONSTRAINTS clause has nothing to check here and the event carries no guard and no
+    // refused twin. The body records the creation and stages the generator for `@match1`.
     event g3 after() returning(SecureRandom r):
       call(public static SecureRandom SecureRandom.getInstanceStrong()) {
       creationObserved = true;
       sr = r;
     }
 
-    // `getInstance` with an algorithm the rule does not admit, at the arity `g1` observes.
+    // The refused twin of `g1`: `getInstance` with an algorithm the rule does not admit, at
+    // the arity `g1` observes, and one site of the CONSTRAINTS clause
+    // `algorithm in {"SHA1PRNG", "Windows-PRNG", "NativePRNG", "NativePRNGBlocking",
+    // "NativePRNGNonBlocking", "PKCS11"}`. A name outside the list is reported here under
+    // `SECURERANDOM-ALG-00`, registered in `codes.csv`.
     //
-    // The accusing sites mirror the admitting ones one for one, and they have to: `args`
-    // is what discriminates them, since both `call(...)` signatures are `(String, ..)`.
-    // `args(alg)` binds arity 1 and nothing else, so this event answers for `g1`'s route
-    // and `g5` below answers for `g2`'s. An accuser bound at a fixed arity does not realize
-    // an alphabet the rule wrote open (INV-INS-157): before `g5` existed, a rejected PRNG
-    // obtained through `getInstance(alg, provider)` took no event at all -- no value
-    // accusation, and the object's next call drew a `SECURERANDOM-ORDER-00` the rule does
-    // not state, because it was still at `start`.
+    // The clause is accused by a separate event rather than by a `condition(...)` on `g1`
+    // alone: a guard compiles to an early return ahead of both the body and the transition, so
+    // a refused algorithm would run no body, make no report, and leave the object at `start`,
+    // where its next call would be reported as a wrong call sequence instead of as the unsafe
+    // algorithm it is.
+    //
+    // The accusing events mirror the admitting ones one for one, and they have to: `args` is
+    // what discriminates them, since both `call(...)` signatures are `(String, ..)`.
+    // `args(alg)` binds arity one and nothing else, so this event answers for `g1`'s route and
+    // `g5` below answers for `g2`'s. The body does not stage the generator: a refused algorithm
+    // obtains no `SecureRandom` the rest of the ORDER may be read against.
     event g4 after(String alg) returning(SecureRandom r):
       call(public static SecureRandom SecureRandom.getInstance(String, ..))
       && args(alg)
@@ -170,14 +252,19 @@ SecureRandomSpec(SecureRandom r) {
             "v=1 code=SECURERANDOM-ALG-00 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
     }
 
-    // The same accusation over `g2`'s route -- the rule's `getInstance(algorithm, _)`
-    // (SecureRandom.crysl:20). `args(alg, *)` binds arity 2 exactly, which is the arity the
-    // rule's anonymous position has; api30's three-argument `getInstance` overloads are
-    // outside the rule's alphabet and stay outside this one.
+    // The refused twin of `g2`: the same accusation over the rule's
+    // `g2: getInstance(algorithm, _);`, one arity over, reported under `SECURERANDOM-ALG-01`
+    // and registered in `codes.csv`. `args(alg, *)` binds arity two exactly, which is the arity
+    // the rule's anonymous position has; `getInstance` overloads with more arguments than that
+    // are outside the rule's alphabet and stay outside this one.
+    //
+    // The clause needs a site at both arities: without this event a refused algorithm requested
+    // with a provider would match no event of this specification at all, make no report, and
+    // leave the object at `start`, where its next call would draw an ordering code instead.
     //
     // It sits at the same three transitions as `g4` -- `start -> start`, `init -> init`,
-    // `end -> end` -- because a rejected algorithm is accused and does not obtain a
-    // SecureRandom the rest of the ORDER may be read against.
+    // `end -> end` -- because a refused algorithm is accused and does not obtain a
+    // `SecureRandom` the rest of the ORDER may be read against.
     event g5 after(String alg) returning(SecureRandom r):
       call(public static SecureRandom SecureRandom.getInstance(String, ..))
       && args(alg, *)
@@ -189,61 +276,54 @@ SecureRandomSpec(SecureRandom r) {
             "v=1 code=SECURERANDOM-ALG-01 ev=" + __EVENTNAME + " obj=SecureRandom val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
     }
 
-    // The rule's `s2: setSeed(lSeed)` (SecureRandom.crysl:26), and the site of
-    // `randomized[lSeed]` (:46, ledger clause #51). The clause is RECORDED HERE AND NOT
-    // READ, by the researcher's decision of 2026-08-26 (task 11.5(d)), and the ledger row
-    // moved with it: `wireable` -> `vacuous`.
+    // `Seed` of SecureRandom.crysl: `s2: setSeed(lSeed);`. The rule's `REQUIRES
+    // randomized[lSeed];` binds the argument of this event and has no site here: the body is
+    // empty and nothing is read. That is behaviour, and it follows from two independent
+    // properties of the clause, either of which is enough on its own.
     //
-    // The disposition is derived, not assumed, and either half of the derivation is
-    // enough on its own.
+    // By type: `randomized` is ENSURED five times across the rules this set transcribes and
+    // never over a `long` -- once over the `SecureRandom` itself, twice over a `byte[]`, twice
+    // over an `int`. No producer available to this set could ever mark the argument this event
+    // binds.
     //
-    // By type: swept over the 49 rules of the oracle, `randomized` is ENSURED five times
-    // and never over a `long` -- `randomized[this] after Ins` over the SecureRandom
-    // itself, `[genSeed]` and `[bytes]` over `byte[]`, `[randInt]` and `[randIntInRange]`
-    // over `int` (SecureRandom.crysl:49-53). No producer the catalogue has could ever
-    // mark the argument this event binds.
+    // By substrate: `PredicateStore` keys the bound object by identity, and a `long` reaches
+    // an advice boxed. The `Long` cache spans -128..127 exactly as `Integer`'s does, so the
+    // boxing is wrong in both directions -- outside the range every call boxes a fresh object
+    // no write can have named, and inside it two unrelated `setSeed(5L)` calls share one
+    // object, so a mark made for either would answer for the other.
     //
-    // By substrate: `PredicateStore` keys the bound object by identity, and a `long`
-    // reaches an advice boxed. Measured on Temurin 21, the `Long` cache spans -128..127
-    // exactly as `Integer`'s does, so the boxing is wrong in both directions -- outside
-    // the range every call boxes a fresh object no write can have named, and inside it
-    // two unrelated `setSeed(5L)` calls share one object, so a mark made for either would
-    // answer for the other. It is the Integer-cache measurement of the earlier groups,
-    // re-derived over `Long` rather than carried over.
+    // A read placed here could therefore answer NOT_OBSERVED and nothing else: an accuser with
+    // no path to a true report. The event keeps its empty body and its place in the automaton,
+    // because it is the rule's `s2` and the ORDER needs the symbol; what it does not gain is a
+    // predicate site.
     //
-    // So a read placed here could answer NOT_OBSERVED and nothing else: an accuser with
-    // no path to a true report, which is the class group 3 removed. The event keeps its
-    // empty body and its place in the automaton -- it is the rule's `s2` and the ORDER
-    // needs the symbol; what it does not gain is a site.
-    //
-    // The sibling clause `randomized[seed]` (:45) is a different row and IS read, twice:
-    // at `c2` and at `setSeed2` below, both over `byte[]`, where identity holds.
+    // The sibling clause `randomized[seed];` is a different clause and is read, twice: at `c2`
+    // above and at `setSeed2` below, both over a `byte[]`, where identity holds.
     event setSeed1 after(SecureRandom r):
       call(public void SecureRandom.setSeed(long)) &&
       target(r) {  }
 
-    // One event over `setSeed(byte[])`, with the accusation moved into the body.
-    // The negated twin `setSeed3` matched the same call and named no state, so a
-    // seed nobody had randomised drew two reports: its own `UnsatisfiedConstraint`,
-    // which is the one the rule states, and an `InvalidSequenceOfMethodCalls` about
-    // an ordering that never modelled the call. The check is the same and reports
-    // the same code from the same clause; what leaves is the second report and the
-    // guard that suppressed the transition.
+    // `Seed` of SecureRandom.crysl: `s1: setSeed(seed);`, and the second site of
+    // `REQUIRES randomized[seed];` -- the rule binds `seed` in two events, this one and the
+    // constructor `c2: SecureRandom(seed);` above, and each binding site carries one accuser.
     //
-    // This is the read of `randomized[seed]` (SecureRandom.crysl:45, REQUIRES), and
-    // it is the half of that clause `setSeed(byte[])` carries -- the rule binds
-    // `seed` in two events, `s1: setSeed(seed)` and `c2: SecureRandom(seed)`, and
-    // the constructor's half is wired at task 5.5 with the rest of the `randomized`
-    // hub.
+    // The read asks whether the array came from a `SecureRandom` the instrumentation observed.
+    // Its producer is a generator's `@match2` write over `generateSeed(int)` or
+    // `nextBytes(byte[])`; the array is compared by identity, so only the very array a
+    // generator filled carries the mark.
     //
-    // The verdict is three-valued because the two accusing outcomes are different
-    // claims. VIOLATED is positive evidence: this array carries a randomisation
-    // predicate that was withdrawn. NOT_OBSERVED says only that no randomised source
-    // of the array was ever observed, which on Android is as often a reach limit of
-    // the instrumentation as it is a misuse. The seed's message already said the
-    // second thing ("expects a byte array observed to come from a randomized
-    // source") while its code said the first; the split makes the code say what the
-    // message always meant.
+    // One event over `setSeed(byte[])`, with the check in the body rather than split across a
+    // guarded pair: a `condition(...)` guard compiles to an early return ahead of both the body
+    // and the transition, so a seed nobody had randomised would take no transition and the
+    // generator's next call would be reported as a wrong call sequence on top of the
+    // requirement it failed.
+    //
+    // The verdict is three-valued because the two accusing outcomes are different claims.
+    // VIOLATED is positive evidence about this array: an entry exists and what it records is
+    // not what the clause demands -- reported under `SECURERANDOM-CONSTR-00`. NOT_OBSERVED says
+    // only that no randomised source of the array was ever observed, which on Android is as
+    // often a reach limit of the instrumentation as it is a misuse -- reported under
+    // `SECURERANDOM-NOBS-00`. Both codes are registered in `codes.csv`.
     event setSeed2 after(byte[] seed, SecureRandom r):
       call(public void SecureRandom.setSeed(byte[]))  &&
       args(seed) &&
@@ -259,54 +339,53 @@ SecureRandomSpec(SecureRandom r) {
         }
     }
 
-    // `randomized[genSeed] after gS` (SecureRandom.crysl:50, ENSURES) over the array
-    // `gS: genSeed = generateSeed(num)` returns. The clause carries an `after L`, so its
-    // acceptance point is the state `gS` leads to -- which is the accepting state the Ends
-    // reach, so the write belongs to `@match2` either way (INV-INS-134). The generated rule
-    // left the clause unqualified and this comment used to say so; the site is the same and
-    // the route to it is not.
+    // `gS: genSeed = generateSeed(_);` of SecureRandom.crysl, and the staging half of
+    // `ENSURES randomized[genSeed] after gS;` over the array the call returns.
+    //
+    // The clause carries an `after L`, so it is established at the state `gS` leads to, which
+    // is the state every end event reaches: the write belongs to `@match2`. The body cannot do
+    // it, and the handler cannot see the array -- a handler receives no event arguments and
+    // runs after the transition is decided -- so the array is put in a field here and written
+    // there. `@fail` discards the field, so an array produced on a sequence the automaton
+    // refused is never marked.
     event genSeed after(SecureRandom r) returning(byte[] seed):
       call(public byte[] SecureRandom.generateSeed(int))
       && target(r) {
         stagedGeneratedSeed = seed;
     }
 
-    // The rule's fourth ENSURES clause is `randomized[numB]`, over the argument of
-    // `ne: next(numB)`. `next(int)` is protected in java.util.Random, so no
-    // application calls it, and this file used to answer the clause with two stand-ins
-    // whose relation to it the specification never settled: `next1` marked the
-    // *argument* of `nextInt(int)`, `next3` the *return* of `nextInt()`.
-    // `order_alphabet_map.csv:79,81` already decided the ORDER half of that question at
-    // task 2.8 -- both rows are ORDER-unmapped, because pairing either with `ne` would
-    // be an inference about which call the oracle meant, and INV-INS-138 forbids
-    // inferring one.
+    // `nIR: randIntInRange = nextInt(range);` of SecureRandom.crysl, one of the rule's `Next`
+    // events. Its ENSURES clause, `randomized[randIntInRange] after nIR;`, has no site: the
+    // body is empty and nothing is marked.
     //
-    // Both writes are gone. A write that translates no clause is deleted rather than
-    // recorded, and neither could have carried a predicate anywhere in any case: the
-    // store keys the bound object by identity and an `int` is autoboxed at the call, so
-    // a predicate over a boxed primitive survives to a later read only inside the
-    // `Integer` cache (-128..127), where equal small values genuinely are one object.
-    // The two events stay -- they are in the automaton, and removing them would make
-    // the calls unmodelled rather than unmarked, which is the disposition `ints` below
-    // and `CipherSpec.wkb1` already carry.
+    // That is behaviour and it follows from the substrate. `PredicateStore` keys the bound
+    // object by identity and an `int` is autoboxed at the call, so a mark over a boxed
+    // primitive could survive to a later read only inside the `Integer` cache (-128..127),
+    // where equal small values genuinely are one object and two unrelated results would share
+    // a mark. Outside it every call boxes a fresh object no read could name.
     //
+    // The event stays because it is in the rule's ORDER and the automaton needs the symbol:
+    // removing it would make the call unmodelled rather than unmarked.
     event next1 before(SecureRandom r, int randIntInRange):
       call(public int SecureRandom.nextInt(int))
       && args(randIntInRange)
       && target(r) {
     }
 
-    // `randomized[bytes] after nB` (SecureRandom.crysl:51, ENSURES) over the array
-    // `nB: nextBytes(bytes)` fills -- the producer half of the IV chain, and the site
-    // task 4.4 named when it declared its own F2 window: the reads of
-    // `IvParameterSpec.c1/c2` bind the same array by identity, so they stop
-    // answering NOT_OBSERVED from here on.
+    // `nB: nextBytes(bytes);` of SecureRandom.crysl, and the staging half of
+    // `ENSURES randomized[bytes] after nB;` over the array the call fills. This is the
+    // producer of the IV chain: `IvParameterSpec` binds the same array by identity at its two
+    // constructor events, and `IvChainJunction` reads the mark that write leaves.
     //
-    // The advice stays `before`, as the seed had it. An identity-keyed store does
-    // not care whether the array is already filled -- it is the same object on both
-    // sides of the call -- so switching to `after` would change when the predicate
-    // is written without changing what it says, which is not what a substrate
-    // migration is for.
+    // The clause carries an `after L`, so it is established at the state `nB` leads to, which
+    // is the state every end event reaches: the write belongs to `@match2`. A handler receives
+    // no event arguments and runs after the transition is decided, so the array is put in a
+    // field here and written there; `@fail` discards it, so an array filled on a sequence the
+    // automaton refused is never marked.
+    //
+    // The advice is `before`. An identity-keyed store does not care whether the array is
+    // already filled -- it is the same object on both sides of the call -- so the mark says
+    // the same thing either way.
     event next2 before(SecureRandom r, byte[] bytes):
       call(public void SecureRandom.nextBytes(byte[]))
       && args(bytes)
@@ -314,39 +393,45 @@ SecureRandomSpec(SecureRandom r) {
          stagedNextBytes = bytes;
     }
 
+    // `nI: randInt = nextInt();` of SecureRandom.crysl, one of the rule's `Next` events. Its
+    // ENSURES clause, `randomized[randInt] after nI;`, has no site, for the reason `next1`
+    // above gives in full: the store keys the bound object by identity, an `int` is autoboxed
+    // at the call, and a mark over a boxed primitive either names a fresh object no read can
+    // reach or is shared by every equal small value inside the `Integer` cache. The event stays
+    // because the rule's ORDER has the symbol and the automaton needs it.
     event next3 after(SecureRandom r) returning(int randInt) :
       call(public int SecureRandom.nextInt())
       && target(r) {
     }
 
-    // SecureRandom.crysl declares no stream event at all, so this event
-    // translates no clause and marks nothing: the write that stood here claimed
-    // `randomized` over an IntStream on the strength of the method name alone. The
-    // event stays -- it is in the automaton, and removing it would make the call
-    // unmodelled rather than unmarked -- and this is the same disposition
-    // `CipherSpec.wkb1` received at task 4.1, where `wrap` is declared by the rule
-    // and named in no ENSURES clause.
+    // `SecureRandom.ints(..)` is declared by the platform and by no event of
+    // SecureRandom.crysl, so this event translates no clause: it marks nothing and checks
+    // nothing. A mark over the returned `IntStream` would rest on the method's name alone, and
+    // no clause of the rule states one.
+    //
+    // The event stays so that the call is modelled by the automaton rather than left
+    // unmodelled: an event the specification does not declare is a call the monitor does not
+    // see, and this one leads to the same state the rule's own end events lead to.
     event ints after(SecureRandom r) returning(IntStream stream):
       call(public IntStream SecureRandom.ints(..))
       && target(r) {
     }
 
-    // `g4` is absorbed rather than fused: it accuses an algorithm the rule's
-    // CONSTRAINTS reject, which is a report of its own and not the negation of
-    // another event's guard. It sits in the automaton as a benign self-loop at
-    // every state where a `getInstance` call is legal -- which is all of them --
-    // so the rejected algorithm is accused once, by the constraint that rejects it,
-    // instead of twice. The rule's ORDER has no symbol for a call it turns down, so
-    // `order_alphabet_map.csv` records `g4` ORDER-unmapped and G-ORDER erases it
-    // from both languages before comparing.
+    // The rule's ORDER, `Ins, (Seed?, End*)*`, as a state machine: `start` takes the creation
+    // events, `init` is the state a creation leads to, and `end` is the state every `Seed` and
+    // every `End` leads to. Both `init` and `end` carry the whole `Seed`/`End` alphabet, which
+    // is what the two stars of the ORDER say: `nextBytes(); nextBytes()` and
+    // `nextBytes(); setSeed(s); nextBytes()` are sequences the rule accepts.
     //
-    // The `end` state carries `next2` because the rule's ORDER is `Ins, (Seed?, End*)*`
-    // (SecureRandom.crysl:39) and `nB` is one of the Ends: `nextBytes(); nextBytes()` is a
-    // sequence the rule accepts, and the omission of that one row accused the second call of a wrong
-    // call sequence -- 12,400 events on the published campaign, 99.98 % of them
-    // inside libraries. The remaining divergences of this automaton against the
-    // ORDER (`c1 c1` at `init`, and the Seeds the `end` state still admits after an
-    // End) are recorded, not repaired here; task 7.1 owns them.
+    // `g4` and `g5` are self-loops at every state, and deliberately so. They accuse an
+    // algorithm the rule's CONSTRAINTS reject, which is a report of its own and not the
+    // negation of another event's guard, and the rule's ORDER has no symbol for a call it
+    // turns down. Looping keeps the refused algorithm accused once, by the clause that rejects
+    // it, instead of drawing an ordering report as well.
+    //
+    // One divergence from the ORDER stands here: `init` accepts `c1` again, so a second
+    // `new SecureRandom()` on the same monitored object is not reported, where the rule's
+    // ORDER has a single `Ins`.
     fsm :
       start [
          c1 -> init
@@ -381,13 +466,24 @@ SecureRandomSpec(SecureRandom r) {
          ints     -> end
       ]
 
-    // The acceptance point of `randomized[this] after Ins`: an `after L` clause is
-    // ensured at the states L leads to, and `Ins := Gets | Cons` leads here.
+    // The acceptance point of `randomized[this] after Ins;`: an `after L` clause holds at the
+    // states the events labelled `L` lead to, and `Ins := Get | Con` leads here.
     alias match1 = init
-    // The acceptance point of the two unqualified clauses, `randomized[genSeed]` and
-    // `randomized[next]`. Both objects are bound by Ends events, which land here.
+    // The acceptance point of `randomized[genSeed] after gS;` and `randomized[bytes] after
+    // nB;`. Both labels are `End` events, and every one of them leads here.
     alias match2 = end
 
+    // A call sequence the automaton rejects. The three codes separate the three cases a reader
+    // has to tell apart: no creation of this `SecureRandom` was observed at all
+    // (`SECURERANDOM-ORDER-01`), one was observed and this specification refused its algorithm
+    // (`SECURERANDOM-ORDER-02`, where the ordering failure is the consequence of that
+    // refusal), and a plain wrong call sequence (`SECURERANDOM-ORDER-00`). `creationObserved`
+    // and `creationRefused` are not touched by the generated `reset()`, which restores the
+    // automaton state and leaves the fields, so the distinction holds on every later failure
+    // as well. All three codes are registered in `codes.csv`.
+    //
+    // The two staged arrays are discarded here, so an array produced on a sequence the
+    // automaton refused is never marked at a later acceptance point.
     @fail {
       if (!creationObserved) {
          ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "SecureRandomSpec", "" + __LOC,
@@ -406,16 +502,30 @@ SecureRandomSpec(SecureRandom r) {
       __RESET;
     }
 
-    // What leaves this handler is the accepting-state bookkeeping that stood beside
-    // the write: the new store does not offer it and the set has no reader of it
-    // (INV-INS-147). `sr` is null on the paths that re-enter `init` without binding
-    // it -- `g4` and `g5`, which only accuse -- and `ensure` treats a null binding as
-    // a no-op, so no guard is needed here.
+    // `ENSURES randomized[this] after Ins;` over the generator itself. What the write
+    // establishes, for the readers listed in the header: the object came from a `SecureRandom`
+    // the instrumentation observed. The bound place is the generator, compared by identity;
+    // the clause has no value place.
+    //
+    // The generator is staged by the creation event that bound it, because a handler receives
+    // no event arguments and runs after the transition is decided. `sr` is null on the paths
+    // that re-enter `init` without binding a generator -- `g4` and `g5`, which only accuse --
+    // and a null bound object makes the write a no-op, so no guard is needed here.
     @match1 {
         PredicateStore.instance().ensure(Property.RANDOMIZED, sr);
     }
 
-    // A staged array is consumed by exactly one handler run or discarded by `@fail`,
+    // `ENSURES randomized[genSeed] after gS;` and `randomized[bytes] after nB;`, over the
+    // array `generateSeed(int)` returned and the array `nextBytes(byte[])` filled. What either
+    // write establishes, for the readers listed in the header: the object came from a
+    // `SecureRandom` the instrumentation observed -- the generator itself, or bytes it
+    // produced. The bound place is the array, compared by identity, so only the very array the
+    // generator filled carries the mark and a copy of it does not; neither clause has a value
+    // place.
+    //
+    // Each array reaches this handler in a field, because a handler receives no event
+    // arguments and runs after the transition is decided: the event that saw the array put it
+    // there. A staged array is consumed by exactly one handler run or discarded by `@fail`,
     // so it is never written for a sequence the automaton did not accept. The
     // generated dispatcher recomputes the state categories after every event and
     // calls the handler whenever the category holds, so two `nextBytes` calls run

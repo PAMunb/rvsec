@@ -12,16 +12,26 @@ import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
- * KeyFactory
+ * KeyFactorySpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.KeyFactory.
+ * Monitors java.security.KeyFactory against the CrySL rule KeyFactory.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyFactory.crysl
+ * The rule's ORDER is `Get, (GenPriv | GenPubl)*`: obtain a factory with `getInstance`, then
+ * generate any number of keys from key specs, or none. The specification checks the rule's one
+ * CONSTRAINTS clause, `algorithm in {"RSA", "DiffieHellman", "DH", "DSA", "EC"}`, at
+ * `getInstance`; it REQUIRES `speccedKey[keySpec, _]` at both generating events; and it ENSURES
+ * `generatedKeyFactory[this, algorithm] after Get`,
+ * `generatedPrivkey[privateKey] after GenPriv` and `generatedPubkey[publicKey] after GenPubl`.
+ *
+ * `generatedKeyFactory` is written here and read nowhere: no rule this set transcribes
+ * REQUIRES it. The write stands because the rule states the clause.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/KeyFactory.crysl
  */
 KeyFactorySpec(KeyFactory f) {
 
-   // The envelope's quoting rule (design D-3).
+   // The envelope's quoting rule: a null value is the empty string, a single quote is escaped
+   // so it cannot close the field early, and the value is capped.
    private String q(String str) {
        if (str == null) {
            return "";
@@ -30,26 +40,43 @@ KeyFactorySpec(KeyFactory f) {
        return value.replace("'", "\\'");
    }
 
-   // KeyFactory.crysl:24, transcribed. `DiffieHellman` and `DH` are both entries of the
-   // rule and both stay: the alias table resolves one to the other, and an alias never
-   // enters the list it resolves against.
+   // The rule's one CONSTRAINTS clause,
+   // `algorithm in {"RSA", "DiffieHellman", "DH", "DSA", "EC"}`, transcribed. `DiffieHellman`
+   // and `DH` are two entries of the clause itself and both stay; `ConscryptAliasTable` has no
+   // row that maps either spelling to the other for this service, so each is matched by its own
+   // entry. What the table does add here is the OID spellings: it resolves the OIDs Conscrypt
+   // registers for `KeyFactory` to `RSA` and to `EC`, so a `getInstance` written with one of
+   // them meets the list entry the rule names.
    List<String> safeAlgorithms = Arrays.asList("RSA", "DiffieHellman", "DH", "DSA", "EC");
 
-   // Staged by `get` for the `after Get` write, which sees no event parameter.
+   // The canonical algorithm and the factory itself, staged by `get` for the `after Get` write
+   // at `@match`, which receives no event arguments.
    String algorithm = null;
    KeyFactory obtained = null;
 
+   // The `exp=` text of the six reports below, in one place so they all say the same.
    String expectedSpeccedKey = "a key spec this instrumentation observed being built from key material";
 
    // Set by `get` and read by `@fail` (KEYFACTORY-ORDER-01). The generated `reset()` clears
    // the state and not this field.
    boolean creationObserved = false;
 
-   // `Get := g1 | g2` (:10-12), fused on the zeroth position. api30 declares three
-   // overloads -- `(String)`, `(String, String)` and `(String, Provider)` -- and all three
-   // are the rule's `Get`, so all three are named. Leaving one out sends an object obtained
-   // through it to its next event with the monitor at state 0, where every row is `fail`;
-   // that is the defect `KeyPairGeneratorSpec.g2` records.
+   // `Get := g1 | g2`: `g1: getInstance(algorithm)` and `g2: getInstance(algorithm, _)`, fused
+   // on the zeroth position. The rule leaves `g2`'s second position anonymous, so every overload
+   // the platform declares is that event: it declares `(String)`, `(String, String)` and
+   // `(String, Provider)`, and all three are named here. Leaving one out would send a factory
+   // obtained through it to its next event with the monitor still in the initial state, where
+   // every row is `fail`.
+   //
+   // CONSTRAINTS `algorithm in {"RSA", "DiffieHellman", "DH", "DSA", "EC"}`, checked in the body
+   // against the list above through `ConscryptAliasTable.matches`, which compares
+   // case-insensitively and resolves a provider alias to the name the rule writes. A name
+   // outside the list draws the unsafe-algorithm code registered in `codes.csv` for this site.
+   // The check sits in the body and not in a `condition(...)` guard: a guard compiles to an
+   // early return ahead of both the body and the transition, so a factory obtained for an
+   // algorithm the rule refuses would leave the automaton in its initial state and the
+   // `generatePrivate` that followed would be reported as a wrong call sequence instead of as
+   // the unsafe algorithm it is.
    event get after(String alg) returning(KeyFactory f):
      ( call(public static KeyFactory KeyFactory.getInstance(String)) ||
        call(public static KeyFactory KeyFactory.getInstance(String, String)) ||
@@ -64,24 +91,41 @@ KeyFactorySpec(KeyFactory f) {
        }
    }
 
-   // `gpr1: privateKey = generatePrivate(keySpec)` (:14), the whole of `GenPriv`.
+   // `GenPriv`: `gpr1: privateKey = generatePrivate(keySpec)`, the whole of that label.
    //
-   // `speccedKey[keySpec, _]` (:27) is read here, at arity 1 through `validateAny`: the
-   // clause leaves its second position anonymous, and demanding a one-place entry instead
-   // would answer VIOLATED for every spec whose producer wrote the value the rule allows it
-   // to ignore. Producers: `PBEKeySpecSpec`, `SecretKeySpecSpec` and, from task 2.13,
-   // `X509EncodedKeySpecSpec` -- which is the one a key factory actually sees, since a
-   // public or private key is decoded from encoded key material.
+   // REQUIRES `speccedKey[keySpec, _]`: the key spec was constructed by a call the
+   // instrumentation observed and the rule admitted. The clause leaves its second position
+   // anonymous, which is what `validateAny` reads -- does this object carry the predicate at
+   // all. Reading it with `validate` and no value would compare against the empty argument list,
+   // which no producer of a wider clause records, so every conforming key spec would come back
+   // VIOLATED. The producers are the constructors of `PBEKeySpecSpec`, `SecretKeySpecSpec` and
+   // `X509EncodedKeySpecSpec` -- the last of which is the one a key factory actually sees, since
+   // a public or private key is decoded from encoded key material.
    //
-   // `generatedPrivkey[privateKey] after GenPriv` (:31) is written in this body and not in
-   // a handler, because the clause names the RETURNED key (INV-INS-134, the `gkm1`
-   // placement). Its readers exist: `KeyPairSpec` and `SignatureSpec` read the predicate.
-   // The write is on the conforming branch only.
+   // The read is three-valued. SATISFIED is silent. VIOLATED is positive evidence about this
+   // spec -- an entry exists and is not what the clause demands, which for this predicate means
+   // a `PBEKeySpec` whose `clearPassword()` was observed, since that is the one place the rule
+   // set negates it -- and draws the constraint code. NOT_OBSERVED means no entry at all: no
+   // construction of the spec was ever seen, which on this platform is as often a limit of what
+   // the weaving reaches as a misuse. A spec that carries REPORTED_UPSTREAM was already reported
+   // by the specification that watched its construction, so this site is looking at a refusal
+   // upstream and not at a gap in instrumentation reach; that branch is taken ahead of the plain
+   // not-observed one and reports under its own code.
    //
-   // A key spec that carries REPORTED_UPSTREAM was already reported by the specification that
-   // watched its construction, and draws the `upstream-refused` code instead of
-   // KEYFACTORY-NOBS-00. Either report is about the key this call returns, which is marked
-   // REPORTED_UPSTREAM in turn, so its own consumers say the same.
+   // The read sits in the body and not in a `condition(...)` guard: a guard compiles to an early
+   // return ahead of both the body and the transition, so a call over an unobserved key spec
+   // would leave the automaton in the state before it and the next call would be reported as a
+   // wrong call sequence instead of as the unsatisfied REQUIRES it is.
+   //
+   // ENSURES `generatedPrivkey[privateKey] after GenPriv`: the private key was produced by a
+   // call the instrumentation observed. It is written here in the body and not in a handler,
+   // because the clause names the key this call returned and a handler receives no event
+   // arguments. Its readers are the `init` events of `SignatureSpec`, `KeyAgreementSpec` and
+   // `CipherSpec`, the constructor of `KeyPairSpec`, and the origin check `KeySpec.mop` makes
+   // before it bridges a key's encoding. The write is on the conforming branch only.
+   //
+   // Whichever report this body makes, the key this call returns is marked REPORTED_UPSTREAM in
+   // turn, so its own consumers report it as refused upstream rather than as not observed.
    event genPrivate after(KeySpec keySpec, KeyFactory f) returning(PrivateKey privateKey):
      call(public PrivateKey KeyFactory.generatePrivate(KeySpec)) &&
      args(keySpec) && target(f) {
@@ -114,12 +158,28 @@ KeyFactorySpec(KeyFactory f) {
        }
    }
 
-   // `gpu1: publicKey = generatePublic(keySpec)` (:17), the whole of `GenPubl`, and the
-   // twin of the site above. Two sites for one clause, so two pairs of codes: a report has
-   // to say which of the two calls it is about (INV-INS-143, the `IvParameterSpec` rule).
+   // `GenPubl`: `gpu1: publicKey = generatePublic(keySpec)`, the whole of that label, and the
+   // twin of the event above. Two sites realise the one REQUIRES clause, so each carries its own
+   // pair of codes: a report has to say which of the two calls it is about.
    //
-   // `generatedPubkey[publicKey] after GenPubl` (:32) has readers too -- `TrustAnchorSpec`
-   // from task 2.12, and `KeyPairSpec`. The upstream-refusal code and mark follow the twin.
+   // REQUIRES `speccedKey[keySpec, _]`: the key spec was constructed by a call the
+   // instrumentation observed and the rule admitted. Read with `validateAny`, because the
+   // clause's second position is anonymous and a valued read would answer VIOLATED for every
+   // conforming spec. SATISFIED is silent; VIOLATED is positive evidence about this spec and
+   // draws the constraint code; NOT_OBSERVED means no construction of it was ever seen, and is
+   // split by the REPORTED_UPSTREAM mark, which says the spec's own producer already reported it
+   // so that this site reports a refusal upstream rather than a gap in instrumentation reach.
+   // The read sits in the body and not in a `condition(...)` guard: a guard compiles to an early
+   // return ahead of both the body and the transition, so the next call would be reported as a
+   // wrong call sequence instead of as the unsatisfied REQUIRES this one is.
+   //
+   // ENSURES `generatedPubkey[publicKey] after GenPubl`: the public key was produced by a call
+   // the instrumentation observed. Written in the body, because the clause names the returned
+   // key and a handler receives no event arguments, and on the conforming branch only. Its
+   // readers are the constructor events of `TrustAnchorSpec` and `KeyPairSpec`, the `init` of
+   // `SignatureSpec` and of `CipherSpec`, the `doPhase` of `KeyAgreementSpec`, and the origin
+   // check `KeySpec.mop` makes before it bridges a key's encoding. The returned key carries the
+   // REPORTED_UPSTREAM mark when this body reported.
    event genPublic after(KeySpec keySpec, KeyFactory f) returning(PublicKey publicKey):
      call(public PublicKey KeyFactory.generatePublic(KeySpec)) &&
      args(keySpec) && target(f) {
@@ -152,9 +212,11 @@ KeyFactorySpec(KeyFactory f) {
        }
    }
 
-   // The rule's ORDER, `Get, (GenPriv | GenPubl)*` (:21). The `*` is the rule's: a factory
-   // may generate any number of keys, or none, so the state the Get leads to accepts on its
-   // own. Precedent for the shape: `KeyPairSpec`'s `ere: c1 (gpu | gpr)*`.
+   // The rule's ORDER, `Get, (GenPriv | GenPubl)*`. The `*` is the rule's: a factory may
+   // generate any number of keys, or none, so the state the `Get` leads to accepts on its own.
+   // The `@fail` handler below can fire -- a generating call on a factory whose `getInstance`
+   // this specification did not see reaches it -- and its two branches are two different claims
+   // about the failure, each with its own code in `codes.csv`.
    ere : get (genPrivate | genPublic)*
 
    @fail {
@@ -170,14 +232,19 @@ KeyFactorySpec(KeyFactory f) {
       __RESET;
    }
 
-   // `generatedKeyFactory[this, algorithm] after Get` (:30). The `Get` state is the
-   // accepting state of a `Get, (...)*` ordering, so the clause's acceptance point and the
-   // match are the same state, and the object is the monitored factory -- reachable through
-   // a field where the two returned keys are not.
+   // ENSURES `generatedKeyFactory[this, algorithm] after Get`: the KeyFactory was obtained for
+   // the algorithm recorded with it. The state `Get` leads to is the accepting state of a
+   // `Get, (...)*` ordering, so the clause's acceptance point and the accepting state are the
+   // same state, and `@match` is it.
    //
-   // No rule of the pinned oracle REQUIRES `generatedKeyFactory`. The write stands because
-   // the rule ENSURES it and coverage of the rule is the obligation; no reader is
-   // fabricated for it, and the graph records the omission (INV-INS-137).
+   // Both values are staged, because a handler receives no event arguments and runs after the
+   // transition is decided: the `getInstance` event put the factory and the canonical algorithm
+   // in fields. The null guard keeps the handler silent when nothing was staged -- `@fail`
+   // clears the factory field, so a refused sequence leaves no write behind for the next run of
+   // the handler.
+   //
+   // No rule this set transcribes REQUIRES `generatedKeyFactory`, so the entry this write makes
+   // is read nowhere. It stands because the rule states the clause.
    @match {
       if (obtained != null) {
           PredicateStore.instance().ensure(Property.GENERATED_KEY_FACTORY, obtained, algorithm);

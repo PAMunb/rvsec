@@ -9,27 +9,63 @@ import br.unb.cic.mop.Property;
 /**
  * HMACParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.xml.crypto.dsig.spec.HMACParameterSpec
+ * Monitors javax.xml.crypto.dsig.spec.HMACParameterSpec against the CrySL rule
+ * HMACParameterSpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/HMACParameterSpec.crysl
+ * The rule declares one event, `c1: HMACParameterSpec(outputLen)`, and its ORDER is that one
+ * event: a conforming use of this class is its construction. It states no CONSTRAINTS and no
+ * REQUIRES, so this specification compares no value and reads no predicate.
+ *
+ * What it produces is the rule's one ENSURES, `preparedHMAC[this]`, at the acceptance point:
+ * the HMACParameterSpec was constructed by a call the instrumentation observed. `Mac.crysl`
+ * REQUIRES `preparedHMAC[params]`, and no event of this set reads it -- the two-argument `init`
+ * of `MacSpec` binds the parameter spec that clause is about and reads no predicate on it, and
+ * its one-argument `init` has no such argument -- so the write records the fact and nothing
+ * consumes it.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/HMACParameterSpec.crysl
  */
 HMACParameterSpecSpec(HMACParameterSpec hmacParameterSpec) {
 
+   // The constructed spec, staged by `c` for the acceptance-point write: a handler receives no
+   // event arguments, so the event that saw the object has to put it in a field.
    HMACParameterSpec spec;
 
-   // Set by the creation event `c`. The generated `reset()` does not clear it, so every
-   // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
+   // Set by the creation event `c`, in its body, which runs before the transition is decided.
+   // The generated `reset()` does not clear it. `@fail` reads it to choose between its two
+   // codes, and since `c` is the only event of this specification it is already true wherever
+   // that handler runs.
    boolean creationObserved = false;
 
+   // `Con` of HMACParameterSpec.crysl: `c1: HMACParameterSpec(outputLen)`, the rule's only
+   // event. It states no clause over `outputLen`, so the body compares nothing. It records the
+   // creation and stages the constructed object in `spec` for the acceptance-point write: a
+   // handler receives no event arguments and runs after the transition is decided, so it cannot
+   // see the object this constructor returned unless the event that saw it puts it in a field.
    event c after() returning(HMACParameterSpec s):
     call(public HMACParameterSpec.new(int)) {
       creationObserved = true;
       spec = s;
     }
 
+   // The rule's ORDER, `Con` -- the construction alone.
    ere : c
 
+   // Reached whenever the sequence observed so far is not a word of the `ere` above, which for a
+   // one-symbol expression means a second `c` arriving after the first. Unlike the single-symbol
+   // constructor specifications of this set, whose handler cannot fire, this one can: `c` binds
+   // nothing to the specification's `hmacParameterSpec` parameter -- it takes the constructed
+   // object in a `returning` variable of its own -- so no monitor is keyed on the object and
+   // every construction the weaving reaches is observed by the same monitor. A program that
+   // constructs two parameter specs is what takes this handler. The construction that takes it
+   // reaches no accepting state, so no `preparedHMAC` is written for the spec it built, and
+   // `__RESET` returns the automaton to its start state, so the construction after that is
+   // accepted again.
+   //
+   // Two codes are registered in `codes.csv` for this site and `creationObserved` chooses between
+   // them, but only the wrong-sequence one is emitted: `c` is the specification's only event and
+   // sets that field in its body, which runs before the transition is decided, so every visit
+   // here finds it already true and the creation-unobserved branch is never taken.
    @fail {
       if (!creationObserved) {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "HMACParameterSpecSpec", "" + __LOC,
@@ -42,6 +78,11 @@ HMACParameterSpecSpec(HMACParameterSpec hmacParameterSpec) {
       __RESET;
    }
 
+   // ENSURES `preparedHMAC[this]`. The clause carries no `after L`, so its acceptance point is
+   // an accepting state of the ORDER, which in an `ere` is where this handler runs. The write
+   // establishes that the HMACParameterSpec was constructed by a call the instrumentation
+   // observed. `Mac.crysl` REQUIRES `preparedHMAC[params]` and no site of this set reads it, so
+   // this predicate is written here and read nowhere.
    @match {
       PredicateStore.instance().ensure(Property.PREPARED_HMAC, spec);
    }

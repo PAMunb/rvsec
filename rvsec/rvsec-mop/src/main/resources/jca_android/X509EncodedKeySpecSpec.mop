@@ -8,12 +8,26 @@ import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
- * X509EncodedKeySpec
+ * X509EncodedKeySpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.spec.X509EncodedKeySpec.
+ * Monitors java.security.spec.X509EncodedKeySpec against the CrySL rule
+ * X509EncodedKeySpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/X509EncodedKeySpec.crysl
+ * The rule's ORDER is the single label `Con`, the constructor
+ * `c1: X509EncodedKeySpec(encodedKey)`, so the only sequence this specification accepts is
+ * one construction of the spec and nothing after it. The rule states no CONSTRAINTS. It
+ * REQUIRES `preparedKeyMaterial[encodedKey]`, so the bytes an X.509 key spec is built from
+ * have to be key material a monitored key or key agreement handed out, and it ENSURES
+ * `speccedKey[this, _] after Con`, which the key factories of this set read before they
+ * decode a spec into a key.
+ *
+ * The platform declares only the `X509EncodedKeySpec(byte[])` constructor, so that is the one
+ * join point this specification binds; the `(byte[], String)` overload a desktop JDK carries
+ * is not on this platform. The `@fail` handler cannot fire: a one-symbol ordering over a
+ * monitor keyed on the constructed object never sees a second event. It is written because
+ * the generator expects it.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/X509EncodedKeySpec.crysl
  */
 X509EncodedKeySpecSpec(X509EncodedKeySpec s) {
 
@@ -24,28 +38,32 @@ X509EncodedKeySpecSpec(X509EncodedKeySpec s) {
    // clears the state and not this field.
    boolean creationObserved = false;
 
-   // The rule's one event, `c1: X509EncodedKeySpec(encodedKey)` (:7), and the whole of its
-   // ORDER. api30 declares exactly this constructor -- the `(byte[], String)` overload a
-   // desktop JDK carries is not on this platform, which is why the viability check reads
-   // the api30 archive and never the host JDK (INV-INS-154).
+   // `Con`: `c1: X509EncodedKeySpec(encodedKey)`, the rule's one event and the whole of its
+   // ORDER. The platform declares exactly this constructor, so the pointcut binds every
+   // construction of an X.509 key spec there is to see.
    //
-   // The rule's one REQUIRES is `preparedKeyMaterial[encodedKey]` (:14), read here in the
-   // body and not in a `condition(...)`: a guard compiles to `if (!(guard)) return false;`
-   // ahead of the transition (INV-INS-133), and a failed REQUIRES is not a typestate
-   // failure. Three-valued, with VIOLATED and NOT_OBSERVED under different code families
-   // (INV-INS-143) -- VIOLATED is positive evidence about material the store knows
-   // something else about, NOT_OBSERVED says only that no producer of these bytes was ever
-   // seen, which on Android is as often a reach limit as a misuse.
+   // REQUIRES `preparedKeyMaterial[encodedKey]`: the bytes are key material a monitored key or
+   // key agreement handed out. The read is three-valued. SATISFIED leaves the body silent and
+   // binds the spec for the write at `@match`. VIOLATED is positive evidence about these bytes
+   // -- an entry exists and is not what the clause demands -- and draws the constraint code; no
+   // site of this set negates `preparedKeyMaterial` and the clause names no value position, so
+   // that branch has no execution path, and it is written because every branch of a site carries
+   // its own code in `codes.csv`. NOT_OBSERVED means no entry at all: no producer of these bytes was ever seen, which on
+   // this platform is as often a limit of what the weaving reaches as a misuse, so it draws a
+   // code of its own instead of the constraint one. What can satisfy it is a `getEncoded()`
+   // call on a key, which `KeySpec.mop` and `SecretKeySpec.mop` mark, or a shared-secret buffer
+   // a key agreement handed out, which `KeyAgreementSpec.mop` marks.
    //
-   // The producers are `SecretKeySpec.mop:154`, which bridges `SecretKey.getEncoded()`, and
-   // `KeyAgreement.crysl:51` from task 4.3. Both write the array a key handed out, which is
-   // exactly what an X.509 key spec is built from: the clause says *do not re-spec bytes
-   // whose origin nobody watched*.
+   // The read sits in the event body and not in a `condition(...)` guard: a guard compiles to
+   // an early return ahead of both the body and the transition, so a construction from
+   // unprepared bytes would leave the automaton in the state before the call and the next call
+   // would be reported as a wrong call sequence instead of as the unsatisfied REQUIRES it is.
    //
-   // Bytes that carry REPORTED_UPSTREAM came out of a key or an agreement that was already
-   // reported, and draw the `upstream-refused` code instead of X509ENCODEDKEYSPEC-NOBS-00.
-   // Either report is about the constructed spec, which is marked REPORTED_UPSTREAM in turn,
-   // so the key factory that decodes it says the same.
+   // Bytes that carry REPORTED_UPSTREAM came from an object whose producer already reported it,
+   // so a site that finds no predicate for them is looking at a refusal upstream and not at a
+   // gap in instrumentation reach; that branch is taken ahead of the plain NOT_OBSERVED one and
+   // reports under its own code. Whichever report this body makes, the constructed spec is
+   // marked REPORTED_UPSTREAM in turn, so the key factory that decodes it says the same.
    event c1 after(byte[] encodedKey) returning(X509EncodedKeySpec s):
      call(public X509EncodedKeySpec.new(byte[])) &&
      args(encodedKey) {
@@ -75,10 +93,10 @@ X509EncodedKeySpecSpec(X509EncodedKeySpec s) {
        }
    }
 
-   // `Con := c1` is the whole ORDER (:10-11), so the `@fail` handler cannot fire: one
-   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
-   // no monitor ever sees a second event. Written because the generator and the
-   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:158-170`).
+   // `ORDER Con` with `Con := c1` is the whole ordering, so the `@fail` handler below cannot
+   // fire: one symbol, and a monitor keyed on the constructed object, so no monitor of this
+   // specification ever sees a second event. It is written because the generator expects a
+   // handler, and its two codes are registered in `codes.csv` like any other site.
    ere : c1
 
    @fail {
@@ -93,19 +111,21 @@ X509EncodedKeySpecSpec(X509EncodedKeySpec s) {
       __RESET;
    }
 
-   // `ENSURES speccedKey[this, _] after Con` (:17). The qualification names the whole of
-   // the ORDER, so the states `Con` leads to and the accepting states are the same states,
-   // and `@match` is both -- the same coincidence `SecretKeySpec.mop:138-144` measures for
-   // its own `after GetEnc`. `spec` is bound only where the read answered SATISFIED, and
-   // `ensure` treats a null binding as a no-op.
+   // ENSURES `speccedKey[this, _] after Con`: the key spec was constructed by a call the
+   // instrumentation observed and the rule admitted. The qualification names the whole of the
+   // ORDER, so the state `Con` leads to and the accepting state are one and the same, and
+   // `@match` is the acceptance point.
    //
-   // The second place of the clause is `_`, so nothing is written into it: the write
-   // records the object and determines no value. That is what the readers ask for --
-   // `KeyFactory.crysl:27` and `SecretKeyFactory.crysl:28` both read `speccedKey[keySpec, _]`,
-   // which is `validateAny`, *this object carries the predicate, whatever it carries it
-   // with*. The set's other producer, `PBEKeySpecSpec.mop:173`, writes a key length in that
-   // place because `PBEKeySpec.crysl:32` names one; both writes answer the same anonymous
-   // read.
+   // The write is completed here because a handler receives no event arguments and runs after
+   // the transition is decided: the event that saw the constructed spec staged it in the `spec`
+   // field, and staged it only where the read answered SATISFIED, so a construction this
+   // specification reported reaches the handler with nothing bound and `ensure` treats a null
+   // binding as a no-op.
+   //
+   // The second place of the clause is `_`, so nothing is written into it: the write records
+   // the object and determines no value. That is what the readers ask for -- `KeyFactory.crysl`
+   // and `SecretKeyFactory.crysl` both REQUIRE `speccedKey[keySpec, _]`, an anonymous position,
+   // which is read with `validateAny`: does this object carry the predicate at all.
    @match {
       PredicateStore.instance().ensure(Property.SPECCED_KEY, spec);
    }

@@ -8,41 +8,59 @@ import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 
 /**
- * DHParameterSpec
+ * DHParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.crypto.spec.DHParameterSpec.
+ * Monitors javax.crypto.spec.DHParameterSpec against the CrySL rule DHParameterSpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/DHParameterSpec.crysl
+ * The rule's ORDER is `Con`, with `Con := c1 | c2` naming its two constructor overloads, so a
+ * single construction by either overload is already a complete, conforming call sequence. What the
+ * specification checks are the rule's two CONSTRAINTS clauses, `p >= 1^2048;` and `g >= 1^2048;`,
+ * read in both constructor events. It REQUIRES no predicate and ENSURES one, `preparedDH[this]`,
+ * written for the constructed spec at the accepting state.
+ *
+ * The two clauses are enforced as a floor of 2048 bits on the bit length of the prime modulus and
+ * of the generator. CrySL has no exponentiation operator, so `1^2048` read as written is the
+ * constant 1 and the clause would admit every positive value; what runs here is the 2048-bit floor
+ * the clause states for finite-field Diffie-Hellman parameters.
+ *
+ * The monitor reaches only constructions the weaving instrumented. A spec built inside a library
+ * or inside the platform carries no preparedDH, and the specifications that read the predicate
+ * answer NOT_OBSERVED for it rather than VIOLATED, so code whose producer was never observed is
+ * not accused.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/DHParameterSpec.crysl
  */
 DHParameterSpecSpec(DHParameterSpec s) {
 
-   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   // Bound only on the conforming branch, which is what carries the object to `@match`: a handler
+   // receives no event arguments and runs after the transition has been decided, so the event that
+   // saw the constructed object stages it here and the handler reads the field.
    DHParameterSpec spec;
 
    // Set by the creation events `c1` and `c2`. The generated `reset()` does not clear it, so
    // every failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // The two-argument constructor, the rule's `c1` (:9) and one alternative of its
-   // `Con := c1 | c2`. api30 declares both overloads and the rule declares both, so both
-   // are events here: the rule labelling them separately is what says they stay separate
-   // (`GCMParameterSpecSpec` and `PBEParameterSpecSpec` have the same shape).
+   // `c1` of DHParameterSpec.crysl: `c1: DHParameterSpec(p, g);`, the two-argument constructor and
+   // one alternative of `Con := c1 | c2`. The rule labels the two overloads separately, so they
+   // are two events here rather than one fused event.
    //
-   // The two CONSTRAINTS clauses are `p >= 1^2048` and `g >= 1^2048`
-   // (DHParameterSpec.crysl:17-18), the identical pair `DSAParameterSpec.crysl:16-17`
-   // states, and they are transcribed the same way: *bit length at least 2048*, a recorded
-   // decision (D-20.4) and not a transcription, because CrySL has no exponentiation
-   // operator and `1^2048` read as written is the constant 1. The `oracle-wart` row against
-   // `tools/rules/DSAParameterSpec.crysl` states the defect in full and the row against
-   // this rule points at it; the rules themselves are never edited (D-21).
+   // The two CONSTRAINTS clauses, `p >= 1^2048;` and `g >= 1^2048;`, are both read in this body.
+   // Each is enforced as a floor of 2048 bits on the bit length of the value: CrySL has no
+   // exponentiation operator, so `1^2048` read as written is the constant 1 and the clause would
+   // admit every positive modulus, which is no constraint at all.
    //
-   // Both clauses land in the body with an accuser apiece, never in a `condition(...)`,
-   // which would compile to `if (!(guard)) return false;` ahead of the transition
-   // (INV-INS-133) and turn a short modulus into silence. They accumulate rather than
-   // short-circuit, so a program that got both wrong hears about both. Report family is
-   // `CONSTR`/`UnsatisfiedConstraint` for the reason the DSA twin states: only one of the
-   // two quantities is a key size, and the rule says the same thing about both.
+   // Both clauses land in the body with an accuser apiece, never in a `condition(...)` guard,
+   // which would compile to `if (!(guard)) return false;` ahead of both the body and the
+   // transition and turn a short modulus into silence. They accumulate rather than short-circuit,
+   // so a program that got both wrong hears about both, under two codes of its own registered in
+   // `codes.csv`. Both report `UnsatisfiedConstraint` under the `CONSTR` family rather than
+   // `InvalidKeySize` under `KEYSIZE`: only one of the two quantities is a key size, and the rule
+   // says the same thing about both, so splitting them across two families would tell the reader
+   // the rule stated two different kinds of thing.
+   //
+   // A null argument is treated as a violation and reported with a bit length of 0, since the
+   // constructor accepts the reference and the clause cannot hold for it.
    event c1 after(BigInteger p, BigInteger g) returning(DHParameterSpec s):
      call(public DHParameterSpec.new(BigInteger, BigInteger)) &&
      args(p, g) {
@@ -63,11 +81,16 @@ DHParameterSpecSpec(DHParameterSpec s) {
        }
    }
 
-   // The three-argument constructor, the rule's `c2` (:10). The rule declares the private
-   // exponent size `l` among its objects and constrains it nowhere, so this body is `c1`'s
-   // over this overload's first two arguments: the same two clauses over the same two
-   // quantities, with codes of their own because a code names a site and not a clause
-   // (`IvParameterSpec.mop:126-129`).
+   // `c2` of DHParameterSpec.crysl: `c2: DHParameterSpec(p, g, l);`, the three-argument
+   // constructor and the other alternative of `Con := c1 | c2`. The rule declares the private
+   // exponent size `l` among its OBJECTS and states no clause over it, so this body is `c1`'s body
+   // over this overload's first two arguments: the same two CONSTRAINTS clauses, `p >= 1^2048;`
+   // and `g >= 1^2048;`, over the same two quantities, checked in the body for the same reason and
+   // accumulating the same way.
+   //
+   // The two violations carry codes of their own rather than reusing `c1`'s, because a code names
+   // the site that reported it and not the clause behind it, so a reader of a report knows which
+   // overload the program called.
    event c2 after(BigInteger p, BigInteger g, int l) returning(DHParameterSpec s):
      call(public DHParameterSpec.new(BigInteger, BigInteger, int)) &&
      args(p, g, l) {
@@ -88,11 +111,12 @@ DHParameterSpecSpec(DHParameterSpec s) {
        }
    }
 
-   // `Con := c1 | c2` is the whole ORDER (:13-14), so the `@fail` handler cannot fire: the
-   // transition row is {1, 2, 2} for both events and the monitor is keyed on the constructed
-   // object, so no monitor ever sees a second event and state 2 is never entered. Written
-   // because the generator and the `codes.csv` bijection expect it (precedent:
-   // `GCMParameterSpecSpec.mop:158-170`).
+   // `Con := c1 | c2` is the whole ORDER, an alternation of two constructors and nothing after
+   // them, so the `@fail` handler below cannot fire: the transition row the generator derives is
+   // {1, 2, 2} for both events, and the monitor is keyed on the constructed object, so no monitor
+   // of this specification ever sees a second event and state 2 is never entered. The handler is
+   // written anyway, because the generator expects one and its two codes are registered in
+   // `codes.csv` like every other site.
    ere : c1 | c2
 
    @fail {
@@ -107,15 +131,21 @@ DHParameterSpecSpec(DHParameterSpec s) {
       __RESET;
    }
 
-   // `ENSURES preparedDH[this]` (:21) carries no `after L`, so the acceptance point is the
-   // accepting state, which in an `ere` is `@match` (INV-INS-134). `spec` is bound only by
-   // the conforming branches and `ensure` treats a null binding as a no-op.
+   // ENSURES `preparedDH[this];`: the clause carries no `after L`, so it holds wherever the
+   // object's use so far is a complete, conforming call sequence -- the accepting state of the
+   // ORDER, which in an `ere` is exactly where the `@match` handler runs. The predicate says: the
+   // parameter spec carries Diffie-Hellman parameters the rule admits, checked where it was
+   // constructed. It is bound to the spec and has no value place, so the consumers ask for
+   // nothing but the object.
    //
-   // `preparedDH` has a second producer already in the set -- `DHGenParameterSpecSpec.mop`,
-   // for `DHGenParameterSpec.crysl:18` -- and three consumers among the 49:
-   // `KeyPairGenerator.crysl:37`, `KeyAgreement.crysl:47` and `AlgorithmParameters.crysl:36`,
-   // the first wired at task 1b.1 and the last at 3.1. Until this file landed the predicate
-   // was written by one producer and read by none.
+   // The object arrives through the `spec` field, because a handler receives no event arguments;
+   // `ensure` returns at once for a null binding, so only a construction that satisfied both
+   // clauses is prepared, whichever overload built it.
+   //
+   // `DHGenParameterSpecSpec` writes the same predicate for the generation parameters it checks.
+   // `AlgorithmParametersSpec`, `KeyAgreementSpec` and `KeyPairGeneratorSpec` read it for the spec
+   // they are initialised with when their own algorithm is Diffie-Hellman; a spec that prepared
+   // nothing reaches them as NOT_OBSERVED.
    @match {
       PredicateStore.instance().ensure(Property.PREPARED_DH, spec);
    }

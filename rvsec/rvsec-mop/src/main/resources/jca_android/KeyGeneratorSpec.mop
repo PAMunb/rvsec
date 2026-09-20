@@ -14,16 +14,53 @@ import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 /**
  * KeyGeneratorSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.crypto.KeyGenerator class.
+ * Monitors javax.crypto.KeyGenerator against the CrySL rule KeyGenerator.crysl.
  *
- * https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/KeyGenerator.crysl
+ * ORDER. The rule orders `Get, Init?, GenKey`: a `getInstance`, at most one `init`, then
+ * `generateKey()`. A sequence the automaton does not accept is reported under
+ * `KEYGENERATOR-ORDER-01` when no `getInstance` of the generator was observed at all, under
+ * `KEYGENERATOR-ORDER-02` when the observed `getInstance` asked for an algorithm this
+ * specification refuses, and under `KEYGENERATOR-ORDER-00` otherwise. The codes are
+ * registered in `codes.csv`.
+ *
+ * CONSTRAINTS. The rule states two clauses and this specification checks one of them.
+ * `algorithm in {"AES", "HmacSHA256", "HmacSHA384", "HmacSHA512"}` is checked at
+ * `generateKey()`, against the generator's own `getAlgorithm()`, and a name outside the list
+ * is reported under `KEYGENERATOR-ALG-00`. `algorithm in {"AES"} => keysize in {128, 192,
+ * 256}` is not checked: no event declared here binds a key size -- `init` covers `init(int)`
+ * and `init(AlgorithmParameterSpec)` under one symbol and binds neither argument, and
+ * `initRandomSize` binds only the `SecureRandom` of `init(int, SecureRandom)` -- so a
+ * generator initialised with an AES key size outside {128, 192, 256} passes this
+ * specification unremarked.
+ *
+ * REQUIRES `randomized[random];`, read at the three `init` overloads that carry a
+ * `SecureRandom`, one event each.
+ *
+ * ENSURES `generatedKey[key, algorithm];`, written at the accepting state over the key
+ * `generateKey()` returned: the key was produced by a call the instrumentation observed, for
+ * the algorithm recorded with it. The value place holds the canonical name of the algorithm
+ * this generator was asked for, so a reader asking with `key.getAlgorithm()` meets the same
+ * spelling. The readers are `CipherSpec`, which asks at its `init` with the transformation's
+ * key family and with its leading algorithm token, `KeySpec` and `SecretKeySpec`, which ask
+ * with the key's own `getAlgorithm()` before handing out its encoding, and `MacSpec`, whose
+ * clause leaves the algorithm position anonymous and so asks only whether the key carries the
+ * predicate at all.
+ *
+ * Reach limits and divergences from the rule.
+ * - The rule's `Get` stands for one `getInstance`; the automaton accepts a run of them
+ *   (`g1+`, `g2+`), so a repeated creation call on one generator is not reported.
+ * - A refused algorithm is accused when `generateKey()` is reached, not at `getInstance`: the
+ *   four `getInstance` events only record the refusal, so a generator whose algorithm the
+ *   list turns down and on which `generateKey()` is never called draws no value report.
+ * - The generator is left unmarked for a downstream site: this specification writes no
+ *   REPORTED_UPSTREAM for the key it refuses.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/KeyGenerator.crysl
  */
 KeyGeneratorSpec(KeyGenerator k) {
-    // The envelope's quoting rule (design D-3): a null value is the empty string,
-    // a single quote is escaped so it cannot close the field early, and the value
-    // is capped so a pathological argument cannot push the record past the
-    // logcat payload limit.
+    // The quoting rule of the report envelope: a null value is the empty string, a single
+    // quote is escaped so it cannot close the field early, and the value is capped so a
+    // pathological argument cannot push the record past the logcat payload limit.
     private String q(String s) {
         if (s == null) {
             return "";
@@ -32,19 +69,26 @@ KeyGeneratorSpec(KeyGenerator k) {
         return value.replace("'", "\\'");
     }
 
-    // D-15: KeyGenerator.crysl states `algorithm in {"AES", "HmacSHA256", "HmacSHA384",
-    // "HmacSHA512"}`; the six HMAC[-/]SHA* entries are the frozen jca's spelling variants.
-    // `ARC4`, `DESede`, `BLOWFISH`, `ChaCha20`, `HmacMD5`, `HmacSHA1` and `HmacSHA224` leave
-    // with the generated catalogue D-15 withdrew. The rule's second clause,
-    // `algorithm in {"AES"} => keysize in {128, 192, 256}`, stays a deferred constant: the
-    // published jca never tested it, and this change restores lists rather than adding
-    // accusation classes whose false-positive rate is unmeasured.
+    // The rule's first CONSTRAINTS clause, `algorithm in {"AES", "HmacSHA256", "HmacSHA384",
+    // "HmacSHA512"}`, followed by six provider spellings of the same three HMAC names.
+    // `ConscryptAliasTable.matches("KeyGenerator", ...)` compares case-insensitively and
+    // resolves a provider alias to its canonical name before comparing, and it maps each of
+    // those six to the rule's own spelling, so the list admits no algorithm the clause
+    // refuses. The list is also what the report shows as the expected value.
+    //
+    // The rule's second clause, `algorithm in {"AES"} => keysize in {128, 192, 256}`, has no
+    // list here and no check: no event of this specification binds a key size.
     List<String> safeAlgorithms = Arrays.asList("AES", "HmacSHA256", "HmacSHA384", "HmacSHA512", "HMAC-SHA256", "HMAC/SHA256", "HMAC-SHA384", "HMAC/SHA384", "HMAC/SHA512", "HMAC-SHA512");
+
+    // The algorithm name a `getInstance` was handed, as the program spelled it. `g1`, `g2` and
+    // `g3` write it and nothing clears it, so it is the last spelling this monitor saw rather
+    // than the one of any particular sequence; `gk1` copies it into `generatedKeyAlgorithm`,
+    // which is the value the predicate write uses.
     String currentAlgorithmInstance = "";
 
     // Staged by `gk1` for the acceptance-point handler, which sees no event parameter, and
     // cleared the moment it is used or the sequence is rejected. Declared `SecretKey`,
-    // which is what `gk: key = generateKey()` binds and what the pointcut returns.
+    // which is what `gk1: key = generateKey()` binds and what the pointcut returns.
     SecretKey generatedKey = null;
 
     // The second place of `generatedKey[key, alg]`. The rule binds `alg` at `getInstance`,
@@ -68,6 +112,11 @@ KeyGeneratorSpec(KeyGenerator k) {
     // generator, so its ordering failure is the consequence of the refusal.
     boolean creationRefused = false;
 
+    // `Get` of KeyGenerator.crysl: `g1: getInstance(algorithm);`, under the guard that admits
+    // the CONSTRAINTS clause `algorithm in {"AES", "HmacSHA256", "HmacSHA384", "HmacSHA512"}`.
+    // The body records that a creation was observed and keeps the requested name for the
+    // predicate write at the acceptance point; it makes no report, because the algorithm is
+    // accused once, at `gk1`. The calls this guard turns down are taken by `g3`.
     event g1 after(String alg) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String))
       && args(alg)
@@ -76,6 +125,12 @@ KeyGeneratorSpec(KeyGenerator k) {
         currentAlgorithmInstance = alg;
     }
 
+    // `Get` of KeyGenerator.crysl: `g2: getInstance(algorithm, _);`. `Object+` covers both
+    // two-argument overloads the platform declares -- `(String, String)` for the provider's
+    // name and `(String, Provider)` for the object -- in one pointcut, and it keeps the arity
+    // known and the second position typed; a `..` wildcard would make every `getInstance` fit
+    // this pointcut. Same admitting guard and same body as `g1`; `g4` takes the calls the
+    // guard turns down.
     event g2 after(String alg, Object provider) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String, Object+))
       && args(alg, provider)
@@ -84,14 +139,14 @@ KeyGeneratorSpec(KeyGenerator k) {
         currentAlgorithmInstance = alg;
     }
 
-    // The guard reads the bound argument, not the monitor field. The field is
-    // initialised `""` and only `g1`/`g2` write it, so on a fresh monitor this guard
-    // was correct only because the generator emits `g1Event` ahead of `g3Event` on
-    // the shared pointcut, an order nothing in the tree asserts. Here the inversion
-    // would be silent in the automaton -- this body only rebinds the field and the
-    // accusation lives downstream at `gk1` -- which is exactly why the dependence is
-    // worth removing before something reorders the dispatch. The six other negated
-    // twins of the set already read their argument.
+    // The refused twin of `g1`: the same one-argument pointcut, the rule's
+    // `g1: getInstance(algorithm);`, under the negated guard. The guard reads the bound
+    // argument and not a monitor field, so it does not depend on the order in which the
+    // generated monitor dispatches the two events that share this pointcut.
+    //
+    // The body records the creation and the refusal for `@fail`, and rebinds the requested
+    // name. It makes no report of its own: the CONSTRAINTS clause is accused at `gk1`, over
+    // the generator's own `getAlgorithm()`, so a refused algorithm is reported once.
     event g3 after(String alg) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String))
       && args(alg)
@@ -102,14 +157,15 @@ KeyGeneratorSpec(KeyGenerator k) {
     }
 
     // The refused twin of `g2`: the same two-argument pointcut, the rule's
-    // `getInstance(alg, _)`, under the negated guard. Without it an algorithm the list refuses,
-    // requested with a provider, runs no body, and the generator's failure would read
-    // `creation-unobserved` although its creation ran in woven code.
+    // `g2: getInstance(algorithm, _);`, under the negated guard. Without it an algorithm the
+    // list refuses, requested with a provider, would run no body at all, and the generator's
+    // ordering failure would read `creation-unobserved` although its creation ran in woven
+    // code.
     //
-    // The body only records the creation. It does not report, and it does not write
-    // `currentAlgorithmInstance` as `g3` does: the prefix `(g3 | g4)*` sends the generator's
-    // first use to `@fail` exactly as a generator no event saw would go, so no reported site
-    // changes and only the handler's code does.
+    // The body only records the creation and the refusal. It does not report, and it does not
+    // write `currentAlgorithmInstance` as `g3` does: the prefix `(g3 | g4)*` sends the
+    // generator's first use to `@fail` exactly as a generator no event saw would go, so the
+    // staged algorithm of an accepted sequence is always the one its own `g1` or `g2` bound.
     event g4 after(String alg, Object provider) returning(KeyGenerator k):
       call(public static KeyGenerator KeyGenerator.getInstance(String, Object+))
       && args(alg, provider)
@@ -118,35 +174,47 @@ KeyGeneratorSpec(KeyGenerator k) {
         creationRefused = true;
     }
 
-    // The two `init` overloads the rule's `Inits` names that take no SecureRandom --
-    // i1 and i3. The three that do take one moved to the `initRandom*` events below,
-    // `randomized[ranGen]` needs the argument bound and this event bound nothing.
-    // Both symbols stand for the same thing in the rule's ORDER (`Gets, Inits?, gk`
-    // puts i1 to i5 in one alternation), so splitting the event splits no ordering
-    // claim: the `ere` accepts either symbol wherever it accepted the merged one.
+    // The two `Init` overloads of KeyGenerator.crysl that carry no `SecureRandom` --
+    // `i1: init(keysize);` and `i3: init(params);` -- under one symbol. It binds neither
+    // argument and its body is empty: no clause of the rule has a site here, and the key-size
+    // clause `algorithm in {"AES"} => keysize in {128, 192, 256}` is the one this leaves
+    // unchecked. The three overloads that do carry a `SecureRandom` are separate events
+    // below, because `randomized[random]` needs that argument bound.
+    //
+    // All five stand for the same thing in the rule's ORDER -- `Get, Init?, GenKey` puts `i1`
+    // to `i5` in one alternation -- so covering two of them with one symbol, and the other
+    // three with one symbol each, splits no ordering claim.
     event init before(KeyGenerator k):
        ( call(public void KeyGenerator.init(int)) ||
          call(public void KeyGenerator.init(AlgorithmParameterSpec))
        ) && target(k) {  }
 
-    // `randomized[random]` (KeyGenerator.crysl:33, ledger clause #13) at the three `init`
-    // overloads that bind a SecureRandom -- the rule's i2, i4 and i5 -- one event each. The
-    // shorter statements were measured and all fail: a disjunction of the three signatures
-    // makes javamop emit no aspect at all; `args(.., ranGen)` generates but matches every
-    // `init` whatever the last argument, binding no SecureRandom and answering NOT_OBSERVED
-    // for all of them; and a middle wildcard, `init(*, SecureRandom)`, generates a correct
-    // aspect but defeats the trace harness's resolver, which accepts any call from the first
-    // wildcard onward. `IvChainJunction.mop` carries the same three measurements at length.
-    //
-    // The reads are in the bodies and not in a `condition(...)`: a false guard would suppress
-    // the transition and turn "this generator's randomness source was never observed" into a
-    // wrong-call-sequence report (INV-INS-133). The producer is `SecureRandomSpec.@match1`,
-    // `randomized[this] after Ins`; measured, `KeyGenerator.init(128, sr)` and
-    // `KeyGenerator.init(sr)` both run to completion over an observed SecureRandom. The
-    // verdict is three-valued because VIOLATED is positive evidence of a withdrawn
-    // randomisation while NOT_OBSERVED is as often a reach limit as a misuse.
+    // `REQUIRES randomized[random];` has three sites, one at each `init` overload that binds
+    // a `SecureRandom` -- the rule's `i2: init(keysize, random);`, `i4: init(params,
+    // random);` and `i5: init(random);`. Three events and not one, because no shorter
+    // spelling works: a disjunction of the three `call(...)` signatures inside one event makes
+    // javamop emit no aspect at all; `args(.., ranGen)` generates an aspect but matches every
+    // `init` whatever its last argument, binding no `SecureRandom`; and a middle wildcard,
+    // `init(*, SecureRandom)`, generates a correct aspect but defeats the trace harness's
+    // resolver, which accepts any call from the first wildcard onward.
 
-    // the rule's i5.
+    // The rule's `i5: init(random);`, and one site of `REQUIRES randomized[random];`. The read
+    // asks what the clause asks: whether the object came from a `SecureRandom` the
+    // instrumentation observed -- the generator itself, or bytes it produced -- which
+    // `SecureRandomSpec` writes over the generator at the state its creation events lead to.
+    //
+    // The read is in the event body and not in a `condition(...)` guard: a guard compiles to
+    // an early return ahead of both the body and the transition, so a call carrying an
+    // unobserved randomness source would leave the automaton in the state before `init` and
+    // the `generateKey()` that follows would be reported as a wrong call sequence instead of
+    // as the unsatisfied requirement it is.
+    //
+    // The verdict is three-valued and its two accusing outcomes are different claims, so they
+    // carry different codes. VIOLATED is positive evidence: the store holds an entry for this
+    // very object and what it records is not what the clause demands -- reported under
+    // `KEYGENERATOR-CONSTR-00`. NOT_OBSERVED says only that nothing about the object was ever
+    // recorded, which happens when its producing call was not woven or runs inside the
+    // platform -- reported under `KEYGENERATOR-NOBS-00`. Both are registered in `codes.csv`.
     event initRandom before(KeyGenerator k, SecureRandom ranGen):
       call(public void KeyGenerator.init(SecureRandom)) &&
       args(ranGen) &&
@@ -162,7 +230,24 @@ KeyGeneratorSpec(KeyGenerator k) {
         }
     }
 
-    // the rule's i2.
+    // The rule's `i2: init(keysize, random);`, and one site of `REQUIRES randomized[random];`.
+    // `args(*, ranGen)` binds the `SecureRandom` and leaves the key size unbound, which is why
+    // the rule's key-size clause has no site at this event either.
+    //
+    // The read asks whether the object came from a `SecureRandom` the instrumentation
+    // observed -- the generator itself, or bytes it produced -- which `SecureRandomSpec`
+    // writes over the generator at the state its creation events lead to.
+    //
+    // It is in the event body and not in a `condition(...)` guard: a guard compiles to an
+    // early return ahead of both the body and the transition, so a call carrying an unobserved
+    // randomness source would leave the automaton in the state before `init` and the
+    // `generateKey()` that follows would be reported as a wrong call sequence instead of as
+    // the unsatisfied requirement it is.
+    //
+    // VIOLATED is positive evidence about this object and is reported under
+    // `KEYGENERATOR-CONSTR-01`; NOT_OBSERVED says only that nothing about the object was ever
+    // recorded, a reach limit as often as a misuse, and is reported under
+    // `KEYGENERATOR-NOBS-01`. Both codes are registered in `codes.csv`.
     event initRandomSize before(KeyGenerator k, SecureRandom ranGen):
       call(public void KeyGenerator.init(int, SecureRandom)) &&
       args(*, ranGen) &&
@@ -178,7 +263,24 @@ KeyGeneratorSpec(KeyGenerator k) {
         }
     }
 
-    // the rule's i4.
+    // The rule's `i4: init(params, random);`, and one site of `REQUIRES randomized[random];`.
+    // `args(*, ranGen)` binds the `SecureRandom` and leaves the `AlgorithmParameterSpec`
+    // unbound; the rule states no clause over that argument.
+    //
+    // The read asks whether the object came from a `SecureRandom` the instrumentation
+    // observed -- the generator itself, or bytes it produced -- which `SecureRandomSpec`
+    // writes over the generator at the state its creation events lead to.
+    //
+    // It is in the event body and not in a `condition(...)` guard: a guard compiles to an
+    // early return ahead of both the body and the transition, so a call carrying an unobserved
+    // randomness source would leave the automaton in the state before `init` and the
+    // `generateKey()` that follows would be reported as a wrong call sequence instead of as
+    // the unsatisfied requirement it is.
+    //
+    // VIOLATED is positive evidence about this object and is reported under
+    // `KEYGENERATOR-CONSTR-02`; NOT_OBSERVED says only that nothing about the object was ever
+    // recorded, a reach limit as often as a misuse, and is reported under
+    // `KEYGENERATOR-NOBS-02`. Both codes are registered in `codes.csv`.
     event initRandomSpec before(KeyGenerator k, SecureRandom ranGen):
       call(public void KeyGenerator.init(AlgorithmParameterSpec, SecureRandom)) &&
       args(*, ranGen) &&
@@ -194,6 +296,22 @@ KeyGeneratorSpec(KeyGenerator k) {
         }
     }
 
+    // The rule's `gk1: key = generateKey();`, its one `GenKey` event, and the site of the
+    // CONSTRAINTS clause `algorithm in {"AES", "HmacSHA256", "HmacSHA384", "HmacSHA512"}`.
+    //
+    // The clause is checked here, in the event body, and not in a `condition(...)` guard: a
+    // guard compiles to an early return ahead of both the body and the transition, so a
+    // generator built for a refused algorithm would leave the automaton in the state before
+    // `generateKey()` and the call would be reported as a wrong call sequence instead of as
+    // the unsafe algorithm it is. A name outside the list is reported under
+    // `KEYGENERATOR-ALG-00`, registered in `codes.csv`.
+    //
+    // The check reads the generator's own `getAlgorithm()`, the name the provider resolved,
+    // so it answers for a generator obtained through any of the four `getInstance` events and
+    // for one whose creation no event of this specification saw.
+    //
+    // The body then stages the key and the algorithm it was generated under, because the
+    // handler that writes the predicate receives no event arguments -- see `@match` below.
     event gk1 after(KeyGenerator k) returning(SecretKey key):
       call(public SecretKey KeyGenerator.generateKey())
       && target(k) {
@@ -205,8 +323,25 @@ KeyGeneratorSpec(KeyGenerator k) {
         generatedKeyAlgorithm = currentAlgorithmInstance;
     }
 
+    // The rule's ORDER, `Get, Init?, GenKey`: a `getInstance`, at most one `init`, then
+    // `generateKey()`. The refused creations stand ahead of it as the prefix `(g3 | g4)*`,
+    // which reaches no accepting state on its own, so a generator whose algorithm the list
+    // turns down cannot complete an accepted sequence. Where the rule's `Get` stands for one
+    // call, `g1+` and `g2+` accept a run of them, so a repeated `getInstance` on one generator
+    // is not reported.
     ere : ((g3 | g4)* g1+ | (g3 | g4)* g2+) (((init | initRandom | initRandomSize | initRandomSpec) gk1) | gk1)
 
+    // A call sequence the automaton rejects. The three codes separate the three cases a
+    // reader has to tell apart: no `getInstance` of this generator was observed at all
+    // (`KEYGENERATOR-ORDER-01`), one was observed and this specification refused its algorithm
+    // (`KEYGENERATOR-ORDER-02`, where the ordering failure is the consequence of that
+    // refusal), and a plain wrong call sequence (`KEYGENERATOR-ORDER-00`). `creationObserved`
+    // and `creationRefused` are not touched by the generated `reset()`, which restores the
+    // automaton state and leaves the fields, so the distinction holds on every later failure
+    // as well.
+    //
+    // The staged key and algorithm are discarded here, so a value bound on a sequence the
+    // automaton refused is never carried into a later accepting state.
     @fail {
         if (!creationObserved) {
             ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "KeyGeneratorSpec", "" + __LOC,
@@ -226,43 +361,36 @@ KeyGeneratorSpec(KeyGenerator k) {
         __RESET;
     }
 
-    // The acceptance point of `generatedKey[key, alg]`. The clause carries no `after L`,
-    // so it is established at the accepting state; read off the generated monitor, `gk1`
-    // has the transition row {5, 5, 1, 1, 1, 5} and the match category is
-    // `nextstate == 1`, so `gk1` is the only event that reaches this handler and the
-    // staged key is always the one the accepted sequence produced.
+    // The acceptance point of `ENSURES generatedKey[key, algorithm];`. The clause carries no
+    // `after L`, so it holds wherever the object's use so far is a complete, conforming call
+    // sequence; in a specification written as an `ere`, that is where this handler runs, and
+    // `gk1` is the only event that reaches it.
     //
-    // What the acceptance point buys over the event body is measurable and is the reason
-    // the default of INV-INS-134 is kept here: a program that calls `generateKey()` twice
-    // on one generator writes a sequence both the rule (`Gets, Inits?, gk`) and the
-    // automaton reject, and a body write would still mark the second key as having an
-    // observed origin. Here it does not, and the consumer says so.
+    // A handler receives no event arguments and runs after the transition has been decided, so
+    // it cannot see the key `generateKey()` returned: `gk1` puts the key and the algorithm it
+    // was generated under in fields, and this handler reads them and clears them. That is what
+    // the acceptance point buys over a write in the event body -- a program that calls
+    // `generateKey()` twice on one generator writes a sequence both the rule's ORDER and this
+    // automaton reject, and a body write would mark the second key as having an observed
+    // origin anyway.
     //
-    // The write is at the arity the rule states: `generatedKey[key, alg]`, two places,
-    // the key and the algorithm it was generated under. It stood at one place until this
-    // pass, with the recorded reason that `validate` compares the value tuple and a
-    // two-place write read by a one-place `validate` answers VIOLATED -- positive evidence
-    // of a misuse -- about a conforming program. Both readers rise in this same commit:
-    // `CipherSpec.i2`, which applies the rule's own splitter to the transformation, and
-    // `SecretKeySpec.e1`, which asks with the key's own algorithm.
-    //
-    // What the second place buys, measured: the JCA refuses a key whose algorithm differs
-    // from the Cipher's -- `Cipher.getInstance("AES/CBC/PKCS5Padding").init(1, hmacKey)`
-    // raises `InvalidKeyException: Wrong algorithm: AES or Rijndael required` -- so the
-    // VIOLATED branch of the consumer has no execution path the platform admits, and what
-    // the arity actually protects is the SATISFIED one: an AES key answers the AES cipher
-    // and only it. The reach limit stays distinguishable, which is the whole point of the
-    // three-valued read.
+    // What the write establishes, for the readers in `CipherSpec`, `KeySpec`, `MacSpec` and
+    // `SecretKeySpec`: the key was produced by a call the instrumentation observed, for the
+    // algorithm recorded with it.
+    // The bound place is the key itself, compared by identity; the one value place is the
+    // algorithm name, a `String`, compared case-insensitively. The second place is what lets a
+    // reader ask whether an AES cipher was handed an AES key rather than merely a key from
+    // some observed generator.
     @match {
        if (generatedKey != null) {
-           // The value written is the canonical name, not the spelling `getInstance` was
-           // handed (D-20.3). `PredicateStore` only lowercases when it compares, so a raw
-           // alias propagates as itself: a key from `getInstance("HMAC/SHA256")` was stored
-           // under that string and every reader asks with `key.getAlgorithm()`, which
-           // answers `HmacSHA256`. The read then says NOT_OBSERVED -- no producer seen --
-           // about a key this very specification watched being generated, and the failure
-           // surfaces as an accusation in a different file, which is the worst place to
-           // debug it from. Resolving here puts both ends on the same name.
+           // The value written is the canonical name and not the spelling `getInstance` was
+           // handed. `PredicateStore` lowercases when it compares but resolves no alias, so a
+           // raw alias would propagate as itself: a key from `getInstance("HMAC/SHA256")`
+           // would be stored under that string while every reader asks with
+           // `key.getAlgorithm()`, which answers `HmacSHA256`. The read would then say
+           // NOT_OBSERVED -- no producer seen -- about a key this very specification watched
+           // being generated, and the failure would surface as an accusation in another file.
+           // Resolving here puts both ends on the same name.
            PredicateStore.instance().ensure(Property.GENERATED_KEY, generatedKey,
                ConscryptAliasTable.canonical("KeyGenerator", generatedKeyAlgorithm));
            generatedKey = null;

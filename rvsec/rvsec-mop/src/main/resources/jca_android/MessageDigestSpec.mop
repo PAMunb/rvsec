@@ -9,11 +9,34 @@ import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
-// The MessageDigestSpec specifies
-// the correct usage of the MessageDigest
-// class (from the JCA specification).
+/**
+ * MessageDigestSpec
+ *
+ * Monitors java.security.MessageDigest against the CrySL rule MessageDigest.crysl.
+ *
+ * The rule's ORDER is `Get, (DWOU | (Update+, Digest))+`: a digest is obtained, then fed and
+ * finalised, possibly several times over, and a `digest(input)` may stand alone because it
+ * brings its own data. The clause this specification enforces is the algorithm one,
+ * `algorithm in {"SHA-256", "SHA-384", "SHA-512"}`, checked at every event that consumes the
+ * algorithm and reported there.
+ *
+ * It ENSURES `generatedMessageDigest[this] after Get`, written in the bodies of the three
+ * `getInstance` events whose algorithm the clause admits, and `digested[output, _]` at the
+ * acceptance point over the array a digest call produced. DigestInputStreamSpec and
+ * DigestOutputStreamSpec read the first at their constructors, where their own rule REQUIRES
+ * it; nothing in this set reads the second.
+ *
+ * What it does not check: the rule's remaining CONSTRAINTS are the array-window clauses
+ * `length[preInput] >= preLen + preOffset`, `preOffset >= 0`, `preLen > 0`,
+ * `length[output] >= len + offset`, `offset >= 0` and `len > 0`, and no event of this file
+ * compares them. The rule's four `update` events are observed through one aggregate pointcut
+ * that binds no argument, so the arrays and windows those clauses speak about never reach a
+ * body that could compare them.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/MessageDigest.crysl
+ */
 MessageDigestSpec(MessageDigest digest) {
-    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // The envelope's quoting rule: a null value is the empty string,
     // a single quote is escaped so it cannot close the field early, and the value
     // is capped so a pathological argument cannot push the record past the
     // logcat payload limit.
@@ -25,17 +48,22 @@ MessageDigestSpec(MessageDigest digest) {
         return value.replace("'", "\\'");
     }
 
-    // D-15: the value oracle is the expert-validated rule, not the api30 catalogue.
-    // MessageDigest.crysl states `algorithm in {"SHA-256", "SHA-384", "SHA-512"}`; the three
-    // unhyphenated entries are the frozen jca's spelling variants of the same three, kept
-    // because comparison folds case and resolves aliases, so they change no verdict.
-    // `SHA-224` is NOT here: the platform offers it and the experts omit it (oracle-wart).
+    // CONSTRAINTS of MessageDigest.crysl: `algorithm in {"SHA-256", "SHA-384", "SHA-512"}`.
+    // Those three are the whole of what the clause admits, so a digest obtained for `MD5`,
+    // `SHA-1` or `SHA-224` is refused here, whatever the platform offers.
+    //
+    // The list carries three spellings the clause does not write -- `SHA256`, `SHA384` and
+    // `SHA512` -- and they admit nothing the clause refuses. The comparison runs through
+    // `ConscryptAliasTable.matches`, which folds case and resolves the provider's alias names
+    // before comparing: the table holds a `MessageDigest` row taking `SHA256` to `SHA-256`, and
+    // the same for 384 and 512, so a program that asks for an unhyphenated spelling resolves to
+    // the canonical name the clause states and is admitted either way.
     List<String> algorithms = Arrays.asList("SHA-256", "SHA-384", "SHA-512", "SHA256", "SHA384", "SHA512");
-    // MessageDigest.crysl:47-48 state `digested[output, _]` and `digested[output, input]`
-    // over the array the digest events produce, and a handler sees no event parameter, so
-    // the three events stage the array and the acceptance handler consumes it. Cleared on
-    // consumption, so an event whose digest the automaton did not accept leaves no
-    // marking behind for the next one.
+    // ENSURES `digested[output, _]` and `digested[output, input]` of MessageDigest.crysl, over
+    // the array a digest call produced. A handler sees no event parameter and runs after the
+    // transition is decided, so the three digest events stage the array here and the acceptance
+    // handler consumes it. Cleared on consumption, so an event whose digest the automaton did
+    // not accept leaves no marking behind for the next one.
     byte[] stagedDigested = null;
 
     // Set by the five creation events, `g1` to `g5`, the refused `g4` and `g5` included, and
@@ -55,30 +83,27 @@ MessageDigestSpec(MessageDigest digest) {
     // failure is the consequence of the refusal and not a wrong order the program chose.
     boolean creationRefused = false;
 
-	/*
-	getInstance events should not, by themselves, trigger UnsalfeAlgorithm errors. The reason is because the algorithm
-	is only actually executed during the encryption phase (i.e., in calls to digest() and update(), in the case of MD.)
-	Therefore, during the getInstance sub-graph, we only need to keep track of what is the latest algorithm that has
-	been instantiated.
-	 */
-	// `MessageDigest.crysl:46` states `generatedMessageDigest[this] after Get`, and the
-	// `after Get` is what fixes the site: the acceptance point is this transition, not the
-	// accepting state, which is the same reading -- inverted -- that puts `digested` in
-	// `@match` below (INV-INS-134). The predicate is what `DigestInputStream.crysl:33` and
-	// `DigestOutputStream.crysl:34` require, so without this write their reads could answer
-	// only NOT_OBSERVED, for every program, forever.
+	// `Get` of MessageDigest.crysl: `g1: getInstance(algorithm)`, the one-argument overload,
+	// under a guard that admits only an algorithm the CONSTRAINTS clause allows.
 	//
-	// It is written by `g1`, `g2` and `g3` and not by `g4` or `g5`. The three are the
-	// conforming route -- each guarded on `ConscryptAliasTable.matches` -- while `g4` and
-	// `g5` are the complementary events over the one- and two-argument pointcuts; `g4`'s
-	// body accuses MESSAGEDIGEST-ALG-02. Writing there would hand the stream rules a digest
-	// this specification refused, and CrySL ensures a predicate for a use that satisfied the
-	// rule.
+	// The body writes the rule's ENSURES `generatedMessageDigest[this] after Get`: the
+	// MessageDigest was obtained for an algorithm the rule admits. The `after Get` is what fixes
+	// the site -- the acceptance point of that clause is this transition and not the accepting
+	// state of the ORDER -- so the write sits in the event body and not in a handler. Two
+	// specifications read it, DigestInputStreamSpec and DigestOutputStreamSpec, each at its
+	// constructor, where `generatedMessageDigest[digest]` is what their own rule REQUIRES;
+	// without this write both of those reads could answer only NOT_OBSERVED, for every program.
 	//
-	// The `condition(...)` on these three is not the mistake INV-INS-133 names. That rule
-	// is about a clause whose violated side is silence; here the violated side is `g4`,
-	// which reports, and `g5`, whose digest is accused at its first digest event. The guard
-	// partitions the calls, it does not hide them.
+	// The write is made by `g1`, `g2` and `g3` and by neither `g4` nor `g5`. Those three are the
+	// admitted route, each guarded on `ConscryptAliasTable.matches`, and `g4` and `g5` are their
+	// complements over the same pointcuts. Writing there would hand the two stream
+	// specifications a digest this one refused, and a CrySL ENSURES speaks for a use that
+	// satisfied the rule.
+	//
+	// A `condition(...)` guard is the right shape at this event, unlike at the events below that
+	// check the algorithm in their body: the guard does not hide a call, it chooses between two
+	// events over the same call. Whichever way it goes the call is observed -- when `g1` declines
+	// it, `g4` takes it and reports -- so nothing drops out of the automaton silently.
 	event g1 after(String alg) returning(MessageDigest digest):
 	  call(public static MessageDigest MessageDigest.getInstance(String))
 	  && args(alg) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
@@ -86,6 +111,10 @@ MessageDigestSpec(MessageDigest digest) {
 	  PredicateStore.instance().ensure(Property.GENERATED_MESSAGE_DIGEST, digest);
 	}
 
+	// `Get` of MessageDigest.crysl: `g2: getInstance(algorithm, _)`, bound here to the
+	// `(String, String)` overload that names the provider. The same guard and the same write as
+	// `g1`: the body records the creation and establishes `generatedMessageDigest[this] after
+	// Get`, that the MessageDigest was obtained for an algorithm the rule admits.
 	event g2 after(String alg, String provider) returning(MessageDigest digest):
       call(public static MessageDigest MessageDigest.getInstance(String, String))
       && args(alg, provider) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
@@ -93,6 +122,11 @@ MessageDigestSpec(MessageDigest digest) {
 	  PredicateStore.instance().ensure(Property.GENERATED_MESSAGE_DIGEST, digest);
     }
 
+    // `Get` of MessageDigest.crysl: `g2: getInstance(algorithm, _)` again, bound to the
+    // `(String, Provider)` overload the platform declares beside the `(String, String)` one.
+    // The rule writes that second argument as `_` and does not tell the two apart, so this
+    // event carries the same guard and the same write as `g2`: `generatedMessageDigest[this]
+    // after Get`, that the MessageDigest was obtained for an algorithm the rule admits.
     event g3 after(String alg, Provider provider) returning(MessageDigest digest):
       call(public static MessageDigest MessageDigest.getInstance(String, Provider))
       && args(alg, provider) && condition(ConscryptAliasTable.matches("MessageDigest", alg, algorithms)) {
@@ -100,19 +134,14 @@ MessageDigestSpec(MessageDigest digest) {
     	PredicateStore.instance().ensure(Property.GENERATED_MESSAGE_DIGEST, digest);
     }
 
-	/*
-	We no longer throw errors after unsafe instantiation events, otherwise we would throw InvalidSequenceOfMethodCalls
-	in cases like (g3* g1 | g3* g2).
-	Not throwing here eliminates the InvalidSequenceOfMethodCalls false positive in bench02.BrokenHashABPSCase1
-	 */
-	// The guard reads the bound argument, not the monitor field. The field is
-	// initialised `""` and only `g1`/`g2` write it, so this guard held on a fresh
-	// monitor only because the generator emits `g1Event` ahead of `g4Event` on the
-	// shared pointcut, an order nothing in the tree asserts. Were it to invert, this
-	// body -- which does accuse, unlike its KeyGenerator twin -- would report every
-	// safe `getInstance` with the self-contradicting envelope `expecting one of
-	// SHA-256,... but found SHA-256`: the `but found .` signature task 8.16 repaired
-	// in the body `if` guards and did not reach inside a `condition()` clause.
+	// The complement of `g1` over the same one-argument pointcut, under the negated guard, so
+	// exactly one of the two events runs for any `getInstance(String)` the weaving reaches.
+	//
+	// The body reports the algorithm clause at once, under the code registered in `codes.csv`
+	// for this site, and records the creation as a refused one so the failure handler can tell
+	// it apart from a digest it never saw created. It writes no `generatedMessageDigest`: the
+	// digest it returns is one the clause does not admit, and the two stream specifications
+	// must not receive it as one the rule accepts.
 	event g4 after(String alg) returning(MessageDigest digest):
 	  call(public static MessageDigest MessageDigest.getInstance(String))
     	  && args(alg) && condition(!ConscryptAliasTable.matches("MessageDigest", alg, algorithms))
@@ -123,11 +152,10 @@ MessageDigestSpec(MessageDigest digest) {
               "v=1 code=MESSAGEDIGEST-ALG-02 ev=" + __EVENTNAME + " obj=MessageDigest val='" + q(alg) + "' exp='" + q(String.join(",", algorithms)) + "' msg='expecting one of " + String.join(",", algorithms) + " but found " + alg + "'"));
         }
 
-	// The refused twin of the rule's `getInstance(digestAlg, _)`, the overload `g2` and `g3`
-	// admit. `Object+` covers `(String, String)` and `(String, Provider)` in one pointcut, as
-	// `KeyStoreSpec.g3` records, and the guard is the negation of theirs. Without it a refused
-	// algorithm requested with a provider runs no body, and the digest's failure would read
-	// `creation-unobserved` although its creation ran in woven code.
+	// The complement of `g2` and `g3`: `Object+` covers `(String, String)` and
+	// `(String, Provider)` in one pointcut, and the guard is the negation of theirs. Without it
+	// a refused algorithm requested with a provider would run no body at all, and the digest's
+	// failure would read `creation-unobserved` although its creation ran in woven code.
 	//
 	// The body only records the creation. It does not report: the algorithm is accused where
 	// the digest is used, at `update`, `d1`, `d2` or `d3`, and the prefix `(g4 | g5)*` sends
@@ -140,9 +168,22 @@ MessageDigestSpec(MessageDigest digest) {
 	  creationRefused = true;
 	}
 
-	/*
-	It's inside the events that actually consume the algorithm that we catch UnsafeAlgorithm
-	 */
+	// `Update` of MessageDigest.crysl -- `u1: update(preInputByte)`, `u2: update(preInput)`,
+	// `u3: update(preInput, preOffset, preLen)` and `u4: update(preInputByteBuffer)` -- observed
+	// through one aggregate pointcut that binds no argument. The rule's window clauses over
+	// `preInput`, `preOffset` and `preLen` have no bound value to compare here and are not
+	// checked.
+	//
+	// What the body does check is the algorithm clause, `algorithm in {"SHA-256", "SHA-384",
+	// "SHA-512"}`, read off the digest itself. This is an event that consumes the algorithm --
+	// obtaining a digest computes nothing -- so this is where an algorithm outside the clause is
+	// reported, under the code registered in `codes.csv` for this site.
+	//
+	// The check sits in the event body and not in a `condition(...)` guard, and the difference
+	// is what the report says: a guard compiles to an early return ahead of both the body and
+	// the transition, so a call on an `MD5` digest would leave the automaton in the state it was
+	// in before the call, and the next call would be reported as a wrong call sequence instead
+	// of as the weak digest it is.
 	event update after(MessageDigest digest):
 	  call(void MessageDigest.update(..)) &&
 	  target(digest) {
@@ -153,24 +194,22 @@ MessageDigestSpec(MessageDigest digest) {
 		}
 	  }
 
-	/*
-	`digested[output, _]` (MessageDigest.crysl:47) and `digested[output, input]` (:48).
-	Neither clause carries an `after L`, so the acceptance point of both is the accepting
-	state, which in an `ere` is what `@match` names (INV-INS-134). Read off the generated
-	monitor, the three digest events all land in state 2 and the match category is
-	`nextstate == 2`, so the three sites share one acceptance point.
-
-	The first clause is two-place with the second place anonymous, and a projection onto
-	`out` is exactly what it asks -- the same reading `MACED` carries for `macced[M, D]`.
-	The second clause names both places, and this site writes one. The arity stays where
-	the seed had it, with the reason recorded in `predicate_graph.csv`: no rule of the
-	oracle requires `digested`, so there is no consumer whose arity this write has to meet.
-	 */
-	// Same case as `update` and `d2`: this event consumes the algorithm, so this is where
-	// an unsafe one is caught. Without the check the two-argument route was silent on
-	// value -- `getInstance("MD5", provider)` followed by a direct `digest()` matches `g2`
-	// and `d1`, neither of which looked at the algorithm, and the only report the sequence
-	// could draw was an ordering one it did not deserve.
+	// `DWU` of MessageDigest.crysl: `d1: output = digest()`, the overload that finalises what
+	// `update` contributed. It consumes the algorithm, so it carries the same clause check as
+	// `update`, under a code of its own: one CONSTRAINTS clause read at four events is four
+	// codes, because the report has to say which call it is about.
+	//
+	// The check sits in the body and not in a `condition(...)` guard for the reason it does at
+	// `update`: a guard compiles to an early return ahead of both the body and the transition,
+	// so a `digest()` on an `MD5` digest would leave the automaton in the state before the call
+	// and the next call would be reported as a wrong call sequence instead of as the weak digest
+	// it is. A guard would also lose the array -- `stagedDigested` is assigned below, and the
+	// ENSURES the acceptance point writes is about exactly that array.
+	//
+	// Without the check a value failure on this route would reach the report only as an ordering
+	// one: `getInstance("MD5", provider)` followed by a direct `digest()` runs `g5` and this
+	// event, a sequence the `ere` below refuses, so what the program would be told is that its
+	// call order is wrong rather than that its digest algorithm is.
 	event d1 after(MessageDigest digest) returning(byte[] out):
 	 call(public byte[] MessageDigest.digest()) &&
 	 target(digest) {
@@ -182,9 +221,13 @@ MessageDigestSpec(MessageDigest digest) {
 	    stagedDigested = out;
 	}
 
-	/*
-	Same case as update
-	 */
+	// `DWOU` of MessageDigest.crysl: `d2: output = digest(input)`, the overload that brings its
+	// own data and the one the ORDER admits with no `update` before it. It consumes the
+	// algorithm, so it carries the same clause check as `update` and `d1`, in the body and not
+	// in a `condition(...)` guard: a guard compiles to an early return ahead of both the body
+	// and the transition, so a call on an `MD5` digest would leave the automaton in the state
+	// before the call and the next call would be reported as a wrong call sequence instead of as
+	// the weak digest it is. The array the call returns is staged for the acceptance point.
 	event d2 after(MessageDigest digest) returning(byte[] out):
      call(public byte[] MessageDigest.digest(byte[])) &&
      target(digest) {
@@ -199,6 +242,13 @@ MessageDigestSpec(MessageDigest digest) {
     // The third consumption route, and the same check for the same reason. The code is a
     // site's and not a clause's: one CONSTRAINTS clause read at four events is four codes,
     // because the report has to say which call it is about.
+    //
+    // The rule names it `d3: digest(output, offset, len)`, inside `DWU`, and it is the one
+    // digest overload that writes into a buffer the caller owns. The rule constrains that
+    // window -- `length[output] >= len + offset`, `offset >= 0` and `len > 0` -- and this event
+    // compares none of the three: the two int positions are bound and unread. The array it
+    // stages for the acceptance point is the caller's buffer, which is what the rule's
+    // `digested[output, _]` names.
     event d3 after(byte[] out, int offset, int len, MessageDigest digest):
      call(public int MessageDigest.digest(byte[], int, int)) &&
      args(out, offset, len) &&
@@ -211,23 +261,29 @@ MessageDigestSpec(MessageDigest digest) {
        stagedDigested = out;
     }
 
-	/*
-	Allowing g3 followed by g1 or g2 will eliminate the Invalid SequenceOfMethodCalls false positive in
-	bench02.BrokenHashABPSCase1
-	*/
-	/*
-	`digested` is required by no rule of the oracle -- it appears there only as this
-	rule's own ENSURES, and the `digestedInputStream`/`digestedOutputStream` the stream
-	rules ensure are different predicates -- so it is one of the dead ends this change
-	disposes of by recording the omission rather than by fabricating a consumer
-	(INV-INS-137).
-
-	What leaves the two handlers besides is the accepting-state bookkeeping: the new store
-	does not offer it and the set never read it back (INV-INS-147). That is also why the
-	`MessageDigest md` field is gone -- those two calls were the only things that read it.
-	 */
+	// The rule's ORDER, `Get, (DWOU | (Update+, Digest))+`, with the refused creations allowed to
+	// precede an admitted one: `(g4 | g5)*` before `g1`, `g2` or `g3` lets a program ask for a
+	// digest the clause refuses and then ask again for one it admits, and the second request is
+	// the one the automaton runs on.
+	//
+	// `d2` stands alone on the left, as `DWOU` does in the rule, because it is the one digest
+	// call that brings its own data; `d1` and `d3` finalise what `update` contributed, so they
+	// require the `update+` the rule requires. The whole tail repeats, which is what the rule's
+	// trailing `+` says: one digest object may be used for several digests in turn.
+	//
+	// A program that only ever asks for a refused algorithm never leaves the prefix, so its first
+	// use of the digest fails the ordering. `@fail` separates that case by code rather than
+	// reporting it as a call order the program chose.
 	ere : ((g4 | g5)* g1 | (g4 | g5)* g2 | (g4 | g5)* g3) (d2 | (update+ (d1 | d2 | d3)))+
 
+	// Reached whenever the sequence observed so far is not a word of the `ere` above. Three
+	// codes, all registered in `codes.csv`, told apart by the two creation fields: a digest
+	// whose creation no event of this specification saw -- one obtained through `clone()` is
+	// such a digest -- is reported as an unobserved creation; a digest whose algorithm the
+	// clause refused is reported as a refused creation, because its ordering failure follows
+	// from that refusal and is not an order the program chose; anything else is reported as a
+	// call sequence the specification does not accept. The staged array is dropped here, so a
+	// digest call the automaton refused marks nothing.
 	@fail {
            if (!creationObserved) {
                ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "MessageDigestSpec", "" + __LOC,
@@ -245,6 +301,18 @@ MessageDigestSpec(MessageDigest digest) {
            __RESET;
 	}
 
+	// ENSURES `digested[output, _]` and `digested[output, input]` of MessageDigest.crysl.
+	// Neither clause carries an `after L`, so the acceptance point of both is an accepting state
+	// of the ORDER, which in an `ere` is where this handler runs. The write establishes that the
+	// bytes are the digest a monitored MessageDigest produced.
+	//
+	// It takes the array `d1`, `d2` or `d3` staged, because a handler receives no event
+	// parameter and runs after the transition is decided. Writing here and not in the event
+	// bodies is what keeps a digest call the automaton refused from marking anything.
+	//
+	// One place is recorded, the output, and the second is left off: no rule of this set
+	// REQUIRES `digested`, so there is no reader whose arity this write has to meet, and nothing
+	// consumes what it records.
 	@match {
            if (stagedDigested != null) {
                PredicateStore.instance().ensure(Property.DIGESTED, stagedDigested);

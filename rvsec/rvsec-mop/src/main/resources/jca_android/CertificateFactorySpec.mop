@@ -12,16 +12,26 @@ import br.unb.cic.mop.Property;
 import br.unb.cic.mop.jca.util.ConscryptAliasTable;
 
 /**
- * CertificateFactory
+ * CertificateFactorySpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.cert.CertificateFactory.
+ * Monitors java.security.cert.CertificateFactory against the CrySL rule
+ * CertificateFactory.crysl.
+ * The rule orders `Get, (GenCert | GenCertPath | GenCRL)+`: a factory is obtained through
+ * `getInstance` and then used at least once, to generate a certificate, a certification path
+ * or a CRL. It constrains the factory type with `type in {"X509", "X.509"}` and the
+ * certification-path encoding with `encoding in {"PKCS7", "PkiPath"}`, and it ENSURES
+ * `generatedCert[type]`, which this specification writes at its acceptance point.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/CertificateFactory.crysl
+ * Every clause of the rule has a site here. The reach of the monitor is narrower than the
+ * rule's subject: a factory the application obtains where the weaving does not reach arrives
+ * at its first generate call with no creation observed, and that call is reported under the
+ * `creation-unobserved` code rather than under the type clause it never had a chance to check.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/CertificateFactory.crysl
  */
 CertificateFactorySpec(CertificateFactory f) {
 
-   // The envelope's quoting rule (design D-3).
+   // The report envelope's quoting rule.
    private String q(String str) {
        if (str == null) {
            return "";
@@ -30,25 +40,41 @@ CertificateFactorySpec(CertificateFactory f) {
        return value.replace("'", "\\'");
    }
 
-   // CertificateFactory.crysl:27, transcribed. Both spellings are the rule's own; the alias
-   // table resolves `X509` to `X.509` for this service and an alias never enters the list it
-   // resolves against.
+   // CONSTRAINTS of CertificateFactory.crysl: `type in {"X509", "X.509"}`, transcribed. Both
+   // spellings are the rule's own, so each is matched by its own entry. `ConscryptAliasTable`
+   // resolves `X.509` to `X509` for this service, which decides nothing about admission here --
+   // both names are on the list either way -- but does fix the spelling the type is stored
+   // under at the acceptance point.
    List<String> safeTypes = Arrays.asList("X509", "X.509");
 
-   // CertificateFactory.crysl:28. The clause is about the `encoding` of `gen2` alone --
-   // the rule binds the name in no other event -- so it is checked where that argument
-   // exists and nowhere else.
+   // CONSTRAINTS of CertificateFactory.crysl: `encoding in {"PKCS7", "PkiPath"}`. The clause
+   // is about the `encoding` that only `gen2: generateCertPath(inStream, encoding)` binds --
+   // the rule binds the name in no other event -- so it is checked where that argument exists
+   // and nowhere else.
    List<String> safeEncodings = Arrays.asList("PKCS7", "PkiPath");
 
-   // Staged by `get` for the acceptance-point write, which sees no event parameter.
+   // The type string, held in its canonical spelling and staged by `get` for the
+   // acceptance-point write: a handler receives no event arguments and runs after the
+   // transition is decided, so the value the creating call was made with has to travel in a
+   // field.
    String type = null;
 
    // Set by the creation event `get`. The generated `reset()` does not clear it, so every
    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // `Get := g1 | g2` (:9-11), fused on the zeroth position. api30 declares three
-   // overloads and all three are the rule's `Get`.
+   // `Get := g1 | g2` of CertificateFactory.crysl: `g1: getInstance(type)` and
+   // `g2: getInstance(type, _)`. The platform declares three `getInstance` overloads and all
+   // three are the rule's `Get`, so one event fuses them on the zeroth position, which is the
+   // only argument any clause names.
+   //
+   // The type clause is checked in the event body and not in a `condition(...)` guard: a guard
+   // compiles to an early return ahead of both the body and the transition, so a factory
+   // obtained for a type the rule refuses would stay outside the automaton and its first
+   // generate call would be reported as a wrong call sequence instead of as the rejected type
+   // it is. A type outside the list is reported under the code registered in `codes.csv` for
+   // this site; the canonical spelling is staged either way, since the ENSURES clause is about
+   // the type the factory was asked for.
    event get after(String t) returning(CertificateFactory f):
      ( call(public static CertificateFactory CertificateFactory.getInstance(String)) ||
        call(public static CertificateFactory CertificateFactory.getInstance(String, String)) ||
@@ -62,31 +88,42 @@ CertificateFactorySpec(CertificateFactory f) {
        }
    }
 
-   // `gc1: generateCertificate(inStream)` (:13), the whole of `GenCert`. The rule states no
-   // clause about this call beyond its position in the ordering, so the body is empty and
-   // that is the rule speaking.
+   // `GenCert := gc1` of CertificateFactory.crysl: `gc1: generateCertificate(inStream)`. The
+   // rule states no clause about this call beyond its position in the ordering, so the body is
+   // empty and that is the rule speaking, not an omission.
    event genCert after(InputStream inStream, CertificateFactory f) returning(Certificate cert):
      call(public Certificate CertificateFactory.generateCertificate(InputStream)) &&
      args(inStream) && target(f) {
    }
 
-   // `GenCertPath := gen1 | gen2` (:16-18). The rule's `gen1` is `generateCertPath(_)` with
-   // an anonymous argument, which api30 spells in two ways -- over an `InputStream` and over
-   // a `List` -- and `gen2` is `generateCertPath(inStream, encoding)`, the only one whose
-   // second argument a clause names. So the two-argument overload gets an event of its own
-   // and the two one-argument overloads share one: fusing all three would leave the encoding
-   // to be bound by a wildcard, which the trace harness's resolver reads as *any argument*
-   // and which would put the value check on calls that make no encoding claim.
+   // `GenCertPath := gen1 | gen2` of CertificateFactory.crysl, the one-argument half:
+   // `gen1: generateCertPath(_)`, whose argument the rule leaves anonymous and which the
+   // platform spells in two ways, over an `InputStream` and over a `List`. Both are matched
+   // here, and the body is empty because no clause names what they bind.
+   //
+   // `gen2: generateCertPath(inStream, encoding)` gets an event of its own, because its second
+   // argument is the one a clause names: fusing all three overloads would leave the encoding to
+   // be bound by a wildcard, which the trace harness's resolver reads as *any argument* and
+   // which would put the value check on calls that make no encoding claim.
    event genCertPath after(Object source, CertificateFactory f) returning(CertPath path):
      ( call(public CertPath CertificateFactory.generateCertPath(InputStream)) ||
        call(public CertPath CertificateFactory.generateCertPath(java.util.List))
      ) && args(source) && target(f) {
    }
 
-   // `gen2: generateCertPath(inStream, encoding)` (:17) and the site of the encoding
-   // CONSTRAINT (:28). The check is in the body with an accuser on the violated branch
-   // (INV-INS-152); in a `condition(...)` it would suppress the transition and the call
-   // would be accused of nothing (INV-INS-133).
+   // `gen2: generateCertPath(inStream, encoding)` of CertificateFactory.crysl and the one site
+   // of the encoding clause, `encoding in {"PKCS7", "PkiPath"}`. The check sits in the event
+   // body and not in a `condition(...)` guard: a guard compiles to an early return ahead of
+   // both the body and the transition, so a path generated with an encoding the rule refuses
+   // would drop out of the automaton silently and the next call on the factory would be
+   // reported as a wrong call sequence instead of as the rejected encoding it is. A null
+   // encoding and one outside the list are reported alike, under the code registered in
+   // `codes.csv` for this site.
+   //
+   // This is the one allow-list of the file compared with `List.contains` rather than through
+   // `ConscryptAliasTable`, so the match is case-sensitive: `pkcs7` is reported and `PKCS7` is
+   // not. The names are encodings of a certification path and not algorithm names a provider
+   // registers, so the table holds no row that could resolve a spelling of them.
    event genCertPathEncoded after(InputStream inStream, String encoding, CertificateFactory f) returning(CertPath path):
      call(public CertPath CertificateFactory.generateCertPath(InputStream, String)) &&
      args(inStream, encoding) && target(f) {
@@ -96,20 +133,25 @@ CertificateFactorySpec(CertificateFactory f) {
        }
    }
 
-   // `gcrl1: generateCRL(inStream)` (:20), the whole of `GenCRL`. No clause of the rule
-   // names anything this call binds.
+   // `GenCRL := gcrl1` of CertificateFactory.crysl: `gcrl1: generateCRL(inStream)`. No clause
+   // of the rule names anything this call binds, so the body is empty.
    event genCrl after(InputStream inStream, CertificateFactory f) returning(CRL crl):
      call(public CRL CertificateFactory.generateCRL(InputStream)) &&
      args(inStream) && target(f) {
    }
 
-   // The rule's ORDER, `Get, (GenCert | GenCertPath | GenCRL)+` (:24). The `+` is the
-   // rule's: a factory obtained and never used is a sequence the rule refuses, and the R4
-   // lesson is checked -- no event of this alternation erases to nothing against the rule's
-   // alphabet, because each of the four stands for a labelled event of the rule and none is
-   // a negated twin.
+   // The rule's ORDER, `Get, (GenCert | GenCertPath | GenCRL)+`, transcribed. The `+` is the
+   // rule's own: a factory obtained and never used is a sequence the rule refuses. Each of the
+   // four symbols of the alternation stands for a labelled event of the rule and none of them
+   // erases to nothing against the rule's alphabet, so no accepted trace here is one the rule
+   // reads as empty.
    ere : get (genCert | genCertPath | genCertPathEncoded | genCrl)+
 
+   // A call sequence the ORDER refuses: a generate call on a factory whose `getInstance` this
+   // monitor never saw, or a factory obtained and used in an order the rule does not admit. A
+   // monitor that saw the creation reports the plain wrong-sequence code; one that saw none
+   // reports the `creation-unobserved` code, which is what a factory built where the weaving
+   // does not reach draws at its first use.
    @fail {
       if (!creationObserved) {
           ErrorCollector.instance().addError(new ErrorDescription(ErrorType.InvalidSequenceOfMethodCalls, "CertificateFactorySpec", "" + __LOC,
@@ -122,14 +164,22 @@ CertificateFactorySpec(CertificateFactory f) {
       __RESET;
    }
 
-   // `ENSURES generatedCert[type]` (:31), with no `after L`, so the acceptance point is the
-   // accepting state (INV-INS-134). The clause's one position is the TYPE STRING and not the
-   // factory or the certificate, which is what the rule writes; the predicate is therefore
-   // stored over the string, at arity 1.
+   // ENSURES `generatedCert[type]`: the certificate was produced by a factory obtained for this
+   // type and observed by the instrumentation. The clause carries no `after L`, so its
+   // acceptance point is an accepting state of the ORDER, which in an `ere` is where this
+   // handler runs.
    //
-   // No rule of the pinned oracle REQUIRES `generatedCert`. The write stands because the
-   // rule ENSURES it and coverage is the obligation; no reader is fabricated (INV-INS-137)
-   // and the graph carries the omission.
+   // The clause's one position is the TYPE STRING and not the factory or the certificate,
+   // which is what the rule writes, so the predicate is stored over the string at arity 1, in
+   // the canonical spelling `get` staged. The store compares a bound object by identity
+   // whatever its type, so the mark answers for the very string instance recorded here.
+   //
+   // The write is not gated on the type clause: a factory of a type the rule refuses that is
+   // then used reaches this handler like any other, and what the mark records is the type a
+   // factory was obtained for and used. The rejected type is accused once, at `get`.
+   //
+   // No rule of the set REQUIRES this predicate, so the write stands for coverage of the rule
+   // and no reader consumes it.
    @match {
       if (type != null) {
           PredicateStore.instance().ensure(Property.GENERATED_CERT, type);

@@ -11,12 +11,11 @@ package br.unb.cic.mop.eh;
  *
  * <p>
  * {@code ForbiddenMethod} is the type of a CrySL {@code FORBIDDEN} clause — a per-call
- * prohibition, not a predicate and not a sequencing rule. {@code jca_android}'s
- * {@code PBEKeySpecSpec} encodes the two {@code FORBIDDEN} constructors the pinned expert
- * {@code PBEKeySpec.crysl:9-11} declares — {@code PBEKeySpec(char[])} and
- * {@code PBEKeySpec(char[],byte[],int)}, both {@code => Con}. Before this type existed they
- * reported {@code InvalidSequenceOfMethodCalls}, which sent the reader hunting for a missing
- * call when the finding is the constructor itself.
+ * prohibition, not a predicate and not a sequencing rule. {@code PBEKeySpecSpec} reports it for
+ * the two constructors the {@code FORBIDDEN} section of {@code PBEKeySpec.crysl} declares,
+ * {@code PBEKeySpec(char[]) => Con} and {@code PBEKeySpec(char[],byte[],int) => Con}. The
+ * finding at such a call is the constructor itself, so typing it
+ * {@code InvalidSequenceOfMethodCalls} would send the reader hunting for a missing call.
  *
  * <p>
  * There is deliberately no {@code RequiredPredicate}. Every predicate-guarded accuser of the set

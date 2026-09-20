@@ -9,15 +9,27 @@ import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
- * PBEParameterSpec
+ * PBEParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.crypto.spec.PBEParameterSpec.
+ * Monitors javax.crypto.spec.PBEParameterSpec against the CrySL rule PBEParameterSpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/PBEParameterSpec.crysl
+ * The rule's ORDER is the single label `Con`, with `Con := c1 | c2` over the two constructors,
+ * so the only sequence this specification accepts is one construction. It checks the rule's one
+ * CONSTRAINTS clause, `iterationCount >= 10000`, at both constructors; it REQUIRES
+ * `randomized[salt]`, read at both; and it ENSURES `preparedPBE[this]`, written at the
+ * acceptance point. The predicate has a reader in this set: AlgorithmParametersSpec.mop reads
+ * it at `init`, under the guard of the PBE algorithm names its own rule lists.
+ *
+ * The `@fail` handler cannot fire: both events lead from the initial state to the accepting
+ * one, and a monitor of this specification is keyed on the constructed object, so it never
+ * sees a second event.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/PBEParameterSpec.crysl
  */
 PBEParameterSpecSpec(PBEParameterSpec s) {
 
+        // The constructed spec, staged by the conforming branch of either constructor for the
+        // ENSURES write at `@match`: a handler receives no event arguments.
         PBEParameterSpec spec;
 
         // Set by the two creation events, `c1` and `c2`, whatever they report, and never
@@ -26,35 +38,33 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
         // (`creation-unobserved`) and the wrong-sequence code.
         boolean creationObserved = false;
 
-        // One event over `PBEParameterSpec(byte[], int)`, where there used to be two
-        // split by the sign of a guard. The negated twin `c3` matched the same call
-        // with the same `args(salt, iterationCount)` and named no state in the `ere`,
-        // so one bad construction drew two reports: a constraint report from its body
-        // and a PBEPARAMETERSPEC-ORDER-00 about an ordering the rule accepts, because
-        // the generator gives an event absent from the automaton a transition row that
-        // sends every state to the fail state. The rule's ORDER is `Cons` with
-        // `Cons := c1 | c2`: constructing a PBEParameterSpec is the whole of the
-        // ordering, and neither the iteration count nor the salt may govern the
-        // transition -- the count is a CONSTRAINTS clause and the salt a REQUIRES
-        // predicate.
+        // `Con`: `c1: PBEParameterSpec(salt, iterationCount)`, one of the two alternatives of
+        // the rule's only ordering label.
         //
-        // The body decomposes per clause, one report each, where the fusion first
-        // wrote a single report over the disjunction the twin carried. The two halves
-        // are two clauses of two different sections of the rule, and a composite site
-        // is only admitted for probes of *one* clause: with both halves broken there
-        // was no consistent code to file the report under, so the message named both
-        // and the reader could not tell which had failed.
+        // CONSTRAINTS `iterationCount >= 10000`, checked first in the body. A lower count draws
+        // the constraint code registered in `codes.csv` for this site and clears `conforms`.
         //
-        // The salt read is three-valued, and the two accusing outcomes are different
-        // claims. VIOLATED is positive evidence that the array carries a randomisation
-        // predicate that was withdrawn; NOT_OBSERVED says only that no randomised
-        // source of it was ever seen -- on Android as often a reach limit of the
-        // instrumentation as a misuse. The message this site used to emit was already
-        // the second one; the split makes the code say what the message meant.
+        // REQUIRES `randomized[salt]`: the object came from a SecureRandom the instrumentation
+        // observed -- the generator itself, or bytes it produced. The read is three-valued and
+        // the two accusing verdicts are different claims. SATISFIED is silent. VIOLATED is
+        // positive evidence about this array -- an entry exists and is not what the clause
+        // demands -- and draws the constraint code. NOT_OBSERVED means no entry at all: no
+        // randomised source of this array was ever seen, which on this platform is as often a
+        // limit of what the weaving reaches as a misuse, so it draws a code of its own. The
+        // array is compared by identity, so only the very array a monitored SecureRandom filled
+        // carries the mark; a copy of it does not.
         //
-        // The write stays behind the check: `spec` is bound only when every clause
-        // holds, because `@match` turns `spec` into `preparedPBE[this]` and CrySL
-        // ensures a predicate only for a use that satisfied the rule.
+        // Both checks sit in the event body and not in a `condition(...)` guard: a guard
+        // compiles to an early return ahead of both the body and the transition, so a
+        // construction with a low count or an unwatched salt would leave the automaton in the
+        // state before the constructor and the next call would be reported as a wrong call
+        // sequence instead of as the misuse it is. Neither the count nor the salt may decide
+        // whether the constructor happened -- one is a CONSTRAINTS clause, the other a REQUIRES
+        // predicate, and the rule's ordering is the construction alone.
+        //
+        // `spec` is staged only where both clauses held, because `@match` turns it into
+        // `preparedPBE[this]` and CrySL establishes a predicate only for a use that satisfied
+        // the rule.
         event c1 after(byte[] salt, int iterationCount) returning(PBEParameterSpec s):
           call(public PBEParameterSpec.new(byte[], int)) &&
           args(salt, iterationCount) {
@@ -81,30 +91,23 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
               }
         }
 
-        // The three-argument constructor, which the rule states as its own event `c2`
-        // puts in the same `Cons` alternative as `c1`. It carried, until this pass, the
-        // guard `c1` carried before the fusion -- the same conjunction, character for
-        // character -- and a guard on this event is not the harmless thing it looks
-        // like. Measured in this file's own generated monitor: `Prop_1_event_c2` opened
-        // with `if (!(iterationCount >= 10000 && <read>)) return false;` *ahead* of
-        // `handleEvent`, so a construction that broke either clause took no transition,
-        // reached no accepting state and was accused of nothing at all. Three traces
-        // written for this pass measure that silence on both snapshots: a plain salt, a
-        // count of 1000, and both together produced not one report from the seed.
+        // `Con`: `c2: PBEParameterSpec(salt, iterationCount, params)`, the other alternative of
+        // the same label. The rule binds the salt and the count in both events, so this overload
+        // checks the same CONSTRAINTS clause `iterationCount >= 10000` and the same REQUIRES
+        // `randomized[salt]` as the two-argument one, under codes of its own because a code
+        // names a site. The `params` argument binds no clause of the rule and is not read here.
         //
-        // So the guard leaves whole, and the body says what the rule says, exactly as
-        // `c1` does. The count is a CONSTRAINTS clause and the salt a REQUIRES
-        // predicate; neither may decide whether the constructor happened. Keeping the
-        // count as a guard was the alternative, and it is admitted for CONSTRAINTS
-        // checks in general -- but here it would have left the read this pass moves out
-        // of the guard sitting behind a second guard that suppresses the same
-        // transition, and the file would have accused a two-argument construction of a
-        // low count while staying silent about the identical three-argument one.
+        // `randomized[salt]`: the object came from a SecureRandom the instrumentation observed
+        // -- the generator itself, or bytes it produced. SATISFIED is silent; VIOLATED is
+        // positive evidence about this array and draws the constraint code; NOT_OBSERVED means
+        // no randomised source of it was ever seen, and draws a code of its own, because an
+        // array whose producer the weaving never reached is not a misuse.
         //
-        // This is the site the rule's own REQUIRES clause is about and the site that
-        // had no accuser of its own: the twin the fusion deleted bound only the
-        // two-argument constructor, so a three-argument construction with an
-        // unrandomised salt was never anybody's report. It gains one here.
+        // Both checks sit in the body and not in a `condition(...)` guard, and here that
+        // placement is what makes the site accuse at all: a guard compiles to an early return
+        // ahead of both the body and the transition, so a construction that broke either clause
+        // would take no transition, reach no accepting state and be accused of nothing, while
+        // the identical two-argument construction would be reported.
         event c2 after(byte[] salt, int iterationCount, AlgorithmParameterSpec paramSpec) returning(PBEParameterSpec s):
           call(public PBEParameterSpec.new(byte[], int, AlgorithmParameterSpec)) &&
           args(salt, iterationCount, paramSpec) {
@@ -131,6 +134,12 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
               }
         }
 
+        // `ORDER Con` with `Con := c1 | c2`: constructing a PBEParameterSpec is the whole of the
+        // ordering this specification observes, so the `@fail` handler below cannot fire. Both
+        // events lead from the initial state to the accepting one, and a monitor is keyed on the
+        // constructed object, so it never sees a second event. The handler is written because
+        // the generator expects one and each of its branches carries its own code in
+        // `codes.csv`.
         ere : c1 | c2
 
         @fail {
@@ -145,26 +154,20 @@ PBEParameterSpecSpec(PBEParameterSpec s) {
           __RESET;
         }
 
-        // The one place the rule's `ENSURES preparedPBE[this]` may be written. The rule
-        // states the clause (PBEParameterSpec.crysl:23) without an `after L`
-        // qualification, so its acceptance point
-        // is the accepting state itself, which in an `ere` is exactly what `@match`
-        // names -- unlike the sibling PBEKeySpec rule, whose `after c1` names a state
-        // an `ere` cannot address. The monitor field is what carries the object here:
-        // a handler sees no event arguments, and the field is bound only by the
-        // conforming branch of either constructor, so a construction that broke a
-        // clause reaches this handler with nothing bound and the call is a no-op.
+        // ENSURES `preparedPBE[this]`: the PBEParameterSpec carries a salt and an iteration
+        // count the rule admits, and its salt came from a source the instrumentation observed.
+        // The clause carries no `after L`, and the rule's ORDER is the single `Con`, so it holds
+        // wherever the object's use so far is a complete conforming call sequence -- the
+        // accepting state, which in an `ere` is exactly what `@match` names.
         //
-        // `preparedPBE` is written here and READ. The sentence that stood here -- that the
-        // predicate is "required by no rule of the oracle" and "appears exactly once, as
-        // this rule's own ENSURES" -- was false when it was written:
-        // `AlgorithmParameters.crysl:37-39` requires it, guarded by the eight
-        // `PBEWithHmacSHA*AndAES_*` names, and gh109 task 3.1 landed the specification that
-        // reads it, at `AlgorithmParametersSpec.mop:161`. The dead-end disposition this
-        // block recorded is retired with it; `predicate_graph.csv` carries the live edge.
+        // The object is staged: a handler receives no event arguments and runs after the
+        // transition is decided, so the constructor event put the spec in a field, and put it
+        // there only on its conforming branch. A construction that broke a clause reaches this
+        // handler with nothing staged, and `ensure` treats a null binding as a no-op.
         //
-        // The accepting-state bookkeeping that stood beside this write is gone: the new
-        // substrate does not offer it, and the set never read it (INV-INS-147).
+        // The predicate is read: `AlgorithmParameters.crysl` REQUIRES
+        // `algorithm in {"PBEWithHmacSHA224AndAES_128", ...} => preparedPBE[paramSpec]`, and
+        // AlgorithmParametersSpec.mop reads it at `init` under that algorithm guard.
         @match {
           PredicateStore.instance().ensure(Property.PREPARED_PBE, spec);
         }

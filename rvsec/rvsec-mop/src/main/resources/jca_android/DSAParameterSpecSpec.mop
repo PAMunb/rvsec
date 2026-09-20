@@ -8,51 +8,66 @@ import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 
 /**
- * DSAParameterSpec
+ * DSAParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.spec.DSAParameterSpec.
+ * Monitors java.security.spec.DSAParameterSpec against the CrySL rule DSAParameterSpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/DSAParameterSpec.crysl
+ * The rule's ORDER is `Con`, with `Con := c1` naming its one event, the three-argument
+ * constructor, so a single construction is already a complete, conforming call sequence. What the
+ * specification checks are the rule's two CONSTRAINTS clauses, `p >= 1^2048;` and `g >= 1^2048;`,
+ * read in that constructor event. It REQUIRES no predicate and ENSURES one, `preparedDSA[this]`,
+ * written for the constructed spec at the accepting state.
+ *
+ * The two clauses are enforced as a floor of 2048 bits on the bit length of the prime modulus and
+ * of the generator. CrySL has no exponentiation operator, so `1^2048` read as written is the
+ * constant 1 and the clause would admit every positive value; what runs here is the 2048-bit floor
+ * the clause states for finite-field DSA domain parameters.
+ *
+ * The monitor reaches only constructions the weaving instrumented. A spec built inside a library
+ * or inside the platform carries no preparedDSA, and the specification that reads the predicate
+ * answers NOT_OBSERVED for it rather than VIOLATED, so code whose producer was never observed is
+ * not accused.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/DSAParameterSpec.crysl
  */
 DSAParameterSpecSpec(DSAParameterSpec s) {
 
-   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   // Bound only on the conforming branch, which is what carries the object to `@match`: a handler
+   // receives no event arguments and runs after the transition has been decided, so the event that
+   // saw the constructed object stages it here and the handler reads the field.
    DSAParameterSpec spec;
 
    // Set by the creation event `c1`. The generated `reset()` does not clear it, so every
    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // The rule's one event, `c1: DSAParameterSpec(p, q, g)` (:9), and the whole of its
-   // ORDER. api30 declares exactly this constructor.
+   // `c1` of DSAParameterSpec.crysl: `c1: DSAParameterSpec(p, q, g);`, which is the whole of
+   // `Con := c1`. The platform declares exactly this constructor, so there is no other overload to
+   // bind.
    //
-   // The two CONSTRAINTS clauses are `p >= 1^2048` and `g >= 1^2048`
-   // (DSAParameterSpec.crysl:16-17), and they are transcribed as *bit length at least
-   // 2048*, which is a recorded decision and not a transcription (D-20.4, with an
-   // `oracle-wart` row against `tools/rules/DSAParameterSpec.crysl`). CrySL has no
-   // exponentiation operator: read as written, `1^2048` is the constant 1 and the clause
-   // admits every positive modulus, which is not a constraint anyone wrote on purpose. The
-   // evident intent is the 2048-bit floor the literature states for finite-field DSA, and
-   // that is what runs here. The rule itself is never edited (D-21).
+   // The two CONSTRAINTS clauses, `p >= 1^2048;` and `g >= 1^2048;`, are both read in this body.
+   // Each is enforced as a floor of 2048 bits on the bit length of the value: CrySL has no
+   // exponentiation operator, so `1^2048` read as written is the constant 1 and the clause would
+   // admit every positive modulus, which is no constraint at all.
    //
-   // The clause over `g` reads oddly and is transcribed anyway: a generator is not a key
-   // size, and requiring it to be a 2048-bit number is a statement about the domain
-   // parameters and not about the strength of anything. It is the rule's clause, stated
-   // beside the one over `p` in the same words, so it gets the same reading and the same
-   // report family. Both report `UnsatisfiedConstraint` under `CONSTR` rather than
-   // `InvalidKeySize` under `KEYSIZE`, because only one of the two is a key size and
-   // splitting the pair across two families would tell the reader the rule said two
-   // different kinds of thing where it said one thing twice.
+   // The clause over `g` reads oddly and is enforced anyway: a generator is not a key size, and
+   // requiring it to be a 2048-bit number is a statement about the domain parameters and not about
+   // the strength of anything. It is the rule's clause, stated beside the one over `p` in the same
+   // words, so it gets the same reading and the same report family. Both report
+   // `UnsatisfiedConstraint` under the `CONSTR` family rather than `InvalidKeySize` under
+   // `KEYSIZE`, because only one of the two is a key size and splitting the pair across two
+   // families would tell the reader the rule said two different kinds of thing where it said one
+   // thing twice. Each site has its own code in `codes.csv`.
    //
-   // The subprime `q` is bound because `args(...)` is positional and the two clauses sit
-   // on either side of it; no clause of the rule reads it.
+   // The subprime `q` is bound because `args(...)` is positional and the two clauses sit on either
+   // side of it; no clause of the rule reads it.
    //
-   // Neither clause guards the transition. A `condition(...)` compiles to
-   // `if (!(guard)) return false;` ahead of the body and the transition (INV-INS-133), so a
-   // spec built with a short modulus would take no transition and be accused of nothing.
-   // The two clauses accumulate rather than short-circuit, so a program that got both wrong
-   // hears about both.
+   // Neither clause guards the transition. A `condition(...)` guard compiles to
+   // `if (!(guard)) return false;` ahead of both the body and the transition, so a spec built with
+   // a short modulus would take no transition, reach no accepting state and be accused of nothing.
+   // The two clauses accumulate rather than short-circuit, so a program that got both wrong hears
+   // about both. A null argument is treated as a violation and reported with a bit length of 0,
+   // since the constructor accepts the reference and the clause cannot hold for it.
    event c1 after(BigInteger p, BigInteger subprime, BigInteger g) returning(DSAParameterSpec s):
      call(public DSAParameterSpec.new(BigInteger, BigInteger, BigInteger)) &&
      args(p, subprime, g) {
@@ -73,10 +88,11 @@ DSAParameterSpecSpec(DSAParameterSpec s) {
        }
    }
 
-   // `Con := c1` is the whole ORDER (:12-13), so the `@fail` handler cannot fire: one
-   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
-   // no monitor ever sees a second event. Written because the generator and the
-   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:158-170`).
+   // `Con := c1` is the whole ORDER, so this automaton has one symbol and the `@fail` handler
+   // below cannot fire: the transition row the generator derives is {1, 2, 2}, and the monitor is
+   // keyed on the constructed object, so no monitor of this specification ever sees a second event
+   // and state 2 is never entered. The handler is written anyway, because the generator expects
+   // one and its two codes are registered in `codes.csv` like every other site.
    ere : c1
 
    @fail {
@@ -91,15 +107,21 @@ DSAParameterSpecSpec(DSAParameterSpec s) {
       __RESET;
    }
 
-   // `ENSURES preparedDSA[this]` (:20) carries no `after L`, so the acceptance point is the
-   // accepting state, which in an `ere` is `@match` (INV-INS-134). `spec` is bound only by
-   // the conforming branch and `ensure` treats a null binding as a no-op.
+   // ENSURES `preparedDSA[this];`: the clause carries no `after L`, so it holds wherever the
+   // object's use so far is a complete, conforming call sequence -- the accepting state of the
+   // ORDER, which in an `ere` is exactly where the `@match` handler runs. The predicate says: the
+   // `DSAParameterSpec` carries a modulus and generator the rule admits. It is bound to the spec
+   // and has no value place, so the consumer asks for nothing but the object.
    //
-   // The read that closes this write is `KeyPairGenerator.crysl:36`,
-   // `algorithm in {"DSA"} => preparedDSA[params]`, wired at task 1b.1. The rule's sibling
-   // producer, `DSAGenParameterSpec.crysl:25`, is not specified at all: its class appears
-   // only from API 35, so its rule ends N/A-by-platform in the coverage matrix and this
-   // file is the predicate's only producer on this platform.
+   // The object arrives through the `spec` field, because a handler receives no event arguments;
+   // `ensure` returns at once for a null binding, so only a construction that satisfied both
+   // clauses is prepared.
+   //
+   // `KeyPairGeneratorSpec` reads this predicate for the spec it is initialised with, under
+   // `REQUIRES` `algorithm in {"DSA"} => preparedDSA[params];` of KeyPairGenerator.crysl; a spec
+   // that prepared nothing reaches it as NOT_OBSERVED. This file is the predicate's only producer
+   // in the set: the rule's sibling producer is stated over a class the platform this set targets
+   // does not declare, so no specification of the set transcribes it.
    @match {
       PredicateStore.instance().ensure(Property.PREPARED_DSA, spec);
    }

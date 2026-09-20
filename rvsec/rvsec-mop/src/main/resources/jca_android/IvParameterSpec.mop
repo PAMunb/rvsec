@@ -8,64 +8,64 @@ import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
- * IvParameterSpec
+ * IvParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.crypto.spec.IvParameterSpec.
+ * Monitors javax.crypto.spec.IvParameterSpec against the CrySL rule IvParameterSpec.crysl.
+ * The rule's ORDER is `Con` alone, and `Con := c1 | c2`, so constructing the spec is the whole
+ * call sequence this specification observes. At both constructors it reads the one REQUIRES
+ * clause `randomized[iv];` over the IV bytes, and at its acceptance point it writes the one
+ * ENSURES clause `preparedIV[this];` -- but only for a construction whose read answered
+ * SATISFIED, so an IV of unobserved origin produces no preparation.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/IvParameterSpec.crysl
+ * Of the rule's three CONSTRAINTS clauses only one carries a report, and that is behaviour:
+ *
+ *  - `offset >= 0;` and `length[iv] >= offset + len;` are conditions the constructor rejects
+ *    with an exception before it can return, and the events are `after ... returning` advice,
+ *    so no call that breaks either ever reaches a body. The two conjuncts are kept, uncoded, as
+ *    the guard over the predicate write;
+ *  - `len > 0;` is the one a program can break and still return -- the constructor admits a
+ *    zero length -- and it has a branch and a code of its own at the three-argument
+ *    constructor.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/IvParameterSpec.crysl
  */
 IvParameterSpecSpec(IvParameterSpec s) {
 
+    // The object the acceptance handler writes the predicate over, staged by whichever
+    // constructor built it and only on its conforming branch.
     IvParameterSpec spec;
 
     // Set by the creation events `c1` and `c2`. The generated `reset()` does not clear it, so every
     // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
     boolean creationObserved = false;
 
-    // One event over `IvParameterSpec(byte[])`, where there used to be two split by
-    // the sign of a guard. The negated twin `c3` matched the same call with the same
-    // `args(iv)` and named no state in the `ere`, so it was one of the 17 orphan
-    // accusers this group removes (INV-INS-135). Its body did carry an accusation --
-    // IVPARAMETERSPEC-CONSTR-00, the rule's `randomized[iv]` REQUIRES read backwards
-    // -- but that accusation is not a report of its own: it is the exact negation of
-    // this event's guard, which is what makes the pair a twin and not an absorption
-    // candidate. Fusing keeps the report and drops the split.
+    // `Con` of IvParameterSpec.crysl: `c1: IvParameterSpec(iv)`, the one-argument constructor
+    // and one alternative of `Con := c1 | c2`.
     //
-    // What the split cost is the transition, and a second report. The guard
-    // suppressed `c1` for precisely the calls `c3` accused, so an IV nobody had
-    // randomised built an IvParameterSpec the automaton never saw -- and `c3`'s own
-    // transition row sends every state to the fail state, so the same call also drew
-    // an IVPARAMETERSPEC-ORDER-00 about an ordering the rule accepts. Measured
-    // against the pre-image: two reports become one
-    // (data/gh105/evidence/f1-IvParameterSpec-report-count.md). Read in the body, the
-    // same predicate accuses about what it saw instead of deciding whether the call
-    // happened.
+    // REQUIRES `randomized[iv];`: the IV bytes came from a `SecureRandom` the instrumentation
+    // observed -- the generator itself, or bytes it produced. The producing site is the handler
+    // of `SecureRandomSpec` over the arrays its `generateSeed` and `nextBytes` events stage.
     //
-    // The read of `randomized[iv]` (IvParameterSpec.crysl:22) lives in this body and
-    // not in `condition(...)`, for the reason the fusion above already paid for once:
-    // a condition compiles to `if (!(guard)) return false;` ahead of both the body and
-    // the transition. A failed REQUIRES is not a typestate failure -- the transition
-    // is taken either way and the clause accuses on its own (INV-INS-133).
+    // The read lives in this body and not in a `condition(...)` guard: a condition compiles to
+    // `if (!(guard)) return false;` ahead of both the body and the transition, so an IV nobody
+    // had randomised would build an IvParameterSpec the automaton never saw, and -- since
+    // `Con` is the whole ORDER -- the construction would be accused of nothing at all. A failed
+    // REQUIRES is not a typestate failure: the transition is taken either way and the clause
+    // accuses on its own.
     //
     // The verdict is three-valued and the two accusing outcomes are told apart in the
-    // report, because they are different claims. VIOLATED is positive evidence: the
-    // array carries a randomisation predicate that was withdrawn. NOT_OBSERVED says
-    // only that no randomised source of this array was ever observed, which on Android
-    // is as often a reach limit of the instrumentation as it is a misuse. Folding the
-    // two into one code would make the second unreadable as what it is.
+    // report, because they are different claims. VIOLATED is positive evidence: the store
+    // holds an entry for this array under this predicate that the clause does not admit.
+    // NOT_OBSERVED says only that the store holds no entry for it at all, so no randomised
+    // source of this array was ever observed, which on Android is as often a reach limit of the
+    // instrumentation as it is a misuse. Folding the two into one code would make the second
+    // unreadable as what it is.
     //
-    // The write stays where the guard put it: `spec` is bound only when the IV is
-    // observed randomised, because `@match` turns `spec` into `preparedIV[this]` and
-    // CrySL ensures a predicate only for a use that satisfied the rule. NOT_OBSERVED
-    // therefore does not prepare. That is the literal reading of the boolean this
-    // replaces; the alternative -- an unobserved randomisation preparing anyway, so a
-    // reach limit costs one report here instead of cascading into a second one
-    // downstream -- is now measurable, and the sentence that stood here saying no
-    // specification reads `PREPARED_IV` was false when it was written. Two do:
-    // `AlgorithmParametersSpec.mop:153`, on the `AES` antecedent of
-    // `AlgorithmParameters.crysl:35`, and `IvChainJunction.mop:166`. Whichever way that
-    // question is settled, it is settled against those two sites and not in the abstract.
+    // `spec` is bound only when the read answered SATISFIED, because `@match` turns `spec` into
+    // `preparedIV[this]` and CrySL ensures a predicate only for a use that satisfied the rule.
+    // NOT_OBSERVED therefore does not prepare, and the two sites that read `preparedIV` --
+    // `AlgorithmParametersSpec` at `init` and `IvChainJunction` at `Cipher.init` -- see an
+    // unprepared spec, so one reach limit is reported twice: here, and again downstream.
     //
     // A construction this body reports on is marked `REPORTED_UPSTREAM`, so the consumer of
     // `PREPARED_IV` (`IvChainJunction.use`) reports it as refused upstream rather than as not
@@ -95,38 +95,29 @@ IvParameterSpecSpec(IvParameterSpec s) {
         }
     }
 
-    // The same fusion over the three-argument constructor, with one difference the
-    // census calls out: `c4` was not the exact complement of `c2`. `c2`'s guard was a
-    // conjunction of four things -- the `randomized[iv]` read and the three
-    // offset/length conditions -- and `c4` negated only the read. So the two events
-    // did not partition the calls: an IV that was randomised but whose offset and
-    // length did not fit matched neither, and the constructor passed unobserved. The
-    // fused body therefore keeps both checks rather than assuming complementarity,
-    // the read accusing and the offset/length half guarding the write.
+    // `Con` of IvParameterSpec.crysl: `c2: IvParameterSpec(iv, offset, len)`, the other
+    // alternative of `Con := c1 | c2`.
     //
-    // The offset/length half cannot be false here, which is why keeping it costs
-    // nothing: this is an `after ... returning` advice, and the constructor rejects
-    // each of the three conditions with an exception before it can return
-    // (`offset < 0`, `len < 0`, `iv.length - offset < len`; JDK 21
-    // java.base/javax/crypto/spec/IvParameterSpec.java:75-91). It is kept because
-    // dropping it would change what the specification claims about the constructor,
-    // which is not what a structural fusion is for. The oracle states three bounds
-    // clauses -- `length[iv] >= offset + len`, `offset >= 0`, `len > 0`
-    // (IvParameterSpec.crysl:17-19) -- and two of these conjuncts are the first two
-    // verbatim, so it stands behind keeping them, uncoded: a code with no reachable
-    // emission accuses a program the platform forbids.
+    // REQUIRES `randomized[iv];` -- the same clause as `c1`'s, at the same arity, over the same
+    // array: one predicate, two constructors that bind it, read the same three-valued way. It
+    // gets codes of its own because a code names a site and not a clause; `codes.csv` is keyed
+    // by event and file line, and the report has to say which constructor it is about.
     //
-    // The third is the one clause of the three a program can break and still return, and
-    // it has its own branch and its own code for that reason. The constructor admits
-    // `len == 0`; the rule states `len > 0`; and a zero-length IV was passing this guard
-    // AND being prepared, so the specification put its own seal on the one violation it
-    // could actually see. `len < 0` is refused by the constructor, so the branch is
-    // written over `len <= 0` and reached only at zero.
+    // The rule's three bounds clauses are over this overload's arguments, and only one of them
+    // can be broken by a call this advice sees.
     //
-    // The read is the same clause as `c1`'s, at the same arity, over the same array:
-    // one predicate, two constructors that bind it. It gets codes of its own because a
-    // code names a site and not a clause -- `codes.csv` is keyed by event and file
-    // line, and the report has to say which constructor it is about.
+    // `offset >= 0;` and `length[iv] >= offset + len;` appear as the two conjuncts of the last
+    // branch and carry no code. This is an `after ... returning` advice, and the constructor
+    // rejects both conditions with an exception before it can return (`offset < 0`,
+    // `iv.length - offset < len`), so neither conjunct can be false here. They are kept because
+    // they are the two clauses verbatim and because they are what guards the predicate write,
+    // and they stay uncoded because a code with no reachable emission would accuse a program
+    // the platform already forbids.
+    //
+    // `len > 0;` is the one clause of the three a program can break and still return: the
+    // constructor rejects a negative length and admits `len == 0`, so a zero-length IV would
+    // otherwise pass the guard and be prepared. It has its own branch and its own code for that
+    // reason, written over `len <= 0` and reached only at zero.
     event c2 after(byte[] iv, int offset, int len) returning(IvParameterSpec s):
       call(public IvParameterSpec.new(byte[], int, int)) &&
       args(iv, offset, len) {
@@ -156,6 +147,14 @@ IvParameterSpecSpec(IvParameterSpec s) {
         }
     }
 
+    // `Con` is the whole of the rule's ORDER, and `Con := c1 | c2`: constructing an
+    // IvParameterSpec is the entire ordering this specification observes, so neither the IV's
+    // origin nor its bounds may govern a transition -- they are accused in the event bodies
+    // above. The `@fail` handler below cannot fire either: a single-symbol expression has no
+    // second event to take, and the monitor is keyed on the constructed object, so no monitor
+    // of this specification ever sees a second event. It is written all the same, because the
+    // generator expects a handler and because every code it names belongs to a site the file
+    // declares.
     ere : c1 | c2
 
     @fail {
@@ -170,15 +169,21 @@ IvParameterSpecSpec(IvParameterSpec s) {
       __RESET;
     }
 
-    // `preparedIV[this]` (IvParameterSpec.crysl:25) carries no `after L`
-    // qualification, so the rule's acceptance point is the accepting state and the
-    // write belongs in this handler (INV-INS-134) -- which is where it already sat.
-    // What leaves is the accepting-state bookkeeping that stood beside it: the new
-    // store does not offer it, and the set has no reader of it (INV-INS-147).
+    // ENSURES `preparedIV[this];`: the IvParameterSpec was built from bytes that came from a
+    // source the instrumentation observed. The clause carries no `after L` qualification, so
+    // the rule's acceptance point is the accepting state, which in an `ere` is what `@match`
+    // names. A handler receives no event arguments and runs after the transition is decided, so
+    // the constructor that saw the object is what staged it in `spec`.
     //
     // `spec` is null in exactly the cases where the read did not answer SATISFIED, and
     // `ensure` treats a null binding as a no-op, so the unprepared constructor needs no
     // guard here.
+    //
+    // Two sites read this predicate: `AlgorithmParametersSpec` at its `init` event, for the
+    // clause `algorithm in {"AES"} => preparedIV[paramSpec];` of AlgorithmParameters.crysl, and
+    // `IvChainJunction` at `Cipher.init`, for the clause
+    // `mode(transformation) in {"CBC", "PCBC", "CTR", "CTS", "CFB", "OFB"} && encmode == 1 =>
+    // preparedIV[paramSpec];` of Cipher.crysl.
     @match {
       PredicateStore.instance().ensure(Property.PREPARED_IV, spec);
     }

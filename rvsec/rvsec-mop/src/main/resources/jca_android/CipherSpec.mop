@@ -13,49 +13,95 @@ import br.unb.cic.mop.eh.*;
 import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
-// D-15: the value oracle is the expert-validated Cipher.crysl, and CipherTransformationUtil
-// is the transcription of it the published numbers were measured with. The freeze on that
-// class (INV-INS-109/118) forbids editing it, not calling it: it stays byte-identical and
-// gains a second caller, so no verdict of the frozen jca moves.
-//
-// What the withdrawn generated anchor cost here is the sharpest case for the reversal, and it is
-// recorded because no published number shows it: Api30CipherTransformationUtil admits
-// AES/ECB/PKCS5Padding -- ECB is a member of the transcribed AES mode clause and no
-// transcribed padding clause covers ECB, so isValid falls through to `return true` -- and
-// likewise DESede, BLOWFISH, ARC4 and ChaCha20 under any mode. Every one of those is accused
-// by the class named below. ECB is the misuse this line of work exists to detect.
-//
-// Api30CipherTransformationUtil is deliberately not deleted: it keeps no caller and stays as
-// the record of what the withdrawn anchor said, which is what makes the two comparable.
-//
-// Only the static import is written, and the one call that used to qualify the class name is
-// bare below. The generator dedupes imports by class name and keeps the first: written both
-// ways it drops the static one, and the monitor then fails to compile on `isValid` -- caught
-// by the harness, not by a grep of the lists. The frozen jca imports the same class the same
-// single way.
+// `CipherTransformationUtil` splits a transformation string into its algorithm, mode and padding
+// and compares them raw. Only its static import is written, and no line below qualifies the class
+// name: the bare `alg(...)` inside `i2` is this class's method. Writing both the static and the
+// plain import of one class does not work here, because the generator deduplicates imports by
+// class name across the merged monitor and keeps the first it meets -- it would drop the static
+// one, and the monitor would then fail to compile on that bare call.
 import static br.unb.cic.mop.jca.util.CipherTransformationUtil.*;
 
-// The normaliser is named in full and imported plainly, where the frozen
-// `CipherTransformationUtil` above is imported statically. That is not inconsistency: the two
-// classes declare methods of the same names, so a second static-* import would make every bare
-// `mode(...)` and `isValid(...)` of the merged monitor ambiguous and the monitor would not
-// compile. Naming this one at each call site is also what tells a reader which of the two a
-// given line asks -- and there are lines of both kinds in these files, on purpose.
+// `CipherTransformationNormalizer` holds the value clauses of Cipher.crysl -- which algorithms,
+// which operation modes and which paddings a transformation may name -- and answers them after
+// resolving the Conscrypt alias of the transformation and folding case, so that a spelling the
+// platform accepts is not accused. This file calls two of its methods: `isValid(...)`, the whole
+// CONSTRAINTS answer for a transformation, and `keyAlgorithm(...)`, the splitter the REQUIRES
+// clause over the key's origin compares against.
+//
+// It is named in full and imported plainly, where `CipherTransformationUtil` above is imported
+// statically. That is not inconsistency: the two classes declare methods of the same names, so a
+// second static-* import would make every bare `mode(...)` and `isValid(...)` of the merged
+// monitor ambiguous and the monitor would not compile. Naming this one at each call site is also
+// what tells a reader which of the two a given line asks.
 import br.unb.cic.mop.jca.util.CipherTransformationNormalizer;
 
 
 /**
  * CipherSpec
  *
- * A JavaMOP specification of the correct usage of the
- * javax.crypto.Cipher class.
+ * Monitors javax.crypto.Cipher against the CrySL rule Cipher.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/Cipher.crysl
+ * The ORDER of the rule is `Get, Init+, AADUpdate*, WKB+ | (FINWOU | (Update+, DoFinal))+`: a
+ * Cipher is obtained from `getInstance`, initialised one or more times, and then either wraps a
+ * key or runs final operations, each of which may be preceded by any number of `update` calls.
+ * The `fsm` below transcribes that.
+ *
+ * It enforces the CONSTRAINTS clauses that decide which transformations are admitted -- the
+ * algorithm clauses, the mode clauses and the padding clauses -- through
+ * `CipherTransformationNormalizer.isValid`, at the creation events `g1`, `g2` and `g3` and again
+ * at both `init` events, so a Cipher whose creation the weaving did not reach is still checked at
+ * its first use. It reads the REQUIRES clause `generatedKey[key, alg(transformation)]` at `init`,
+ * and the negated REQUIRES clause `!macced[_, plainText]` at the two `doFinal` overloads that bind
+ * a plaintext here. It writes the ENSURES clauses `generatedCipher[this] after Init`,
+ * `encrypted[preCipherText, prePlainText] after Update`, `encrypted[cipherText, plainText]` and
+ * `encrypted[cipherTextByteBuffer, plainTextByteBuffer]`.
+ *
+ * For AES, this specification admits `CCM` as an operation mode beside `CBC`, `GCM`, `PCBC`,
+ * `CTR`, `CTS`, `CFB` and `OFB`, and pairs `CCM` with `NoPadding`. The CONSTRAINTS of the cited
+ * rule list neither, so a transformation such as `AES/CCM/NoPadding` is accepted here and refused
+ * by the rule as published.
+ *
+ * Divergences from the rule and reach limits of the monitor:
+ *
+ * - The monitor generator builds at most seventeen events for one specification; an eighteenth
+ *   overflows the stack of its enable-set parser at any heap size. This file declares exactly
+ *   seventeen, and that ceiling is what shapes it: `g3` covers the refused creation over both
+ *   `getInstance` overloads at once, `f2` covers `doFinal(byte[])` and
+ *   `doFinal(byte[], int, int)` at once and therefore binds no argument of its own, and the rule
+ *   clauses that need an argument no event here can bind are read by `IvChainJunction.mop`, a
+ *   second specification of this set over the same class whose only purpose is to bind them.
+ *
+ * - No event is declared for `updateAAD`, so the group `AADUpdate` is absent from the `fsm`.
+ *   Being starred in the ORDER it costs no accepted sequence, but the CONSTRAINTS clause
+ *   `mode(transformation) in {"CBC", "PCBC", "CTR", "CTS", "CFB", "ECB", "OFB"} =>
+ *   noCallTo[AADUpdate]` cannot be checked without it.
+ *
+ * - No event is declared for `getIV` either, so the clauses written over the group `IV` --
+ *   `mode(transformation) in {"CBC", "PCBC", "CTR", "CTS", "CFB", "OFB"} && encmode == 1 =>
+ *   callTo[IV]` -- are not checked here.
+ *
+ * - The REQUIRES clauses `randomized[random]`,
+ *   `mode(transformation) in {"CBC", "PCBC", "CTR", "CTS", "CFB", "OFB"} && encmode == 1 =>
+ *   preparedIV[paramSpec]` and `mode(transformation) in {"GCM"} => preparedGCM[paramSpec]` are
+ *   read by `IvChainJunction.mop`, which binds the `SecureRandom` and the
+ *   `AlgorithmParameterSpec` arguments of `init` that there is no room to bind here.
+ *
+ * - The REQUIRES clause `preparedAlg[params, alg(transformation)]` is read nowhere: the
+ *   `AlgorithmParameters` argument of `init` is bound by no event of this set.
+ *
+ * - The REQUIRES clause over OAEP paddings tests `mode(transformation)` against strings that this
+ *   same rule classifies as paddings, so its antecedent is true of no transformation and the
+ *   clause constrains no execution; nothing reads it.
+ *
+ * - The ENSURES clause `wrappedKey[wrappedKeyBytes, wrappedKey]` is not written; see the comment
+ *   on `wkb1`.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/Cipher.crysl
  */
 CipherSpec(Cipher c) {
 
     String expectedTransformations = "a transformation admitted by CipherTransformationUtil (expert Cipher.crysl)";
-    // The envelope's quoting rule (design D-3): a null value is the empty string,
+    // The envelope's quoting rule: a null value becomes the empty string,
     // a single quote is escaped so it cannot close the field early, and the value
     // is capped so a pathological argument cannot push the record past the
     // logcat payload limit.
@@ -68,9 +114,14 @@ CipherSpec(Cipher c) {
     }
 
 
-   // Cipher.crysl ensures `encrypted` over a *pair* -- the ciphertext and the
-   // plaintext it came from -- in three clauses (:145-147): one `after Update`, and
-   // two at the accepting state. A handler sees no event parameter (it is generated as
+   // The ENSURES of Cipher.crysl states `encrypted` over a *pair* -- the ciphertext and the
+   // plaintext it came from -- in three clauses: `encrypted[preCipherText, prePlainText] after
+   // Update`, `encrypted[cipherText, plainText]` and `encrypted[cipherTextByteBuffer,
+   // plainTextByteBuffer]`; one holds after the `update` group, the two others hold wherever the
+   // call sequence so far is complete and conforming, which is the accepting state. The bytes are
+   // the ciphertext a monitored Cipher produced from the plaintext recorded with them.
+   //
+   // A handler sees no event parameter (it is generated as
    // a no-argument method), so the pair travels in these fields: the event body
    // stages it, and the handler that runs immediately after the transition writes
    // it and clears the field. Staging rather than writing in the body is the point
@@ -86,7 +137,8 @@ CipherSpec(Cipher c) {
    Object finalCipherText = null;
    Object finalPlainText = null;
 
-   // `generatedCipher[this] after Init` (Cipher.crysl:144), staged by the two `init`
+   // The ENSURES clause `generatedCipher[this] after Init` of Cipher.crysl -- the Cipher was
+   // initialised by a call the instrumentation observed -- staged by the two `init`
    // events for the handler of the state they lead to. It travels in a field for the
    // same reason the pairs above do -- a handler is generated as a no-argument method
    // and sees no event parameter -- and it is staged rather than written in the body
@@ -117,12 +169,19 @@ CipherSpec(Cipher c) {
    //
    // `reuseObserved` is set by `@fail` when the failing event is `i1` or `i2` on a Cipher whose
    // operation had finished: the API lets a used Cipher be initialised again, and the rule's ORDER
-   // does not (Cipher.crysl:85).
+   // does not -- `Get, Init+, AADUpdate*, WKB+ | (FINWOU | (Update+, DoFinal))+` never returns
+   // from the final operations to the `Init` group.
    boolean creationObserved = false;
    boolean creationRefused = false;
    boolean operationFinished = false;
    boolean reuseObserved = false;
 
+   // `Get` of Cipher.crysl: `g1: getInstance(transformation)`, the one-argument overload. The
+   // guard admits only a transformation the CONSTRAINTS value clauses accept, so `g1` is the
+   // conforming half of the creation and `g3` below is the refused half. A `condition(...)` is
+   // right here and wrong at the `init` events: here it does not skip a check but chooses which
+   // of two events fires, and every call is covered by one of them, so nothing drops out of the
+   // automaton. The body records only that a creation was seen in woven code.
    event g1 after(String transformation) returning(Cipher c):
      call(public static Cipher Cipher.getInstance(String)) &&
      args(transformation) &&
@@ -130,6 +189,11 @@ CipherSpec(Cipher c) {
        creationObserved = true;
    }
 
+   // `Get` of Cipher.crysl: `g2: getInstance(transformation, _)`, the provider overloads. The
+   // anonymous second place of the rule's event is why the pointcut writes `Object+`: it covers
+   // both `getInstance(String, String)` and `getInstance(String, Provider)`, and the provider is
+   // bound but never read, because no clause of the rule constrains it. Same guard and same body
+   // as `g1`: the conforming half of the creation, recorded and not reported.
    event g2 after(String transformation, Object provider) returning(Cipher c):
       call(public static Cipher Cipher.getInstance(String, Object+)) &&
       args(transformation, provider) &&
@@ -156,6 +220,32 @@ CipherSpec(Cipher c) {
        creationRefused = true;
    }
 
+   // `IWOIV` of Cipher.crysl, over the certificate route: the rule's own `i1: init(encmode,
+   // certificate)` and `i2: init(encmode, certificate, random)` -- which are the rule's event
+   // names and not this file's -- bound by one event here, since the trailing `..` of the
+   // pointcut takes the `SecureRandom` overload as well.
+   //
+   // The transformation is checked again here, although `g1`/`g2`/`g3` already decided it at the
+   // creation: a Cipher whose `getInstance` ran where the weaving does not reach arrives at its
+   // first use with no creation event behind it, and this is where it is still caught. The check
+   // sits in the event body and not in a `condition(...)` guard, because a guard compiles to an
+   // early return ahead of both the body and the transition: a Cipher built on a transformation
+   // the rule refuses would drop this `init` out of the automaton, and its `doFinal` would then
+   // be reported as a wrong call sequence rather than as the weak transformation it is. A
+   // transformation outside the value clauses is reported under the code registered in
+   // `codes.csv` for this site.
+   //
+   // Two CONSTRAINTS clauses of the rule are not answered here. The first is
+   // `instanceOf[key, java.security.PublicKey] || instanceOf[key, java.security.PrivateKey] ||
+   // instanceOf[certificate, java.security.cert.Certificate] || encmode in {3, 4} =>
+   // alg(transformation) in {"RSA"}`: its third disjunct holds of every call this event binds,
+   // but `CipherTransformationNormalizer.isValid` answers the value clauses as one question and
+   // does not narrow them by the arguments, so a certificate given to an AES Cipher passes. The
+   // second is `encmode in {1,2,3,4}`, which is not read, although the platform itself throws on
+   // any other value before this event returns.
+   //
+   // The last statement stages the Cipher for the `generatedCipher` write, which happens at the
+   // state this event leads to.
    event i1 before(int mode, Certificate cert, Cipher c):
      call(public void Cipher.init(int, Certificate, ..)) &&
      args(mode, cert, ..) &&
@@ -167,83 +257,101 @@ CipherSpec(Cipher c) {
         initialisedCipher = c;
     }
 
-   // The key-origin clause of the rule -- `generatedKey[key, alg(transformation)]`
-   // at Cipher.crysl:134 -- is one clause, and the set models the origin of a key
-   // as three producing predicates, so the three probes below are one composite
-   // read that emits at most one report (INV-INS-133), not three reads that could
-   // each accuse.
+   // `IWOIV` and `IWIV` of Cipher.crysl, over the key route: `i3: init(encmode, key)`,
+   // `i4: init(encmode, key, paramSpec)`, `i5: init(encmode, key, params)`,
+   // `i6: init(encmode, key, paramSpec, random)`, `i7: init(encmode, key, params, random)` and
+   // `i8: init(encmode, key, random)` -- six events of the rule bound by one here, because the
+   // trailing `..` takes every overload that opens with a mode and a key. The further arguments
+   // are not bound: at seventeen declared events there is no room for an event per overload, and
+   // the clauses that need the `AlgorithmParameterSpec` or the `SecureRandom` are read in
+   // `IvChainJunction.mop`, a second specification of this set over `Cipher` that binds them.
    //
-   // The read is in the body and not in `condition(...)`, which is where it used to
-   // sit: a condition compiles to `if (!(guard)) return false;` ahead of the body
-   // and ahead of the transition, so a key whose origin the monitor never saw
-   // silently dropped this `init` out of the automaton and the following call was
-   // accused of a wrong call sequence -- a defect the program does not have. A
-   // failed REQUIRES is not a typestate failure; the transition is taken either way
-   // and the clause accuses on its own.
+   // REQUIRES `generatedKey[key, alg(transformation)]`: the key was produced by a call the
+   // instrumentation observed, for the algorithm recorded with it. That is one clause, and this
+   // set records the origin of a key under three predicates -- the generated-key mark for a
+   // secret key, the public-key mark and the private-key mark for the two halves of a key pair --
+   // so the three probes below are combined into one verdict that emits at most one report, not
+   // three reads that could each accuse.
    //
-   // The verdict is three-valued and the two outcomes are told apart in the report.
-   // VIOLATED is positive evidence -- the key carries a key-origin predicate that
-   // was withdrawn, or recorded with values the clause does not admit -- while
-   // NOT_OBSERVED says only that no producer of this key was ever observed, which
-   // on Android is as often a reach limit of the instrumentation as it is a misuse.
-   // Folding the two into one code would make the second unreadable as what it is.
+   // The read is in the event body and not in a `condition(...)` guard. A guard compiles to an
+   // early return ahead of both the body and the transition, so a key whose producer the monitor
+   // never saw would drop this `init` out of the automaton and the next call on the Cipher would
+   // be reported as a wrong call sequence -- a defect the program does not have. A failed
+   // REQUIRES is not a typestate failure: the transition is taken either way, and the clause
+   // accuses on its own.
    //
-   // The `generatedKey` probe reads the clause at the arity the rule states, with the
-   // splitter applied here rather than in the store: the rule writes
-   // `generatedKey[key, alg(transformation)]`, and the oracle's splitters are the
-   // caller's to apply, because the caller is the side that holds the clause. The
-   // transformation is read off `c.getAlgorithm()`, which returns verbatim what
-   // `getInstance` was given; `alg` is total on it -- a transformation with no `/` is its
-   // own algorithm -- so unlike `mode` it cannot fail on a malformed string, and
-   // `getInstance` had already rejected one before any Cipher existed.
+   // The verdict is three-valued and the two failing outcomes are told apart in the report.
+   // VIOLATED is positive evidence -- the key carries a key-origin predicate recorded with values
+   // the clause does not admit, or one a `negate` has revoked -- while NOT_OBSERVED says
+   // only that no producer of this key was ever observed, which on Android is as often a reach
+   // limit of the instrumentation as it is a misuse. Folding the two into one code would make the
+   // second unreadable as what it is.
    //
-   // The three producers rise to two places in this same commit (`KeyGeneratorSpec`,
-   // `SecretKeySpecSpec`, `KeyStoreSpec`); the two key-half probes stay at one, because
-   // `generatedPrivkey[key]` and `generatedPubkey[key]` are one-place in every rule that
-   // ensures them. Measured on the platform, the second place protects the SATISFIED
-   // answer rather than producing new accusations: the JCA refuses a key whose algorithm
-   // differs from the Cipher's, with `InvalidKeyException`, before this program can go
-   // wrong in any way this clause would name -- so the VIOLATED branch has no execution
-   // path the platform admits, and it is written for the reason its siblings are, that a
-   // read which folded VIOLATED into NOT_OBSERVED would misreport the day some rule's
-   // NEGATES clause withdraws a key origin.
+   // The two key-half probes read one place, because `generatedPubkey[key]` and
+   // `generatedPrivkey[key]` are one-place in every rule that ensures them. The secret-key probe
+   // reads the clause at the arity the rule states, with the splitter applied here rather than
+   // inside the store: the rule writes `alg(transformation)`, and a splitter is the caller's to
+   // apply, because the caller is the side that holds the clause. The transformation is read off
+   // `c.getAlgorithm()`, which returns verbatim what `getInstance` was given; `alg` is total on
+   // it -- a transformation with no `/` is its own algorithm -- so unlike `mode` it cannot fail
+   // on a malformed string. The second place mostly protects the SATISFIED answer rather than
+   // producing accusations, since the JCA refuses a key whose algorithm differs from the Cipher's
+   // with `InvalidKeyException` before the program reaches anything this clause would name; the
+   // VIOLATED branch is written for the reason its siblings are, so that a read which folded
+   // VIOLATED into NOT_OBSERVED does not misreport the day a `negate` revokes a key origin.
    //
    // A key the store has no origin for is one of two situations, and the NOT_OBSERVED branch
-   // tells them apart by code. A key its producer already reported carries `REPORTED_UPSTREAM`
-   // (`SecretKeySpecSpec`, `KeyFactorySpec`, `SecretKeyFactorySpec`) and emits the
-   // `upstream-refused` code; a key with no mark, one that came from where this instrumentation
-   // cannot see, emits the `not-observed` code. The verdict and the site are the same.
+   // tells them apart by code. A key its producer already reported carries `REPORTED_UPSTREAM`,
+   // the set's own mark, written by any site that reported a value or origin failure about an
+   // object it produced, and it emits the `upstream-refused` code; a key with no mark, one that
+   // came from where this instrumentation cannot see, emits the `not-observed` code. The verdict
+   // and the site are the same, and only the code differs.
+   //
+   // The transformation is checked again at the end of the body, and the Cipher staged, exactly
+   // as in `i1` and for the same reasons, under this event's own code. The clause
+   // `instanceOf[key, javax.crypto.SecretKey] => alg(transformation) in {"AES",
+   // "PBEWithHmacSHA224AndAES_128", ...}` is not answered on its own: `isValid` answers the
+   // value clauses of the rule as one question, so a secret key given to an RSA Cipher passes
+   // here.
    event i2 before(int mode, Key key, Cipher c):
      call(public void Cipher.init(int, Key,..)) &&
      args(mode, key, ..) &&
      target(c) {
-        // The value side of the clause is read TWICE, against the two spellings the oracle
-        // itself puts on the same string, and against nothing else (D-26.4, INV-INS-153).
+        // The value side of the clause is read TWICE, against the two spellings the producing
+        // rules put on the same string, and against nothing else. Four specifications of this
+        // set write the generated-key mark and they do not agree on how its algorithm place is
+        // spelled: one writes the name the program handed `getInstance`, resolved through the
+        // alias table; one writes the canonical `SecretKeyFactory` name; and two write the key's
+        // own `getAlgorithm()`. The store compares a value place after lowercasing and nothing
+        // else, so a reader that asked with one spelling alone would miss the others.
         //
         //   The FAMILY, `CipherTransformationNormalizer.keyAlgorithm`. It resolves the
         //   Conscrypt alias and then folds the keysize-suffixed services onto their family,
         //   so a key generated for `AES` matches a Cipher built for `AES_128` -- the same
-        //   key, the same family, no misuse (D-20.2). That fold was written for the
-        //   alias/keysize route.
+        //   key, the same family, no misuse. That fold is what covers the alias and keysize
+        //   route.
         //
-        //   The LETTER, the frozen `alg` this file statically imports. It splits the raw
-        //   string, so a one-word transformation answers itself: `PBEWithHmacSHA1AndAES_128`
-        //   has no `/` to split on. That is the spelling `Cipher.crysl:134` asks for on the
-        //   PBE route -- `Cipher.crysl:94-105` treats the whole PBE name as the
-        //   transformation's algorithm -- and it is exactly the spelling
-        //   `SecretKeyFactorySpec.mop:129` writes, because `SecretKeyFactory` has one alias
-        //   row and it is not a PBE one, so `canonical` returns the name unchanged.
+        //   The LETTER, the `alg` this file statically imports. It splits the raw
+        //   string and resolves nothing, so a one-word transformation answers itself:
+        //   `PBEWithHmacSHA1AndAES_128` has no `/` to split on. That is the spelling
+        //   `generatedKey[key, alg(transformation)]` asks for on the PBE route -- the
+        //   CONSTRAINTS of Cipher.crysl treat the whole PBE name as the transformation's
+        //   algorithm, in `alg(transformation) in {"PBEWithHmacSHA224AndAES_128", ...} =>
+        //   mode(transformation) in {"CBC"}` -- and it is the spelling `SecretKeyFactorySpec`
+        //   writes when it ensures `generatedKey[key, algorithm]`, because `SecretKeyFactory`
+        //   has one alias row and it is not a PBE one, so `canonical` returns the name
+        //   unchanged.
         //
-        // Reading only the family accused a program the oracle declares conforming: the
-        // fold turned the producer's `PBEWithHmacSHA256AndAES_128` into `AES` and the store
-        // answered VIOLATED for the conforming PBE chain. Reading only the letter would give
-        // up the alias/keysize route the fold exists for. The two together are the oracle
-        // read across its three rules, and no third value is introduced.
+        // Reading only the family would accuse a program the rules declare conforming: the
+        // fold turns the producer's `PBEWithHmacSHA256AndAES_128` into `AES`, and the store
+        // would answer VIOLATED for a conforming PBE chain. Reading only the letter would give
+        // up the alias and keysize route the fold exists for. The two together are the clause
+        // read across the rules that write it, and no third value is introduced.
         //
-        // The direct `PBKDF2WithHmacSHA*` -> `Cipher("AES/...")` route still does not match,
-        // and that is the oracle speaking rather than a defect: the conforming path it
-        // offers is the re-wrap, `getEncoded()` -> `new SecretKeySpec(bytes, "AES")` ->
-        // `generatedKey[this, "AES"]` (SecretKeySpec.crysl:27).
+        // The direct `PBKDF2WithHmacSHA*` -> `Cipher("AES/...")` route matches under neither
+        // spelling, and that is the rules speaking rather than a defect here: the conforming
+        // path they offer is the re-wrap, `getEncoded()` -> `new SecretKeySpec(bytes, "AES")`,
+        // which SecretKeySpec.crysl ENSURES as `generatedKey[this, keyAlgorithm]`.
         PredicateVerdict asFamilyKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key,
             CipherTransformationNormalizer.keyAlgorithm(c.getAlgorithm()));
         PredicateVerdict asLetterKey = PredicateStore.instance().validate(Property.GENERATED_KEY, key,
@@ -290,6 +398,10 @@ CipherSpec(Cipher c) {
         initialisedCipher = c;
     }
 
+   // `Update` of Cipher.crysl: `u1: preCipherText = update(prePlainText)`, the overload that
+   // takes one array and returns the partial ciphertext. The body reports nothing; it stages the
+   // pair for `encrypted[preCipherText, prePlainText] after Update`, which is written at the
+   // state the `update` events lead to.
    event u1 after (byte[] plainText, Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.update(byte[])) &&
      args(plainText) &&
@@ -298,6 +410,14 @@ CipherSpec(Cipher c) {
         updatedPlainText = plainText;
    }
 
+   // `Update` of Cipher.crysl:
+   // `u2: preCipherText = update(prePlainText, prePlainTextOffset, prePlainTextLen)`, the
+   // range overload that returns the partial ciphertext. The offset and the length are bound
+   // because the pointcut has to match the signature, and they are not checked: the rule's
+   // arithmetic clauses over them -- `length[prePlainText] >= prePlainTextOffset +
+   // prePlainTextLen`, `prePlainTextOffset >= 0`, `prePlainTextLen > 0` -- are refused by the
+   // platform itself with an exception before this event returns. It stages the same pair as
+   // `u1`.
    event u2 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.update(byte[], int, int)) &&
      args(plainText, prePlainTextOffset, prePlainTextLen) &&
@@ -306,6 +426,11 @@ CipherSpec(Cipher c) {
         updatedPlainText = plainText;
    }
 
+   // `Update` of Cipher.crysl:
+   // `u3: update(prePlainText, prePlainTextOffset, prePlainTextLen, preCipherText)`, the overload
+   // that writes into a caller-supplied output array and returns a length. The ciphertext of the
+   // staged pair is therefore that argument and not a return value, which is why this event binds
+   // it in `args` where `u1` and `u2` take it from `returning`.
    event u3 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, Cipher c):
      call(public int Cipher.update(byte[], int, int, byte[])) &&
      args(plainText, prePlainTextOffset, prePlainTextLen, cipherText) &&
@@ -314,6 +439,12 @@ CipherSpec(Cipher c) {
         updatedPlainText = plainText;
    }
 
+   // `Update` of Cipher.crysl: `u4: update(prePlainText, prePlainTextOffset, prePlainTextLen,
+   // preCipherText, preCipherTextOffset)`, the same output-array overload with an offset into
+   // that array. The offset is bound and not checked, for the reason given at `u2`: the clauses
+   // `length[preCipherText] >= preCipherTextOffset` and `preCipherTextOffset >= 0` are enforced
+   // by the platform. The staged pair is the one `u3` stages -- the output array and the input
+   // array -- and the offsets take no part in it.
    event u4 after (byte[] plainText, int prePlainTextOffset, int prePlainTextLen, byte[] cipherText, int outputOffset, Cipher c):
      call(public int Cipher.update(byte[], int, int, byte[], int)) &&
      args(plainText, prePlainTextOffset, prePlainTextLen, cipherText, outputOffset) &&
@@ -322,6 +453,11 @@ CipherSpec(Cipher c) {
         updatedPlainText = plainText;
    }
 
+   // `Update` of Cipher.crysl:
+   // `u5: update(prePlainTextByteBuffer, preCipherTextByteBuffer)`, the buffer overload. It
+   // stages the pair like the four above, so the `encrypted` mark can sit on a `ByteBuffer` as
+   // well as on an array; the store compares a bound object by identity, so the mark belongs to
+   // that very buffer.
    event u5 after (ByteBuffer plainBuffer, ByteBuffer cipherBuffer, Cipher c):
      call(public int Cipher.update(ByteBuffer, ByteBuffer)) &&
      args(plainBuffer, cipherBuffer) &&
@@ -330,20 +466,17 @@ CipherSpec(Cipher c) {
         updatedPlainText = plainBuffer;
    }
 
-   // THE ORACLE DOES NAME THIS EVENT IN AN ENSURES, WHERE THE GENERATED RULE DID NOT.
-   // Cipher.crysl declares `wkb1: wrappedKeyBytes = wrap(wrappedKey)` at :78 and ensures
-   // `wrappedKey[wrappedKeyBytes, wrappedKey]` at :148 -- a clause the generated catalogue
-   // states nowhere, which is why this event was written to stage no pair. It still stages
-   // none: ledger row 67 disposes the clause `unread`, no rule of the 49 REQUIRES
-   // `wrappedKey`, so a write here would produce something nothing can consume, which is
-   // the deliberate omission INV-INS-137 records rather than fabricates.
+   // `WKB` of Cipher.crysl: `wkb1: wrappedKeyBytes = wrap(wrappedKey)`. It is the alternative to
+   // the final-operation branch of the ORDER -- a Cipher initialised in wrap mode ends its life
+   // here instead of at a `doFinal` -- so the body records only that an operation on this Cipher
+   // completed, which is what lets `@fail` tell a re-initialisation apart from an ordinary wrong
+   // sequence.
    //
-   // Task 11.5(e) has since decided it, and decided it this way: the write stays deleted.
-   // What changed with the oracle is the ground and not the verdict -- task 4.1 deleted it
-   // because the withdrawn catalogue named the event in no ENSURES at all, and it stays
-   // deleted because the oracle names it in one whose predicate nothing reads. The
-   // reciprocal half of the census (`predicate_ledger.md`) is where that is written down,
-   // beside the eight other clauses the oracle ensures and no rule of the 49 requires.
+   // The rule's ENSURES clause over this event, `wrappedKey[wrappedKeyBytes, wrappedKey]`, is
+   // deliberately not written: no rule this set transcribes REQUIRES `wrappedKey`, so the mark
+   // would have no reader. The bytes the call returns are bound in the signature and staged
+   // nowhere, and the wrapped key itself is not bound; no other clause of the rule constrains
+   // either of them.
    event wkb1 after(Cipher c) returning(byte[] wrappedKeyBytes):
      call(byte[] Cipher.wrap(Key)) &&
      target(c) {
@@ -357,18 +490,16 @@ CipherSpec(Cipher c) {
    // silently narrowed to arity 1.
    //
    // `f1` and `f2` are disjoint by signature, and they have to be: `(..)` matches an
-   // empty argument list too, so a single `doFinal()` used to take two transitions.
-   // Measured over the corpus, the duplication was silent on the update path -- `f1`
-   // runs first and `s3 -> end -> end` is accepted at both steps -- and audible on the
-   // path without one, where a single call drew CIPHER-ORDER-00 twice against a rule
-   // that turns it down once. `doFinal(byte[], ..)` leaves the argument-less signature
-   // to `f1` and keeps the two overloads the rule binds `plainText` in, which is what
-   // `order_alphabet_map_expert.csv` already attributes to each event: `f1` to the rule's
-   // `f1` (Cipher.crysl:68) and `f2` to its `f2` and `f4` (:69 and :71). What the narrowing
-   // takes away from `s2` is a transition the ORDER never granted -- `FINWOU` is
-   // `f2 | f4 | f5 | f6 | f7` and excludes the rule's `f1` -- so `doFinal()` straight
-   // after an init stays a sequence this automaton is right to reject, and now says so
-   // once instead of twice.
+   // empty argument list too, so a pointcut `doFinal(..)` beside `doFinal()` would make a
+   // single argument-less call take two transitions and, on the path with no `update` before
+   // it, draw the wrong-sequence code twice where the rule turns the call down once. Writing
+   // `doFinal(byte[], ..)` leaves the argument-less signature to `f1` and keeps for `f2` the two
+   // overloads in which the rule binds `plainText`.
+   //
+   // `DoFinal` of Cipher.crysl, `f1: cipherText = doFinal()`. It is one of the two events the
+   // rule leaves out of `FINWOU` -- `FINWOU := f2 | f4 | f5 | f6 | f7` -- so it may only close a
+   // sequence that already ran an `update`, and `doFinal()` straight after an `init` is a
+   // sequence this automaton is right to reject.
    event f1 after(Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.doFinal()) &&
      target(c) {
@@ -377,6 +508,13 @@ CipherSpec(Cipher c) {
       finalPlainText = null;
    }
 
+   // `FINWOU` of Cipher.crysl, over two of its events at once: `f2: cipherText =
+   // doFinal(plainText)` and `f4: cipherText = doFinal(plainText, plainTextOffset,
+   // plainTextLen)`. One event covers both because seventeen is the ceiling of the generator and
+   // there is no room for an eighteenth. The consequence is that this event binds no argument of
+   // its own, so the plaintext of the `encrypted` pair is staged null here and the REQUIRES
+   // clause `!macced[_, plainText]`, which needs that argument, is read for these two overloads
+   // in `IvChainJunction.mop` instead.
    event f2 after(Cipher c) returning(byte[] cipherText):
      call(public byte[] Cipher.doFinal(byte[], ..)) &&
      target(c) {
@@ -385,6 +523,11 @@ CipherSpec(Cipher c) {
        finalPlainText = null;
    }
 
+   // `DoFinal` of Cipher.crysl: `f3: doFinal(cipherText, cipherTextOffset)`, the overload that
+   // writes the remaining output into a caller-supplied array. Its first argument is the
+   // ciphertext, not a plaintext, so the staged pair has the ciphertext from `args` and a null
+   // plaintext. Like `f1`, it is outside `FINWOU` and may only close a sequence that ran an
+   // `update`.
    event f3 after(byte[] cipherText, int offset, Cipher c):
      call(public int Cipher.doFinal(byte[], int)) &&
      args(cipherText, offset) &&
@@ -394,35 +537,34 @@ CipherSpec(Cipher c) {
        finalPlainText = null;
    }
 
-    // The two `doFinal` overloads of this file that bind the rule's `plainText`, and
-    // therefore the two sites of `!macced[_, plainText]` (Cipher.crysl:137, ledger
-    // clause #8) that `CipherSpec` can carry. The rule forbids encrypting data that was
-    // already authenticated -- mac-then-encrypt -- and the read is `validateAbsent`,
-    // whose table is inverted: absence is the conforming case, so it never answers
-    // NOT_OBSERVED and there is no NOBS code beside these two (INV-INS-146). Reading a
-    // negated clause through `validate` would report *not observed* on every conforming
-    // `doFinal` in the world, which is backwards.
+    // `FINWOU` of Cipher.crysl: `f5: doFinal(plainText, plainTextOffset, plainTextLen,
+    // cipherText)`, the overload that writes into a caller-supplied output array. It is one of
+    // the two `doFinal` events of this file that bind the rule's `plainText`, and therefore one
+    // of the two sites where `CipherSpec` can read the negated REQUIRES clause
+    // `!macced[_, plainText]`.
     //
-    // The rule's own `f2` and `f4` bind `plainText` too, and this file does not: its
-    // `f2` is `doFinal(byte[], ..)` over those two overloads at once and binds no
-    // argument of its own. Since the pointcut stopped covering `doFinal()` the two share
-    // a `byte[]` in the first position, so an `args(plainText, ..)` here would bind it:
-    // the placement of those two reads is a choice from now on and not an impossibility.
-    // The choice is to leave them where they are -- moving them would retire two
-    // accusers and change which specification reports a misuse that neither placement
-    // stops reporting -- and splitting `f2` into one event per overload is still
-    // unavailable at 17 of 17 events (INV-INS-145, n=18 raises StackOverflowError in the
-    // enable-set parser at any heap). So those two overloads -- the dominant way a
-    // program encrypts -- are read in `IvChainJunction.mop`, which is the file that
-    // exists for exactly this: binding an argument of a `Cipher` call that `CipherSpec`
-    // has no room to bind.
+    // `macced[_, plainText]` says a monitored `Mac` computed a MAC over these bytes, and the
+    // clause forbids encrypting data a `Mac` already authenticated -- mac-then-encrypt. The
+    // read is `validateAbsent`, whose table is inverted: absence is the conforming case,
+    // so it answers SATISFIED when the bytes carry no such mark, VIOLATED when they do, and
+    // never NOT_OBSERVED. That is why there is no not-observed code beside this one. Reading a
+    // negated clause through `validate` would instead report *not observed* on every conforming
+    // `doFinal` there is, which is backwards. A MAC found over these bytes is reported under the
+    // code registered in `codes.csv` for this site.
     //
-    // `f7` binds a `ByteBuffer` plaintext and gains no read. No site of the set can mark
-    // a `ByteBuffer` under this predicate -- `Mac.crysl` declares `u4: update(preInputByteBuffer)`
-    // but ensures `macced` over none of it (:57-59 name `inputByte`, `preInput` and
-    // `input`), so the producer has nothing to write about one -- and `validateAbsent` never
-    // answers NOT_OBSERVED, so a read there could answer only SATISFIED. It would be a
-    // site with no path to an accusation, which decision 19 records rather than writes.
+    // The rule's own `f2` and `f4` bind `plainText` too, and this file does not: its `f2` covers
+    // both of those overloads at once and binds no argument. Splitting it into one event per
+    // overload is not available at seventeen of seventeen events, so those two overloads -- the
+    // ordinary way a program encrypts -- are read in `IvChainJunction.mop`, a second
+    // specification of this set over `Cipher` that exists for exactly this: binding an argument
+    // of a `Cipher` call that `CipherSpec` has no room to bind.
+    //
+    // `f7` binds a `ByteBuffer` plaintext and carries no such read. No site of this set can mark
+    // a `ByteBuffer` with that predicate -- `Mac.crysl` declares an `update` over a
+    // `ByteBuffer` and ENSURES `macced` over none of it, its three clauses naming the array
+    // inputs only -- so nothing could ever be found there, and `validateAbsent` never answers
+    // NOT_OBSERVED, so a read at `f7` could answer only SATISFIED. It would be a site with no
+    // path to an accusation.
     //
     // The read does not guard the staging below it. A failed REQUIRES is not a typestate
     // failure and it is not a reason to stop recording what this call encrypted: the
@@ -440,6 +582,12 @@ CipherSpec(Cipher c) {
          finalPlainText = plainText;
     }
 
+    // `FINWOU` of Cipher.crysl: `f6: doFinal(plainText, plainTextOffset, plainTextLen,
+    // cipherText, cipherTextOffset)`, the same output-array overload with an offset into that
+    // array. It is the second of the two sites where this file reads `!macced[_, plainText]`,
+    // and it reads it exactly as `f5` does -- `validateAbsent`, absence being the conforming
+    // answer -- under its own code in `codes.csv`, so the two sites stay apart in the report.
+    // The offsets and the length are bound only because the signature has them.
     event f6 after(byte[] plainText, int offset, int len, byte[] cipherText, int cipherOffset, Cipher c):
       call(public int Cipher.doFinal(byte[], int, int, byte[], int)) &&
       args(plainText, offset, len, cipherText, cipherOffset) &&
@@ -453,6 +601,10 @@ CipherSpec(Cipher c) {
         finalPlainText = plainText;
     }
 
+    // `FINWOU` of Cipher.crysl: `f7: doFinal(plainTextByteBuffer, cipherTextByteBuffer)`, the
+    // buffer overload. It stages the pair that the ENSURES clause
+    // `encrypted[cipherTextByteBuffer, plainTextByteBuffer]` is written from at the accepting
+    // state, and it carries no `macced` read, for the reason given above `f5`.
     event f7 after(ByteBuffer plainTextBuffer, ByteBuffer cipherTextBuffer, Cipher c):
        call(public int Cipher.doFinal(ByteBuffer, ByteBuffer)) &&
        args(plainTextBuffer, cipherTextBuffer) &&
@@ -462,20 +614,24 @@ CipherSpec(Cipher c) {
          finalPlainText = plainTextBuffer;
     }
 
-   // Two transitions both oracles license, added over events that already exist -- the `fsm`
-   // gains no event and the 17-event ceiling is untouched, which corrects the remark of
-   // conformance_record.csv item (e) that repairing this "would need new events".
+   // The ORDER of Cipher.crysl, `Get, Init+, AADUpdate*, WKB+ | (FINWOU | (Update+, DoFinal))+`,
+   // as a state machine. `start` takes a creation; `s1` is a Cipher created and not yet
+   // initialised; `s2` is an initialised Cipher, and it loops on both `init` events, which is
+   // the rule's `Init+`; `s3` is a Cipher with at least one `update` behind it, and it loops on
+   // all five, which is `Update+`; `end` is reached by a final operation or by `wrap`, and takes
+   // a further one, which is the outer `+` of the ORDER.
    //
-   // `s3` had no `update` loop, so `init; update; update` failed where the rule's `Update+`
-   // (Cipher.crysl:85) admits it. `s2` had no `init` loop, so `init; init` failed where the
-   // rule states `Init+`.
+   // `unsafeAlg` is not a state of the rule. It is where a creation this specification refused
+   // lands -- `g3` -- and it has the same outgoing transitions as `start`, so the Cipher's first
+   // use fails there exactly as it does on a Cipher no event saw, and only the code `@fail`
+   // chooses differs.
    //
-   // What is deliberately NOT here is a re-`init` at `end` -- the "reused Cipher". Neither
-   // ORDER returns from the finals group to `Inits`, so that transition would make this
-   // specification more permissive than both oracles (researcher's decision of 2026-08-25). A
-   // reused Cipher therefore fails the automaton at its second `init`, and `@fail` reports it
-   // with the `reuse-after-final` code, CIPHER-ORDER-02, apart from a sequence the program got
-   // wrong: the API admits the reuse and only the rule refuses it.
+   // What is deliberately absent is an `init` transition out of `end` -- the reused Cipher. The
+   // ORDER never returns from the final operations to the `Init` group, so admitting it here
+   // would make this specification more permissive than the rule. A reused Cipher therefore
+   // fails the automaton at its second `init`, and `@fail` reports it with its own
+   // reuse-after-final code, apart from a sequence the program got wrong: the API admits the
+   // reuse and only the rule refuses it.
    fsm :
      start [
         g3 -> unsafeAlg
@@ -531,27 +687,36 @@ CipherSpec(Cipher c) {
         u5   -> s3
      ]
 
+   // The acceptance point of the two unqualified ENSURES clauses, `encrypted[cipherText,
+   // plainText]` and `encrypted[cipherTextByteBuffer, plainTextByteBuffer]`. A clause with no
+   // `after L` holds wherever the object's use so far is a complete, conforming call sequence,
+   // which for this automaton is the accepting state `end`.
    alias match1 = end
-   // The acceptance point of `encrypted[preCipherText, prePlainText] after Update`
-   // (Cipher.crysl:145). An `after L` clause is ensured at the states L leads to,
-   // which for this automaton is s3, and that is as much an acceptance point as the
-   // accepting state is for the two unqualified clauses (INV-INS-134).
+   // The acceptance point of `encrypted[preCipherText, prePlainText] after Update`. An `after L`
+   // clause holds at the states the events labelled L lead to, which for this automaton is `s3`,
+   // and that is as much an acceptance point as the accepting state is for the two unqualified
+   // clauses.
    alias match2 = s3
-   // THE CLAUSE THE ORACLE ADDS AND THE GENERATED CATALOGUE STATED NOWHERE:
-   // `generatedCipher[this] after Init` (Cipher.crysl:144, ledger row 63). By the same
-   // reading as `match2`, the acceptance point of an `after L` clause is the states L
-   // leads to, and both `init` events lead to `s2`. Task 11.5(e) writes it, by the
-   // researcher's decision of 2026-08-26: this is the producing half of the one chain
-   // of the oracle whose three files all exist in this set and whose two ends were
-   // never wired, because the withdrawn catalogue declared neither this ENSURES nor
-   // the two REQUIRES that read it (CipherInputStream.crysl:31,
-   // CipherOutputStream.crysl:32).
+   // The acceptance point of `generatedCipher[this] after Init`. By the same reading as
+   // `match2`, the states the `Init` events lead to are what the clause names, and both `init`
+   // events of this file lead to `s2`. This is the producing half of a chain whose readers are
+   // in this set: `CipherInputStream.crysl` and `CipherOutputStream.crysl` each REQUIRE
+   // `generatedCipher[cipher]`, and the two specifications that transcribe them read it of the
+   // Cipher handed to the stream's constructor.
    //
    // `s2` is reached by `i1` and `i2` and loops on both, so the handler can run more
    // than once for one Cipher; `ensure` is idempotent per (property, identity, values),
    // so re-initialising a Cipher re-states the fact rather than accumulating it.
    alias match3 = s2
 
+   // The handler of a call sequence the `fsm` rejects. It reports one of four codes, all
+   // registered in `codes.csv`, chosen from the four facts recorded about this Cipher above: a
+   // sequence whose creation was never seen, a sequence after a creation this specification
+   // refused, a re-initialisation of a Cipher that had already completed an operation, and
+   // anything else. The order of the branches is the order of specificity, since more than one
+   // fact can hold at once.
+   //
+   // It also discards every staged value, so nothing a rejected sequence produced is written.
    @fail {
         if (operationFinished && ("i1".equals(__EVENTNAME) || "i2".equals(__EVENTNAME))) {
             reuseObserved = true;
@@ -577,14 +742,24 @@ CipherSpec(Cipher c) {
         finalCipherText = null;
         finalPlainText = null;
         // The staged Cipher goes with them: a sequence the automaton rejected reached no
-        // acceptance point, so the fact it was staging never happened. This is a discard
-        // of a staging field and not the withdrawal of a written predicate -- INV-INS-142
-        // is about `@fail` handlers that `negate` what a `@match` wrote, and none of the
-        // set has one.
+        // acceptance point, so the fact it was staging never happened. This is a discard of a
+        // staging field and not the revocation of a written predicate; no handler of this
+        // specification calls `negate`.
         initialisedCipher = null;
 	    __RESET;
    }
 
+   // ENSURES `encrypted[cipherText, plainText]` and `encrypted[cipherTextByteBuffer,
+   // plainTextByteBuffer]`: the bytes are the ciphertext a monitored Cipher produced from the
+   // plaintext recorded with them. Both clauses are written here, from the pair the final
+   // operation staged, because the two differ only in the type of the pair and the store binds
+   // by identity either way.
+   //
+   // The null test is what keeps the handler from writing a pair no event staged: `end` is
+   // re-entered by a second final operation, and the guard means only a transition that actually
+   // saw one writes. The plaintext place is null for the finals whose pointcut does not bind it
+   // (`f1`, `f2`, `f3`), which records the ciphertext at the arity the clause states rather than
+   // dropping the write. The fields are cleared, so a staged pair is consumed exactly once.
    @match1 {
         if (finalCipherText != null) {
             PredicateStore.instance().ensure(Property.ENCRYPTED, finalCipherText, finalPlainText);
@@ -593,6 +768,11 @@ CipherSpec(Cipher c) {
         }
    }
 
+   // ENSURES `encrypted[preCipherText, prePlainText] after Update`: the bytes are the ciphertext
+   // a monitored Cipher produced from the plaintext recorded with them, here the partial output
+   // of an `update`. Same shape as `@match1`, at the state the five `update` events lead to.
+   // `s3` loops on those events, and the generated dispatcher re-evaluates the state categories
+   // after every event, so each `update` runs this handler once with its own pair.
    @match2 {
         if (updatedCipherText != null) {
             PredicateStore.instance().ensure(Property.ENCRYPTED, updatedCipherText, updatedPlainText);
@@ -601,6 +781,9 @@ CipherSpec(Cipher c) {
         }
    }
 
+   // ENSURES `generatedCipher[this] after Init`: the Cipher was initialised by a call the
+   // instrumentation observed.
+   //
    // Arity one, which is the arity the clause states: `generatedCipher[this]` names the
    // Cipher and nothing else. The field is not cleared after the write, unlike the
    // staged pairs above: those are one fact per transition, this one is a standing

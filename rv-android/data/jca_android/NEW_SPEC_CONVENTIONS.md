@@ -1,35 +1,34 @@
 # Writing a new `jca_android` specification
 
-The change `gh109-crysl-coverage` adds 24 `.mop` files to a set that had 22 paired rules, and it
-adds them in parallel: several tasks write several files at once, against one oracle, into one
-`codes.csv`, under one set of gates. This page is what makes those files come out the same shape.
-It is not a style guide. Every rule here exists because a gate, a record or a measured defect of the
-existing set demands it, and each one says which.
+This page tells the author of the next `.mop` of the set how to write it, so that a file written
+today comes out the same shape as the ones already there: one oracle, one `codes.csv`, one set of
+gates, and several people writing at once. It is not a style guide. Every rule here exists because a
+gate enforces it, a record depends on it, or the set was measured to report nothing without it.
 
 Roots used below: `SET` = `rvsec/rvsec-mop/src/main/resources/jca_android`,
-`ORACLE` = `RVSec-replication-package/tools/rules` (the sole oracle, D-16, pinned by
-`data/jca_android/oracle/expert_rules.sha256`).
+`ORACLE` = `RVSec-replication-package/tools/rules`, the sole oracle, pinned by sha256 in
+`data/jca_android/oracle/expert_rules.sha256`.
 
 ## 1. Naming, and the one exception
 
 A rule `<Rule>.crysl` is specified by `SET/<Rule>Spec.mop`, whose specification header is
 `<Rule>Spec(<SpecClass> <binding>)` where `<SpecClass>` is the class the rule's `SPEC` line names.
-`gh105_expert_ledger.py:438-448` pairs by exactly that convention — it tries `<Rule>Spec.mop` and
-then `<Rule>.mop` — so a file named correctly is paired automatically and needs no table entry.
+The pairing in `gh105_expert_ledger.py` works by exactly that convention — it tries `<Rule>Spec.mop`
+and then `<Rule>.mop` — so a file named correctly is paired automatically and needs no table entry.
 
 Two things a writer trips over:
 
 - **`IvParameterSpec.mop`, not `IvParameterSpecSpec.mop`.** The set carries both spellings because
   `paired_rules` accepts both. Do not add a third. New files use `<Rule>Spec.mop`.
-- **Rule `Key` becomes `KeySpec.mop`** (task 2.14). Read on its own the name suggests
+- **Rule `Key` becomes `KeySpec.mop`.** Read on its own the name suggests
   `java.security.spec.KeySpec`, which is a different type; the file is the specification of the
   interface `java.security.Key`, and its javadoc says so in the first line. The name is kept because
   changing it would mean teaching `paired_rules` an exception, and an exception in the pairing code
   is worse than a name that needs one sentence of explanation.
 
-`NON_PAIRING_FILES` (`gh105_expert_ledger.py:164-168`) holds `SecretKeySpec.mop`,
-`RandomStringPassword.mop` and `IvChainJunction.mop`. Never add a new file to it: a new file that
-needs an exemption from pairing is a new file whose name is wrong.
+`NON_PAIRING_FILES`, in the same script, holds `SecretKeySpec.mop`, `RandomStringPassword.mop` and
+`IvChainJunction.mop`. Never add a new file to it: a new file that needs an exemption from pairing is
+a new file whose name is wrong.
 
 ## 2. Structure
 
@@ -47,11 +46,14 @@ import br.unb.cic.mop.PredicateVerdict;
 import br.unb.cic.mop.Property;
 
 /**
- * <Rule>
+ * <Rule>Spec
  *
- * A JavaMOP specification of the correct usage of the <fully.qualified.SpecClass>.
+ * Monitors <fully.qualified.SpecClass> against the CrySL rule <Rule>.crysl.
+ * <What it checks: the ORDER in a sentence; the CONSTRAINTS it enforces; the predicates it
+ *  REQUIRES and ENSURES.>
+ * <Divergences from the rule and reach limits of the monitor, each with its technical reason.>
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/<Rule>.crysl
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/<Rule>.crysl
  */
 <Rule>Spec(<SpecClass> s) {
 
@@ -70,19 +72,81 @@ import br.unb.cic.mop.Property;
 }
 ```
 
+- **The `@see` is the rule at the pinned commit**, the same commit for every file of the set, so the
+  URL resolves to the text the specification was written against and not to whatever upstream holds
+  today.
 - **Events realize the rule's `EVENTS`**, with constructor overloads fused only where the rule's own
   label fuses them (`Con := c1 | c2` fuses; two labels do not). A fused event keeps every conjunct
-  of both overloads — the comment above `IvParameterSpec.c2` records why assuming complementarity lost calls.
-- **Ceiling: 17 events per specification** (INV-INS-154). Every specification this change adds is
-  ≤ 5; state the count in the task fiche anyway, because the check is the point.
-- **Comment density matches the set.** Each event carries a paragraph saying which clause of the
-  rule its body implements and why the check sits where it sits. That is not decoration: it is the
-  only place a later reader learns whether a missing check is an omission or a decision.
+  of both overloads — the comment above `IvParameterSpec.c2` records why assuming complementarity
+  lost calls.
+- **Ceiling: 17 events per specification**, the limit of the monitor generator. Count the events and
+  state the count before writing, because the check is the point.
+- **Every event, read and write is commented**, as §2.1 sets out.
+
+### 2.1 Comments
+
+Every comment is **self-contained**: a reader with the file open and the rule beside it needs
+nothing else to use it. It describes what the code does **now**.
+
+**Depth.** Every event, every predicate read and every predicate write carries its own comment —
+including events of one family that realise the same rule label (each `update` event of `CipherSpec`
+has its own). The reader of a specification is deciding whether a missing check is an omission or a
+decision, and an uncommented event cannot answer that. Repetition across files is expected: the
+mechanism is explained in full at every site where it occurs, instead of pointing at another file.
+
+**A rule clause is cited by its text, never by a line number.** Name the section — `EVENTS`,
+`ORDER`, `CONSTRAINTS`, `REQUIRES`, `ENSURES`, `NEGATES`, `FORBIDDEN` — the label when the clause has
+one, and the clause itself between backticks, copied from `ORACLE/<Rule>.crysl`:
+
+```
+// CONSTRAINTS of MGF1ParameterSpec.crysl: `mdName in {"SHA-256", "SHA-384", "SHA-512"}`.
+```
+
+Copy the clause from the rule; do not quote it from memory.
+
+**Nothing outside the code and the rules.** A comment may name the rule the file transcribes, this
+set's own `codes.csv`, the helper classes the file calls (`PredicateStore`, `ConscryptAliasTable`,
+`Evidence`, `Property`, …), the JCA classes, algorithms and providers involved, the platform, and
+another specification **of this set** together with its event when that event produces or consumes a
+predicate this file touches — and in that last case it says what the other end does, rather than
+merely pointing at it, so the comment reads without opening that file.
+
+It may not name an invariant, a design decision, a task, a change or an issue; a date; a record
+under `data/jca_android/`; a report or a campaign measurement; another specification set; nor a line
+of any file. It carries no narrative of an earlier state ("used to", "no longer", "was previously",
+"has been renamed") and no promotional language ("modern", "sophisticated", "advanced").
+
+**Templates.** An event:
+
+```
+// <Rule label(s)>: `<event text from the rule's EVENTS>`. <The clause checked in the body, quoted.>
+// <Why the check sits here and not elsewhere, when that is not obvious.> <What it reports.>
+```
+
+A predicate read or write:
+
+```
+// REQUIRES `<clause>`: <what SATISFIED, VIOLATED and NOT_OBSERVED each produce>.
+// ENSURES `<clause>` [after <label>]: <the acceptance point, and why the value is staged>.
+```
+
+**Mechanisms that recur are explained where they occur**, in the terms §3, §4 and §5 give: a clause
+checked in the body rather than in `condition(...)`; a predicate write staged in a monitor field; an
+`@fail` that cannot fire; the three-valued read that separates `NOT_OBSERVED` from `VIOLATED`; and
+the constraints of the toolchain, such as the event ceiling and the deduplication of imports by class
+name across the merged monitor.
+
+**A divergence from the rule is stated as behaviour with its technical reason** — never as the
+decision that produced it. When the reason is not known, state the behaviour alone.
+
+**Editing is a review, not a rewrite.** A comment that already satisfies this section is kept
+byte-identical; only what departs from it is rewritten, so a diff shows what changed and nothing
+else.
 
 ## 3. Clauses go in the body, never in `condition(...)`
 
-This is the substrate rule gh105 exists to establish (INV-INS-133), and it is the one mistake that
-silently costs the whole specification.
+This is the substrate rule of the whole set, and it is the one mistake that silently costs the whole
+specification.
 
 `condition(...)` compiles to `if (!(guard)) return false;` **ahead of both the event body and the
 transition**. A construction that breaks the guard therefore takes no transition, reaches no
@@ -93,14 +157,13 @@ were guarded and every program the file could see produced zero reports
 So:
 
 - **Every `CONSTRAINTS` clause lands in the event body**, with an accusing branch on the violated
-  side (INV-INS-152). A value clause with no accuser is total silence, which is exactly the R1
-  defect this change repairs in `DHGenParameterSpecSpec`.
+  side. A value clause with no accuser is total silence.
 - **Every `REQUIRES` clause is a `PredicateStore` read in the body**, three-valued, with
-  `VIOLATED` and `NOT_OBSERVED` reported under **different code families** (INV-INS-143): `CONSTR`
+  `VIOLATED` and `NOT_OBSERVED` reported under **different code families**: `CONSTR`
   for the first, `NOBS` for the second. `VIOLATED` is positive evidence that the object carries the
-  predicate with other values or had it withdrawn; `NOT_OBSERVED` says only that no producer was
-  ever seen, which on Android is as often a reach limit of the instrumentation as a misuse. Folding
-  them into one family counts a reach limit as a misuse.
+  predicate with other values or had it revoked by a `negate`; `NOT_OBSERVED` says only that no
+  producer was ever seen, which on Android is as often a reach limit of the instrumentation as a
+  misuse. Folding them into one family counts a reach limit as a misuse.
 - **Accumulate, do not short-circuit.** Use the `boolean conforms = true;` form of
   `GCMParameterSpecSpec.c1`: each failing clause reports and clears the flag, and the write
   happens under `if (conforms)`. An `else if` chain reports only the first failure of a construction
@@ -112,24 +175,23 @@ So:
   and `IvParameterSpec.c2` are the two worked examples.
 
 Predicate reads use the enum-typed API of `PredicateStore` (`ensure`, `validate`, `validateAny`,
-`validateAbsent`, `negate`; `PredicateStore.java:291-438`). There is no string path — the constant
-must exist in `Property.java`, which is why task 0.7 adds all of them in one commit ahead of G2–G4.
+`validateAbsent`, `negate`). There is no string path — the constant must exist in `Property.java`,
+which is edited once, ahead of the specifications that read and write the new constants, and not
+file by file.
 
 ## 4. Where the predicate write goes
 
 `ENSURES p[this]` with no `after L` qualification means the acceptance point is the accepting state,
-which in an `ere` is `@match` (INV-INS-134). `ENSURES p[x] after L` means the write goes in the
-handler for `L`.
+which in an `ere` is `@match`. `ENSURES p[x] after L` means the write goes in the handler for `L`.
 
 The object reaches `@match` through a **monitor field bound only on the conforming branch**. A
-handler sees no event arguments, and `ensure` treats a `null` binding as a no-op
-(`PredicateStore.java:291-293`), so a construction that broke a clause reaches the handler with
-nothing bound and writes nothing. That is the literal reading of CrySL: a predicate is ensured for a
-use that satisfied the rule.
+handler sees no event arguments, and `ensure` treats a `null` binding as a no-op, so a construction
+that broke a clause reaches the handler with nothing bound and writes nothing. That is the literal
+reading of CrySL: a predicate is ensured for a use that satisfied the rule.
 
-**Algorithm-valued writes pass through `ConscryptAliasTable.canonical`** before they are stored
-(D-20.3, INV-INS-153). Readers query canonical names and `PredicateStore` only lowercases, so a raw
-user spelling (`HMAC/SHA256`, an OID, `RC4`) breaks propagation silently and shows up downstream as
+**Algorithm-valued writes pass through `ConscryptAliasTable.canonical`** before they are stored.
+Readers query canonical names and `PredicateStore` only lowercases, so a raw user spelling
+(`HMAC/SHA256`, an OID, `RC4`) breaks propagation silently and shows up downstream as
 `NOT_OBSERVED`. The `@match` handler of `KeyGeneratorSpec.mop` writes the canonical name for this
 reason.
 
@@ -142,7 +204,7 @@ the report reads like a reach limit of the instrumentation when the object was i
 refused one link earlier. The mark changes only which `-NOBS-` code the consumer emits; it never
 turns a `SATISFIED` read into a report, because the ordinary read runs first.
 
-The producer idiom (`KeyFactorySpec.mop:90-114` is the worked example):
+The producer idiom (`KeyFactorySpec.mop` is the worked example):
 
 ```
 boolean conforms = true;
@@ -173,7 +235,7 @@ if (reported) { PredicateStore.instance().ensure(Property.REPORTED_UPSTREAM, pro
   `SecretKeyFactorySpec.gen`, `KeyFactorySpec.genPublic`/`genPrivate`, `KeyAgreementSpec.dophase`,
   `SignatureSpec.i4`, `SecretKeySpecSpec.c1`/`c2` and `X509EncodedKeySpecSpec.c1`. Other producers
   that report on their product do not mark, and other `-NOBS-` sites keep `not-observed`. A new
-  specification joins either list only by a recorded decision.
+  specification joins either list deliberately and never as a side effect of being written.
 - **`SecureRandomSpec` and `KeyGeneratorSpec` do not mark.** A `SecureRandom` of a refused
   algorithm, and the arrays `SecureRandomSpec` discards in `@fail`, would be marked by a sequence
   failure or by the discard itself, which is the channel mixing the first bullet excludes. The
@@ -192,16 +254,15 @@ Two shapes to know:
 
 - A single-event `ORDER = Con` makes `@fail` **unreachable** — the transition row is `{1, 2, 2}` and
   the monitor is keyed on the constructed object, so no monitor sees a second event. Write the
-  handler anyway (the generator and `codes.csv` bijection both expect it) and say in a comment that
-  it cannot fire, as the comment above the `@fail` of `GCMParameterSpecSpec.mop` does.
+  handler anyway (the generator and the `codes.csv` bijection both expect it) and say in a comment
+  that it cannot fire, as the comment above the `@fail` of `GCMParameterSpecSpec.mop` does.
 - A `+` over an alternation does not mean what it looks like when one alternative erases to ε
   against the rule's alphabet: under `(w1 | w2 | fl)+` the word `c1 fl cl` is accepted and the rule
   rejects it, which is why `CipherOutputStreamSpec.mop` writes `fl*` around its writes (the comment
   above its `ere`). Check the erasure before writing a `+`.
 
-**Every `@fail` block ends in `__RESET;`** — 21 of 21 in the live set do, since gh105 task 9.2.
-Without it the monitor stays in the failure category and every later event of the same binding
-re-raises the ordering code.
+**Every `@fail` block ends in `__RESET;`** — every one in the set does. Without it the monitor stays
+in the failure category and every later event of the same binding re-raises the ordering code.
 
 ### Labels in `@fail`: the monitor-field idiom
 
@@ -234,14 +295,15 @@ flags and never a user field, so a fact written before a failure is still there 
   (`PBEKeySpecSpec.f1`/`f2`, `SSLContextSpec.getDefault`). The automaton admits no use of such an
   object, so its ordering failure is the consequence of the refusal, and the handler says so.
 - **`boolean operationFinished = false;`** in `CipherSpec` and `MacSpec` only, set in the body of
-  every event whose transition completes an operation (`CipherSpec.mop:112-116` lists them). It is
+  every event whose transition completes an operation — the file's own comment names them. It is
   set in the body, before the transition is decided, because the fact is about the object and not
   about the automaton.
 - **`boolean reuseObserved = false;`**, beside it, set by `@fail` itself when `operationFinished`
   holds and the failing event is an initialisation event, tested with `__EVENTNAME`, which the
   generator expands in handlers too.
 
-The handler then chooses one code, in this precedence (`CipherSpec.mop:555-586`):
+The handler then chooses one code, in this precedence (the `@fail` of `CipherSpec.mop` is the worked
+example):
 
 ```
 @fail {
@@ -271,8 +333,8 @@ monitors are created, and therefore what is reported.
 
 ## 6. Codes
 
-Append rows to `SET/codes.csv` **in the task that writes the `.mop`**, in file order. The columns
-are `spec,code,error_type,site_kind,event,file_line,label`.
+Append rows to `SET/codes.csv` **in the same step that writes the `.mop`**, in file order. The
+columns are `spec,code,error_type,site_kind,event,file_line,label`.
 
 - The code is `<RULE-UPPER>-<KIND>-<NN>`, where `<RULE-UPPER>` is the **rule** name uppercased with
   no separators (`GCMParameterSpec` → `GCMPARAMETERSPEC`), not the specification name.
@@ -280,8 +342,7 @@ are `spec,code,error_type,site_kind,event,file_line,label`.
   `FORB`, `KEYSIZE`, `KSTYPE`, `PROTO`. `error_type` is the matching `ErrorType` constant —
   `UnsatisfiedConstraint` for `CONSTR` and `NOBS`, `InvalidSequenceOfMethodCalls` for `ORDER`,
   `UnsafeAlgorithm` for `ALG`, `ForbiddenMethod` for `FORB`. A `FORBIDDEN` clause reported as
-  `InvalidSequenceOfMethodCalls` sends the reader hunting for a missing call
-  (`ErrorType.java:12-18`).
+  `InvalidSequenceOfMethodCalls` sends the reader hunting for a missing call.
 - `<NN>` numbers sites **within the file**, per kind. A new file numbers them in emission order. A
   code added to a file that already has codes takes the **next free number of its family in that
   file** — the highest `<RULE-UPPER>-<KIND>-NN` in `codes.csv` plus one — wherever the site sits,
@@ -354,8 +415,9 @@ else if (verdict == PredicateVerdict.NOT_OBSERVED) {
 The same-line form is not taste. The message gate classifies a site by the nearest enclosing `if`
 line and requires a `NOBS` code under a `NOT_OBSERVED` test; a label test nested as its own `if`
 inside the `NOT_OBSERVED` branch hides the verdict from the gate, which then files a `NOBS` code
-under a branch with no verdict and fails. `TrustManagerFactorySpec.mop:180-194`,
-`SecretKeySpecSpec.mop:136-150` and `SSLContextSpec.mop:282-297` are the worked examples.
+under a branch with no verdict and fails. The `NOT_OBSERVED` chains of
+`TrustManagerFactorySpec.mop`, `SecretKeySpecSpec.mop` and `SSLContextSpec.mop` are the worked
+examples.
 
 When more than one label applies, the chain is ordered by this precedence: `platform-default`, then
 `upstream-refused`, then `application-manager` or `random-key-material`, then `not-observed`. A
@@ -367,15 +429,15 @@ randomness fact because it points at a report already made, which is where the r
 `TrustManagerFactorySpec.gtm1` marks every non-null element of the array it returns with
 `GENERATED_TRUST_MANAGERS`, beside the array itself, and `SSLContextSpec.init` answers `SATISFIED`
 for the trust-manager array when the array is marked, or when it is non-empty and **every** element
-is marked (`SSLContextSpec.mop:270-281`). An application that copies a factory-issued manager into
-a new array passes an array the store never saw, and the manager — the object the rule constrains —
-is exactly the one the factory issued. One unmarked element withholds the credit, which closes the
+is marked. An application that copies a factory-issued manager into a new array passes an array the
+store never saw, and the manager — the object the rule constrains — is exactly the one the factory
+issued. One unmarked element withholds the credit, which closes the
 case of an array that mixes a factory manager with one the application wrote. This is the one label
 rule that changes which sites report. Key-manager arrays are not credited per element.
 
 ### 6.4 The envelope and its evidence keys
 
-The message envelope is fixed (D-3):
+The message envelope is fixed:
 
 ```
 "v=1 code=<CODE> ev=" + __EVENTNAME + " obj=<SpecClass> val='<observed>' exp='<what the rule admits>' msg='<one sentence, lower case>'"
@@ -416,33 +478,33 @@ is accused of missing — an accusation that refutes itself, which the gate flag
 
 ## 7. The viability fiche
 
-Every G2–G4 task states, before it writes a line:
+Before writing a line, state:
 
-1. **Class and members confirmed in the api30 jar by `unzip -l`** (INV-INS-154). Never `javap -cp`:
-   that resolves against the host JDK and will confirm a class Android does not ship.
+1. **Class and members confirmed present in the Android API 30 platform jar**
+   (`$ANDROID_HOME/platforms/android-30/android.jar`) by `unzip -l`. Never `javap -cp`: that
+   resolves against the host JDK and will confirm a class Android does not ship.
 2. **Event count**, against the ceiling of 17.
-3. **Which predicates the file writes and which it reads**, by `Property` constant, with the
-   `ORACLE/<Rule>.crysl` line of each clause.
-4. **The `codes.csv` rows the task will append**, by code.
+3. **Which predicates the file writes and which it reads**, by `Property` constant, each with the
+   clause of `ORACLE/<Rule>.crysl` it comes from, quoted by its text.
+4. **The `codes.csv` rows the file will add**, by code.
 
-## 8. Records: what a spec task touches and what it must not
+## 8. Records: what writing a spec touches and what it must not
 
-Ownership under D-22, because G2–G4 run in parallel:
+Ownership, because specifications are written in parallel:
 
 | File | Owner |
 |---|---|
-| the new `.mop` | the spec's own task |
-| `SET/codes.csv` (its own rows, appended) | the spec's own task |
-| `divergence_record.csv` | the group's closing `X.R` task only |
-| `predicate_graph.csv`, `predicate_ledger.csv`, `order_alphabet_map*.csv` | the group's closing `X.R` task only |
-| `Property.java` | task 0.7 only, once, ahead of the groups |
-| CI enumeration constants (`Corpora`, `MopLiftCorpusTest`, `CalibrationTargets`, G-PARAM count, G-ORDER skip set) | task 6.1 only |
+| the new `.mop` | whoever writes that specification |
+| `SET/codes.csv` (its own rows, appended) | whoever writes that specification |
+| `divergence_record.csv` | the closing step of the group, once |
+| `predicate_graph.csv`, `predicate_ledger.csv`, `order_alphabet_map*.csv` | the closing step of the group, once |
+| `Property.java` | one step, once, ahead of every specification that uses the new constants |
+| CI enumeration constants (`Corpora`, `MopLiftCorpusTest`, `CalibrationTargets`, G-PARAM count, G-ORDER skip set) | one step, once, after the specifications exist |
 
-**A new file is one `new-file` divergence row**, not a hunk-by-hunk baseline (precedent:
-`IvChainJunction`). The `task` column of a gh109 row is written `gh109:<task>` — the task numbers of
-this change collide with gh104's and gh105's, and the record is read by people.
+**A new file is one `new-file` divergence row**, not a hunk-by-hunk baseline; `IvChainJunction` is
+the precedent. The `task` column of a divergence row is qualified with the change that wrote it,
+because task numbers repeat from one change to the next and the record is read by people.
 
 An oracle defect is recorded as a narrative `oracle-wart` row against the **rule** path
 (`tools/rules/<Rule>.crysl`), never as an upstream edit, and never as a terminal state: the rule is
-transcribed by evident intent and ends `covered`, with the row as its warrant (D-21). The five rows
-of task 0.1 are the worked examples.
+transcribed by evident intent and ends `covered`, with the row as its warrant.

@@ -10,18 +10,37 @@ import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 
 /**
- * RSAKeyGenParameterSpec
+ * RSAKeyGenParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.spec.RSAKeyGenParameterSpec.
+ * Monitors java.security.spec.RSAKeyGenParameterSpec against the CrySL rule
+ * RSAKeyGenParameterSpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/RSAKeyGenParameterSpec.crysl
+ * The rule's ORDER is `Con`, with `Con := c1` naming its one event, the two-argument constructor,
+ * so a single construction is already a complete, conforming call sequence. What the specification
+ * checks are the rule's two CONSTRAINTS clauses, `keysize in {1024, 2048, 4096};` and
+ * `publicExponent in {65537};`, both read in that constructor event. It REQUIRES no predicate and
+ * ENSURES one, `preparedRSA[this]`, written for the constructed spec at the accepting state.
+ *
+ * The admitted key sizes are 2048, 3072 and 4096: this specification refuses 1024, which the
+ * clause lists, and admits 3072, which it does not. The same key size is constrained on the other
+ * route to an RSA key pair by the CONSTRAINTS clause of KeyPairGenerator.crysl,
+ * `algorithm in {"RSA"} => keysize in {4096, 3072, 2048};`, which `KeyPairGeneratorSpec` enforces
+ * on `initialize`. Read literally, the two routes would disagree about the same key: a 1024-bit
+ * key would pass through this constructor and be refused at `initialize`, and a 3072-bit key the
+ * reverse. The list here is the one both routes can hold at once.
+ *
+ * The monitor reaches only constructions the weaving instrumented. A spec built inside a library
+ * or inside the platform carries no preparedRSA, and the specification that reads the predicate
+ * answers NOT_OBSERVED for it rather than VIOLATED, so code whose producer was never observed is
+ * not accused.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/RSAKeyGenParameterSpec.crysl
  */
 RSAKeyGenParameterSpecSpec(RSAKeyGenParameterSpec s) {
 
-   // The envelope's quoting rule (design D-3): a null value is the empty string, a single
-   // quote is escaped so it cannot close the field early, and the value is capped so a
-   // pathological argument cannot push the record past the logcat payload limit.
+   // The quoting rule of the report envelope: a null value is the empty string, a single quote is
+   // escaped so it cannot close the field early, and the value is capped so a pathological
+   // argument cannot push the record past the logcat payload limit.
    private String q(String s) {
        if (s == null) {
            return "";
@@ -30,17 +49,15 @@ RSAKeyGenParameterSpecSpec(RSAKeyGenParameterSpec s) {
        return value.replace("'", "\\'");
    }
 
-   // The RSA key sizes of the sibling expert rule. The two pinned expert rules state the size
-   // of the same key differently: `RSAKeyGenParameterSpec.crysl:15` lists {1024, 2048, 4096}
-   // and `KeyPairGenerator.crysl:29` lists {4096, 3072, 2048}. Transcribed literally, this
-   // constructor would admit 1024 and refuse 3072 while `KeyPairGeneratorSpec` refuses 1024
-   // and admits 3072 for `initialize(int)`, so the weaker key would pass through this route
-   // and the stronger one would be reported. The list here is the one of
-   // `KeyPairGenerator.crysl:29`, taken as the evident intent of the same experts, on the
-   // precedent of D-20.4, which transcribed a value clause by its evident intent. NIST SP
-   // 800-57 Part 1 supports the choice: it rates a 3072-bit RSA key at 128 bits of security,
-   // 2048 at 112 and 1024 at 80. The pinned rule files are not edited (D-21); the
-   // `oracle-wart` row of `divergence_record.csv` for the two clauses records the alignment.
+   // The admitted RSA key sizes. Two rules constrain the size of the same key and do not agree:
+   // the CONSTRAINTS clause of this file's own rule is `keysize in {1024, 2048, 4096};`, while the
+   // CONSTRAINTS clause of KeyPairGenerator.crysl is
+   // `algorithm in {"RSA"} => keysize in {4096, 3072, 2048};`, and `KeyPairGeneratorSpec` enforces
+   // the second on `initialize`. Taken literally, this constructor would admit a 1024-bit key that
+   // `initialize` refuses, and refuse a 3072-bit key that `initialize` admits, so the weaker key
+   // would pass through this route and the stronger one would be reported. The list below is the
+   // one both routes can hold at once. NIST SP 800-57 Part 1 rates a 3072-bit RSA key at 128 bits
+   // of security, 2048 at 112 and 1024 at 80.
    List<Integer> keySizes = Arrays.asList(2048, 3072, 4096);
 
    // Set by the one creation event, `c1`, whatever it reports, and never cleared: the
@@ -49,28 +66,33 @@ RSAKeyGenParameterSpecSpec(RSAKeyGenParameterSpec s) {
    // wrong-sequence code.
    boolean creationObserved = false;
 
-   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   // Bound only on the conforming branch, which is what carries the object to `@match`: a handler
+   // receives no event arguments and runs after the transition has been decided, so the event that
+   // saw the constructed object stages it here and the handler reads the field.
    RSAKeyGenParameterSpec spec;
 
-   // The rule's one event, `c1: RSAKeyGenParameterSpec(keysize, publicExponent)` (:8), and
-   // the whole of its ORDER. api30 declares exactly this constructor and no other overload
-   // of it, so there is nothing to fuse.
+   // `c1` of RSAKeyGenParameterSpec.crysl:
+   // `c1: RSAKeyGenParameterSpec(keysize, publicExponent);`, which is the whole of `Con := c1`.
+   // The platform declares exactly this constructor and no other overload of it, so there is
+   // nothing to fuse.
    //
-   // Both CONSTRAINTS clauses are read here, in the body, and neither guards the
-   // transition. A `condition(...)` compiles to `if (!(guard)) return false;` ahead of both
-   // the body and the transition (INV-INS-133), so a spec built with an inadmissible key
-   // size would take no transition, reach no accepting state and be accused of nothing --
-   // the silence measured on this file's sibling `GCMParameterSpecSpec` before gh105 moved
-   // its guards into the body.
+   // Both CONSTRAINTS clauses are read here, in the body, and neither guards the transition. A
+   // `condition(...)` guard compiles to `if (!(guard)) return false;` ahead of both the body and
+   // the transition, so a spec built with an inadmissible key size would take no transition, reach
+   // no accepting state and be accused of nothing.
    //
-   // The two clauses accumulate rather than short-circuit: a program that got both the key
-   // size and the exponent wrong broke two clauses and is told about two, and the write is
-   // taken only when neither fired.
+   // The key-size clause is enforced against the list above, which is not the clause's own list;
+   // the comment on that list says what it admits and why. The exponent clause,
+   // `publicExponent in {65537};`, is enforced as written, by value equality on the `BigInteger`,
+   // so a null exponent and any other value are both violations.
    //
-   // `keysize` is the rule's own word for it and `InvalidKeySize` is the set's type for
-   // that family (precedent: `KeyPairGeneratorSpec`'s two KEYSIZE sites). The exponent is
-   // not a key size and not an algorithm name, so it reports the general
-   // `UnsatisfiedConstraint`.
+   // The two clauses accumulate rather than short-circuit: a program that got both the key size
+   // and the exponent wrong broke two clauses and is told about two, under two codes of its own
+   // registered in `codes.csv`, and the write is taken only when neither fired.
+   //
+   // `keysize` is the rule's own word for it and `InvalidKeySize` is the set's type for that
+   // family, the same one `KeyPairGeneratorSpec` reports for its key-size sites. The exponent is
+   // not a key size and not an algorithm name, so it reports the general `UnsatisfiedConstraint`.
    event c1 after(int keysize, BigInteger publicExponent) returning(RSAKeyGenParameterSpec s):
      call(public RSAKeyGenParameterSpec.new(int, BigInteger)) &&
      args(keysize, publicExponent) {
@@ -91,12 +113,11 @@ RSAKeyGenParameterSpecSpec(RSAKeyGenParameterSpec s) {
        }
    }
 
-   // `Con := c1` is the whole ORDER (:11-12), so this automaton has one symbol and the
-   // `@fail` handler below cannot fire: the transition row the generator derives is
-   // {1, 2, 2} and the monitor is keyed on the constructed object, so no monitor of this
-   // specification ever sees a second event and state 2 is never entered. The handler is
-   // written anyway, because the generator and the `codes.csv` bijection both expect one
-   // (precedent: `GCMParameterSpecSpec.mop:158-170`).
+   // `Con := c1` is the whole ORDER, so this automaton has one symbol and the `@fail` handler
+   // below cannot fire: the transition row the generator derives is {1, 2, 2}, and the monitor is
+   // keyed on the constructed object, so no monitor of this specification ever sees a second event
+   // and state 2 is never entered. The handler is written anyway, because the generator expects
+   // one and its two codes are registered in `codes.csv` like every other site.
    ere : c1
 
    @fail {
@@ -111,15 +132,20 @@ RSAKeyGenParameterSpecSpec(RSAKeyGenParameterSpec s) {
       __RESET;
    }
 
-   // `ENSURES preparedRSA[this]` (:19) carries no `after L`, so its acceptance point is the
-   // accepting state, which in an `ere` is `@match` (INV-INS-134). The object arrives
-   // through the field, which the conforming branch alone binds; `ensure` treats a null
-   // binding as a no-op, so a construction that broke either clause writes nothing.
+   // ENSURES `preparedRSA[this];`: the clause carries no `after L`, so it holds wherever the
+   // object's use so far is a complete, conforming call sequence -- the accepting state of the
+   // ORDER, which in an `ere` is exactly where the `@match` handler runs. The predicate says: the
+   // `RSAKeyGenParameterSpec` carries a key size and a public exponent the rule admits. It is
+   // bound to the spec and has no value place, so the consumer asks for nothing but the object.
    //
-   // The read that closes this write is `KeyPairGenerator.crysl:35`,
-   // `algorithm in {"RSA"} => preparedRSA[params]`, wired at task 1b.1. Until gh109 this
-   // predicate had no producer at all, which is why that read was left closed rather than
-   // answering NOT_OBSERVED forever (D-24).
+   // The object arrives through the `spec` field, because a handler receives no event arguments;
+   // `ensure` returns at once for a null binding, so a construction that broke either clause
+   // writes nothing.
+   //
+   // `KeyPairGeneratorSpec` reads this predicate for the spec it is initialised with, under
+   // `REQUIRES` `algorithm in {"RSA"} => preparedRSA[params];` of KeyPairGenerator.crysl; a spec
+   // that prepared nothing reaches it as NOT_OBSERVED. This file is the predicate's only producer
+   // in the set.
    @match {
       PredicateStore.instance().ensure(Property.PREPARED_RSA, spec);
    }

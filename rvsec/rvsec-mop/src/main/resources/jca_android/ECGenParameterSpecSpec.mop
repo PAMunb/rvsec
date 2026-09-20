@@ -10,18 +10,33 @@ import br.unb.cic.mop.PredicateStore;
 import br.unb.cic.mop.Property;
 
 /**
- * ECGenParameterSpec
+ * ECGenParameterSpecSpec
  *
- * A JavaMOP specification of the correct usage of the
- * java.security.spec.ECGenParameterSpec.
+ * Monitors java.security.spec.ECGenParameterSpec against the CrySL rule ECGenParameterSpec.crysl.
  *
- * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/master/JavaCryptographicArchitecture/src/ECGenParameterSpec.crysl
+ * The rule's ORDER is `Con`, with `Con := c1` naming its one event, the constructor taking the
+ * curve's standard name, so a single construction is already a complete, conforming call sequence.
+ * What the specification checks is the rule's one CONSTRAINTS clause, the membership of that name
+ * in the rule's curve list, read in the constructor event. It REQUIRES no predicate and ENSURES
+ * one, `preparedEC[this]`, written for the constructed spec at the accepting state.
+ *
+ * The curve list is the clause transcribed name for name, including spellings that no provider
+ * installed on the platform implements: the test compares the string the program passed and
+ * nothing else, so a name the rule admits is admitted here whether or not a key pair could be
+ * generated for it.
+ *
+ * The monitor reaches only constructions the weaving instrumented. A spec built inside a library
+ * or inside the platform carries no preparedEC, and the specifications that read the predicate
+ * answer NOT_OBSERVED for it rather than VIOLATED, so code whose producer was never observed is
+ * not accused.
+ *
+ * @see https://github.com/CROSSINGTUD/Crypto-API-Rules/blob/6d844ab402229aaefa4c5e45bf080987b787624b/JavaCryptographicArchitecture/src/ECGenParameterSpec.crysl
  */
 ECGenParameterSpecSpec(ECGenParameterSpec s) {
 
-   // The envelope's quoting rule (design D-3): a null value is the empty string, a single
-   // quote is escaped so it cannot close the field early, and the value is capped so a
-   // pathological argument cannot push the record past the logcat payload limit.
+   // The quoting rule of the report envelope: a null value is the empty string, a single quote is
+   // escaped so it cannot close the field early, and the value is capped so a pathological
+   // argument cannot push the record past the logcat payload limit.
    private String q(String s) {
        if (s == null) {
            return "";
@@ -30,11 +45,12 @@ ECGenParameterSpecSpec(ECGenParameterSpec s) {
        return value.replace("'", "\\'");
    }
 
-   // ECGenParameterSpec.crysl:14-22, transcribed name for name and in the rule's own order.
-   // Nine curves in twenty-three spellings: the rule enumerates its own aliases -- each
-   // brainpool curve by name and by OID, each NIST curve by `secpNNNr1`, by `NIST P-NNN`,
-   // by OID, and `secp256r1` also by its X9.62 name. That is why the membership test below
-   // consults no alias table of ours for the aliasing itself.
+   // The CONSTRAINTS clause of ECGenParameterSpec.crysl, `stdName in {"brainpoolP224r1",
+   // "1.3.36.3.3.2.8.1.1.5", ... "secp521r1", "NIST P-521", "1.3.132.0.35"};`, transcribed name
+   // for name and in the rule's own order. Nine curves in twenty-three spellings: the rule
+   // enumerates its own aliases -- each brainpool curve by name and by OID, each NIST curve by
+   // `secpNNNr1`, by `NIST P-NNN` and by OID, and `secp256r1` also by its X9.62 name. That is why
+   // the membership test below needs no alias resolution of ours for the aliasing itself.
    List<String> curves = Arrays.asList(
        "brainpoolP224r1", "1.3.36.3.3.2.8.1.1.5",
        "brainpoolP256r1", "1.3.36.3.3.2.8.1.1.7",
@@ -46,33 +62,37 @@ ECGenParameterSpecSpec(ECGenParameterSpec s) {
        "secp384r1", "NIST P-384", "1.3.132.0.34",
        "secp521r1", "NIST P-521", "1.3.132.0.35");
 
-   // Bound only on the conforming branch, which is what carries the object to `@match`.
+   // Bound only on the conforming branch, which is what carries the object to `@match`: a handler
+   // receives no event arguments and runs after the transition has been decided, so the event that
+   // saw the constructed object stages it here and the handler reads the field.
    ECGenParameterSpec spec;
 
    // Set by the creation event `c1`. The generated `reset()` does not clear it, so every
    // failure of a monitor that saw no creation reports the `-ORDER-01` code in `@fail`.
    boolean creationObserved = false;
 
-   // The rule's one event, `c1: ECGenParameterSpec(stdName)` (:7), and the whole of its
-   // ORDER. api30 declares exactly this constructor.
+   // `c1` of ECGenParameterSpec.crysl: `c1: ECGenParameterSpec(stdName);`, which is the whole of
+   // `Con := c1`. The platform declares exactly this constructor, so there is no other overload to
+   // bind.
    //
-   // The curve name is a CONSTRAINTS clause and is read in the body, not in a
-   // `condition(...)`: a guard would compile to `if (!(guard)) return false;` ahead of the
-   // transition (INV-INS-133), and a spec built for an unlisted curve would be accused of
+   // The curve name is the rule's one CONSTRAINTS clause, quoted above the `curves` list, and it
+   // is checked here in the body and not in a `condition(...)` guard: a guard compiles to
+   // `if (!(guard)) return false;` ahead of both the body and the transition, so a spec built for
+   // an unlisted curve would take no transition, reach no accepting state and be accused of
    // nothing at all.
    //
    // `ConscryptAliasTable.matches` is called for the set's one normalisation rule --
-   // case-insensitive comparison -- and not for an alias resolution, because there is none
-   // to do: no Conscrypt service registers curve standard names, so the table has no row
-   // under this label and `matches` degrades to exactly that comparison. Passing a label
-   // the table does not carry is the set's established form for it (`SecretKeySpec`,
-   // `SecureRandom`, `SSLContext` and `KeyStore` all do the same). What the call buys is
-   // that a program spelling `SECP256R1` is not accused for the case alone, and that this
-   // file gets its comparison from the same place as the other eleven allow-lists of the
-   // set rather than growing a twelfth.
+   // case-insensitive comparison -- and not for an alias resolution, because there is none to do:
+   // no Conscrypt service registers curve standard names, so the table has no row under this
+   // label, `canonical` hands back the name unchanged and `matches` degrades to exactly that
+   // comparison. What the call buys is that a program spelling `SECP256R1` is not accused for the
+   // case alone, and that this file gets its comparison from the same place as every other
+   // allow-list of the set rather than growing one of its own.
    //
-   // A curve name is an algorithm name, so this reports `UnsafeAlgorithm` under the `ALG`
-   // family, as every other algorithm allow-list of the set does.
+   // A curve name is an algorithm name, so this reports `UnsafeAlgorithm` under the `ALG` family,
+   // as every other algorithm allow-list of the set does, under the code this site is registered
+   // with in `codes.csv`. The `exp` field carries the admitted list itself, so a reader of the
+   // record sees what the name was compared against.
    event c1 after(String stdName) returning(ECGenParameterSpec s):
      call(public ECGenParameterSpec.new(String)) &&
      args(stdName) {
@@ -86,10 +106,11 @@ ECGenParameterSpecSpec(ECGenParameterSpec s) {
        }
    }
 
-   // `Con := c1` is the whole ORDER (:10-11), so the `@fail` handler cannot fire: one
-   // symbol, a {1, 2, 2} transition row, and a monitor keyed on the constructed object, so
-   // no monitor ever sees a second event. Written because the generator and the
-   // `codes.csv` bijection expect it (precedent: `GCMParameterSpecSpec.mop:158-170`).
+   // `Con := c1` is the whole ORDER, so this automaton has one symbol and the `@fail` handler
+   // below cannot fire: the transition row the generator derives is {1, 2, 2}, and the monitor is
+   // keyed on the constructed object, so no monitor of this specification ever sees a second event
+   // and state 2 is never entered. The handler is written anyway, because the generator expects
+   // one and its two codes are registered in `codes.csv` like every other site.
    ere : c1
 
    @fail {
@@ -104,15 +125,21 @@ ECGenParameterSpecSpec(ECGenParameterSpec s) {
       __RESET;
    }
 
-   // `ENSURES preparedEC[this]` (:25) carries no `after L`, so the acceptance point is the
-   // accepting state, which in an `ere` is `@match` (INV-INS-134). `spec` is bound only by
-   // the conforming branch and `ensure` treats a null binding as a no-op, so a spec built
-   // for an unlisted curve prepares nothing.
+   // ENSURES `preparedEC[this];`: the clause carries no `after L`, so it holds wherever the
+   // object's use so far is a complete, conforming call sequence -- the accepting state of the
+   // ORDER, which in an `ere` is exactly where the `@match` handler runs. The predicate says: the
+   // elliptic-curve parameter spec names a curve the rule admits. It is bound to the spec and has
+   // no value place, so the consumers ask for nothing but the object.
    //
-   // `preparedEC` has two producers -- this rule and `ECParameterSpec.crysl:17` -- and two
-   // consumers, `KeyPairGenerator.crysl:38` and `KeyAgreement.crysl:48`, both guarded by an
-   // algorithm test. This is the producer that constrains the curve; the sibling states no
-   // CONSTRAINTS at all.
+   // The object arrives through the `spec` field, because a handler receives no event arguments;
+   // `ensure` returns at once for a null binding, so a spec built for an unlisted curve prepares
+   // nothing.
+   //
+   // `ECParameterSpecSpec` writes the same predicate for a curve the caller assembled by hand,
+   // and states no constraint on it, because its rule states none; this file is the producer that
+   // constrains the curve by standard name. `KeyPairGeneratorSpec` reads the predicate when its
+   // algorithm is EC and `KeyAgreementSpec` when its algorithm is ECDH, for the spec each is
+   // initialised with; a spec that prepared nothing reaches them as NOT_OBSERVED.
    @match {
       PredicateStore.instance().ensure(Property.PREPARED_EC, spec);
    }
