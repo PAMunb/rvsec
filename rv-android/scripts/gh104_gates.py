@@ -1556,10 +1556,10 @@ def backing_record(row: dict, records: dict[str, list[dict]]) -> str:
     gate agree with any record that mentions the file.
 
     The last of those three tests is why this function is written out rather than
-    inlined. `divergence_record.csv` is keyed by hunk, so its rows are file-level and
-    carry no object; a row of one of the narrative kinds therefore cannot, on its own,
-    say which clause of its specification it is about. What it *can* say is what kind
-    of thing it explains: all four kinds explain why a value list the set carries
+    inlined. `divergence_record.csv` has no per-clause key (its `hunk` column is
+    empty), so its rows are file-level and carry no object; a row of one of the
+    narrative kinds therefore cannot, on its own, say which clause of its
+    specification it is about. What it *can* say is what kind of thing it explains: all four kinds explain why a value list the set carries
     differs from the list its clause declares. A clause the set never implemented has
     no list to differ, so no narrative row can be its account -- its account is a
     `deferred-constant` entry in the clause-level `conformance_record.csv`. Without

@@ -551,7 +551,8 @@ consolidation keys on `site_kind` and not on `error_type` (INV-INS-158, `scripts
 The table is bijective with the census above:
 **330 rows, 330 live sites**, and the message gate fails on either half of that going wrong. It
 also checks the anchor: since task 7.2 a `code-anchor` check compares each row's `file_line` with
-the line the code is actually emitted from, because the two times a batch re-anchored the file by
+the line of the `ErrorCollector.instance().addError(` call that emits the code — not the `code=`
+line one or two lines below it — because the two times a batch re-anchored the file by
 script it moved anchors nobody had noticed.
 
 The `label` column says what situation a code stands for, from a closed vocabulary that must agree
@@ -649,7 +650,7 @@ generator to the masked child OOM the invariant exists for (researcher decision,
 
 | file | what it records |
 |---|---|
-| `divergence_record.csv` | one entry per hunk of the successor set against the frozen `jca` seed, plus the two registered exceptions to literal transcription (`EC`, the four `SHA*withECDSA`). Group 7 added the kind `message`: a report site rewritten as a `v=1` envelope. |
+| `divergence_record.csv` | 50 narrative rows, each with an empty `hunk` column (the column stays in the header): the departures of a value list from its expert clause that G-CONF reads (`api30-omits`, `platform-value`, `oracle-wart`, `spelling-variant`) and the recorded `behavioural`, `gate-scope`, `value-decision` and `set-archived` decisions. Read by G-CONF (`scripts/gh104_gates.py`, `read_records`/`backing_record`) and by the coverage matrix (`scripts/gh109_coverage_matrix.py`, the `oracle-wart` rows naming a rule path), both by kind and specification. It does not enumerate the set against the frozen `jca` seed: a new specification is accounted by the tree count, `codes.csv`, `predicate_graph.csv` and G-ORDER. |
 | `conformance_record.csv` | one row per specification against **the** expert rule (one `rule` column, one meaning, since task 11.4): transcription verdicts, withdrawals, deferred constants, declared costs, and the divergences measured but not repaired — including the nine `guard-on-field` rows Group 7 declares and Group 8 task 8.16 repairs. |
 | `alias_table.csv` | the Conscrypt `android11-release` alias table (175 rows, one per `Alg.Alias` registration of the pinned provider file), carried as code by `ConscryptAliasTable`. |
 | `constraint_table.csv` | one row per expert `CONSTRAINTS` clause of the paired rules plus one per `.mop` value test with no clause behind it (80 rows since D-15). |

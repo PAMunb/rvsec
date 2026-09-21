@@ -9,24 +9,34 @@ Run it after `mvn -pl rvsec-crysl-core test`, which writes the fixture under tar
 
     cd rv-android && uv run python <path to this file>
 """
+
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
-REPO = Path("/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android")
+REPO = Path(
+    "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rv-android"
+)
 sys.path.insert(0, str(REPO / "scripts"))
 
-EMITTED = Path("/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/"
-               "rvsec/rvsec-crysl/rvsec-crysl-core/target/emitted-csv")
+EMITTED = Path(
+    "/home/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/"
+    "rvsec/rvsec-crysl/rvsec-crysl-core/target/emitted-csv"
+)
 
-from gh105_predicate_graph import read_graph          # noqa: E402
-from gh104_gates import read_constraint_table         # noqa: E402
-from gh105_order_gate import read_map                 # noqa: E402
-from gh104_divergence_record import load as read_record  # noqa: E402
+from gh104_gates import read_constraint_table, read_records  # noqa: E402
+from gh105_order_gate import read_map  # noqa: E402
+from gh105_predicate_graph import read_graph  # noqa: E402
 
 graph = read_graph(EMITTED / "predicate_graph.csv")
 table = read_constraint_table(EMITTED / "constraint_table.csv")
 mapping = read_map(EMITTED / "order_alphabet_map.csv")
-record = read_record(EMITTED / "divergence_record.csv")
+# read_records resolves <repo>/data/<set>/, so the fixture is staged in that layout.
+with tempfile.TemporaryDirectory() as staging:
+    (Path(staging) / "data" / "emitted").mkdir(parents=True)
+    shutil.copy(EMITTED / "divergence_record.csv", Path(staging) / "data" / "emitted")
+    records = read_records("emitted", Path(staging))
 
 assert len(graph) == 2, graph
 assert graph[0]["file"] == "CipherSpec.mop" and graph[0]["predicate"] == "GENERATED_KEY"
@@ -42,11 +52,18 @@ assert list(mapping) == ["CipherSpec"], mapping
 assert mapping["CipherSpec"][0].order_symbol == "Inits"
 assert mapping["CipherSpec"][0].disposition == "mapped"
 
-assert len(record) == 1 and record[0]["kind"] == "api30-omits", record
+assert list(records) == ["KeyPairGeneratorSpec"], records
+assert len(records["KeyPairGeneratorSpec"]) == 1, records
+assert records["KeyPairGeneratorSpec"][0]["kind"] == "api30-omits", records
 
 print("read_graph            ->", len(graph), "rows")
 print("read_constraint_table ->", len(table), "rows")
-print("read_map              ->", sum(len(v) for v in mapping.values()), "rows,",
-      len(mapping), "specs")
-print("read_record           ->", len(record), "rows")
+print(
+    "read_map              ->",
+    sum(len(v) for v in mapping.values()),
+    "rows,",
+    len(mapping),
+    "specs",
+)
+print("read_records          ->", sum(len(v) for v in records.values()), "rows")
 print("OK: all four emitted CSVs parse with the committed readers")

@@ -353,7 +353,8 @@ columns are `spec,code,error_type,site_kind,event,file_line,label`.
 - A code names a **site, not a clause**: one clause read at two constructors gets two codes, because
   the report has to say which constructor it is about (the comment above `IvParameterSpec.c2`). One site
   with two labels is two sites and two codes (§6.2).
-- `file_line` is the line the `addError` call starts on. `gh104_message_gate.py` checks the anchor,
+- `file_line` is the line of the `ErrorCollector.instance().addError(` call that emits the code,
+  not the `code=` line one or two lines below it. `gh104_message_gate.py` checks the anchor (`code-anchor`),
   the bijection (every site has one row, every row has one site) and that no standalone integer
   appears in the message that the guard does not use. Re-anchor after any edit that moves lines.
 - `label` names what the code means, from a closed vocabulary (§6.1).
@@ -496,15 +497,14 @@ Ownership, because specifications are written in parallel:
 |---|---|
 | the new `.mop` | whoever writes that specification |
 | `SET/codes.csv` (its own rows, appended) | whoever writes that specification |
-| `divergence_record.csv` | the closing step of the group, once |
 | `predicate_graph.csv`, `predicate_ledger.csv`, `order_alphabet_map*.csv` | the closing step of the group, once |
 | `Property.java` | one step, once, ahead of every specification that uses the new constants |
 | CI enumeration constants (`Corpora`, `MopLiftCorpusTest`, `CalibrationTargets`, G-PARAM count, G-ORDER skip set) | one step, once, after the specifications exist |
 
-**A new file is one `new-file` divergence row**, not a hunk-by-hunk baseline; `IvChainJunction` is
-the precedent. The `task` column of a divergence row is qualified with the change that wrote it,
-because task numbers repeat from one change to the next and the record is read by people.
-
 An oracle defect is recorded as a narrative `oracle-wart` row against the **rule** path
 (`tools/rules/<Rule>.crysl`), never as an upstream edit, and never as a terminal state: the rule is
 transcribed by evident intent and ends `covered`, with the row as its warrant.
+The row's `hunk` column is empty, as in every row of `divergence_record.csv`, and its `task`
+column is qualified with the change that wrote it, because task numbers repeat from one change to
+the next and the record is read by people. A new file adds no row of its own to that record: it is
+accounted by the tree count, `codes.csv`, `predicate_graph.csv` and G-ORDER.

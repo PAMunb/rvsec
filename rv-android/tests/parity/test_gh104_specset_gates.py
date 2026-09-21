@@ -1,21 +1,13 @@
-"""Gates over the successor specification set `jca_android` (gh104).
+"""Gate over the frozen seed `jca` of the successor set `jca_android` (gh104).
 
-The set is seeded from the frozen `jca` and differs from it only by hunks a record
-names, so what makes it checkable is enumeration rather than equality. Two gates
-hold that shape:
+    INV-INS-128   every `ExecutionContext` site of the frozen `jca` set is still
+                  present, counted by the construct each line performs -- the census
+                  every published measurement was taken against
 
-    INV-INS-118   every hunk between the seed and the successor is named in
-                  `data/jca_android/divergence_record.csv`, and no entry names a
-                  hunk that no longer exists
-    INV-INS-128   every `ExecutionContext` site of the seed survives into the
-                  successor at the same event and unrewritten -- the predicate
-                  machinery is carried over, not removed (design D-11)
+The structural gates over the generated monitor live in
+`test_gh104_structural_gates.py`.
 
-Group 6 writes the structural gates over the generated monitor in
-`test_gh104_structural_gates.py`; they read the same records and are kept in a
-separate file so the two groups do not edit one.
-
-All of these run against the sibling Java reactor, so they skip when it is absent.
+The gate runs against the sibling Java reactor, so it skips when it is absent.
 """
 
 from __future__ import annotations
@@ -23,15 +15,12 @@ from __future__ import annotations
 import collections
 import os
 import re
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 DATA = REPO / "data" / "jca_android"
-SCRIPTS = REPO / "scripts"
 
 SEED = "rvsec/rvsec-mop/src/main/resources/jca"
 SUCCESSOR = "rvsec/rvsec-mop/src/main/resources/jca_android"
@@ -74,23 +63,6 @@ def _classify(line: str) -> str:
     return "comment"
 
 
-def test_jca_android_hunks_all_recorded():
-    """INV-INS-118: the seed diff and the divergence record name the same hunks.
-
-    A hunk with no row is an unattributed change to an instrument; a row naming no
-    hunk is a reason recorded for content that has since moved, which is worse than
-    no reason at all because it reads as one.
-    """
-    _rvsec_home()
-    result = subprocess.run(
-        [sys.executable, str(SCRIPTS / "gh104_divergence_record.py"), "--check"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
-
-
 def test_the_frozen_seed_still_carries_every_predicate_site_it_was_frozen_with():
     """INV-INS-128, rescoped by INV-INS-141 to the `jca` lock it still governs.
 
@@ -107,11 +79,9 @@ def test_the_frozen_seed_still_carries_every_predicate_site_it_was_frozen_with()
     change rather than a thing to preserve: `SecureRandomSpec`'s twin fusions
     removed two guards and moved a third read into an event body, which is exactly
     the class of edit this assertion was built to refuse. What replaces it is not
-    trust -- it is three instruments that measure the departure instead of denying
-    it: `divergence_record.csv` names every hunk with a reason
-    (`test_jca_android_hunks_all_recorded`, which is the check that would catch an
-    unattributed deletion today), `data/jca_android/predicate_graph.csv` inventories
-    every surviving site, and G-PRED2 closes the graph.
+    trust -- it is instruments that measure the departure instead of denying it:
+    `data/jca_android/predicate_graph.csv` inventories every surviving site, and
+    G-PRED2 closes the graph.
 
     What is left here is the half INV-INS-141 keeps verbatim: the frozen `jca` set,
     whose 134 sites are the census every published measurement was taken against.
