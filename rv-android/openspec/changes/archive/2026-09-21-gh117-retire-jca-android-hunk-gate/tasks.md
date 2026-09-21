@@ -37,6 +37,6 @@
 - [x] 4.2 Run `uv run pytest tests/parity/test_gh104_structural_gates.py --import-mode=importlib -o "addopts="` with the pinned expert rules present; G-CONF (`test_jca_android_allow_lists_conform_to_the_expert_rules`) and `test_jca_android_message_gate_is_clean` pass, and no test fails
 - [x] 4.3 Run `/rv-qa-lint-fix` over the touched Python files (`tests/parity/test_gh104_specset_gates.py`)
 - [x] 4.4 Invoke `/rv-code-reviewer` via Skill tool
-- [ ] 4.5 Commit by path with `refs #117`: the rv-android files, `backup/gh117/`, the change directory, and `rvsec/rvsec-mop/src/main/resources/jca_android/codes.csv`
-- [ ] 4.6 Push and confirm the `CI Pipeline` run of the commit is green (`gh run list`)
-- [ ] 4.7 `/opsx:verify`, then `/opsx:archive` with the four restated invariants (INV-INS-109, 118, 141, 147) hand-synced into `openspec/specs/instrumentation/spec.md`; `grep -n "INV-INS-118" openspec/specs/instrumentation/spec.md` shows the restated text; final commit `closes #117`
+- [x] 4.5 Commit by path with `refs #117`: the rv-android files, `backup/gh117/`, the change directory, and `rvsec/rvsec-mop/src/main/resources/jca_android/codes.csv`
+- [x] 4.6 Push and confirm the `CI Pipeline` run of the commit is green (`gh run list`)
+- [x] 4.7 `/opsx:verify`, then `/opsx:archive` with the four restated invariants (INV-INS-109, 118, 141, 147) hand-synced into `openspec/specs/instrumentation/spec.md`; `grep -n "INV-INS-118" openspec/specs/instrumentation/spec.md` shows the restated text; final commit `closes #117`
