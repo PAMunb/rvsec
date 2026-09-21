@@ -1,0 +1,311 @@
+==============================================================================
+ADMISSIBILIDADE — estudo02-20260916
+==============================================================================
+identidades observadas : 16137
+  admissíveis          : 15602
+  zero estrutural      : 171  (qtesting sem launchable-activity)
+  parada da ferramenta : 246  (abaixo do piso, com marcador, nas 3 réplicas)
+  lançamento fora do app: 45  (família droidbot entrou por activity de outro app)
+  inadmissíveis        : 76
+
+inadmissíveis por critério (uma identidade pode reprovar em mais de um):
+  C2      51
+  C4      24
+  C5      31
+inadmissíveis por braço:
+  ares                      34
+  fastbot                   11
+  droidbot:dfs_naive         9
+  droidmate                  9
+  qtesting                   7
+  monkey                     3
+  ape                        2
+  humanoid                   1
+
+as 30 primeiras (identidade, ferramenta/orçamento, critérios, marcador):
+  droidbot:dfs_naive    app.maskan.chat_90.apk                 rep1  242/300  C2  The app cannot be started
+  droidbot:dfs_naive    app.maskan.chat_90.apk                 rep3  260/300  C2  The app cannot be started
+  monkey                app.pachli_50.apk                      rep2   70/60   C5  
+  droidmate             app.pwhs.universalinstaller_24.apk     rep1   70/60   C4+C5  
+  qtesting              app.pwhs.universalinstaller_24.apk     rep1   91/180  C2  Q-table mistakenly
+  droidmate             br.com.colman.petals_3040000.apk       rep1   70/60   C4+C5  
+  droidmate             cc.sovellus.vrcaa_300007.apk           rep1   70/60   C4+C5  
+  droidbot:dfs_naive    ch.joshuah.bibleverseapp_8.apk         rep1   70/60   C5  
+  ares                  com.absinthe.libchecker_2671.apk       rep2   66/180  C2  Too Many Times tried
+  droidmate             com.apps.adrcotfas.goodtime_348.apk    rep3  191/180  C4+C5  
+  ares                  com.cointrend_10304.apk                rep3   74/180  C2+C4+C5  Too Many Times tried
+  ares                  com.gelakinetic.mtgfam_99.apk          rep1   78/300  C2  Too Many Times tried
+  ares                  com.gelakinetic.mtgfam_99.apk          rep2   63/180  C2  Too Many Times tried
+  ares                  com.gelakinetic.mtgfam_99.apk          rep2   74/300  C2  Too Many Times tried
+  ares                  com.gelakinetic.mtgfam_99.apk          rep3   77/180  C2  Too Many Times tried
+  droidbot:dfs_naive    com.hwloc.lstopo_80283.apk             rep1  236/300  C2  The app cannot be started
+  droidbot:dfs_naive    com.hwloc.lstopo_80283.apk             rep2  293/300  C2  The app cannot be started
+  droidbot:dfs_naive    com.iyps_158.apk                       rep1  162/180  C2  The app cannot be started
+  droidbot:dfs_naive    com.iyps_158.apk                       rep2  169/180  C2  The app cannot be started
+  ares                  com.kwasow.musekit_1721768604.apk      rep2   68/60   C4+C5  Too Many Times tried
+  droidmate             com.mateusrodcosta.apps.share2storage_ rep2   71/60   C4+C5  
+  ares                  com.nononsenseapps.feeder.play_4025.ap rep1   80/180  C2  Too Many Times tried
+  ares                  com.nononsenseapps.feeder.play_4025.ap rep1   72/300  C2+C4+C5  Too Many Times tried
+  droidbot:dfs_naive    com.password.monitor_102.apk           rep3  164/180  C2  The app cannot be started
+  fastbot               com.rtbishop.look4sat_410.apk          rep3  312/300  C5  
+  monkey                com.rtbishop.look4sat_410.apk          rep3   70/60   C5  
+  droidmate             com.schwegelbin.openbible_46.apk       rep3   18/60   C2+C4+C5  
+  humanoid              com.serwylo.beatgame_35.apk            rep3  182/180  C4+C5  
+  droidmate             com.sshborg_18.apk                     rep2   70/60   C4+C5  
+  ares                  com.starry.greenstash_440.apk          rep2   73/60   C4+C5  Too Many Times tried
+  ... e mais 46
+
+zero estrutural: 171 identidades em 19 APK(s).
+Não voltam à fila: repeti-las produz o mesmo zero. São as mesmas que o artigo
+publicou com cobertura zero neste braço.
+  app.michaelwuensch.bitbanana_79.apk
+  com.apps.adrcotfas.goodtime_348.apk
+  com.celzero.bravedns_619.apk
+  com.daniebeler.pfpixelix_40.apk
+  com.gaurav.avnc_51.apk
+  com.sakethh.linkora_50.apk
+  com.tk.quicksearch_65.apk
+  dev.leonlatsch.photok_62.apk
+  org.fossify.calendar_20.apk
+  org.fossify.keyboard_14.apk
+  org.fossify.math_10.apk
+  org.fossify.messages_20.apk
+  org.fossify.musicplayer_14.apk
+  org.fossify.notes_13.apk
+  org.fossify.paint_7.apk
+  org.fossify.voicerecorder_18.apk
+  org.isoron.uhabits_20301.apk
+  org.wikipedia_50595.apk
+  ua.com.radiokot.lnaddr2invoice_8.apk
+
+parada da ferramenta: 246 identidades em 35 APK(s), 82 células.
+Não voltam à fila: a ferramenta parou no mesmo ponto nas três réplicas. Ficam na
+análise como categoria declarada, ao lado do zero estrutural.
+  droidbot:dfs_naive       132
+  ares                      60
+  droidbot:bfs_naive        54
+
+lançamento fora do app: 45 identidades.
+Não voltam à fila: a ferramenta escolhe a mesma activity de entrada a cada run.
+  org.wikipedia_50595.apk  ->  leakcanary.internal.activity.LeakLauncherActivity  (droidbot:bfs_greedy, droidbot:bfs_naive, droidbot:dfs_greedy, droidbot:dfs_naive, humanoid)
+
+------------------------------------------------------------------------------
+C6 — completude: observadas 16137 / previstas 16137
+  o conjunto observado é exatamente o previsto pelo manifesto.
+
+------------------------------------------------------------------------------
+CANDIDATAS À EXCLUSÃO — relatório para decisão, NENHUMA foi excluída
+------------------------------------------------------------------------------
+45 APK(s) com ao menos uma célula sem réplica admissível.
+  44 apenas por categoria declarada (zero estrutural, parada da ferramenta, lançamento fora do app)
+  1 por outros motivos
+
+  de.markusfisch.android.binaryeye_174.apk
+      ares@300s                   parada da ferramenta (Too Many Times tried; 53/61/45 s de ferramenta)
+      fastbot@180s                rep1:C2, rep2:C2, rep3:C2
+      fastbot@300s                rep1:C2, rep2:C2, rep3:C2
+      fastbot@60s                 rep1:C2, rep2:C2, rep3:C2
+  app.michaelwuensch.bitbanana_79.apk
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  app.pwhs.universalinstaller_24.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 122/107/129 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 121/130/107 s de ferramenta)
+  com.apps.adrcotfas.goodtime_348.apk
+      ares@180s                   parada da ferramenta (Too Many Times tried; 77/74/80 s de ferramenta)
+      ares@300s                   parada da ferramenta (Too Many Times tried; 88/57/71 s de ferramenta)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  com.beemdevelopment.aegis_81.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 102/90/84 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 95/95/100 s de ferramenta)
+  com.celzero.bravedns_619.apk
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  com.daniebeler.pfpixelix_40.apk
+      ares@180s                   parada da ferramenta (Too Many Times tried; 71/77/73 s de ferramenta)
+      ares@300s                   parada da ferramenta (Too Many Times tried; 59/78/80 s de ferramenta)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  com.defname.localshare_14.apk
+      droidbot:bfs_naive@180s     parada da ferramenta (The app cannot be started; 122/124/115 s de ferramenta)
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 115/95/126 s de ferramenta)
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 102/111/111 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 117/114/114 s de ferramenta)
+  com.dessalines.rankmyfavs_44.apk
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 228/235/266 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 224/225/227 s de ferramenta)
+  com.dessalines.thumbkey_179.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 93/105/104 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 98/114/121 s de ferramenta)
+  com.floflacards.app_14.apk
+      droidbot:bfs_naive@180s     parada da ferramenta (The app cannot be started; 170/154/159 s de ferramenta)
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 164/166/175 s de ferramenta)
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 140/160/143 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 153/147/168 s de ferramenta)
+  com.fredhappyface.ewesticker_20250217.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 118/131/131 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 130/138/117 s de ferramenta)
+  com.gaurav.avnc_51.apk
+      ares@180s                   parada da ferramenta (Too Many Times tried; 53/59/63 s de ferramenta)
+      ares@300s                   parada da ferramenta (Too Many Times tried; 64/57/66 s de ferramenta)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  com.github.gotify_35.apk
+      droidbot:bfs_naive@180s     parada da ferramenta (The app cannot be started; 136/148/135 s de ferramenta)
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 134/136/149 s de ferramenta)
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 138/132/134 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 134/134/129 s de ferramenta)
+  com.github.livingwithhippos.unchained_60.apk
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 184/182/191 s de ferramenta)
+  com.ivanovsky.passnotes_11700.apk
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 225/243/246 s de ferramenta)
+  com.iyps_158.apk
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 280/291/284 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 178/175/221 s de ferramenta)
+  com.luk.saucenao_27.apk
+      droidbot:bfs_naive@180s     parada da ferramenta (The app cannot be started; 101/103/104 s de ferramenta)
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 101/96/100 s de ferramenta)
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 89/101/94 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 98/90/83 s de ferramenta)
+  com.mateusrodcosta.apps.share2storage_34.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 141/135/142 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 140/136/147 s de ferramenta)
+  com.sakethh.linkora_50.apk
+      ares@180s                   parada da ferramenta (Too Many Times tried; 89/83/64 s de ferramenta)
+      ares@300s                   parada da ferramenta (Too Many Times tried; 65/66/58 s de ferramenta)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  com.tk.quicksearch_65.apk
+      ares@180s                   parada da ferramenta (Too Many Times tried; 70/73/61 s de ferramenta)
+      ares@300s                   parada da ferramenta (Too Many Times tried; 64/68/98 s de ferramenta)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  dev.leonlatsch.photok_62.apk
+      ares@180s                   parada da ferramenta (Too Many Times tried; 58/52/57 s de ferramenta)
+      ares@300s                   parada da ferramenta (Too Many Times tried; 55/62/77 s de ferramenta)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  dev.sebaubuntu.athena_17.apk
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 239/229/224 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 242/263/226 s de ferramenta)
+  dev.spiegl.flyingcarpet_21.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 163/152/148 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 163/148/151 s de ferramenta)
+  me.diamondforge.tokn_19.apk
+      droidbot:bfs_naive@180s     parada da ferramenta (The app cannot be started; 116/107/109 s de ferramenta)
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 112/120/127 s de ferramenta)
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 95/98/107 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 90/109/102 s de ferramenta)
+  net.gaast.giggity_769.apk
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 285/273/266 s de ferramenta)
+  net.phbwt.paperwork_1003007.apk
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 228/217/227 s de ferramenta)
+  org.fossify.calendar_20.apk
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  org.fossify.keyboard_14.apk
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  org.fossify.math_10.apk
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  org.fossify.messages_20.apk
+      ares@180s                   parada da ferramenta (Too Many Times tried; 74/81/84 s de ferramenta)
+      ares@300s                   parada da ferramenta (Too Many Times tried; 87/85/104 s de ferramenta)
+      droidbot:bfs_naive@180s     parada da ferramenta (The app cannot be started; 99/95/102 s de ferramenta)
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 97/102/102 s de ferramenta)
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 99/101/91 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 94/87/85 s de ferramenta)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  org.fossify.musicplayer_14.apk
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  org.fossify.notes_13.apk
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  org.fossify.paint_7.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 104/106/100 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 152/116/125 s de ferramenta)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  org.fossify.voicerecorder_18.apk
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  org.hwyl.sexytopo_93.apk
+      droidbot:bfs_naive@180s     parada da ferramenta (The app cannot be started; 114/110/120 s de ferramenta)
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 118/121/116 s de ferramenta)
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 101/105/118 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 99/99/113 s de ferramenta)
+  org.isoron.uhabits_20301.apk
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  org.liberty.android.fantastischmemo_241.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 133/154/130 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 135/133/147 s de ferramenta)
+  org.prauga.messages_8.apk
+      ares@180s                   parada da ferramenta (Too Many Times tried; 93/82/83 s de ferramenta)
+      ares@300s                   parada da ferramenta (Too Many Times tried; 84/82/78 s de ferramenta)
+  org.wikipedia_50595.apk
+      droidbot:bfs_greedy@180s    lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:bfs_greedy@300s    lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:bfs_greedy@60s     lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:bfs_naive@180s     lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:bfs_naive@300s     lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:bfs_naive@60s      lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:dfs_greedy@180s    lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:dfs_greedy@300s    lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:dfs_greedy@60s     lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:dfs_naive@180s     lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:dfs_naive@300s     lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      droidbot:dfs_naive@60s      lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      humanoid@180s               lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      humanoid@300s               lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      humanoid@60s                lançamento fora do app (leakcanary.internal.activity.LeakLauncherActivity)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+  rocks.poopjournal.metadataremover_20020.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 119/131/112 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 138/113/128 s de ferramenta)
+  swati4star.createpdf_110.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 114/111/122 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 106/116/119 s de ferramenta)
+  systems.sieber.droid_scep_7.apk
+      droidbot:bfs_naive@300s     parada da ferramenta (The app cannot be started; 242/202/248 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 234/235/229 s de ferramenta)
+  ua.acclorite.book_story_14.apk
+      droidbot:dfs_naive@180s     parada da ferramenta (The app cannot be started; 126/124/127 s de ferramenta)
+      droidbot:dfs_naive@300s     parada da ferramenta (The app cannot be started; 125/124/123 s de ferramenta)
+  ua.com.radiokot.lnaddr2invoice_8.apk
+      ares@180s                   parada da ferramenta (Too Many Times tried; 47/44/45 s de ferramenta)
+      ares@300s                   parada da ferramenta (Too Many Times tried; 44/47/45 s de ferramenta)
+      ares@60s                    parada da ferramenta (Too Many Times tried; 47/47/51 s de ferramenta)
+      qtesting@180s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@300s               zero estrutural (qtesting sem launchable-activity)
+      qtesting@60s                zero estrutural (qtesting sem launchable-activity)
+
+Este script não exclui APK. A regra da gh104 (aplicação sai quando um braço fica sem
+réplica) foi escrita para 3 braços; aqui são 11 × 3 orçamentos, e os 19 APKs sem
+launchable-activity permaneceram na análise do artigo. A decisão é do responsável
+pela campanha, com esta lista na frente.
+
+veredictos gravados em experimento-estudo02-20260916/docs/admissibilidade.json

@@ -1,0 +1,325 @@
+identidades distintas: 132 (esperadas 132)
+
+[PASS] Portão 1 — 132 identidades COMPLETED com error_message vazio
+        identidades=132 limpas=132/132
+
+[PASS] Portão 2 — C2 tempo da ferramenta ≥ 55 s e C3 traço com passo
+        ape                  app.michaelwuensch.bitbanana_7 ferramenta=  70 s traço=   908 linhas
+        ares                 app.michaelwuensch.bitbanana_7 ferramenta=  71 s traço=    11 linhas
+        droidbot:bfs_greedy  app.michaelwuensch.bitbanana_7 ferramenta=  70 s traço=  6283 linhas
+        droidbot:bfs_naive   app.michaelwuensch.bitbanana_7 ferramenta=  70 s traço=  6261 linhas
+        droidbot:dfs_greedy  app.michaelwuensch.bitbanana_7 ferramenta=  70 s traço=  6017 linhas
+        droidbot:dfs_naive   app.michaelwuensch.bitbanana_7 ferramenta=  70 s traço=  5989 linhas
+        droidmate            app.michaelwuensch.bitbanana_7 ferramenta=  71 s traço=   193 linhas
+        fastbot              app.michaelwuensch.bitbanana_7 ferramenta=  71 s traço=   776 linhas
+        humanoid             app.michaelwuensch.bitbanana_7 ferramenta=  70 s traço=  6354 linhas
+        monkey               app.michaelwuensch.bitbanana_7 ferramenta=  70 s traço=  2360 linhas
+        qtesting             app.michaelwuensch.bitbanana_7 ferramenta=  72 s traço=    56 linhas
+        ape                  com.beemdevelopment.aegis_81.a ferramenta=  70 s traço=  2173 linhas
+        ares                 com.beemdevelopment.aegis_81.a ferramenta=  72 s traço=    19 linhas
+        droidbot:bfs_greedy  com.beemdevelopment.aegis_81.a ferramenta=  70 s traço=  1904 linhas
+        droidbot:bfs_naive   com.beemdevelopment.aegis_81.a ferramenta=  70 s traço=  1938 linhas
+        droidbot:dfs_greedy  com.beemdevelopment.aegis_81.a ferramenta=  70 s traço=  2113 linhas
+        droidbot:dfs_naive   com.beemdevelopment.aegis_81.a ferramenta=  70 s traço=  1904 linhas
+        droidmate            com.beemdevelopment.aegis_81.a ferramenta=  71 s traço=   173 linhas
+        fastbot              com.beemdevelopment.aegis_81.a ferramenta=  72 s traço=   833 linhas
+        humanoid             com.beemdevelopment.aegis_81.a ferramenta=  70 s traço=  2060 linhas
+        monkey               com.beemdevelopment.aegis_81.a ferramenta=  70 s traço=  2484 linhas
+        qtesting             com.beemdevelopment.aegis_81.a ferramenta=  71 s traço=   159 linhas
+        ape                  com.craxiom.networksurvey_114. ferramenta=  70 s traço=   891 linhas
+        ares                 com.craxiom.networksurvey_114. ferramenta=  78 s traço=    10 linhas
+        droidbot:bfs_greedy  com.craxiom.networksurvey_114. ferramenta=  70 s traço=  4872 linhas
+        droidbot:bfs_naive   com.craxiom.networksurvey_114. ferramenta=  70 s traço=  4807 linhas
+        droidbot:dfs_greedy  com.craxiom.networksurvey_114. ferramenta=  70 s traço=  5838 linhas
+        droidbot:dfs_naive   com.craxiom.networksurvey_114. ferramenta=  70 s traço=  4962 linhas
+        droidmate            com.craxiom.networksurvey_114. ferramenta=  70 s traço=   182 linhas
+        fastbot              com.craxiom.networksurvey_114. ferramenta=  73 s traço= 12560 linhas
+        humanoid             com.craxiom.networksurvey_114. ferramenta=  70 s traço=  5147 linhas
+        monkey               com.craxiom.networksurvey_114. ferramenta=  70 s traço= 16230 linhas
+        qtesting             com.craxiom.networksurvey_114. ferramenta=  73 s traço=    33 linhas
+        ape                  com.gelakinetic.mtgfam_99.apk  ferramenta=  70 s traço=  3801 linhas
+        ares                 com.gelakinetic.mtgfam_99.apk  ferramenta=  80 s traço=    51 linhas
+        droidbot:bfs_greedy  com.gelakinetic.mtgfam_99.apk  ferramenta=  70 s traço=  3496 linhas
+        droidbot:bfs_naive   com.gelakinetic.mtgfam_99.apk  ferramenta=  70 s traço=  3570 linhas
+        droidbot:dfs_greedy  com.gelakinetic.mtgfam_99.apk  ferramenta=  70 s traço=  3589 linhas
+        droidbot:dfs_naive   com.gelakinetic.mtgfam_99.apk  ferramenta=  70 s traço=  3723 linhas
+        droidmate            com.gelakinetic.mtgfam_99.apk  ferramenta=  70 s traço=   159 linhas
+        fastbot              com.gelakinetic.mtgfam_99.apk  ferramenta=  72 s traço= 11327 linhas
+        humanoid             com.gelakinetic.mtgfam_99.apk  ferramenta=  70 s traço=  3401 linhas
+        monkey               com.gelakinetic.mtgfam_99.apk  ferramenta=  70 s traço= 15858 linhas
+        qtesting             com.gelakinetic.mtgfam_99.apk  ferramenta=  83 s traço=    30 linhas
+        ape                  com.nononsenseapps.feeder.play ferramenta=  70 s traço=  1371 linhas
+        ares                 com.nononsenseapps.feeder.play ferramenta=  74 s traço=    10 linhas
+        droidbot:bfs_greedy  com.nononsenseapps.feeder.play ferramenta=  70 s traço=  4888 linhas
+        droidbot:bfs_naive   com.nononsenseapps.feeder.play ferramenta=  71 s traço=  4431 linhas
+        droidbot:dfs_greedy  com.nononsenseapps.feeder.play ferramenta=  70 s traço=  5498 linhas
+        droidbot:dfs_naive   com.nononsenseapps.feeder.play ferramenta=  70 s traço=  4613 linhas
+        droidmate            com.nononsenseapps.feeder.play ferramenta=  70 s traço=   159 linhas
+        fastbot              com.nononsenseapps.feeder.play ferramenta=  71 s traço=   595 linhas
+        humanoid             com.nononsenseapps.feeder.play ferramenta=  71 s traço=  4544 linhas
+        monkey               com.nononsenseapps.feeder.play ferramenta=  70 s traço= 27044 linhas
+        qtesting             com.nononsenseapps.feeder.play ferramenta=  71 s traço=   167 linhas
+        ape                  com.tananaev.passportreader_22 ferramenta=  70 s traço=  1159 linhas
+        ares                 com.tananaev.passportreader_22 ferramenta=  76 s traço=    14 linhas
+        droidbot:bfs_greedy  com.tananaev.passportreader_22 ferramenta=  70 s traço=  5627 linhas
+        droidbot:bfs_naive   com.tananaev.passportreader_22 ferramenta=  70 s traço=  4316 linhas
+        droidbot:dfs_greedy  com.tananaev.passportreader_22 ferramenta=  70 s traço=  4336 linhas
+        droidbot:dfs_naive   com.tananaev.passportreader_22 ferramenta=  70 s traço=  4625 linhas
+        droidmate            com.tananaev.passportreader_22 ferramenta=  70 s traço=   172 linhas
+        fastbot              com.tananaev.passportreader_22 ferramenta=  73 s traço=   413 linhas
+        humanoid             com.tananaev.passportreader_22 ferramenta=  70 s traço=  4638 linhas
+        monkey               com.tananaev.passportreader_22 ferramenta=  71 s traço= 33329 linhas
+        qtesting             com.tananaev.passportreader_22 ferramenta=  71 s traço=    34 linhas
+        ape                  dev.leonlatsch.photok_62.apk   ferramenta=  70 s traço=   953 linhas
+        ares                 dev.leonlatsch.photok_62.apk   ferramenta=  58 s traço=    12 linhas
+        droidbot:bfs_greedy  dev.leonlatsch.photok_62.apk   ferramenta=  70 s traço=  3504 linhas
+        droidbot:bfs_naive   dev.leonlatsch.photok_62.apk   ferramenta=  70 s traço=  3987 linhas
+        droidbot:dfs_greedy  dev.leonlatsch.photok_62.apk   ferramenta=  70 s traço=  3444 linhas
+        droidbot:dfs_naive   dev.leonlatsch.photok_62.apk   ferramenta=  70 s traço=  3497 linhas
+        droidmate            dev.leonlatsch.photok_62.apk   ferramenta=  70 s traço=   226 linhas
+        fastbot              dev.leonlatsch.photok_62.apk   ferramenta=  72 s traço=   614 linhas
+        humanoid             dev.leonlatsch.photok_62.apk   ferramenta=  70 s traço=  3492 linhas
+        monkey               dev.leonlatsch.photok_62.apk   ferramenta=  70 s traço= 16023 linhas
+        qtesting             dev.leonlatsch.photok_62.apk   ferramenta=  72 s traço=    60 linhas
+        ape                  github.paroj.dsub2000_217.apk  ferramenta=  70 s traço=  1982 linhas
+        ares                 github.paroj.dsub2000_217.apk  ferramenta=  70 s traço=    21 linhas
+        droidbot:bfs_greedy  github.paroj.dsub2000_217.apk  ferramenta=  70 s traço=  4913 linhas
+        droidbot:bfs_naive   github.paroj.dsub2000_217.apk  ferramenta=  70 s traço=  4889 linhas
+        droidbot:dfs_greedy  github.paroj.dsub2000_217.apk  ferramenta=  70 s traço=  4986 linhas
+        droidbot:dfs_naive   github.paroj.dsub2000_217.apk  ferramenta=  70 s traço=  4590 linhas
+        droidmate            github.paroj.dsub2000_217.apk  ferramenta=  70 s traço=   159 linhas
+        fastbot              github.paroj.dsub2000_217.apk  ferramenta=  72 s traço= 12426 linhas
+        humanoid             github.paroj.dsub2000_217.apk  ferramenta=  70 s traço=  4605 linhas
+        monkey               github.paroj.dsub2000_217.apk  ferramenta=  70 s traço= 14762 linhas
+        qtesting             github.paroj.dsub2000_217.apk  ferramenta=  77 s traço=   159 linhas
+        ape                  org.glpi.inventory.agent_39469 ferramenta=  70 s traço=   836 linhas
+        ares                 org.glpi.inventory.agent_39469 ferramenta=  82 s traço=    16 linhas
+        droidbot:bfs_greedy  org.glpi.inventory.agent_39469 ferramenta=  70 s traço=  4876 linhas
+        droidbot:bfs_naive   org.glpi.inventory.agent_39469 ferramenta=  70 s traço=  4011 linhas
+        droidbot:dfs_greedy  org.glpi.inventory.agent_39469 ferramenta=  70 s traço=  4603 linhas
+        droidbot:dfs_naive   org.glpi.inventory.agent_39469 ferramenta=  70 s traço=  4084 linhas
+        droidmate            org.glpi.inventory.agent_39469 ferramenta=  70 s traço=   188 linhas
+        fastbot              org.glpi.inventory.agent_39469 ferramenta=  71 s traço=   697 linhas
+        humanoid             org.glpi.inventory.agent_39469 ferramenta=  70 s traço=  4007 linhas
+        monkey               org.glpi.inventory.agent_39469 ferramenta=  70 s traço=  1827 linhas
+        qtesting             org.glpi.inventory.agent_39469 ferramenta=  71 s traço=   164 linhas
+        ape                  org.quantumbadger.redreader_11 ferramenta=  70 s traço=  2398 linhas
+        ares                 org.quantumbadger.redreader_11 ferramenta=  76 s traço=    15 linhas
+        droidbot:bfs_greedy  org.quantumbadger.redreader_11 ferramenta=  71 s traço=  5394 linhas
+        droidbot:bfs_naive   org.quantumbadger.redreader_11 ferramenta=  70 s traço=  5374 linhas
+        droidbot:dfs_greedy  org.quantumbadger.redreader_11 ferramenta=  70 s traço=  5066 linhas
+        droidbot:dfs_naive   org.quantumbadger.redreader_11 ferramenta=  70 s traço=  4981 linhas
+        droidmate            org.quantumbadger.redreader_11 ferramenta=  71 s traço=   173 linhas
+        fastbot              org.quantumbadger.redreader_11 ferramenta=  71 s traço=   664 linhas
+        humanoid             org.quantumbadger.redreader_11 ferramenta=  70 s traço=  4955 linhas
+        monkey               org.quantumbadger.redreader_11 ferramenta=  70 s traço=  1023 linhas
+        qtesting             org.quantumbadger.redreader_11 ferramenta=  71 s traço=   151 linhas
+        ape                  org.totschnig.myexpenses_858.a ferramenta=  70 s traço=  2550 linhas
+        ares                 org.totschnig.myexpenses_858.a ferramenta=  72 s traço=    10 linhas
+        droidbot:bfs_greedy  org.totschnig.myexpenses_858.a ferramenta=  70 s traço=  6041 linhas
+        droidbot:bfs_naive   org.totschnig.myexpenses_858.a ferramenta=  70 s traço=  6174 linhas
+        droidbot:dfs_greedy  org.totschnig.myexpenses_858.a ferramenta=  70 s traço=  5835 linhas
+        droidbot:dfs_naive   org.totschnig.myexpenses_858.a ferramenta=  70 s traço=  5984 linhas
+        droidmate            org.totschnig.myexpenses_858.a ferramenta=  70 s traço=   164 linhas
+        fastbot              org.totschnig.myexpenses_858.a ferramenta=  72 s traço=   640 linhas
+        humanoid             org.totschnig.myexpenses_858.a ferramenta=  70 s traço=  6105 linhas
+        monkey               org.totschnig.myexpenses_858.a ferramenta=  70 s traço= 16540 linhas
+        qtesting             org.totschnig.myexpenses_858.a ferramenta=  73 s traço=   137 linhas
+        ape                  rocks.poopjournal.metadataremo ferramenta=  70 s traço=  1764 linhas
+        ares                 rocks.poopjournal.metadataremo ferramenta=  85 s traço=    10 linhas
+        droidbot:bfs_greedy  rocks.poopjournal.metadataremo ferramenta=  70 s traço=  3213 linhas
+        droidbot:bfs_naive   rocks.poopjournal.metadataremo ferramenta=  70 s traço=  3369 linhas
+        droidbot:dfs_greedy  rocks.poopjournal.metadataremo ferramenta=  70 s traço=  3685 linhas
+        droidbot:dfs_naive   rocks.poopjournal.metadataremo ferramenta=  70 s traço=  3492 linhas
+        droidmate            rocks.poopjournal.metadataremo ferramenta=  70 s traço=   173 linhas
+        fastbot              rocks.poopjournal.metadataremo ferramenta=  73 s traço=   760 linhas
+        humanoid             rocks.poopjournal.metadataremo ferramenta=  70 s traço=  3682 linhas
+        monkey               rocks.poopjournal.metadataremo ferramenta=  70 s traço= 30312 linhas
+        qtesting             rocks.poopjournal.metadataremo ferramenta=  71 s traço=   158 linhas
+
+[FAIL] Portão 3 — C4 ≥ 1 assinatura RVSEC-COV e C5 cov_method > 0 e cov_act > 0
+        ape                  app.michaelwuensch.bitbanana_7 sigs=2289 cov_method=  4.82 cov_act=  6.78
+        ares                 app.michaelwuensch.bitbanana_7 sigs=1323 cov_method=  3.75 cov_act=  5.08
+        droidbot:bfs_greedy  app.michaelwuensch.bitbanana_7 sigs=2017 cov_method=  3.81 cov_act=  5.08
+        droidbot:bfs_naive   app.michaelwuensch.bitbanana_7 sigs=2119 cov_method=  4.24 cov_act=  5.08
+        droidbot:dfs_greedy  app.michaelwuensch.bitbanana_7 sigs=2068 cov_method=  3.96 cov_act=  5.08
+        droidbot:dfs_naive   app.michaelwuensch.bitbanana_7 sigs=2137 cov_method=  4.13 cov_act=  6.78
+        droidmate            app.michaelwuensch.bitbanana_7 sigs=2099 cov_method=  4.01 cov_act=  5.08
+        fastbot              app.michaelwuensch.bitbanana_7 sigs=2219 cov_method=  5.08 cov_act= 11.86
+        humanoid             app.michaelwuensch.bitbanana_7 sigs=2093 cov_method=  3.94 cov_act=  5.08
+        monkey               app.michaelwuensch.bitbanana_7 sigs=2290 cov_method=  4.59 cov_act=  6.78
+        qtesting             app.michaelwuensch.bitbanana_7 sigs=   0 cov_method=  0.00 cov_act=  0.00  << C4/C5 (conhecido: zero estrutural)
+        ape                  com.beemdevelopment.aegis_81.a sigs=1346 cov_method= 11.78 cov_act= 14.29
+        ares                 com.beemdevelopment.aegis_81.a sigs= 662 cov_method=  7.75 cov_act= 14.29
+        droidbot:bfs_greedy  com.beemdevelopment.aegis_81.a sigs= 660 cov_method=  7.47 cov_act= 14.29
+        droidbot:bfs_naive   com.beemdevelopment.aegis_81.a sigs= 658 cov_method=  7.43 cov_act= 14.29
+        droidbot:dfs_greedy  com.beemdevelopment.aegis_81.a sigs= 655 cov_method=  7.36 cov_act= 14.29
+        droidbot:dfs_naive   com.beemdevelopment.aegis_81.a sigs= 655 cov_method=  7.36 cov_act= 14.29
+        droidmate            com.beemdevelopment.aegis_81.a sigs= 627 cov_method=  6.76 cov_act= 14.29
+        fastbot              com.beemdevelopment.aegis_81.a sigs=1097 cov_method= 13.22 cov_act= 28.57
+        humanoid             com.beemdevelopment.aegis_81.a sigs= 731 cov_method=  8.20 cov_act= 14.29
+        monkey               com.beemdevelopment.aegis_81.a sigs= 746 cov_method=  8.29 cov_act= 14.29
+        qtesting             com.beemdevelopment.aegis_81.a sigs= 750 cov_method=  8.37 cov_act= 14.29
+        ape                  com.craxiom.networksurvey_114. sigs=1962 cov_method=  8.70 cov_act=100.00
+        ares                 com.craxiom.networksurvey_114. sigs=1686 cov_method=  7.24 cov_act=100.00
+        droidbot:bfs_greedy  com.craxiom.networksurvey_114. sigs=1768 cov_method=  7.66 cov_act=100.00
+        droidbot:bfs_naive   com.craxiom.networksurvey_114. sigs=1686 cov_method=  7.24 cov_act=100.00
+        droidbot:dfs_greedy  com.craxiom.networksurvey_114. sigs=1747 cov_method=  7.67 cov_act=100.00
+        droidbot:dfs_naive   com.craxiom.networksurvey_114. sigs=1698 cov_method=  7.36 cov_act=100.00
+        droidmate            com.craxiom.networksurvey_114. sigs=1672 cov_method=  7.12 cov_act=100.00
+        fastbot              com.craxiom.networksurvey_114. sigs=1764 cov_method=  7.71 cov_act=100.00
+        humanoid             com.craxiom.networksurvey_114. sigs=1673 cov_method=  7.17 cov_act=100.00
+        monkey               com.craxiom.networksurvey_114. sigs=2935 cov_method=  9.52 cov_act=100.00
+        qtesting             com.craxiom.networksurvey_114. sigs=3143 cov_method= 10.53 cov_act=100.00
+        ape                  com.gelakinetic.mtgfam_99.apk  sigs= 653 cov_method= 14.06 cov_act= 50.00
+        ares                 com.gelakinetic.mtgfam_99.apk  sigs= 455 cov_method=  8.33 cov_act= 50.00
+        droidbot:bfs_greedy  com.gelakinetic.mtgfam_99.apk  sigs= 525 cov_method= 10.58 cov_act= 50.00
+        droidbot:bfs_naive   com.gelakinetic.mtgfam_99.apk  sigs= 477 cov_method=  9.09 cov_act= 50.00
+        droidbot:dfs_greedy  com.gelakinetic.mtgfam_99.apk  sigs= 471 cov_method=  8.97 cov_act= 50.00
+        droidbot:dfs_naive   com.gelakinetic.mtgfam_99.apk  sigs= 515 cov_method= 10.62 cov_act= 50.00
+        droidmate            com.gelakinetic.mtgfam_99.apk  sigs=   0 cov_method=  0.00 cov_act=  0.00  << C4/C5
+        fastbot              com.gelakinetic.mtgfam_99.apk  sigs= 527 cov_method=  9.90 cov_act= 50.00
+        humanoid             com.gelakinetic.mtgfam_99.apk  sigs= 478 cov_method=  9.25 cov_act= 50.00
+        monkey               com.gelakinetic.mtgfam_99.apk  sigs= 565 cov_method= 10.66 cov_act= 50.00
+        qtesting             com.gelakinetic.mtgfam_99.apk  sigs= 483 cov_method=  9.29 cov_act= 50.00
+        ape                  com.nononsenseapps.feeder.play sigs=4049 cov_method= 13.08 cov_act= 16.67
+        ares                 com.nononsenseapps.feeder.play sigs=6584 cov_method= 17.09 cov_act= 16.67
+        droidbot:bfs_greedy  com.nononsenseapps.feeder.play sigs=6623 cov_method= 16.95 cov_act= 16.67
+        droidbot:bfs_naive   com.nononsenseapps.feeder.play sigs=7694 cov_method= 21.56 cov_act= 16.67
+        droidbot:dfs_greedy  com.nononsenseapps.feeder.play sigs=7614 cov_method= 21.45 cov_act= 16.67
+        droidbot:dfs_naive   com.nononsenseapps.feeder.play sigs=7246 cov_method= 20.18 cov_act= 16.67
+        droidmate            com.nononsenseapps.feeder.play sigs=3605 cov_method= 13.12 cov_act= 16.67
+        fastbot              com.nononsenseapps.feeder.play sigs=7702 cov_method= 23.34 cov_act= 16.67
+        humanoid             com.nononsenseapps.feeder.play sigs=7473 cov_method= 21.17 cov_act= 16.67
+        monkey               com.nononsenseapps.feeder.play sigs=6731 cov_method= 18.06 cov_act= 16.67
+        qtesting             com.nononsenseapps.feeder.play sigs=7645 cov_method= 21.68 cov_act= 16.67
+        ape                  com.tananaev.passportreader_22 sigs=1859 cov_method= 33.77 cov_act= 50.00
+        ares                 com.tananaev.passportreader_22 sigs=2113 cov_method= 36.36 cov_act= 50.00
+        droidbot:bfs_greedy  com.tananaev.passportreader_22 sigs=1908 cov_method= 27.27 cov_act= 50.00
+        droidbot:bfs_naive   com.tananaev.passportreader_22 sigs=1747 cov_method= 27.27 cov_act= 50.00
+        droidbot:dfs_greedy  com.tananaev.passportreader_22 sigs=2014 cov_method= 32.47 cov_act= 50.00
+        droidbot:dfs_naive   com.tananaev.passportreader_22 sigs=1746 cov_method= 25.97 cov_act= 50.00
+        droidmate            com.tananaev.passportreader_22 sigs=1907 cov_method= 25.97 cov_act= 50.00
+        fastbot              com.tananaev.passportreader_22 sigs=2025 cov_method= 41.56 cov_act= 50.00
+        humanoid             com.tananaev.passportreader_22 sigs=1792 cov_method= 25.97 cov_act= 50.00
+        monkey               com.tananaev.passportreader_22 sigs=1910 cov_method= 29.87 cov_act= 50.00
+        qtesting             com.tananaev.passportreader_22 sigs=1908 cov_method= 27.27 cov_act= 50.00
+        ape                  dev.leonlatsch.photok_62.apk   sigs=1048 cov_method=  8.72 cov_act= 33.33
+        ares                 dev.leonlatsch.photok_62.apk   sigs= 809 cov_method=  6.21 cov_act= 33.33
+        droidbot:bfs_greedy  dev.leonlatsch.photok_62.apk   sigs= 976 cov_method=  7.92 cov_act= 33.33
+        droidbot:bfs_naive   dev.leonlatsch.photok_62.apk   sigs= 827 cov_method=  6.36 cov_act= 33.33
+        droidbot:dfs_greedy  dev.leonlatsch.photok_62.apk   sigs= 952 cov_method=  7.66 cov_act= 33.33
+        droidbot:dfs_naive   dev.leonlatsch.photok_62.apk   sigs= 815 cov_method=  6.27 cov_act= 33.33
+        droidmate            dev.leonlatsch.photok_62.apk   sigs= 944 cov_method=  7.62 cov_act= 33.33
+        fastbot              dev.leonlatsch.photok_62.apk   sigs=1470 cov_method= 13.07 cov_act= 33.33
+        humanoid             dev.leonlatsch.photok_62.apk   sigs=1363 cov_method= 11.93 cov_act= 33.33
+        monkey               dev.leonlatsch.photok_62.apk   sigs= 818 cov_method=  6.30 cov_act= 33.33
+        qtesting             dev.leonlatsch.photok_62.apk   sigs=   0 cov_method=  0.00 cov_act=  0.00  << C4/C5 (conhecido: zero estrutural)
+        ape                  github.paroj.dsub2000_217.apk  sigs=1633 cov_method= 24.83 cov_act= 50.00
+        ares                 github.paroj.dsub2000_217.apk  sigs=1373 cov_method= 20.11 cov_act= 33.33
+        droidbot:bfs_greedy  github.paroj.dsub2000_217.apk  sigs=1188 cov_method= 16.56 cov_act= 33.33
+        droidbot:bfs_naive   github.paroj.dsub2000_217.apk  sigs=1194 cov_method= 16.62 cov_act= 33.33
+        droidbot:dfs_greedy  github.paroj.dsub2000_217.apk  sigs=1222 cov_method= 17.02 cov_act= 33.33
+        droidbot:dfs_naive   github.paroj.dsub2000_217.apk  sigs=1251 cov_method= 17.52 cov_act= 33.33
+        droidmate            github.paroj.dsub2000_217.apk  sigs=1118 cov_method= 15.63 cov_act= 33.33
+        fastbot              github.paroj.dsub2000_217.apk  sigs=1583 cov_method= 22.72 cov_act= 33.33
+        humanoid             github.paroj.dsub2000_217.apk  sigs=1355 cov_method= 19.57 cov_act= 33.33
+        monkey               github.paroj.dsub2000_217.apk  sigs=1493 cov_method= 22.04 cov_act= 33.33
+        qtesting             github.paroj.dsub2000_217.apk  sigs=1374 cov_method= 19.11 cov_act= 33.33
+        ape                  org.glpi.inventory.agent_39469 sigs= 544 cov_method= 23.34 cov_act= 30.00
+        ares                 org.glpi.inventory.agent_39469 sigs= 525 cov_method= 21.01 cov_act= 30.00
+        droidbot:bfs_greedy  org.glpi.inventory.agent_39469 sigs= 191 cov_method= 11.79 cov_act= 20.00
+        droidbot:bfs_naive   org.glpi.inventory.agent_39469 sigs= 191 cov_method= 11.79 cov_act= 20.00
+        droidbot:dfs_greedy  org.glpi.inventory.agent_39469 sigs= 194 cov_method= 12.16 cov_act= 20.00
+        droidbot:dfs_naive   org.glpi.inventory.agent_39469 sigs= 188 cov_method= 11.43 cov_act= 20.00
+        droidmate            org.glpi.inventory.agent_39469 sigs= 188 cov_method= 11.43 cov_act= 20.00
+        fastbot              org.glpi.inventory.agent_39469 sigs= 549 cov_method= 23.96 cov_act= 30.00
+        humanoid             org.glpi.inventory.agent_39469 sigs= 228 cov_method= 16.34 cov_act= 20.00
+        monkey               org.glpi.inventory.agent_39469 sigs= 473 cov_method= 23.22 cov_act= 30.00
+        qtesting             org.glpi.inventory.agent_39469 sigs= 509 cov_method= 19.78 cov_act= 30.00
+        ape                  org.quantumbadger.redreader_11 sigs=1616 cov_method= 11.87 cov_act= 18.18
+        ares                 org.quantumbadger.redreader_11 sigs=1301 cov_method=  8.52 cov_act=  9.09
+        droidbot:bfs_greedy  org.quantumbadger.redreader_11 sigs= 950 cov_method=  4.92 cov_act=  9.09
+        droidbot:bfs_naive   org.quantumbadger.redreader_11 sigs= 936 cov_method=  4.77 cov_act=  9.09
+        droidbot:dfs_greedy  org.quantumbadger.redreader_11 sigs=1232 cov_method=  7.80 cov_act=  9.09
+        droidbot:dfs_naive   org.quantumbadger.redreader_11 sigs= 666 cov_method=  4.16 cov_act=  9.09
+        droidmate            org.quantumbadger.redreader_11 sigs=1268 cov_method=  8.16 cov_act=  9.09
+        fastbot              org.quantumbadger.redreader_11 sigs=1561 cov_method= 11.30 cov_act= 18.18
+        humanoid             org.quantumbadger.redreader_11 sigs=1220 cov_method=  7.68 cov_act=  9.09
+        monkey               org.quantumbadger.redreader_11 sigs=1448 cov_method= 10.09 cov_act= 13.64
+        qtesting             org.quantumbadger.redreader_11 sigs=1496 cov_method= 10.61 cov_act= 13.64
+        ape                  org.totschnig.myexpenses_858.a sigs=2816 cov_method=  5.14 cov_act=  6.52
+        ares                 org.totschnig.myexpenses_858.a sigs=2841 cov_method=  5.05 cov_act=  4.35
+        droidbot:bfs_greedy  org.totschnig.myexpenses_858.a sigs=2936 cov_method=  5.28 cov_act=  4.35
+        droidbot:bfs_naive   org.totschnig.myexpenses_858.a sigs=2904 cov_method=  5.17 cov_act=  4.35
+        droidbot:dfs_greedy  org.totschnig.myexpenses_858.a sigs=2895 cov_method=  5.15 cov_act=  4.35
+        droidbot:dfs_naive   org.totschnig.myexpenses_858.a sigs=2848 cov_method=  5.06 cov_act=  4.35
+        droidmate            org.totschnig.myexpenses_858.a sigs=2841 cov_method=  5.05 cov_act=  4.35
+        fastbot              org.totschnig.myexpenses_858.a sigs=3349 cov_method=  5.77 cov_act=  4.35
+        humanoid             org.totschnig.myexpenses_858.a sigs=2851 cov_method=  5.07 cov_act=  4.35
+        monkey               org.totschnig.myexpenses_858.a sigs=2923 cov_method=  5.19 cov_act=  4.35
+        qtesting             org.totschnig.myexpenses_858.a sigs=2918 cov_method=  5.22 cov_act=  4.35
+        ape                  rocks.poopjournal.metadataremo sigs= 881 cov_method= 20.89 cov_act= 20.00
+        ares                 rocks.poopjournal.metadataremo sigs= 844 cov_method= 19.05 cov_act= 20.00
+        droidbot:bfs_greedy  rocks.poopjournal.metadataremo sigs=1032 cov_method= 26.89 cov_act= 60.00
+        droidbot:bfs_naive   rocks.poopjournal.metadataremo sigs=1032 cov_method= 26.89 cov_act= 60.00
+        droidbot:dfs_greedy  rocks.poopjournal.metadataremo sigs= 988 cov_method= 25.00 cov_act= 60.00
+        droidbot:dfs_naive   rocks.poopjournal.metadataremo sigs=1038 cov_method= 27.21 cov_act= 60.00
+        droidmate            rocks.poopjournal.metadataremo sigs= 858 cov_method= 19.79 cov_act= 20.00
+        fastbot              rocks.poopjournal.metadataremo sigs=1110 cov_method= 30.95 cov_act= 80.00
+        humanoid             rocks.poopjournal.metadataremo sigs= 858 cov_method= 19.79 cov_act= 20.00
+        monkey               rocks.poopjournal.metadataremo sigs= 867 cov_method= 20.16 cov_act= 20.00
+        qtesting             rocks.poopjournal.metadataremo sigs=1066 cov_method= 28.68 cov_act= 60.00
+
+[PASS] Portão 4 — humanoid falou com o sidecar; ares/qtesting sem irmão órfão
+        rv-humanoid: 382 linhas com requisição HTTP
+        irmãos ares_*/qtesting_* remanescentes: 0 
+
+[FAIL] Portão 5 — ≥ 1 violação RVSEC por APK, com mensagem legível
+        com.beemdevelopment.aegis_81.apk         violações=0
+        dev.leonlatsch.photok_62.apk             violações=20
+        com.craxiom.networksurvey_114.apk        violações=41
+        com.tananaev.passportreader_22.apk       violações=591
+        app.michaelwuensch.bitbanana_79.apk      violações=279
+        com.nononsenseapps.feeder.play_4025.apk  violações=99
+        org.quantumbadger.redreader_117.apk      violações=90
+        org.totschnig.myexpenses_858.apk         violações=133
+        github.paroj.dsub2000_217.apk            violações=157
+        rocks.poopjournal.metadataremover_20020. violações=14
+        org.glpi.inventory.agent_39469.apk       violações=188
+        com.gelakinetic.mtgfam_99.apk            violações=0
+        mensagens mudas: 0
+
+[PASS] Portão 6 — zero VerifyError nos logcats e no app_events.csv
+        nenhum
+
+[PASS] Portão 7 — códigos rotulados presentes; vfp/vcls só em -NOBS- e fora do unique_msg
+        codes.csv local com coluna label: sim (/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec/rvsec/rvsec-mop/src/main/resources/jca_android/codes.csv)
+        linhas do errors.csv: 1612; com código rotulado: 556 {'upstream-refused': 180, 'creation-unobserved': 130, 'platform-default': 163, 'random-key-material': 14, 'application-manager': 39, 'reuse-after-final': 30}
+        linhas -NOBS-: 627; com vfp/vcls: 285
+        evidência fora de -NOBS-: 0
+        evidência dentro do unique_msg (inflaria o mop_unique): 0
+
+[PASS] Portão 8 — fim do disparo duplo: nenhum -ORDER- de TrustManagerFactory/KeyManagerFactory/SecureRandom com gatilho g2
+        0 linha(s)
+
+[PASS] Portão 9 — cada container saiu 0, sem OOM, e escreveu os seis arquivos da exportação
+        estudo02-20260916-smoke_00: exit/oom/restarts=0 false 0 faltam=-
+        estudo02-20260916-smoke_01: exit/oom/restarts=0 false 0 faltam=-
+        estudo02-20260916-smoke_02: exit/oom/restarts=0 false 0 faltam=-
+        estudo02-20260916-smoke_03: exit/oom/restarts=0 false 1 faltam=-
+        estudo02-20260916-smoke_04: exit/oom/restarts=0 false 0 faltam=-
+        estudo02-20260916-smoke_05: exit/oom/restarts=0 false 0 faltam=-
+        estudo02-20260916-smoke_06: exit/oom/restarts=0 false 0 faltam=-
+        estudo02-20260916-smoke_07: exit/oom/restarts=0 false 1 faltam=-
+        estudo02-20260916-smoke_08: exit/oom/restarts=0 false 0 faltam=-
+        estudo02-20260916-smoke_09: exit/oom/restarts=0 false 0 faltam=-
+        estudo02-20260916-smoke_10: exit/oom/restarts=0 false 1 faltam=-
+        estudo02-20260916-smoke_11: exit/oom/restarts=0 false 0 faltam=-
+
+--- contenção com 12 containers (plano §4) ---
+  boot+install mediana 61.5 s (estudo02 com 10: 54,0 s; limiar ≤ 60 s)
+  overhead total mediana 72.8 s (estudo02 com 10: 65,3 s; limiar ≤ 75 s; > 90 s: voltar a 10–11)
+  projeção: 163 APKs, maior lote 14 × 7.07 h/APK → 4.12 dias de máquina em 12 containers (sem religamentos, reparo e a espera antes dele; plano §4.2)
+
+SMOKE REPROVADO — portões que falharam: [3, 5]

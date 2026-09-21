@@ -4,6 +4,10 @@
     uv run python experimento-estudo02-20260916/scripts/exportar_corpus.py           # só confere
     uv run python experimento-estudo02-20260916/scripts/exportar_corpus.py --apply   # confere e copia
 
+Com DATASET já povoado, o `--apply` não copia: confere cada arquivo que está lá contra os
+manifestos da fonte e regrava o `MANIFEST.sha256`. Foi esse o caminho de 16/09, quando a cópia
+foi feita à mão antes deste script rodar.
+
 Nenhuma change dos dois repositórios é dona desta etapa. A change `reinstrument-jca-android`
 termina em `rvsec-dataset/jca_android/` (`instrumented_apks/`, `static_analysis/`, manifestos,
 `dataset.csv`); a estudo02 montou uma cópia feita à mão desses arquivos. Este script faz a mesma
@@ -27,10 +31,14 @@ cerca de 4 GB no mesmo disco.
    pela metade.
 3. **Todo `.apk` difere do da estudo02.** Os consertos da gh114 mudam o tecido de todo APK
    (o runtime `rvsec-core` embarcado ganha a classe `Evidence`); um APK byte-idêntico é APK
-   que não foi reinstrumentado.
+   que não foi reinstrumentado. A referência **não são os arquivos**: a cópia de 16/09 caiu na
+   mesma pasta que a estudo02 montou e sobrescreveu os `.apk` dela. O que compara é o
+   `manifests/instrumented.sha256` daquela instrumentação, lido do git do rvsec-dataset na
+   revisão `ESTUDO02_MANIFEST_REV`.
 4. **Todo `.apk.json` é igual ao da estudo02.** A análise estática não é refeita (ela lê o APK
    original). Um JSON diferente mudaria a covariável do modelo e o denominador de cobertura
-   em silêncio.
+   em silêncio. Também se confere por manifesto: o `static_analysis.sha256` de hoje tem de ser
+   igual ao daquela mesma revisão.
 5. O commit do rvsec gravado em `manifests/instrument_provenance.json` contém
    `RVSEC_MIN_COMMIT` (a gh115, que vem depois da gh114).
 """
@@ -48,8 +56,8 @@ from campanha import ENV, ROOT  # noqa: E402
 
 SRC = Path(ENV["DATASET_SRC"])
 DST = Path(ENV["DATASET"])
-OLD = Path(ENV["ESTUDO02_DATASET"])
 OLD_CORPUS = ROOT / ENV["ESTUDO02_CORPUS"]
+OLD_REV = ENV["ESTUDO02_MANIFEST_REV"]
 RVSEC_REPO = ROOT.parent
 
 fails = []
@@ -69,6 +77,20 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: fh.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+def manifest_git(rev: str, path: str) -> dict:
+    """Manifesto de uma revisão do rvsec-dataset, sem tocar na árvore de trabalho."""
+    r = subprocess.run(["git", "-C", str(SRC.parent), "show", f"{rev}:{path}"],
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return {}
+    out = {}
+    for line in r.stdout.splitlines():
+        if line.strip():
+            digest, name = line.split(maxsplit=1)
+            out[name.strip()] = digest
+    return out
 
 
 def manifest(path: Path) -> dict:
@@ -111,7 +133,7 @@ def main() -> int:
 
     inst = manifest(SRC / "manifests" / "instrumented.sha256")
     sa = manifest(SRC / "manifests" / "static_analysis.sha256")
-    faltam, sha_apk, sha_json, iguais_old, json_mudou = [], [], [], [], []
+    faltam, sha_apk, sha_json = [], [], []
     for apk in corpus:
         a, j = SRC / "instrumented_apks" / apk, SRC / "static_analysis" / f"{apk}.json"
         if not a.exists() or not j.exists():
@@ -122,18 +144,29 @@ def main() -> int:
             sha_apk.append(apk)
         if sa.get(f"{apk}.json") != dj:
             sha_json.append(apk)
-        oa, oj = OLD / apk, OLD / f"{apk}.json"
-        if oa.exists() and sha256(oa) == da:
-            iguais_old.append(apk)
-        if oj.exists() and sha256(oj) != dj:
-            json_mudou.append(apk)
     check(not faltam, f"todo APK tem .apk e .apk.json na fonte ({len(corpus) - len(faltam)}/{len(corpus)})",
           faltam[:10])
     check(not sha_apk, f".apk bate com manifests/instrumented.sha256 ({len(sha_apk)} divergentes)", sha_apk[:10])
     check(not sha_json, f".apk.json bate com manifests/static_analysis.sha256 ({len(sha_json)} divergentes)",
           sha_json[:10])
-    check(not iguais_old, f"todo .apk difere do da estudo02 ({len(iguais_old)} byte-idênticos)", iguais_old[:10])
-    check(not json_mudou, f"todo .apk.json é igual ao da estudo02 ({len(json_mudou)} diferentes)", json_mudou[:10])
+
+    # Portões 3 e 4 por manifesto. Os .apk da estudo02 foram sobrescritos pela cópia de 16/09,
+    # então o que discrimina é o manifesto daquela instrumentação, que o git do rvsec-dataset
+    # guarda em ESTUDO02_MANIFEST_REV. O .apk.json não foi tocado e o manifesto dele nem mudou
+    # de revisão: a igualdade dos dois manifestos é a própria garantia do portão 4.
+    old_inst = manifest_git(OLD_REV, "jca_android/manifests/instrumented.sha256")
+    old_sa = manifest_git(OLD_REV, "jca_android/manifests/static_analysis.sha256")
+    if not old_inst or not old_sa:
+        check(False, f"não consegui ler os manifestos da estudo02 em {OLD_REV} (git do rvsec-dataset)")
+    else:
+        iguais_old = [a for a in corpus if inst.get(a) == old_inst.get(a)]
+        json_mudou = [a for a in corpus if sa.get(f"{a}.json") != old_sa.get(f"{a}.json")]
+        check(not iguais_old,
+              f"todo .apk difere do da estudo02 ({len(iguais_old)} byte-idênticos, contra {OLD_REV})",
+              iguais_old[:10])
+        check(not json_mudou,
+              f"todo .apk.json é igual ao da estudo02 ({len(json_mudou)} diferentes, contra {OLD_REV})",
+              json_mudou[:10])
 
     listing = "\n".join(corpus) + "\n"
     print(f"\ncorpus sha256 (mesma regra do corpus.txt do gen_compare): "
@@ -145,21 +178,31 @@ def main() -> int:
     if not args.apply:
         print("\nconferência OK — rode com --apply para copiar")
         return 0
-    if DST.exists() and any(DST.iterdir()):
-        print(f"!! {DST} já existe e não está vazio; não sobrescrevo — confira e remova à mão")
-        return 1
+    # DST povoado quer dizer cópia já feita (foi o caso de 16/09, à mão). Não se copia por cima:
+    # confere o que está lá contra os manifestos da fonte e regrava o MANIFEST.sha256.
+    ja_existe = DST.exists() and any(DST.iterdir())
     DST.mkdir(parents=True, exist_ok=True)
-    linhas, corrompidos = [], []
+    linhas, corrompidos, ausentes = [], [], []
     esperado = {**inst, **sa}
     for apk in corpus:
         for src in (SRC / "instrumented_apks" / apk, SRC / "static_analysis" / f"{apk}.json"):
-            shutil.copy2(src, DST / src.name)
-            digest = sha256(DST / src.name)
+            alvo = DST / src.name
+            if ja_existe:
+                if not alvo.exists():
+                    ausentes.append(src.name)
+                    continue
+            else:
+                shutil.copy2(src, alvo)
+            digest = sha256(alvo)
             if digest != esperado[src.name]:
                 corrompidos.append(src.name)
             linhas.append(f"{digest}  {src.name}")
+    if ausentes:
+        print(f"!! {len(ausentes)} arquivo(s) do corpus faltando em {DST}: {ausentes[:10]}")
+        return 1
     (DST / "MANIFEST.sha256").write_text("\n".join(linhas) + "\n")
-    print(f"\ncopiados {len(corpus)} .apk + {len(corpus)} .apk.json para {DST}")
+    verbo = "conferidos em" if ja_existe else "copiados para"
+    print(f"\n{len(corpus)} .apk + {len(corpus)} .apk.json {verbo} {DST}")
     if corrompidos:
         print(f"!! {len(corrompidos)} arquivo(s) com sha256 diferente na cópia: {corrompidos[:10]}")
         return 1
