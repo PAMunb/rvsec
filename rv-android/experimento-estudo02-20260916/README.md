@@ -36,7 +36,7 @@ Preparado em 15/09/2026. Smoke rodado e aprovado em 16/09/2026. **Campanha lanç
 | 17 | passada de resume do reparo | OK — 20/09 15:59:14→17:33:11; os 12 saíram `exit=0` sem OOM; **51 das 72 recuperaram**, 21 repetiram a falha |
 | 18 | admissibilidade de novo | OK — 20/09 17:34:12→17:38:02; **15 653 admissíveis, 25 inadmissíveis**, C6 fecha; candidatas à exclusão: 45, **todas por categoria declarada** |
 | 19 | consolidação | OK — 20/09 19:26:26→19:26:45; `data/results/estudo02-20260916_consolidado/` com `per_task.csv` de **16 137 linhas** e 489 unidades pareadas |
-| 20 | análise (plano §9) | **pendente** — os dois scripts não existem; nada se escreve sem decisão do Pedro |
+| 20 | análise (plano §9) | **pendente, fora deste repositório** — as planilhas não viajam no git; pré-requisitos em `docs/analise_prerequisitos.md`; será feita no `rvsec-study02-replication-package` |
 
 ### Fim da fase principal (20/09) e a passada de resume final
 
