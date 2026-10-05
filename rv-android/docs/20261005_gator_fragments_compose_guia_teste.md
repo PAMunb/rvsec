@@ -57,7 +57,13 @@ análise própria; foram registrados de passagem como perdidos
    um `onClick.invoke()` dentro do corpo de `Button`, com parâmetro sem restrição, faz leque para toda
    lambda do app [hipótese com suporte no fonte, §4.2]. Se isso se confirmar, o sinal por tela (D1),
    reprovado no pré-gate por saturação, volta a ter chance.
-6. **O bind que já existe funciona; a marca só informa quando é rara na tela.** No agregado, depois
+6. **O bind de widget funciona onde casa, mas casa pouco; a marca só informa quando é rara na tela.**
+   Só 17,3 % dos cliques do E6 caem num widget estático: 33,7 % no só-View, 8,2 % no misto, 0 % no
+   só-Compose. Os demais vão para nó sem `resource-id` (58,6 %), id ausente do estático (17,0 %;
+   dono do app em 69 % desses cliques, fragments sozinhos em 35 %, biblioteca em 29 %) ou id do framework (6,0 %).
+   Onde casa, o handler atribuído roda no primeiro clique em 65,6 % das chaves, contra 1,15 % por
+   acaso. O GATOR atribui handlers a mais (só 34,6 % dos atribuídos em chaves de vários handlers
+   rodam), mas isso mexe pouco na marca [conferido, §6.10]. No agregado, depois
    de um clique em widget marcado veio JCA nova em 7,2 % dos passos, contra 6,7 % nos passos comuns
    (§6.1). Graduando a marca pelo número de alvos marcados na tela e controlando a novidade do clique
    por activity, o widget que é um de no máximo três marcados rende **2,01 vezes** [1,57; 2,67] a JCA
@@ -552,7 +558,9 @@ refeitas por mim]:
   (0,66 %), contra 0,046 % nos passos comuns (razão de Mantel-Haenszel 7,9, IC [3,5; 14,2]; 8 APKs).
   Depois de um passo em que o boost de widget mudou a escolha, 3 de 1.823 (razão 0,6). Números
   pequenos, mas na direção: levar o explorador para a tela certa rende; empurrar o clique dentro da tela
-  não.
+  não. *Correção de 05/10 (§6.9)*: a razão 7,9 compara o lançamento com o passo comum. Contra uma
+  primeira visita orgânica a uma activity, o lançamento rende o mesmo (MH 1,09 [0,35; 7,05] no braço
+  MOP). O efeito é a novidade da activity alcançada, não a orientação MOP.
 - **Teto**: dos 101 sítios distintos de violação primária, **70 estão em biblioteca**, e nenhuma
   dessas classes aparece no `reachability` do artefato (0/70). Só 31 sítios, em 21 APKs, estão no
   código do app. A análise estática mira só esses 31. Sobre eles, `reachesTarget` e
@@ -1044,6 +1052,139 @@ activity do passo seguinte.
   exploração não alcança sozinha, não por tornar o canal seletivo. A seletividade continua sendo a
   da §6.5–6.7.
 
+### 6.10 O bind estático → runtime do canal de widget, medido
+
+A §6.1 mediu o que acontece **depois** de um clique em widget marcado. Isso mistura duas falhas que
+não se separam: o clique não disparou o handler que o estático atribui (bind errado), ou disparou e o
+sinal é saturado (bind certo, marca inútil). Esta seção mede o bind em si, nos dados do E6, sem rodar
+nada [conferido; scripts `m14_bind_precision.py`, `m15_absent_origin.py`, `m16_no_rid.py` em
+`doutorado-tese/.../20261005_e6_graduacao_marca/`, com `.out` e `.csv` ao lado; sem o avare;
+162 APKs, 486 tarefas, 623.566 passos de clique dos três braços aperv].
+
+**Como o teste funciona.**
+- **Lado estático.** A chave `(activity, shortId, evento)` → handlers sai do `.apk.json` com as
+  próprias funções do consumidor, importadas só para leitura de `derive_mop_artifact.py`
+  (`_base_activity`, `_resolve_dialog_host`, `_normalize_event_type`). Diferente do consumidor, a
+  chave guarda os handlers de todos os widgets que colidem.
+- **Lado runtime.** A activity, o tipo de ação e o `resource-id` do alvo saem do `dec.a` do trace.
+- **Verdade de campo.** A linha `RVSEC-COV` do logcat. A instrumentação dexlib2 a insere na entrada
+  de todo método do app fora dos pacotes excluídos (`coverage-weaver/.../CoverageWeaver.java`,
+  `PackageFilter.java`), e o `mop.Coverage.log` a emite **uma vez por assinatura e por processo**
+  (`monitor-builder/.../CoverageSourceEmitter.java:54-55`). Por isso só é testável o clique cuja
+  chave tem handlers que ainda não rodaram na tarefa.
+- **Alinhamento.** O heartbeat `ApeRvHb` é escrito em `NdjsonSink.beginStep`, antes de a ação do passo
+  executar (`StatefulAgent.java:1567`). O efeito de um passo cai entre o seu heartbeat e o seguinte.
+- **Controle de coincidência.** No mesmo passo, a fração dos outros handlers ainda não executados da
+  mesma activity que aparece na mesma janela.
+
+**Degrau 1 — casamento: o nó clicado tem widget estático?**
+
+| destino do clique | % dos cliques |
+|---|---:|
+| nó sem `resource-id` | 58,6 % |
+| id do framework (`android:id/…`: diálogos, preferências, listas) | 6,0 % |
+| id ausente do estático | 17,0 % |
+| id que o estático tem sob outra janela (diálogo sem host resolvido) | 1,1 % |
+| **casa com widget estático na activity** (com ou sem handler) | **17,3 %** |
+
+- **Os 58,6 % sem id são ausência real no nó, não efeito do nome.** Para alvos clicáveis, a base de
+  nomes do APE-RV é o `TypeNamer` (`naming/NamingFactory.java:899-900`), que escreve
+  `class=…;resource-id=…;` sempre que o nó tem id (`naming/TypeNamer.java:44-48`); 100 % dos nomes
+  trazem `class=`. Uma redação anterior nesta análise dizia que o nome podia esconder o id; estava
+  errada.
+- **Por estrato** (`ui_tech` congelado):
+
+  | estrato | cliques sem id | casam com widget estático | nós sem id mais clicados |
+  |---|---:|---:|---|
+  | só-View (72 APKs) | 20,0 % | 33,7 % | `ImageButton` 29 %, `LinearLayout` 23 %, `ImageView` 16 % |
+  | misto (37) | 81,2 % | 8,2 % | `android.view.View` 57 %, `EditText` 18 % |
+  | só-Compose (50) | 97,4 % | 0 % | `android.view.View` 59 %, `EditText` 22 % |
+
+  No só-View, os nós sem id parecem ser botões de toolbar e linhas de lista [hipótese]. A mediana
+  por APK da fração de cliques com id é 82 % no só-View, 2 % no misto e 0 % no só-Compose.
+- **De onde vêm os ids ausentes** (`m15`; para cada id, o layout que o declara, por
+  `aapt2 dump resources`/`xmltree`, e a classe que referencia esse layout, por `dexdump`, com um salto
+  pelas classes de ViewBinding/DataBinding e pelos `<include>`). São 105.888 cliques, 2.903 pares
+  (APK, id) e 105 APKs:
+
+  | quem infla o layout | % dos cliques | dono no app / na biblioteca (cliques) |
+  |---|---:|---|
+  | fragment | 34,9 % | 36.206 / 795 |
+  | outra classe | 35,0 % | 17.327 / 19.727 |
+  | activity (inclui diálogos montados pela activity e DataBinding) | 12,3 % | 11.596 / 1.455 |
+  | adapter (linhas de lista) | 10,4 % | 4.146 / 6.878 |
+  | DialogFragment | 5,4 % | 3.996 / 1.742 |
+  | sem layout, layout não referenciado ou id fora dos recursos | 1,8 % | — |
+
+  "Outra classe" na biblioteca é sobretudo Material e AppCompat: `text_input_end_icon` (4.001
+  cliques), `design_menu_item_text` (3.228), `search_src_text` e `search_close_btn` do `SearchView`,
+  `snackbar_action`.
+- **Teto dos consertos no produtor.** Os ids ausentes cujo dono é do app (fragment, DialogFragment,
+  adapter e activity do app; 55.944 cliques, 53 % dos ausentes, cerca de 9 % de todos os cliques) são
+  os que F1/F2 (§3.5) e a modelagem de diálogos, DataBinding e adapters podem recuperar. O canal de
+  widget passaria de cerca de 17 % para no máximo uns 26 % dos cliques. Os nós sem id, os widgets de
+  biblioteca e todo o Compose ficam fora do alcance do GATOR com a chave `resource-id`.
+
+**Degrau 2 — atribuição: o handler que o estático dá ao widget é o que roda?**
+
+- **Testáveis**: 3.361 cliques (0,5 %) em 56 APKs; 466 chaves.
+- **Algum handler da chave roda?** No primeiro clique testável de cada chave (847 casos), em
+  **65,6 %** dos casos, no passo ou no seguinte. O controle de coincidência dá 1,15 %. Por chave,
+  72,7 % tiveram handler executado: 80,2 % das 222 chaves de handler único e 66,0 % das 244 de vários.
+- **Qual handler roda?** Nas 161 chaves de vários handlers em que o clique disparou algum, só **197
+  dos 570 handlers atribuídos (34,6 %)** rodaram.
+- **Dispersão.** 68,3 % dos 616 handlers vistos estão atribuídos a 4 chaves ou mais. A mediana por
+  APK é 4 (máximo 840). No extremo, `FragmentLegend$1.onClick`, do `eu.faircode.email`, está em 1.020
+  chaves.
+- **Um caso conferido no bytecode.** No `com.beemdevelopment.aegis_81`,
+  `AuthActivity$$ExternalSyntheticLambda3` é registrado só em `button_biometrics`: em
+  `AuthActivity.onCreate`, `findViewById(button_biometrics)` → `move-object v10` →
+  `v10.setOnClickListener(Lambda3)`. O `.apk.json` o atribui a 4 widgets (`button_biometrics`,
+  `text_password`, `text_password_no_autofill`, `button_decrypt`). `text_password` teve 121 cliques
+  testáveis sem que o handler rodasse.
+- **O efeito da sobre-atribuição na marca é pequeno.** Das 92 chaves marcadas cujo clique disparou um
+  handler, só 7 (7,6 %, em 5 APKs) são marcadas apenas por handlers que não rodaram. Nas outras 85, o
+  handler que rodou é ele mesmo marcado. A saturação vem do alcance do handler verdadeiro (§4.2,
+  §6.5), não da atribuição. Uma redação anterior nesta análise afirmava o contrário; estava errada.
+- **Ressalvas.** Uma chave cujo handler nunca rodou não prova atribuição errada: pode ser um
+  `EditText`, cujo primeiro toque só dá foco, ou um handler condicional. "Nunca rodou com outro
+  rodando" é indício de sobre-atribuição, não prova; só o caso do `aegis` está provado no bytecode.
+  A amostra testável é estreita (0,5 % dos cliques, 56 APKs), porque o log não regrava.
+
+**Leitura.** Onde casa e a chave tem um handler só, o bind funciona razoavelmente: o handler roda em
+cerca de 4 de 5 chaves, contra cerca de 1 % por acaso. O que limita o canal de widget é o casamento:
+só 17,3 % dos cliques chegam a um widget estático, e no Compose nenhum. A sobre-atribuição existe e é
+ampla, mas mexe pouco na marca.
+
+**Alternativas de bind discutidas** [proposta; nenhuma decidida, nenhuma medida em execução]:
+
+- **Id sintético calculado no GATOR** e recalculado pelo APE-RV a partir da árvore de acessibilidade
+  (classe, texto, `content-desc`, posição na hierarquia). Confiança média: os dois lados inferem, a
+  posição muda com views `GONE`, listas e conteúdo dinâmico, o texto depende de idioma e de dados do
+  usuário, e a sobre-atribuição do GATOR se mantém.
+- **Variante A — carimbo do handler para guiar.** A instrumentação dexlib2, que já tece advice em
+  sítios de chamada (monitores) e na entrada de métodos (cobertura), inseriria depois de cada
+  `setOnClickListener(L)`/`setOnLongClickListener(L)` uma chamada que grava `L.getClass().getName()`
+  nos extras do `AccessibilityNodeInfo` da view, por um `AccessibilityDelegate` que preserva o do app.
+  O APE-RV leria o extra do nó que já recebe, e o artefato passaria a ser classe de handler → flag,
+  tirada do `reachability`. A confiança é alta por construção, porque o rótulo é posto em execução no
+  objeto real e não há inferência. Cobriria fragments, adapters, diálogos com view própria e nós sem
+  id. Ficariam de fora `android:onClick` no XML, botões de `AlertDialog`
+  (`DialogInterface.OnClickListener`), `OnPreferenceClickListener` e itens de `NavigationView`. Para
+  Compose, o análogo seria carimbar os sítios `clickable`/`Button` com um `testTag` sob
+  `testTagsAsResourceId` [hipótese]. Muda a instrumentação, o `ape` e o formato do artefato. Não lê
+  `/sdcard`, então não fere a letra do INV-RUN-06, mas é um canal novo. Não conferido: se o construtor
+  de árvore do APE-RV preserva os extras; se o weaver aceita esse advice; se a API 30 entrega ao
+  `UiAutomation` os extras postos por um delegate do app. O Pedro tem reserva quanto a mexer no
+  instrumentador.
+- **Variante B — carimbo só para medir.** A mesma inserção escreve no logcat uma linha `RVSEC-BIND`
+  (id, classe e limites da view, classe do handler), lida depois da execução como o `RVSEC-COV`. Não
+  guia nada, porque logcat não pode ser entrada do APE-RV. Mediria o bind com certeza, em todas as
+  views e não só nas clicadas, e mediria a sobre-atribuição do GATOR sem inferência.
+- **Só o produtor.** Manter a chave `(activity, resource-id)` e consertar o GATOR: F1/F2, diálogos,
+  DataBinding, adapters, e uma atribuição listener → view mais precisa. O teto é o da tabela acima,
+  cerca de 26 % dos cliques, e o Compose fica só no canal de activity (§6.9).
+
 ---
 
 ## 7. Experimentos que decidem, antes de qualquer change
@@ -1250,6 +1391,12 @@ Tabela por APK em `doutorado-tese/.../20261005_e6_graduacao_marca/m12_rerun_sets
   - `m11_payload.py`: tamanho do vetor de distâncias no artefato (§6.7);
   - `m12_rerun_sets.py`: conjuntos de APKs para a re-execução (§7.6);
   - `m13_library_sites.py`: sítios por origem × fase × chamador direto (§6.8);
+  - `m14_bind_precision.py` (+ `.out`, `m14_bind_precision_clicks.csv`, `m14_bind_precision_keys.csv`;
+    piloto em `m14_pilot*`): casamento e atribuição do bind de widget por clique (§6.10);
+  - `m15_absent_origin.py` (+ `.out`, `.csv`): layout e classe dona de cada id clicado ausente do
+    estático, por `aapt2` e `dexdump` sobre os APKs originais (§6.10);
+  - `m16_no_rid.py` (+ `.out`; `m16_no_rid.csv.gz` intermediário): classes dos nós clicados sem
+    `resource-id`, por estrato (§6.10);
   - `m17_launcher.py` (+ `.out`, `m17_launches.csv`): disparo, aceitação e chegada do lançador, e o
     rendimento contra a primeira visita orgânica (§6.9).
 - **Relatórios de subagentes [relato]**:
