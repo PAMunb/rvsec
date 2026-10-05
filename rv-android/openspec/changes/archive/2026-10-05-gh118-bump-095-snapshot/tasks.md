@@ -64,5 +64,5 @@
 ## 9. Commit and archive (sequential — main window)
 
 - [x] 9.1 `git commit -- <paths of plan.md §3>` with `closes #118` (no co-author trailer); `git show --stat HEAD` contains only the 83 §3 paths plus `tasks.md`
-- [ ] 9.2 Archive via `/opsx:archive gh118-bump-095-snapshot` (`--skip-specs`) and commit the archive by path
-- [ ] 9.3 Tick the acceptance criteria in issue #118 and close it by hand (`closes` does not act outside `master`); report to the user; do NOT push (the user pushes `modules`)
+- [x] 9.2 Archive via `/opsx:archive gh118-bump-095-snapshot` (`--skip-specs`) and commit the archive by path
+- [x] 9.3 Tick the acceptance criteria in issue #118 and close it by hand (`closes` does not act outside `master`); report to the user; do NOT push (the user pushes `modules`)
