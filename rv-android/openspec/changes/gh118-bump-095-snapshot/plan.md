@@ -17,14 +17,16 @@ release cut, no branch operation and no tag.
 
 This repeats three archived changes so they read side by side: **gh76-bump-092-snapshot**
 (`0.9.1 → 0.9.2`), the `modules` pass of **gh84-release-092** (`0.9.2 → 0.9.3`) and
-**gh115-bump-094-snapshot** (`0.9.3 → 0.9.4`, commit `8cdac0d2`, 84 files). The group letters
+**gh115-bump-094-snapshot** (`0.9.3 → 0.9.4`, commit `8cdac0d2`, 84 files: 83 version carriers plus its own `tasks.md`). The group letters
 (A–I, no G) are gh115's. The inventory was re-measured at `df575539` (gh117 archive, already on
 `origin/modules`), and what it found differs from gh115 in three ways:
 
 1. **Every version-bearing line is where gh115 left it.** gh116 and gh117 added no line carrying
    the version, no POM entered or left the reactor, and every line number in §3 is identical to
-   gh115's. The tracked total is again 84 files: 48 reactor POMs, `rv-android/pom.xml` and 35
-   single-token files.
+   gh115's. The tracked total is again 83 files: 48 reactor POMs, `rv-android/pom.xml` and 34
+   single-token files (a bare `git grep` also hits
+   `crylogger/scripts/passwords/xato-net-10-million-passwords.txt`, a wordlist inside the excluded
+   crylogger).
 2. **The `0.9.4` image tag is now the identity of measurements.** The `estudo02-20260916` campaign
    ran on `phtcosta/rvandroid:0.9.4`, and the E5 composes of the Estudo 3
    (`docker/docker-compose.e5*.yml`) pin `phtcosta/rvandroid:0.9.4@sha256:130f127b5b4c…`. Moving the
@@ -205,7 +207,7 @@ this change.
 2. **Group A (main window)** — `versions:set`, then `git diff --stat` shows only the 48 reactor
    POMs. It runs alone and first so the plugin's diff is validated in isolation; it also shares no
    file with any later group.
-3. **Groups B–I in parallel (subagents).** About 35 files, all single-token substitutions on
+3. **Groups B–I in parallel (subagents).** 35 files — the 34 single-token files plus `rv-android/pom.xml` —, all single-token substitutions on
    disjoint files. Following `docs/WORKFLOW.md` §5 (20+ files, 3+ independent groups, 3–15 files
    per subagent, grouped by locality), five subagents run at once:
    - **S1 — Groups B + C + H** (5 files: `rv-android/pom.xml`, `configure.sh`, `rvsec/config.sh`,
@@ -237,4 +239,4 @@ this change.
 - [ ] `cd rv-android && uv run pytest modules/rv-instrumentation-core/tests/test_instrumenter.py modules/rv-instrumentation-dexlib2/tests/test_dexlib_instrumentation.py --import-mode=importlib -o "addopts="` → 0 failed
 - [ ] The §4 step 1 grep, re-run after the edits, returns only §2 exclusions
 - [ ] `git grep -nE '0\.9\.5-SNAPSHOT|:0\.9\.5'` hits no excluded path (campaign composes, `experimento-*`, `data/**`, dated docs, ADRs, the two measurement-record specs), and the ten untracked `docker/docker-compose.e5*.yml` still read `0.9.4@sha256:130f127b5b4c…`
-- [ ] The commit contains only §3 paths (`git show --stat HEAD` lists 84 files)
+- [ ] The commit contains only §3 paths (`git show --stat HEAD` lists 84 files: the 83 §3 paths plus this change's `tasks.md`)
