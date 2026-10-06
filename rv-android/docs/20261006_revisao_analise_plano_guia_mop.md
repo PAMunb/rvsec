@@ -12,6 +12,11 @@ onde veio. Nada foi comitado.
 **Estado dos repositórios na leitura**: `ape` em `43664568`, com `src/` igual ao de `e93dea86`, o jar
 do E6. A sessão do `ape` analisa a mesma análise em paralelo. Antes de qualquer uso, confira se o
 `ape` mudou.
+**Re-investigação (06/10, segunda sessão)**: os erros da análise foram reabertos na fonte, com o
+`derive()` de produção sobre os 163 `.apk.json`, `dexdump` dos APKs instrumentados e as tabelas do
+E6. Ela mudou o R3, o R4, o R5, o R6, o R8 e o R10, e o resumo abaixo. Em dois pontos (R6 e a
+premissa do R4) a primeira versão desta revisão também errava. Os scripts estão no scratchpad da
+sessão (`d1/`, `d2.py`), fora do repositório; a §6 lista o que foi reaberto.
 
 **Rótulos**:
 - **[conferido]**: aberto por mim nesta sessão.
@@ -24,10 +29,14 @@ do E6. A sessão do `ape` analisa a mesma análise em paralelo. Antes de qualque
 ## 0. Resumo
 
 A análise acerta mais do que erra. Os pontos de código que ela diz ter conferido conferem. Os erros
-estão em três lugares:
-- em duas generalizações que um único caso não sustenta;
-- num número de configuração do E6;
-- na leitura de um desfecho.
+estão em quatro lugares:
+- em duas generalizações tiradas de um único APK: o `aegis` no D1 (R4) e o `eu.faircode.email` no
+  D2, que tem 502 das 528 marcas presas a chave de diálogo (R5);
+- na parcela de decisões do LLM no E6 e na conclusão tirada dela (R6). A primeira versão desta
+  revisão também errava aqui;
+- na citação do desfecho da decisão 6: o SQ9 é outra medida, mas com as medidas certas a conclusão
+  dela se mantém (R3);
+- em números menores e numa estimativa de custo (inventário, R10).
 
 O que ela muda no plano, do que mais muda ao que menos muda:
 
@@ -43,27 +52,35 @@ O que ela muda no plano, do que mais muda ao que menos muda:
 3. **O desenho da próxima campanha precisa de unidade de análise mais fina que o APK** (R3). As
    contas de poder reproduzem exatamente. A conclusão certa é "a guia teria de recuperar 70–80 % de
    uma lacuna inflada pelo ruído", e não "só uma guia quase perfeita passaria". A frase "o desfecho
-   da decisão 6 já foi lido no E6 e não se moveu" não se sustenta: o SQ9 do E6 é outra medida.
-4. **A recomendação para o D1 desligaria a recuperação D8 inteira, inclusive no caso que a motivou**
-   (R4). A premissa "o falso do wrapper é provavelmente o certo" vale no `aegis` e falha no
-   `cryptoapp`, a fixture de referência. O defeito real é de precisão: a recuperação faz o OU das
-   flags de todas as lambdas da classe.
-5. **O D2 é, quase todo, a WTG que não terminou** (R5). 524 das 528 marcas presas a chave de diálogo
-   estão em 7 APKs sem WTG. Os artefatos sem `complete` carregam 58 % de todos os widgets marcados
-   do corpus [relato].
-6. **No braço MOP+LLM do E6, o LLM foi consultado em 90 % dos passos admitidos, não em 70 %** (R6).
-   A conclusão da análise fica mais forte: nesse braço, a guia só chega ao agente pelo marcador do
-   prompt.
+   da decisão 6 já foi lido no E6 e não se moveu" cita a medida errada (o SQ9), mas vale com as
+   medidas da decisão 6: 125 × 136 chamadores diretos executados e 19 × 19 sítios de origem no app
+   durante a interação, braço 2 × braço 3, nos 89 APKs.
+4. **A recomendação para o D1 desligaria a recuperação D8 inteira** (R4). Dos 731 widgets marcados só
+   pela recuperação, 601 têm o alvo específico do wrapper alcançando: são lacuna do call graph, o
+   caso do `cryptoapp`. Os outros 130 herdam a flag das lambdas irmãs, o caso do `aegis`. A premissa
+   da análise vale para os 130 e falha para os 601. O defeito real é de precisão (o OU por classe),
+   e o tamanho dele é 130 widgets, cerca de 5 % dos 2.681 marcados [conferido].
+5. **O D2 é, quase todo, a WTG que não terminou, e quase todo um APK** (R5). 524 das 528 marcas
+   presas a chave de diálogo estão em 7 APKs sem WTG, e 502 delas no `eu.faircode.email`. Os 44
+   artefatos sem `complete` carregam 1.550 dos 2.681 widgets marcados do corpus (58 %) [conferido].
+6. **No braço MOP+LLM do E6, o LLM decidiu cerca de 37 % das ações executadas** (R6) [conferido].
+   O 0,9 do `arms.json` é a moeda por passo admitido, não a parcela de decisões. O LLM foi consultado
+   em 70,9 % dos passos, e quase metade das respostas do modo aleatório caiu no resto do pipeline por
+   par banido. A conclusão "nesse braço, a guia só chega ao agente pelo marcador do prompt", da
+   análise e da primeira versão desta revisão, não vale: o algoritmo, onde o reforço MOP age, decide
+   cerca de 63 % das ações.
 7. **O histórico do LLM grava, na entrada da ação N, o efeito da ação N−1** [conferido] (R7). O
    defeito é anterior à change `llm-coordinate-single-base`: a spec principal `exploration` descreve
    o alinhamento certo, e o código não o faz.
 8. **O defeito do `invoke-super` no weaver existe e já está no corpus instrumentado** (R8). No
    myexpenses, `super.close()` de uma subclasse de `CipherInputStream` virou chamada ao wrapper, que
-   volta à sobrescrita [conferido no `dexdump`]. O padrão aparece em 4 dos 348 APKs, em caminhos
-   raros [relato]. É issue do instrumentador, fora do esforço da guia. As duas correções possíveis
+   volta à sobrescrita [conferido no `dexdump`]. O padrão aparece em 4 dos 348 `head_apks` [relato];
+   2 deles estão entre os 163 instrumentados, o myexpenses e o passportreader [conferido], em
+   caminhos raros. É issue do instrumentador, fora do esforço da guia. As duas correções possíveis
    (não trocar o `invoke-super`, ou um acessor na subclasse) não são neutras. A primeira perde
    eventos, e a segunda pode **contar o mesmo evento duas vezes**, o que gera violação falsa numa
-   spec como a `CipherInputStreamSpec`.
+   spec como a `CipherInputStreamSpec`. No passportreader, a contagem dupla de `initialize` existe
+   com qualquer das duas, porque o próprio Spi chama `this.initialize(spec)`.
 9. Correções menores e confirmações, na §2.9 e no inventário (§1).
 
 Nada disso muda a ordem decidida, que é C0 → 7.5 → 7.1 ampliado → change do GATOR. Mudam o portão
@@ -84,7 +101,7 @@ relatório (Rel.) ou na verificação (Ver.).
 | # | linha | afirmação | tipo | veredito | plano |
 |---|---|---|---|---|---|
 | I-01 | 66 | C2 = 1,012 [0,897; 1,142], mínimo detectável 1,18; SQ9 C2 = 0,990 [0,825; 1,188] | dado | vale [conferido, `rerun-avare/report.md:79,98`] | novo |
-| I-02 | 66 | "o desfecho que a decisão 6 propõe já foi lido no E6 e não se moveu" | dado | **não vale** (R3) | contradiz Ver. A6 só na leitura |
+| I-02 | 66 | "o desfecho que a decisão 6 propõe já foi lido no E6 e não se moveu" | dado | em parte: cita a medida errada (o SQ9); com as medidas da decisão 6, a conclusão vale (R3) [conferido] | contradiz Ver. A6 só na leitura |
 | I-03 | 77–81 | marca rara: limiar ≤ 3 escolhido depois de ver os dados | dado | vale [conferido: `m9_robust.py:1` se declara *post hoc*] | Rel. §6.4 não diz |
 | I-04 | 80 | novidade confundida com o tempo de execução | hipótese | plausível, não medida | novo |
 | I-05 | 83 | regra do esqueleto para M14–M17 | dado | em parte: a regra existe (`esqueleto.md:87-106`), mas a pasta `20261005_e6_graduacao_marca` não está na lista; vale se o artigo citar [relato] | novo |
@@ -97,8 +114,8 @@ relatório (Rel.) ou na verificação (Ver.).
 | I-07 | 96 | `shortId` casa exato por nome | código | vale [conferido, `MopData.java:690-694`] | Rel. §2.1 |
 | I-08 | 97 | eventos fora de click/longClick/itemSelected/scroll caem no agregado | código | vale; o INV-MOP-14 só está definido no arquivo da gh13 [relato] | novo (como o A8) |
 | I-09 | 98, 121–124 | handler → flag é aproximado; marcador do prompt ≠ pontuação | código | vale, com três casos de divergência (R9) [relato] | Ver. §7.2 em parte |
-| I-10 | 106–112 | D1: a recuperação D8 passa por cima de um "falso" explícito | código + dado | mecanismo e números valem; **a premissa e a correção não valem** (R4) | Rel. §6.7 cita a recuperação |
-| I-11 | 113–115 | D2: 19,7 % das marcas presas a chave de diálogo | dado | número vale; **a causa é a WTG ausente** (R5) | Ver. A10 ("outra janela", 1,1 %) |
+| I-10 | 106–112 | D1: a recuperação D8 passa por cima de um "falso" explícito | código + dado | mecanismo e números valem; a premissa vale em 130 dos 731 widgets e falha em 601; **a correção não vale** (R4) [conferido] | Rel. §6.7 cita a recuperação |
+| I-11 | 113–115 | D2: 19,7 % das marcas presas a chave de diálogo | dado | número vale; **a causa é a WTG ausente**, e 502 das 528 são de um APK (R5) [conferido] | Ver. A10 ("outra janela", 1,1 %) |
 | I-12 | 116 | D3: `windowNodeIds` por nome de classe | código | vale (`RvsecAnalysisClient.java:203,212`) [relato]; o dano no derive é pequeno, porque ele já chaveia diálogo por classe | novo |
 | I-13 | 117 | D4: 120 de 20.569 cliques em `android:id/…` com reforço | dado | vale [relato, recontado] | novo |
 | I-14 | 100, 118 | D6: deep link em 50 de 57 não resolve | código + dado | código vale; **50/57 não reproduz**; recontagem aproximada: 94 activities com URI, ~49 provavelmente falham [relato] | Rel. §6.9 cita o URI |
@@ -126,7 +143,7 @@ relatório (Rel.) ou na verificação (Ver.).
 | I-31 | 181 | só `android.app.AlertDialog$Builder` é modelado; DialogFragment não | código | quase: um `new X` com X subclasse de `android.app.Dialog` em código do app **é** modelado (`Flowgraph.java:4574-4580`) [relato] | novo |
 | I-32 | 182–183 | nada de DataBinding/ViewBinding nem RecyclerView | código | vale [relato] | novo |
 | I-33 | 185 | modelar diálogos, DataBinding e adapters custa médio a grande | rec. | vale; **corrige Ver. §3.1** ("a mesma passada que o F1/F2 estende") | corrige Ver. |
-| I-34 | 186–191 | causas da sobre-atribuição: `LocalPacker`, CHA no tipo do listener, activity base | código | as três existem; "corrigíveis com custo pequeno" **não vale** para o `LocalPacker` (R10) | Ver. A2 |
+| I-34 | 186–191 | causas da sobre-atribuição: `LocalPacker`, CHA no tipo do listener, activity base | código | as três existem; para o `LocalPacker`, o código do conserto é pequeno e no GATOR, mas a causa é hipótese e a validação tem custo (R10) | Ver. A2 |
 | I-35 | 192 | JSON pré-WTG antes da WTG; timeout de 600 s | código | vale [relato]; o timeout é do rv-android (`rv_static_analysis/config.py:101-102`), de relógio, e cobre também o apktool | novo |
 
 ### 1.4 Instrumentador (§4)
@@ -138,7 +155,7 @@ relatório (Rel.) ou na verificação (Ver.).
 | I-38 | 209 | B+ no APK original não toca o APE-RV | desenho | vale, mas exige execução nova no dispositivo | novo |
 | I-39 | 210 | a captura aceita três tags (`logcat_manager.py:80-81`) | código | vale, com o caminho corrigido (`rv-android-core`) | novo |
 | I-40 | 211 | Variante A não antes do 7.5 | rec. | já decidido | Ver. §1 |
-| I-41 | 213–219 | `invoke-super` vira chamada estática ao wrapper, com recursão | código | **vale**, e o padrão está em 4 APKs instrumentados do corpus (R8) [conferido no myexpenses] | novo |
+| I-41 | 213–219 | `invoke-super` vira chamada estática ao wrapper, com recursão | código | **vale**: 4 dos 348 `head_apks`, 2 dos 163 instrumentados (R8) [conferido no myexpenses e no passportreader] | novo |
 
 ### 1.5 Change `llm-coordinate-single-base` (§5)
 
@@ -158,7 +175,7 @@ relatório (Rel.) ou na verificação (Ver.).
 | I-48 | 267 | atalho MOP determinístico em dois pontos | código | vale, com nuance: os dois pontos usam conjuntos diferentes (não saturado no passo 0, inédito no ε), e ambos param no limite de 3 [relato; passo 0 conferido] | Rel. §6.6 |
 | I-49 | 270 | na roleta, o reforço domina (550 × 50) | código | em parte: ação sem MOP chega a 150–450 com fronteira, cobertura e WTG; a roleta é o ramo minoritário (ε de 2–15 %) [relato] | novo |
 | I-50 | 271 | no "menos visitado", a prioridade só desempata | código | vale, com `leastVisitedPriorityTiebreak=true` no preset aperv [relato] | novo |
-| I-51 | 272 | no braço com LLM, o LLM decide 70 % dos passos admitidos, antes do lançador e do SATA | código + dado | ordem vale [conferido, `DecisionPipeline.java:64-76`]; **70 % não vale: o E6 usou 0,9** [conferido, `arms.json:66`] (R6) | novo |
+| I-51 | 272 | no braço com LLM, o LLM decide 70 % dos passos admitidos, antes do lançador e do SATA | código + dado | ordem vale [conferido, `DecisionPipeline.java:64-76`]; a moeda do E6 é 0,9 (`arms.json:66`), o LLM foi consultado em 70,9 % dos passos e **decidiu ~37 % das ações** [conferido] (R6) | novo |
 | I-52 | 273 | sem planejador para tela não vista | código | vale [relato, `Graph.java:673-731`] | novo |
 | I-53 | 280 | `CoveragePass` soma até 100 ao inédito na activity | código | vale; divisão inteira [relato] | Rel. §6.6 |
 | I-54 | 281 | a novidade por activity não sobrevive quando o `Name` muda | código | **vale** [conferido `widgetId` → `toXPath()`; relato sobre o que o refinamento muda]; zera também o limite MOP e a chave do banimento | **corrige Rel. §6.6** |
@@ -176,7 +193,7 @@ relatório (Rel.) ou na verificação (Ver.).
 | I-61 | 307–309 | só uma guia quase perfeita passaria com R = 1 | rec. | em parte: são 79 % e 71 % de uma lacuna inflada (R3) | novo |
 | I-62 | 310–312 | micro-randomização, desfecho por alvo, R ≥ 3 | desenho | propostas; a primeira exige mudança no APE-RV (R3) | Ver. §8, aberta 3 |
 | I-63 | 311 | um terço das primeiras execuções nos primeiros 5 s | dado | vale: 32 %, 130 de 406, dados selados de 03/10 [relato] | novo |
-| I-64 | 314–319 | três braços; o braço com LLM sai da família confirmatória | desenho | proposta; R6 a reforça | Ver. §7.2 propõe outra coisa |
+| I-64 | 314–319 | três braços; o braço com LLM sai da família confirmatória | desenho | proposta; R6 tira o argumento "a guia só chega pelo marcador" | Ver. §7.2 propõe outra coisa |
 
 ### 1.8 Compose (§9)
 
@@ -199,7 +216,7 @@ relatório (Rel.) ou na verificação (Ver.).
 | I-74 | 432 | voltar a estado visto com widget perto do alvo | desenho | proposta nova; muda o APE-RV (§3) | novo |
 | I-75 | 442–448 | 7.5 com duas perguntas, a segunda sem bind | desenho | vale; a segunda alcança Compose (R2) | novo |
 | I-76 | 458–474 | visitas: definição e números | código + dado | valem; os números do docstring vêm de 60 execuções de campanha, não do E6 [relato] | novo |
-| I-77 | 476–484 | X6.3/X6.4: 267 = 107 + 39 + 102 + 14 | dado | a soma dá 262; faltam os 5 de `pre_exploration` [relato]; a regra (a) não tem janela de chegada **por construção**, então a "discordância" dela é de definição [relato] | novo |
+| I-77 | 476–484 | X6.3/X6.4: 267 = 107 + 39 + 102 + 14 | dado | a soma dá 262; faltam os 5 de `pre_exploration` [conferido, `report.md` X6.4]; a regra (a) não tem janela de chegada **por construção**, então a "discordância" dela é de definição [relato] | novo |
 | I-78 | 488–490 | pergunta nova: chamador direto dispara na chegada ou na interação? | desenho | vale e é offline (R2) | novo |
 
 ---
@@ -244,6 +261,8 @@ relatório (Rel.) ou na verificação (Ver.).
 `lambda$setupExecuteButton$0$…` tem `true` (`tests/fixtures/cryptoapp.apk.json`) [conferido]. O nome
 do corpo indica um método de instância chamado sobre o `this` capturado [hipótese]. Sem quem chame o
 wrapper, esse receptor é vazio e a aresta não existe. É o mesmo mecanismo que a correção espalharia.
+No corpus, o mesmo padrão (wrapper `false`, corpo `lambda$…$<pacote>` alcançando) está por trás de 601
+widgets marcados só pela recuperação D8, 589 deles no redreader (R4) [conferido].
 
 **O que já estava no plano.**
 - O relatório antecipou parte disso (§4.2, último parágrafo): com o framework *phantom*, "a aresta
@@ -337,13 +356,20 @@ subgrafo do app é filtro sobre o mesmo grafo e não pede outra rodada do Soot.
   houver heterogeneidade real APK × braço, ela não cai com R, e os mínimos de R = 3 e R = 10 ficam
   otimistas.
 - **O desvio-padrão vem de uma realização dominada por cerca de 13 APKs** com diferença não nula.
-- **"O desfecho que a decisão 6 propõe já foi lido no E6 e não se moveu" não vale** [conferido]:
+- **"O desfecho que a decisão 6 propõe já foi lido no E6 e não se moveu": a citação está errada, a
+  conclusão vale** [conferido]:
   - o SQ9 conta, por tarefa, os misuses primários cuja primeira ocorrência vem mais de 5 s depois do
-    lançamento (`subq.py:1896-1910`);
-  - "interação" ali é só um corte de tempo, inclui sítios de biblioteca e não mede a execução do
-    alvo;
-  - além disso, o E6 teve dose de 1,10 % dos passos. Um nulo sob uma guia que quase não agiu não diz
-    nada sobre o desfecho da decisão 6.
+    lançamento (`subq.py:1896-1910`). "Interação" ali é só um corte de tempo, inclui sítios de
+    biblioteca e não mede a execução do alvo. Não é o desfecho da decisão 6;
+  - o desfecho da decisão 6 tem duas partes, e as duas foram lidas no E6, nos 89 APKs, braço 2 ×
+    braço 3 (`rerun-avare/results/{tasks,misuses}.csv`):
+    - chamadores diretos executados: 125 × 136, diferença de +11 contra um mínimo detectável de 33.
+      A contagem por tarefa é aproximada pelo script da revisão (`cov_directly_reaches_mop` × total
+      estático);
+    - sítios primários de origem no app durante a interação: 19 × 19;
+  - a conclusão "não se moveu" vale, portanto. O que limita o que ela diz é a dose que a própria
+    análise registra (§1): 1,10 % dos passos, com widget marcado na tela em 3,88 % deles [relato].
+    Um nulo sob uma guia que quase não agiu diz pouco sobre uma guia que agisse.
 
 **As três saídas da análise, com onde cada uma mora:**
 - **Desfecho por alvo** (tempo até a primeira execução de cada chamador direto, modelo de risco com
@@ -384,11 +410,24 @@ micro-randomização fica como opção, porque é a única que muda o jar.
 - **O caso que a motivou é exatamente um wrapper presente com `false`** [conferido no fixture]. Logo,
   a premissa da análise ("o falso de um wrapper é resposta, não lacuna") vale no `aegis` e falha no
   `cryptoapp`. A R1 explica por quê: depende de como o wrapper chama o corpo.
+- **Medido no corpus, widget a widget** [conferido]. Para cada listener recuperado, o `dexdump` do
+  APK instrumentado dá o método que o wrapper chama de fato. O `derive()` de produção rodou duas
+  vezes: como está, e com a recuperação tomando as flags desse alvo em vez do OU da classe.
+  - 731 widgets marcados só pela recuperação, em 6 APKs; 703 no redreader;
+  - **601 continuam marcados** com o alvo específico: o alvo alcança e o wrapper não, a lacuna do
+    `cryptoapp`. 589 deles estão no redreader, vindos de 13 wrappers (por exemplo,
+    `RedditPostView$$ExternalSyntheticLambda0.onLongClick` → `RedditPostView.lambda$new$0$…`);
+  - **130 caem**: o alvo não alcança e a flag veio das lambdas irmãs, o caso do `aegis` (3 widgets
+    lá; 114 no redreader; 6 no packagemanager; 5 no sexytopo; 1 no owncloud e 1 no opencloud).
+  - A premissa da análise vale para os 130 e falha para os 601. Cada sessão generalizou o seu APK.
 - **A correção proposta ("restringir a assinaturas ausentes do `reachability`") desliga a
   recuperação** [relato]: dos wrappers recuperados no corpus, 0 de 59 ausentes recuperam e 105 de 105
-  estão presentes com `false`. O `cryptoapp` voltaria a ter MOP inerte.
-- **O defeito real é de precisão** [relato]: 102 dos 105 wrappers recuperados estão em classes com
-  alguma `lambda$…` que não alcança. O OU por classe dá ao wrapper as flags das irmãs.
+  estão presentes com `false`. Os 731 cairiam, os 601 de lacuna real junto, e o `cryptoapp` voltaria
+  a ter MOP inerte.
+- **O defeito real é de precisão, e pequeno**: o OU por classe dá ao wrapper as flags das irmãs. A
+  primeira versão desta revisão o sustentava com "102 dos 105 wrappers recuperados estão em classes
+  com alguma `lambda$…` que não alcança" [relato], que é só a condição para o erro acontecer. O
+  tamanho medido é 130 widgets, cerca de 5 % dos 2.681 marcados.
 
 **O texto da spec diverge, o desenho não.** O INV-DRV-01 (`aperv/spec.md:159-161`) diz "no exact
 `reachability[].methods[].signature` match". O código e a gh96 querem dizer "sem match entre os
@@ -404,19 +443,22 @@ classe. O wrapper tem uma única chamada ao corpo. Duas vias:
 - **No produtor, mais barato**: emitir por wrapper a assinatura do corpo que ele chama (campo novo,
   INV-ANA-32 nos dois lados). O derive passa a juntar por ela.
 
-As duas mudam o que é guiado nos 731 widgets e são decisão sua. Para a §6.7, a regra 2 da agregação
-herda a imprecisão enquanto a recuperação for por classe.
+As duas mudam o que é guiado nos 731 widgets: preservam os 601 e tiram os 130. São decisão sua. Para
+a §6.7, a regra 2 da agregação herda a imprecisão enquanto a recuperação for por classe.
 
 ### R5. D2 é, na maior parte, a WTG que não terminou
 
 **Fatos.**
-- 528 widgets marcados (19,7 %) sob chaves de diálogo, em 8 APKs, 502 no `eu.faircode.email`
-  [relato, recontado].
+- 528 widgets marcados (19,7 %) sob chaves de diálogo, em 8 APKs, **502 no `eu.faircode.email`**
+  [conferido com o `derive()` de produção]. Os outros: aegis 11, binaryeye 5, wikipedia 4, unchained
+  3, libchecker, opencloud e glpi 1 cada.
 - 524 deles estão em 7 artefatos sem `complete` e com 0 transições: faircode, aegis, libchecker,
   unchained, binaryeye, opencloud, glpi [conferido]. Sem WTG, todo diálogo é órfão e fica com a
   própria classe como chave. Só os 4 do wikipedia são órfãos dentro de artefato completo.
-- 43 dos 162 artefatos (sem o avare) não têm `complete`, e carregam 1.542 dos 2.673 widgets marcados
-  (58 %) [relato].
+- A análise leu o D2 como quebra geral do host de diálogo ("quebra na maioria", tabela da §2.1). Em
+  número de marcas, é o faircode sem WTG: 95 % das 528.
+- 44 dos 163 artefatos não têm `complete`, e carregam 1.550 dos 2.681 widgets marcados (58 %)
+  [conferido]; sem o avare, 43 de 162 e 1.542 de 2.673 [relato].
 - A spec do `ape` exige `complete == true` (`static-analysis-entrypoints/spec.md:189`, cenário
   `:201-204`). O INV-DRV-08 e o derive aceitam o parcial. O comentário de `MopData.java:204-206`
   ("complete by construction") é falso [relato]. É o D8 da análise, e ele pesa mais que o D2.
@@ -431,24 +473,40 @@ herda a imprecisão enquanto a recuperação for por classe.
 - A divergência de spec do `ape` (`complete == true`) é reparo de texto, a fazer pelo fluxo do `ape`.
   Não muda o que se mede.
 
-### R6. No E6, o LLM foi consultado em 90 % dos passos admitidos
+### R6. No E6, o LLM decidiu cerca de 37 % das ações do braço MOP+LLM
+
+A primeira versão desta seção dizia "o LLM foi consultado em 90 % dos passos admitidos, não em 70 %"
+e concluía que a guia só chegava ao agente pelo marcador. O 0,9 é a configuração, não o que
+aconteceu, e a conclusão não vale.
 
 **Fatos** [conferido]:
-- `E6-campaign/config/arms.json:66` traz `"llm_percentage": 0.9`, e `:65` traz o prompt `v13`. Os
-  70 % são do E5b [relato].
+- `E6-campaign/config/arms.json:66` traz `"llm_percentage": 0.9`, e `:65` traz o prompt `v13`. O
+  E5 e o E5b usaram 0,7 (`E5b-inloop/config/arms.json:60`).
+- O 0,9 é uma moeda por passo, sorteada só nos passos que passam o portão do LLM
+  (`LlmRandomStage.java`: `random.nextDouble() >= percentage` continua a cadeia).
 - A ordem do pipeline é Budget → LlmNewState → LlmStagnation → LlmRandom → MopLauncher →
-  ComponentTrigger → SataChain (`DecisionPipeline.java:64-76`). O primeiro que decide vence.
+  ComponentTrigger → SataChain (`DecisionPipeline.java:64-76`). O primeiro que decide vence; uma
+  resposta nula do LLM continua a cadeia.
+- **O que o E6 mediu** (`rerun-avare/report.md`):
+  - o LLM foi consultado em **70,9 %** de todos os passos, média por tarefa (mediana 78,4 %; portão
+    12; `effective_fraction` = (matched + llm_tap + no_match) / steps, `readers.py:514-520`);
+  - no modo aleatório, das 123.596 respostas, 58.900 (47,7 %) foram `no_match`, e 89,8 % dos
+    `no_match` são par banido (X5.5). Esses passos caem no resto do pipeline;
+  - **decisões por origem** (X5.1): LLM 71.386 ações; algoritmo 121.900, das quais SATA 105.996,
+    cobertura 7.567, orçamento 5.669, atalho MOP 868. O LLM decidiu **36,9 %** das ações executadas.
+- O "70 %" da análise coincide com a fração consultada, mas ela o leu como decisão.
 
 **Nuances** [relato]:
-- o LLM é consultado, não decide sempre: resposta nula (parse, sem casamento, par banido, disjuntor
-  aberto) cai no resto do pipeline;
 - os passos do LLM não avançam a cadência do lançador, que dispara menos no braço com LLM;
 - o `v13` não mostra visitas. O único sinal de revisita é o histórico, que vem deslocado (R7).
 
-**O que muda**: a conclusão da análise fica mais forte. No braço MOP+LLM, quase toda decisão passa
-pelo LLM, e a guia só o alcança pelo marcador `[DM]`/`[M]`. Uma guia nova (distância, atalho
-ordenado) não tem como ser medida nesse braço sem mudar o marcador. Isso entra no desenho da
-campanha (aberta 3).
+**O que muda.**
+- No braço MOP+LLM, cerca de 63 % das ações são escolhidas pelo algoritmo, onde o reforço MOP age
+  (SATA, atalho, lançador). A guia não chega só pelo marcador `[DM]`/`[M]`.
+- Esses 63 % não são uma amostra dos passos: são, em boa parte, as telas em que o LLM respondeu um
+  par banido. O braço mistura dois mecanismos, e o efeito da guia nele não se separa do LLM.
+- A razão para deixar o braço com LLM fora da família confirmatória continua, por esse motivo e não
+  pelo do marcador. Isso entra no desenho da campanha (aberta 3).
 
 ### R7. O histórico do LLM vem deslocado de uma ação
 
@@ -498,8 +556,18 @@ Repositório `ape`, componente `StatefulAgent`; muda o comportamento do LLM no d
 - o weaver de cobertura não é afetado;
 - se algum desses caminhos rodou nas campanhas, não foi conferido.
 
-**Proporção**: 4 APKs de 348, em caminhos raros. É defeito do instrumentador
-(`rvsec/rvsec-android/rvsec-instrumentation-dexlib2`, `dex-mutator`, `DexWeaver`), não da guia.
+**No corpus instrumentado** [conferido]: dos 4, só o myexpenses e o passportreader estão entre os
+163 de `APKS_INSTRUMENTED_jca_android_dexlib2`. O pretix e o blau aparecem só nos 348 `head_apks`.
+No passportreader instrumentado, `McElieceKeyPairGeneratorSpi.initialize(AlgorithmParameterSpec)`
+tem o `super.initialize` trocado por
+`invoke-static … MonitorWrappers;.java_security_KeyPairGenerator_initialize_2`, e a recursão existe
+ali como no myexpenses. A varredura usa uma lista de métodos escrita à mão, maior que a que o weaver
+troca: em `PACESecretKeySpec.getKey` (passportreader), o `invoke-super` para
+`SecretKeySpec.getEncoded` ficou intacto.
+
+**Proporção**: 4 APKs de 348 `head_apks` e 2 de 163 instrumentados, em caminhos raros. É defeito do
+instrumentador (`rvsec/rvsec-android/rvsec-instrumentation-dexlib2`, `dex-mutator`, `DexWeaver`), não
+da guia.
 
 **Corrigir não é reparo neutro.** Pular `invoke-super` muda o que se monitora nesses APKs, porque o
 evento do `super.close()` deixa de ser emitido. Pela semântica de `call()` do AspectJ, chamada a
@@ -572,15 +640,25 @@ falsa. O caso concreto [conferido, `rvsec/rvsec-mop/src/main/resources/jca_andro
   subtipo do weaver);
 - uma chamada externa tipada como `InputStream`, por exemplo, não é instrumentada, e não há dupla.
 
-**O que se sabe nos 4 APKs.**
+**O que se sabe nos APKs com o padrão.**
 - **myexpenses** [conferido no `dexdump` do APK instrumentado]: o wrapper
   `javax_crypto_CipherInputStream_close` tem **um único** ponto de chamada no APK inteiro, o
   `super.close()` dentro de `EncryptionHelper$1.close()`. Não há dupla. Aqui a correção (1) **perde o
   único `close`** que o monitor vê, e a (2) entrega exatamente um.
-- **passportreader, pretix, blau** (`McEliece…KeyPairGeneratorSpi.initialize`, spongycastle e
-  bouncycastle): não verificado. Se o app chama `kpg.initialize(spec)` sobre o próprio Spi e esse
-  ponto é instrumentado, haverá dois `initialize` para o mesmo objeto. Se isso viola a spec de
-  `KeyPairGenerator` também não foi verificado. O código é praticamente morto.
+- **passportreader** (`McElieceKeyPairGeneratorSpi`, spongycastle) [conferido no `dexdump` do APK
+  instrumentado e na spec]:
+  - `initialize(int, SecureRandom)` chama `this.initialize(spec)`, e essa chamada também foi trocada
+    pelo wrapper `initialize_2`. Ela é instrumentada independentemente do `invoke-super`;
+  - a `KeyPairGeneratorSpec` (`jca_android`, `:476`) aceita exatamente um `initialize` entre o
+    `getInstance` e o `gen`:
+    `ere: ((g3 | g4)* g1 | (g3 | g4)* g2) (init1 | init2 | init3 | init4 | initError | initError2) gen`;
+  - se o app chama `kpg.initialize(n, random)` sobre um gerador McEliece, o monitor vê `init2` e
+    depois `init3`, e reporta uma violação de ordem. Isso vale **com qualquer das duas correções**:
+    a (1) deixa os dois eventos, e a (2) acrescenta um terceiro. A dupla contagem aqui vem de
+    código de biblioteca que estende a classe monitorada e chama os próprios métodos monitorados,
+    não do `invoke-super`;
+  - o código McEliece é praticamente morto.
+- **pretix, blau**: fora dos 163; não verificados.
 
 **Consequência para a escolha.**
 - Nenhuma das duas correções é neutra:
@@ -589,12 +667,15 @@ falsa. O caso concreto [conferido, `rvsec/rvsec-mop/src/main/resources/jca_andro
 - Uma correção que acerte os dois casos teria de entregar o evento do `super.m()` **só quando** a
   chamada externa sobre o mesmo objeto não foi instrumentada. Isso é decisão de semântica (o que é um
   "evento" para a spec), não de mecânica do weaver.
-- **Antes de decidir**, medir sem rodar nada no dispositivo: para cada um dos pontos `invoke-super`
-  dos 4 APKs, ler no `dexdump` do APK instrumentado se existe chamada externa instrumentada ao mesmo
-  método sobre a mesma classe. Para cada spec envolvida, ler se o evento é repetível na propriedade.
-  O myexpenses já está medido acima.
-- Proporção: 4 dos 348 APKs, em caminhos raros. É issue do instrumentador, fora do esforço da guia, e
-  a decisão é sua quando a execução for liberada.
+- **Antes de decidir**, medir sem rodar nada no dispositivo: para cada um dos pontos `invoke-super`,
+  ler no `dexdump` do APK instrumentado se existe chamada externa instrumentada ao mesmo método sobre
+  a mesma classe. Para cada spec envolvida, ler se o evento é repetível na propriedade. O myexpenses
+  e o passportreader já estão medidos acima; os outros dois estão fora dos 163.
+- O passportreader mostra que o problema da contagem dupla é mais largo que o `invoke-super`: toda
+  subclasse de biblioteca que chama os próprios métodos monitorados gera eventos internos. Medir isso
+  no corpus é outra pergunta, também só por leitura do `dexdump`.
+- Proporção: 2 dos 163 APKs instrumentados, em caminhos raros. É issue do instrumentador, fora do
+  esforço da guia, e a decisão é sua quando a execução for liberada.
 
 ### Variantes de carimbo (§4 da análise)
 
@@ -635,17 +716,24 @@ Vale, com três casos concretos [relato, `MopScorer.java:65-84,191-206`, `MopDat
 A verificação (§7.2) já dizia que, com a §6.7, o marcador precisa de regra própria. Estes casos
 dizem que a regra precisa existir já, se o braço com LLM ficar na campanha.
 
-### R10. A sobre-atribuição: as causas existem, mas o `LocalPacker` não é barato
+### R10. A sobre-atribuição: as causas existem, e o custo do `LocalPacker` está na validação
 
 [relato, com `ListenerInstance.java:63-67` conferido]
 - **CHA no tipo declarado do listener** (`computePossibleListenerTypesCHA`): explica as chaves com
   vários handlers quando o local é declarado como interface (`View$OnClickListener`). **Não explica o
   caso do `aegis`**: lá o local tem o tipo concreto do wrapper, e o espalhamento é do lado da view
   (um handler em 4 widgets).
-- **`LocalPacker`**: em `DexBody` ele é chamado incondicionalmente, e `-p jb.lp enabled:false` não o
-  desliga. Junto com o fluxo insensível a fluxo do GATOR (um nó por local), é a explicação provável
-  do lado da view [hipótese]. Mexer nisso é mexer no Soot ou acrescentar um passo próprio: custo
-  médio, não pequeno.
+- **`LocalPacker`**: em `DexBody` ele é chamado direto, `LocalPacker.v().transform(jBody)`, fora do
+  `PackManager` (`soot/dexpler/DexBody.java:869`, checkout local do Soot) [conferido], então
+  `-p jb.lp enabled:false` não o desliga. Junto com o fluxo insensível a fluxo do GATOR (um nó por
+  local), é a explicação provável do lado da view [hipótese].
+  - O conserto não exige mexer no Soot. O GATOR controla os corpos que lê (`retrieveActiveBody` em
+    `Hierarchy`, `FlowgraphRebuilder` e outros) e pode separar os locais (`LocalSplitter`, que divide
+    um local por teia def-uso) antes do SPARK. É código pequeno, na change do GATOR.
+  - O custo está em outro lugar: a causa ainda é hipótese, e a separação muda os nós do PAG e do
+    fluxo de GUI do corpus inteiro. Validar pede re-análise e comparação. A primeira versão desta
+    revisão dizia "custo médio, não pequeno", e a análise dizia "custo pequeno"; as duas eram
+    palpite.
 - **Callbacks herdados**: estruturalmente vale (`Flowgraph.java:141-157`).
 
 O A2 da verificação continua sendo o ponto: o 7.5 mede se a sobre-atribuição contamina a distância.
@@ -759,18 +847,21 @@ e a inferência de extras não aparecem como recomendação.
 2. **§3, mapa, linha "id sob outra janela"**: acrescentar "a maior parte é WTG ausente (R5)".
 3. **§8, aberta 4**: registrar que o histórico deslocado (R7) já entrou na change como D12
    (`ape@a695709e`), e que a rotação da captura ficou lá como risco fora do escopo.
-4. **§7.2, "Desenho de campanha"**: o braço MOP+LLM do E6 consultou o LLM em 90 % dos passos
-   admitidos (`arms.json:66`), não em 70 %.
+4. **§7.2, "Desenho de campanha"**: no braço MOP+LLM do E6, a moeda era 0,9 (`arms.json:66`), o LLM
+   foi consultado em 70,9 % dos passos e decidiu 36,9 % das ações; o algoritmo decidiu o resto (R6).
 
 ### 4.3 À análise (para a outra sessão, se for revisá-la)
 
-- §1, linha 66: o SQ9 não é o desfecho da decisão 6 (R3).
-- §2.2, D1: a premissa e a correção não se sustentam (R4); o defeito é o OU por classe.
-- §2.2, D2: a causa é a WTG ausente (R5).
+- §1, linha 66: o SQ9 não é o desfecho da decisão 6; com as medidas dele (125 × 136 chamadores
+  diretos, 19 × 19 sítios de app na interação) a conclusão se mantém (R3).
+- §2.2, D1: a premissa vale em 130 dos 731 widgets e falha em 601; a correção desligaria os 731
+  (R4); o defeito é o OU por classe.
+- §2.2, D2: a causa é a WTG ausente, e 502 das 528 marcas são do faircode (R5).
 - §4, tabela: os números de `setAccessibilityDelegate` e a incompatibilidade de B com os monitores.
-- §4.1: o defeito está em 4 APKs instrumentados do corpus, não só latente.
+- §4.1: o defeito está em 2 dos 163 APKs instrumentados (4 dos 348 `head_apks`), não só latente.
 - §5: a regra do "não clicar duas vezes" está certa; o histórico deslocado é anterior à change.
-- §6.1: 90 %, não 70 %.
+- §6.1: o LLM decidiu 36,9 % das ações do braço, não 70 % dos passos admitidos; a guia não chega só
+  pelo marcador (R6).
 - §6.3: 21 é contra a união; "quase perfeita" → "70–80 % de uma lacuna inflada".
 - §9: 1.101 → 1.114; Switch e Checkbox passam pelo `AbstractClickableNode`.
 - §10.3: 267 inclui 5 de `pre_exploration`; a regra (a) não tem janela de chegada por construção.
@@ -829,13 +920,15 @@ Decididas antes e mantidas: as da Ver. §1 e §8. Nada aqui as reabre.
    - Opções: (a) manter como está e só corrigir o texto do INV-DRV-01; (b) ligar cada wrapper ao seu
      corpo, na change do GATOR (aresta de lambda ou campo novo); (c) restringir a assinaturas
      ausentes, como propõe a análise.
-   - Recomendo (a) agora e (b) na change do GATOR. (c) desliga a recuperação inteira.
+   - Recomendo (a) agora e (b) na change do GATOR: (b) preserva os 601 widgets de lacuna real e
+     tira os 130 herdados. (c) desliga a recuperação inteira.
 4. **Desenho da próxima campanha** (aberta 3 da verificação; R3, R6).
    - Opções de estimador: (a) desfecho por alvo (tempo até a primeira execução), com R ≥ 3; (b)
      contraste por APK, com R ≥ 3; (c) micro-randomização, que muda o jar.
    - Opções para o braço com LLM: dentro ou fora da família confirmatória.
-   - Recomendo (a) e o braço com LLM fora da família confirmatória: nele a guia só chega pelo
-     marcador.
+   - Recomendo (a) e o braço com LLM fora da família confirmatória: nele o LLM decide cerca de 37 %
+     das ações e o algoritmo decide o resto, sobretudo nas telas em que o LLM respondeu par banido,
+     e o efeito da guia não se separa do LLM (R6).
 5. **Change `llm-coordinate-single-base`** (aberta 4 da verificação; R7): **já resolvido no `ape`**.
    - O histórico deslocado entrou como decisão D12, comitada em `ape@a695709e` (só artefatos; `src/`
      intocado). [conferido: commit, `design.md:277`, cenários em `specs/exploration/spec.md:62,68`;
@@ -846,13 +939,16 @@ Decididas antes e mantidas: as da Ver. §1 e §8. Nada aqui as reabre.
    - A rotação 0 da captura ficou só como risco, fora do escopo: o smoke roda em retrato.
 6. **Issue do `invoke-super`** (R8).
    - Opções: (a) abrir issue no rvsec agora, sem change; (b) registrar e decidir depois; (c) nada.
-   - Recomendo (b): nada roda agora, e o conserto muda o que se monitora em 4 APKs.
+   - Recomendo (b): nada roda agora, e o conserto muda o que se monitora em 2 dos 163 APKs.
    - Quando decidir: há duas correções, (1) não trocar o `invoke-super` e (2) acessor na subclasse,
      e **nenhuma é neutra por causa da contagem dupla** (R8):
      - a (1) perde o único `close` do myexpenses;
      - a (2) duplica o evento onde a chamada externa também é instrumentada, e um `close` duplicado
        viola o `CipherInputStreamSpec`.
-     - Medir antes, só por leitura do `dexdump`, os outros 3 APKs.
+     - no passportreader, as duas deixam uma contagem dupla de `initialize`, que vem de
+       `this.initialize(spec)` dentro do Spi e não do `invoke-super`;
+     - medir antes, só por leitura do `dexdump`, quantas subclasses de biblioteca chamam os
+       próprios métodos monitorados.
 7. **Correções de texto de spec**, todas reparo provável, nenhuma muda a medição:
    - INV-DRV-01, no rv-android;
    - `complete == true` em `static-analysis-entrypoints`, o cenário do `cryptoapp` e o comentário de
@@ -899,6 +995,21 @@ da verificação (5), agora com as da §4 deste documento.
   - GATOR (G1–G15), com `javap` sobre o `soot-4.7.1.jar`;
   - estatística, E6 e Compose (S1–S13);
   - instrumentador e logs (I1–I9), com varredura dos 348 `head_apks` e `dexdump` de 3–5 APKs.
+- **Reaberto na re-investigação** (segunda sessão de 06/10; scripts em
+  `/tmp/claude-1000/…/31474112-…/scratchpad/`, fora do repositório):
+  - D1: `d1/rec.py`, `d1/widgets.py`. O `dexdump` (build-tools 35.0.1) dos 163 APKs instrumentados
+    dá o alvo de cada wrapper; o `derive()` de produção roda com a recuperação por classe e com a
+    recuperação pelo alvo específico. Fixture `cryptoapp.apk.json` com `apks_examples/cryptoapp.apk`.
+  - D2: `d2.py`, `derive()` de produção sobre os 163 `.apk.json`, contando as marcas sob chave de
+    janela DIALOG que não é activity.
+  - E6: `arms.json:55-75` (E6) e `E5b-inloop/config/arms.json:60`; `LlmRandomStage.java` (`ape`
+    `a695709e`); `rerun-avare/report.md` X5.1, X5.5, portão 12 e X6.4; `readers.py:514-520`.
+  - Decisão 6: `rerun-avare/results/{tasks,misuses}.csv`, com o `sa4/s2_gap.py` da primeira sessão
+    e a contagem por `origin`.
+  - `invoke-super`: `dexdump` do passportreader e do myexpenses instrumentados;
+    `rvsec-mop/…/jca_android/KeyPairGeneratorSpec.mop:476`; `sa5/scan_all.tsv` da primeira sessão.
+  - `LocalPacker`: `soot/src/main/java/soot/dexpler/DexBody.java:869` (checkout local,
+    `4.2.1-828-g9ae4bab678`); `retrieveActiveBody` no GATOR.
 - **Não lidos, por regra**: os `docs/analise_*` e o prompt da sessão do `ape`
   (`ape/docs/20261006_prompt_analyze_mop_guide_plan_review.md`).
 - **Antes de usar este documento**: confira o `ape` (`git log -1`), porque a sessão de lá analisa a
