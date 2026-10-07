@@ -20,7 +20,10 @@ ARG DEVICE_ID=pixel
 ENV PACKAGE_PATH="system-images;android-${API_LEVEL};${IMG_TYPE};${ARCHITECTURE}"
 ENV ANDROID_PLATFORM_VERSION="platforms;android-$API_LEVEL"
 # sdkmanager --list
-ENV ANDROID_SDK_PACKAGES="${PACKAGE_PATH} ${ANDROID_PLATFORM_VERSION} platform-tools build-tools;35.0.1 platforms;android-10 platforms;android-11 platforms;android-12 platforms;android-13 platforms;android-14 platforms;android-15 platforms;android-16 platforms;android-17 platforms;android-18 platforms;android-19 platforms;android-20 platforms;android-21 platforms;android-22 platforms;android-23 platforms;android-24 platforms;android-25 platforms;android-26 platforms;android-27 platforms;android-28 platforms;android-29 platforms;android-30 platforms;android-31 platforms;android-32 platforms;android-33 platforms;android-34 platforms;android-35 platforms;android-36"
+# From API 37 on the repository names platforms with a minor version
+# (platforms;android-37.0 installs into platforms/android-37.0). Consumers look up
+# platforms/android-<targetSdk>, so the RUN below links android-37 to android-37.0.
+ENV ANDROID_SDK_PACKAGES="${PACKAGE_PATH} ${ANDROID_PLATFORM_VERSION} platform-tools build-tools;35.0.1 platforms;android-10 platforms;android-11 platforms;android-12 platforms;android-13 platforms;android-14 platforms;android-15 platforms;android-16 platforms;android-17 platforms;android-18 platforms;android-19 platforms;android-20 platforms;android-21 platforms;android-22 platforms;android-23 platforms;android-24 platforms;android-25 platforms;android-26 platforms;android-27 platforms;android-28 platforms;android-29 platforms;android-30 platforms;android-31 platforms;android-32 platforms;android-33 platforms;android-34 platforms;android-35 platforms;android-36 platforms;android-37.0"
 
 ENV EMULATOR_NAME="RVSec"
 ENV ANDROID_HOME=/opt/android
@@ -68,6 +71,7 @@ RUN apt update && apt -qq -y --no-install-recommends install bzip2 libdrm-dev \
 	rm *tools*linux*.zip && \
 	yes Y | sdkmanager --licenses && \
 	sdkmanager --install ${ANDROID_SDK_PACKAGES} && \
+	ln -s android-37.0 $ANDROID_HOME/platforms/android-37 && \
 	echo "no" | avdmanager --verbose create avd --force --name "$EMULATOR_NAME" --abi "$ABI" --package "$PACKAGE_PATH" --device "$DEVICE_ID"
 
 
