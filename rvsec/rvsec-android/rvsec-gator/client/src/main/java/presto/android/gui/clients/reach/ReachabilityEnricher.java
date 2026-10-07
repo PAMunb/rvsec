@@ -1,10 +1,13 @@
 package presto.android.gui.clients.reach;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import presto.android.gui.clients.json.JsonSchema;
 import soot.SootClass;
 import soot.SootMethod;
 
@@ -25,6 +28,12 @@ import soot.SootMethod;
  * "directlyReachesTarget") because Group 6 (C1f) renames the JSON schema
  * atomically across producer + consumers. The enricher's job in C1d/C1e
  * is to land the visitor contract; the rename is its own commit.
+ *
+ * <p>The enricher also carries the {@link TargetDistances} into the report: the
+ * top-level target list ({@link #distanceTargets}) and each method's
+ * {@code [index, distance]} pairs (in {@link #enrichMethod}). Both JSON writes read
+ * them from here, so the pre-WTG artefact holds the same distances as the final
+ * one (INV-ANA-75) and the writer stays free of any analysis state (INV-ANA-30).
  */
 public final class ReachabilityEnricher {
 
@@ -36,6 +45,8 @@ public final class ReachabilityEnricher {
 	private final String mainActivity;
 	private final String codePackageSource;
 	private final int classDefsUnderKey;
+	/** Null when the distance pass did not run or failed: the artefact then omits both keys. */
+	private final TargetDistances<SootMethod> distances;
 
 	/**
 	 * Four-argument form kept for callers that carry no provenance — the tests that
@@ -58,6 +69,18 @@ public final class ReachabilityEnricher {
 			String mainActivity,
 			String codePackageSource,
 			int classDefsUnderKey) {
+		this(index, manifestPackage, codePackage, mainActivity, codePackageSource,
+				classDefsUnderKey, null);
+	}
+
+	public ReachabilityEnricher(
+			ReachabilityIndex index,
+			String manifestPackage,
+			String codePackage,
+			String mainActivity,
+			String codePackageSource,
+			int classDefsUnderKey,
+			TargetDistances<SootMethod> distances) {
 		if (index == null) {
 			throw new NullPointerException("index");
 		}
@@ -67,19 +90,46 @@ public final class ReachabilityEnricher {
 		this.mainActivity = mainActivity != null ? mainActivity : "";
 		this.codePackageSource = codePackageSource != null ? codePackageSource : "";
 		this.classDefsUnderKey = classDefsUnderKey;
+		this.distances = distances;
 	}
 
 	/**
 	 * Per-method reachability annotations. Used by {@code writeReachability}
 	 * to populate each method object inside a class's {@code methods[]}.
+	 * {@link JsonSchema.Keys#TARGET_DISTANCES} ({@code int[][]} of
+	 * {@code [index, distance]}) is present only when the method has a pair.
 	 */
 	public Map<String, Object> enrichMethod(SootMethod method) {
 		// LinkedHashMap preserves insertion order so the writer emits keys
 		// in a stable sequence — important for diff-friendly snapshots.
-		Map<String, Object> out = new LinkedHashMap<>(3);
+		Map<String, Object> out = new LinkedHashMap<>(4);
 		out.put("reachable", index.isReachable(method));
 		out.put("reachesTarget", index.reachesTarget(method));
 		out.put("directlyReachesTarget", index.directlyReachesTarget(method));
+		if (distances != null) {
+			int[][] pairs = distances.pairs(method);
+			if (pairs.length > 0) {
+				out.put(JsonSchema.Keys.TARGET_DISTANCES, pairs);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * The distance targets in index order, each a {@code {signature, kind}} map, or
+	 * {@code null} when there are no distances (the writer then omits the key).
+	 */
+	public List<Map<String, String>> distanceTargets() {
+		if (distances == null) {
+			return null;
+		}
+		List<Map<String, String>> out = new ArrayList<>(distances.targets().size());
+		for (int i = 0; i < distances.targets().size(); i++) {
+			Map<String, String> t = new LinkedHashMap<>(2);
+			t.put(JsonSchema.Keys.SIGNATURE, distances.targets().get(i).getSignature());
+			t.put(JsonSchema.Keys.KIND, distances.kinds().get(i));
+			out.add(t);
+		}
 		return out;
 	}
 

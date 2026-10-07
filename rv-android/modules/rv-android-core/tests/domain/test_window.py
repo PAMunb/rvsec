@@ -20,6 +20,7 @@ class TestWindowType(ModelTestBase):
         assert WindowType.CONTEXTMENU.value == 3
         assert WindowType.DIALOG.value == 4
         assert WindowType.FRAGMENT.value == 5
+        assert WindowType.HOSTED.value == 6
 
     def test_from_string(self):
         """Test conversion from string to WindowType."""
@@ -28,11 +29,21 @@ class TestWindowType(ModelTestBase):
         assert WindowType.from_string("CONTEXT_MENU") == WindowType.CONTEXTMENU
         assert WindowType.from_string("DIALOG") == WindowType.DIALOG
         assert WindowType.from_string("FRAGMENT") == WindowType.FRAGMENT
+        assert WindowType.from_string("HOSTED") == WindowType.HOSTED
 
         # Test invalid inputs
         assert WindowType.from_string("NONEXISTENT") is None
         assert WindowType.from_string("") is None
         assert WindowType.from_string(None) is None
+
+    def test_name_round_trip(self):
+        """Every member survives a round trip through its name.
+
+        `Window.to_json` writes `type.name`; a member that could not be read
+        back by name would be lost on the way through a serialized window.
+        """
+        for member in WindowType:
+            assert WindowType[member.name] is member
 
 
 class TestWindow(ModelTestBase):

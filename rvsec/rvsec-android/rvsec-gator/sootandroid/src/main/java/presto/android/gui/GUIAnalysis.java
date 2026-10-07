@@ -88,6 +88,12 @@ public class GUIAnalysis {
     // 1. Build flow graph
     flowgraph = new Flowgraph(hier, allLayoutIds, allMenuIds, allWidgetIds, allStringIds);
     flowgraph.build();
+    // Fragment view flow edges; a failure costs only those edges, never the solver run.
+    try {
+      FragmentViewFlow.link(flowgraph, hier);
+    } catch (RuntimeException e) {
+      Logger.warn("GUIAnalysis", "fragment view flow skipped: " + e);
+    }
 
     //Added for Experiment
     /*System.out.println("<TIME>:" + (Timer.duration() / 1000.0) + " second");

@@ -850,7 +850,7 @@
           "name": "onClick",
           "signature": "<br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>",
           "reachable": true,
-          "reachesTarget": false,
+          "reachesTarget": true,
           "directlyReachesTarget": false
         }
       ]

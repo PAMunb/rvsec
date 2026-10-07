@@ -82,9 +82,9 @@ DIGEST_ALGORITHM = "sha256"
 # === PRODUCER QUIRKS ===
 
 # D8 desugars a lambda into a wrapper class `X$$ExternalSyntheticLambdaN` whose
-# method the producer's call graph marks unreachable, while the reaching body stays
-# in `X` under a `lambda$…` name. The pattern captures `X` so the flags can be
-# recovered from it.
+# method forwards to a body that stays in `X` under a `lambda$…` name. A wrapper the
+# producer does not list in `reachability[]` has no flags of its own; the pattern
+# captures `X` so they can be recovered from it.
 SYNTHETIC_LAMBDA_PATTERN = re.compile(r"^<(.+?)\$\$ExternalSyntheticLambda\d+:")
 LAMBDA_METHOD_PREFIX = "lambda$"
 
@@ -382,21 +382,24 @@ def _index_reachability(
 
     Args:
         reachability: The `reachability[]` section. Entries and methods that are
-            not objects are skipped, and a method reaching nothing is not indexed
-            at all, so absence from an index means "does not reach".
+            not objects are skipped.
 
     Returns:
-        `by_signature`: method signature -> `(direct, transitive)` for every method
-            that reaches a monitored operation. `transitive` is stored as
-            `reachesTarget or directlyReachesTarget`, so a widget can never be
-            derived direct-but-not-transitive — the producer emits methods with
-            exactly that shape and the jar's own index stored `reachesTarget`
-            unmodified. Duplicate signatures merge by **OR** rather than by
-            last-write, so the index does not depend on the producer's emission
-            order.
+        `by_signature`: method signature -> `(direct, transitive)` for every listed
+            method, reaching or not (INV-DRV-09). A listed method that reaches
+            nothing maps to `(False, False)`, so absence from this index means
+            "not listed", never "does not reach": a listed D8 wrapper keeps its own
+            flags and only an unlisted one goes to the class recovery.
+            `transitive` is stored as `reachesTarget or directlyReachesTarget`, so a
+            widget can never be derived direct-but-not-transitive — the producer
+            emits methods with exactly that shape and the jar's own index stored
+            `reachesTarget` unmodified. Duplicate signatures merge by **OR** rather
+            than by last-write, so the index does not depend on the producer's
+            emission order.
         `lambda_by_class`: enclosing class -> OR-aggregated flags of its reaching
-            `lambda$…` methods, which is what a D8 synthetic-lambda wrapper handler
-            is recovered from.
+            `lambda$…` methods, which is what an unlisted D8 synthetic-lambda
+            wrapper handler is recovered from. A class whose lambda methods reach
+            nothing is absent.
         `activity_classes`: base names of classes typed `activity` carrying at
             least one reaching method — source 3 of the augmented activity set.
             This source is immune to the lambda call-graph gap that makes the
@@ -418,16 +421,16 @@ def _index_reachability(
             if not isinstance(method, dict):
                 continue
             direct = method.get("directlyReachesTarget") is True
-            reaches = method.get("reachesTarget") is True
-            if not (direct or reaches):
-                continue
-            transitive = reaches or direct
+            transitive = method.get("reachesTarget") is True or direct
 
             signature = method.get("signature")
             if isinstance(signature, str):
                 by_signature[signature] = _or_flags(
                     by_signature.get(signature), (direct, transitive)
                 )
+
+            if not transitive:
+                continue
 
             name = method.get("name")
             if (
@@ -476,13 +479,16 @@ def _derive_listener_flags(
        listeners), so the tier exists for a producer that later does.
     2. **Exact signature join.** `listeners[].handler` is emitted in the same Soot
        form as `reachability[].methods[].signature`, so the join is a string match.
-    3. **D8 synthetic-lambda recovery.** A handler the exact join missed may be a
-       `X$$ExternalSyntheticLambdaN` wrapper, which D8 emits for every desugared
-       lambda and which the producer's call graph marks unreachable — the reaching
-       body lives in `X` under a `lambda$…` name. Recovering from `X` closes a gap
-       that affects every app built with lambda desugaring; a class with no
-       reaching lambda leaves the widget unflagged, which is why the recovery
-       cannot simply flag every wrapper.
+       A listed handler's flags are its own, including `(False, False)`: the
+       producer links each D8 wrapper to the body it forwards to (`analysis`
+       INV-ANA-77), so a listed wrapper that reaches nothing really reaches nothing.
+    3. **D8 synthetic-lambda recovery.** A handler absent from `reachability[]` may
+       be a `X$$ExternalSyntheticLambdaN` wrapper, which D8 emits for every
+       desugared lambda; its body lives in `X` under a `lambda$…` name. The flags
+       are recovered as the OR of `X`'s reaching `lambda$…` methods (INV-DRV-09).
+       The OR cannot tell which lambda the wrapper forwards to, which is why it
+       applies only when the producer gave no answer; a class with no reaching
+       lambda leaves the widget unflagged.
 
     `transitive` is `reaches or direct` on all three tiers, so `direct` implies
     `transitive` however the flags were obtained.
@@ -1190,6 +1196,12 @@ def _compute_handler_diagnostics(
     silent collapse of the join visible in the artifact, instead of leaving it to
     be inferred from a flagged count that looks plausible.
 
+    `handlersUnmatched` counts the handlers the exact join leaves without a
+    reaching flag — absent from `reachability[]` or listed reaching nothing — and
+    `syntheticLambda` the D8 wrappers among them. `recovered` counts the wrappers
+    whose flags came from the class recovery, which applies only to a wrapper
+    absent from `reachability[]` (INV-DRV-09).
+
     Args:
         handlers: Distinct handler signatures from `_parse_windows()`.
         by_signature: Exact-join index from `_index_reachability()`.
@@ -1204,13 +1216,14 @@ def _compute_handler_diagnostics(
     synthetic = 0
     recovered = 0
     for handler in handlers:
-        if handler in by_signature:
+        flags = by_signature.get(handler)
+        if flags is not None and flags[1]:
             continue
         unmatched += 1
         enclosing = _synthetic_lambda_enclosing_class(handler)
         if enclosing is None:
             continue
         synthetic += 1
-        if enclosing in lambda_by_class:
+        if flags is None and enclosing in lambda_by_class:
             recovered += 1
     return unmatched, synthetic, recovered

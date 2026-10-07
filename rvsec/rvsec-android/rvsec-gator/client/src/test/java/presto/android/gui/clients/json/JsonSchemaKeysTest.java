@@ -87,6 +87,16 @@ public class JsonSchemaKeysTest {
 	}
 
 	@Test
+	public void distanceKeysMatchTheParserMirror() {
+		// Mirrored in _JK as distance_targets, target_distances and kind (INV-ANA-32); the
+		// target object reuses SIGNATURE for its signature field.
+		assertEquals("distanceTargets", JsonSchema.Keys.DISTANCE_TARGETS);
+		assertEquals("targetDistances", JsonSchema.Keys.TARGET_DISTANCES);
+		assertEquals("kind", JsonSchema.Keys.KIND);
+		assertEquals("signature", JsonSchema.Keys.SIGNATURE);
+	}
+
+	@Test
 	public void keysDumpExitsCleanlyAndProducesExpectedCount() throws Exception {
 		// Don't subprocess the JVM here — that's the Python parity test's
 		// job. We can invoke main() directly and capture stdout to confirm

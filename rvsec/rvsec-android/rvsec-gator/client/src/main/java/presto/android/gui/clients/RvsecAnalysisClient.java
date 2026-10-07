@@ -38,6 +38,11 @@ import presto.android.gui.wtg.intent.IntentFilterManager;
 import presto.android.gui.wtg.util.PatternMatcher;
 import presto.android.xml.XMLParser;
 import presto.android.gui.clients.energy.VarUtil;
+import presto.android.gui.clients.fragment.FragmentWindows;
+import presto.android.gui.clients.hosted.HostedWindowExtractor;
+import presto.android.gui.clients.json.JsonSchema;
+import presto.android.gui.clients.reach.LambdaEdges;
+import presto.android.gui.clients.reach.TargetDistances;
 import presto.android.gui.graph.NDialogNode;
 import presto.android.gui.graph.NNode;
 import presto.android.gui.graph.NObjectNode;
@@ -73,6 +78,12 @@ import soot.jimple.toolkits.callgraph.Edge;
  * On timeout, partial JSON preserves the most critical data first.
  */
 public class RvsecAnalysisClient implements GUIAnalysisClient {
+
+	/** Fragment windows for both JSON writes; null when the fragment pass failed. */
+	private FragmentWindows fragmentWindows;
+
+	/** Lowest id of a client-numbered window; above the 100000+ fallback sequence. */
+	static final int FIRST_OWNED_WINDOW_ID = 900000;
 
 	@Override
 	public void run(GUIAnalysisOutput output) {
@@ -141,6 +152,14 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 					+ (System.currentTimeMillis() - resolveStart) + " ms)");
 		}
 
+		// 3a. Lambda wrapper edges go into the Scene call graph before reachability, so
+		//     reachesTarget, the distances and the WTG all walk the same graph (INV-ANA-77).
+		try {
+			LambdaEdges.addTo(Scene.v().getCallGraph(), appClasses);
+		} catch (RuntimeException e) {
+			System.out.println("[RvsecAnalysisClient] Lambda edges failed: " + e);
+		}
+
 		// 3. Reachability pipeline (BFS + bytecode-scan + callback complement)
 		//    encapsulated in ReachabilityEngine. The ReachabilityIndex it
 		//    publishes is immutable — downstream JSON writing reads but does
@@ -149,6 +168,9 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		presto.android.gui.clients.reach.ReachabilityIndex index =
 				new presto.android.gui.clients.reach.ReachabilityEngine(
 						output, appClasses, targetMethods, targetSpecs, matching).run();
+		// Distances depend only on the call graph and the index, both final here, so
+		// they are computed before the pre-WTG write and survive a WTG timeout.
+		TargetDistances<SootMethod> distances = computeDistances(index, appClasses, targetMethods);
 
 		// 4. Build the per-node enricher. The inline writer consults it for
 		//    each method/widget/transition/component rather than reading the
@@ -167,7 +189,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 						codePackage,
 						mainActivity != null ? mainActivity.getName() : null,
 						getCodePackageSource(),
-						countClassDefsUnderKey(filterPackage));
+						countClassDefsUnderKey(filterPackage),
+						distances);
 
 		// 5. Write JSON with reachability FIRST (survives timeout during WTG).
 		//    This write claims completeness only when it is the run's last one,
@@ -179,6 +202,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		//    NO sentinel — a partial sample the parser and the gh91 predicate
 		//    both refuse to count as finished (INV-ANA-31).
 		boolean wtgSkipped = skipWtg();
+		fragmentWindows = analyzeFragments(output, appClasses);
 		presto.android.gui.clients.json.JsonReportWriter writer =
 				new presto.android.gui.clients.json.JsonReportWriter(enricher);
 		try {
@@ -958,7 +982,9 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		int fallbackId = 100000; // Fallback for windows not in WTG
 
 		SootClass mainActivity = output.getMainActivity();
-		SpinnerItemExtractor spinnerExtractor = new SpinnerItemExtractor();
+		XMLParser resourceIds = XMLParser.Factory.getXMLParser();
+		SpinnerItemExtractor spinnerExtractor = new SpinnerItemExtractor(
+				appArrayItemsById()::get, resourceIds::getApplicationIdValue);
 
 		// Activity windows — use NObjectNode.id from WTG for consistency
 		// with transition sourceId/targetId
@@ -992,6 +1018,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			windows.add(window);
 			extractedIds.add((int) window.get("id"));
 		}
+		System.out.println("[SpinnerItemExtractor] " + spinnerExtractor.getStats());
 
 		// Dialog windows
 		for (NDialogNode dialog : output.getDialogs()) {
@@ -1218,7 +1245,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		// For each window, parse its layout XML
 		for (Map<String, Object> window : windows) {
 			String type = (String) window.get("type");
-			if (!"ACTIVITY".equals(type)) continue;
+			if (!"ACTIVITY".equals(type) && !FragmentWindows.WINDOW_TYPE.equals(type)
+					&& !HostedWindowExtractor.TYPE.equals(type)) continue;
 
 			@SuppressWarnings("unchecked")
 			List<Map<String, Object>> widgets = (List<Map<String, Object>>) window.get("widgets");
@@ -1360,6 +1388,25 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		widget.put(key, raw);
 	}
 
+	/**
+	 * Items of every app array resource keyed by its R.array id: names and items
+	 * from the decoded {@code values/arrays.xml}, ids from the app's resource id
+	 * map. Lets the spinner extractor resolve {@code createFromResource(ctx,
+	 * R.array.X, …)} and {@code getStringArray(R.array.X)}, where the id is an
+	 * int constant in the bytecode.
+	 */
+	private Map<Integer, List<String>> appArrayItemsById() {
+		Map<Integer, List<String>> byId = new HashMap<>();
+		String resDir = Configs.resourceLocation;
+		if (resDir == null || resDir.isEmpty()) return byId;
+		XMLParser xml = XMLParser.Factory.getXMLParser();
+		for (Map.Entry<String, List<String>> e : parseArraysXml(resDir).entrySet()) {
+			Integer id = xml.getApplicationIdValue("array", e.getKey());
+			if (id != null) byId.put(id, e.getValue());
+		}
+		return byId;
+	}
+
 	// Package-private for unit testing
 	Map<String, List<String>> parseArraysXml(String resDir) {
 		Map<String, List<String>> arrays = new HashMap<>();
@@ -1479,27 +1526,145 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	// ========================================================================
 
 	/**
+	 * Distance from each app method to each distance target (INV-ANA-73). A failure
+	 * costs only the two distance keys, never the rest of the report.
+	 */
+	private static TargetDistances<SootMethod> computeDistances(
+			presto.android.gui.clients.reach.ReachabilityIndex index,
+			Map<SootClass, List<SootMethod>> appClasses, Set<SootMethod> targetMethods) {
+		try {
+			long start = System.currentTimeMillis();
+			TargetDistances<SootMethod> d = TargetDistances.compute(
+					Scene.v().getCallGraph(), index, appClasses, targetMethods);
+			int direct = 0;
+			for (String kind : d.kinds()) {
+				if (TargetDistances.KIND_DIRECT.equals(kind)) {
+					direct++;
+				}
+			}
+			System.out.println("[RvsecAnalysisClient] Distances: " + d.targets().size()
+					+ " targets (direct: " + direct + ", boundary: " + (d.targets().size() - direct)
+					+ "), " + d.methodsWithPairs() + " app methods within " + TargetDistances.DIST_MAX
+					+ " (" + (System.currentTimeMillis() - start) + " ms)");
+			return d;
+		} catch (RuntimeException e) {
+			System.out.println("[RvsecAnalysisClient] Distance pass failed: " + e);
+			return null;
+		}
+	}
+
+	/**
+	 * Fragment windows ({@code Host#Fragment}), computed once from the finished solver
+	 * so the pre-WTG write carries them too. A failure here costs only the fragment
+	 * windows, never the rest of the report.
+	 */
+	private static FragmentWindows analyzeFragments(
+			GUIAnalysisOutput output, Map<SootClass, List<SootMethod>> appClasses) {
+		try {
+			return FragmentWindows.analyze(output, appClasses, Configs.resourceLocation);
+		} catch (RuntimeException e) {
+			System.out.println("[RvsecAnalysisClient] Fragment analysis failed: " + e);
+			return null;
+		}
+	}
+
+	/**
 	 * Prepare the windows[] section: extract widget data from the
-	 * {@link GUIAnalysisOutput}, enrich with XML attributes, and union
+	 * {@link GUIAnalysisOutput}, add the {@code FRAGMENT} and then the
+	 * {@code HOSTED} windows, enrich with XML attributes, and union
 	 * the programmatic Spinner items. The result is what
 	 * {@link JsonReportWriter} emits as the {@code windows} section.
 	 *
 	 * <p>Called twice per analysis (once pre-WTG to populate the partial
 	 * JSON that survives a WTG-phase timeout, once post-WTG with the
-	 * full data). This is the only non-emission piece that used to live
-	 * inside the old {@code writeJson}; it stays on the client because
-	 * it consumes GATOR's internal data prep helpers (extractWindows,
-	 * enrichFromXml, unionProgrammaticSpinnerItems) and there is no
-	 * value in re-homing them in C1e.
+	 * full data). The fragment and hosted windows come from solver state
+	 * only, so both writes carry them (INV-ANA-75). The fragment windows
+	 * go first because a hosted window with a fragment window's name is
+	 * dropped (one window per (host, owner), D6).
 	 */
 	private List<Map<String, Object>> prepareWindows(
 			GUIAnalysisOutput output,
 			Map<String, Integer> windowNodeIds,
 			WTG wtg) {
 		List<Map<String, Object>> windows = extractWindows(output, windowNodeIds, wtg);
+		if (fragmentWindows != null) {
+			try {
+				windows.addAll(fragmentWindows.windows(
+						(root, widgets, visited) -> collectWidgets(output, root, widgets, visited),
+						nextOwnedWindowId(windows)));
+			} catch (RuntimeException e) {
+				System.out.println("[RvsecAnalysisClient] Fragment windows failed: " + e);
+			}
+		}
+		new HostedWindowExtractor(output,
+				(root, ws, seen) -> collectWidgets(output, root, ws, seen))
+				.extendInto(windows, nextOwnedWindowId(windows));
+		dropRepeatedOwnedWindows(windows);
 		enrichFromXml(windows);
 		unionProgrammaticSpinnerItems(windows);
+		dropRepeatedWidgets(windows);
 		return windows;
+	}
+
+	/**
+	 * Keeps the first of the widget records of a window that are equal in every field
+	 * (id, type, texts, entries, listeners). A layout reached from several view roots
+	 * of one window yields one record per root: in org.hwyl.sexytopo_93 the leg form
+	 * of {@code LegDialogs} is built by three methods, so each of its windows listed
+	 * the 39-id tree three times (520 of 2,149 hosted records). Equal records say
+	 * nothing the first one does not, so dropping them loses no content. Runs after
+	 * the XML enrichment and the spinner union, which are what make two records of
+	 * the same view equal.
+	 */
+	@SuppressWarnings("unchecked")
+	static void dropRepeatedWidgets(List<Map<String, Object>> windows) {
+		for (Map<String, Object> w : windows) {
+			Object widgets = w.get("widgets");
+			if (widgets instanceof List) {
+				Set<Map<String, Object>> seen = new HashSet<>();
+				((List<Map<String, Object>>) widgets).removeIf(x -> !seen.add(x));
+			}
+		}
+	}
+
+	/**
+	 * Keeps one {@code FRAGMENT}/{@code HOSTED} window per host for each distinct widget
+	 * list. Fragments that share a base class reach the same view objects through the
+	 * per-class fragment view flow, so every subclass window can carry the same tree
+	 * (github.paroj.dsub2000_217: 58 of 61 fragment windows held one 124-widget tree).
+	 * The consumer folds every {@code Host#Owner} window into the host's bucket, so the
+	 * repeated copies add size and nothing else. The first window in emission order is
+	 * kept.
+	 */
+	static void dropRepeatedOwnedWindows(List<Map<String, Object>> windows) {
+		Set<String> seen = new HashSet<>();
+		windows.removeIf(w -> {
+			Object type = w.get("type");
+			if (!FragmentWindows.WINDOW_TYPE.equals(type) && !HostedWindowExtractor.TYPE.equals(type)) {
+				return false;
+			}
+			String name = String.valueOf(w.get("name"));
+			int hash = name.indexOf('#');
+			String host = hash >= 0 ? name.substring(0, hash) : name;
+			return !seen.add(host + '\u0000' + String.valueOf(w.get("widgets")));
+		});
+	}
+
+	/**
+	 * First id for the {@code FRAGMENT} and {@code HOSTED} windows the client numbers
+	 * itself: {@value #FIRST_OWNED_WINDOW_ID}, raised past every id already in
+	 * {@code windows}, so the ids stay disjoint from the WTG node ids, from the
+	 * 100000+ fallback sequence and from each other (INV-ANA-76).
+	 */
+	static int nextOwnedWindowId(List<Map<String, Object>> windows) {
+		int next = FIRST_OWNED_WINDOW_ID;
+		for (Map<String, Object> w : windows) {
+			Object id = w.get("id");
+			if (id instanceof Number) {
+				next = Math.max(next, ((Number) id).intValue() + 1);
+			}
+		}
+		return next;
 	}
 
 	public static void writeReachabilitySection(
@@ -1553,6 +1718,15 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				w.name("reachable").value((Boolean) ann.get("reachable"));
 				w.name("reachesTarget").value((Boolean) ann.get("reachesTarget"));
 				w.name("directlyReachesTarget").value((Boolean) ann.get("directlyReachesTarget"));
+				int[][] distances = (int[][]) ann.get(JsonSchema.Keys.TARGET_DISTANCES);
+				if (distances != null) {
+					w.name(JsonSchema.Keys.TARGET_DISTANCES);
+					w.beginArray();
+					for (int[] pair : distances) {
+						w.beginArray().value(pair[0]).value(pair[1]).endArray();
+					}
+					w.endArray();
+				}
 				w.endObject();
 			}
 			w.endArray();

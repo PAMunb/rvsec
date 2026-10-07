@@ -2,16 +2,25 @@
  * SpinnerItemExtractor.java — gh57 Group 5 (MVP).
  *
  * Extracts Spinner items populated programmatically via ArrayAdapter.
- * MVP scope (two patterns):
+ * Item sources:
  *   (1) Literal constructor:
  *         new ArrayAdapter<>(ctx, layoutId, new String[]{"a","b","c"})
  *         new ArrayAdapter<>(ctx, layoutId, Arrays.asList("x","y"))
+ *         new ArrayAdapter<>(ctx, layoutId, getResources().getStringArray(R.array.X))
  *   (2) Programmatic add:
  *         adapter.add(literalString)
- *         adapter.addAll(literalStringArray)
+ *         adapter.addAll(literalStringArray | getStringArray(R.array.X))
+ *   (3) Array resource adapter:
+ *         adapter = ArrayAdapter.createFromResource(ctx, R.array.X, layoutId)
+ *   An R.array id resolves to its items through the function the client
+ *   passes in (decoded arrays.xml keyed by the app's array ids).
  *
- * Out of scope (deferred):
- *   - getResources().getStringArray(R.array.X)
+ * Resource ids (the findViewById argument and the R.array argument) are
+ * int constants when the app's R class is final, and reads of a static
+ * field of <pkg>.R$<type> when it is not; the field is resolved by its
+ * type and name through the app's resource id map.
+ *
+ * Out of scope:
  *   - Kotlin listOf(...)
  *   - Dynamic strings (concatenation, method calls, field reads)
  *
@@ -43,11 +52,14 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.IntFunction;
 
 import presto.android.util.JimpleDefUtils;
 import soot.Body;
 import soot.Local;
 import soot.SootClass;
+import soot.SootFieldRef;
 import soot.SootMethod;
 import soot.Unit;
 import soot.Value;
@@ -60,6 +72,8 @@ import soot.jimple.InvokeExpr;
 import soot.jimple.NewArrayExpr;
 import soot.jimple.NewExpr;
 import soot.jimple.SpecialInvokeExpr;
+import soot.jimple.StaticFieldRef;
+import soot.jimple.StaticInvokeExpr;
 import soot.jimple.Stmt;
 import soot.jimple.StringConstant;
 import soot.toolkits.graph.ExceptionalUnitGraph;
@@ -68,11 +82,13 @@ import soot.toolkits.scalar.SimpleLocalDefs;
 public final class SpinnerItemExtractor {
 
 	private static final String ARRAY_ADAPTER = "android.widget.ArrayAdapter";
+	private static final String RESOURCES = "android.content.res.Resources";
 
 	public static final class Stats {
 		public int spinnersDetected;
 		public int literalConstructor;
 		public int addCalls;
+		public int resourceArrays;
 		public int unresolved;
 
 		@Override
@@ -80,11 +96,26 @@ public final class SpinnerItemExtractor {
 			return "spinners=" + spinnersDetected
 					+ " literal-constructor=" + literalConstructor
 					+ " add/addAll=" + addCalls
+					+ " resource-arrays=" + resourceArrays
 					+ " unresolved=" + unresolved;
 		}
 	}
 
 	private final Stats stats = new Stats();
+	private final IntFunction<List<String>> arrayItems;
+	private final BiFunction<String, String, Integer> resourceId;
+
+	/**
+	 * @param arrayItems items of an app array resource by its R.array id, or
+	 *        {@code null} when the id is not an app array
+	 * @param resourceId the app's resource id for a (type, name) pair, e.g.
+	 *        ("array", "TimeZones"), or {@code null} when unknown
+	 */
+	public SpinnerItemExtractor(IntFunction<List<String>> arrayItems,
+			BiFunction<String, String, Integer> resourceId) {
+		this.arrayItems = arrayItems;
+		this.resourceId = resourceId;
+	}
 
 	public Stats getStats() {
 		return stats;
@@ -117,10 +148,11 @@ public final class SpinnerItemExtractor {
 			Body body,
 			SimpleLocalDefs defs,
 			Map<Integer, List<String>> result) {
-		// Local → accumulated items, populated when we see a constructor
-		// or add/addAll invoke. The same adapter may collect items from
-		// multiple statements before reaching setAdapter.
-		Map<Local, List<String>> adapterItems = new LinkedHashMap<>();
+		// Adapter creation statement → accumulated items. Keyed by the statement
+		// that creates the adapter (createFromResource, or `$a = new ArrayAdapter`),
+		// found through the reaching definition of the adapter local, because the
+		// compiler reuses one local for several adapters in the same method.
+		Map<Unit, List<String>> siteItems = new LinkedHashMap<>();
 
 		for (Unit unit : body.getUnits()) {
 			if (!(unit instanceof Stmt)) continue;
@@ -131,17 +163,34 @@ public final class SpinnerItemExtractor {
 			String declClass = ie.getMethodRef().getDeclaringClass().getName();
 			String name = ie.getMethodRef().getName();
 
+			// (3) $adapter = ArrayAdapter.createFromResource(ctx, R.array.X, layoutId)
+			if (ie instanceof StaticInvokeExpr
+					&& "createFromResource".equals(name)
+					&& ARRAY_ADAPTER.equals(declClass)
+					&& ie.getArgCount() == 3
+					&& stmt instanceof AssignStmt
+					&& ((AssignStmt) stmt).getLeftOp() instanceof Local) {
+				List<String> items = resolveArrayResource(ie.getArg(1), stmt, defs);
+				if (items != null && !items.isEmpty()) {
+					siteItems.put(stmt, new ArrayList<>(items));
+					stats.resourceArrays++;
+				} else {
+					stats.unresolved++;
+				}
+				continue;
+			}
+
 			// (1) Literal constructor: $adapter = new ArrayAdapter; specialinvoke <init>(ctx, layoutId, items)
 			if (ie instanceof SpecialInvokeExpr
 					&& "<init>".equals(name)
 					&& ARRAY_ADAPTER.equals(declClass)
 					&& ie.getArgCount() >= 3) {
-				Local adapter = receiverLocal(ie);
-				if (adapter == null) continue;
+				Unit site = adapterSite(receiverLocal(ie), stmt, defs);
+				if (site == null) continue;
 				Value itemsArg = ie.getArg(ie.getArgCount() - 1);
 				List<String> literals = resolveStringArray(itemsArg, stmt, defs, body);
 				if (literals != null && !literals.isEmpty()) {
-					adapterItems.computeIfAbsent(adapter, k -> new ArrayList<>()).addAll(literals);
+					siteItems.computeIfAbsent(site, k -> new ArrayList<>()).addAll(literals);
 					stats.literalConstructor++;
 				}
 				continue;
@@ -149,12 +198,12 @@ public final class SpinnerItemExtractor {
 
 			// (2) adapter.add(s) / adapter.addAll(arr)
 			if (ARRAY_ADAPTER.equals(declClass) && ie instanceof InstanceInvokeExpr) {
-				Local adapter = receiverLocal(ie);
-				if (adapter == null) continue;
+				Unit site = adapterSite(receiverLocal(ie), stmt, defs);
+				if (site == null) continue;
 				if ("add".equals(name) && ie.getArgCount() == 1) {
 					String lit = JimpleDefUtils.resolveStr(ie.getArg(0), stmt, defs);
 					if (lit != null) {
-						adapterItems.computeIfAbsent(adapter, k -> new ArrayList<>()).add(lit);
+						siteItems.computeIfAbsent(site, k -> new ArrayList<>()).add(lit);
 						stats.addCalls++;
 					} else {
 						stats.unresolved++;
@@ -164,7 +213,7 @@ public final class SpinnerItemExtractor {
 				if ("addAll".equals(name) && ie.getArgCount() == 1) {
 					List<String> arr = resolveStringArray(ie.getArg(0), stmt, defs, body);
 					if (arr != null && !arr.isEmpty()) {
-						adapterItems.computeIfAbsent(adapter, k -> new ArrayList<>()).addAll(arr);
+						siteItems.computeIfAbsent(site, k -> new ArrayList<>()).addAll(arr);
 						stats.addCalls++;
 					} else {
 						stats.unresolved++;
@@ -173,23 +222,44 @@ public final class SpinnerItemExtractor {
 				}
 			}
 
-			// (3) spinner.setAdapter(adapter) — bind items to a widget id.
+			// spinner.setAdapter(adapter) — bind items to a widget id.
 			if ("setAdapter".equals(name)
 					&& ie instanceof InstanceInvokeExpr
 					&& ie.getArgCount() == 1) {
 				Local adapter = (ie.getArg(0) instanceof Local) ? (Local) ie.getArg(0) : null;
-				if (adapter == null || !adapterItems.containsKey(adapter)) continue;
+				List<String> items = siteItems.get(adapterSite(adapter, stmt, defs));
+				if (items == null) continue;
 				Integer widgetId = resolveSpinnerWidgetId(
 						((InstanceInvokeExpr) ie).getBase(), stmt, defs);
 				if (widgetId == null) {
 					stats.unresolved++;
 					continue;
 				}
-				result.computeIfAbsent(widgetId, k -> new ArrayList<>())
-						.addAll(adapterItems.get(adapter));
+				// The same spinner is often bound in several methods (create and
+				// edit flows) with the same array; keep each item once.
+				List<String> entries = result.computeIfAbsent(widgetId, k -> new ArrayList<>());
+				for (String item : items) {
+					if (!entries.contains(item)) entries.add(item);
+				}
 				stats.spinnersDetected++;
 			}
 		}
+	}
+
+	/**
+	 * The statement that created the adapter held by {@code adapter} at
+	 * {@code site}: its single reaching definition, through casts.
+	 */
+	private static Unit adapterSite(Local adapter, Stmt site, SimpleLocalDefs defs) {
+		if (adapter == null) return null;
+		AssignStmt def = singleDef(adapter, site, defs);
+		int castGuard = 8;
+		while (def != null && def.getRightOp() instanceof CastExpr && castGuard-- > 0) {
+			Value op = ((CastExpr) def.getRightOp()).getOp();
+			if (!(op instanceof Local)) return null;
+			def = singleDef((Local) op, def, defs);
+		}
+		return def;
 	}
 
 	/**
@@ -208,22 +278,37 @@ public final class SpinnerItemExtractor {
 	 */
 	private Integer resolveSpinnerWidgetId(Value base, Stmt useSite, SimpleLocalDefs defs) {
 		if (!(base instanceof Local)) return null;
-		Value rhs = JimpleDefUtils.definitionRhs((Local) base, useSite, defs);
+		AssignStmt def = singleDef((Local) base, useSite, defs);
 		// Unwrap one or more chained CastExpr defs (e.g. `(View) $r1` then
 		// `(Spinner) $r2` — uncommon but seen in interop code).
 		int castGuard = 8;
-		while (rhs instanceof CastExpr && castGuard-- > 0) {
-			Value op = ((CastExpr) rhs).getOp();
+		while (def != null && def.getRightOp() instanceof CastExpr && castGuard-- > 0) {
+			Value op = ((CastExpr) def.getRightOp()).getOp();
 			if (!(op instanceof Local)) return null;
-			rhs = JimpleDefUtils.definitionRhs((Local) op, useSite, defs);
+			def = singleDef((Local) op, def, defs);
 		}
-		if (rhs instanceof InvokeExpr) {
-			InvokeExpr def = (InvokeExpr) rhs;
-			if ("findViewById".equals(def.getMethodRef().getName())
-					&& def.getArgCount() == 1) {
-				Integer id = JimpleDefUtils.resolveInt(def.getArg(0), useSite, defs);
-				if (id != null) return id;
+		if (def != null && def.getRightOp() instanceof InvokeExpr) {
+			InvokeExpr call = (InvokeExpr) def.getRightOp();
+			if ("findViewById".equals(call.getMethodRef().getName())
+					&& call.getArgCount() == 1) {
+				// Resolved at the findViewById statement, not at setAdapter: the
+				// compiler reuses the id register, so between the two statements
+				// it can be overwritten (e.g. by the R.array id of createFromResource).
+				return resolveResourceId(call.getArg(0), def, defs);
 			}
+		}
+		return null;
+	}
+
+	/** The single assignment of {@code local} reaching {@code site}, or null. */
+	private static AssignStmt singleDef(Local local, Stmt site, SimpleLocalDefs defs) {
+		try {
+			List<Unit> reaching = defs.getDefsOfAt(local, site);
+			if (reaching.size() == 1 && reaching.get(0) instanceof AssignStmt) {
+				return (AssignStmt) reaching.get(0);
+			}
+		} catch (RuntimeException ex) {
+			// SimpleLocalDefs throws on malformed bodies; treat as unresolved.
 		}
 		return null;
 	}
@@ -235,7 +320,8 @@ public final class SpinnerItemExtractor {
 	private List<String> resolveStringArray(Value arg, Stmt useSite, SimpleLocalDefs defs, Body body) {
 		if (!(arg instanceof Local)) return null;
 		Local local = (Local) arg;
-		Value rhs = JimpleDefUtils.definitionRhs(local, useSite, defs);
+		AssignStmt def = singleDef(local, useSite, defs);
+		Value rhs = def == null ? null : def.getRightOp();
 		if (rhs instanceof NewArrayExpr) {
 			// We have $items = new String[N]; subsequent ArrayRef assigns
 			// fill the slots. Walk the body forward from the new-array
@@ -247,6 +333,15 @@ public final class SpinnerItemExtractor {
 		if (rhs instanceof InvokeExpr) {
 			InvokeExpr ie = (InvokeExpr) rhs;
 			String declClass = ie.getMethodRef().getDeclaringClass().getName();
+			String name = ie.getMethodRef().getName();
+			// getResources().getStringArray(R.array.X) / getTextArray(R.array.X)
+			if (RESOURCES.equals(declClass)
+					&& ("getStringArray".equals(name) || "getTextArray".equals(name))
+					&& ie.getArgCount() == 1) {
+				List<String> items = resolveArrayResource(ie.getArg(0), def, defs);
+				if (items != null) stats.resourceArrays++;
+				return items;
+			}
 			if ("java.util.Arrays".equals(declClass) && "asList".equals(ie.getMethodRef().getName())) {
 				List<String> list = new ArrayList<>();
 				for (int i = 0; i < ie.getArgCount(); i++) {
@@ -257,6 +352,28 @@ public final class SpinnerItemExtractor {
 			}
 		}
 		return null;
+	}
+
+	/** Items of the app array resource whose R.array id is {@code idArg}, or null. */
+	private List<String> resolveArrayResource(Value idArg, Stmt useSite, SimpleLocalDefs defs) {
+		Integer id = resolveResourceId(idArg, useSite, defs);
+		return id == null ? null : arrayItems.apply(id);
+	}
+
+	/**
+	 * A resource id passed as an int constant, or read from a static field of
+	 * {@code <pkg>.R$<type>} and resolved by (type, field name).
+	 */
+	private Integer resolveResourceId(Value arg, Stmt useSite, SimpleLocalDefs defs) {
+		Integer constant = JimpleDefUtils.resolveInt(arg, useSite, defs);
+		if (constant != null) return constant;
+		Value v = (arg instanceof Local)
+				? JimpleDefUtils.definitionRhs((Local) arg, useSite, defs) : arg;
+		if (!(v instanceof StaticFieldRef)) return null;
+		SootFieldRef field = ((StaticFieldRef) v).getFieldRef();
+		String owner = field.declaringClass().getShortName();
+		if (!owner.startsWith("R$")) return null;
+		return resourceId.apply(owner.substring(2), field.name());
 	}
 
 	/**

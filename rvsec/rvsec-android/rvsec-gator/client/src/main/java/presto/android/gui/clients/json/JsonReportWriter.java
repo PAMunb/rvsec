@@ -97,6 +97,11 @@ public final class JsonReportWriter {
 			w.name(JsonSchema.Keys.CLASS_DEFS_UNDER_KEY).value(
 					((Number) metadata.get("class_defs_under_key")).intValue());
 
+			// Distance targets (INV-ANA-73): the index space of every method's
+			// targetDistances pairs, so it precedes the reachability section. Read
+			// through the enricher; absent when the distance pass failed.
+			writeDistanceTargets(w, enricher.distanceTargets());
+
 			// Section 1: components — manifest-derived, trivial cost
 			// (D14 2026-05-29). Promoted before the heavy analysis
 			// sections so a transitions-timeout cannot drop the
@@ -144,6 +149,23 @@ public final class JsonReportWriter {
 			// consumer treats the file as incomplete.
 			fos.getFD().sync();
 		}
+	}
+
+	/** Emit {@code distanceTargets} as a list of {@code {signature, kind}}; nothing when null. */
+	static void writeDistanceTargets(JsonWriter w, List<Map<String, String>> targets)
+			throws IOException {
+		if (targets == null) {
+			return;
+		}
+		w.name(JsonSchema.Keys.DISTANCE_TARGETS);
+		w.beginArray();
+		for (Map<String, String> t : targets) {
+			w.beginObject();
+			w.name(JsonSchema.Keys.SIGNATURE).value(t.get(JsonSchema.Keys.SIGNATURE));
+			w.name(JsonSchema.Keys.KIND).value(t.get(JsonSchema.Keys.KIND));
+			w.endObject();
+		}
+		w.endArray();
 	}
 
 	/**

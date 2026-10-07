@@ -23,6 +23,9 @@ class WindowType(Enum):
     CONTEXTMENU = 3
     DIALOG = 4
     FRAGMENT = 5
+    # A view owned by a non-Activity class (adapter, custom view) inflated
+    # inside a host Activity; GATOR names it `Host#Owner`.
+    HOSTED = 6
 
     @staticmethod
     def from_string(window_type: str) -> Optional["WindowType"]:
@@ -41,6 +44,7 @@ class WindowType(Enum):
             "CONTEXT_MENU": WindowType.CONTEXTMENU,
             "DIALOG": WindowType.DIALOG,
             "FRAGMENT": WindowType.FRAGMENT,
+            "HOSTED": WindowType.HOSTED,
         }
         return type_mapping.get(window_type)
 

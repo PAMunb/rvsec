@@ -222,9 +222,6 @@ public class Main {
             "-search-dex-in-archives",
             "-allow-phantom-refs",
             "-no-bodies-for-excluded",
-            "-exclude", "kotlin.",
-            "-exclude", "kotlinx.",
-            "-exclude", "androidx.compose.",
             "-process-dir", Configs.bytecodes,
             "-cp", classpath
     ));

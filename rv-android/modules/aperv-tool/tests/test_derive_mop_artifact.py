@@ -222,11 +222,30 @@ def test_index_reachability_merges_duplicate_signatures_by_or():
     assert backward["<A: void a()>"] == (True, True)
 
 
-def test_index_reachability_skips_unreaching_methods():
-    by_signature, _, _ = _index_reachability(
-        [{"className": "com.example.A", "methods": [_method("<A: void a()>")]}]
+def test_index_reachability_keeps_unreaching_methods():
+    """
+    A listed method that reaches nothing is indexed with `(False, False)`, so a
+    listed D8 wrapper is answered by its own flags and never reaches the class
+    recovery (INV-DRV-09).
+    """
+    by_signature, lambda_by_class, activity_classes = _index_reachability(
+        [
+            {
+                "className": "com.example.A",
+                "componentType": "activity",
+                "methods": [
+                    _method("<A: void a()>"),
+                    _method("<A: void lambda$a$0()>", name="lambda$a$0"),
+                ],
+            }
+        ]
     )
-    assert by_signature == {}
+    assert by_signature == {
+        "<A: void a()>": (False, False),
+        "<A: void lambda$a$0()>": (False, False),
+    }
+    assert lambda_by_class == {}
+    assert activity_classes == set()
 
 
 def test_index_reachability_indexes_reaching_lambda_bodies_by_class():
@@ -530,6 +549,105 @@ def test_synthetic_lambda_recovered():
     assert entry["mop"] == {"click": "transitive"}
     assert artifact["stats"]["recovered"] == 1
     assert artifact["stats"]["syntheticLambda"] == 1
+
+
+def test_listed_wrapper_keeps_its_own_flags():
+    """
+    A wrapper listed in `reachability` reaching nothing stays `none` even when a
+    sibling lambda of its class reaches: the producer links each wrapper to its
+    own body, so the class OR would lend it a sibling's flag (INV-DRV-09). The
+    unlisted wrapper of the same class is still recovered.
+    """
+    listed = (
+        "<com.example.MainActivity$$ExternalSyntheticLambda1: "
+        "void onClick(android.view.View)>"
+    )
+    absent = (
+        "<com.example.MainActivity$$ExternalSyntheticLambda0: "
+        "void onClick(android.view.View)>"
+    )
+    artifact = derive(
+        _document(
+            reachability=[
+                _reaching_class(
+                    "com.example.MainActivity",
+                    [
+                        _method(
+                            "<com.example.MainActivity: void lambda$onCreate$0(View)>",
+                            name="lambda$onCreate$0",
+                            reaches=True,
+                        )
+                    ],
+                ),
+                _reaching_class(
+                    "com.example.MainActivity$$ExternalSyntheticLambda1",
+                    [_method(listed, name="onClick")],
+                ),
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [
+                        _widget("btn_listed", listeners=[_listener("click", listed)]),
+                        _widget("btn_absent", listeners=[_listener("click", absent)]),
+                    ],
+                )
+            ],
+        )
+    )
+    widgets = artifact["widgets"]["com.example.MainActivity"]
+    assert "btn_listed" not in widgets
+    assert widgets["btn_absent"]["mop"] == {"click": "transitive"}
+    assert artifact["stats"]["flagged"] == 1
+    assert artifact["stats"]["recovered"] == 1
+    assert artifact["stats"]["syntheticLambda"] == 2
+    assert artifact["stats"]["handlersUnmatched"] == 2
+
+
+def test_listed_wrapper_alone_stays_unflagged():
+    """The spec scenario: the only wrapper is listed, false, and stays `none`."""
+    listed = (
+        "<com.example.MainActivity$$ExternalSyntheticLambda1: "
+        "void onClick(android.view.View)>"
+    )
+    artifact = derive(
+        _document(
+            reachability=[
+                _reaching_class(
+                    "com.example.MainActivity",
+                    [
+                        _method(
+                            "<com.example.MainActivity: void lambda$onCreate$0(View)>",
+                            name="lambda$onCreate$0",
+                            reaches=True,
+                        )
+                    ],
+                ),
+                _reaching_class(
+                    "com.example.MainActivity$$ExternalSyntheticLambda1",
+                    [_method(listed, name="onClick")],
+                ),
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [
+                        _widget(
+                            "btn_ok",
+                            listeners=[_listener("click", listed)],
+                            contentDescription="ok",
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+    entry = artifact["widgets"]["com.example.MainActivity"]["btn_ok"]
+    assert entry["mop"] == {"click": "none"}
+    assert artifact["mopActivities"] == []
+    assert artifact["stats"]["recovered"] == 0
 
 
 def test_synthetic_lambda_not_recovered_without_lambda():
@@ -1369,10 +1487,11 @@ def test_derive_cryptoapp_ground_truth(cryptoapp):
     """
     The whole projection against the fixture the jar's own suite parses.
 
-    `CryptographyActivity` is in the set through the D8 recovery: the exact join
-    drops its `$$ExternalSyntheticLambda0` wrapper handler and the reaching
-    `lambda$setupExecuteButton$0` body restores it — the same three flagged widgets
-    the jar asserts when it parses this fixture raw.
+    `CryptographyActivity` is in the set through the exact join: its
+    `$$ExternalSyntheticLambda0` wrapper handler carries its own `reachesTarget`,
+    because the producer links each wrapper to its body (INV-ANA-77), so nothing
+    is recovered — the same three flagged widgets the jar asserts when it parses
+    this fixture raw.
     """
     assert cryptoapp["package"] == "br.unb.cic.cryptoapp"
     assert cryptoapp["mainActivity"] == "br.unb.cic.cryptoapp.MainActivity"
@@ -1402,7 +1521,7 @@ def test_derive_cryptoapp_ground_truth(cryptoapp):
 
     assert cryptoapp["stats"]["windows"] == 5
     assert cryptoapp["stats"]["flagged"] == 3
-    assert cryptoapp["stats"]["recovered"] == 1
+    assert cryptoapp["stats"]["recovered"] == 0
 
 
 def _target_keys(node, path="artifact"):

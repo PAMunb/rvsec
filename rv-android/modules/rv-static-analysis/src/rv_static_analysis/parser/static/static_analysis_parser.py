@@ -107,6 +107,12 @@ _JK = SimpleNamespace(
     reachable="reachable",
     reaches_target="reachesTarget",
     directly_reaches_target="directlyReachesTarget",
+    # Per-target call-graph distance (INV-ANA-73). `distanceTargets` is the
+    # top-level list of direct callers, each entry carrying `kind`;
+    # `targetDistances` is the per-method list of (target index, depth) pairs.
+    distance_targets="distanceTargets",
+    target_distances="targetDistances",
+    kind="kind",
     # Windows section
     id="id",
     type="type",
@@ -841,6 +847,7 @@ class StaticAnalysisParser:
             "OPTIONSMENU": WindowType.OPTIONSMENU,
             "CONTEXTMENU": WindowType.CONTEXTMENU,
             "FRAGMENT": WindowType.FRAGMENT,
+            "HOSTED": WindowType.HOSTED,
         }
         return mapping.get(type_str, WindowType.ACTIVITY)
 

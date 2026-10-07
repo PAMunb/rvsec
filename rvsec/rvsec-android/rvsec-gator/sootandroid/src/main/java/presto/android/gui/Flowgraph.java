@@ -729,6 +729,14 @@ public class Flowgraph implements MethodNames {
 
   // Op Nodes
   public NOpNode createOpNode(Stmt s) {
+    // Library inflation entry points: DataBinding, activity content-layout constructor, dialog builders
+    {
+      NOpNode library = LibraryInflateModel.createOpNode(this, s);
+      if (library != null) {
+        return library;
+      }
+    }
+
     // Inflate1: view = inflater.inflate(id)
     {
       NOpNode inflate1 = createInflate1OpNode(s);
@@ -742,6 +750,14 @@ public class Flowgraph implements MethodNames {
       NOpNode inflate2 = createInflate2OpNode(s);
       if (inflate2 != null) {
         return inflate2;
+      }
+    }
+
+    // FindView1 from ViewBinding: ViewBindings.findChildViewById(view, id)
+    {
+      NOpNode bindingFindView = createViewBindingFindViewOpNode(s);
+      if (bindingFindView != null) {
+        return bindingFindView;
       }
     }
 
@@ -1107,6 +1123,35 @@ public class Flowgraph implements MethodNames {
     }
 
     return findView1;
+  }
+
+  /**
+   * Generated ViewBinding classes look their views up with the static library helper
+   * {@code androidx.viewbinding.ViewBindings.findChildViewById(View root, int id)},
+   * which is {@code root.findViewById(id)} with a null-safe loop. Without this model the
+   * binding's view fields stay empty, and every listener an app registers through
+   * {@code binding.someButton.setOnClickListener(...)} is lost — in activities and in
+   * fragments alike.
+   */
+  public NOpNode createViewBindingFindViewOpNode(Stmt s) {
+    if (!(s instanceof DefinitionStmt)) {
+      return null;
+    }
+    InvokeExpr ie = s.getInvokeExpr();
+    soot.SootMethodRef ref = ie.getMethodRef();
+    if (!ref.getName().equals("findChildViewById")
+            || !ref.getDeclaringClass().getName().equals("androidx.viewbinding.ViewBindings")
+            || ie.getArgCount() != 2 || !(ie.getArg(0) instanceof Local)) {
+      return null;
+    }
+    NNode widgetIdNode = simpleNode(ie.getArg(1));
+    if (widgetIdNode == null) {
+      return null;
+    }
+    NVarNode receiverNode = varNode((Local) ie.getArg(0));
+    NVarNode lhsNode = varNode(jimpleUtil.lhsLocal(s));
+    return new NFindView1OpNode(widgetIdNode, receiverNode, lhsNode,
+            new Pair<Stmt, SootMethod>(s, jimpleUtil.lookup(s)), FindView1Type.Ordinary, false);
   }
 
   // FindView2: lhs = act.findViewById(id)

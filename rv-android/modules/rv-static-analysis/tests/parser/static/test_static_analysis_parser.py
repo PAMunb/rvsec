@@ -532,6 +532,65 @@ class TestArtefactDefinesItsOwnScope:
         assert "android.app.AlertDialog" in names
         assert "com.example.Main#OptionsMenu" in names
 
+    def test_inv_ana_78_fragment_and_hosted_are_not_activities(
+        self, parser, tmp_path
+    ):
+        """`FRAGMENT` and `HOSTED` windows keep their own type.
+
+        An unmapped type falls back to `ACTIVITY`, which would count every
+        `Host#Owner` window as one more activity of its host.
+        """
+        data = {
+            "reachability": [
+                {
+                    "className": "com.example.MainActivity",
+                    "componentType": "activity",
+                    "isMain": True,
+                    "methods": [],
+                }
+            ],
+            "windows": [
+                {
+                    "name": "com.example.MainActivity",
+                    "type": "ACTIVITY",
+                    "id": 1,
+                    "isMain": True,
+                    "widgets": [],
+                },
+                {
+                    "name": "com.example.MainActivity#com.example.ItemAdapter",
+                    "type": "HOSTED",
+                    "id": 2,
+                    "isMain": False,
+                    "widgets": [],
+                },
+                {
+                    "name": "com.example.MainActivity#com.example.ListFragment",
+                    "type": "FRAGMENT",
+                    "id": 3,
+                    "isMain": False,
+                    "widgets": [],
+                },
+            ],
+            "transitions": [],
+        }
+        path = _write_json(tmp_path, data)
+        result = parser.parse_file(path)
+        types = {w.name: w.type for w in result.windows.windows}
+        assert types == {
+            "com.example.MainActivity": WindowType.ACTIVITY,
+            "com.example.MainActivity#com.example.ItemAdapter": WindowType.HOSTED,
+            "com.example.MainActivity#com.example.ListFragment": WindowType.FRAGMENT,
+        }
+        activities = [
+            w for w in result.windows.windows if w.type == WindowType.ACTIVITY
+        ]
+        assert len(activities) == 1
+
+    def test_inv_ana_78_type_mapping(self, parser):
+        assert parser._map_window_type("HOSTED") is WindowType.HOSTED
+        assert parser._map_window_type("FRAGMENT") is WindowType.FRAGMENT
+
     def test_inv_ana_61_no_package_parameter(self):
         """The consumption path carries no key, at either entry point.
 

@@ -57,6 +57,15 @@ public final class JsonSchema {
 		public static final String REACHES_TARGET = "reachesTarget";
 		public static final String DIRECTLY_REACHES_TARGET = "directlyReachesTarget";
 
+		// Distance to each distance target (INV-ANA-73). DISTANCE_TARGETS is top-level: a list
+		// of {SIGNATURE, KIND} objects, KIND "direct" (app direct callers, C) or "boundary"
+		// (app methods handing control to library code that reaches a target, B \ C).
+		// TARGET_DISTANCES is per method: a list of [index into DISTANCE_TARGETS, distance],
+		// omitted when the method is within DIST_MAX calls of no target.
+		public static final String DISTANCE_TARGETS = "distanceTargets";
+		public static final String KIND = "kind";
+		public static final String TARGET_DISTANCES = "targetDistances";
+
 		// Windows section
 		public static final String ID = "id";
 		public static final String TYPE = "type";
