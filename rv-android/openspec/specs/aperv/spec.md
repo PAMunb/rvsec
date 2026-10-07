@@ -51,6 +51,8 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - `llm_url: str` -- OpenAI-compatible base URL already held by the tool configuration; the source of the `/v1/models` provenance query (LLM arms)
 - `corpus_basis: str` -- optional key identifying the application list a run was drawn from, supplied through the same configuration path as any other mapped key and resting at `self._tool_config["overrides"]["corpus_basis"]`, which is where validation reads it. The nesting is not incidental: `configure()` folds every `APERV_PROPERTY_MAPPING` key from the top level of the configuration into `overrides` before validating anything, so an arm that declares the basis in its own `overrides` dict and a campaign that supplies it as an `@corpus_basis=…` DSL parameter arrive at the same place, and one rule covers both. Format `<corpus-id>:<sha256>`, where `<corpus-id>` is a short human-readable identifier of the list (e.g. `subset40`) and `<sha256>` is the lowercase hexadecimal SHA-256 of the list file's bytes
 - Recorded run artifacts for the offline join and the coverage-dump parser: per-run trace files carrying the step clock and the `[APE-RV] UICOV`/`UICOV-ACT` dump lines, and the logcat lines matching `RVSEC:`
+- `reachability[].methods[].{signature, reachesTarget, directlyReachesTarget}` — from the full `.apk.json`; wrappers now carry their own flags (source: GATOR, `analysis` INV-ANA-77)
+- `windows[]` of types `ACTIVITY`, `DIALOG`, `OPTIONSMENU`, `FRAGMENT`, `HOSTED` (source: GATOR)
 
 ### Output
 
@@ -60,6 +62,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - Join report (A9): per-run rows correlating step clock positions with `RVSEC:` violation timestamps
 - Per-run coverage rows at Activity grain from the offline coverage-dump parser, each carrying an explicit dump status (complete, partial, or absent)
 - `ape.corpusBasis=<corpus-id>:<sha256>` -- one line appended to the generated `ape.properties`, pushed to `/data/local/tmp/ape.properties`. Consumed by the jar's resolver, echoed into `RUN_START.corpus_basis`, and read by no runtime component on either side
+- `*.mop.json` widget flags — unchanged shape; a listed wrapper whose own flags are false is now `none` instead of inheriting a sibling's flag (destination: APE-RV `MopData`)
 
 ### Side-Effects
 
@@ -190,6 +193,8 @@ which the sibling `ape` change already references by number.
   document whose sections are well-typed SHALL yield an artifact regardless of the sentinel's
   presence, falsity or absence. WTG absence SHALL be expressed as an empty `wtg` map with
   `stats["wtgEdges"] == 0`, never as a refusal.
+
+- **INV-DRV-09**: The derive's exact-join index SHALL hold every signature listed in `reachability[].methods[]`, reaching or not; the D8 class recovery SHALL apply only to a wrapper whose signature is absent from that index.
 
 - **INV-APV-38**: Every arm whose `preset` is `llm` or `llm_mop` MUST carry `llm_url` in its
   `overrides`. The preset deliberately omits the server URL because it names a machine rather than an
@@ -1292,18 +1297,19 @@ mid-pass is caught earlier, by `json.loads` in `_derive_mop_artifact()`, because
 its output file on open and cannot leave a parseable stale tail.
 
 #### Scenario: cryptoapp derivation matches the known ground truth
-- **WHEN** `derive()` runs on `cryptoapp.apk.gh60-fresh.json`
+- **WHEN** `derive()` runs on the test fixture `cryptoapp.apk.json`, the gh60 producer output for
+  `br.unb.cic.cryptoapp` with one field as the gh120 producer emits it: the Execute button's wrapper
+  `CryptographyActivity$$ExternalSyntheticLambda0.onClick` carries `reachesTarget: true`
 - **THEN** `mopActivities` SHALL equal
   `{MessageDigestActivity, CipherActivity, CryptographyActivity}` (base names).
-  `CryptographyActivity` enters through the D8 recovery: the exact join drops its
-  `CryptographyActivity$$ExternalSyntheticLambda0:onClick` wrapper handler and the reaching
-  `lambda$setupExecuteButton$0` body restores it. The jar asserts the same three flagged widgets
-  when it parses this fixture raw, which is this change's oracle (design D11)
+  `CryptographyActivity` enters through the exact join: the producer links the wrapper to its own
+  `lambda$setupExecuteButton$0` body (`analysis` INV-ANA-77), so the wrapper is listed reaching and
+  the class recovery is not consulted (INV-DRV-09)
 - **AND** `optionsMenus` SHALL contain the `MainActivity` record, and `wtg` SHALL carry the click
   edges from `MainActivity` to both MOP sub-activities
 - **AND** `components.activities` SHALL have 4 entries and `components.providers` 1 entry with
   `authorities == "br.unb.cic.cryptoapp.androidx-startup"`, every component `reachesMop == false`
-- **AND** `stats.windows` SHALL be 5, `stats.flagged` 3 and `stats.recovered` 1
+- **AND** `stats.windows` SHALL be 5, `stats.flagged` 3 and `stats.recovered` 0
 
 #### Scenario: absent sentinel does not stop derivation
 - **WHEN** `derive()` runs on a document with a valid `package`, well-typed sections, `transitions: []`
@@ -1358,12 +1364,16 @@ and OR-aggregate them across listeners (INV-DRV-01). For each listener:
    win: `direct` is `handlerDirectlyReachesTarget is True`, `transitive` is
    `handlerReachesTarget is True or direct`.
 2. Otherwise the handler signature is looked up in the index built from `reachability[].methods[]`,
-   which SHALL carry, per signature, the pair (`directlyReachesTarget`, `reachesTarget or
-   directlyReachesTarget`). Duplicate signatures SHALL be merged by OR rather than by last-write, so
-   the index does not depend on producer ordering.
-3. When the exact lookup misses and the handler matches `^<(.+?)\$\$ExternalSyntheticLambda\d+:`, the
-   flags SHALL be recovered from the enclosing class's reaching `lambda$…` methods, OR-aggregated;
-   when that class has no reaching lambda method the widget SHALL NOT be flagged.
+   which SHALL carry, per signature and for **every** listed method, reaching or not, the pair
+   (`directlyReachesTarget`, `reachesTarget or directlyReachesTarget`). Duplicate signatures SHALL be
+   merged by OR rather than by last-write, so the index does not depend on producer ordering.
+3. Only when the signature is absent from `reachability[]` and the handler matches
+   `^<(.+?)\$\$ExternalSyntheticLambda\d+:`, the flags SHALL be recovered from the enclosing class's
+   reaching `lambda$…` methods, OR-aggregated; when that class has no reaching lambda method the
+   widget SHALL NOT be flagged. A wrapper listed in `reachability[]` with both flags `false` SHALL
+   keep `(false, false)`: the producer links each wrapper to its own body (`analysis`, INV-ANA-77),
+   so a listed wrapper's flags are its own, and recovering it from the class would lend it the flags
+   of a sibling lambda. The recovery remains for wrappers the producer does not list at all.
 
 The two axes SHALL NOT be collapsed. `direct` retains the producer's 0-hop meaning — the handler
 invokes a monitored operation in its own body — which is what `ape.mopWeightDirect` was defined to
@@ -1417,6 +1427,15 @@ reachable only by a query for the empty event type and shadows no real one.
 - **THEN** the wire map SHALL carry `{"click": "transitive", "longclick": "none"}`
 - **AND** the `none` entry SHALL be emitted explicitly, because key presence is what suppresses the
   aggregate fallback on the query side
+
+#### Scenario: a listed wrapper keeps its own flags
+- **WHEN** a widget's click listener has handler
+  `<com.example.MainActivity$$ExternalSyntheticLambda1: void onClick(android.view.View)>`, listed in
+  `reachability` with `reachesTarget: false` and `directlyReachesTarget: false`
+- **AND** `com.example.MainActivity` has `lambda$onCreate$0` with `reachesTarget: true`, the body of a
+  different wrapper
+- **THEN** the widget's `click` entry SHALL be `none`
+- **AND** `stats.recovered` SHALL NOT count it
 
 ---
 

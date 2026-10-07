@@ -305,6 +305,10 @@ rv-screen-parser:
 - `screenshot_path: str` -- Path to screenshot image file (source: device screenshot capture, consumed by ScreenshotAnalyzer)
 - `task_start_time: datetime` -- Tool execution start time (source: rv-platform TaskExecutor, consumed by CoverageTracker for relative timing)
 - `task_id: str` -- Task identifier for event correlation (source: rv-platform, consumed by CoverageTracker)
+- `Scene.v().getCallGraph()` — the SPARK call graph after the client's lambda edges are added (source: GATOR/Soot 4.7.1)
+- `ReachabilityIndex` — the reachability result, including the `directlyReachesTarget` set restricted to app methods, which is C (source: `ReachabilityEngine`)
+- `GUIAnalysisOutput` — the solved flow graph (view trees, inflate results, listener registrations), complete before the pre-WTG write (source: `GUIAnalysis`)
+- Layout and navigation resources decoded by apktool (`res/layout`, `res/navigation`) (source: `Configs.resourceLocation`)
 
 ### Output
 
@@ -319,6 +323,10 @@ rv-screen-parser:
 - `ParserDiagnostics` -- Counter object defined in `rv-android-core` beside `LogcatRepository` (`domain/coverage.py`), carried by the returned repository as `parser_diagnostics` and shared by the live `CoverageTracker`; `parse_logcat_line(line, diagnostics=None)` counts into the object it is given and into a fresh one otherwise. Integer counters: `lines_not_threadtime`, `lines_other_tag`, `format1_regex_failed`, `format2_short`, `format3_unresolved`, `unrecognised`, `continuation_lines`, `truncated_envelopes`, `sentinel_error_type`, `sentinel_source`, `sentinel_code`, `sentinel_event`, `envelope_forbidden_chars`, and the scope-split discard counters `unmatched_out_of_scope`, `unmatched_in_scope` and `unmatched_unclassified` (INV-ANA-68). No result artefact persists these counters: `result_processor` writes only `unmatched_out_of_scope` and `unmatched_in_scope` to `summary.csv` (destination: in-memory repository, tests)
 - `TargetMethod{className, methodName, params, signature, policy, includeSubtypes, nameIsPattern}` -- Resolved by `MopSpecsTargetSource.load()` from each `MopMethod` (destination: `TargetResolver.resolveInScene` and the direct bytecode scan)
 - `reachability[].methods[].{reachable, reachesTarget, directlyReachesTarget}: bool` -- Per-method flags in the GATOR JSON; the key set does not depend on the specification set (INV-ANA-44). Readers of the raw artefact that tolerate no key change: `static_analysis_parser.py` (the single parse point in `rv-static-analysis`), the gate and sweep scripts under `scripts/`, and `aperv-tool`, which parses `<apk>.json` itself (`analysis/static_artifact.py`, `tools/aperv/derive_mop_artifact.py`, where `method.get("reachesTarget") is True` turns a rename into a silent `False`). The device-side `MopData` reads the derived `*.mop.json`, where the key is renamed `reachesMop`, not this artefact. Two value gates watch these booleans against the `jca` default: `tests/parity/test_reachability_parity.py` (`G_paridade_targets`, the set of signatures with `reachesTarget=true`) and `tests/parity/test_historical_methods_coverage.py` (three methods pinned at `directlyReachesTarget=true`)
+- `distanceTargets: list[{signature: str, kind: "direct" | "boundary"}]` — top-level key in the `.apk.json`: the members of C (`direct`) sorted by signature, followed by the members of B that are not in C (`boundary`) sorted by signature, so index `i` is stable for a given artefact (destination: `aperv-tool` derive, offline analyses)
+- `reachability[].methods[].targetDistances: list[[int, int]]` — pairs `[i, d]`, `i` an index into `distanceTargets`, `1 ≤ d ≤ 10` for a method that is not itself `c`, and `[i, 0]` for `c` itself; sorted by `i`; the key is omitted when the list would be empty (destination: same)
+- `windows[]` entries of type `FRAGMENT` — name `Host#Fragment` (fully qualified class names), `isMain: false`, `widgets[]` with the same fields as an activity window (destination: `StaticAnalysisParser`, `aperv-tool` derive)
+- `windows[]` entries of type `HOSTED` — name `Host#Owner`, where `Owner` is the class holding the inflating code (dialog, DialogFragment, adapter, binding owner); same fields (destination: same)
 
 ### Side-Effects
 
@@ -330,6 +338,8 @@ rv-screen-parser:
 - **Logging (logcat parser)**: every counted discard is logged at WARNING with the line number and the counter name; a re-raised file-level exception is logged at ERROR with the line number before propagating
 - **Soot Scene (target matching)**: each declared target owner FQN is force-resolved into the Scene at HIERARCHY level before `canStoreType` is queried (INV-ANA-43)
 - **Log (target matching)**: an owner that cannot be resolved into the Scene with hierarchy content is logged and degrades to exact matching; an owner the extractor cannot resolve is logged and skipped (INV-ANA-40)
+- **Soot call graph**: lambda wrapper edges are added to `Scene.v().getCallGraph()` before the reachability BFS; they stay for the rest of the run, so the WTG with `cgDelegation=true` sees them too
+- **Flow graph**: value-flow edges from a fragment's `onCreateView` return value to its `onViewCreated` `view` parameter and to `getView()`/`requireView()` results, and ViewBinding `findChildViewById` op nodes, are added before the solver runs
 
 ### Error
 
@@ -341,6 +351,7 @@ rv-screen-parser:
 - Any exception raised while iterating the file inside `parse_logcat_file` -- logged with the 1-based line number at which it occurred, then re-raised; a partially populated repository MUST NOT be returned in its place, because a caller that receives a repository is entitled to read its counts as the counts of the whole file (INV-ANA-62)
 - `ValueError` -- Raised by ItemAction coordinate validation when coordinates are not a 2-element integer tuple or contain negative values.
 - Parser errors -- Caught internally and logged; the parser returns empty domain objects per-section (empty Classes, empty Windows, empty WindowTransitionGraph, empty Components) on failure rather than propagating exceptions.
+- A failure inside the fragment pass, the hosted-window pass or the distance pass is caught, logged with `[RvsecAnalysisClient]`, and costs only that section; the rest of the artefact is written (no new exception type)
 
 ## Invariants
 
@@ -679,6 +690,13 @@ rv-screen-parser:
 
 - **INV-ANA-71**: Generated resource classes MUST leave the denominator at **every** package segment, not only at the scope key's root. The test in `RvsecAnalysisClient.isAppClass` MUST be on the **last segment** of the class name — `R`, `R$*`, `BuildConfig`, `Manifest`, `Manifest$*` — wherever that segment sits under the key: a suffix test against `<key>.R`, `<key>.R$*` and `<key>.BuildConfig` keeps `<key>.<module>.R`, and a key that is an ancestor of the resource namespace escapes it entirely. Measured over the 162 corpus artefacts produced by the root-only test, 505 such classes sat in the denominator (117 in `app.pachli_50` alone, 33 in `com.blacksquircle.ui_10028`), carrying 547 methods of which **zero** are non-trivial: they are constant tables with nothing to cover, and their only effect was to depress `cov_class`. Artefacts produced before this rule and after it are therefore not comparable on `cov_class`. Output of annotation processors (`_Factory`, `_Impl`, `_MembersInjector`, `$$serializer`, `Hilt_*`, `Dagger*`, DataBinding) is deliberately **not** covered: 5,816 such classes carry 36,264 non-trivial methods that execute at runtime, so removing them would redefine the denominator rather than close a leak; that measurement is an open question.
 - **INV-ANA-72**: `_apply_envelope` MUST copy `vfp` into `RvErrorLog.value_fingerprint` and `vcls` into `RvErrorLog.value_class`, and MUST leave both `""` when the key is absent. The parser MUST NOT interpret, validate or classify either value, and MUST NOT branch on the family or label of `code`.
+- **INV-ANA-73**: Each distance search MUST be seeded by exactly one app method: a member of C (the app methods in the `directlyReachesTarget` set) or of B. Library methods MUST NOT seed it. `d(t, t) = 0`, `d ≤ DIST_MAX = 10`, and a method absent from a target's search has no pair for that target.
+- **INV-ANA-74**: Every method carrying a non-empty `targetDistances` MUST carry `reachesTarget` or `directlyReachesTarget` `true`: the distance search runs on the same call graph as the reachability search and its seeds are a subset of that search's seeds.
+- **INV-ANA-75**: `distanceTargets`, every `targetDistances` list, and every `FRAGMENT` and `HOSTED` window MUST be present in the pre-WTG artefact, with the same content as in the final artefact of the same run.
+- **INV-ANA-76**: `FRAGMENT` and `HOSTED` windows MUST be named `Host#Owner` and MUST NOT be typed `DIALOG`; their ids MUST be disjoint from WTG node ids, from the client's fallback ids, and from each other.
+- **INV-ANA-77**: The call graph used for `reachesTarget` and for distances MUST contain an edge from each method of a D8/desugar lambda class to each app method its body invokes, and from a single-invoke implementation of a directly implemented single-abstract-method interface to the app method it invokes.
+- **INV-ANA-78**: `StaticAnalysisParser._map_window_type` MUST map `FRAGMENT` and `HOSTED` explicitly; neither may fall through to `ACTIVITY`, so `Host#Owner` windows are never counted as activities.
+- **INV-ANA-79**: When an APK has no fragment, no hosted view, no binding layout and no lambda wrapper, the `.apk.json` content MUST equal the content produced without this change, apart from the `distanceTargets` and `targetDistances` keys and from widget records that repeat another record of the same window in every field, which appear once (Requirement: Repeated Widget Records Are Emitted Once). Window and widget node ids are compared by content, not by value, because GATOR's ids depend on identity-hash iteration.
 ## Requirements
 ### Requirement: Unified Static Analysis — Window Transition Graph, GUI Elements, and Method Reachability (FR04, FR05, FR06)
 
@@ -692,7 +710,7 @@ GATOR initializes Soot once with defensive configuration (INV-ANA-16), builds it
 
 The `Flowgraph.processApplicationClasses()` method MUST handle individual method failures gracefully (INV-ANA-17). When `retrieveActiveBody()` or `createOpNode()` throws an exception for a specific method, the Flowgraph MUST skip that method and continue processing remaining methods. The resulting Flowgraph may be incomplete (missing OpNodes, widgets, or listeners for skipped methods), but the GUIAnalysis pipeline MUST complete and the `RvsecAnalysisClient` MUST produce JSON output. Reachability data (computed from `Scene.v().getCallGraph()` via BFS) is NOT affected by Flowgraph incompleteness — it depends on the Soot call graph, not on the Flowgraph.
 
-The GATOR MUST use Soot 4.7.1 (`org.soot-oss:soot`, INV-ANA-18) with defensive configuration (INV-ANA-16). The `ClassHierarchy.typeNode()` bug (soot-oss/soot#1071) is not fixed in Soot 4.7.1, but the improved Dexpler in 4.x reduces crash frequency. The defensive options (excluding `kotlin.*`, `kotlinx.*`, and `androidx.compose.*` from body loading, disabling `jb.sils`/`jb.dae`) further reduce the crash surface.
+The GATOR MUST use Soot 4.7.1 (`org.soot-oss:soot`, INV-ANA-18) with defensive configuration (INV-ANA-16). The `ClassHierarchy.typeNode()` bug (soot-oss/soot#1071) is not fixed in Soot 4.7.1, but the improved Dexpler in 4.x reduces crash frequency. The defensive options (disabling `jb.sils`/`jb.dae`) further reduce the crash surface. GATOR passes no package exclusion to Soot: bodies of `kotlin.*`, `kotlinx.*` and `androidx.*` are loaded like any other library body. Soot 4.7.1 reads its exclusion list only when the `Scene` is constructed (`Scene.determineExcludedPackages`), and GATOR constructs the `Scene` in `PrerunEntrypoint.run()` before `soot.Main.main(args)` parses its arguments, so an `-exclude` argument never had an effect. Applying the exclusions before the `Scene` exists was measured on 2026-10-07 and rejected: it shrinks the call graph (droid_scep 80,025 vertices / 282,789 edges to 67,518 / 238,046) without changing any distance or flag measured on the test APKs, and GATOR's own passes then fail on excluded classes they still need (`androidx.compose.ui.tooling.PreviewActivity` is a manifest activity whose body the flow graph retrieves). GATOR keeps passing `-no-bodies-for-excluded`, which is not inert: it acts on the packages Soot excludes by default (`java.*`, `javax.*`, `sun.*`, …), and without it the call graph of `net.gaast.giggity_769` grows from 11,247 vertices / 23,698 edges to 11,286 / 24,472.
 
 Crash recovery is bounded by phase: failures inside `Flowgraph.processApplicationClasses()` are method-local (skip method, continue — INV-ANA-17) and the analysis pipeline completes. Failures inside Soot's call-graph construction phase (e.g., SPARK `InternalTypingException`) are NOT recoverable at the Flowgraph level — the JVM exits with a non-zero code and no JSON is produced. This boundary is load-bearing: it prevents the silent emission of a "complete-looking" report built on a corrupt call graph. Together, these recovery rules form a layered defense — prevention (defensive Soot config), method-local skip (Flowgraph try-catch), and hard halt (call-graph phase) — each at a distinct layer with non-overlapping responsibility.
 
@@ -843,11 +861,10 @@ This limitation does NOT apply to `cgDelegation=false` (the default), which uses
 
 #### Scenario: Kotlin stdlib exclusion impact on reachability
 
-- **WHEN** GATOR analyzes an APK with Kotlin dependencies and `-exclude kotlin.`, `-exclude kotlinx.`, and `-exclude androidx.compose.` are active
-- **THEN** classes in those packages MUST NOT have their bodies jimplified
-- **AND** the call graph MUST still contain edges from application code to excluded package methods (as phantom refs)
-- **AND** the `reachability` section MUST NOT include excluded-package classes
-- **AND** for targets like `javax.crypto.*` / `java.security.*`, reachability MUST NOT be affected because those APIs are called by application code, not by Kotlin stdlib or Compose runtime
+- **WHEN** GATOR analyzes `systems.sieber.droid_scep_7.apk`, a Kotlin APK
+- **THEN** the Soot arguments built by `presto.android.Main` MUST NOT contain `-exclude`
+- **AND** `Scene.v().isExcluded(Scene.v().getSootClass("kotlin.Unit"))` MUST be `false`
+- **AND** the call graph MUST contain the bodies of `kotlin.*` methods reached from application code (80,025 vertices and 282,789 edges on this APK)
 
 #### Scenario: Analysis output comparison after decomposition (refactor-only)
 
@@ -2391,4 +2408,153 @@ The consequence is specific to this change: a re-run whose scope-key policy chan
 - **THEN** the stored artefact MUST be discarded before the analysis runs, and GATOR MUST be re-executed
 - **AND** the log MUST show `Executing analysis`, never `Analysis result already exists`
 - **AND** this is the only path by which a matching key is deliberately not honoured — an A/B over one directory, or a re-measurement against a rebuilt jar, has no other way to say "measure again"
+
+### Requirement: Per-Target Call-Graph Distance (FR06)
+
+The client SHALL compute, after the reachability search and before the pre-WTG write, one reverse breadth-first search per direct caller `c ∈ C` over the call graph with self-loops dropped (the graph the reachability search walks, lambda edges included). The search SHALL stop at depth `DIST_MAX = 10` and SHALL record the depth at which it first visits each app method. C SHALL be the app methods in the `directlyReachesTarget` set, sorted by signature, and SHALL be written as `distanceTargets`; each app method's pairs SHALL be written as `targetDistances` inside its `reachability[].methods[]` entry. The keys SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
+
+The reachability search keeps its library seeds, so `reachesTarget` keeps its meaning. The distance is seeded by app methods only, because a distance to a library direct caller says nothing a consumer can act on in the app (INV-ANA-73). C entries carry `kind: "direct"`.
+
+The graph is the whole call graph, not the subgraph induced by app methods. Both were measured on 2026-10-07 on 10 APKs against the E6 traces and gave the same answers on every measure (true-handler rank, click lift, no-bind lift); the whole graph keeps INV-ANA-74, and on `com.password.monitor_102` it finds 102 app methods within 10 calls of a target where the app subgraph finds 6, because app callbacks invoked from library code are paths the app subgraph cuts.
+
+#### Scenario: A handler two calls away from a direct caller
+- **WHEN** the app has `A.onClick` → `A.save` → `Crypto.encrypt`, and `Crypto.encrypt` calls `javax.crypto.Cipher.doFinal`, a target
+- **THEN** `distanceTargets` MUST contain `<Crypto: byte[] encrypt(byte[])>` at some index `i`
+- **AND** `A.onClick` MUST carry `[i, 2]`, `A.save` `[i, 1]` and `Crypto.encrypt` `[i, 0]`
+
+#### Scenario: Library direct callers do not seed the distance
+- **WHEN** an app method `Net.connect` calls `okhttp3.OkHttpClient.newCall`, a library method that reaches a target only through library code, and no app method calls a target directly
+- **THEN** `distanceTargets` MUST hold exactly `{"signature": "<…Net: void connect()>", "kind": "boundary"}`
+- **AND** no library method MUST appear in `distanceTargets`
+- **AND** `Net.connect`'s `reachesTarget` MUST be `true`, as before this change
+
+#### Scenario: Distance beyond the cap
+- **WHEN** an app method reaches `c` only through a call chain of 11 edges
+- **THEN** that method MUST NOT carry a pair for `c`
+- **AND** its `reachesTarget` MUST still be `true`
+
+#### Scenario: Distance survives a WTG timeout
+- **WHEN** the analysis of `org.quantumbadger.redreader_117.apk` is killed by the 1,800 s timeout while `WTGBuilder` runs
+- **THEN** the partial `.apk.json` MUST contain `distanceTargets` and every `targetDistances` list
+- **AND** it MUST NOT contain the `complete` sentinel (INV-ANA-31)
+
+### Requirement: Boundary Targets (FR06)
+
+The client SHALL compute B, the app methods with a call-graph edge to a library method from which a target is reachable through library methods only (a target itself is excluded, because an edge to a target makes the caller a member of C), and SHALL append the members of B not in C to `distanceTargets` with `kind: "boundary"`, each seeding its own distance search. B exists so that an APK whose monitored operations are all invoked inside libraries still gives the explorer a distance to steer by. Measured on 2026-10-07 on the 12 APKs whose distance pass finished, |B| had median 6 (0 to 531) and covered a median 0.4 % of app methods; the largest in count, `eu.faircode.email_2322`, holds 531 of 17,250 (3.1 %). Constructors and static initializers are not filtered out of B: a consumer that wants only interaction code can skip `boundary` entries.
+
+#### Scenario: A boundary method is a target of its own
+- **WHEN** `Sync.run` calls `com.google.crypto.tink.Aead.encrypt`, whose library body reaches `javax.crypto.Cipher.doFinal`, and `Sync.run` does not call a target directly
+- **THEN** `distanceTargets` MUST contain `{"signature": "<…Sync: void run()>", "kind": "boundary"}` at some index `j`
+- **AND** a handler that calls `Sync.run` MUST carry `[j, 1]`
+
+### Requirement: Lambda Wrapper Edges in the Reachability Call Graph (FR06)
+
+Before the reachability search, the client SHALL add to `Scene.v().getCallGraph()` an edge from every method of a D8/desugar lambda class (class name containing `$$ExternalSyntheticLambda` or `$$Lambda`) to each app method its body invokes, and from every app method that implements the single abstract method of a directly implemented interface, whose body holds exactly one invoke naming an app method, to that method. SPARK gives the receiver captured by such a wrapper no points-to set, so without these edges a wrapper registered as a listener carries `reachesTarget: false` even when its body reaches a target, and the derive falls back to a per-class guess (see the `aperv` delta). The edges also make a body reached only through its wrapper `reachable` when the wrapper is, so the reachable set, the coverage denominator, can grow and never shrink against a producer without these edges.
+
+#### Scenario: A D8 wrapper reaches through its own body
+- **WHEN** `MainActivity$$ExternalSyntheticLambda0.onClick(View)` invokes `MainActivity.lambda$onCreate$0(View)`, which calls a direct caller `c`
+- **THEN** the wrapper MUST carry `reachesTarget: true`
+- **AND** it MUST carry `[i, 2]` for `c` when `lambda$onCreate$0` carries `[i, 1]`
+
+#### Scenario: A sibling lambda does not lend its flag
+- **WHEN** `MainActivity$$ExternalSyntheticLambda1.onClick(View)` invokes `MainActivity.lambda$onCreate$1(View)`, which reaches no target, while `lambda$onCreate$0` does
+- **THEN** `MainActivity$$ExternalSyntheticLambda1.onClick` MUST carry `reachesTarget: false`
+- **AND** it MUST NOT carry `targetDistances`
+
+### Requirement: Fragment Windows (FR04, FR06)
+
+The client SHALL build a host → fragments map from the app's own code and resources: `<fragment>` and `FragmentContainerView` elements in a host's layouts, `FragmentTransaction.add`/`replace` calls in the host, Navigation graphs referenced by the host's layouts, and fragments handed to a pager adapter the host creates. A host that is a base class SHALL be mapped to each manifest activity that extends it. For each (host, fragment) pair, the client SHALL emit a window named `Host#Fragment` of type `FRAGMENT`, whose widgets are the views reaching the value `onCreateView` returns (including ViewBinding `Binding.inflate(...).getRoot()`), or, when none is found, the results of the `inflate` calls inside `onCreateView`. Widgets and listeners SHALL be collected by the same walk as activity widgets, so the window carries the same fields.
+
+Fragments created by reflection, by a `FragmentFactory` or Hilt, or by a Navigation graph built in code are not mapped, and a fragment built with `Fragment(R.layout.x)` and no `onCreateView` has no window.
+
+#### Scenario: A fragment added by a transaction
+- **WHEN** `MainActivity.onCreate` calls `getSupportFragmentManager().beginTransaction().replace(R.id.container, new SettingsFragment())` and `SettingsFragment.onCreateView` inflates a layout with a button `save` whose listener `SettingsFragment$1.onClick` is set in `onViewCreated`
+- **THEN** `windows[]` MUST contain a window named `com.example.MainActivity#com.example.SettingsFragment` of type `FRAGMENT`
+- **AND** its widgets MUST contain `save` with the listener `<com.example.SettingsFragment$1: void onClick(android.view.View)>`
+
+#### Scenario: Fragment windows when the WTG does not finish
+- **WHEN** the same APK is analyzed with `--skip-wtg`
+- **THEN** the pre-WTG artefact MUST contain the same `FRAGMENT` window with the same widgets (INV-ANA-75)
+
+#### Scenario: Nothing existing is lost
+- **WHEN** `systems.sieber.droid_scep_7.apk` is analyzed with and without this change
+- **THEN** every window, widget and listener of the artefact without the change MUST be present, by content, in the artefact with it
+
+### Requirement: Fragment View Flow and ViewBinding in the Flow Graph (FR04, FR06)
+
+Before the solver runs, the flow graph SHALL connect a fragment's `onCreateView` return value to the `view` parameter of its `onViewCreated(View, Bundle)` and to the result of `getView()`/`requireView()` called on a fragment of that class, and SHALL model `androidx.viewbinding.ViewBindings.findChildViewById(View, int)` as a `findViewById` on its first argument. The framework makes both connections at run time; without the edges, listeners set through `view.findViewById(id)` in `onViewCreated` or through a ViewBinding field are registered on views the solver cannot see. The edges are per class, not per instance.
+
+#### Scenario: A listener set through ViewBinding in an activity
+- **WHEN** an activity calls `ActivityMainBinding.inflate(getLayoutInflater())`, `setContentView(binding.getRoot())` and `binding.ok.setOnClickListener(l)`, where the generated binding resolves `ok` through `ViewBindings.findChildViewById(root, R.id.ok)`
+- **THEN** the activity's window MUST contain the widget `ok` with listener `l`
+
+#### Scenario: A listener set on the view passed to onViewCreated
+- **WHEN** `ListFragment.onViewCreated(View view, Bundle b)` calls `view.findViewById(R.id.add).setOnClickListener(l)` and `onCreateView` returns the inflated `R.layout.list`
+- **THEN** the `Host#ListFragment` window MUST contain the widget `add` with listener `l`
+
+### Requirement: Hosted Windows for Dialogs, Binding Layouts and Adapter Rows (FR04, FR06)
+
+The client SHALL emit, as windows of type `HOSTED` named `HostActivity#OwnerClass`, the view trees GATOR builds outside an activity's own content view and outside the `FRAGMENT` windows: dialog bodies, DialogFragment views, adapter rows and binding layouts. The host SHALL be the activity the owner's inflating code is reachable from; an owner reachable from more than 20 activities is a shared helper and SHALL NOT be emitted. A view tree already emitted in a `FRAGMENT` window for the same (host, owner) SHALL NOT be emitted again. The windows are produced from solver state alone, so they appear in the pre-WTG artefact (INV-ANA-75).
+
+#### Scenario: A DialogFragment shown from an activity
+- **WHEN** `MainActivity` shows `DeleteDialog extends DialogFragment`, whose `onCreateView` inflates a layout with a button `confirm` and listener `DeleteDialog$1.onClick`
+- **THEN** `windows[]` MUST contain `com.example.MainActivity#com.example.DeleteDialog` of type `HOSTED` with the widget `confirm`
+- **AND** no window of type `DIALOG` MUST carry that name
+
+#### Scenario: An adapter row
+- **WHEN** `ItemAdapter.onCreateViewHolder` inflates `R.layout.item_row` with a button `star`, and `ItemAdapter` is created only in `ListActivity`
+- **THEN** `windows[]` MUST contain `com.example.ListActivity#com.example.ItemAdapter` of type `HOSTED` with the widget `star`
+
+### Requirement: Repeated Owned Windows Are Emitted Once (FR04)
+
+After the `FRAGMENT` and `HOSTED` windows are built and before the XML attributes are added, the client SHALL keep, for each host, one `FRAGMENT` or `HOSTED` window per distinct widget list, the first in emission order, and drop the others. Fragments that share a base class reach the same view objects through the per-class fragment view flow, so each subclass window can carry the same tree; every consumer folds `Host#Owner` windows into the host's bucket, so the copies add size and change nothing a consumer reads. On `github.paroj.dsub2000_217`, 58 of 61 fragment windows held one 124-widget tree, which took the listeners from 54 to 28,238 and the artefact from 1.8 MB to 11 MB; with one window per tree, 6 `FRAGMENT` windows, 2,610 listeners and 2.9 MB remain, and the derive flags the same 11 widgets. `ACTIVITY`, `DIALOG` and menu windows are never dropped.
+
+#### Scenario: Fragments sharing a base class and a tree
+- **WHEN** `MainActivity` hosts `AlbumFragment`, `ArtistFragment` and `SongFragment`, all extending `ListBaseFragment`, and the three windows `MainActivity#AlbumFragment`, `MainActivity#ArtistFragment` and `MainActivity#SongFragment` carry the same 124-widget list
+- **THEN** `windows[]` MUST contain exactly one of them, the one emitted first
+- **AND** a `MainActivity#SettingsFragment` window with a different widget list MUST stay
+- **AND** a window `OtherActivity#AlbumFragment` with the same widget list MUST stay, because its host differs
+
+### Requirement: Repeated Widget Records Are Emitted Once (FR04)
+
+After the XML attributes are added and the programmatic spinner items are merged, the client SHALL keep, in every window of every type, the first of the widget records that are equal in every field (`id`, `idName`, `type`, texts, `entries`, `listeners` and the other attributes) and drop the others. A layout reached from several view roots of one window yields one record per root, and two such records say nothing the first one does not, so dropping them loses no content. On `org.hwyl.sexytopo_93`, the leg form of `LegDialogs` is built by three methods (`addStation`, `addSplay`, `editLeg`), so each of its 13 hosted windows listed the 39-id tree three times: 2,642 widget records and 3,071 listeners before, 2,118 records and 2,109 listeners after, with the same 2,118 distinct records. On `com.etesync.syncadapter_20700`: 920 → 731 records, none distinct lost. The `ACTIVITY` windows of the September producer also hold a few such copies (3 to 12 per APK on the APKs measured); they are dropped too. Records of one id that differ in any field, for instance one annotated by `enrichFromXml` and one not (D7), all stay.
+
+#### Scenario: One dialog layout built by three methods
+- **WHEN** a hosted window `TableActivity#LegDialogs` receives the widget tree of `R.layout.leg_form` from three view roots, and the three `editDistance` records carry the same type, texts and five listeners
+- **THEN** the window MUST contain one `editDistance` record
+- **AND** the distinct content of `windows[]` MUST be the same as before the drop
+
+#### Scenario: Records of one id that differ are kept
+- **WHEN** a window holds two `editDistance` records whose `text` differs
+- **THEN** both records MUST stay
+
+### Requirement: Spinner Items from Array Resources (FR04)
+
+The programmatic spinner extractor SHALL take a spinner's items from an array resource when the adapter bound by `setAdapter` was created by `ArrayAdapter.createFromResource(ctx, R.array.X, layout)`, or when the items passed to the `ArrayAdapter` constructor or to `addAll` come from `Resources.getStringArray(R.array.X)` or `Resources.getTextArray(R.array.X)`. The array id SHALL be resolved to its items through the decoded resources: the id to the array name by the app's resource id map, the name to its `<item>` values by the same parser that resolves `android:entries="@array/X"` (with `@string/` references resolved). The items SHALL be appended to the widget's `entries` after any XML entries, as the other programmatic items are. An id that is not an app array leaves `entries` unchanged. A resource id, the `findViewById` argument included, is either an int constant or a read of a static field of the app's `R$<type>` class (an app whose `R` fields are not final); the field SHALL be resolved by its type and name through the app's resource id map. The `findViewById` argument SHALL be resolved at the `findViewById` statement, and the items SHALL be those of every adapter creation that reaches `setAdapter`, each identified by the statement that created it, because the compiler reuses one register for several ids and one local for several adapters. A spinner bound in several places SHALL carry each item once. These items are static resources, while a spinner filled from runtime data has no items for a static analysis to read; without this, a spinner filled from a resource array carried an empty `entries` list.
+
+#### Scenario: A spinner filled with createFromResource
+- **WHEN** `ProfileSetup` calls `ArrayAdapter.createFromResource(getApplicationContext(), R.array.TimeIntervals, R.layout.spinner_layout)` and passes the adapter to `setAdapter` on `findViewById(R.id.totpTimeIntervalSpinner)`, and `res/values/arrays.xml` declares `<string-array name="TimeIntervals"><item>30 Seconds</item><item>60 Seconds</item></string-array>`
+- **THEN** the widget `totpTimeIntervalSpinner` in the `ProfileSetup` window MUST carry `entries == ["30 Seconds", "60 Seconds"]`
+
+#### Scenario: One register for the spinner id and the array id
+- **WHEN** `Home` assigns `$i0 = <org.cry.otp.R$id: int totpSHATypeSpinner>`, calls `findViewById($i0)`, then assigns `$i0 = <org.cry.otp.R$array: int SHATypes>`, calls `createFromResource(this, $i0, …)` and `setAdapter` on the spinner
+- **THEN** the widget `totpSHATypeSpinner` MUST carry `entries == ["SHA-1", "SHA-256", "SHA-512"]`
+- **AND** no items MUST be keyed by the id of `SHATypes`
+
+#### Scenario: An array read through getStringArray
+- **WHEN** an activity builds `new ArrayAdapter<>(this, layout, getResources().getStringArray(R.array.Modes))` and binds it to a spinner obtained by `findViewById(R.id.mode)`
+- **THEN** the widget `mode` MUST carry the items of `Modes` as `entries`
+
+#### Scenario: An adapter created in both branches
+- **WHEN** an activity assigns `a = ArrayAdapter.createFromResource(this, R.array.TimeIntervals, layout)` in one branch of an if/else and `a = ArrayAdapter.createFromResource(this, R.array.Modes, layout)` in the other, and calls `setAdapter(a)` on `findViewById(R.id.spin)` after the join
+- **THEN** the widget `spin` MUST carry the items of `TimeIntervals` and of `Modes`, each once
+
+### Requirement: The Parser Recognizes Fragment and Hosted Windows (FR04)
+
+`StaticAnalysisParser._map_window_type` (`modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py`) SHALL map `FRAGMENT` to `WindowType.FRAGMENT` and `HOSTED` to `WindowType.HOSTED`, a member added to `WindowType` in `rv-android-core` (`domain/window.py`). An unknown type falls back to `ACTIVITY` today, which would make every `HOSTED` window look like an activity to any consumer that filters by type (INV-ANA-78).
+
+#### Scenario: Hosted windows are not activities
+- **WHEN** an artefact holds one `ACTIVITY` window `com.example.MainActivity` and one `HOSTED` window `com.example.MainActivity#com.example.ItemAdapter`
+- **THEN** the parsed `Windows` MUST hold one window of type `ACTIVITY` and one of type `HOSTED`
+- **AND** `Windows` filtered to `WindowType.ACTIVITY` MUST hold one window
 
