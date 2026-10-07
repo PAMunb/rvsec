@@ -6,6 +6,7 @@ import static org.junit.Assert.assertFalse;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -24,6 +25,7 @@ import soot.SootClass;
 import soot.SootMethod;
 import soot.SootMethodRef;
 import soot.Type;
+import soot.Unit;
 import soot.VoidType;
 import soot.jimple.IntConstant;
 import soot.jimple.Jimple;
@@ -241,6 +243,41 @@ public class SpinnerItemExtractorTest {
 
 		assertEquals(Arrays.asList("30 Seconds", "60 Seconds"), items.get(SPINNER_ID));
 		assertEquals(Arrays.asList("Fast", "Slow"), items.get(SPINNER_ID + 1));
+	}
+
+	/**
+	 * An adapter created in both branches of an if/else and bound once after the join:
+	 * the spinner takes the items of both creations.
+	 */
+	@Test
+	public void adapterCreatedInBothBranches() {
+		JimpleBody body = activityMethod("withBranches");
+		Local flag = local(body, "$c", IntType.v());
+		Local adapter = local(body, "$a", RefType.v(arrayAdapter));
+		Unit elseCreate = createFromResource(adapter, 101);
+		Unit join = Jimple.v().newNopStmt();
+		body.getUnits().add(Jimple.v().newAssignStmt(flag, IntConstant.v(0)));
+		body.getUnits().add(Jimple.v().newIfStmt(
+				Jimple.v().newEqExpr(flag, IntConstant.v(0)), elseCreate));
+		body.getUnits().add(createFromResource(adapter, 100));
+		body.getUnits().add(Jimple.v().newGotoStmt(join));
+		body.getUnits().add(elseCreate);
+		body.getUnits().add(join);
+		bindToSpinner(body, adapter);
+
+		Map<Integer, List<String>> items = extract();
+
+		assertEquals(new HashSet<>(Arrays.asList("30 Seconds", "60 Seconds", "Fast", "Slow")),
+				new HashSet<>(items.get(SPINNER_ID)));
+		assertEquals(4, items.get(SPINNER_ID).size());
+	}
+
+	/** {@code adapter = ArrayAdapter.createFromResource(null, arrayId, 7)}. */
+	private Unit createFromResource(Local adapter, int arrayId) {
+		return Jimple.v().newAssignStmt(adapter, Jimple.v().newStaticInvokeExpr(
+				ref(arrayAdapter, "createFromResource", RefType.v(arrayAdapter), true,
+						RefType.v("android.content.Context"), IntType.v(), IntType.v()),
+				NullConstant.v(), IntConstant.v(arrayId), IntConstant.v(7)));
 	}
 
 	private Map<Integer, List<String>> extract() {

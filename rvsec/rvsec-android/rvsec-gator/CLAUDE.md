@@ -4,8 +4,9 @@
 
 Static-analysis engine of RVSEC (a fork of **GATOR** on **Soot 4.7.1**). Runs
 `presto.android.Main` over one APK and, via `RvsecAnalysisClient`, emits **one JSON per
-APK** with four sections: `reachability` (coverage denominator), `windows`/widgets, WTG
-`transitions`, and manifest `components`. It **unified and replaced** the former GESDA,
+APK** with five sections: `reachability` (coverage denominator, per-method target
+distances), `distanceTargets`, `windows`/widgets, WTG `transitions`, and manifest
+`components`. It **unified and replaced** the former GESDA,
 standalone REACH (reachability), and the WTG client into a single tool.
 
 ## Role in pipeline
@@ -38,20 +39,33 @@ Guava 27.1-jre, classindex 3.4, velocity 1.7, slf4j-simple 1.7.26, JUnit 4.12.
 | Module | Java files | Notes |
 |---|---|---|
 | `commons/` | 4 | Timer/Logger helpers |
-| `sootandroid/` | 181 | GATOR fork; main `presto.android.Main`; fat jar `rvsec-gator.jar` |
-| `client/` | 17 (main) | `presto.android.gui.clients`; fat jar **`rvsec-analysis-client.jar`** |
+| `sootandroid/` | 180 | GATOR fork; main `presto.android.Main`; fat jar `rvsec-gator.jar` |
+| `client/` | 26 (main) | `presto.android.gui.clients`; fat jar **`rvsec-analysis-client.jar`** |
 
 ## Key components (real paths)
 
-- `client/.../clients/RvsecAnalysisClient.java` — orchestrator (~1740 LOC; also holds the
-  `writeReachability/Windows/Transitions/ComponentsSection` static writers).
+- `client/.../clients/RvsecAnalysisClient.java` — orchestrator (~2120 LOC; also holds the
+  `writeReachability/Windows/Transitions/ComponentsSection` static writers, `prepareWindows`,
+  `dropRepeatedOwnedWindows`, `dropRepeatedWidgets`).
 - `client/.../clients/target/{TargetResolver,MopSpecsTargetSource,SignatureFileTargetSource}.java`
-- `client/.../clients/reach/{ReachabilityEngine,ReachabilityIndex,ReachabilityEnricher}.java`
+- `client/.../clients/reach/{ReachabilityEngine,ReachabilityIndex,ReachabilityEnricher}.java`,
+  `reach/LambdaEdges.java` (D8 lambda wrapper → body and single-invoke SAM edges added to the
+  Scene call graph before reachability, INV-ANA-77), `reach/TargetDistances.java` (one reverse
+  BFS per target, depth ≤ `DIST_MAX` = 10, INV-ANA-73)
+- `client/.../clients/fragment/{FragmentHostResolver,FragmentWindows}.java` — host → fragment
+  map (layout tags, transactions, Navigation XML, pagers) and `FRAGMENT` windows
+- `client/.../clients/hosted/{HostedWindowExtractor,HostResolver,NavGraphUses,BindingListenerRecovery}.java`
+  — `HOSTED` windows (dialogs, DialogFragment, DataBinding, adapters, bottom sheets), at most
+  `MAX_HOSTS` = 20 hosts per owner
 - `client/.../clients/json/{JsonReportWriter,JsonSchema (nested .Keys),JsonSchemaKeysDump}.java`
 - `client/.../clients/{MenuExtractor,SpinnerItemExtractor}.java` (+ legacy `wtg/model/*`, `wtg/writer/Writer.java`)
 - `sootandroid/.../presto/android/Main.java` (Soot config), `Configs.java` (client params),
   `gui/Flowgraph.java`, `gui/wtg/WTGBuilder.java`, `gui/flowgraph/{FlowgraphRebuilder,AndroidCallGraph}.java`
-  (cgDelegation), `xml/XMLParser.java`, `gui/util/JimpleDefUtils.java`.
+  (cgDelegation), `xml/XMLParser.java`, `gui/util/JimpleDefUtils.java`,
+  `gui/FragmentViewFlow.java` (`onCreateView` → `onViewCreated(view)`/`getView()`),
+  `gui/LibraryInflateModel.java` (DataBinding, `AppCompatActivity(int)`, builder
+  `setView(int)`); the ViewBinding op node (`ViewBindings.findChildViewById`) lives in
+  `Flowgraph.createOpNode`.
 
 ## JSON contract
 
@@ -63,6 +77,24 @@ windows -> transitions -> complete`** — components is promoted first (manifest
 cheap) so a WTG/transitions timeout cannot drop the windows->activity lookup. (Note: the
 class Javadoc + `RvsecAnalysisClient` header still describe the older
 `reachability -> windows -> transitions -> components` "priority" order — stale comment.)
+
+### Distances and owned windows
+
+- `distanceTargets` (top level) lists the targets of the distance pass as
+  `{signature, kind}`: `kind` `"direct"` = app methods with `directlyReachesTarget` (C), then
+  `"boundary"` = app methods with an edge to a library method that reaches a target through
+  library code only (B \ C). Each method entry may carry `targetDistances` = `[[index, d], …]`
+  with `d ≤ 10`; the key is omitted when the method has no pair, and `distanceTargets` is
+  omitted only when the pass failed.
+- Window types: `ACTIVITY`, `DIALOG`, `OPTIONSMENU`, `FRAGMENT` (`Host#Fragment`) and
+  `HOSTED` (`Host#Owner`). Owned windows are numbered from `FIRST_OWNED_WINDOW_ID` = 900000;
+  a `HOSTED` window whose name equals a `FRAGMENT` window is dropped (one window per (host,
+  owner)), and `dropRepeatedOwnedWindows` keeps one owned window per host for each distinct
+  widget list.
+- `dropRepeatedWidgets` (last step of `prepareWindows`, every window type) keeps one widget
+  record among records equal in every field.
+- Reachability, distances, `FRAGMENT` and `HOSTED` windows depend only on the solver and the
+  call graph, so they are all in the pre-WTG write (INV-ANA-75).
 
 ## Build & invocation
 
@@ -113,7 +145,19 @@ Canonical spec: `../rv-android/openspec/specs/analysis/spec.md` (invariants **IN
 - **Hard halt** if SPARK call-graph construction fails: emits **no JSON** by design.
 - `directlyReachesTarget` is a bytecode-scan complement and a **superset** of SPARK-only
   `reachesTarget`.
-- Soot exclusions of `kotlin.*` / `kotlinx.*` / `androidx.compose.*` (analysis scoping).
+- **No `-exclude` package list reaches Soot.** Soot 4.7.1 reads its exclusion list only when
+  the `Scene` is constructed, which `PrerunEntrypoint.run()` does before Soot parses its
+  arguments. `-no-bodies-for-excluded` is passed and does act, on Soot's default exclusions
+  (`java.*`, `javax.*`, `sun.*`, …).
+- **Lambda edges change `reachesTarget`.** A D8 wrapper (`X$$ExternalSyntheticLambdaN`)
+  whose body reaches a target is now `reachesTarget: true` itself; an artefact produced
+  before INV-ANA-77 lists such wrappers with `false`, and the derive trusts a listed
+  wrapper's own flag (INV-DRV-09), so never derive from an artefact older than this
+  producer.
+- **Compose UI is not modelled** (no view tree for GATOR to read); it does not break the run.
+- **WTG cost can grow where fragment listeners appear for the first time**
+  (`com.iyps_158`: 106 s → 1,031 s, WTG stage 3 `CloseWindowEdgeBuilder`); the pre-WTG
+  artefact keeps every new section if the time cap hits.
 - **Stale internal READMEs** (`client/README.md` describes an old all-in-one client;
   `sootandroid/TestMain` targets the upstream author's paths and is excluded) — trust the
   spec + code, not the in-tree READMEs.

@@ -209,7 +209,27 @@ flowchart TD
     COMP --> JSON["Per-method flags:<br/>reachable, reachesTarget, directlyReachesTarget"]
 ```
 
-### 4.3 Output consumption
+### 4.3 Distances, lambda edges and owned windows
+
+Order inside `RvsecAnalysisClient.run`, all before the pre-WTG write (INV-ANA-75):
+
+1. `LambdaEdges.addTo(Scene.v().getCallGraph(), appClasses)` adds D8 lambda wrapper →
+   body edges and single-invoke SAM implementation → callee edges (INV-ANA-77), so
+   `reachesTarget`, the distances and the WTG walk the same graph.
+2. `ReachabilityEngine` computes the flags as in §4.2.
+3. `TargetDistances.compute` builds the targets (C = app direct callers, then
+   B \ C = boundary methods) and runs one reverse BFS per target over the self-loop-free
+   call graph to depth 10. `ReachabilityEnricher` carries `distanceTargets` and the
+   per-method `targetDistances`; a failure leaves both keys out and nothing else.
+4. `FragmentWindows.analyze` (host → fragment map) and, inside `prepareWindows`, the
+   `FRAGMENT` windows, then `HostedWindowExtractor.extendInto` (`HOSTED` windows), both
+   numbered from 900000 after the highest existing id; then `dropRepeatedOwnedWindows`,
+   `enrichFromXml`, `unionProgrammaticSpinnerItems` and `dropRepeatedWidgets`.
+
+`prepareWindows` runs twice, once for the pre-WTG write and once with the WTG node ids for
+the final write; the owned windows and the dedupe steps are the same in both.
+
+### 4.4 Output consumption
 
 | Consumer | JSON Section | How |
 |----------|-------------|-----|
@@ -265,6 +285,10 @@ classDiagram
 | gh60 D14 | Manifest-cheap sections written before expensive Soot/WTG | `JsonReportWriter` ordering: package → mainActivity → components → reachability → windows → transitions → complete |
 | gh60 D15 | Intent `<data>` + permissions enable manual component triggering | `RvsecAnalysisClient.writeIntentFilterDataBlock()`; `IntentFilter` getters + `XMLParser` permission maps |
 | ADR-6 | `complete: true` sentinel distinguishes truncated vs full output | Trailing key in `JsonReportWriter`; consumed by parser to fail-loud on truncation |
+| INV-ANA-73 | Per-target call-graph distance, depth ≤ 10 | `reach/TargetDistances`, `ReachabilityEnricher`, `JsonReportWriter` |
+| INV-ANA-75 | WTG-independent sections in the pre-WTG write | call order in `RvsecAnalysisClient.run` |
+| INV-ANA-76 | One window per (host, owner); owned ids from 900000 | `prepareWindows`, `dropRepeatedOwnedWindows` |
+| INV-ANA-77 | Lambda wrapper edges in the Scene call graph | `reach/LambdaEdges` |
 
 ## 7. Test Structure
 

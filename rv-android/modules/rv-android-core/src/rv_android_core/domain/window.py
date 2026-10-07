@@ -23,8 +23,9 @@ class WindowType(Enum):
     CONTEXTMENU = 3
     DIALOG = 4
     FRAGMENT = 5
-    # A view owned by a non-Activity class (adapter, custom view) inflated
-    # inside a host Activity; GATOR names it `Host#Owner`.
+    # A view tree owned by a non-Activity class and shown by a host Activity
+    # (dialog, DialogFragment, binding layout, adapter row, bottom sheet);
+    # GATOR names it `Host#Owner`.
     HOSTED = 6
 
     @staticmethod

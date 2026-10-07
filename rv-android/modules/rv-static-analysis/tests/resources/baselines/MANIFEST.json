@@ -44,8 +44,8 @@
     "design.md §D12 follow-up notes."
   ],
   "schema_version": 1,
-  "regenerated_at": "2026-08-30",
-  "regenerated_against_jar_sha256": "df18057eb82abf0b2af18c55a869b57b253ea7434e0a90c7a6fe50d8b8aecd35",
+  "regenerated_at": "2026-10-07",
+  "regenerated_against_jar_sha256": "2e8933d82e6b9633f1175a63ebc6515804aa3d08f6b09ef0899c5aaf9b0c3a7e",
   "entries": [
     {
       "name": "cryptoapp",
@@ -60,7 +60,7 @@
         "classes": 16,
         "methods": 106,
         "reachable": 55,
-        "reaches_target": 37,
+        "reaches_target": 38,
         "directly_reaches_target": 23,
         "windows": 5,
         "transitions": 35,

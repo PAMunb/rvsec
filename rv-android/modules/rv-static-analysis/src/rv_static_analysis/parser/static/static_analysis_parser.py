@@ -108,7 +108,9 @@ _JK = SimpleNamespace(
     reaches_target="reachesTarget",
     directly_reaches_target="directlyReachesTarget",
     # Per-target call-graph distance (INV-ANA-73). `distanceTargets` is the
-    # top-level list of direct callers, each entry carrying `kind`;
+    # top-level list of distance targets, each entry carrying `kind` ("direct" for
+    # app direct callers, "boundary" for app methods that reach a target only through
+    # library code);
     # `targetDistances` is the per-method list of (target index, depth) pairs.
     distance_targets="distanceTargets",
     target_distances="targetDistances",

@@ -150,7 +150,7 @@ public final class SpinnerItemExtractor {
 			Map<Integer, List<String>> result) {
 		// Adapter creation statement → accumulated items. Keyed by the statement
 		// that creates the adapter (createFromResource, or `$a = new ArrayAdapter`),
-		// found through the reaching definition of the adapter local, because the
+		// found through the reaching definitions of the adapter local, because the
 		// compiler reuses one local for several adapters in the same method.
 		Map<Unit, List<String>> siteItems = new LinkedHashMap<>();
 
@@ -185,12 +185,14 @@ public final class SpinnerItemExtractor {
 					&& "<init>".equals(name)
 					&& ARRAY_ADAPTER.equals(declClass)
 					&& ie.getArgCount() >= 3) {
-				Unit site = adapterSite(receiverLocal(ie), stmt, defs);
-				if (site == null) continue;
+				List<Unit> sites = adapterSites(receiverLocal(ie), stmt, defs);
+				if (sites.isEmpty()) continue;
 				Value itemsArg = ie.getArg(ie.getArgCount() - 1);
 				List<String> literals = resolveStringArray(itemsArg, stmt, defs, body);
 				if (literals != null && !literals.isEmpty()) {
-					siteItems.computeIfAbsent(site, k -> new ArrayList<>()).addAll(literals);
+					for (Unit site : sites) {
+						siteItems.computeIfAbsent(site, k -> new ArrayList<>()).addAll(literals);
+					}
 					stats.literalConstructor++;
 				}
 				continue;
@@ -198,12 +200,14 @@ public final class SpinnerItemExtractor {
 
 			// (2) adapter.add(s) / adapter.addAll(arr)
 			if (ARRAY_ADAPTER.equals(declClass) && ie instanceof InstanceInvokeExpr) {
-				Unit site = adapterSite(receiverLocal(ie), stmt, defs);
-				if (site == null) continue;
+				List<Unit> sites = adapterSites(receiverLocal(ie), stmt, defs);
+				if (sites.isEmpty()) continue;
 				if ("add".equals(name) && ie.getArgCount() == 1) {
 					String lit = JimpleDefUtils.resolveStr(ie.getArg(0), stmt, defs);
 					if (lit != null) {
-						siteItems.computeIfAbsent(site, k -> new ArrayList<>()).add(lit);
+						for (Unit site : sites) {
+							siteItems.computeIfAbsent(site, k -> new ArrayList<>()).add(lit);
+						}
 						stats.addCalls++;
 					} else {
 						stats.unresolved++;
@@ -213,7 +217,9 @@ public final class SpinnerItemExtractor {
 				if ("addAll".equals(name) && ie.getArgCount() == 1) {
 					List<String> arr = resolveStringArray(ie.getArg(0), stmt, defs, body);
 					if (arr != null && !arr.isEmpty()) {
-						siteItems.computeIfAbsent(site, k -> new ArrayList<>()).addAll(arr);
+						for (Unit site : sites) {
+							siteItems.computeIfAbsent(site, k -> new ArrayList<>()).addAll(arr);
+						}
 						stats.addCalls++;
 					} else {
 						stats.unresolved++;
@@ -227,7 +233,13 @@ public final class SpinnerItemExtractor {
 					&& ie instanceof InstanceInvokeExpr
 					&& ie.getArgCount() == 1) {
 				Local adapter = (ie.getArg(0) instanceof Local) ? (Local) ie.getArg(0) : null;
-				List<String> items = siteItems.get(adapterSite(adapter, stmt, defs));
+				List<String> items = null;
+				for (Unit site : adapterSites(adapter, stmt, defs)) {
+					List<String> created = siteItems.get(site);
+					if (created == null) continue;
+					if (items == null) items = new ArrayList<>();
+					items.addAll(created);
+				}
 				if (items == null) continue;
 				Integer widgetId = resolveSpinnerWidgetId(
 						((InstanceInvokeExpr) ie).getBase(), stmt, defs);
@@ -247,19 +259,38 @@ public final class SpinnerItemExtractor {
 	}
 
 	/**
-	 * The statement that created the adapter held by {@code adapter} at
-	 * {@code site}: its single reaching definition, through casts.
+	 * The statements that created the adapter held by {@code adapter} at
+	 * {@code site}: every reaching definition, through casts. An adapter
+	 * assigned in both branches of an if/else has two, and the spinner it is
+	 * bound to takes the items of both.
 	 */
-	private static Unit adapterSite(Local adapter, Stmt site, SimpleLocalDefs defs) {
-		if (adapter == null) return null;
-		AssignStmt def = singleDef(adapter, site, defs);
-		int castGuard = 8;
-		while (def != null && def.getRightOp() instanceof CastExpr && castGuard-- > 0) {
-			Value op = ((CastExpr) def.getRightOp()).getOp();
-			if (!(op instanceof Local)) return null;
-			def = singleDef((Local) op, def, defs);
+	private static List<Unit> adapterSites(Local adapter, Stmt site, SimpleLocalDefs defs) {
+		List<Unit> sites = new ArrayList<>();
+		if (adapter != null) collectAdapterSites(adapter, site, defs, sites, 8);
+		return sites;
+	}
+
+	private static void collectAdapterSites(
+			Local local, Stmt site, SimpleLocalDefs defs, List<Unit> sites, int castGuard) {
+		List<Unit> reaching;
+		try {
+			reaching = defs.getDefsOfAt(local, site);
+		} catch (RuntimeException ex) {
+			// SimpleLocalDefs throws on malformed bodies; treat as unresolved.
+			return;
 		}
-		return def;
+		for (Unit u : reaching) {
+			if (!(u instanceof AssignStmt)) continue;
+			AssignStmt def = (AssignStmt) u;
+			if (def.getRightOp() instanceof CastExpr) {
+				Value op = ((CastExpr) def.getRightOp()).getOp();
+				if (op instanceof Local && castGuard > 0) {
+					collectAdapterSites((Local) op, def, defs, sites, castGuard - 1);
+				}
+			} else if (!sites.contains(def)) {
+				sites.add(def);
+			}
+		}
 	}
 
 	/**

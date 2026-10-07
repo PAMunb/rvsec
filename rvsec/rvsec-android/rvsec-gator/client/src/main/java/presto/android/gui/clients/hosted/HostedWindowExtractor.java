@@ -75,22 +75,18 @@ public final class HostedWindowExtractor {
 	 * Appends the hosted windows to {@code windows}, numbered from {@code firstId}
 	 * and skipping every name a {@code FRAGMENT} window in {@code windows} already
 	 * holds, then attaches the listeners registered through binding fields to the
-	 * widgets of every activity, fragment and hosted window.
+	 * widgets of every activity, fragment and hosted window. The caller guards
+	 * this call and the constructor, so a failure costs only the hosted windows.
 	 */
 	public void extendInto(List<Map<String, Object>> windows, int firstId) {
-		// A failure here costs only the hosted windows, never the rest of the report.
-		try {
-			Set<String> fragmentNames = new HashSet<>();
-			for (Map<String, Object> w : windows) {
-				if (FragmentWindows.WINDOW_TYPE.equals(w.get("type"))) {
-					fragmentNames.add((String) w.get("name"));
-				}
+		Set<String> fragmentNames = new HashSet<>();
+		for (Map<String, Object> w : windows) {
+			if (FragmentWindows.WINDOW_TYPE.equals(w.get("type"))) {
+				fragmentNames.add((String) w.get("name"));
 			}
-			windows.addAll(extract(fragmentNames, firstId));
-			applyBindingListeners(windows);
-		} catch (RuntimeException e) {
-			System.out.println("[RvsecAnalysisClient] Hosted window pass failed: " + e);
 		}
+		windows.addAll(extract(fragmentNames, firstId));
+		applyBindingListeners(windows);
 	}
 
 	@SuppressWarnings("unchecked")

@@ -79,13 +79,16 @@ build a `WTG`) to produce their own outputs.
   - Without → pack **`cg`**, phase **`cg.gui`** (legacy, no call graph).
 
   Fixed Soot args include `-w`, `-f n`, `-keep-line-number`,
-  `-search-dex-in-archives`, `-allow-phantom-refs` and `-process-dir <bytecodes>`.
-  No package exclusion is passed: Soot 4.7.1 reads its exclusion list only when the
+  `-search-dex-in-archives`, `-allow-phantom-refs`, `-no-bodies-for-excluded` and
+  `-process-dir <bytecodes>`. `-no-bodies-for-excluded` acts on the packages Soot
+  excludes by default (`java.*`, `javax.*`, `sun.*`, …): without it the call graph of
+  `net.gaast.giggity_769` grows from 11,247 vertices / 23,698 edges to 11,286 / 24,472.
+  No `-exclude` argument is passed: Soot 4.7.1 reads its exclusion list only when the
   `Scene` is constructed, which `PrerunEntrypoint.run()` does before Soot parses its
-  arguments, so an `-exclude` argument would have no effect. The CG algorithm switch maps
+  arguments, so such an argument would have no effect. The CG algorithm switch maps
   `cha` → `cg.cha`, and `rta`/`vta`/`spark` → `cg.spark` (with `rta:true`/`vta:true`
   for the first two); unknown values fall back to CHA with a warning
-  (`Main.java:229-247`). `all-reachable:true` is set for CG construction.
+  (`Main.java:230-249`). `all-reachable:true` is set for CG construction.
 - Before Soot runs, `readWidgetMap()` loads
   `Configs.sootAndroidDir/scripts/consts/widgetMap`, and `PrerunEntrypoint.v().run()`
   executes (§2.3).
@@ -93,7 +96,7 @@ build a `WTG`) to produce their own outputs.
   `internalTransform` calls `AnalysisEntrypoint.v().run()`, sets two **defensive Soot
   options (INV-ANA-16)** — `Options.set_ignore_resolution_errors(true)` and
   `Options.set_throw_analysis(throw_analysis_dalvik)` — and finally calls
-  `soot.Main.main(sootArgs)` (`Main.java:281-285`).
+  `soot.Main.main(sootArgs)` (`Main.java:282-286`).
 
 ### 2.2 `Configs` — global configuration
 

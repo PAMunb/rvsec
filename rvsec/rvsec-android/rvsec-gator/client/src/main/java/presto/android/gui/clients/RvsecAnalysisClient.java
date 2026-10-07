@@ -1596,9 +1596,15 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				System.out.println("[RvsecAnalysisClient] Fragment windows failed: " + e);
 			}
 		}
-		new HostedWindowExtractor(output,
-				(root, ws, seen) -> collectWidgets(output, root, ws, seen))
-				.extendInto(windows, nextOwnedWindowId(windows));
+		// Building the extractor indexes every app body, so it sits inside the guard too:
+		// a failure costs only the hosted windows, never the report (INV-ANA-75).
+		try {
+			new HostedWindowExtractor(output,
+					(root, ws, seen) -> collectWidgets(output, root, ws, seen))
+					.extendInto(windows, nextOwnedWindowId(windows));
+		} catch (RuntimeException e) {
+			System.out.println("[RvsecAnalysisClient] Hosted window pass failed: " + e);
+		}
 		dropRepeatedOwnedWindows(windows);
 		enrichFromXml(windows);
 		unionProgrammaticSpinnerItems(windows);

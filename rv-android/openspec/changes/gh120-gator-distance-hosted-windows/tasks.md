@@ -73,7 +73,8 @@
 
 ## 8. Specs, docs and review
 
-- [ ] 8.1 Update `rvsec-gator` module docs (`CLAUDE.md` where present) for the new passes and keys
-- [ ] 8.2 Run `/rv-qa-lint-fix rv-static-analysis` and `/rv-qa-lint-fix aperv-tool`
-- [ ] 8.3 Run `/rv-verify rv-static-analysis`
-- [ ] 8.4 Run `/rv-code-reviewer`
+- [x] 8.1 Update `rvsec-gator` module docs (`CLAUDE.md` where present) for the new passes and keys — done: `rvsec-gator/CLAUDE.md` (sections, components, distances and owned windows, gotchas: no `-exclude`, lambda edges, Compose, WTG cost), `client/docs/architecture.md` §4.3 and INV-ANA-73/75/76/77 rows, `sootandroid/docs/architecture.md` (`-no-bodies-for-excluded` is passed; line anchors)
+- [x] 8.2 Run `/rv-qa-lint-fix rv-static-analysis` and `/rv-qa-lint-fix aperv-tool` — done: autoflake, isort and black changed nothing in either module; flake8 still reports E501/E402 (14 in rv-static-analysis `src`, 42 in aperv-tool `tool.py`), none on a line introduced by gh120 (`git blame` against `c1203805`), left as they are; tests 168 and 722 passed
+- [x] 8.3 Run `/rv-verify rv-static-analysis` — done: tests 168 passed, black and isort pass; flake8 fails on the 14 issues of 8.2 (none from gh120); safety reports 84 advisories in the shared `.venv`, none in this module's dependencies; mypy not configured
+- [x] 8.4 Run `/rv-code-reviewer` — done 17:00, report `docs/20261007_gh120_code_review.md`, findings explained in `docs/20261007_gh120_achados_a3_a6.md`; owner decisions 17:30: A1 fixed (hosted pass guarded including its constructor), A2 fixed (cryptoapp baseline and `MANIFEST.json` regenerated with the deployed jar; only content difference the wrapper `CryptographyActivity$$ExternalSyntheticLambda0.onClick` `reachesTarget` false → true, plus the distance keys), A3 fixed (union over the reaching adapter creations; client tests 239 green), A5 recorded in D3; A4 and A6 deferred with a post-corpus measurement (Risks); A7 and the suggestions not acted on
+- [x] 8.5 Reactor build with A1 and A3 (jars into `rv-android/lib/gator`, 17:33); `org.cry.otp_31` re-run with the deployed GATOR (67 s, complete): the 5 spinners carry 3, 3, 3, 40 and 2 items as in 6.4; windows (44), the 255 transitions, methods and `distanceTargets` equal by content; parity suite run against the same jar
