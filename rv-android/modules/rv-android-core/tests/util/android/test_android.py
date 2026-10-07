@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, call, patch
 
 import pytest
+from rv_android_core import constants
 from rv_android_core.domain.app import App
 from rv_android_core.util.android.android import (
     DEFAULT_APK_INSTALL_TIMEOUT_SECONDS,
@@ -102,12 +103,31 @@ class TestAndroid:
                     "-noaudio",
                     "-no-snapshot-save",
                     "-delay-adb",
+                    "-memory",
+                    "4096",
+                    "-partition-size",
+                    "8192",
                     "-no-window",
                 ],
             )
             mock_command_class.return_value.invoke_as_deamon.assert_called_once()
             mock_wait_for_boot.assert_called_once_with("emulator-5556")
             mock_logging.info.assert_called_with("Starting emulator on emulator-5556")
+
+    def test_start_emulator_reads_memory_and_partition_constants(
+        self, mock_command_class, monkeypatch
+    ):
+        monkeypatch.setattr(constants, "EMULATOR_MEMORY_MB", 2048)
+
+        with patch.object(Android, "_wait_for_boot"):
+            Android.start_emulator("test_avd", False, 5554)
+
+        args = mock_command_class.call_args.args[1]
+        memory_index = args.index("-memory")
+        assert args[memory_index + 1] == "2048"
+        partition_index = args.index("-partition-size")
+        assert args[partition_index + 1] == "8192"
+        assert "-cores" not in args
 
     def test_kill_emulator(self, mock_command_class, mock_logging, mock_time_sleep):
         mock_kill_emu_cmd_instance = MagicMock()

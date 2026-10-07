@@ -15,18 +15,12 @@ ARG IMG_TYPE=google_apis
 ARG ARCHITECTURE=x86_64
 ARG CMD_LINE_VERSION=8512546_latest
 ARG DEVICE_ID=pixel
-ARG GPU_ACCELERATED=false
 
 
 ENV PACKAGE_PATH="system-images;android-${API_LEVEL};${IMG_TYPE};${ARCHITECTURE}"
 ENV ANDROID_PLATFORM_VERSION="platforms;android-$API_LEVEL"
 # sdkmanager --list
 ENV ANDROID_SDK_PACKAGES="${PACKAGE_PATH} ${ANDROID_PLATFORM_VERSION} platform-tools build-tools;35.0.1 platforms;android-10 platforms;android-11 platforms;android-12 platforms;android-13 platforms;android-14 platforms;android-15 platforms;android-16 platforms;android-17 platforms;android-18 platforms;android-19 platforms;android-20 platforms;android-21 platforms;android-22 platforms;android-23 platforms;android-24 platforms;android-25 platforms;android-26 platforms;android-27 platforms;android-28 platforms;android-29 platforms;android-30 platforms;android-31 platforms;android-32 platforms;android-33 platforms;android-34 platforms;android-35 platforms;android-36"
-
-ENV EMU_PARTITION=8192
-ENV EMU_MEMORY=4096
-ENV EMU_CORES=2
-ENV EMU_GPU_MODE="swiftshader_indirect"
 
 ENV EMULATOR_NAME="RVSec"
 ENV ANDROID_HOME=/opt/android
@@ -39,7 +33,6 @@ ENV API_LEVEL=$API_LEVEL \
 	DEVICE_ID=$DEVICE_ID \
 	ARCHITECTURE=$ARCHITECTURE \
 	ABI=${IMG_TYPE}/${ARCHITECTURE} \
-	GPU_ACCELERATED=$GPU_ACCELERATED \
 	QTWEBENGINE_DISABLE_SANDBOX=1 \
 	ANDROID_EMULATOR_WAIT_TIME_BEFORE_KILL=10 \
 	ANDROID_AVD_HOME=/data
@@ -88,7 +81,5 @@ RUN apt update && apt -qq -y --no-install-recommends install bzip2 libdrm-dev \
 #COPY scripts/install-sdk.sh /opt/
 #RUN chmod +x /opt/install-sdk.sh
 #
-## Copy the container scripts in the image.
-#COPY scripts/start-emulator.sh /opt/
-#COPY scripts/emulator-monitoring.sh /opt/
+## Make the copied scripts executable.
 #RUN chmod +x /opt/*.sh

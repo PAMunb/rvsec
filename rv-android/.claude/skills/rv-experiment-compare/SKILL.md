@@ -203,7 +203,8 @@ compose sozinho não basta: só vale no próximo `up -d`, que recria tudo.
 
 ### Diagnósticos de execução — `RV_LOGCAT_DIAGNOSTICS` + `app_events.csv` (gh72, opt-in)
 
-Por padrão o pipeline captura **só** `RVSEC`/`RVSEC-COV` (`adb logcat -s RVSEC:V RVSEC-COV:V`): o `-s`
+Por padrão o pipeline captura **só** `RVSEC`/`RVSEC-COV`/`ApeRvHb`/`RVSEC-OCC`
+(`adb logcat -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V`): o `-s`
 **silencia crashes/VerifyError/ANR na origem**, então um APK que morre cedo aparece como "ferramenta de
 baixa cobertura" sem registro do porquê (confounder invisível — ~8,8% dos runs abrem buffer de crash
 sem conteúdo na corrida APE×APE-RV).
@@ -211,7 +212,7 @@ sem conteúdo na corrida APE×APE-RV).
 A flag **opt-in** `RV_LOGCAT_DIAGNOSTICS` (CLI `--logcat-diagnostics/--no-logcat-diagnostics`, default
 `false`) torna isso observável:
 - **Ligada** (gerador `--logcat-diagnostics`): o filtro adiciona `AndroidRuntime:E art:E dalvikvm:E
-  ActivityManager:W` **além** de `RVSEC:V RVSEC-COV:V`, e o `rv-platform` grava um CSV dedicado
+  ActivityManager:W` **além** de `RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V`, e o `rv-platform` grava um CSV dedicado
   `app_events.csv` (1 linha por evento: `category` ∈ {crash, verify_error, anr}, `exception_class`,
   `method`, `source`, `message`, `process`, `pid`, `fatal`, `n_frames`, `stack_head`). O trace completo
   fica **só** no `.logcat` (a fonte da verdade); o CSV traz só o `stack_head`.
@@ -274,7 +275,7 @@ hipóteses/expectativas/riscos específicos antes de rodar.
 - `--logcat-diagnostics` (gh72): liga a captura **opt-in** de eventos diagnósticos do app
   (crashes/VerifyError/ANR) → emite `RV_LOGCAT_DIAGNOSTICS: "true"` no compose e gera `app_events.csv`.
   **Default OFF** — sem a flag o comando `adb logcat` e os logcats são **byte-idênticos** ao baseline
-  RVSEC/RVSEC-COV (não muda nenhum baseline de comparação). Ver "Diagnósticos de execução" abaixo.
+  `RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V` (não muda nenhum baseline de comparação). Ver "Diagnósticos de execução" abaixo.
 - O compose é gerado programaticamente (N containers + SGLang condicional); o plano vem de
   `templates/plan.md.tmpl`.
 

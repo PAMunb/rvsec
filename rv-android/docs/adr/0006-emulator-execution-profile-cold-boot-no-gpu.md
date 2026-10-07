@@ -82,6 +82,8 @@ The single sentence that ties the four together: **the only correct response to 
 - The emulator argv itself is unchanged by this decision — it already implements constraints (1) through (3). What changes is that the flags now have a recorded rationale and are load-bearing rather than incidental.
 - Tuning `hw.ramSize`, `hw.cpu.ncore` and `disk.dataPartition.size` is neither adopted nor rejected here. Those are AVD sizing questions that require measurement first and belong to a separate change.
 
+**Follow-up (gh119).** Change gh119 removed `EMU_GPU_MODE`, the `GPU_ACCELERATED` build argument and environment entry, and the unshipped `start-emulator.sh` (copy in `backup/gh119/docker-android-scripts/`), so the dead-path references above and in *References* now name removed code; the emulator never uses the GPU because in the campaigns the host GPU serves vLLM.
+
 ## References
 
 - GitHub Issue: #92

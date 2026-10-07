@@ -127,6 +127,19 @@ ENV_EMULATOR_BOOT_TIMEOUT = "RV_EMULATOR_BOOT_TIMEOUT"
 ENV_ADB_CMD_TIMEOUT = "RV_ADB_CMD_TIMEOUT"
 ENV_APK_INSTALL_TIMEOUT = "RV_APK_INSTALL_TIMEOUT"
 
+# Guest RAM and data-partition size passed to the emulator at launch
+# (`-memory`, `-partition-size`; INV-CORE-66). The campaign image's AVD is created
+# by avdmanager with the `pixel` profile defaults, hw.ramSize=1536M and
+# disk.dataPartition.size=800M: with 1536 MB the guest's low-memory killer can kill
+# the app under test mid-run, which looks like a restart and resets the monitor's
+# in-process state, and with 800 MB a large APK can fail to install. The launch
+# flags take precedence over the AVD's config.ini for that launch. They are
+# constants, not environment variables, because they are an execution condition of
+# a campaign, and a per-container override would let the containers of one
+# campaign differ. hw.cpu.ncore is left to the AVD (no `-cores` is passed).
+EMULATOR_MEMORY_MB = 4096
+EMULATOR_PARTITION_SIZE_MB = 8192
+
 # Size of the device's log ring buffers, set with `adb logcat -G` before every
 # capture (INV-CORE-64). A capture streams a ring buffer live, so a line `logd`
 # prunes before the host reader receives it is lost with no trace in the file; the

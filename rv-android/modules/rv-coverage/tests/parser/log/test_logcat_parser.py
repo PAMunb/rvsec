@@ -763,6 +763,70 @@ class TestHeartbeatInertness:
         )
 
 
+class TestOccurrenceInertness:
+    """INV-CORE-65: violation occurrence lines change nothing the parser produces.
+
+    The monitor runtime writes one `RVSEC-OCC` line per violation occurrence, and the
+    tag is admitted into the capture allowlist so those lines reach the captured file.
+    This parser dispatches on the exact tag field, so an `RVSEC-OCC` line is neither an
+    error nor a coverage record: it is counted under `lines_other_tag`, as an `ApeRvHb`
+    line is, and every other value must be unchanged. The occurrence is written by the
+    app's own process, so the fixture places one between two lines of a crash block,
+    where a thread of the crashing process can still log before the block completes.
+    """
+
+    FIXTURE = Path(__file__).parent / "fixtures" / "occurrence_inert.logcat"
+    OCC_MARKER = " RVSEC-OCC: "
+
+    def _parse(self, content: str, tmp_path, name: str):
+        path = tmp_path / name
+        path.write_text(content)
+        repo = parse_logcat_file(str(path))
+        return repo, {
+            "metrics": repo.calculate_metrics().to_dict(),
+            "total_errors": len(repo.errors),
+            "unique_errors": len(repo.unique_errors),
+            "coverage": repo.get_method_calls(),
+            "diagnostic_events": [e.to_dict() for e in repo.diagnostic_events],
+        }
+
+    def test_occurrence_lines_change_no_parsed_value(self, tmp_path):
+        """Same capture with and without the occurrence lines parses identically,
+        except that `lines_other_tag` counts each removed line."""
+        with_occ = self.FIXTURE.read_text()
+        lines = with_occ.splitlines(keepends=True)
+        without_occ = "".join(ln for ln in lines if self.OCC_MARKER not in ln)
+        n_occ = sum(1 for ln in lines if self.OCC_MARKER in ln)
+        assert n_occ == 3, "fixture carries the occurrence lines it is built around"
+
+        # The hard case is exercised: one occurrence sits inside the crash block.
+        plain = with_occ.splitlines()
+        fatal = next(i for i, ln in enumerate(plain) if "FATAL EXCEPTION" in ln)
+        last_frame = max(i for i, ln in enumerate(plain) if "\tat " in ln)
+        assert any(
+            self.OCC_MARKER in ln for ln in plain[fatal + 1 : last_frame]
+        ), "fixture must interleave the crash block"
+
+        repo_with, parsed_with = self._parse(with_occ, tmp_path, "with.logcat")
+        repo_without, parsed_without = self._parse(
+            without_occ, tmp_path, "without.logcat"
+        )
+
+        assert parsed_with == parsed_without
+        assert (
+            repo_with.parser_diagnostics.lines_other_tag
+            - repo_without.parser_diagnostics.lines_other_tag
+            == n_occ
+        )
+
+        crashes = [
+            e for e in parsed_with["diagnostic_events"] if e["category"] == "crash"
+        ]
+        assert len(crashes) == 1
+        assert crashes[0]["class_full_name"] == "java.lang.NullPointerException"
+        assert crashes[0]["n_frames"] == 2
+
+
 class TestEnvelopeAndDiagnostics:
     """Task 5.3: the parser reads the v1 envelope, names what it could not read, and
     counts every line it did not turn into a record (INV-ANA-08/62/63).

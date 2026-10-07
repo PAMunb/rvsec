@@ -1,0 +1,9 @@
+# Artefatos brutos da corrida (logcats, traces, APKs instrumentados, monitores e o
+# measure_occ.json): reprodutíveis pelo comando do README, não se versionam.
+results/
+
+# Primeira tentativa (07/10), abortada: braço MOP sem .apk.json; guardada só como registro.
+tentativa1_sem_static/
+
+# Links simbólicos para os originais em rvsec-dataset (caminhos absolutos do host).
+apks/

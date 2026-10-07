@@ -13,6 +13,7 @@ import time
 from contextlib import contextmanager
 from typing import Optional
 
+from rv_android_core import constants
 from rv_android_core.commands.command import Command
 from rv_android_core.constants import (
     ENV_ADB_CMD_TIMEOUT,
@@ -142,8 +143,12 @@ class Android:
             "-no-boot-anim",  # disable animation for faster boot
             "-noaudio",  # disable audio support
             "-no-snapshot-save",  # do not auto-save to snapshot on exit: abandon changed state
-            "-delay-adb",
-        ]  # delay adb communication till boot completes
+            "-delay-adb",  # delay adb communication till boot completes
+            "-memory",
+            str(constants.EMULATOR_MEMORY_MB),  # guest RAM, over the AVD's hw.ramSize
+            "-partition-size",
+            str(constants.EMULATOR_PARTITION_SIZE_MB),  # data partition size, in MB
+        ]
         if no_window:
             args.append("-no-window")  # disable graphical window display
 

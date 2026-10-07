@@ -29,6 +29,7 @@ from rv_android_core.util.logging.constants import (
     TAG_APERV_HEARTBEAT,
     TAG_RVSEC,
     TAG_RVSEC_COV,
+    TAG_RVSEC_OCC,
 )
 
 
@@ -102,6 +103,7 @@ class TestLogcatManager:
                 "RVSEC:V",
                 "RVSEC-COV:V",
                 "ApeRvHb:V",
+                "RVSEC-OCC:V",
             ],
         )
 
@@ -205,6 +207,7 @@ class TestLogcatManager:
                     "RVSEC:V",
                     "RVSEC-COV:V",
                     "ApeRvHb:V",
+                    "RVSEC-OCC:V",
                 ],
             ),
         ]
@@ -332,11 +335,12 @@ class TestLogcatManager:
         self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
     ):
         """INV-CORE-37: with no diagnostic tags the emitted command is the baseline,
-        byte-for-byte (`-v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V`).
+        byte-for-byte (`-v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V`).
 
-        The heartbeat tag is part of the baseline because logcat is captured as a live
-        stream under a strict device-side allowlist: a heartbeat under an unadmitted
-        tag is discarded before it reaches the file the offline join reads."""
+        The heartbeat and occurrence tags are part of the baseline because logcat is
+        captured as a live stream under a strict device-side allowlist: a line under an
+        unadmitted tag is discarded before it reaches the file the offline readers
+        consume."""
         mock_open_file.return_value = MagicMock()
         mock_size_command = MagicMock()
         mock_size_command.invoke.return_value = MagicMock(code=0)
@@ -362,6 +366,7 @@ class TestLogcatManager:
                 "RVSEC:V",
                 "RVSEC-COV:V",
                 "ApeRvHb:V",
+                "RVSEC-OCC:V",
             ],
         )
         assert result is True
@@ -372,7 +377,7 @@ class TestLogcatManager:
     def test_diagnostics_tags_additive(
         self, mock_makedirs, mock_open_file, mock_command_class, logcat_manager
     ):
-        """INV-CORE-38: diagnostic tags are appended after the three baseline tags
+        """INV-CORE-38: diagnostic tags are appended after the four baseline tags
         (which are preserved unchanged and in order), and priority-bearing tags keep
         their `:E`/`:W` suffix verbatim (no spurious `:V`)."""
         mock_open_file.return_value = MagicMock()
@@ -403,6 +408,7 @@ class TestLogcatManager:
                 "RVSEC:V",
                 "RVSEC-COV:V",
                 "ApeRvHb:V",
+                "RVSEC-OCC:V",
                 "AndroidRuntime:E",
                 "art:E",
                 "dalvikvm:E",
@@ -421,6 +427,7 @@ class TestLogcatManager:
         "RVSEC:V",
         "RVSEC-COV:V",
         "ApeRvHb:V",
+        "RVSEC-OCC:V",
     ]
 
     @patch("rv_android_core.util.android.logcat_manager.Command")
@@ -514,5 +521,36 @@ class TestLogcatManager:
             TAG_RVSEC,
             TAG_RVSEC_COV,
             TAG_APERV_HEARTBEAT,
+            TAG_RVSEC_OCC,
         ]
         assert len(TAG_APERV_HEARTBEAT) <= 23, "Android bounds logcat tags at 23 chars"
+
+    def test_occurrence_tag_declared_once(self, logcat_manager):
+        """INV-CORE-53: the occurrence tag has exactly one declaration site.
+
+        The tag string is a contract with `ErrorCollector.OCC_TAG` in
+        `rvsec-logger-logcat`, and a mismatch between the two repositories fails as an
+        empty occurrence stream rather than as an error — `-s` discards the lines at
+        the device and the file simply has none. A second literal in this source tree
+        is where that equality would drift unnoticed, so the literal is allowed to
+        appear exactly once, as the value of the constant.
+        """
+        source_root = Path(rv_android_core.__file__).parent
+        occurrences = [
+            path
+            for path in source_root.rglob("*.py")
+            if "RVSEC-OCC" in path.read_text(encoding="utf-8")
+        ]
+
+        assert occurrences == [source_root / "util" / "logging" / "constants.py"]
+        assert (
+            occurrences[0].read_text(encoding="utf-8").count("RVSEC-OCC") == 1
+        ), "the literal appears more than once inside its own declaration file"
+        assert TAG_RVSEC_OCC == "RVSEC-OCC"
+        assert logcat_manager.default_tags == [
+            TAG_RVSEC,
+            TAG_RVSEC_COV,
+            TAG_APERV_HEARTBEAT,
+            TAG_RVSEC_OCC,
+        ]
+        assert len(TAG_RVSEC_OCC) <= 23, "Android bounds logcat tags at 23 chars"

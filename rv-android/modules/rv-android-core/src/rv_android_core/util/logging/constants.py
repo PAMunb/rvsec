@@ -32,6 +32,15 @@ TAG_RVSEC_COV = "RVSEC-COV"
 # and no consumer ever learns it was expected (INV-CORE-53).
 TAG_APERV_HEARTBEAT = "ApeRvHb"
 
+# The violation occurrence tag. This value is a cross-repository contract with
+# `ErrorCollector.OCC_TAG` in `rvsec-logger-logcat`, which writes one line under
+# exactly this tag per violation occurrence, throttled to one line per identity per
+# 100 ms, while the `RVSEC` stream keeps only the first occurrence. It is declared
+# once, here, for the reason the heartbeat tag is: `adb logcat -s <tags>` discards an
+# unadmitted tag at the device, so a mismatch yields an empty occurrence stream rather
+# than an error (INV-CORE-53).
+TAG_RVSEC_OCC = "RVSEC-OCC"
+
 # Common log messages patterns
 LOG_START = "Starting {phase}"
 LOG_COMPLETE = "Completed {phase}"
