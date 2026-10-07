@@ -18,6 +18,7 @@ import shlex
 import sys
 import time
 from pathlib import Path
+from subprocess import PIPE
 
 from rv_android_core.commands.command import Command
 from rv_android_core.domain.app import App
@@ -82,9 +83,12 @@ class StampProbeTool(AbstractTool):
     def configure(self, config):
         self.config = dict(config)
 
-    def _adb(self, serial, args, timeout=60, **streams):
+    def _adb(self, serial, args, timeout=60, stdout=PIPE, stderr=PIPE):
+        # `_execute_and_check_command` defaults both streams to None (inherit), which
+        # leaves `result.stdout` as None; the callers that parse the output need PIPE.
         return self._execute_and_check_command(
-            Command("adb", ["-s", serial, *args], timeout=timeout), **streams
+            Command("adb", ["-s", serial, *args], timeout=timeout),
+            stdout=stdout, stderr=stderr,
         )
 
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:

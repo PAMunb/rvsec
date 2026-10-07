@@ -22,6 +22,7 @@ extras do `AccessibilityNodeInfo` de cada nó clicável, a classe do handler lig
 | `ref/instr-cli-pre-gh121.jar` | o `instr-cli.jar` anterior à change, referência da identidade byte a byte (D13); fora do git |
 | `scripts/dexnorm.py` | normaliza a saída de `dexdump -d` e imprime o md5 do texto normalizado e os contadores do carimbo |
 | `scripts/dexcmp.py` | compara os `classes*.dex` de APKs: md5 bruto, `method_ids` e md5 normalizado |
+| `scripts/instr_one.sh` | roda `instr-cli instrument` num APK com os insumos do 9.0 e o toolchain fixado |
 | `probe/StampProbe.java`, `probe/build_probe.sh` | a sonda que roda sob `app_process` e o script que a compila em `probe/probe.jar` |
 | `scripts/run_probe.py` | registra a ferramenta `stampprobe` no `ToolRegistry` e chama o `rv-platform` |
 | `scripts/check_delivery.py` | pareia os nós das capturas da sonda com as linhas `RVSEC-BIND` e decide |
@@ -62,31 +63,60 @@ uv run rv-experiment run --tools ape --apks-dir experimento-smk121/apks \
 Daí saem o descritor `jca_android` e os fontes dos monitores (`results/pre/monitors/`) e
 os jars de runtime (`results/pre/lib_tmp/`), que os passos 9.1–9.3 reutilizam.
 
-**9.1–9.3 — verificações offline.** Chamam `instr-cli instrument` diretamente, com o
-descritor, os monitores e os jars de runtime do 9.0, e sempre com o `android.jar` e o
-`d8` fixados explicitamente:
+**9.1–9.3 — verificações offline.** Chamam `instr-cli instrument` diretamente, por
+`scripts/instr_one.sh`, que passa o descritor, os monitores e os jars de runtime do 9.0, o
+keystore do `rv-instrumentation`, `--android-jar` android-36 e `--d8` 35.0.1 fixados, e
+`-Xmx8g`:
 
-```bash
-java -jar <instr-cli.jar> instrument ... \
-  --android-jar $ANDROID_HOME/platforms/android-36/android.jar \
-  --d8 $ANDROID_HOME/build-tools/35.0.1/d8
+```
+scripts/instr_one.sh <instr-cli.jar> <apk> <out> [monitors-dir] [-- <args extras do instr-cli>]
 ```
 
-- 9.1: `parceltracker` instrumentado com `ref/instr-cli-pre-gh121.jar` e com o jar novo
-  sem a opção (e sem `RVSEC_STAMP_HANDLERS`); todo `classes*.dex` deve sair idêntico
-  (md5 bruto). Depois, um APK com `--stamp-handlers` e o seguinte sem a opção no mesmo
-  `--monitor-src-dir`/`--work-dir`: o DEX de monitores do segundo não tem `Lmop/RvsecStamp`.
-- 9.2: `aegis` com e sem a opção, comparado pelo md5 normalizado.
-- 9.3: `cryptoapp` com `RVSEC_STAMP_HANDLERS=true` sem a opção (há chaves `stamp*` em
-  `weaveCounts`) e com `--no-stamp-handlers` (não há).
+O APK sai em `<out>/apk/`. Sem `monitors-dir`, o script apaga `<out>/monitors` e o recopia
+de `results/pre/monitors`; com ele, usa o diretório dado sem tocá-lo (é assim que se testa
+o diretório compartilhado). O ambiente passa adiante, de modo que `RVSEC_STAMP_HANDLERS`
+chega ao `instr-cli`.
 
-A comparação usa um diretório de trabalho dado na linha de comando, para os DEX
-temporários (nunca ao lado do script nem em `/tmp`):
+Os comandos abaixo rodam a partir de `experimento-smk121/`, com
+`JAR=../modules/rv-instrumentation-dexlib2/lib/instr-cli.jar` e
+`P=apks/dev.itsvic.parceltracker_10501000.apk`; cada um teve a saída em
+`results/logs/<passo>.log`.
 
 ```bash
-python3 experimento-smk121/scripts/dexcmp.py --work-dir experimento-smk121/results/dexwork \
-  off=<apk instrumentado A> on=<apk instrumentado B>
+# 9.1 — desligado idêntico ao jar anterior à change
+env -u RVSEC_STAMP_HANDLERS scripts/instr_one.sh ref/instr-cli-pre-gh121.jar $P results/offline/9.1-parcel-ref
+env -u RVSEC_STAMP_HANDLERS scripts/instr_one.sh $JAR $P results/offline/9.1-parcel-newoff
+python3 scripts/dexcmp.py --work-dir results/dexwork \
+  ref=results/offline/9.1-parcel-ref/apk/dev.itsvic.parceltracker_10501000.apk \
+  new=results/offline/9.1-parcel-newoff/apk/dev.itsvic.parceltracker_10501000.apk
+
+# 9.1 — diretório compartilhado: ligado, depois desligado, no mesmo monitors-dir e work-dir
+O=results/offline/9.1-shared-src
+mkdir -p $O && cp -r results/pre/monitors $O/shared-monitors
+scripts/instr_one.sh $JAR apks/cryptoapp.apk $O $O/shared-monitors -- --stamp-handlers
+ls $O/shared-monitors/mop; find $O/work/monitor-build/classes -name 'RvsecStamp*'   # presentes
+mv $O/apk $O/apk-on
+env -u RVSEC_STAMP_HANDLERS scripts/instr_one.sh $JAR apks/cryptoapp.apk $O $O/shared-monitors
+ls $O/shared-monitors/mop; find $O/work/monitor-build/classes -name 'RvsecStamp*'   # ausentes
+
+# 9.2 — ligado contra desligado (o desligado do parceltracker é o 9.1-parcel-newoff)
+scripts/instr_one.sh $JAR apks/com.beemdevelopment.aegis_81.apk results/offline/9.2-aegis-off
+scripts/instr_one.sh $JAR apks/com.beemdevelopment.aegis_81.apk results/offline/9.2-aegis-on -- --stamp-handlers
+python3 scripts/dexcmp.py --work-dir results/dexwork \
+  off=results/offline/9.2-aegis-off/apk/com.beemdevelopment.aegis_81.apk \
+  on=results/offline/9.2-aegis-on/apk/com.beemdevelopment.aegis_81.apk
+# idem para cryptoapp (9.2-crypto-*), droid_scep (9.2-scep-*) e parceltracker (9.2-parcel-on)
+
+# 9.3 — fallback de ambiente e a opção negativa
+RVSEC_STAMP_HANDLERS=true scripts/instr_one.sh $JAR apks/cryptoapp.apk results/offline/9.3-crypto-envon
+RVSEC_STAMP_HANDLERS=true scripts/instr_one.sh $JAR apks/cryptoapp.apk results/offline/9.3-crypto-envneg -- --no-stamp-handlers
 ```
+
+O `instr-cli instrument` não escreve `instrument_results.json`: os contadores ficam na
+linha `PerApkResult[... weaveCounts={...}]` do log de cada rodada.
+
+O `dexcmp.py` usa um diretório de trabalho dado na linha de comando, para os DEX
+temporários (nunca ao lado do script nem em `/tmp`).
 
 Com dois rótulos, a saída termina com uma linha `cmp` por DEX (`raw=same|diff`,
 `norm=same|diff`); cada linha por DEX traz os contadores `stamp_static`,
@@ -112,7 +142,10 @@ uv run python experimento-smk121/scripts/check_delivery.py experimento-smk121/re
 ```
 
 O `run_probe.py` repassa seus argumentos ao `rv-platform`; a ferramenta `stampprobe` é a
-única cliente `UiAutomation` da tarefa (nenhum APE roda junto). O `check_delivery.py`
+única cliente `UiAutomation` da tarefa (nenhum APE roda junto). Depois de cada clique e de
+cada `BACK`, a sonda espera 1 s antes do `waitForIdle`: sem essa pausa o `waitForIdle`
+retorna na hora, porque os eventos da ação ainda não chegaram, e a captura sai com a tela
+anterior. O `check_delivery.py`
 sai com 0 quando nenhum nó pareado diverge e há ao menos um nó View e um nó Compose
 pareados no conjunto; sai com 1 caso contrário. As regras de pareamento estão na
 docstring do script.

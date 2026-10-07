@@ -23,7 +23,9 @@ import hashlib
 import re
 import sys
 
-INSN = re.compile(r"^[0-9a-f]{6}: [0-9a-f ]*\|[0-9a-f]{4}: ")
+# Payload pseudo-instructions (packed-switch-data, ...) elide their hex column
+# with "...", so the raw column admits dots.
+INSN = re.compile(r"^[0-9a-f]{6}: [0-9a-f .]*\|[0-9a-f]{4}: ")
 METHOD_HEADER = re.compile(r"^[0-9a-f]{6}:\s+\|\[[0-9a-f]+\] ")
 POOL = re.compile(
     r"\s*// (method|type|string|field|call_site|method_handle|proto)@[0-9a-f]+"

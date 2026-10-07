@@ -88,3 +88,11 @@ def test_a_compose_node_insertion_is_dropped_and_counted():
 
     assert digest == _norm(OFF)[0]
     assert counts["compose_inserted"] == 1
+
+
+def test_payload_lines_lose_their_file_offset():
+    """A packed-switch payload elides its hex column with `...`; only its file
+    offset moves when an earlier method changes size."""
+    off = "068c10: 0001 0400 0000 0000 3800 0000 2900 ... |0058: packed-switch-data (12 units)\n"
+    on = "068bf0: 0001 0400 0000 0000 3800 0000 2900 ... |0058: packed-switch-data (12 units)\n"
+    assert dexnorm.normalise([off])[0] == dexnorm.normalise([on])[0]

@@ -62,6 +62,12 @@ public final class StampProbe {
     static final int MAX_CLICKS = 20;
     static final long IDLE_MS = 500;
     static final long IDLE_TIMEOUT_MS = 5000;
+    /**
+     * Pause after a click or BACK before waiting for idle. {@code waitForIdle}
+     * returns at once when no event arrived in the last {@link #IDLE_MS}, which is
+     * the case right after an action whose events have not been dispatched yet.
+     */
+    static final long ACTION_DELAY_MS = 1000;
 
     private static final PrintStream OUT = System.out;
     private static final SimpleDateFormat CLOCK =
@@ -160,19 +166,28 @@ public final class StampProbe {
                 continue;
             }
             node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-            root = settledRoot(ua);
+            root = settledRootAfterAction(ua);
             nodes = new ArrayList<String>();
             walk(root, nodes, null);
             dump(step++, packageOf(root), "click", target, nodes);
 
             ua.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
-            root = settledRoot(ua);
+            root = settledRootAfterAction(ua);
             if (!pkg.equals(packageOf(root))) {
                 Runtime.getRuntime()
                         .exec(new String[] {"am", "start", "-W", "-n", pkg + "/" + activity})
                         .waitFor();
             }
         }
+    }
+
+    static AccessibilityNodeInfo settledRootAfterAction(UiAutomation ua) {
+        try {
+            Thread.sleep(ACTION_DELAY_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        return settledRoot(ua);
     }
 
     static AccessibilityNodeInfo settledRoot(UiAutomation ua) {
