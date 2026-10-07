@@ -295,14 +295,15 @@ class CoverageTracker:
             with open(self.logcat_file, "r") as f:
                 file_handle = f
 
-                # Step 1: Drain any lines already in the file (e.g., logcat started before tracker)
+                # Step 1: Drain any lines already in the file (e.g., logcat started before tracker).
+                # readlines() leaves the handle right after the last line it read,
+                # so the tail loop continues from there. There is no seek to EOF:
+                # a line appended between this read and such a seek would be
+                # skipped by every later read, the final drain included.
                 with self._reader_lock:
                     self.process_lines(f.readlines())
 
-                # Step 2: Seek to EOF so subsequent reads only pick up new lines
-                f.seek(0, os.SEEK_END)
-
-                # Step 3: Tail loop -- read new lines as logcat appends them
+                # Step 2: Tail loop -- read new lines as logcat appends them
                 while not self._stop_event.is_set():
                     with self._reader_lock:
                         new_lines = f.readlines()
@@ -326,7 +327,7 @@ class CoverageTracker:
                     sleep_time = 0.5 if new_lines else 1.0
                     time.sleep(sleep_time)
 
-                # Step 4: Final drain, while the handle is still open and still
+                # Step 3: Final drain, while the handle is still open and still
                 # positioned where the tail loop left it. The loop exits on the
                 # stop signal without a last read, so every line appended since
                 # its previous readlines() would otherwise never reach the

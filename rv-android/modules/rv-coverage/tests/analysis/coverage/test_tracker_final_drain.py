@@ -262,3 +262,34 @@ class TestLiveMatchesReparse:
             assert (
                 abs(live_value - reparsed[field]) <= 0.01
             ), f"{field}: live={live_value} reparsed={reparsed[field]}"
+
+
+class TestInitialDrainHandoff:
+    """A line appended right after the initial drain is read by the tail loop."""
+
+    def test_line_appended_after_initial_drain_is_not_skipped(
+        self, tracker, logcat_file
+    ):
+        """The append is forced into the gap after the initial readlines().
+
+        Positioning the handle at EOF after the initial drain would skip a
+        line written in that gap for good; reading on from where readlines()
+        stopped keeps it.
+        """
+        process_lines = tracker.process_lines
+        first_call = [True]
+
+        def append_after_initial_drain(lines):
+            result = process_lines(lines)
+            if first_call[0]:
+                first_call[0] = False
+                append(logcat_file, coverage_line("seenByTheLoop"))
+            return result
+
+        with patch.object(
+            tracker, "process_lines", side_effect=append_after_initial_drain
+        ):
+            tracker.start()
+            time.sleep(TAIL_CYCLE_SECONDS)
+            assert called_methods(tracker) == {"seenByTheLoop"}
+            tracker.stop()
