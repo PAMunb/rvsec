@@ -174,6 +174,8 @@ RvErrorLog(BaseValidatedModel):
 - `strip_build_type_suffix: bool` -- Run-scalar policy: neutralize a build-type suffix on the declared applicationId before reporting `code_package` (INV-CORE-58). Source: resolved at the entry point and passed to `App` by value.
 - `RvErrorLog.message: str` -- The violation description as the monitor emitted it. Source: `logcat_parser`, the CSV collector, or a persisted `tasks.json`. When the emitter is an envelope-producing set the message is `v=1 code=<SPEC>-<KIND>-<NN> ev=<event> obj=<SimpleClass> val='<observed>' exp='<expected>' msg='<text>'`; otherwise it is free text. In both cases it MUST NOT contain the substring `:::` (INV-CORE-56).
 - `RvErrorLog.code: str` / `RvErrorLog.event: str` -- The `code=` and `ev=` values of the envelope, or the sentinel `UNSPECIFIED` when the message carries no envelope. Source: the parser that built the record.
+- `TAG_RVSEC_OCC: str = "RVSEC-OCC"` -- The violation occurrence tag (INV-CORE-53). Source: `rv_android_core/util/logging/constants.py`.
+- `EMULATOR_MEMORY_MB: int = 4096`, `EMULATOR_PARTITION_SIZE_MB: int = 8192` -- Guest RAM and `/data` partition passed at every emulator launch (INV-CORE-66). Source: `rv_android_core/constants.py`.
 
 ### Output
 
@@ -185,6 +187,8 @@ RvErrorLog(BaseValidatedModel):
 - `Metric` / `TimingMetric` -- Performance measurements. Destination: PerformanceMonitor subscribers.
 - `RvErrorLog.unique_msg: str` -- Computed, seven `:::`-separated parts `class_full_name, method, spec, error_type, code, event, message`. Destination: `LogcatRepository` dedupe, `errors.csv`, `results.json`, every reader that splits on `:::`.
 - `RvErrorLog.to_dict()` -- Carries the keys `code` and `event` beside the other fields. Destination: `tasks.json`, `errors.csv`.
+- Baseline capture command: `adb -s <serial> logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V` (INV-CORE-37). Destination: `task.result.logcat_file`.
+- Emulator launch argv: `emulator -avd <name> -port <port> -read-only -no-cache -no-boot-anim -noaudio -no-snapshot-save -delay-adb -memory 4096 -partition-size 8192 [-no-window]` (INV-CORE-66). Destination: the emulator process.
 
 ### Side-Effects
 
@@ -193,6 +197,8 @@ RvErrorLog(BaseValidatedModel):
 - **File system**: Task.initialize() creates results directories via `os.makedirs()`. LoggingManager.setup_file_logging() creates log files.
 - **APK analysis**: App model_post_init() loads APK via Androguard (I/O operation reading APK file).
 - **Counts**: `unique_errors` and every figure derived from it (`mop_errors_unique`, the `unique_msg` column of `errors.csv`) differ between the five-part and the seven-part identity for any input where two records of one `(class, method, spec, error_type, message)` differ in `code` or `event` — a declared discontinuity (INV-CORE-57).
+- **Device (emulator launch)**: the guest boots with 4096 MB of RAM and an 8192 MB `/data` partition; the read-only AVD writes the partition to a temporary image for the life of the emulator process.
+- **Captured file**: lines under `RVSEC-OCC` reach `task.result.logcat_file`; every existing parsed value ignores them (INV-CORE-65).
 
 ### Error
 
@@ -249,16 +255,16 @@ RvErrorLog(BaseValidatedModel):
 
 - **INV-CORE-33**: After commit C1f, no Pydantic model in `rv_android_core.domain` MUST contain a field whose name ends with `_mop`, `_directly_mop`, or equals `mop_methods`. Verified by AST inspection in `tests/domain/test_no_legacy_mop_fields.py` (part of the `G_no_legacy_mop` CI gate scope).
 - **INV-CORE-34**: The `target_reaches_target` member on `WindowTransition` MUST be implemented via the `@property` decorator, not as a stored Pydantic field. Verified by `tests/domain/test_wtg.py` asserting `isinstance(WindowTransition.__dict__['target_reaches_target'], property)`. Storing it as a field would duplicate derivable data (P1 violation).
-- **INV-CORE-37**: WHEN `RV_LOGCAT_DIAGNOSTICS` is unset or `false`, the `adb logcat` command emitted by `LogcatManager.start_capture` MUST be byte-identical to the baseline `-v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V` (with the device serial). The previous two-tag form is superseded, not retained as an alternative: a capture that omits the heartbeat tag produces a logcat the offline join cannot use.
+- **INV-CORE-37**: WHEN `RV_LOGCAT_DIAGNOSTICS` is unset or `false`, the `adb logcat` command emitted by `LogcatManager.start_capture` MUST be byte-identical to the baseline `-v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V` (with the device serial). The three-tag form is superseded, not retained as an alternative: a capture that omits `RVSEC-OCC` produces a logcat with no occurrence stream, and nothing downstream can tell that from a run in which no violation repeated.
 
-- **INV-CORE-53**: The heartbeat tag MUST be declared once, as the named constant `TAG_APERV_HEARTBEAT` in `rv_android_core/util/logging/constants.py`, beside `TAG_RVSEC` and `TAG_RVSEC_COV`, and `LogcatManager.default_tags` MUST be built from those three constants rather than from repeated string literals. The value MUST equal the tag the APE-RV jar writes under; a literal duplicated across the two repositories is where that equality would silently drift, and the failure mode of a mismatch is an empty capture rather than an error.
+- **INV-CORE-53**: The heartbeat tag and the occurrence tag MUST each be declared once, as the named constants `TAG_APERV_HEARTBEAT` and `TAG_RVSEC_OCC` in `rv_android_core/util/logging/constants.py`, beside `TAG_RVSEC` and `TAG_RVSEC_COV`, and `LogcatManager.default_tags` MUST be built from those four constants, in the order `[TAG_RVSEC, TAG_RVSEC_COV, TAG_APERV_HEARTBEAT, TAG_RVSEC_OCC]`, rather than from repeated string literals. Each value MUST equal the tag its producer writes under (the APE-RV jar, the monitor runtime's `ErrorCollector`); a literal duplicated across repositories is where that equality would silently drift, and the failure mode of a mismatch is an empty stream rather than an error.
 
 - **INV-CORE-54**: The presence of heartbeat lines in a captured logcat MUST NOT change any value produced by `parse_logcat_file` — not `calculate_metrics()`, not `total_errors`, not `unique_errors`, not any coverage value, and not the diagnostic-event collection.
 
   This holds for two different reasons, and only one of them was true before this change. On the violation and coverage path it holds by construction: `parse_logcat_line` dispatches on the exact tag field, so a heartbeat line yields neither an error nor a coverage record. On the **diagnostic-event** path it did not hold, and had to be made to: `DiagnosticEventParser` is stateful and assembles a multi-line block, and it closed that block on any line whose tag was not diagnostic — after which the block's remaining lines found an empty buffer and were discarded, losing the exception class, the app stack frame and the frame count. Logcat merges every process into one timestamp-ordered stream, so a crash block is contiguous only in the crashing process's own output and an interleaved line lands inside it. Block assembly therefore MUST treat a line under any non-diagnostic tag as transparent — yielding no event and **not** closing the open block — and MUST close on a diagnostic key change, a new block start, a non-threadtime line (`analysis` INV-ANA-48) or `flush()`.
 
   The invariant is verified rather than assumed, and the verification MUST exercise the hard case: a fixture in which a heartbeat lands **between two lines of a crash block**, not merely between blocks. An equality asserted over interleavings that cannot reach the stateful path would be green by construction. The defect this uncovered is pre-existing and tag-agnostic — an `RVSEC-COV` line in the same position does identical damage, and that tag has always been in the allowlist — so the heartbeat is not its cause, and the correction protects every consumer of the diagnostic collection rather than only APE-RV runs.
-- **INV-CORE-38**: The diagnostic tag set MUST be *additive* — when enabled, `RVSEC:V` and `RVSEC-COV:V` MUST remain in the filter; the diagnostic tags MUST NOT replace or reorder them.
+- **INV-CORE-38**: The diagnostic tag set MUST be *additive* — when enabled, `RVSEC:V`, `RVSEC-COV:V`, `ApeRvHb:V` and `RVSEC-OCC:V` MUST remain in the filter, first and in that order; the diagnostic tags MUST NOT replace or reorder them.
 - **INV-CORE-39**: Registering any number of `RvDiagnosticEvent`s into `LogcatRepository.diagnostic_events` MUST NOT change `calculate_metrics()` output, `total_errors`, `unique_errors`, or any coverage value; those computations MUST read only `self.classes`, `self.errors`, and `self.unique_errors`.
 - **INV-CORE-40**: `RvErrorLog.to_dict()` MUST include the `source` field. `source` MUST NOT appear in `unique_msg` and MUST NOT participate in `__eq__` or `__hash__`, so adding it cannot change any deduplicated count.
 - **INV-CORE-41**: `RvErrorLog.unique_msg` counts at event granularity (`class:::method:::spec:::error_type:::code:::event:::message`) and is deliberately finer than the `(apk, class, method, spec)` key used for unique-misuse analysis. Any documentation or export that reports `unique_errors` MUST NOT present it as equivalent to a unique-misuse count, and MUST state which identity era the count belongs to — five-part (the published dataset, comp162 and every campaign before gh104) or seven-part — because counts of the two eras are not comparable.
@@ -279,6 +285,8 @@ RvErrorLog(BaseValidatedModel):
 - **INV-CORE-57**: Every published deduplicated count of violations MUST carry the identity era it was computed under. A count of the seven-part era MUST NOT be compared to a count of the five-part era without the discontinuity being stated beside the comparison, and the discontinuity measured on the same input MUST be non-zero where that input's records carry an `ev=` envelope — a zero difference there would mean `code` and `event` added no information to the identity; on a pre-envelope input (the published dataset, comp162) the difference is zero by construction and is labelled so, not read as a failure.
 - **INV-CORE-63**: `identity_message` MUST be `message` with every trailing ` vfp='<value>'` and ` vcls='<value>'` that follows the closing quote of `msg` removed, and nothing else removed. A message with no evidence key MUST be its own `identity_message`, byte for byte.
 - **INV-CORE-64**: Before every capture, `LogcatManager.start_capture` MUST run `adb -s <serial> logcat -G <LOGCAT_BUFFER_SIZE>` with `LOGCAT_BUFFER_SIZE = "16M"` from `rv_android_core/constants.py`, before the buffer is cleared and before the capture command starts. The capture command itself stays as INV-CORE-37 fixes it. A success MUST be logged at INFO with the device serial and the size; a failure MUST be logged at WARNING with the same two values and MUST NOT prevent the capture.
+- **INV-CORE-65**: The presence of `RVSEC-OCC` lines in a captured logcat MUST NOT change any value produced by `parse_logcat_file` — not `calculate_metrics()`, not `total_errors`, not `unique_errors`, not any coverage value, and not the diagnostic-event collection. `parse_logcat_line` dispatches on the exact tag field, so an `RVSEC-OCC` line yields neither an error nor a coverage record and is counted as `lines_other_tag`, as an `ApeRvHb` line is.
+- **INV-CORE-66**: `Android.start_emulator` MUST pass `-memory <EMULATOR_MEMORY_MB>` and `-partition-size <EMULATOR_PARTITION_SIZE_MB>`, with `EMULATOR_MEMORY_MB = 4096` and `EMULATOR_PARTITION_SIZE_MB = 8192` from `rv_android_core/constants.py`, and MUST NOT pass `-cores`. The values are constants, not environment variables: they describe the execution condition of a campaign, which a per-container override would make differ between the containers of one campaign.
 ## Requirements
 ### Requirement: Error Handling with Recovery Strategies (FR34, NFR04)
 
@@ -821,30 +829,31 @@ The Pydantic `field description` strings for renamed fields MUST use the term "t
 `LogcatManager` SHALL support an opt-in capture mode that, when enabled via the
 `RV_LOGCAT_DIAGNOSTICS` flag, augments the logcat tag filter with the diagnostic tags
 `AndroidRuntime:E art:E dalvikvm:E ActivityManager:W` in addition to the baseline tags
-`RVSEC:V RVSEC-COV:V ApeRvHb:V`. When the flag is disabled (the default), capture behavior MUST be
+`RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V`. When the flag is disabled (the default), capture behavior MUST be
 the baseline described by INV-CORE-37. The flag SHALL be exposed as a named constant
 `ENV_LOGCAT_DIAGNOSTICS = "RV_LOGCAT_DIAGNOSTICS"` in `rv_android_core/constants.py`.
 
-The baseline is three tags rather than two because the APE-RV step heartbeat must survive the
-device-side filter; see "APE-RV Step Heartbeat Tag in the Capture Allowlist" below for why the tag
-cannot be added at the point of use instead.
+The baseline is four tags. The APE-RV step heartbeat and the violation occurrence stream must both
+survive the device-side filter; see "APE-RV Step Heartbeat Tag in the Capture Allowlist" and
+"Violation Occurrence Tag in the Capture Allowlist" for why neither tag can be added at the point
+of use instead.
 
 #### Scenario: Flag off emits the baseline command byte-for-byte
 - **WHEN** `RV_LOGCAT_DIAGNOSTICS` is unset and `start_capture` is called for serial `emulator-5554`
-- **THEN** the emitted command is `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V`
+- **THEN** the emitted command is `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V`
 - **AND** no diagnostic tag (`AndroidRuntime`, `art`, `dalvikvm`, `ActivityManager`) appears in the filter
 
 #### Scenario: Flag on appends diagnostic tags additively
 - **WHEN** `RV_LOGCAT_DIAGNOSTICS=true` and `start_capture` is called
-- **THEN** the filter contains `RVSEC:V`, `RVSEC-COV:V` and `ApeRvHb:V` unchanged and in that order
+- **THEN** the filter contains `RVSEC:V`, `RVSEC-COV:V`, `ApeRvHb:V` and `RVSEC-OCC:V` unchanged and in that order
 - **AND** the filter additionally contains `AndroidRuntime:E`, `art:E`, `dalvikvm:E`, and `ActivityManager:W`
 
 ### Requirement: APE-RV Step Heartbeat Tag in the Capture Allowlist (FR33, FR34)
 
 `LogcatManager.default_tags` SHALL include the APE-RV step heartbeat tag `ApeRvHb`, declared as the
 constant `TAG_APERV_HEARTBEAT` in `rv_android_core/util/logging/constants.py` beside `TAG_RVSEC` and
-`TAG_RVSEC_COV`, and appended after them so the existing two keep their position and order
-(INV-CORE-53).
+`TAG_RVSEC_COV`, and placed after them so those two keep their position and order
+(INV-CORE-53). `TAG_RVSEC_OCC` follows it ("Violation Occurrence Tag in the Capture Allowlist").
 
 **Why the allowlist and not the point of use.** Capture is a live stream, not a post-run dump: the
 buffer is cleared at start and `adb logcat -s <tags>` runs for the run's duration, so a tag that is
@@ -873,7 +882,7 @@ contributes to no coverage value, no violation, and no diagnostic event.
 #### Scenario: The tag is declared once
 - **WHEN** the module's tests search the source tree for the literal `"ApeRvHb"`
 - **THEN** it SHALL appear exactly once, as the value of `TAG_APERV_HEARTBEAT`
-- **AND** `LogcatManager.default_tags` SHALL be `[TAG_RVSEC, TAG_RVSEC_COV, TAG_APERV_HEARTBEAT]`
+- **AND** `LogcatManager.default_tags` SHALL be `[TAG_RVSEC, TAG_RVSEC_COV, TAG_APERV_HEARTBEAT, TAG_RVSEC_OCC]`
 
 #### Scenario: Heartbeat lines change no parsed value
 - **WHEN** `parse_logcat_file` runs over a captured logcat containing 1,603 heartbeat lines, and again over the same file with those lines removed
@@ -885,16 +894,38 @@ contributes to no coverage value, no violation, and no diagnostic event.
 - **THEN** the emitted command SHALL carry `ApeRvHb:V` like every other capture
 - **AND** the captured file SHALL contain no line under that tag, and every downstream value SHALL be what it was before this change
 
+### Requirement: Violation Occurrence Tag in the Capture Allowlist (FR11, FR13)
+
+`LogcatManager.default_tags` SHALL include the violation occurrence tag `RVSEC-OCC`, declared as the constant `TAG_RVSEC_OCC` in `rv_android_core/util/logging/constants.py` and appended after `TAG_APERV_HEARTBEAT`, so the three existing tags keep their position and order (INV-CORE-53).
+
+The tag is the monitor runtime's: `ErrorCollector` in `rvsec-logger-logcat` writes one line under it per violation occurrence, throttled to one line per identity per 100 ms, and the `RVSEC` stream keeps only the first occurrence (instrumentation INV-INS-170, INV-INS-171). It is admitted globally, in `default_tags`, for the reason the heartbeat is: the filter runs on the device for the whole capture, and there is no per-tool tag channel. An uninstrumented APK writes nothing under it, so the global default costs such runs nothing.
+
+`RVSEC-OCC` lines SHALL be inert to every existing consumer of the captured file (INV-CORE-65). They are read by an analysis that asks for the tag by name, as `aperv-tool`'s `read_tagged_lines(path, tag)` does.
+
+#### Scenario: The tag is declared once
+
+- **WHEN** the module's tests search the source tree for the literal `"RVSEC-OCC"`
+- **THEN** it SHALL appear exactly once, as the value of `TAG_RVSEC_OCC`
+- **AND** `LogcatManager.default_tags` SHALL be `[TAG_RVSEC, TAG_RVSEC_COV, TAG_APERV_HEARTBEAT, TAG_RVSEC_OCC]`
+
+#### Scenario: Occurrence lines change no parsed value
+
+- **WHEN** `parse_logcat_file` runs over a captured logcat containing 2 000 `RVSEC-OCC` lines interleaved with its `RVSEC`, `RVSEC-COV` and `ApeRvHb` lines, and again over the same file with the `RVSEC-OCC` lines removed
+- **THEN** `calculate_metrics()`, `total_errors`, `unique_errors` and every coverage value SHALL be identical between the two runs
+- **AND** the diagnostic-event collection SHALL be identical between the two runs, and the first run's `lines_other_tag` SHALL be the second run's plus 2 000
+
 ### Requirement: The Device Log Buffer Is Sized Before Capture (FR33, NFR06)
 
 `LogcatManager.start_capture` SHALL set the device's log ring buffers to 16 MiB with `adb -s <serial> logcat -G 16M` before it clears the buffer and starts the capture (INV-CORE-64). The size is a named constant, `LOGCAT_BUFFER_SIZE`, in `rv_android_core/constants.py`.
 
 A capture is a live stream of a ring buffer, so a line that `logd` prunes before the host reader receives it is lost without a trace in the file. The default of the campaign image is 2 MiB, which held 46 s of history in a one-minute run; 16 MiB, the largest size Android's developer settings offer, holds eight times that. The sizing runs on every capture rather than once per device because it is cheap and a device may have been rebooted between tasks. It is a separate command, not an extra flag on the capture command, so the capture command stays byte-identical to INV-CORE-37. A failure is logged and the capture proceeds: a smaller buffer loses lines under load, and no capture loses every line.
 
+The size is not raised for the occurrence stream. The buffer only has to hold what the live reader has not yet received, not the whole run. The E6 capture absorbed peaks of 6 673 lines in one second; at about 400 bytes a line, 16 MiB is several seconds of reader lag at that rate. `-G` sizes each default buffer separately, so a larger value would take guest memory three times over.
+
 #### Scenario: the buffer is sized before the capture starts
 
 - **WHEN** `start_capture` is called for serial `emulator-5554` with `clear_buffer=True`
-- **THEN** the commands MUST be issued in the order `adb -s emulator-5554 logcat -G 16M`, `adb -s emulator-5554 logcat -c`, `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V`
+- **THEN** the commands MUST be issued in the order `adb -s emulator-5554 logcat -G 16M`, `adb -s emulator-5554 logcat -c`, `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V`
 - **AND** the third command MUST be byte-identical to the one INV-CORE-37 fixes
 
 #### Scenario: a failed sizing does not stop the capture
@@ -972,6 +1003,26 @@ positionally do not.
 - **THEN** the header MUST be
   `apk,rep,timeout,tool,time,spec,class,method,source,code,event,message,unique_msg`
 - **AND** each row MUST carry the originating record's `source` value in that column
+
+### Requirement: Emulator Memory and Data Partition at Launch (FR07, NFR04)
+
+`Android.start_emulator` SHALL launch the emulator with `-memory 4096 -partition-size 8192`, the values of `EMULATOR_MEMORY_MB` and `EMULATOR_PARTITION_SIZE_MB` in `rv_android_core/constants.py` (INV-CORE-66), in addition to the flags it already passes. It SHALL NOT pass `-cores`; the AVD's `hw.cpu.ncore=4` stays in force.
+
+The AVD of the campaign image is created by `avdmanager` with the `pixel` profile defaults, `hw.ramSize=1536M` and `disk.dataPartition.size=800M`. With 1536 MB, the guest's low-memory killer can terminate the app under test during a run. That kill looks like an app restart, and a restart resets the monitor's in-process state. With 800 MB, a large APK can fail to install. Passing the values at launch, rather than editing the AVD's `config.ini` in the image, keeps the change in the module that owns the launch and needs no rebuild of the `docker/android` image layer. The flags take precedence over the AVD's configuration for that launch.
+
+The new values change the conditions a run executes under. Campaigns run before this requirement ran with 1536 MB and 800 MB, and a comparison with them SHALL state the difference beside it.
+
+#### Scenario: the launch argv carries memory and partition
+
+- **WHEN** `Android.start_emulator("RVSec", no_window=True, device_port=5556)` is called
+- **THEN** the emulator command MUST be `emulator -avd RVSec -port 5556 -read-only -no-cache -no-boot-anim -noaudio -no-snapshot-save -delay-adb -memory 4096 -partition-size 8192 -no-window`
+- **AND** it MUST NOT contain `-cores`
+
+#### Scenario: the values come from the constants
+
+- **WHEN** a test sets `EMULATOR_MEMORY_MB` to `2048` through monkeypatching the constants module and calls `start_emulator`
+- **THEN** the argv MUST carry `-memory 2048`
+- **AND** no environment variable MUST be read to build either value
 
 ### Requirement: Emulator Boot Completion Gating (FR07, NFR04)
 
