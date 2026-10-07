@@ -8,14 +8,22 @@ descriptor is the sole contract (INV-INS-56). Shades to `instr-cli.jar` (picocli
 
 This is a **Maven sub-reactor** (`packaging=pom`, groupId `br.unb.cic`, base
 Java package `br.unb.cic.rv.*` — note: NOT `br.unb.cic.rvsec.*`). Do NOT
-duplicate `architecture.md` (931 lines, canonical) or the spec here — point to them.
+duplicate `architecture.md` (canonical) or the spec here — point to them.
 
 ## Role in pipeline
 The **dexlib2 variant** of Android instrumentation, alternative to the **ajc
 variant** (`dex2jar→ajc→d8`, lossy on Kotlin/R8). Pipeline: descriptor → type
 resolution → DEX extraction → wrapper generation → advice weave → register
-alloc/injection → coverage weave → monitor build → merge/sign. Terminal phase
-is one of `dex_only` (default, `--output` omitted) / `build_only` / `signed`.
+alloc/injection → [handler stamp, opt-in] → coverage weave → monitor build →
+merge/sign. Terminal phase is one of `dex_only` (default, `--output` omitted) /
+`build_only` / `signed`.
+
+The handler stamp is the one rewrite that serves the GUI explorer rather than
+the monitors: it makes the instrumented app write the handler class bound to
+each clickable node into that node's `AccessibilityNodeInfo` extras, so a
+`UiAutomation` client (APE-RV) can key a node by handler class instead of by
+resource-id. It adds no monitor event and does not change what is accused. See
+"Handler stamp" below.
 
 ## Relationships
 - ⟵ consumes `MultiSpec_<N>MonitorAspect.json` descriptor + monitor `.java`
@@ -37,9 +45,9 @@ cli (aggregates all 8 above)   validator, grammar-tests (alongside, test/tooling
 | descriptor-reader | `descriptor/AspectDescriptor.java`, `DescriptorReader.java` | parse JSON descriptor (contract) |
 | pointcut-engine | `pointcut/PointcutMatcher.java`, `BaseAspectExpander.java` | resolve pointcuts, expand base aspects |
 | advice-emitter | `emitter/{WrapperEmitter,IfGuardEmitter,MonitorInvokeBuilder}.java` | wrappers, `if()` guards, monitor calls |
-| dex-mutator | `mutator/{DexWeaver,RegisterShifter,InstructionInjector}.java` | in-place DEX weave, register spill |
+| dex-mutator | `mutator/{DexWeaver,RegisterShifter,InstructionInjector,StampWeaver}.java` | in-place DEX weave, register spill; opt-in handler-stamp pass |
 | coverage-weaver | `coverage/CoverageWeaver.java` | inject `Coverage.log` probes |
-| monitor-builder | `builder/MonitorBuilder.java` | `javac`+`d8` of monitor sources |
+| monitor-builder | `builder/{MonitorBuilder,StampSourceEmitter}.java`, resource `builder/stamp/RvsecStamp.java` | `javac`+`d8` of monitor sources; emits/removes the `mop.RvsecStamp` helper |
 | multidex-merger | `merger/MultidexMerger.java` | merge DEXes, sign, zipalign |
 | cli | `cli/{InstrumentationCli,BatchRunner}.java` | picocli entry (`br.unb.cic.rv.cli`) |
 | validator | `commons-math3` sanity/stat checks (never on prod path) |
@@ -55,7 +63,69 @@ Test/tooling only (never prod path): commons-math3 (validator), commonmark (gram
 - `mvn -pl :cli -am package` → shade `cli/target/instr-cli.jar`, **auto-copied
   (design D9)** to `rv-android/modules/rv-instrumentation-dexlib2/lib/`.
 - Main class `br.unb.cic.rv.cli.InstrumentationCli`; batch:
-  `java -jar instr-cli.jar batch <apks-dir> --descriptor MultiSpec_1MonitorAspect.json --monitor-src-dir <mop> [--output <dir>]`.
+  `java -jar instr-cli.jar batch <apks-dir> --descriptor MultiSpec_1MonitorAspect.json --monitor-src-dir <mop> [--output <dir>] [--stamp-handlers]`.
+
+## Handler stamp (`--stamp-handlers`, off by default)
+Spec: "Handler Stamp on the Accessibility Node" in the instrumentation spec
+(INV-INS-174..180).
+
+- **Option.** `--stamp-handlers` / `--no-stamp-handlers` (picocli `Boolean`,
+  negatable, `INHERIT`, so both subcommands take it). `ConfigResolver` resolves
+  it into `EffectiveConfig.stampHandlers`: the option when given; with no
+  option, `RVSEC_STAMP_HANDLERS=true` (case-insensitive) turns it on;
+  otherwise off. `--no-stamp-handlers` wins over the variable. The variable is
+  for running `instr-cli` by hand: the Python wrapper hands the JVM a fixed
+  environment (INV-EXP-30) and never forwards it, so the pipeline passes the
+  option as argv (`DexlibInstrumentationConfig.stamp_handlers`, set by
+  `rv-experiment --stamp-handlers` / `RV_STAMP_HANDLERS`).
+- **Step 4a′ (`BatchRunner.runPipeline`, per DEX).** After the advice weave
+  (4a) and before the coverage weave (4b), over the same `mutator::forMethod`
+  bodies, `StampWeaver` rewrites every `invoke-virtual[/range]` of
+  `setOnClickListener(View$OnClickListener)`, `setOnLongClickListener(View$OnLongClickListener)`
+  and `setAccessibilityDelegate(View$AccessibilityDelegate)` whose static owner
+  `InheritanceResolver` resolves as a `View` subtype (app, androidx and
+  Material alike) into `invoke-static mop.RvsecStamp.<same name>(View, X)`,
+  same registers, same size (`InstructionInjector.replaceInvoke`). After each
+  call of exactly
+  `AndroidComposeViewAccessibilityDelegateCompat.populateAccessibilityNodeInfoProperties(I, AccessibilityNodeInfoCompat, SemanticsNode)V`
+  it inserts `invoke-static mop.RvsecStamp.composeNode(info, node)`. Running
+  after the advice weave means an advice on a setter still sees the framework
+  call; a size-stable rewrite leaves coverage at method entry unaffected.
+- **Step 5a′ (before `MonitorBuilder`).** On: `StampSourceEmitter.emit` writes
+  the fixed resource as `<monitor-src-dir>/mop/RvsecStamp.java`, compiled into
+  the monitor DEX like `mop.Coverage`. Off: `StampSourceEmitter.remove` deletes
+  that source plus `monitor-build/classes/mop/RvsecStamp.class` and
+  `RvsecStamp$*.class` (nothing else of `mop/`). Both directories are shared
+  across a batch and across runs, and `MonitorBuilder` compiles every `.java`
+  it finds, so without the removal an off run after an on run would ship the
+  helper.
+- **Counters** (in `weaveCounts` only when on, so an off run's JSON keys are
+  unchanged): `stampClickSites`, `stampLongClickSites`, `stampDelegateSites`,
+  `stampComposeSites`, `stampInvokeSuperSkipped`, `stampOwnerNotView`. The MOP
+  counters are equal on and off. `stampComposeSites=0` on a Compose app means
+  R8 renamed the Compose internals.
+- **On the device.** Each setter helper makes the original call once, by
+  virtual dispatch, outside the `try`; stamp logic runs inside
+  `catch (Throwable)`. The stamp is a chaining `View.AccessibilityDelegate`
+  that forwards all ten callbacks and then writes `rvsec.click` /
+  `rvsec.longClick` (binary class name) into the node extras; a later app
+  delegate is chained behind it. `composeNode` resolves the clickable
+  modifier's lambda by reflection. Every stamp change is logged at `I` under
+  the tag `RVSEC-BIND` (`view kind=… id=… handler=…` /
+  `compose kind=… semanticsId=… bounds=… handler=…`), the fifth tag of the
+  platform's logcat capture.
+- **Delivery check.** That the extras reach a `UiAutomation` client is checked
+  by `rv-android/experimento-smk121/`: `StampProbe` (run with `app_process`,
+  as APE-RV does) dumps the `rvsec.*` extras of the first screen and of each
+  screen one click away, and `check_delivery.py` pairs each node with its last
+  `RVSEC-BIND` line (View by view-id, Compose by bounds).
+- **Known limits** (what the stamp says, not defects): XML `android:onClick`
+  stamps `AppCompatViewInflater$DeclaredOnClickListener`; toolbar, menu and
+  `SearchView` stamp the library dispatcher (`ToolbarWidgetWrapper$1`,
+  `ActionMenuItemView`, `SearchView$5`); `AlertDialog` buttons and `Preference`
+  rows are not stamped (no routed setter); R8-renamed Compose gets 0 sites and
+  no change; below API 29 the delegate a view already carries cannot be read,
+  so the stamp replaces it instead of chaining (campaigns run on API 30).
 
 ## Documentation conventions
 Java in this module is documented with **Javadoc**, and the `rvsec-core` helper
@@ -129,7 +199,7 @@ classes the woven monitors call follow the same eleven rules.
     which ages out of the tracker and leaves the marker unreadable.
 
 ## References (do not duplicate)
-- `architecture.md` — deep canonical ref (931 lines).
+- `architecture.md` — deep canonical ref.
 - Grammar coverage matrix (living contract, CI-enforced): **lives OUTSIDE this
   module** at `rv-android/docs/aspectj_grammar_coverage.md`. Verdicts: `COVERED` /
   `SILENT-GAP` (0 post-gh62) / `EXPLICIT-NO-OP` / `NOT-NEEDED`. Supersedes
@@ -144,3 +214,7 @@ classes the woven monitors call follow the same eleven rules.
 - Multidex preserved (INV-INS-52); register spill avoids VerifyError.
 - `if()` lowering is **fork-free** (2 supported forms; else `UnsupportedAspectConstructError`).
 - `grammar-tests` produces no main artifact; the matrix doc lives in the **rv-android** tree.
+- Handler stamp off = byte-identical DEX output and no `stamp*` key (INV-INS-174);
+  keep any stamp code behind `cfg.stampHandlers()` and keep the step-5a′ removal.
+- `RvsecStamp.java` compiles against `android.jar` alone at `-source 1.8`: no
+  androidx/Compose type at compile time (Compose objects arrive as `Object`).

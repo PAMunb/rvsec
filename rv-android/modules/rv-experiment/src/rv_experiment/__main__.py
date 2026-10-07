@@ -58,6 +58,7 @@ from rv_android_core.util.logging.manager import LoggingManager
 from rv_experiment.config import (
     ExperimentConfig,
     resolve_package_detector,
+    resolve_stamp_handlers,
     resolve_strip_build_type_suffix,
 )
 from rv_experiment.constants import (
@@ -345,6 +346,20 @@ def _strip_build_type_suffix_callback(ctx, param, value: Optional[bool]) -> bool
     """
     try:
         return resolve_strip_build_type_suffix(value)
+    except ValueError as e:
+        raise click.BadParameter(str(e)) from e
+
+
+def _stamp_handlers_callback(ctx, param, value: Optional[bool]) -> bool:
+    """Click callback resolving ``--stamp-handlers`` against RV_STAMP_HANDLERS.
+
+    Same placement and same reason as ``_package_detector_callback``: it runs
+    during parameter processing, so an unparseable environment value aborts with
+    a usage error naming the variable instead of reaching pre-processing, where
+    it would silently decide whether the run's APKs carry the stamp (INV-EXP-40).
+    """
+    try:
+        return resolve_stamp_handlers(value)
     except ValueError as e:
         raise click.BadParameter(str(e)) from e
 
@@ -660,6 +675,21 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
         "--config: put strip_build_type_suffix in the file instead."
     ),
 )
+# No `envvar=` here either, and for the same reason as the pairs above.
+@click.option(
+    "--stamp-handlers/--no-stamp-handlers",
+    default=None,
+    callback=_stamp_handlers_callback,
+    help=(
+        "Instrument with the handler stamp: the click and long-click handler of "
+        "each clickable node (View and Compose) is recorded on that node (extras rvsec.click / "
+        "rvsec.longClick) and logged under RVSEC-BIND (default: off). Overrides "
+        "RV_STAMP_HANDLERS (CLI > env > default). dexlib2 only: with "
+        "--instrumentation-variant ajc the run aborts before pre-processing. No "
+        "effect under --skip-instrument, whose APKs were instrumented earlier. "
+        "Ignored under --config: put stamp_handlers in the file instead."
+    ),
+)
 @pass_context
 @ErrorHandler.handle_errors(component="CLIContext", phase="run_experiment")
 def run(
@@ -689,6 +719,7 @@ def run(
     jvm_memory: Optional[str],
     package_detector: bool,
     strip_build_type_suffix: bool,
+    stamp_handlers: bool,
 ):
     """
     Execute an experiment from CLI arguments or a JSON configuration file.
@@ -791,6 +822,22 @@ def run(
                     logcat_diagnostics=logcat_diagnostics,
                     package_detector=package_detector,
                     strip_build_type_suffix=strip_build_type_suffix,
+                    stamp_handlers=stamp_handlers,
+                )
+
+            # INV-EXP-40: the ajc variant has no handler stamp, so the flag would
+            # do nothing and a campaign would run without the stamp it asked for.
+            # Checked on the resolved config, so a --config file whose
+            # stamp_handlers is true is held to it as well. Raised here rather than
+            # in validate(), whose @handle_errors wrapper absorbs its exceptions.
+            if (
+                experiment_config.stamp_handlers
+                and experiment_config.instrumentation_variant != "dexlib2"
+            ):
+                raise click.ClickException(
+                    "--stamp-handlers requires --instrumentation-variant dexlib2; "
+                    f"the '{experiment_config.instrumentation_variant}' variant "
+                    "has no handler stamp"
                 )
 
             # Validate before execution to catch errors early (missing APKs, unknown tools,
@@ -1262,6 +1309,9 @@ def _create_experiment_config_from_cli(
     # _strip_build_type_suffix_callback. False is the declared applicationId
     # verbatim, which is what every recorded run so far used.
     strip_build_type_suffix: bool = False,
+    # gh121 handler-stamp policy — already resolved (CLI > env > default) by
+    # _stamp_handlers_callback. False instruments without the stamp.
+    stamp_handlers: bool = False,
 ) -> ExperimentConfig:
     """
     Create ExperimentConfig from CLI arguments.
@@ -1406,6 +1456,7 @@ def _create_experiment_config_from_cli(
             logcat_diagnostics=logcat_diagnostics,
             package_detector=package_detector,
             strip_build_type_suffix=strip_build_type_suffix,
+            stamp_handlers=stamp_handlers,
             specification_set=specification_set,
             custom_specs_dir=custom_specs_dir,
             custom_aspects_dir=custom_aspects_dir,

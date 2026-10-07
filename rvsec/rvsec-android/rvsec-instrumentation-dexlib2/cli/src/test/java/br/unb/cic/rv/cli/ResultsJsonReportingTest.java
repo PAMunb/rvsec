@@ -41,7 +41,7 @@ class ResultsJsonReportingTest {
     /** Config with nothing resolved — runPipeline reports config_validation. */
     private static EffectiveConfig failingConfig() {
         return new EffectiveConfig(null, null, null, null, List.of(),
-                null, null, null, true, null, "INFO");
+                null, null, null, true, false, null, "INFO");
     }
 
     @Test
@@ -191,6 +191,35 @@ class ResultsJsonReportingTest {
      */
     @Test
     void aWovenApkReportsEveryWrapperCounter(@TempDir Path tmp) throws Exception {
+        JsonNode counts = weaveEmptyApkWithoutStamp(tmp);
+        for (String key : List.of("wrappersGenerated", "advicesExcludedByArity",
+                "wrapperTargetsUnresolved", "wrappersAliasedToSubtype", "wrapperAliasesUnmerged")) {
+            assertTrue(counts.hasNonNull(key), key + " must be written, never omitted");
+            assertEquals(0, counts.get(key).asInt(), key);
+        }
+    }
+
+    /**
+     * A run without the handler stamp writes none of the six {@code stamp*}
+     * counters (INV-INS-174): their absence is how a reader tells a run without
+     * the stamp from one with it, whichever way the option was resolved.
+     */
+    @Test
+    void aWovenApkWithoutTheStampReportsNoStampCounter(@TempDir Path tmp) throws Exception {
+        JsonNode counts = weaveEmptyApkWithoutStamp(tmp);
+
+        assertTrue(counts.hasNonNull("wovenDexes"), "the weave loop ran: " + counts);
+        counts.fieldNames().forEachRemaining(key ->
+                assertFalse(key.startsWith("stamp"), key + " written by a run without the stamp"));
+    }
+
+    /**
+     * Drives {@link BatchRunner#instrumentOne} with {@code stampHandlers=false}
+     * on an APK holding one empty DEX and a descriptor with no advices; the run
+     * stops at {@code dex_only} because no monitor build is configured. Returns
+     * the APK's {@code weaveCounts}.
+     */
+    private static JsonNode weaveEmptyApkWithoutStamp(Path tmp) throws Exception {
         Path descriptor = Files.writeString(tmp.resolve("descriptor.json"),
                 "{\"aspectName\":\"EmptyMonitorAspect\",\"imports\":[],\"advices\":[]}");
         Path dex = tmp.resolve("classes.dex");
@@ -204,19 +233,14 @@ class ResultsJsonReportingTest {
         }
         EffectiveConfig cfg = new EffectiveConfig(descriptor, null,
                 Files.createDirectory(tmp.resolve("work")), null, List.of(),
-                null, null, null, false, null, "INFO");
+                null, null, null, false, false, null, "INFO");
         Path out = tmp.resolve("empty.json");
 
         BatchRunner.instrumentOne(cfg, apk, out);
 
         JsonNode entry = MAPPER.readTree(out.toFile()).get("results").get(0);
         assertEquals("dex_only", entry.get("phase").asText(), entry.get("message").asText());
-        JsonNode counts = entry.get("weaveCounts");
-        for (String key : List.of("wrappersGenerated", "advicesExcludedByArity",
-                "wrapperTargetsUnresolved", "wrappersAliasedToSubtype", "wrapperAliasesUnmerged")) {
-            assertTrue(counts.hasNonNull(key), key + " must be written, never omitted");
-            assertEquals(0, counts.get(key).asInt(), key);
-        }
+        return entry.get("weaveCounts");
     }
 
     @Test

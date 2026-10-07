@@ -286,6 +286,47 @@ is uninitialised on that path; a plain `after` cannot bind it (`target` is not b
 constructor call and the constructed object is reachable only through `returning`, whose advice
 keeps the normal path alone).
 
+**Stage 6′ — handler stamp (optional, `--stamp-handlers`).** Our `Cipher` example does not
+touch this stage; it runs only when the stamp option resolves to on, and it serves the GUI
+explorer, not the monitors. `ConfigResolver` resolves `EffectiveConfig.stampHandlers` from
+`--stamp-handlers` / `--no-stamp-handlers` when either is given and, with no option, from
+`RVSEC_STAMP_HANDLERS` (`true`, case-insensitive), so that `instr-cli` run by hand can be
+switched by environment; `--no-stamp-handlers` wins over the variable. The Python wrapper never
+forwards that variable (it hands the JVM a fixed environment, INV-EXP-30) and passes the option
+as argv instead (INV-INS-180). When on, `BatchRunner.runPipeline` builds one `StampWeaver` over
+the APK-wide `InheritanceResolver`, and in step 4a′ — after the advice weave of a DEX and before
+its coverage weave, over the same `mutator::forMethod` bodies — calls
+`StampWeaver.weave(dex, mutator::forMethod)`. The pass does two things:
+
+- **View setters.** Every `invoke-virtual` or `invoke-virtual/range` of
+  `setOnClickListener(Landroid/view/View$OnClickListener;)V`,
+  `setOnLongClickListener(Landroid/view/View$OnLongClickListener;)V` or
+  `setAccessibilityDelegate(Landroid/view/View$AccessibilityDelegate;)V` whose static owner the
+  hierarchy resolves as a `View` subtype becomes `invoke-static` of the `mop.RvsecStamp` method of
+  the same name, with signature `(Landroid/view/View;<listener type>)V` and the same register list
+  (`InstructionInjector.replaceInvoke`, size-stable, so branch targets and try ranges stay put).
+  The owner may be app, androidx or Material code: a listener a library sets on a view the app
+  inflated is still the handler of the node the tool clicks. `invoke-super` sites name an
+  implementation the helper cannot call, so they are left alone and counted in
+  `stampInvokeSuperSkipped`; a virtual site whose owner is not (or cannot be resolved as) a `View`
+  is counted in `stampOwnerNotView`. Sites inside the `mop` package are not candidates.
+- **Compose population.** A Compose screen has virtual accessibility nodes and no listener call
+  to route. Compose fills each virtual node in the private method
+  `AndroidComposeViewAccessibilityDelegateCompat.populateAccessibilityNodeInfoProperties(ILandroidx/core/view/accessibility/AccessibilityNodeInfoCompat;Landroidx/compose/ui/semantics/SemanticsNode;)V`;
+  immediately after each call of exactly that reference the pass inserts
+  `invoke-static Lmop/RvsecStamp;->composeNode(Ljava/lang/Object;Ljava/lang/Object;)V` over the
+  call's own info and node registers (the call returns `void`, so both still hold their values).
+  A build whose Compose internals R8 renamed has no match: no stamp and no change.
+
+The pass runs after the advice weave so that an advice whose pointcut matches a setter still sees
+the framework call, not the helper; and because its setter rewrite is size-stable, the coverage
+weave that follows is unaffected. It returns a `StampReport` whose six counts `BatchRunner`
+merges into `weaveCounts` as `stampClickSites`, `stampLongClickSites`, `stampDelegateSites`,
+`stampComposeSites`, `stampInvokeSuperSkipped` and `stampOwnerNotView` — only when the stamp is
+on, so an off run writes exactly the keys it wrote without this stage (INV-INS-174), and a run
+turned on by the environment is still recognisable from its output. Every MOP counter has the same
+value on and off (INV-INS-175).
+
 **Stage 7 — coverage weave + serialize.** If `--coverage` is on (default), `CoverageWeaver.weave`
 prepends `invoke-static Lmop/Coverage;.log(Ljava/lang/String;)V` to every non-excluded
 application method, using the same spill strategy. Then `DexFileMutator.toDexFile` materializes
@@ -299,7 +340,18 @@ the rv-monitor sources + `MonitorWrappers` + `Coverage` and `d8` over the result
 monitor `classes<N>.dex` (d8 auto-splits past the 65,536 method-id limit). If those paths are
 absent the pipeline stops at written DEXes and reports `phase=dex_only`. `MonitorBuilder.build`
 returns the list of monitor `.dex`; failure surfaces as `CommandException` tagged `tool=javac`
-or `tool=d8`.
+or `tool=d8`. Between the `Coverage.java` emission (step 5a) and the build (step 5b), step 5a′
+handles the stamp helper. With the stamp on, `StampSourceEmitter.emit` writes the fixed
+classpath resource `br/unb/cic/rv/builder/stamp/RvsecStamp.java` as
+`<monitor-src-dir>/mop/RvsecStamp.java`, and `MonitorBuilder` compiles and dexes it with the
+monitors, as it does `mop.Coverage`; keeping the helper in the monitor DEX keeps it out of the app
+DEXes, whose method-id count goes down because owner-specific setter references collapse into at
+most four helper references. With the stamp off, `StampSourceEmitter.remove` deletes that source
+and `<work-dir>/monitor-build/classes/mop/RvsecStamp.class` and `RvsecStamp$*.class`, and no other
+file of `mop/`. The removal is what keeps an off run byte-identical: the source and build
+directories are shared by every APK of a batch and by successive runs, and `MonitorBuilder`
+compiles every `.java` it finds, so a helper left by an earlier on run would otherwise land in the
+off APK's monitor DEX.
 
 **Stage 9 — merge + sign (optional).** If the signing config and `--output` are present, phase 6
 runs `MultidexMerger.merge`: it rewrites the APK ZIP copying every non-DEX entry verbatim,
@@ -309,6 +361,58 @@ replaces `classes<N>.dex` with the woven versions, appends each monitor DEX into
 `PerApkResult` is `phase=signed, success=true`. The signed APK lands at
 `outputDir/<apkName>`; the aggregate is written to `instrument_results.json` with
 `variant=dexlib2`, which the Python wrapper parses into `InstrumentationResults`.
+
+**On the device — what a stamped APK does.** In an APK instrumented with the stamp, a routed
+setter reaches `mop.RvsecStamp`. Each setter helper first makes the original call on the receiver
+exactly once, by virtual dispatch and outside any `try`, so an app subclass that overrides the
+setter still runs its override and an exception it throws reaches the app unchanged; only then
+does it update the stamp, inside `catch (Throwable)`, so stamp logic never throws into the app
+(INV-INS-177). On a view's first non-null listener the helper installs a stamp
+`View.AccessibilityDelegate` that forwards all ten delegate callbacks to the delegate the app had
+set (read with `View.getAccessibilityDelegate()` from API 29) or to the platform default, and in
+`onInitializeAccessibilityNodeInfo`, after forwarding, writes `rvsec.click` and `rvsec.longClick`
+into the node extras: the `getClass().getName()` of the last non-null listener routed for that
+view, with the key removed when the last one was `null`. A callback re-entered while being
+forwarded goes to the platform default, because a delegate that wraps the delegate it finds on
+the view (as `ViewCompat` does) would otherwise call back into the stamp. An app delegate set later
+through a routed `setAccessibilityDelegate` is chained behind the stamp instead of replacing it
+(INV-INS-178). For a Compose node, `composeNode` reads the node's unmerged semantics configuration
+by reflection — the `OnClick` / `OnLongClick` action's lambda, its `this$0` clickable modifier
+node, that node's `onClick` / `onLongClick` field (`onValueChange` on a `ToggleableNode`), or the
+lambda's own class when no modifier node is reached — and writes the same keys into the unwrapped
+`AccessibilityNodeInfo`. Its parameters are `Object` because the helper compiles against
+`android.jar` alone at `-source 1.8`, with no androidx or Compose type at compile time.
+
+Every change of a stamp writes one logcat line at level `I` under the tag `RVSEC-BIND`
+(INV-INS-179): `view kind=<click|longClick> node=… viewClass=… id=<resource name|0x…|-> handler=<class|-> obj=…`
+for a view, and `compose kind=… node=… semanticsId=… id=… bounds=… handler=…[ longClickHandler=…]`
+for a Compose semantics id; setting a listener of the same class again writes nothing. The line
+lets the stamp be checked from a logcat capture alone, and the platform's capture keeps the tag
+(it is the fifth baseline tag beside `RVSEC`, `RVSEC-COV`, `ApeRvHb` and `RVSEC-OCC`). The stamp is
+useful only if the extras reach the process that reads the tree, so delivery to a `UiAutomation`
+client is checked on a device by the harness in `rv-android/experimento-smk121/`: a minimal probe
+(`StampProbe`, run with `app_process` the way APE-RV obtains its `UiAutomation`) is the tool of a
+short `rv-platform` task (`run_probe.py`), dumps the `rvsec.*` extras of every node of the first
+screen and of each screen one click away, and `check_delivery.py` pairs each dumped node with the
+last `RVSEC-BIND` line for it before the dump (View by view-id resource name, Compose by screen
+bounds). The check passes when no paired node shows a handler different from its line and at
+least one View node and one Compose node are paired across the run. The probe is the only
+`UiAutomation` client on the device during that task, and `rv-platform` keeps managing the
+emulator.
+
+The stamp names the class of the listener object the app passed, which bounds what a consumer may
+read into it. An XML `android:onClick` under AppCompat stamps the inflater's generic
+`AppCompatViewInflater$DeclaredOnClickListener` (the app method's name sits in its `mMethodName`
+field, which the helper does not read). The toolbar navigation button, menu items and `SearchView`
+stamp the library's own dispatcher (`ToolbarWidgetWrapper$1`, `ActionMenuItemView`,
+`SearchView$5`), which hands off to an app callback such as `onOptionsItemSelected`. `AlertDialog`
+buttons and `Preference` rows get their listeners inside the framework or the preference library,
+through no routed setter, so they carry no stamp. An APK whose Compose internals R8 renamed gets
+`stampComposeSites=0` and no Compose stamp. Below API 29 the delegate a view already carries
+cannot be read, so the stamp delegate replaces an app delegate set before the first listener
+instead of chaining it; the campaigns run on API 30. The granularity is the handler class: an
+activity implementing `View.OnClickListener` for several buttons stamps the activity on all of
+them.
 
 ### 5. Core components
 
@@ -350,12 +454,19 @@ serializes a root object `{variant: dexlib2, results: [PerApkResult...]}` where 
 distinguish a clean signed result from a partial `dex_only` / `build_only` result and from a
 hard failure, and route the experiment accordingly.
 
+One more element appears only when the stamp option is on: **`mop.RvsecStamp`**, a fixed Java
+source shipped as a `monitor-builder` resource rather than generated per descriptor. It is the
+runtime half of the handler stamp — the setter helpers the rewritten call sites reach, the stamp
+delegate, `composeNode` and the `RVSEC-BIND` log — and it travels in the monitor DEX next to
+`mop.MonitorWrappers` and `mop.Coverage` (see [On the device](#4-how-it-works--end-to-end)).
+
 | Component | Realized by | Responsibility |
 |-----------|-------------|----------------|
 | instr-cli JVM process | `cli/InstrumentationCli`, `cli/BatchRunner` | The short-lived OS process the Python wrapper launches per `java -jar` to run the weave pipeline. |
 | DEX weave pipeline | `cli/BatchRunner.runPipeline`, `dex-mutator/DexWeaver`, `coverage-weaver/CoverageWeaver` | The six-phase in-process transformation from APK + descriptor to woven DEXes (and optionally signed APK). |
 | `mop.MonitorWrappers` (generated) | `advice-emitter/WrapperEmitter` | Generated static wrappers that fire monitor events without aliasing the caller's registers. |
 | `instrument_results.json` | `cli/BatchRunner.writeResultsJson`, `cli/BatchRunner.PerApkResult` | The cross-language result contract: per-APK phase, success flag, message, and weave counters. |
+| `mop.RvsecStamp` (fixed resource, stamp on only) | `monitor-builder/StampSourceEmitter` + resource `stamp/RvsecStamp.java`; call sites rewritten by `dex-mutator/StampWeaver` | Runtime helper of the handler stamp: makes the original setter call, installs the chaining stamp delegate, writes `rvsec.click` / `rvsec.longClick` node extras, logs `RVSEC-BIND`. |
 
 ### 6. Mapping between views
 
@@ -373,7 +484,8 @@ The one boundary that crosses a language and a process is the link between the P
 this subsystem. The Python `rv-instrumentation-dexlib2` module **depends on** the
 *instr-cli JVM process* through a subprocess mechanism: `java -jar instr-cli.jar {instrument|batch} ... --results-json`.
 What crosses that boundary is argv in one direction (the descriptor path, `android.jar`,
-toolchain paths, keystore, output/work dirs, the coverage toggle) and `instrument_results.json`
+toolchain paths, keystore, output/work dirs, the coverage toggle, `--stamp-handlers` when the
+caller's configuration asks for the stamp) and `instrument_results.json`
 in the other (per-APK `phase`, `success`, `message`, `weaveCounts`). Three further dependencies
 cross out of the JVM into native toolchains: `dex-mutator` depends on the in-process
 **smali-dexlib2** library for DEX read/mutate/write, while `monitor-builder` shells out to the
@@ -463,6 +575,28 @@ uses) and continues to the next APK (INV-INS-55). The rejected alternative (thro
 batch) would lose every successful APK after the first failure and force a full re-run; the phase
 tag also lets `dex_only`/`build_only` artifacts be consumed downstream for debugging.
 
+**Handler stamp as a separate, opt-in pass with a fixed helper (INV-INS-174..179).** APE-RV keys
+widget guidance by `(activity, resource-id, event)`; many clicked nodes carry no resource-id, and
+Compose virtual nodes carry none the static analysis knows, while the static widget → handler
+binding over-assigns where the id does match. Recording the handler class on the real node at
+run time removes both limits for every stamped node. Four choices shape it. *A pass of its own,
+not the wrapper registry:* the advice weaver's wrapper map is keyed to `MonitorWrappers` and gated
+by the descriptor's `commonPointcut`; registering the setters there would make the stamp depend on
+the descriptor and mix a GUI observation into the monitors' wrappers, and would change the MOP
+weave. `StampWeaver` reuses only `replaceInvoke` and the shared mutable bodies. *After the advice
+weave, before coverage:* so an advice on a setter keeps seeing the framework call, and a
+size-stable rewrite leaves method-entry coverage untouched. *A fixed source compiled into the
+monitor DEX:* one build path, compiled against the same `android.jar` as the monitors, and no
+second prebuilt artifact to keep in sync with the toolchain; it also moves helper code out of the
+app DEXes and their 64K method-id budget. *Off is today's output:* the option defaults to off, the
+`stamp*` counters exist only when it is on, and step 5a′ removes any helper an earlier run left in
+the shared directories, so every woven `classes*.dex` and the monitor DEX of an off run are
+byte-identical to the instrumenter's output without the stamp code, and every published
+measurement stays reproducible. The rejected alternative for Compose was rewriting
+`Modifier.clickable(…)` call sites to add a `testTag`: it depends on Kotlin-mangled names that
+change between Compose versions and overwrites an app's own tag, whereas one exact-match insertion
+after node population needs no Compose type at compile time and fails closed on a renamed library.
+
 **Decisions at a glance**
 
 | Decision | Drivers | Invariant / ADR |
@@ -472,6 +606,7 @@ tag also lets `dex_only`/`build_only` artifacts be consumed downstream for debug
 | Frame growth by MMI clone + mandatory supplier notification | registerCount is private final, atomic spill, serialization must see grown frame | INV-INS-80 (also INV-INS-87) |
 | Class-invariant `commonPointcut` hoisted to per-class gate | weave performance O(classes) not O(classes×methods×instr×advices); correctness equivalence | — (§4.PERF.P2.1) |
 | Phase-tagged partial results (well-formed failure) | batch resilience, cross-language error routing | INV-INS-55 |
+| Handler stamp as a separate, opt-in pass with a fixed helper in the monitor DEX | resource-id-free node key for the GUI explorer; MOP weave unchanged; off byte-identical | INV-INS-174..179 |
 
 **Patterns and styles**
 
@@ -507,7 +642,9 @@ ajc baseline.
 `EffectiveConfig`, and all flags are picocli `INHERIT`-scoped so they apply uniformly to both
 subcommands. Optional stages degrade cleanly: omitting `--monitor-src-dir` stops at
 `phase=dex_only`; omitting the signing config stops at `build_only`. The `--coverage` toggle
-(negatable, default true) selects whether `CoverageWeaver` runs.
+(negatable, default true) selects whether `CoverageWeaver` runs. The `--stamp-handlers` toggle
+(negatable, default off, `RVSEC_STAMP_HANDLERS=true` as its fallback when neither form is given)
+selects whether `StampWeaver` runs and whether the `mop.RvsecStamp` helper is compiled.
 
 *Observability (NFR06).* Weaving emits a rich `WeaveReport` of counters (`classesSeen`,
 `methodsSeen`, `matchesApplied`, `wrappersSubstituted`, `wrappersAliasedToSubtype`,
@@ -521,7 +658,10 @@ INV-INS-160). `wrappersAliasedToSubtype` and `wrapperAliasesUnmerged` accumulate
 instance, so every per-DEX report already carries the APK total and the counts map stores rather
 than sums them; `advicesExcludedByArity` and `wrapperTargetsUnresolved` are always written, so `0`
 means "none", not "not measured". Every place the weaver declines to weave something it matched
-therefore has a number. These are not just logs: downstream `jq` guards in
+therefore has a number. With the handler stamp on, six `stamp*` counters join them
+(`stampClickSites`, `stampLongClickSites`, `stampDelegateSites`, `stampComposeSites`,
+`stampInvokeSuperSkipped`, `stampOwnerNotView`); they are absent, not zero, when the stamp is off,
+and on the device every stamp change is logged under `RVSEC-BIND`. These are not just logs: downstream `jq` guards in
 `run_phase5_validators.sh` fail the build when a regression counter is non-zero (e.g.
 `plansSkippedUnresolvedBinding` signals the cryptoapp VerifyError regression).
 
@@ -539,15 +679,17 @@ null rather than throwing); a binding that cannot be encoded or resolved is skip
 counter (`HighRegisterNonContiguous`, `UnresolvedBindingException`) instead of emitting a
 verifier-invalid `v0`; and a per-APK exception becomes a phase-tagged `PerApkResult` so the batch
 continues. A spill that overflows an unwidenable format vetoes that one method, leaving the rest
-of the class intact.
+of the class intact. On the device, the stamp helper catches every `Throwable` of its own logic
+after the app's original setter call has run, so a stamp failure leaves a node without a stamp
+(and without an `RVSEC-BIND` line) instead of reaching the app.
 
 | NFR | PRD ID | Architectural support |
 |-----|--------|-----------------------|
 | Compatibility | NFR07 | `RegisterShifter` verifier-valid frames; wrapper strategy INV-INS-66; `MultidexMerger` INV-INS-52; `BootValidator` |
-| Configurability | NFR05 | `ConfigResolver` flag→env→default; INHERIT-scoped options; `canBuild`/`canMerge` gating |
-| Observability | NFR06 | `DexWeaver.WeaveReport`; `BatchRunner` counts map; INV-INS-71 guard |
+| Configurability | NFR05 | `ConfigResolver` flag→env→default; INHERIT-scoped options; `canBuild`/`canMerge` gating; `--stamp-handlers` off by default |
+| Observability | NFR06 | `DexWeaver.WeaveReport`; `BatchRunner` counts map; INV-INS-71 guard; `stamp*` counters and `RVSEC-BIND` lines when the stamp is on |
 | Testability | NFR03 | grammar-tests module; `FeatureMappingChecker` (INV-INS-54); `MutableImplSupplier` default methods |
-| Resilience | NFR04 | `parseCommonPointcut` + catch blocks; `MonitorInvokeBuilder` exceptions; `BatchRunner` phase tagging |
+| Resilience | NFR04 | `parseCommonPointcut` + catch blocks; `MonitorInvokeBuilder` exceptions; `BatchRunner` phase tagging; `mop.RvsecStamp` catches its own failures |
 
 ### 8. Output artifacts
 
@@ -560,9 +702,11 @@ results JSON is the contract the caller consumes regardless of outcome.
 |----------|----------|-------|
 | instrumented + signed APK | `outputDir/<apkName>` | the deliverable; produced only when monitor-src + signing config are supplied (`phase=signed`) |
 | woven DEX files | `workDir/woven_classes<N>.dex` | intermediate; the terminal artifact when `phase=dex_only` |
-| monitor DEX files | `workDir/monitor-build/dex/` | compiled monitor + MonitorWrappers + Coverage classes; merged into new `classes<N>.dex` slots |
+| monitor DEX files | `workDir/monitor-build/dex/` | compiled monitor + MonitorWrappers + Coverage classes, plus `mop.RvsecStamp` and its nested classes when the stamp is on; merged into new `classes<N>.dex` slots |
 | `mop/MonitorWrappers.java` + `mop/Coverage.java` | `monitorSrcDir` (or `workDir/monitor-src`) | generated Java sources `WrapperEmitter` / `CoverageSourceEmitter` emit for monitor-builder |
-| `instrument_results.json` | `results_dir` | the cross-language result contract: `{variant, results:[{apkName,success,message,phase,weaveCounts}]}` |
+| `mop/RvsecStamp.java` | `monitorSrcDir` | stamp on only: the fixed helper resource `StampSourceEmitter.emit` writes; with the stamp off, `StampSourceEmitter.remove` deletes it and its `.class` files under `workDir/monitor-build/classes/mop/` |
+| `instrument_results.json` | `results_dir` | the cross-language result contract: `{variant, results:[{apkName,success,message,phase,weaveCounts}]}`; `weaveCounts` carries the six `stamp*` keys only when the stamp is on |
+| node extras `rvsec.click` / `rvsec.longClick`, logcat tag `RVSEC-BIND` | on the device, at run time of a stamped APK | not files of this subsystem: what the woven app produces; read by a `UiAutomation` client and by the platform's logcat capture |
 
 ### 9. Directory
 
@@ -708,7 +852,10 @@ re-homing all labels and try-blocks, and shifting operands up — widening 4-bit
 `/from16` and vetoing the spill when a format cannot be widened. `StaticInitSynthesizer` creates a
 fresh `<clinit>` when a class needs static-init advice but has none (§4.Y). `DexFileMutator` is
 the `MutableImplSupplier`: it caches per-method mutable views and exposes `replaceImpl` so
-frame-growth clones replace the stale cached MMI. It is separate as the pure executor: plans come
+frame-growth clones replace the stale cached MMI. `StampWeaver` is the optional handler-stamp
+pass (step 4a′): it routes the three `View` setters to `mop.RvsecStamp` with `replaceInvoke` and
+inserts `composeNode` after Compose node population, over the same cached bodies, returning a
+`StampReport` of six counts; it materialises no method whose body has no candidate. It is separate as the pure executor: plans come
 in, mutations go out, and all DEX-format hazard is concentrated here. *Gotchas:* `registerCount`
 has no setter — the only safe grow is `bumpRegisterCount` (clones the whole MMI) and the caller
 MUST call `supplier.replaceImpl` after a grow (INV-INS-87/D5) or serialization drops the growth;
@@ -738,13 +885,18 @@ runtime class itself emitted by monitor-builder's `CoverageSourceEmitter`.
 The **monitor-builder** compiles the generated Java sources to DEX. `MonitorBuilder.build` runs
 `javac` over the rv-monitor sources + `MonitorWrappers` + `Coverage` using the `BuilderConfig`
 classpath, then `d8` to produce monitor `classes<N>.dex` (d8 auto-splits past the 65,536 method-
-id limit). `CoverageSourceEmitter` writes `mop/Coverage.java`. It is separate because it shells
+id limit). `CoverageSourceEmitter` writes `mop/Coverage.java`. `StampSourceEmitter` copies the
+fixed resource `stamp/RvsecStamp.java` to `mop/RvsecStamp.java` when the stamp is on and, when it is
+off, removes that source and the `RvsecStamp*.class` files a previous run left (step 5a′); a
+missing resource is a build defect and raises `IllegalStateException`. It is separate because it shells
 out to external JDK/Android-SDK binaries — a different category from in-process DEX mutation — so
 the weaver modules stay free of toolchain assumptions and the pipeline can skip this stage
 (`phase=dex_only`) when build paths are absent. *Gotchas:* the `javac` classpath must be narrowed
 to the jars the monitor sources reference (`rv-monitor-rt`, `rvsec-core`,
-`rvsec-logger-logcat`) — the Python wrapper computes this narrowed list; and a silent
-`javac`/`d8` failure (zero exit, no `.dex`) is caught downstream by the Python wrapper.
+`rvsec-logger-logcat`) — the Python wrapper computes this narrowed list; a silent
+`javac`/`d8` failure (zero exit, no `.dex`) is caught downstream by the Python wrapper; and
+`RvsecStamp.java` must compile against `android.jar` alone at `-source 1.8` — no androidx or
+Compose type at compile time, which is why `composeNode` takes `Object` parameters.
 
 The **multidex-merger** repacks and signs. `MultidexMerger.merge` rewrites the APK ZIP copying
 every non-DEX entry verbatim, replaces each `classes<N>.dex` with its woven version, appends each
@@ -759,7 +911,8 @@ expects pre-aligned input.
 The **cli** is the entrypoint and orchestrator, built as the `instr-cli` fat JAR.
 `InstrumentationCli` is the picocli root command (`br.unb.cic.rv.cli.InstrumentationCli`) with
 `instrument <apk>` and `batch <apks-dir>` subcommands; all flags are `INHERIT`-scoped.
-`ConfigResolver` applies explicit flag → env var → default to produce an `EffectiveConfig`, and
+`ConfigResolver` applies explicit flag → env var → default to produce an `EffectiveConfig` (for
+`--stamp-handlers`, the env var is `RVSEC_STAMP_HANDLERS`), and
 `BatchRunner.runPipeline` executes the six phases, tagging each `PerApkResult` with the phase it
 reached. It is separate because it is the process boundary — the single artifact the Python world
 invokes via `java -jar` and the only module that knows the full phase sequence and flag surface.
@@ -791,9 +944,9 @@ main-source artifact — it is a surefire-driven test module.
 | descriptor-reader (foundation) | Parse the JavaMOP JSON descriptor into a typed POJO tree. | depended on by pointcut-engine, advice-emitter, dex-mutator, cli, validator |
 | pointcut-engine (matcher) | Parse AspectJ pointcuts and match them against DEX tuples. | uses descriptor-reader; used by advice-emitter, dex-mutator, validator |
 | advice-emitter (emitter) | Translate a matched advice into an `EmitPlan`; generate static wrappers. | uses pointcut-engine + descriptor-reader; used by dex-mutator |
-| dex-mutator (executor) | Apply EmitPlans to a DexFile; substitute wrappers; allocate/grow registers; serialize. | uses advice-emitter + pointcut-engine + descriptor-reader; used by coverage-weaver, validator |
+| dex-mutator (executor) | Apply EmitPlans to a DexFile; substitute wrappers; allocate/grow registers; serialize; optional handler-stamp pass (`StampWeaver`). | uses advice-emitter + pointcut-engine + descriptor-reader; used by coverage-weaver, validator |
 | coverage-weaver (executor) | Prepend a `Coverage.log(signature)` call to every non-excluded method. | uses dex-mutator; used by grammar-tests |
-| monitor-builder (builder) | Compile generated monitor/wrapper/Coverage Java to DEX via `javac` + `d8`. | used by cli; shells out to JDK + Android SDK |
+| monitor-builder (builder) | Compile generated monitor/wrapper/Coverage Java (and `mop.RvsecStamp` when the stamp is on) to DEX via `javac` + `d8`. | used by cli; shells out to JDK + Android SDK |
 | multidex-merger (builder) | Repack woven + monitor DEXes into the APK; `zipalign` + `apksigner`. | used by cli; shells out to Android SDK |
 | cli (entrypoint) | Picocli entry point + pipeline orchestrator; the `instr-cli` fat JAR. | uses all weave/build modules; invoked via `java -jar` |
 | validator (validation) | Layered dexlib2-vs-ajc equivalence harness. | uses dex-mutator + pointcut-engine + descriptor-reader |
@@ -807,7 +960,8 @@ The dependency DAG is the hard constraint: a new pointcut construct adds a PCD c
 pointcut-engine; a new advice kind adds an emitter in advice-emitter plus an `EmitterDispatch`
 case; a new injection mechanism is contained in dex-mutator. No tier may depend upward, and
 coverage-weaver may depend only on dex-mutator. The `--coverage` toggle selects whether
-coverage-weaver participates; the monitor-builder and multidex-merger stages are independently
+coverage-weaver participates, and `--stamp-handlers` whether `StampWeaver` runs and
+`StampSourceEmitter` emits (on) or removes (off) the helper; the monitor-builder and multidex-merger stages are independently
 optional (their absence yields `dex_only` / `build_only`). The validation modules are never on
 the production path and may carry dependencies (commons-math3, commonmark) that production
 modules must not.
@@ -874,7 +1028,8 @@ directory (the fast path), while a strict `apk_paths` subset spawns one JVM per 
 the `javac`/`d8` stage runs only when `--monitor-src-dir` and toolchain paths are present, and the
 repack/sign stage runs only when signing config and `--output` are present — otherwise the run
 terminates at `dex_only` or `build_only`. The `--coverage` toggle inserts or omits the coverage
-filter within the weave stage.
+filter within the weave stage, and the `--stamp-handlers` toggle inserts or omits the stamp pass
+between the advice and coverage weaves.
 
 **Scenarios**
 
@@ -949,6 +1104,23 @@ with `line 69`, and a `before` advice is inserted at `L`, *THEN* the `if-eqz` ta
 still begins at the call. *Why:* a branch that kept pointing at the call would skip the monitor,
 which then reports a sequence failure on the following operation; a report from the block would
 name the wrong line (INV-INS-161).
+
+*WHEN* an APK is instrumented with `--stamp-handlers` and a method holds
+`invoke-virtual {v10, v11}, Landroid/widget/Button;->setOnClickListener(Landroid/view/View$OnClickListener;)V`,
+*THEN* step 4a′ rewrites it to
+`invoke-static {v10, v11}, Lmop/RvsecStamp;->setOnClickListener(Landroid/view/View;Landroid/view/View$OnClickListener;)V`
+and counts it in `stampClickSites`, *AND* the method's code size, branch targets and try ranges are
+unchanged, and every MOP counter has the value it has without the option. *Why:* the helper takes
+the receiver as its first parameter and calls the setter by virtual dispatch, so the app's
+behaviour is kept while the helper learns which listener the button received.
+
+*WHEN* a batch instruments one APK with `--stamp-handlers` and then, with the same
+`--monitor-src-dir` and `--work-dir`, a second APK without it, *THEN* step 5a′ of the second APK
+removes `mop/RvsecStamp.java` and the `RvsecStamp*.class` files before `MonitorBuilder` runs,
+*AND* the second APK's monitor DEX holds no `Lmop/RvsecStamp;` class. *Why:* `MonitorBuilder`
+compiles every `.java` in the shared source directory; without the removal an off run would ship
+the helper and stop being byte-identical to the instrumenter's output without the stamp
+(INV-INS-174).
 
 **Rationale**
 
@@ -1061,7 +1233,7 @@ narrated in the [Rationale](#7-rationale) section above.
 | Type | IDs | Where realized |
 |------|-----|----------------|
 | Functional requirements | FR01, FR02, FR03 | the full weave pipeline: `cli/BatchRunner.runPipeline` orchestrating descriptor-reader → pointcut-engine → advice-emitter → dex-mutator → coverage-weaver → monitor-builder → multidex-merger |
-| Invariants | INV-INS-52, INV-INS-53, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87, INV-INS-103, INV-INS-159, INV-INS-160, INV-INS-161, INV-INS-162, INV-INS-163 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-53 `coverage-weaver/PackageFilter` (canonical Coverage exclusion filter); INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator`; INV-INS-103 `advice-emitter/WrapperEmitter.expandCallTarget`; INV-INS-159 `pointcut-engine/PointcutMatcher.matchArgs` + `advice-emitter/WrapperEmitter` grouping loop (`advicesExcludedByArity`); INV-INS-160 `pointcut-engine/AndroidClassIndex.methodsInHierarchy` + `advice-emitter/WrapperEmitter.expandCallTarget` (`wrapperTargetsUnresolved`) + `dex-mutator/DexWeaver.resolveSubtypeAlias` (`wrappersAliasedToSubtype`, `wrapperAliasesUnmerged`); INV-INS-161 `dex-mutator/InstructionInjector.insertBefore`; INV-INS-162 `pointcut-engine/TypeResolver` with `AndroidClassIndex.exists`; INV-INS-163 `advice-emitter/WrapperEmitter.appendWrapperMethod` + `dex-mutator/DexWeaver.applyConstructorAfterFinally` |
+| Invariants | INV-INS-52, INV-INS-53, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87, INV-INS-103, INV-INS-159, INV-INS-160, INV-INS-161, INV-INS-162, INV-INS-163, INV-INS-174, INV-INS-175, INV-INS-176, INV-INS-177, INV-INS-178, INV-INS-179 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-53 `coverage-weaver/PackageFilter` (canonical Coverage exclusion filter); INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator`; INV-INS-103 `advice-emitter/WrapperEmitter.expandCallTarget`; INV-INS-159 `pointcut-engine/PointcutMatcher.matchArgs` + `advice-emitter/WrapperEmitter` grouping loop (`advicesExcludedByArity`); INV-INS-160 `pointcut-engine/AndroidClassIndex.methodsInHierarchy` + `advice-emitter/WrapperEmitter.expandCallTarget` (`wrapperTargetsUnresolved`) + `dex-mutator/DexWeaver.resolveSubtypeAlias` (`wrappersAliasedToSubtype`, `wrapperAliasesUnmerged`); INV-INS-161 `dex-mutator/InstructionInjector.insertBefore`; INV-INS-162 `pointcut-engine/TypeResolver` with `AndroidClassIndex.exists`; INV-INS-163 `advice-emitter/WrapperEmitter.appendWrapperMethod` + `dex-mutator/DexWeaver.applyConstructorAfterFinally`; INV-INS-174 `cli/ConfigResolver` (option, then `RVSEC_STAMP_HANDLERS`) + `cli/BatchRunner` step 4a′ guard and step 5a′ + `monitor-builder/StampSourceEmitter.remove`; INV-INS-175/176 `dex-mutator/StampWeaver.weave` (`stamp*` counters); INV-INS-177/178/179 `mop.RvsecStamp` (resource `monitor-builder/.../stamp/RvsecStamp.java`) |
 | NFRs | NFR03, NFR04, NFR05, NFR06, NFR07 | see [Rationale](#7-rationale) |
 
 **Related documentation:** per-module 4+1 docs (`modules/<m>/docs/architecture.md`), ADRs

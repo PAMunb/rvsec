@@ -464,7 +464,10 @@ class DexlibInstrumentation(Instrumenter):
         + ``mop/MonitorWrappers.java``). MonitorBuilder walks it recursively
         for .java sources. With it set, the Java CLI runs the full
         compile+merge+sign pipeline; without it the CLI stops at written
-        DEXes (phase=dex_only).
+        DEXes (phase=dex_only). ``--stamp-handlers`` is appended only when
+        ``config.stamp_handlers`` is true; otherwise the list carries no stamp
+        option and instr-cli weaves without the stamp, since the wrapper's
+        fixed environment never carries ``RVSEC_STAMP_HANDLERS``.
         """
         args = [
             "--descriptor",
@@ -493,6 +496,8 @@ class DexlibInstrumentation(Instrumenter):
                 "--classpath",
                 ",".join(str(p) for p in self.config.extra_classpath),
             ]
+        if self.config.stamp_handlers:
+            args.append("--stamp-handlers")
         return args
 
     # --- internals --------------------------------------------------------

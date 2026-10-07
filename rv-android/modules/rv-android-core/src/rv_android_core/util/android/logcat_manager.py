@@ -15,6 +15,7 @@ from rv_android_core.util.logging.constants import (
     LOG_ERROR,
     TAG_APERV_HEARTBEAT,
     TAG_RVSEC,
+    TAG_RVSEC_BIND,
     TAG_RVSEC_COV,
     TAG_RVSEC_OCC,
 )
@@ -72,19 +73,20 @@ class LogcatManager(BaseValidatedModel):
     #
     # The baseline allowlist, built from the tag constants rather than from repeated
     # literals so that each tag has exactly one declaration site (INV-CORE-53). The
-    # two verification tags come first, followed by the APE-RV heartbeat tag and the
-    # violation occurrence tag, in that order; the flag-off command is fixed by
-    # INV-CORE-37. `-s` is a strict device-side filter: a tag that is not in this list
-    # when capture starts is discarded at the device and cannot be recovered
-    # afterwards, which is why the heartbeat and occurrence tags are admitted globally
-    # here rather than per tool. An APK that does not write under a tag costs the
-    # capture nothing.
+    # two verification tags come first, followed by the APE-RV heartbeat tag, the
+    # violation occurrence tag and the handler-stamp verification tag, in that order;
+    # the flag-off command is fixed by INV-CORE-37. `-s` is a strict device-side
+    # filter: a tag that is not in this list when capture starts is discarded at the
+    # device and cannot be recovered afterwards, which is why the heartbeat,
+    # occurrence and handler-stamp tags are admitted globally here rather than per
+    # tool. An APK that does not write under a tag costs the capture nothing.
     default_tags: List[str] = Field(
         default_factory=lambda: [
             TAG_RVSEC,
             TAG_RVSEC_COV,
             TAG_APERV_HEARTBEAT,
             TAG_RVSEC_OCC,
+            TAG_RVSEC_BIND,
         ],
         description="Default logcat tags to filter when none provided",
     )
@@ -241,7 +243,7 @@ class LogcatManager(BaseValidatedModel):
                     # filtering; without it the logcat filter does not work correctly.
                     # A tag that already carries a priority (e.g. "AndroidRuntime:E"
                     # from DIAGNOSTIC_TAGS) is kept verbatim — appending ":V" would
-                    # produce an invalid "AndroidRuntime:E:V" spec. The four baseline
+                    # produce an invalid "AndroidRuntime:E:V" spec. The five baseline
                     # tags carry no colon, so they each gain ":V" here, which is what
                     # makes the flag-off command byte-identical to INV-CORE-37.
                     cmd_args.extend(

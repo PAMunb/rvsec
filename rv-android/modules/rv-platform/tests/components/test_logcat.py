@@ -245,17 +245,23 @@ class TestDiagnosticsFlagThreading:
 
             _, kwargs = mock_mgr.start_capture.call_args
             assert kwargs["tags"] == baseline + DIAGNOSTIC_TAGS
-            # The four baseline tags come first, in order, and none is dropped.
+            # The five baseline tags come first, in order, and none is dropped.
             assert kwargs["tags"][: len(baseline)] == baseline
-            assert baseline == ["RVSEC", "RVSEC-COV", "ApeRvHb", "RVSEC-OCC"]
+            assert baseline == [
+                "RVSEC",
+                "RVSEC-COV",
+                "ApeRvHb",
+                "RVSEC-OCC",
+                "RVSEC-BIND",
+            ]
 
     def test_flag_off_emits_baseline_command(self, mock_task):
-        """INV-PLT-21: with the flag off the emitted command is the four-tag form.
+        """INV-PLT-21: with the flag off the emitted command is the five-tag form.
 
         This drives a real `LogcatManager` rather than a mock, because the thing
         being pinned is the argument vector that reaches `adb` — the device-side
-        allowlist. A heartbeat or occurrence tag missing from it is discarded at
-        the device, and nothing downstream reports the loss.
+        allowlist. A heartbeat, occurrence or handler-stamp tag missing from it is
+        discarded at the device, and nothing downstream reports the loss.
         """
         from rv_android_core.util.android.logcat_manager import LogcatManager
 
@@ -284,6 +290,7 @@ class TestDiagnosticsFlagThreading:
                 "RVSEC-COV:V",
                 "ApeRvHb:V",
                 "RVSEC-OCC:V",
+                "RVSEC-BIND:V",
             ],
         )
 

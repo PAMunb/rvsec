@@ -118,6 +118,14 @@ ENV_PACKAGE_DETECTOR = "RV_PACKAGE_DETECTOR"
 # the rv-static-analysis command — and passed down already resolved.
 ENV_STRIP_BUILD_TYPE_SUFFIX = "RV_STRIP_BUILD_TYPE_SUFFIX"
 
+# Instrument with the handler stamp (dexlib2 variant only): the instrumenter
+# records the click/long-click handler of each clickable node, View and Compose,
+# on that accessibility node. Default
+# off, so a run that does not ask for it instruments exactly as without it. Read
+# only by the rv-experiment entry point (`resolve_stamp_handlers`, INV-EXP-40) and
+# passed down by value as DexlibInstrumentationConfig.stamp_handlers.
+ENV_STAMP_HANDLERS = "RV_STAMP_HANDLERS"
+
 # Device timeout budgets, read at the point of use by util/android/android.py.
 # These belong to the L1 cross-layer infra family: the correct value depends on
 # the host and its concurrency level, not on the semantics of the experiment —

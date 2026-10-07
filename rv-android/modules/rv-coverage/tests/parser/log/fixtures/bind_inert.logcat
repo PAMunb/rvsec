@@ -1,0 +1,18 @@
+10-07 12:00:00.000  4321  4321 I RVSEC-COV: <com.example.Crypto: byte[] encrypt(byte[])>
+10-07 12:00:00.050  4321  4321 I RVSEC-BIND: view kind=click node=android.widget.Button viewClass=androidx.appcompat.widget.AppCompatButton id=br.unb.cic.cryptoapp:id/encrypt handler=br.unb.cic.cryptoapp.MainActivity$2 obj=3f2a1b7
+10-07 12:00:00.100  9100  9100 I ApeRvHb: s=1 t=100
+10-07 12:00:00.200  4321  4321 I RVSEC-BIND: view kind=longClick node=android.widget.TextView viewClass=com.google.android.material.textview.MaterialTextView id=0x7f0a0042 handler=- obj=9c41e05
+10-07 12:00:00.500  4321  4321 I RVSEC: SomeSpec,com.example.Crypto,init,encrypt,Crypto.java,ERROR_STATE,bad usage
+10-07 12:00:00.500  4321  4321 V RVSEC-OCC: CipherSpec,com.example.Crypto,Crypto,encrypt,Crypto.java:42,InvalidSequenceOfMethodCalls,CIPHER-ORDER-00,doFinal,1
+10-07 12:00:00.700  4321  4321 I RVSEC-BIND: compose kind=click node=android.view.View semanticsId=12 id=- bounds=[42,840][1038,966] handler=br.unb.cic.cryptoapp.ComposeActivity$Screen$1$1 longClickHandler=br.unb.cic.cryptoapp.ComposeActivity$Screen$1$2
+10-07 12:00:00.900  9100  9100 I ApeRvHb: s=2 t=900
+10-07 12:00:00.950  4321  4321 V RVSEC-OCC: CipherSpec,com.example.Crypto,Crypto,encrypt,Crypto.java:42,InvalidSequenceOfMethodCalls,CIPHER-ORDER-00,doFinal,2
+--------- beginning of crash
+10-07 12:00:01.100  4321  4321 E AndroidRuntime: FATAL EXCEPTION: main
+10-07 12:00:01.100  4321  4321 E AndroidRuntime: Process: br.unb.cic.cryptoapp, PID: 4321
+10-07 12:00:01.200  4321  4321 E AndroidRuntime: java.lang.NullPointerException: boom
+10-07 12:00:01.250  4321  4335 I RVSEC-BIND: compose kind=longClick node=android.view.View semanticsId=17 id=br.unb.cic.cryptoapp:id/reset bounds=[42,1000][1038,1126] handler=br.unb.cic.cryptoapp.ComposeActivity$Screen$2$1
+10-07 12:00:01.300  4321  4321 E AndroidRuntime: 	at br.unb.cic.cryptoapp.MainActivity$1.onMenuItemClick(MainActivity.java:50)
+10-07 12:00:01.400  4321  4321 E AndroidRuntime: 	at android.view.View.performClick(View.java:100)
+10-07 12:00:02.000  4321  4321 I RVSEC-COV: <com.example.Crypto: void reset()>
+10-07 12:00:02.100  9100  9100 I ApeRvHb: s=3 t=2100

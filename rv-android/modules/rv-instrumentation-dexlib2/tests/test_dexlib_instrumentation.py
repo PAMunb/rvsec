@@ -367,6 +367,123 @@ def test_instrument_argv_includes_keystore_when_configured(tmp_workspace):
     assert Path(cmd[i + 1]) == keystore
 
 
+# --- handler stamp option (INV-INS-180) ------------------------------------
+# The wrapper's only input for the stamp is ``stamp_handlers``: it becomes
+# ``--stamp-handlers`` on the argv of both subcommands, never an env variable.
+
+
+def _stamp_config(workspace, **overrides):
+    return DexlibInstrumentationConfig(
+        cli_jar_path=workspace["cli_jar"],
+        monitor_output_dir=workspace["monitors"],
+        instrumented_dir=workspace["instrumented"],
+        working_dir=workspace["work"],
+        **overrides,
+    )
+
+
+def test_common_cli_args_forwards_stamp_handlers(tmp_workspace):
+    _seed_descriptor(tmp_workspace)
+    inst = DexlibInstrumentation(_stamp_config(tmp_workspace, stamp_handlers=True))
+    apks_dir = tmp_workspace["root"] / "apks"
+    apks_dir.mkdir()
+    apk = apks_dir / "one.apk"
+    apk.write_bytes(b"stub")
+
+    # batch subcommand
+    batch_results = tmp_workspace["root"] / "results_batch"
+    captured = {}
+
+    def fake_batch(cmd, **kwargs):
+        captured["batch"] = cmd
+        batch_results.mkdir(parents=True, exist_ok=True)
+        (batch_results / "instrument_results.json").write_text(
+            json.dumps({"variant": "dexlib2", "results": []})
+        )
+
+        class _R:
+            returncode = 0
+            stderr = ""
+            stdout = ""
+
+        return _R()
+
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch("subprocess.run", side_effect=fake_batch),
+    ):
+        inst.instrument_apks(apks_dir, batch_results)
+
+    # instrument subcommand, one run per APK (apk_paths)
+    per_apk_results = tmp_workspace["root"] / "results_per_apk"
+    fake = _fake_per_apk_run(per_apk_results, {"one.apk": {"matchesApplied": 1}})
+
+    def spy(cmd, **kwargs):
+        captured["instrument"] = cmd
+        return fake(cmd, **kwargs)
+
+    with (
+        patch.object(DexlibInstrumentation, "prepare_instrumentation"),
+        patch("subprocess.run", side_effect=spy),
+    ):
+        inst.instrument_apks(apks_dir, per_apk_results, apk_paths=[str(apk)])
+
+    assert "batch" in captured["batch"]
+    assert "instrument" in captured["instrument"]
+    for sub in ("batch", "instrument"):
+        assert captured[sub].count("--stamp-handlers") == 1, sub
+        assert "--no-stamp-handlers" not in captured[sub], sub
+
+
+def test_common_cli_args_unchanged_when_stamp_off(tmp_workspace):
+    _seed_descriptor(tmp_workspace)
+    out = tmp_workspace["root"] / "out"
+    default_cfg = _stamp_config(tmp_workspace)
+    assert default_cfg.stamp_handlers is False
+
+    default_args = DexlibInstrumentation(default_cfg)._common_cli_args(out)
+    explicit_off = DexlibInstrumentation(
+        _stamp_config(tmp_workspace, stamp_handlers=False)
+    )._common_cli_args(out)
+
+    assert "--stamp-handlers" not in default_args
+    assert "--no-stamp-handlers" not in default_args
+    assert default_args == explicit_off
+
+
+def test_subprocess_env_unchanged_with_stamp_on(tmp_workspace, monkeypatch):
+    _seed_descriptor(tmp_workspace)
+    # Both stamp variables are set in the caller's environment; neither may
+    # reach the Java process (INV-EXP-30). No keystore is configured, so the
+    # wrapper adds no RVSEC_KEYSTORE* extras.
+    monkeypatch.setenv("RVSEC_STAMP_HANDLERS", "true")
+    monkeypatch.setenv("RV_STAMP_HANDLERS", "true")
+    inst = DexlibInstrumentation(_stamp_config(tmp_workspace, stamp_handlers=True))
+
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["env"] = kwargs["env"]
+
+        class _R:
+            returncode = 0
+            stderr = ""
+            stdout = ""
+
+        return _R()
+
+    from types import SimpleNamespace
+
+    app = SimpleNamespace(apk_path=tmp_workspace["root"] / "fake.apk", name="fake")
+    with patch("subprocess.run", side_effect=fake_run):
+        inst.instrument(app, tmp_workspace["instrumented"])
+
+    assert "--stamp-handlers" in captured["cmd"]
+    allowed = {"PATH", "HOME", "JAVA_HOME", "ANDROID_HOME", "RVSEC_HOME"}
+    assert set(captured["env"]) <= allowed
+
+
 # --- 9.22f4 wrapper guard: silent CLI failure detection -------------------
 # The Java CLI's ``instrument`` subcommand can exit 0 even when javac/d8
 # silently dropped the APK. Without the guard, the wrapper credits phantom

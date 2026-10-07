@@ -42,6 +42,20 @@ JIT methods (config built lazily on access):
 - `get_static_analysis_config()` → rv-static-analysis config
 - `get_module_config(module_name)` → generic dispatch (empty dict for unknown module)
 
+## Handler stamp (`--stamp-handlers`, INV-EXP-40)
+`run --stamp-handlers/--no-stamp-handlers` asks the `dexlib2` instrumenter to record the
+click/long-click handler of each clickable node, View and Compose, on that accessibility node. Declared like
+`--strip-build-type-suffix`: `default=None`, no `envvar=`; `_stamp_handlers_callback` calls
+`config.resolve_stamp_handlers`, the only read of `RV_STAMP_HANDLERS`
+(`ENV_STAMP_HANDLERS`), through `resolve_bool_setting` — flag > variable > default `False`,
+and an unparseable value is a usage error naming the variable. The value lands in
+`ExperimentConfig.stamp_handlers` (recorded in `experiment_config.json`), and
+`get_dexlib_instrumentation_config()` forwards it to `DexlibInstrumentationConfig.stamp_handlers`.
+Under `--config` the file's `stamp_handlers` is the authority. `run` aborts before
+pre-processing when the resolved config has `stamp_handlers` true and a variant other than
+`dexlib2` (the check sits in `run`, not in `validate()`, whose `@handle_errors` wrapper
+absorbs exceptions). Under `--skip-instrument` it has no effect.
+
 ## Directory constants (`constants.py`)
 `RESULTS_DIR="results"`, `INSTRUMENTED_DIR="out"`, `MONITORS_DIR="monitors"`,
 `INSTRUMENTED_APKS_DIR="instrumented_apks"`, `STATIC_ANALYSIS_DIR="static_analysis"`

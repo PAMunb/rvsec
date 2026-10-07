@@ -93,6 +93,15 @@ class DexlibInstrumentationConfig(BaseModel):
             "runtime classes (rv-monitor-rt + rvsec-agent typically)."
         ),
     )
+    stamp_handlers: bool = Field(
+        default=False,
+        description=(
+            "Pass --stamp-handlers to instr-cli: route View setter call sites and "
+            "Compose node population to mop.RvsecStamp, which writes the handler "
+            "class into the node's accessibility extras. Off reproduces the "
+            "instrumentation without the stamp byte for byte."
+        ),
+    )
     # No wallclock timeout for the Java CLI subprocess — instrumentation is a
     # build operation; weave time scales with method count and is bounded only
     # by APK content. AJC pipeline runs mvn/dex2jar/ajc/d8/jarsigner without

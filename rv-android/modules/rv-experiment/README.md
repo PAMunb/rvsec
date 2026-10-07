@@ -264,6 +264,7 @@ Quick reference (subset — see CLAUDE.md for complete coverage and for the stan
 | `RV_NO_WINDOW` | `--no-window / --window` | Emulator headless mode (`true`/`false`) |
 | `RV_SPEC_SET` | `--specification-set` | Specification set name |
 | `RV_INSTRUMENTATION_VARIANT` | `--instrumentation-variant` | `ajc` (default) or `dexlib2` |
+| `RV_STAMP_HANDLERS` | `--stamp-handlers / --no-stamp-handlers` | Instrument with the handler stamp (`dexlib2` only; with `ajc` the run aborts). Resolved by the option callback, not `envvar=`; CLI > env > default `false` |
 | `RV_SKIP_MONITORS` | `--skip-monitors` | Skip monitor generation (entry-point translation) |
 | `RV_SKIP_INSTRUMENT` | `--skip-instrument` | Skip APK instrumentation (entry-point translation) |
 | `RV_SKIP_STATIC_ANALYSIS` | `--skip-static` | Skip static analysis (entry-point translation) |

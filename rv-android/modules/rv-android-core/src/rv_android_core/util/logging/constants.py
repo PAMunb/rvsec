@@ -41,6 +41,14 @@ TAG_APERV_HEARTBEAT = "ApeRvHb"
 # than an error (INV-CORE-53).
 TAG_RVSEC_OCC = "RVSEC-OCC"
 
+# The handler-stamp verification tag. This value is a cross-repository contract with
+# `RvsecStamp.TAG` in `rvsec-instrumentation-dexlib2`, whose `mop.RvsecStamp` helper
+# writes one line under exactly this tag each time the handler stamp of a View or
+# Compose node changes. It is declared once, here, for the reason the heartbeat tag
+# is: `adb logcat -s <tags>` discards an unadmitted tag at the device, so a mismatch
+# yields an empty stamp log rather than an error (INV-CORE-53).
+TAG_RVSEC_BIND = "RVSEC-BIND"
+
 # Common log messages patterns
 LOG_START = "Starting {phase}"
 LOG_COMPLETE = "Completed {phase}"

@@ -44,6 +44,36 @@ results.weave_counts["cryptoapp.apk"]["matchesApplied"]  # weaver counters
 and `instrument(app, result_dir) -> Path` are variant-specific and reached through
 the concrete class.
 
+## Handler stamp (`stamp_handlers`)
+
+`DexlibInstrumentationConfig.stamp_handlers: bool = False` asks `instr-cli` for
+the handler stamp: the weaver routes `View` listener setters and Compose node
+population to `mop.RvsecStamp`, which writes the handler class bound to each
+clickable node into its `AccessibilityNodeInfo` extras (`rvsec.click`,
+`rvsec.longClick`) and logs each change under `RVSEC-BIND`. The stamp serves the
+GUI explorer (APE-RV keys a node by handler class instead of resource-id); it
+adds no monitor event. The Java docs
+(`rvsec/rvsec-android/rvsec-instrumentation-dexlib2/CLAUDE.md`, "Handler stamp")
+cover the weave, the counters and the known limits.
+
+- **Forwarding.** When the field is `True`, `_common_cli_args` appends
+  `--stamp-handlers` once, so both the `batch` and the `instrument` invocations
+  carry it. When it is `False`, the argv is exactly the one built without the
+  field — neither `--stamp-handlers` nor `--no-stamp-handlers` — and the Java
+  default (off) applies, which keeps the instrumented output byte-identical to
+  the instrumentation without the stamp (INV-INS-174, INV-INS-180).
+- **No environment path.** `instr-cli` also turns the stamp on from
+  `RVSEC_STAMP_HANDLERS=true` when it gets no option, but that fallback is for
+  running the jar by hand. The wrapper never forwards `RVSEC_STAMP_HANDLERS`:
+  `_build_subprocess_env` hands the JVM a fixed environment (INV-EXP-30), so a
+  value exported by the caller does not reach the Java process. The field is
+  the wrapper's only input.
+- **Who sets it.** `rv-experiment` sets it from `rv-experiment run
+  --stamp-handlers` / `--no-stamp-handlers` or `RV_STAMP_HANDLERS` (flag >
+  variable > `False`, INV-EXP-40) in `get_dexlib_instrumentation_config`, and
+  records it in `experiment_config.json`. Nothing in this module reads
+  `RV_STAMP_HANDLERS`.
+
 ## File Structure
 
 ```
@@ -121,6 +151,12 @@ Keyed by APK name, populated from each entry's `weaveCounts`. The Java
   the same rule in `PointcutMatcher` without counting.
 - `coverageInstrumented`, `coverageSpillFailed` — present only when the coverage
   weaver ran.
+- `stampClickSites`, `stampLongClickSites`, `stampDelegateSites`,
+  `stampComposeSites`, `stampInvokeSuperSkipped`, `stampOwnerNotView` — present
+  only when the handler stamp was on, so their presence tells a stamped run from
+  an unstamped one. `stampComposeSites=0` on a Compose app means R8 renamed the
+  Compose internals and no Compose node is stamped. They pass through
+  `weave_counts` unparsed, like every other key.
 
 A demoted APK keeps its counters: `_demote_silent_failures` changes the verdict
 on an APK, not what the weaver did to it, and a demoted APK's counters are the
@@ -133,7 +169,7 @@ uv run pytest modules/rv-instrumentation-dexlib2/tests/ \
     --import-mode=importlib -o "addopts=" -v
 ```
 
-26 unit tests, Java CLI mocked throughout.
+29 unit tests, Java CLI mocked throughout.
 
 ## Development Notes
 
@@ -156,3 +192,5 @@ uv run pytest modules/rv-instrumentation-dexlib2/tests/ \
 - `_build_subprocess_env` forwards only `PATH`, `HOME`, `JAVA_HOME`,
   `ANDROID_HOME`, `RVSEC_HOME`, plus `RVSEC_KEYSTORE` / `RVSEC_KEYSTORE_PASS`
   when configured. Wholesale `os.environ` propagation is forbidden by INV-EXP-30.
+  `RVSEC_STAMP_HANDLERS` is deliberately not in that set: the stamp travels as
+  the `--stamp-handlers` argument built from `stamp_handlers`.

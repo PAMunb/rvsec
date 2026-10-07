@@ -37,6 +37,12 @@ per-APK weaver counters, which the Python wrapper parses into
 `InstrumentationResults.weave_counts`. Variant tag is always
 `"dexlib2"`.
 
+The handler stamp is one of those flags: `DexlibInstrumentationConfig.stamp_handlers`
+(default `False`) becomes `--stamp-handlers`, and `rv-experiment` sets the field
+from `--stamp-handlers` / `RV_STAMP_HANDLERS`. The wrapper never forwards
+`instr-cli`'s own `RVSEC_STAMP_HANDLERS` variable, because the subprocess gets a
+fixed environment (INV-EXP-30).
+
 Every run leaves the same artefacts under `results_dir`, whichever
 path produced them (INV-INS-105):
 

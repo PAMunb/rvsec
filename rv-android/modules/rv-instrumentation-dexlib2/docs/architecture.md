@@ -28,6 +28,8 @@ This module implements requirements from `openspec/specs/instrumentation/spec.md
 | INV-INS-55 | `instrument_apks(apks_dir, results_dir) -> InstrumentationResults` contract uniform across variants | `DexlibInstrumentation` extends the `Instrumenter` ABC; results are tagged `variant="dexlib2"` and persisted to `instrument_errors.json`. |
 | INV-INS-105 | Every run leaves an `instrument_results.json` of the same shape, whichever path produced it | The `batch` path takes the file the Java CLI writes; the `apk_paths` path collects one file per APK under `instrument_results.d/` and `_merge_per_apk_results` concatenates their `results` arrays into the same document. |
 | INV-INS-159 | Positional `args()` arity is enforced on both weaving paths | The Java `WrapperEmitter` leaves an arity-incompatible advice out of that overload's wrapper and counts the pair in `advicesExcludedByArity`; `PointcutMatcher` applies the same rule on the inline path. The wrapper carries the counter through to `weave_counts` unchanged. |
+| INV-INS-174 | With the handler stamp off, the instrumented DEX output is byte-identical to the instrumentation without the stamp, and no `stamp*` key appears in `weaveCounts` | Delegated to the Java CLI (default off; stale helper removal before the monitor build). The wrapper's part is INV-INS-180: with `stamp_handlers=False` it passes no stamp option at all. |
+| INV-INS-180 | `--stamp-handlers` appears in argv exactly when `stamp_handlers` is true; the subprocess environment is unchanged | `_common_cli_args` appends `--stamp-handlers` once when the field is `True` and builds the unchanged list otherwise; both subcommands build their argv through it. `_build_subprocess_env` keeps its fixed key set, so `RVSEC_STAMP_HANDLERS` never reaches `instr-cli` through the wrapper. |
 | INV-INS-160 | No wrapper target is dropped without being counted | The Java weaver resolves methods inherited by framework subtypes and publishes `wrapperTargetsUnresolved` (targets that resolved to no method) and `wrapperAliasesUnmerged` (framework-subtype invokes no single wrapper could serve) beside `wrappersAliasedToSubtype`. The wrapper carries them to `weave_counts` like every other key. |
 
 ### Specification Scenarios
@@ -38,6 +40,8 @@ Scenarios from `openspec/specs/instrumentation/spec.md` that validate this archi
 - **Missing descriptor when dexlib2 variant is selected** — `prepare_instrumentation()` MUST raise `MissingDescriptorError` when the `.aj` is present but the `.json` is not.
 - **Multidex preservation under DEX-native weaving** — input APK with `classes.dex` + `classes2.dex` retains both DEX entries after weaving.
 - **Variant tag propagates through the new -core types** — `InstrumentationResults.variant == "dexlib2"` after a run, and the value is persisted to `instrument_errors.json`.
+- **The wrapper forwards the stamp option when the config asks for it** — with `DexlibInstrumentationConfig(stamp_handlers=True)`, the argv of `batch` or `instrument` contains `--stamp-handlers` exactly once, and the subprocess environment holds no key outside the fixed set.
+- **The wrapper leaves the argument list unchanged when the stamp is off** — with `stamp_handlers` unset, `_common_cli_args` contains neither `--stamp-handlers` nor `--no-stamp-handlers` and equals, element by element, the list built without the field.
 
 ## Key Architectural Decisions
 
@@ -104,7 +108,7 @@ Shows the domain entities and their relationships within the dexlib2 instrumenta
 | Entity | Responsibility |
 |--------|----------------|
 | `DexlibInstrumentation` | Concrete `Instrumenter` for the `dexlib2` variant — orchestrates subprocess invocation, descriptor validation, runtime classpath assembly, results parsing. |
-| `DexlibInstrumentationConfig` | Validated configuration: CLI jar path, monitor descriptor directory, instrumented-APK output directory, signing material, extra Java args/classpath. |
+| `DexlibInstrumentationConfig` | Validated configuration: CLI jar path, monitor descriptor directory, instrumented-APK output directory, signing material, extra Java args/classpath, the handler-stamp switch `stamp_handlers`. |
 | `MissingDescriptorError` | Raised at preparation time when no `MultiSpec_*MonitorAspect.json` is found. |
 | `DescriptorParseError` | Raised when Jackson (Java side) rejects a descriptor JSON; surfaced through subprocess error parsing. |
 | `UnsupportedAspectConstructError` | Raised when a descriptor references an out-of-scope construct (`around`, `cflow`, etc. — see `rv-android/docs/LIMITATIONS.md`). |
@@ -185,7 +189,7 @@ modules/rv-instrumentation-dexlib2/
 ├── docs/
 │   └── architecture.md              # this document
 ├── tests/
-│   └── test_dexlib_instrumentation.py  # 26 unit tests, Java CLI mocked
+│   └── test_dexlib_instrumentation.py  # 29 unit tests, Java CLI mocked
 ├── CLAUDE.md
 ├── README.md
 └── pyproject.toml
@@ -298,7 +302,7 @@ After the loop, `_merge_per_apk_results` globs `instrument_results.d/*.json` and
 
 **Internal helpers**:
 
-- `_common_cli_args(output_dir)` — argv shared by both subcommands: `--descriptor`, `--output`, `--work-dir`, `--monitor-src-dir`, plus signing material and `--classpath` when configured. With `--monitor-src-dir` set the CLI runs the full compile+merge+sign pipeline; without it it stops at written DEXes (`phase=dex_only`).
+- `_common_cli_args(output_dir)` — argv shared by both subcommands: `--descriptor`, `--output`, `--work-dir`, `--monitor-src-dir`, plus signing material and `--classpath` when configured, and `--stamp-handlers` (once, last) when `config.stamp_handlers` is true. With `--monitor-src-dir` set the CLI runs the full compile+merge+sign pipeline; without it it stops at written DEXes (`phase=dex_only`). With `stamp_handlers` false no stamp option is passed — not even `--no-stamp-handlers` — so the argv is the one built without the field and the Java default (off) decides. The option has to travel as argv because the wrapper's subprocess environment is fixed: `instr-cli`'s own `RVSEC_STAMP_HANDLERS` fallback never sees a value the caller exported.
 - `_run_cli(cli_args, log_path=None)` — builds `java [extra_java_args] -jar instr-cli.jar ...`, runs it with an explicit env and no wallclock timeout, writes argv/exit/elapsed/stdout/stderr to `log_path`, and raises `RuntimeError` on a non-zero exit.
 - `_merge_per_apk_results(per_apk_dir, results_json)` — concatenates the per-APK results into the merged document and returns the counters (INV-INS-105).
 - `_parse_results_json(path)` — reads the batch document into `InstrumentationResults`, collecting `weaveCounts` and per-APK errors. An absent file yields a single `__run__` error: the CLI writes the JSON even when every APK fails, so its absence means the subprocess died first.
@@ -317,6 +321,7 @@ After the loop, `_merge_per_apk_results` globs `instrument_results.d/*.json` and
 | Dropped wrapper targets | `wrapperTargetsUnresolved`, `wrapperAliasesUnmerged` (INV-INS-160) | `wrapperTargetsUnresolved`: wrapper-path advices whose call target resolved to no method, neither declared by the owner nor inherited from a framework ancestor, and so produced no wrapper. `wrapperAliasesUnmerged`: framework-subtype call-site signatures that are subtypes of several wrapped owners with no single most specific one, left unwoven because no registered wrapper carries all their advices. Together they make every wrapper the weaver could not apply a number rather than a silence. |
 | Arity | `advicesExcludedByArity` (INV-INS-159) | Advice/overload pairs left out of a wrapper because the advice's positional `args()` arity does not fit the overload; an excluded advice fires nothing from that wrapper. Always written, so `0` means "excluded none" rather than "not measured". It counts the wrapper grouping loop only (after-side, non-constructor advices); the inline path enforces the same rule in `PointcutMatcher` without counting. |
 | Coverage | `coverageInstrumented`, `coverageSpillFailed` | Present only when the coverage weaver ran. |
+| Handler stamp | `stampClickSites`, `stampLongClickSites`, `stampDelegateSites`, `stampComposeSites`, `stampInvokeSuperSkipped`, `stampOwnerNotView` | Present only when the handler stamp was on, so an unstamped run's JSON carries exactly the keys it carried before and a stamped run is recognisable from its counters. The first four count rewritten `View` setter sites by setter and Compose population sites; the last two count setter sites left alone (`invoke-super`, and owners not resolved as a `View`). `stampComposeSites=0` on a Compose app means R8 renamed the Compose internals, so no Compose node carries a stamp. The MOP counters are the same with and without the stamp. |
 
 The figure also depends on the resolved `android.jar`, not only on the descriptor — an overload set can widen between API levels — which is why `_run_cli` persists the CLI log that names the resolved platform jar.
 
@@ -340,6 +345,7 @@ The figure also depends on the resolved `android.jar`, not only on the descripto
 - `working_dir: Path` — scratch.
 - `keystore_file`, `keystore_password`, `keystore_alias`, `key_password` — signing material (all optional, fall back to env vars on the Java side).
 - `extra_java_args: List[str]`, `extra_classpath: List[Path]`.
+- `stamp_handlers: bool = False` — asks `instr-cli` for the handler stamp: View listener setters and Compose node population are routed to `mop.RvsecStamp`, which writes the handler class bound to each clickable node into its `AccessibilityNodeInfo` extras (`rvsec.click`, `rvsec.longClick`) and logs each change under the logcat tag `RVSEC-BIND`, so a `UiAutomation` client such as APE-RV can key a node by handler class instead of resource-id. Forwarded as `--stamp-handlers` by `_common_cli_args` (INV-INS-180); off reproduces the instrumentation without the stamp byte for byte (INV-INS-174). It is the wrapper's only input for the stamp: `rv-experiment` sets it in `get_dexlib_instrumentation_config` from `rv-experiment run --stamp-handlers` / `--no-stamp-handlers` or `RV_STAMP_HANDLERS` (flag > variable > `False`, INV-EXP-40), and no module below `rv-experiment` reads that variable. The weave itself, the device-side behaviour, the delivery check and the known limits (XML `android:onClick`, library dispatchers, `AlertDialog` and `Preference` not covered) are documented in the Java aggregator's `architecture.md`.
 
 **Notable absence**: no wallclock timeout. Weave time scales with method count; APKs in the JCA-400 corpus legitimately take 10-30+ minutes (e.g. `io.github.eucsoh.android_9.apk`: 14m14s, 249k methods). If hung-CLI detection is ever needed, an inactivity-based watchdog is the right tool — not a wallclock cap that aborts legitimate slow runs.
 
@@ -499,7 +505,7 @@ The `apk_paths` path does not use this function — it checks each output APK in
 - **New aspect construct support**: extend the descriptor schema in `rv-monitor-generator` and the corresponding weaver in the Java CLI. The Python wrapper requires no changes — descriptor parsing happens entirely on the Java side.
 - **Alternative CLI override**: set `cli_jar_path` to a development build or a Docker-mounted jar to test weaver changes without reinstalling.
 - **Extra classpath entries**: append to `extra_classpath` to pull additional libraries into the Java CLI's javac classpath when the rv-monitor-emitted Java sources reference them.
-- **Subprocess environment**: `_build_subprocess_env` forwards only `PATH`, `HOME`, `JAVA_HOME`, `ANDROID_HOME` and `RVSEC_HOME`, layering on `RVSEC_KEYSTORE` / `RVSEC_KEYSTORE_PASS` when `keystore_file` / `keystore_password` are set so the Java CLI falls back to its own defaults otherwise. Wholesale `os.environ` propagation is forbidden by INV-EXP-30 — it would leak user-facing `RV_*` values past Layer Purity boundaries into the Java process. Alias and key password travel as `--key-alias` / `--key-pass` argv, not env.
+- **Subprocess environment**: `_build_subprocess_env` forwards only `PATH`, `HOME`, `JAVA_HOME`, `ANDROID_HOME` and `RVSEC_HOME`, layering on `RVSEC_KEYSTORE` / `RVSEC_KEYSTORE_PASS` when `keystore_file` / `keystore_password` are set so the Java CLI falls back to its own defaults otherwise. Wholesale `os.environ` propagation is forbidden by INV-EXP-30 — it would leak user-facing `RV_*` values past Layer Purity boundaries into the Java process. Alias and key password travel as `--key-alias` / `--key-pass` argv, not env, and so does the handler stamp: `RVSEC_STAMP_HANDLERS` is never forwarded, and `stamp_handlers` becomes `--stamp-handlers`.
 
 ## Dependencies
 
@@ -522,7 +528,7 @@ The `apk_paths` path does not use this function — it checks each output APK in
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | `tests/test_dexlib_instrumentation.py` (26 tests) | Argv assembly, env injection, descriptor presence checks, results parsing, `_demote_silent_failures` cross-check logic, runtime-jar allowlist, per-APK results merge and counter propagation (including an APK that never landed), CLI log persistence, and `advicesExcludedByArity` reaching Python — all with the Java CLI mocked. |
+| Unit | `tests/test_dexlib_instrumentation.py` (29 tests) | Argv assembly (including `--stamp-handlers` present once when `stamp_handlers` is true and the list unchanged when it is false), env injection (unchanged with the stamp on), descriptor presence checks, results parsing, `_demote_silent_failures` cross-check logic, runtime-jar allowlist, per-APK results merge and counter propagation (including an APK that never landed), CLI log persistence, and `advicesExcludedByArity` reaching Python — all with the Java CLI mocked. |
 | End-to-end (validator) | `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/validator/` | `BaksmaliDiffer`, `BootValidator`, `TraceComparator`, `BatchValidator`, `CoverageValidator`, `FeatureMappingChecker` exercise the full pipeline against real APKs from the JCA-400 dataset (Java side; not part of this Python module's tests). |
 
 ## Related Documentation

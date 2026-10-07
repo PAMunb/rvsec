@@ -107,6 +107,16 @@ public final class InstrumentationCli implements Runnable {
             scope = CommandLine.ScopeType.INHERIT, defaultValue = "true", negatable = true)
     boolean enableCoverage;
 
+    @Option(names = "--stamp-handlers",
+            description = "Route View.setOnClickListener / setOnLongClickListener / setAccessibilityDelegate "
+                    + "call sites to mop.RvsecStamp, which writes the handler class into the view's "
+                    + "AccessibilityNodeInfo extras (rvsec.click, rvsec.longClick) and logs RVSEC-BIND. "
+                    + "Independent of the MOP specs. Default off. When neither --stamp-handlers nor "
+                    + "--no-stamp-handlers is given, env RVSEC_STAMP_HANDLERS=true turns it on; "
+                    + "--no-stamp-handlers wins over the variable.",
+            scope = CommandLine.ScopeType.INHERIT, negatable = true)
+    Boolean stampHandlers;
+
     @Option(names = "--log-level", description = "SLF4J simple-logger level",
             scope = CommandLine.ScopeType.INHERIT)
     String logLevel;

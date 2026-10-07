@@ -26,6 +26,7 @@ from rv_android_core.constants import (
     ENV_PACKAGE_DETECTOR,
     ENV_RVSEC_HOME,
     ENV_SA_TIMEOUT,
+    ENV_STAMP_HANDLERS,
     ENV_STRIP_BUILD_TYPE_SUFFIX,
     EXTENSION_MOP,
 )
@@ -112,6 +113,29 @@ def resolve_strip_build_type_suffix(cli_value: Optional[bool]) -> bool:
         cli_value,
         os.environ.get(ENV_STRIP_BUILD_TYPE_SUFFIX),
         ENV_STRIP_BUILD_TYPE_SUFFIX,
+    )
+
+
+def resolve_stamp_handlers(cli_value: Optional[bool]) -> bool:
+    """Resolve the handler-stamp policy under CLI > env > default.
+
+    The same shape as `resolve_strip_build_type_suffix`: this is the single
+    read of RV_STAMP_HANDLERS in the source tree, through the constant rather
+    than a literal, with the precedence in the shared helper (INV-EXP-40).
+    Everything below — `get_dexlib_instrumentation_config`, the dexlib2
+    wrapper, `instr-cli` — receives the resolved boolean by value.
+
+    Args:
+        cli_value: The flag as Click resolved it (`None` when absent)
+
+    Returns:
+        Whether the dexlib2 instrumenter stamps handlers onto accessibility nodes
+
+    Raises:
+        ValueError: the variable holds a value the convention cannot parse
+    """
+    return resolve_bool_setting(
+        cli_value, os.environ.get(ENV_STAMP_HANDLERS), ENV_STAMP_HANDLERS
     )
 
 
@@ -279,6 +303,20 @@ class ExperimentConfig(BaseValidatedModel):
             "Neutralize the Gradle build-type suffix of the declared applicationId "
             "before using it as the scope key. CLI flag --strip-build-type-suffix "
             "overrides RV_STRIP_BUILD_TYPE_SUFFIX."
+        ),
+    )
+
+    # Handler stamp (gh121): resolved once at the entry point and forwarded by
+    # value to DexlibInstrumentationConfig.stamp_handlers. Default False leaves
+    # the instrumentation exactly as without it. dexlib2 only — the run command
+    # aborts on it with the ajc variant (INV-EXP-40). Serialized with the rest of
+    # the model, so experiment_config.json records whether the run's APKs carry
+    # the stamp.
+    stamp_handlers: bool = Field(
+        default=False,
+        description=(
+            "Instrument with the handler stamp (dexlib2 only). CLI flag "
+            "--stamp-handlers overrides RV_STAMP_HANDLERS."
         ),
     )
 
@@ -956,6 +994,7 @@ class ExperimentConfig(BaseValidatedModel):
             keystore_alias="server",
             key_password="password",
             extra_classpath=extra_classpath,
+            stamp_handlers=self.stamp_handlers,
         )
 
     def get_static_analysis_config(self) -> RVStaticAnalysisConfig:

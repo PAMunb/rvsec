@@ -80,6 +80,12 @@ public final class ConfigResolver {
                 merger,
                 args.monitorSrcDir,
                 args.enableCoverage,
+                // The option wins in both forms; with neither form on the
+                // command line, RVSEC_STAMP_HANDLERS=true (case-insensitive)
+                // turns the stamp on, and any other value or none leaves it off.
+                args.stampHandlers != null
+                        ? args.stampHandlers
+                        : Boolean.parseBoolean(System.getenv("RVSEC_STAMP_HANDLERS")),
                 keystore,
                 args.logLevel == null ? "INFO" : args.logLevel
         );

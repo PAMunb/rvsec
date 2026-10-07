@@ -827,6 +827,75 @@ class TestOccurrenceInertness:
         assert crashes[0]["n_frames"] == 2
 
 
+class TestBindInertness:
+    """INV-CORE-67: handler-stamp verification lines change nothing the parser produces.
+
+    The `mop.RvsecStamp` helper woven by the `dexlib2` instrumenter writes one
+    `RVSEC-BIND` line each time a View or Compose node's handler stamp changes, and the
+    tag is admitted into the capture allowlist so those lines reach the captured file.
+    This parser dispatches on the exact tag field, so an `RVSEC-BIND` line is neither an
+    error nor a coverage record: it is counted under `lines_other_tag`, as `ApeRvHb` and
+    `RVSEC-OCC` lines are, and every other value must be unchanged. The fixture carries
+    both the `view` and the `compose` line forms, and places one line between two lines
+    of a crash block, where a thread of the crashing process can still log before the
+    block completes.
+    """
+
+    FIXTURE = Path(__file__).parent / "fixtures" / "bind_inert.logcat"
+    BIND_MARKER = " RVSEC-BIND: "
+
+    def _parse(self, content: str, tmp_path, name: str):
+        path = tmp_path / name
+        path.write_text(content)
+        repo = parse_logcat_file(str(path))
+        return repo, {
+            "metrics": repo.calculate_metrics().to_dict(),
+            "total_errors": len(repo.errors),
+            "unique_errors": len(repo.unique_errors),
+            "coverage": repo.get_method_calls(),
+            "diagnostic_events": [e.to_dict() for e in repo.diagnostic_events],
+        }
+
+    def test_bind_lines_change_no_parsed_value(self, tmp_path):
+        """Same capture with and without the stamp lines parses identically,
+        except that `lines_other_tag` counts each removed line."""
+        with_bind = self.FIXTURE.read_text()
+        lines = with_bind.splitlines(keepends=True)
+        without_bind = "".join(ln for ln in lines if self.BIND_MARKER not in ln)
+        bind_lines = [ln for ln in lines if self.BIND_MARKER in ln]
+        n_bind = len(bind_lines)
+        assert n_bind == 4, "fixture carries the stamp lines it is built around"
+        assert any(self.BIND_MARKER + "view kind=" in ln for ln in bind_lines)
+        assert any(self.BIND_MARKER + "compose kind=" in ln for ln in bind_lines)
+
+        # The hard case is exercised: one stamp line sits inside the crash block.
+        plain = with_bind.splitlines()
+        fatal = next(i for i, ln in enumerate(plain) if "FATAL EXCEPTION" in ln)
+        last_frame = max(i for i, ln in enumerate(plain) if "\tat " in ln)
+        assert any(
+            self.BIND_MARKER in ln for ln in plain[fatal + 1 : last_frame]
+        ), "fixture must interleave the crash block"
+
+        repo_with, parsed_with = self._parse(with_bind, tmp_path, "with.logcat")
+        repo_without, parsed_without = self._parse(
+            without_bind, tmp_path, "without.logcat"
+        )
+
+        assert parsed_with == parsed_without
+        assert (
+            repo_with.parser_diagnostics.lines_other_tag
+            - repo_without.parser_diagnostics.lines_other_tag
+            == n_bind
+        )
+
+        crashes = [
+            e for e in parsed_with["diagnostic_events"] if e["category"] == "crash"
+        ]
+        assert len(crashes) == 1
+        assert crashes[0]["class_full_name"] == "java.lang.NullPointerException"
+        assert crashes[0]["n_frames"] == 2
+
+
 class TestEnvelopeAndDiagnostics:
     """Task 5.3: the parser reads the v1 envelope, names what it could not read, and
     counts every line it did not turn into a record (INV-ANA-08/62/63).

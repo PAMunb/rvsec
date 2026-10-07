@@ -20,6 +20,7 @@ public record EffectiveConfig(
         MergerConfig mergerConfig,
         Path monitorSrcDir,          // rv-monitor-generated .java sources (null → skip build+sign)
         boolean enableCoverage,
+        boolean stampHandlers,       // weave the handler stamp (mop.RvsecStamp)
         Path keystorePath,
         String logLevel
 ) {

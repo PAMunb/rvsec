@@ -2,6 +2,7 @@ package br.unb.cic.rv.cli;
 
 import br.unb.cic.rv.builder.CoverageSourceEmitter;
 import br.unb.cic.rv.builder.MonitorBuilder;
+import br.unb.cic.rv.builder.StampSourceEmitter;
 import br.unb.cic.rv.coverage.CoverageWeaver;
 import br.unb.cic.rv.descriptor.AspectDescriptor;
 import br.unb.cic.rv.descriptor.DescriptorReader;
@@ -11,6 +12,7 @@ import br.unb.cic.rv.merger.MultidexMerger;
 import br.unb.cic.rv.mutator.DexFileMutator;
 import br.unb.cic.rv.mutator.DexWeaver;
 import br.unb.cic.rv.mutator.RegisterAllocator;
+import br.unb.cic.rv.mutator.StampWeaver;
 import br.unb.cic.rv.pointcut.AndroidClassIndex;
 import br.unb.cic.rv.pointcut.InheritanceResolver;
 import br.unb.cic.rv.pointcut.TypeResolver;
@@ -259,6 +261,7 @@ public final class BatchRunner {
             weaver.expandWrapperReplacementsForApk(inheritance);
 
             CoverageWeaver coverageWeaver = cfg.enableCoverage() ? new CoverageWeaver() : null;
+            StampWeaver stampWeaver = cfg.stampHandlers() ? new StampWeaver(inheritance) : null;
             Map<String, Path> appDexEntries = new LinkedHashMap<>();
 
             for (ExtractedDex ed : dexes) {
@@ -316,6 +319,21 @@ public final class BatchRunner {
                 counts.merge("plansSkippedHighRegister", wr.plansSkippedHighRegister(), Integer::sum);
                 counts.merge("plansSkippedUnresolvedBinding",
                         wr.plansSkippedUnresolvedBinding(), Integer::sum);
+
+                // 4a'. Handler stamp (optional). Runs over the bodies the advice
+                // weave left, and before the coverage weave so that every
+                // stamped site is the same invoke the app compiled. Its counters
+                // are written only when the stamp is on, so a run without it
+                // reports exactly the keys it always did.
+                if (stampWeaver != null) {
+                    StampWeaver.StampReport sr = stampWeaver.weave(dx, mutator::forMethod);
+                    counts.merge("stampClickSites", sr.clickSites(), Integer::sum);
+                    counts.merge("stampLongClickSites", sr.longClickSites(), Integer::sum);
+                    counts.merge("stampDelegateSites", sr.delegateSites(), Integer::sum);
+                    counts.merge("stampComposeSites", sr.composeSites(), Integer::sum);
+                    counts.merge("stampInvokeSuperSkipped", sr.invokeSuperSkipped(), Integer::sum);
+                    counts.merge("stampOwnerNotView", sr.ownerNotView(), Integer::sum);
+                }
 
                 // 4b. Coverage weave (optional). Same wiring concern as the
                 // advice weaver above — replaceImpl MUST be plumbed through
@@ -379,9 +397,18 @@ public final class BatchRunner {
                 CoverageSourceEmitter.emit(cfg.monitorSrcDir());
             }
 
+            // 5a'. Emit RvsecStamp.java when the stamp is on; otherwise remove
+            // what an earlier run with the stamp left in the shared source and
+            // build directories, which MonitorBuilder would compile and dex.
+            Path monitorOut = workDir.resolve("monitor-build");
+            if (cfg.stampHandlers()) {
+                StampSourceEmitter.emit(cfg.monitorSrcDir());
+            } else {
+                StampSourceEmitter.remove(cfg.monitorSrcDir(), monitorOut.resolve("classes"));
+            }
+
             // 5b. javac + d8 → monitor DEX(es).
             MonitorBuilder mb = new MonitorBuilder(cfg.builderConfig().validated());
-            Path monitorOut = workDir.resolve("monitor-build");
             List<Path> monitorDexes = mb.build(cfg.monitorSrcDir(), monitorOut, maxInputApi);
             counts.put("monitorDexes", monitorDexes.size());
 
