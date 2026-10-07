@@ -10,7 +10,7 @@ The stamp is an observation, so it is held to two guarantees. It is **off by def
 
 The option reaches the Java `instr-cli` through the Python wrapper `rv-instrumentation-dexlib2`, as an explicit configuration field turned into an explicit command-line argument; `rv-experiment` sets that field from its own flag and `RV_*` variable (experiment INV-EXP-40). `instr-cli` run directly also accepts `RVSEC_STAMP_HANDLERS=true` when no option is given. That variable never reaches it through the wrapper, which forwards a fixed environment to the Java process (INV-EXP-30).
 
-The stamp has known limits, recorded in the requirement so that a consumer of the stamp does not read more into it than it says: an XML `android:onClick` stamps the inflater's generic listener class; toolbar, menu and search-widget clicks stamp the library dispatcher; `AlertDialog` buttons and `Preference` rows are not covered; Whether the extras reach a client that reads the tree through `UiAutomation`, as APE-RV does, is checked on a device in this change, against the `RVSEC-BIND` lines; APE-RV reading the stamp is a separate change in the `ape` repository.
+The stamp has known limits, recorded in the requirement so that a consumer of the stamp does not read more into it than it says: an XML `android:onClick` stamps the inflater's generic listener class; toolbar, menu and search-widget clicks stamp the library dispatcher; `AlertDialog` buttons and `Preference` rows are not covered. Whether the extras reach a client that reads the tree through `UiAutomation`, as APE-RV does, is checked on a device in this change, against the `RVSEC-BIND` lines; APE-RV reading the stamp is a separate change in the `ape` repository.
 
 ## Data Contracts
 
