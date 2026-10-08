@@ -110,9 +110,9 @@ Inputs: the four originals `com.beemdevelopment.aegis_81.apk`, `dev.itsvic.parce
 
 ## 10. Lint, review and closing — wave 4, main window (after group 9)
 
-- [ ] 10.1 Run `/rv-qa-lint-fix` on `rv-instrumentation-dexlib2`, `rv-experiment` and `rv-android-core`.
-- [ ] 10.2 Run `/rv-verify` on `rv-instrumentation-dexlib2`, `rv-experiment`, `rv-android-core`, `rv-platform` and `rv-coverage`.
-- [ ] 10.3 Invoke `/rv-code-reviewer` via the Skill tool over the Java, Python and `X/` diff. Apply the accepted findings; a Java fix is followed by the build of 8.2 and a re-run of the affected check of group 9.
-- [ ] 10.4 Run `/rv-docs-sync` on `rv-instrumentation-dexlib2`, `rv-experiment` and `rv-android-core`.
-- [ ] 10.5 Check the acceptance criteria of #121 against 9.1–9.5 and the delta specs, and update the issue body to the criteria of this revision (re-read the body before and after the edit).
-- [ ] 10.6 Run `openspec validate gh121-instr-handler-stamp`.
+- [x] 10.1 Run `/rv-qa-lint-fix` on `rv-instrumentation-dexlib2`, `rv-experiment` and `rv-android-core`.
+- [x] 10.2 Run `/rv-verify` on `rv-instrumentation-dexlib2`, `rv-experiment`, `rv-android-core`, `rv-platform` and `rv-coverage`.
+- [x] 10.3 Invoke `/rv-code-reviewer` via the Skill tool over the Java, Python and `X/` diff. Apply the accepted findings; a Java fix is followed by the build of 8.2 and a re-run of the affected check of group 9.
+- [x] 10.4 Run `/rv-docs-sync` on `rv-instrumentation-dexlib2`, `rv-experiment` and `rv-android-core`.
+- [x] 10.5 Check the acceptance criteria of #121 against 9.1–9.5 and the delta specs, and update the issue body to the criteria of this revision (re-read the body before and after the edit).
+- [x] 10.6 Run `openspec validate gh121-instr-handler-stamp`.

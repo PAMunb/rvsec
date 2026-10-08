@@ -49,12 +49,25 @@ click/long-click handler of each clickable node, View and Compose, on that acces
 `config.resolve_stamp_handlers`, the only read of `RV_STAMP_HANDLERS`
 (`ENV_STAMP_HANDLERS`), through `resolve_bool_setting` — flag > variable > default `False`,
 and an unparseable value is a usage error naming the variable. The value lands in
-`ExperimentConfig.stamp_handlers` (recorded in `experiment_config.json`), and
+`ExperimentConfig.stamp_handlers`, and
 `get_dexlib_instrumentation_config()` forwards it to `DexlibInstrumentationConfig.stamp_handlers`.
 Under `--config` the file's `stamp_handlers` is the authority. `run` aborts before
 pre-processing when the resolved config has `stamp_handlers` true and a variant other than
-`dexlib2` (the check sits in `run`, not in `validate()`, whose `@handle_errors` wrapper
-absorbs exceptions). Under `--skip-instrument` it has no effect.
+`dexlib2`, with a message that names all three sources (`--stamp-handlers`,
+`RV_STAMP_HANDLERS`, `stamp_handlers` in `--config`) because the value may have come from
+any of them; the check sits in `run`, not in `validate()`, whose `@handle_errors` wrapper
+absorbs exceptions.
+
+`experiment_config.json` records the stamp policy *this invocation* asked for, not what the
+APKs carry. Under `--skip-instrument` or a resume, the flag has no effect: the APKs were
+instrumented by an earlier invocation, and only that invocation's record says whether they
+carry the stamp. Under `--skip-instrument` that record is the `experiment_config.json` of the
+run that produced the APKs. A resume writes into the same results directory, and
+`ExperimentController.save_experiment_config()` runs at the start of every `run`, so the
+resuming invocation overwrites the earlier record; the `stamp*` counters in the
+instrumentation results (present only when the stamp was on, see
+`rv-instrumentation-dexlib2/CLAUDE.md`) still tell a stamped instrumentation from an
+unstamped one.
 
 ## Directory constants (`constants.py`)
 `RESULTS_DIR="results"`, `INSTRUMENTED_DIR="out"`, `MONITORS_DIR="monitors"`,

@@ -45,7 +45,8 @@ class LogcatComponent:
             task: The task whose logcat is captured.
             logcat_diagnostics: When True, augment the capture tag filter with the
                 diagnostic tags (crashes/VerifyError/ANR). Default False keeps the
-                baseline RVSEC/RVSEC-COV command byte-identical (INV-PLT-21).
+                baseline command over `LogcatManager.default_tags` byte-identical
+                (INV-PLT-21).
         """
         self.name = "LogcatComponent"
         self.task = task

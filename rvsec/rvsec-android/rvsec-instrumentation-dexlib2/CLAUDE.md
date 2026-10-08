@@ -125,7 +125,12 @@ Spec: "Handler Stamp on the Accessibility Node" in the instrumentation spec
   `ActionMenuItemView`, `SearchView$5`); `AlertDialog` buttons and `Preference`
   rows are not stamped (no routed setter); R8-renamed Compose gets 0 sites and
   no change; below API 29 the delegate a view already carries cannot be read,
-  so the stamp replaces it instead of chaining (campaigns run on API 30).
+  so the stamp replaces it instead of chaining (campaigns run on API 30); from
+  API 29 a delegate the app set before the stamp is chained, but it is no longer
+  called once library code (androidx `ViewCompat` accessibility actions,
+  RecyclerView's item delegate) wraps the view's delegate, so what it added to
+  the node is missing from the tree a `UiAutomation` client reads (the stamp
+  keys stay; behaviour outside accessibility is unchanged).
 
 ## Documentation conventions
 Java in this module is documented with **Javadoc**, and the `rvsec-core` helper

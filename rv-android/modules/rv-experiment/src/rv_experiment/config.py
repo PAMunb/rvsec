@@ -310,8 +310,11 @@ class ExperimentConfig(BaseValidatedModel):
     # value to DexlibInstrumentationConfig.stamp_handlers. Default False leaves
     # the instrumentation exactly as without it. dexlib2 only — the run command
     # aborts on it with the ajc variant (INV-EXP-40). Serialized with the rest of
-    # the model, so experiment_config.json records whether the run's APKs carry
-    # the stamp.
+    # the model, so experiment_config.json records the stamp policy this
+    # invocation asked for. Under --skip-instrument or a resume the APKs were
+    # instrumented earlier, and a resume rewrites this file in the same results
+    # directory; the stamp* counters in instrument_results.json show whether the
+    # APKs carry the stamp.
     stamp_handlers: bool = Field(
         default=False,
         description=(

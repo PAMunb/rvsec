@@ -235,6 +235,7 @@ With `stamp_handlers=False`, step 1 builds today's argv; step 2 skips the pass a
 
 - [Extras not delivered to `UiAutomation`] → Checked by the probe (D14) against the `RVSEC-BIND` lines. The probe covers the first screen and the screens one click away; deeper screens and a client cache after a listener change on a recycled row are not covered.
 - [Below API 29 an app delegate set before the first listener is replaced] → Campaigns run on API 30; documented in INV-INS-178.
+- [An app delegate set before the stamp is dropped when library code later wraps the view's delegate (`ViewCompat` accessibility actions, RecyclerView's item delegate)] → Known limit, recorded in the instrumentation spec; the stamp keys and the app's behaviour outside accessibility are unaffected; not exercised on the device.
 - [The stamp names a generic or library class (XML `onClick`, toolbar/menu/`SearchView`)] → Known limit; the consumer must keep the resource-id key as fallback. A `mMethodName` refinement is a possible follow-up.
 - [The delegate's re-entry guard is a per-delegate `boolean[]` without synchronisation] → Accessibility callbacks run on the UI thread; a callback from another thread would at worst forward to the platform default once.
 - [Monitor DEX gains about 46–70 method ids] → The monitor DEX is separate from the app DEXes; the merger adds a DEX when needed (existing requirement).

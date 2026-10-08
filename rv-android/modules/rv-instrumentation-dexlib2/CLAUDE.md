@@ -54,7 +54,14 @@ clickable node into its `AccessibilityNodeInfo` extras (`rvsec.click`,
 GUI explorer (APE-RV keys a node by handler class instead of resource-id); it
 adds no monitor event. The Java docs
 (`rvsec/rvsec-android/rvsec-instrumentation-dexlib2/CLAUDE.md`, "Handler stamp")
-cover the weave, the counters and the known limits.
+cover the weave, the counters and the limits of what a stamp says. The
+`instrumentation` spec's "Known limits" adds one that concerns the app's own
+accessibility rather than the stamp's meaning: an app delegate set on a
+view before the stamp is no longer called once library code (androidx
+`ViewCompat`, RecyclerView's item delegate) wraps the view's delegate, so what
+that delegate added to the node is missing from the tree a `UiAutomation`
+client reads; the stamp keys stay, and behaviour outside accessibility is
+unchanged.
 
 - **Forwarding.** When the field is `True`, `_common_cli_args` appends
   `--stamp-handlers` once, so both the `batch` and the `instrument` invocations
@@ -71,8 +78,11 @@ cover the weave, the counters and the known limits.
 - **Who sets it.** `rv-experiment` sets it from `rv-experiment run
   --stamp-handlers` / `--no-stamp-handlers` or `RV_STAMP_HANDLERS` (flag >
   variable > `False`, INV-EXP-40) in `get_dexlib_instrumentation_config`, and
-  records it in `experiment_config.json`. Nothing in this module reads
-  `RV_STAMP_HANDLERS`.
+  records the requested value in `experiment_config.json`. That record is the
+  invocation's request; whether a set of APKs carries the stamp is read from the
+  `stamp*` counters of the run that instrumented them (see "Weaver counters"
+  below).
+  Nothing in this module reads `RV_STAMP_HANDLERS`.
 
 ## File Structure
 
@@ -154,7 +164,11 @@ Keyed by APK name, populated from each entry's `weaveCounts`. The Java
 - `stampClickSites`, `stampLongClickSites`, `stampDelegateSites`,
   `stampComposeSites`, `stampInvokeSuperSkipped`, `stampOwnerNotView` — present
   only when the handler stamp was on, so their presence tells a stamped run from
-  an unstamped one. `stampComposeSites=0` on a Compose app means R8 renamed the
+  an unstamped one. They count `View` setter sites issued by `invoke-virtual` or
+  `invoke-super` (and their range forms) only: a setter-named site issued by
+  `invoke-interface`, `invoke-direct` or `invoke-static` names some other method
+  with the same name and descriptor, is left unchanged and is not counted
+  (INV-INS-176). `stampComposeSites=0` on a Compose app means R8 renamed the
   Compose internals and no Compose node is stamped. They pass through
   `weave_counts` unparsed, like every other key.
 

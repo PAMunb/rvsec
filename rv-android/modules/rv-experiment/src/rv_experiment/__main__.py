@@ -43,6 +43,7 @@ from rv_android_core.constants import (
     ENV_SKIP_MONITORS,
     ENV_SKIP_STATIC_ANALYSIS,
     ENV_SPEC_SET,
+    ENV_STAMP_HANDLERS,
     ENV_TIMEOUTS,
     ENV_TOOLS,
 )
@@ -682,8 +683,9 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     callback=_stamp_handlers_callback,
     help=(
         "Instrument with the handler stamp: the click and long-click handler of "
-        "each clickable node (View and Compose) is recorded on that node (extras rvsec.click / "
-        "rvsec.longClick) and logged under RVSEC-BIND (default: off). Overrides "
+        "each clickable node (View and Compose) is recorded on that node "
+        "(extras rvsec.click / rvsec.longClick) and logged under RVSEC-BIND "
+        "(default: off). Overrides "
         "RV_STAMP_HANDLERS (CLI > env > default). dexlib2 only: with "
         "--instrumentation-variant ajc the run aborts before pre-processing. No "
         "effect under --skip-instrument, whose APKs were instrumented earlier. "
@@ -835,7 +837,8 @@ def run(
                 and experiment_config.instrumentation_variant != "dexlib2"
             ):
                 raise click.ClickException(
-                    "--stamp-handlers requires --instrumentation-variant dexlib2; "
+                    f"--stamp-handlers (or {ENV_STAMP_HANDLERS}, or stamp_handlers "
+                    "in --config) requires --instrumentation-variant dexlib2; "
                     f"the '{experiment_config.instrumentation_variant}' variant "
                     "has no handler stamp"
                 )

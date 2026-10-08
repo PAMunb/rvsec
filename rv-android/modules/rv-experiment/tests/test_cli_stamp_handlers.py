@@ -7,8 +7,9 @@ is: `default=None` and no `envvar=`, so "flag absent" stays distinguishable from
 
 The resolved value travels by value: `ExperimentConfig.stamp_handlers` →
 `get_dexlib_instrumentation_config()` → `DexlibInstrumentationConfig.stamp_handlers`,
-and it is recorded in `experiment_config.json`. The `ajc` variant has no stamp, so `run` rejects the
-combination before pre-processing, in CLI mode and under `--config` alike.
+and it is recorded in `experiment_config.json`. The `ajc` variant has no stamp, so
+`run` rejects the combination before pre-processing, in CLI mode and under `--config`
+alike.
 """
 
 from __future__ import annotations
@@ -134,6 +135,7 @@ def test_ajc_with_the_flag_aborts_before_pre_processing(runner, tmp_apk_dir, tmp
     assert not mock_exec.called
     assert result.exit_code != 0
     assert "--stamp-handlers" in result.output
+    assert ENV_STAMP_HANDLERS in result.output
     assert "'ajc'" in result.output
 
 

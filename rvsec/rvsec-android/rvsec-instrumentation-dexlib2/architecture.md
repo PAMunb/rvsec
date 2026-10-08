@@ -410,7 +410,15 @@ buttons and `Preference` rows get their listeners inside the framework or the pr
 through no routed setter, so they carry no stamp. An APK whose Compose internals R8 renamed gets
 `stampComposeSites=0` and no Compose stamp. Below API 29 the delegate a view already carries
 cannot be read, so the stamp delegate replaces an app delegate set before the first listener
-instead of chaining it; the campaigns run on API 30. The granularity is the handler class: an
+instead of chaining it; the campaigns run on API 30. On API 29 and later that earlier delegate is
+chained, but it drops out when library code later reads the view's delegate (the stamp delegate),
+wraps it and sets the wrapper, as androidx `ViewCompat` does when it adds or replaces an
+accessibility action and RecyclerView's item delegate does on an item view: the helper chains the
+wrapper in its place, the wrapper calls back into the stamp delegate, and the re-entered callback
+goes to the platform default. What the earlier delegate added to the node (for instance the
+`ExploreByTouchHelper` virtual children of a Material chip's close icon) is then missing from the
+tree a `UiAutomation` client reads; the stamp keys stay, and the app's behaviour outside
+accessibility is unchanged. The granularity is the handler class: an
 activity implementing `View.OnClickListener` for several buttons stamps the activity on all of
 them.
 

@@ -208,6 +208,104 @@ O 9.5 rodou três vezes; as duas primeiras estão guardadas, sem nada apagado:
 
 A tabela acima é a da terceira rodada, `results/probe/`.
 
+## Efetividade e despachantes (análise da revisão, tarefa 10.3)
+
+Feita depois do grupo 9, sobre os mesmos dados: as capturas `results/probe/`, os logcats e
+os traces do APE do 9.4 (`results/<apk>/`), o `dexdump` dos APKs originais e o fixture do
+GATOR `modules/aperv-tool/tests/fixtures/cryptoapp.apk.json` (regenerado na gh120). Os
+cruzamentos foram feitos com scripts de uso único, não guardados; o método está descrito em
+cada medida.
+
+### Quando há carimbo, ele está certo
+
+É a medida do 9.5: 58 de 58 nós pareados com o mesmo handler da linha `RVSEC-BIND`, 0
+divergência, 0 nó carimbado sem linha.
+
+### Que fração dos cliques do APE caiu num nó carimbado
+
+As ações `Select action … MODEL_CLICK` / `MODEL_LONG_CLICK` do trace de cada tarefa do 9.4
+(428 no total, 120 s por app) foram cruzadas com as linhas `RVSEC-BIND` do mesmo logcat: nó
+de View pelo `resource-id` e pelo tipo de evento; nó Compose pelos bounds e pelo tipo de
+evento. Um nó conta como carimbado se alguma linha com handler diferente de `-` casa com
+ele.
+
+| App | cliques | handler do app | despachante de biblioteca | sem carimbo | View sem id (indeterminado) |
+|---|---|---|---|---|---|
+| aegis | 132 | 122 (92,4 %) | 0 | 10 | 0 |
+| parceltracker | 99 | 43 (43,4 %) | 13 (13,1 %) | 43 | 0 |
+| droid_scep | 106 | 6 (5,7 %) | 19 (17,9 %) | 55 | 26 |
+| cryptoapp | 91 | 16 (17,6 %) | 2 (2,2 %) | 69 | 4 |
+| **total** | 428 | 187 (43,7 %) | 34 (7,9 %) | 177 (41,4 %) | 30 (7,0 %) |
+
+Os 177 cliques sem carimbo, por classe do nó: `EditText` 97 (54,8 %), `TextView` 43 (linhas
+`text1` / `title` de listas, popups e menu de overflow, e textos selecionáveis),
+`RadioButton` 12, `CheckedTextView` 10, `View` (Compose) 8, `Spinner` 6, `CheckBox` 1. São
+nós cujo código do app não é um listener de clique (`TextWatcher`,
+`setOnCheckedChangeListener`, `setOnItemSelectedListener`, `setOnItemClickListener`) ou que
+caem nos limites registrados (`AlertDialog`); o carimbo cobre os três setters da spec.
+
+Cliques sem `resource-id`: 129 de 428 (30,1 %; no E6 foram 58,6 %). No parceltracker, 56 dos
+99 (56,6 %) caíram num nó carimbado; os 30 de droid_scep e cryptoapp são View sem id, que o
+log de View não permite cruzar. Com o carimbo, os cliques com alguma chave (`resource-id`
+ou carimbo) passam de 299/428 (69,9 %) para pelo menos 355/428 (82,9 %), todo o ganho no
+parceltracker.
+
+Ressalvas: o cruzamento por id superestima (um id repetido em várias views, como linhas de
+lista, conta como carimbado se alguma tiver carimbo); o cruzamento Compose por bounds
+subestima (a linha guarda os bounds do momento em que foi escrita, e 31 dos 43 cliques
+Compose sem par têm bounds que nunca aparecem no log); a distribuição é a dos cliques do APE
+em quatro apps e uma execução; ter chave não é ter distância do GATOR.
+
+Na sonda do 9.5, medida exata mas pequena, os 24 alvos clicáveis das primeiras telas se
+dividem em 6 com handler do app, 5 com despachante (3 `DeclaredOnClickListener`, 2
+`NavigationBarMenuView$1`) e 13 sem carimbo (8 `EditText`, 2 `RadioButton`, 1 `Spinner`, 2
+botões de overflow do menu).
+
+### O que os despachantes chamam (bytecode dos APKs originais)
+
+Das 470 linhas `RVSEC-BIND` com handler do 9.4, 145 (30,9 %) nomeiam uma classe de
+biblioteca. O que cada uma faz no clique, conferido com `dexdump -d`:
+
+| Despachante | linhas | o que chama |
+|---|---|---|
+| `AppCompatViewInflater$DeclaredOnClickListener` | 54 | `resolveMethod`: percorre a cadeia de `Context` da view (`getBaseContext()` dos `ContextWrapper`) e, em cada um não restrito, `getClass().getMethod(mMethodName, View.class)`; lança `IllegalStateException` se a cadeia acaba |
+| `ToolbarWidgetWrapper$1` | 22 | `Window.Callback.onMenuItemSelected(0, mNavItem)`, isto é, a Activity |
+| `ActionMenuItemView` | 8 | `MenuItemImpl.invoke`: o `OnMenuItemClickListener` do item; senão o callback do menu (`onOptionsItemSelected` da Activity e, se ela retorna falso, os MenuProviders via `MenuHostHelper`, Fragments inclusive); senão `mItemCallback`, o `Intent` do item e o `ActionProvider`; cada passo só se o anterior retornou falso |
+| `NavigationBarMenuView$1` | 9 | `performItemAction` sobre o item; o `OnItemSelectedListener` do app, ou o `OnItemReselectedListener` quando o item já está selecionado |
+| `SearchView$5` | 20 | um listener para cinco botões (busca, fechar, enviar, voz e o campo), escolhido pela view clicada; o repasse ao listener do app não foi seguido |
+| Compose `CoreTextFieldKt$…$6` | 21 | só `tapToFocus`; o clique não roda código do app |
+| Compose `ExposedDropdownMenuKt$expandable$2$1`, `CheckboxKt$Checkbox$1$1` | 10 | a lambda do app capturada em `$onExpandedChange` / `$onCheckedChange`, chamada sem condição |
+| Compose `TextLinkScope…` | 1 | não conferido |
+
+Os nomes de campo `mHostView`, `mMethodName`, `mResolvedContext` e `mItemData` estão
+intactos nos quatro APKs.
+
+No fixture do GATOR do cryptoapp, o botão `buttonCipher` (um `android:onClick`) tem o handler
+`<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>`, o mesmo par
+classe-método que a resolução do `DeclaredOnClickListener` dá. Os itens de menu ficam numa
+janela `OPTIONSMENU`, chaveados pelo `idName`: `menu_item_message_digest` tem o handler
+`MainActivity$1.onMenuItemClick` (de `setOnMenuItemClickListener`), e `menu_item_cipher`
+não tem handler, embora `MainActivity.onOptionsItemSelected` o trate
+(`examples/cryptoapp/.../MainActivity.java:59-64`). Neste fixture, o GATOR não liga
+`onOptionsItemSelected` ao item; a causa não foi investigada. Os nós da barra inferior do
+droid_scep trazem o id do item de menu como `resource-id` (`action_scep`, `action_monitor`,
+`action_extras`).
+
+### Seguimentos possíveis (nada decidido)
+
+- Resolver o `DeclaredOnClickListener` pelo mesmo algoritmo do `resolveMethod` e carimbar a
+  classe e o método do app (54 das 145 linhas de biblioteca); é a chave do widget no GATOR.
+- Carimbar, nos itens de menu e da barra inferior, o id do item e o primeiro listener do app
+  na cadeia de despacho.
+- Desembrulhar, no Compose, a lambda do app capturada nos campos `$on…` das lambdas de
+  biblioteca.
+- Rotear outros setters (`setOnCheckedChangeListener`, `setOnItemClickListener`,
+  `setOnItemSelectedListener`).
+- Atribuição por execução (o primeiro método do app que roda no despacho de um clique):
+  vale para qualquer despachante, mas só depois do primeiro clique no nó; o log de
+  cobertura atual não serve, porque só registra a primeira entrada de cada método.
+- GATOR: ligar `onOptionsItemSelected` aos itens de menu que ele trata.
+
 ## Limites
 
 - **Um nível de navegação.** A sonda clica só os nós clicáveis da primeira tela e captura a
@@ -218,6 +316,12 @@ A tabela acima é a da terceira rodada, `results/probe/`.
 - **AVD do host, não o da imagem de campanha.** As execuções usaram o AVD `RVSec` do host
   (4096 MB, 2 núcleos), não o AVD da imagem Docker (1536 MB, 4 núcleos).
 - **Um app Compose.** O lado Compose foi visto só no parceltracker (Compose 1.7).
+- **Delegate do app embrulhado depois do carimbo não exercitado.** Quando uma view já tem um
+  delegate do app ao receber o carimbo e o androidx depois embrulha o delegate (ações de
+  acessibilidade do `ViewCompat`, item delegate do RecyclerView), o delegate anterior deixa
+  de ser chamado; o carimbo e o comportamento do app fora da acessibilidade não mudam.
+  Achado da revisão (10.3), registrado como limite conhecido na spec; nenhum app desta
+  verificação passou por essa sequência.
 
 ## O que foi medido e o que é relato
 

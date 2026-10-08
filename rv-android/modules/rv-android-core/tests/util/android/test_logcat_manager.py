@@ -565,7 +565,7 @@ class TestLogcatManager:
         assert len(TAG_RVSEC_OCC) <= 23, "Android bounds logcat tags at 23 chars"
 
     def test_bind_tag_declared_once(self, logcat_manager):
-        """INV-CORE-53: the handler-stamp verification tag has exactly one declaration site.
+        """INV-CORE-53: the stamp verification tag has exactly one declaration site.
 
         The tag string is a contract with `RvsecStamp.TAG` in
         `rvsec-instrumentation-dexlib2`, and a mismatch between the two repositories
