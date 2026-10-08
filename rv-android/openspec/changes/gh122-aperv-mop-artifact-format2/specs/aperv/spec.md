@@ -162,7 +162,9 @@ read format 1 only, so the two sides ship together.
      for `i`: 0 when the method is the target, 1–10 otherwise (gh120 `DIST_MAX = 10`); a target
      absent from its entries is unreachable. An entry that is not a pair of integers, whose index is
      outside `[0, targets)` or whose distance is negative is skipped, like any malformed entry inside
-     a well-typed section.
+     a well-typed section. A method the producer marks reaching and gives no `targetDistances` has
+     flags and no distance: the derive does not invent one, so a widget whose only reaching handlers
+     are such methods is flagged and carries no pair, and the jar scores it without distance.
    - **The distance of a handler.** A listener's handler SHALL resolve to its method by the same
      exact signature join that gives its flags (INV-DRV-01, INV-DRV-09). A D8 synthetic-lambda wrapper
      absent from that index SHALL resolve by the same class recovery, and its distance to `i` is the
@@ -213,8 +215,9 @@ mid-pass is caught earlier, by `json.loads` in `_derive_mop_artifact()`, because
 its output file on open and cannot leave a parseable stale tail.
 
 #### Scenario: cryptoapp derivation matches the known ground truth
-- **WHEN** `derive()` runs on the test fixture `cryptoapp.apk.json`, the gh60 producer output for
-  `br.unb.cic.cryptoapp` with one field as the gh120 producer emits it: the Execute button's wrapper
+- **WHEN** `derive()` runs on the test fixture `cryptoapp.apk.json`, a byte copy of the gh120
+  baseline `modules/rv-static-analysis/tests/resources/cryptoapp.apk.json` (the gh120 producer
+  output for `br.unb.cic.cryptoapp`), where the Execute button's wrapper
   `CryptographyActivity$$ExternalSyntheticLambda0.onClick` carries `reachesTarget: true`
 - **THEN** `mopActivities` SHALL equal
   `{MessageDigestActivity, CipherActivity, CryptographyActivity}` (base names).

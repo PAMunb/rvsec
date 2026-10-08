@@ -72,6 +72,7 @@ from rv_android_core.util.logging.manager import LoggingManager
 from aperv_tool.tools.aperv.derive_mop_artifact import (
     ARTIFACT_SUFFIX,
     DEVICE_ARTIFACT_PATH,
+    FORMAT_VERSION,
     DerivationError,
     derive,
     digest_of,
@@ -691,11 +692,16 @@ class ApeRVTool(AbstractTool):
         """
         Return the host path of the derived MOP artifact, generating it when needed.
 
-        The artifact is a pure function of the full static-analysis JSON, so
-        freshness is a digest comparison rather than a timestamp one: mtime does not
-        survive a copy, a resume or a container boundary, and a stale artifact would
-        arm a run against a substrate that no longer describes the app. The recorded
-        digest lives inside the artifact, so there is no sidecar to keep consistent.
+        The artifact is a pure function of the full static-analysis JSON and the
+        generator's format, so freshness is a comparison of both rather than a
+        timestamp one: mtime does not survive a copy, a resume or a container
+        boundary, and a stale artifact would arm a run against a substrate that no
+        longer describes the app. The format is part of the key because the digest
+        names the input, not the derivation: after a format bump a cached artifact
+        of the old format still matches its source's digest, and pushing it to a
+        jar that reads only the new format would abort every MOP arm
+        (INV-APV-47). Both fields live inside the artifact, so there is no sidecar
+        to keep consistent.
 
         Writes go through a temporary file in the same directory followed by an
         atomic rename, so a crash mid-write cannot leave a truncated artifact that a
@@ -709,7 +715,7 @@ class ApeRVTool(AbstractTool):
 
         Returns:
             Path of the `<apk_name>.mop.json` whose `source.digest` matches the
-            current full JSON.
+            current full JSON and whose `formatVersion` is `FORMAT_VERSION`.
 
         Raises:
             RVToolExecutionError: The full JSON is unreadable, unparseable or too
@@ -730,7 +736,7 @@ class ApeRVTool(AbstractTool):
                 raw = source_file.read()
             digest = digest_of(raw)
 
-            if self._cached_artifact_digest(artifact_path) == digest:
+            if self._cached_artifact_identity(artifact_path) == (digest, FORMAT_VERSION):
                 self.logger.debug(f"Reusing cached MOP artifact {artifact_path}")
                 return artifact_path
 
@@ -773,22 +779,31 @@ class ApeRVTool(AbstractTool):
                 except OSError:
                     pass
 
-    def _cached_artifact_digest(self, artifact_path: str) -> str | None:
+    def _cached_artifact_identity(self, artifact_path: str) -> tuple[str, int] | None:
         """
-        Read the source digest a cached artifact records, or None when there is no
-        usable cache.
+        Read the `(source.digest, formatVersion)` a cached artifact records, or None
+        when there is no usable cache.
 
         A missing, unreadable or corrupt artifact is not an error: it is a cache
-        miss, and regenerating costs milliseconds. Only the digest is read, because
-        it is the only field freshness depends on.
+        miss, and regenerating costs milliseconds. So is an artifact missing either
+        field. Only these two are read, because they are the only fields freshness
+        depends on; `source.generator` is not, since `formatVersion` is the field
+        the jar gates on (`ape` INV-MOP-34) and so the one whose mismatch would
+        abort a run.
         """
         try:
             with open(artifact_path, "r") as artifact_file:
                 cached = json.load(artifact_file)
         except (OSError, json.JSONDecodeError):
             return None
-        source = cached.get("source") if isinstance(cached, dict) else None
-        return source.get("digest") if isinstance(source, dict) else None
+        if not isinstance(cached, dict):
+            return None
+        source = cached.get("source")
+        digest = source.get("digest") if isinstance(source, dict) else None
+        format_version = cached.get("formatVersion")
+        if digest is None or format_version is None:
+            return None
+        return digest, format_version
 
     def _push_properties(
         self, device_serial: str, trace_file_path: str, mop_json_pushed: bool = False

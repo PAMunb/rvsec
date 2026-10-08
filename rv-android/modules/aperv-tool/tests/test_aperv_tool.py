@@ -1497,7 +1497,7 @@ class TestDeriveMopArtifact:
 
         assert path == str(self._artifact_path(tmp_path))
         artifact = json.loads(self._artifact_path(tmp_path).read_text())
-        assert artifact["formatVersion"] == 1
+        assert artifact["formatVersion"] == 2
         assert artifact["package"] == "br.unb.cic.cryptoapp"
         assert artifact["source"]["file"] == "app.apk.json"
 
@@ -1544,8 +1544,42 @@ class TestDeriveMopArtifact:
         self.tool._derive_mop_artifact(self._task(tmp_path))
 
         assert (
-            json.loads(self._artifact_path(tmp_path).read_text())["formatVersion"] == 1
+            json.loads(self._artifact_path(tmp_path).read_text())["formatVersion"] == 2
         )
+
+    def test_cached_artifact_of_an_older_format_regenerates(self, tmp_path, monkeypatch):
+        # Spec scenario "cached artifact of an older format regenerates": the digest
+        # names the input, not the derivation, so a format-1 artifact derived before
+        # the bump matches its source and would reach a jar that rejects it.
+        raw = json.dumps(SOURCE_DOCUMENT, indent=2)
+        _write_source(tmp_path, raw=raw)
+        self._artifact_path(tmp_path).write_text(
+            json.dumps(
+                {
+                    "formatVersion": 1,
+                    "source": {
+                        "digest": aperv_mod.digest_of(raw.encode()),
+                        "file": "app.apk.json",
+                        "generator": "aperv-derive/1",
+                    },
+                }
+            )
+        )
+        calls = []
+        real_derive = aperv_mod.derive
+
+        def counting_derive(*args, **kwargs):
+            calls.append(args)
+            return real_derive(*args, **kwargs)
+
+        monkeypatch.setattr(aperv_mod, "derive", counting_derive)
+
+        self.tool._derive_mop_artifact(self._task(tmp_path))
+
+        assert len(calls) == 1
+        artifact = json.loads(self._artifact_path(tmp_path).read_text())
+        assert artifact["formatVersion"] == 2
+        assert artifact["source"]["generator"] == "aperv-derive/2"
 
     def test_failed_derivation_leaves_no_file(self, tmp_path):
         # Spec scenario "failed derivation leaves no artifact behind": a section of
@@ -1923,11 +1957,30 @@ class TestExecuteMopArtifactFlow:
         assert len(pushes) == 1
         local_path, _, content = pushes[0]
         assert local_path == str(tmp_path / "app.apk.mop.json")
-        assert json.loads(content)["formatVersion"] == 1
+        assert json.loads(content)["formatVersion"] == 2
         assert all(push[0] != source for push in self.pushed)
         assert not any(
             push[1] == "/data/local/tmp/static_analysis.json" for push in self.pushed
         )
+
+    def test_older_format_cache_is_never_pushed(self, tmp_path):
+        # INV-APV-47: a format-1 artifact whose digest matches is a cache miss, so
+        # the device receives the format the jar reads, not the stale cache.
+        raw = json.dumps(SOURCE_DOCUMENT, indent=2)
+        _write_source(tmp_path, raw=raw)
+        (tmp_path / "app.apk.mop.json").write_text(
+            json.dumps(
+                {
+                    "formatVersion": 1,
+                    "source": {"digest": aperv_mod.digest_of(raw.encode())},
+                }
+            )
+        )
+
+        self._run(tmp_path, self.MOP_ARM)
+
+        (push,) = self._artifact_pushes()
+        assert json.loads(push[2])["formatVersion"] == 2
 
     def test_properties_carry_new_mop_data_path(self, tmp_path):
         _write_source(tmp_path, SOURCE_DOCUMENT)

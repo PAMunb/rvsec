@@ -9,16 +9,22 @@ cryptoapp ground truth covers the projection as a whole.
 import hashlib
 import json
 import os
+import random
+import re
 import subprocess
 import sys
 
 import pytest
 
 from aperv_tool.tools.aperv.derive_mop_artifact import (
+    DIST_K,
     DerivationError,
     _base_activity,
+    _cut_pairs,
     _index_reachability,
+    _merge_minima,
     _normalize_event_type,
+    _read_pairs,
     derive,
     digest_of,
     serialize_canonical,
@@ -40,14 +46,27 @@ def _document(**overrides) -> dict:
     return document
 
 
-def _method(signature, *, name=None, reaches=False, direct=False) -> dict:
-    return {
+def _method(
+    signature, *, name=None, reaches=False, direct=False, distances=None
+) -> dict:
+    method = {
         "name": name if name is not None else signature,
         "signature": signature,
         "reachable": True,
         "reachesTarget": reaches,
         "directlyReachesTarget": direct,
     }
+    if distances is not None:
+        method["targetDistances"] = distances
+    return method
+
+
+def _distance_targets(count) -> list[dict]:
+    """A `distanceTargets` section of `count` entries; only its length is read."""
+    return [
+        {"signature": f"<com.example.T: void t{index}()>", "kind": "direct"}
+        for index in range(count)
+    ]
 
 
 def _listener(event_type, handler, *, reaches=None, direct=None) -> dict:
@@ -171,15 +190,16 @@ def test_base_activity(window_name, expected):
 
 
 def test_index_reachability_stores_direct_and_transitive():
-    by_signature, _, _ = _index_reachability(
+    by_signature = _index_reachability(
         [
             {
                 "className": "com.example.A",
                 "componentType": "class",
                 "methods": [_method("<A: void a()>", reaches=True)],
             }
-        ]
-    )
+        ],
+        0,
+    ).by_signature
     assert by_signature["<A: void a()>"] == (False, True)
 
 
@@ -190,14 +210,15 @@ def test_index_reachability_direct_only_method_is_transitive():
     the jar's index did — would derive a widget that is direct but not transitive,
     an incoherent state.
     """
-    by_signature, _, _ = _index_reachability(
+    by_signature = _index_reachability(
         [
             {
                 "className": "com.example.A",
                 "methods": [_method("<A: void a()>", direct=True, reaches=False)],
             }
-        ]
-    )
+        ],
+        0,
+    ).by_signature
     assert by_signature["<A: void a()>"] == (True, True)
 
 
@@ -216,8 +237,8 @@ def test_index_reachability_merges_duplicate_signatures_by_or():
             "methods": [_method("<A: void a()>", direct=False, reaches=True)],
         },
     ]
-    forward, _, _ = _index_reachability(entries)
-    backward, _, _ = _index_reachability(list(reversed(entries)))
+    forward = _index_reachability(entries, 0).by_signature
+    backward = _index_reachability(list(reversed(entries)), 0).by_signature
     assert forward["<A: void a()>"] == (True, True)
     assert backward["<A: void a()>"] == (True, True)
 
@@ -228,7 +249,7 @@ def test_index_reachability_keeps_unreaching_methods():
     listed D8 wrapper is answered by its own flags and never reaches the class
     recovery (INV-DRV-09).
     """
-    by_signature, lambda_by_class, activity_classes = _index_reachability(
+    index = _index_reachability(
         [
             {
                 "className": "com.example.A",
@@ -238,18 +259,19 @@ def test_index_reachability_keeps_unreaching_methods():
                     _method("<A: void lambda$a$0()>", name="lambda$a$0"),
                 ],
             }
-        ]
+        ],
+        0,
     )
-    assert by_signature == {
+    assert index.by_signature == {
         "<A: void a()>": (False, False),
         "<A: void lambda$a$0()>": (False, False),
     }
-    assert lambda_by_class == {}
-    assert activity_classes == set()
+    assert index.lambda_by_class == {}
+    assert index.activity_classes == set()
 
 
 def test_index_reachability_indexes_reaching_lambda_bodies_by_class():
-    _, lambda_by_class, _ = _index_reachability(
+    lambda_by_class = _index_reachability(
         [
             {
                 "className": "com.example.A",
@@ -267,13 +289,14 @@ def test_index_reachability_indexes_reaching_lambda_bodies_by_class():
                     _method("<A: void onCreate()>", name="onCreate", reaches=True),
                 ],
             }
-        ]
-    )
+        ],
+        0,
+    ).lambda_by_class
     assert lambda_by_class == {"com.example.A": (True, True)}
 
 
 def test_index_reachability_collects_activity_classes():
-    _, _, activity_classes = _index_reachability(
+    activity_classes = _index_reachability(
         [
             {
                 "className": "com.example.CryptoActivity",
@@ -290,14 +313,15 @@ def test_index_reachability_collects_activity_classes():
                 "componentType": "activity",
                 "methods": [_method("<I: void c()>")],
             },
-        ]
-    )
+        ],
+        0,
+    ).activity_classes
     assert activity_classes == {"com.example.CryptoActivity"}
 
 
 def test_index_reachability_skips_malformed_entries():
     """A single odd entry is producer noise and must not cost the whole app."""
-    by_signature, _, _ = _index_reachability(
+    by_signature = _index_reachability(
         [
             "not-an-object",
             {"className": "com.example.A", "methods": "not-a-list"},
@@ -306,8 +330,9 @@ def test_index_reachability_skips_malformed_entries():
                 "className": "com.example.A",
                 "methods": [_method("<A: void a()>", reaches=True)],
             },
-        ]
-    )
+        ],
+        0,
+    ).by_signature
     assert by_signature == {"<A: void a()>": (False, True)}
 
 
@@ -385,7 +410,7 @@ def test_derive_refuses_non_dict_document():
 
 def test_derive_treats_absent_sections_as_empty():
     artifact = derive({"complete": True, "package": "com.example"})
-    assert artifact["formatVersion"] == 1
+    assert artifact["formatVersion"] == 2
     assert artifact["package"] == "com.example"
     assert artifact["mainActivity"] is None
 
@@ -397,7 +422,7 @@ def test_derive_records_supplied_provenance():
     assert artifact["source"] == {
         "digest": "sha256:ab12",
         "file": "com.example_1.apk.json",
-        "generator": "aperv-derive/1",
+        "generator": "aperv-derive/2",
     }
 
 
@@ -1462,6 +1487,505 @@ def test_deep_link_scheme_and_host_without_path():
 
 
 # ---------------------------------------------------------------------------
+# Targets and distances (format 2, INV-DRV-10)
+# ---------------------------------------------------------------------------
+
+
+def test_cut_pairs_keeps_the_nearest_three_by_distance_then_index():
+    assert _cut_pairs({7: 4, 2: 2, 5: 1, 9: 2}) == [[5, 1], [2, 2], [9, 2]]
+    assert _cut_pairs({}) == []
+
+
+def test_merge_minima_keeps_the_smaller_distance_per_target():
+    into = {1: 3, 2: 5}
+    assert _merge_minima(into, {2: 4, 3: 1}) is into
+    assert into == {1: 3, 2: 4, 3: 1}
+
+
+def test_pair_rules_hold_over_random_minima():
+    """
+    INV-DRV-10 over seeded random minima: the merge keeps the minimum per target,
+    and the cut keeps at most three pairs, each index once, sorted by `(d, i)`,
+    with no dropped pair nearer than a kept one.
+    """
+    rng = random.Random(122)
+    for _ in range(500):
+        targets = rng.randint(1, 40)
+        left = {
+            rng.randrange(targets): rng.randint(0, 10)
+            for _ in range(rng.randint(0, 15))
+        }
+        right = {
+            rng.randrange(targets): rng.randint(0, 10)
+            for _ in range(rng.randint(0, 15))
+        }
+
+        merged = _merge_minima(dict(left), right)
+        assert set(merged) == set(left) | set(right)
+        for target, distance in merged.items():
+            assert distance == min(
+                d for d in (left.get(target), right.get(target)) if d is not None
+            )
+
+        pairs = _cut_pairs(merged)
+        assert len(pairs) == min(DIST_K, len(merged))
+        assert len({i for i, _ in pairs}) == len(pairs)
+        assert all(0 <= i < targets and merged[i] == d for i, d in pairs)
+        keys = [(d, i) for i, d in pairs]
+        assert keys == sorted(keys)
+        dropped = [(d, i) for i, d in merged.items() if [i, d] not in pairs]
+        assert all(key < other for key in keys for other in dropped)
+
+
+def test_read_pairs_skips_malformed_entries():
+    """
+    Noise inside a well-typed section is skipped: a non-pair, an index outside
+    `[0, targets)`, a negative distance, a bool and a float are all dropped, and a
+    repeated index keeps its minimum.
+    """
+    raw = [
+        [0, 2],
+        [1],
+        "x",
+        [5, 1],
+        [-1, 1],
+        [2, -1],
+        [True, 1],
+        [3, False],
+        [1.0, 2],
+        [4, 3, 9],
+        [0, 1],
+    ]
+    assert _read_pairs(raw, 5) == {0: 1}
+    assert _read_pairs("not-a-list", 5) == {}
+    assert _read_pairs([[0, 1]], 0) == {}
+
+
+def test_derive_refuses_non_list_distance_targets():
+    with pytest.raises(DerivationError):
+        derive(_document(distanceTargets={"0": "x"}))
+
+
+def test_widget_distance_is_the_minimum_over_its_handlers_cut_at_three():
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(12),
+            reachability=[
+                _reaching_class(
+                    "com.example.Handlers",
+                    [
+                        _method(
+                            "<A: void a()>",
+                            reaches=True,
+                            distances=[[2, 3], [5, 1], [7, 4]],
+                        ),
+                        _method(
+                            "<A: void b()>",
+                            reaches=True,
+                            distances=[[2, 2], [9, 6], [11, 5]],
+                        ),
+                    ],
+                )
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [
+                        _widget(
+                            "btn_ok",
+                            listeners=[
+                                _listener("click", "<A: void a()>"),
+                                _listener("click", "<A: void b()>"),
+                            ],
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+    entry = artifact["widgets"]["com.example.MainActivity"]["btn_ok"]
+    assert entry["dist"] == {"click": [[5, 1], [2, 2], [7, 4]]}
+    assert artifact["targets"] == 12
+
+
+def test_unlisted_wrapper_takes_its_distances_from_the_recovered_lambdas():
+    handler = (
+        "<com.example.MainActivity$$ExternalSyntheticLambda0: "
+        "void onClick(android.view.View)>"
+    )
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(8),
+            reachability=[
+                _reaching_class(
+                    "com.example.MainActivity",
+                    [
+                        _method(
+                            "<com.example.MainActivity: void lambda$onCreate$0()>",
+                            name="lambda$onCreate$0",
+                            reaches=True,
+                            distances=[[4, 2]],
+                        ),
+                        _method(
+                            "<com.example.MainActivity: void lambda$onCreate$1()>",
+                            name="lambda$onCreate$1",
+                            reaches=True,
+                            distances=[[4, 1], [6, 3]],
+                        ),
+                    ],
+                )
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [_widget("btn_ok", listeners=[_listener("click", handler)])],
+                )
+            ],
+        )
+    )
+    entry = artifact["widgets"]["com.example.MainActivity"]["btn_ok"]
+    assert entry["dist"] == {"click": [[4, 1], [6, 3]]}
+
+
+def test_producer_precedence_listener_takes_its_distances_from_the_join():
+    """The producer supplies flags and no distance, so the pairs still come from the join."""
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(3),
+            reachability=[
+                _reaching_class(
+                    "com.example.Handlers",
+                    [_method("<A: void h()>", reaches=True, distances=[[1, 2]])],
+                )
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [
+                        _widget(
+                            "btn_ok",
+                            listeners=[
+                                _listener(
+                                    "click", "<A: void h()>", reaches=True, direct=True
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+    entry = artifact["widgets"]["com.example.MainActivity"]["btn_ok"]
+    assert entry["mop"] == {"click": "both"}
+    assert entry["dist"] == {"click": [[1, 2]]}
+
+
+def test_handler_table_lists_a_class_that_reaches_nothing():
+    reaching_nothing = "com.example.ui.ScreenKt$Body$1$1"
+    reaching = "com.example.ui.ScreenKt$Body$2"
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(4),
+            reachability=[
+                _reaching_class(
+                    reaching_nothing,
+                    [
+                        _method(
+                            f"<{reaching_nothing}: java.lang.Object invoke()>",
+                            name="invoke",
+                        )
+                    ],
+                ),
+                _reaching_class(
+                    reaching,
+                    [
+                        _method(
+                            f"<{reaching}: java.lang.Object invoke(java.lang.Object)>",
+                            name="invoke",
+                            reaches=True,
+                            distances=[[3, 2]],
+                        )
+                    ],
+                ),
+            ],
+        )
+    )
+    assert artifact["handlers"] == {
+        reaching_nothing: {"mop": {"click": "none", "longclick": "none"}},
+        reaching: {
+            "mop": {"click": "transitive", "longclick": "transitive"},
+            "dist": {"click": [[3, 2]], "longclick": [[3, 2]]},
+        },
+    }
+
+
+def test_handler_table_matches_handler_methods_by_name_and_parameters():
+    """
+    `onClick(View)` fills `click`, `onLongClick(View)` fills `longclick` whatever its
+    `boolean` return, and the Object-returning `invoke` fills both. Two methods
+    filling one event OR their flags and merge their pairs. A typed `void invoke()`,
+    an `onClick` of another parameter list and a constructor are not handlers.
+    """
+    handlers = "com.example.Handlers"
+    others = "com.example.NotHandlers"
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(6),
+            reachability=[
+                _reaching_class(
+                    handlers,
+                    [
+                        _method(
+                            f"<{handlers}: void onClick(android.view.View)>",
+                            name="onClick",
+                            reaches=True,
+                            distances=[[1, 3], [2, 4]],
+                        ),
+                        _method(
+                            f"<{handlers}: java.lang.Object invoke()>",
+                            name="invoke",
+                            direct=True,
+                            distances=[[1, 1]],
+                        ),
+                        _method(
+                            f"<{handlers}: boolean onLongClick(android.view.View)>",
+                            name="onLongClick",
+                        ),
+                    ],
+                ),
+                _reaching_class(
+                    others,
+                    [
+                        _method(
+                            f"<{others}: void invoke()>",
+                            name="invoke",
+                            reaches=True,
+                            distances=[[0, 1]],
+                        ),
+                        _method(
+                            f"<{others}: void onClick(int)>",
+                            name="onClick",
+                            reaches=True,
+                        ),
+                        _method(f"<{others}: void <init>()>", name="<init>", reaches=True),
+                    ],
+                ),
+            ],
+        )
+    )
+    assert artifact["handlers"] == {
+        handlers: {
+            "mop": {"click": "both", "longclick": "both"},
+            "dist": {"click": [[1, 1], [2, 4]], "longclick": [[1, 1]]},
+        }
+    }
+
+
+def test_document_without_distances_derives_with_no_target():
+    """
+    A September document has no `distanceTargets`, so `targets` is 0 and every
+    pair fails the range check, even one a method happens to carry.
+    """
+    artifact = derive(
+        _document(
+            reachability=[
+                _reaching_class(
+                    "com.example.MainActivity",
+                    [_method("<A: void h()>", reaches=True, distances=[[0, 1]])],
+                    component_type="activity",
+                ),
+                _reaching_class(
+                    "com.example.Listener",
+                    [
+                        _method(
+                            "<com.example.Listener: void onClick(android.view.View)>",
+                            name="onClick",
+                            reaches=True,
+                        )
+                    ],
+                ),
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [_widget("btn", listeners=[_listener("click", "<A: void h()>")])],
+                )
+            ],
+        )
+    )
+    assert artifact["targets"] == 0
+    assert artifact["handlers"] == {"com.example.Listener": {"mop": {"click": "transitive"}}}
+    assert "dist" not in artifact["widgets"]["com.example.MainActivity"]["btn"]
+    assert artifact["activityDist"] == {}
+
+
+@pytest.mark.parametrize("direct_first", [True, False])
+def test_colliding_widgets_merge_their_distances_by_the_minimum(direct_first):
+    reachability = [
+        _reaching_class(
+            "com.example.Handlers",
+            [
+                _method("<A: void zeroHop()>", direct=True, distances=[[3, 0]]),
+                _method("<A: void deep()>", reaches=True, distances=[[3, 1], [5, 2]]),
+            ],
+        )
+    ]
+    direct = _widget("submit", listeners=[_listener("click", "<A: void zeroHop()>")])
+    transitive = _widget("submit", listeners=[_listener("click", "<A: void deep()>")])
+    widgets = [direct, transitive] if direct_first else [transitive, direct]
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(6),
+            reachability=reachability,
+            windows=[_window(1, "com.example.MainActivity", widgets)],
+        )
+    )
+    entry = artifact["widgets"]["com.example.MainActivity"]["submit"]
+    assert entry["mop"] == {"click": "both"}
+    assert entry["dist"] == {"click": [[3, 0], [5, 2]]}
+
+
+def test_an_activity_constructor_does_not_count_toward_its_distance():
+    def activity_dist(on_resume):
+        return derive(
+            _document(
+                distanceTargets=_distance_targets(24),
+                reachability=[
+                    _reaching_class(
+                        "com.example.A",
+                        [
+                            _method(
+                                "<com.example.A: void <init>()>",
+                                name="<init>",
+                                reaches=True,
+                                distances=[[23, 0]],
+                            ),
+                            _method(
+                                "<com.example.A: void <clinit>()>",
+                                name="<clinit>",
+                                reaches=True,
+                                distances=[[22, 0]],
+                            ),
+                            on_resume,
+                        ],
+                        component_type="activity",
+                    )
+                ],
+            )
+        )["activityDist"]
+
+    assert activity_dist(
+        _method(
+            "<com.example.A: void onResume()>",
+            name="onResume",
+            reaches=True,
+            distances=[[2, 5]],
+        )
+    ) == {"com.example.A": [[2, 5]]}
+    assert activity_dist(_method("<com.example.A: void onResume()>", name="onResume")) == {}
+
+
+def test_dialog_pairs_move_to_the_host_widget_and_activity():
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(5),
+            reachability=[
+                _reaching_class(
+                    "com.example.Handlers",
+                    [
+                        _method("<A: void open()>", reaches=True, distances=[[4, 3]]),
+                        _method("<A: void confirm()>", reaches=True, distances=[[1, 2]]),
+                    ],
+                )
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [_widget("btn_open", listeners=[_listener("click", "<A: void open()>")])],
+                ),
+                _window(
+                    2,
+                    "android.app.AlertDialog",
+                    [
+                        _widget(
+                            "btn_confirm",
+                            listeners=[_listener("click", "<A: void confirm()>")],
+                        )
+                    ],
+                    window_type="DIALOG",
+                ),
+            ],
+            transitions=[_transition(1, 2, [_event("click", "btn_open")])],
+        )
+    )
+    host = artifact["widgets"]["com.example.MainActivity"]
+    assert host["btn_confirm"]["dist"] == {"click": [[1, 2]]}
+    assert artifact["activityDist"] == {"com.example.MainActivity": [[1, 2], [4, 3]]}
+
+
+def test_an_id_less_widget_still_reaches_its_activity_distance():
+    """
+    The empty-short-id rule keeps the widget off the wire, not off its activity,
+    for the reason INV-DRV-02 gives for the activity sets; every event counts.
+    """
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(2),
+            reachability=[
+                _reaching_class(
+                    "com.example.Handlers",
+                    [_method("<A: void h()>", reaches=True, distances=[[0, 3]])],
+                )
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [_widget("", listeners=[_listener("long_click", "<A: void h()>")])],
+                )
+            ],
+        )
+    )
+    assert artifact["widgets"] == {}
+    assert artifact["activityDist"] == {"com.example.MainActivity": [[0, 3]]}
+
+
+def test_an_activity_reaching_only_through_its_constructor_stays_out_of_source_3():
+    artifact = derive(
+        _document(
+            reachability=[
+                _reaching_class(
+                    "com.example.A",
+                    [
+                        _method("<com.example.A: void <init>()>", name="<init>", reaches=True),
+                        _method(
+                            "<com.example.A: void <clinit>()>", name="<clinit>", direct=True
+                        ),
+                    ],
+                    component_type="activity",
+                ),
+                _reaching_class(
+                    "com.example.B",
+                    [
+                        _method("<com.example.B: void <init>()>", name="<init>", reaches=True),
+                        _method(
+                            "<com.example.B: void onCreate()>", name="onCreate", reaches=True
+                        ),
+                    ],
+                    component_type="activity",
+                ),
+            ]
+        )
+    )
+    assert artifact["mopActivitiesAugmented"] == ["com.example.B"]
+
+
+# ---------------------------------------------------------------------------
 # Projection as a whole, canonical serialization and provenance
 # ---------------------------------------------------------------------------
 
@@ -1485,13 +2009,14 @@ def cryptoapp(cryptoapp_bytes) -> dict:
 
 def test_derive_cryptoapp_ground_truth(cryptoapp):
     """
-    The whole projection against the fixture the jar's own suite parses.
+    The whole projection against the gh120 producer output for cryptoapp.
 
     `CryptographyActivity` is in the set through the exact join: its
     `$$ExternalSyntheticLambda0` wrapper handler carries its own `reachesTarget`,
     because the producer links each wrapper to its body (INV-ANA-77), so nothing
-    is recovered — the same three flagged widgets the jar asserts when it parses
-    this fixture raw.
+    is recovered. `MainActivity` reaches a target only through its own `<init>`,
+    a boundary target, so it stays out of the augmented set and has no
+    `activityDist` entry.
     """
     assert cryptoapp["package"] == "br.unb.cic.cryptoapp"
     assert cryptoapp["mainActivity"] == "br.unb.cic.cryptoapp.MainActivity"
@@ -1504,10 +2029,11 @@ def test_derive_cryptoapp_ground_truth(cryptoapp):
         {"activity": "br.unb.cic.cryptoapp.MainActivity", "hasFlaggedWidget": False}
     ]
 
+    assert cryptoapp["mopActivitiesAugmented"] == cryptoapp["mopActivities"]
+
     main_edges = cryptoapp["wtg"]["br.unb.cic.cryptoapp.MainActivity"]
     targets = {edge["target"] for edge in main_edges}
-    assert "br.unb.cic.cryptoapp.cipher.CipherActivity" in targets
-    assert "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity" in targets
+    assert set(cryptoapp["mopActivities"]) <= targets
 
     assert len(cryptoapp["components"]["activities"]) == 4
     providers = cryptoapp["components"]["providers"]
@@ -1522,6 +2048,55 @@ def test_derive_cryptoapp_ground_truth(cryptoapp):
     assert cryptoapp["stats"]["windows"] == 5
     assert cryptoapp["stats"]["flagged"] == 3
     assert cryptoapp["stats"]["recovered"] == 0
+
+    assert cryptoapp["formatVersion"] == 2
+    assert cryptoapp["targets"] == 27
+
+    cipher = "br.unb.cic.cryptoapp.cipher.CipherActivity"
+    generated = "br.unb.cic.cryptoapp.generated.CryptographyActivity"
+    digest = "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity"
+    widgets = cryptoapp["widgets"]
+    assert widgets[digest]["buttonGenerateHash"]["dist"] == {"click": [[22, 2]]}
+    assert widgets[cipher]["btn_cipher_encrypt"]["dist"] == {"click": [[0, 4], [1, 4]]}
+    assert widgets[generated]["executeButton"]["dist"] == {
+        "click": [[16, 3], [17, 3], [18, 3]]
+    }
+
+    assert cryptoapp["handlers"] == {
+        f"{cipher}$1": {
+            "mop": {"click": "transitive"},
+            "dist": {"click": [[0, 4], [1, 4]]},
+        },
+        f"{generated}$$ExternalSyntheticLambda0": {
+            "mop": {"click": "transitive"},
+            "dist": {"click": [[16, 3], [17, 3], [18, 3]]},
+        },
+    }
+    assert cryptoapp["activityDist"] == {
+        cipher: [[0, 2], [1, 2]],
+        generated: [[12, 0], [13, 0], [14, 0]],
+        digest: [[22, 2]],
+    }
+
+
+# The shape of a Soot method signature, `<class: return name(params)>`.
+SOOT_SIGNATURE_PATTERN = re.compile(r"^<[^<>:]+: \S+ [^\s(]+\(.*\)>$")
+
+
+def _signature_strings(node):
+    """Every key or string value in the artifact shaped like a method signature."""
+    found = []
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if SOOT_SIGNATURE_PATTERN.match(key):
+                found.append(key)
+            found.extend(_signature_strings(value))
+    elif isinstance(node, list):
+        for item in node:
+            found.extend(_signature_strings(item))
+    elif isinstance(node, str) and SOOT_SIGNATURE_PATTERN.match(node):
+        found.append(node)
+    return found
 
 
 def _target_keys(node, path="artifact"):
@@ -1547,7 +2122,9 @@ def test_no_target_keys_on_wire():
     `targetMethods` signature list compacts to, whose name belongs to the jointly
     defined wire format. It only exists on receivers and services, so a document
     declaring neither makes this assertion vacuous; the components below are what
-    give it a subject.
+    give it a subject. Format 2 carries target indices and handler class names,
+    never a signature: the `distanceTargets` list and the handler methods below
+    are what give that half a subject (INV-DRV-06).
     """
     component = {
         "className": "C",
@@ -1558,14 +2135,29 @@ def test_no_target_keys_on_wire():
         "targetMethods": ["<C: void onReceive()>"],
         "intentFilters": [],
     }
+    handler = "<com.example.Listener: void onClick(android.view.View)>"
     artifact = derive(
         _document(
+            distanceTargets=_distance_targets(2),
+            reachability=[
+                _reaching_class(
+                    "com.example.Listener",
+                    [_method(handler, name="onClick", reaches=True, distances=[[1, 1]])],
+                )
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [_widget("btn", listeners=[_listener("click", handler)])],
+                )
+            ],
             components={
                 "activities": [component],
                 "receivers": [component],
                 "services": [component],
                 "providers": [{**component, "authorities": "a"}],
-            }
+            },
         )
     )
 
@@ -1574,21 +2166,26 @@ def test_no_target_keys_on_wire():
         "artifact.components.receivers[0].hasTargetMethods",
         "artifact.components.services[0].hasTargetMethods",
     ]
-    for section in ("reachability", "windows", "transitions", "listeners"):
+    sections = ("reachability", "windows", "transitions", "listeners", "distanceTargets")
+    for section in sections:
         assert section not in artifact
+    assert artifact["handlers"]["com.example.Listener"]["dist"] == {"click": [[1, 1]]}
+    assert _signature_strings(artifact) == []
 
 
 def test_no_target_keys_on_the_cryptoapp_projection(cryptoapp):
     assert _target_keys(cryptoapp) == []
-    for section in ("reachability", "windows", "transitions", "listeners"):
+    sections = ("reachability", "windows", "transitions", "listeners", "distanceTargets")
+    for section in sections:
         assert section not in cryptoapp
+    assert _signature_strings(cryptoapp) == []
 
 
 def test_provenance_digest_matches_the_input(cryptoapp, cryptoapp_bytes):
     expected = hashlib.sha256(cryptoapp_bytes).hexdigest()
     assert cryptoapp["source"]["digest"] == f"sha256:{expected}"
     assert cryptoapp["source"]["file"] == "cryptoapp.apk.json"
-    assert cryptoapp["source"]["generator"] == "aperv-derive/1"
+    assert cryptoapp["source"]["generator"] == "aperv-derive/2"
 
 
 def test_serialize_canonical_is_byte_stable(cryptoapp_bytes):

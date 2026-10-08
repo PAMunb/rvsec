@@ -4,7 +4,7 @@ The proposal (#122) moves the compact MOP artifact to format 2. The contract was
 
 Today the derive (`modules/aperv-tool/src/aperv_tool/tools/aperv/derive_mop_artifact.py`) is a pure function, from the full-JSON dict to the artifact dict. It does one pass over `reachability[]` (`_index_reachability`), which yields three indices: the exact-join flags per signature, the D8 lambda recovery per class, and the A′ source-3 activity set. It then does one pass over the widget tree (`_parse_windows`), keys widgets by base activity with a strongest-flag collision rule (`_build_widget_map`), moves dialog widgets to their host (`_rekey_dialogs`), and emits. `tool.py` caches the artifact next to its source and reuses it when `source.digest` matches (`_derive_mop_artifact`, `_cached_artifact_digest`; INV-APV-47).
 
-Facts this design relies on, checked on the gh120 fixture `modules/rv-static-analysis/tests/resources/cryptoapp.apk.json` with a scratch prototype outside the repository:
+Facts this design relies on, checked on the gh120 fixture `modules/rv-static-analysis/tests/resources/cryptoapp.apk.json` with a scratch prototype outside the repository. The aperv-tool ground-truth fixture `modules/aperv-tool/tests/fixtures/cryptoapp.apk.json` is replaced by a byte copy of that file (sha256 `005d6a19…3d687213`, regenerated with the deployed GATOR in `b21eb15b`), because the gh60 output it held had no `distanceTargets` and could not carry these facts:
 - `distanceTargets` has 27 entries: 23 `direct`, then the 4 activity constructors as `boundary`. 38 methods carry `targetDistances`.
 - Every activity `<init>` carries `reachesTarget: true` and `targetDistances [[k, 0]]`, where `k` is its own boundary index.
 - The click handlers of the three flagged widgets resolve as follows:
@@ -173,7 +173,8 @@ The derive part can be committed before the jar exists, because nothing deploys 
 - **[One-way format coupling]** Format 2 aborts every MOP arm of every jar before Part B. → Mitigation: D8 sequencing. The `ape` change ships its reader in the same window, and the task list gates the arm part on an ape checkout that carries Part B.
 - **[The mapping sweep needs the future ape checkout]** `test_mapping_sweep` fails against today's ape `master`, because the six keys are unknown there. → Mitigation: task 4 runs it against `$APE_REPO` pointing at the Part B implementation. Until then the six entries stay out of the mapping.
 - **[Bridge `invoke` adds one call]** On a non-indy Kotlin lambda the listed `Object invoke()` is a bridge to the typed one, so its distance is one more than the body's. That is the same one-call offset a D8 wrapper's `onClick` has to its `lambda$…` body, and it measures from the method the framework calls. → Mitigation: none needed. It is stated so a reader of `handlers` distances does not take it for an off-by-one.
-- **[Fixture is gh60-shaped with gh120 additions]** The cryptoapp fixture is the gh60 producer output with gh120 fields, not a full gh120 run. → Mitigation: the night analysis of the corpus produces real gh120 documents. Task 6 derives a sample of them and checks INV-DRV-10 and the source-3 exclusion on real data.
+- **[The fixture is one small app]** The cryptoapp fixture is a full gh120 run, but of one app with 27 targets and two handler classes. → Mitigation: task 5.1 derives a sample of the Study 03 v2 analysis (round A, gh120 GATOR) and checks INV-DRV-10, `targets > 0` and the source-3 exclusion on real data.
+- **[Reaching without a distance]** The producer can mark a method reaching and give it no `targetDistances`. The derive does not invent a distance, so a widget whose only reaching handlers are such methods is flagged and has no pair. Measured in task 5.1: 34 of 11,777 reaching methods over 23 documents, 23 of them in `dev.spiegl.flyingcarpet_21`, which leaves 8 of 380 flagged widgets without a pair. → Mitigation: none on this side; the jar scores those widgets without distance. The cause on the GATOR side is not verified (the gh120 `DIST_MAX = 10` cut is a candidate) and belongs to a producer change.
 - **[The `distance` LLM arm has no flag twin here]** `mopd_on_llm_90`'s flag-mode counterpart is the replication package's `e6_mop_on_llm_90`. → Mitigation: Open Questions.
 
 ## Testing Strategy
@@ -186,7 +187,7 @@ The derive part can be committed before the jar exists, because nothing deploys 
 | Unit (tool) | cache by format; mapping count and keys; ten variants; `mopd_on_llm_off` properties lines | `tests/test_aperv_tool.py` | ~6 |
 | Migration | the mapping sweep and the two new single-factor contrasts | `tests/migration/`, with `APE_REPO` at the Part B checkout | ~3 |
 | Regression | every existing aperv-tool test, with the format-1 assertions (`test_derive_mop_artifact.py:388,400,1591`, `test_aperv_tool.py:1500,1547,1926`) moved to format 2 | `pytest --import-mode=importlib -o "addopts=" modules/aperv-tool/tests` | existing |
-| Data | derive a sample of the night gh120 corpus documents; check INV-DRV-10, `targets > 0`, and the share of activities in `mopActivitiesAugmented` before and after the exclusion | script in the change folder, read-only on the dataset | 1 run |
+| Data | derive a sample of the Study 03 v2 gh120 documents (round A); check INV-DRV-10, `targets > 0`, and the share of activities in `mopActivitiesAugmented` before and after the exclusion | script in the change folder, run on copies; the originals are never written | 1 run |
 
 ## Open Questions
 
