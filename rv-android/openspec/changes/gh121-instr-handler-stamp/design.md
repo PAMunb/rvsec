@@ -102,7 +102,7 @@ instrumented APK ──► device: RvsecStamp.Delegate / composeNode
 **Non-Goals:**
 - APE-RV reading `rvsec.*` extras, `MopData` keyed by handler class, and the derive table handler class → distance (separate changes: `ape` repository; derive in `aperv-tool`).
 - The static analysis that yields per-handler distance (#120).
-- Reading `AppCompatViewInflater$DeclaredOnClickListener#mMethodName`; stamping `AlertDialog` buttons or `Preference` rows; refining library dispatchers (toolbar, menu, `SearchView`). Possible follow-ups, listed as known limits.
+- Reading `AppCompatViewInflater$DeclaredOnClickListener#mMethodName`; stamping the framework `android.app.AlertDialog` buttons or `android.preference` rows; naming the app callback behind the library dispatchers (toolbar, menu, `SearchView`, AppCompat `AlertDialog` buttons, androidx `Preference` rows). Possible follow-ups, listed as known limits.
 - The `ajc` variant.
 
 ## Decisions
@@ -236,7 +236,7 @@ With `stamp_handlers=False`, step 1 builds today's argv; step 2 skips the pass a
 - [Extras not delivered to `UiAutomation`] → Checked by the probe (D14) against the `RVSEC-BIND` lines. The probe covers the first screen and the screens one click away; deeper screens and a client cache after a listener change on a recycled row are not covered.
 - [Below API 29 an app delegate set before the first listener is replaced] → Campaigns run on API 30; documented in INV-INS-178.
 - [An app delegate set before the stamp is dropped when library code later wraps the view's delegate (`ViewCompat` accessibility actions, RecyclerView's item delegate)] → Known limit, recorded in the instrumentation spec; the stamp keys and the app's behaviour outside accessibility are unaffected; not exercised on the device.
-- [The stamp names a generic or library class (XML `onClick`, toolbar/menu/`SearchView`)] → Known limit; the consumer must keep the resource-id key as fallback. A `mMethodName` refinement is a possible follow-up.
+- [The stamp names a generic or library class (XML `onClick`, toolbar/menu/`SearchView`, AppCompat dialog buttons, androidx preference rows)] → Known limit; the consumer must keep the resource-id key as fallback. A `mMethodName` refinement is a possible follow-up.
 - [The delegate's re-entry guard is a per-delegate `boolean[]` without synchronisation] → Accessibility callbacks run on the UI thread; a callback from another thread would at worst forward to the platform default once.
 - [Monitor DEX gains about 46–70 method ids] → The monitor DEX is separate from the app DEXes; the merger adds a DEX when needed (existing requirement).
 - [The Docker instrumentation image clones the repository from GitHub] → An uncommitted port is not in the image; running the corpus through Docker needs the change committed, pushed and the image rebuilt. Committing is Pedro's step, not a task of this change.

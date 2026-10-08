@@ -604,7 +604,8 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
     help=(
         "Capture execution-level diagnostic events (crashes, VerifyError, ANR) "
         "into app_events.csv (gh72). Default off — capture stays byte-identical "
-        "to the RVSEC/RVSEC-COV baseline. Positive flag, so RV_LOGCAT_DIAGNOSTICS "
+        "to the baseline capture of the default tags. Positive flag, so "
+        "RV_LOGCAT_DIAGNOSTICS "
         "is honored directly by Click without entry-point translation."
     ),
 )
@@ -687,8 +688,9 @@ def cli(ctx: CLIContext, debug: bool, log_level: str, show_context: bool):
         "(extras rvsec.click / rvsec.longClick) and logged under RVSEC-BIND "
         "(default: off). Overrides "
         "RV_STAMP_HANDLERS (CLI > env > default). dexlib2 only: with "
-        "--instrumentation-variant ajc the run aborts before pre-processing. No "
-        "effect under --skip-instrument, whose APKs were instrumented earlier. "
+        "--instrumentation-variant ajc the run aborts before pre-processing, "
+        "also under --skip-instrument. Otherwise no effect under "
+        "--skip-instrument, whose APKs were instrumented earlier. "
         "Ignored under --config: put stamp_handlers in the file instead."
     ),
 )
@@ -831,7 +833,9 @@ def run(
             # do nothing and a campaign would run without the stamp it asked for.
             # Checked on the resolved config, so a --config file whose
             # stamp_handlers is true is held to it as well. Raised here rather than
-            # in validate(), whose @handle_errors wrapper absorbs its exceptions.
+            # in validate(), whose @handle_errors wrapper absorbs its exceptions; the
+            # generic except at the end of this command catches it like any other
+            # failure, so the run exits 1 with "Experiment failed: <message>".
             if (
                 experiment_config.stamp_handlers
                 and experiment_config.instrumentation_variant != "dexlib2"

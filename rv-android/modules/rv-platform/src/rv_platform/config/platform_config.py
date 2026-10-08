@@ -68,7 +68,8 @@ class PlatformConfig(BaseValidatedModel):
     no_window: bool = Field(default=False, description="Run in headless mode")
     # Opt-in capture of execution-level diagnostic events (crashes, VerifyError,
     # ANR) into app_events.csv. Default off: capture stays byte-identical to the
-    # RVSEC/RVSEC-COV baseline so existing experiment baselines are preserved (D9).
+    # baseline command over LogcatManager.default_tags, so existing experiment
+    # baselines are preserved (D9).
     logcat_diagnostics: bool = Field(
         default=False,
         description="Capture crash/VerifyError/ANR diagnostic events (opt-in)",

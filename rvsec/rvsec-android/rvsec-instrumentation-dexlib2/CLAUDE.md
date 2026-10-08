@@ -122,8 +122,11 @@ Spec: "Handler Stamp on the Accessibility Node" in the instrumentation spec
 - **Known limits** (what the stamp says, not defects): XML `android:onClick`
   stamps `AppCompatViewInflater$DeclaredOnClickListener`; toolbar, menu and
   `SearchView` stamp the library dispatcher (`ToolbarWidgetWrapper$1`,
-  `ActionMenuItemView`, `SearchView$5`); `AlertDialog` buttons and `Preference`
-  rows are not stamped (no routed setter); R8-renamed Compose gets 0 sites and
+  `ActionMenuItemView`, `SearchView$5`), and so do AppCompat `AlertDialog`
+  buttons (`AlertController.mButtonHandler`) and androidx `Preference` rows
+  (`Preference.mClickListener`), whose `setOnClickListener` sites are routed;
+  the framework `android.app.AlertDialog` and `android.preference` are not
+  stamped (their code is not in the APK); R8-renamed Compose gets 0 sites and
   no change; below API 29 the delegate a view already carries cannot be read,
   so the stamp replaces it instead of chaining (campaigns run on API 30); from
   API 29 a delegate the app set before the stamp is chained, but it is no longer

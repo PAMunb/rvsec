@@ -231,6 +231,41 @@ class StampWeaverTest {
         }
     }
 
+    /**
+     * INV-INS-176: a setter's name and descriptor reached through any opcode other than
+     * {@code invoke-virtual} / {@code invoke-super} names an interface, private or static
+     * method, so the site is left unchanged and counted nowhere, even with a {@code View} owner.
+     */
+    @Test
+    @EnabledIf("hasAndroidJar")
+    void otherInvokeOpcodesAreLeftUnchangedAndCountedNowhere() {
+        String myView = "Lcom/example/MyView;";
+        String view = "Landroid/view/View;";
+        List<ImmutableInstruction> original = List.of(
+                invoke(Opcode.INVOKE_INTERFACE, view, "setOnClickListener", CLICK_SIG),
+                invoke(Opcode.INVOKE_DIRECT, view, "setOnLongClickListener", LONG_SIG),
+                new ImmutableInstruction35c(Opcode.INVOKE_STATIC, 1, 2, 0, 0, 0, 0,
+                        ref(view, "setAccessibilityDelegate", DELEGATE_SIG)),
+                new ImmutableInstruction3rc(Opcode.INVOKE_STATIC_RANGE, 2, 1,
+                        ref(view, "setOnClickListener", CLICK_SIG)));
+        DexFile dex = new ImmutableDexFile(Opcodes.getDefault(), List.of(
+                cls(myView, view, method(myView, "bind", 3, original))));
+
+        DexFileMutator mutator = new DexFileMutator(dex);
+        StampWeaver.StampReport report = new StampWeaver(
+                new InheritanceResolver(new AndroidClassIndex(androidJar), dex))
+                .weave(dex, mutator::forMethod);
+
+        assertEquals(new StampWeaver.StampReport(0, 0, 0, 0, 0, 0), report,
+                "invoke-interface, invoke-direct, invoke-static and invoke-static/range are not counted");
+        List<Instruction> bind = body(mutator.toDexFile(), myView, "bind");
+        assertEquals(original.size() + 1, bind.size());
+        for (int i = 0; i < original.size(); i++) {
+            assertEquals(original.get(i).getOpcode(), bind.get(i).getOpcode(), "opcode of #" + i);
+            assertEquals(target(original.get(i)), target(bind.get(i)), "reference of #" + i);
+        }
+    }
+
     @Test
     @EnabledIf("hasAndroidJar")
     void rangeSetterBecomesStaticRangeWithTheSameRegisters() {

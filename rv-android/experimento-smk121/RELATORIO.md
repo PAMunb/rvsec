@@ -241,8 +241,9 @@ Os 177 cliques sem carimbo, por classe do nó: `EditText` 97 (54,8 %), `TextView
 `text1` / `title` de listas, popups e menu de overflow, e textos selecionáveis),
 `RadioButton` 12, `CheckedTextView` 10, `View` (Compose) 8, `Spinner` 6, `CheckBox` 1. São
 nós cujo código do app não é um listener de clique (`TextWatcher`,
-`setOnCheckedChangeListener`, `setOnItemSelectedListener`, `setOnItemClickListener`) ou que
-caem nos limites registrados (`AlertDialog`); o carimbo cobre os três setters da spec.
+`setOnCheckedChangeListener`, `setOnItemSelectedListener`, `setOnItemClickListener`); as
+linhas de lista de diálogos e popups são linhas de `AdapterView`, cujo
+`setOnItemClickListener` não é roteado. O carimbo cobre os três setters da spec.
 
 Cliques sem `resource-id`: 129 de 428 (30,1 %; no E6 foram 58,6 %). No parceltracker, 56 dos
 99 (56,6 %) caíram num nó carimbado; os 30 de droid_scep e cryptoapp são View sem id, que o
@@ -279,6 +280,16 @@ biblioteca. O que cada uma faz no clique, conferido com `dexdump -d`:
 
 Os nomes de campo `mHostView`, `mMethodName`, `mResolvedContext` e `mItemData` estão
 intactos nos quatro APKs.
+
+Achado do `/opsx:verify` (08/10), conferido no `dexdump` dos APKs carimbados de
+`results/instrumented_apks/`: `androidx.appcompat.app.AlertController.setupButtons` tem os três
+`setOnClickListener` dos botões roteados para `mop.RvsecStamp` (listener `mButtonHandler`) em
+aegis, droid_scep e cryptoapp, e `androidx.preference.Preference.onBindViewHolder` tem o da
+linha roteado (listener `mClickListener`) no aegis. Botões de diálogo AppCompat e linhas de
+preferência do androidx recebem, portanto, o carimbo de um despachante de biblioteca; só o
+`android.app.AlertDialog` e o `android.preference` do framework ficam sem carimbo. Nenhuma
+execução abriu um desses diálogos ou telas de preferência: nenhuma linha `RVSEC-BIND` do 9.4 ou
+do 9.5 nomeia `AlertController` ou `androidx.preference`.
 
 No fixture do GATOR do cryptoapp, o botão `buttonCipher` (um `android:onClick`) tem o handler
 `<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>`, o mesmo par

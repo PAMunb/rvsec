@@ -116,3 +116,10 @@ Inputs: the four originals `com.beemdevelopment.aegis_81.apk`, `dev.itsvic.parce
 - [x] 10.4 Run `/rv-docs-sync` on `rv-instrumentation-dexlib2`, `rv-experiment` and `rv-android-core`.
 - [x] 10.5 Check the acceptance criteria of #121 against 9.1–9.5 and the delta specs, and update the issue body to the criteria of this revision (re-read the body before and after the edit).
 - [x] 10.6 Run `openspec validate gh121-instr-handler-stamp`.
+
+## 11. Verify follow-ups (after /opsx:verify, 08/10) — main window
+
+- [x] 11.1 Add to `StampWeaverTest` a case where setter-named candidates issued by `invoke-interface`, `invoke-direct` and `invoke-static` (and one range form) are left unchanged and counted in no stamp counter (INV-INS-176). Run the Maven build of 8.2 with tests. The rebuilt `instr-cli.jar` is not copied into `P/lib/`, since only test code changes.
+- [x] 11.2 Correct the AlertDialog/Preference limit (AppCompat dialog buttons and androidx preference rows stamp the library dispatcher; only the framework `android.app.AlertDialog` and `android.preference` are not stamped) in `P/docs/architecture.md`, `J/CLAUDE.md`, `J/architecture.md` and `X/RELATORIO.md` (whose effectiveness section attributes unstamped dialog list rows to the AlertDialog limit; they are `AdapterView` rows whose `setOnItemClickListener` is not routed), and in the issue #121 body (re-read before and after the edit, `test -s` on the body file).
+- [x] 11.3 Replace the four stale "RVSEC/RVSEC-COV baseline" texts (`rv-android-core` `constants.py:103`, `rv-platform` `config/platform_config.py:71`, `rv-experiment` `__main__.py:607` help of `--logcat-diagnostics`, `rv-experiment` `config.py:272`) with a reference to the `LogcatManager.default_tags` baseline; complete the comment at `rv-experiment` `__main__.py` above the ajc abort (the `ClickException` is caught by `run`'s generic `except`: exit 1, "Experiment failed"); make the `--stamp-handlers` help and `.env.example` say that the ajc abort also applies under `--skip-instrument`. Run the tests of `rv-android-core`, `rv-platform` and `rv-experiment`.
+- [x] 11.4 Run `openspec validate gh121-instr-handler-stamp`.

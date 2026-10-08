@@ -17,7 +17,7 @@ The value travels by value from the entry point to the instrumenter configuratio
 - None beyond the instrumentation the flag selects.
 
 ### Error
-- Pre-processing abort -- when the flag resolves to `True` and the instrumentation variant is not `dexlib2` (INV-EXP-37).
+- Pre-processing abort -- when the flag resolves to `True` and the instrumentation variant is not `dexlib2` (INV-EXP-37, INV-EXP-40).
 
 ## Invariants
 

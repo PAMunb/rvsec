@@ -405,9 +405,14 @@ read into it. An XML `android:onClick` under AppCompat stamps the inflater's gen
 `AppCompatViewInflater$DeclaredOnClickListener` (the app method's name sits in its `mMethodName`
 field, which the helper does not read). The toolbar navigation button, menu items and `SearchView`
 stamp the library's own dispatcher (`ToolbarWidgetWrapper$1`, `ActionMenuItemView`,
-`SearchView$5`), which hands off to an app callback such as `onOptionsItemSelected`. `AlertDialog`
-buttons and `Preference` rows get their listeners inside the framework or the preference library,
-through no routed setter, so they carry no stamp. An APK whose Compose internals R8 renamed gets
+`SearchView$5`), which hands off to an app callback such as `onOptionsItemSelected`. AppCompat
+`AlertDialog` buttons and androidx `Preference` rows are in the same case:
+`AlertController.setupButtons` sets `mButtonHandler` on each button and
+`Preference.onBindViewHolder` sets `mClickListener` on the row's view, both through routed
+`setOnClickListener` sites, so the stamp names that library listener (routed in the stamped APKs
+of the device verification, not observed on the device). The framework `android.app.AlertDialog`
+and `android.preference` set their listeners in framework code, which is not in the APK, so their
+buttons and rows carry no stamp. An APK whose Compose internals R8 renamed gets
 `stampComposeSites=0` and no Compose stamp. Below API 29 the delegate a view already carries
 cannot be read, so the stamp delegate replaces an app delegate set before the first listener
 instead of chaining it; the campaigns run on API 30. On API 29 and later that earlier delegate is

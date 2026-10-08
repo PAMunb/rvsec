@@ -269,8 +269,9 @@ class ExperimentConfig(BaseValidatedModel):
     )
     # gh72 opt-in diagnostics: when True, logcat capture additionally whitelists
     # the crash/VerifyError/ANR tags and rv-platform writes app_events.csv. Default
-    # False keeps capture byte-identical to the RVSEC/RVSEC-COV baseline (D9 — never
-    # change an experiment baseline implicitly). Passed through to PlatformConfig.
+    # False keeps capture byte-identical to the baseline over
+    # LogcatManager.default_tags (D9 — never change an experiment baseline
+    # implicitly). Passed through to PlatformConfig.
     logcat_diagnostics: bool = Field(
         default=False,
         description="Capture crash/VerifyError/ANR diagnostic events (opt-in, gh72)",
