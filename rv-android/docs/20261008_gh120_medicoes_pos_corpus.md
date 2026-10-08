@@ -24,7 +24,7 @@ uma change nova.
 | Diretórios na rodada A | 163 | 100 % |
 | Com JSON | 92 | 56 % |
 | JSON com `complete: true` (WTG terminada) | 70 | 43 % |
-| JSON com `complete: false` (JSON pré-WTG, GATOR cortado em 1800 s) | 22 | 13 % |
+| JSON sem a chave `complete` (JSON pré-WTG, `transitions` vazio, GATOR cortado em 1800 s) | 22 | 13 % |
 | Sem JSON (vão para a rodada C) | 71 | 44 % |
 
 A amostra é de quem terminou primeiro: tende para os APKs menores. Os 71 que faltam são os que
@@ -55,12 +55,14 @@ O risco: `HostResolver.hostsOf` aceitar como hospedeira uma activity que o manif
 
 **Resultado: 0/1 813. Nada a corrigir com base nesta amostra.**
 
-## Achado lateral (não é da gh120)
+## Nota sobre os 22 JSON pré-WTG (não é da gh120)
 
-O `sa_runs.csv` do replication package marca as 92 tarefas da rodada A como `complete`, mas 22
-desses JSON têm `complete: false`: o GATOR gravou o JSON pré-WTG (entre 76 s e 1 791 s) e foi
-cortado no teto de 1 800 s antes de terminar a WTG. Se a escada C/D/S só re-executa quem ficou
-sem JSON, esses 22 APKs terminam a campanha sem WTG. Passado para a sessão `rep-pack-e03`.
+Em 22 dos 92 JSON a chave `complete` está ausente e `transitions` vem vazio: o GATOR gravou o JSON
+pré-WTG (entre 76 s e 1 791 s) e foi cortado no teto de 1 800 s. O `sa_runs.csv` os classifica
+como `complete` (com `timed_out=true`) e a escada C/D/S não os re-executa. Isso segue uma regra
+registrada na change `static-analysis-gcp` do replication package ("A JSON written before a WTG
+timeout is a result, not a failure, as in September"); em setembro foram 43 de 163 nessa situação.
+Não é defeito; a sessão `rep-pack-e03` leva o ponto ao Pedro caso ele queira revisitar.
 
 ## Pendências que dependem do conjunto final
 
