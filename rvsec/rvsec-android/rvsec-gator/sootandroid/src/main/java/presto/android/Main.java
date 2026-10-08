@@ -211,6 +211,30 @@ public class Main {
     String packName = useCG ? "wjtp" : "cg";
     String phaseName = useCG ? "wjtp.gui" : "cg.gui";
 
+    String[] sootArgs = sootArgs(phaseName, Configs.bytecodes, classpath, algo)
+            .toArray(new String[0]);
+    readWidgetMap();
+    PrerunEntrypoint.v().run();
+    setupAndInvokeSootHelper(packName, phaseName, sootArgs);
+  }
+
+  /**
+   * The Soot command line for one run, as a pure function of its inputs so a test can
+   * pin it without starting Soot.
+   *
+   * <p>No {@code -exclude} is passed: excluding packages (the Kotlin stdlib, for one)
+   * cut the call-graph paths that run through them, and app methods that reach a
+   * monitored API only through such a path came out as not reaching it.
+   * {@code -no-bodies-for-excluded} stays: it acts on the packages Soot excludes by
+   * default ({@code java.*}, {@code javax.*}, {@code sun.*}, ...), and dropping it grows
+   * the call graph past the one the September artefacts were built on.
+   *
+   * @param algo the call-graph algorithm ({@code cha}, {@code rta}, {@code vta},
+   *     {@code spark}); null or empty runs without a call graph
+   */
+  static List<String> sootArgs(String phaseName, String bytecodes, String classpath,
+          String algo) {
+    boolean useCG = algo != null && !algo.isEmpty();
     List<String> args = new ArrayList<>();
     args.addAll(java.util.Arrays.asList(
             "-w",
@@ -222,7 +246,7 @@ public class Main {
             "-search-dex-in-archives",
             "-allow-phantom-refs",
             "-no-bodies-for-excluded",
-            "-process-dir", Configs.bytecodes,
+            "-process-dir", bytecodes,
             "-cp", classpath
     ));
 
@@ -247,11 +271,7 @@ public class Main {
           args.addAll(java.util.Arrays.asList("-p", "cg.cha", "enabled:true"));
       }
     }
-
-    String[] sootArgs = args.toArray(new String[0]);
-    readWidgetMap();
-    PrerunEntrypoint.v().run();
-    setupAndInvokeSootHelper(packName, phaseName, sootArgs);
+    return args;
   }
 
   /**
