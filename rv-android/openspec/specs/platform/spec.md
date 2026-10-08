@@ -124,6 +124,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - `PlatformConfig` -- Complete platform configuration (from rv-experiment via `PlatformConfig` construction, or from CLI arguments, or from JSON file)
 - `APK files: List[Path]` -- APK files discovered in `config.apks_dir` via `glob("*.apk")`, sorted alphabetically
 - `Static analysis files: *.reach, *.wtg, *.gesda` -- Optional files co-located with APKs or in `apks_dir`, copied to task results directory before loading (source: rv-static-analysis pre-processing)
+- `LogcatManager.default_tags: List[str]` -- `[RVSEC, RVSEC-COV, ApeRvHb, RVSEC-OCC, RVSEC-BIND]`, passed through to `LogcatManager.start_capture` without filtering, reordering or subsetting (core INV-CORE-53, INV-PLT-21)
 
 ### Output
 
@@ -134,11 +135,13 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - `performance.csv` -- Task execution timing; columns vary by mode (basic: `apk, rep, timeout, tool, execution_time_seconds, task_state, monitoring_enabled, timestamp`; detailed: `apk, rep, timeout, tool, metric_name, metric_value, metric_unit, metric_timestamp, task_id, context_info`)
 - `tasks.json` -- Persistent task state with experiment metadata and statistics for experiment continuation
 - `Dict[str, Any]` -- Execution summary returned from `Platform.run()` containing `total_tasks`, `successful_tasks`, `failed_tasks`, `success_rate`, `total_execution_time`, `average_execution_time`, and per-task `results` list
+- Baseline capture command: `adb -s <serial> logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V RVSEC-BIND:V` (INV-PLT-21, core INV-CORE-37); destination: `task.result.logcat_file`
 
 ### Side-Effects
 
 - **Android Emulator**: Starts and stops Android emulator instances via `EmulatorManager`; installs APK on the emulator; clears logcat buffer
 - **Logcat Capture**: Starts a background logcat capture process writing to a file on disk; stopped after tool execution
+- **Captured file**: `task.result.logcat_file` carries the `RVSEC-BIND` lines a stamped APK writes
 - **File System**: Creates results directory, writes CSV/JSON output files, copies static analysis files from APK directory to task results directory, creates temporary files during atomic save (`.tmp` suffix)
 - **PerformanceMonitor**: Records timing metrics for task execution, component execution, and environment setup
 - **Task result**: a failure while writing a task's rows to `errors.csv` or while extracting a task's data for `results.json` increments an error count on that task's result and is logged at ERROR level with the task id and the number of rows not written (INV-PLT-32)
@@ -197,7 +200,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 
   The last five columns (gh111) are appended after `mop_errors_unique`, so a reader addressing the first twelve positionally reads what it read before. The byte-identity guarantee holds against this seventeen-column header: any change that adds, removes or reorders a column MUST restate this invariant with the new header, so the invariant stays a tripwire instead of quietly becoming false. Every other writer of `summary.csv` in the repository MUST emit this same header by importing `SUMMARY_HEADER` from `result_processor.py` — as `scripts/regenerate_results/regenerate_container.py` does — never by keeping a copy. The diagnostic-events feature writes every diagnostic field to `app_events.csv` alone.
 - **INV-PLT-20**: Diagnostic events MUST survive the resume reconstruction path — a task whose repository is rebuilt from its `.logcat` MUST still produce its `app_events.csv` rows.
-- **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set and no diagnostic tags. The baseline tag set is `LogcatManager.default_tags` — `RVSEC`, `RVSEC-COV`, `ApeRvHb` and `RVSEC-OCC` — and the emitted command is `adb -s <serial> logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V` (core INV-CORE-37). The component MUST NOT filter, reorder or subset `default_tags`: the baseline is defined in one place, and a platform-side copy of the list would be a second place for it to drift.
+- **INV-PLT-21**: WHEN `logcat_diagnostics` is `false`, `LogcatComponent` MUST start capture with the baseline tag set and no diagnostic tags. The baseline tag set is `LogcatManager.default_tags` — `RVSEC`, `RVSEC-COV`, `ApeRvHb`, `RVSEC-OCC` and `RVSEC-BIND` — and the emitted command is `adb -s <serial> logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V RVSEC-BIND:V` (core INV-CORE-37). The component MUST NOT filter, reorder or subset `default_tags`: the baseline is defined in one place, and a platform-side copy of the list would be a second place for it to drift.
 
 - **INV-PLT-22**: The `rv-platform run --timeouts` argument MUST be declared as a string and parsed into `List[int]` with the same rules as the rv-experiment CLI (comma split, whitespace trim, positive integers only, order preserved, no deduplication). Invalid input MUST abort with a CLI usage error before `PlatformConfig` construction.
 - **INV-PLT-23**: `ResultProcessorComponent._reconstruct_repository_from_logcat(task)` MUST invoke `parse_logcat_file(logcat_file, static_data, tool_execution_start=task.result.tool_execution_start)` whenever `task.result.tool_execution_start` is non-`None`, so reconstructed repositories carry the same `time_since_task_start` values the live `CoverageTracker` would have produced (analysis INV-ANA-49). When it is `None`, the component MUST log a warning for that task and proceed; the zeros in the output are then an explicit degraded state, not silent corruption.
@@ -603,7 +606,7 @@ The execution summary (returned by `Platform.run()` and displayed by the CLI) MU
 
 ### Requirement: Logcat Capture (FR11)
 
-The platform MUST capture Android logcat output during task execution via `LogcatComponent`. Logcat capture runs as a background process that writes raw logcat output to a file on disk. The captured output contains four categories of data relevant to the framework: method coverage events (tagged `RVSEC-COV`), specification violation events on their first occurrence (tagged `RVSEC`), one step heartbeat line per exploration step for APE-RV tasks from the stage-4 jar onward (tagged `ApeRvHb`), and, for APKs instrumented with the current collector, the violation occurrence stream (tagged `RVSEC-OCC`): one line per occurrence of a violation identity, at most one per identity every 100 ms, with a counter (instrumentation INV-INS-171). Parsing of the first two is handled by `CoverageComponent` via rv-coverage's `CoverageTracker`. The heartbeat and the occurrence stream are consumed offline by `aperv-tool`, which places each line on the exploration step of the last heartbeat before it, and both are inert to the coverage path (core INV-CORE-54, INV-CORE-65).
+The platform MUST capture Android logcat output during task execution via `LogcatComponent`. Logcat capture runs as a background process that writes raw logcat output to a file on disk. The captured output contains five categories of data relevant to the framework: method coverage events (tagged `RVSEC-COV`), specification violation events on their first occurrence (tagged `RVSEC`), one step heartbeat line per exploration step for APE-RV tasks from the stage-4 jar onward (tagged `ApeRvHb`), for APKs instrumented with the current collector, the violation occurrence stream (tagged `RVSEC-OCC`): one line per occurrence of a violation identity, at most one per identity every 100 ms, with a counter (instrumentation INV-INS-171); and, for APKs instrumented with the handler stamp, one line per change of a node's stamp (tagged `RVSEC-BIND`, instrumentation INV-INS-179). Parsing of the first two is handled by `CoverageComponent` via rv-coverage's `CoverageTracker`. The heartbeat, the occurrence stream and the stamp lines are read offline, by the analysis that asks for each tag by name, and all three are inert to the coverage path (core INV-CORE-54, INV-CORE-65, INV-CORE-67).
 
 `LogcatComponent` delegates to `LogcatManager` (from rv-android-core) for starting and stopping the capture process. The component supports device-specific capture through `device_serial`, which is extracted from `task.config.tool_config.parameters` to support parallel execution on different emulator instances.
 
@@ -645,6 +648,12 @@ Logcat capture starts after the emulator is running and the APK is installed, an
 - **WHEN** an instrumented APK reports a violation identity 300 times during a task, and its collector writes `RVSEC-OCC` lines under the 100 ms throttle
 - **THEN** `task.result.logcat_file` MUST contain those lines under tag `RVSEC-OCC`
 - **AND** every coverage and violation value derived from that file MUST be what it would have been without them
+
+#### Scenario: Stamp lines reach the captured file
+
+- **WHEN** an APK instrumented with the handler stamp binds a click listener to a button during a task, and its helper writes an `RVSEC-BIND` line for it
+- **THEN** `task.result.logcat_file` MUST contain that line under tag `RVSEC-BIND`
+- **AND** every coverage and violation value derived from that file MUST be what it would have been without it
 
 ### Requirement: Result Generation (FR14)
 
@@ -872,12 +881,12 @@ diagnostics are enabled. When disabled, capture SHALL use the baseline tags — 
 #### Scenario: Enabled flag augments capture
 - **WHEN** `PlatformConfig.logcat_diagnostics` is `true`
 - **THEN** `LogcatComponent` calls `start_capture(tags=default_tags + ["AndroidRuntime:E","art:E","dalvikvm:E","ActivityManager:W"])`
-- **AND** the resulting filter carries `RVSEC:V`, `RVSEC-COV:V`, `ApeRvHb:V` and `RVSEC-OCC:V` first, in that order
+- **AND** the resulting filter carries `RVSEC:V`, `RVSEC-COV:V`, `ApeRvHb:V`, `RVSEC-OCC:V` and `RVSEC-BIND:V` first, in that order
 
 #### Scenario: Disabled flag uses baseline capture
 - **WHEN** `PlatformConfig.logcat_diagnostics` is `false` (default)
 - **THEN** `LogcatComponent` starts capture without passing diagnostic tags
-- **AND** the emitted command is `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V`
+- **AND** the emitted command is `adb -s emulator-5554 logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V RVSEC-BIND:V`
 
 ### Requirement: Standalone CLI Timeout List (FR08)
 

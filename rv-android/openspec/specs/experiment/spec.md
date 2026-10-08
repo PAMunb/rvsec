@@ -132,6 +132,12 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 - rv-instrumentation: RVInstrumentation, RVInstrumentationConfig (optional import)
 - rv-static-analysis: StaticAnalyzer, RVStaticAnalysisConfig (optional import)
 
+### Handler Stamp Policy
+
+The handler stamp exists only in an APK instrumented with it, and the corpus of a campaign is instrumented by `rv-experiment`'s pre-processing. `rv-experiment` builds the `dexlib2` configuration itself (`ExperimentConfig.get_dexlib_instrumentation_config`), so without a switch of its own a campaign could not ask for the stamp, and the stamp would have to be produced outside the pipeline that records the run's provenance. `rv-experiment run` therefore has that switch, given as the project's other per-run policies are: a negatable command-line flag, an `RV_*` environment variable for the containers that set their policy through the environment, and a default that instruments without the stamp.
+
+The value travels by value from the entry point to the instrumenter configuration. No module below `rv-experiment` reads the variable: the `dexlib2` wrapper turns the configuration field into the `instr-cli` argument `--stamp-handlers` (instrumentation INV-INS-180).
+
 ## Data Contracts
 
 ### Input
@@ -148,12 +154,14 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 - `static_analysis: bool` -- Whether to run static analysis (source: CLI flag `--static-analysis/--skip-static`)
 - `no_window: bool` -- Headless emulator mode (source: CLI flag `--no-window/--window`, default: headless)
 - `strip_build_type_suffix: bool` -- Build-type suffix neutralization policy (source: `--strip-build-type-suffix/--no-strip-build-type-suffix` > `RV_STRIP_BUILD_TYPE_SUFFIX` > default `False`, INV-EXP-35); forwarded to every `App` construction and to `PlatformConfig`, and recorded in `experiment_config.json`
+- `stamp_handlers: bool` -- Handler-stamp policy (source: `--stamp-handlers/--no-stamp-handlers` > `RV_STAMP_HANDLERS` > default `False`, INV-EXP-40); forwarded to `DexlibInstrumentationConfig.stamp_handlers` by `get_dexlib_instrumentation_config`, and recorded in `experiment_config.json`.
+- `ENV_STAMP_HANDLERS: str = "RV_STAMP_HANDLERS"` -- constant of the core environment registry (`rv_android_core/constants.py`).
 
 ### Output
 
 - `instrument_errors.json: Dict[str, Any]` -- Keyed by APK name, containing instrumentation error details per APK (destination: results directory, consumed by researchers for debugging)
 - `experiment_completion.json: Dict[str, Any]` -- Contains `results_directory`, `completion_timestamp`, `post_processing_completed` (destination: results directory)
-- `experiment_config.json: str` -- Serialized ExperimentConfig in JSON format (destination: results directory, optional)
+- `experiment_config.json: str` -- Serialized ExperimentConfig in JSON format (destination: results directory, optional); carries `stamp_handlers` (INV-EXP-40)
 
 ### Side-Effects
 
@@ -174,7 +182,7 @@ PlatformConfig (from rv-platform, created by ExecutionController):
 - `MonitorConfigError` -- Raised when RVGeneratorConfig creation fails (wrapped as ConfigurationError)
 - `InstrumentationConfigError` -- Raised when RVInstrumentationConfig creation fails (wrapped as ConfigurationError)
 - `click.BadParameter` (neutralization policy) -- Raised for a malformed `RV_STRIP_BUILD_TYPE_SUFFIX` value, before any `App` is constructed
-- Pre-processing abort -- Raised with a message naming the flag and the cause when a requested step cannot run (INV-EXP-37) or when `--skip-monitors` finds monitors of another specification set (INV-EXP-38)
+- Pre-processing abort -- Raised with a message naming the flag and the cause when a requested step cannot run (INV-EXP-37), when `--skip-monitors` finds monitors of another specification set (INV-EXP-38), or when the handler-stamp flag resolves to `True` and the instrumentation variant is not `dexlib2` (INV-EXP-37, INV-EXP-40)
 - `ValueError` -- Raised for invalid tool specification DSL parsing, empty experiment name, non-positive repetitions or timeouts
 - `FileNotFoundError` -- Raised when configuration file does not exist for `ExperimentConfig.from_file()`
 - `ImportError` -- Caught and logged as warning when optional sub-modules (rv-monitor-generator, rv-instrumentation, rv-static-analysis) are not available; execution continues
@@ -226,6 +234,9 @@ Note on interaction with INV-EXP-08: When the instrumentation module is unavaila
 - **INV-EXP-38**: When `--skip-monitors` is given, the monitors directory MUST be verified against the run's requested specification set before being consumed. A directory whose provenance does not match MUST abort the run with a message naming both sets. It MUST NOT be consumed silently.
 
 - **INV-EXP-39**: When static analysis was requested and did not produce an artefact for every instrumented APK, pre-processing MUST emit one consolidated report at the end of the phase, naming the count and listing the APKs. A per-APK warning buried in the phase log MUST NOT be the only record. The run MUST continue: a campaign of 200 APKs MUST NOT be aborted because GATOR failed on three of them, and the violation counts of those three do not depend on static analysis.
+
+- **INV-EXP-40**: `RV_STAMP_HANDLERS` MUST be read only at the `rv-experiment` entry point, through the `ENV_STAMP_HANDLERS` constant of the core registry, with no string literal at any read site, and parsed with the project's truthiness convention through the shared `resolve_bool_setting` helper, not by Click's own boolean vocabulary (no `envvar=` on the option); a value the convention cannot parse MUST be a usage error naming the variable. Precedence MUST be CLI flag > environment variable > default `False`; an explicit `--no-stamp-handlers` MUST win over a truthy variable. No module between the entry point and `DexlibInstrumentationConfig` MUST read it: `get_dexlib_instrumentation_config` MUST set `stamp_handlers` from `ExperimentConfig.stamp_handlers`. When the resolved value is `True` and `--instrumentation-variant` is not `dexlib2`, the run MUST abort before pre-processing with a message naming the flag and the variant, because the `ajc` variant has no stamp and the flag would otherwise do nothing silently.
+
 ## Requirements
 ### Requirement: Three-Phase Workflow (FR15, NFR08)
 
@@ -914,3 +925,44 @@ When `--skip-monitors` is given, the run SHALL verify that the existing `out/mon
 - **THEN** the run MUST proceed
 - **AND** it MUST log that it is reusing monitors generated for `jca`
 
+### Requirement: Handler Stamp CLI Flag (FR02, NFR05)
+
+The `rv-experiment run` command SHALL expose the negatable boolean pair `--stamp-handlers` / `--no-stamp-handlers`. The resolved value SHALL set `ExperimentConfig.stamp_handlers`, and `get_dexlib_instrumentation_config` SHALL forward it to `DexlibInstrumentationConfig.stamp_handlers`, so the instrumentation of the run's APKs carries the handler stamp (instrumentation "Handler Stamp on the Accessibility Node").
+
+An absent flag SHALL fall through to `RV_STAMP_HANDLERS`, parsed with the project's truthiness convention; an explicit negative SHALL win over a truthy variable. The default SHALL be `False`, so a run that sets neither produces the instrumentation without the stamp, byte for byte (instrumentation INV-INS-174). The option is declared as `--strip-build-type-suffix` is: `default=None`, so that "flag absent" stays distinguishable from `--no-stamp-handlers`, and a callback that resolves the variable through `resolve_bool_setting`, so this command and every other entry point read a boolean variable with one vocabulary. Under `--config` the JSON file is the authority for every setting, as for the sibling flags: the policy is the file's `stamp_handlers`.
+
+`RV_STAMP_HANDLERS` SHALL be registered as `ENV_STAMP_HANDLERS` in `rv_android_core/constants.py`, documented in `README.md` or `.env.example`, and admitted by `docker/rvandroid/scripts/validate_env_vars.sh` (which builds its allow-list from the `ENV_*` constants of that file, so the registration admits it), so that `scripts/check_env_vars_drift.py` passes and a container that sets it is not rejected as using an unknown `RV_*` name.
+
+The resolved policy SHALL be recorded in `experiment_config.json`, which is the run's provenance record: whether an APK of the run carries the stamp is then readable from the run itself, and from the `stamp*` counters the instrumenter writes into `instrument_results.json` only when the stamp is on.
+
+The flag acts on instrumentation only. A run with `--skip-instrument` consumes APKs instrumented earlier, and whether those carry the stamp was decided when they were instrumented.
+
+#### Scenario: Default leaves the instrumentation unchanged
+- **WHEN** the user runs `uv run rv-experiment run --instrumentation-variant dexlib2 ...` with neither the flag nor the variable set
+- **THEN** `ExperimentConfig.stamp_handlers` MUST be `False`
+- **AND** the `instr-cli` argument list MUST contain neither `--stamp-handlers` nor `--no-stamp-handlers`
+- **AND** `experiment_config.json` MUST record `stamp_handlers: false`
+
+#### Scenario: The flag reaches the instrumenter
+- **WHEN** the user runs `uv run rv-experiment run --instrumentation-variant dexlib2 --stamp-handlers ...`
+- **THEN** `get_dexlib_instrumentation_config()` MUST return a configuration with `stamp_handlers == True`
+- **AND** the `instr-cli` argument list MUST contain `--stamp-handlers` exactly once
+
+#### Scenario: The variable turns it on and the negative flag wins
+- **WHEN** `RV_STAMP_HANDLERS=true` is set and the user runs `rv-experiment run --instrumentation-variant dexlib2` without the flag
+- **THEN** `ExperimentConfig.stamp_handlers` MUST be `True`
+- **AND** when the same run is given `--no-stamp-handlers`, `ExperimentConfig.stamp_handlers` MUST be `False`
+
+#### Scenario: An unparseable variable is a usage error
+- **WHEN** `RV_STAMP_HANDLERS=maybe` is set and the user runs `rv-experiment run --instrumentation-variant dexlib2` without the flag
+- **THEN** the command MUST exit with a usage error naming `RV_STAMP_HANDLERS` before any pre-processing
+
+#### Scenario: The flag with the ajc variant aborts
+- **WHEN** the user runs `rv-experiment run --instrumentation-variant ajc --stamp-handlers ...`
+- **THEN** the command MUST abort before pre-processing
+- **AND** the message MUST name `--stamp-handlers` and the `ajc` variant
+
+#### Scenario: The read stays at the entry point
+- **WHEN** the source tree is searched for reads of `RV_STAMP_HANDLERS`
+- **THEN** the only read MUST be in `modules/rv-experiment/`, through `ENV_STAMP_HANDLERS`
+- **AND** no module under `rv-instrumentation-*`, `rv-platform` or `rv-android-core` MUST read it
