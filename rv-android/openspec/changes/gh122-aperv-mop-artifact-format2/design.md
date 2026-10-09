@@ -174,7 +174,19 @@ The derive part can be committed before the jar exists, because nothing deploys 
 - **[The mapping sweep needs the future ape checkout]** `test_mapping_sweep` fails against today's ape `master`, because the six keys are unknown there. → Mitigation: task 4 runs it against `$APE_REPO` pointing at the Part B implementation. Until then the six entries stay out of the mapping.
 - **[Bridge `invoke` adds one call]** On a non-indy Kotlin lambda the listed `Object invoke()` is a bridge to the typed one, so its distance is one more than the body's. That is the same one-call offset a D8 wrapper's `onClick` has to its `lambda$…` body, and it measures from the method the framework calls. → Mitigation: none needed. It is stated so a reader of `handlers` distances does not take it for an off-by-one.
 - **[The fixture is one small app]** The cryptoapp fixture is a full gh120 run, but of one app with 27 targets and two handler classes. → Mitigation: task 5.1 derives a sample of the Study 03 v2 analysis (round A, gh120 GATOR) and checks INV-DRV-10, `targets > 0` and the source-3 exclusion on real data.
-- **[Reaching without a distance]** The producer can mark a method reaching and give it no `targetDistances`. The derive does not invent a distance, so a widget whose only reaching handlers are such methods is flagged and has no pair. Measured in task 5.1: 34 of 11,777 reaching methods over 23 documents, 23 of them in `dev.spiegl.flyingcarpet_21`, which leaves 8 of 380 flagged widgets without a pair. → Mitigation: none on this side; the jar scores those widgets without distance. The cause on the GATOR side is not verified (the gh120 `DIST_MAX = 10` cut is a candidate) and belongs to a producer change.
+- **[Reaching without a distance means farther than `DIST_MAX`]** The producer can mark a method reaching and give it no `targetDistances`. The cause is in gh120's two searches over one call graph:
+  - `reachesTarget` comes from an unbounded reverse search (`ReachabilityEngine`);
+  - `targetDistances` comes from one reverse search per target, cut at `DIST_MAX = 10` (`TargetDistances.java:50,176`).
+
+  Every path to a target passes through an app method that is a direct or boundary target, so a reaching method with no pair is one whose every target is more than 10 calls away. The data show the cut: in the affected apps the minimum distance piles up at d = 9–10 (nerdcalci: 250 at 9, 453 at 10, and 1,943 reaching methods with no pair), while healthy apps decay to zero well before 10 (aegis: 1 at 8, none at 9 or 10).
+
+  The derive does not invent a distance, so a widget or handler whose reaching methods are all that far is flagged and has no pair. Under `mop_scoring: distance` that gives the same result as the exact distance would: a target at d ≥ 4 gives no weight, and the launcher counts d ≤ `mopLauncherDmax` (6) only. No decision of the jar changes. What is lost is the difference between "farther than 10" and "unknown", which matters only to an offline reader.
+
+  Size, over the 92 round-A documents (`reach_without_distance.out.md`):
+  - Compose apps (21): 686 of 1,314 reaching handler methods (52.2 %) have no pair, all in 8 apps and most of each app (nerdcalci 299/328, stutter 76/77), because a Compose click runs through the Compose runtime and every library call counts.
+  - View-only apps (71): 101 of 3,955 (2.6 %), mostly treehouses and keepalive, where Kotlin coroutines play the same role.
+
+  In those 8 Compose apps the `mopd_*` arms therefore give almost no click a MOP weight while the flag arms give them +300. That is the distance scoring doing what it is for, and the Study 03 analysis must read the flag-vs-distance contrast with it in mind. → Mitigation: none needed on this side. The producer contract should state the invariant ("`reachesTarget` without `targetDistances` ⇔ every target farther than `DIST_MAX`"); that belongs to the next gh120 producer change.
 - **[The `distance` LLM arm has no flag twin here]** `mopd_on_llm_90`'s flag-mode counterpart is the replication package's `e6_mop_on_llm_90`. → Mitigation: Open Questions.
 
 ## Testing Strategy
@@ -187,7 +199,7 @@ The derive part can be committed before the jar exists, because nothing deploys 
 | Unit (tool) | cache by format; mapping count and keys; ten variants; `mopd_on_llm_off` properties lines | `tests/test_aperv_tool.py` | ~6 |
 | Migration | the mapping sweep and the two new single-factor contrasts | `tests/migration/`, with `APE_REPO` at the Part B checkout | ~3 |
 | Regression | every existing aperv-tool test, with the format-1 assertions (`test_derive_mop_artifact.py:388,400,1591`, `test_aperv_tool.py:1500,1547,1926`) moved to format 2 | `pytest --import-mode=importlib -o "addopts=" modules/aperv-tool/tests` | existing |
-| Data | derive a sample of the Study 03 v2 gh120 documents (round A); check INV-DRV-10, `targets > 0`, and the share of activities in `mopActivitiesAugmented` before and after the exclusion | script in the change folder, run on copies; the originals are never written | 1 run |
+| Data | derive a sample of the Study 03 v2 gh120 documents (round A); check INV-DRV-10, `targets > 0`, and the share of activities in `mopActivitiesAugmented` before and after the exclusion; over all 92, measure the reaching methods with no pair, Compose vs View-only | `real_data_check.py` and `reach_without_distance.py` in the change folder, run on copies; the originals are never written | 2 runs |
 
 ## Open Questions
 

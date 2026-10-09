@@ -17,7 +17,7 @@
 - Flagged emitted widgets: 380.
   - 266 (70.0 %) carry a `click` pair, the measure the task names.
   - 372 (97.9 %) carry a pair on at least one of their flagged events. The 106 between the two counts are widgets flagged only on `entertext`, `select`, `itemselected`, `itemclick` or `drag`, and each has its pairs under that event.
-- The remaining 8 are all in `dev.spiegl.flyingcarpet_21`, flagged on `click` with no pair. There the producer marks 23 of the 48 reaching methods `reachesTarget: true` with no `targetDistances`; one of them is the click wrapper `MainActivity$$ExternalSyntheticLambda10.onClick`. Over the whole sample, 34 of 11,777 reaching methods carry no pairs. This is producer output, so the derive cannot give those methods a distance, and the jar scores those widgets without one. The cause on the GATOR side is not verified; the 10-call `DIST_MAX` of gh120 is a candidate.
+- The remaining 8 are all in `dev.spiegl.flyingcarpet_21`, flagged on `click` with no pair. There the producer marks 23 of the 48 reaching methods `reachesTarget: true` with no `targetDistances`; one of them is the click wrapper `MainActivity$$ExternalSyntheticLambda10.onClick`. Over the whole sample, 34 of 11,777 reaching methods carry no pairs. This is producer output, so the derive cannot give those methods a distance. The cause is the `DIST_MAX = 10` cut of gh120: those methods reach every target in more than 10 calls, which gives no weight under `distance` scoring either way. This 23-document sample has no affected Compose app and understates the case; `reach_without_distance.out.md` measures all 92 documents and gives the cause in full (design, Risks).
 
 ## Output
 

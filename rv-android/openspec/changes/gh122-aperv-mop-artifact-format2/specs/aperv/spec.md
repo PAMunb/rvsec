@@ -162,9 +162,12 @@ read format 1 only, so the two sides ship together.
      for `i`: 0 when the method is the target, 1–10 otherwise (gh120 `DIST_MAX = 10`); a target
      absent from its entries is unreachable. An entry that is not a pair of integers, whose index is
      outside `[0, targets)` or whose distance is negative is skipped, like any malformed entry inside
-     a well-typed section. A method the producer marks reaching and gives no `targetDistances` has
-     flags and no distance: the derive does not invent one, so a widget whose only reaching handlers
-     are such methods is flagged and carries no pair, and the jar scores it without distance.
+     a well-typed section. A method the producer marks reaching and gives no `targetDistances` is
+     one whose every target is more than `DIST_MAX` calls away: gh120 computes reach without a depth
+     bound and distances with the cut. It has flags and no distance, and the derive does not invent
+     one, so a widget or handler whose reaching methods are all that far is flagged and carries no
+     pair. Under `distance` scoring that is the weight the exact distance would give, since a target
+     at `d ≥ 4` gives none.
    - **The distance of a handler.** A listener's handler SHALL resolve to its method by the same
      exact signature join that gives its flags (INV-DRV-01, INV-DRV-09). A D8 synthetic-lambda wrapper
      absent from that index SHALL resolve by the same class recovery, and its distance to `i` is the
