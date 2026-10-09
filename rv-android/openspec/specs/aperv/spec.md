@@ -53,6 +53,8 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - Recorded run artifacts for the offline join and the coverage-dump parser: per-run trace files carrying the step clock and the `[APE-RV] UICOV`/`UICOV-ACT` dump lines, and the logcat lines matching `RVSEC:`
 - `reachability[].methods[].{signature, reachesTarget, directlyReachesTarget}` — from the full `.apk.json`; wrappers now carry their own flags (source: GATOR, `analysis` INV-ANA-77)
 - `windows[]` of types `ACTIVITY`, `DIALOG`, `OPTIONSMENU`, `FRAGMENT`, `HOSTED` (source: GATOR)
+- `distanceTargets: list[{signature, kind}]` — top-level key of the full `.apk.json`; only its length is read (source: GATOR, gh120)
+- `reachability[].methods[].targetDistances: list[[int, int]]` — per-method pairs `[i, d]`, `0 ≤ d ≤ 10`, omitted when empty (source: GATOR, gh120); `name` excludes `<init>`/`<clinit>` from the A′ source 3 and from `activityDist`
 
 ### Output
 
@@ -62,14 +64,15 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - Join report (A9): per-run rows correlating step clock positions with `RVSEC:` violation timestamps
 - Per-run coverage rows at Activity grain from the offline coverage-dump parser, each carrying an explicit dump status (complete, partial, or absent)
 - `ape.corpusBasis=<corpus-id>:<sha256>` -- one line appended to the generated `ape.properties`, pushed to `/data/local/tmp/ape.properties`. Consumed by the jar's resolver, echoed into `RUN_START.corpus_basis`, and read by no runtime component on either side
-- `*.mop.json` widget flags — unchanged shape; a listed wrapper whose own flags are false is now `none` instead of inheriting a sibling's flag (destination: APE-RV `MopData`)
+- `*.mop.json` with `formatVersion: 2`, `source.generator: "aperv-derive/2"`, and the members `targets: int`, `widgets.<a>.<id>.dist: {event: [[i, d], …]}`, `activityDist: {activity: [[i, d], …]}`, `handlers: {class: {mop: {event: flag}, dist: {event: [[i, d], …]}}}`; a listed wrapper whose own flags are false is `none` (destination: APE-RV `MopData`, `ape` `llm-coordinate-single-base`)
+- `ape.properties` lines `ape.mopScoring=distance` for the two `mopd_*` arms; `ape.mopWeightD1..3`, `ape.mopRetireAfter`, `ape.mopLauncherDmax` only when a DSL override sets them (destination: the jar's plan resolution)
 
 ### Side-Effects
 
 - **[Device]**: `ape-rv.jar` pushed to `/data/local/tmp/ape-rv.jar`
 - **[Device]**: `system-broadcast.json` pushed to `/data/local/tmp/system-broadcast.json` (if file exists in module directory)
 - **[Device]**: `/data/local/tmp/mop-artifact.json` receives the derived compact MOP artifact -- MOP variants only. One pushed file per MOP-arm run, and never the full static-analysis JSON (INV-APV-46)
-- **[Host filesystem]**: one cached `<task.results_dir>/<task.config.apk_name>.mop.json` per (apk, full-JSON digest), written atomically in canonical bytes and regenerated transparently when missing or stale
+- **[Host filesystem]**: one cached `<task.results_dir>/<task.config.apk_name>.mop.json` per (apk, full-JSON digest, format), written atomically in canonical bytes and regenerated transparently when missing or stale
 - **[Filesystem]**: `<task.results_dir>/<task.config.apk_name>.json` is read and never written
 - **[Device]**: `ape.properties` pushed to `/data/local/tmp/ape.properties` (when `_tool_config` is non-empty); the pushed file gains one `ape.corpusBasis` line when a corpus basis is configured, and no other device state changes
 - **[Trace]**: `RUN_START.corpus_basis` becomes present in every trace of a run configured with a corpus basis
@@ -98,12 +101,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **INV-APV-04**: The `app_process` working directory SHALL be `/system/bin` (not `/data/local/tmp/`). The enhanced APE binary references system-level resources relative to its working directory during startup; using `/data/local/tmp/` causes startup failures. This intentionally diverges from the builtin `ape` tool, which uses `/data/local/tmp/` as working directory.
 
-- **INV-APV-05**: `get_variants()` SHALL return a dict whose keys are exactly `default`,
-  `sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off` and
-  `mop_on_llm_70`, with `default` bound to the same object as `sata` (INV-TOOL-02). The pre-change
-  minimum set named `bfs`, `random` and the six `sata_mop_llm_<prompt>` variants, all of which this
-  change retires; the invariant is restated rather than exempted, because a minimum-set rule that
-  lists retired names is false, not merely outdated.
+- **INV-APV-05**: `get_variants()` SHALL return a dict whose keys are exactly `default`, `sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`, `mop_on_llm_70`, `mopd_on_llm_off` and `mopd_on_llm_90`, with `default` bound to the same object as `sata` (INV-TOOL-02).
 
 - **INV-APV-06**: The `sata_mop` variant SHALL set `mop_data` to `"static_analysis"`. When `mop_data == "static_analysis"`, `execute_tool_specific_logic()` SHALL locate the full static-analysis JSON, obtain the derived compact artifact from it (cache-or-generate), and push **only that artifact** to the device. If the JSON is not found, or its derivation fails, the task SHALL fail before the jar is launched (INV-APV-45): there is no graceful-degradation path, because a MOP arm that runs without MOP data is a mislabelled run rather than a degraded one.
 
@@ -119,7 +117,6 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 
 - **INV-APV-12**: Non-zero exit codes from APE-RV SHALL NOT be treated as failures. APE-RV exits with non-zero codes when it detects app crashes during exploration (e.g., exit code 211). Coverage is collected via logcat regardless. Only `RVCommandTimeoutError` is re-raised as `RVToolTimeoutError`.
 
-
 - **INV-APV-18**: When a `seed` is present in `_tool_config`, `_build_main_command` MUST append `-s <seed>`
   to the `app_process` argument vector (after `--ape <strategy>`). When no seed is configured, the command
   MUST NOT include `-s` (preserving the current non-deterministic default). The seed value is passed
@@ -127,13 +124,11 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
   `Monkey.mRandom` and APE's `RandomHelper`, INV-EXPL-14); this invariant closes the rv-android-side gap
   that previously dropped the seed.
 
-
 - **INV-APV-29**: The MOP-off control arm SHALL set `mop_data` to a **present and loadable** document, SHALL set `mop_weight_direct`, `mop_weight_transitive`, `mop_weight_open_menu`, `mop_weight_wtg`, and `mop_frontier_weight` all to `0`, and SHALL set `activity_trigger_enabled=false`. It SHALL NOT achieve MOP-off by omitting `mop_data` or by pointing `ape.mopDataPath` at a missing file — the first disables the generic WTG and frontier passes as collateral, the second aborts the run.
 
 - **INV-APV-30**: Every arm of the decisive run SHALL use the frontier substrate (`sata_mop_act_frontier` lineage). No arm SHALL abandon the frontier mechanism, including the control arm — the control removes MOP guidance, not navigation.
 
 - **INV-APV-33**: Backend provenance SHALL be obtained from a live `/v1/models` query performed at the start of each run, never from static configuration. When the query fails, the provenance fields SHALL record the failure explicitly; the run SHALL NOT be aborted and a value SHALL NOT be inferred from configuration.
-
 
 - **INV-APV-35**: The clock↔logcat join SHALL be an offline, read-only computation over recorded artifacts. It SHALL NOT read logcat from a running device, SHALL NOT require an emulator, and SHALL NOT modify any artifact it reads.
 
@@ -150,9 +145,7 @@ which the sibling `ape` change already references by number.
   `ape.mopDataPath` set.
 - **INV-APV-46**: The device SHALL only ever receive the derived compact artifact. No code path SHALL
   push the full static-analysis JSON, under any cache state or failure mode.
-- **INV-APV-47**: Cache freshness SHALL be digest-based: a cached `<apk_name>.mop.json` is reused only
-  when its recorded `source.digest` equals the SHA-256 of the current full JSON. Cache state SHALL
-  NOT change what the device receives for a given full JSON.
+- **INV-APV-47**: Cache freshness SHALL be keyed on the source digest and the format. A cached `<apk_name>.mop.json` is reused only when its recorded `source.digest` equals the SHA-256 of the current full JSON **and** its `formatVersion` equals `FORMAT_VERSION`. Cache state SHALL NOT change what the device receives for a given full JSON and generator.
 - **INV-DRV-01**: Widget MOP flags SHALL be derived per listener and per normalized `eventType` and
   OR-aggregated across a widget's listeners. The two axes SHALL remain independent and SHALL NOT be
   collapsed into each other: `direct` is the handler's own `directlyReachesTarget` (a monitored
@@ -178,14 +171,7 @@ which the sibling `ape` change already references by number.
   NOT influence any emitted set, flag or edge.
 - **INV-DRV-05**: Derivation SHALL be deterministic at the byte level: identical full-JSON input bytes
   SHALL yield an identical artifact byte sequence, on any host and in any process.
-- **INV-DRV-06**: The artifact SHALL contain no call-graph data — no `reachability` section, no
-  method signatures, no raw `windows`/`transitions`/`listeners` — and no `*Target` key other than
-  `hasTargetMethods` on receivers and services. That single exception is deliberate: it is the
-  boolean the `targetMethods` signature list compacts to, its name is fixed by the jointly defined
-  wire format, and the jar reads it by that name. Stating the rule without the exception made it
-  unsatisfiable by the very schema this delta specifies, and left it enforceable only against
-  documents that happen to declare no receiver or service — which is why the cryptoapp fixture never
-  caught it. The full JSON SHALL remain unmodified on the host.
+- **INV-DRV-06**: The artifact SHALL contain no call-graph data: no `reachability` section, no method signature, no call edge, no raw `windows`/`transitions`/`listeners`/`distanceTargets`. It SHALL contain no `*Target` key other than `hasTargetMethods` on receivers and services. That single exception is deliberate: it is the boolean the `targetMethods` signature list compacts to, its name is fixed by the jointly defined wire format, and the jar reads it by that name. Format 2 MAY carry integer target indices and integer distances (`targets`, `dist`, `activityDist`, the `dist` of a `handlers` record) and binary class names (the keys of `handlers`). A target index is joined to its signature only offline, through `source.digest` and the full JSON it names. The full JSON SHALL remain unmodified on the host.
 - **INV-DRV-07**: Each emitted activity SHALL carry `deepLinkUri` derived by the rule the jar applies
   today; the intent-filter structure itself SHALL NOT be on the wire.
 
@@ -195,6 +181,8 @@ which the sibling `ape` change already references by number.
   `stats["wtgEdges"] == 0`, never as a refusal.
 
 - **INV-DRV-09**: The derive's exact-join index SHALL hold every signature listed in `reachability[].methods[]`, reaching or not; the D8 class recovery SHALL apply only to a wrapper whose signature is absent from that index.
+
+- **INV-DRV-10**: Every distance pair `[i, d]` in the artifact SHALL satisfy `0 ≤ i < targets` and `d ≥ 0`. A pair list SHALL hold each index at most once and SHALL be sorted by `d` ascending, then `i` ascending. A widget's or a handler's list SHALL hold exactly the targets of its per-target minima at `d ≤ 3` and no pair at `d ≥ 4`. An `activityDist` list SHALL hold the three pairs of smallest `d`. Every list is cut from the full per-target minima after every merge (listener, collision, dialog, class), never before, and an activity's minima start from its widgets' uncut minima. An empty pair list SHALL NOT be emitted. `targets` and `handlers` SHALL always be emitted.
 
 - **INV-APV-38**: Every arm whose `preset` is `llm` or `llm_mop` MUST carry `llm_url` in its
   `overrides`. The preset deliberately omits the server URL because it names a machine rather than an
@@ -222,7 +210,7 @@ which the sibling `ape` change already references by number.
 - **INV-APV-41**: `APERV_PROPERTY_MAPPING` MUST contain only keys the deployed jar accepts. Dead keys
   are removed, not commented out. `llm_snap_tolerance_px` and `llm_max_tokens` are live jar keys
   (`Feature.LLM` sub-parameters) and MUST remain mapped.
-- **INV-APV-42**: The eight surviving variant names are frozen. The variant string is the
+- **INV-APV-42**: The ten surviving variant names are frozen. The variant string is the
   resume-identity key and the consolidation column key; re-expression MUST NOT rename a surviving
   arm, and an owner-approved intentional divergence in effective configuration MUST be introduced as
   a new declared arm name, never as a silent edit. The 21 retired names MUST be recorded in the
@@ -283,6 +271,7 @@ which the sibling `ape` change already references by number.
 - **INV-APV-63**: The heartbeat placement rule SHALL exist once, in `clock_logcat_join.place_on_timeline(stamp, heartbeats)`, and SHALL be tag-agnostic; the tag admitted is a parameter of the line reader, not of the placement.
 
 ## Requirements
+
 ### Requirement: ApeRVTool Registration (FR18, FR19)
 
 `ApeRVTool` SHALL be registered as an external tool via rv-platform's `_register_external_tools()` function in `rv_platform/__init__.py`. Registration SHALL be idempotent: the function MUST check `registry.is_tool_registered("aperv")` before calling `registry.register_tool_class(ApeRVTool)`. If `aperv-tool` is not installed, the resulting `ImportError` SHALL be caught and logged as a warning; the platform SHALL continue operating normally. An unexpected exception during registration SHALL be logged as an error and SHALL NOT propagate.
@@ -309,7 +298,7 @@ which the sibling `ape` change already references by number.
 `ApeRVTool` SHALL define named variants as `preset + overrides`. Every variant SHALL consist of a
 `preset` name, an `overrides` dict, and Python-only orchestration keys (INV-APV-40).
 
-`get_variants()` SHALL return exactly these **eight** frozen names, carrying **seven** distinct
+`get_variants()` SHALL return exactly these **ten** frozen names, carrying **nine** distinct
 configurations:
 
 | Variant | preset | mop_data | overrides |
@@ -322,10 +311,14 @@ configurations:
 | `mop_on_llm_off` | `mop` | `"static_analysis"` | the four reach-package keys |
 | `mop_off_llm_off` | `mop` | `"static_analysis"` | the MOP-off set (see "Decisive Run Arm Set") |
 | `mop_on_llm_70` | `llm_mop` | `"static_analysis"` | the reach package plus the LLM dose |
+| `mopd_on_llm_off` | `mop` | `"static_analysis"` | the reach package plus `mop_scoring="distance"` |
+| `mopd_on_llm_90` | `llm_mop` | `"static_analysis"` | Study 03's E6 arm 4 plus `mop_scoring="distance"` |
 
-Four of the seven configurations are one-to-one with the jar's presets and carry nothing but the
-deployment-specific server URL where an LLM is involved. The remaining three are the E3 decisive
-run's arms: a reference on the reach package, its MOP-off control, and its LLM arm.
+Four of the nine configurations are one-to-one with the jar's presets and carry nothing but the
+deployment-specific server URL where an LLM is involved. Three are the E3 decisive run's arms: a
+reference on the reach package, its MOP-off control, and its LLM arm. The last two select the jar's
+`distance` MOP scoring (gh122): one on the reference, one on Study 03's E6 LLM arm (see "Decisive
+Run Arm Set").
 
 **Arm shape.** An arm's `preset` names one of the four jar-resident vectors; the jar, not Python,
 defines what it contains. `overrides` carries only the deltas that distinguish this arm from its
@@ -409,7 +402,7 @@ and a new arm name (INV-APV-42).
 #### Scenario: Retired variants are absent
 
 - **WHEN** `get_variants()` is read after this change
-- **THEN** the mapping SHALL have exactly eight keys
+- **THEN** the mapping SHALL have exactly ten keys
 - **AND** none of `ape_pure`, `bfs`, `random`, `sata_mop_widget`, `sata_mop_activity`,
   `sata_mop_act_frontier`, the six `sata_mop_llm_<prompt>` names or `cal_a1`…`cal_a9` SHALL be among
   them
@@ -711,7 +704,7 @@ fail-fast a misspelled key would abort on the device anyway, and catching it on 
 emulator time (same rationale as INV-APV-02).
 
 `APERV_PROPERTY_MAPPING` is a pass-through translation table and nothing more (see "Arm Property
-Overrides Pass-Through"). It SHALL contain only keys the deployed jar accepts (INV-APV-41). The 50
+Overrides Pass-Through"). It SHALL contain only keys the deployed jar accepts (INV-APV-41). The 56
 entries are:
 
 | Python Key | Java Property | Notes |
@@ -735,7 +728,6 @@ entries are:
 | `heuristic_input` | `ape.heuristicInput` | `HEURISTIC_INPUT` |
 | `fuzz_input_typed` | `ape.fuzzInputTyped` | `TYPED_FUZZ` |
 | `form_completion_enabled` | `ape.formCompletionEnabled` | `FORM_COMPLETION` |
-| `step_telemetry_enabled` | `ape.stepTelemetryEnabled` | `STEP_TELEMETRY` |
 | `model_menu_enabled` | `ape.modelMenuEnabled` | `MODEL_MENU` |
 | `least_visited_priority_tiebreak` | `ape.leastVisitedPriorityTiebreak` | `LEAST_VISITED_TIEBREAK` |
 | `tree_enhancements_enabled` | `ape.treeEnhancementsEnabled` | `TREE_ENHANCEMENTS` |
@@ -752,6 +744,12 @@ entries are:
 | `activity_trigger_max_per_run` | `ape.activityTriggerMaxPerRun` | `ACTIVITY_TRIGGER` sub-parameter |
 | `component_percentage` | `ape.componentPercentage` | `COMPONENT_TRIGGER` activation |
 | `mop_target_pick_cap` | `ape.mopTargetPickCap` | `MOP` sub-parameter |
+| `mop_scoring` | `ape.mopScoring` | `MOP` sub-parameter; `"flag"` (jar default) or `"distance"`; set by the two `mopd_*` arms |
+| `mop_weight_d1` | `ape.mopWeightD1` | `MOP` sub-parameter, read under `distance` only |
+| `mop_weight_d2` | `ape.mopWeightD2` | `MOP` sub-parameter, read under `distance` only |
+| `mop_weight_d3` | `ape.mopWeightD3` | `MOP` sub-parameter, read under `distance` only |
+| `mop_retire_after` | `ape.mopRetireAfter` | `MOP` sub-parameter, read under `distance` only |
+| `mop_launcher_dmax` | `ape.mopLauncherDmax` | `MOP` sub-parameter, read under `distance` only |
 | `coverage_boost_weight` | `ape.coverageBoostWeight` | `COVERAGE_BOOST` activation |
 | `llm_url` | `ape.llmUrl` | `LLM` activation; required on every LLM-preset arm (INV-APV-38) |
 | `llm_on_new_state` | `ape.llmOnNewState` | `LLM_NEW_STATE` activation |
@@ -765,7 +763,16 @@ entries are:
 | `llm_percentage_no_substrate` | `ape.llmPercentageNoSubstrate` | `LLM_RANDOM` sub-parameter; the `-1` sentinel is accepted on a plan with no LLM |
 | `llm_prompt_variant` | `ape.llmPromptVariant` | `LLM` sub-parameter |
 | `llm_max_tokens` | `ape.llmMaxTokens` | `LLM` sub-parameter |
-| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | `LLM` sub-parameter; set by `mop_on_llm_70` alone |
+| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | `LLM` sub-parameter; set by `mop_on_llm_70` and `mopd_on_llm_90` |
+| `corpus_basis` | `ape.corpusBasis` | deployment provenance, echoed into `RUN_START` and read nowhere ("Corpus Basis Provenance") |
+
+The five weight, retirement and launcher keys are mapped although no arm sets them: they are live
+`MOP` sub-parameters of the jar (`llm-coordinate-single-base`, `ape` design D18–D20), and an
+ablation sets them through the tool DSL. Under `ape.mopScoring=flag` the jar reports any of them
+that a plan states in `RUN_START.inert`, and under `distance` it does the same for
+`ape.mopWeightDirect`/`ape.mopWeightTransitive`; inert is not rejected. `step_telemetry_enabled` is not
+mapped: the jar removed `ape.stepTelemetryEnabled` (telemetry is always on), and the code had
+already dropped the entry this table still listed.
 
 `mop_weight_activity → ape.mopWeightActivity` is deleted: the jar's `KeyOwnership` table lists
 `ape.mopWeightActivity` as retired ("dead since mop-fairtest: the weight it named was deleted from
@@ -806,7 +813,9 @@ the mapping's contents a correctness property rather than a tidiness one.
 #### Scenario: Retired jar key is not in the mapping
 - **WHEN** `APERV_PROPERTY_MAPPING` is inspected after this change
 - **THEN** it SHALL NOT contain `mop_weight_activity`
-- **AND** it SHALL contain exactly 50 entries
+- **AND** it SHALL contain exactly 56 entries, among them `mop_scoring`, `mop_weight_d1`,
+  `mop_weight_d2`, `mop_weight_d3`, `mop_retire_after`, `mop_launcher_dmax` and `corpus_basis`
+- **AND** it SHALL NOT contain `step_telemetry_enabled`
 - **AND** it SHALL still contain `llm_max_tokens` and `llm_snap_tolerance_px`, which are live
   `Feature.LLM` sub-parameters
 
@@ -815,6 +824,13 @@ the mapping's contents a correctness property rather than a tidiness one.
   `strategy`, `mop_data` and `seed`
 - **THEN** the properties file SHALL contain none of those three names
 - **AND** it SHALL contain `ape.llmSnapTolerancePx=150`, which is an ordinary override
+
+#### Scenario: Distance arm writes the scoring mode
+- **WHEN** `_push_properties()` is called for `mopd_on_llm_off` with the MOP artifact pushed
+- **THEN** the file SHALL contain `ape.mopScoring=distance`
+- **AND** it SHALL contain no `ape.mopWeightD1`, `ape.mopWeightD2`, `ape.mopWeightD3`,
+  `ape.mopRetireAfter` or `ape.mopLauncherDmax` line, because the arm takes the jar's defaults
+  (500, 400, 300, 3 and 6)
 
 ---
 
@@ -852,7 +868,6 @@ The `[project.entry-points."rv_tools.plugins"]` table SHALL NOT be used for `ape
 
 ---
 
-
 ### Requirement: Seed Propagation to APE-RV (FR18, FR19)
 
 `ApeRVTool._build_main_command()` SHALL append `-s <seed>` to the `app_process` argument vector when a
@@ -884,15 +899,27 @@ is required.
 
 ### Requirement: Decisive Run Arm Set (FR20)
 
-`aperv-tool` SHALL define the three arms of the E3 decisive run as named variants, so that each arm's
-identity comes from its preset and override dict and never from an undeclared inheritance. The three
-arms SHALL be:
+`aperv-tool` SHALL define the three arms of the E3 decisive run and the two distance arms as named
+variants, so that each arm's identity comes from its preset and override dict and never from an
+undeclared inheritance. The five arms SHALL be:
 
 1. **`mop_on_llm_off`** — reference: MOP guidance on, LLM off. The shared baseline of both contrasts.
 2. **`mop_off_llm_off`** — control: MOP guidance off, LLM off. Isolates the effect of MOP guidance
    (the study's central hypothesis).
 3. **`mop_on_llm_70`** — LLM arm: MOP guidance on, LLM on at `llm_percentage=0.7`. Isolates the effect
    of adding the LLM.
+4. **`mopd_on_llm_off`** — distance arm: the reference with the jar's MOP scoring switched from the
+   E6 yes/no mark to the static distance (`mop_scoring="distance"`, `ape` design D18). With the
+   `ape` jar of `llm-coordinate-single-base` both this arm and the reference carry the ordered MOP
+   shortcut, so arms 2, 1 and 4 are the minimal family the plan analysis proposes (rv-android
+   `docs/20261006_analise_rigorosa_plano_guia_mop.md:315-319`: no guidance; the E6 mark plus the
+   ordered shortcut; the distance plus the ordered shortcut). Arm 4 against arm 1 isolates the
+   distance.
+5. **`mopd_on_llm_90`** — distance arm under the LLM: Study 03's E6 arm 4 (`e6_mop_on_llm_90`, defined
+   in the Study 03 replication package as E5b's selected arm `e5b_m1_v13_A` key by key with
+   `llm_percentage` 0.9; `rvsec_study03/e6/config.py`, `experiments/E5b-inloop/config/tool.py:575-592`)
+   plus `mop_scoring="distance"`. It carries the model, engine-facing sampling and dose Study 03
+   froze. Its flag-mode counterpart is that replication-package arm, not an arm of this module.
 
 The variant names are normative, not cosmetic: the variant string is the resume identity key and the
 consolidation column key, so a rename silently splits a campaign's results.
@@ -900,10 +927,10 @@ consolidation column key, so a rename silently splits a campaign's results.
 `mop_on_llm_off` absorbs the retired `sata_mop_act_frontier`: the two carried byte-identical effective
 configurations — the ANC2 anchor under two names — so the reference arm is not a newly invented
 baseline but the configuration that won the cmpma multi-arm comparison, under the name the decisive
-run recorded. With `sata_mop_act_frontier` retired, these three are the only arms in the module that
+run recorded. With `sata_mop_act_frontier` retired, these five are the only arms in the module that
 carry a non-trivial override set; the other four are one-to-one with the jar's presets.
 
-All three SHALL carry `mop_data="static_analysis"` and the frontier substrate (INV-APV-30) — the
+All five SHALL carry `mop_data="static_analysis"` and the frontier substrate (INV-APV-30) — the
 control removes MOP guidance, not navigation. Expressed as preset + overrides:
 
 | Arm | preset | overrides |
@@ -911,6 +938,8 @@ control removes MOP guidance, not navigation. Expressed as preset + overrides:
 | `mop_on_llm_off` | `mop` | `mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_frontier_weight=200`, `activity_trigger_enabled=True` |
 | `mop_off_llm_off` | `mop` | `mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_weight_direct=0`, `mop_weight_transitive=0`, `mop_weight_open_menu=0`, `mop_weight_wtg=0` |
 | `mop_on_llm_70` | `llm_mop` | the reference's four, plus `llm_url`, `llm_prompt_variant="v13"`, `llm_percentage=0.7`, `llm_temperature=0`, `llm_snap_tolerance_px=150` |
+| `mopd_on_llm_off` | `mop` | the reference's four, plus `mop_scoring="distance"` |
+| `mopd_on_llm_90` | `llm_mop` | the reference's four, plus `llm_url`, `llm_prompt_variant="v13"`, `llm_percentage=0.9`, `llm_temperature=0`, `llm_snap_tolerance_px=150`, `llm_model="Qwen/Qwen3-VL-4B-Instruct-FP8"`, `llm_top_p=1.0`, `llm_top_k=-1`, `mop_scoring="distance"` |
 
 The control's shape is fixed by INV-APV-29 and is now expressed jointly by the preset and the
 overrides: `mop_data` present and loadable (top-level), all four MOP weights zeroed and
@@ -926,7 +955,15 @@ readable directly. Reference minus control is exactly the five MOP weight keys p
 `activity_trigger_enabled`; reference minus LLM arm is exactly the LLM keys, with no exemption. The
 two B3 jar declarations that used to be that exemption are gone (INV-APV-59), so the diff no longer
 needs an argument about why an extra pair of keys is harmless — the arms differ in the LLM keys and
-in nothing else.
+in nothing else. The distance arms keep the same discipline: `mopd_on_llm_off` minus the reference is
+exactly `ape.mopScoring`, and `mopd_on_llm_90` minus `mopd_on_llm_off` is exactly LLM keys.
+
+Neither distance arm states the distance weights, the retirement count or the launcher bound: they
+take the jar's defaults (500/400/300 for `d ≤ 1`/`2`/`3`, retirement after 3 first interactions,
+launcher bound 6), which are the plan's decision-10 values the `ape` author adopted. An arm that
+changed one of them would be a new arm, not an edit of these (INV-APV-42). Both need the jar built
+from `llm-coordinate-single-base`: no earlier jar knows `ape.mopScoring`, and stage-2 resolution
+aborts on an unknown key.
 
 #### Scenario: Control arm keeps the frontier alive while MOP guidance is off
 - **WHEN** `get_variants()["mop_off_llm_off"]` is resolved
@@ -958,11 +995,25 @@ in nothing else.
   (INV-APV-59)
 - **AND** no MOP weight, frontier or exploration key SHALL differ
 
-#### Scenario: Source components flag is explicit in all three arms
-- **WHEN** the three decisive-run arms are iterated
+#### Scenario: Source components flag is explicit in all five arms
+- **WHEN** the five arms of this requirement are iterated
 - **THEN** each SHALL carry `mop_activity_source_components=True` in its `overrides`
 - **AND** none SHALL rely on the `mop` preset's `false`
 
+#### Scenario: Distance arm differs from the reference only in the scoring mode
+- **WHEN** the effective configurations of `mop_on_llm_off` and `mopd_on_llm_off` are diffed
+- **THEN** the only differing key SHALL be `ape.mopScoring`, `distance` in `mopd_on_llm_off` and the
+  jar default `flag` in the reference
+- **AND** both SHALL carry `mop_data="static_analysis"` at the top level
+
+#### Scenario: Distance LLM arm is the E6 arm plus the scoring mode
+- **WHEN** `get_variants()["mopd_on_llm_90"]["overrides"]` is read
+- **THEN** it SHALL equal, key for key, the overrides of the Study 03 arm `e6_mop_on_llm_90` plus
+  `mop_scoring="distance"`: `llm_percentage` 0.9, `llm_temperature` 0, `llm_top_p` 1.0,
+  `llm_top_k` -1, `llm_model` `"Qwen/Qwen3-VL-4B-Instruct-FP8"`, `llm_prompt_variant` `"v13"`,
+  `llm_snap_tolerance_px` 150, `llm_url`, and the reference's four reach-package keys
+- **AND** the effective configurations of `mopd_on_llm_off` and `mopd_on_llm_90` SHALL differ only in
+  `ape.llm*` keys
 
 ### Requirement: Per-Run LLM Backend Provenance (FR19, NFR06)
 
@@ -1090,7 +1141,6 @@ The parser exists because the dump has **no automated consumer today**: a search
 - **WHEN** the parser completes over any run directory
 - **THEN** every artifact it read SHALL be byte-identical to its prior content
 
-
 ### Requirement: Native NDJSON Trace Reader (FR11, FR13, NFR03, NFR06)
 
 The module SHALL provide `modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`, a read-only streaming reader of the NDJSON trace, and it SHALL be the sole mechanism by which analysis code in this module consumes a stage-4 trace. It follows the shape of its sibling `analysis/coverage_dump.py`: a pure offline component with a typed row model, never in the run path.
@@ -1208,19 +1258,30 @@ The carve-out SHALL also be recorded in `modules/aperv-tool/CLAUDE.md`, so that 
 `ApeRVTool._derive_mop_artifact(task)` SHALL return the host path of the compact MOP artifact for the
 task's APK, generating it when needed:
 
-1. Compute the SHA-256 of the current full JSON at `<results_dir>/<apk_name>.json`.
-2. When `<results_dir>/<apk_name>.mop.json` exists and its `source.digest` equals `"sha256:" + <hex>`,
-   reuse it without regenerating.
-3. Otherwise call `derive()` + `serialize_canonical()` and write the artifact atomically
-   (write-temp-then-rename in the same directory). A failed derivation SHALL write nothing.
+1. Compute the SHA-256 of the current full JSON at `<results_dir>/<apk_name>.json`, reading the file
+   in chunks.
+2. When `<results_dir>/<apk_name>.mop.json` exists, its `source.digest` equals `"sha256:" + <hex>`
+   **and** its `formatVersion` equals `derive_mop_artifact.FORMAT_VERSION`, reuse it without
+   regenerating and without parsing the full JSON.
+3. Otherwise parse the full JSON from the file as UTF-8, call `derive()` + `serialize_canonical()`,
+   and write the artifact atomically (write-temp-then-rename in the same directory). A failed
+   derivation SHALL write nothing.
+
+The method SHALL NOT hold the file's bytes across the parse and the derivation. A gh120 document is
+large: the host's peak memory measured about 4.1 times the file size, so 36.4 GB for the largest
+round-A document (8.9 GB). The digest and the parse therefore each read the file on their own, and a
+cache hit never parses.
 
 The artifact is cached next to its source so it is inspectable and diffable, and it is a pure function
-of the full JSON (INV-APV-47, INV-DRV-05). This method replaces `_compact_static_analysis_json`,
+of the full JSON and the generator's format (INV-APV-47, INV-DRV-05). The format is part of the cache
+key because the digest alone names the input, not the derivation: after a format bump a cached
+artifact of the old format matches its source's digest and would be pushed to a jar that rejects it,
+and every MOP arm would abort (`ape` INV-MOP-34). This method replaces `_compact_static_analysis_json`,
 which is deleted together with its fallback-to-source push: there is no longer any condition under
 which the full JSON reaches the device (INV-APV-46).
 
 Derivation failure means the document is structurally unusable, not that the analysis stopped early.
-An unreadable or unparseable file fails here through `json.loads` before `derive()` is reached; a
+An unreadable, non-UTF-8 or unparseable file fails here, in the parse, before `derive()` is reached; a
 well-formed document that lacks the WTG stage does not fail at all (INV-DRV-08).
 
 #### Scenario: cache hit skips derivation
@@ -1228,6 +1289,7 @@ well-formed document that lacks the WTG stage does not fail at all (INV-DRV-08).
   `source.digest == "sha256:ab12…"` and the SHA-256 of `com.example_1.apk.json` is `ab12…`
 - **THEN** `_derive_mop_artifact(task)` SHALL return that path
 - **AND** `derive()` SHALL NOT be called
+- **AND** the full JSON SHALL NOT be parsed
 
 #### Scenario: stale cache regenerates
 - **WHEN** the cached artifact records `source.digest == "sha256:ab12…"` but the current full JSON
@@ -1249,24 +1311,37 @@ well-formed document that lacks the WTG stage does not fail at all (INV-DRV-08).
 - **AND** the task SHALL NOT fail, for the `mop_on_llm_off` arm and for the `mop_off_llm_off` arm alike
 - **AND** the artifact SHALL carry `wtg == {}` and `stats["wtgEdges"] == 0`
 
+#### Scenario: cached artifact of an older format regenerates
+- **WHEN** `<results_dir>/com.example_1.apk.mop.json` carries `formatVersion: 1` and
+  `source.digest == "sha256:ab12…"`, the SHA-256 of `com.example_1.apk.json` is `ab12…`, and
+  `FORMAT_VERSION` is 2
+- **THEN** `derive()` SHALL be called and the artifact overwritten
+- **AND** the pushed artifact SHALL carry `formatVersion: 2`
+
 ---
 
 ### Requirement: MOP Artifact Projection Contents (FR04, FR05, FR06, FR19)
 
-`derive_mop_artifact.derive(document)` SHALL produce a `formatVersion: 1` artifact containing exactly
-the projection the explorer consumes:
+`derive_mop_artifact.derive(document)` SHALL produce a `formatVersion: 2` artifact containing exactly
+the projection the explorer consumes. Format 2 keeps every format-1 member with its meaning (except the
+A′ source-3 constructor exclusion of "MOP-Activity Sets and OPTIONSMENU Records") and adds item 9,
+which is the wire contract of the `ape` change `llm-coordinate-single-base` (its design D15 and its
+`static-analysis-entrypoints` delta). The jar of that change reads format 2 only, and earlier jars
+read format 1 only, so the two sides ship together.
 
 1. **Scalars**: `package` and `mainActivity` copied verbatim from the full JSON.
 2. **Provenance**: `source.digest` (`"sha256:" + hex` of the full-JSON bytes), `source.file`
-   (basename) and `source.generator` (generator identifier and version).
+   (basename) and `source.generator` (`"aperv-derive/2"`).
 3. **Widgets** (`widgets.<baseActivity>.<shortId>`): a per-normalized-eventType `mop` map with values
    `none|direct|transitive|both`, plus the consumed metadata fields `inputType`, `hint`, `prompt`,
-   `spinnerMode`, `contentDescription`, `tooltipText` and `entries`, each emitted only when non-empty.
+   `spinnerMode`, `contentDescription`, `tooltipText` and `entries`, each emitted only when non-empty,
+   plus the distance map `dist` of item 9.
    A widget SHALL be emitted only when it is MOP-flagged OR carries at least one metadata field. The
    keys `id`, `type`, `text` and the raw `listeners` array SHALL NOT be emitted. Map keys SHALL be
    pre-normalized (lowercased, `_` and `-` removed), matching the query-side normalization.
 4. **Activity sets**: `mopActivities` (widget-derived, per INV-DRV-02 and the dialog promotion of
-   INV-DRV-03) and `mopActivitiesAugmented` (the A′ union), both always emitted so the on-device
+   INV-DRV-03) and `mopActivitiesAugmented` (the A′ union, without activity constructors in source 3),
+   both always emitted so the on-device
    `mopActivitySourceComponents` flag keeps selecting between them at run time.
 5. **OPTIONSMENU records**: `optionsMenus: [{activity, hasFlaggedWidget}]`, where `hasFlaggedWidget`
    is true when any widget of that menu window is MOP-flagged — tested over the window's parsed
@@ -1285,7 +1360,72 @@ the projection the explorer consumes:
 8. **Stats**: `windows`, `widgetsTotal`, `flagged`, `droppedFlaggedNoId`, `orphanDialogs`,
    `handlersUnmatched`, `syntheticLambda`, `recovered`, `wtgEdges`, `dedupedTransitions`.
    `widgetsTotal` and `flagged` SHALL count the widget map after the dialog merge and before the
-   emission filter of item 3, so they remain the numbers the jar's load record reported.
+   emission filter of item 3, so they remain the numbers the jar's load record reported. Format 2
+   adds no counter: the jar's load record reports `targets`, the size of `handlers` and the pairs it
+   drops.
+9. **Targets and distances** (format 2):
+   - **`targets`**: the number of entries of the document's `distanceTargets` (direct targets C,
+     followed by boundary targets B \ C; `analysis` spec, `distanceTargets`). Every pair `[i, d]` of
+     the artifact SHALL satisfy `0 ≤ i < targets` (INV-DRV-10). No signature and no `kind` is
+     emitted: the jar weighs boundary targets as direct ones. A document without `distanceTargets`
+     yields `targets: 0` and no pair; nothing refuses it (gh120 design D9 left the September
+     artefacts to the corpus hand-off).
+   - **The distance of a method.** A method's distance to target `i` is its `targetDistances` entry
+     for `i`: 0 when the method is the target, 1–10 otherwise (gh120 `DIST_MAX = 10`); a target
+     absent from its entries is unreachable. An entry that is not a pair of integers, whose index is
+     outside `[0, targets)` or whose distance is negative is skipped, like any malformed entry inside
+     a well-typed section. A method the producer marks reaching and gives no `targetDistances` is
+     one whose every target is more than `DIST_MAX` calls away: gh120 computes reach without a depth
+     bound and distances with the cut. It has flags and no distance, and the derive does not invent
+     one, so a widget or handler whose reaching methods are all that far is flagged and carries no
+     pair. Under `distance` scoring that is the weight the exact distance would give, since a target
+     at `d ≥ 4` gives none.
+   - **The distance of a handler.** A listener's handler SHALL resolve to its method by the same
+     exact signature join that gives its flags (INV-DRV-01, INV-DRV-09). A D8 synthetic-lambda wrapper
+     absent from that index SHALL resolve by the same class recovery, and its distance to `i` is the
+     minimum over the enclosing class's reaching `lambda$…` methods. A listener whose flags come from
+     the producer-precedence tier (`handlerReachesTarget`/`handlerDirectlyReachesTarget`) still takes
+     its distances from the join, because the producer supplies no distance.
+   - **Per widget, `dist: {<event>: [[i, d], …]}`**, beside `mop`, under the same normalized event keys:
+     for each target, the minimum over the widget's handlers for that event. A null-event listener
+     contributes to the `""` key exactly when `mop` carries `""`. On a `shortId` collision
+     (INV-DRV-02) and in the dialog merge (INV-DRV-03) the flags keep the strongest-flag rule while
+     the `dist` maps of both widgets SHALL merge by the minimum distance per target.
+   - **Per activity, `activityDist: {<base activity>: [[i, d], …]}`**: for each target, the minimum over
+     the pairs of every widget of the activity, all events, after the dialog merge and including the
+     widgets the empty-short-id rule keeps off the wire, and over the `targetDistances` of the methods
+     of the activity's own class (the `reachability[]` entries with `componentType == "activity"` whose
+     base name is the activity) **except that class's `<init>` and `<clinit>`**. Launching any activity
+     runs its own constructor, and gh120 keeps every activity constructor as a boundary target (its
+     D12), so without the exclusion every activity would sit at `d = 0`. A dialog's activity pairs
+     move to its host with its widgets.
+   - **`handlers: {<binary class name>: {mop: {<event>: flag}, dist: {<event>: [[i, d], …]}}}`**: one
+     record per `reachability[]` class that declares a handler method. The handler methods, matched by
+     name and parameter list in the method's signature, are `onClick(android.view.View)`, which fills
+     `click`; `onLongClick(android.view.View)`, which fills `longclick`; and `java.lang.Object invoke()`
+     and `java.lang.Object invoke(java.lang.Object)`, which fill both. A Compose node's stamp is the
+     class of a `Function0`, and a toggleable's is the class of its `onValueChange`, a `Function1`
+     (`instrumentation` INV-INS-178); the node's extras key, not the method, tells the event.
+     `<init>` and `<clinit>` are never handler methods. An event's flag is derived from the method's
+     own `directlyReachesTarget`/`reachesTarget` on INV-DRV-01's two axes, and its pairs are the
+     method's distances; two methods filling one event OR their flags and merge their pairs by the
+     minimum per target. A class whose handler methods reach nothing SHALL still be listed, with
+     `none` for each of its events and no `dist`: on the device a listed class states that the
+     stamped handler reaches no target. The key is the class's binary name as `reachability[].className`
+     writes it, which is the `Class.getName()` form gh121 stamps.
+   - **Cut, order, omission** (INV-DRV-10). A widget's and a handler's pair list SHALL keep every
+     target at `d ≤ 3` and drop every pair at `d ≥ 4`. These are the lists that weigh an action, and
+     the jar gives no weight from `d = 4` (`ape` D18). Under the three-pair cut, 4,024 of the 21,485
+     targets at `d ≤ 3` of some widget or handler list (18.7 %) sat at `d ≤ 3` in no list after the
+     cut, so they could never weigh an action or retire (`ape` D15, amendment of 2026-10-09,
+     measured on the 163 round-A gh120 documents). An `activityDist` list SHALL keep the three pairs
+     of smallest `d`, because the launcher only orders the activities the census already makes
+     eligible. Every list is sorted by `d` ascending, then `i` ascending, and merges are applied to
+     the full per-target minima before the cut; an activity starts from its widgets' uncut minima.
+     An event with no pair after the cut SHALL have no key in a `dist` map, and an empty `dist` map
+     and an `activityDist` entry with no pair SHALL be omitted. `targets` and `handlers` SHALL always
+     be emitted, `0` and `{}` when empty. The widget emission filter of item 3 is unchanged: pairs do
+     not make an unflagged, metadata-less widget emitted.
 
 Derivation preconditions: the document is an object, carries a non-null `package`, and every section
 it does carry is of the expected type; otherwise `DerivationError`. The producer's `"complete": true`
@@ -1293,12 +1433,13 @@ sentinel is NOT a precondition (INV-DRV-08). A document written by the producer'
 JSON with populated `reachability` and `windows` per INV-ANA-20, and an empty `transitions` array —
 SHALL yield an artifact whose `wtg` is empty, which the device reads through `MopData.hasWtgData()`
 to disable the WTG-dependent scoring passes on its own. Structural corruption from a write interrupted
-mid-pass is caught earlier, by `json.loads` in `_derive_mop_artifact()`, because the producer truncates
+mid-pass is caught earlier, by the parse in `_derive_mop_artifact()`, because the producer truncates
 its output file on open and cannot leave a parseable stale tail.
 
 #### Scenario: cryptoapp derivation matches the known ground truth
-- **WHEN** `derive()` runs on the test fixture `cryptoapp.apk.json`, the gh60 producer output for
-  `br.unb.cic.cryptoapp` with one field as the gh120 producer emits it: the Execute button's wrapper
+- **WHEN** `derive()` runs on the test fixture `cryptoapp.apk.json`, a byte copy of the gh120
+  baseline `modules/rv-static-analysis/tests/resources/cryptoapp.apk.json` (the gh120 producer
+  output for `br.unb.cic.cryptoapp`), where the Execute button's wrapper
   `CryptographyActivity$$ExternalSyntheticLambda0.onClick` carries `reachesTarget: true`
 - **THEN** `mopActivities` SHALL equal
   `{MessageDigestActivity, CipherActivity, CryptographyActivity}` (base names).
@@ -1306,10 +1447,23 @@ its output file on open and cannot leave a parseable stale tail.
   `lambda$setupExecuteButton$0` body (`analysis` INV-ANA-77), so the wrapper is listed reaching and
   the class recovery is not consulted (INV-DRV-09)
 - **AND** `optionsMenus` SHALL contain the `MainActivity` record, and `wtg` SHALL carry the click
-  edges from `MainActivity` to both MOP sub-activities
+  edges from `MainActivity` to all three MOP sub-activities
 - **AND** `components.activities` SHALL have 4 entries and `components.providers` 1 entry with
   `authorities == "br.unb.cic.cryptoapp.androidx-startup"`, every component `reachesMop == false`
 - **AND** `stats.windows` SHALL be 5, `stats.flagged` 3 and `stats.recovered` 0
+- **AND** `formatVersion` SHALL be 2, `source.generator` `"aperv-derive/2"` and `targets` 27 (23 direct
+  targets, then the 4 activity constructors as boundary targets)
+- **AND** the `click` pairs SHALL be `[[22,2]]` for `buttonGenerateHash` and `[[16,3],[17,3],[18,3]]`
+  for `executeButton`, the three of its wrapper's ten pairs at `d ≤ 3`
+- **AND** `btn_cipher_encrypt` SHALL be emitted with `mop == {"click": "transitive"}` and no `dist`,
+  because its handler `CipherActivity$1.onClick` reaches its two targets only at `d = 4`
+- **AND** `handlers` SHALL have exactly the keys `br.unb.cic.cryptoapp.cipher.CipherActivity$1` and
+  `br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0`, each with
+  `mop == {"click": "transitive"}`; the second SHALL carry `dist == {"click": [[16,3],[17,3],[18,3]]}`
+  and the first no `dist`
+- **AND** `activityDist` SHALL be exactly `{CipherActivity: [[0,2],[1,2]], CryptographyActivity:
+  [[12,0],[13,0],[14,0]], MessageDigestActivity: [[22,2]]}` (fully qualified keys), with no entry
+  for `MainActivity`, whose only reaching method is its own constructor
 
 #### Scenario: absent sentinel does not stop derivation
 - **WHEN** `derive()` runs on a document with a valid `package`, well-typed sections, `transitions: []`
@@ -1335,9 +1489,10 @@ its output file on open and cannot leave a parseable stale tail.
 
 #### Scenario: no Target vocabulary and no call graph on the wire
 - **WHEN** an artifact is generated from a document declaring receivers and services
-- **THEN** the only key matching `*Target*` anywhere in it SHALL be `hasTargetMethods`
-- **AND** it SHALL contain no `reachability`, `windows`, `transitions` or `listeners` section
-  (INV-DRV-06)
+- **THEN** the only key containing `Target` anywhere in it SHALL be `hasTargetMethods` (the lowercase
+  `targets` does not match)
+- **AND** it SHALL contain no `reachability`, `windows`, `transitions`, `listeners` or
+  `distanceTargets` section, and no string in the shape of a Soot method signature (INV-DRV-06)
 - **AND** the check SHALL be exercised against components, not only against a fixture whose
   component lists are empty
 
@@ -1352,6 +1507,57 @@ its output file on open and cannot leave a parseable stale tail.
   unflagged and metadata-less
 - **THEN** `stats.widgetsTotal` SHALL be 40 and `stats.flagged` SHALL be 2
 - **AND** the emitted `widgets` map for that activity SHALL contain 5 entries
+
+#### Scenario: a widget's distance is the minimum over its handlers, every target within three calls
+- **WHEN** a widget's two `click` listeners resolve to methods with `targetDistances`
+  `[[2,3],[5,1],[7,4],[8,3]]` and `[[2,2],[9,6],[11,1],[12,3]]`
+- **THEN** its `dist` SHALL be `{"click": [[5,1],[11,1],[2,2],[8,3],[12,3]]}`, five pairs
+- **AND** target 2 SHALL appear once, at the smaller distance 2
+- **AND** targets 7 (`d = 4`) and 9 (`d = 6`) SHALL NOT appear
+
+#### Scenario: a widget whose targets are all four calls or more away carries no pair
+- **WHEN** a widget's only `click` listener resolves to a method reaching a target, flagged
+  `transitive`, with `targetDistances` `[[0,4],[1,5]]`, and its activity has no other pair
+- **THEN** the widget SHALL be emitted with `mop == {"click": "transitive"}` and no `dist`
+- **AND** its activity's `activityDist` SHALL be `[[0,4],[1,5]]`, because an activity starts from its
+  widgets' uncut minima
+
+#### Scenario: activityDist keeps the three nearest targets
+- **WHEN** an activity's widgets carry the `click` pairs `[[1,0],[2,1]]` and `[[3,1],[4,2]]`, and its
+  own class's methods carry none
+- **THEN** its `activityDist` SHALL be `[[1,0],[2,1],[3,1]]`
+- **AND** each widget SHALL keep its own two pairs
+
+#### Scenario: an unlisted wrapper takes its distances from the recovered lambdas
+- **WHEN** a click handler `<com.example.MainActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>`
+  is absent from `reachability[]`, and `com.example.MainActivity` has reaching `lambda$onCreate$0`
+  with `targetDistances [[4,2]]` and `lambda$onCreate$1` with `[[4,1],[6,3]]`
+- **THEN** the widget's `click` pairs SHALL be `[[4,1],[6,3]]`
+
+#### Scenario: colliding widgets merge their distances by the minimum
+- **WHEN** two widgets of one base activity share `shortId == "submit"`, the first `direct` on `click`
+  with pairs `[[3,0]]`, the second `transitive` with `[[3,1],[5,2]]`
+- **THEN** the emitted entry SHALL carry the `direct` flag and the `click` pairs `[[3,0],[5,2]]`
+
+#### Scenario: an activity's own constructor does not count toward its distance
+- **WHEN** the only methods of activity class `com.example.A` carrying `targetDistances` are
+  `<init>` with `[[23,0]]` and `onResume` with `[[2,5]]`, and its widgets carry no pair
+- **THEN** `activityDist["com.example.A"]` SHALL be `[[2,5]]`
+- **AND** with `onResume` reaching nothing, `com.example.A` SHALL have no `activityDist` entry
+
+#### Scenario: the handler table lists a class that reaches nothing
+- **WHEN** `reachability[]` lists `com.example.ui.ScreenKt$Body$1$1` with one method
+  `<com.example.ui.ScreenKt$Body$1$1: java.lang.Object invoke()>`, `reachesTarget: false`
+- **THEN** `handlers["com.example.ui.ScreenKt$Body$1$1"]` SHALL be
+  `{"mop": {"click": "none", "longclick": "none"}}`, with no `dist`
+- **AND** a class declaring `invoke(java.lang.Object)` reaching target 3 at distance 2 SHALL carry
+  `dist == {"click": [[3,2]], "longclick": [[3,2]]}`
+
+#### Scenario: a document without distances derives with no target
+- **WHEN** `derive()` runs on a well-typed document with no `distanceTargets` key and no
+  `targetDistances` on any method
+- **THEN** an artifact SHALL be returned with `targets == 0`, `handlers` listing the handler classes
+  with flags only, no `dist` on any widget and no `activityDist` entry
 
 ---
 
@@ -1516,8 +1722,11 @@ SHALL be removed and counted in `stats.dedupedTransitions`.
 The generator SHALL emit both activity sets. `mopActivities` is the widget-derived set of INV-DRV-02
 and INV-DRV-03. `mopActivitiesAugmented` is the A′ union of three sources: the widget-derived set,
 every `components.activities[]` entry with `reachesTarget == true`, and every `reachability[]` class
-with `componentType == "activity"` carrying at least one method with `reachesTarget` or
-`directlyReachesTarget` true. Both sources contribute base activity names. Both sets SHALL be emitted
+with `componentType == "activity"` carrying at least one method other than its own `<init>` and
+`<clinit>` with `reachesTarget` or `directlyReachesTarget` true. The constructor exclusion is new in
+format 2: under gh120 every activity constructor is a boundary target (its D12) and is listed reaching
+itself, so without it every activity class would enter the augmented census and the A′ arm would
+treat the whole app as MOP-bearing. Both sources contribute base activity names. Both sets SHALL be emitted
 in sorted order, and the augmented set SHALL be a superset of the widget-derived one.
 
 `optionsMenus` SHALL carry one record per distinct base activity owning an `OPTIONSMENU` window, with
@@ -1540,6 +1749,12 @@ view and the selected set.
 - **WHEN** `MainActivity#OptionsMenu` holds one flagged widget whose `idName` is empty
 - **THEN** `optionsMenus` SHALL contain `{"activity": "MainActivity", "hasFlaggedWidget": true}`
 - **AND** the emitted `widgets` map SHALL contain no entry for that widget
+
+#### Scenario: an activity reaching only through its constructor stays out of source 3
+- **WHEN** `derive()` runs on the gh120 cryptoapp fixture, where `MainActivity`'s only reaching method
+  is `<br.unb.cic.cryptoapp.MainActivity: void <init>()>` (boundary target 23)
+- **THEN** `mopActivitiesAugmented` SHALL NOT contain `br.unb.cic.cryptoapp.MainActivity`
+- **AND** on that fixture `mopActivitiesAugmented` SHALL equal `mopActivities`
 
 ---
 
@@ -1586,7 +1801,8 @@ reported a normal load.
 `derive_mop_artifact.serialize_canonical(artifact)` SHALL emit canonical bytes: UTF-8, object keys
 sorted lexicographically at every level, separators `,` and `:` with no whitespace, non-ASCII
 characters preserved rather than escaped, and deterministic array order — source first-occurrence for
-WTG edges and component lists, sorted for the activity sets and the OPTIONSMENU records. Running the
+WTG edges and component lists, sorted for the activity sets and the OPTIONSMENU records, and sorted by
+`(d, i)` for every distance pair list (INV-DRV-10). Running the
 generator twice on the same full-JSON bytes SHALL produce byte-identical output, so the artifact's own
 digest is stable and the `source.digest` chain identifies the exact static-analysis input of every run
 (INV-DRV-05).
