@@ -340,7 +340,8 @@ class ApeRVTool(AbstractTool):
 
         Python-only orchestration keys stay at the top level and never reach
         ape.properties: `strategy` (the --ape flag), `mop_data` (whether the derived MOP
-        artifact is pushed), `seed`, and the two jar-provenance declarations.
+        artifact is pushed) and `seed`. The full set, with the three device-addressing
+        keys rv-experiment injects, is `APERV_ORCHESTRATION_KEYS`.
 
         Returns:
             Dictionary mapping variant names to configuration parameters

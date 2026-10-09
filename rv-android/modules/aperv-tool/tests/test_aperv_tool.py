@@ -359,14 +359,6 @@ class TestJarSearchPaths:
             self.tool._resolve_jar_path()
 
         assert len(captured["paths"]) == 1
-        assert (
-            os.path.dirname(
-                self.tool._resolve_jar_path.__func__.__code__.co_filename
-                if False
-                else __file__
-            )
-            or True
-        )  # just verify length
         import aperv_tool.tools.aperv.tool as tool_module
 
         assert captured["paths"][0] == os.path.dirname(tool_module.__file__)
