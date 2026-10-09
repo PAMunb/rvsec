@@ -121,7 +121,7 @@ The record's key is `reachability[].className`, which is already the binary name
 
 ### D6. The cache key is (digest, format)
 
-`_cached_artifact_digest` becomes `_cached_artifact_identity`, which returns `(source.digest, formatVersion)` or `None`. `_derive_mop_artifact` reuses the cached file only when the pair equals `(digest_of(raw), FORMAT_VERSION)`. Comparing `source.generator` as well was considered and rejected: `formatVersion` is the field the jar gates on (`ape` INV-MOP-34), so it is the field whose mismatch would abort a run.
+`_cached_artifact_digest` becomes `_cached_artifact_identity`, which returns `(source.digest, formatVersion)` or `None`. `_derive_mop_artifact` reuses the cached file only when the pair equals `(digest_of_file(source_path), FORMAT_VERSION)`. Comparing `source.generator` as well was considered and rejected: `formatVersion` is the field the jar gates on (`ape` INV-MOP-34), so it is the field whose mismatch would abort a run.
 
 ### D7. The distance arms are deltas of existing arms
 
@@ -154,7 +154,7 @@ Two functions express the two rules: `_cut_weighed(minima)` keeps every pair at 
 
 ### D10. The source is hashed in chunks and parsed from the file
 
-Today `_derive_mop_artifact` reads the full JSON into one `bytes` object, hashes it, and passes it to `json.loads`; the object stays referenced until `derive()` returns. The aperv session measured the peak resident memory of that path, one fresh process per document, at about 4.1 times the file size (median over the documents above 100 MB; 7.1 times for wikipedia): 8.9 GB → 36.4 GB in 161 s (`sdmse`), 2.06 GB → 14.6 GB (wikipedia), 1.92 GB → 7.9 GB (`jtx`). The 90th percentile of the round-A documents is 1.27 GB, and the median 42 MB.
+Today `_derive_mop_artifact` reads the full JSON into one `bytes` object, hashes it, and passes it to `json.loads`; the object stays referenced until `derive()` returns. The aperv session measured the peak resident memory of that path, one fresh process per document, at about 4.1 times the file size (median over the documents above 100 MB; 7.1 times for wikipedia): 8.9 GB → 36.4 GB in 161 s (`sdmse`) and 2.06 GB → 14.6 GB (wikipedia). The 90th percentile of the round-A documents is 1.27 GB, and the median 42 MB.
 
 The method now does three things in order:
 - it computes the digest with `digest_of_file(path)`, which streams the file through `hashlib.file_digest`;
@@ -163,7 +163,12 @@ The method now does three things in order:
 
 `digest_of_file` replaces `digest_of(bytes)`, so the digest convention stays defined in one place.
 
-`json.load` still reads the file's text whole before it parses. What disappears is the `bytes` copy held through the parse and the derivation, and the decode of those bytes into a second copy during `json.loads`. The saving is therefore about one file size of a peak of about four. That is an estimate; task 7.7 measures it. A file that is not UTF-8 raises `UnicodeDecodeError`, a `ValueError`, which fails the task through the same path as an unparseable file. A conforming producer writes UTF-8.
+`json.load` still reads the file's text whole before it parses, and `json.loads(raw)` decoded the bytes into the same `str`, so the text is built either way. What disappears is the `bytes` object held through the parse and the derivation, and only that. Task 7.7 measured it on a copy of `jtx` (2,017,546,684 bytes), with two fresh processes per version under `/usr/bin/time -v` (`measure_peak_rss.out.md`):
+- the peak falls from 8,107,048 and 8,107,744 KiB (4.115 times the file size) to 6,135,896 and 6,136,452 KiB (3.114 and 3.115 times);
+- the saving is 2.018 GB, 1.0005 file sizes, or 24.3 % of the old peak;
+- the wall time stays between 31.5 and 32.6 s, and both versions derive the same 470,047-byte artifact.
+
+A file that is not UTF-8 raises `UnicodeDecodeError`, a `ValueError`, which fails the task through the same path as an unparseable file. A conforming producer writes UTF-8. A source that begins with a UTF-8 BOM now fails the parse too (Error Handling).
 
 *Alternatives:* a streaming parser (`ijson`). Not now: `derive()` reads `distanceTargets` before `reachability[]` and `windows`, so it needs the sections in an order the file does not guarantee. It would also add a dependency. Caching the artifact per APK outside the task directory: it touches rv-platform's per-task layout and is out of scope (Risks).
 
@@ -213,6 +218,7 @@ The method now does three things in order:
 | document without `distanceTargets` | pre-gh120 `.apk.json` | derive with `targets: 0` and no pair | the corpus hand-off keeps such documents out; the jar runs them without distances |
 | cached format-1 artifact | derived before this change | cache miss by format, re-derive | automatic |
 | source not UTF-8 | `json.load` on the text handle raises `UnicodeDecodeError` | caught with the parse errors; `RVToolExecutionError` fails the task | fix the producer output; GATOR writes UTF-8 |
+| source begins with a UTF-8 BOM | `json.load` on the text handle raises `JSONDecodeError` ("Unexpected UTF-8 BOM"); `json.loads(bytes)` used to accept one | caught with the parse errors; `RVToolExecutionError` fails the task as an unparseable file | fix the producer output; a conforming producer writes no BOM, and the `jtx` document has none |
 | jar without Part B | an older `ape-rv.jar` deployed with this derive | the jar rejects format 2 (`version-mismatch`) and a MOP arm aborts, or rejects `ape.mopScoring` as unknown | deploy the jar of `llm-coordinate-single-base` (D8) |
 
 ## Risks / Trade-offs
@@ -234,11 +240,11 @@ The method now does three things in order:
   - View-only apps (71): 101 of 3,955 (2.6 %), mostly treehouses and keepalive, where Kotlin coroutines play the same role.
 
   In those 8 Compose apps the `mopd_*` arms therefore give almost no click a MOP weight while the flag arms give them +300. That is the distance scoring doing what it is for, and the Study 03 analysis must read the flag-vs-distance contrast with it in mind. → Mitigation: none needed on this side. The producer contract should state the invariant ("`reachesTarget` without `targetDistances` ⇔ every target farther than `DIST_MAX`"); that belongs to the next gh120 producer change.
-- **[Host memory of the derive and the per-task copy]** D10 removes the `bytes` copy, but the parse still holds the document's text and its parsed form. The largest round-A document (8.9 GB) peaked at 36.4 GB before D10, so a few such derives running at once can exhaust the host. Two costs stay outside this module:
+- **[Host memory of the derive and the per-task copy]** D10 removes the `bytes` copy, but the parse still holds the document's text and its parsed form (about 3.1 file sizes at the peak on `jtx`). The largest round-A document (8.9 GB) peaked at 36.4 GB before D10, so a few such derives running at once can exhaust the host. Two costs stay outside this module:
   - rv-platform (`static_analysis.py`, the copy into `task.results_dir`) copies the full JSON into every task's results directory, 8.9 GB per task for `sdmse`;
   - the cache lives in that same directory, so every task derives its own artifact. The digest cache helps only when the same task resumes.
 
-  Reading the code shows this; the directory layout at run time was not checked. → Mitigation: none in this change. A per-APK cache outside the task directory, or a streaming parse, would be a later change if the author wants one. Task 7.7 measures what D10 saves.
+  Reading the code shows this; the directory layout at run time was not checked. → Mitigation: none in this change. A per-APK cache outside the task directory, or a streaming parse, would be a later change if the author wants one. D10 saves one file size of the peak, 24.3 % on `jtx` (task 7.7).
 - **[The `distance` LLM arm has no flag twin here]** `mopd_on_llm_90`'s flag-mode counterpart is the replication package's `e6_mop_on_llm_90`. → Mitigation: Open Questions.
 
 ## Testing Strategy
@@ -248,7 +254,7 @@ The method now does three things in order:
 | Unit (derive) | the format-2 scenarios: per-widget minima and cut, lambda recovery distances, collision merge, dialog move, activity minima with the constructor excluded, handler table (including a class reaching nothing and `invoke(Object)`), no-`distanceTargets` document, malformed pairs skipped, source 3 | `tests/test_derive_mop_artifact.py`, synthetic documents plus the cryptoapp fixture | ~14 |
 | Unit (pair rules) | INV-DRV-10 over random minima, both cuts | seeded random dicts, `_cut_weighed`, `_cut_nearest` and `_merge_minima` | ~3 |
 | Unit (source read) | `digest_of_file` equals the SHA-256 of the bytes on a file longer than one chunk; a cache hit never calls `json.load` | `tests/test_derive_mop_artifact.py`, `tests/test_aperv_tool.py` | 2 |
-| Memory | peak RSS of the derive path before and after D10 on one round-A document (`jtx`, 1.92 GB), one fresh process per run, on a copy | `/usr/bin/time -v`, a read-only script kept in the change folder | 2 runs |
+| Memory | peak RSS of the derive path before and after D10 on one round-A document (`jtx`, 2,017,546,684 bytes), one fresh process per run, on a copy | `/usr/bin/time -v`, a read-only script kept in the change folder | 2 runs per version |
 | Unit (wire hygiene) | INV-DRV-06 amended: no `distanceTargets`, no signature-shaped string, only `hasTargetMethods` contains `Target` | extended existing test | 1 |
 | Unit (tool) | cache by format; mapping count and keys; ten variants; `mopd_on_llm_off` properties lines | `tests/test_aperv_tool.py` | ~6 |
 | Migration | the mapping sweep and the two new single-factor contrasts | `tests/migration/`, with `APE_REPO` at the Part B checkout | ~3 |
