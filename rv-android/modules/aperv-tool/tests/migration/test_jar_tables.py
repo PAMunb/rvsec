@@ -2,7 +2,7 @@
 
 A fixture would pin the parser to a snapshot of the Java and pass forever after the real
 file moved — which is precisely the failure mode the migration check exists to catch. These
-tests assert the shapes read off the jar's tables (four presets sized 17/21/24/28, 112
+tests assert the shapes read off the jar's tables (four presets sized 17/21/24/28, 117
 accepted keys, `ape.mopWeightActivity` retired), so a drift on the ape side surfaces here
 rather than as a silent empty diff downstream.
 
@@ -13,6 +13,12 @@ an arm can switch off, so there is no such setting to express. Its two sub-param
 `ape.llmPromptDump` and `ape.telemetryHeartbeat`, are accepted as BASE keys — levers over
 what the trace carries, never over what the run decides — which is why the vocabulary grows
 by two while every preset shrinks by one.
+
+`llm-coordinate-single-base` moved the count twice, to 117. Part A retired
+`ape.llmBoundaryBottomPct` (the answer is mapped on the display, which excludes the
+navigation bar, so only the status-bar band remains), and Part B added the six keys of
+the distance MOP scoring (`ape.mopScoring` and the D1–D3 weights, retirement count and
+launcher bound). The presets did not move: the six keys take their jar defaults.
 """
 
 import pytest
@@ -66,7 +72,14 @@ class TestPresets:
 
 class TestKeySpecs:
     def test_accepted_vocabulary_size(self, ape_repo):
-        assert len(load_key_specs(ape_repo)) == 112
+        assert len(load_key_specs(ape_repo)) == 117
+
+    def test_a_key_declared_through_a_constant_is_read(self, ape_repo):
+        # `ape.mopScoring` is declared as `MopScoring.KEY`, not as a literal; missing it
+        # would make the sweep call a key the jar accepts an unknown one.
+        spec = load_key_specs(ape_repo)["ape.mopScoring"]
+        assert spec.value_type == "MOP_SCORING"
+        assert spec.default == "flag"
 
     def test_telemetry_is_not_a_setting_an_arm_can_express(self, ape_repo):
         # The counterpart of the key's removal from APERV_PROPERTY_MAPPING. Telemetry

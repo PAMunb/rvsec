@@ -9,8 +9,8 @@ Facts this design relies on, checked on the gh120 fixture `modules/rv-static-ana
 - Every activity `<init>` carries `reachesTarget: true` and `targetDistances [[k, 0]]`, where `k` is its own boundary index.
 - The click handlers of the three flagged widgets resolve as follows:
   - `buttonGenerateHash` resolves by exact join to `MessageDigestActivity.generateHash(View)`, an XML `android:onClick` method, with pairs `[[22,2]]`;
-  - `btn_cipher_encrypt` resolves to `CipherActivity$1.onClick`, with `[[0,4],[1,4]]`;
-  - `executeButton` resolves to `CryptographyActivity$$ExternalSyntheticLambda0.onClick`, with `[[16,3],[17,3],[18,3]]` after the cut of ten pairs.
+  - `btn_cipher_encrypt` resolves to `CipherActivity$1.onClick`, with `[[0,4],[1,4]]`. Both pairs are at `d = 4`, so the widget carries no `dist` on the wire (D9);
+  - `executeButton` resolves to `CryptographyActivity$$ExternalSyntheticLambda0.onClick`, whose ten pairs hold exactly three at `d ≤ 3`: `[[16,3],[17,3],[18,3]]`.
 - Two classes declare a handler method: `CipherActivity$1` and `CryptographyActivity$$ExternalSyntheticLambda0`. Both are `transitive`, not direct.
 - With the constructor excluded, `activityDist` is `CipherActivity [[0,2],[1,2]]`, `CryptographyActivity [[12,0],[13,0],[14,0]]` and `MessageDigestActivity [[22,2]]`, and `MainActivity` has none. `MainActivity`'s only reaching method is its `<init>`, so it leaves `mopActivitiesAugmented`.
 
@@ -27,9 +27,14 @@ full .apk.json ──► derive()
                     ├─ _parse_windows               widget record + per-event distance minima
                     ├─ _build_widget_map            collisions merge minima; activity minima before the id drop
                     ├─ _rekey_dialogs               dialog minima move with the widgets
-                    └─ emit                         _cut_pairs at the wire: K=3, (d, i) order
+                    └─ emit                         cut at the wire, (d, i) order:
+                                                     _cut_weighed (widgets, handlers): every d ≤ 3
+                                                     _cut_nearest (activityDist): K = 3
                     ▼
                *.mop.json (formatVersion 2) ──► tool.py cache (digest + format) ──► device ──► ape MopData
+
+tool.py: digest_of_file (chunks) ──► cache hit? ──yes──► reuse, no parse
+                                          └─no──► json.load(file) ──► derive()
 ```
 
 ### Key Components
@@ -39,7 +44,10 @@ full .apk.json ──► derive()
 | `derive_mop_artifact._index_reachability` | adds three distance indices, the handler records, and the source-3 constructor exclusion | `reachability[]`, `targets` | flag indices (unchanged), `dist_by_signature`, `lambda_dist_by_class`, `activity_class_dist`, `handler_records`, `activity_classes` |
 | `derive_mop_artifact._derive_widget_flags` | per-event minima beside the per-event flags, same tiers | listeners, indices | `(mop, dist_minima, direct, transitive)` |
 | `derive_mop_artifact._merge_minima` | the one merge rule: minimum per target, in place | two `dict[int, int]` | the first, updated |
-| `derive_mop_artifact._cut_pairs` | the one wire rule: K = 3 pairs, sorted by `(d, i)` | `dict[int, int]` | `list[[i, d]]` |
+| `derive_mop_artifact._cut_weighed` | the wire rule of the widget and handler lists: every pair at `d ≤ DIST_WEIGHED_MAX` (3), sorted by `(d, i)` | `dict[int, int]` | `list[[i, d]]` |
+| `derive_mop_artifact._cut_nearest` | the wire rule of `activityDist`: the `DIST_K` (3) pairs of smallest `d`, sorted by `(d, i)` | `dict[int, int]` | `list[[i, d]]` |
+| `derive_mop_artifact.digest_of_file` | replaces `digest_of(bytes)`: the provenance digest of a file, read in chunks | path | `"sha256:<hex>"` |
+| `tool.ApeRVTool._derive_mop_artifact` | hashes, checks the cache, and parses with `json.load` only on a miss; holds no copy of the file's bytes | task | artifact path |
 | `derive_mop_artifact._read_pairs` | validates `targetDistances` entries against `targets` | raw list, `targets` | `dict[int, int]` |
 | `tool.ApeRVTool._cached_artifact_identity` | replaces `_cached_artifact_digest`; reads digest and format | cached artifact path | `(digest, formatVersion)` or `None` |
 | `tool.APERV_PROPERTY_MAPPING` | six new entries | — | 56 entries |
@@ -50,11 +58,11 @@ full .apk.json ──► derive()
 | Requirement | Implementation | Test |
 |-------------|---------------|------|
 | MOP Artifact Projection Contents, item 9 (`targets`, `dist`, `activityDist`, `handlers`) | `derive()`, `_index_reachability`, `_derive_widget_flags`, `_build_widget_map`, `_rekey_dialogs`, `_emit_widgets`, new `_emit_activity_dist`, `_emit_handlers` | `tests/test_derive_mop_artifact.py`: one test per new scenario, the cryptoapp ground truth |
-| INV-DRV-10 (pair rules) | `_read_pairs`, `_merge_minima`, `_cut_pairs` | property-style test over random minima: at most 3, sorted, unique, indices in range |
+| INV-DRV-10 (pair rules) | `_read_pairs`, `_merge_minima`, `_cut_weighed`, `_cut_nearest` | property-style test over random minima: sorted, unique, indices in range; `_cut_weighed` keeps exactly the minima at `d ≤ 3`, `_cut_nearest` at most 3; the scenarios "a widget whose targets are all four calls or more away carries no pair" and "activityDist keeps the three nearest targets" |
 | INV-DRV-06 (amended) | emission only; no signature reaches the wire | the "no Target vocabulary" test extended to `distanceTargets` and signature-shaped strings |
 | MOP-Activity Sets, source 3 | `_index_reachability` skips `<init>`/`<clinit>` for `activity_classes` | cryptoapp: `MainActivity` out of `mopActivitiesAugmented` |
-| Canonical Serialization | `_cut_pairs` order | the byte-identical regeneration test re-run on the format-2 fixture |
-| Derived MOP Artifact Generation and Caching, INV-APV-47 | `_derive_mop_artifact`, `_cached_artifact_identity` | `tests/test_aperv_tool.py`: format-1 cache with matching digest regenerates |
+| Canonical Serialization | the `(d, i)` order of `_cut_weighed` and `_cut_nearest` | the byte-identical regeneration test re-run on the format-2 fixture |
+| Derived MOP Artifact Generation and Caching, INV-APV-47 | `_derive_mop_artifact`, `_cached_artifact_identity`, `digest_of_file` | `tests/test_aperv_tool.py`: format-1 cache with matching digest regenerates; a cache hit never calls `json.load`; `digest_of_file` equals the SHA-256 of the bytes on a file longer than one chunk |
 | ape.properties Generation | `APERV_PROPERTY_MAPPING` | count 56, the six keys, no `step_telemetry_enabled`; `mopd_on_llm_off` writes `ape.mopScoring=distance`; `tests/migration/test_mapping_sweep.py` against an ape checkout carrying Part B |
 | ApeRVTool Variants, INV-APV-05, INV-APV-42 | `get_variants()` | ten keys; `tests/migration/test_decisive_contrasts.py` with the two new contrasts |
 | Decisive Run Arm Set | `get_variants()` | `mopd_on_llm_90` equals the E6 arm 4 keys plus `mop_scoring` |
@@ -63,7 +71,8 @@ full .apk.json ──► derive()
 
 **Goals:**
 - Emit exactly the format-2 artifact of the `ape` contract, byte-deterministic, from any well-typed document, gh120 or not.
-- Keep one rule per concern: one merge (minimum per target), one cut (K = 3, `(d, i)`), and one resolution of handler to method, shared by flags and distances.
+- Keep one rule per concern: one merge (minimum per target), one order (`(d, i)`), one cut per kind of list (`d ≤ 3` for the lists that weigh an action, K = 3 for `activityDist`), and one resolution of handler to method, shared by flags and distances.
+- Hold no copy of the full JSON's bytes while it is parsed and derived.
 - Never push a stale format-1 artifact to a format-2 jar.
 - Give the campaign the two distance arms and the six keys.
 
@@ -89,7 +98,7 @@ full .apk.json ──► derive()
 
 ### D2. Minima are kept whole until the wire
 
-Inside the derive a distance set is `dict[int, int]` (target → minimum `d`). Every merge uses `_merge_minima`: listeners of one event, colliding widgets, dialog into host, two methods of one handler class, an activity's widgets and its own methods. `_cut_pairs` turns a set into the wire list at emission and nowhere else. The contract requires merges before the cut (INV-DRV-10): cutting each source to three before merging could drop a target that is fourth in one source and first after the merge.
+Inside the derive a distance set is `dict[int, int]` (target → minimum `d`). Every merge uses `_merge_minima`: listeners of one event, colliding widgets, dialog into host, two methods of one handler class, an activity's widgets and its own methods. `_cut_weighed` and `_cut_nearest` (D9) turn a set into the wire list at emission and nowhere else. The contract requires merges before the cut (INV-DRV-10). Cutting each source to three before merging could drop a target that is fourth in one source and first after the merge. Cutting a widget's set at `d ≤ 3` before the activity merge would drop pairs that `activityDist` must still rank.
 
 ### D3. Activity minima are accumulated before the empty-id drop
 
@@ -130,6 +139,34 @@ The derive bump and the jar's format-2 reader must reach a campaign together: ea
 
 The derive part can be committed before the jar exists, because nothing deploys it until the campaign image is rebuilt.
 
+### D9. Two cuts: every weighed pair on widgets and handlers, the three nearest on activities
+
+The contract first cut every list to the three nearest pairs. On 2026-10-09 the author changed the cut of the widget and handler lists to "every target at `d ≤ 3`" (`ape` D15, amendment of 2026-10-09; evidence in `ape` `openspec/changes/llm-coordinate-single-base/evidence/format2_gaps/`). The aperv session measured it on the 163 round-A gh120 documents, derived with this change's `derive()`:
+- with three pairs per list, 4,024 of the 21,485 targets that lie at `d ≤ 3` on some widget or handler list before the cut lie at `d ≤ 3` on no such list after it (18.7 %); over every list, `activityDist` included, 9,158 of 27,671 (33 %, in 98 apps). Such a target can never give an action a weight, and the jar retires only targets on the wire, so it never retires either;
+- a pair at `d ≥ 4` gives no weight (`ape` D18), so the new cut drops nothing the jar uses;
+- the artifacts barely grow. With every widget and handler list cut at `d ≤ 3`, the median artifact is 34 KB (34 KB before), the largest 1.9 MB (1.97 MB, `com.celzero.bravedns`), and the 162 artifacts 15.2 MB in all (14.6 MB). The longest list holds 798 targets (median 1, 90th percentile 7), and the jar's `MopData.PairReader` reads a list of any length.
+
+`activityDist` keeps the three nearest pairs. The launcher only orders the activities the census already makes eligible (`ape` D20), and a cut at the launcher's bound `d ≤ 6` would carry 211 thousand pairs, about 0.8 MB on the largest app, for an ordering key. The activity merge starts from the widgets' uncut minima (D2, D3), so a widget whose targets are all at `d ≥ 4` carries no `dist` and still counts toward its activity.
+
+Two functions express the two rules: `_cut_weighed(minima)` keeps every pair at `d ≤ DIST_WEIGHED_MAX` (3), and `_cut_nearest(minima)` keeps the `DIST_K` (3) nearest. Both sort by `(d, i)`. An event whose list is empty after the cut has no key, and a `dist` map left empty is omitted, on widgets and on handler records alike. The handler record itself stays, with its flags: on the device a listed class still states what the stamped handler reaches.
+
+*Alternatives:* keep three pairs. Rejected by the measurement above. Cut every list at `d ≤ 6`, which the aperv session also measured: the largest artifact grows to 13 MB (`jtx`) and the 162 artifacts to 60 MB, for pairs the jar does not weigh.
+
+### D10. The source is hashed in chunks and parsed from the file
+
+Today `_derive_mop_artifact` reads the full JSON into one `bytes` object, hashes it, and passes it to `json.loads`; the object stays referenced until `derive()` returns. The aperv session measured the peak resident memory of that path, one fresh process per document, at about 4.1 times the file size (median over the documents above 100 MB; 7.1 times for wikipedia): 8.9 GB → 36.4 GB in 161 s (`sdmse`), 2.06 GB → 14.6 GB (wikipedia), 1.92 GB → 7.9 GB (`jtx`). The 90th percentile of the round-A documents is 1.27 GB, and the median 42 MB.
+
+The method now does three things in order:
+- it computes the digest with `digest_of_file(path)`, which streams the file through `hashlib.file_digest`;
+- it checks the cache, so a hit returns without parsing anything;
+- on a miss, it parses with `json.load` from a UTF-8 text handle.
+
+`digest_of_file` replaces `digest_of(bytes)`, so the digest convention stays defined in one place.
+
+`json.load` still reads the file's text whole before it parses. What disappears is the `bytes` copy held through the parse and the derivation, and the decode of those bytes into a second copy during `json.loads`. The saving is therefore about one file size of a peak of about four. That is an estimate; task 7.7 measures it. A file that is not UTF-8 raises `UnicodeDecodeError`, a `ValueError`, which fails the task through the same path as an unparseable file. A conforming producer writes UTF-8.
+
+*Alternatives:* a streaming parser (`ijson`). Not now: `derive()` reads `distanceTargets` before `reachability[]` and `windows`, so it needs the sections in an order the file does not guarantee. It would also add a dependency. Caching the artifact per APK outside the task directory: it touches rv-platform's per-task layout and is out of scope (Risks).
+
 ## API Design
 
 ### `derive(document: dict, source_file: str = "", source_digest: str = "") -> dict`
@@ -138,9 +175,18 @@ The derive part can be committed before the jar exists, because nothing deploys 
 - **Post:** the format-2 artifact of "MOP Artifact Projection Contents". It adds the keys `targets: int`, `activityDist: dict[str, list[list[int]]]` and `handlers: dict[str, dict]`, and widgets may carry `dist: dict[str, list[list[int]]]`. `formatVersion == 2` and `source.generator == "aperv-derive/2"`. INV-DRV-05, INV-DRV-06 and INV-DRV-10 hold.
 - **Errors:** `DerivationError` as today, plus a `distanceTargets` of the wrong type.
 
-### `_cut_pairs(minima: dict[int, int]) -> list[list[int]]`
+### `_cut_weighed(minima: dict[int, int]) -> list[list[int]]`
+
+- **Post:** `[[i, d] for (d, i) in sorted((d, i) for i, d in minima.items()) if d <= DIST_WEIGHED_MAX]`, with `DIST_WEIGHED_MAX = 3`. Empty when no target lies at `d ≤ 3`.
+
+### `_cut_nearest(minima: dict[int, int]) -> list[list[int]]`
 
 - **Post:** `[[i, d] for (d, i) in sorted((d, i) for i, d in minima.items())][:DIST_K]`, with `DIST_K = 3`. Empty when `minima` is empty.
+
+### `digest_of_file(path: str) -> str`
+
+- **Post:** `"sha256:" + hex`, equal to the SHA-256 of the file's bytes, read in chunks.
+- **Errors:** `OSError` when the file cannot be read.
 
 ### `_merge_minima(into: dict[int, int], other: dict[int, int]) -> dict[int, int]`
 
@@ -152,10 +198,10 @@ The derive part can be committed before the jar exists, because nothing deploys 
 
 ## Data Flow
 
-1. `tool.py` reads `<apk>.json` bytes and computes the digest. It reuses `<apk>.mop.json` only when digest and format both match, and otherwise calls `derive()`.
+1. `tool.py` computes the digest of `<apk>.json` in chunks. It reuses `<apk>.mop.json` only when digest and format both match, and otherwise parses the file with `json.load` and calls `derive()`.
 2. `derive()` reads `targets` from `distanceTargets`, builds the flag and distance indices and the handler records in one pass over `reachability[]`, then parses the widget tree. Each listener yields its flags and minima from the same join.
 3. `_build_widget_map` keys widgets with flags by strongest rule and minima by merge, and folds every widget's minima into its activity before the id drop. `_rekey_dialogs` moves both.
-4. Emission cuts every minima set to K = 3 pairs in `(d, i)` order and omits the empty ones. `serialize_canonical` is unchanged, so key order and array order are what make the bytes stable.
+4. Emission cuts each widget and handler minima set to its pairs at `d ≤ 3`, and each activity set to its three nearest pairs, all in `(d, i)` order, and omits the empty ones. `serialize_canonical` is unchanged, so key order and array order are what make the bytes stable.
 5. The artifact is pushed to `/data/local/tmp/mop-artifact.json`. For a `mopd_*` arm the properties file also carries `ape.mopScoring=distance`.
 
 ## Error Handling
@@ -166,6 +212,7 @@ The derive part can be committed before the jar exists, because nothing deploys 
 | malformed `targetDistances` entry | wrong shape, index out of range, negative `d` | skip the entry | none; a conforming producer emits none |
 | document without `distanceTargets` | pre-gh120 `.apk.json` | derive with `targets: 0` and no pair | the corpus hand-off keeps such documents out; the jar runs them without distances |
 | cached format-1 artifact | derived before this change | cache miss by format, re-derive | automatic |
+| source not UTF-8 | `json.load` on the text handle raises `UnicodeDecodeError` | caught with the parse errors; `RVToolExecutionError` fails the task | fix the producer output; GATOR writes UTF-8 |
 | jar without Part B | an older `ape-rv.jar` deployed with this derive | the jar rejects format 2 (`version-mismatch`) and a MOP arm aborts, or rejects `ape.mopScoring` as unknown | deploy the jar of `llm-coordinate-single-base` (D8) |
 
 ## Risks / Trade-offs
@@ -187,6 +234,11 @@ The derive part can be committed before the jar exists, because nothing deploys 
   - View-only apps (71): 101 of 3,955 (2.6 %), mostly treehouses and keepalive, where Kotlin coroutines play the same role.
 
   In those 8 Compose apps the `mopd_*` arms therefore give almost no click a MOP weight while the flag arms give them +300. That is the distance scoring doing what it is for, and the Study 03 analysis must read the flag-vs-distance contrast with it in mind. → Mitigation: none needed on this side. The producer contract should state the invariant ("`reachesTarget` without `targetDistances` ⇔ every target farther than `DIST_MAX`"); that belongs to the next gh120 producer change.
+- **[Host memory of the derive and the per-task copy]** D10 removes the `bytes` copy, but the parse still holds the document's text and its parsed form. The largest round-A document (8.9 GB) peaked at 36.4 GB before D10, so a few such derives running at once can exhaust the host. Two costs stay outside this module:
+  - rv-platform (`static_analysis.py`, the copy into `task.results_dir`) copies the full JSON into every task's results directory, 8.9 GB per task for `sdmse`;
+  - the cache lives in that same directory, so every task derives its own artifact. The digest cache helps only when the same task resumes.
+
+  Reading the code shows this; the directory layout at run time was not checked. → Mitigation: none in this change. A per-APK cache outside the task directory, or a streaming parse, would be a later change if the author wants one. Task 7.7 measures what D10 saves.
 - **[The `distance` LLM arm has no flag twin here]** `mopd_on_llm_90`'s flag-mode counterpart is the replication package's `e6_mop_on_llm_90`. → Mitigation: Open Questions.
 
 ## Testing Strategy
@@ -194,12 +246,14 @@ The derive part can be committed before the jar exists, because nothing deploys 
 | Layer | What to test | How | Count |
 |-------|-------------|-----|-------|
 | Unit (derive) | the format-2 scenarios: per-widget minima and cut, lambda recovery distances, collision merge, dialog move, activity minima with the constructor excluded, handler table (including a class reaching nothing and `invoke(Object)`), no-`distanceTargets` document, malformed pairs skipped, source 3 | `tests/test_derive_mop_artifact.py`, synthetic documents plus the cryptoapp fixture | ~14 |
-| Unit (pair rules) | INV-DRV-10 over random minima | seeded random dicts, `_cut_pairs` and `_merge_minima` | ~2 |
+| Unit (pair rules) | INV-DRV-10 over random minima, both cuts | seeded random dicts, `_cut_weighed`, `_cut_nearest` and `_merge_minima` | ~3 |
+| Unit (source read) | `digest_of_file` equals the SHA-256 of the bytes on a file longer than one chunk; a cache hit never calls `json.load` | `tests/test_derive_mop_artifact.py`, `tests/test_aperv_tool.py` | 2 |
+| Memory | peak RSS of the derive path before and after D10 on one round-A document (`jtx`, 1.92 GB), one fresh process per run, on a copy | `/usr/bin/time -v`, a read-only script kept in the change folder | 2 runs |
 | Unit (wire hygiene) | INV-DRV-06 amended: no `distanceTargets`, no signature-shaped string, only `hasTargetMethods` contains `Target` | extended existing test | 1 |
 | Unit (tool) | cache by format; mapping count and keys; ten variants; `mopd_on_llm_off` properties lines | `tests/test_aperv_tool.py` | ~6 |
 | Migration | the mapping sweep and the two new single-factor contrasts | `tests/migration/`, with `APE_REPO` at the Part B checkout | ~3 |
 | Regression | every existing aperv-tool test, with the format-1 assertions (`test_derive_mop_artifact.py:388,400,1591`, `test_aperv_tool.py:1500,1547,1926`) moved to format 2 | `pytest --import-mode=importlib -o "addopts=" modules/aperv-tool/tests` | existing |
-| Data | derive a sample of the Study 03 v2 gh120 documents (round A); check INV-DRV-10, `targets > 0`, and the share of activities in `mopActivitiesAugmented` before and after the exclusion; over all 92, measure the reaching methods with no pair, Compose vs View-only | `real_data_check.py` and `reach_without_distance.py` in the change folder, run on copies; the originals are never written | 2 runs |
+| Data | derive a sample of the Study 03 v2 gh120 documents (round A); check INV-DRV-10 (both cuts), `targets > 0`, and the share of activities in `mopActivitiesAugmented` before and after the exclusion; over all 92, measure the reaching methods with no pair, Compose vs View-only | `real_data_check.py` (re-run after D9 on the same 23 documents) and `reach_without_distance.py` in the change folder, run on copies; the originals are never written | 3 runs |
 
 ## Open Questions
 

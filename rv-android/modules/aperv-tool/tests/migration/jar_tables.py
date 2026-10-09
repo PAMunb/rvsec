@@ -56,8 +56,11 @@ _PUT_RE = re.compile(r'\.put\("([^"]+)",\s*"([^"]*)"\)')
 # KeyOwnership.java. The three ways the jar declares a key it accepts — unconditional,
 # owned by a Feature, computed by a resolver — plus the graveyard of the ones it rejects.
 _BASE_RE = re.compile(r'base\("([^"]+)",\s*ValueType\.(\w+),\s*(null|"[^"]*")\)')
+# A feature key is written either as a literal or as `Owner.CONSTANT`, a constant of
+# another class of the runtime package (`MopScoring.KEY` for `ape.mopScoring`).
 _FEATURE_RE = re.compile(
-    r'feature\(Feature\.(\w+),\s*"([^"]+)",\s*ValueType\.(\w+),\s*(null|"[^"]*")\)'
+    r'feature\(Feature\.(\w+),\s*("[^"]+"|\w+\.\w+),\s*'
+    r'ValueType\.(\w+),\s*(null|"[^"]*")\)'
 )
 _RESOLVER_RE = re.compile(r"resolver\((\w+)\)")
 _RETIRED_RE = re.compile(r'RETIRED\.put\("([^"]+)",')
@@ -223,7 +226,7 @@ def load_key_specs(ape_repo: Path) -> Dict[str, KeySpec]:
     for key, value_type, default in _BASE_RE.findall(source):
         specs[key] = KeySpec(value_type, _literal(default))
     for _feature, key, value_type, default in _FEATURE_RE.findall(source):
-        specs[key] = KeySpec(value_type, _literal(default))
+        specs[_feature_key(ape_repo, key)] = KeySpec(value_type, _literal(default))
     for constant in _RESOLVER_RE.findall(source):
         key = constants.get(constant)
         if key is None:
@@ -235,6 +238,30 @@ def load_key_specs(ape_repo: Path) -> Dict[str, KeySpec]:
     if not specs:
         raise JarTableError(f"{KEY_OWNERSHIP_FILE}: no key declarations found")
     return specs
+
+
+def _feature_key(ape_repo: Path, written: str) -> str:
+    """The key a `feature(...)` declaration names, a literal or an `Owner.CONSTANT`.
+
+    Args:
+        ape_repo: Checkout root, as :func:`resolve_ape_repo` returns it.
+        written: The key argument as the Java writes it: a quoted literal, or
+            `Owner.CONSTANT` naming a `String` constant of a runtime-package class.
+
+    Returns:
+        The ``ape.*`` key.
+
+    Raises:
+        JarTableError: when the owner class declares no such constant.
+    """
+    if written.startswith('"'):
+        return written[1:-1]
+    owner, constant = written.split(".")
+    owner_file = RUNTIME_PACKAGE / f"{owner}.java"
+    key = dict(_CONSTANT_RE.findall(_read(ape_repo, owner_file))).get(constant)
+    if key is None:
+        raise JarTableError(f"{owner_file}: no String constant {constant}")
+    return key
 
 
 def load_retired_keys(ape_repo: Path) -> Dict[str, str]:

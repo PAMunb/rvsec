@@ -75,7 +75,7 @@ from aperv_tool.tools.aperv.derive_mop_artifact import (
     FORMAT_VERSION,
     DerivationError,
     derive,
-    digest_of,
+    digest_of_file,
     serialize_canonical,
 )
 
@@ -156,6 +156,19 @@ APERV_PROPERTY_MAPPING = {
     "component_percentage": "ape.componentPercentage",
     # mop-fairtest: cap on deterministic MOP short-circuit picks per (widget,type,activity).
     "mop_target_pick_cap": "ape.mopTargetPickCap",
+    # The jar's MOP scoring mode, "flag" (its default, the E6 yes/no mark) or "distance"
+    # (the static call-graph distance of the format-2 artifact), and the five keys only
+    # the distance mode reads: the weights for d <= 1, 2 and 3, the first interactions
+    # after which a target retires, and the launcher's distance bound. The two mopd_*
+    # arms set the mode and take the jar's defaults for the five; an ablation sets them
+    # through the tool DSL. The jar accepts the other mode's keys under each mode and
+    # reports them as inert rather than rejecting them.
+    "mop_scoring": "ape.mopScoring",
+    "mop_weight_d1": "ape.mopWeightD1",
+    "mop_weight_d2": "ape.mopWeightD2",
+    "mop_weight_d3": "ape.mopWeightD3",
+    "mop_retire_after": "ape.mopRetireAfter",
+    "mop_launcher_dmax": "ape.mopLauncherDmax",
     "coverage_boost_weight": "ape.coverageBoostWeight",
     # RV exploration flags. Every preset states all of them, so an arm overrides one only
     # to deviate from its preset — which no surviving arm does.
@@ -198,9 +211,9 @@ APERV_PROPERTY_MAPPING = {
     # mop-reach-strategies F′ seam: the LLM boost applied when the substrate is widgetless.
     "llm_percentage_no_substrate": "ape.llmPercentageNoSubstrate",
     "llm_prompt_variant": "ape.llmPromptVariant",
-    # Live Feature.LLM sub-parameters in the jar's ownership table. The snap tolerance is
-    # set by mop_on_llm_70 alone; max_tokens is mapped and set by no arm, so it takes the
-    # jar's default.
+    # Live Feature.LLM sub-parameters in the jar's ownership table. The snap tolerance
+    # is set by mop_on_llm_70 and mopd_on_llm_90; max_tokens is mapped and set by no
+    # arm, so it takes the jar's default.
     "llm_max_tokens": "ape.llmMaxTokens",
     "llm_snap_tolerance_px": "ape.llmSnapTolerancePx",
     # Deployment provenance, not configuration: the application list this run was
@@ -242,10 +255,11 @@ class ApeRVTool(AbstractTool):
       APE-RV output is captured only for diagnostics
 
     ### Key Features:
-    - Named variants: eight names carrying seven configurations, each a jar preset
+    - Named variants: ten names carrying nine configurations, each a jar preset
       plus a dict of override deltas (default [alias of sata], sata, sata_mop,
-      sata_llm, sata_mop_llm, and the three E3 decisive-run arms mop_on_llm_off,
-      mop_off_llm_off, mop_on_llm_70)
+      sata_llm, sata_mop_llm, the three E3 decisive-run arms mop_on_llm_off,
+      mop_off_llm_off, mop_on_llm_70, and the two distance-scoring arms
+      mopd_on_llm_off, mopd_on_llm_90)
     - Eager validation in configure() catches typos before device access, including
       tool-DSL overrides that no arm could honour
     - ape.properties injection states the preset and its deltas without modifying the JAR
@@ -311,7 +325,7 @@ class ApeRVTool(AbstractTool):
         """
         Get available APE-RV variants.
 
-        Eight names carrying seven configurations. An arm is a `preset` name plus an
+        Ten names carrying nine configurations. An arm is a `preset` name plus an
         `overrides` dict of deltas over it, and nothing else: the jar owns what a preset
         means, this module owns the experimental matrix — which arms exist, what their
         names are, and how each differs from its preset.
@@ -319,9 +333,10 @@ class ApeRVTool(AbstractTool):
         Four are one-to-one with the jar's presets and carry nothing but the
         deployment-specific server URL where an LLM is involved — `sata` (aperv),
         `sata_mop` (mop), `sata_llm` (llm), `sata_mop_llm` (llm_mop) — with `default`
-        bound to the same object as `sata` (INV-TOOL-02). The other three are the E3
-        decisive run's arms: a reference on the reach package, its MOP-off control, and
-        its LLM arm.
+        bound to the same object as `sata` (INV-TOOL-02). Three are the E3 decisive
+        run's arms: a reference on the reach package, its MOP-off control, and its LLM
+        arm. The last two select the jar's distance MOP scoring: one on the reference,
+        one on Study 03's E6 LLM arm.
 
         Python-only orchestration keys stay at the top level and never reach
         ape.properties: `strategy` (the --ape flag), `mop_data` (whether the derived MOP
@@ -462,6 +477,58 @@ class ApeRVTool(AbstractTool):
                     # jar_sha256 of the run's provenance (INV-APV-59); this file
                     # states the arm, not the binary.
                     "llm_snap_tolerance_px": 150,
+                },
+            },
+            # --- Distance-scoring arms (gh122) -----------------------------------
+            # Both select the jar's distance MOP scoring (ape.mopScoring=distance),
+            # which weighs a widget by its call-graph distance to the nearest
+            # unretired target instead of the E6 yes/no mark. They need the jar of
+            # ape's llm-coordinate-single-base: no earlier jar knows the key, and
+            # stage-2 resolution aborts on an unknown one. Neither states the
+            # distance weights, the retirement count or the launcher bound: the jar's
+            # defaults (500/400/300, 3, 6) are the plan's decision-10 values, and
+            # restating them would be a delta that is not a delta.
+            #
+            # Arm 4 — the reference plus the scoring mode, and nothing else, so arm 4
+            # vs arm 1 isolates the distance. With arm 2 (no guidance) and arm 1 (the
+            # mark plus the ordered shortcut) it is the third arm of the minimal
+            # family the plan analysis proposes
+            # (docs/20261006_analise_rigorosa_plano_guia_mop.md:315-319).
+            "mopd_on_llm_off": {
+                "preset": "mop",
+                "strategy": "sata",
+                "mop_data": "static_analysis",
+                "overrides": {
+                    "mop_activity_source_components": True,
+                    "frontier_boost_weight": 200,
+                    "mop_frontier_weight": 200,
+                    "activity_trigger_enabled": True,
+                    "mop_scoring": "distance",
+                },
+            },
+            # Arm 5 — Study 03's E6 arm 4 (e6_mop_on_llm_90: E5b's selected arm
+            # e5b_m1_v13_A key by key with llm_percentage 0.9) plus the scoring mode.
+            # Written out key by key so this module does not depend on the replication
+            # package at run time; its flag-mode counterpart is that package's arm.
+            # Against arm 4 it differs only in the LLM keys.
+            "mopd_on_llm_90": {
+                "preset": "llm_mop",
+                "strategy": "sata",
+                "mop_data": "static_analysis",
+                "overrides": {
+                    "mop_activity_source_components": True,
+                    "frontier_boost_weight": 200,
+                    "mop_frontier_weight": 200,
+                    "activity_trigger_enabled": True,
+                    "llm_url": "http://10.0.2.2:30000/v1",
+                    "llm_prompt_variant": "v13",
+                    "llm_percentage": 0.9,
+                    "llm_temperature": 0,
+                    "llm_snap_tolerance_px": 150,
+                    "llm_model": "Qwen/Qwen3-VL-4B-Instruct-FP8",
+                    "llm_top_p": 1.0,
+                    "llm_top_k": -1,
+                    "mop_scoring": "distance",
                 },
             },
         }
@@ -703,6 +770,13 @@ class ApeRVTool(AbstractTool):
         (INV-APV-47). Both fields live inside the artifact, so there is no sidecar
         to keep consistent.
 
+        The source is hashed in chunks before anything parses it, so a cache hit
+        costs one sequential read of the file and no parse. On a miss the file is
+        parsed straight from a UTF-8 text handle: no `bytes` copy of a document
+        that can reach gigabytes stays referenced through the parse and the
+        derivation, which would raise the host's peak memory by about one file
+        size.
+
         Writes go through a temporary file in the same directory followed by an
         atomic rename, so a crash mid-write cannot leave a truncated artifact that a
         later run would read and trust.
@@ -718,9 +792,10 @@ class ApeRVTool(AbstractTool):
             current full JSON and whose `formatVersion` is `FORMAT_VERSION`.
 
         Raises:
-            RVToolExecutionError: The full JSON is unreadable, unparseable or too
-                large to hold in memory, the derivation refused it, or the artifact
-                could not be written. `MemoryError` is caught with the rest because
+            RVToolExecutionError: The full JSON is unreadable, not UTF-8,
+                unparseable or too large to hold in memory, the derivation refused
+                it, or the artifact could not be written. `MemoryError` is caught
+                with the rest because
                 the document is parsed whole before deriving, and a bare one would
                 lose the path and tool context the caller needs to act. No partial
                 file survives any of those paths.
@@ -732,16 +807,19 @@ class ApeRVTool(AbstractTool):
 
         tmp_path = None
         try:
-            with open(source_path, "rb") as source_file:
-                raw = source_file.read()
-            digest = digest_of(raw)
+            digest = digest_of_file(source_path)
 
-            if self._cached_artifact_identity(artifact_path) == (digest, FORMAT_VERSION):
+            if self._cached_artifact_identity(artifact_path) == (
+                digest,
+                FORMAT_VERSION,
+            ):
                 self.logger.debug(f"Reusing cached MOP artifact {artifact_path}")
                 return artifact_path
 
+            with open(source_path, encoding="utf-8") as source_file:
+                document = json.load(source_file)
             artifact = derive(
-                json.loads(raw),
+                document,
                 source_file=os.path.basename(source_path),
                 source_digest=digest,
             )
@@ -758,13 +836,19 @@ class ApeRVTool(AbstractTool):
             stats = artifact["stats"]
             self.logger.info(
                 f"Derived MOP artifact {artifact_path} "
-                f"({len(raw)} -> {len(payload)} bytes, "
+                f"({os.path.getsize(source_path)} -> {len(payload)} bytes, "
                 f"flagged={stats['flagged']}/{stats['widgetsTotal']} widgets, "
                 f"mopActivities={len(artifact['mopActivities'])}, "
                 f"recovered={stats['recovered']})"
             )
             return artifact_path
-        except (DerivationError, OSError, json.JSONDecodeError, MemoryError) as e:
+        except (
+            DerivationError,
+            OSError,
+            json.JSONDecodeError,
+            UnicodeDecodeError,
+            MemoryError,
+        ) as e:
             raise RVToolExecutionError(
                 f"Could not derive the MOP artifact from {source_path}: {e}",
                 tool_name=self.name,

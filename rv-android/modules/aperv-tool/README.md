@@ -41,7 +41,7 @@ uv run rv-platform run --tools aperv:sata --apks-dir ./apks_examples
 
 ## Variants
 
-An arm is a **jar preset name plus a dict of override deltas**. The preset (`aperv`, `mop`, `llm`, `llm_mop`) is resolved inside `ape-rv.jar`, which owns what it contains; this module owns the experimental matrix — which arms exist, their frozen names, and how each differs from its preset. Eight names carry seven configurations (`default` is bound to the same object as `sata`).
+An arm is a **jar preset name plus a dict of override deltas**. The preset (`aperv`, `mop`, `llm`, `llm_mop`) is resolved inside `ape-rv.jar`, which owns what it contains; this module owns the experimental matrix — which arms exist, their frozen names, and how each differs from its preset. Ten names carry nine configurations (`default` is bound to the same object as `sata`).
 
 | Variant | Preset | MOP artifact | Overrides |
 |---------|--------|--------------|-----------|
@@ -53,6 +53,10 @@ An arm is a **jar preset name plus a dict of override deltas**. The preset (`ape
 | `mop_on_llm_off` | `mop` | Yes | Reach package (activity source components, frontier weights, activity trigger) — E3 reference arm |
 | `mop_off_llm_off` | `mop` | Yes | Reach package minus the frontier weight and trigger, plus the four MOP weights at `0` — E3 control arm |
 | `mop_on_llm_70` | `llm_mop` | Yes | Reach package plus the calibrated LLM dose (`v13`, 70%, temperature `0`) and `llm_snap_tolerance_px=150` — E3 LLM arm |
+| `mopd_on_llm_off` | `mop` | Yes | The E3 reference plus `mop_scoring="distance"` — the jar's distance MOP scoring, taking its distance defaults |
+| `mopd_on_llm_90` | `llm_mop` | Yes | Study 03's E6 arm 4 (`v13`, 90%, temperature `0`, `Qwen/Qwen3-VL-4B-Instruct-FP8`, `top_p` 1.0, `top_k` -1, snap 150) plus `mop_scoring="distance"` |
+
+The two `mopd_*` arms need the `ape-rv.jar` of `ape`'s `llm-coordinate-single-base`: no earlier jar knows `ape.mopScoring`, and stage-2 resolution aborts on an unknown key.
 
 MOP-off means the artifact is still pushed and the scoring weights are zeroed, never an omitted document: omitting it would kill the generic WTG and frontier navigation as collateral, turning the contrast into "full substrate versus almost none" instead of "MOP guidance on versus off".
 

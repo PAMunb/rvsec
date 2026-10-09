@@ -97,6 +97,22 @@ class TestVariants:
         "sata_mop_llm": "llm_mop",
     }
 
+    def test_exactly_ten_names(self):
+        # INV-APV-05 as amended by gh122: the four preset-identity arms, the default
+        # alias, the three decisive-run arms and the two distance arms.
+        assert set(ApeRVTool.get_variants()) == {
+            "default",
+            "sata",
+            "sata_mop",
+            "sata_llm",
+            "sata_mop_llm",
+            "mop_on_llm_off",
+            "mop_off_llm_off",
+            "mop_on_llm_70",
+            "mopd_on_llm_off",
+            "mopd_on_llm_90",
+        }
+
     def test_preset_identity_arms_are_one_to_one_with_the_jar_presets(self):
         variants = ApeRVTool.get_variants()
         for name, preset in self.PRESET_IDENTITY_ARMS.items():
@@ -886,6 +902,25 @@ class TestPushProperties:
         ):
             assert absent not in props
 
+    def test_distance_arm_writes_the_scoring_mode(self, tmp_path):
+        # Spec scenario "Distance arm writes the scoring mode": the arm takes the jar's
+        # distance defaults (500/400/300, 3, 6), so no weight, retirement or launcher
+        # line.
+        props = self._capture_properties(
+            tmp_path,
+            dict(ApeRVTool.get_variants()["mopd_on_llm_off"]),
+            mop_json_pushed=True,
+        )
+        assert "ape.mopScoring=distance" in props.split("\n")
+        for absent in (
+            "ape.mopWeightD1",
+            "ape.mopWeightD2",
+            "ape.mopWeightD3",
+            "ape.mopRetireAfter",
+            "ape.mopLauncherDmax",
+        ):
+            assert absent not in props
+
     def test_deltas_are_written_in_mapping_order(self, tmp_path):
         # Order follows APERV_PROPERTY_MAPPING rather than the arm dict, so two runs of the
         # same arm produce byte-identical files regardless of how the dict was authored.
@@ -981,6 +1016,10 @@ class TestPushProperties:
 # reference ↔ LLM arm answers RQ-C3, so what may differ between them is asserted
 # rather than left to reading the table.
 _DECISIVE_ARMS = ("mop_on_llm_off", "mop_off_llm_off", "mop_on_llm_70")
+# The two arms that select the jar's distance MOP scoring (gh122). They sit on the same
+# reach package as the decisive run, so every rule about its substrate covers them too.
+_DISTANCE_ARMS = ("mopd_on_llm_off", "mopd_on_llm_90")
+_RUN_ARMS = _DECISIVE_ARMS + _DISTANCE_ARMS
 
 # What "MOP guidance off" is allowed to move, in Python override keys. The effective-plan
 # version of this contrast lives in the migration tier, where the jar's presets are
@@ -1059,6 +1098,33 @@ class TestPropertyMapping:
         assert (
             APERV_PROPERTY_MAPPING["llm_snap_tolerance_px"] == "ape.llmSnapTolerancePx"
         )
+
+    def test_the_distance_keys_are_mapped(self):
+        # Spec scenario "Retired jar key is not in the mapping", as gh122 amends it: the
+        # six MOP keys of the jar's distance scoring join the table, corpus_basis stays,
+        # and neither the retired weight nor the deleted telemetry switch comes back.
+        assert len(APERV_PROPERTY_MAPPING) == 56
+        assert {
+            python_key: APERV_PROPERTY_MAPPING[python_key]
+            for python_key in (
+                "mop_scoring",
+                "mop_weight_d1",
+                "mop_weight_d2",
+                "mop_weight_d3",
+                "mop_retire_after",
+                "mop_launcher_dmax",
+            )
+        } == {
+            "mop_scoring": "ape.mopScoring",
+            "mop_weight_d1": "ape.mopWeightD1",
+            "mop_weight_d2": "ape.mopWeightD2",
+            "mop_weight_d3": "ape.mopWeightD3",
+            "mop_retire_after": "ape.mopRetireAfter",
+            "mop_launcher_dmax": "ape.mopLauncherDmax",
+        }
+        assert APERV_PROPERTY_MAPPING["corpus_basis"] == "ape.corpusBasis"
+        assert "mop_weight_activity" not in APERV_PROPERTY_MAPPING
+        assert "step_telemetry_enabled" not in APERV_PROPERTY_MAPPING
 
 
 class TestCorpusBasis:
@@ -1330,19 +1396,20 @@ class TestDecisiveRunArms:
         assert control["frontier_boost_weight"] == reference["frontier_boost_weight"]
         assert control["frontier_boost_weight"] == 200
 
-    def test_all_three_arms_carry_the_reach_package_substrate(self):
-        # INV-APV-30 — *sempre modo frontier*, including the control.
-        for name in _DECISIVE_ARMS:
+    def test_every_run_arm_carries_the_reach_package_substrate(self):
+        # INV-APV-30 — *sempre modo frontier*, including the control and the distance
+        # arms.
+        for name in _RUN_ARMS:
             cfg = self.variants[name]
             assert cfg["mop_data"] == "static_analysis", name
             assert cfg["overrides"]["frontier_boost_weight"] == 200, name
             assert cfg["strategy"] == "sata", name
 
-    def test_source_components_flag_is_explicit_in_all_three(self):
+    def test_source_components_flag_is_explicit_in_every_run_arm(self):
         # B2 / spec scenario: never inherited from the `mop` preset's false, whose
         # suppression of the MOP-activity signal is measured at 20.0% -> 85.0% of
         # activities flagged on the subset40.
-        for name in _DECISIVE_ARMS:
+        for name in _RUN_ARMS:
             overrides = self.variants[name]["overrides"]
             assert overrides.get("mop_activity_source_components") is True, name
 
@@ -1387,6 +1454,75 @@ class TestDecisiveRunArms:
         assert overrides["llm_percentage"] == 0.7
         assert overrides["llm_prompt_variant"] == "v13"
         assert overrides["llm_temperature"] == 0
+
+
+class TestDistanceArms:
+    """gh122: the two arms that select the jar's distance MOP scoring."""
+
+    # Study 03's E6 arm 4, `e6_mop_on_llm_90`: E5b's selected arm `e5b_m1_v13_A` key by
+    # key with llm_percentage 0.9 (replication package,
+    # experiments/E5b-inloop/config/tool.py and src/rvsec_study03/e6/config.py). Written
+    # out so this test does not read the replication package.
+    E6_ARM_4_OVERRIDES = {
+        "mop_activity_source_components": True,
+        "frontier_boost_weight": 200,
+        "mop_frontier_weight": 200,
+        "activity_trigger_enabled": True,
+        "llm_url": "http://10.0.2.2:30000/v1",
+        "llm_prompt_variant": "v13",
+        "llm_percentage": 0.9,
+        "llm_temperature": 0,
+        "llm_snap_tolerance_px": 150,
+        "llm_model": "Qwen/Qwen3-VL-4B-Instruct-FP8",
+        "llm_top_p": 1.0,
+        "llm_top_k": -1,
+    }
+    DISTANCE_DEFAULT_KEYS = {
+        "mop_weight_d1",
+        "mop_weight_d2",
+        "mop_weight_d3",
+        "mop_retire_after",
+        "mop_launcher_dmax",
+    }
+
+    def setup_method(self):
+        self.variants = ApeRVTool.get_variants()
+
+    def test_distance_arm_is_the_reference_plus_the_scoring_mode(self):
+        reference = self.variants["mop_on_llm_off"]
+        arm = self.variants["mopd_on_llm_off"]
+
+        assert arm["preset"] == "mop"
+        assert arm["mop_data"] == "static_analysis"
+        assert arm["strategy"] == "sata"
+        assert arm["overrides"] == {**reference["overrides"], "mop_scoring": "distance"}
+
+    def test_distance_llm_arm_is_the_e6_arm_plus_the_scoring_mode(self):
+        arm = self.variants["mopd_on_llm_90"]
+
+        assert arm["preset"] == "llm_mop"
+        assert arm["mop_data"] == "static_analysis"
+        assert arm["strategy"] == "sata"
+        assert arm["overrides"] == {
+            **self.E6_ARM_4_OVERRIDES,
+            "mop_scoring": "distance",
+        }
+
+    def test_the_two_distance_arms_differ_only_in_llm_keys(self):
+        off = self.variants["mopd_on_llm_off"]["overrides"]
+        on = self.variants["mopd_on_llm_90"]["overrides"]
+
+        differing = {key for key in set(off) | set(on) if off.get(key) != on.get(key)}
+        assert differing
+        assert all(key.startswith("llm_") for key in differing), sorted(differing)
+
+    def test_neither_arm_restates_a_distance_default(self):
+        # The jar's defaults are the plan's decision-10 values; an arm that changed one
+        # would be a new arm (INV-APV-42), and one that restated it a delta that is not
+        # a delta.
+        for name in _DISTANCE_ARMS:
+            overrides = self.variants[name]["overrides"]
+            assert not set(overrides) & self.DISTANCE_DEFAULT_KEYS, name
 
 
 class TestSeedPropagation:
@@ -1503,8 +1639,9 @@ class TestDeriveMopArtifact:
 
     def test_cache_hit_skips_derivation(self, tmp_path, monkeypatch):
         # Spec scenario "cache hit skips derivation": a matching digest is the whole
-        # freshness test, so the second call must not re-derive.
-        _write_source(tmp_path, SOURCE_DOCUMENT)
+        # freshness test, so the second call must not re-derive, and must not parse
+        # the source either: on a large document the parse is the expensive part.
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
         task = self._task(tmp_path)
         self.tool._derive_mop_artifact(task)
         first = self._artifact_path(tmp_path).read_bytes()
@@ -1512,7 +1649,24 @@ class TestDeriveMopArtifact:
         def forbidden(*args, **kwargs):
             raise AssertionError("a fresh cache must not be re-derived")
 
+        # The cache reader parses the small cached artifact, and `json.load` parses
+        # through `json.loads`; only a parse of the source is off limits.
+        real_load, real_loads = json.load, json.loads
+        source_text = Path(source).read_text()
+
+        def load_but_not_the_source(fp, *args, **kwargs):
+            if getattr(fp, "name", None) == source:
+                raise AssertionError("a cache hit must not parse the source")
+            return real_load(fp, *args, **kwargs)
+
+        def loads_but_not_the_source(text, *args, **kwargs):
+            if text in (source_text, source_text.encode()):
+                raise AssertionError("a cache hit must not parse the source")
+            return real_loads(text, *args, **kwargs)
+
         monkeypatch.setattr(aperv_mod, "derive", forbidden)
+        monkeypatch.setattr(aperv_mod.json, "load", load_but_not_the_source)
+        monkeypatch.setattr(aperv_mod.json, "loads", loads_but_not_the_source)
 
         assert self.tool._derive_mop_artifact(task) == str(
             self._artifact_path(tmp_path)
@@ -1532,8 +1686,9 @@ class TestDeriveMopArtifact:
 
         artifact = json.loads(self._artifact_path(tmp_path).read_text())
         assert artifact["package"] == "com.example.other"
-        raw = (tmp_path / "app.apk.json").read_bytes()
-        assert artifact["source"]["digest"] == aperv_mod.digest_of(raw)
+        assert artifact["source"]["digest"] == aperv_mod.digest_of_file(
+            str(tmp_path / "app.apk.json")
+        )
 
     def test_corrupt_cache_regenerates(self, tmp_path):
         # An unreadable cache is a miss, not a failure: regenerating costs
@@ -1547,18 +1702,19 @@ class TestDeriveMopArtifact:
             json.loads(self._artifact_path(tmp_path).read_text())["formatVersion"] == 2
         )
 
-    def test_cached_artifact_of_an_older_format_regenerates(self, tmp_path, monkeypatch):
+    def test_cached_artifact_of_an_older_format_regenerates(
+        self, tmp_path, monkeypatch
+    ):
         # Spec scenario "cached artifact of an older format regenerates": the digest
         # names the input, not the derivation, so a format-1 artifact derived before
         # the bump matches its source and would reach a jar that rejects it.
-        raw = json.dumps(SOURCE_DOCUMENT, indent=2)
-        _write_source(tmp_path, raw=raw)
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
         self._artifact_path(tmp_path).write_text(
             json.dumps(
                 {
                     "formatVersion": 1,
                     "source": {
-                        "digest": aperv_mod.digest_of(raw.encode()),
+                        "digest": aperv_mod.digest_of_file(source),
                         "file": "app.apk.json",
                         "generator": "aperv-derive/1",
                     },
@@ -1966,13 +2122,12 @@ class TestExecuteMopArtifactFlow:
     def test_older_format_cache_is_never_pushed(self, tmp_path):
         # INV-APV-47: a format-1 artifact whose digest matches is a cache miss, so
         # the device receives the format the jar reads, not the stale cache.
-        raw = json.dumps(SOURCE_DOCUMENT, indent=2)
-        _write_source(tmp_path, raw=raw)
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
         (tmp_path / "app.apk.mop.json").write_text(
             json.dumps(
                 {
                     "formatVersion": 1,
-                    "source": {"digest": aperv_mod.digest_of(raw.encode())},
+                    "source": {"digest": aperv_mod.digest_of_file(source)},
                 }
             )
         )

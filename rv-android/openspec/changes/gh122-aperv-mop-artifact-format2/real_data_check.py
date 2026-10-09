@@ -5,8 +5,10 @@ every artifact is derived in memory and only the report goes to stdout.
 
 For each document it reports what task 5.1 asks:
 - `targets`, which must be above 0 for a gh120 document;
-- the INV-DRV-10 violations over every pair list (widget `dist`, `activityDist`,
-  handler `dist`);
+- the INV-DRV-10 violations over every pair list: widget and handler `dist` lists
+  hold only pairs at `d <= DIST_WEIGHED_MAX`, `activityDist` lists at most `DIST_K`
+  pairs, and every list is non-empty, sorted by `(d, i)`, with distinct in-range
+  indices;
 - the size of `mopActivitiesAugmented` with and without the source-3 constructor
   exclusion. "Without" re-derives with `CONSTRUCTOR_METHOD_NAMES` emptied, which is
   the only thing the exclusion reads;
@@ -30,28 +32,37 @@ from aperv_tool.tools.aperv import derive_mop_artifact as dm
 
 
 def _pair_lists(artifact):
-    """Every pair list of the artifact, with a label naming where it sits."""
+    """Every pair list of the artifact: a label, the list, and whether it is weighed.
+
+    Widget and handler lists are the ones the jar weighs, cut at `d <= 3`;
+    `activityDist` lists are cut to the three nearest.
+    """
     for activity, widgets in artifact["widgets"].items():
         for short_id, widget in widgets.items():
             for event, pairs in widget.get("dist", {}).items():
-                yield f"widgets.{activity}.{short_id}.{event}", pairs
+                yield f"widgets.{activity}.{short_id}.{event}", pairs, True
     for activity, pairs in artifact["activityDist"].items():
-        yield f"activityDist.{activity}", pairs
+        yield f"activityDist.{activity}", pairs, False
     for class_name, record in artifact["handlers"].items():
         for event, pairs in record.get("dist", {}).items():
-            yield f"handlers.{class_name}.{event}", pairs
+            yield f"handlers.{class_name}.{event}", pairs, True
 
 
 def _drv10_violations(artifact):
     """Labels of the pair lists that break INV-DRV-10."""
     targets = artifact["targets"]
     bad = []
-    for label, pairs in _pair_lists(artifact):
+    for label, pairs, weighed in _pair_lists(artifact):
         indices = [i for i, _ in pairs]
         keys = [(d, i) for i, d in pairs]
+        cut_holds = (
+            all(d <= dm.DIST_WEIGHED_MAX for _, d in pairs)
+            if weighed
+            else len(pairs) <= dm.DIST_K
+        )
         if (
             not pairs
-            or len(pairs) > dm.DIST_K
+            or not cut_holds
             or len(set(indices)) != len(indices)
             or keys != sorted(keys)
             or not all(0 <= i < targets and d >= 0 for i, d in pairs)
@@ -90,10 +101,12 @@ def main(directory):
     all_bad = 0
     zero_targets = []
     for name in names:
-        with open(os.path.join(directory, name), "rb") as source:
-            raw = source.read()
-        document = json.loads(raw)
-        artifact = dm.derive(document, source_file=name, source_digest=dm.digest_of(raw))
+        path = os.path.join(directory, name)
+        with open(path, encoding="utf-8") as source:
+            document = json.load(source)
+        artifact = dm.derive(
+            document, source_file=name, source_digest=dm.digest_of_file(path)
+        )
 
         bad = _drv10_violations(artifact)
         all_bad += len(bad)
@@ -147,9 +160,7 @@ def main(directory):
     print(f"documents: {len(names)}")
     print(f"documents with targets == 0: {len(zero_targets)} {zero_targets}")
     print(f"INV-DRV-10 violations: {all_bad}")
-    print(
-        f"handlers: {totals['handlers']}, with dist: {totals['handlers_dist']}"
-    )
+    print(f"handlers: {totals['handlers']}, with dist: {totals['handlers_dist']}")
     flagged = totals["flagged"] or 1
     print(
         f"flagged emitted widgets: {totals['flagged']}, with a click pair: "

@@ -8,9 +8,9 @@ Two producer changes answer those weaknesses, and neither reaches the device yet
 
 The gh120 design (`:86-87`) leaves the derive to the consumer. The consumer is the `ape` change `llm-coordinate-single-base`, whose design D15 and `static-analysis-entrypoints` delta fix the wire contract of **format 2**. This delta implements that contract:
 - the target count;
-- per widget and event, the three nearest targets;
+- per widget and event, every target within three calls, the distances the jar weighs;
 - per activity, the three nearest targets, excluding the activity's own constructor;
-- a table from handler class to flags and distances, through which the jar reads a gh121 stamp.
+- a table from handler class to flags and distances (cut like a widget's), through which the jar reads a gh121 stamp.
 
 It also drops activity constructors from the A′ source 3 of `mopActivitiesAugmented`, which gh120 would otherwise let into every activity.
 
@@ -42,7 +42,7 @@ It also maps the six plan keys the jar added for that scoring.
 ## Invariants
 
 - **INV-DRV-06** (amended): The artifact SHALL contain no call-graph data: no `reachability` section, no method signature, no call edge, no raw `windows`/`transitions`/`listeners`/`distanceTargets`. It SHALL contain no `*Target` key other than `hasTargetMethods` on receivers and services. That single exception is deliberate: it is the boolean the `targetMethods` signature list compacts to, its name is fixed by the jointly defined wire format, and the jar reads it by that name. Format 2 MAY carry integer target indices and integer distances (`targets`, `dist`, `activityDist`, the `dist` of a `handlers` record) and binary class names (the keys of `handlers`). A target index is joined to its signature only offline, through `source.digest` and the full JSON it names. The full JSON SHALL remain unmodified on the host.
-- **INV-DRV-10**: Every distance pair `[i, d]` in the artifact SHALL satisfy `0 ≤ i < targets` and `d ≥ 0`. A pair list SHALL hold each index at most once and at most three pairs, and SHALL be sorted by `d` ascending, then `i` ascending. It is cut from the full per-target minima after every merge (listener, collision, dialog, class), never before. An empty pair list SHALL NOT be emitted. `targets` and `handlers` SHALL always be emitted.
+- **INV-DRV-10**: Every distance pair `[i, d]` in the artifact SHALL satisfy `0 ≤ i < targets` and `d ≥ 0`. A pair list SHALL hold each index at most once and SHALL be sorted by `d` ascending, then `i` ascending. A widget's or a handler's list SHALL hold exactly the targets of its per-target minima at `d ≤ 3` and no pair at `d ≥ 4`. An `activityDist` list SHALL hold the three pairs of smallest `d`. Every list is cut from the full per-target minima after every merge (listener, collision, dialog, class), never before, and an activity's minima start from its widgets' uncut minima. An empty pair list SHALL NOT be emitted. `targets` and `handlers` SHALL always be emitted.
 - **INV-APV-05** (amended): `get_variants()` SHALL return a dict whose keys are exactly `default`, `sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`, `mop_on_llm_70`, `mopd_on_llm_off` and `mopd_on_llm_90`, with `default` bound to the same object as `sata` (INV-TOOL-02).
 - **INV-APV-42** (amended): The ten surviving variant names are frozen. Its other clauses are unchanged: no rename, divergence only through a new arm name, the 21 documented retirements and their kinds.
 - **INV-APV-47** (amended): Cache freshness SHALL be keyed on the source digest and the format. A cached `<apk_name>.mop.json` is reused only when its recorded `source.digest` equals the SHA-256 of the current full JSON **and** its `formatVersion` equals `FORMAT_VERSION`. Cache state SHALL NOT change what the device receives for a given full JSON and generator.
@@ -54,12 +54,19 @@ It also maps the six plan keys the jar added for that scoring.
 `ApeRVTool._derive_mop_artifact(task)` SHALL return the host path of the compact MOP artifact for the
 task's APK, generating it when needed:
 
-1. Compute the SHA-256 of the current full JSON at `<results_dir>/<apk_name>.json`.
+1. Compute the SHA-256 of the current full JSON at `<results_dir>/<apk_name>.json`, reading the file
+   in chunks.
 2. When `<results_dir>/<apk_name>.mop.json` exists, its `source.digest` equals `"sha256:" + <hex>`
    **and** its `formatVersion` equals `derive_mop_artifact.FORMAT_VERSION`, reuse it without
-   regenerating.
-3. Otherwise call `derive()` + `serialize_canonical()` and write the artifact atomically
-   (write-temp-then-rename in the same directory). A failed derivation SHALL write nothing.
+   regenerating and without parsing the full JSON.
+3. Otherwise parse the full JSON from the file as UTF-8, call `derive()` + `serialize_canonical()`,
+   and write the artifact atomically (write-temp-then-rename in the same directory). A failed
+   derivation SHALL write nothing.
+
+The method SHALL NOT hold the file's bytes across the parse and the derivation. A gh120 document is
+large: the host's peak memory measured about 4.1 times the file size, so 36.4 GB for the largest
+round-A document (8.9 GB). The digest and the parse therefore each read the file on their own, and a
+cache hit never parses.
 
 The artifact is cached next to its source so it is inspectable and diffable, and it is a pure function
 of the full JSON and the generator's format (INV-APV-47, INV-DRV-05). The format is part of the cache
@@ -70,7 +77,7 @@ which is deleted together with its fallback-to-source push: there is no longer a
 which the full JSON reaches the device (INV-APV-46).
 
 Derivation failure means the document is structurally unusable, not that the analysis stopped early.
-An unreadable or unparseable file fails here through `json.loads` before `derive()` is reached; a
+An unreadable, non-UTF-8 or unparseable file fails here, in the parse, before `derive()` is reached; a
 well-formed document that lacks the WTG stage does not fail at all (INV-DRV-08).
 
 #### Scenario: cache hit skips derivation
@@ -78,6 +85,7 @@ well-formed document that lacks the WTG stage does not fail at all (INV-DRV-08).
   `source.digest == "sha256:ab12…"` and the SHA-256 of `com.example_1.apk.json` is `ab12…`
 - **THEN** `_derive_mop_artifact(task)` SHALL return that path
 - **AND** `derive()` SHALL NOT be called
+- **AND** the full JSON SHALL NOT be parsed
 
 #### Scenario: stale cache regenerates
 - **WHEN** the cached artifact records `source.digest == "sha256:ab12…"` but the current full JSON
@@ -201,9 +209,16 @@ read format 1 only, so the two sides ship together.
      `none` for each of its events and no `dist`: on the device a listed class states that the
      stamped handler reaches no target. The key is the class's binary name as `reachability[].className`
      writes it, which is the `Class.getName()` form gh121 stamps.
-   - **K, order, omission** (INV-DRV-10). Every pair list SHALL keep the K = 3 pairs of smallest `d`,
-     sorted by `d` ascending, then `i` ascending; merges are applied to the full per-target minima
-     before the cut. An event with no pair SHALL have no key in a `dist` map, and an empty `dist` map
+   - **Cut, order, omission** (INV-DRV-10). A widget's and a handler's pair list SHALL keep every
+     target at `d ≤ 3` and drop every pair at `d ≥ 4`. These are the lists that weigh an action, and
+     the jar gives no weight from `d = 4` (`ape` D18). Under the three-pair cut, 4,024 of the 21,485
+     targets at `d ≤ 3` of some widget or handler list (18.7 %) sat at `d ≤ 3` in no list after the
+     cut, so they could never weigh an action or retire (`ape` D15, amendment of 2026-10-09,
+     measured on the 163 round-A gh120 documents). An `activityDist` list SHALL keep the three pairs
+     of smallest `d`, because the launcher only orders the activities the census already makes
+     eligible. Every list is sorted by `d` ascending, then `i` ascending, and merges are applied to
+     the full per-target minima before the cut; an activity starts from its widgets' uncut minima.
+     An event with no pair after the cut SHALL have no key in a `dist` map, and an empty `dist` map
      and an `activityDist` entry with no pair SHALL be omitted. `targets` and `handlers` SHALL always
      be emitted, `0` and `{}` when empty. The widget emission filter of item 3 is unchanged: pairs do
      not make an unflagged, metadata-less widget emitted.
@@ -214,7 +229,7 @@ sentinel is NOT a precondition (INV-DRV-08). A document written by the producer'
 JSON with populated `reachability` and `windows` per INV-ANA-20, and an empty `transitions` array —
 SHALL yield an artifact whose `wtg` is empty, which the device reads through `MopData.hasWtgData()`
 to disable the WTG-dependent scoring passes on its own. Structural corruption from a write interrupted
-mid-pass is caught earlier, by `json.loads` in `_derive_mop_artifact()`, because the producer truncates
+mid-pass is caught earlier, by the parse in `_derive_mop_artifact()`, because the producer truncates
 its output file on open and cannot leave a parseable stale tail.
 
 #### Scenario: cryptoapp derivation matches the known ground truth
@@ -234,11 +249,14 @@ its output file on open and cannot leave a parseable stale tail.
 - **AND** `stats.windows` SHALL be 5, `stats.flagged` 3 and `stats.recovered` 0
 - **AND** `formatVersion` SHALL be 2, `source.generator` `"aperv-derive/2"` and `targets` 27 (23 direct
   targets, then the 4 activity constructors as boundary targets)
-- **AND** the `click` pairs SHALL be `[[22,2]]` for `buttonGenerateHash`, `[[0,4],[1,4]]` for
-  `btn_cipher_encrypt` and `[[16,3],[17,3],[18,3]]` for `executeButton`
+- **AND** the `click` pairs SHALL be `[[22,2]]` for `buttonGenerateHash` and `[[16,3],[17,3],[18,3]]`
+  for `executeButton`, the three of its wrapper's ten pairs at `d ≤ 3`
+- **AND** `btn_cipher_encrypt` SHALL be emitted with `mop == {"click": "transitive"}` and no `dist`,
+  because its handler `CipherActivity$1.onClick` reaches its two targets only at `d = 4`
 - **AND** `handlers` SHALL have exactly the keys `br.unb.cic.cryptoapp.cipher.CipherActivity$1` and
   `br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0`, each with
-  `mop == {"click": "transitive"}` and the `click` pairs of its widget
+  `mop == {"click": "transitive"}`; the second SHALL carry `dist == {"click": [[16,3],[17,3],[18,3]]}`
+  and the first no `dist`
 - **AND** `activityDist` SHALL be exactly `{CipherActivity: [[0,2],[1,2]], CryptographyActivity:
   [[12,0],[13,0],[14,0]], MessageDigestActivity: [[22,2]]}` (fully qualified keys), with no entry
   for `MainActivity`, whose only reaching method is its own constructor
@@ -286,11 +304,25 @@ its output file on open and cannot leave a parseable stale tail.
 - **THEN** `stats.widgetsTotal` SHALL be 40 and `stats.flagged` SHALL be 2
 - **AND** the emitted `widgets` map for that activity SHALL contain 5 entries
 
-#### Scenario: a widget's distance is the minimum over its handlers, cut at three
+#### Scenario: a widget's distance is the minimum over its handlers, every target within three calls
 - **WHEN** a widget's two `click` listeners resolve to methods with `targetDistances`
-  `[[2,3],[5,1],[7,4]]` and `[[2,2],[9,6],[11,5]]`
-- **THEN** its `dist` SHALL be `{"click": [[5,1],[2,2],[7,4]]}`
+  `[[2,3],[5,1],[7,4],[8,3]]` and `[[2,2],[9,6],[11,1],[12,3]]`
+- **THEN** its `dist` SHALL be `{"click": [[5,1],[11,1],[2,2],[8,3],[12,3]]}`, five pairs
 - **AND** target 2 SHALL appear once, at the smaller distance 2
+- **AND** targets 7 (`d = 4`) and 9 (`d = 6`) SHALL NOT appear
+
+#### Scenario: a widget whose targets are all four calls or more away carries no pair
+- **WHEN** a widget's only `click` listener resolves to a method reaching a target, flagged
+  `transitive`, with `targetDistances` `[[0,4],[1,5]]`, and its activity has no other pair
+- **THEN** the widget SHALL be emitted with `mop == {"click": "transitive"}` and no `dist`
+- **AND** its activity's `activityDist` SHALL be `[[0,4],[1,5]]`, because an activity starts from its
+  widgets' uncut minima
+
+#### Scenario: activityDist keeps the three nearest targets
+- **WHEN** an activity's widgets carry the `click` pairs `[[1,0],[2,1]]` and `[[3,1],[4,2]]`, and its
+  own class's methods carry none
+- **THEN** its `activityDist` SHALL be `[[1,0],[2,1],[3,1]]`
+- **AND** each widget SHALL keep its own two pairs
 
 #### Scenario: an unlisted wrapper takes its distances from the recovered lambdas
 - **WHEN** a click handler `<com.example.MainActivity$$ExternalSyntheticLambda0: void onClick(android.view.View)>`

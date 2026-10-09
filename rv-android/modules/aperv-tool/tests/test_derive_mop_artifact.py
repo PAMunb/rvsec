@@ -18,15 +18,17 @@ import pytest
 
 from aperv_tool.tools.aperv.derive_mop_artifact import (
     DIST_K,
+    DIST_WEIGHED_MAX,
     DerivationError,
     _base_activity,
-    _cut_pairs,
+    _cut_nearest,
+    _cut_weighed,
     _index_reachability,
     _merge_minima,
     _normalize_event_type,
     _read_pairs,
     derive,
-    digest_of,
+    digest_of_file,
     serialize_canonical,
 )
 
@@ -1491,9 +1493,22 @@ def test_deep_link_scheme_and_host_without_path():
 # ---------------------------------------------------------------------------
 
 
-def test_cut_pairs_keeps_the_nearest_three_by_distance_then_index():
-    assert _cut_pairs({7: 4, 2: 2, 5: 1, 9: 2}) == [[5, 1], [2, 2], [9, 2]]
-    assert _cut_pairs({}) == []
+def test_cut_weighed_keeps_every_pair_within_three_calls_by_distance_then_index():
+    assert _cut_weighed({7: 4, 2: 2, 5: 1, 9: 2, 4: 3, 8: 0}) == [
+        [8, 0],
+        [5, 1],
+        [2, 2],
+        [9, 2],
+        [4, 3],
+    ]
+    assert _cut_weighed({0: 4, 1: 5}) == []
+    assert _cut_weighed({}) == []
+
+
+def test_cut_nearest_keeps_the_nearest_three_by_distance_then_index():
+    assert _cut_nearest({7: 4, 2: 2, 5: 1, 9: 2}) == [[5, 1], [2, 2], [9, 2]]
+    assert _cut_nearest({0: 4, 1: 5}) == [[0, 4], [1, 5]]
+    assert _cut_nearest({}) == []
 
 
 def test_merge_minima_keeps_the_smaller_distance_per_target():
@@ -1504,9 +1519,10 @@ def test_merge_minima_keeps_the_smaller_distance_per_target():
 
 def test_pair_rules_hold_over_random_minima():
     """
-    INV-DRV-10 over seeded random minima: the merge keeps the minimum per target,
-    and the cut keeps at most three pairs, each index once, sorted by `(d, i)`,
-    with no dropped pair nearer than a kept one.
+    INV-DRV-10 over seeded random minima: the merge keeps the minimum per target.
+    Both cuts keep each index once, sorted by `(d, i)`, with the merged distance.
+    `_cut_weighed` keeps exactly the targets at `d <= DIST_WEIGHED_MAX`;
+    `_cut_nearest` keeps at most `DIST_K`, with no dropped pair nearer than a kept one.
     """
     rng = random.Random(122)
     for _ in range(500):
@@ -1527,13 +1543,21 @@ def test_pair_rules_hold_over_random_minima():
                 d for d in (left.get(target), right.get(target)) if d is not None
             )
 
-        pairs = _cut_pairs(merged)
-        assert len(pairs) == min(DIST_K, len(merged))
-        assert len({i for i, _ in pairs}) == len(pairs)
-        assert all(0 <= i < targets and merged[i] == d for i, d in pairs)
-        keys = [(d, i) for i, d in pairs]
-        assert keys == sorted(keys)
-        dropped = [(d, i) for i, d in merged.items() if [i, d] not in pairs]
+        for pairs in (_cut_weighed(merged), _cut_nearest(merged)):
+            assert len({i for i, _ in pairs}) == len(pairs)
+            assert all(0 <= i < targets and merged[i] == d for i, d in pairs)
+            keys = [(d, i) for i, d in pairs]
+            assert keys == sorted(keys)
+
+        weighed = _cut_weighed(merged)
+        assert {i for i, _ in weighed} == {
+            i for i, d in merged.items() if d <= DIST_WEIGHED_MAX
+        }
+
+        nearest = _cut_nearest(merged)
+        assert len(nearest) == min(DIST_K, len(merged))
+        keys = [(d, i) for i, d in nearest]
+        dropped = [(d, i) for i, d in merged.items() if [i, d] not in nearest]
         assert all(key < other for key in keys for other in dropped)
 
 
@@ -1566,10 +1590,10 @@ def test_derive_refuses_non_list_distance_targets():
         derive(_document(distanceTargets={"0": "x"}))
 
 
-def test_widget_distance_is_the_minimum_over_its_handlers_cut_at_three():
+def test_widget_distance_is_the_minimum_over_its_handlers_within_three_calls():
     artifact = derive(
         _document(
-            distanceTargets=_distance_targets(12),
+            distanceTargets=_distance_targets(13),
             reachability=[
                 _reaching_class(
                     "com.example.Handlers",
@@ -1577,12 +1601,12 @@ def test_widget_distance_is_the_minimum_over_its_handlers_cut_at_three():
                         _method(
                             "<A: void a()>",
                             reaches=True,
-                            distances=[[2, 3], [5, 1], [7, 4]],
+                            distances=[[2, 3], [5, 1], [7, 4], [8, 3]],
                         ),
                         _method(
                             "<A: void b()>",
                             reaches=True,
-                            distances=[[2, 2], [9, 6], [11, 5]],
+                            distances=[[2, 2], [9, 6], [11, 1], [12, 3]],
                         ),
                     ],
                 )
@@ -1605,8 +1629,86 @@ def test_widget_distance_is_the_minimum_over_its_handlers_cut_at_three():
         )
     )
     entry = artifact["widgets"]["com.example.MainActivity"]["btn_ok"]
-    assert entry["dist"] == {"click": [[5, 1], [2, 2], [7, 4]]}
-    assert artifact["targets"] == 12
+    assert entry["dist"] == {"click": [[5, 1], [11, 1], [2, 2], [8, 3], [12, 3]]}
+    assert artifact["targets"] == 13
+
+
+def test_a_widget_whose_targets_are_all_four_calls_away_carries_no_pair():
+    """
+    The widget stays emitted and flagged, with no `dist`; its activity still ranks
+    the pairs, because an activity starts from its widgets' uncut minima.
+    """
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(2),
+            reachability=[
+                _reaching_class(
+                    "com.example.Handlers",
+                    [
+                        _method(
+                            "<A: void a()>", reaches=True, distances=[[0, 4], [1, 5]]
+                        )
+                    ],
+                )
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [
+                        _widget(
+                            "btn_far", listeners=[_listener("click", "<A: void a()>")]
+                        )
+                    ],
+                )
+            ],
+        )
+    )
+    entry = artifact["widgets"]["com.example.MainActivity"]["btn_far"]
+    assert entry["mop"] == {"click": "transitive"}
+    assert "dist" not in entry
+    assert artifact["activityDist"] == {"com.example.MainActivity": [[0, 4], [1, 5]]}
+
+
+def test_activity_dist_keeps_the_three_nearest_targets():
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(5),
+            reachability=[
+                _reaching_class(
+                    "com.example.Handlers",
+                    [
+                        _method(
+                            "<A: void a()>", reaches=True, distances=[[1, 0], [2, 1]]
+                        ),
+                        _method(
+                            "<A: void b()>", reaches=True, distances=[[3, 1], [4, 2]]
+                        ),
+                    ],
+                )
+            ],
+            windows=[
+                _window(
+                    1,
+                    "com.example.MainActivity",
+                    [
+                        _widget(
+                            "first", listeners=[_listener("click", "<A: void a()>")]
+                        ),
+                        _widget(
+                            "second", listeners=[_listener("click", "<A: void b()>")]
+                        ),
+                    ],
+                )
+            ],
+        )
+    )
+    widgets = artifact["widgets"]["com.example.MainActivity"]
+    assert widgets["first"]["dist"] == {"click": [[1, 0], [2, 1]]}
+    assert widgets["second"]["dist"] == {"click": [[3, 1], [4, 2]]}
+    assert artifact["activityDist"] == {
+        "com.example.MainActivity": [[1, 0], [2, 1], [3, 1]]
+    }
 
 
 def test_unlisted_wrapper_takes_its_distances_from_the_recovered_lambdas():
@@ -1650,7 +1752,7 @@ def test_unlisted_wrapper_takes_its_distances_from_the_recovered_lambdas():
 
 
 def test_producer_precedence_listener_takes_its_distances_from_the_join():
-    """The producer supplies flags and no distance, so the pairs still come from the join."""
+    """The producer supplies flags and no distance, so the pairs come from the join."""
     artifact = derive(
         _document(
             distanceTargets=_distance_targets(3),
@@ -1722,12 +1824,50 @@ def test_handler_table_lists_a_class_that_reaches_nothing():
     }
 
 
+def test_an_event_cut_to_nothing_loses_its_key_while_another_keeps_its_pairs():
+    """
+    The cut is per event: `longclick`, whose only target is four calls away, has no
+    key in `dist`, while `click` keeps its pair, and both keep their flags.
+    """
+    handlers = "com.example.Handlers"
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(3),
+            reachability=[
+                _reaching_class(
+                    handlers,
+                    [
+                        _method(
+                            f"<{handlers}: void onClick(android.view.View)>",
+                            name="onClick",
+                            reaches=True,
+                            distances=[[1, 1]],
+                        ),
+                        _method(
+                            f"<{handlers}: boolean onLongClick(android.view.View)>",
+                            name="onLongClick",
+                            reaches=True,
+                            distances=[[2, 4]],
+                        ),
+                    ],
+                )
+            ],
+        )
+    )
+    assert artifact["handlers"][handlers] == {
+        "mop": {"click": "transitive", "longclick": "transitive"},
+        "dist": {"click": [[1, 1]]},
+    }
+
+
 def test_handler_table_matches_handler_methods_by_name_and_parameters():
     """
     `onClick(View)` fills `click`, `onLongClick(View)` fills `longclick` whatever its
     `boolean` return, and the Object-returning `invoke` fills both. Two methods
-    filling one event OR their flags and merge their pairs. A typed `void invoke()`,
-    an `onClick` of another parameter list and a constructor are not handlers.
+    filling one event OR their flags and merge their pairs, and the merged list is
+    cut at `d <= 3` as a widget's is, so `onClick`'s pair at `d = 4` drops. A typed
+    `void invoke()`, an `onClick` of another parameter list and a constructor are
+    not handlers.
     """
     handlers = "com.example.Handlers"
     others = "com.example.NotHandlers"
@@ -1770,7 +1910,9 @@ def test_handler_table_matches_handler_methods_by_name_and_parameters():
                             name="onClick",
                             reaches=True,
                         ),
-                        _method(f"<{others}: void <init>()>", name="<init>", reaches=True),
+                        _method(
+                            f"<{others}: void <init>()>", name="<init>", reaches=True
+                        ),
                     ],
                 ),
             ],
@@ -1779,7 +1921,7 @@ def test_handler_table_matches_handler_methods_by_name_and_parameters():
     assert artifact["handlers"] == {
         handlers: {
             "mop": {"click": "both", "longclick": "both"},
-            "dist": {"click": [[1, 1], [2, 4]], "longclick": [[1, 1]]},
+            "dist": {"click": [[1, 1]], "longclick": [[1, 1]]},
         }
     }
 
@@ -1818,7 +1960,9 @@ def test_document_without_distances_derives_with_no_target():
         )
     )
     assert artifact["targets"] == 0
-    assert artifact["handlers"] == {"com.example.Listener": {"mop": {"click": "transitive"}}}
+    assert artifact["handlers"] == {
+        "com.example.Listener": {"mop": {"click": "transitive"}}
+    }
     assert "dist" not in artifact["widgets"]["com.example.MainActivity"]["btn"]
     assert artifact["activityDist"] == {}
 
@@ -1886,7 +2030,10 @@ def test_an_activity_constructor_does_not_count_toward_its_distance():
             distances=[[2, 5]],
         )
     ) == {"com.example.A": [[2, 5]]}
-    assert activity_dist(_method("<com.example.A: void onResume()>", name="onResume")) == {}
+    assert (
+        activity_dist(_method("<com.example.A: void onResume()>", name="onResume"))
+        == {}
+    )
 
 
 def test_dialog_pairs_move_to_the_host_widget_and_activity():
@@ -1898,7 +2045,9 @@ def test_dialog_pairs_move_to_the_host_widget_and_activity():
                     "com.example.Handlers",
                     [
                         _method("<A: void open()>", reaches=True, distances=[[4, 3]]),
-                        _method("<A: void confirm()>", reaches=True, distances=[[1, 2]]),
+                        _method(
+                            "<A: void confirm()>", reaches=True, distances=[[1, 2]]
+                        ),
                     ],
                 )
             ],
@@ -1906,7 +2055,12 @@ def test_dialog_pairs_move_to_the_host_widget_and_activity():
                 _window(
                     1,
                     "com.example.MainActivity",
-                    [_widget("btn_open", listeners=[_listener("click", "<A: void open()>")])],
+                    [
+                        _widget(
+                            "btn_open",
+                            listeners=[_listener("click", "<A: void open()>")],
+                        )
+                    ],
                 ),
                 _window(
                     2,
@@ -1962,9 +2116,15 @@ def test_an_activity_reaching_only_through_its_constructor_stays_out_of_source_3
                 _reaching_class(
                     "com.example.A",
                     [
-                        _method("<com.example.A: void <init>()>", name="<init>", reaches=True),
                         _method(
-                            "<com.example.A: void <clinit>()>", name="<clinit>", direct=True
+                            "<com.example.A: void <init>()>",
+                            name="<init>",
+                            reaches=True,
+                        ),
+                        _method(
+                            "<com.example.A: void <clinit>()>",
+                            name="<clinit>",
+                            direct=True,
                         ),
                     ],
                     component_type="activity",
@@ -1972,9 +2132,15 @@ def test_an_activity_reaching_only_through_its_constructor_stays_out_of_source_3
                 _reaching_class(
                     "com.example.B",
                     [
-                        _method("<com.example.B: void <init>()>", name="<init>", reaches=True),
                         _method(
-                            "<com.example.B: void onCreate()>", name="onCreate", reaches=True
+                            "<com.example.B: void <init>()>",
+                            name="<init>",
+                            reaches=True,
+                        ),
+                        _method(
+                            "<com.example.B: void onCreate()>",
+                            name="onCreate",
+                            reaches=True,
                         ),
                     ],
                     component_type="activity",
@@ -2003,7 +2169,7 @@ def cryptoapp(cryptoapp_bytes) -> dict:
     return derive(
         json.loads(cryptoapp_bytes),
         source_file="cryptoapp.apk.json",
-        source_digest=digest_of(cryptoapp_bytes),
+        source_digest=digest_of_file(FIXTURE_PATH),
     )
 
 
@@ -2057,16 +2223,15 @@ def test_derive_cryptoapp_ground_truth(cryptoapp):
     digest = "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity"
     widgets = cryptoapp["widgets"]
     assert widgets[digest]["buttonGenerateHash"]["dist"] == {"click": [[22, 2]]}
-    assert widgets[cipher]["btn_cipher_encrypt"]["dist"] == {"click": [[0, 4], [1, 4]]}
+    # Both of its handler's pairs are at d = 4, which the jar does not weigh.
+    assert widgets[cipher]["btn_cipher_encrypt"]["mop"] == {"click": "transitive"}
+    assert "dist" not in widgets[cipher]["btn_cipher_encrypt"]
     assert widgets[generated]["executeButton"]["dist"] == {
         "click": [[16, 3], [17, 3], [18, 3]]
     }
 
     assert cryptoapp["handlers"] == {
-        f"{cipher}$1": {
-            "mop": {"click": "transitive"},
-            "dist": {"click": [[0, 4], [1, 4]]},
-        },
+        f"{cipher}$1": {"mop": {"click": "transitive"}},
         f"{generated}$$ExternalSyntheticLambda0": {
             "mop": {"click": "transitive"},
             "dist": {"click": [[16, 3], [17, 3], [18, 3]]},
@@ -2142,7 +2307,11 @@ def test_no_target_keys_on_wire():
             reachability=[
                 _reaching_class(
                     "com.example.Listener",
-                    [_method(handler, name="onClick", reaches=True, distances=[[1, 1]])],
+                    [
+                        _method(
+                            handler, name="onClick", reaches=True, distances=[[1, 1]]
+                        )
+                    ],
                 )
             ],
             windows=[
@@ -2166,7 +2335,13 @@ def test_no_target_keys_on_wire():
         "artifact.components.receivers[0].hasTargetMethods",
         "artifact.components.services[0].hasTargetMethods",
     ]
-    sections = ("reachability", "windows", "transitions", "listeners", "distanceTargets")
+    sections = (
+        "reachability",
+        "windows",
+        "transitions",
+        "listeners",
+        "distanceTargets",
+    )
     for section in sections:
         assert section not in artifact
     assert artifact["handlers"]["com.example.Listener"]["dist"] == {"click": [[1, 1]]}
@@ -2175,7 +2350,13 @@ def test_no_target_keys_on_wire():
 
 def test_no_target_keys_on_the_cryptoapp_projection(cryptoapp):
     assert _target_keys(cryptoapp) == []
-    sections = ("reachability", "windows", "transitions", "listeners", "distanceTargets")
+    sections = (
+        "reachability",
+        "windows",
+        "transitions",
+        "listeners",
+        "distanceTargets",
+    )
     for section in sections:
         assert section not in cryptoapp
     assert _signature_strings(cryptoapp) == []
@@ -2188,6 +2369,19 @@ def test_provenance_digest_matches_the_input(cryptoapp, cryptoapp_bytes):
     assert cryptoapp["source"]["generator"] == "aperv-derive/2"
 
 
+def test_digest_of_file_is_the_sha256_of_the_bytes_read_in_chunks(tmp_path):
+    """
+    The digest streams the file, so a file longer than one read chunk must hash to
+    what the whole bytes hash to: a cached artifact derived before the streaming
+    read records that digest and must still match its source.
+    """
+    payload = bytes(range(256)) * 8192 + b"tail"
+    path = tmp_path / "large.apk.json"
+    path.write_bytes(payload)
+    assert len(payload) > 1 << 20
+    assert digest_of_file(str(path)) == "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
 def test_serialize_canonical_is_byte_stable(cryptoapp_bytes):
     """
     Byte stability must survive a fresh process, where Python's hash randomization
@@ -2198,10 +2392,10 @@ def test_serialize_canonical_is_byte_stable(cryptoapp_bytes):
         "import json,sys;"
         "sys.path.insert(0, sys.argv[1]);"
         "from aperv_tool.tools.aperv.derive_mop_artifact import derive, "
-        "serialize_canonical, digest_of;"
+        "serialize_canonical, digest_of_file;"
         "raw = open(sys.argv[2], 'rb').read();"
         "a = derive(json.loads(raw), source_file='cryptoapp.apk.json', "
-        "source_digest=digest_of(raw));"
+        "source_digest=digest_of_file(sys.argv[2]));"
         "sys.stdout.buffer.write(serialize_canonical(a))"
     )
     source_root = os.path.join(os.path.dirname(os.path.dirname(__file__)), "src")
@@ -2222,7 +2416,7 @@ def test_serialize_canonical_is_byte_stable(cryptoapp_bytes):
         derive(
             json.loads(cryptoapp_bytes),
             source_file="cryptoapp.apk.json",
-            source_digest=digest_of(cryptoapp_bytes),
+            source_digest=digest_of_file(FIXTURE_PATH),
         )
     )
 

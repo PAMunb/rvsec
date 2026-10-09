@@ -8,13 +8,14 @@ The compact MOP artifact that `aperv-tool` derives for APE-RV (`derive_mop_artif
 
 - **BREAKING (artifact):** `derive()` emits `formatVersion: 2` and `generator: "aperv-derive/2"`. Every format-1 member stays with its meaning, and four members are added:
   - `targets`: the number of entries of `distanceTargets`;
-  - a per-widget `dist` map (event → up to three `[i, d]` pairs, nearest first);
-  - `activityDist` (base activity → up to three pairs);
-  - `handlers` (binary class name → `{mop, dist}`), the table APE-RV reads a gh121 stamp through.
+  - a per-widget `dist` map (event → every target at distance `d ≤ 3`, as `[i, d]` pairs, nearest first);
+  - `activityDist` (base activity → the three nearest pairs);
+  - `handlers` (binary class name → `{mop, dist}`, `dist` cut like a widget's), the table APE-RV reads a gh121 stamp through.
 
-  The jar of `llm-coordinate-single-base` rejects format 1, and the current jar rejects format 2, so the two sides ship together.
+  The jar of `llm-coordinate-single-base` rejects format 1, and the current jar rejects format 2, so the two sides ship together. The widget and handler lists keep every pair the jar weighs (the jar gives no weight from `d = 4`) instead of the three nearest. This is the author's decision of 2026-10-09, an amendment of the `ape` design D15. A measurement on 163 gh120 documents found that the three-pair cut hid 18.7 % of the targets at `d ≤ 3` from every widget and handler list.
 - **A′ source 3 of `mopActivitiesAugmented`** no longer counts an activity class's own `<init>`/`<clinit>`. Under gh120 every activity constructor is a boundary target, so without the exclusion every activity would enter the augmented census (on the cryptoapp fixture, `MainActivity` leaves it).
 - **Host cache keyed on the format.** `_cached_artifact_digest` reuses a cached `.mop.json` only when both its `source.digest` and its `formatVersion` match. Today a format-1 artifact derived before the bump would be reused and pushed, and every MOP arm of the new jar would abort on it.
+- **The source is read without a held copy.** `_derive_mop_artifact` hashes the full JSON in chunks, checks the cache, and only on a miss parses the file with `json.load`. Today it reads the whole file into one `bytes` object and keeps it alive through the parse and the derivation. The aperv session measured the host's peak memory at about 4.1 times the file size: a 1.92 GB document peaks at 7.9 GB, and the largest, 8.9 GB, at 36.4 GB. Dropping the held copy saves about one file size; that figure is an estimate that task 7.7 replaces with a measurement.
 - **INV-DRV-06 amended:** format 2 may carry integer target indices, integer distances and binary class names. It still carries no method signature, no call edge, and no `*Target` key other than `hasTargetMethods`.
 - **Six new mapped keys:** `mop_scoring`, `mop_weight_d1`, `mop_weight_d2`, `mop_weight_d3`, `mop_retire_after` and `mop_launcher_dmax`, mapped to the jar's `ape.mopScoring`, `ape.mopWeightD1..3`, `ape.mopRetireAfter` and `ape.mopLauncherDmax`.
 - **Two new arms**, both selecting `mop_scoring: "distance"`:
@@ -38,17 +39,17 @@ The compact MOP artifact that `aperv-tool` derives for APE-RV (`derive_mop_artif
 - `aperv`:
   - "MOP Artifact Projection Contents": format 2, the four new members, and the cryptoapp scenario updated to three MOP sub-activities;
   - "MOP-Activity Sets and OPTIONSMENU Records": the source-3 constructor exclusion;
-  - "Derived MOP Artifact Generation and Caching": the format in the cache key;
+  - "Derived MOP Artifact Generation and Caching": the format in the cache key, and the source hashed in chunks and parsed only on a cache miss;
   - "ape.properties Generation": six new mapping entries, 56 in total, and the table corrected;
   - "ApeRVTool Variants": ten names carrying nine configurations;
   - "Decisive Run Arm Set": the two distance arms and their single-factor contrasts;
-  - invariants INV-DRV-06, INV-APV-05, INV-APV-42 and INV-APV-47 amended, and INV-DRV-10 added (distance pairs).
+  - invariants INV-DRV-06, INV-APV-05, INV-APV-42 and INV-APV-47 amended, and INV-DRV-10 added (distance pairs: every pair at `d ≤ 3` on widget and handler lists, the three nearest on `activityDist`).
 
 ## Impact
 
 - **Module:** `aperv-tool` only.
   - `tools/aperv/derive_mop_artifact.py`: the indices, the pair merge and the four members;
-  - `tools/aperv/tool.py`: the cache check, `APERV_PROPERTY_MAPPING`, `get_variants()`;
+  - `tools/aperv/tool.py`: the source read, the cache check, `APERV_PROPERTY_MAPPING`, `get_variants()`;
   - tests: `tests/test_derive_mop_artifact.py`, `tests/test_aperv_tool.py`, `tests/migration/test_decisive_contrasts.py`.
 - **Cross-repository:**
   - the artifact's consumer is APE-RV's `MopData` (`ape`). Format 2 and the six keys exist only in the jar built from `llm-coordinate-single-base`;
@@ -56,7 +57,9 @@ The compact MOP artifact that `aperv-tool` derives for APE-RV (`derive_mop_artif
   - the derive and the jar bump together, or every MOP arm aborts (INV-MOP-34 on the jar side).
 - **Data:**
   - the cached `.mop.json` files of earlier runs are re-derived on first use (they are format 1);
-  - a `.apk.json` written before gh120 derives to `targets: 0` with no pair, and the jar runs it without distance data. Nothing guards it: gh120 D9 left that to the corpus hand-off.
+  - a `.apk.json` written before gh120 derives to `targets: 0` with no pair, and the jar runs it without distance data. Nothing guards it: gh120 D9 left that to the corpus hand-off;
+  - with the `d ≤ 3` cut, the 162 round-A artifacts measured by the aperv session hold 15.2 MB in all (14.6 MB with three pairs per list), with a median of 34 KB and a largest of 1.9 MB (`com.celzero.bravedns`);
+  - the host still copies the full JSON into every task's results directory (rv-platform), and the cache lives there too, so each task derives once. That stays out of this change (design, Risks).
 - **FRs/NFRs:**
   - FR04, FR05, FR06 (MOP data, WTG, widget map);
   - FR19 (tool configuration);

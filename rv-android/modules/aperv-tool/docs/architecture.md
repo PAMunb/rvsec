@@ -483,17 +483,18 @@ frozen with the reason — closed by a grep over `modules/`, `scripts/`, the exp
 - `APERV_TEARDOWN_GRACE_S = 45` -- seconds of teardown allowed beyond the exploration budget. Stated once because two users must agree on it: the command timeout is the budget *plus* this value, and the completion floor is the budget *minus* it (INV-APV-60). The value is a hypothesis about censored teardown durations, not a measurement — among iter0 runs whose teardown completed the overrun reaches 12,991 ms, with 32 runs stacked against the previous 15 s ceiling and none beyond it, the signature of a hard wall rather than a natural distribution
 - `APERV_AVAILABLE_STRATEGIES = ["sata", "random"]` -- valid strategies. `bfs`/`dfs` were never agent types (`ApeAgent.createAgent` knows `sata`, `random` and `replay`), so accepting them would let a run pass local validation and abort on the device
 - `APERV_ORCHESTRATION_KEYS` -- the top-level keys that are Python orchestration rather than jar configuration; anything else at the top level must be a mapped override or `configure()` raises
-- `APERV_PROPERTY_MAPPING` -- 50-entry pass-through table mapping Python override keys to Java `ape.*` property names. It contains only keys the deployed jar accepts (INV-APV-41); the sweep against `KeyOwnership.java` lives in `tests/migration/test_mapping_sweep.py`
+- `APERV_PROPERTY_MAPPING` -- 56-entry pass-through table mapping Python override keys to Java `ape.*` property names. It contains only keys the deployed jar accepts (INV-APV-41); the sweep against `KeyOwnership.java` lives in `tests/migration/test_mapping_sweep.py`
 
 ### Variant System
 
-**Purpose**: Define the experimental matrix as **preset + overrides**: 8 names carrying 7 configurations, each a jar preset name plus a dict of deltas over it.
+**Purpose**: Define the experimental matrix as **preset + overrides**: 10 names carrying 9 configurations, each a jar preset name plus a dict of deltas over it.
 
 **Location**: `src/aperv_tool/tools/aperv/tool.py` (`get_variants()` classmethod)
 
 **Variants**:
 - **Preset-identity** (4, plus the `default` alias): `sata` (`aperv`), `sata_mop` (`mop`), `sata_llm` (`llm`), `sata_mop_llm` (`llm_mop`) -- empty overrides but for the deployment-specific `llm_url`, since a preset names an arm while a URL names a machine
 - **E3 decisive run** (3): `mop_on_llm_off` (reference, on the reach package), `mop_off_llm_off` (control, MOP scoring zeroed but navigation alive), `mop_on_llm_70` (LLM arm at the calibrated dose)
+- **Distance scoring** (2, gh122): `mopd_on_llm_off` (the reference plus `mop_scoring="distance"`) and `mopd_on_llm_90` (Study 03's E6 arm 4 plus `mop_scoring="distance"`); both take the jar's distance defaults
 
 The division of authority is the point: the jar owns what a preset *means*, Python owns *which arms exist*. Adding an ablation means adding a named override set, never a fifth preset.
 
@@ -657,23 +658,27 @@ flowchart TB
 
 Python-only control keys are the eight in `APERV_ORCHESTRATION_KEYS` and never reach the device: `preset` and `overrides` (the arm's shape itself), `strategy` (the `--ape` flag), `mop_data` (whether the artifact is pushed), `seed`, and `device_port` / `device_serial` / `device_id` (device addressing that rv-experiment's `ExecutionController` injects into every tool's parameters whenever `--device-port` is set). Any other top-level key must resolve through `APERV_PROPERTY_MAPPING`, or `configure()` raises `ConfigurationError` before a device is touched.
 
-`APERV_PROPERTY_MAPPING` has 50 entries. Most exist so an ablation can be expressed as an override set without a code change; the entries a surviving arm actually sets are:
+`APERV_PROPERTY_MAPPING` has 56 entries. Most exist so an ablation can be expressed as an override set without a code change; the entries a surviving arm actually sets are:
 
 | Python override key | Java property | Category | Set by |
 |-----------|--------------|----------|--------|
-| `llm_url` | `ape.llmUrl` | LLM | `sata_llm`, `sata_mop_llm`, `mop_on_llm_70` |
-| `mop_activity_source_components` | `ape.mopActivitySourceComponents` | MOP reach | the three E3 arms |
-| `frontier_boost_weight` | `ape.frontierBoostWeight` | Navigation | the three E3 arms |
-| `mop_frontier_weight` | `ape.mopFrontierWeight` | MOP reach | `mop_on_llm_off`, `mop_on_llm_70` |
-| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | MOP reach | `mop_on_llm_off`, `mop_on_llm_70` |
+| `llm_url` | `ape.llmUrl` | LLM | `sata_llm`, `sata_mop_llm`, `mop_on_llm_70`, `mopd_on_llm_90` |
+| `mop_activity_source_components` | `ape.mopActivitySourceComponents` | MOP reach | the three E3 arms and the two `mopd_*` arms |
+| `frontier_boost_weight` | `ape.frontierBoostWeight` | Navigation | the three E3 arms and the two `mopd_*` arms |
+| `mop_frontier_weight` | `ape.mopFrontierWeight` | MOP reach | `mop_on_llm_off`, `mop_on_llm_70`, both `mopd_*` |
+| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | MOP reach | `mop_on_llm_off`, `mop_on_llm_70`, both `mopd_*` |
+| `mop_scoring` | `ape.mopScoring` | MOP scoring | both `mopd_*` (`distance`) |
 | `mop_weight_direct` | `ape.mopWeightDirect` | MOP scoring | `mop_off_llm_off` (at `0`) |
 | `mop_weight_transitive` | `ape.mopWeightTransitive` | MOP scoring | `mop_off_llm_off` (at `0`) |
 | `mop_weight_open_menu` | `ape.mopWeightOpenMenu` | MOP scoring | `mop_off_llm_off` (at `0`) |
 | `mop_weight_wtg` | `ape.mopWeightWtg` | MOP scoring | `mop_off_llm_off` (at `0`) |
-| `llm_prompt_variant` | `ape.llmPromptVariant` | LLM | `mop_on_llm_70` (`v13`) |
-| `llm_percentage` | `ape.llmPercentage` | LLM | `mop_on_llm_70` (`0.7`) |
-| `llm_temperature` | `ape.llmTemperature` | LLM | `mop_on_llm_70` (`0`) |
-| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | LLM | `mop_on_llm_70` (`150`) |
+| `llm_prompt_variant` | `ape.llmPromptVariant` | LLM | `mop_on_llm_70`, `mopd_on_llm_90` (`v13`) |
+| `llm_percentage` | `ape.llmPercentage` | LLM | `mop_on_llm_70` (`0.7`), `mopd_on_llm_90` (`0.9`) |
+| `llm_temperature` | `ape.llmTemperature` | LLM | `mop_on_llm_70`, `mopd_on_llm_90` (`0`) |
+| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | LLM | `mop_on_llm_70`, `mopd_on_llm_90` (`150`) |
+| `llm_model` | `ape.llmModel` | LLM | `mopd_on_llm_90` (`Qwen/Qwen3-VL-4B-Instruct-FP8`) |
+| `llm_top_p` | `ape.llmTopP` | LLM | `mopd_on_llm_90` (`1.0`) |
+| `llm_top_k` | `ape.llmTopK` | LLM | `mopd_on_llm_90` (`-1`) |
 
 `throttle_ms` -> `ape.defaultGUIThrottle` is mapped but set by no arm: the `aperv` preset already states `ape.defaultGUIThrottle=200`, and an override restating a preset value would be a delta that is not a delta. Boolean values are serialized as lowercase `true`/`false` to match what the jar's `Config` loader parses.
 
@@ -685,7 +690,7 @@ For MOP-guided variants, static analysis data flows from rv-platform's pre-proce
 
 1. rv-experiment runs GATOR static analysis during pre-processing, producing `<apk_name>.json` in `task.results_dir`
 2. `_find_static_analysis_file(task)` locates this JSON by constructing the expected path
-3. `_derive_mop_artifact(task)` projects it into `<apk_name>.mop.json` — widget MOP flags, both MOP-activity sets, the OPTIONSMENU records, the click-only WTG view and the component trigger surface — reusing the cache when the recorded `source.digest` matches the current JSON, otherwise deriving and writing atomically. `derive_mop_artifact.py` is the single authority for those rules; they used to run on the device at load time
+3. `_derive_mop_artifact(task)` projects it into `<apk_name>.mop.json` (format 2) — widget MOP flags and target distances, both MOP-activity sets and the per-activity distances, the handler-class table a gh121 stamp is read through, the OPTIONSMENU records, the click-only WTG view and the component trigger surface — reusing the cache when the recorded `source.digest` matches the current JSON and its `formatVersion` matches the generator's, otherwise deriving and writing atomically. Widget and handler distance lists keep every target within three calls, the distances the jar weighs; an activity's list keeps its three nearest targets. The source is hashed in chunks before anything parses it, so a cache hit never parses the JSON, and a miss parses it straight from the file with no held `bytes` copy. `derive_mop_artifact.py` is the single authority for those rules; they used to run on the device at load time
 4. Only the artifact is pushed, to `/data/local/tmp/mop-artifact.json`. The full JSON stays byte-identical on the host as the archived source every metric reads, and never travels
 5. `_push_properties()` includes `ape.mopDataPath` pointing to the pushed artifact
 6. APE-RV reads the artifact at startup instead of parsing a call graph, and biases action selection toward screens where monitored operations are reachable
@@ -697,7 +702,7 @@ If the static analysis file is not found, or the derivation refuses the document
 For LLM-guided variants, the data flow involves network communication between the emulator and the host:
 
 1. `configure()` checks `APERV_LLM_BASE_URL` environment variable for URL override
-2. `_push_properties()` writes `ape.preset=llm` or `ape.preset=llm_mop` plus the arm's LLM overrides. The model, timeout, top_p and top_k come from the preset inside the jar; `llm_url` is always an override because it names a machine rather than an arm, and `mop_on_llm_70` additionally overrides the prompt variant, the percentage, the temperature and the snap tolerance
+2. `_push_properties()` writes `ape.preset=llm` or `ape.preset=llm_mop` plus the arm's LLM overrides. The timeout comes from the preset inside the jar, and so do the model, top_p and top_k unless the arm overrides them; `llm_url` is always an override because it names a machine rather than an arm. `mop_on_llm_70` additionally overrides the prompt variant, the percentage, the temperature and the snap tolerance, and `mopd_on_llm_90` overrides those four plus the model, top_p and top_k, as Study 03's E6 arm 4 does
 3. APE-RV resolves the preset at startup and initializes its LLM client
 4. During exploration, APE-RV sends requests to the SGLang server at the configured URL
 5. Inside the emulator, `10.0.2.2` routes to the host machine's loopback address

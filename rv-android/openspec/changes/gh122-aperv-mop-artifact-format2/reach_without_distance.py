@@ -124,11 +124,19 @@ def main(directory):
     print()
     for group, label in ((True, "Compose"), (False, "View-only")):
         t = totals[group]
-        print(f"{label}: {apps[group]} apps, {affected[group]} with any reaching method lacking pairs")
-        print(f"  reaching methods without targetDistances: {_share(t['reaching_np'], t['reaching'])}")
-        print(f"  reaching handler methods without targetDistances: {_share(t['handler_m_np'], t['handler_m'])}")
-        print(f"  flagged handler records with a flagged event lacking a pair: {_share(t['handlers_flagged_np'], t['handlers_flagged'])}")
-        print(f"  flagged emitted widgets with a flagged event lacking a pair: {_share(t['widgets_flagged_np'], t['widgets_flagged'])}")
+        lines = (
+            f"{label}: {apps[group]} apps, "
+            f"{affected[group]} with any reaching method lacking pairs",
+            "  reaching methods without targetDistances: "
+            + _share(t["reaching_np"], t["reaching"]),
+            "  reaching handler methods without targetDistances: "
+            + _share(t["handler_m_np"], t["handler_m"]),
+            "  flagged handler records with a flagged event lacking a pair: "
+            + _share(t["handlers_flagged_np"], t["handlers_flagged"]),
+            "  flagged emitted widgets with a flagged event lacking a pair: "
+            + _share(t["widgets_flagged_np"], t["widgets_flagged"]),
+        )
+        print("\n".join(lines))
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ read, changed and defended one at a time.
   full JSON it reads, and `ape-rv.jar`, whose `formatVersion: 2` parser reads what
   it writes. The wire contract of format 2 is fixed by the `ape` change
   `llm-coordinate-single-base` (its design D15).
-- `tool.py` owns everything this module refuses to do: reading the JSON bytes,
+- `tool.py` owns everything this module refuses to do: parsing the JSON file,
   caching by digest and format, writing the artifact and pushing it to the device.
 
 ### Architectural Decisions:
@@ -32,9 +32,10 @@ read, changed and defended one at a time.
   a map from target index to the smallest call-graph distance seen for it. Every
   merge — the listeners of one event, colliding widgets, a dialog into its host, an
   activity's widgets and its own methods — takes the minimum per target on the full
-  map, and the cut to the `DIST_K` nearest pairs happens only at emission. Cutting
-  each source first could drop a target that is fourth in one source and first
-  after the merge (INV-DRV-10).
+  map, and the cut happens only at emission: a widget or handler list keeps every
+  pair at `d <= DIST_WEIGHED_MAX`, an activity list its `DIST_K` nearest pairs.
+  Cutting each source first could drop a target that is fourth in one source and
+  first after the merge (INV-DRV-10).
 - **The two MOP axes.** `direct` is the producer's 0-hop bit — the handler invokes a
   monitored operation in its own body, which is what `ape.mopWeightDirect` was
   defined to reward. `transitive` is any-depth reach. `direct` implies `transitive`
@@ -44,7 +45,9 @@ read, changed and defended one at a time.
 - **A pure function.** Full-JSON dict in, artifact dict out — no I/O, no device
   interaction and no dependency on the tool object. Provenance (`source.file`,
   `source.digest`) is supplied by the caller precisely because computing it
-  requires reading bytes, which this module never does.
+  requires reading the file, which `derive()` never does. `digest_of_file()` is
+  the one function here that reads a file: it fixes the digest convention beside
+  the format the digest is recorded in, and `derive()` never calls it.
 - **Noise survivable, structure not.** Malformed *entries* inside a well-typed
   section are skipped rather than raised on: the producer is an external tool and
   one odd widget must not cost a whole app. A malformed *section* is a
@@ -52,7 +55,7 @@ read, changed and defended one at a time.
   The producer's `"complete": true` sentinel is deliberately not read (INV-DRV-08).
   It says the second write pass happened, not that the file is intact: a killed
   pass leaves unparseable bytes, because the producer truncates its output on open,
-  and those fail in `json.loads` before this module runs. A document without the
+  and those fail in the caller's parse before this module runs. A document without the
   sentinel is the producer's intended first-pass report — populated `reachability`
   and `windows`, empty `transitions` — and derives to an artifact whose `wtg` is
   empty, which is how the device learns the WTG stage did not finish.
@@ -60,7 +63,7 @@ read, changed and defended one at a time.
 ### Integration Points:
 
 - Input: the parsed full static-analysis JSON, plus the source file name and the
-  digest the caller computed over its bytes.
+  digest the caller computed over the file with `digest_of_file()`.
 - Output: the artifact dict, which `serialize_canonical()` encodes into the bytes
   that land at `DEVICE_ARTIFACT_PATH` and are cached host-side under
   `ARTIFACT_SUFFIX`.
@@ -166,9 +169,15 @@ EMPTY_EVENT_KEY = ""
 
 # === TARGET DISTANCES ===
 
-# Pairs kept per list on the wire: the nearest targets by distance, then by index.
-# Three is the contract's value (`ape` D15).
+# Pairs kept per `activityDist` list: the nearest targets by distance, then by index.
+# Three is the contract's value (`ape` D15). The launcher only orders the activities
+# the census already makes eligible, so the three nearest are enough to rank them.
 DIST_K = 3
+
+# Largest distance kept on a widget or handler list. The jar gives a pair no weight
+# from `d = 4` (`ape` D18), so the list carries every pair it weighs and none other
+# (`ape` D15, amendment of 2026-10-09).
+DIST_WEIGHED_MAX = 3
 
 # === DERIVATION COUNTERS ===
 
@@ -201,7 +210,7 @@ class DerivationError(Exception):
     """
 
 
-def digest_of(payload: bytes) -> str:
+def digest_of_file(path: str) -> str:
     """Compute the provenance digest recorded as the artifact's `source.digest`.
 
     Lives here rather than in the caller so the digest convention and the artifact
@@ -210,14 +219,23 @@ def digest_of(payload: bytes) -> str:
     is needed, so the algorithm prefix is part of the recorded form rather than
     implied.
 
+    The file is hashed as stored on disk — not the re-encoded parse, which would
+    not round-trip — and streamed in chunks by `hashlib.file_digest`, so the digest
+    of a multi-gigabyte document holds no copy of it in memory. That is what lets a
+    cache hit cost one sequential read and nothing else.
+
     Args:
-        payload: Raw bytes of the full static-analysis JSON, hashed as read from
-            disk — not the re-encoded parse, which would not round-trip.
+        path: Path of the full static-analysis JSON.
 
     Returns:
         The digest as `"<algorithm>:<hex>"`, e.g. `"sha256:9f86d0…"`.
+
+    Raises:
+        OSError: The file cannot be opened or read.
     """
-    return f"{DIGEST_ALGORITHM}:{hashlib.sha256(payload).hexdigest()}"
+    with open(path, "rb") as source_file:
+        digest = hashlib.file_digest(source_file, DIGEST_ALGORITHM)
+    return f"{DIGEST_ALGORITHM}:{digest.hexdigest()}"
 
 
 def serialize_canonical(artifact: dict) -> bytes:
@@ -252,9 +270,9 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
     Args:
         document: Parsed full static-analysis JSON. Not mutated.
         source_file: Basename of the JSON this document was parsed from, recorded
-            as provenance. Supplied by the caller because this module performs no
+            as provenance. Supplied by the caller because `derive()` performs no
             I/O.
-        source_digest: `digest_of()` of that file's bytes, same reason.
+        source_digest: `digest_of_file()` of that file, same reason.
 
     Returns:
         The artifact dict per the `formatVersion: 2` wire schema, with keys:
@@ -265,7 +283,9 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
         - "source" (dict): Provenance — `digest`, `file`, `generator`.
         - "widgets" (dict): `baseActivity -> shortId -> {mop, dist?, …metadata}`,
           holding only widgets the explorer can act on. `dist` maps an event to its
-          nearest `[targetIndex, distance]` pairs and is omitted when empty.
+          `[targetIndex, distance]` pairs at `d <= DIST_WEIGHED_MAX`, nearest
+          first; an event with no such pair has no key, and an empty `dist` is
+          omitted.
         - "mopActivities" (list[str]): Widget-derived MOP-activity set, sorted.
         - "mopActivitiesAugmented" (list[str]): The A′ superset of that set, sorted;
           the on-device flag picks which of the two a run uses.
@@ -277,12 +297,13 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
         - "stats" (dict): The `STAT_FIELDS` counters, all present.
         - "targets" (int): Length of `distanceTargets`; every pair index is below
           it. 0 for a document written before the producer emitted distances.
-        - "activityDist" (dict): `baseActivity -> [[i, d], …]`, the nearest targets
-          over the activity's widgets and its own methods bar its constructors;
-          activities with no pair are absent.
+        - "activityDist" (dict): `baseActivity -> [[i, d], …]`, the `DIST_K`
+          nearest targets over the activity's widgets and its own methods bar
+          its constructors; activities with no pair are absent.
         - "handlers" (dict): `binaryClassName -> {mop, dist?}` for every class
-          declaring a handler method, including those reaching nothing; the table
-          the jar reads a gh121 handler stamp through.
+          declaring a handler method, including those reaching nothing, with
+          `dist` cut as a widget's; the table the jar reads a gh121 handler
+          stamp through.
 
     Raises:
         DerivationError: The document is not an object, carries no package, or
@@ -319,8 +340,8 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
 
     # Step 4: Key widgets by base activity, then move dialog widgets onto the host
     # activity the explorer will actually be standing in when it sees them
-    widget_map, flagged_activities, options_menus, activity_minima = (
-        _build_widget_map(windows, stats)
+    widget_map, flagged_activities, options_menus, activity_minima = _build_widget_map(
+        windows, stats
     )
     _rekey_dialogs(
         windows,
@@ -371,9 +392,7 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
         "components": _project_components(components),
         "stats": stats,
         "targets": targets,
-        "activityDist": _emit_activity_dist(
-            activity_minima, index.activity_class_dist
-        ),
+        "activityDist": _emit_activity_dist(activity_minima, index.activity_class_dist),
         "handlers": _emit_handlers(index.handler_records),
     }
 
@@ -569,7 +588,9 @@ def _index_reachability(reachability: list, targets: int) -> _ReachabilityIndex:
                     lambda_by_class.get(class_name), flags
                 )
                 if minima:
-                    _merge_minima(lambda_dist_by_class.setdefault(class_name, {}), minima)
+                    _merge_minima(
+                        lambda_dist_by_class.setdefault(class_name, {}), minima
+                    )
 
             if counts_for_activity:
                 activity_classes.add(activity)
@@ -660,15 +681,34 @@ def _merge_minima(into: dict[int, int], other: dict[int, int]) -> dict[int, int]
     return into
 
 
-def _cut_pairs(minima: dict[int, int]) -> list[list[int]]:
-    """Cut per-target minima to the wire's pair list.
+def _sorted_pairs(minima: dict[int, int]) -> list[tuple[int, int]]:
+    """Order per-target minima by distance, then by index: the wire's list order."""
+    return sorted((distance, index) for index, distance in minima.items())
 
-    The one cut rule of the derivation (INV-DRV-10): the `DIST_K` pairs of smallest
-    distance, sorted by distance and then by index, which is what makes the list
-    byte-stable. Applied only at emission, after every merge.
+
+def _cut_weighed(minima: dict[int, int]) -> list[list[int]]:
+    """Cut per-target minima to a widget or handler pair list.
+
+    The cut of the lists the jar weighs (INV-DRV-10): every pair at
+    `d <= DIST_WEIGHED_MAX`, sorted by distance and then by index, which is what
+    makes the list byte-stable. Applied only at emission, after every merge.
+    Empty when no target lies within `DIST_WEIGHED_MAX` calls.
     """
-    nearest = sorted((distance, index) for index, distance in minima.items())
-    return [[index, distance] for distance, index in nearest[:DIST_K]]
+    return [
+        [index, distance]
+        for distance, index in _sorted_pairs(minima)
+        if distance <= DIST_WEIGHED_MAX
+    ]
+
+
+def _cut_nearest(minima: dict[int, int]) -> list[list[int]]:
+    """Cut per-target minima to an `activityDist` pair list.
+
+    The `DIST_K` pairs of smallest distance, in the order of `_cut_weighed`
+    (INV-DRV-10), whatever their distance. Applied only at emission, after every
+    merge.
+    """
+    return [[index, distance] for distance, index in _sorted_pairs(minima)[:DIST_K]]
 
 
 def _or_flags(
@@ -1085,6 +1125,12 @@ def _collide(resident: dict | None, incoming: dict) -> dict:
     return survivor
 
 
+def _cut_events(minima_by_event: dict[str, dict[int, int]]) -> dict[str, list]:
+    """Cut each event's minima with `_cut_weighed`, dropping the events left empty."""
+    cut = {event: _cut_weighed(minima) for event, minima in minima_by_event.items()}
+    return {event: pairs for event, pairs in cut.items() if pairs}
+
+
 def _emit_widgets(widget_map: dict[str, dict[str, dict]]) -> dict:
     """Project the widget map onto the wire, keeping only actionable widgets.
 
@@ -1094,7 +1140,9 @@ def _emit_widgets(widget_map: dict[str, dict[str, dict]]) -> dict:
 
     Distances do not make a widget emitted: a widget with pairs and no flag cannot
     exist on a conforming document, and the pairs of an emitted widget are cut to
-    the wire here and nowhere earlier.
+    the wire here and nowhere earlier, by `_cut_weighed`. An event left with no
+    pair after the cut has no key, and a `dist` left empty is omitted: a widget
+    whose targets all lie four calls or more away carries no `dist`.
 
     Args:
         widget_map: The final map from `_build_widget_map()` after the dialog
@@ -1112,10 +1160,9 @@ def _emit_widgets(widget_map: dict[str, dict[str, dict]]) -> dict:
             if not (widget["direct"] or widget["transitive"] or widget["metadata"]):
                 continue
             entry = {"mop": widget["mop"], **widget["metadata"]}
-            if widget["dist"]:
-                entry["dist"] = {
-                    event: _cut_pairs(minima) for event, minima in widget["dist"].items()
-                }
+            dist = _cut_events(widget["dist"])
+            if dist:
+                entry["dist"] = dist
             entries[short_id] = entry
         if entries:
             emitted[activity] = entries
@@ -1494,8 +1541,11 @@ def _emit_activity_dist(
 
     An activity's minima are those of its widgets after the dialog merge, merged
     with those of its own class's methods bar the constructors, and only then cut
-    (INV-DRV-10). An orphan dialog keeps its own key, which names no manifest
-    activity: its entry is emitted and the launcher never reads it.
+    to the `DIST_K` nearest pairs by `_cut_nearest`, whatever their distance
+    (INV-DRV-10). The widget minima come in uncut, so a widget whose targets all
+    lie four calls or more away still ranks its activity. An orphan dialog keeps
+    its own key, which names no manifest activity: its entry is emitted and the
+    launcher never reads it.
 
     Args:
         activity_minima: Per-activity widget minima, after `_rekey_dialogs()`.
@@ -1512,7 +1562,7 @@ def _emit_activity_dist(
             activity_class_dist.get(activity, {}),
         )
         if minima:
-            emitted[activity] = _cut_pairs(minima)
+            emitted[activity] = _cut_nearest(minima)
     return emitted
 
 
@@ -1523,7 +1573,9 @@ def _emit_handlers(
 
     Every class declaring a handler method is listed, a class reaching nothing
     included: the jar reads "listed with `none`" as "the stamped handler reaches no
-    target", which is a different statement from "not listed".
+    target", which is a different statement from "not listed". The pairs are cut
+    by `_cut_weighed` as a widget's are; a record left with no pair keeps its
+    `mop` and has no `dist`.
 
     Returns:
         `binaryClassName -> {mop: {event: flag}, dist?: {event: [[i, d], …]}}`,
@@ -1534,11 +1586,7 @@ def _emit_handlers(
         record: dict[str, dict] = {
             "mop": {event: _encode_mop(*flags) for event, (flags, _) in events.items()}
         }
-        dist = {
-            event: _cut_pairs(minima)
-            for event, (_, minima) in events.items()
-            if minima
-        }
+        dist = _cut_events({event: minima for event, (_, minima) in events.items()})
         if dist:
             record["dist"] = dist
         emitted[class_name] = record

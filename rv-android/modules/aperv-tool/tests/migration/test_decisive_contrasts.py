@@ -37,13 +37,19 @@ MOP_CONTRAST_KEYS = {
 
 @pytest.fixture(scope="session")
 def plans(ape_repo):
-    """Each decisive-run arm's effective configuration, keyed by arm name."""
+    """The effective configuration of each decisive-run and distance arm, by name."""
     presets = load_presets(ape_repo)
     key_specs = load_key_specs(ape_repo)
     variants = ApeRVTool.get_variants()
     return {
         name: regenerate(variants[name], presets, key_specs)
-        for name in ("mop_on_llm_off", "mop_off_llm_off", "mop_on_llm_70")
+        for name in (
+            "mop_on_llm_off",
+            "mop_off_llm_off",
+            "mop_on_llm_70",
+            "mopd_on_llm_off",
+            "mopd_on_llm_90",
+        )
     }
 
 
@@ -56,6 +62,24 @@ def _differing(left, right):
 
 
 class TestSingleFactorContrasts:
+    def test_distance_arm_differs_from_the_reference_only_in_the_scoring_mode(
+        self, plans
+    ):
+        # gh122, spec scenario "Distance arm differs from the reference only in the
+        # scoring mode". The reference states no mode, so it resolves to the jar
+        # default.
+        assert _differing(plans["mop_on_llm_off"], plans["mopd_on_llm_off"]) == {
+            "ape.mopScoring"
+        }
+        assert plans["mop_on_llm_off"]["ape.mopScoring"] == "flag"
+        assert plans["mopd_on_llm_off"]["ape.mopScoring"] == "distance"
+
+    def test_the_two_distance_arms_differ_only_in_llm_keys(self, plans):
+        differing = _differing(plans["mopd_on_llm_off"], plans["mopd_on_llm_90"])
+
+        assert differing
+        assert all(key.startswith("ape.llm") for key in differing), sorted(differing)
+
     def test_reference_and_control_differ_exactly_in_the_mop_keys(self, plans):
         # RQ-C1. Anything else moving here would mean the control removed more than MOP
         # guidance, and the measured difference would no longer be attributable to it.
