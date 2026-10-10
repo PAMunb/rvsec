@@ -1,0 +1,16 @@
+app.pachli_50.apk
+com.a4a.g8invoicing_50.apk
+com.craxiom.networksurvey_114.apk
+com.faltenreich.diaguard_68.apk
+com.github.livingwithhippos.unchained_60.apk
+com.kylecorry.trail_sense_145.apk
+com.ominous.quickweather_112.apk
+com.serwylo.retrowars_70.apk
+com.vermont.possin_8.apk
+dev.dettmer.simplenotes_41.apk
+eu.opencloud.android_9.apk
+jwtc.android.chess_283.apk
+net.gaast.giggity_769.apk
+org.fossify.math_10.apk
+org.liberty.android.fantastischmemo_241.apk
+org.wikipedia_50595.apk

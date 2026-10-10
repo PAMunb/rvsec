@@ -1,0 +1,171 @@
+# Comparacao 'e03mini' — gerado por rv-experiment-compare.
+# Tools: ape,aperv:mop_off_llm_off,aperv:mop_on_llm_off,aperv:mopd_on_llm_off
+# 10 containers, timeouts [300]s, 3 reps, specs jca_android.
+# Dataset: e6-corpus do rep pack (163 .apk + .apk.json compacto, read-only), re-instrumentado pela
+# change reinstrument-corpus (carimbo gh124, JSON gh125). Nao dar up antes de o rep pack monta-lo:
+# sem a pasta, o docker a cria vazia, como root, dentro do rep pack.
+# Imagem: phtcosta/rvandroid@sha256:7ea5a6f59d248934fbd096c068d2f6e57588fdb0e7fb673e163290f65767886f
+# (0.9.5 de 10/10, rvsec 753533d8, ape eea2b1a), passada em E03MINI_IMAGE, que e' obrigatoria.
+# Plano: docs/20261009_e03mini.md
+# Uso:
+#   export E03MINI_IMAGE=phtcosta/rvandroid@sha256:7ea5a6f59d248934fbd096c068d2f6e57588fdb0e7fb673e163290f65767886f
+#   docker compose -f docker/docker-compose.e03mini.yml up -d
+#   .claude/skills/rv-experiment-compare/scripts/monitor_compare.sh e03mini
+#   # passada de resume final ao terminar: re-rodar o up -d (recupera FAILED transientes)
+#   # NAO dar 'down' antes de extrair traces (artefatos efemeros no device)
+
+x-rvandroid: &rvandroid-base
+  image: ${E03MINI_IMAGE:?defina E03MINI_IMAGE=phtcosta/rvandroid@sha256:7ea5a6f5... depois que o rep pack montar o e6-corpus novo}
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,aperv:mop_off_llm_off,aperv:mop_on_llm_off,aperv:mopd_on_llm_off"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "3"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca_android"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  # restart "no": um container on-failure voltou no boot em 05/10 e sobrescreveu
+  # brutos do E6. Container que sair (OOM 137) e' religado a mao com docker start;
+  # o resume por RV_EXPERIMENT_NAME pula as COMPLETED.
+  restart: "no"
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  e03mini_00:
+    <<: *rvandroid-base
+    container_name: e03mini_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_00:/opt/rvsec/rv-android/results
+
+  e03mini_01:
+    <<: *rvandroid-base
+    container_name: e03mini_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_01:/opt/rvsec/rv-android/results
+
+  e03mini_02:
+    <<: *rvandroid-base
+    container_name: e03mini_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_02:/opt/rvsec/rv-android/results
+
+  e03mini_03:
+    <<: *rvandroid-base
+    container_name: e03mini_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_03:/opt/rvsec/rv-android/results
+
+  e03mini_04:
+    <<: *rvandroid-base
+    container_name: e03mini_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_04:/opt/rvsec/rv-android/results
+
+  e03mini_05:
+    <<: *rvandroid-base
+    container_name: e03mini_05
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_05
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_05.txt"
+      RV_DELAY: "50"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_05:/opt/rvsec/rv-android/results
+
+  e03mini_06:
+    <<: *rvandroid-base
+    container_name: e03mini_06
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_06
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_06.txt"
+      RV_DELAY: "60"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_06:/opt/rvsec/rv-android/results
+
+  e03mini_07:
+    <<: *rvandroid-base
+    container_name: e03mini_07
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_07
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_07.txt"
+      RV_DELAY: "70"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_07:/opt/rvsec/rv-android/results
+
+  e03mini_08:
+    <<: *rvandroid-base
+    container_name: e03mini_08
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_08
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_08.txt"
+      RV_DELAY: "80"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_08:/opt/rvsec/rv-android/results
+
+  e03mini_09:
+    <<: *rvandroid-base
+    container_name: e03mini_09
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini_09
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_09.txt"
+      RV_DELAY: "90"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini_09:/opt/rvsec/rv-android/results

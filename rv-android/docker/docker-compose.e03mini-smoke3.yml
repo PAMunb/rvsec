@@ -1,0 +1,100 @@
+# Smoke 'e03mini-smoke3' — rodada 3 do portao da e03mini (10/10), derivado do compose da rodada 2.
+# Mesmos 5 APKs e filtros (data/e03mini-smoke_filters), 4 bracos, 1 rep, 300 s, jca_android.
+# Muda: imagem 7ea5a6f5 (rvsec 753533d8: gh123-gh125; ape eea2b1a) e o e6-corpus re-instrumentado
+# pela change reinstrument-corpus do rep pack (carimbo gh124, .apk.json compacto gh125).
+# Nomes e pastas novos (e03mini-smoke3_NN) para o resume nao pular as COMPLETED da rodada 2.
+# Nao dar up antes de o rep pack montar o e6-corpus: sem a pasta, o docker a cria vazia, como root.
+# Plano: docs/20261009_e03mini-smoke.md, secao "Rodada 3".
+# Uso:
+#   export E03MINI_IMAGE=phtcosta/rvandroid@sha256:7ea5a6f59d248934fbd096c068d2f6e57588fdb0e7fb673e163290f65767886f
+#   docker compose -f docker/docker-compose.e03mini-smoke3.yml up -d
+#   python3 data/e03mini_gates/smoke_gates.py data/results/e03mini-smoke3_0{0,1,2,3,4}
+
+x-rvandroid: &rvandroid-base
+  image: ${E03MINI_IMAGE:?defina E03MINI_IMAGE=phtcosta/rvandroid@sha256:7ea5a6f5... depois que o rep pack montar o e6-corpus novo}
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,aperv:mop_off_llm_off,aperv:mop_on_llm_off,aperv:mopd_on_llm_off"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca_android"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  # restart "no": o smoke mede justamente quem morre por OOM (sdmse); nada religa sozinho.
+  restart: "no"
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  e03mini-smoke3_00:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke3_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke3_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke3_00:/opt/rvsec/rv-android/results
+
+  e03mini-smoke3_01:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke3_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke3_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke3_01:/opt/rvsec/rv-android/results
+
+  e03mini-smoke3_02:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke3_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke3_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke3_02:/opt/rvsec/rv-android/results
+
+  e03mini-smoke3_03:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke3_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke3_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke3_03:/opt/rvsec/rv-android/results
+
+  e03mini-smoke3_04:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke3_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke3_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke3_04:/opt/rvsec/rv-android/results

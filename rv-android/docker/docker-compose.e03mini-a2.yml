@@ -1,0 +1,52 @@
+# Achado 2 (Compose stamp) — A/B no dispositivo: mesmos APKs instrumentados pelo instr-cli do repo
+# (control) e por uma cópia cujo RvsecStamp lê f$0 quando a lambda não tem this$0 (patched).
+# Instrumentação: data/e03mini_a2/instrument_ab.py. Braços: flag e distance, 1 rep, 300 s.
+#   docker compose -f docker/docker-compose.e03mini-a2.yml up -d
+
+x-rvandroid: &rvandroid-base
+  image: ${E03MINI_IMAGE:?set E03MINI_IMAGE=phtcosta/rvandroid:0.9.5}
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:mop_on_llm_off,aperv:mopd_on_llm_off"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca_android"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch.txt"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  restart: "no"
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  e03mini-a2_control:
+    <<: *rvandroid-base
+    container_name: e03mini-a2_control
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-a2_control
+      RV_DELAY: "0"
+    volumes:
+      - ../data/e03mini_a2/control/apks:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_a2/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-a2_control:/opt/rvsec/rv-android/results
+
+  e03mini-a2_patched:
+    <<: *rvandroid-base
+    container_name: e03mini-a2_patched
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-a2_patched
+      RV_DELAY: "10"
+    volumes:
+      - ../data/e03mini_a2/patched/apks:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini_a2/filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-a2_patched:/opt/rvsec/rv-android/results

@@ -1,0 +1,98 @@
+# Comparacao 'e03mini-smoke' — gerado por rv-experiment-compare.
+# Tools: ape,aperv:mop_off_llm_off,aperv:mop_on_llm_off,aperv:mopd_on_llm_off
+# 5 containers, timeouts [300]s, 1 reps, specs jca_android.
+# Plano: docs/20261009_e03mini-smoke.md
+# Uso:
+#   docker compose -f docker/docker-compose.e03mini-smoke.yml up -d
+#   .claude/skills/rv-experiment-compare/scripts/monitor_compare.sh e03mini-smoke
+#   # passada de resume final ao terminar: re-rodar o up -d (recupera FAILED transientes)
+#   # NAO dar 'down' antes de extrair traces (artefatos efemeros no device)
+
+x-rvandroid: &rvandroid-base
+  image: phtcosta/rvandroid:0.9.5
+  environment: &rvandroid-env
+    RV_TOOLS: "ape,aperv:mop_off_llm_off,aperv:mop_on_llm_off,aperv:mopd_on_llm_off"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca_android"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  # restart "no": o smoke mede justamente quem morre por OOM (sdmse); nada religa sozinho.
+  restart: "no"
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  e03mini-smoke_00:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke_00
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke_00
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_00.txt"
+      RV_DELAY: "0"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke_00:/opt/rvsec/rv-android/results
+
+  e03mini-smoke_01:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke_01
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke_01
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_01.txt"
+      RV_DELAY: "10"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke_01:/opt/rvsec/rv-android/results
+
+  e03mini-smoke_02:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke_02
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke_02
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_02.txt"
+      RV_DELAY: "20"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke_02:/opt/rvsec/rv-android/results
+
+  e03mini-smoke_03:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke_03
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke_03
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_03.txt"
+      RV_DELAY: "30"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke_03:/opt/rvsec/rv-android/results
+
+  e03mini-smoke_04:
+    <<: *rvandroid-base
+    container_name: e03mini-smoke_04
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: e03mini-smoke_04
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/batch_04.txt"
+      RV_DELAY: "40"
+    volumes:
+      - /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro
+      - ../data/e03mini-smoke_filters:/opt/rvsec/rv-android/filters:ro
+      - ../data/results/e03mini-smoke_04:/opt/rvsec/rv-android/results
