@@ -110,8 +110,8 @@ Skip when Step 0 found uncommitted changes. Otherwise create (or delete + create
 
 | # | Type | Edge | Severity | Notes |
 |---|------|------|----------|-------|
-| 1 | Undeclared (lazy) | rv-platform → aperv-tool | Medium | guarded registration in `rv_platform/__init__.py` |
-| 2 | SDP | rvagent-tool (0.75) → rv-agent (0.80) | Low | |
+| 1 | Undeclared (lazy) | aperv-tool → rv-coverage | Medium | opt-in diagnostics in `aperv_tool/analysis/step_bundle.py`; degrades to "not read" without rv-coverage, recorded as deliberate |
+| 2 | SDP | rvagent-tool (0.67) → rv-agent (0.75) | Low | |
 
 ### Coupling Beyond Imports
 

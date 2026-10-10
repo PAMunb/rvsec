@@ -39,7 +39,7 @@ rv-agent passes `state["xml"]` and `state["current_activity"]` straight to rv-sc
 Timing, retry and quality constants tuned for headless (SwiftShader) emulators: `WAIT_FOR_IDLE_TIMEOUT` (5.0 s, applied as `device.settings["wait_timeout"]` on connect), `ACTION_EXECUTION_DELAY` (0.3 s), `DEFAULT_SWIPE_DURATION` (0.25 s), `MAX_RETRY_ATTEMPTS` (3). Two are contract-relevant: `DEFAULT_DEVICE_ID` (`"emulator-5554"`) and `SCREEN_HASH_LENGTH` (16, tied to `compute_screen_hash`).
 
 ## Dependencies
-- **Internal**: `rv-android-core` (`ErrorHandler`, `LoggingManager`, `WidgetEventType`). `rv-screen-parser` is declared in `pyproject.toml` but not imported.
+- **Internal**: `rv-android-core` (`ErrorHandler`, `LoggingManager`, `WidgetEventType`), the only workspace dependency. Turning a dump into a `ScreenDescription` is left to the caller (rv-agent hands the XML to rv-screen-parser itself), so this module needs no parser.
 - **External**: `uiautomator2`, `pillow`, `pydantic`.
 - **Dependents**: rv-agent (`agent/device_interface.py`).
 

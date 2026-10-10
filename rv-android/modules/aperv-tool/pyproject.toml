@@ -7,7 +7,6 @@ authors = [{name = "RV-Android Team"}]
 requires-python = ">=3.12"
 dependencies = [
     "rv-android-core",
-    "rv-tools",
     # The analysis layer's tidy carrier, numerics and estimator stack. Declared
     # here rather than inherited transitively from a sibling module: the
     # campaign analysis is a first-class consumer of these versions, and a
@@ -33,7 +32,6 @@ dev = [
 
 [tool.uv.sources]
 rv-android-core = { workspace = true }
-rv-tools = { workspace = true }
 
 [tool.pytest.ini_options]
 addopts = "--cov=src"

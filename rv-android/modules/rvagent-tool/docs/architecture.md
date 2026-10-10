@@ -2,7 +2,7 @@
 
 ## Overview
 
-rvagent-tool is a thin adapter module that wraps rv-agent as an `AbstractTool` for integration with rv-platform's task execution framework. It bridges two subsystems: rv-platform (which manages emulators, APK installation, static analysis, and tool dispatch) and rv-agent (which performs LLM-driven Android UI exploration). The module contains a single tool implementation (`RVAgentTool`), a configuration mapper (`config.py`), and the plugin entry point that enables auto-discovery by rv-tools.
+rvagent-tool is a thin adapter module that wraps rv-agent as an `AbstractTool` for integration with rv-platform's task execution framework. It bridges two subsystems: rv-platform (which manages emulators, APK installation, static analysis, and tool dispatch) and rv-agent (which performs LLM-driven Android UI exploration). The module contains a single tool implementation (`RVAgentTool`), a configuration mapper (`config.py`), and the package that rv-platform imports at startup to register `RVAgentTool` in rv-tools' `ToolRegistry` (`rv_platform/__init__.py`). rvagent-tool itself does not import rv-tools.
 
 ## Specification Alignment
 
@@ -36,16 +36,16 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Application Type | Library (plugin) | Registered as an entry point plugin; no standalone CLI |
+| Application Type | Library (plugin) | Registered by rv-platform at import time; no standalone CLI |
 | Structuring | Single-class adapter | Only one tool to wrap; additional structure would violate P1 (simplicity) |
 | Primary Pattern | Adapter | Translates rv-platform's `Task`/`App` interface to rv-agent's `RVAgentConfig`/`AgentFactory` interface |
 | Control Strategy | Call-based (template method) | `AbstractTool.execute()` calls `execute_tool_specific_logic()` following the template method pattern |
-| Import Strategy | Lazy imports in `execute_tool_specific_logic()` | Avoids circular dependencies at registration time (rv-tools -> rvagent-tool -> rv-agent) |
+| Import Strategy | Lazy imports in `execute_tool_specific_logic()` | Keeps rv-agent's import cost out of registration time (rv-platform -> rvagent-tool, with rv-agent loaded only when the tool executes) |
 | Timeout Ownership | Task controls timeout, not variants | Keeps execution timeout uniform across all tools; prevents variant misconfiguration |
 
 ### Why Lazy Imports?
 
-rvagent-tool registers itself with the `ToolRegistry` at import time (when rv-platform starts). At that point, rv-agent's heavy dependencies (LangGraph, LangChain, PIL, scipy) would be loaded even for experiments that use Monkey or DroidBot. Lazy imports in `execute_tool_specific_logic()` defer this cost to execution time, when rv-agent is actually needed. This also breaks a potential circular dependency chain: rv-tools depends on rv-android-core, rvagent-tool depends on rv-tools, and rv-agent depends on rv-android-core -- eagerly importing rv-agent at registration time would pull in the full dependency graph before the registry is ready.
+rv-platform registers `RVAgentTool` with the `ToolRegistry` at import time (when rv-platform starts). At that point, rv-agent's heavy dependencies (LangGraph, LangChain, PIL, scipy) would be loaded even for experiments that use Monkey or DroidBot. Lazy imports in `execute_tool_specific_logic()` defer this cost to execution time, when rv-agent is actually needed. The laziness is about cost, not about a cycle: rvagent-tool depends on rv-android-core and rv-agent, and neither of those imports rv-platform, rv-tools or rvagent-tool, so an eager import would be slower but still acyclic.
 
 ### Why Task Controls Timeout?
 
@@ -166,7 +166,7 @@ rvagent-tool/
 │   └── unit/
 │       ├── __init__.py
 │       └── test_tool.py             # Unit tests for tool and config
-└── pyproject.toml                   # Dependencies: rv-android-core, rv-agent, rv-tools
+└── pyproject.toml                   # Dependencies: rv-android-core, rv-agent
 ```
 
 ### Package Dependencies
@@ -177,7 +177,6 @@ flowchart TB
     subgraph External["External Modules"]
         Core["rv-android-core\n(AbstractTool, ToolSpec,\nTask, App, ErrorHandler)"]
         Agent["rv-agent\n(AgentFactory, RVAgentConfig)"]
-        Tools["rv-tools\n(plugin entry point)"]
     end
 
     subgraph Module["rvagent-tool"]
@@ -189,7 +188,6 @@ flowchart TB
     ToolPy --> ConfigPy
     ToolPy -.->|"lazy import"| Agent
     ConfigPy --> Core
-    Module -.->|"entry point plugin"| Tools
 ```
 
 ---
@@ -245,7 +243,7 @@ sequenceDiagram
 - `RVAgentTool`: The tool implementation. Defines 5 variants, delegates execution to `AgentFactory`.
 
 **Design Notes**:
-- Uses lazy imports of `rv_agent.agent.agent_factory` and `rv_agent.config.agent_config` inside `execute_tool_specific_logic()` to break circular dependency chains at registration time.
+- Uses lazy imports of `rv_agent.agent.agent_factory` and `rv_agent.config.agent_config` inside `execute_tool_specific_logic()` to keep rv-agent's import cost out of registration time.
 - `process_pattern=""` because rv-agent uses UIAutomator2 for device interaction, which manages its own process lifecycle.
 - `ErrorHandler.handle_errors` decorator on `execute_tool_specific_logic()` provides consistent error reporting with component and phase context.
 
@@ -463,7 +461,8 @@ When static analysis is unavailable (e.g., `RVSEC_HOME` not set), `get_static_da
 |--------|---------|
 | rv-android-core | `AbstractTool`, `ToolSpec`, `Task`, `App`, `ErrorHandler`, `LoggingManager` |
 | rv-agent | `AgentFactory` and `RVAgentConfig` (lazy imported at execution time) |
-| rv-tools | Plugin entry point system for tool auto-discovery |
+
+rvagent-tool does not depend on rv-tools. rv-platform imports `RVAgentTool` and registers it in rv-tools' `ToolRegistry` (`rv_platform/__init__.py`), so the tool and the registry meet in rv-platform, which depends on both.
 
 ### External
 

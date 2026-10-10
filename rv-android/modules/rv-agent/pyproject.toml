@@ -29,7 +29,6 @@ dependencies = [
     "rv-android-core",
     "rv-screen-parser",
     "rv-uiautomator",
-    "rv-static-analysis",
 ]
 
 [project.scripts]
@@ -40,6 +39,7 @@ dev = [
     "pytest>=8.0.0",
     "pytest-cov>=7.0.0",
     "hypothesis>=6.100.2",
+    "rv-static-analysis",
 ]
 
 [tool.uv.sources]

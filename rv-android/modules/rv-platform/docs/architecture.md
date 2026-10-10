@@ -710,6 +710,7 @@ classDiagram
 | rv-coverage | CoverageTracker for real-time method coverage tracking; `parse_logcat_file()` for MOP violation reconstruction on resume |
 | rv-static-analysis | `static_analysis_parser` for loading GATOR/GESDA/REACH data files |
 | rvagent-tool | RVAgentTool registered at import time via `__init__.py` (runtime discovery only) |
+| aperv-tool | ApeRVTool registered at import time via `__init__.py` (runtime discovery only) |
 
 ### External
 

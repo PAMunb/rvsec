@@ -211,7 +211,9 @@ to `AgentFactory.create_agent`.
 - `rv-android-core` — `StaticAnalysisData`, `WidgetEventType`, WTG/window/component models, `ConfigurationError`, `LoggingManager`.
 - `rv-screen-parser` — `ParserFactory`, `ScreenDescription`/`ItemAction`, `DefaultTextVisitor` (base of `RVAgentVisitor`), `ErrorDetector`.
 - `rv-uiautomator` — `UIAutomator2Adapter` only.
-- `rv-static-analysis` — declared, never imported; static data arrives as an already-parsed `StaticAnalysisData` object.
+
+**Internal, tests only** (`[dependency-groups] dev`):
+- `rv-static-analysis` — imported by six test files (`tests/unit/test_gh77_mop_reach.py`, `test_rvagent_visitor.py`, `test_transition_manager.py`, `test_navigation_guidance.py`, `tests/online/test_static_analysis.py`, `tests/online/conftest.py`) to build `StaticAnalysisData` from static-analysis documents (`parse_file`, `StaticAnalysisLoader`). No `src/` file imports it: at run time static data arrives as an already-parsed `StaticAnalysisData` object.
 
 **External (used)**: `langgraph`, `langchain-core`, `langchain-openai`, `pydantic`, `pillow`,
 `faker`, `click`.

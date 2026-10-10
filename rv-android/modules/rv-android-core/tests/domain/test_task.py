@@ -1,7 +1,7 @@
 # tests/domain/test_task.py
 import time
 from datetime import datetime
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from hypothesis import given
 from hypothesis import strategies as st
@@ -464,6 +464,12 @@ class TestTask:
 
         assert task.id == custom_id
 
+    def test_new_task_starts_without_repository(self):
+        """A new Task starts with repository None. Resume relies on it:
+        ResultProcessorComponent reconstructs the repository from the logcat
+        only when task.repository is falsy."""
+        assert Task(config=_make_config()).repository is None
+
     def test_set_app(self):
         """Test setting app for task"""
         tool_config = ToolConfig(name="monkey")
@@ -848,176 +854,6 @@ class TestTaskResultFromDict:
 
         assert isinstance(result, TaskResult)
         assert result.state == TaskState.CREATED
-
-
-class TestTaskRepositoryDelegation:
-    """Cover add_error / add_method_call repository delegation (582-611)."""
-
-    def test_add_error_without_repository_does_not_crash(self):
-        """Default task has repository None at runtime; add_error is a no-op."""
-        task = Task(config=_make_config())
-        assert task.repository is None
-
-        task.add_error(MagicMock())  # must not raise
-
-    def test_add_error_registers_on_injected_repository(self):
-        """With an injected repository, add_error delegates once (line 590)."""
-        task = Task(config=_make_config())
-        task.repository = MagicMock()
-        error = MagicMock()
-
-        task.add_error(error)
-
-        task.repository.register_rv_error.assert_called_once_with(error)
-
-    def test_add_method_call_without_repository_does_not_crash(self):
-        """Default task has repository None; add_method_call is a no-op."""
-        task = Task(config=_make_config())
-        assert task.repository is None
-
-        task.add_method_call(MagicMock())  # must not raise
-
-    def test_add_method_call_registers_on_injected_repository(self):
-        """With an injected repository, add_method_call delegates once (line 611)."""
-        task = Task(config=_make_config())
-        task.repository = MagicMock()
-        coverage_log = MagicMock()
-
-        task.add_method_call(coverage_log)
-
-        task.repository.register_method_call.assert_called_once_with(coverage_log)
-
-
-class TestTaskUpdateCoverage:
-    """Cover Task.update_coverage guard and success paths (617-658)."""
-
-    def test_update_coverage_guard_skips_without_repository(self):
-        """Guard: no repository and no static_data -> warning, no metrics set."""
-        task = Task(config=_make_config())
-        assert task.repository is None
-        assert task.static_data is None
-
-        task.update_coverage()
-
-        assert task.result.coverage_metrics == {}
-
-    def test_update_coverage_populates_metrics(self):
-        """Happy path: metrics from the repository are mapped into the result.
-
-        Exercises calculate_metrics -> to_dict -> coverage_metrics.update and
-        the logging summary (627-658).
-        """
-        task = Task(config=_make_config())
-        metrics = MagicMock()
-        metrics.to_dict.return_value = {
-            "method_coverage": 10.0,
-            "activity_coverage": 20.0,
-            "mop_method_coverage": 30.0,
-            "unique_errors": 2,
-            "called_methods": 5,
-        }
-        task.repository = MagicMock()
-        task.repository.calculate_metrics.return_value = metrics
-        task.static_data = MagicMock()
-
-        task.update_coverage()
-
-        cm = task.result.coverage_metrics
-        assert cm["method_coverage"] == 10.0
-        assert cm["activities_coverage"] == 20.0
-        assert cm["methods_mop_reachable_coverage"] == 30.0
-        assert cm["total_errors"] == 2
-        assert cm["total_method_calls"] == 5
-
-
-class TestTaskGetRepository:
-    """Cover Task.get_repository across its branches (667-707)."""
-
-    def test_returns_existing_repository(self):
-        """Early return: an already-present repository is returned as-is (707)."""
-        task = Task(config=_make_config())
-        repo = MagicMock()
-        task.repository = repo
-
-        assert task.get_repository() is repo
-
-    def test_returns_none_when_no_logcat_file(self):
-        """Guard False path: repository None and empty logcat_file -> None (671/677)."""
-        task = Task(config=_make_config())
-        task.repository = None
-        task.result.logcat_file = ""
-
-        assert task.get_repository() is None
-
-    def test_parses_logcat_file_when_present(self):
-        """Happy path: an existing logcat file is parsed into the repository.
-
-        Patches os.path.exists (task namespace) and the logcat parser to avoid
-        touching the real filesystem (lines 682-693).
-        """
-        task = Task(config=_make_config())
-        task.repository = None
-        task.static_data = MagicMock()
-        task.result.logcat_file = "/fake/x.logcat"
-
-        parsed_repo = MagicMock()
-        with patch(
-            "rv_android_core.domain.task.os.path.exists", return_value=True
-        ), patch(
-            "rv_coverage.parser.log.logcat_parser.parse_logcat_file",
-            return_value=parsed_repo,
-        ) as parse:
-            result = task.get_repository()
-
-        assert result is parsed_repo
-        # The recorded scope key travels with the artefact: it classifies crossing
-        # discards by scope (INV-CORE-60) and is never re-derived (INV-ANA-58).
-        parse.assert_called_once_with(
-            "/fake/x.logcat",
-            task.static_data,
-            scope_key=getattr(task.static_data, "code_package", None),
-        )
-
-    def test_parses_logcat_file_falls_back_without_static_data(self):
-        """Error path: first parse raises, fallback parse succeeds (694-705)."""
-        task = Task(config=_make_config())
-        task.repository = None
-        task.static_data = MagicMock()
-        task.result.logcat_file = "/fake/x.logcat"
-
-        fallback_repo = MagicMock()
-        with patch(
-            "rv_android_core.domain.task.os.path.exists", return_value=True
-        ), patch(
-            "rv_coverage.parser.log.logcat_parser.parse_logcat_file",
-            side_effect=[Exception("boom"), fallback_repo],
-        ) as parse:
-            result = task.get_repository()
-
-        assert result is fallback_repo
-        assert parse.call_count == 2
-
-    def test_parses_logcat_file_both_attempts_fail(self):
-        """Error path: both the primary and fallback parses raise (702-703).
-
-        get_repository must not propagate; the repository stays as whatever the
-        creation branch left it (None at runtime).
-        """
-        task = Task(config=_make_config())
-        task.repository = None
-        task.static_data = MagicMock()
-        task.result.logcat_file = "/fake/x.logcat"
-
-        with patch(
-            "rv_android_core.domain.task.os.path.exists", return_value=True
-        ), patch(
-            "rv_coverage.parser.log.logcat_parser.parse_logcat_file",
-            side_effect=[Exception("boom"), Exception("boom-again")],
-        ) as parse:
-            result = task.get_repository()
-
-        assert result is None
-        assert parse.call_count == 2
 
 
 class TestTaskUpdateStateCanceled:

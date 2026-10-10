@@ -9,8 +9,8 @@ a relation by strength, distance and volatility.
 ## Layers and Allowed Matrix
 
 The layers are derived from the `[project].dependencies` of each `modules/*/pyproject.toml`
-and the module map in the root `CLAUDE.md`. A module sits one layer above the highest module
-it is allowed to depend on.
+and the module map in the root `CLAUDE.md`. A module sits above every module it is allowed to
+depend on; layers group modules by role.
 
 ```
 L0 Foundation       rv-android-core
@@ -36,15 +36,15 @@ not in its module's row is a **violation**.
 | rv-coverage | rv-android-core | |
 | rv-monitor-generator | rv-android-core | |
 | rv-instrumentation-core | rv-android-core | `Instrumenter` ABC + result types; no variant deps, so no cycle |
-| rv-uiautomator | rv-android-core, rv-screen-parser | |
+| rv-uiautomator | rv-android-core | Device adapter only; the caller (rv-agent) parses the dump with rv-screen-parser |
 | rv-instrumentation-ajc | rv-android-core, rv-instrumentation-core | Variant knows only the core ABC |
 | rv-instrumentation-dexlib2 | rv-android-core, rv-instrumentation-core | Variant knows only the core ABC |
 | rv-instrumentation | rv-instrumentation-core, rv-instrumentation-ajc, rv-instrumentation-dexlib2 | `get_instrumenter()` factory, re-exports the core API |
-| rv-agent | rv-android-core, rv-screen-parser, rv-uiautomator, rv-static-analysis | |
-| rvagent-tool | rv-android-core, rv-tools, rv-agent | Plugin wrapping rv-agent |
-| aperv-tool | rv-android-core, rv-tools | Plugin wrapping `ape-rv.jar` |
+| rv-agent | rv-android-core, rv-screen-parser, rv-uiautomator | rv-static-analysis only from tests, through `[dependency-groups] dev`; `src/` receives static data already parsed as `StaticAnalysisData` |
+| rvagent-tool | rv-android-core, rv-agent | Plugin wrapping rv-agent; subclasses `AbstractTool` from the core, so it needs no rv-tools edge (rv-platform registers it) |
+| aperv-tool | rv-android-core, rv-coverage (lazy, undeclared) | Plugin wrapping `ape-rv.jar`; no rv-tools edge, for the same reason as rvagent-tool. The `rv_coverage` import in `analysis/step_bundle.py` is lazy and deliberately undeclared: it feeds an opt-in diagnostic stream that degrades to "not read" without rv-coverage, so the script reports it as undeclared and that finding is expected |
 | rv-platform | rv-android-core, rv-tools, rv-coverage, rv-static-analysis, rvagent-tool, aperv-tool | Registers the plugins at import (`rv_platform/__init__.py`) |
-| rv-experiment | rv-android-core, rv-tools, rv-coverage, rv-static-analysis, rv-screen-parser, rv-monitor-generator, rv-instrumentation, rv-instrumentation-ajc, rv-instrumentation-dexlib2, rv-platform | Pre-processing drives generation + instrumentation; reads the variant configs directly |
+| rv-experiment | rv-android-core, rv-tools, rv-static-analysis, rv-monitor-generator, rv-instrumentation, rv-instrumentation-ajc, rv-instrumentation-dexlib2, rv-platform | Pre-processing drives generation + instrumentation; reads the variant configs directly |
 | aperv-llm-validation | rv-android-core | Temporary; excluded from findings unless asked |
 
 When a pyproject legitimately gains a dependency, update this table in the same change.

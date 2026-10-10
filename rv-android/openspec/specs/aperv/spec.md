@@ -6,7 +6,9 @@
 
 The tool runs on the Android device using the `app_process` execution model. The JAR is pushed to `/data/local/tmp/ape-rv.jar` via ADB, and execution is launched via `adb shell CLASSPATH=... /system/bin/app_process /system/bin com.android.commands.monkey.Monkey`. This execution model is necessary because APE requires internal Android APIs (`android.app.UiAutomationConnection`, `android.hardware.display.DisplayManagerGlobal`) that are inaccessible from the host via `adb shell monkey`.
 
-The module is an optional uv workspace member, auto-discovered by `members = ["modules/*"]` in the root `pyproject.toml`. If not installed, rv-platform's `_register_external_tools()` catches the `ImportError` and logs a warning, allowing the platform to function normally with other tools.
+The module is a uv workspace member, auto-discovered by `members = ["modules/*"]` in the root `pyproject.toml`. rv-platform declares `aperv-tool` as a dependency, because its `_register_external_tools()` imports the module (`tools` INV-TOOL-26). The only workspace dependency of `aperv-tool` is `rv-android-core`, which provides `AbstractTool` and `ToolSpec`. The `ImportError` guard in `_register_external_tools()` covers a module that is present but fails to import: rv-platform logs a warning and keeps working with the other tools, and the `aperv` arm is absent from the registry.
+
+The lazy import of `rv_coverage.parser.log.diagnostic_parser` in `aperv_tool/analysis/step_bundle.py` is not declared, on purpose. The diagnostic stream is opt-in on the capture side (`RV_LOGCAT_DIAGNOSTICS`), and a missing parser degrades to "not read" instead of breaking every bundle.
 
 Coverage metrics (method calls, MOP violations) are collected by the rv-android Python infrastructure via logcat `RVSEC-COV` tags -- the same pipeline used by all other tools. No special output parsing is required.
 
@@ -27,7 +29,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - **rv-platform**: Consumes `ApeRVTool` via `ToolFactory.create_tool()` in `ToolExecutionComponent`. Registration via `_register_external_tools()`.
 - **rv-experiment**: Orchestrates experiments using `aperv` tool variants. APK instrumentation and static analysis happen in pre-processing; `aperv-tool` receives the instrumented APK already installed on the emulator.
 - **rv-static-analysis**: Produces the full static-analysis JSON that MOP variants derive from. It maps activities to widgets with MOP reachability flags and includes component data for triggering, and it remains the host-side source of truth: `aperv-tool` reads it, never writes to it, and projects it into the compact artifact the device receives. It also stays the sole input to offline metrics, which read the full document rather than the projection (`analysis` INV-ANA-53, INV-ANA-54).
-- **rv-tools**: Provides `AbstractTool` base class, `ToolSpec`, `ToolRegistry`, and `ToolFactory` infrastructure.
+- **rv-tools**: Holds the `ToolRegistry` and `ToolFactory` that register and instantiate `ApeRVTool`, reached through rv-platform. `aperv-tool` imports nothing from rv-tools and does not declare it: `ApeRVTool` subclasses `AbstractTool` and uses `ToolSpec` from rv-android-core (`rv_android_core.tools.abstract_tool`).
 - **builtin ape tool**: Shares `process_pattern` (`com.android.commands.monkey`). The two tools must not run concurrently on the same device.
 
 ## Data Contracts
@@ -276,15 +278,17 @@ which the sibling `ape` change already references by number.
 
 ### Requirement: ApeRVTool Registration (FR18, FR19)
 
-`ApeRVTool` SHALL be registered as an external tool via rv-platform's `_register_external_tools()` function in `rv_platform/__init__.py`. Registration SHALL be idempotent: the function MUST check `registry.is_tool_registered("aperv")` before calling `registry.register_tool_class(ApeRVTool)`. If `aperv-tool` is not installed, the resulting `ImportError` SHALL be caught and logged as a warning; the platform SHALL continue operating normally. An unexpected exception during registration SHALL be logged as an error and SHALL NOT propagate.
+`ApeRVTool` SHALL be registered as an external tool via rv-platform's `_register_external_tools()` function in `rv_platform/__init__.py`. `modules/rv-platform/pyproject.toml` SHALL declare `aperv-tool` in `dependencies` and as a workspace source in `[tool.uv.sources]`, as it declares `rvagent-tool` (`tools` INV-TOOL-26). Registration SHALL be idempotent: the function MUST check `registry.is_tool_registered("aperv")` before calling `registry.register_tool_class(ApeRVTool)`. If importing `aperv_tool.tools.aperv.tool` raises `ImportError`, the error SHALL be caught and logged as a warning, and the platform SHALL continue operating normally. An unexpected exception during registration SHALL be logged as an error and SHALL NOT propagate.
+
+With the dependency declared, an `ImportError` no longer means the module was left out of the install. It means the module is present and its import failed, for example because one of its own imports broke. The guard keeps rv-platform importable in that case. The `aperv` arm is then absent from the registry. `rv-experiment` rejects it in `ExperimentConfig.validate()` before pre-processing, with `ConfigurationError("Tool 'aperv' not found in registry...")`. `rv-platform run` fails each `aperv` task in `ToolFactory.create_tool`.
 
 #### Scenario: ApeRVTool registers on rv-platform import
-- **WHEN** `import rv_platform` is executed and `aperv-tool` is installed
+- **WHEN** `import rv_platform` is executed in the workspace `.venv`
 - **THEN** `ToolRegistry.get_instance().is_tool_registered("aperv")` SHALL return True
 - **AND** `ToolRegistry.get_instance().get_tool_spec("aperv").name` SHALL be `"aperv"`
 
 #### Scenario: Missing aperv-tool does not break rv-platform
-- **WHEN** `import rv_platform` is executed and `aperv-tool` is NOT installed
+- **WHEN** `import rv_platform` is executed and importing `aperv_tool.tools.aperv.tool` raises `ImportError` (the module is declared, so this is a broken import rather than a missing install)
 - **THEN** rv-platform SHALL import successfully
 - **AND** a warning log line SHALL be written containing `"aperv tool not available"`
 - **AND** `ToolRegistry.get_instance().is_tool_registered("aperv")` SHALL return False
@@ -292,6 +296,11 @@ which the sibling `ape` change already references by number.
 #### Scenario: Re-importing rv-platform does not double-register
 - **WHEN** `import rv_platform` is executed twice
 - **THEN** `ToolRegistry.get_instance()` SHALL contain exactly one registration for `"aperv"`
+
+#### Scenario: rv-platform declares aperv-tool
+- **WHEN** `.claude/skills/rv-analyze-dependencies/scripts/workspace_deps.py` is run from the rv-android root
+- **THEN** the `rv-platform` entry SHALL list `aperv-tool` under `declared`
+- **AND** its `undeclared` line SHALL be `-`
 
 ---
 
@@ -860,7 +869,7 @@ The method SHALL return the absolute path if the file exists, or `None` otherwis
 
 ### Requirement: uv Workspace Declaration
 
-`aperv-tool/pyproject.toml` SHALL declare the package as a uv workspace member compatible with rv-android's `members = ["modules/*"]` discovery. It SHALL declare dependencies on `rv-android-core` and `rv-tools` as workspace sources.
+`aperv-tool/pyproject.toml` SHALL declare the package as a uv workspace member compatible with rv-android's `members = ["modules/*"]` discovery. Its only workspace dependency SHALL be `rv-android-core`, declared as a workspace source. That is where `AbstractTool`, `ToolSpec`, `Command`, `JarResolver`, the domain models and `util.analysis_document` come from. The module SHALL NOT declare `rv-tools`, which its code does not import. The undeclared lazy import of `rv_coverage` in `analysis/step_bundle.py` is deliberate and is not declared (see Purpose).
 
 The `[project.entry-points."rv_tools.plugins"]` table SHALL NOT be used for `aperv-tool` -- registration is done explicitly in `rv-platform/__init__.py`, not via entry-point auto-discovery.
 
@@ -868,7 +877,11 @@ The `[project.entry-points."rv_tools.plugins"]` table SHALL NOT be used for `ape
 - **WHEN** `aperv-tool/` exists under `modules/` in the rv-android root
 - **THEN** `uv sync` SHALL include `aperv-tool` in the workspace without any change to the root `pyproject.toml`
 
----
+#### Scenario: Declared and imported workspace dependencies agree
+- **WHEN** `.claude/skills/rv-analyze-dependencies/scripts/workspace_deps.py` is run from the rv-android root
+- **THEN** the `aperv-tool` entry SHALL show `declared: rv-android-core`
+- **AND** its `unused` line SHALL be `-`
+- **AND** its `undeclared` line SHALL list only `rv-coverage`
 
 ### Requirement: Seed Propagation to APE-RV (FR18, FR19)
 

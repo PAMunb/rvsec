@@ -19,9 +19,9 @@ Each module has its own `CLAUDE.md` — consult it for module-scoped detail. The
 | Module | 1-line role | Key dep |
 |---|---|---|
 | rv-android-core | Foundation: domain models, `ErrorHandler`, `LoggingManager` | (none) |
-| rv-platform | Central execution platform; coordinates `TaskExecutor` + result processing; registers the `rvagent` and `aperv` plugins in `rv_platform/__init__.py` | rv-tools, rv-coverage, rv-static-analysis, rvagent-tool |
+| rv-platform | Central execution platform; coordinates `TaskExecutor` + result processing; registers the `rvagent` and `aperv` plugins in `rv_platform/__init__.py` | rv-tools, rv-coverage, rv-static-analysis, rvagent-tool, aperv-tool |
 | rv-tools | Testing-tool plugin system (registry + built-in tools: monkey, ape, droidbot, …) | rv-android-core |
-| rv-uiautomator | Shared UIAutomator components for direct device interaction | rv-screen-parser |
+| rv-uiautomator | Shared UIAutomator components for direct device interaction | (none) |
 | rv-monitor-generator | JavaMOP/RV-Monitor integration → runtime verification monitors | rv-android-core |
 | rv-instrumentation-core | `Instrumenter` ABC + shared Pydantic result types; zero impl deps (avoids cycle) | rv-android-core |
 | rv-instrumentation | Parent canonical: `get_instrumenter(variant, config)` factory; shared `assets/keystore.jks`; re-exports `-core` API | rv-instrumentation-core, -ajc, -dexlib2 |
@@ -30,9 +30,9 @@ Each module has its own `CLAUDE.md` — consult it for module-scoped detail. The
 | rv-static-analysis | GATOR-based static analysis producing the `<apk>.apk.json` document | rv-android-core |
 | rv-coverage | Logcat parsing and coverage of monitored operations | rv-android-core |
 | rv-screen-parser | Android UI parsing (visitor patterns) for state analysis | rv-android-core |
-| rv-agent | LLM-driven testing tool; LangGraph workflow orchestration | rv-screen-parser, rv-uiautomator, rv-static-analysis |
-| rvagent-tool | rv-platform plugin wrapping rv-agent as an `AbstractTool` | rv-tools, rv-agent |
-| aperv-tool | rv-platform plugin wrapping the APE-RV binary (`ape-rv.jar`) | rv-tools |
+| rv-agent | LLM-driven testing tool; LangGraph workflow orchestration | rv-screen-parser, rv-uiautomator; rv-static-analysis for tests only (`dev` group) |
+| rvagent-tool | rv-platform plugin wrapping rv-agent as an `AbstractTool` | rv-agent |
+| aperv-tool | rv-platform plugin wrapping the APE-RV binary (`ape-rv.jar`) | (none) |
 | rv-experiment | Experiment orchestration (pre/post processing); does not duplicate rv-platform | rv-platform + the pre-processing modules |
 | aperv-llm-validation | Temporary: offline validation for APE-RV LLM coordinate mapping | (none) |
 

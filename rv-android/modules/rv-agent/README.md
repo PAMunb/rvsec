@@ -255,7 +255,8 @@ graph TD
 | rv-android-core | Foundation: domain models, event system, logging |
 | rv-screen-parser | UI parsing with visitor patterns |
 | rv-uiautomator | UIAutomator2 adapter for device interaction |
-| rv-static-analysis | Unified GATOR analysis for WTG and MOP data |
+
+rv-static-analysis is a test-only dependency, declared in the `dev` dependency group: six test files use it to build `StaticAnalysisData` from GATOR output, while the agent itself receives that object, a rv-android-core type, from its caller.
 
 ### External
 

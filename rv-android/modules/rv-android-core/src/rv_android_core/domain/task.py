@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 
-# TYPE_CHECKING import to avoid missing dependencies during tests
+# TYPE_CHECKING and Any back the type-checking-only imports below
 from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Type, TypeVar
 
 from pydantic import Field
@@ -21,22 +21,19 @@ from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.validation.base import BaseValidatedModel
 from rv_android_core.util.validation.decorators import validated_model
 
-# TYPE_CHECKING guards allow rv-android-core to define Task without requiring
-# all downstream modules (rv-coverage, etc.) to be installed. Tests and lightweight
-# consumers can import Task without pulling in the full dependency graph.
+# App and LogcatRepository are imported for type checking only, so at runtime
+# both names are bound to typing.Any. For LogcatRepository this matters:
+# _new_repository() returns None, so task.repository starts falsy, and
+# ResultProcessorComponent (rv-platform) reconstructs the repository from the
+# persisted logcat only when task.repository is falsy.
 if TYPE_CHECKING:
     from rv_android_core.domain.app import App
 else:
-    # Fallback for when full dependencies aren't available
     App = Any
 if TYPE_CHECKING:
     from rv_android_core.domain.coverage import LogcatRepository
-    from rv_android_core.domain.log import RvCoverageLog, RvErrorLog
 else:
-    # Fallback for when full dependencies aren't available
     LogcatRepository = Any
-    RvCoverageLog = Any
-    RvErrorLog = Any
 
 if TYPE_CHECKING:
     from rv_android_core.util.logging.manager import LoggingManager
@@ -553,8 +550,9 @@ class Task:
             self.app: App instance set during execution setup. None until set_app().
             self.results_dir: Output directory path. Empty until initialize().
             self.static_data: Static analysis data for coverage. None until set externally.
-            self.repository: LogcatRepository for coverage/error tracking. None if
-                coverage module unavailable.
+            self.repository: LogcatRepository for coverage/error tracking. None at
+                creation (see _new_repository()); CoverageComponent sets it during
+                execution, ResultProcessorComponent reconstructs it on resume.
         """
         self.id = task_id or str(uuid.uuid4())
         self.config = config
@@ -581,8 +579,9 @@ class Task:
         self.static_data = None
 
         # LogcatRepository is the single source of truth for coverage/error data.
-        # The "!= Any" check detects whether the real class was imported or the
-        # TYPE_CHECKING fallback is active (meaning rv-coverage is not installed).
+        # It is imported for type checking only, so _new_repository() returns None
+        # here. ResultProcessorComponent reconstructs the repository from the logcat
+        # only when task.repository is falsy, which is why it must start as None.
         self.repository = self._new_repository()
 
         # Record creation
@@ -590,153 +589,26 @@ class Task:
         self.logger.info(f"Task {self.id} created with configuration: {self.config}")
 
     def _new_repository(self):
-        """Build a repository carrying the artefact's recorded scope key.
+        """Return the initial ``task.repository``, which is ``None`` at runtime.
 
-        The key classifies crossing discards by scope (INV-CORE-60) and filters
-        nothing. It is read from the loaded artefact and never re-derived from a
-        package name (INV-ANA-58); several of these construction sites sit on the
-        resume path, where no artefact is loaded at all and the key is legitimately
-        ``None`` — the discards are then counted unclassified.
+        ``LogcatRepository`` is imported for type checking only, so at runtime the
+        name is ``typing.Any`` and this method returns ``None``. That ``None`` is
+        required: ``ResultProcessorComponent`` reconstructs the repository from the
+        logcat only when ``task.repository`` is falsy, and an empty
+        ``LogcatRepository`` is truthy.
 
-        The ``!= Any`` check detects whether the real class was imported or the
-        TYPE_CHECKING fallback is active (meaning rv-coverage is not installed).
+        The branch that builds a repository applies only where ``LogcatRepository``
+        is the real class (the type-checking view). It passes the scope key the
+        loaded artefact recorded, which classifies crossing discards by scope
+        (INV-CORE-60), filters nothing and is never re-derived from a package name
+        (INV-ANA-58); with no artefact loaded the key is ``None`` and the discards
+        are counted unclassified.
         """
         if LogcatRepository == Any:
             return None
         return LogcatRepository(
             scope_key=getattr(self.static_data, "code_package", None)
         )
-
-    def add_error(self, error: RvErrorLog) -> None:
-        """
-        Add an error to the task's repository.
-
-        Args:
-            error: Error log to add
-        """
-        # Ensure repository exists
-        if not hasattr(self, "repository") or self.repository is None:
-            self.repository = self._new_repository()
-
-        # Add to repository
-        if self.repository is not None:
-            self.repository.register_rv_error(error)
-
-        # Log the error
-        self.logger.info(f"Error registered: {error}")
-
-    def add_method_call(self, coverage_log: RvCoverageLog) -> None:
-        """
-        Add a method call to the task's repository.
-
-        Args:
-            coverage_log: Coverage log to add
-        """
-        # Ensure repository exists
-        if not hasattr(self, "repository") or self.repository is None:
-            self.repository = self._new_repository()
-
-        # Add to repository
-        if self.repository is not None:
-            self.repository.register_method_call(coverage_log)
-
-    def update_coverage(self) -> None:
-        """
-        Update coverage metrics based on repository data.
-        """
-        if (
-            not hasattr(self, "repository")
-            or not self.repository
-            or not self.static_data
-        ):
-            self.logger.warning(
-                "Cannot update coverage: No repository or static data available"
-            )
-            return
-
-        # Calculate metrics directly from repository
-        metrics = self.repository.calculate_metrics()
-        metrics_dict = metrics.to_dict()
-
-        # Persist coverage metrics into the task result. Key
-        # "methods_mop_reachable_coverage" is spec-agnostic — it tracks
-        # coverage of methods reachable from monitored operations regardless
-        # of which spec set (JCA or generic) is active.
-        self.result.coverage_metrics.update(
-            {
-                "method_coverage": metrics_dict["method_coverage"],
-                "activities_coverage": metrics_dict["activity_coverage"],
-                "methods_mop_reachable_coverage": metrics_dict["mop_method_coverage"],
-                "total_errors": metrics_dict["unique_errors"],
-                "total_method_calls": metrics_dict["called_methods"],
-            }
-        )
-
-        # Store metrics for easy access
-        self.coverage_metrics = metrics
-
-        # Log summary of coverage metrics for quick reference
-        self.logger.info(f"Coverage updated for task {self.id}:")
-        self.logger.info(f"- Method coverage: {metrics_dict['method_coverage']:.2f}%")
-        self.logger.info(
-            f"- Activities coverage: {metrics_dict['activity_coverage']:.2f}%"
-        )
-        self.logger.info(
-            f"- MOP methods coverage: {metrics_dict['mop_method_coverage']:.2f}%"
-        )
-        self.logger.info(f"- Methods called: {metrics_dict['called_methods']}")
-        self.logger.info(f"- Errors detected: {metrics_dict['unique_errors']}")
-
-    def get_repository(self) -> LogcatRepository:
-        """
-        Get the task's coverage repository, creating one if it doesn't exist.
-
-        Returns:
-            The task's LogcatRepository
-        """
-        if not hasattr(self, "repository") or self.repository is None:
-            self.repository = self._new_repository()
-
-            # If logcat file exists, parse it and populate the repository
-            # Lazy reconstruction: if a logcat file exists from a previous run,
-            # re-parse it to populate the repository. This enables post-hoc
-            # coverage analysis (e.g., re-running analysis on saved results).
-            if (
-                hasattr(self, "result")
-                and self.result.logcat_file
-                and os.path.exists(self.result.logcat_file)
-            ):
-                from rv_coverage.parser.log.logcat_parser import parse_logcat_file
-
-                try:
-                    # CRITICAL: Pass static_data to preserve class/method information during parsing.
-                    # Without static_data, all method calls are ignored as "unknown classes"
-                    # because the parser can only register calls for methods known from static analysis.
-                    self.repository = parse_logcat_file(
-                        self.result.logcat_file,
-                        self.static_data,
-                        scope_key=getattr(self.static_data, "code_package", None),
-                    )
-                    self.logger.info(
-                        f"Parsed logcat file: {self.result.logcat_file} with static data"
-                    )
-                except Exception as e:
-                    self.logger.error(f"Error parsing logcat file: {e}")
-                    # Fallback: try without static data
-                    try:
-                        self.repository = parse_logcat_file(
-                            self.result.logcat_file,
-                            scope_key=getattr(self.static_data, "code_package", None),
-                        )
-                        self.logger.warning(
-                            "Parsed logcat file without static data - method calls may be ignored"
-                        )
-                    except Exception as fallback_error:
-                        self.logger.error(
-                            f"Failed to parse logcat file even without static data: {fallback_error}"
-                        )
-
-        return self.repository
 
     def initialize(self, base_results_dir: str) -> None:
         """

@@ -86,8 +86,7 @@ The key is read from the artefact's own record and never re-derived from a packa
 
 ## Dependencies
 
-- **Internal (declared)**: none — this is the foundation module.
-- **Internal (undeclared)**: `Task.get_repository()` (`domain/task.py`, ~line 709) lazily imports `rv_coverage.parser.log.logcat_parser.parse_logcat_file` when it re-parses a persisted logcat. rv-coverage depends on this module, so the import is a cycle the `pyproject.toml` does not show; no `src/` caller invokes `get_repository()` (rv-platform rebuilds repositories itself in `ResultProcessorComponent`).
+- **Internal**: none, declared or imported — this is the foundation module, and every production workspace module depends on it directly or transitively, so any workspace import here would close a cycle. Re-reading a persisted logcat into a `LogcatRepository` needs rv-coverage's parser, which is why it lives in rv-platform (`ResultProcessorComponent._reconstruct_repository_from_logcat`) and not on `Task`.
 - **External** (`pyproject.toml`): `pydantic>=2.9.0`, `androguard==3.4.0a1` (APK metadata), `psutil>=7.0.0` (process mgmt), `networkx>=3.5` (WTG graphs), `ijson>=3.3.0` (streaming document reader; needs the `yajl2_c` backend).
 - **Depended on by**: every production workspace module, directly or (rv-instrumentation, through rv-instrumentation-core) transitively.
 

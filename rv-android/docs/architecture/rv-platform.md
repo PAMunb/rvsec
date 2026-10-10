@@ -875,9 +875,9 @@ flowchart TB
     rvplatform -->|"ToolFactory.create_tool(ToolConfig)"| rvtools
     rvplatform -->|"CoverageTracker (live);<br/>parse_logcat_file (resume)"| rvcov
     rvplatform -->|"domain models, AbstractTool,<br/>Emulator/LogcatManager, error/logging"| core
-    rvplatform -.->|"lazy guarded import<br/>(_register_external_tools)"| plugins
+    rvplatform -.->|"lazy guarded import; registers into ToolRegistry<br/>(_register_external_tools)"| plugins
     rvplatform -->|"read_static_analysis_files<br/>(phase 1; consolidation)"| saparser
-    plugins -->|"register into ToolRegistry"| rvtools
+    plugins -->|"AbstractTool/ToolSpec inheritance"| core
     rvtools -->|"AbstractTool/ToolSpec inheritance;<br/>Command; exceptions"| core
     rvcov -->|"LogcatRepository, Rv*Log,<br/>StaticAnalysisData"| core
 ```
@@ -938,9 +938,9 @@ violated by tool or experiment code.
   components deliberately do NOT inherit them; the contract is duck typing (`hasattr` checks
   in the executor). Two `ITaskExecutor` methods (`get_components`, `set_error_handler`) exist
   but have zero callers (dead surface).
-- `rv_platform/__init__.py` lazily imports the tool plugins with ImportError guards, but the
-  dependency declarations are asymmetric: rvagent-tool is a hard dep in pyproject.toml while
-  aperv_tool is imported yet undeclared.
+- `rv_platform/__init__.py` lazily imports the tool plugins with ImportError guards. Both
+  plugins, rvagent-tool and aperv-tool, are declared in rv-platform's pyproject.toml, so the
+  guard covers a plugin that is installed but fails to import, not an optional install.
 - Stop order in the emulator session matters: logcat stops before coverage, because `adb
   logcat` is the producer writing the file and `CoverageTracker` is the consumer reading it —
   stopping the producer first freezes the file, so `process_results()` reads a complete input.
@@ -1541,9 +1541,10 @@ in editable mode by `uv sync`. Internal dependencies follow the layered order do
 the module view — rv-platform → {rv-tools, rv-coverage slice} → rv-android-core — plus
 rv-platform's declared dependency on rv-static-analysis for `static_analysis_parser`, whose
 streaming reader (`rv_android_core.util.analysis_document`, built on ijson) is outside this
-subsystem's slice. There are two asymmetries worth knowing: rvagent-tool is a hard dependency in
-rv-platform's `pyproject.toml` while `aperv_tool` is imported (guardedly) yet undeclared, and
-rvagent-tool/aperv-tool declare rv-tools in their pyprojects but never import it. Beyond the
+subsystem's slice. Both external plugins, rvagent-tool and aperv-tool, are declared in rv-platform's
+`pyproject.toml` and imported lazily under a guard; each of them declares rv-android-core and
+not rv-tools, because a plugin subclasses `AbstractTool` and uses `ToolSpec` from the core and
+rv-platform is the module that registers it into the `ToolRegistry`. Beyond the
 workspace, the subsystem leans on Pydantic (config and domain model validation), the Android
 SDK toolchain (emulator, adb) as external processes rather than Python packages, and — per
 tool — a JAR runtime (DroidMate), the Docker daemon (Ares, QTesting sibling containers), and

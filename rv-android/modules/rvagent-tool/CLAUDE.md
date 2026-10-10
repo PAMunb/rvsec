@@ -39,7 +39,7 @@ src/rvagent_tool/
 
 ### Dependencies
 
-- **Internal**: `rv-android-core` (AbstractTool, ToolSpec, ErrorHandler, domain models), `rv-agent` (`AgentFactory`, `RVAgentConfig`, `validate_static_data`, and — in tests — `RV_STEERING_FLAGS`), `rv-tools` (registry the tool is registered into)
+- **Internal**: `rv-android-core` (AbstractTool, ToolSpec, ErrorHandler, domain models), `rv-agent` (`AgentFactory`, `RVAgentConfig`, `validate_static_data`, and — in tests — `RV_STEERING_FLAGS`). rv-tools is not a dependency: the tool subclasses `AbstractTool` from rv-android-core, and rv-platform registers it into rv-tools' `ToolRegistry`
 - **Dependents**: `rv-platform` registers it on import
 - **External**: `pydantic>=2.9.0`
 

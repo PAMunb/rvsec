@@ -719,7 +719,7 @@ When static analysis data is available, the Window Transition Graph (WTG) provid
 - `NavigationGuidance`: Unified interface with `format_for_llm()` (text hints) and data for `WtgScorer`
 
 **Dependencies**:
-- Internal: `DynamicStateGraph`, `StaticAnalysisData` (from rv-static-analysis)
+- Internal: `DynamicStateGraph`, `StaticAnalysisData` (from rv-android-core, `domain.static`)
 - External: None
 
 ---

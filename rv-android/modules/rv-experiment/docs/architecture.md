@@ -754,7 +754,7 @@ Key use cases that validate the architecture.
 | rv-instrumentation | Phase 1 Step 2: APK instrumentation with monitor weaving (optional import) |
 | rv-static-analysis | Phase 1 Step 3: GATOR/GESDA/REACH static analysis (optional import) |
 
-Note: rv-screen-parser and rv-coverage are declared in `pyproject.toml` but have no imports in source code. They are unused dependencies.
+rv-experiment depends on neither rv-coverage nor rv-screen-parser. Coverage is tracked and written inside rv-platform during Phase 2, and rv-experiment does not read task results back (INV-EXP-02); screen parsing happens inside the testing tools that rv-platform runs. Both modules still reach the experiment's environment through rv-platform's dependency closure (rv-platform → rv-coverage; rv-platform → rvagent-tool → rv-agent → rv-screen-parser).
 
 ### External
 

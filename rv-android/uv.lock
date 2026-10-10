@@ -144,7 +144,6 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "rv-android-core" },
-    { name = "rv-tools" },
     { name = "scipy" },
     { name = "statsmodels" },
 ]
@@ -163,7 +162,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.4.0" },
     { name = "pandas", specifier = ">=3.0.0" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
-    { name = "rv-tools", editable = "modules/rv-tools" },
     { name = "scipy", specifier = ">=1.17.0" },
     { name = "statsmodels", specifier = ">=0.14.6" },
 ]
@@ -2548,7 +2546,6 @@ dependencies = [
     { name = "requests" },
     { name = "rv-android-core" },
     { name = "rv-screen-parser" },
-    { name = "rv-static-analysis" },
     { name = "rv-uiautomator" },
     { name = "scipy" },
 ]
@@ -2558,6 +2555,7 @@ dev = [
     { name = "hypothesis" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "rv-static-analysis" },
 ]
 
 [package.metadata]
@@ -2578,7 +2576,6 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.0" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
     { name = "rv-screen-parser", editable = "modules/rv-screen-parser" },
-    { name = "rv-static-analysis", editable = "modules/rv-static-analysis" },
     { name = "rv-uiautomator", editable = "modules/rv-uiautomator" },
     { name = "scipy", specifier = ">=1.14.0" },
 ]
@@ -2588,6 +2585,7 @@ dev = [
     { name = "hypothesis", specifier = ">=6.100.2" },
     { name = "pytest", specifier = ">=8.0.0" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "rv-static-analysis", editable = "modules/rv-static-analysis" },
 ]
 
 [[package]]
@@ -2763,13 +2761,11 @@ dependencies = [
     { name = "matplotlib" },
     { name = "pydantic" },
     { name = "rv-android-core" },
-    { name = "rv-coverage" },
     { name = "rv-instrumentation" },
     { name = "rv-instrumentation-ajc" },
     { name = "rv-instrumentation-dexlib2" },
     { name = "rv-monitor-generator" },
     { name = "rv-platform" },
-    { name = "rv-screen-parser" },
     { name = "rv-static-analysis" },
     { name = "rv-tools" },
 ]
@@ -2785,13 +2781,11 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.9.0" },
     { name = "pydantic", specifier = ">=2.9.0" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
-    { name = "rv-coverage", editable = "modules/rv-coverage" },
     { name = "rv-instrumentation", editable = "modules/rv-instrumentation" },
     { name = "rv-instrumentation-ajc", editable = "modules/rv-instrumentation-ajc" },
     { name = "rv-instrumentation-dexlib2", editable = "modules/rv-instrumentation-dexlib2" },
     { name = "rv-monitor-generator", editable = "modules/rv-monitor-generator" },
     { name = "rv-platform", editable = "modules/rv-platform" },
-    { name = "rv-screen-parser", editable = "modules/rv-screen-parser" },
     { name = "rv-static-analysis", editable = "modules/rv-static-analysis" },
     { name = "rv-tools", editable = "modules/rv-tools" },
 ]
@@ -2948,6 +2942,7 @@ name = "rv-platform"
 version = "0.1.0"
 source = { editable = "modules/rv-platform" }
 dependencies = [
+    { name = "aperv-tool" },
     { name = "pandas" },
     { name = "pydantic" },
     { name = "rv-android-core" },
@@ -2966,6 +2961,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aperv-tool", editable = "modules/aperv-tool" },
     { name = "pandas", specifier = ">=2.3.1" },
     { name = "pydantic", specifier = ">=2.9.0" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
@@ -3085,7 +3081,6 @@ dependencies = [
     { name = "pillow" },
     { name = "pydantic" },
     { name = "rv-android-core" },
-    { name = "rv-screen-parser" },
     { name = "uiautomator2" },
 ]
 
@@ -3101,7 +3096,6 @@ requires-dist = [
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "pydantic", specifier = ">=2.9.0" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
-    { name = "rv-screen-parser", editable = "modules/rv-screen-parser" },
     { name = "uiautomator2", specifier = ">=3.3.1" },
 ]
 
@@ -3120,7 +3114,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "rv-agent" },
     { name = "rv-android-core" },
-    { name = "rv-tools" },
 ]
 
 [package.dev-dependencies]
@@ -3134,7 +3127,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.9.0" },
     { name = "rv-agent", editable = "modules/rv-agent" },
     { name = "rv-android-core", editable = "modules/rv-android-core" },
-    { name = "rv-tools", editable = "modules/rv-tools" },
 ]
 
 [package.metadata.requires-dev]

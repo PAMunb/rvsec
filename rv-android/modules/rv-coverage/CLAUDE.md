@@ -87,7 +87,7 @@ Percentage keys of `CoverageMetrics.to_dict()` (rv-android-core); `LogcatReposit
 ## Dependencies
 
 - **Depends on**: rv-android-core (`LogcatRepository`, `ParserDiagnostics`, `RvErrorLog`/`RvCoverageLog`/`RvDiagnosticEvent`, `BaseAnalyzer`, `initialize_repository_from_static_data`). `pyproject.toml` also declares `regex`, `python-dateutil` and `pydantic`, none imported by `src/` (the parser uses the stdlib `re`).
-- **Depended on by**: rv-platform (`CoverageComponent` → `CoverageTracker`; `ResultProcessorComponent` → `parse_logcat_file`), and rv-android-core itself through an undeclared lazy import in `Task.get_repository()` (`domain/task.py`). rv-experiment declares it in `pyproject.toml` but imports nothing from it. aperv-tool restates the line grammar it needs instead of importing it.
+- **Depended on by**: rv-platform (`CoverageComponent` → `CoverageTracker`; `ResultProcessorComponent` → `parse_logcat_file`). aperv-tool restates the line grammar it needs instead of importing it; its only use of this module is an undeclared lazy import of `DiagnosticEventParser` in `analysis/step_bundle.py`, for an opt-in diagnostic stream that reads as "not read" when rv-coverage is absent.
 
 ## Development
 

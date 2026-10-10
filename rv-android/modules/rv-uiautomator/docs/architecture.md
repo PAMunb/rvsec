@@ -643,7 +643,7 @@ classDiagram
 |--------|---------|
 | rv-android-core | ErrorHandler, LoggingManager, WidgetEventType, BaseValidatedModel, validated_model decorator |
 
-Note: `rv-screen-parser` is declared in `pyproject.toml` but is not imported anywhere in the codebase. This is an unused dependency.
+rv-android-core is the only workspace module that rv-uiautomator declares and imports. The module captures the device state but does not parse it: rv-agent, which depends on both rv-uiautomator and rv-screen-parser, passes the captured state to rv-screen-parser's parsers (see the downstream consumers in the data flow above). Keeping the parser out of this module's closure lets rv-uiautomator be installed with the core alone.
 
 ### External
 

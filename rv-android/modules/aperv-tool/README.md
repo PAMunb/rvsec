@@ -128,7 +128,8 @@ Full narrative — the layers, the freeze-item rule, the two fixture classes, an
 
 ### Internal (rv-android)
 - `rv-android-core` - Foundation infrastructure (AbstractTool, Command, Task, App)
-- `rv-tools` - Tool registry and plugin system
+
+aperv-tool does not depend on rv-tools: rv-platform, which depends on both, registers `ApeRVTool` in the `ToolRegistry`. `analysis/step_bundle.py` imports rv-coverage lazily for the opt-in diagnostic stream without declaring it; when rv-coverage is absent, that stream is reported as not read.
 
 ### External
 - Android SDK (`adb`) - Device interaction via ADB push and shell commands

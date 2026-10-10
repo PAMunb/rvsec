@@ -14,7 +14,7 @@ RV-Android evaluates multiple Android test-generation tools (Monkey, DroidBot, A
 
 2. **Auto-Registration at Import**: When `rv_tools` is imported, `_register_builtin_tools()` iterates over `BUILTIN_TOOLS` (a list of 8 tool classes from `rv_tools.builtin`) and calls `registry.register_tool_class(tool_class)` for each. This means the 8 built-in tools are available immediately after `import rv_tools`. Registration failures are logged as warnings but do not block module import.
 
-3. **External Tool Registration via rv-platform**: Tools that live outside rv-tools (rvagent in `rvagent-tool`) are registered by `_register_external_tools()` in rv-platform's `__init__.py` when that module is imported. The function checks `is_tool_registered("rvagent")` before attempting registration to ensure idempotency. This respects the module dependency hierarchy: rv-tools depends only on rv-android-core, while rvagent-tool depends on rv-agent + rv-tools.
+3. **External Tool Registration via rv-platform**: Tools that live outside rv-tools (`rvagent` in `rvagent-tool`, `aperv` in `aperv-tool`) are registered by `_register_external_tools()` in rv-platform's `__init__.py` when that module is imported. The function checks `is_tool_registered("rvagent")` and `is_tool_registered("aperv")` before registering each tool, so registration is idempotent. rv-platform declares both plugin modules, because it imports them (INV-TOOL-26). Neither plugin module depends on rv-tools: both subclass `AbstractTool` and use `ToolSpec` from rv-android-core, and they reach `ToolRegistry`/`ToolFactory` behaviour through rv-platform. `rvagent-tool` depends on rv-android-core and rv-agent; `aperv-tool` depends on rv-android-core only. rv-tools itself depends only on rv-android-core.
 
 4. **AbstractTool Contract**: All tools extend `AbstractTool` (defined in rv-android-core), which enforces a template method pattern: `execute()` calls `execute_tool_specific_logic()`, handles `RVCommandTimeoutError` (converting it to `RVToolTimeoutError` -- timeouts are expected behavior), performs process cleanup via `kill_related_processes()`, and delegates to `ErrorHandler` for other exceptions. This gives every tool consistent timeout handling and cleanup.
 
@@ -86,6 +86,11 @@ rv_platform.__init__ --> _register_external_tools()
      |                          |
      |                 import RVAgentTool from rvagent_tool
      |                 register_tool_class(RVAgentTool)
+     |                          |
+     |                 is_tool_registered("aperv")? --> skip if True
+     |                          |
+     |                 import ApeRVTool from aperv_tool
+     |                 register_tool_class(ApeRVTool)
      v
 ToolFactory.create_tool(tool_config)
      |
@@ -130,7 +135,6 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 **Dependencies:**
 - **rv-android-core**: Provides `AbstractTool`, `ToolSpec`, `Command`, `CommandResult`, `ErrorHandler`, `LoggingManager`, `PerformanceMonitor`, `BaseValidatedModel`, domain models (`Task`, `App`, `WidgetEventType`), and exception classes.
-- **rv-screen-parser**: rv-uiautomator depends on it for UI parsing capabilities.
 - **uiautomator2**: Python library for device communication (external dependency).
 - **pillow**: Image processing for screenshot management (external dependency).
 
@@ -191,14 +195,18 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 - **INV-TOOL-11**: `StateConverter.uiautomator_to_droidbot()` MUST map `xml` to both `view_tree` and `hierarchy`, `current_activity` to `activity`, and `current_package` to `package_name`. The converted state MUST include `_conversion_metadata` with source and target format identifiers.
 
-- **INV-TOOL-12**: External tool registration in rv-platform MUST be idempotent. The `_register_external_tools()` function MUST check `is_tool_registered("rvagent")` before calling `register_tool_class()`. Multiple imports of `rv_platform` MUST NOT produce duplicate registrations.
+- **INV-TOOL-12**: External tool registration in rv-platform MUST be idempotent. `_register_external_tools()` MUST check `is_tool_registered("rvagent")` before registering `RVAgentTool` and `is_tool_registered("aperv")` before registering `ApeRVTool`. Multiple imports of `rv_platform` MUST NOT produce duplicate registrations.
 
 - **INV-TOOL-13**: Variant configuration returned by `get_variant_config()` MUST be a copy of the stored configuration, not a reference. Modifications to the returned dictionary MUST NOT affect the registry's internal state.
 
 - **INV-TOOL-14**: `UIAutomator2Adapter.connect()` MUST configure UIAutomator2 settings (`wait_timeout`) after successful connection. The `_configure_uiautomator_settings()` method MUST be called before returning `True`.
 
 - **INV-TOOL-15**: When ARES or QTesting tools build their Docker `run` command inside a Docker container (detected by the presence of `/.dockerenv`), the command MUST include `--network container:<hostname>` where `<hostname>` is the current container's ID obtained via `socket.gethostname()`. This flag makes the sibling container (ARES/QTesting) share the parent container's network namespace, allowing it to reach the emulator at `localhost:5554` without any network configuration changes in the ARES/QTesting code or Dockerfiles. When running outside Docker (`/.dockerenv` does not exist), the command MUST use `--network host` so the sibling container shares the host's network namespace and can reach the emulator at `localhost:5554`.
+
+- **INV-TOOL-26**: Every plugin module that `_register_external_tools()` imports MUST be declared in `modules/rv-platform/pyproject.toml`, in `dependencies` and in `[tool.uv.sources]`. A plugin module (`rvagent-tool`, `aperv-tool`) or a tool-infrastructure module (`rv-uiautomator`) MUST NOT declare a workspace module that its `src/` never imports.
+
 ## Requirements
+
 ### Requirement: Tool Registration and Factory System (FR18, NFR02)
 
 The tool system MUST provide a centralized registry and factory for all Android testing tools. `ToolRegistry` maintains a singleton registry of tool classes and their variant configurations. `ToolFactory` creates configured tool instances from `ToolConfig` objects.
@@ -245,7 +253,9 @@ The 8 built-in tools and their invocation mechanisms are:
 | Humanoid | `builtin/humanoid/` | DroidBot + Humanoid inference | `humanoid` |
 | QTesting | `builtin/qtesting/` | Docker-based | `qtesting` |
 
-The LLM-driven tool (`rvagent`) lives in a separate module (`rvagent-tool`) and is registered via rv-platform's `_register_external_tools()` on import, not as a built-in. Its `RVAgentTool` wraps `rv-agent`'s `AgentFactory` and `RVAgent`, mapping platform `Task`/`App` objects to `RVAgentConfig`.
+Two tools live outside rv-tools, each in its own workspace module: the LLM-driven tool (`rvagent`, module `rvagent-tool`) and APE-RV (`aperv`, module `aperv-tool`). They are not built-ins. rv-platform's `_register_external_tools()` registers both on import. `RVAgentTool` wraps `rv-agent`'s `AgentFactory` and `RVAgent`, mapping platform `Task`/`App` objects to `RVAgentConfig`. `ApeRVTool` wraps the APE-RV binary (`aperv` spec).
+
+Because rv-platform imports both plugin modules, its `pyproject.toml` SHALL declare both `rvagent-tool` and `aperv-tool`, each in `dependencies` and as a workspace source in `[tool.uv.sources]` (INV-TOOL-26). A plugin module SHALL NOT declare rv-tools. Both subclass `AbstractTool` and use `ToolSpec` from `rv-android-core` (`rv_android_core.tools.abstract_tool`), and neither imports `rv_tools`. `rvagent-tool` declares `rv-android-core` and `rv-agent`; `aperv-tool` declares `rv-android-core`. A declared edge that no module imports makes the workspace graph state a coupling that does not exist, and the edge from rv-platform to `aperv-tool` would otherwise be an import the graph does not show.
 
 ARES and QTesting are Docker-based tools that execute via `docker run` commands built by `_build_ares_command()` and `_build_qtesting_command()` respectively. Unlike other tools (Monkey, DroidBot, APE) that run via ADB shell commands or local scripts, these tools spawn a separate Docker container for each execution.
 
@@ -325,6 +335,13 @@ ARES and QTesting images (`phtcosta/ares:latest`, `phtcosta/qtesting:latest`) MU
 - **AND** the code is NOT running inside a Docker container (`/.dockerenv` does not exist)
 - **THEN** the generated `docker run` command MUST include `--network host` so the sibling container can reach the emulator at `localhost:5554`
 - **AND** no `--network container:` flag MUST be used (container networking is only for Docker-in-Docker)
+
+#### Scenario: rv-platform declares every external plugin it registers
+
+- **WHEN** `.claude/skills/rv-analyze-dependencies/scripts/workspace_deps.py` is run from the rv-android root
+- **THEN** the `rv-platform` entry MUST list `aperv-tool` and `rvagent-tool` under `declared`
+- **AND** its `undeclared` line MUST be `-`
+- **AND** the `aperv-tool` and `rvagent-tool` entries MUST NOT list `rv-tools` under `declared`
 
 ### Requirement: Per-Tool Variant System (FR20)
 
@@ -535,4 +552,3 @@ The build and the repository SHALL NOT depend on a pre-committed `ape-rv.jar`, r
 #### Scenario: ape ref tracks the default branch
 - **WHEN** the image is built at any time
 - **THEN** the `ape` clone uses the repository default branch (current tip), with no build `ARG` and no pinned SHA
-

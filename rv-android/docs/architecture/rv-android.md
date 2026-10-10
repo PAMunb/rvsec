@@ -209,7 +209,7 @@ The shape of the system follows from a small number of decisions, each resolving
 
 **Patterns and styles**
 
-At the module level the system is **layered** with medium confidence: `rv-android-core` declares no workspace dependency and L4/L5 sit on top, but L2 and L3 are not strictly ordered — `rv-agent` and `rv-uiautomator` declare `rv-screen-parser`, and two lazy imports reach `rv_coverage` from below. The declared **uses** graph (each `modules/*/pyproject.toml`, resolved through `[tool.uv.sources]` in the root `pyproject.toml`) is acyclic. **Generalization** is the main extension mechanism, through the ABC families `Instrumenter`, `AbstractTool`, `ExplorationStrategy`, `Scorer` and `AbstractScreenVisitor`. At the component-and-connector level, pre-processing is **pipe-and-filter** over files; at run time the host is a **client** of the emulator (ADB), SGLang (HTTP) and the Java tools (subprocess); and coordination is **shared-data** through `instrumented_apks/`, `tasks.json` and the logcat files. At the allocation level there is a **deployment** split (host or container, emulator, optional GPU node) and an **install** structure (editable modules in one `.venv`, Maven-delivered jars, a four-stage Docker image chain).
+At the module level the system is **layered** with medium confidence: `rv-android-core` declares no workspace dependency and L4/L5 sit on top, but L2 and L3 are not strictly ordered — `rv-agent` declares `rv-screen-parser`, and aperv-tool's offline analysis lazily imports `rv_coverage` from L2. The declared **uses** graph (each `modules/*/pyproject.toml`, resolved through `[tool.uv.sources]` in the root `pyproject.toml`) is acyclic. **Generalization** is the main extension mechanism, through the ABC families `Instrumenter`, `AbstractTool`, `ExplorationStrategy`, `Scorer` and `AbstractScreenVisitor`. At the component-and-connector level, pre-processing is **pipe-and-filter** over files; at run time the host is a **client** of the emulator (ADB), SGLang (HTTP) and the Java tools (subprocess); and coordination is **shared-data** through `instrumented_apks/`, `tasks.json` and the logcat files. At the allocation level there is a **deployment** split (host or container, emulator, optional GPU node) and an **install** structure (editable modules in one `.venv`, Maven-delivered jars, a four-stage Docker image chain).
 
 **NFRs served**
 
@@ -272,7 +272,7 @@ A run's results live entirely on disk, and the framework treats these files as t
 
 *Style(s): layered, uses, generalization*
 
-The module view is the map a developer needs to navigate the workspace. It shows the same packages under three lenses: the **layers** of `docs/rv_android_architecture.md`, the declared **uses** graph (which module lists which in its `pyproject.toml`), and the **generalization** seams that make the system extensible. The declared graph is acyclic; the layering is strict at the bottom (L1) and the top (L4, L5) but not between L2 and L3, where tool modules use analysis-layer parsers. Diagram 2 shows the layers with the two multi-module layers collapsed; Diagrams 3 and 4 open L2 and L3. L1, L4 and L5 hold one module each and need no diagram of their own. Solid edges are declared dependencies; dotted edges are undeclared lazy or guarded imports, or generalization.
+The module view is the map a developer needs to navigate the workspace. It shows the same packages under three lenses: the **layers** of `docs/rv_android_architecture.md`, the declared **uses** graph (which module lists which in its `pyproject.toml`), and the **generalization** seams that make the system extensible. The declared graph is acyclic; the layering is strict at the bottom (L1) and the top (L4, L5) but not between L2 and L3, where tool modules use analysis-layer parsers. Diagram 2 shows the layers with the two multi-module layers collapsed; Diagrams 3 and 4 open L2 and L3. L1, L4 and L5 hold one module each and need no diagram of their own. Solid edges are declared dependencies; dotted edges are the one undeclared lazy import, or generalization.
 
 **Primary presentation** — components (uv workspace modules) grouped by layer (C4 component level).
 
@@ -293,17 +293,15 @@ flowchart TB
     exp -->|"uses"| plat
     exp -->|"uses monitor generation, instrumentation, static analysis"| l3
     exp -->|"uses rv-tools"| l2
-    plat -->|"uses rv-tools, rvagent-tool"| l2
-    plat -.->|"guarded import of aperv-tool"| l2
+    plat -->|"uses rv-tools, rvagent-tool, aperv-tool"| l2
     plat -->|"uses rv-coverage, rv-static-analysis"| l3
-    l2 -->|"uses rv-screen-parser, rv-static-analysis"| l3
+    l2 -->|"uses rv-screen-parser"| l3
     l2 -.->|"lazy import: aperv-tool to rv-coverage"| l3
     l2 -->|"uses"| core
     l3 -->|"uses"| core
-    core -.->|"lazy import: Task.get_repository to rv-coverage"| l3
 ```
 
-**Legend.** Rectangle = component, labeled with its kind in brackets (`[component group]` = a layer collapsed into one box); solid arrow = dependency declared in a `pyproject.toml`; dotted arrow = undeclared lazy or guarded import, as labeled.
+**Legend.** Rectangle = component, labeled with its kind in brackets (`[component group]` = a layer collapsed into one box); solid arrow = dependency declared in a `pyproject.toml`; dotted arrow = undeclared lazy import, as labeled.
 
 **Diagram 3 — L2 Tools and the edges that cross its boundary.**
 
@@ -311,7 +309,7 @@ flowchart TB
 %%{init: {'theme': 'neutral'}}%%
 flowchart TB
     %% Source: modules/rv-tools/pyproject.toml, modules/rv-uiautomator/pyproject.toml, modules/rv-agent/pyproject.toml, modules/rvagent-tool/pyproject.toml, modules/aperv-tool/pyproject.toml, modules/rv-platform/src/rv_platform/__init__.py, modules/aperv-tool/src/aperv_tool/analysis/step_bundle.py
-    %% Omitted: each L2 module's edge to rv-android-core (collapsed into one edge from the frame)
+    %% Omitted: each L2 module's edge to rv-android-core (collapsed into one edge from the frame); rv-agent's dev-group dependency on rv-static-analysis (test files only)
     exp["rv-experiment<br/>[component: uv module, L5]"]
     plat["rv-platform<br/>[component: uv module, L4]"]
     subgraph L2["L2 Tools"]
@@ -322,34 +320,29 @@ flowchart TB
         apervtool["aperv-tool<br/>[component: uv module]"]
     end
     sp["rv-screen-parser<br/>[component: uv module, L3]"]
-    sa["rv-static-analysis<br/>[component: uv module, L3]"]
     cov["rv-coverage<br/>[component: uv module, L3]"]
     core["rv-android-core<br/>[component: uv module, L1]"]
 
     exp -->|"uses"| tools
     plat -->|"uses"| tools
     plat -->|"uses, registers"| ragtool
-    plat -.->|"guarded import, registers"| apervtool
+    plat -->|"uses, registers"| apervtool
     ragtool -->|"uses"| agent
-    ragtool -->|"uses"| tools
-    apervtool -->|"uses"| tools
     apervtool -.->|"lazy import"| cov
     agent -->|"uses"| sp
     agent -->|"uses"| uia
-    agent -->|"declares"| sa
-    uia -->|"declares"| sp
     L2 -->|"uses"| core
 ```
 
-**Legend.** Rectangle = component (a uv module); frame = the layer in focus; boxes outside the frame are the modules of other layers it touches; solid arrow = dependency declared in a `pyproject.toml` (an arrow from the frame stands for every module in it); dotted arrow = undeclared lazy or guarded import.
+**Legend.** Rectangle = component (a uv module); frame = the layer in focus; boxes outside the frame are the modules of other layers it touches; solid arrow = dependency declared in a `pyproject.toml` (an arrow from the frame stands for every module in it); dotted arrow = undeclared lazy import.
 
 **Diagram 4 — L3 Analysis and the edges that cross its boundary.**
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 flowchart TB
-    %% Source: modules/rv-coverage/pyproject.toml, modules/rv-static-analysis/pyproject.toml, modules/rv-screen-parser/pyproject.toml, modules/rv-monitor-generator/pyproject.toml, modules/rv-instrumentation/src/rv_instrumentation/, modules/rv-instrumentation-core/, modules/rv-instrumentation-ajc/, modules/rv-instrumentation-dexlib2/, modules/rv-android-core/src/rv_android_core/domain/task.py
-    %% Omitted: the individual L2 modules (collapsed into one box; detail in Diagram 3); rv-experiment's declared-only edges to rv-screen-parser and rv-coverage (listed in modules/rv-experiment/pyproject.toml, never imported by its source)
+    %% Source: modules/rv-coverage/pyproject.toml, modules/rv-static-analysis/pyproject.toml, modules/rv-screen-parser/pyproject.toml, modules/rv-monitor-generator/pyproject.toml, modules/rv-instrumentation/src/rv_instrumentation/, modules/rv-instrumentation-core/, modules/rv-instrumentation-ajc/, modules/rv-instrumentation-dexlib2/
+    %% Omitted: the individual L2 modules (collapsed into one box; detail in Diagram 3); rv-agent's dev-group dependency on rv-static-analysis (test files only)
     exp["rv-experiment<br/>[component: uv module, L5]"]
     plat["rv-platform<br/>[component: uv module, L4]"]
     l2["L2 Tools<br/>[component group: Diagram 3]"]
@@ -373,14 +366,12 @@ flowchart TB
     plat -->|"uses"| cov
     plat -->|"uses"| sa
     l2 -->|"uses"| sp
-    l2 -->|"declares"| sa
     l2 -.->|"lazy import: aperv-tool"| cov
     instr -->|"uses"| instrcore
     instr -->|"lazy import in get_instrumenter"| ajc
     instr -->|"lazy import in get_instrumenter"| dex
     ajc -.->|"generalizes"| instrcore
     dex -.->|"generalizes"| instrcore
-    core -.->|"lazy import"| cov
     L3 -->|"uses"| core
 ```
 
@@ -388,24 +379,24 @@ flowchart TB
 
 **Element catalog**
 
-**L1 Core — `rv-android-core`.** Every other module builds on it. `BaseValidatedModel` is the Pydantic base of all domain entities and configurations (extra fields forbidden, whitespace stripped, validation on assignment), with `RV_PYDANTIC` toggling logging and strictness. `ErrorHandler` is a thread-safe singleton with a `@handle_errors` decorator that classifies the 23 exception classes of `util/error/exceptions.py` as absorbed or propagated; validation errors always propagate. The device layer is here: `EmulatorManager` and `util/android/android.py` own emulator boot, ADB probes and APK install under the three timeout budgets, and `LogcatManager` owns the capture command and its five-tag allowlist. The `App` model carries two package identities: `package_name` from the manifest for device operations, and `code_package`, the scope key, which equals the manifest package unless the run opts into `PackageDetector` or build-type-suffix neutralization. `util/analysis_document.py` reads a static document as one pass of ijson events, and `digest_of_file` keys both downstream caches. It is separate because shared abstractions need one home that cannot take part in a cycle — and because this lets rv-static-analysis and aperv-tool share one reader without aperv-tool depending on rv-static-analysis. *Gotchas:* `constants.py` is the single registry of `ENV_*` names, and only three of its files may read the environment (INV-CORE-55); tags are declared once in `util/logging/constants.py` because `adb logcat -s` discards an unadmitted tag on the device, so a mismatch is an empty stream, not an error (INV-CORE-53); and `Task.get_repository` lazily imports rv-coverage's `parse_logcat_file`, the one undeclared upward edge from L1.
+**L1 Core — `rv-android-core`.** Every other module builds on it. `BaseValidatedModel` is the Pydantic base of all domain entities and configurations (extra fields forbidden, whitespace stripped, validation on assignment), with `RV_PYDANTIC` toggling logging and strictness. `ErrorHandler` is a thread-safe singleton with a `@handle_errors` decorator that classifies the 23 exception classes of `util/error/exceptions.py` as absorbed or propagated; validation errors always propagate. The device layer is here: `EmulatorManager` and `util/android/android.py` own emulator boot, ADB probes and APK install under the three timeout budgets, and `LogcatManager` owns the capture command and its five-tag allowlist. The `App` model carries two package identities: `package_name` from the manifest for device operations, and `code_package`, the scope key, which equals the manifest package unless the run opts into `PackageDetector` or build-type-suffix neutralization. `util/analysis_document.py` reads a static document as one pass of ijson events, and `digest_of_file` keys both downstream caches. It is separate because shared abstractions need one home that cannot take part in a cycle — and because this lets rv-static-analysis and aperv-tool share one reader without aperv-tool depending on rv-static-analysis. *Gotchas:* `constants.py` is the single registry of `ENV_*` names, and only three of its files may read the environment (INV-CORE-55); tags are declared once in `util/logging/constants.py` because `adb logcat -s` discards an unadmitted tag on the device, so a mismatch is an empty stream, not an error (INV-CORE-53); and the core imports no other workspace module — `LogcatRepository` is imported only under `TYPE_CHECKING`, so `Task._new_repository()` returns `None` and a resumed task's repository is rebuilt from the persisted logcat by rv-platform's `ResultProcessorComponent._reconstruct_repository_from_logcat`.
 
 **L2 Tools.** `rv-tools` is the registry/factory seam shared by rv-experiment (DSL validation) and rv-platform (instantiation). Importing it registers the eight built-ins of `BUILTIN_TOOLS` (APE, Monkey, Ares, DroidBot, DroidMate, FastBot, Humanoid, QTesting), and a failing registration never fails the import (INV-TOOL-08). `ToolFactory` merges `{**variant_config, **tool_config.parameters}` and calls `configure()` before returning the tool (INV-TOOL-05), so a per-tool default must live in `get_variants()` to be visible to overrides. `rv-uiautomator` is the UIAutomator2 adapter, action executor and `StateConverter`; only rv-agent imports it. `rv-agent` runs a LangGraph workflow whose nodes live in `agent/nodes/`; it chooses actions through `ExplorationStrategy` implementations (DFS, BFS, greedy, `RVAgentStrategy`) whose ranking uses the twelve `Scorer` implementations in `strategies/rvagent_strategy/ranking/scorers.py`, or through Qwen3-VL; `RVAgentConfig.pure_mode` turns every RV steering flag off, and the timeout is the only termination condition (INV-AGT-07). It is isolated because its dependency surface is large and changes often. `rvagent-tool` maps a Task into an `RVAgentConfig` and imports the agent only inside `execute_tool_specific_logic()`, keeping LangGraph out of the platform's import-time registration. `aperv-tool` wraps APE-RV: it resolves `ape-rv.jar` (INV-APV-01), writes `ape.properties` with the arm's preset and overrides, derives and caches the MOP artifact host-side, and launches `app_process` from `/system/bin` (INV-APV-04); its `process_pattern` is shared with the built-in `ape` tool, so the two must not run concurrently on one device (INV-APV-07). It also contains `aperv_tool/analysis/`, the offline campaign-analysis library (spec `campaign-analysis`), which imports rv-coverage lazily under an `ImportError` guard. Detail: [ape-rv](ape-rv.md).
 
 **L3 Analysis.** `rv-coverage` holds only parsing and tracking: `parse_logcat_file` and `parse_logcat_line` turn `RVSEC` and `RVSEC-COV` lines into `RvErrorLog` and `RvCoverageLog` entries of a `LogcatRepository`; `CoverageTracker` tails the task's logcat file on a background thread; `DiagnosticEventParser` recognises crash, VerifyError and ANR blocks. The live and replay paths share one parser, which is what makes a reconstructed task equal a live one. `rv-static-analysis` is the GATOR producer (`StaticAnalyzer`) and the document consumer (`StaticAnalysisParser`, `read_static_analysis_files`); the consumer never accepts a package key (INV-ANA-61), never raises (INV-ANA-06), and the `rv-static-analysis compact` subcommand converts a full-mode document to the compact form. `rv-screen-parser` parses UIAutomator XML and DroidBot JSON through `AbstractScreenVisitor` variants (`BasicTextVisitor`, `DefaultTextVisitor`, `EnhancedTextVisitor`) and owns the MOP linkage on actions (`ItemAction.reaches_target`, `directly_reaches_target`). `rv-monitor-generator` isolates JavaMOP and RV-Monitor and their quirks. The instrumentation family is four modules: `rv-instrumentation-core` (the `Instrumenter` ABC and result models, no implementation dependencies), `rv-instrumentation-ajc` and `rv-instrumentation-dexlib2` (each depending only on `-core` and rv-android-core), and the parent `rv-instrumentation` (the `get_instrumenter` factory and the shared keystore). Only the dexlib2 variant supports the handler stamp. Detail: [instrumentation](instrumentation.md), [static-analysis](static-analysis.md), [monitor-generation](monitor-generation.md).
 
-**L4 Execution and L5 Orchestration.** `rv-platform` isolates execution mechanics — task generation, the executor's phases, emulator ports, persistence, export — from the experiment workflow and is usable standalone through its own CLI. Its import registers `rvagent` and `aperv` idempotently (INV-TOOL-12); `aperv_tool` is imported under a guard without being declared, which the workspace install satisfies. `rv-experiment` is the only layer that reads user-facing `RV_*` variables (the `rv-static-analysis` command also reads them, for its own flags); it sequences the phases and lets data flow one way into the platform (INV-EXP-02). Detail: [rv-platform](rv-platform.md), [rv-experiment](rv-experiment.md).
+**L4 Execution and L5 Orchestration.** `rv-platform` isolates execution mechanics — task generation, the executor's phases, emulator ports, persistence, export — from the experiment workflow and is usable standalone through its own CLI. Its import registers `rvagent` and `aperv` idempotently (INV-TOOL-12); both plugin modules are declared in its `pyproject.toml` and imported inside `_register_external_tools()` under an `ImportError` guard, which covers a plugin that is installed but fails to import. `rv-experiment` is the only layer that reads user-facing `RV_*` variables (the `rv-static-analysis` command also reads them, for its own flags); it sequences the phases and lets data flow one way into the platform (INV-EXP-02). Detail: [rv-platform](rv-platform.md), [rv-experiment](rv-experiment.md).
 
 **Outside the layers.** `aperv-llm-validation` is a temporary offline CLI (`aperv-llm-validate`) that checks Qwen3-VL coordinate grounding against UIAutomator bounds. It depends on no workspace module and is not part of the production set. `modules/rvsmart-tool` is excluded from the workspace in the root `pyproject.toml` and holds no tracked source.
 
 | Element | Responsibility | Relations / interfaces |
 |---------|----------------|------------------------|
-| rv-android-core (L1) | Domain models, config base, `ErrorHandler`, `LoggingManager`, device managers, `AbstractTool`, streaming reader | no declared workspace deps; lazy import of rv-coverage in `Task.get_repository` |
-| rv-tools (L2) | Registry + factory; 8 built-in tools | uses core; used by rv-experiment, rv-platform, plugins |
-| rv-uiautomator (L2) | UIAutomator2 adapter, executor, `StateConverter` | declares rv-screen-parser; used by rv-agent |
-| rv-agent (L2) | LangGraph explorer, strategies, scorer pipeline | uses rv-screen-parser, rv-uiautomator; declares rv-static-analysis; SGLang |
-| rvagent-tool (L2) | `AbstractTool` wrapper of rv-agent | uses rv-agent (lazy), rv-tools; registered by rv-platform |
-| aperv-tool (L2) | `AbstractTool` wrapper of APE-RV; MOP artifact; campaign-analysis library | uses rv-tools; lazy, guarded import of rv-coverage; registered by rv-platform |
+| rv-android-core (L1) | Domain models, config base, `ErrorHandler`, `LoggingManager`, device managers, `AbstractTool`, streaming reader | no workspace deps, declared or imported |
+| rv-tools (L2) | Registry + factory; 8 built-in tools | uses core; used by rv-experiment, rv-platform |
+| rv-uiautomator (L2) | UIAutomator2 adapter, executor, `StateConverter` | uses core; used by rv-agent |
+| rv-agent (L2) | LangGraph explorer, strategies, scorer pipeline | uses rv-screen-parser, rv-uiautomator; rv-static-analysis in the dev group (tests only); SGLang |
+| rvagent-tool (L2) | `AbstractTool` wrapper of rv-agent | uses rv-agent (lazy), core; registered by rv-platform |
+| aperv-tool (L2) | `AbstractTool` wrapper of APE-RV; MOP artifact; campaign-analysis library | uses core; lazy, guarded, undeclared import of rv-coverage; registered by rv-platform |
 | rv-coverage (L3) | Logcat parsing, coverage/violation tracking, diagnostics parser | uses core; used by rv-platform |
 | rv-static-analysis (L3) | GATOR invocation; document parsing and parsed-copy cache | uses core; subprocess GATOR |
 | rv-screen-parser (L3) | UI parsing visitors; MOP linkage on actions | uses core; used by rv-agent |
@@ -414,7 +405,7 @@ flowchart TB
 | rv-instrumentation-core (L3) | `Instrumenter` ABC + result models | uses core only |
 | rv-instrumentation-ajc (L3) | AspectJ variant (dex2jar → ajc → d8) | generalizes -core; subprocess Java |
 | rv-instrumentation-dexlib2 (L3) | DEX-native variant via `instr-cli.jar` | generalizes -core; subprocess Java |
-| rv-platform (L4) | Task generation, executor, persistence, export | uses rv-tools, rv-coverage, rv-static-analysis, rvagent-tool; guarded import of aperv-tool |
+| rv-platform (L4) | Task generation, executor, persistence, export | uses rv-tools, rv-coverage, rv-static-analysis, rvagent-tool, aperv-tool (both plugins imported lazily, under a guard) |
 | rv-experiment (L5) | CLI + three-phase workflow | uses rv-platform, rv-monitor-generator, rv-instrumentation (+ variants), rv-static-analysis, rv-tools |
 | aperv-llm-validation | Temporary LLM coordinate validation CLI | no workspace deps |
 
@@ -426,7 +417,7 @@ The system varies along a few seams. The **instrumentation variant** is chosen p
 
 **Rationale**
 
-The modules exist to keep heavy, changing dependency stacks out of the import paths of stable modules and to keep each declared edge pointing downward; the ABC seams turn that structure into extensibility. The instrumentation quartet's shape is dictated by INV-INS-41: a pure `-core` contract with variants that never import each other is the only arrangement that lets `ajc` and `dexlib2` be swapped without one dragging the other's toolchain into every consumer. The three undeclared lazy imports are the known exceptions to the declared graph; they do not create a cycle at install time but they do mean that rv-android-core and aperv-tool need rv-coverage installed for the paths that use it.
+The modules exist to keep heavy, changing dependency stacks out of the import paths of stable modules and to keep each declared edge pointing downward; the ABC seams turn that structure into extensibility. The instrumentation quartet's shape is dictated by INV-INS-41: a pure `-core` contract with variants that never import each other is the only arrangement that lets `ajc` and `dexlib2` be swapped without one dragging the other's toolchain into every consumer. The one undeclared import, aperv-tool's lazy import of rv-coverage's `DiagnosticEventParser` (`aperv_tool/analysis/step_bundle.py`), is a deliberate exception to the declared graph: the diagnostic stream is opt-in, and without rv-coverage installed the bundle reports it as not read.
 
 ### Component-and-connector view
 
@@ -707,7 +698,7 @@ The Python dependency surface is concentrated by design. `rv-android-core` pins 
 
 The non-Python dependencies are reached only across process boundaries and are preconditions rather than resolved packages: the RVSEC Java toolchain under `$RVSEC_HOME` (JavaMOP, RV-Monitor, the `.mop` sets), the engine jars delivered into the tree (`instr-cli.jar`, the GATOR jars, rv-frame-computer, `ape-rv.jar`), the Android SDK and emulator reached over ADB, and the optional SGLang + Qwen3-VL server.
 
-**External coupling.** Counted per workspace module, most modules import mostly their own code. The six above 0.5 — rv-instrumentation (0.80), rv-tools and rvagent-tool (0.69), rv-static-analysis (0.67), rv-instrumentation-ajc (0.58) and rv-platform (0.57) — lean mainly on a lower layer: their main external targets are rv-android-core's domain models (`domain.task`, `domain.app`, `domain.static`, `domain.classes`), its tool contract (`tools.abstract_tool`, `tools.tool_spec`), its command runner and utilities, and rv-instrumentation-core's `Instrumenter` contract. Two of them also import a peer in their own layer, and in both cases that is the module's job: rv-instrumentation imports the two variants from the `get_instrumenter` factory (L3), and rvagent-tool imports rv-agent (3 of its 9 external edges, L2), the agent it wraps. rv-instrumentation (2 files), rv-instrumentation-ajc (4) and rvagent-tool (5) are small enough that a handful of edges sets the ratio. The only edge that leaves the bottom layer upward is rv-android-core → `rv_coverage.parser.log`, the lazy import of `parse_logcat_file` in `Task.get_repository` at `modules/rv-android-core/src/rv_android_core/domain/task.py:709`.
+**External coupling.** Counted per workspace module, most modules import mostly their own code. The six above 0.5 — rv-instrumentation (0.80), rv-tools and rvagent-tool (0.69), rv-static-analysis (0.67), rv-instrumentation-ajc (0.58) and rv-platform (0.57) — lean mainly on a lower layer: their main external targets are rv-android-core's domain models (`domain.task`, `domain.app`, `domain.static`, `domain.classes`), its tool contract (`tools.abstract_tool`, `tools.tool_spec`), its command runner and utilities, and rv-instrumentation-core's `Instrumenter` contract. Two of them also import a peer in their own layer, and in both cases that is the module's job: rv-instrumentation imports the two variants from the `get_instrumenter` factory (L3), and rvagent-tool imports rv-agent (3 of its 9 external edges, L2), the agent it wraps. rv-instrumentation (2 files), rv-instrumentation-ajc (4) and rvagent-tool (5) are small enough that a handful of edges sets the ratio. No edge leaves the bottom layer upward: rv-android-core imports no other workspace module.
 
 The ratio is external / (internal + external) first-party import edges; cross-cutting edges go to foundation packages and are left out of it. The count sees Python imports only, so the boundaries that carry most of this system's coupling do not appear in it: `java -jar instr-cli.jar`, the GATOR launcher, the `javamop` and `rv-monitor` binaries, `adb` and `app_process`, the OpenAI-compatible HTTP calls, and the file contracts between them — the `MultiSpec_*MonitorAspect.json` descriptor, the `<apk>.json` static document, `mop-artifact.json`, `tasks.json` and the tagged logcat text.
 
@@ -716,7 +707,7 @@ The ratio is external / (internal + external) first-party import edges; cross-cu
 | aperv-llm-validation | python | 13 | 6 | 0 | 0 | 0.00 |
 | aperv-tool | python | 44 | 73 | 8 | 4 | 0.10 |
 | rv-agent | python | 87 | 223 | 45 | 13 | 0.17 |
-| rv-android-core | python | 50 | 129 | 1 | 0 | 0.01 |
+| rv-android-core | python | 50 | 128 | 0 | 0 | 0.00 |
 | rv-coverage | python | 9 | 13 | 12 | 3 | 0.48 |
 | rv-experiment | python | 14 | 27 | 25 | 33 | 0.48 |
 | rv-instrumentation | python | 2 | 1 | 4 | 0 | 0.80 |

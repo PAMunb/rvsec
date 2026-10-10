@@ -4,7 +4,7 @@ Tool wrapper for rv-agent integration with rv-platform.
 
 ## Overview
 
-This module provides an `AbstractTool` implementation that wraps rv-agent for execution within the rv-platform task execution framework. It enables rv-agent to be used as a testing tool alongside other tools (Monkey, DroidBot, etc.) through the rv-tools plugin system. The module handles configuration mapping from platform Task/ToolConfig to RVAgentConfig and passes static analysis data to the agent.
+This module provides an `AbstractTool` implementation that wraps rv-agent for execution within the rv-platform task execution framework. It enables rv-agent to be used as a testing tool alongside other tools (Monkey, DroidBot, etc.): rv-platform imports it at startup and registers it in rv-tools' `ToolRegistry`. The module handles configuration mapping from platform Task/ToolConfig to RVAgentConfig and passes static analysis data to the agent.
 
 ## Installation
 
@@ -139,7 +139,8 @@ RVAgent.run() -> results
 |--------|---------|
 | `rv-android-core` | Foundation infrastructure (AbstractTool, domain models, error handling) |
 | `rv-agent` | LLM-driven testing agent (AgentFactory, RVAgent, RVAgentConfig) |
-| `rv-tools` | Tool registry and plugin system |
+
+rvagent-tool does not depend on rv-tools; rv-platform, which depends on both, registers `RVAgentTool` in the `ToolRegistry`.
 
 ### External
 

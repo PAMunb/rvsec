@@ -4,7 +4,7 @@ Shared UIAutomator components for Android device interaction across RV-Android t
 
 ## Overview
 
-RV-UIAutomator provides a unified interface for interacting with Android devices through the UIAutomator2 framework. It handles device connection, UI state capture, action execution, and screenshot management. Multiple RV-Android modules (rv-agent, rv-platform) depend on this module to interact with emulators and physical devices without duplicating device communication logic.
+RV-UIAutomator provides a unified interface for interacting with Android devices through the UIAutomator2 framework. It handles device connection, UI state capture, action execution, and screenshot management. rv-agent depends on this module to interact with emulators and physical devices without duplicating device communication logic.
 
 ## Installation
 
@@ -189,7 +189,6 @@ adapter.stop_app("com.example.myapp")
 | Module | Purpose |
 |--------|---------|
 | `rv-android-core` | ErrorHandler, LoggingManager, domain models (`WidgetEventType`) |
-| `rv-screen-parser` | UI parsing capabilities |
 
 ### External
 

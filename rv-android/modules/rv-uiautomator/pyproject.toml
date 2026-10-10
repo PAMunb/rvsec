@@ -7,7 +7,6 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "rv-android-core",
-    "rv-screen-parser",
     "uiautomator2>=3.3.1",
     "pillow>=10.0.0",
     "pydantic>=2.9.0",
@@ -22,7 +21,6 @@ dev = [
 
 [tool.uv.sources]
 rv-android-core = { workspace = true }
-rv-screen-parser = { workspace = true }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rv_uiautomator"]

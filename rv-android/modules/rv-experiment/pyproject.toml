@@ -16,8 +16,6 @@ dependencies = [
     "rv-instrumentation-ajc",
     "rv-instrumentation-dexlib2",
     "rv-static-analysis",
-    "rv-screen-parser",
-    "rv-coverage",
     "rv-tools",
 ]
 
@@ -38,8 +36,6 @@ rv-instrumentation = { workspace = true }
 rv-instrumentation-ajc = { workspace = true }
 rv-instrumentation-dexlib2 = { workspace = true }
 rv-static-analysis = { workspace = true }
-rv-screen-parser = { workspace = true }
-rv-coverage = { workspace = true }
 rv-tools = { workspace = true }
 
 [tool.pytest.ini_options]

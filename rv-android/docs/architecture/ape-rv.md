@@ -558,9 +558,9 @@ are kept as readers of frozen data, not migrated (INV-APV-55).
 
 **Patterns and styles**
 
-On the module side the subsystem is **layered** — rv-android-core (L1) ← rv-tools (L2) ←
-aperv-tool (L5), with rv-platform (L4) reaching the plugin only through the guarded import in
-`rv_platform/__init__.py`, and `aperv-tool`'s run path importing only `rv_android_core` (the
+On the module side the subsystem is **layered** — rv-tools (L2) and aperv-tool (L5) each build
+on rv-android-core (L1) alone, with rv-platform (L4) declaring the plugin and reaching it only
+through the guarded import in `rv_platform/__init__.py`, and `aperv-tool`'s run path importing only `rv_android_core` (the
 offline package adds one lazy import of `rv_coverage`, see [Appendix A](#a-dependencies)) — combined
 with a **plugin (registry + factory)** style: the `ToolRegistry` singleton and `ToolFactory` in
 `rv_tools/registry/`, with `ApeRVTool` registered by `_register_external_tools()` and selected by
@@ -591,7 +591,7 @@ stages on the JVM.
 *Resilience (NFR04).* Optional stages degrade: a missing `system-broadcast.json` is skipped, a
 0-byte trace is a warning, a failed provenance query or sidecar write is recorded and the run
 proceeds, a failed gzip logs a warning, a corrupt cached artifact is a cache miss, and a missing
-`aperv-tool` package is a warning in rv-platform. The MOP substrate is deliberately not optional
+`aperv-tool` package that fails to import is a warning in rv-platform. The MOP substrate is deliberately not optional
 in a MOP arm, and an early return is not success: the fail-fast points are `configure()`'s
 validation, the missing jar, the MOP arm that cannot arm (host and device), and the completion
 check.
@@ -681,8 +681,8 @@ independently of the engine.
 *Style(s): uses + layered*
 
 This view shows the static structure a maintainer must know before touching any file: the
-L1 → L2 → L5 tiering (core contract ← registry ← plugin), the inverted registration edge from
-rv-platform, the split of `aperv-tool` into a run path and an offline package that never call
+L1/L2/L5 tiering (the core contract under both the registry and the plugin), the inverted
+registration edge from rv-platform, the split of `aperv-tool` into a run path and an offline package that never call
 each other, and the build-time edge through which the Java engine delivers its binary into the
 plugin's package directory. Diagram 3 opens the engine to show its internal packages.
 
@@ -713,7 +713,6 @@ flowchart TB
     rvplatform -->|"imports (guarded) + register_tool_class"| runpath
     rvplatform -->|"calls ToolFactory.create_tool"| rvtools
     runpath -->|"imports AbstractTool, Command, JarResolver,<br/>read_analysis_document, digest_of_file"| core
-    runpath -.->|"declares dep, never imports"| rvtools
     rvtools -->|"imports AbstractTool, ToolSpec"| core
     core -->|"AbstractTool generalizes ApeRVTool"| runpath
     offline -.->|"reads recorded artifacts only"| runpath
@@ -723,7 +722,7 @@ flowchart TB
 **Legend.** Rectangle = code unit, with its kind in brackets; frame = layer of the uv workspace
 (L1 foundation to L5 plugin); solid arrow = code or build dependency of the kind its label names
 (import, call, generalization, build-time copy); dotted arrow = relation without a runtime
-call (a declared but unused dependency, or a read of files another component wrote).
+call (a read of files another component wrote).
 
 **Diagram 3 — Inside `ape-rv.jar`: the engine's Java packages.**
 
@@ -871,9 +870,9 @@ rv-platform rather than from rv-tools keeps rv-tools' only workspace dependency 
 rv-android-core (INV-TOOL-12); otherwise rv-tools would pull in rv-agent and its LLM stack.
 
 *Gotchas:*
-- `aperv-tool` declares `rv-tools` in `pyproject.toml` but its code never imports it; rv-platform
-  imports `aperv_tool` without declaring it. Both work because the uv workspace installs every
-  module into one `.venv`.
+- `aperv-tool` declares `rv-android-core` and no other workspace module, rv-tools included: it
+  subclasses `AbstractTool` and uses `ToolSpec` from the core, and rv-platform, which declares
+  `aperv-tool`, imports it and registers it into the registry.
 - `ToolRegistry.get_tool` skips `configure()` for the `default` variant; `ToolFactory.create_tool`
   always configures. For aperv the difference matters: an unconfigured `ApeRVTool` has an empty
   `_tool_config`, pushes no `ape.properties`, and the jar runs on its own defaults. rv-platform
@@ -971,7 +970,7 @@ code in the other, which lets the Python side treat the engine as a black box co
 | aperv-tool run path (`ApeRVTool`, `derive`) | Arm table, configuration validation, MOP derivation and cache, device deployment, launch, completion check | extends `AbstractTool`; imports the core slice; registered into rv-tools by rv-platform; receives the jar from the ape repo |
 | aperv-tool offline analysis package | Read-only readers of traces, logcats and results trees; campaign analysis | no runtime edge to the run path; reads its artifacts |
 | rv-tools (`ToolRegistry` + `ToolFactory`) | Tool discovery, variant storage, configured instantiation | classmethod protocol `get_tool_spec()` / `get_variants()`; consumed by rv-platform per task |
-| rv-android-core slice | AbstractTool lifecycle, Command subprocess layer, JarResolver, streaming document reader, App/Task domain | foundation with no declared workspace dependency (one lazy `rv_coverage` import in `Task`); generalizes `ApeRVTool` via template method |
+| rv-android-core slice | AbstractTool lifecycle, Command subprocess layer, JarResolver, streaming document reader, App/Task domain | foundation with no workspace dependency, declared or imported; generalizes `ApeRVTool` via template method |
 | ape (Java engine) | Plan resolution, model-based exploration, MOP and LLM guidance, NDJSON telemetry | build time: `mvn install` copies `ape-rv.jar` into the plugin's package dir |
 | rv-platform (`rv_platform/__init__.py`) | External driver: guarded plugin registration, per-task factory calls | `register_tool_class(ApeRVTool)` in try/except `ImportError`; `ToolFactory.create_tool` |
 | `com.android.commands.monkey` | Entry point and event queue | `Monkey.main`, `MonkeySourceApe` |
@@ -1004,7 +1003,8 @@ exist is a function of the plan's features, and the MOP scoring mode is a plan k
 The layering keeps the foundation dependency-free and the arm table out of generic registry
 code; the plugin lives in its own module because it carries a gitignored binary with an
 independent Maven build lifecycle. The inverted registration edge — rv-platform imports the
-plugin, not the other way round — makes the plugin optional by construction. The generalization
+plugin, not the other way round — keeps the registry free of plugin dependencies, and the guard
+around that import keeps a plugin that fails to import from taking down tool discovery. The generalization
 edge (`AbstractTool` → `ApeRVTool`) is the single inheritance relation that matters, and it is
 why the core slice is documented here at all. The offline package shares the module, not the run
 path, so the trace contract has one owner while the collection path stays free of analysis code.
@@ -1273,10 +1273,11 @@ also honours on-device property overrides at `/sdcard/ape.properties`.
   engine's RNG through Monkey's own command line (INV-APV-18, INV-EXPL-14); this `-s` is distinct
   from adb's `-s <serial>`.
 
-- **WHEN** `aperv-tool` is not installed in the environment when `rv_platform` is imported,
-  **THEN** the guarded import raises `ImportError`, which is logged as "aperv tool not available",
+- **WHEN** importing `aperv_tool` raises `ImportError` while `rv_platform` is imported (the
+  module is declared, so it is installed, but an import inside it fails),
+  **THEN** the error is logged as "aperv tool not available",
   **AND** the registry continues without `aperv` and every other tool remains usable. *Why:* the
-  plugin carries a binary and is optional by construction; it must not take down tool discovery.
+  plugin carries a binary and a broken plugin must not take down tool discovery.
 
 **Rationale**
 
@@ -1396,8 +1397,8 @@ view was excluded: there is no team-to-module mapping to document.
 
 **Python side.** The three modules form a dependency chain inside the uv workspace: `aperv-tool`
 depends on `rv-android-core` (AbstractTool, ToolSpec, Command, JarResolver, App, Task,
-`util.analysis_document`) and declares `rv-tools` in `pyproject.toml` without importing it (the
-registration edge is inverted — rv-platform imports the plugin). `aperv-tool` additionally
+`util.analysis_document`) and declares no other workspace module (the registration edge is
+inverted — rv-platform declares and imports the plugin). `aperv-tool` additionally
 declares pandas, numpy, scipy and statsmodels for its offline analysis package alone; the run path
 needs none of them. `rv-android-core` brings the third-party surface the run path uses: Pydantic
 (Command and domain model validation), Androguard (APK parsing in `App`), psutil (process-tree
@@ -1415,12 +1416,12 @@ requires the Android SDK's d8 (build-tools 28+) on PATH for dexing (`--min-api 2
 (OpenAI-compatible HTTP, LLM arms only), and the rv-platform-managed emulator.
 
 **External coupling.** Measured by imports, the subsystem is almost closed: on the Python side
-6 of 168 first-party import edges leave it, and the Java engine imports nothing first-party
+4 of 166 first-party import edges leave it, and the Java engine imports nothing first-party
 outside itself. The outside targets are the rest of the `rv_android_core` foundation, a lower
-layer (`util.android` for package detection and build-type-suffix neutralization in `App`, and the `domain.log` / `domain.coverage`
-types `Task` names under `TYPE_CHECKING`), plus two lazy imports of `rv_coverage`'s logcat
-parser, a peer module that neither `aperv-tool` nor `rv-android-core` declares — one in the
-offline `step_bundle.py`, one in `Task`'s logcat re-parse; the 57 cross-cutting edges go to
+layer (`util.android` for package detection and build-type-suffix neutralization in `App`, and the `domain.coverage`
+type `Task` names under `TYPE_CHECKING`), plus one lazy import of `rv_coverage`'s logcat
+parser package, a peer module that `aperv-tool` does not declare, in the offline
+`step_bundle.py`; the 57 cross-cutting edges go to
 `rv_android_core`'s logging, error, validation and constants packages and are left out of the
 ratio. The count sees imports only, so the couplings that carry this subsystem do not appear in
 it: the binary hand-off of `ape-rv.jar` through `mvn install` and the Docker build, the
@@ -1430,12 +1431,12 @@ the static-analysis JSON the derivation reads.
 
 | Language | Files | Internal | External | Cross-cutting | Ratio |
 |----------|-------|----------|----------|---------------|-------|
-| Python | 115 | 162 | 6 | 57 | 0.04 |
+| Python | 115 | 162 | 4 | 57 | 0.02 |
 | Java | 204 | 580 | 0 | 0 | 0.00 |
-| All | — | 742 | 6 | 57 | 0.01 |
+| All | — | 742 | 4 | 57 | 0.01 |
 
-Most-imported external targets: `rv_android_core.util.android` (2), `rv_coverage.parser.log`
-(2), `rv_android_core.domain.coverage` (1), `rv_android_core.domain.log` (1).
+Most-imported external targets: `rv_android_core.util.android` (2),
+`rv_android_core.domain.coverage` (1), `rv_coverage.parser.log` (1).
 
 ---
 

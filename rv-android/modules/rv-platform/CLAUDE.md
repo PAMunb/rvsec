@@ -102,6 +102,5 @@ Tests: `tests/components/` (per-component tests; none for `PerformanceProcessorC
 
 ## Dependencies
 
-- **Declared** (`pyproject.toml`): rv-android-core, rv-tools, rv-coverage (`CoverageTracker`, `parse_logcat_file`), rv-static-analysis (`static_analysis_parser`), rvagent-tool, pydantic, pandas.
-- **Imported but not declared**: `aperv_tool` in `_register_external_tools()`; it resolves because the root `pyproject.toml` installs every workspace member, and its absence only logs a warning.
+- **Declared** (`pyproject.toml`): rv-android-core, rv-tools, rv-coverage (`CoverageTracker`, `parse_logcat_file`), rv-static-analysis (`static_analysis_parser`), rvagent-tool and aperv-tool (both imported by `_register_external_tools()` to register the plugins), pydantic, pandas. The `ImportError` guard around each plugin import covers a plugin whose import breaks, not an optional install: both are declared, so both are always installed with rv-platform.
 - **Depended on by**: rv-experiment (`ExecutionController` drives `Platform`).

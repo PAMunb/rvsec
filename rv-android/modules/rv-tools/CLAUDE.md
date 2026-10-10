@@ -53,7 +53,7 @@ Authoring a tool = 4 abstract methods on an `AbstractTool` subclass: `get_tool_s
 - **INV-TOOL-20 / INV-TOOL-21 (variant-default pattern)**: L2 tool plugins (`builtin/`, plus `aperv-tool`, `rvagent-tool`) MUST NOT read environment variables. The canonical default for any per-tool URL/path/image lives in `get_variants()` (precedents: `ares/tool.py` and `qtesting/tool.py` `docker_image`). The factory merge `{**variant_defaults, **tool_config.parameters}` guarantees the key is present at `configure()` time — no `os.environ`. A required key is read as `config["key"]` so that its absence raises `KeyError` (INV-TOOL-21; `humanoid/tool.py` reads `humanoid_url` that way). `ares` and `qtesting` read `docker_image` with `config.get(..., "<literal>")`, repeating their variant default. L5 (`rv-experiment`) overrides via `ToolConfig.parameters` when an env var/CLI flag is set. Rationale: `rv-android/docs/adr/0001-env-var-pattern.md` (decision D8).
 
 ## Integration
-Consumed by rv-experiment (tool selection) and rv-platform (task execution; `ToolFactory` in `Platform._load_tool`). `aperv-tool` and `rvagent-tool` declare rv-tools and subclass `AbstractTool`.
+Consumed by rv-experiment (tool selection) and rv-platform (task execution; `ToolFactory` in `Platform._load_tool`). `aperv-tool` and `rvagent-tool` do not depend on rv-tools: they subclass `AbstractTool` from rv-android-core, and rv-platform registers them into this module's `ToolRegistry`.
 
 ## Development
 ```bash

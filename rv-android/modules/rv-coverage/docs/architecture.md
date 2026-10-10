@@ -123,7 +123,7 @@ The violation key is built only in `RvErrorLog.unique_msg` (rv-android-core) and
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Application Type | Library module | Consumed by rv-platform (real-time tracking) and rv-android-core (batch parsing). No CLI or service interface. |
+| Application Type | Library module | Consumed by rv-platform (real-time tracking through `CoverageTracker`, and `parse_logcat_file` for batch parsing and for rebuilding a task's repository on resume) and by aperv-tool (a lazy import of `DiagnosticEventParser` for opt-in diagnostics, which degrades to "not read" when rv-coverage is absent, so aperv-tool does not declare it). rv-android-core does not import this module. No CLI or service interface. |
 | Structuring | Two-package split: `parser/` and `analysis/` | Separates data extraction (logcat parsing) from metric computation (coverage tracking/analysis). Each concern evolves independently. |
 | Primary Pattern | Producer-Consumer with background thread | Logcat data is produced by the instrumented APK and consumed by a daemon thread. Decouples test execution from coverage processing. |
 | Control Strategy | File-tailing with adaptive sleep | The tracker tails the logcat file using file position tracking (`seek`/`readlines`), with 0.5s sleep when data flows and 1.0s when idle. Balances latency and CPU usage. |

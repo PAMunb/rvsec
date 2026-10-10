@@ -511,7 +511,7 @@ How the architecture supports non-functional requirements from the PRD.
 
 | NFR | PRD ID | Priority | Architectural Support |
 |-----|--------|----------|----------------------|
-| Modularity | NFR01 | P0 | Standalone uv workspace module with clear dependency on rv-android-core and rv-tools only; registered lazily by rv-platform |
+| Modularity | NFR01 | P0 | Standalone uv workspace module whose only declared workspace dependency is rv-android-core; registered lazily by rv-platform, which declares aperv-tool |
 | Extensibility | NFR02 | P0 | A new arm is a named entry in `get_variants()` carrying a preset plus override deltas; a new tunable is an entry in `APERV_PROPERTY_MAPPING`. New presets are not added here — the preset vocabulary belongs to the jar's `Presets.java` |
 | Testability | NFR03 | P1 | `tests/test_aperv_tool.py` covers spec metadata, variant shape, `configure()` validation, the DSL override fold, JAR paths, command building, constants, empty-trace detection, properties generation and the decisive-run arms; `tests/migration/` holds the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table, the pinned jar tables and the decisive-run contrasts, and skips silently without `$APE_REPO` |
 | Resilience | NFR04 | P1 | Timeout treated as expected exit (re-raised as `RVToolTimeoutError`); non-zero exit codes logged as debug (APE-RV reports app crashes this way) and never used to judge a run; a truncated exploration raises `RVToolExecutionError` so rv-platform's resume re-executes the identity (INV-APV-60); empty trace produces warning, not error |
@@ -731,7 +731,10 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 | Module | Purpose |
 |--------|---------|
 | rv-android-core | AbstractTool base class, Command for ADB invocation, JarResolver for JAR lookup, ErrorHandler for error management, LoggingManager for structured logging, domain models (Task, App, ToolSpec), exception classes, `util.analysis_document` (streaming read of the static-analysis JSON on `ijson`'s C backend, and the source digest the artifact cache keys on) |
-| rv-tools | ToolRegistry where the tool is registered (registration performed by rv-platform) |
+
+aperv-tool does not depend on rv-tools. rv-platform, which depends on both, imports `ApeRVTool` in `_register_external_tools()` (`rv_platform/__init__.py`) and registers it in rv-tools' `ToolRegistry`.
+
+One import of a workspace module is deliberately left undeclared: `analysis/step_bundle.py` imports rv-coverage's `DiagnosticEventParser` lazily, inside a `try/except ImportError`. The diagnostic stream it reads is opt-in, so when rv-coverage is not installed the bundle records that stream as not read instead of failing, and the offline analysis layer stays installable with rv-android-core alone.
 
 ### External
 

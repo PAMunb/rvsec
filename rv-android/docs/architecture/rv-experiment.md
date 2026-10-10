@@ -558,9 +558,8 @@ layer reading the environment itself could disagree with the entry point about t
 the canonical alternative; nothing in the workspace declares or scans one. The hardcoded
 imports in `rv_platform/__init__.py` are a deliberate simplicity trade: two guarded imports,
 easy to debug, and degrading gracefully — an image without rv-agent still runs Monkey
-experiments. The accepted cost is a layer-4 → plugin edge that the layering otherwise forbids,
-and an inconsistency: `rvagent-tool` is declared in rv-platform's `pyproject.toml` while
-`aperv-tool` is not.
+experiments. The accepted cost is a layer-4 → plugin edge that the layering otherwise forbids;
+both plugins are declared in rv-platform's `pyproject.toml`.
 
 **Frozen environment at container start; reactor built inside the image.** A bare `uv run`
 syncs before it runs, and in the image that sync always does work: the workspace members are
@@ -603,12 +602,10 @@ coupling in one file against pluggability nothing currently needs.
 
 At module granularity the subsystem is **layered**: the declared dependencies run downward
 from L5 (rv-experiment) to L4 (rv-platform), L3 (pre-processing and analysis), L2 (rv-tools,
-rv-uiautomator) and L1 (rv-android-core). There are two documented exceptions:
-rv-platform's import-time registration of rvagent-tool and aperv-tool, and rv-android-core's
-lazy import of `rv_coverage` in `Task.get_repository()` (`task.py:709`). The **uses** style
-follows the `pyproject.toml` declarations, with known gaps between declared and imported in
-both directions (rv-experiment declares rv-screen-parser and rv-coverage without importing
-them; rv-platform imports aperv-tool without declaring it). At runtime three C&C styles
+rv-uiautomator) and L1 (rv-android-core). There is one documented exception:
+rv-platform's import-time registration of rvagent-tool and aperv-tool. The **uses** style
+follows the `pyproject.toml` declarations, with one gap between declared and imported:
+aperv-tool's offline analysis lazily imports rv-coverage without declaring it. At runtime three C&C styles
 coexist: **pipe-and-filter** (the three phases with file hand-offs), **client-server** (adb and
 the emulator, on-device jars, sibling containers, the Humanoid and SGLang servers, the Java
 subprocesses), and **shared-data** (`tasks.json` across sessions and restarts; the co-located
@@ -651,8 +648,8 @@ two plugins living outside rv-tools show. Instrumentation variants extend throug
 initialize/execute/cleanup lifecycle.
 
 **Modularity (NFR01).** The subsystem is ten uv-workspace modules installed editable by one
-`uv sync`, with a downward dependency order and two documented deviations: the plugin
-registration edge from rv-platform and the lazy `rv_coverage` import from rv-android-core.
+`uv sync`, with a downward dependency order and one documented deviation: the plugin
+registration edge from rv-platform.
 
 **Observability (NFR06).** Every layer leaves a durable trace: the run's own log file in the
 results directory (INV-CORE-62); per-task logcat and trace files; `performance.csv` timed from
@@ -668,7 +665,7 @@ whose document could not be found (INV-PLT-18); per-file write-error counts kept
 | Resilience | NFR04 | Timeout-as-success; INV-EXP-08 fallback; INV-PLT-05; plugin degradation; atomic per-task persistence; restart-as-recovery |
 | Configurability | NFR05 | Unified `ExperimentConfig`; CLI > env > default; just-in-time sub-configs (INV-EXP-05); frozen arm tables |
 | Extensibility | NFR02 | Four-method `AbstractTool` contract; registry seam; `get_instrumenter` factory; component lifecycle |
-| Modularity | NFR01 | Ten editable workspace modules; downward dependencies; two documented deviations |
+| Modularity | NFR01 | Ten editable workspace modules; downward dependencies; one documented deviation |
 | Observability | NFR06 | Run log; per-task streams; `measured` column and denominators; INV-EXP-39 report; write-error counts |
 
 ### 8. Output artifacts
@@ -736,9 +733,8 @@ reproducibility record.
 
 This view shows the subsystem's code-time structure: a five-layer dependency stack in which
 the volatile orchestrator sits on top and the shared foundation at the bottom. Read it as "who
-is allowed to know about whom". Every arrow points downward except two documented deviations
-— rv-platform's import-time registration of rvagent-tool and aperv-tool, and rv-android-core's
-lazy import of the rv_coverage logcat parser. One more dashed arrow is not a layering
+is allowed to know about whom". Every arrow points downward except one documented deviation
+— rv-platform's import-time registration of rvagent-tool and aperv-tool. One more dashed arrow is not a layering
 question but a declaration gap: aperv-tool's offline analysis lazily imports rv-coverage's
 `DiagnosticEventParser` (`analysis/step_bundle.py:193`) without declaring rv-coverage. The edges
 in Diagram 2 are what you need to change any module safely.
@@ -790,16 +786,13 @@ flowchart TB
     RVPLT --> RVCOV
     RVPLT --> CORE
     RVPLT -. "import-time registration (declared)" .-> RVAGT
-    RVPLT -. "import-time registration (undeclared)" .-> APERV
+    RVPLT -. "import-time registration (declared)" .-> APERV
     RVTLS --> CORE
     RVMON --> CORE
     RVSTA --> CORE
     RVUIA --> CORE
     APERV --> CORE
-    APERV --> RVTLS
     RVAGT --> CORE
-    RVAGT --> RVTLS
-    CORE -. "lazy import in Task.get_repository (task.py:709)" .-> RVCOV
     APERV -. "lazy import, undeclared (analysis/step_bundle.py:193)" .-> RVCOV
 ```
 
@@ -843,8 +836,7 @@ flags are ignored. The results-level `instrument_errors.json` is built from a pe
 `instrument_errors` attribute that `TaskResult` does not define, so it is the empty object
 `{}` — and `ResultManager` skips writing it entirely when no task completed; the
 instrumenter's own per-APK report in `instrumented_apks/instrument_errors.json` is the one
-that carries failures. `WorkflowFactory` has no production caller. `rv-screen-parser` and
-`rv-coverage` are declared in `pyproject.toml` but never imported. On resume all three
+that carries failures. `WorkflowFactory` has no production caller. On resume all three
 pre-processing steps are off regardless of the flags (INV-EXP-13).
 
 **rv-platform** (layer 4, `modules/rv-platform`). `Platform.run()` is a facade over five
@@ -862,7 +854,8 @@ and the static document (INV-PLT-16). It is separate because it is the reusable 
 engine: `rv-platform run` works without any experiment wrapper, and the boundary keeps emulator
 lifecycle, task persistence and result production independent of experiment policy while
 giving resume one owner. Gotchas: `rv_platform/__init__.py` registers `RVAgentTool` and
-`ApeRVTool` at import time, and `aperv-tool` is not declared in its `pyproject.toml`;
+`ApeRVTool` at import time, both declared in its `pyproject.toml` and imported under an
+`ImportError` guard;
 `RVToolTimeoutError` is a successful completion; ERROR tasks re-run on resume, only COMPLETED
 ones are skipped; `TaskStorage.delete_task` stores a `None` sentinel that `commit_transaction`
 merges without filtering — a latent corruption path if transactional delete is ever used;
@@ -909,8 +902,10 @@ variables, so the containers of one run cannot differ. `read_analysis_document` 
 streaming reader of the static document shared by the parser and the APE-RV derivation.
 `constants.py` holds the `ENV_*` registry that the Docker allow-list is derived from. It is
 separate because it is the shared vocabulary of every module; any edge from it back up the
-stack would create cycles across the workspace. Gotchas: `Task.get_repository()` (`task.py:709`)
-lazily imports `rv_coverage.parser.log.logcat_parser`, the one known upward edge;
+stack would create cycles across the workspace. Gotchas: `LogcatRepository` is imported only under
+`TYPE_CHECKING`, so `Task._new_repository()` returns `None` and `task.repository` stays `None`
+until `CoverageComponent` sets it, or until rv-platform rebuilds it from the persisted logcat
+on resume;
 `ErrorHandler.handle_errors` absorbs exceptions unless `reraise=True` is passed, which callers
 must keep in mind when they rely on a decorated method to fail.
 
@@ -922,7 +917,7 @@ sleeps. In this subsystem it participates only through rv-agent, whose `DeviceIn
 instantiates `UIAutomator2Adapter` when the rvagent tool runs. It is separate to keep device
 I/O out of the agent's decision logic. Gotchas: rv-agent is its only consumer outside its own
 tests — the module's `CLAUDE.md` names rv-platform as a consumer, which the imports do not
-show; `rv-screen-parser` is declared but not imported.
+show.
 
 **rv-monitor-generator** (layer 3, `modules/rv-monitor-generator`). `RVGeneratorConfig`
 resolves tool paths by priority — explicit paths, then `rvsec_root`, then `RVSEC_HOME` — and
@@ -981,7 +976,8 @@ the deployment contract, so the platform never learns APE-RV specifics. Gotchas:
 whose task finds no static document fails with `RVToolExecutionError` rather than running
 unguided (INV-APV-45) — with `--skip-static`, the documents must sit beside the APKs in
 `--apks-dir`; an exploration that returns more than 45 s before its budget is a failure
-(INV-APV-60); rv-platform imports this plugin without declaring it. The detailed description
+(INV-APV-60); rv-platform declares this plugin and imports it under an `ImportError` guard.
+The detailed description
 is in `docs/architecture/ape-rv.md`.
 
 **rvagent-tool** (tool plugin, `modules/rvagent-tool`). A thin adapter: `configure()` stores
@@ -996,8 +992,7 @@ are imported lazily so registration stays light, and a `try/finally` guarantees
 arm-defining key inherits a default; a test fails when the copy drifts from the agent
 (INV-RVA-01/02 in the plugin's code). It is separate because it keeps rv-agent usable as a
 standalone CLI while this plugin alone maps platform context to agent configuration. Gotchas:
-`RV_STEERING_OFF` is a deliberate duplication guarded by that test; `rv-tools` is declared but
-not imported.
+`RV_STEERING_OFF` is a deliberate duplication guarded by that test.
 
 **rvsmart-tool** (jar only, `modules/rvsmart-tool`). The directory holds one untracked file,
 `src/rvsmart_tool/tools/rvsmart/rvsmart.jar`, the RVSmart Java exploration agent built by the
@@ -1033,18 +1028,18 @@ answers 501 to GET.
 | Element | Responsibility | Relations / interfaces |
 |---------|----------------|------------------------|
 | rv-experiment (L5) | Three-phase lifecycle, unified config, CLI | uses rv-platform, rv-monitor-generator, rv-instrumentation, rv-static-analysis, rv-tools, rv-android-core |
-| rv-platform (L4) | Task matrix, resume skip, TaskExecutor, atomic persistence, result files | uses rv-tools, rv-static-analysis, rv-coverage, rv-android-core; registers rvagent-tool + aperv-tool at import |
+| rv-platform (L4) | Task matrix, resume skip, TaskExecutor, atomic persistence, result files | uses rv-tools, rv-static-analysis, rv-coverage, rv-android-core, rvagent-tool, aperv-tool; registers the two plugins at import |
 | rv-tools (L2) | ToolRegistry/ToolFactory + eight builtin wrappers | uses rv-android-core; consumed by rv-platform and rv-experiment |
-| rv-android-core (L1) | Domain models, AbstractTool, Command, errors, logging, emulator/logcat, ENV_* registry | no workspace dependencies; lazy rv_coverage import at `task.py:709` |
+| rv-android-core (L1) | Domain models, AbstractTool, Command, errors, logging, emulator/logcat, ENV_* registry | no workspace dependencies, declared or imported |
 | rv-uiautomator (L2) | UIAdapter + uiautomator2 device interaction | uses rv-android-core; consumed by rv-agent |
 | rv-monitor-generator (L3) | JavaMOP + RV-Monitor orchestration | uses rv-android-core; subprocess to `$RVSEC_HOME` binaries |
 | rv-instrumentation (L3) | `get_instrumenter(variant, config)`; shared keystore | re-exports rv-instrumentation-core; lazy-imports one variant |
 | rv-static-analysis (L3) | GATOR client runner, parser, denominator gate, compact converter | uses rv-android-core; subprocess to `rvsec-analysis-client.jar` |
-| aperv-tool (plugin) | APE-RV deployment contract; offline campaign analysis | uses rv-android-core; declares rv-tools without importing it; its offline analysis lazily imports rv-coverage's `DiagnosticEventParser` (undeclared); registered by rv-platform (undeclared) |
-| rvagent-tool (plugin) | Platform → rv-agent adapter; six frozen variants | uses rv-android-core; declares rv-tools without importing it; registered by rv-platform (declared) |
+| aperv-tool (plugin) | APE-RV deployment contract; offline campaign analysis | uses rv-android-core; its offline analysis lazily imports rv-coverage's `DiagnosticEventParser` (undeclared); registered by rv-platform (declared) |
+| rvagent-tool (plugin) | Platform → rv-agent adapter; six frozen variants | uses rv-android-core and rv-agent (lazy); registered by rv-platform (declared) |
 | rvsmart-tool (jar only) | Holds `rvsmart.jar`; no Python package | no import edges |
 | docker | Four-image chain, allow-list entrypoint, compose topologies | entrypoint execs rv-experiment; image builds every Java artifact |
-| rv-coverage (external) | Logcat parsing (outside this target) | used by rv-platform; target of the lazy imports of rv-android-core and of aperv-tool's offline analysis |
+| rv-coverage (external) | Logcat parsing (outside this target) | used by rv-platform; target of the lazy import of aperv-tool's offline analysis |
 
 **Context** — see [system context](#3-system-overview-and-context).
 
@@ -1066,10 +1061,9 @@ in this catalog.
 
 The layered shape makes the two central properties — crash-safe resume and tool pluggability —
 structural rather than conventional: everything volatile sits at the top, everything shared at
-the bottom, and the only owner of persisted task state is layer 4. The two deviations stay on
-the diagram because they only make sense against the layered baseline: the plugin
-registration edge is a deliberate simplicity trade (see [Rationale](#7-rationale)), and the
-core → rv_coverage lazy import is a known defect, not a design.
+the bottom, and the only owner of persisted task state is layer 4. The one deviation stays on
+the diagram because it only makes sense against the layered baseline: the plugin
+registration edge is a deliberate simplicity trade (see [Rationale](#7-rationale)).
 
 ### Component-and-connector view
 
@@ -1552,13 +1546,12 @@ calls).
 `/dev/kvm`, adb and the Android SDK, the Humanoid image `phtcosta/humanoid:1.0`, and an
 external SGLang server for LLM arms.
 
-**External coupling.** In Python imports the boundary is almost closed: 14 of 608 first-party
+**External coupling.** In Python imports the boundary is almost closed: 13 of 606 first-party
 import edges leave the ten modules. The cross-cutting column is 0 because rv-android-core, the
 foundation every module imports, is inside this subsystem, so its edges count as internal. The
-14 external edges go to workspace modules outside the subsystem's Python list, none of
+13 external edges go to workspace modules outside the subsystem's Python list, none of
 them a foundation the subsystem as a whole leans on: rv-coverage's logcat and diagnostic
-parsers and its `CoverageTracker` (rv-platform, rv-android-core's lazy import and aperv-tool's
-offline analysis), the rv-instrumentation
+parsers and its `CoverageTracker` (rv-platform and aperv-tool's offline analysis), the rv-instrumentation
 family's core and variant packages (the facade's dispatch, plus rv-experiment's direct imports
 of the variant configuration classes), and rv-agent (rvagent-tool). The count sees imports
 only, and only the Python list: the `docker/` directory is not counted, and the couplings this
@@ -1569,10 +1562,10 @@ SGLang and to Humanoid, and the JSON contracts (`<apk>.apk.json`, the
 
 | Language | Files | Internal | External | Cross-cutting | Ratio |
 |----------|-------|----------|----------|---------------|-------|
-| Python | 222 | 594 | 14 | 0 | 0.02 |
-| All | — | 594 | 14 | 0 | 0.02 |
+| Python | 222 | 593 | 13 | 0 | 0.02 |
+| All | — | 593 | 13 | 0 | 0.02 |
 
-Most-imported external targets: `rv_coverage.parser.log` (4), `rv_instrumentation_core` (2),
+Most-imported external targets: `rv_coverage.parser.log` (3), `rv_instrumentation_core` (2),
 `rv_instrumentation_dexlib2` (2), `rv_agent.agent.agent_factory` (1),
 `rv_agent.config.agent_config` (1).
 
