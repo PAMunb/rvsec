@@ -2251,46 +2251,20 @@
       "targetId": 1391,
       "events": [
         {
-          "type": "implicit_home_event",
-          "handler": "",
-          "widgetId": 1391,
-          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1391,
-      "targetId": 1391,
-      "events": [
-        {
-          "type": "implicit_rotate_event",
-          "handler": "",
-          "widgetId": 1391,
-          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1391,
-      "targetId": 1386,
-      "events": [
-        {
-          "type": "implicit_back_event",
-          "handler": "",
-          "widgetId": 1391,
-          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1391,
-      "targetId": 1391,
-      "events": [
-        {
           "type": "implicit_power_event",
+          "handler": "",
+          "widgetId": 1391,
+          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1391,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "implicit_home_event",
           "handler": "",
           "widgetId": 1391,
           "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
@@ -2312,27 +2286,27 @@
       ]
     },
     {
-      "sourceId": 1397,
-      "targetId": 1397,
-      "events": [
-        {
-          "type": "implicit_rotate_event",
-          "handler": "",
-          "widgetId": 1397,
-          "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1397,
+      "sourceId": 1391,
       "targetId": 1386,
       "events": [
         {
           "type": "implicit_back_event",
           "handler": "",
-          "widgetId": 1397,
-          "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
+          "widgetId": 1391,
+          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1391,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "implicit_rotate_event",
+          "handler": "",
+          "widgetId": 1391,
+          "widgetClass": "br.unb.cic.cryptoapp.messagedigest.MessageDigestActivity",
           "widgetName": ""
         }
       ]
@@ -2355,7 +2329,20 @@
       "targetId": 1397,
       "events": [
         {
-          "type": "implicit_power_event",
+          "type": "implicit_home_event",
+          "handler": "",
+          "widgetId": 1397,
+          "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1397,
+      "targetId": 1386,
+      "events": [
+        {
+          "type": "implicit_back_event",
           "handler": "",
           "widgetId": 1397,
           "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
@@ -2368,7 +2355,7 @@
       "targetId": 1397,
       "events": [
         {
-          "type": "implicit_home_event",
+          "type": "implicit_rotate_event",
           "handler": "",
           "widgetId": 1397,
           "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
@@ -2377,14 +2364,14 @@
       ]
     },
     {
-      "sourceId": 1394,
-      "targetId": 1394,
+      "sourceId": 1397,
+      "targetId": 1397,
       "events": [
         {
-          "type": "implicit_rotate_event",
+          "type": "implicit_power_event",
           "handler": "",
-          "widgetId": 1394,
-          "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
+          "widgetId": 1397,
+          "widgetClass": "br.unb.cic.cryptoapp.cipher.CipherActivity",
           "widgetName": ""
         }
       ]
@@ -2395,6 +2382,19 @@
       "events": [
         {
           "type": "implicit_back_event",
+          "handler": "",
+          "widgetId": 1394,
+          "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1394,
+      "targetId": 1394,
+      "events": [
+        {
+          "type": "implicit_rotate_event",
           "handler": "",
           "widgetId": 1394,
           "widgetClass": "br.unb.cic.cryptoapp.generated.CryptographyActivity",
@@ -2446,11 +2446,50 @@
       "targetId": 1386,
       "events": [
         {
-          "type": "implicit_back_event",
+          "type": "implicit_home_event",
           "handler": "",
           "widgetId": 1379,
           "widgetClass": "android.view.Menu",
           "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1379,
+      "targetId": 1386,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
+          "widgetId": 2131296547,
+          "widgetClass": "android.view.MenuItem",
+          "widgetName": "menu_item_home"
+        }
+      ]
+    },
+    {
+      "sourceId": 1379,
+      "targetId": 1386,
+      "events": [
+        {
+          "type": "implicit_power_event",
+          "handler": "",
+          "widgetId": 1379,
+          "widgetClass": "android.view.Menu",
+          "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1379,
+      "targetId": 1397,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
+          "widgetId": 2131296546,
+          "widgetClass": "android.view.MenuItem",
+          "widgetName": "menu_item_cipher"
         }
       ]
     },
@@ -2479,7 +2518,7 @@
       "targetId": 1386,
       "events": [
         {
-          "type": "implicit_power_event",
+          "type": "implicit_back_event",
           "handler": "",
           "widgetId": 1379,
           "widgetClass": "android.view.Menu",
@@ -2501,45 +2540,6 @@
       ]
     },
     {
-      "sourceId": 1379,
-      "targetId": 1386,
-      "events": [
-        {
-          "type": "implicit_home_event",
-          "handler": "",
-          "widgetId": 1379,
-          "widgetClass": "android.view.Menu",
-          "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1379,
-      "targetId": 1397,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
-          "widgetId": 2131296546,
-          "widgetClass": "android.view.MenuItem",
-          "widgetName": "menu_item_cipher"
-        }
-      ]
-    },
-    {
-      "sourceId": 1379,
-      "targetId": 1386,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>",
-          "widgetId": 2131296547,
-          "widgetClass": "android.view.MenuItem",
-          "widgetName": "menu_item_home"
-        }
-      ]
-    },
-    {
       "sourceId": 1386,
       "targetId": 1386,
       "events": [
@@ -2549,123 +2549,6 @@
           "widgetId": 1386,
           "widgetClass": "br.unb.cic.cryptoapp.MainActivity",
           "widgetName": ""
-        }
-      ]
-    },
-    {
-      "sourceId": 1386,
-      "targetId": 1397,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
-          "widgetId": 2131296356,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonCipher"
-        }
-      ]
-    },
-    {
-      "sourceId": 1386,
-      "targetId": 1397,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
-          "widgetId": 2131296359,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonMessageDigest"
-        }
-      ]
-    },
-    {
-      "sourceId": 1386,
-      "targetId": 1397,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
-          "widgetId": 2131296358,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonGenerated"
-        }
-      ]
-    },
-    {
-      "sourceId": 1386,
-      "targetId": 1394,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
-          "widgetId": 2131296356,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonCipher"
-        }
-      ]
-    },
-    {
-      "sourceId": 1386,
-      "targetId": 1394,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
-          "widgetId": 2131296359,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonMessageDigest"
-        }
-      ]
-    },
-    {
-      "sourceId": 1386,
-      "targetId": 1394,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
-          "widgetId": 2131296358,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonGenerated"
-        }
-      ]
-    },
-    {
-      "sourceId": 1386,
-      "targetId": 1391,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
-          "widgetId": 2131296356,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonCipher"
-        }
-      ]
-    },
-    {
-      "sourceId": 1386,
-      "targetId": 1391,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
-          "widgetId": 2131296359,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonMessageDigest"
-        }
-      ]
-    },
-    {
-      "sourceId": 1386,
-      "targetId": 1391,
-      "events": [
-        {
-          "type": "click",
-          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
-          "widgetId": 2131296358,
-          "widgetClass": "android.widget.Button",
-          "widgetName": "buttonGenerated"
         }
       ]
     },
@@ -2687,7 +2570,7 @@
       "targetId": 1386,
       "events": [
         {
-          "type": "implicit_home_event",
+          "type": "implicit_power_event",
           "handler": "",
           "widgetId": 1386,
           "widgetClass": "br.unb.cic.cryptoapp.MainActivity",
@@ -2700,11 +2583,128 @@
       "targetId": 1386,
       "events": [
         {
-          "type": "implicit_power_event",
+          "type": "implicit_home_event",
           "handler": "",
           "widgetId": 1386,
           "widgetClass": "br.unb.cic.cryptoapp.MainActivity",
           "widgetName": ""
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
+          "widgetId": 2131296356,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonCipher"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
+          "widgetId": 2131296359,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonMessageDigest"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1391,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
+          "widgetId": 2131296358,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonGenerated"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1397,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
+          "widgetId": 2131296358,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonGenerated"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1397,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
+          "widgetId": 2131296359,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonMessageDigest"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1397,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
+          "widgetId": 2131296356,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonCipher"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1394,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenMessageDigest(android.view.View)>",
+          "widgetId": 2131296359,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonMessageDigest"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1394,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showScreenCipher(android.view.View)>",
+          "widgetId": 2131296356,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonCipher"
+        }
+      ]
+    },
+    {
+      "sourceId": 1386,
+      "targetId": 1394,
+      "events": [
+        {
+          "type": "click",
+          "handler": "<br.unb.cic.cryptoapp.MainActivity: void showGenerated(android.view.View)>",
+          "widgetId": 2131296358,
+          "widgetClass": "android.widget.Button",
+          "widgetName": "buttonGenerated"
         }
       ]
     }

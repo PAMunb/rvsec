@@ -44,8 +44,8 @@
     "design.md §D12 follow-up notes."
   ],
   "schema_version": 1,
-  "regenerated_at": "2026-10-07",
-  "regenerated_against_jar_sha256": "2e8933d82e6b9633f1175a63ebc6515804aa3d08f6b09ef0899c5aaf9b0c3a7e",
+  "regenerated_at": "2026-10-10",
+  "regenerated_against_jar_sha256": "e65eb662093b30a0017bceda5d44126b0b15344c1d30e5d7bb82259a700d5ca7",
   "entries": [
     {
       "name": "cryptoapp",
