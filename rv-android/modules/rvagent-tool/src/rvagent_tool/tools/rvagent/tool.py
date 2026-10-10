@@ -41,8 +41,9 @@ class RVAgentTool(AbstractTool):
     - Maps platform Task/ToolConfig to RVAgentConfig parameters
 
     ### Architectural Decisions:
-    - Lazy import of rv-agent modules in execute_tool_specific_logic()
-      to avoid circular dependencies at registration time
+    - Lazy import of rv-agent modules in execute_tool_specific_logic(),
+      so registration at rv_platform import time does not load rv-agent's
+      dependency tree; a missing rv-agent surfaces when an rvagent task runs
     - Timeout is controlled by Task.config, not by tool variants,
       keeping execution timeout uniform across all tools
     - Static analysis data is injected from the platform context
@@ -226,7 +227,8 @@ class RVAgentTool(AbstractTool):
             task: Task configuration with device, timeout, static data
             app: Application under test
         """
-        # Import here to avoid circular dependencies
+        # Imported here so that registering RVAgentTool, which rv-platform does at
+        # import time, does not load rv-agent's dependency tree.
         from rv_agent.agent.agent_factory import AgentFactory
         from rv_agent.config.agent_config import RVAgentConfig
         from rv_agent.services.transition_manager import validate_static_data

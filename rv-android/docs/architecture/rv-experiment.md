@@ -916,8 +916,7 @@ protocol. Failures log and return `False`/`{}`/`None` rather than raise, and tim
 sleeps. In this subsystem it participates only through rv-agent, whose `DeviceInterface`
 instantiates `UIAutomator2Adapter` when the rvagent tool runs. It is separate to keep device
 I/O out of the agent's decision logic. Gotchas: rv-agent is its only consumer outside its own
-tests — the module's `CLAUDE.md` names rv-platform as a consumer, which the imports do not
-show.
+tests.
 
 **rv-monitor-generator** (layer 3, `modules/rv-monitor-generator`). `RVGeneratorConfig`
 resolves tool paths by priority — explicit paths, then `rvsec_root`, then `RVSEC_HOME` — and
@@ -1052,8 +1051,9 @@ without code changes. The instrumentation variant (`ajc` or `dexlib2`) is chosen
 `custom`) is a configuration value resolved to one directory that feeds both monitor
 generation and static analysis. The scope-key policies (`--package-detector`,
 `--strip-build-type-suffix`) and the handler stamp are per-run choices, off by default.
-Optional plugins degrade: a missing rv-agent package shrinks the registry rather than breaking
-the platform. The generalization style was not documented as a separate view — the only
+The rvagent plugin defers rv-agent: `RVAgentTool` imports it inside
+`execute_tool_specific_logic()`, so registration does not load rv-agent's dependency tree and a
+missing rv-agent surfaces only when an rvagent task runs. The generalization style was not documented as a separate view — the only
 significant hierarchies (`AbstractTool`, `BaseValidatedModel`, the exception tree) are covered
 in this catalog.
 
@@ -1359,10 +1359,10 @@ The following scenarios illustrate the runtime behavior this view documents.
     would otherwise proceed without the stamp it asked for (INV-EXP-40).
 
 12. **WHEN** rv-agent is absent from the environment and `rv_platform` is imported, **THEN**
-    the registration in `rv_platform/__init__.py` catches the `ImportError`, logs it and
-    continues with the eight builtin tools plus aperv, **AND** experiments naming `rvagent`
-    fail tool resolution while others run normally. *Why:* the engine's availability does
-    not depend on the heaviest optional tool's dependency tree.
+    `RVAgentTool` still registers, because `rvagent_tool` imports rv-agent only inside
+    `execute_tool_specific_logic()`, **AND** the `ImportError` is raised when an rvagent task
+    executes, while tasks of the other tools run normally. *Why:* registration at import time
+    stays free of the heaviest tool's dependency tree.
 
 **Rationale**
 

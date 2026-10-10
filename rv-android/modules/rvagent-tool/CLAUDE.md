@@ -79,7 +79,7 @@ LLM-family arms keep every steering flag off (INV-RVA-04), so LLM latency never 
 
 ### Key Design Decisions
 
-- **Lazy imports**: rv-agent modules imported inside `execute_tool_specific_logic()` to avoid circular dependencies at registration time
+- **Lazy imports**: rv-agent modules imported inside `execute_tool_specific_logic()`, so registration at `rv_platform` import time does not load rv-agent's dependency tree; a missing rv-agent surfaces when an rvagent task runs
 - **Timeout from Task only**: timeout always comes from `Task.config`, never from variant configuration -- the platform controls execution timeout uniformly
 - **Static data passthrough**: static analysis data is injected from the platform's `StaticAnalysisComponent` via `task.static_data`, not loaded independently
 - **Extensive parameter mapping**: `config.py` passes through about 60 keys (LLM, strategy, scorer weights, error detection, fallback, steering flags, tuning knobs); every arm-defining key in `RV_STEERING_OFF` must be mapped (INV-RVA-02). `task.results_dir` becomes `metrics_output_dir`

@@ -38,9 +38,9 @@ else:
 if TYPE_CHECKING:
     from rv_android_core.util.logging.manager import LoggingManager
 else:
-    # LoggingManager uses a different strategy: try actual import first (not just Any)
-    # because Task needs to call LoggingManager.get_instance() at runtime for logging,
-    # unlike App/LogcatRepository which are only used as type annotations on Task fields.
+    # LoggingManager is imported for real (with a None fallback) because Task calls
+    # LoggingManager.get_instance() at runtime. App and LogcatRepository stay bound
+    # to typing.Any, as the comment above explains.
     try:
         from rv_android_core.util.logging.manager import LoggingManager
     except ImportError:

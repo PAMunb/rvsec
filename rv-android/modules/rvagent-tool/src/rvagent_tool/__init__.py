@@ -11,7 +11,8 @@ Key Components:
 - Config mapping: Converts platform Task/ToolConfig to RVAgentConfig
 
 Integration:
-- Registers as plugin via rv-tools plugin system
+- Registered into the rv-tools ToolRegistry by rv-platform
+  (`_register_external_tools()` in `rv_platform/__init__.py`)
 - Uses rv-agent AgentFactory for agent creation
 - Supports static analysis data from platform task context
 """
