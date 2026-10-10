@@ -143,7 +143,7 @@ The subcommand `compact INPUT OUTPUT` calls `compact_document`. It exits 0 on su
 
 ## Data Flow
 
-1. `rv-static-analysis analyze` → `build_gator_command` → GATOR command line with or without `-clientParam fullOutput=true`.
+1. `rv-static-analysis analyze` → `get_tool_command` → GATOR command line with or without `-clientParam fullOutput=true`.
 2. `RvsecAnalysisClient.run` → `fullOutput()` → `new JsonReportWriter(enricher, !full)` → pre-WTG `write` → WTG → final `write`, both in the same mode.
 3. Downstream readers are unchanged. The parser drops pairs, the cache copies the marker, and the derive reduces again, which is the identity on a compact list.
 4. Offline: `rv-static-analysis compact full.json out.json` → reader (reduce) → re-sort by `i` → insert marker → serialise → temp file → `os.replace`.

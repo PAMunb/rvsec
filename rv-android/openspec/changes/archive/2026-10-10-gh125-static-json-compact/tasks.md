@@ -31,7 +31,7 @@
 
 ## 2. rv-static-analysis: flag and converter (subagent B — `modules/rv-static-analysis` only)
 
-- [x] 2.1 `config.py`: add `full_output: bool = Field(default=False, …)` to `RVStaticAnalysisConfig`; in `build_gator_command` append `-clientParam fullOutput=true` when it is `True`, nothing otherwise.
+- [x] 2.1 `config.py`: add `full_output: bool = Field(default=False, …)` to `RVStaticAnalysisConfig`; in `get_tool_command` append `-clientParam fullOutput=true` when it is `True`, nothing otherwise.
 - [x] 2.2 `__main__.py`: add `--full-output` to `analyze` and `batch` (beside `--skip-wtg`) and propagate it to `full_output`.
 - [x] 2.3 `parser/static/static_analysis_parser.py`: add `DISTANCE_PAIRS`, `WEIGHED_MAX`, `K` to `_JK` with the Java values (INV-ANA-32).
 - [x] 2.4 New `src/rv_static_analysis/compact.py`: `COMPACT_WEIGHED_MAX`, `COMPACT_K`, `CompactRefused`, `dumps_gson_compact`, `compact_document(src, dst)` per design D5–D7 (reader `read_analysis_document(src, PairPolicy.reduce(3, 3))`, re-sort by `i`, marker before `distanceTargets` or before `components` when it is absent, U+2028/U+2029 escaped, non-integer number refused, samefile refused, truncated and compact inputs refused, temp file + `os.replace`, temp file removed on failure).

@@ -11,7 +11,7 @@ Neither mode changes what the consumers compute. `StaticAnalysisParser` discards
 ## Data Contracts
 
 ### Input
-- `-clientParam fullOutput=true|false` — GATOR client parameter; absent or any value other than `true` (case-insensitive) selects compact (source: `RVStaticAnalysisConfig.build_gator_command` in `modules/rv-static-analysis/src/rv_static_analysis/config.py`)
+- `-clientParam fullOutput=true|false` — GATOR client parameter; absent or any value other than `true` (case-insensitive) selects compact (source: `RVStaticAnalysisConfig.get_tool_command` in `modules/rv-static-analysis/src/rv_static_analysis/config.py`)
 - `RVStaticAnalysisConfig.full_output: bool = False` and `--full-output` on the `analyze` and `batch` subcommands (source: the operator)
 - `<full.json>` — a full-mode document, the input of `rv-static-analysis compact` (source: an earlier GATOR run)
 
@@ -49,7 +49,7 @@ The mode SHALL apply to both writes of a run, the pre-WTG write (INV-ANA-75) and
 
 The reduction is the one the MOP derive applies (`aperv` D15/D18: the jar weighs a pair only up to `d = 3`, and `activityDist` keeps the 3 nearest), and it is exact for that consumer. A dropped pair has `k` targets ahead of it in its own method, and those targets stay ahead of it after any merge by the minimum distance. Each target's search records one distance per method, so a method's full list already holds one pair per target, and reducing it needs no merge. Because the nearest pair always survives, a method keeps `targetDistances` in compact mode exactly when it carries the key in full mode, and INV-ANA-74 holds in both modes. The constants SHALL be declared in `TargetDistances` beside `DIST_MAX` (INV-ANA-88). The marker keys `distancePairs`, `weighedMax` and `k` SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
 
-`RVStaticAnalysisConfig` SHALL carry `full_output: bool = False`. When it is `True`, `build_gator_command` SHALL append `-clientParam fullOutput=true`, and otherwise SHALL append nothing for the mode. The `analyze` and `batch` subcommands SHALL expose `--full-output` and set the field. The parser, the parsed-copy cache (INV-ANA-82, INV-ANA-83) and the `aperv-tool` derive SHALL read both modes without being told which mode they read. The cache copies the `distancePairs` member like any other top-level member.
+`RVStaticAnalysisConfig` SHALL carry `full_output: bool = False`. When it is `True`, `get_tool_command` SHALL append `-clientParam fullOutput=true`, and otherwise SHALL append nothing for the mode. The `analyze` and `batch` subcommands SHALL expose `--full-output` and set the field. The parser, the parsed-copy cache (INV-ANA-82, INV-ANA-83) and the `aperv-tool` derive SHALL read both modes without being told which mode they read. The cache copies the `distancePairs` member like any other top-level member.
 
 #### Scenario: compact is the default
 - **WHEN** `rv-static-analysis analyze --apk cryptoapp.apk` runs without `--full-output`
