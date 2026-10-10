@@ -1,0 +1,67 @@
+# smk124 — device smoke of the gh124 Compose stamp (f$0 node step + Material step).
+# APKs instrumented on the host with the instr-cli.jar of gh124 and --stamp-handlers
+# (scripts/instrument.py), each with its .apk.json beside it in apks/instrumented/.
+# One container per APK, arm aperv:mopd_on_llm_off, 300 s, 1 rep.
+#   E03MINI_IMAGE=phtcosta/rvandroid:0.9.5 docker compose -f experimento-smk124/docker-compose.yml up -d
+
+x-rvandroid: &rvandroid-base
+  image: ${E03MINI_IMAGE:?set E03MINI_IMAGE=phtcosta/rvandroid:0.9.5}
+  environment: &rvandroid-env
+    RV_TOOLS: "aperv:mopd_on_llm_off"
+    RV_TIMEOUTS: "300"
+    RV_REPETITIONS: "1"
+    RV_NO_WINDOW: "true"
+    RV_SPEC_SET: "jca_android"
+    RV_SKIP_MONITORS: "true"
+    RV_SKIP_INSTRUMENT: "true"
+    RV_SKIP_STATIC_ANALYSIS: "true"
+    RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+    RV_DEVICE_PORT: "5554"
+  devices:
+    - /dev/kvm:/dev/kvm
+  restart: "no"
+  deploy:
+    resources:
+      limits:
+        cpus: "4"
+        memory: "10g"
+
+services:
+  smk124_saucenao:
+    <<: *rvandroid-base
+    container_name: smk124_saucenao
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: smk124_saucenao
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/com.luk.saucenao_27.txt"
+      RV_DELAY: "0"
+    volumes:
+      - ./apks/instrumented:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/smk124_saucenao:/opt/rvsec/rv-android/results
+
+  smk124_jtx:
+    <<: *rvandroid-base
+    container_name: smk124_jtx
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: smk124_jtx
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/at.techbee.jtx_216000015.txt"
+      RV_DELAY: "10"
+    volumes:
+      - ./apks/instrumented:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/smk124_jtx:/opt/rvsec/rv-android/results
+
+  smk124_plugbrain:
+    <<: *rvandroid-base
+    container_name: smk124_plugbrain
+    environment:
+      <<: *rvandroid-env
+      RV_EXPERIMENT_NAME: smk124_plugbrain
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/app.plugbrain.android_154.txt"
+      RV_DELAY: "20"
+    volumes:
+      - ./apks/instrumented:/opt/rvsec/rv-android/apks:ro
+      - ./filters:/opt/rvsec/rv-android/filters:ro
+      - ./results/smk124_plugbrain:/opt/rvsec/rv-android/results
