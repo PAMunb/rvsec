@@ -85,8 +85,11 @@ def walk_sources(group_paths, suffix):
         base = g / "src" if (g / "src").is_dir() and suffix == ".py" else g
         files = [g] if g.is_file() else base.rglob(f"*{suffix}")
         for f in files:
-            parts = set(f.relative_to(g.parent if g.is_file() else base).parts[:-1])
-            if f.suffix != suffix or parts & (TEST_DIR_NAMES | SKIP_DIR_NAMES):
+            rel = f.relative_to(g.parent if g.is_file() else base).parts[:-1]
+            # Build-output names are skipped only above the first src/: below it they are
+            # package names (rvsec-gator has presto.android.gui.clients.target).
+            outer = rel[: rel.index("src")] if "src" in rel else rel
+            if f.suffix != suffix or set(rel) & TEST_DIR_NAMES or set(outer) & SKIP_DIR_NAMES:
                 continue
             if suffix == ".py" and f.name.startswith("test_"):
                 continue
@@ -254,7 +257,9 @@ def main():
         f"{'all':<9}{'':>7}{tot_i:>10}{tot_e:>10}{tot_x:>7}{shown:>8}  {reading(total)}"
     )
     for lang, _, _, _, _, top in rows:
-        for label, count in top.most_common(args.top):
+        # Ties are ordered by name: Counter keeps set order, which follows the hash seed.
+        ranked = sorted(top.items(), key=lambda kv: (-kv[1], kv[0]))
+        for label, count in ranked[: args.top]:
             print(f"  external {lang}: {label} ({count})")
 
 
