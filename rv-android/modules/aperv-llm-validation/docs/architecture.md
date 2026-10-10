@@ -385,4 +385,4 @@ Key constants from `constants.py` (sourced from Java codebase commit b2852dd):
 ## Related Documentation
 
 - [Module CLAUDE.md](../CLAUDE.md) - Module-specific reference with CLI usage and development commands
-- [CLAUDE.md](../../CLAUDE.md) - Project-level reference for Claude Code
+- [CLAUDE.md](../../../CLAUDE.md) - Project-level reference for Claude Code

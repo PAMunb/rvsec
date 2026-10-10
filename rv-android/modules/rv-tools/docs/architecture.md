@@ -720,7 +720,7 @@ Third-party code in `builtin/qtesting/src/` is excluded from test coverage via `
 
 ## Related Documentation
 
-- [Domain Spec](../../openspec/specs/tools/spec.md) - Requirements, invariants, and scenarios for the tools domain (FR18-FR20, INV-TOOL-01 through INV-TOOL-15)
-- [PRD](../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
-- [CLAUDE.md](../../CLAUDE.md) - Project-level reference for Claude Code
+- [Domain Spec](../../../openspec/specs/tools/spec.md) - Requirements, invariants, and scenarios for the tools domain (FR18-FR20, INV-TOOL-01 through INV-TOOL-15)
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
+- [CLAUDE.md](../../../CLAUDE.md) - Project-level reference for Claude Code
 - [Module CLAUDE.md](../CLAUDE.md) - rv-tools module development reference

@@ -663,7 +663,7 @@ Testing is constrained by device dependency: most meaningful tests require a run
 
 ## Related Documentation
 
-- [Domain Spec](../../openspec/specs/tools/spec.md) - Requirements and invariants for the Tool Infrastructure domain (includes rv-uiautomator)
-- [PRD](../../docs/PRD.md) - Product Requirements Document (FR18-FR20 for tools, NFR01-NFR08)
-- [CLAUDE.md](../../CLAUDE.md) - Project-level development reference
+- [Domain Spec](../../../openspec/specs/tools/spec.md) - Requirements and invariants for the Tool Infrastructure domain (includes rv-uiautomator)
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR18-FR20 for tools, NFR01-NFR08)
+- [CLAUDE.md](../../../CLAUDE.md) - Project-level development reference
 - [Module CLAUDE.md](../CLAUDE.md) - Module-specific development reference

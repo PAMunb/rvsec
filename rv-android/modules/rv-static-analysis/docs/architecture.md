@@ -852,7 +852,7 @@ Total: 244 tests. Run them with the CI contract flags: `uv run pytest tests/ --i
 
 ## Related Documentation
 
-- [Domain Spec](../../openspec/specs/analysis/spec.md) - Requirements, invariants, and scenarios for the Analysis and Coverage domain
-- [PRD](../../docs/PRD.md) - Product Requirements Document (FR04-FR06, NFR01-NFR08)
-- [CLAUDE.md](../../CLAUDE.md) - Project-wide development guidance
+- [Domain Spec](../../../openspec/specs/analysis/spec.md) - Requirements, invariants, and scenarios for the Analysis and Coverage domain
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR04-FR06, NFR01-NFR08)
+- [CLAUDE.md](../../../CLAUDE.md) - Project-wide development guidance
 - [Module CLAUDE.md](../CLAUDE.md) - Module-specific development guidance

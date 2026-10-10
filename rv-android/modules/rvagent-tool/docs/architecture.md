@@ -486,6 +486,6 @@ Tests cover:
 
 ## Related Documentation
 
-- [Tools Domain Spec](../../openspec/specs/tools/spec.md) - Requirements and invariants for tool infrastructure
-- [PRD](../../docs/PRD.md) - Product Requirements Document (FR18-FR20 for tools, NFR01-08)
-- [CLAUDE.md](../../CLAUDE.md) - Project-level development reference
+- [Tools Domain Spec](../../../openspec/specs/tools/spec.md) - Requirements and invariants for tool infrastructure
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR18-FR20 for tools, NFR01-08)
+- [CLAUDE.md](../../../CLAUDE.md) - Project-level development reference

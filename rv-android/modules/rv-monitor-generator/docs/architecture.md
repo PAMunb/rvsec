@@ -652,7 +652,7 @@ classDiagram
 
 ## Related Documentation
 
-- [Instrumentation Domain Spec](../../openspec/specs/instrumentation/spec.md) - Requirements and invariants for rv-monitor-generator and rv-instrumentation
-- [PRD](../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
-- [CLAUDE.md](../../CLAUDE.md) - Project-level reference for Claude Code
+- [Instrumentation Domain Spec](../../../openspec/specs/instrumentation/spec.md) - Requirements and invariants for rv-monitor-generator and rv-instrumentation
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
+- [CLAUDE.md](../../../CLAUDE.md) - Project-level reference for Claude Code
 - [Module CLAUDE.md](../CLAUDE.md) - Module-specific reference for rv-monitor-generator

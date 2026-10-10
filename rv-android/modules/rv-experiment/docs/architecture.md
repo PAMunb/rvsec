@@ -779,7 +779,7 @@ Note: rv-screen-parser and rv-coverage are declared in `pyproject.toml` but have
 
 ## Related Documentation
 
-- [Domain Spec](../../openspec/specs/experiment/spec.md) - Requirements and invariants for the experiment orchestration domain
-- [PRD](../../docs/PRD.md) - Product Requirements Document (FR15-FR17, NFR01-08)
-- [CLAUDE.md](../../CLAUDE.md) - Quick reference for Claude Code
+- [Domain Spec](../../../openspec/specs/experiment/spec.md) - Requirements and invariants for the experiment orchestration domain
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR15-FR17, NFR01-08)
+- [CLAUDE.md](../../../CLAUDE.md) - Quick reference for Claude Code
 - [Module CLAUDE.md](../CLAUDE.md) - rv-experiment development guide

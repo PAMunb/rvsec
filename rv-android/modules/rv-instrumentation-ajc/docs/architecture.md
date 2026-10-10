@@ -707,7 +707,7 @@ classDiagram
 
 ## Related Documentation
 
-- [Domain Spec](../../openspec/specs/instrumentation/spec.md) - Requirements, invariants, and scenarios for the instrumentation pipeline
-- [PRD](../../docs/PRD.md) - Product Requirements Document (FR01-03, NFR01-08)
-- [CLAUDE.md](../../CLAUDE.md) - Project-level reference for Claude Code
+- [Domain Spec](../../../openspec/specs/instrumentation/spec.md) - Requirements, invariants, and scenarios for the instrumentation pipeline
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR01-03, NFR01-08)
+- [CLAUDE.md](../../../CLAUDE.md) - Project-level reference for Claude Code
 - [Module CLAUDE.md](../CLAUDE.md) - Module-specific reference with CLI usage and examples

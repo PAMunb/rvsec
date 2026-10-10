@@ -721,7 +721,7 @@ classDiagram
 
 ## Related Documentation
 
-- [Domain Spec](../../openspec/specs/analysis/spec.md) - Requirements and invariants for this module (Analysis and Coverage domain)
-- [PRD](../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
-- [CLAUDE.md](../../CLAUDE.md) - Quick reference for Claude Code
+- [Domain Spec](../../../openspec/specs/analysis/spec.md) - Requirements and invariants for this module (Analysis and Coverage domain)
+- [PRD](../../../docs/PRD.md) - Product Requirements Document (FR01-37, NFR01-08)
+- [CLAUDE.md](../../../CLAUDE.md) - Quick reference for Claude Code
 - [Module CLAUDE.md](../CLAUDE.md) - Module-specific reference
