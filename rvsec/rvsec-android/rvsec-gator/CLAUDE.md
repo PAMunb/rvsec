@@ -86,7 +86,8 @@ else or its absence selects **compact**, the default. `JsonReportWriter` holds o
 so the pre-WTG write and the final write of a run always agree.
 - **Full**: two-space indent, every `targetDistances` pair up to `DIST_MAX`, no marker —
   the form of the documents already published (E6 corpus included), reproduced byte for
-  byte.
+  byte up to `transitions`; `transitions` holds the same edges, in the order the WTG's
+  identity-hash iteration gives this jar (INV-ANA-86).
 - **Compact**: no whitespace; each method's `targetDistances` reduced by
   `TargetDistances.compact` (see Distances below); and a top-level marker
   `"distancePairs":{"weighedMax":3,"k":3}` written right after the scope members
@@ -99,7 +100,8 @@ Why compact is the default: the E6 corpus documents took 24.62 GB for 163 APKs i
 form and take 1.02 GB compact (sdmse 9.3 GB → 55 MB). The only pair consumer, the
 `aperv-tool` MOP derive, keeps exactly the pairs compact output writes, and
 `StaticAnalysisParser` drops the pairs anyway (INV-ANA-80), so either mode yields the same
-`StaticAnalysisData` and a byte-identical `*.mop.json` (INV-ANA-89). Offline scripts that
+`StaticAnalysisData` and the same `*.mop.json` apart from its `source.digest`, the sha256
+of the input file (INV-ANA-89). Offline scripts that
 count pairs beyond the reduction need a full document; the marker says which one they
 hold. A full document already on disk is converted with `rv-static-analysis compact`
 (byte-identical to GATOR's compact output, INV-ANA-87) instead of re-running GATOR.

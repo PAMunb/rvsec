@@ -4,7 +4,7 @@ GATOR's static-analysis document (`<apk_name>.json`, written by `RvsecAnalysisCl
 
 This delta moves the reduction to the producer and makes it the default. In **compact** mode GATOR writes the document without whitespace and keeps per method only the pairs the derive can use. A top-level `distancePairs` member records the reduction. In **full** mode, chosen with `-clientParam fullOutput=true`, GATOR writes exactly the document it writes today, so a published document can be reproduced. Measured on the E6 corpus on 2026-10-10, compact output takes 1.02 GB where today's output takes 24.62 GB. Without indentation but with every pair kept, the corpus would take 4.13 GB.
 
-Neither mode changes what the consumers compute. `StaticAnalysisParser` discards the pairs in both cases (INV-ANA-80), so the parsed `StaticAnalysisData` is the same. The reduction is exact for the derive, so the derived MOP artifact is byte-identical. For documents already produced in full form, an offline subcommand `rv-static-analysis compact` writes the compact document GATOR would have written for the same analysis, so a corpus can be shrunk without running GATOR again. GATOR runs on the E6 corpus took 57.5 h of wall clock in September 2026.
+Neither mode changes what the consumers compute. `StaticAnalysisParser` discards the pairs in both cases (INV-ANA-80), so the parsed `StaticAnalysisData` is the same. The reduction is exact for the derive, so the derived MOP artifact is byte-identical apart from its `source` object, which names the file it was derived from. For documents already produced in full form, an offline subcommand `rv-static-analysis compact` writes the compact document GATOR would have written for the same analysis, so a corpus can be shrunk without running GATOR again. GATOR runs on the E6 corpus took 57.5 h of wall clock in September 2026.
 
 "Full" is used in two senses. The full output mode is the one defined here. "The full JSON" in "Full JSON Remains the Sole Metric Input" names the analysis document, in either mode, as opposed to the derived `*.mop.json`.
 
@@ -17,7 +17,7 @@ Neither mode changes what the consumers compute. `StaticAnalysisParser` discards
 
 ### Output
 - `<apk_name>.json` in compact mode — the document without whitespace; the top-level member `distancePairs: {weighedMax: 3, k: 3}` written right before `distanceTargets`; each `reachability[].methods[].targetDistances` reduced by INV-ANA-85 and sorted by `i`; every other member as in full mode (destination: `rv-static-analysis` parser, `aperv-tool` derive, offline analyses)
-- `<apk_name>.json` in full mode — today's document, byte for byte (INV-ANA-86) (destination: same)
+- `<apk_name>.json` in full mode — today's document: byte for byte up to `transitions`, and the same `transitions` edges, whose order follows identity-hash iteration (INV-ANA-86) (destination: same)
 - `<out.json>` — the converter's output, byte-identical to the compact document GATOR writes for the same analysis (INV-ANA-87) (destination: the operator)
 
 ### Side-Effects
@@ -29,10 +29,10 @@ Neither mode changes what the consumers compute. `StaticAnalysisParser` discards
 ## Invariants
 
 - **INV-ANA-85**: In compact mode, a method's `targetDistances` SHALL hold exactly the pairs `[i, d]` of its full-mode list with `d ≤ COMPACT_WEIGHED_MAX = 3` or with rank `< COMPACT_K = 3` in the order `(d, i)`, sorted by `i`. The key SHALL be present on a method in compact mode iff it is present on that method in full mode. `distanceTargets` SHALL be identical in both modes.
-- **INV-ANA-86**: In full mode the document SHALL be byte-identical to the document the client wrote before this change for the same analysis state, and SHALL NOT carry `distancePairs`. In compact mode the document SHALL carry `distancePairs` with the values of `COMPACT_WEIGHED_MAX` and `COMPACT_K`, in both the pre-WTG write and the final write.
+- **INV-ANA-86**: In full mode the document SHALL be byte-identical to the document the client wrote before this change for the same analysis state up to the `transitions` member, its `transitions` SHALL hold the same edges with the same node ids, and it SHALL NOT carry `distancePairs`. The order of the `transitions` edges follows identity-hash iteration over the WTG edges, which a change in the client's code can move; INV-ANA-79 handles the same phenomenon by comparing node ids by content. Measured on `cryptoapp.apk`: identical through byte 68,750, the 35 edges identical, in another order, and each jar deterministic with itself. In compact mode the document SHALL carry `distancePairs` with the values of `COMPACT_WEIGHED_MAX` and `COMPACT_K`, in both the pre-WTG write and the final write.
 - **INV-ANA-87**: For a full-mode document `F` and the compact-mode document `C` that GATOR writes for the same analysis state, `rv-static-analysis compact F` SHALL write `C` byte for byte.
 - **INV-ANA-88**: `TargetDistances.COMPACT_WEIGHED_MAX` and `TargetDistances.COMPACT_K` (Java), the converter's constants (`rv-static-analysis`) and `DIST_WEIGHED_MAX` and `DIST_K` (`aperv-tool`) SHALL be pairwise equal. A parity test under `tests/parity/` SHALL fail when any of them differs.
-- **INV-ANA-89**: For the same analysis state, the `StaticAnalysisData` parsed from the compact document SHALL equal the one parsed from the full document, and the `*.mop.json` derived from the compact document SHALL be byte-identical to the one derived from the full document.
+- **INV-ANA-89**: For the same analysis state, the `StaticAnalysisData` parsed from the compact document SHALL equal the one parsed from the full document, and the `*.mop.json` derived from the compact document SHALL be byte-identical to the one derived from the full document apart from its `source` object: `source.digest` is the sha256 of the input file and so names which of the two documents the artifact came from. Given the same provenance, `derive()` writes the same bytes from either document.
 
 ## ADDED Requirements
 
@@ -73,7 +73,7 @@ The reduction is the one the MOP derive applies (`aperv` D15/D18: the jar weighs
 
 #### Scenario: the derive cannot tell the two modes apart
 - **WHEN** `aperv-tool` derives the MOP artifact once from the full document and once from the compact document of the same analysis of `org.wikipedia_50595.apk`
-- **THEN** the two `*.mop.json` files SHALL be byte-identical
+- **THEN** the two `*.mop.json` files SHALL be byte-identical apart from `source.digest`, which is the sha256 of each input file
 - **AND** the two `StaticAnalysisData` returned by `StaticAnalysisParser` SHALL be equal (INV-ANA-89)
 
 #### Scenario: the reduction constants drift
@@ -84,7 +84,7 @@ The reduction is the one the MOP derive applies (`aperv` D15/D18: the jar weighs
 
 `rv-static-analysis` SHALL provide the subcommand `compact INPUT OUTPUT`, implemented in `modules/rv-static-analysis/src/rv_static_analysis/compact.py`. It SHALL read `INPUT` with `read_analysis_document(INPUT, PairPolicy.reduce(COMPACT_WEIGHED_MAX, COMPACT_K))` from `rv_android_core.util.analysis_document`, sort each reduced `targetDistances` list by `i`, insert `distancePairs` where GATOR writes it, and write `OUTPUT` in Gson's compact form. Members, member order and values stay as read. Strings are escaped as Gson's `JsonWriter` escapes them with HTML-safe escaping off: `"` and `\` with a backslash, `\t`, `\b`, `\n`, `\r` and `\f` in short form, the other code points below U+0020 and U+2028/U+2029 as lowercase `\u00xx`/` `/` `, and every other character as itself in UTF-8. The output SHALL be the compact document GATOR writes for the same analysis (INV-ANA-87).
 
-The converter exists because GATOR is expensive and the documents already exist. Re-analysing the E6 corpus to get compact documents would cost days of machine time, while the converter needs one streaming pass per document. It never holds the input's text or a dropped pair in memory. It does hold the reduced document, at most a few hundred MB for the largest document of the E6 corpus.
+The converter exists because GATOR is expensive and the documents already exist. Re-analysing the E6 corpus to get compact documents would cost days of machine time, while the converter needs one streaming pass per document. It never holds the input's text or a dropped pair in memory. It does hold the reduced document, so its memory follows the sections the reduction leaves alone: on the E6 corpus the peak was 1.9 GiB of RSS for `org.fossify.calendar_20` (269 MB of output, almost all `windows`) and 674 MiB for the 9.34 GB `eu.darken.sdmse_10705000`.
 
 The converter SHALL refuse, with exit status 1, one line on stderr naming the input and the reason, and no output file left behind:
 
