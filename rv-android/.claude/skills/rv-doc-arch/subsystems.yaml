@@ -12,10 +12,16 @@
 
 instrumentation:
   description: >-
-    APK instrumentation subsystem: Python variant wrappers + abstractions in rv-android,
-    plus the DEX-native Java/Maven weaving engine in the rvsec tree. Bridged by a
-    subprocess boundary (java -jar instr-cli.jar), with the fat JAR auto-copied into the
-    Python dexlib2 module's lib/ at Maven build time.
+    APK instrumentation subsystem: the Python side in rv-android (Instrumenter ABC and
+    result types in -core, the get_instrumenter factory in the parent, the ajc and dexlib2
+    variants) plus the DEX-native Java/Maven weaving engine in the rvsec tree. Bridged by a
+    subprocess boundary: `java -jar instr-cli.jar instrument`, once per APK on the
+    production path — argv and a fixed environment in; a per-APK results JSON (phase,
+    cause chain, weaveCounts) and an exit code out (1 unless the APK came out signed). The
+    fat JAR is copied into the Python dexlib2 module's lib/ at Maven build time. Includes
+    the opt-in handler stamp (--stamp-handlers, mop.RvsecStamp) and the RVSEC-OCC
+    every-occurrence channel, whose on-device collector lives in rvsec-logger-logcat
+    (ErrorCollector).
   python:
     - modules/rv-instrumentation-core
     - modules/rv-instrumentation
@@ -23,12 +29,15 @@ instrumentation:
     - modules/rv-instrumentation-dexlib2
   java:
     - ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2
+    - ../rvsec/rvsec-android/rvsec-logger-logcat
   sdd_domain: instrumentation        # openspec/specs/instrumentation/spec.md (FR01-FR03)
 
 instrumentation-java:
   description: >-
     Java-only DEX-native weaving engine (rvsec-instrumentation-dexlib2): the Maven
-    multi-module backend invoked by the Python dexlib2 wrapper via java -jar instr-cli.jar.
+    multi-module backend invoked by the Python dexlib2 wrapper via java -jar instr-cli.jar
+    (instrument per APK, batch per directory), including the opt-in handler-stamp pass
+    (StampWeaver + mop.RvsecStamp) and the validator / grammar-tests tooling modules.
     Documents the Java engine in isolation (exercises the generic Java/Maven collector).
   java:
     - ../rvsec/rvsec-android/rvsec-instrumentation-dexlib2
@@ -36,24 +45,33 @@ instrumentation-java:
 
 static-analysis:
   description: >-
-    Static analysis subsystem: the Python wrapper/parser in rv-android
-    (rv-static-analysis) driving the Java/Maven GATOR/Soot analysis engine
-    (rvsec-gator: commons + sootandroid + client) in the rvsec tree over a
-    subprocess boundary (java -jar / RvsecAnalysisClient). Produces one JSON with
-    reachability + windows + transitions + components sections, parsed by
-    StaticAnalysisParser.parse_file(path, code_package). GATOR must analyze the
-    ORIGINAL (non-instrumented) APK because Soot's TypeResolver crashes on AspectJ
-    bytecode; the reachability section is written first so a timeout still preserves
-    the coverage denominator. The code_package filter itself is produced upstream by
-    PackageDetector (rv-android-core), reached via the App model's lazy code_package
-    property, and feeds both the Java client (-clientParam codePackage=) and the Python
-    parser (parse_file(path, code_package)).
+    Static analysis subsystem: the Python driver, denominator gate, parser and compact
+    converter in rv-android (rv-static-analysis) driving the Java/Maven GATOR/Soot engine
+    (rvsec-gator: commons + sootandroid + client) through the lib/gator/gator launcher.
+    The run chooses the scope key (App.code_package: the declared applicationId by
+    default, build-type suffix neutralized with --strip-build-type-suffix, or elected by
+    PackageDetector with --package-detector) and passes it with its origin as
+    -clientParam codePackage= / codePackageSource=; GATOR guards, filters by and records
+    that key. One JSON per APK (compact by default, full on request): scope members,
+    distanceTargets, components, reachability with targetDistances, windows (including
+    FRAGMENT/HOSTED), transitions, complete. The reachability section is written before
+    the window-transition graph, so a timeout still preserves the coverage denominator;
+    the completion sentinel goes only on the last write. GATOR analyzes the ORIGINAL
+    (non-instrumented) APK. Consumers parse the document without a key —
+    StaticAnalysisParser.parse_file(path) / read_static_analysis_files(results_dir, apk) —
+    through a streaming read (util/analysis_document.py) with a digest-keyed .static.json
+    copy; the denominator gate refuses implausible documents.
   python:
     - modules/rv-static-analysis
     - modules/rv-android-core/src/rv_android_core/util/android/package_detector.py
+    - modules/rv-android-core/src/rv_android_core/util/android/build_type_suffix.py
+    - modules/rv-android-core/src/rv_android_core/util/analysis_document.py
+    - modules/rv-android-core/src/rv_android_core/domain/app.py
+  shell:
+    - lib/gator/gator
   java:
     - ../rvsec/rvsec-android/rvsec-gator
-  sdd_domain: analysis        # openspec/specs/analysis/spec.md (FR04/FR05/FR06, consolidados na gh27)
+  sdd_domain: analysis        # openspec/specs/analysis/spec.md (FR04/FR05/FR06)
 
 monitor-generation:
   description: >-
@@ -63,10 +81,13 @@ monitor-generation:
     aspects (.aj) + RV-Monitor specs (.rvm) — with a local patch that also emits a
     MultiSpec_*MonitorAspect.json descriptor consumed by the dexlib2 instrumentation
     variant. RV-Monitor (../rv-monitor, multi-module: rv-monitor + rv-monitor-rt)
-    turns the .rvm files into Java monitor classes. RuntimeVerificationGenerator +
-    RVGeneratorConfig wrap the pipeline with priority-based path resolution (explicit
-    tool paths → rvsec_root → RVSEC_HOME). Workaround: JavaMOP's -d does not relocate
-    .rvm files, so the generator moves them manually before invoking RV-Monitor.
+    turns the .rvm files into Java monitor classes; the fork carries RVSEC-local
+    generator changes (__EVENTNAME expansion, dispatcher lock framing).
+    RuntimeVerificationGenerator + RVGeneratorConfig wrap the pipeline with
+    priority-based path resolution (explicit tool paths → rvsec_root → RVSEC_HOME).
+    JavaMOP's -d does not relocate .rvm files, so the generator moves them before
+    invoking RV-Monitor. The set name → directory mapping (jca, jca_android, generic,
+    custom) lives in rv-experiment (ExperimentConfig.resolve_spec_set_dir).
   python:
     - modules/rv-monitor-generator
   java:
@@ -80,10 +101,10 @@ rv-experiment:
     post-processing) on top of the execution stack — rv-platform (TaskExecutor +
     components), rv-tools (tool plugin registry/factory), rv-android-core (domain
     models, ErrorHandler, LoggingManager), rv-uiautomator (device interaction) — plus
-    the tool plugins (aperv-tool, rvagent-tool, rvsmart-tool) and the pre-processing
-    modules it drives (rv-monitor-generator, rv-instrumentation, rv-static-analysis).
-    Docker infrastructure (docker/) packages the whole pipeline for containerized
-    multi-arm experiment runs. Runtime example: experimento-20260706.
+    the tool plugins (aperv-tool, rvagent-tool) and the pre-processing modules it drives
+    (rv-monitor-generator, rv-instrumentation, rv-static-analysis). Docker infrastructure
+    (docker/: rvsec_base → rvsec_android → rvandroid_tools → rvandroid) packages the
+    whole pipeline for containerized multi-arm experiment runs.
   python:
     - modules/rv-experiment
     - modules/rv-platform
@@ -92,13 +113,11 @@ rv-experiment:
     - modules/rv-uiautomator
     - modules/aperv-tool
     - modules/rvagent-tool
-    - modules/rvsmart-tool
     - modules/rv-monitor-generator
     - modules/rv-instrumentation
     - modules/rv-static-analysis
   docker:
     - docker
-  runtime_example: experimento-20260706
   sdd_domain: experiment        # openspec/specs/experiment/spec.md
 
 ape-rv:
@@ -106,15 +125,18 @@ ape-rv:
     APE-RV subsystem: the on-device Android exploration engine (../../ape, a Java fork of
     APE / SATA-CEGAR that runs via app_process inside the emulator, producing ape-rv.jar)
     plus its rv-platform integration in rv-android — aperv-tool (ApeRVTool: JAR push,
-    ape.properties injection, static-analysis JSON compaction, app_process command build)
-    and rv-tools (the ToolRegistry / ToolFactory plugin system that discovers and
-    configures it). The Python-to-Java boundary is on-device: the tool pushes ape-rv.jar
-    to /data/local/tmp and runs it via `adb shell CLASSPATH=... app_process`; MOP guidance
-    is fed by pushing a compacted static-analysis JSON, LLM guidance via SGLang. The base
-    contract the plugin builds on — AbstractTool (template-method lifecycle), ToolSpec,
-    Command / CommandResult (adb/subprocess), JarResolver (jar path resolution) and the
-    App / Task domain models — lives in the rv-android-core foundation and MUST be analyzed
-    as part of this subsystem, because that lifecycle IS how APE-RV executes.
+    ape.properties as a jar preset plus override deltas, host-side MOP artifact
+    derivation in format 2 from a streamed read of the static-analysis JSON,
+    app_process command build, completion check) with its offline trace/campaign
+    analysis package, and rv-tools (the ToolRegistry / ToolFactory plugin system that
+    discovers and configures it). The Python-to-Java boundary is on-device: the tool
+    pushes ape-rv.jar to /data/local/tmp and runs it via `adb shell CLASSPATH=...
+    app_process`; MOP guidance is fed by pushing the derived MOP artifact, LLM guidance
+    via SGLang; the jar writes an NDJSON trace. The base contract the plugin builds on —
+    AbstractTool (template-method lifecycle), ToolSpec, Command / CommandResult
+    (adb/subprocess), JarResolver (jar path resolution) and the App / Task domain models —
+    lives in the rv-android-core foundation and MUST be analyzed as part of this
+    subsystem, because that lifecycle IS how APE-RV executes.
   python:
     - modules/aperv-tool
     - modules/rv-tools
@@ -122,38 +144,43 @@ ape-rv:
     - modules/rv-android-core/src/rv_android_core/tools/tool_spec.py
     - modules/rv-android-core/src/rv_android_core/commands
     - modules/rv-android-core/src/rv_android_core/util/jar_resolver.py
+    - modules/rv-android-core/src/rv_android_core/util/analysis_document.py
     - modules/rv-android-core/src/rv_android_core/domain/app.py
     - modules/rv-android-core/src/rv_android_core/domain/task.py
   java:
     - ../../ape
-  sdd_domain: tools        # openspec/specs/tools/spec.md
+  sdd_domain: aperv        # openspec/specs/aperv/spec.md (related: tools, campaign-analysis)
 
 rv-platform:
   description: >-
     Execution-platform subsystem: rv-platform — the Platform facade and the component-based
-    TaskExecutor (pluggable initialize/execute/cleanup components: emulator, static-analysis
-    loading, logcat, tool execution, coverage, result/performance processing) plus
-    PlatformConfig, task interfaces and TaskStorage — on top of rv-tools (the ToolRegistry /
-    ToolFactory plugin seam through which every testing tool runs) and the rv-android-core
-    foundation slice it is built on: the domain models (App, Task / TaskState /
-    TaskConfiguration / TaskFactory / ToolConfig, StaticAnalysisData, Windows,
-    WindowTransitionGraph, LogcatRepository), AbstractTool (the contract the tool-execution
-    component drives), EmulatorManager and LogcatManager (the device lifecycle the platform
-    owns), the ErrorHandler + exception taxonomy, and LoggingManager. Per-task coverage
-    numbers are computed by rv-coverage's CoverageTracker over parsed logcat
-    (logcat_parser.py) — those two files are in scope as the consumed contract.
-    rv-static-analysis is OUT of scope (documented in docs/architecture/static-analysis.md);
-    the platform only loads its JSON output. Tool plugins (aperv-tool etc.) are external —
-    covered by docs/architecture/ape-rv.md.
+    TaskExecutor (initialize/execute/cleanup components: emulator, static-analysis
+    loading, logcat, tool execution, coverage), the single task-major result pass that
+    writes the per-run CSVs, PlatformConfig, task interfaces and TaskStorage — on top of
+    rv-tools (the ToolRegistry / ToolFactory plugin seam through which every testing tool
+    runs) and the rv-android-core foundation slice it is built on: the domain models (App,
+    Task / TaskState / TaskConfiguration / TaskFactory / ToolConfig, StaticAnalysisData,
+    Windows, WindowTransitionGraph, LogcatRepository), AbstractTool (the contract the
+    tool-execution component drives), Android / EmulatorManager and LogcatManager (the
+    device lifecycle and capture the platform owns), the shared constants, the
+    ErrorHandler + exception taxonomy, and LoggingManager. Per-task coverage numbers are
+    computed by rv-coverage's CoverageTracker over parsed logcat (logcat_parser.py) —
+    those two files are in scope as the consumed contract. rv-static-analysis is OUT of
+    scope (documented in docs/architecture/static-analysis.md); the platform only loads
+    its JSON output through rv-static-analysis's parser, which streams it and keeps a
+    digest-keyed parsed copy. Tool plugins (aperv-tool etc.) are external — covered by
+    docs/architecture/ape-rv.md.
   python:
     - modules/rv-platform
     - modules/rv-tools
     - modules/rv-android-core/src/rv_android_core/tools/abstract_tool.py
     - modules/rv-android-core/src/rv_android_core/domain
+    - modules/rv-android-core/src/rv_android_core/util/android/android.py
     - modules/rv-android-core/src/rv_android_core/util/android/emulator_manager.py
     - modules/rv-android-core/src/rv_android_core/util/android/logcat_manager.py
     - modules/rv-android-core/src/rv_android_core/util/error
     - modules/rv-android-core/src/rv_android_core/util/logging
+    - modules/rv-android-core/src/rv_android_core/constants.py
     - modules/rv-coverage/src/rv_coverage/analysis/coverage/tracker.py
     - modules/rv-coverage/src/rv_coverage/parser/log/logcat_parser.py
   sdd_domain: platform        # openspec/specs/platform/spec.md
