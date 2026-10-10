@@ -23,14 +23,14 @@ produced by `rv-doc-arch-analyze` (it may re-read source only to quote a class n
   delete sections and views the model did not select.
 - `../rv-doc-arch-analyze/reference/model-schema.md` — the model's field meanings.
 - `../rv-doc-arch/reference/views-and-beyond.md` — the method (5-section view template,
-  styles, Part I structure).
+  styles, Part I structure). Read its section 6 before drawing the first diagram.
+- `.claude/documentation-principles.md` — the repository's documentation principles.
 
 ## Single-file output
 
-Unlike the upstream `agente-documentador` suite (which splits ~70 files), this produces
-**one document** with an anchored table of contents. Output path:
+The output is **one document** with an anchored table of contents. Output path:
 - `subsystem:<name>` → `docs/architecture/<name>.md`
-- `system` → `docs/architecture/system.md`
+- `system` → `docs/architecture/rv-android.md`
 - `module:<name>` → `docs/architecture/<name>.md` (this is the Views-and-Beyond view; it
   does **not** replace the per-module 4+1 doc at `modules/<name>/docs/architecture.md`).
 
@@ -49,10 +49,9 @@ example), and *why* it is shaped this way. Write for that person.
    `how_it_works` / `why_separate` / `gotchas`, `components[].narrative`, `decisions[].narrative`,
    `nfrs[].support`, and `scenarios[]`. Render these as prose paragraphs and a worked-example
    walkthrough. Do not compress a paragraph back into a table cell.
-3. **Language**: English only.
-4. **Tone**: Professional, objective. No promotional language ("modern", "elegant", etc.).
-5. **Current state only**: no migration/history narration.
-6. **Faithful to the model**: do not introduce elements, decisions, or NFRs absent from the
+3. **Repository principles**: follow `.claude/documentation-principles.md` (language, tone,
+   current state only).
+4. **Faithful to the model**: do not introduce elements, decisions, or NFRs absent from the
    model. If a narrative field is thin or missing, report it (the analyze phase should be
    re-run) rather than inventing depth or re-analyzing the code here.
 
@@ -60,7 +59,19 @@ example), and *why* it is shaped this way. Write for that person.
 
 Use Mermaid with the `neutral` theme (`%%{init: {'theme': 'neutral'}}%%`). Avoid reserved
 IDs (`graph`, `subgraph`, `end`, `style`, `class`, `default`). Diagram types: `flowchart`,
-`sequenceDiagram`, `classDiagram`, `stateDiagram-v2`.
+`sequenceDiagram`, `classDiagram`, `stateDiagram-v2`. No fixed colors or per-edge styling.
+The rules in `views-and-beyond.md` §6, in short:
+
+- **C4 level per place** — context diagram: the target as one box plus external actors;
+  C&C and allocation: containers (processes, the campaign Docker container, the emulator,
+  the LLM server, Java subprocesses); module view: components. A uv module is never drawn
+  as a container.
+- **At most 12 nodes per diagram**; split by group when a view needs more.
+- **Provenance** — after the diagram-type line, `%% Source: <paths>` always, and
+  `%% Omitted: <what> (<why>)` whenever something in scope was left out.
+- **Caption and legend** — `**Diagram N — <what it shows>.**` above each block, numbered in
+  document order (the context diagram is Diagram 1); a `**Legend.**` line below it that
+  explains every shape and arrow style the diagram uses.
 
 ## Workflow
 
@@ -95,6 +106,11 @@ Read it. If it is missing, stop and instruct the caller to run `rv-doc-arch-anal
 (do not analyze code here). Validate it against `model-schema.md`.
 
 ### 2. Part I — Beyond Views
+
+Fill the header from the model: the `> Target:` line must keep the exact form in the
+template, because `rv-docs-sync` matches it to find each document's target; the commit line
+lists `source_commits` as `<repo>@<commit>` (append ` (uncommitted changes)` when `dirty`).
+Never cite the `out/arch/` path: `./clear.sh` deletes it.
 
 Fill the template's Part I, rendering the model's narrative fields as prose:
 - **Documentation overview** — purpose, scope, audience (from `target`/`scope`/`generated_for`).
@@ -135,7 +151,8 @@ by default).
 
 ### 4. Appendices + SDD
 
-- **Dependencies appendix** — external dependencies per language (from the model).
+- **Dependencies appendix** — external dependencies per language (from the model), then the
+  `coupling` table and its `reading` as prose (omit the table if the model has no `coupling`).
 - **Data model appendix** — only if the model has data entities; otherwise delete it.
 - **Specification traceability** — fill from `sdd{}`: FRs, invariants (with where enforced),
   NFRs. If `sdd{}` is partial (cross-tree subsystem), state which parts map and which do not.
@@ -162,6 +179,10 @@ Write `docs/architecture/<target>.md`.
 - [ ] Cross-language/process boundary is explicit in Mapping (if `language_mix` > 1).
 - [ ] SDD traceability filled where the model maps; gaps stated, not faked.
 - [ ] All `{{placeholders}}` replaced; TOC anchors resolve; English; neutral-theme diagrams.
+- [ ] Header has the `> Target:` line in the template's exact form and the source commits; no
+      `out/` path anywhere in the document.
+- [ ] Every diagram: `Diagram N —` caption, `%% Source:` comment, `**Legend.**` line, at most
+      12 nodes, no uv module drawn as a container.
 - [ ] Per-module 4+1 docs and ADRs referenced (not duplicated).
 
 ## Output

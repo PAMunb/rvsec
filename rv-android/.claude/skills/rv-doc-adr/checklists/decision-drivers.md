@@ -1,13 +1,17 @@
 # Decision Drivers
 
-Framework for identifying and articulating the forces that drive architectural decisions. Use before writing the ADR to think through what matters.
+Framework for identifying and articulating the forces that drive architectural decisions. Use before any option is judged, to fix what the decision will be measured by.
 
 ## How to Use
 
-1. Before drafting an ADR, identify drivers from each category below
-2. Prioritize drivers as must-have vs nice-to-have
+1. Before listing options, identify drivers from each category below
+2. Rank each driver must-have, should-have or nice-to-have, and confirm the must-haves with the user
 3. Use the template to articulate each driver clearly
-4. Reference drivers in the ADR's Context and Decision sections
+4. Judge every option against every driver, then apply the decision rule
+
+## Why Drivers Come First
+
+Drivers chosen after the options are on the table tend to be the ones the preferred option already wins — the comparison then only decorates a conclusion reached beforehand. Fixing and ranking the drivers first makes the comparison able to reject the favourite. Once options are being judged, do not add a driver that only one option satisfies; if a genuinely missed force appears, add it, re-judge every option against it, and say so in the Context.
 
 ---
 
@@ -94,6 +98,10 @@ These drivers appear frequently in rv-android decisions:
 | Should-have | Important but trade-offs are acceptable. | Differentiates options |
 | Nice-to-have | Desirable but not a deciding factor. | Tiebreaker only |
 
+### Decision Rule
+
+An option that fails any must-have is eliminated. Among the remaining options, the should-haves decide; nice-to-haves only break ties. When no option wins on every should-have, the Decision section names the should-have that was traded away. Keeping the current state is judged by the same rule as every other option.
+
 ### Weighted Scoring (Optional)
 
 For decisions with many drivers, assign weights:
@@ -123,6 +131,7 @@ Examples:
 | Driver Location | How to Reference |
 |----------------|-----------------|
 | ADR Context | "The primary forces driving this decision are: [list drivers]" |
-| ADR Decision | "We chose Option A because it best satisfies [top drivers]" |
-| ADR Alternatives | "Option B was rejected because it conflicts with [driver]" |
+| ADR Decision Drivers | The ranked table, written before the options |
+| ADR Considered Options | One verdict per driver per option: "[Driver]: Fails — [reason]" |
+| ADR Decision | "We will adopt Option A because it best satisfies [top drivers]; Option B fails [must-have]" |
 | ADR Consequences | "Positive: satisfies [driver]. Negative: partially compromises [driver]" |

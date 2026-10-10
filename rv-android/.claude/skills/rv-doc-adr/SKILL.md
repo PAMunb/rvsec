@@ -6,213 +6,140 @@ description: >-
   Do NOT use for: minor code changes, bug fixes, or documentation updates.
   Use /rv-doc-architecture for module docs, /rv-doc-generate-claude-md for CLAUDE.md.
 argument-hint: [decision-title]
-context: fork
-agent: general-purpose
-allowed-tools: Read, Grep, Glob, Write, Bash, AskUserQuestion
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash, AskUserQuestion
 ---
 
 # Create ADR: $ARGUMENTS
 
-Creates an Architecture Decision Record at `modules/<module>/docs/adr/ADR-XXX-<title>.md`.
+Writes an Architecture Decision Record at `docs/adr/NNNN-<kebab-title>.md`, the single location and
+numbering sequence for every ADR of the workspace (convention and index in `docs/adr/README.md`). An ADR
+records one decision, the criteria it was judged by, the options weighed against those criteria,
+and what was accepted in exchange — so that a reader months later can tell whether the reasons
+still hold.
+
+The skill runs in the main conversation, not in a fork: the decision, the options the user
+weighed and who decided are facts only the user holds, and a forked agent cannot ask for them.
+
+Follow `.claude/documentation-principles.md` for everything written here.
+
+## When to Create an ADR
+
+| Situation | ADR? |
+|-----------|------|
+| Major refactoring | Yes |
+| New architectural pattern | Yes |
+| Technology choice | Yes |
+| Breaking API change | Yes |
+| Bug fix, minor refactoring, formatting | No |
 
 ## Supporting Files
 
-Read these reference files before creating an ADR:
+Read each one at the step that uses it, not all up front:
 
-- `checklists/adr-quality.md` — ADR completeness criteria, section quality checks, anti-patterns
-- `checklists/decision-drivers.md` — Framework for identifying and articulating decision drivers
-- `templates/adr.md` — ADR output template with section structure
-
-## Documentation Guidelines
-
-**CRITICAL**: Follow these guidelines:
-
-1. **Language**: English only
-2. **Tone**: Professional, objective, factual
-3. **No bias terms**: Avoid "modern", "better", "elegant"
-4. **Neutral comparison**: Present options objectively with trade-offs
-
-## When to Create ADR
-
-| Situation | Create ADR? |
-|-----------|-------------|
-| Major refactoring | ✅ Yes |
-| New architectural pattern | ✅ Yes |
-| Technology choice | ✅ Yes |
-| Breaking API changes | ✅ Yes |
-| Bug fix | ❌ No |
-| Minor refactoring | ❌ No |
-| Code formatting | ❌ No |
+- `checklists/decision-drivers.md` — step 2, to name and rank the criteria.
+- `templates/adr.md` — step 5, the single section structure of the record.
+- `checklists/adr-quality.md` — step 6, the review before reporting.
 
 ## Workflow
 
 ```
-STEP 1: GATHER CONTEXT ──────────────────────────────────────────►
-    │  Understand the decision context
-    ▼
-STEP 2: ASK FOR DETAILS ─────────────────────────────────────────►
-    │  Get missing information from user
-    ▼
-STEP 3: DETERMINE NUMBER ────────────────────────────────────────►
-    │  Find next ADR number for module
-    ▼
-STEP 4: GENERATE ADR ────────────────────────────────────────────►
-    │  Write ADR from template
-    ▼
-STEP 5: LINK TO ARCHITECTURE ────────────────────────────────────►
-    │  Reference in architecture.md if exists
+1. GATHER CONTEXT     sources first, then ask the user what only they know
+2. FIX CRITERIA       drivers ranked must/should/nice, before any option is judged
+3. LIST OPTIONS       status quo included; each option judged against every driver
+4. CHALLENGE          steelman the strongest rejected option; 1-2 pre-mortems
+5. NUMBER AND WRITE   highest existing number + 1; fill templates/adr.md
+6. LINK AND CHECK     architecture.md entry; quality checklist; report
 ```
-
-## Steps
 
 ### 1. Gather Context
 
-Ask user with `AskUserQuestion`:
-- What module does this affect?
-- What is the decision being made?
-- What are the options considered?
-- What is the chosen option and why?
+Read what already exists before asking anything: the GitHub issue, the OpenSpec change under
+`openspec/changes/` if there is one, the affected specs, the module's `CLAUDE.md` and
+`docs/architecture.md`, and the code the decision touches. The index in
+`docs/adr/README.md` shows whether this decision replaces an earlier one.
 
-### 2. Determine ADR Number
+Then use `AskUserQuestion` for what the sources cannot settle: the affected module, the decision,
+the options the user considered, the chosen option, who decided (`Deciders`), and whether it
+replaces an earlier ADR. Never fill the chosen option or the deciders yourself. When you have a
+preference of your own, put it to the user as a question; if the user adopts it, record the
+deciders as "the user, on the agent's proposal".
+
+### 2. Fix the Decision Criteria
+
+Read `checklists/decision-drivers.md` and state the drivers, each ranked must-have, should-have
+or nice-to-have, before judging any option. Criteria written after the options tend to be the
+ones the preferred option happens to win; fixing them first is what keeps the record honest.
+Confirm the must-haves with the user, since a must-have eliminates options outright.
+
+### 3. List and Evaluate the Options
+
+Include doing nothing (keeping the current state) whenever the decision changes something: it
+forces the record to show that acting is better than not acting. Judge every option against every
+driver from step 2. An option that fails a must-have is out; the rest are separated by the
+should-haves, and nice-to-haves only break ties.
+
+### 4. Challenge the Choice
+
+Two short exercises, done before writing, so the record carries the objections rather than
+discovering them later:
+
+- **Steelman**: rewrite the strongest rejected option in its best form — the version a capable
+  advocate would defend — and check it against the drivers again. If it now wins, stop and take
+  that to the user instead of writing the ADR.
+- **Pre-mortem**: write one or two narratives that start "It is six months later and this decision
+  has failed." Each names a concrete trigger, a threshold or number, and the chain of effects.
+  A vague "it didn't scale" is not a narrative.
+
+What survives goes into the record: the cost the steelman exposes becomes a Negative consequence,
+each plausible failure becomes a Risk with a mitigation and an early warning sign, and any
+assumption a failure depends on becomes a Revisit When trigger.
+
+### 5. Number and Write
+
+The number is the highest existing one plus one. Counting files would reuse a number whenever the
+sequence has a gap.
 
 ```bash
-MODULE="[module-name]"
-mkdir -p modules/$MODULE/docs/adr
-
-# Find next number
-NEXT_NUM=$(ls modules/$MODULE/docs/adr/ADR-*.md 2>/dev/null | wc -l)
-NEXT_NUM=$((NEXT_NUM + 1))
-printf "ADR-%03d" $NEXT_NUM
+LAST=$(ls docs/adr | sed -n 's/^\([0-9]\{4\}\)-.*\.md$/\1/p' | sort -n | tail -1)
+printf '%04d\n' $((10#${LAST:-0} + 1))   # 10# keeps 0008 from being read as octal
 ```
 
-### 3. Generate ADR
+Read `templates/adr.md` and write `docs/adr/NNNN-<kebab-title>.md` from it, then add its row to
+the index table of `docs/adr/README.md`. The Status is `Proposed` unless the user says the
+decision is already taken. When the ADR replaces an earlier one, fill `Supersedes` here and, in the
+earlier ADR, set the Status to `Superseded by NNNN` and add its `Superseded by` line, so each record
+points at the other; update both rows of the index.
 
-Write to `modules/<module>/docs/adr/ADR-XXX-<title>.md`.
+### 6. Link and Check
 
-## Template: ADR
+For each module the decision is scoped to, if `modules/<module>/docs/architecture.md` exists, add
+an entry for the decision to its design decisions section: one paragraph with the why, ending with the path of the ADR that holds the full
+option analysis. Then read `checklists/adr-quality.md` and fix every item the draft fails before
+reporting.
 
-```markdown
-# ADR-[NUMBER]: [Title]
+## Rules
 
-## Status
-
-[Proposed | Accepted | Deprecated | Superseded by ADR-XXX]
-
-## Date
-
-[YYYY-MM-DD]
-
-## Context
-
-[What is the issue that we're seeing that is motivating this decision or change?]
-
-## Decision Drivers
-
-- [Driver 1]: [Explanation]
-- [Driver 2]: [Explanation]
-
-## Considered Options
-
-### Option 1: [Name]
-
-**Description**: [What this option involves]
-
-**Pros**:
-- [Pro 1]
-- [Pro 2]
-
-**Cons**:
-- [Con 1]
-- [Con 2]
-
-### Option 2: [Name]
-
-**Description**: [What this option involves]
-
-**Pros**:
-- [Pro 1]
-- [Pro 2]
-
-**Cons**:
-- [Con 1]
-- [Con 2]
-
-## Decision
-
-[Option X] because [reasons].
-
-## Consequences
-
-### Positive
-- [Consequence 1]
-- [Consequence 2]
-
-### Negative
-- [Consequence 1]
-- [Consequence 2]
-
-### Neutral
-- [Consequence 1]
-
-## Implementation Notes
-
-[Any specific implementation details or considerations]
-
-## Related
-
-- [Link to related ADRs]
-- [Link to related architecture docs]
-- [Link to related code]
-```
-
-## Documentation Principles
-
-Apply these principles to all generated documentation:
-
-1. **Reader perspective**: Write from the reader's viewpoint. What do they need to know? What will they look for first? Structure content for their workflow, not for comprehensiveness.
-2. **No repetition**: State information once in the most logical location. Cross-reference instead of duplicating. If the same fact appears in two sections, one is wrong.
-3. **No ambiguity**: Define terminology on first use. Use precise file paths. Prefer concrete examples over abstract descriptions. If a notation is used (diagram, table), explain how to read it.
-4. **Standard organization**: Follow the established templates and section order. Consistency across documents reduces cognitive load. Deviations must be justified by content needs.
-5. **Capture rationale**: Document WHY, not just WHAT. Every significant choice should have a brief explanation. Future readers need to understand the reasoning to make informed changes.
-6. **Currency**: Only document current state (P4). Do not include migration history, version notes, or planned features. If something changed, describe the current behavior only.
-7. **Stakeholder awareness**: Know the audience. CLAUDE.md is for LLMs (precise paths, exact commands). architecture.md is for developers (conceptual understanding). README.md is for newcomers (getting started).
+1. One decision per ADR.
+2. Neutral comparison: every option, the rejected ones included, appears with its real strengths;
+   no bias terms ("modern", "better", "elegant").
+3. Criteria before options, and the decision justified only by those criteria.
+4. Implementation design lives in the OpenSpec `design.md`; the ADR points to it.
+5. An ADR is a historical record: it states the decision and the reasons as they stood when it was
+   taken, and is the documented exception to the current-state rule (P4 in `CLAUDE.md`). Once
+   Accepted, only its Status and `Superseded by` lines change. A revised decision is a new ADR that
+   supersedes it; a later development is never written into the old record.
 
 ## Output
 
 ```
-## Created: ADR-XXX-[title]
+## Created: ADR NNNN — [title]
 
-### File
-- **Path**: modules/[module]/docs/adr/ADR-XXX-[title].md
-- **Status**: Proposed
-
-### Summary
-- **Decision**: [Brief summary]
-- **Chosen Option**: [Option name]
-- **Key Reason**: [Main reason]
-
-### Next Steps
-- Review with team
-- Update status to "Accepted" after review
-- Implement decision
-- Update architecture.md to reference this ADR
+- **Path**: docs/adr/NNNN-[kebab-title].md
+- **Index**: row added to docs/adr/README.md
+- **Status**: Proposed | Accepted
+- **Decision**: [one sentence]
+- **Deciders**: [who]
+- **Supersedes**: [NNNN, or none]
+- **architecture.md**: [entry added in modules/<m>/docs/architecture.md | none]
+- **Open points**: [anything the user still has to confirm]
 ```
-
-## ADR Lifecycle
-
-```
-Proposed → Accepted → [Deprecated | Superseded]
-```
-
-- **Proposed**: Initial creation, under review
-- **Accepted**: Decision approved and implemented
-- **Deprecated**: No longer relevant
-- **Superseded**: Replaced by newer ADR
-
-## Rules
-
-1. **One decision per ADR** - Keep focused
-2. **Objective language** - No bias terms
-3. **Include all options** - Even rejected ones
-4. **Document trade-offs** - Both pros and cons
-5. **Link to code** - Reference implementation

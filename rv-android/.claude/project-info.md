@@ -60,19 +60,23 @@ uv run python -c "import rv_android_core, rv_agent; print('OK')"
 
 ### Testing
 
+Run from the rv-android root, one module at a time. `--import-mode=importlib -o "addopts="` is the CI contract (`../.github/workflows/ci.yml`): without it, conftest isolation breaks across modules. `-o "addopts="` also drops the `--cov` that module pyprojects set, so coverage is requested explicitly.
+
 ```bash
 # Run module tests
-cd modules/[module-name]
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
+uv run pytest modules/[module-name]/tests --import-mode=importlib -o "addopts=" -v
 
 # Run unit tests only
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/ -v
+uv run pytest modules/[module-name]/tests/unit --import-mode=importlib -o "addopts=" -v
 
 # Run with coverage
-uv run pytest --cov=src --cov-report=html
+uv run pytest modules/[module-name]/tests --import-mode=importlib -o "addopts=" --cov=modules/[module-name]/src --cov-report=html
 
 # Run single test
-uv run pytest tests/unit/test_file.py::TestClass::test_name -v
+uv run pytest modules/[module-name]/tests/unit/test_file.py::TestClass::test_name --import-mode=importlib -o "addopts=" -v
+
+# Audit dependencies for known vulnerabilities (needs network, no account; exit 1 on findings)
+uv run pip-audit --skip-editable
 ```
 
 ### Code Quality
@@ -94,13 +98,11 @@ uv run bandit -r src/
 ### Full Verification (tests + lint + type)
 
 ```bash
-cd modules/[module-name]
-
-# Run all checks
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v && \
-uv run black --check src/ && \
-uv run isort --check src/ && \
-uv run flake8 src/
+# Run all checks (from the rv-android root)
+uv run pytest modules/[module-name]/tests --import-mode=importlib -o "addopts=" -v && \
+uv run black --check modules/[module-name]/src/ && \
+uv run isort --check modules/[module-name]/src/ && \
+uv run flake8 modules/[module-name]/src/
 ```
 
 ---

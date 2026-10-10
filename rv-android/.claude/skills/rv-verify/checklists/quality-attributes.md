@@ -47,12 +47,12 @@ Software quality is multidimensional. Different verification checks target diffe
 | Complexity | Nesting depth, line length |
 | Maintainability | Type annotations (mypy) |
 
-### Security Analysis (bandit, safety)
+### Security Analysis (bandit, pip-audit)
 
 | Attribute | How Verified |
 |-----------|--------------|
 | Security | Vulnerability patterns in code (bandit) |
-| Security | Known vulnerabilities in dependencies (safety) |
+| Security | Known vulnerabilities in dependencies (pip-audit) |
 
 ### Metrics (radon)
 

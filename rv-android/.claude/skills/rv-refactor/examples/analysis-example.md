@@ -33,9 +33,9 @@ The rv-agent module has grown significantly and now contains several files excee
 
 | Metric | Threshold | Actual | Files Affected |
 |--------|-----------|--------|----------------|
-| Lines per file | > 500 | 850 | rvagent_strategy.py |
-| Function length | > 50 | 75 | rvagent_strategy.py:_execute_action |
-| Nesting depth | > 4 | 5 | llm_client.py:_process_response |
+| Lines per file | > 500 (Review) | 850 | rvagent_strategy.py |
+| Function length | > 50 (Must split) | 75 | rvagent_strategy.py:_execute_action |
+| Nesting depth | 5+ (Must refactor) | 5 | llm_client.py:_process_response |
 
 ---
 
@@ -59,11 +59,9 @@ rv-agent depends on:
 
 ### Coupling Assessment
 
-| Component | Afferent | Efferent | Instability |
-|-----------|----------|----------|-------------|
-| rvagent_strategy.py | 3 | 12 | 0.80 (unstable) |
-| rv_agent.py | 2 | 8 | 0.80 (unstable) |
-| llm_client.py | 5 | 4 | 0.44 (balanced) |
+| Module | Ca | Ce | Instability |
+|--------|----|----|-------------|
+| rv-agent | 1 (rvagent-tool) | 4 (rv-android-core, rv-screen-parser, rv-uiautomator, rv-static-analysis) | 0.80 (unstable) |
 
 ---
 

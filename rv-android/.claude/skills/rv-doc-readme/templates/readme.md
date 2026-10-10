@@ -98,10 +98,11 @@ uv run {cli-command} --option value
 
 ```bash
 # From project root
-uv run pytest modules/{module-name}/tests/ -v
+uv run pytest modules/{module-name}/tests/ --import-mode=importlib -o "addopts=" -v
 
 # With coverage
-uv run pytest modules/{module-name}/tests/ --cov=modules/{module-name}/src --cov-report=html
+uv run pytest modules/{module-name}/tests/ --import-mode=importlib -o "addopts=" \
+    --cov=modules/{module-name}/src --cov-report=html
 ```
 
 ## License

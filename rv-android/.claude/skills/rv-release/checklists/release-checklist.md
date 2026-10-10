@@ -10,7 +10,7 @@ Pre-release validation steps to ensure quality releases.
 
 | Check | Command | Criteria | Required |
 |-------|---------|----------|----------|
-| All tests pass | `uv run pytest -v` | Exit code 0 | **Yes** |
+| All tests pass | per module, from the root: `uv run pytest modules/<m>/tests --import-mode=importlib -o "addopts="` | Exit code 0 | **Yes** |
 | Lint clean | `uv run flake8 src/` | No errors | **Yes** |
 | Type check | `uv run mypy src/` | No errors | Recommended |
 | Security scan | `uv run bandit -r src/` | No HIGH issues | Recommended |
@@ -29,7 +29,7 @@ Pre-release validation steps to ensure quality releases.
 | Check | Command | Criteria | Required |
 |-------|---------|----------|----------|
 | Lock file current | `uv lock --check` | No changes needed | **Yes** |
-| No security vulnerabilities | `uv run safety check` | No critical | Recommended |
+| No known vulnerable dependencies | `uv run pip-audit --skip-editable` (needs network) | Exit code 0 | Recommended |
 | Dependencies installable | `uv sync` | Success | **Yes** |
 
 ### Documentation
@@ -143,12 +143,16 @@ if [[ "$BRANCH" != "master" && "$BRANCH" != "main" && "$BRANCH" != release/* ]];
 fi
 echo "✓ On branch: $BRANCH"
 
-echo "3. Running tests..."
-uv run pytest -v --tb=short
+echo "3. Running tests (per module, as CI does)..."
+for module in modules/*/; do
+    [ -d "$module/tests" ] || continue
+    uv run pytest "$module/tests" -m "not (slow or online or sglang or performance or dataset)" \
+        --import-mode=importlib -o "addopts=" --tb=short -q
+done
 echo "✓ Tests passed"
 
 echo "4. Running lint..."
-uv run flake8 src/
+uv run flake8 modules/*/src/
 echo "✓ Lint passed"
 
 echo "5. Checking lock file..."
@@ -192,23 +196,20 @@ for module in "${MODULES[@]}"; do
         continue
     fi
 
-    cd "modules/$module"
-
-    # Check tests
-    if uv run pytest -v --tb=line 2>/dev/null; then
+    # Check tests (from the root, with the CI flags)
+    if uv run pytest "modules/$module/tests" -m "not (slow or online or sglang or performance or dataset)" \
+        --import-mode=importlib -o "addopts=" --tb=line -q 2>/dev/null; then
         echo "✓ Tests passed"
     else
         echo "✗ Tests failed"
     fi
 
     # Check lint
-    if uv run flake8 src/ 2>/dev/null; then
+    if uv run flake8 "modules/$module/src/" 2>/dev/null; then
         echo "✓ Lint passed"
     else
         echo "✗ Lint issues"
     fi
-
-    cd ../..
 done
 
 echo ""

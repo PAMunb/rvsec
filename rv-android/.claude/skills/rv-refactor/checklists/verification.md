@@ -36,8 +36,8 @@ After ALL steps complete:
 ### Full Test Suite
 
 ```bash
-cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v --tb=short
+# From the rv-android root; CI contract flags required
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -v --tb=short
 ```
 
 - [ ] All tests pass

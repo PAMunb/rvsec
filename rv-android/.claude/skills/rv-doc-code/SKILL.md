@@ -198,9 +198,9 @@ For each file:
    python -m py_compile <file>
    ```
 
-2. **Test check** (if module has tests):
+2. **Test check** (if the module has tests; for a file target, `<module>` is the module that contains the file):
    ```bash
-   cd modules/<target> && uv run pytest tests/ -x -q 2>&1 | head -20
+   uv run pytest modules/<module>/tests/ --import-mode=importlib -o "addopts=" -x -q 2>&1 | tail -20
    ```
 
 3. **Review quality**: spot-check against `checklists/quality-criteria.md`
@@ -267,14 +267,9 @@ These integrations are suggestions documented here — no changes to other skill
 
 ## Documentation Principles
 
-All generated documentation must comply with RV-Android development principles:
-
-| Principle | Application |
-|-----------|-------------|
-| **P1 Simplicity** | Skip self-evident code. No docstrings on trivial properties. No comments restating code. |
-| **P2 Human-Readable** | Docstrings explain WHY, not just WHAT. Self-contained for readers. |
-| **P3 No Backward Compat** | No "migrated from", "replaces old". Describe current behavior only. |
-| **P4 Current-State** | No version history. No promotional language ("elegant", "modern"). |
+Apply `.claude/documentation-principles.md` to every docstring and comment. The conventions and
+rules in this skill specialize it for code: P1 sets the depth (skip self-evident code, no
+comments that restate it) and P4 forbids history and promotional language in docstrings.
 
 ## Rules
 

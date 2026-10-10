@@ -11,7 +11,8 @@ How it works:
 2. Subsequent runs: output is compared to saved snapshot
 3. If different: test fails, review diff, update snapshot if change is intentional
 
-Update snapshots with: pytest --snapshot-update
+Update snapshots with (from the project root):
+    uv run pytest modules/<module>/tests/snapshot/ --import-mode=importlib -o "addopts=" --snapshot-update
 """
 
 import pytest

@@ -28,20 +28,39 @@ allowed-tools: Read, Bash
 
 ## Test Commands by Module
 
-All commands run from the project root (uv workspace handles PYTHONPATH).
+All commands run from the project root (uv workspace handles PYTHONPATH) and follow the CI
+contract in `../.github/workflows/ci.yml` (the rvsec repository root, one level above rv-android): every pytest call carries `--import-mode=importlib -o "addopts="`
+and targets **one module at a time**. Without `--import-mode=importlib`, the `conftest.py` files of
+different modules collide during collection; `-o "addopts="` discards the per-module `addopts`
+(several modules set `--cov=src` there, a path that does not exist when pytest runs from the root).
 
 ```bash
 # rv-agent (most common)
-uv run pytest modules/rv-agent/tests/unit/ -v
+uv run pytest modules/rv-agent/tests/unit/ --import-mode=importlib -o "addopts=" -v
 
 # rv-android-core
-uv run pytest modules/rv-android-core/tests/ -v
+uv run pytest modules/rv-android-core/tests/ --import-mode=importlib -o "addopts=" -v
 
 # rv-platform
-uv run pytest modules/rv-platform/tests/ -v
+uv run pytest modules/rv-platform/tests/ --import-mode=importlib -o "addopts=" -v
 
 # Generic pattern
-uv run pytest modules/$MODULE/tests/ -v
+uv run pytest modules/$MODULE/tests/ --import-mode=importlib -o "addopts=" -v
+
+# All modules: one pytest process per module, as CI does (never `uv run pytest modules/`)
+failed=0
+for module in modules/*/; do
+  [ -d "$module/tests" ] || continue
+  echo "=== Testing $(basename "$module") ==="
+  uv run pytest "$module/tests" \
+    -m "not (slow or online or sglang or performance or dataset)" \
+    --import-mode=importlib --tb=short -q -rs -o "addopts=" || failed=1
+done
+echo "failed=$failed"
+
+# Cross-cutting gates at the repository root (CI runs them in a separate step)
+uv run pytest tests/ -m "not (slow or online or sglang or performance or dataset)" \
+  --import-mode=importlib --tb=short -q -rs -o "addopts="
 ```
 
 ## Test Categories (rv-agent)
@@ -62,51 +81,55 @@ uv run pytest modules/$MODULE/tests/ -v
 
 ```bash
 # Unit tests only (fast, no external deps)
-pytest tests/unit/ -v
+uv run pytest modules/$MODULE/tests/unit/ --import-mode=importlib -o "addopts=" -v
 
 # Property-based tests (Hypothesis)
-pytest tests/property/ -v --hypothesis-show-statistics
+uv run pytest modules/$MODULE/tests/property/ --import-mode=importlib -o "addopts=" -v --hypothesis-show-statistics
 
 # Snapshot tests
-pytest tests/snapshot/ -v
-pytest tests/snapshot/ -v --snapshot-update  # Update baselines
+uv run pytest modules/$MODULE/tests/snapshot/ --import-mode=importlib -o "addopts=" -v
+# Update baselines (requires pytest-snapshot, which is not installed in the workspace)
+uv run pytest modules/$MODULE/tests/snapshot/ --import-mode=importlib -o "addopts=" -v --snapshot-update
 
 # Regression tests only
-pytest -m regression -v
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -m regression -v
 
-# All fast tests (exclude slow/online)
-pytest -m "not slow and not online" -v
+# All fast tests (the CI marker filter)
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -m "not (slow or online or sglang or performance or dataset)" -v
 
 # Run by multiple markers
-pytest -m "regression or smoke" -v
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -m "regression or smoke" -v
 ```
 
 ## Common Options
 
+Each option is appended to the module command
+`uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts="`.
+
 ```bash
 # Verbose
-pytest -v
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -v
 
 # Stop on first failure
-pytest -x
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -x
 
 # Run specific marker
-pytest -m "not slow"
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -m "not slow"
 
-# With coverage
-pytest --cov=src --cov-report=html
+# With coverage (explicit, because -o "addopts=" drops the modules' --cov=src)
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" --cov=modules/$MODULE/src --cov-report=html
 
-# Parallel
-pytest -n auto
+# Parallel (requires pytest-xdist, which is not installed in the workspace)
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -n auto
 
 # Show print output
-pytest -s
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -s
 
 # Run last failed
-pytest --lf
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" --lf
 
 # Run with Hypothesis statistics
-pytest --hypothesis-show-statistics
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" --hypothesis-show-statistics
 ```
 
 ## Output Format
@@ -135,5 +158,5 @@ pytest --hypothesis-show-statistics
 If tests fail:
 1. Run with `-v` for verbose output
 2. Run with `-s` to see print statements
-3. Run specific test with `pytest path/to/test.py::test_name -v`
+3. Run specific test with `uv run pytest modules/$MODULE/tests/path/to/test.py::test_name --import-mode=importlib -o "addopts=" -v`
 4. Use `--pdb` to drop into debugger on failure

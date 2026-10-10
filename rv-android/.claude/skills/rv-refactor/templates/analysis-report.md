@@ -28,11 +28,13 @@ Use this template to document Phase 1 (Analysis) findings.
 
 ### Threshold Violations
 
-| Metric | Threshold | Actual | Files Affected |
-|--------|-----------|--------|----------------|
-| Lines per file | > 500 | XXX | file1.py, file2.py |
-| Function length | > 50 | XXX | file1.py:func_name |
-| Nesting depth | > 4 | X | file2.py:method_name |
+Thresholds come from `.claude/skills/rv-analyze-complexity/reference.md`; copy the band you applied, do not restate a number from memory.
+
+| Metric | Threshold (band) | Actual | Files Affected |
+|--------|------------------|--------|----------------|
+| Lines per file | [file size band] | XXX | file1.py, file2.py |
+| Function length | [function size band] | XXX | file1.py:func_name |
+| Nesting depth | [nesting band] | X | file2.py:method_name |
 
 ---
 
@@ -53,11 +55,11 @@ Use this template to document Phase 1 (Analysis) findings.
 | A → B → A | HIGH | Break by extracting interface |
 | None found | - | - |
 
-### Coupling Assessment
+### Coupling Assessment (per workspace module, from /rv-analyze-dependencies)
 
-| Component | Afferent (incoming) | Efferent (outgoing) | Instability |
-|-----------|---------------------|---------------------|-------------|
-| component.py | X | Y | Y/(X+Y) |
+| Module | Ca (dependent modules) | Ce (modules depended on) | Instability Ce/(Ca+Ce) |
+|--------|------------------------|--------------------------|------------------------|
+| rv-xxx | X | Y | Y/(X+Y) |
 
 ---
 

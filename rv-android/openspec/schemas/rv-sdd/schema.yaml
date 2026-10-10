@@ -14,9 +14,9 @@ artifacts:
       - **Why**: 1-2 sentences on the problem or opportunity. Reference the GitHub Issue if one exists.
       - **What Changes**: Bullet list of changes. Be specific about new capabilities, modifications, or removals. Mark breaking changes with **BREAKING**.
       - **Capabilities**: Identify which specs will be created or modified:
-        - **New Capabilities**: List capabilities being introduced. Each becomes a new `specs/<name>/spec.md`. Use kebab-case names matching the 7 RV-Android domains (core, platform, experiment, agent, instrumentation, analysis, tools).
+        - **New Capabilities**: List capabilities being introduced. Each becomes a new `specs/<name>/spec.md`. Use kebab-case names matching an existing capability in `openspec/specs/` (the list and the module each one covers are in `openspec/specs/README.md`).
         - **Modified Capabilities**: List existing capabilities whose REQUIREMENTS are changing. Only include if spec-level behavior changes (not just implementation details). Each needs a delta spec file. Check `openspec/specs/` for existing spec names. Leave empty if no requirement changes.
-      - **Impact**: Affected modules (from the 14-module uv workspace), APIs, dependencies, or systems.
+      - **Impact**: Affected modules (from the uv workspace; the module map is in the root CLAUDE.md), APIs, dependencies, or systems.
 
       IMPORTANT: The Capabilities section creates the contract between proposal and specs phases.
       Research existing specs in openspec/specs/ before filling this in.

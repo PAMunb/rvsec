@@ -193,8 +193,8 @@ Empirically derived principles about how large software systems evolve over time
 | Smell | Description | Solution |
 |-------|-------------|----------|
 | Duplicate code | Same/similar code in multiple places | Extract method/class |
-| Long methods | Methods > 50 lines | Extract method |
-| Large classes | Classes > 500 lines | Extract class |
+| Long methods | Over the function size limit in `.claude/skills/rv-analyze-complexity/reference.md` | Extract method |
+| Large classes | Over the class size limit in `.claude/skills/rv-analyze-complexity/reference.md` | Extract class |
 | Switch statements | Type-based switch/case | Polymorphism |
 | Data clumping | Same data always together | Create object |
 | Speculative generality | Unused abstractions | Remove unused code |

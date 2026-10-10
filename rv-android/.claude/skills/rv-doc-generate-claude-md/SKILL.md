@@ -19,17 +19,12 @@ Read these reference files before generating CLAUDE.md:
 
 - `checklists/claude-md-sections.md` — Required sections, depth guidance, anti-patterns, length targets
 - `checklists/audience-guidance.md` — LLM-first writing conventions, path/command formatting rules
-- `templates/claude-md.md` — CLAUDE.md output template with section structure
+- `templates/claude-md.md` — CLAUDE.md output template with section structure (read at Step 5)
 
-## Documentation Guidelines
+## Documentation Principles
 
-**CRITICAL**: Follow these guidelines:
-
-1. **Language**: English only
-2. **Tone**: Professional, objective, factual
-3. **No bias terms**: Avoid "modern", "better", "elegant", "sophisticated"
-4. **Current state only**: Do not reference migration, legacy, or what was changed
-5. **Concise**: CLAUDE.md is part of prompt context - keep it focused
+Apply `.claude/documentation-principles.md` to the generated CLAUDE.md. Specific to this
+document: CLAUDE.md is loaded into the prompt context, so keep it concise.
 
 ## MCP Integration
 
@@ -39,7 +34,7 @@ Read these reference files before generating CLAUDE.md:
 ## Workflow
 
 ```
-STEP 1: AUTO-ANALYSIS ───────────────────────────────────────────►
+STEP 1: ANALYZE MODULE ──────────────────────────────────────────►
     │  Use Skill tool: skill="rv-analyze-module" for deep understanding
     ▼
 STEP 2: CHECK EXISTING ──────────────────────────────────────────►
@@ -54,7 +49,7 @@ STEP 4: VALIDATE ─────────────────────
 
 ## Steps
 
-### 1. Auto-Analysis (NEW)
+### 1. Analyze the Module with rv-analyze-module
 
 First, invoke `/rv-analyze-module $ARGUMENTS` to get:
 - Module structure and architecture
@@ -72,11 +67,11 @@ if [ -f "$CLAUDE_PATH" ]; then
     # Extract custom sections to preserve:
     # - "Gotchas" section (user-added knowledge)
     # - "Current Work" section (active context)
-    # - Any section marked with "<!-- CUSTOM -->"
+    # - Any content between <!-- CUSTOM:START --> and <!-- CUSTOM:END -->
 fi
 ```
 
-### 3. Analyze Module (supplement auto-analysis)
+### 3. Supplement the Analysis
 
 - Read pyproject.toml for metadata
 - Map directory structure
@@ -87,102 +82,16 @@ fi
 
 - Read existing docstrings
 - Find README if exists
-- Merge with auto-analysis results
+- Merge with the Step 1 analysis results
 
 ### 5. Generate CLAUDE.md
 
-Following template below, with auto-analysis data filling sections.
+Read `templates/claude-md.md` and fill its sections with the analysis results. The section
+order and depth come from `checklists/claude-md-sections.md`.
 
 ### 6. Write to `modules/$MODULE/CLAUDE.md`
 
 Preserve custom sections if they existed.
-
-## CLAUDE.md Template
-
-```markdown
-# [Module Name] - CLAUDE.md
-
-## Overview
-
-[One paragraph describing module purpose and role in rv-android]
-
-## Quick Start
-
-```bash
-# Install (from project root)
-uv sync
-
-# Run tests (from project root)
-uv run pytest modules/[module-name]/tests/ -v
-```
-
-## Architecture
-
-### Directory Structure
-```
-src/[package]/
-├── domain/        # Domain models
-├── services/      # Business logic
-├── ...
-```
-
-### Key Components
-
-| Component | Purpose |
-|-----------|---------|
-| component.py | Description |
-
-### Dependencies
-
-- **Internal**: rv-android-core, ...
-- **External**: langchain, pydantic, ...
-
-## Development
-
-### Common Tasks
-
-```bash
-# Task 1
-command
-
-# Task 2
-command
-```
-
-### Testing
-
-| Category | Path | Purpose |
-|----------|------|---------|
-| unit | tests/unit/ | Isolated tests |
-
-### Code Patterns
-
-- Pattern 1: Description
-- Pattern 2: Description
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| main.py | Entry point |
-
-## Gotchas
-
-- Known issue 1
-- Known issue 2
-```
-
-## Documentation Principles
-
-Apply these principles to all generated documentation:
-
-1. **Reader perspective**: Write from the reader's viewpoint. What do they need to know? What will they look for first? Structure content for their workflow, not for comprehensiveness.
-2. **No repetition**: State information once in the most logical location. Cross-reference instead of duplicating. If the same fact appears in two sections, one is wrong.
-3. **No ambiguity**: Define terminology on first use. Use precise file paths. Prefer concrete examples over abstract descriptions. If a notation is used (diagram, table), explain how to read it.
-4. **Standard organization**: Follow the established templates and section order. Consistency across documents reduces cognitive load. Deviations must be justified by content needs.
-5. **Capture rationale**: Document WHY, not just WHAT. Every significant choice should have a brief explanation. Future readers need to understand the reasoning to make informed changes.
-6. **Currency**: Only document current state (P4). Do not include migration history, version notes, or planned features. If something changed, describe the current behavior only.
-7. **Stakeholder awareness**: Know the audience. CLAUDE.md is for LLMs (precise paths, exact commands). architecture.md is for developers (conceptual understanding). README.md is for newcomers (getting started).
 
 ## Output Format
 
@@ -196,11 +105,15 @@ Apply these principles to all generated documentation:
 
 ### Content Summary
 - Overview: ✅
-- Quick Start: ✅
 - Architecture: ✅
-- Development: ✅
 - Key Files: ✅
+- Entry Points: ✅
+- Dependencies: ✅
+- Configuration: ✅
+- Development (commands, testing): ✅
+- Key Patterns: ✅
 - Gotchas: [if applicable]
+- Custom content preserved: [list or none]
 
 ### Next Steps
 - Review and customize

@@ -69,7 +69,7 @@ git log --oneline -20
 
 # Check if test passed N commits ago
 git checkout HEAD~5
-uv run pytest tests/[path]::$ARGUMENTS -v
+uv run pytest modules/[module]/tests/[path]::$ARGUMENTS --import-mode=importlib -o "addopts=" -v
 
 # Binary search to narrow down
 # If PASS at HEAD~5, check HEAD~2
@@ -233,8 +233,8 @@ When manually bisecting:
 # Checkout specific commit
 git checkout [commit-hash]
 
-# Run test
-uv run pytest tests/[path] -v
+# Run test (from the project root, one module, CI flags)
+uv run pytest modules/[module]/tests/[path] --import-mode=importlib -o "addopts=" -v
 
 # Return to original branch
 git checkout -

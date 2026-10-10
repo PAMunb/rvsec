@@ -34,8 +34,8 @@ Before extracting code, assess whether it should be extracted for reuse. Not all
 
 | Pattern | Indicator | Action |
 |---------|-----------|--------|
-| **Duplication** | Same/similar code in 2+ places | Extract to shared location |
-| **Large Files** | File > 500 lines | Split by responsibility |
+| **Duplication** | Same/similar code in 3+ places | Extract to shared location |
+| **Large Files** | Over the file size threshold in `.claude/skills/rv-analyze-complexity/reference.md` | Split by responsibility |
 | **Mixed Concerns** | Multiple unrelated classes in one file | Separate by concern |
 | **Domain Logic** | Business rules embedded in infrastructure | Extract to domain layer |
 | **Utility Code** | Generic helpers repeated across modules | Extract to shared utilities |
@@ -150,7 +150,7 @@ Before extracting code, assess whether it should be extracted for reuse. Not all
 
 | Situation | Recommended Level |
 |-----------|-------------------|
-| Single utility function used in 2-3 places | Level 1 (Function) |
+| Single utility function used in 3+ places | Level 1 (Function) |
 | Related set of data structures + operations | Level 2 (Component) |
 | Architecture pattern with customization points | Level 3 (Framework) |
 | Similar applications with different configs | Level 4 (Application) |

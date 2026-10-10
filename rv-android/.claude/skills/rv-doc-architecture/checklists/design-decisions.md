@@ -246,6 +246,5 @@ Architecture documentation should reference relevant ADRs:
 ```markdown
 ## Related Decisions
 
-- [ADR-001: Use LangGraph for workflow](./adr/ADR-001.md)
-- [ADR-002: Event-driven communication](./adr/ADR-002.md)
+- [ADR 0008: Separate stateful diagnostic parser](../../../docs/adr/0008-separate-stateful-diagnostic-parser.md)
 ```

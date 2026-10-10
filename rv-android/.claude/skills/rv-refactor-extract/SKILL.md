@@ -85,7 +85,7 @@ You MUST invoke this sub-skill BEFORE any extraction work. Do NOT analyze file s
 Skill tool: skill="rv-analyze-file", args="$FILE_PATH"
 ```
 
-This helps understand dependencies and what can be safely extracted.
+This helps understand dependencies and what can be safely extracted. A Duplicate Code smell reported there for two locations is a finding to record, not by itself a reason to extract (see When to Extract).
 
 ### Step 1.3: Identify Extraction Candidates
 
@@ -93,8 +93,8 @@ Look for these patterns:
 
 | Pattern | Indicator | Extraction Type |
 |---------|-----------|-----------------|
-| **Duplication** | Same code in 2+ places | Function/Class |
-| **Large File** | File > 500 lines | Split by responsibility |
+| **Duplication** | Same code in 3+ places (see When to Extract) | Function/Class |
+| **Large File** | Over the file size threshold in `.claude/skills/rv-analyze-complexity/reference.md` | Split by responsibility |
 | **Mixed Concerns** | Unrelated classes together | Separate files |
 | **Utility Code** | Generic helpers | Shared utilities |
 | **Complex Logic** | Algorithm deserving isolation | Dedicated module |
@@ -140,10 +140,15 @@ Produce a decision summary:
 
 | Level | When to Use | Destination |
 |-------|-------------|-------------|
-| **Function** | Single utility used in 2-3 places | `module/utils.py` |
+| **Function** | Single utility used in 3+ places | `module/utils.py` |
 | **Class** | Data structure + operations | `module/component.py` |
 | **Component** | Related set of classes | `module/subpackage/` |
 | **Shared** | Cross-module utility | `rv-android-core/` |
+
+**Before choosing Shared**, compare afferent coupling (Ca, the number of modules that use the code) before and after consolidating:
+1. **Before**: for each copy, count the modules that reference it, and sum: `grep -rlw --include=*.py "<Symbol>" modules/*/src | cut -d/ -f2 | sort | uniq -c`.
+2. **After**: count the modules that would import the consolidated component.
+3. **Decide**: After ≤ Before means the dependencies only move, and consolidation is safe. After > Before means the shared component becomes a new hub that more modules must track — keep the copies local, or justify the increase in the interface design. Also reject the move if it would pull a new third-party dependency into rv-android-core.
 
 ### Step 3.2: Design Interface
 
@@ -315,8 +320,8 @@ Produce a report with these sections:
 
 ### When to Extract
 
-- File > 500 lines
-- Same code appears 2+ times
+- File over the file size threshold in `.claude/skills/rv-analyze-complexity/reference.md`
+- Same code appears 3+ times (the single extraction threshold for this skill)
 - Single file has multiple responsibilities
 - Code could benefit other modules
 - Complex algorithm deserves isolation
@@ -330,7 +335,7 @@ Produce a report with these sections:
 
 ### Best Practices
 
-- **Wait for patterns**: Extract after 2-3 uses, not speculatively
+- **Wait for patterns**: Extract at 3+ uses, not speculatively
 - **Start specific**: Don't over-generalize initially
 - **Clear interfaces**: Hide implementation details
 - **Minimal dependencies**: Depend on abstractions

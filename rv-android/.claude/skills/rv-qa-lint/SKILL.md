@@ -81,7 +81,7 @@ This skill verifies **product standards** (code quality) and **process standards
    | Metric | Good | Acceptable | Review |
    |--------|------|------------|--------|
    | CC (function) | ≤ 5 | 6-10 | > 10 |
-   | MI (file) | ≥ 65 | 40-64 | < 40 |
+   | MI (file) | > 50 | 38-50 | < 38 |
 
 5. **Categorize issues** by severity
 

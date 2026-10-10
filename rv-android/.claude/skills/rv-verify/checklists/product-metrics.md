@@ -130,8 +130,11 @@ Collected during program execution.
 ### Commands
 
 ```bash
+MODULE=<module-name>   # the module passed to /rv-verify
+
 # Test coverage
-uv run pytest --cov=src --cov-report=html
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" \
+    --cov=modules/$MODULE/src --cov-report=html
 
 # Performance profiling
 uv run python -m cProfile -o profile.stats script.py
@@ -184,6 +187,7 @@ Test Coverage            ───► Reliability
 
 ```bash
 # Full metrics analysis (from project root)
+MODULE=<module-name>   # the module passed to /rv-verify
 
 # Complexity
 uv run radon cc modules/$MODULE/src/ -a -s --total-average
@@ -192,7 +196,8 @@ uv run radon cc modules/$MODULE/src/ -a -s --total-average
 uv run radon mi modules/$MODULE/src/ -s
 
 # Coverage (if tests exist)
-uv run pytest modules/$MODULE/tests/ --cov=modules/$MODULE/src --cov-report=term-missing
+uv run pytest modules/$MODULE/tests/ --import-mode=importlib -o "addopts=" \
+    --cov=modules/$MODULE/src --cov-report=term-missing
 
 # Security
 uv run bandit -r modules/$MODULE/src/ -f txt

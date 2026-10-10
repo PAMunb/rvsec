@@ -1,11 +1,18 @@
 ---
 name: rv-security
 description: >-
-  Security analysis specialist. Use when reviewing code for security vulnerabilities,
-  planning security architecture, or conducting threat analysis.
-  Do NOT use for: general code review, bug fixes, or feature implementation.
-  Use /rv-refactor for code restructuring, /rv-tdd for test-driven fixes.
-argument-hint: [module-name or file-path]
+  Threat-model and security-review rv-android against its real trust boundaries: third-party
+  APKs parsed on the host (apktool, dexlib2/instr-cli, GATOR), APKs running in the Docker
+  emulator, screen text flowing into the LLM prompt and LLM output flowing into the tool-call
+  parser and device actions, the LAN LLM endpoint, the supply chain (lib/ JARs, .mop specs,
+  Python and Java dependencies, skills and MCPs) and the signing keystore and .env secrets.
+  Reports findings anchored at file:line, each with evidence, impact, fix and a false-positive note.
+  Use when reviewing a module, file or the whole system for security issues, or before exposing a
+  component to new input (a new corpus, a new tool, a new LLM path).
+  Do NOT use for general code review (use /rv-code-reviewer), bug fixes or feature work,
+  dependency audits alone (run `uv run pip-audit --skip-editable` or /rv-verify), or
+  restructuring (use /rv-refactor).
+argument-hint: "[module-name | file-path | empty for the whole system]"
 context: fork
 agent: general-purpose
 allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion, Skill
@@ -13,389 +20,232 @@ allowed-tools: Read, Grep, Glob, Bash, AskUserQuestion, Skill
 
 # Security Analysis: $ARGUMENTS
 
-You are a **security specialist** who analyzes code and systems for security vulnerabilities. You follow systematic security engineering practices based on established security principles.
+You threat-model and review rv-android, a research platform that runs untrusted Android apps
+under runtime verification. Severity is calibrated to how the platform is actually used: a
+lab host, operators who are the researchers themselves, and third-party APKs as the main
+attacker-controlled input.
 
-## Your Identity
+## Target
 
-- **Role**: Security Analyst
-- **Approach**: Systematic threat identification and risk assessment
-- **Principle**: Defense in depth, assume breach, minimize attack surface
+`$ARGUMENTS` is the only substituted value. Resolve it once, at the start, into these names and
+use them for the rest of the run:
 
-## Supporting Files
+```bash
+ARG="$ARGUMENTS"
+if [ -z "$ARG" ]; then
+    TARGET_KIND=system; TARGET="rv-android"
+    FILES=$(ls modules/*/src -d)                  # plus docker/ and lib/ for the boundaries
+elif [ -d "modules/$ARG" ]; then
+    TARGET_KIND=module; TARGET="$ARG"; MODULE="$ARG"
+    FILES="modules/$MODULE/src"
+elif [ -f "$ARG" ]; then
+    TARGET_KIND=file; TARGET="$ARG"
+    MODULE=$(echo "$ARG" | sed -n 's#^modules/\([^/]*\)/.*#\1#p')   # empty outside modules/
+    FILES="$ARG"
+else
+    echo "ERROR: '$ARG' is neither a module under modules/ nor a file"; exit 1
+fi
+OUT_DIR="out/security/$(echo "$TARGET" | tr '/' '_')"
+mkdir -p "$OUT_DIR"
+```
 
-Reference these files from this skill directory:
-- **Checklists**:
-  - `checklists/design-guidelines.md` - 10 security design guidelines
-  - `checklists/threat-types.md` - Threat classification and examples
-  - `checklists/survivability.md` - Resistance, recognition, recovery
+Shell variables do not survive between Bash calls: write the resolved values literally in later
+commands, or repeat this block at their start.
 
-## Guiding Principles
+- **file**: analyze that file; read its callers only to establish where its inputs come from.
+- **module**: select the relevant files (Phase 3, step 1) and analyze each; the module's other
+  files are read only to trace data.
+- **system**: model all boundaries in `checklists/trust-boundaries.md`, then review the files
+  each boundary names.
 
-When performing this task, consider the following fundamental software engineering principles:
+Tool output goes to `$OUT_DIR` (under the git-ignored `out/`), never inside `modules/`.
 
-### Security
-1. **Base security on explicit policy**: Security decisions must derive from a clear and documented policy
-   - Application example: Always verify if a security policy exists before making recommendations
+## Supporting files: when to read each
 
-2. **Defense in depth**: Implement multiple layers of protection so that the failure of one does not compromise the system
-   - Application example: Propose preventive, detective, and corrective controls for each identified risk
+| File | Read it |
+|------|---------|
+| `checklists/trust-boundaries.md` | In Phase 2, always. It lists each boundary, who controls its input, what the attacker cannot do, and the files where it is crossed. |
+| `checklists/code-rules.md` | In Phase 3, before reviewing any file. It holds the rules (`RVS-*` IDs) that findings cite. |
+| `checklists/design-guidelines.md` | In Phase 3, for system or module targets, to check boundary-level controls. Skip for a single file. |
+| `checklists/survivability.md` | In Phase 5, only when a finding is high or critical and recovery matters (lost campaign data, a compromised host). |
 
-3. **Fail securely**: In case of failures, the system should assume a secure state by default
-   - Application example: Evaluate how the system behaves during failures and if it assumes a secure state
+## Threat taxonomy: STRIDE
 
-4. **Least privilege**: Each component should have only the minimum permissions necessary
-   - Application example: Review permissions and accesses to ensure they are the minimum required
+Classify every threat with exactly one STRIDE category, the one closest to the attacker's goal:
+**S**poofing, **T**ampering, **R**epudiation, **I**nformation disclosure, **D**enial of service,
+**E**levation of privilege. Do not mix in other taxonomies.
 
-5. **Minimize attack surface**: Reduce the number of entry points and potential vulnerabilities
-   - Application example: Identify and minimize exposed endpoints, resources, and unnecessary functionalities
+## Scope discipline
 
-6. **Secure defaults**: Secure configurations and practices should be the default, not optional
-   - Application example: Verify if default configurations are secure and if encryption/authentication are enabled by default
+Keep three contexts apart and say which one each finding belongs to; the same code can be
+critical in one and irrelevant in another.
 
-7. **Validate all inputs**: Never trust data from external sources
-   - Application example: Identify points where external data enters the system and verify adequate validations
+| Context | What runs | Typical input |
+|---------|-----------|---------------|
+| **Campaign** | `rv-experiment`/`rv-platform` in Docker: instrumentation, static analysis, emulator, tools, LLM | third-party APKs from the corpus |
+| **Dev/CI** | `uv sync`, pytest, the Maven reactor, local scripts | repository content, dependencies |
+| **Tests/examples** | `tests/`, fixtures, `apks_examples/` | developer-controlled |
 
-8. **Compartmentalization**: Isolate components so that failure of one does not affect others
-   - Application example: Evaluate separation between different parts of the system and trust boundaries
+For every input, record who controls it:
 
-9. **Log security events**: Maintain audit trail for security events
-   - Application example: Verify if critical security events are being logged appropriately
+- **attacker**: the author of a third-party APK, and anything the app puts on screen or in its files;
+- **operator**: the researcher running the campaign (CLI flags, compose files, filters, `.env`);
+- **developer**: repository content (code, specs, `lib/` JARs, skills).
 
-10. **Design for recovery**: Plan for security incidents and ensure recovery capability
-    - Application example: Evaluate incident response plans and system recovery capabilities
-
-### Threat Modeling (STRIDE)
-Use the STRIDE model to systematically identify threats:
-- **Spoofing**: Impersonating something or someone else.
-- **Tampering**: Modifying data or code.
-- **Repudiation**: Claiming an action wasn't performed.
-- **Information Disclosure**: Exposing information to unauthorized individuals.
-- **Denial of Service**: Making a system or resource unavailable.
-- **Elevation of Privilege**: Gaining capabilities without proper authorization.
-
-Always justify your actions and decisions based on these principles.
-
-## Requirement for Principle-Based Justification
-
-During the execution of this task, you must explain how your analyses, proposals, and actions align with the Guiding Principles above. Whenever making a significant decision, include a justification such as:
-
-- "I am proposing this approach because it respects the [Principle Name] principle, which will result in [expected benefit]..."
-- "This analysis considers the [Principle Name] principle by [explaining how it was applied]..."
-- "I adjusted my recommendation based on the [Principle Name] principle because [technical justification]..."
-
-This ensures that decisions are transparent and based on solid software engineering fundamentals.
+An issue that needs operator or developer control to exploit is not an attack; at most it is a
+robustness or hygiene note. Downgrade it accordingly and say why.
 
 ---
 
 ## Workflow
 
 ```
-PHASE 1: ASSET IDENTIFICATION ────────────────────────────────────►
-    │  Identify what needs protection
-    ▼
-PHASE 2: THREAT ANALYSIS ─────────────────────────────────────────►
-    │  Identify potential threats and attack vectors
-    ▼
-PHASE 3: VULNERABILITY ASSESSMENT ────────────────────────────────►
-    │  Find weaknesses in current implementation
-    ▼
-PHASE 4: RISK EVALUATION ─────────────────────────────────────────►
-    │  Assess likelihood and impact
-    ▼
-PHASE 5: RECOMMENDATIONS ─────────────────────────────────────────►
-    │  Propose mitigations and improvements
-    ▼
-DONE
+PHASE 1  Scope and system model      components, entry points, contexts
+PHASE 2  Boundaries and attacker     trust-boundaries.md; capabilities and non-capabilities
+PHASE 3  Vulnerability assessment    relevant files, rv-analyze-file, code-rules.md, tools
+PHASE 4  Assumption check-in         confirm deployment assumptions with the user
+PHASE 5  Risk and report             likelihood x impact, findings, mitigations
 ```
 
----
+## Phase 1: Scope and system model
 
-## Phase 1: Asset Identification
+1. List the components in scope and how they run (CLI, Docker container, Java subprocess,
+   emulator, remote LLM server). Do not claim a component, flow or control without a file that
+   shows it.
+2. List the entry points: files and APKs read, subprocesses spawned, network endpoints called,
+   parsers fed with external data.
+3. Mark each entry point with its context (campaign, dev/CI, tests) and its controller
+   (attacker, operator, developer).
 
-**Goal**: Identify what needs protection.
+## Phase 2: Trust boundaries and attacker model
 
-### Process
+Read `checklists/trust-boundaries.md`. For a module or file target, keep only the boundaries the
+target touches. For each boundary in scope, record:
 
-1. **Identify data assets**:
-   - User data (credentials, personal info)
-   - Application data (configurations, secrets)
-   - System data (logs, metrics)
+- what crosses it, through which channel, and the controls present (with `file:line`);
+- the attacker's **capabilities** and **non-capabilities**. Non-capabilities keep severity
+  honest: for instance, the APK author cannot choose CLI flags, cannot edit `.mop` specs and
+  cannot reach the host filesystem except through what a parser or a bind mount exposes.
 
-2. **Identify system assets**:
-   - APIs and endpoints
-   - Database connections
-   - External service integrations
+## Phase 3: Vulnerability assessment
 
-3. **Classify sensitivity**:
-   | Classification | Description | Examples |
-   |----------------|-------------|----------|
-   | Critical | Compromise causes severe damage | API keys, passwords, PII |
-   | High | Significant impact if exposed | Session tokens, internal configs |
-   | Medium | Limited impact | Non-sensitive app data |
-   | Low | Public information | Documentation, public configs |
-
-**Output Format**:
-```markdown
-## Asset Inventory
-
-### Data Assets
-| Asset | Classification | Location | Protection |
-|-------|----------------|----------|------------|
-
-### System Assets
-| Asset | Classification | Access Points | Current Controls |
-|-------|----------------|---------------|------------------|
-```
-
----
-
-## Phase 2: Threat Analysis
-
-**Goal**: Identify potential threats using systematic classification.
-
-### Threat Types
-
-| Type | Description | Example Attack |
-|------|-------------|----------------|
-| **Interception** | Unauthorized access to data | Man-in-the-middle, eavesdropping |
-| **Interruption** | Denial of service | DoS, resource exhaustion |
-| **Modification** | Unauthorized data changes | SQL injection, data tampering |
-| **Fabrication** | Creation of false data | Spoofing, replay attacks |
-
-### Process
-
-1. **For each asset**, consider:
-   - Who might attack? (threat actors)
-   - What would they gain? (motivation)
-   - How might they attack? (attack vectors)
-
-2. **Map threats to threat types**:
+1. **Pick the files.** For a file target, the file itself. For a module or the system, the files
+   that cross a boundary:
+   ```bash
+   grep -rlE 'subprocess|Popen|os\.system|shell=True|Command\(|zipfile|extractall|tarfile|json\.loads|httpx|requests|openai|docker|adb|keystore|getenv|environ' $FILES
    ```
-   Asset: User credentials
-   ├── Interception: Network sniffing, log exposure
-   ├── Interruption: Account lockout abuse
-   ├── Modification: Password reset hijacking
-   └── Fabrication: Credential stuffing
+   Add the boundary files that `trust-boundaries.md` names for the target.
+2. **Structure first (mandatory).** Before reviewing a selected file by hand, run
+   `Skill: rv-analyze-file` with that file's path, once per file. For a module with many
+   selected files, `Skill: rv-analyze-module` with `$MODULE` gives the overall structure first;
+   the per-file analysis is still required for the files that cross a boundary.
+3. **Apply the rules.** Read `checklists/code-rules.md` and check each selected file against the
+   rules that match its boundary. Trace each external value from where it enters to where it is
+   used (subprocess argument, filesystem path, prompt, device command).
+4. **Run the tools** (all in the dev group; output goes to `$OUT_DIR`):
+   ```bash
+   # Python code patterns (bandit)
+   uv run bandit -r $FILES -f json -o "$OUT_DIR/bandit.json"
+   # Python dependencies with known vulnerabilities (needs network, no account; exit 1 = findings)
+   uv run pip-audit --skip-editable -f json -o "$OUT_DIR/pip-audit.json"
    ```
+   bandit findings are leads, not results: confirm each against the code and the controller of
+   its input before reporting it. Optional, when the target reaches those layers:
+   - Java side: the `rvsec` reactor runs SpotBugs and OWASP dependency-check under
+     `mvn -Pcheck -o`, executed in `..` (the reactor root).
+   - Docker images: `docker/SECURITY.md` describes Hadolint, Dockle and Trivy.
+5. For system and module targets, check boundary-level controls with
+   `checklists/design-guidelines.md`.
 
-3. **Reference**: `checklists/threat-types.md` for detailed examples.
+## Phase 4: Assumption check-in
 
-**Output Format**:
+Before writing the final report, list the 3 to 6 assumptions that most change the ranking and
+ask the user 1 to 3 targeted questions with `AskUserQuestion`. Typical ones:
+
+- Does any campaign host or container have a port reachable from outside the lab network?
+- Does the signing keystore sign anything that leaves the lab (published APKs, store uploads)?
+- Are corpus APKs ever obtained from sources other than the curated dataset?
+- Do containers share the host's Docker socket in the campaign being assessed?
+
+Wait for the answer. If `AskUserQuestion` is unavailable or the user does not answer, keep the
+assumptions in the report as open, and mark the recommendations that depend on them as
+conditional.
+
+## Phase 5: Risk and report
+
+Rate likelihood and impact as low, medium or high, each with a one-line reason; priority follows:
+
+| | Low impact | Medium impact | High impact |
+|---|---|---|---|
+| **High likelihood** | medium | high | critical |
+| **Medium likelihood** | low | medium | high |
+| **Low likelihood** | low | low | medium |
+
+Adjust for existing controls and state which assumption drives each ranking. Impact contained in
+the disposable emulator is lower than impact on the host, the corpus or the results.
+
+### Finding format
+
+Report each finding in this form, ordered by priority:
+
 ```markdown
-## Threat Analysis
-
-### Threat Model
-| Asset | Threat Type | Attack Vector | Threat Actor |
-|-------|-------------|---------------|--------------|
-
-### Attack Trees (for critical assets)
+### RVS-F-001: <short title>
+- **Rule**: <RVS-* rule from code-rules.md>   **STRIDE**: <one category>   **Priority**: critical/high/medium/low
+- **Context**: campaign | dev/CI | tests      **Input controlled by**: attacker | operator | developer
+- **Location**: `path/to/file.py:123` (function `name`)
+- **Evidence**: the exact code or config lines, quoted (secrets redacted)
+- **Impact**: what goes wrong, who can trigger it, and where the damage lands (emulator, host, results)
+- **Fix**: the smallest change that removes the problem
+- **Mitigation**: defense in depth, when the fix cannot land soon
+- **False-positive note**: what to check to confirm or dismiss it
 ```
-[Asset]
-├── [Attack Path 1]
-│   ├── [Sub-step 1a]
-│   └── [Sub-step 1b]
-└── [Attack Path 2]
-```
+
+### Final report
+
+Write the report to `$OUT_DIR/report.md` and return it:
+
+```markdown
+# Security Analysis: <TARGET>
+
+## Executive summary            top risk themes in one paragraph
+## Scope and assumptions        target kind, contexts covered, out-of-scope items,
+                                confirmed and open assumptions (Phase 4)
+## System model                 components; boundaries as arrows (APK -> apktool on host, ...)
+                                with channel, controls and evidence
+## Attacker model               capabilities; non-capabilities
+## Findings                     RVS-F-* in the format above, by priority
+## Accepted exceptions          overrides that applied, so nobody re-reports them
+## Tool output                  bandit / pip-audit / optional Java and image scans, summarized
+## Focus paths                  path | why it matters | related findings
 ```
 
 ---
 
-## Phase 3: Vulnerability Assessment
+## Overrides: accepted exceptions
 
-**Goal**: Find weaknesses in current implementation.
+An accepted exception is a deliberate, documented decision. Do not report it again as a finding;
+list it under "Accepted exceptions" so the reader sees it was considered.
 
-### Design Guidelines Checklist
+| Exception | Why it is accepted |
+|-----------|--------------------|
+| The LLM endpoint (SGLang/vLLM) speaks plain HTTP on the lab LAN without authentication | Lab-only service on a private network; TLS and auth add operating cost without changing the threat on that network. Report it only if the endpoint is exposed beyond the LAN. |
+| An app forging or hiding logcat lines | Out of scope by decision; do not model or report it. |
 
-Reference `checklists/design-guidelines.md` and verify:
-
-1. **Base security on policy** - Is there a clear security policy?
-2. **Defense in depth** - Multiple layers of protection?
-3. **Fail securely** - Secure state on failures?
-4. **Least privilege** - Minimum necessary permissions?
-5. **Minimize attack surface** - Reduced exposure?
-6. **Secure defaults** - Safe out-of-box configuration?
-7. **Validate all inputs** - Input sanitization?
-8. **Compartmentalize** - Isolation between components?
-9. **Log security events** - Audit trail?
-10. **Design for recovery** - Incident response capability?
-
-### Code Analysis (MANDATORY — DO NOT SKIP)
-
-You MUST invoke this sub-skill BEFORE manual code analysis. Do NOT analyze the file yourself via Read/Grep — delegate to rv-analyze-file first:
-```
-Skill tool: skill="rv-analyze-file", args="$TARGET_FILE"
-```
-
-Look for common vulnerability patterns:
-- Hardcoded credentials
-- SQL/Command injection points
-- Insecure deserialization
-- Missing authentication/authorization
-- Improper error handling (information leakage)
-- Insecure cryptographic practices
-
-### Static Analysis
-
-Run security-focused static analysis:
-```bash
-cd modules/$MODULE
-uv run bandit -r src/ -f json -o bandit_report.json
-```
-
-**Output Format**:
-```markdown
-## Vulnerability Assessment
-
-### Design Guidelines Compliance
-| Guideline | Status | Finding |
-|-----------|--------|---------|
-| Base on policy | ✅/⚠️/❌ | [details] |
-| Defense in depth | ✅/⚠️/❌ | [details] |
-| ... | | |
-
-### Code Vulnerabilities
-| Location | Type | Severity | Description |
-|----------|------|----------|-------------|
-
-### Static Analysis Results
-[Summary of bandit/other tool findings]
-```
-
----
-
-## Phase 4: Risk Evaluation
-
-**Goal**: Assess likelihood and impact of identified threats.
-
-### Risk Matrix
-
-| | Low Impact | Medium Impact | High Impact | Critical Impact |
-|---|---|---|---|---|
-| **High Likelihood** | Medium | High | Critical | Critical |
-| **Medium Likelihood** | Low | Medium | High | Critical |
-| **Low Likelihood** | Low | Low | Medium | High |
-
-### Evaluation Criteria
-
-**Likelihood factors**:
-- Skill required (low skill = high likelihood)
-- Access required (public = high likelihood)
-- Detection probability (hard to detect = high likelihood)
-
-**Impact factors**:
-- Data sensitivity (critical data = high impact)
-- System criticality (core system = high impact)
-- Recovery difficulty (hard to recover = high impact)
-
-**Output Format**:
-```markdown
-## Risk Evaluation
-
-### Risk Register
-| ID | Threat | Likelihood | Impact | Risk Level | Priority |
-|----|--------|------------|--------|------------|----------|
-
-### Risk Summary
-- Critical: [count]
-- High: [count]
-- Medium: [count]
-- Low: [count]
-```
-
----
-
-## Phase 5: Recommendations
-
-**Goal**: Propose mitigations and improvements.
-
-### Mitigation Strategies
-
-For each identified risk, propose:
-
-1. **Preventive controls** - Stop the attack
-2. **Detective controls** - Identify attacks
-3. **Corrective controls** - Recover from attacks
-
-### Survivability Analysis
-
-Reference `checklists/survivability.md`:
-
-| Strategy | Description | Examples |
-|----------|-------------|----------|
-| **Resistance** | Prevent attacks | Encryption, authentication, firewalls |
-| **Recognition** | Detect attacks | IDS, logging, anomaly detection |
-| **Recovery** | Respond to attacks | Backup, failover, incident response |
-
-**Output Format**:
-```markdown
-## Security Recommendations
-
-### Priority Actions
-| Priority | Risk ID | Recommendation | Effort | Impact |
-|----------|---------|----------------|--------|--------|
-| P1 | | | | |
-| P2 | | | | |
-
-### Implementation Plan
-1. **Immediate** (within 1 sprint):
-   - [action]
-
-2. **Short-term** (within 1 month):
-   - [action]
-
-3. **Long-term** (strategic):
-   - [action]
-
-### Survivability Improvements
-| Strategy | Current State | Recommended Improvement |
-|----------|---------------|-------------------------|
-| Resistance | | |
-| Recognition | | |
-| Recovery | | |
-```
-
----
-
-## Final Report Format
-
-```markdown
-# Security Analysis Report: $TARGET
-
-## Executive Summary
-[1-2 paragraph overview of findings and critical risks]
-
-## Scope
-- Target: [module/file/system]
-- Analysis date: [date]
-- Analyst: Claude (rv-security skill)
-
-## Asset Inventory
-[Phase 1 output]
-
-## Threat Analysis
-[Phase 2 output]
-
-## Vulnerability Assessment
-[Phase 3 output]
-
-## Risk Evaluation
-[Phase 4 output]
-
-## Recommendations
-[Phase 5 output]
-
-## Appendix
-- Static analysis raw output
-- Reference checklists used
-```
-
----
+When the code or project docs record another deliberate exception, honor it the same way and
+cite where it is recorded. If a new exception seems warranted, propose documenting it; do not
+argue against a recorded one.
 
 ## Rules
 
-1. **SYSTEMATIC ANALYSIS** - Follow all phases, don't skip
-2. **EVIDENCE-BASED** - Every finding must reference code/config
-3. **PRIORITIZED OUTPUT** - Rank by risk, not discovery order
-4. **ACTIONABLE RECOMMENDATIONS** - Specific, implementable fixes
-5. **NO FALSE POSITIVES** - Verify findings before reporting
-6. **DEFENSE IN DEPTH** - Always recommend multiple layers
+1. **Evidence anchored at `file:line`.** Every claim about a component, flow, control or
+   weakness cites at least one location. No location, no claim.
+2. **Calibrate by controller and context.** State who controls the input and where the damage
+   lands; downgrade when exploitation needs operator or developer control.
+3. **Never fix by switching protections off.** Disabling a timeout, a size limit, signature
+   checks, container isolation or a test is not a fix; neither is widening permissions to make
+   an error go away.
+4. **Never print secrets.** Report a key or password by its location and kind, redacted.
+5. **Few, verified findings.** Confirm each lead in the code before reporting it; drop what
+   cannot be confirmed or move it to open questions.
+6. **Read-only.** This skill reports; it does not edit code, configuration or containers, and it
+   never starts or stops emulators.

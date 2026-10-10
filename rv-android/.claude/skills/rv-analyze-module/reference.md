@@ -1,6 +1,27 @@
 # Module Analysis Reference
 
-Consolidated reference for comprehensive module analysis. Contains the 4 modeling perspectives and analysis checklists.
+Read at Step 1. Contains module sizing rules, the 4 modeling perspectives and their checklists.
+
+---
+
+## Module Sizing
+
+The Step 1 table gives each module's LOC (physical lines), LLOC (logical lines, roughly
+statements) and SLOC (source lines without comments/blanks) from `radon raw`, the module's
+share of workspace LLOC, and its z-score `z = (LLOC − mean) / sd` with the sample standard
+deviation over all workspace members. LLOC is the sizing unit because comments do not count
+and a docstring of any length counts as one line, so documentation volume, which varies a
+lot between modules here, barely moves it.
+
+| Signal | Reading |
+|--------|---------|
+| z > 2 (flagged `>2σ`) | Oversized relative to its siblings: check whether it holds more than one functional area (separate packages with no imports between them, distinct actors in the interaction model). If yes, it is a split candidate; if it is one cohesive area, say so and move on |
+| share > 20% | Same check even below 2σ: with ~17 modules, one module holding a fifth of the code concentrates change |
+| share < 1% | Small. Not a problem by itself: deliberate seams (`rv-instrumentation` as a factory, `rv-instrumentation-core` as an ABC package, thin plugins) are small on purpose. Flag only if the module has no reason to be separate (no distinct dependency set, no separate consumer) |
+
+A z-score is only a comparison inside this workspace, and the distribution is skewed (a few
+large modules), so report the number, not a verdict: the recommendation comes from the
+functional-area check.
 
 ---
 
@@ -24,7 +45,8 @@ Analyze the module's context and boundaries:
    - What data flows between them?
    - What is the direction (depends-on, depended-by, bidirectional)?
 3. **External Systems**: What external APIs, services, or hardware does it interact with?
-   - Android device, LLM server, file system, network
+   - Android device (adb), LLM server (HTTP), Java tools of the `rvsec` reactor run as
+     subprocesses, and the files exchanged with them (`.mop`, descriptor JSON, `*.apk.json`)
 4. **Process Triggers**: What initiates module execution?
    - CLI command, parent module call, event/callback, scheduler
 
@@ -56,7 +78,21 @@ Analyze the static structure:
 3. **Hierarchies**: Inheritance structures — ABC/Protocol → concrete implementations
 4. **Design Patterns**: Recognize and document patterns used:
    - Factory, Strategy, Observer, Decorator, Facade, Registry, Builder, Template Method
-5. **Coupling Assessment**: Are there classes that know too much about other classes' internals?
+5. **Coupling Assessment**: Treat each item as a signal to confirm in code, not as proof.
+   - **Internals**: Do classes reach into other classes' private state (`_attr` access from
+     outside, `setattr` on another object)?
+   - **Direction**: Do dependencies point the way the layers say (see the matrix in
+     `rv-analyze-dependencies/reference.md`)? Infrastructure types (subprocess `Command`,
+     file paths of another module's outputs, HTTP clients) leaking into the module's domain
+     logic is the smell to look for.
+   - **Public surface**: Can you list what the module offers others — what its `__init__.py`
+     / `__all__` exports — without naming storage details or internal services? If the
+     list needs them, the boundary leaks.
+   - **Neighbor types**: For each type this module imports from another workspace module, is
+     it a type made for callers (exported result model, ABC) or that module's internal
+     model/implementation? Rate the relation's strength with **Coupling Beyond Imports** in
+     `rv-analyze-dependencies/reference.md` (contract < model < functional < intrusive);
+     the same section covers files exchanged with the Java side.
 
 ---
 
@@ -78,20 +114,12 @@ Analyze dynamic behavior:
 
 ---
 
-## rv-android Module Directory
+## Workspace Modules
 
-| Module | Layer | Package | Primary Role |
-|--------|-------|---------|-------------|
-| rv-android-core | 1 | rv_android_core | Foundation: domain models, error handling, logging |
-| rv-tools | 2 | rv_tools | Tool plugin system: registry, factory |
-| rv-uiautomator | 2 | rv_uiautomator | UIAutomator components for device interaction |
-| rv-screen-parser | 2 | rv_screen_parser | Android UI parsing with visitor patterns |
-| rv-static-analysis | 3 | rv_static_analysis | GATOR/GESDA/REACH for Android apps |
-| rv-coverage | 3 | rv_coverage | Coverage analysis and tracking |
-| rv-monitor-generator | 3 | rv_monitor_generator | JavaMOP/RV-Monitor integration |
-| rv-instrumentation | 4 | rv_instrumentation | APK instrumentation with monitor weaving |
-| rv-agent | 4 | rv_agent | LLM-driven testing with LangGraph |
-| rv-platform | 4 | rv_platform | Central execution platform |
-| rv-experiment | 5 | rv_experiment | Experiment orchestration |
-| rvagent-tool | 5 | rvagent_tool | rv-agent as rv-platform tool |
-| aperv-tool | 5 | aperv_tool | APE-RV as rv-platform tool |
+Do not keep a copy of the module list here; read it from the sources:
+- **Membership**: `[tool.uv.workspace]` in the root `pyproject.toml` (`members` minus
+  `exclude`); `python3 .claude/skills/rv-analyze-dependencies/scripts/workspace_deps.py`
+  prints each member with its import package names, which do not all start with `rv_`
+  (`aperv_tool`, `rvagent_tool`).
+- **Roles**: the "Module map" table in the root `CLAUDE.md`, and the module's own `CLAUDE.md`.
+- **Layers and allowed dependencies**: `rv-analyze-dependencies/reference.md`.

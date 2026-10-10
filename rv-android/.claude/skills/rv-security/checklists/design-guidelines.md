@@ -1,318 +1,78 @@
-# Security Design Guidelines Checklist
+# Security Design Guidelines
 
-10 fundamental security design guidelines based on established security engineering principles.
-
----
-
-## 1. Base Security Decisions on an Explicit Security Policy
-
-**Principle**: Security requirements must be derived from a clear security policy.
-
-### Checklist
-
-- [ ] Security policy exists and is documented
-- [ ] Policy defines what assets need protection
-- [ ] Policy specifies acceptable risk levels
-- [ ] Policy is reviewed and updated periodically
-- [ ] Implementation decisions trace back to policy
-
-### Questions to Ask
-
-- What is the security policy for this system?
-- Who defined the policy and when was it last reviewed?
-- How do current controls map to policy requirements?
+Read in Phase 3 for system or module targets. Each guideline is stated once and then turned into
+checks for rv-android. Cite `file:line` for every check you mark as met or failed; a check with no
+code behind it in the target is "not applicable", not "met".
 
 ---
 
-## 2. Implement Defense in Depth
+## 1. Base decisions on an explicit policy
 
-**Principle**: Use multiple layers of protection so compromise of one layer doesn't compromise the system.
+The policy is the set of recorded decisions: accepted exceptions (Overrides in `SKILL.md`),
+`docker/SECURITY.md`, the module `CLAUDE.md` files and the OpenSpec specs.
 
-### Checklist
+- [ ] Each control you rely on is written down somewhere, or is visible in code.
+- [ ] A deviation from a recorded decision is reported against that decision, with its location.
 
-- [ ] Multiple authentication factors where appropriate
-- [ ] Network segmentation between components
-- [ ] Application-level and infrastructure-level controls
-- [ ] Encryption at rest AND in transit
-- [ ] Input validation at multiple layers
+## 2. Defense in depth
 
-### Layered Protection Model
+The layers between a corpus APK and the host are: the parser's own robustness, subprocess
+timeouts and heap limits, the container, read-only mounts, and the emulator.
 
-```
-┌─────────────────────────────────────┐
-│         Network Layer               │  Firewalls, IDS/IPS
-├─────────────────────────────────────┤
-│         Transport Layer             │  TLS, certificate validation
-├─────────────────────────────────────┤
-│         Application Layer           │  Authentication, authorization
-├─────────────────────────────────────┤
-│         Data Layer                  │  Encryption, access controls
-└─────────────────────────────────────┘
-```
+- [ ] For each boundary in `trust-boundaries.md`, name at least two layers and where each is set.
+- [ ] No layer is the only thing standing between an APK and a writable host path.
 
-### Questions to Ask
+## 3. Fail securely
 
-- If this control fails, what prevents compromise?
-- How many layers must an attacker bypass?
-- Are layers independent (not sharing credentials/trust)?
+- [ ] A parser or instrumenter failure marks the task failed; partial output is not consumed as
+      if complete, unless a field records the degradation (as static analysis does on timeout).
+- [ ] An unreachable LLM endpoint or emulator ends the task with a recorded error, not a hang.
+- [ ] Error messages and logs do not include secrets.
 
----
+## 4. Least privilege
 
-## 3. Fail Securely
+- [ ] Containers run without `privileged`, with only `/dev/kvm` as a device.
+- [ ] The Docker socket is mounted only in the composes that need sibling containers, and the
+      code using it is reviewed (RVS-CTR-001).
+- [ ] Writable mounts are limited to the container's own results directory.
 
-**Principle**: When failures occur, the system should default to a secure state.
+## 5. Minimize attack surface
 
-### Checklist
+- [ ] No adb or other service ports published beyond localhost.
+- [ ] Tools and parsers that a campaign does not use are not invoked on corpus APKs.
+- [ ] The emulator's outbound network matches what the campaign needs (ask in Phase 4).
 
-- [ ] Error handlers don't expose sensitive information
-- [ ] Failed authentication denies access (not grants)
-- [ ] Exceptions don't leave system in inconsistent state
-- [ ] Resource exhaustion doesn't bypass security checks
-- [ ] Timeouts default to denial, not approval
+## 6. Secure defaults
 
-### Common Failures
+- [ ] Defaults for timeouts, heap sizes and mounts are the safe ones; operators loosen them
+      explicitly.
+- [ ] Default endpoints and paths point to lab resources, not to public services.
 
-| Failure Type | Insecure Default | Secure Default |
-|--------------|------------------|----------------|
-| Auth timeout | Grant access | Deny access |
-| Config missing | Use defaults | Fail startup |
-| Exception | Return partial data | Return error |
-| Resource limit | Skip validation | Reject request |
+## 7. Validate all inputs at the boundary
 
-### Questions to Ask
+- [ ] APK-derived names (package, component, entry names) are validated before they reach a
+      subprocess, a path or the device shell (RVS-CMD-001, RVS-CMD-002, RVS-PATH-001).
+- [ ] LLM output is parsed as data and validated before an action runs (RVS-PAR-001).
+- [ ] Operator input is validated by the Pydantic configuration at the CLI boundary.
 
-- What happens when X fails?
-- Is the failure state secure by default?
-- Can an attacker force failures to bypass security?
+## 8. Compartmentalize
 
----
+- [ ] Each campaign container has its own results directory; one container cannot overwrite
+      another's results.
+- [ ] Per-APK temporary directories keep one APK's extraction away from another's.
 
-## 4. Apply Principle of Least Privilege
+## 9. Record security-relevant events
 
-**Principle**: Every component should have only the minimum permissions needed.
+Here this means traceability of a campaign, not authentication logs.
 
-### Checklist
+- [ ] Every task records its inputs (APK digest, tool, configuration) and its outcome, including
+      timeouts and parser failures.
+- [ ] Unexpected writes or failures in instrumentation are visible in the task result, not only
+      in a debug log.
 
-- [ ] Service accounts have minimal permissions
-- [ ] Users have role-based access (not blanket admin)
-- [ ] Temporary credentials where possible
-- [ ] Permissions are regularly audited
-- [ ] No shared credentials between components
+## 10. Design for recovery
 
-### Permission Review
-
-| Component | Current Permissions | Actually Needed | Gap |
-|-----------|---------------------|-----------------|-----|
-| | | | |
-
-### Questions to Ask
-
-- Why does this component need X permission?
-- What's the blast radius if this credential is compromised?
-- Can permissions be scoped more narrowly?
-
----
-
-## 5. Minimize Attack Surface
-
-**Principle**: Reduce the number of entry points and potential vulnerabilities.
-
-### Checklist
-
-- [ ] Unused features/endpoints are disabled
-- [ ] Only necessary ports are exposed
-- [ ] Debug endpoints removed in production
-- [ ] Dependencies minimized and updated
-- [ ] Administrative interfaces restricted
-
-### Attack Surface Inventory
-
-| Entry Point | Purpose | Necessary? | Protection |
-|-------------|---------|------------|------------|
-| | | | |
-
-### Questions to Ask
-
-- Is this feature/endpoint necessary?
-- Can this be internal-only?
-- What's the minimum exposure needed?
-
----
-
-## 6. Secure Defaults
-
-**Principle**: Out-of-the-box configuration should be secure.
-
-### Checklist
-
-- [ ] Default passwords are NOT used
-- [ ] Security features enabled by default
-- [ ] Verbose logging disabled by default (prod)
-- [ ] Debug mode off by default
-- [ ] Encryption enabled by default
-
-### Configuration Review
-
-| Setting | Default Value | Secure? | Recommendation |
-|---------|---------------|---------|----------------|
-| | | | |
-
-### Questions to Ask
-
-- What happens if the user doesn't configure security?
-- Are insecure options opt-in (not opt-out)?
-- Is the secure configuration the easy path?
-
----
-
-## 7. Validate All Inputs
-
-**Principle**: Never trust input from external sources.
-
-### Checklist
-
-- [ ] All user input is validated
-- [ ] API inputs are validated (even from trusted services)
-- [ ] File uploads are validated (type, size, content)
-- [ ] Validation uses allowlists (not blocklists)
-- [ ] Validation happens server-side (not just client)
-
-### Input Validation Matrix
-
-| Input Source | Type | Validation | Sanitization |
-|--------------|------|------------|--------------|
-| User form | String | Length, format | HTML escape |
-| API param | JSON | Schema | Type coercion |
-| File upload | Binary | Type, size | Virus scan |
-| URL param | String | Format | URL decode |
-
-### Common Injection Points
-
-- SQL: `' OR 1=1 --`
-- Command: `; rm -rf /`
-- XSS: `<script>alert(1)</script>`
-- Path: `../../../etc/passwd`
-
-### Questions to Ask
-
-- Where does this input come from?
-- What could an attacker put here?
-- Is validation positive (allowlist) or negative (blocklist)?
-
----
-
-## 8. Compartmentalize (Separation of Concerns)
-
-**Principle**: Isolate components so compromise of one doesn't affect others.
-
-### Checklist
-
-- [ ] Components run with separate identities
-- [ ] Network segmentation between tiers
-- [ ] Secrets isolated per component
-- [ ] Data access restricted per component
-- [ ] Failure domains are isolated
-
-### Compartmentalization Model
-
-```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Frontend  │───►│   Backend   │───►│  Database   │
-│  (limited)  │    │ (service)   │    │  (isolated) │
-└─────────────┘    └─────────────┘    └─────────────┘
-      │                  │                   │
-   Network A         Network B          Network C
-```
-
-### Questions to Ask
-
-- If this component is compromised, what else is affected?
-- Can components access each other's secrets?
-- Are failure domains independent?
-
----
-
-## 9. Log Security-Relevant Events
-
-**Principle**: Maintain audit trail for security events.
-
-### Checklist
-
-- [ ] Authentication events logged (success/failure)
-- [ ] Authorization failures logged
-- [ ] Sensitive data access logged
-- [ ] Configuration changes logged
-- [ ] Logs are protected from tampering
-
-### Security Events to Log
-
-| Event Type | What to Log | What NOT to Log |
-|------------|-------------|-----------------|
-| Auth | User, time, IP, result | Password |
-| Access | Resource, user, action | Full request body |
-| Error | Type, context, stack | Sensitive data in error |
-| Config | Change, user, before/after | Secret values |
-
-### Log Security
-
-- [ ] Logs stored separately from application
-- [ ] Log integrity protection (signing, append-only)
-- [ ] Log retention policy defined
-- [ ] Logs don't contain secrets/PII
-
-### Questions to Ask
-
-- Can we detect an attack from logs alone?
-- Can an attacker tamper with logs?
-- Is log retention sufficient for incident investigation?
-
----
-
-## 10. Design for Recovery
-
-**Principle**: Plan for security incidents and ensure recovery capability.
-
-### Checklist
-
-- [ ] Backup strategy documented and tested
-- [ ] Incident response plan exists
-- [ ] Recovery procedures documented
-- [ ] Recovery time objectives defined
-- [ ] Regular recovery testing
-
-### Recovery Capabilities
-
-| Scenario | Detection | Response | Recovery Time |
-|----------|-----------|----------|---------------|
-| Credential leak | | | |
-| Data breach | | | |
-| Ransomware | | | |
-| DDoS | | | |
-
-### Questions to Ask
-
-- How would we detect this incident?
-- What's our response procedure?
-- How long to recover?
-- Have we tested recovery?
-
----
-
-## Quick Reference Card
-
-```
-┌─────────────────────────────────────────────────────────┐
-│           10 SECURITY DESIGN GUIDELINES                 │
-├─────────────────────────────────────────────────────────┤
-│  1. BASE ON POLICY        → Clear security policy       │
-│  2. DEFENSE IN DEPTH      → Multiple layers             │
-│  3. FAIL SECURELY         → Secure default state        │
-│  4. LEAST PRIVILEGE       → Minimum permissions         │
-│  5. MINIMIZE SURFACE      → Reduce entry points         │
-│  6. SECURE DEFAULTS       → Safe out-of-box             │
-│  7. VALIDATE INPUTS       → Trust nothing               │
-│  8. COMPARTMENTALIZE      → Isolate components          │
-│  9. LOG EVENTS            → Audit trail                 │
-│ 10. DESIGN FOR RECOVERY   → Plan for incidents          │
-└─────────────────────────────────────────────────────────┘
-```
+- [ ] Finished results cannot be overwritten by a restarted container (restart policy, resume
+      logic).
+- [ ] The corpus and the instrumented APKs can be rebuilt or are backed up outside the containers.
+- [ ] See `survivability.md` when a high or critical finding threatens results or the host.

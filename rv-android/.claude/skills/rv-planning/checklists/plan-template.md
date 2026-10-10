@@ -253,15 +253,17 @@ How to confirm rollback succeeded:
 
 ### Verification Commands
 
+From the project root, one module per call, always with `--import-mode=importlib -o "addopts="` (CI contract):
+
 ```bash
 # Run specific tests
-pytest path/to/tests/test_file.py -v
+uv run pytest modules/[module]/tests/test_file.py --import-mode=importlib -o "addopts=" -v
 
 # Run all module tests
-pytest path/to/tests/ -v
+uv run pytest modules/[module]/tests/ --import-mode=importlib -o "addopts=" -v
 
-# Verify no regressions
-pytest --tb=short
+# Verify no regressions (repeat for each affected module)
+uv run pytest modules/[module]/tests/ --import-mode=importlib -o "addopts=" --tb=short
 ```
 
 ---

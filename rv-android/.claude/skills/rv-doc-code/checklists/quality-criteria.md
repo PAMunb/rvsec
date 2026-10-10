@@ -140,7 +140,7 @@ Use these to evaluate documentation quality:
 
 2. **Is there anything in the docstring that restates the code?**
    - If yes → remove it (P1)
-   - Args descriptions should add context beyond what the type signature shows
+   - Args descriptions must add context beyond what the type signature shows
 
 3. **Does the docstring mention history or migration?**
    - If yes → rewrite to describe current behavior only (P4)

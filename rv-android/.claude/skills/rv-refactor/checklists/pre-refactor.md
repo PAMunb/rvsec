@@ -41,9 +41,8 @@ Complete this checklist BEFORE starting any refactoring.
 ## Pre-Flight Commands
 
 ```bash
-# 1. Verify tests pass
-cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
+# 1. Verify tests pass (from the rv-android root; CI contract flags required)
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -v
 
 # 2. Check for uncommitted changes
 git status

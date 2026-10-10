@@ -1,6 +1,6 @@
 # File Analysis Reference
 
-Consolidated reference for single-file qualitative analysis. Contains the 8 analysis dimensions, code smell catalog, and health scoring.
+Consolidated reference for single-file qualitative analysis. Contains the 8 analysis dimensions, code smell catalog, and health scoring. Numeric size, complexity, nesting, and parameter thresholds come from `.claude/skills/rv-analyze-complexity/reference.md` (the single source shared by the analysis, review, and refactoring skills); this file does not restate them.
 
 ---
 
@@ -19,7 +19,7 @@ What the file imports and what depends on it.
 - Check for circular dependency risk, import-time side effects.
 
 ### 4. Complexity
-Function-level metrics: CC, nesting depth, function length, parameter count.
+Function-level metrics: CC, nesting depth, function length, parameter count, classified against `.claude/skills/rv-analyze-complexity/reference.md`.
 - For precise metrics, defer to `/rv-analyze-file-complexity` (radon).
 
 ### 5. Error Handling
@@ -56,9 +56,9 @@ Testability: pure functions (easy) vs side-effect functions (need mocks), extern
 ### Bloaters
 | Smell | Heuristic | Severity |
 |-------|-----------|----------|
-| Long Method | > 30 lines or CC > 10 | High |
-| Large Class | > 300 lines or > 15 methods | High |
-| Long Parameter List | > 5 parameters | Medium |
+| Long Method | Long Method heuristic in `.claude/skills/rv-analyze-complexity/reference.md` (size, nesting, or parameter limit), or CC 11+ | High |
+| Large Class | God Class heuristic in `.claude/skills/rv-analyze-complexity/reference.md` (method/field count or class size limit) | High |
+| Long Parameter List | Parameter Count "Must refactor" band in `.claude/skills/rv-analyze-complexity/reference.md` | Medium |
 | Primitive Obsession | Same validation repeated for str/int | Medium |
 | Data Clumps | Same 3+ variables grouped in multiple places | Medium |
 
@@ -72,8 +72,8 @@ Testability: pure functions (easy) vs side-effect functions (need mocks), extern
 ### Change Preventers
 | Smell | Heuristic | Severity |
 |-------|-----------|----------|
-| Divergent Change | File changed for unrelated reasons | High |
-| Shotgun Surgery | Single change requires 5+ edits | High |
+| Divergent Change | File changed for unrelated reasons — `git log` commands in `.claude/skills/rv-analyze-complexity/reference.md` "Change-History Smells" | High |
+| Shotgun Surgery | One logical change touches 5+ source files — same commands | High |
 
 ### Dispensables
 | Smell | Heuristic | Severity |

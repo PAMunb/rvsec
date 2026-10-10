@@ -1,6 +1,14 @@
 ---
 name: rv-analyze-dependencies
-description: Map module dependencies and detect violations, cycles, and coupling issues.
+description: >-
+  Map declared (pyproject.toml) and actual (import) dependencies between the uv workspace
+  modules, check them against the allowed layer matrix and the Stable Dependencies Principle,
+  and classify the coupling imports do not show: data contracts across languages (JavaMOP
+  descriptor JSON, GATOR *.apk.json, .mop files), process boundaries and co-change.
+  Use when auditing module boundaries, before moving code between modules, or when a
+  module's dependency list looks wrong.
+  Do NOT use for fixing dependencies (use /rv-refactor), a full single-module review
+  (use /rv-analyze-module), or the ripple effect of one planned change (use /rv-impact-analyzer).
 argument-hint: "<module-name or empty for all>"
 context: fork
 agent: general-purpose
@@ -9,107 +17,111 @@ allowed-tools: Read, Grep, Glob, Bash
 
 # Analyze Dependencies: $ARGUMENTS
 
-> **Scope**: Analyzes declared (pyproject.toml) and actual (import) dependencies. Defaults to all modules if $ARGUMENTS is empty.
-> Do NOT use for: fixing dependencies (use `/rv-refactor`), full module analysis (use `/rv-analyze-module`).
+> **Scope**: all workspace modules when $ARGUMENTS is empty, otherwise the edges touching
+> that module. Metrics are always computed on the whole workspace (Ca needs every module).
+> All commands run from the repository root.
 
 ## Steps
 
-### Step 0: Check MCP Memory Cache
+### Step 0: Check the cache
 
-```
-Use mcp__memory__search_nodes with query: "analysis:dependencies:$ARGUMENTS"
-```
-
-If $ARGUMENTS is empty, search for `"analysis:dependencies:workspace"`.
-
-Compare `git_hash` with current:
+The cache key is the last commit touching the scope's sources or the workspace definition,
+and it is only valid when those have no uncommitted changes:
 ```bash
-git log -1 --format=%h -- modules/$ARGUMENTS/
+S="modules/$ARGUMENTS"
+git status --porcelain -uall -- "$S" pyproject.toml | grep -E '(/src/.*\.py|pyproject\.toml)$' | head -3
+git log -1 --format=%h -- "$S" pyproject.toml
 ```
-For workspace-wide: `git log -1 --format=%h -- modules/`
+- Any status line printed (uncommitted source or pyproject change): cache miss, and skip Step 6.
+- Otherwise search `mcp__memory__search_nodes` for `"analysis:dependencies:$ARGUMENTS"`
+  (`"analysis:dependencies:workspace"` when empty) and compare its `git_hash`. Equal: return
+  the cached report and STOP.
+- If the `mcp__memory` tools are unavailable or fail, treat it as a miss and continue.
 
-- **Cache hit** (hashes match): Return cached results and STOP.
-- **Cache miss**: Proceed to Step 1.
+### Step 1: Read the reference
 
-### Step 1: Read Reference
+Read `reference.md` sections **Layers and Allowed Matrix** and **Health Metrics**. Read
+**Coupling Beyond Imports** when you reach Step 4.
 
-Read `reference.md` from this skill's directory. It contains the allowed dependency matrix, health metrics (fan-in/fan-out, instability, depth), and circular dependency resolution strategies.
+### Step 2: Extract declared and actual dependencies
 
-### Step 2: Extract Declared Dependencies
-
-Parse `pyproject.toml` for each module in scope in a SINGLE Bash call:
+One call. The script derives modules and import package names from the workspace
+definition in the root `pyproject.toml`, so `aperv_tool`/`rvagent_tool` are covered:
 ```bash
-for module in modules/rv-*/; do
-  name=$(basename $module)
-  echo "=== $name ==="
-  grep -A 30 '^\[project\]' $module/pyproject.toml 2>/dev/null | grep -E '^\s+"rv-' | sed 's/[",]//g' | xargs
-done
+python3 .claude/skills/rv-analyze-dependencies/scripts/workspace_deps.py $ARGUMENTS
 ```
+It prints, per module, `declared` / `imported` / `undeclared` / `unused` (imports read from
+`src/` with `ast`, tagged `top`, `lazy` = inside a function, `type` = under `TYPE_CHECKING`),
+then Ca, Ce, I and depth on the declared graph, the SDP check, and cycles over declared plus
+imported edges.
 
-### Step 3: Extract Actual Import Dependencies
+### Step 3: Analyze the import graph
 
-Scan source files for cross-module imports in a SINGLE Bash call:
+- **Undeclared import**: a hidden dependency. A `lazy` one is usually deliberate (guarded
+  plugin registration, optional feature); say so, but it is still a finding.
+- **Unused declaration**: coupling in the lock file with no code behind it.
+- **Matrix violation**: an edge (declared or imported) absent from its row in the matrix.
+- **SDP violation**: `I(dependency) >= I(dependent)` — the stable side depends on the less
+  stable one. Report the pair with both I values; equal I is a weaker finding than greater.
+- **Cycle**: classify with the reference (type-only, direct, transitive) using the tags.
+- **Depth**: from the metrics table, against the depth thresholds.
+
+### Step 4: Coupling beyond imports
+
+The import graph misses the strongest couplings in this system: Python modules exchanging
+files with each other and with the Java reactor. Run both in one call:
 ```bash
-for module in modules/rv-*/; do
-  name=$(basename $module)
-  echo "=== $name ==="
-  grep -rh --include='*.py' 'from rv_\|import rv_' $module/src/ 2>/dev/null | grep -v __pycache__ | sort -u
-done
+SRCS=$(python3 .claude/skills/rv-analyze-dependencies/scripts/workspace_deps.py --src-dirs)
+echo "## DATA ARTIFACTS"; grep -rnoE --include='*.py' '\.apk\.json|\.mop\b|\.rvm\b|descriptor|\.jar\b' $SRCS | awk -F: '!seen[$1 FS $3]++ {s[$1]=s[$1] " " $3} END {for (f in s) print f ":" s[f]}' | sort
+echo "## PROCESS / NETWORK"; grep -rnoE --include='*.py' 'subprocess\.[a-z_]+|create_subprocess_exec|execute_command\(|Command\(|ChatOpenAI|base_url' $SRCS | awk -F: '!seen[$1 FS $3]++ {s[$1]=s[$1] " " $3} END {for (f in s) print f ":" s[f]}' | sort
+bash .claude/skills/rv-analyze-dependencies/scripts/cochange.sh
 ```
+Then, following **Coupling Beyond Imports** in `reference.md`: open the producer and the
+consumer of each artifact (the known contracts are listed there; confirm each one still
+holds and add any new one), and classify every relation — import edges with a finding from
+Step 3, data contracts, and co-change pairs with no edge at all — by strength, distance and
+volatility, then diagnose it with the table.
 
-If $ARGUMENTS specifies a single module, limit both steps to that module.
+### Step 5: Report
 
-### Step 4: Analyze
+Use the output format below. Every number comes from a command output of this run.
 
-Compare declared vs actual dependencies:
-- **Undeclared imports**: Module imports `rv_X` but `rv-X` not in its `pyproject.toml` — potential hidden dependency
-- **Unused declarations**: `rv-X` declared in `pyproject.toml` but never imported — unnecessary coupling
-- **Matrix violations**: Dependencies not in the allowed matrix from reference.md — architectural issue
-- **Circular dependencies**: A depends on B and B depends on A (check transitively)
+### Step 6: Persist to MCP memory
 
-Compute for each module:
-- Fan-in (Ca), Fan-out (Ce), Instability I = Ce / (Ca + Ce)
-- Max dependency depth
-
-### Step 5: Persist to MCP Memory
-
-```
-Use mcp__memory__create_entities (or update existing via delete + create):
-  Entity: "analysis:dependencies:$ARGUMENTS" (or "analysis:dependencies:workspace")
-  Type: "module-dependency-analysis"
-  Observations:
-    - "git_hash: <hash>"
-    - "date: YYYY-MM-DD"
-    - "summary: modules=X, violations=Y, cycles=Z, max_depth=W, undeclared=U"
-    - "details: <full report as single observation>"
-```
-
-If MCP fails, skip caching — still output the report.
+Skip when Step 0 found uncommitted changes. Otherwise create (or delete + create) entity
+`"analysis:dependencies:$ARGUMENTS"` (or `"analysis:dependencies:workspace"`), type
+`module-dependency-analysis`, observations `git_hash: <hash>`, `date: YYYY-MM-DD`,
+`summary: modules=X, violations=Y, sdp=S, cycles=Z, undeclared=U, critical_couplings=C`,
+`details: <full report>`. If MCP fails, skip caching and still output the report.
 
 ## Output Format
 
 ```markdown
 ## Dependency Analysis: <scope>
 
-**Modules**: X | **Violations**: Y | **Cycles**: Z | **Max Depth**: W
+**Modules**: X | **Violations**: Y | **SDP**: S | **Cycles**: Z | **Max Depth**: W
 
 ### Dependency Matrix
 
-| Module | Layer | Declared Deps | Actual Imports | Fan-In | Fan-Out | I |
-|--------|-------|---------------|----------------|--------|---------|---|
-| rv-android-core | 1 | 0 | 0 | 11 | 0 | 0.0 |
+| Module | Layer | Declared | Imported | Ca | Ce | I | Depth |
+|--------|-------|----------|----------|----|----|---|-------|
 
-### Issues
+### Import-Graph Issues
 
-| # | Type | Modules | Severity | Notes |
-|---|------|---------|----------|-------|
-| 1 | Violation | A → B | High | Not in allowed matrix |
-| 2 | Cycle | A ↔ B | Medium | Type-only, use TYPE_CHECKING |
-| 3 | Undeclared | A imports B | Low | Missing from pyproject.toml |
+| # | Type | Edge | Severity | Notes |
+|---|------|------|----------|-------|
+| 1 | Undeclared (lazy) | rv-platform → aperv-tool | Medium | guarded registration in `rv_platform/__init__.py` |
+| 2 | SDP | rvagent-tool (0.75) → rv-agent (0.80) | Low | |
+
+### Coupling Beyond Imports
+
+| Relation | Kind | Strength | Distance | Volatility | Diagnosis |
+|----------|------|----------|----------|------------|-----------|
+| java:rvsec-gator → rv-static-analysis, aperv-tool | `*.apk.json` | model | process+language | high (14 co-changes, 64%) | critical |
 
 ### Dependency Graph (ASCII)
 
-(tree showing module hierarchy and dependencies)
+(layers top to bottom; data contracts drawn as dashed edges)
 
 ### Recommendations
 

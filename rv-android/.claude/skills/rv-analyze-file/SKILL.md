@@ -1,10 +1,17 @@
 ---
 name: rv-analyze-file
-description: Analyze single Python file structure, responsibilities, and code smells.
+description: >-
+  Qualitative analysis of one Python file: structure, responsibilities, dependencies,
+  error handling, API surface, configuration, testability, and code smells (including
+  co-change smells from git history), with thresholds from rv-analyze-complexity/reference.md.
+  Use before extracting or refactoring code in a file, or to assess one file's health.
+  Do NOT use for: radon metrics (use /rv-analyze-file-complexity), dead code
+  (use /rv-analyze-file-dead-code), multiple files (use /rv-analyze-module),
+  or making changes (use /rv-refactor-*).
 argument-hint: "<file-path>"
 context: fork
 agent: general-purpose
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Analyze File: $ARGUMENTS
@@ -31,7 +38,7 @@ git log -1 --format=%h -- $ARGUMENTS
 
 ### Step 1: Read Reference
 
-Read `reference.md` from this skill's directory. It contains the 8 analysis dimensions, code smell catalog, and health scoring.
+Read `reference.md` from this skill's directory. It contains the 8 analysis dimensions, code smell catalog, and health scoring. Read `.claude/skills/rv-analyze-complexity/reference.md` for every numeric threshold (size, CC, nesting, parameters) and for the `git log` commands that detect Divergent Change and Shotgun Surgery.
 
 ### Step 2: Read and Analyze File
 
@@ -82,9 +89,9 @@ If MCP fails, skip caching — still output the report.
 ### Quality Assessment
 | Metric | Value | Threshold | Status |
 |--------|-------|-----------|--------|
-| Lines | X | 500 | OK/Warning |
-| Max function length | Y | 50 | OK/Warning |
-| Max nesting | Z | 4 | OK/Warning |
+| Lines | X | (file size, complexity reference) | OK/Warning |
+| Max function length | Y | (function size, complexity reference) | OK/Warning |
+| Max nesting | Z | (nesting depth, complexity reference) | OK/Warning |
 
 ### Code Smells
 | # | Smell | Location | Severity | Notes |

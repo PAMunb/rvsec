@@ -48,7 +48,7 @@ Dependability is the degree to which a system can be trusted. Four complementary
 | **Availability** | System ready when needed | Health checks, smoke tests |
 | **Reliability** | Correct behavior over time | Unit/integration tests |
 | **Safety** | No harmful states | Input validation, fail-safe defaults |
-| **Security** | Protected from unauthorized access | bandit, safety, auth tests |
+| **Security** | Protected from unauthorized access | bandit, pip-audit, /rv-security |
 
 Reference `checklists/dependability-analysis.md` for systematic analysis framework.
 
@@ -64,7 +64,7 @@ STEP 2: INTEGRATION TESTS ──────────────────
     │  Component interaction verification
     ▼
 STEP 3: DEPENDENCY SECURITY ─────────────────────────────────────►
-    │  Check for known vulnerabilities (safety)
+    │  Check for known vulnerabilities (pip-audit)
     ▼
 STEP 4: FORMAT CHECK ────────────────────────────────────────────►
     │  black --check, isort --check
@@ -103,9 +103,17 @@ fi
 
 ### 2. Run Unit Tests
 
+Every pytest call carries `--import-mode=importlib -o "addopts="` (the CI contract: without
+them, conftest isolation breaks across modules) and excludes the markers CI excludes. Most
+modules have no `tests/unit/` directory; for those, this step runs the whole `tests/` directory
+and step 3 is skipped.
+
 ```bash
 # From project root
-uv run pytest modules/$ARGUMENTS/tests/unit/ -v --tb=short
+CI_MARKERS="not (slow or online or sglang or performance or dataset)"
+UNIT_DIR="modules/$ARGUMENTS/tests/unit"
+[ -d "$UNIT_DIR" ] || UNIT_DIR="modules/$ARGUMENTS/tests"
+uv run pytest "$UNIT_DIR" -m "$CI_MARKERS" --import-mode=importlib -o "addopts=" --tb=short -q -rs
 ```
 
 **Expected**: All tests pass (exit code 0)
@@ -113,8 +121,10 @@ uv run pytest modules/$ARGUMENTS/tests/unit/ -v --tb=short
 ### 3. Run Integration Tests (if exist)
 
 ```bash
-if [ -d "modules/$ARGUMENTS/tests/integration" ]; then
-    uv run pytest modules/$ARGUMENTS/tests/integration/ -v --tb=short
+if [ -d "modules/$ARGUMENTS/tests/unit" ] && [ -d "modules/$ARGUMENTS/tests/integration" ]; then
+    uv run pytest "modules/$ARGUMENTS/tests/integration" \
+        -m "not (slow or online or sglang or performance or dataset)" \
+        --import-mode=importlib -o "addopts=" --tb=short -q -rs
 fi
 ```
 
@@ -123,14 +133,17 @@ fi
 ### 4. Check Dependency Security
 
 ```bash
-# Check for known vulnerabilities in dependencies
-uv run safety check
+# Known vulnerabilities in the installed environment. Workspace packages are editable
+# and not on PyPI, hence --skip-editable. Needs network access; no account.
+uv run pip-audit --skip-editable
 
-# For JSON output (CI integration)
-uv run safety check --json
+# JSON output, written outside modules/
+mkdir -p out/verify && uv run pip-audit --skip-editable -f json -o out/verify/pip-audit.json
 ```
 
-**Expected**: No known vulnerabilities (exit code 0)
+The audit covers the whole shared `.venv`, not only this module, and is not part of CI.
+
+**Expected**: No known vulnerabilities (exit code 0; pip-audit exits 1 when it finds any)
 
 **If vulnerabilities found**:
 - CRITICAL/HIGH: Stop and report. Do not proceed until resolved or explicitly accepted.
@@ -140,10 +153,10 @@ uv run safety check --json
 
 ```bash
 # Black
-uv run black --check src/
+uv run black --check modules/$ARGUMENTS/src/
 
 # isort
-uv run isort --check src/
+uv run isort --check modules/$ARGUMENTS/src/
 ```
 
 **Expected**: No formatting issues (exit code 0)
@@ -151,7 +164,7 @@ uv run isort --check src/
 ### 6. Run Linter
 
 ```bash
-uv run flake8 src/
+uv run flake8 modules/$ARGUMENTS/src/
 ```
 
 **Expected**: No lint errors (exit code 0)
@@ -160,8 +173,8 @@ uv run flake8 src/
 
 ```bash
 # Check if mypy is configured
-if [ -f "mypy.ini" ] || grep -q "\[tool.mypy\]" pyproject.toml; then
-    uv run mypy src/
+if [ -f "modules/$ARGUMENTS/mypy.ini" ] || grep -q "\[tool.mypy\]" "modules/$ARGUMENTS/pyproject.toml"; then
+    uv run mypy modules/$ARGUMENTS/src/
 fi
 ```
 
@@ -172,18 +185,17 @@ fi
 ```bash
 # Cyclomatic Complexity (CC)
 # Grades: A (1-5), B (6-10), C (11-20), D (21-30), E (31-40), F (41+)
-uv run radon cc src/ -a -s --total-average
+uv run radon cc modules/$ARGUMENTS/src/ -a -s --total-average
 
-# Maintainability Index (MI)
-# Grades: A (100-20), B (19-10), C (9-0)
-uv run radon mi src/ -s
+# Maintainability Index (MI): compare the printed number, not radon's letter grade
+uv run radon mi modules/$ARGUMENTS/src/ -s
 ```
 
 **Thresholds**:
 | Metric | Good | Acceptable | Review Needed |
 |--------|------|------------|---------------|
 | CC (avg) | ≤ 5 (A) | 6-10 (B) | > 10 (C+) |
-| MI (min) | ≥ 65 (A) | 40-64 (B) | < 40 (C) |
+| MI (min) | > 50 | 38-50 | < 38 |
 
 ### 9. Anomaly Detection
 
@@ -191,10 +203,10 @@ After collecting metrics, identify components that deviate significantly:
 
 ```bash
 # List files with complexity > 10 (grade C or worse)
-uv run radon cc src/ -a -nc
+uv run radon cc modules/$ARGUMENTS/src/ -a -nc
 
-# List files with poor maintainability (MI < 40)
-uv run radon mi src/ -s | grep -E "^[CF]"
+# List files with poor maintainability (MI < 38, see rv-analyze-complexity/reference.md)
+uv run radon mi modules/$ARGUMENTS/src/ -s | awk -F'[()]' '$(NF-1)+0 < 38'
 ```
 
 **Anomaly Criteria**:
@@ -238,14 +250,14 @@ uv run radon mi src/ -s | grep -E "^[CF]"
 | File | Metric | Value | Threshold |
 |------|--------|-------|-----------|
 | executor.py | CC | 25 | > 10 |
-| parser.py | MI | 35 | < 40 |
+| parser.py | MI | 35 | < 38 |
 
 ### Issues Found (if any)
 [List of issues with file:line references]
 
 ### Quality Attributes Verified
 - [x] Reliability (tests)
-- [x] Security (safety, bandit)
+- [x] Security (pip-audit, bandit)
 - [x] Maintainability (complexity, MI)
 - [x] Understandability (lint)
 
@@ -262,7 +274,7 @@ If verification fails, use these to auto-fix:
 
 ```bash
 # Fix formatting
-uv run black src/ && uv run isort src/
+uv run black modules/$ARGUMENTS/src/ && uv run isort modules/$ARGUMENTS/src/
 
 # Then re-run verification
 /rv-verify [module-name]

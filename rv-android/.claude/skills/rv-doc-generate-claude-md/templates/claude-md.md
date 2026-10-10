@@ -76,10 +76,10 @@ result = instance.run()
 uv sync
 
 # Run tests (from project root)
-uv run pytest modules/[module-name]/tests/ -v
+uv run pytest modules/[module-name]/tests/ --import-mode=importlib -o "addopts=" -v
 
 # Run specific test
-uv run pytest modules/[module-name]/tests/unit/test_[file].py -v -k "test_name"
+uv run pytest modules/[module-name]/tests/unit/test_[file].py --import-mode=importlib -o "addopts=" -v -k "test_name"
 ```
 
 ### Testing
@@ -94,3 +94,10 @@ uv run pytest modules/[module-name]/tests/unit/test_[file].py -v -k "test_name"
 [Patterns specific to this module that a developer or LLM needs to understand
 to work with the code effectively. Include pattern name, file location, and
 brief explanation of how it works in this module.]
+
+## Gotchas
+
+[Non-obvious behavior a reader must know before changing the code: ordering constraints,
+external tool quirks, values that look wrong but are deliberate. Omit the section when
+there is none. Content between `<!-- CUSTOM:START -->` and `<!-- CUSTOM:END -->` is kept
+verbatim on regeneration.]

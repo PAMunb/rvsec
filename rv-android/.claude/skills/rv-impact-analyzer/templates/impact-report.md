@@ -36,6 +36,16 @@ Transitive dependencies (2 levels deep):
 
 **Total affected files**: {{TOTAL_AFFECTED}} ({{DIRECT_COUNT}} direct + {{INDIRECT_COUNT}} indirect)
 
+### Coupling Weight (direct relations)
+
+Scale: `rv-analyze-dependencies/reference.md`, **Coupling Beyond Imports**.
+
+| Relation | Strength | Distance | Volatility | Diagnosis |
+|----------|----------|----------|------------|-----------|
+{{#each COUPLINGS}}
+| {{relation}} | {{strength}} (`{{evidence}}`) | {{distance}} | {{volatility}} | {{diagnosis}} |
+{{/each}}
+
 ---
 
 ## Stage 3: Test Coverage
@@ -56,11 +66,12 @@ Tests that may be affected by changes:
 
 | Factor | Score | Reason |
 |--------|-------|--------|
-| Direct dependents | +{{DIRECT_SCORE}} | {{DIRECT_COUNT}} direct dependents |
+| Direct dependents | +{{DIRECT_SCORE}} | {{DIRECT_COUNT}} direct dependents (imports + data-contract consumers) |
 | Indirect dependents | +{{INDIRECT_SCORE}} | {{INDIRECT_COUNT}} indirect dependents |
 | Test coverage | -{{TEST_SCORE}} | {{TEST_COUNT}} test files |
 | Public API | {{#if IS_PUBLIC}}+5{{else}}+0{{/if}} | {{#if IS_PUBLIC}}Used by external modules{{else}}Internal only{{/if}} |
 | Cross-module | {{#if CROSS_MODULE}}+3{{else}}+0{{/if}} | {{#if CROSS_MODULE}}Impacts multiple modules{{else}}Single module{{/if}} |
+| Coupling diagnosis | +{{COUPLING_SCORE}} | Worst relation: {{WORST_DIAGNOSIS}} (critical +5, attention +2) |
 | **TOTAL** | **{{TOTAL_SCORE}}** | |
 
 ### Risk Level: {{RISK_LEVEL}}
@@ -75,14 +86,15 @@ Tests that may be affected by changes:
 1. **Before changing**:
    - Ensure all tests pass: `/rv-verify {{MODULE}}`
    - Review all {{DIRECT_COUNT}} direct dependents
-   - Consider deprecation strategy for public APIs
+   - Copy any file that will be deleted to `backup/` first
 
-2. **Change strategy**:
-   - Make incremental changes
+2. **Change strategy** (P3, no backward compatibility):
+   - Update every caller and data-contract consumer in the same change; no adapters,
+     aliases or shims for the old form
+   - Grep for dangling references after the change
    - Test after each modification
-   - Consider backwards compatibility
 
-3. **Required tests**:
+3. **Required tests** (each as `uv run pytest <path> --import-mode=importlib -o "addopts="`):
    ```bash
    {{#each TEST_COMMANDS}}
    {{this}}
@@ -101,7 +113,7 @@ Tests that may be affected by changes:
    - Make focused changes
    - Run tests after completion
 
-3. **Suggested tests**:
+3. **Suggested tests** (each as `uv run pytest <path> --import-mode=importlib -o "addopts="`):
    ```bash
    {{#each TEST_COMMANDS}}
    {{this}}

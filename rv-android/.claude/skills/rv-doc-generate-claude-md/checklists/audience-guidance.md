@@ -46,12 +46,12 @@ the config
 **Do**: Include full command with working directory context.
 ```bash
 # From project root
-uv run pytest modules/rv-agent/tests/unit/ -v
+uv run pytest modules/rv-agent/tests/unit/ --import-mode=importlib -o "addopts=" -v
 ```
 
 **Don't**: Assume context.
 ```bash
-pytest tests/ -v  # Which module? From which directory?
+pytest tests/ -v  # Which module? From which directory? Without the CI flags, collection breaks.
 ```
 
 ### Descriptions

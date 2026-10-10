@@ -95,7 +95,7 @@ Reference `checklists/maintenance-types.md` to determine:
    ```
    Skill tool: skill="rv-analyze-complexity", args="$ARGUMENTS"
    ```
-   Finds files > 500 lines, functions > 50 lines, nesting > 4 levels.
+   Finds size, CC, MI, and nesting hotspots, classified against `.claude/skills/rv-analyze-complexity/reference.md` (the single source of thresholds).
 
 3. **Dependency Analysis** (structural issues) - Use the **Skill tool**:
    ```
@@ -187,9 +187,9 @@ For each planned change:
    cd modules/$MODULE && uv run black src/ && uv run isort src/
    ```
 
-4. **Test after each change**:
+4. **Test after each change** (from the rv-android root; the CI contract flags are required):
    ```bash
-   PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
+   uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -v
    ```
 
 ### Test Loop

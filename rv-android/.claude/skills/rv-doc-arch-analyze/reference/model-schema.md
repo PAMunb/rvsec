@@ -1,12 +1,14 @@
 # architecture-model.json — Schema
 
 This is the contract between `rv-doc-arch-analyze` (writer) and `rv-doc-arch-generate`
-(reader). It replaces the role the Neo4j graph plays in the upstream `agente-documentador`
-suite: a single file-based intermediate that decouples analysis from generation. Generation
-never re-analyzes the code; it only reads this file (and may re-read source to quote a name).
+(reader): a single file-based intermediate that decouples analysis from generation.
+Generation never re-analyzes the code; it only reads this file (and may re-read source to
+quote a name).
 
 Write it to: `out/arch/<target-slug>/architecture-model.json`
 (`<target-slug>` is the target with `:` replaced by `-`, e.g. `subsystem-instrumentation`).
+`out/` is temporary (`./clear.sh` deletes it), so the generated document never cites this
+path; it cites `source_commits` and the regeneration command instead.
 
 ## Depth is the point
 
@@ -28,6 +30,10 @@ is warranted — a one-sentence `how_it_works` is a defect, not brevity.
   "target": "subsystem:instrumentation",
   "scope": "subsystem",
   "generated_for": "instrumentation",
+  "source_commits": [
+    { "repo": ".", "commit": "29b22833", "dirty": false },
+    { "repo": "../../ape", "commit": "1a2b3c4d", "dirty": true }
+  ],
   "language_mix": [
     { "language": "python", "modules": 4, "approx_loc": 2200 },
     { "language": "java",   "modules": 9, "approx_loc": 6000 }
@@ -87,6 +93,16 @@ is warranted — a one-sentence `how_it_works` is a defect, not brevity.
     { "type": "depends",  "from": "rv-instrumentation-dexlib2", "to": "dexlib2-java-engine", "mechanism": "subprocess: java -jar instr-cli.jar" },
     { "type": "contains", "from": "rvsec-instrumentation-dexlib2", "to": "pointcut-engine" }
   ],
+
+  "coupling": {
+    "rows": [
+      { "language": "python", "files": 13, "internal": 21, "external": 6, "cross_cutting": 16, "ratio": 0.22 },
+      { "language": "java",   "files": 94, "internal": 78, "external": 0, "cross_cutting": 0,  "ratio": 0.0 },
+      { "language": "all",                 "internal": 99, "external": 6, "cross_cutting": 16, "ratio": 0.06 }
+    ],
+    "top_external": ["rv_android_core.domain.app (2)", "rv_android_core.util.utils (2)"],
+    "reading": "One or two sentences: what the ratio says about this boundary, naming the main external targets and whether they are a lower layer or a peer."
+  },
 
   "styles": {
     "module": [
@@ -177,11 +193,20 @@ is warranted — a one-sentence `how_it_works` is a defect, not brevity.
   (register pressure, phase-tagged failure, coverage exclusion, optional-stage skipping).
   `why` explains the underlying reason. These satisfy CLAUDE.md P2's scenario requirement.
 
-**Structural fields (as before):**
+**Structural fields:**
 - **target / scope** — `scope` ∈ `system | module | subsystem`; `target` is the raw argument.
+- **source_commits** — one entry per git repository the target's paths live in (the
+  rv-android repo is `"."`; `../../ape` is its own repo). `commit` is `git rev-parse --short
+  HEAD` in that repo at analysis time; `dirty` is true when `git status --porcelain -- <paths>`
+  shows uncommitted changes under the target's paths. The document header cites these.
 - **language_mix** — multiple entries → cross-language target; note the boundary in the doc.
+- **coupling** — output of `scripts/group_coupling.py` (analyze step 2c), copied as numbers;
+  `reading` is the analyst's interpretation, not the script's band label.
 - **modules[].source** — `rv-analyze-module` (Python, reused skill) or `generic` (Java/other).
-- **components[].kind** — `class | service | subprocess | store | external`.
+- **components[].kind** — `class | service | subprocess | store | external`. Components are
+  runtime elements. `subprocess`, `service` and `external` are containers in C4 terms
+  (`views-and-beyond.md` §6.1); a uv workspace module or any other library is never a
+  component here — it belongs in `modules[]`.
 - **relations[].type** — `uses | depends | contains | generalizes`; add `mechanism` for
   non-obvious links (subprocess, network, shared file).
 - **styles** — each entry needs `evidence`; `confidence` ∈ `high | medium | low`.

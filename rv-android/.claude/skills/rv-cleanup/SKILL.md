@@ -237,16 +237,17 @@ Backup ──► Remove ──► Lint ──► Test ──► Pass? ──► 
 ```
 
 ### Commands
+All commands run from the project root. Tests follow the CI contract: one module per call,
+always with `--import-mode=importlib -o "addopts="`.
 ```bash
 # Lint
-cd modules/$MODULE
-uv run black src/ && uv run isort src/
+uv run black modules/$MODULE/src/ && uv run isort modules/$MODULE/src/
 
 # Test
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -v
 
 # Auto-fix imports (optional, with approval)
-uv run autoflake --in-place --remove-all-unused-imports src/
+uv run autoflake --in-place --remove-all-unused-imports modules/$MODULE/src/
 ```
 
 ### Rollback Procedure

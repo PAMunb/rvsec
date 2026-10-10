@@ -399,19 +399,12 @@ Located in `.claude/skills/`. Invoke with `/skill-name` or let Claude auto-trigg
 | `rv-analyze-file-complexity` | `/rv-analyze-file-complexity [path]` | Single file complexity metrics (radon cc/mi/raw) | File | radon, memory (git hash cache) |
 | `rv-analyze-file-dead-code` | `/rv-analyze-file-dead-code [path]` | Single file dead code detection (pyflakes/vulture) | File | pyflakes, vulture, memory (git hash cache) |
 | `rv-analyze-complexity` | `/rv-analyze-complexity [module]` | Module-wide complexity metrics (radon cc/mi/raw) | Module | radon, memory (git hash cache) |
-| `rv-analyze-dependencies` | `/rv-analyze-dependencies [module]` | Module dependency mapping, violation/cycle detection | Module | memory (git hash cache) |
+| `rv-analyze-dependencies` | `/rv-analyze-dependencies [module]` | Declared vs imported dependencies, layer matrix, SDP and cycles; coupling imports do not show (cross-language data contracts, process boundaries, git co-change) | Workspace or module | `scripts/workspace_deps.py`, `scripts/cochange.sh`, memory (cache keyed by commit + clean tree) |
 | `rv-analyze-dead-code` | `/rv-analyze-dead-code [module]` | Module-wide dead code detection (pyflakes/vulture) | Module | pyflakes, vulture, memory (git hash cache) |
-| `rv-analyze-module` | `/rv-analyze-module [module]` | Module architecture (chains to 3 sub-skills + 4 perspectives) | Module (L1) | memory (git hash cache) |
+| `rv-analyze-module` | `/rv-analyze-module [module]` | Module architecture: size relative to the workspace (radon LLOC, share, z-score), 3 sub-skills + 4 perspectives | Module (L1) | radon, memory (cache keyed by commit + clean tree) |
 | `rv-analyze-spec` | `/rv-analyze-spec [spec or set]` | JavaMOP `.mop` specifications: event alphabet and generator cost, pointcut/overload verification, automaton, CrySL conformance | Specification (Java side) | javamop, rv-monitor, javap, `android.jar`, bundled Java harnesses |
 
-**Complexity Thresholds**:
-| Metric | Threshold | Action |
-|--------|-----------|--------|
-| Lines per file | > 500 | Split into components |
-| Function length | > 50 lines | Extract helpers |
-| Classes per file | > 3 | Separate modules |
-| Imports | > 20 | Check dependencies |
-| Nesting depth | > 4 levels | Refactor conditionals |
+**Complexity Thresholds**: the numeric thresholds (cyclomatic complexity, maintainability index, function/class/file size, nesting, parameters, coupling) live in one place, `.claude/skills/rv-analyze-complexity/reference.md`. The analysis, review, and refactoring skills point there instead of restating numbers.
 
 ---
 
@@ -451,15 +444,14 @@ Located in `.claude/skills/`. Invoke with `/skill-name` or let Claude auto-trigg
 
 **Test Commands**:
 ```bash
-# Run module tests
-cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
+# Run module tests (from the rv-android root, one module at a time, as CI does)
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -v
 
 # Run with coverage
-uv run pytest --cov=src --cov-report=html
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" --cov=modules/$MODULE/src --cov-report=html
 
 # Run single test
-uv run pytest tests/unit/test_file.py::TestClass::test_name -v
+uv run pytest modules/$MODULE/tests/unit/test_file.py::TestClass::test_name --import-mode=importlib -o "addopts=" -v
 ```
 
 ---
@@ -503,10 +495,11 @@ uv run bandit -r src/ --severity-level medium
 | `rv-doc-readme` | `/rv-doc-readme [module]` | Generate README.md for GitHub/GitLab |
 | `rv-doc-generate-claude-md` | `/rv-doc-generate-claude-md [module]` | Generate CLAUDE.md (with auto-analysis) |
 | `rv-doc-architecture` | `/rv-doc-architecture [module]` | Generate architecture.md (Mermaid diagrams) |
+| `rv-doc-arch` | `/rv-doc-arch [system \| module \| subsystem]` | Generate a Views-and-Beyond architecture document in `docs/architecture/` (orchestrates `rv-doc-arch-analyze` then `rv-doc-arch-generate`) |
 | `rv-doc-adr` | `/rv-doc-adr [decision-title]` | Create Architecture Decision Record |
 | `rv-docs-sync` | `/rv-docs-sync [module or 'all']` | Sync docs with code changes |
 
-**Documentation Guidelines**:
+**Documentation Guidelines** (the shared rules all documentation skills apply live in `.claude/documentation-principles.md`):
 - Language: English only (code, comments, documentation)
 - Tone: Professional, objective, no promotional language
 - No bias terms: Avoid "modern", "sophisticated", "elegant", "cutting-edge"
@@ -516,7 +509,8 @@ uv run bandit -r src/ --severity-level medium
 - `modules/<module>/README.md` - User-facing documentation (GitHub/GitLab)
 - `modules/<module>/CLAUDE.md` - Quick reference for Claude Code
 - `modules/<module>/docs/architecture.md` - Detailed architecture (Mermaid diagrams)
-- `modules/<module>/docs/adr/ADR-XXX-*.md` - Architecture Decision Records
+- `docs/adr/NNNN-*.md` - Architecture Decision Records, one numbering sequence for the workspace (index and lifecycle in `docs/adr/README.md`)
+- `docs/architecture/*.md` - Views-and-Beyond documents for the system, a module, or a subsystem (generated by `/rv-doc-arch`)
 
 ---
 
@@ -529,7 +523,7 @@ uv run bandit -r src/ --severity-level medium
 **Checks Performed by rv-verify**:
 1. Unit tests
 2. Integration tests (if exist)
-3. Dependency security (`safety check`)
+3. Dependency audit (`uv run pip-audit --skip-editable`)
 4. Formatting (black, isort)
 5. Linting (flake8)
 6. Type checking (mypy)
@@ -578,10 +572,10 @@ uv run bandit -r src/ --severity-level medium
 | `rv-security` | `/rv-security [target]` | Security vulnerability review and threat analysis |
 | `rv-release` | `/rv-release [major\|minor\|patch] [module]` | uv workspace release management and PyPI publishing |
 
-**rv-security** — Reviews code for security vulnerabilities (OWASP Top 10, injection, secrets exposure), plans security architecture, and conducts threat analysis.
+**rv-security** — Threat analysis and security review of the system, a module, or a file, calibrated to rv-android's real trust boundaries: third-party APKs reaching host-side parsers, emulator containment in Docker, screen text reaching the LLM prompt and model output reaching device actions, the LLM endpoint, the supply chain (pip-audit, `lib/` jars, `.mop` specs, the reactor's `-Pcheck`), and secrets. Findings carry `file:line` evidence and name who controls each input (attacker, operator, developer).
 
 **Supporting Files**: `.claude/skills/rv-security/`
-- Checklists: security analysis checklists
+- Checklists: `trust-boundaries.md` (B1–B7), `code-rules.md` (rule IDs cited by findings), `design-guidelines.md`, `survivability.md`
 
 **rv-release** — Coordinates multi-module releases in the uv workspace: version bumping, changelog generation, dependency synchronization, and PyPI publishing.
 
@@ -630,8 +624,8 @@ uv add --group dev [package-name]
 # Lock dependencies
 uv lock
 
-# Verify
-uv run safety check
+# Audit dependencies for known vulnerabilities
+uv run pip-audit --skip-editable
 ```
 
 ### Common Dependencies by Purpose
@@ -644,7 +638,7 @@ uv run safety check
 | Parallel tests | `pytest-xdist` | dev |
 | HTTP client | `httpx` | prod |
 | Data validation | `pydantic` | prod |
-| Security scan | `bandit`, `safety` | dev |
+| Security scan | `bandit`, `pip-audit` | dev |
 
 ### Integration with Skills
 
@@ -976,8 +970,7 @@ Do you need...
 
 **Commands**:
 ```bash
-cd modules/rv-agent
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
+uv run pytest modules/rv-agent/tests --import-mode=importlib -o "addopts=" -v
 ```
 
 ---
@@ -1085,7 +1078,8 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
     │   └── templates/
     ├── rv-doc-architecture/
     │   ├── SKILL.md
-    │   └── checklists/
+    │   ├── checklists/
+    │   └── templates/
     ├── rv-doc-adr/
     │   ├── SKILL.md
     │   ├── checklists/
@@ -1178,6 +1172,7 @@ PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v
 - `/rv-doc-readme [module]`
 - `/rv-doc-generate-claude-md [module]`
 - `/rv-doc-architecture [module]`
+- `/rv-doc-arch [system | module | subsystem]`
 - `/rv-doc-adr [decision-title]`
 - `/rv-docs-sync [module or 'all']`
 

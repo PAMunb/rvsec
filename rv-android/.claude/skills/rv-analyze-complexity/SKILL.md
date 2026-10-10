@@ -1,6 +1,12 @@
 ---
 name: rv-analyze-complexity
-description: Analyze code complexity of a module using radon and qualitative metrics.
+description: >-
+  Analyze code complexity of a whole module with radon (CC, MI, raw size), hotspot reading,
+  and git co-change history, classified against the shared thresholds in reference.md.
+  Use when assessing a module's complexity hotspots, or as the complexity sub-step of
+  /rv-refactor, /rv-analyze-module, or /rv-code-reviewer.
+  Do NOT use for: a single file (use /rv-analyze-file-complexity), making changes
+  (use /rv-refactor-simplify), or a full module audit (use /rv-analyze-module).
 argument-hint: "<module-name>"
 context: fork
 agent: general-purpose
@@ -30,7 +36,7 @@ git log -1 --format=%h -- modules/$ARGUMENTS/
 
 ### Step 1: Read Reference
 
-Read `reference.md` from this skill's directory. It contains complexity thresholds, refactoring indicators, and Python-specific signals. Use these thresholds for all classifications.
+Read `reference.md` from this skill's directory. It contains complexity thresholds, refactoring indicators, and Python-specific signals. It is the single source of numeric thresholds for the analysis, review, and refactoring skills; use these thresholds for all classifications.
 
 ### Step 2: Run Static Analysis (radon)
 
@@ -41,19 +47,20 @@ echo "=== CC ===" && uv run radon cc modules/$ARGUMENTS/src/ -s -a -nc && echo "
 
 - `-nc` filters CC output to grade C or worse (≥11), reducing noise
 - If no `src/` directory, use `modules/$ARGUMENTS/` instead
-- Radon provides: CC per function (A-F), MI per file (A-C), raw LOC/SLOC/comments
+- Radon provides: CC per function (A-F), MI per file (0–100 plus a letter grade on radon's own scale), raw LOC/SLOC/comments
 
 ### Step 3: Identify Hotspots
 
-From radon output, identify files with ANY of:
-- Function with CC grade C or worse (≥11)
-- MI below 65 (grade B or C)
-- SLOC > 500
+From radon output, identify files with ANY of (bands from reference.md):
+- Function with CC 11 or more (radon grade C or worse)
+- MI in the Poor band — compare the number radon prints, not its letter grade
+- File SLOC over the Review size threshold
 
 For each hotspot file, Read it and assess what radon does NOT provide:
 - Parameter count per function (exclude `self`/`cls`)
 - Maximum nesting depth per function
 - Code smell patterns from reference.md (God Class, Long Method, Feature Envy, etc.)
+- Divergent Change and Shotgun Surgery, with the `git log` commands in reference.md "Change-History Smells"; cite the commits as evidence
 
 Skip this step if radon found no hotspots — report all-clear.
 

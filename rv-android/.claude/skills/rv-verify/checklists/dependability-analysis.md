@@ -247,7 +247,7 @@ How verification tools map to dependability properties:
 | flake8 | - | X | - | - |
 | mypy | - | X | - | - |
 | bandit | - | - | - | X |
-| safety | - | - | - | X |
+| pip-audit | - | - | - | X |
 | radon | - | X | - | - |
 | Health checks | X | - | - | - |
 | Load tests | X | X | - | - |

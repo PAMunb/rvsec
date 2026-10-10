@@ -86,10 +86,12 @@ DONE
 
 3. **Run full verification**:
    ```bash
-   # For each module in dependency order
-   cd modules/rv-android-core && uv run pytest -v && cd ../..
-   cd modules/rv-agent && uv run pytest -v && cd ../..
-   # ... etc
+   # From the root, each module's suite in isolation, with the CI flags
+   for module in modules/*/; do
+       [ -d "$module/tests" ] || continue
+       uv run pytest "$module/tests" -m "not (slow or online or sglang or performance or dataset)" \
+           --import-mode=importlib -o "addopts=" --tb=short -q || exit 1
+   done
    ```
 
 4. **Check dependencies are up-to-date**:
@@ -105,7 +107,7 @@ Reference `checklists/release-checklist.md`:
 |-------|---------|----------|
 | No uncommitted changes | `git status --porcelain` | Empty |
 | On release branch | `git branch --show-current` | master/release |
-| All tests pass | `uv run pytest` | Exit 0 |
+| All tests pass | `uv run pytest modules/<m>/tests --import-mode=importlib -o "addopts="` (each module) | Exit 0 |
 | No lint errors | `uv run flake8` | Exit 0 |
 | Lock file current | `uv lock --check` | Up to date |
 

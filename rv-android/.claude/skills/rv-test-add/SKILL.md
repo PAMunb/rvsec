@@ -233,7 +233,7 @@ Produce a report with these sections:
     ## Tests Created: [target]
     ### Test File: Path, Tests count
     ### Test Cases: numbered list with name and description
-    ### Run Command: pytest invocation
+    ### Run Command: pytest invocation, from the project root: uv run pytest modules/$MODULE/tests/[category]/test_$FILE.py --import-mode=importlib -o "addopts=" -v
     ### Test Results: Passed/Failed counts
 
 ## Guidelines

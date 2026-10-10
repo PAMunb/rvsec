@@ -277,10 +277,9 @@ Use the **Skill tool**:
 Skill tool: skill="rv-test-run", args="[module] [test-file]"
 ```
 
-Or manually:
+Or manually, from the project root (CI contract: one module per call, always with `--import-mode=importlib -o "addopts="`):
 ```bash
-cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_$FILE.py -v
+uv run pytest modules/$MODULE/tests/unit/test_$FILE.py --import-mode=importlib -o "addopts=" -v
 ```
 
 ### Verification
@@ -412,19 +411,21 @@ If stuck after 5 attempts:
 
 ## Commands Reference
 
+All commands run from the project root, one module per call, with `--import-mode=importlib -o "addopts="`
+(the CI contract). `-o "addopts="` drops the module's own `--cov=src`, so coverage is requested explicitly.
+
 ```bash
 # Run specific test file
-cd modules/$MODULE
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_$FILE.py -v
+uv run pytest modules/$MODULE/tests/unit/test_$FILE.py --import-mode=importlib -o "addopts=" -v
 
 # Run with output
-uv run pytest -v -s
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" -v -s
 
 # Run single test
-uv run pytest tests/unit/test_file.py::TestClass::test_name -v
+uv run pytest modules/$MODULE/tests/unit/test_file.py::TestClass::test_name --import-mode=importlib -o "addopts=" -v
 
 # Run with coverage
-uv run pytest --cov=src --cov-report=html
+uv run pytest modules/$MODULE/tests --import-mode=importlib -o "addopts=" --cov=modules/$MODULE/src --cov-report=html
 ```
 
 ---

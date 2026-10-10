@@ -15,9 +15,10 @@ allowed-tools: Read, Grep, Glob, Bash, Skill
 # Architecture Documentation (Views and Beyond): $ARGUMENTS
 
 Orchestrates a two-phase, file-based pipeline that produces one Views-and-Beyond document
-for the target. There is no database: analysis writes an intermediate JSON, generation
-reads it. This is the system/subsystem complement to the per-module `rv-doc-architecture`
-(4+1) skill — the two coexist and do not overwrite each other.
+for the target. Analysis writes an intermediate JSON under `out/` (temporary, deleted by
+`./clear.sh`); generation reads it. The committed document is the durable result and names
+the command and commit that regenerate it. This is the system/subsystem complement to the
+per-module `rv-doc-architecture` (4+1) skill; the two write to different places.
 
 ```
                 ┌──────────────────────────────────────────────┐
@@ -39,16 +40,20 @@ reads it. This is the system/subsystem complement to the per-module `rv-doc-arch
 
 - `subsystems.yaml` — named subsystems (cross-language path groups), e.g. `instrumentation`.
 - `reference/views-and-beyond.md` — the method: view categories, styles, the 5-section view
-  template, stakeholder→view selection, beyond-views structure.
+  template, stakeholder→view selection, beyond-views structure, and the diagram rules (C4
+  level per view, element limit, provenance comments, legends). Both phases read it.
+- `.claude/documentation-principles.md` — the repository's documentation principles; both
+  phases follow it.
 
-## Relationship to existing skills (no overwrite)
+## Relationship to the other documentation skills
 
-| Existing skill (kept) | This suite (new) |
-|-----------------------|------------------|
-| `rv-doc-architecture` — per-module, 4+1, writes `modules/<m>/docs/architecture.md` | `rv-doc-arch` — system/subsystem, Views-and-Beyond, writes `docs/architecture/<target>.md` |
-| `rv-doc-adr` — authors ADRs | referenced (not replaced); decisions link to ADRs |
+| Skill | Scope | Writes |
+|-------|-------|--------|
+| `rv-doc-arch` (this suite) | system or subsystem, Views and Beyond | `docs/architecture/<target>.md` |
+| `rv-doc-architecture` | one module, 4+1 | `modules/<m>/docs/architecture.md` |
+| `rv-doc-adr` | one decision | ADR files; this suite links to them, never authors them |
 
-The new suite never writes to `modules/<m>/docs/` or to other skills' directories.
+This suite never writes to `modules/<m>/docs/` or to other skills' directories.
 
 ## Argument
 
@@ -119,10 +124,12 @@ architectural decisions surfaced in the Rationale can be formalized with `/rv-do
 
 ## Notes
 
-- **No Neo4j / no database.** The intermediate `architecture-model.json` is the only shared
-  state, and it is regenerable. The upstream `agente-documentador` suite uses a graph
-  because it analyzes arbitrary repos in parallel processes; this suite targets one known
-  workspace, so a file suffices.
+- **The model is a file, not a database.** `architecture-model.json` is the only state the
+  two phases share. One known workspace, analyzed once per run, needs nothing more, and the
+  file can be regenerated at any time by re-running this skill.
+- **The model is temporary; the document is not.** `out/` is wiped by `./clear.sh`, so the
+  document header cites the regeneration command and the commit the analysis read, never the
+  model path. To refresh a document, re-run `/rv-doc-arch <target>`.
 - **Cross-language targets** (e.g. `subsystem:instrumentation`) are expected: analyze uses
   `rv-analyze-*` for Python and a generic structural pass for Java/Maven, normalizing both
   into one model so the document is language-agnostic.
