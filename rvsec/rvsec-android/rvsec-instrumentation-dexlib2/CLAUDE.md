@@ -109,8 +109,22 @@ Spec: "Handler Stamp on the Accessibility Node" in the instrumentation spec
   `catch (Throwable)`. The stamp is a chaining `View.AccessibilityDelegate`
   that forwards all ten callbacks and then writes `rvsec.click` /
   `rvsec.longClick` (binary class name) into the node extras; a later app
-  delegate is chained behind it. `composeNode` resolves the clickable
-  modifier's lambda by reflection. Every stamp change is logged at `I` under
+  delegate is chained behind it. `composeNode` resolves a Compose handler by
+  reflection in two steps (INV-INS-178). *Node step:* from the `OnClick` /
+  `OnLongClick` action lambda, the owner is `this$0` (kotlinc lambda class,
+  foundation ≤ 1.8; not type-checked) or, without it, `f$0` only when that
+  value is an `androidx.compose.foundation.AbstractClickableNode` or a
+  subclass (from foundation 1.9 D8 desugars the lambda into
+  `AbstractClickableNode$$ExternalSyntheticLambdaN`); the handler is the
+  owner's `onClick` / `onLongClick` (`onValueChange` for `onClick` on a
+  `ToggleableNode`), otherwise the lambda itself. *Material step:* a handler
+  whose class is in `androidx.compose.material*` and declares exactly one
+  non-static field typed `kotlin.jvm.functions.Function*` is read through it
+  once, and the value is stamped only when its class is outside `androidx.`
+  (the app's `onCheckedChange` behind `Checkbox`, in both
+  `CheckboxKt$Checkbox$1$1` and `CheckboxKt$$ExternalSyntheticLambda6` form);
+  the step also applies when the handler is the action lambda itself.
+  Every stamp change is logged at `I` under
   the tag `RVSEC-BIND` (`view kind=… id=… handler=…` /
   `compose kind=… semanticsId=… bounds=… handler=…`), the fifth tag of the
   platform's logcat capture.
@@ -133,7 +147,14 @@ Spec: "Handler Stamp on the Accessibility Node" in the instrumentation spec
   called once library code (androidx `ViewCompat` accessibility actions,
   RecyclerView's item delegate) wraps the view's delegate, so what it added to
   the node is missing from the tree a `UiAutomation` client reads (the stamp
-  keys stay; behaviour outside accessibility is unchanged).
+  keys stay; behaviour outside accessibility is unchanged). In Compose, a
+  Material wrapper that captures two or more functions, or one library
+  function (DatePicker day/year cells, TimePicker clock), keeps the wrapper's
+  class; text-field semantics (`CoreTextFieldSemanticsModifierNode`,
+  `TextFieldDecoratorModifierNode`) hold no app handler and stamp a
+  Compose-internal action lambda; in an app whose R8 build renamed
+  `kotlin.jvm.functions.Function*` the Material step does not apply and the
+  stamp keeps the wrapper's class.
 
 ## Documentation conventions
 Java in this module is documented with **Javadoc**, and the `rvsec-core` helper

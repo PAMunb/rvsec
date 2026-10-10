@@ -162,15 +162,17 @@ public final class RvsecStamp {
      * compiles against {@code android.jar} alone, and everything else is read
      * by reflection.
      *
-     * <p>The handler is found through the node's own (unmerged) semantics: the
+     * <p>The handler is found through the node's own (unmerged) semantics, in
+     * two steps (see {@link #composeHandler}). The node step goes from the
      * {@code OnClick} / {@code OnLongClick} action a clickable modifier
-     * registers is a lambda whose {@code this$0} is the clickable modifier node,
-     * and that node holds the app's lambda in {@code onClick} /
-     * {@code onLongClick}. A toggleable node's {@code onClick} is Compose's
-     * own wrapper, so its {@code onValueChange} is read instead. When the
-     * action does not lead to a modifier node, as with an app's own
-     * {@code semantics { onClick(...) }}, the action lambda itself is the
-     * handler.
+     * registers to that modifier node, which holds the app's lambda in
+     * {@code onClick} / {@code onLongClick}; a toggleable node's
+     * {@code onClick} is Compose's own wrapper, so its {@code onValueChange} is
+     * read instead. When the action does not lead to a modifier node, as with
+     * an app's own {@code semantics { onClick(...) }}, the action lambda itself
+     * is the handler. The Material step then looks through a Material
+     * component's own lambda around the app's callback, such as Checkbox's
+     * {@code { onCheckedChange(!checked) }}.
      */
     public static void composeNode(Object infoCompat, Object semanticsNode) {
         try {
@@ -239,6 +241,24 @@ public final class RvsecStamp {
      * The handler class behind the action stored under {@code key} in
      * {@code config} ({@code SemanticsConfiguration}), or {@code null} when the
      * node carries no such action.
+     *
+     * <p>Node step. The action lambda captures the modifier node, and how it
+     * does depends on how the foundation library was compiled: a kotlinc
+     * lambda class holds the node as its outer instance, in {@code this$0};
+     * from foundation 1.9 the lambda is an invokedynamic that D8 desugars into
+     * {@code AbstractClickableNode$$ExternalSyntheticLambdaN}, which holds the
+     * node as its first capture, in {@code f$0}. {@code this$0} is taken as
+     * found, because in older foundation releases its node can be
+     * {@code ClickableSemanticsNode}, which is not an {@code AbstractClickableNode}.
+     * {@code f$0} is positional, the first capture of any D8 lambda, an app's
+     * own {@code semantics} lambda included, so it is taken only when it holds
+     * an {@code AbstractClickableNode}, the base class of every foundation 1.9
+     * clickable node. From the node the handler is its {@code field}, or its
+     * {@code onValueChange} for a toggleable node's click; with no node, or
+     * when that field is null, the handler is the action lambda.
+     *
+     * <p>Material step. The handler found by the node step, the action lambda
+     * included, passes through {@link #materialUnwrap} once.
      */
     private static String composeHandler(Object config, Object key, String field)
             throws Exception {
@@ -251,8 +271,15 @@ public final class RvsecStamp {
             return null;
         }
         Object owner = read(fn, "this$0");
+        if (owner == null) {
+            Object capture = read(fn, "f$0");
+            if (capture != null
+                    && isA(capture, "androidx.compose.foundation.AbstractClickableNode")) {
+                owner = capture;
+            }
+        }
+        Object handler = null;
         if (owner != null) {
-            Object handler = null;
             if ("onClick".equals(field) && isA(owner,
                     "androidx.compose.foundation.selection.ToggleableNode")) {
                 handler = read(owner, "onValueChange");
@@ -260,11 +287,62 @@ public final class RvsecStamp {
             if (handler == null) {
                 handler = read(owner, field);
             }
-            if (handler != null) {
-                return handler.getClass().getName();
+        }
+        if (handler == null) {
+            handler = fn;
+        }
+        return materialUnwrap(handler).getClass().getName();
+    }
+
+    /**
+     * The app's function behind a Material component's own wrapper lambda, or
+     * {@code handler} itself. Some Material components hand the foundation
+     * modifier a lambda of their own that calls the app's callback, as
+     * Checkbox's {@code { onCheckedChange(!checked) }}. Such a wrapper is
+     * recognised by shape, since its class name depends on the compiler: its
+     * class is in {@code androidx.compose.material*} and declares exactly one
+     * non-static field typed as a {@code kotlin.jvm.functions.Function*}
+     * interface (kotlinc lambdas extend {@code kotlin.jvm.internal.Lambda} and
+     * D8 lambdas extend {@code Object}, so the captures are on the class
+     * itself). That field's value is returned when it is non-null and its
+     * class is outside {@code androidx.}; a library function keeps the
+     * wrapper, and the step is applied once, never along a chain.
+     */
+    private static Object materialUnwrap(Object handler) throws Exception {
+        Class<?> cls = handler.getClass();
+        if (!cls.getName().startsWith("androidx.compose.material")) {
+            return handler;
+        }
+        String k = cls.getName() + "#materialFn";
+        Object f;
+        synchronized (MEMBERS) {
+            f = MEMBERS.get(k);
+        }
+        if (f == null) {
+            f = MISSING;
+            for (java.lang.reflect.Field candidate : cls.getDeclaredFields()) {
+                if (!java.lang.reflect.Modifier.isStatic(candidate.getModifiers())
+                        && candidate.getType().getName()
+                                .startsWith("kotlin.jvm.functions.Function")) {
+                    if (f != MISSING) {
+                        f = MISSING;
+                        break;
+                    }
+                    f = candidate;
+                }
+            }
+            if (f != MISSING) {
+                ((java.lang.reflect.Field) f).setAccessible(true);
+            }
+            synchronized (MEMBERS) {
+                MEMBERS.put(k, f);
             }
         }
-        return fn.getClass().getName();
+        if (f == MISSING) {
+            return handler;
+        }
+        Object fn = ((java.lang.reflect.Field) f).get(handler);
+        return fn == null || fn.getClass().getName().startsWith("androidx.") ? handler : fn;
     }
 
     private static boolean isA(Object o, String className) {

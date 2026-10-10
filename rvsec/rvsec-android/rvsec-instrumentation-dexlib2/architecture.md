@@ -377,11 +377,38 @@ forwarded goes to the platform default, because a delegate that wraps the delega
 the view (as `ViewCompat` does) would otherwise call back into the stamp. An app delegate set later
 through a routed `setAccessibilityDelegate` is chained behind the stamp instead of replacing it
 (INV-INS-178). For a Compose node, `composeNode` reads the node's unmerged semantics configuration
-by reflection — the `OnClick` / `OnLongClick` action's lambda, its `this$0` clickable modifier
-node, that node's `onClick` / `onLongClick` field (`onValueChange` on a `ToggleableNode`), or the
-lambda's own class when no modifier node is reached — and writes the same keys into the unwrapped
+by reflection, resolves the handler in two steps, and writes the same keys into the unwrapped
 `AccessibilityNodeInfo`. Its parameters are `Object` because the helper compiles against
-`android.jar` alone at `-source 1.8`, with no androidx or Compose type at compile time.
+`android.jar` alone at `-source 1.8`, with no androidx or Compose type at compile time, so every
+library type is recognised by name.
+
+- **Node step.** The clickable modifier node holds the app's lambda in its `onClick` /
+  `onLongClick` field, and the `OnClick` / `OnLongClick` action lambda it registers captures the
+  node. How depends on how the foundation library was compiled: up to foundation 1.8 the action
+  lambda is a kotlinc class and the node is its outer instance, in `this$0`; from 1.9 it is an
+  invokedynamic that D8 desugars into `AbstractClickableNode$$ExternalSyntheticLambdaN`, and the
+  node is its first capture, in `f$0`. The owner is `this$0` when the lambda has that field, with
+  no type check. Otherwise it is `f$0`, but only when that value is an
+  `androidx.compose.foundation.AbstractClickableNode` or a subclass — `ClickableNode`,
+  `CombinedClickableNode`, `ToggleableNode`, `TriStateToggleableNode` and `SelectableNode` all are.
+  `f$0` is the first capture of any desugared lambda, including a `semantics { onClick(...) }`
+  lambda the app writes itself, and the check keeps an app object that happens to declare an
+  `onClick` field from being read as a node. With an owner, the handler is its `onValueChange`
+  (for `onClick` on a `ToggleableNode`, when non-null) or its `onClick` / `onLongClick` field;
+  with no owner, or an absent or null field, it is the action lambda itself.
+- **Material step.** Some Material components pass the foundation modifier a lambda of their own
+  that calls the app's callback: `Checkbox` passes `{ onCheckedChange(!checked) }`, compiled as
+  `CheckboxKt$Checkbox$1$1` (`$onCheckedChange`, `$checked`) by kotlinc and as
+  `CheckboxKt$$ExternalSyntheticLambda6` (`f$0`, `f$1`) by D8. When the resolved handler's class is
+  in a package starting with `androidx.compose.material` and declares exactly one non-static field
+  whose declared type is a `kotlin.jvm.functions.Function*` interface, the helper reads that field
+  once and stamps the value's class when the value is non-null and its class is outside
+  `androidx.`; otherwise the handler stays. The step also applies when the handler is the action
+  lambda itself (a Material scrim or dropdown whose action lambda captures one `Function0`). It is
+  structural rather than a list of components because the wrapper names are synthetic and differ
+  by compiler and library version; it goes one level only, so it never replaces one `androidx.`
+  class by another. The prefix test does not identify the app: a `kotlin.*` or third-party function
+  outside `androidx.` is stamped too. The field lookup is cached per class in the helper's `MEMBERS` map.
 
 Every change of a stamp writes one logcat line at level `I` under the tag `RVSEC-BIND`
 (INV-INS-179): `view kind=<click|longClick> node=… viewClass=… id=<resource name|0x…|-> handler=<class|-> obj=…`
@@ -413,7 +440,16 @@ stamp the library's own dispatcher (`ToolbarWidgetWrapper$1`, `ActionMenuItemVie
 of the device verification, not observed on the device). The framework `android.app.AlertDialog`
 and `android.preference` set their listeners in framework code, which is not in the APK, so their
 buttons and rows carry no stamp. An APK whose Compose internals R8 renamed gets
-`stampComposeSites=0` and no Compose stamp. Below API 29 the delegate a view already carries
+`stampComposeSites=0` and no Compose stamp. The Material step follows a wrapper only when it
+captures exactly one function whose class is outside `androidx.`: a wrapper capturing two or more
+functions keeps its own class, and so does a wrapper of a library function, as in the DatePicker
+day and year cells and the TimePicker clock, which call the picker's internal selection callbacks
+(the app reads the chosen value from the picker's state and has no click handler to name). The
+text-field semantics nodes (`CoreTextFieldSemanticsModifierNode`, `TextFieldDecoratorModifierNode`)
+register click and long-click actions for focus and the context menu, hold no app handler, and
+stamp the Compose-internal action lambda. In an app that keeps the Compose names but whose R8 build
+renamed the Kotlin function interfaces, no field is typed `kotlin.jvm.functions.Function*`, the
+Material step does not apply, and the stamp keeps the wrapper's `androidx.compose.material*` class. Below API 29 the delegate a view already carries
 cannot be read, so the stamp delegate replaces an app delegate set before the first listener
 instead of chaining it; the campaigns run on API 30. On API 29 and later that earlier delegate is
 chained, but it drops out when library code later reads the view's delegate (the stamp delegate),
