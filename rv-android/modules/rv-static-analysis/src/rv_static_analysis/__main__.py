@@ -5,6 +5,8 @@ Provide a CLI for the rv-static-analysis module.
 Expose ``analyze`` (single APK) and ``batch`` (directory of APKs) subcommands
 that run the unified GATOR-based analysis client. Each invocation produces a
 single JSON output per APK with reachability, windows, and transitions sections.
+``compact`` converts a document GATOR wrote in full mode into the compact form
+GATOR writes by default, without running GATOR again.
 
 ### Role in the System:
 
@@ -17,12 +19,14 @@ single JSON output per APK with reachability, windows, and transitions sections.
 - Dry-run mode for configuration validation without execution
 - Verbose output and summary display for debugging
 - Continue-on-error option for batch resilience
+- Offline conversion of a full-mode document to the compact form
 
 ### Integration Points:
 
 - Creates RVStaticAnalysisConfig from CLI arguments
 - Delegates analysis to StaticAnalyzer (analysis/static/static_analysis.py)
 - Reports StaticAnalysisResult status and timing to stdout
+- Delegates ``compact`` to compact_document (compact.py)
 """
 
 import argparse
@@ -43,10 +47,13 @@ from rv_static_analysis import (
     StaticAnalysisException,
     StaticAnalyzer,
 )
+from rv_static_analysis.compact import CompactRefused, compact_document
 
 
 def setup_argument_parser() -> argparse.ArgumentParser:
-    """Build the top-level argument parser with analyze and batch subcommands.
+    """Build the top-level argument parser with its three subcommands.
+
+    ``analyze`` and ``batch`` run GATOR; ``compact`` converts a stored document.
 
     Returns:
         Configured ArgumentParser with subparsers for each command.
@@ -67,6 +74,9 @@ Examples:
 
   # Validate configuration without analysis
   rv-static-analysis analyze --apk app.apk --output /tmp --dry-run
+
+  # Convert a full-mode document to the compact form
+  rv-static-analysis compact app.apk.json app.compact.apk.json
         """,
     )
 
@@ -85,6 +95,21 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     add_batch_arguments(batch_parser)
+
+    compact_parser = subparsers.add_parser(
+        "compact",
+        help="Convert a full-mode analysis document to the compact form",
+        description=(
+            "Write the compact document GATOR writes by default from a document "
+            "it wrote with -clientParam fullOutput=true, without running GATOR "
+            "again. The input is refused when it is truncated, already compact, "
+            "holds a non-integer number, or is the output file itself."
+        ),
+    )
+    compact_parser.add_argument("input", help="Full-mode analysis document")
+    compact_parser.add_argument(
+        "output", help="Path of the compact document (replaced atomically)"
+    )
 
     return parser
 
@@ -145,6 +170,14 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         action="store_true",
         help="Skip WTG construction (propagated as -clientParam skipWtg=true). "
         "Partial JSON still contains reachability + windows[]; transitions[] is empty.",
+    )
+    tools_group.add_argument(
+        "--full-output",
+        action="store_true",
+        help="Write the full document (propagated as -clientParam fullOutput=true): "
+        "indented, every targetDistances pair, no distancePairs member. Default: "
+        "the compact document, without whitespace and with only the pairs the "
+        "MOP-artifact derive reads.",
     )
     tools_group.add_argument(
         "--cg-delegation",
@@ -312,6 +345,9 @@ def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
 
     if getattr(args, "skip_wtg", False):
         config_kwargs["skip_wtg"] = True
+
+    if getattr(args, "full_output", False):
+        config_kwargs["full_output"] = True
 
     cg_del = getattr(args, "cg_delegation", None)
     if cg_del is not None:
@@ -509,6 +545,30 @@ def handle_batch_command(args: argparse.Namespace) -> int:
     return 0 if total_errors == 0 else 1
 
 
+def handle_compact_command(args: argparse.Namespace) -> int:
+    """Convert a full-mode analysis document to the compact form.
+
+    Every failure is reported as one line on stderr, because the yajl parse
+    errors the reader wraps span several lines and a batch driver reads one
+    line per refused document.
+
+    Args:
+        args: Parsed argparse namespace with the compact subcommand's
+            ``input`` and ``output``.
+
+    Returns:
+        Exit code: 0 on success, 1 when the input is refused or cannot be
+        read or written.
+    """
+    try:
+        compact_document(args.input, args.output)
+    except (CompactRefused, ValueError, OSError) as error:
+        print(f"Compact Error: {' '.join(str(error).split())}", file=sys.stderr)
+        return 1
+    print(f"Compact document written: {args.output}")
+    return 0
+
+
 def display_configuration_summary(config: RVStaticAnalysisConfig) -> None:
     """Print a human-readable configuration summary to stdout.
 
@@ -610,6 +670,10 @@ def main() -> int:
     if not args.command:
         parser.print_help()
         return 1
+
+    # The conversion opens no APK, so the package policy below does not apply.
+    if args.command == "compact":
+        return handle_compact_command(args)
 
     # Resolve the package policy before either handler builds an App. argparse
     # has no click.BadParameter, so an unparseable variable is reported here and

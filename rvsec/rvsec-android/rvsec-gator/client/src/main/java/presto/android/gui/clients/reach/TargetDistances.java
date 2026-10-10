@@ -2,6 +2,7 @@ package presto.android.gui.clients.reach;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -48,8 +49,16 @@ import soot.jimple.toolkits.callgraph.Edge;
 public final class TargetDistances<V> {
 
 	public static final int DIST_MAX = 10;
+	/** Largest distance a compact document keeps for every target (see {@link #compact}). */
+	public static final int COMPACT_WEIGHED_MAX = 3;
+	/** Number of nearest targets a compact document keeps per method (see {@link #compact}). */
+	public static final int COMPACT_K = 3;
 	public static final String KIND_DIRECT = "direct";
 	public static final String KIND_BOUNDARY = "boundary";
+
+	private static final Comparator<int[]> BY_INDEX = Comparator.comparingInt(p -> p[0]);
+	private static final Comparator<int[]> BY_DISTANCE_THEN_INDEX =
+			Comparator.<int[]>comparingInt(p -> p[1]).thenComparingInt(p -> p[0]);
 
 	private final List<V> targets;
 	private final List<String> kinds;
@@ -80,6 +89,39 @@ public final class TargetDistances<V> {
 	/** Number of methods that carry at least one pair. */
 	public int methodsWithPairs() {
 		return pairs.size();
+	}
+
+	/**
+	 * One method's pairs as a compact document writes them (INV-ANA-85): the pairs
+	 * {@code [i, d]} with {@code d <= }{@value #COMPACT_WEIGHED_MAX}, plus the pairs whose rank
+	 * in the order {@code (d, i)} is below {@value #COMPACT_K}, sorted by {@code i}.
+	 *
+	 * <p>The two values are the MOP derive's ({@code aperv} D15/D18): the APE-RV jar weighs a
+	 * pair only up to {@code d = 3}, and {@code activityDist} keeps the 3 nearest targets. The
+	 * reduction is exact for that consumer. A dropped pair has {@value #COMPACT_K} targets ahead
+	 * of it in its own method, and those targets stay ahead of it after any merge by the
+	 * minimum distance, so it can never be among the nearest ones the derive keeps.
+	 *
+	 * <p>No merge step is needed: each target's reverse search records one depth per method,
+	 * so a method's array holds at most one pair per target. Since the nearest pair always
+	 * survives, a non-empty input gives a non-empty output, and a method carries
+	 * {@code targetDistances} in compact output exactly when it does in full output.
+	 *
+	 * @param pairs pairs {@code [i, d]} of one method; not modified
+	 * @return the kept pairs sorted by {@code i}; never null, empty for an empty input
+	 */
+	public static int[][] compact(int[][] pairs) {
+		int[][] byDistance = pairs.clone();
+		Arrays.sort(byDistance, BY_DISTANCE_THEN_INDEX);
+		List<int[]> kept = new ArrayList<>(byDistance.length);
+		for (int rank = 0; rank < byDistance.length; rank++) {
+			int[] pair = byDistance[rank];
+			if (rank < COMPACT_K || pair[1] <= COMPACT_WEIGHED_MAX) {
+				kept.add(pair);
+			}
+		}
+		kept.sort(BY_INDEX);
+		return kept.toArray(new int[0][]);
 	}
 
 	/**

@@ -1142,6 +1142,52 @@ class TestExecutePipeline:
         coverage_rows = from_source["coverage.csv"].decode().splitlines()
         assert len(coverage_rows) > 1
 
+    def test_csv_identical_from_full_and_compact_documents(self, tmp_path):
+        """Scenario "metrics are the same from either output mode": the same
+        task processed once with a full-mode document and once with its compact
+        form as `<apk_name>.json`; summary.csv and coverage.csv are
+        byte-identical. The compact form is the converter's output, which is
+        the document GATOR writes in compact mode (INV-ANA-87)."""
+        from rv_static_analysis.compact import compact_document
+
+        apk = "sample_apk.apk"
+        apk_dir, logcat_path = _seed_apk_dir(tmp_path, apk)
+        # Pairs beyond the reduction (d > 3 past the three nearest), so the
+        # compact document drops some and the two runs read different files.
+        source = apk_dir / f"{apk}.json"
+        # `distanceTargets` precedes `reachability`, as GATOR writes it.
+        loaded = json.loads(source.read_text())
+        document = {}
+        for key, value in loaded.items():
+            if key == "reachability":
+                document["distanceTargets"] = [{"kind": "direct"} for _ in range(5)]
+            document[key] = value
+        for entry in document["reachability"]:
+            for method in entry["methods"]:
+                method["targetDistances"] = [[0, 4], [1, 5], [2, 6], [3, 7], [4, 8]]
+        source.write_text(json.dumps(document, indent=2))
+        full_text = source.read_text()
+        compact_path = tmp_path / "compact.json"
+        compact_document(str(source), str(compact_path))
+        assert "[3,7]" not in compact_path.read_text()
+
+        def run(results_dir, text):
+            source.write_text(text)
+            (apk_dir / f"{apk}{EXTENSION_PARSED_COPY}").unlink(missing_ok=True)
+            task = _make_completed_task(apk=apk)
+            task.result.logcat_file = str(logcat_path)
+            ResultProcessorComponent([task], results_dir).execute({})
+            return {
+                name: (tmp_path / results_dir / name).read_bytes()
+                for name in ("summary.csv", "coverage.csv")
+            }
+
+        from_full = run(str(tmp_path / "results_full"), full_text)
+        from_compact = run(str(tmp_path / "results_compact"), compact_path.read_text())
+
+        assert from_compact == from_full
+        assert len(from_full["coverage.csv"].decode().splitlines()) > 1
+
 
 class TestExportMemoryBound:
     """Scenario "Memory Does Not Grow With the Number of Tasks".

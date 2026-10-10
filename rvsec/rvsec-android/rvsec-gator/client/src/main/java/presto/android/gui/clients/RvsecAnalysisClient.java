@@ -203,8 +203,13 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		//    both refuse to count as finished (INV-ANA-31).
 		boolean wtgSkipped = skipWtg();
 		fragmentWindows = analyzeFragments(output, appClasses);
+		// The mode is read once and held by the writer, so the pre-WTG write and the
+		// final write of a run never differ in format (INV-ANA-86).
+		boolean compact = !fullOutput();
+		System.out.println("[RvsecAnalysisClient] Output mode: "
+				+ (compact ? "compact" : "full"));
 		presto.android.gui.clients.json.JsonReportWriter writer =
-				new presto.android.gui.clients.json.JsonReportWriter(enricher);
+				new presto.android.gui.clients.json.JsonReportWriter(enricher, compact);
 		try {
 			List<Map<String, Object>> preWtgWindows = prepareWindows(output, new HashMap<>(), null);
 			writer.write(outputPath, wtgSkipped, appPackage, mainActivity, appClasses, output,
@@ -295,6 +300,16 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	private boolean skipWtg() {
 		String param = Configs.getClientParamCode("skipWtg=");
 		return param != null && "true".equalsIgnoreCase(param.substring("skipWtg=".length()));
+	}
+
+	/**
+	 * {@code fullOutput=true} (case-insensitive) asks for full output: indented, every
+	 * distance pair, no {@code distancePairs} marker. Any other value, or no parameter,
+	 * gives compact output, the default (INV-ANA-85, INV-ANA-86).
+	 */
+	private boolean fullOutput() {
+		String param = Configs.getClientParamCode("fullOutput=");
+		return param != null && "true".equalsIgnoreCase(param.substring("fullOutput=".length()));
 	}
 
 	// ========================================================================
@@ -1677,7 +1692,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			JsonWriter w,
 			Map<SootClass, List<SootMethod>> appClasses,
 			GUIAnalysisOutput output,
-			presto.android.gui.clients.reach.ReachabilityEnricher enricher) throws IOException {
+			presto.android.gui.clients.reach.ReachabilityEnricher enricher,
+			boolean compact) throws IOException {
 
 		Set<SootClass> activities = output.getActivities();
 		SootClass mainActivity = output.getMainActivity();
@@ -1726,6 +1742,13 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 				w.name("directlyReachesTarget").value((Boolean) ann.get("directlyReachesTarget"));
 				int[][] distances = (int[][]) ann.get(JsonSchema.Keys.TARGET_DISTANCES);
 				if (distances != null) {
+					// Compact output writes the reduced list (INV-ANA-85). The reduction
+					// lives here rather than in the enricher, so the enricher and the
+					// distance pass stay independent of the output mode. It never empties
+					// a non-empty list, so the key is present in both modes alike.
+					if (compact) {
+						distances = TargetDistances.compact(distances);
+					}
 					w.name(JsonSchema.Keys.TARGET_DISTANCES);
 					w.beginArray();
 					for (int[] pair : distances) {

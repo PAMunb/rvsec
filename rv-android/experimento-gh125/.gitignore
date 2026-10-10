@@ -1,0 +1,6 @@
+# Jars copied for the baseline and documents converted from the E6 corpus:
+# reproducible from the sha256 in baseline/SHA256 and from RELATORIO.md, and too
+# large for git.
+*.jar
+e6/*.apk.json
+*.log

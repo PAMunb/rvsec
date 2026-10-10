@@ -151,6 +151,12 @@ _JK = SimpleNamespace(
     distance_targets="distanceTargets",
     target_distances="targetDistances",
     kind="kind",
+    # Reduction marker of a compact document: `distancePairs` is the top-level
+    # object `{weighedMax, k}` recording that each `targetDistances` keeps only the
+    # pairs at `d <= weighedMax` and the `k` nearest. No section parser reads it.
+    distance_pairs="distancePairs",
+    weighed_max="weighedMax",
+    k="k",
     # Windows section
     id="id",
     type="type",

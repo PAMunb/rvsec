@@ -51,7 +51,9 @@ Guava 27.1-jre, classindex 3.4, velocity 1.7, slf4j-simple 1.7.26, JUnit 4.12.
 - `client/.../clients/reach/{ReachabilityEngine,ReachabilityIndex,ReachabilityEnricher}.java`,
   `reach/LambdaEdges.java` (D8 lambda wrapper → body and single-invoke SAM edges added to the
   Scene call graph before reachability, INV-ANA-77), `reach/TargetDistances.java` (one reverse
-  BFS per target, depth ≤ `DIST_MAX` = 10, INV-ANA-73)
+  BFS per target, depth ≤ `DIST_MAX` = 10, INV-ANA-73; `compact()` and
+  `COMPACT_WEIGHED_MAX`/`COMPACT_K` = 3/3, the per-method reduction of compact output,
+  INV-ANA-85)
 - `client/.../clients/fragment/{FragmentHostResolver,FragmentWindows}.java` — host → fragment
   map (layout tags, transactions, Navigation XML, pagers) and `FRAGMENT` windows
 - `client/.../clients/hosted/{HostedWindowExtractor,HostResolver,NavGraphUses,BindingListenerRecovery}.java`
@@ -78,14 +80,49 @@ cheap) so a WTG/transitions timeout cannot drop the windows->activity lookup. (N
 class Javadoc + `RvsecAnalysisClient` header still describe the older
 `reachability -> windows -> transitions -> components` "priority" order — stale comment.)
 
+**Output modes (INV-ANA-85, INV-ANA-86).** `RvsecAnalysisClient.fullOutput()` reads the
+client parameter `fullOutput`; `true` (case-insensitive) selects **full** output, anything
+else or its absence selects **compact**, the default. `JsonReportWriter` holds one mode,
+so the pre-WTG write and the final write of a run always agree.
+- **Full**: two-space indent, every `targetDistances` pair up to `DIST_MAX`, no marker —
+  the form of the documents already published (E6 corpus included), reproduced byte for
+  byte.
+- **Compact**: no whitespace; each method's `targetDistances` reduced by
+  `TargetDistances.compact` (see Distances below); and a top-level marker
+  `"distancePairs":{"weighedMax":3,"k":3}` written right after the scope members
+  (`package`, `mainActivity`, `codePackage`, `codePackageSource`, `class_defs_under_key`)
+  and before `distanceTargets`, even when the distance pass failed and `distanceTargets`
+  is absent — it describes how the document was written, not what the pass found. A
+  streaming reader learns the document's kind before the first pair.
+
+Why compact is the default: the E6 corpus documents took 24.62 GB for 163 APKs in full
+form and take 1.02 GB compact (sdmse 9.3 GB → 55 MB). The only pair consumer, the
+`aperv-tool` MOP derive, keeps exactly the pairs compact output writes, and
+`StaticAnalysisParser` drops the pairs anyway (INV-ANA-80), so either mode yields the same
+`StaticAnalysisData` and a byte-identical `*.mop.json` (INV-ANA-89). Offline scripts that
+count pairs beyond the reduction need a full document; the marker says which one they
+hold. A full document already on disk is converted with `rv-static-analysis compact`
+(byte-identical to GATOR's compact output, INV-ANA-87) instead of re-running GATOR.
+
 ### Distances and owned windows
 
 - `distanceTargets` (top level) lists the targets of the distance pass as
   `{signature, kind}`: `kind` `"direct"` = app methods with `directlyReachesTarget` (C), then
   `"boundary"` = app methods with an edge to a library method that reaches a target through
   library code only (B \ C). Each method entry may carry `targetDistances` = `[[index, d], …]`
-  with `d ≤ 10`; the key is omitted when the method has no pair, and `distanceTargets` is
-  omitted only when the pass failed.
+  with `d ≤ 10`, sorted by index; the key is omitted when the method has no pair, and
+  `distanceTargets` is omitted only when the pass failed.
+- Full output writes every pair the searches recorded. Compact output keeps per method the
+  pairs at `d ≤ COMPACT_WEIGHED_MAX` (3) plus the `COMPACT_K` (3) nearest by `(d, i)`,
+  still sorted by index (INV-ANA-85); `distanceTargets` is written whole in both modes,
+  because it is the index space. The numbers are the derive's (`aperv-tool`
+  `DIST_WEIGHED_MAX`/`DIST_K`: the jar weighs a pair only up to `d = 3`, `activityDist`
+  keeps the 3 nearest), which makes the reduction exact for it: a dropped pair has 3
+  targets ahead of it in its own method. Because the nearest pair always survives, a method
+  carries `targetDistances` in compact output exactly when it does in full output. The
+  three declarations (Java, the `rv-static-analysis` converter, `aperv-tool`) are pinned
+  equal by `../rv-android/tests/parity/test_distance_pair_constants.py` (INV-ANA-88); the
+  marker keys live in `JsonSchema.Keys` and `_JK`.
 - Window types: `ACTIVITY`, `DIALOG`, `OPTIONSMENU`, `FRAGMENT` (`Host#Fragment`) and
   `HOSTED` (`Host#Owner`). Owned windows are numbered from `FIRST_OWNED_WINDOW_ID` = 900000;
   a `HOSTED` window whose name equals a `FRAGMENT` window is dropped (one window per (host,
@@ -109,7 +146,8 @@ python gator a -p <apk> --client-jar <jar> -client RvsecAnalysisClient \
 ```
 Params (`Configs.getClientParamCode`): `mopDir` **XOR** `targetsFile` (INV-ANA-33; enforced
 in Python and re-checked in-client); `cgAlgorithm=spark` (default); **`cgDelegation=false`
-(default, M3 gate 2026-05-15)**; `skipWtg=false`; `--timeout=600`.
+(default, M3 gate 2026-05-15)**; `skipWtg=false`; `fullOutput=false` (compact output;
+`true` writes the full document, see JSON contract); `--timeout=600`.
 
 ## References
 

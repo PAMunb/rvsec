@@ -120,6 +120,18 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "Use for known-slow APKs where WTG is guaranteed to time out."
         ),
     )
+    full_output: bool = Field(
+        default=False,
+        description=(
+            "When True, append -clientParam fullOutput=true so RvsecAnalysisClient "
+            "writes the full document: indented by two spaces, every "
+            "targetDistances pair up to DIST_MAX, no distancePairs member. When "
+            "False (default), GATOR writes the compact document: no whitespace, "
+            "and per method only the pairs at d <= 3 plus the 3 nearest, the "
+            "ones the aperv-tool derive reads. Full output reproduces a document "
+            "published in that form."
+        ),
+    )
     cg_delegation: Optional[bool] = Field(
         default=None,
         description=(
@@ -405,6 +417,10 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
 
         if self.skip_wtg:
             cmd.extend(["-clientParam", "skipWtg=true"])
+
+        # Compact is GATOR's default, so only the full mode is passed.
+        if self.full_output:
+            cmd.extend(["-clientParam", "fullOutput=true"])
 
         if self.cg_delegation is not None:
             cmd.extend(["-cgDelegation", "true" if self.cg_delegation else "false"])

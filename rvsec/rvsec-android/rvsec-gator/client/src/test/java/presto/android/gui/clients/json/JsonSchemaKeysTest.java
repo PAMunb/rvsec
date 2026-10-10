@@ -97,6 +97,15 @@ public class JsonSchemaKeysTest {
 	}
 
 	@Test
+	public void outputModeMarkerKeysMatchTheParserMirror() {
+		// Mirrored in _JK (INV-ANA-32); the converter and the readers look the marker up by
+		// these names to tell a compact document from a full one.
+		assertEquals("distancePairs", JsonSchema.Keys.DISTANCE_PAIRS);
+		assertEquals("weighedMax", JsonSchema.Keys.WEIGHED_MAX);
+		assertEquals("k", JsonSchema.Keys.K);
+	}
+
+	@Test
 	public void keysDumpExitsCleanlyAndProducesExpectedCount() throws Exception {
 		// Don't subprocess the JVM here — that's the Python parity test's
 		// job. We can invoke main() directly and capture stdout to confirm

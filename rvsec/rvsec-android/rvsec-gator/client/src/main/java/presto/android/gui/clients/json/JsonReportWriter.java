@@ -13,6 +13,7 @@ import com.google.gson.stream.JsonWriter;
 import presto.android.gui.GUIAnalysisOutput;
 import presto.android.gui.clients.RvsecAnalysisClient;
 import presto.android.gui.clients.reach.ReachabilityEnricher;
+import presto.android.gui.clients.reach.TargetDistances;
 import presto.android.gui.wtg.ds.WTG;
 import soot.SootClass;
 import soot.SootMethod;
@@ -38,16 +39,29 @@ import soot.SootMethod;
  * this class is a pure code-shuffle that is left for a follow-up
  * cleanup. The architectural boundary is the public surface of this
  * writer, which is what the spec contract pins.
+ *
+ * <p>Output mode (INV-ANA-85, INV-ANA-86). Full output is indented by two
+ * spaces and carries every distance pair the searches recorded. Compact
+ * output, the client's default, has no whitespace, carries the
+ * {@code distancePairs} marker and writes each method's pairs reduced by
+ * {@link TargetDistances#compact}. A writer has one mode, so the pre-WTG
+ * write and the final write of a run always agree.
  */
 public final class JsonReportWriter {
 
 	private final ReachabilityEnricher enricher;
+	private final boolean compact;
 
-	public JsonReportWriter(ReachabilityEnricher enricher) {
+	/**
+	 * @param enricher the only source of per-node reachability (INV-ANA-30)
+	 * @param compact {@code true} for compact output, {@code false} for full output
+	 */
+	public JsonReportWriter(ReachabilityEnricher enricher, boolean compact) {
 		if (enricher == null) {
 			throw new NullPointerException("enricher");
 		}
 		this.enricher = enricher;
+		this.compact = compact;
 	}
 
 	/**
@@ -78,7 +92,10 @@ public final class JsonReportWriter {
 				OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
 				JsonWriter w = new JsonWriter(osw)) {
 
-			w.setIndent("  ");
+			// Full output keeps the two-space indent; compact output has no whitespace.
+			if (!compact) {
+				w.setIndent("  ");
+			}
 			w.beginObject();
 
 			w.name(JsonSchema.Keys.PACKAGE).value(appPackage != null ? appPackage : "");
@@ -96,6 +113,15 @@ public final class JsonReportWriter {
 					String.valueOf(metadata.get("codePackageSource")));
 			w.name(JsonSchema.Keys.CLASS_DEFS_UNDER_KEY).value(
 					((Number) metadata.get("class_defs_under_key")).intValue());
+
+			// Output-mode marker (INV-ANA-86): only in compact output, before the
+			// first pair so a streaming reader learns the document's kind early, and
+			// after the scope members so the member order is otherwise the full one.
+			// Written even when distanceTargets is absent: it describes how the
+			// document was written, not what the distance pass found.
+			if (compact) {
+				writeDistancePairs(w);
+			}
 
 			// Distance targets (INV-ANA-73): the index space of every method's
 			// targetDistances pairs, so it precedes the reachability section. Read
@@ -115,7 +141,8 @@ public final class JsonReportWriter {
 
 			// Section 2: reachability — coverage denominator
 			w.name(JsonSchema.Keys.REACHABILITY);
-			RvsecAnalysisClient.writeReachabilitySection(w, appClasses, guiOutput, enricher);
+			RvsecAnalysisClient.writeReachabilitySection(w, appClasses, guiOutput, enricher,
+					compact);
 			w.flush();
 
 			// Section 3: windows
@@ -149,6 +176,20 @@ public final class JsonReportWriter {
 			// consumer treats the file as incomplete.
 			fos.getFD().sync();
 		}
+	}
+
+	/**
+	 * Emit the compact-output marker {@code "distancePairs":{"weighedMax":3,"k":3}}: the
+	 * values of {@link TargetDistances#COMPACT_WEIGHED_MAX} and
+	 * {@link TargetDistances#COMPACT_K}, so each compact document records the reduction its
+	 * {@code targetDistances} lists went through.
+	 */
+	static void writeDistancePairs(JsonWriter w) throws IOException {
+		w.name(JsonSchema.Keys.DISTANCE_PAIRS);
+		w.beginObject();
+		w.name(JsonSchema.Keys.WEIGHED_MAX).value(TargetDistances.COMPACT_WEIGHED_MAX);
+		w.name(JsonSchema.Keys.K).value(TargetDistances.COMPACT_K);
+		w.endObject();
 	}
 
 	/** Emit {@code distanceTargets} as a list of {@code {signature, kind}}; nothing when null. */

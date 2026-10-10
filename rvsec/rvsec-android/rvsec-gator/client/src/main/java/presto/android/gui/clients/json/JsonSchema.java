@@ -66,6 +66,14 @@ public final class JsonSchema {
 		public static final String KIND = "kind";
 		public static final String TARGET_DISTANCES = "targetDistances";
 
+		// Output-mode marker (INV-ANA-86): top-level DISTANCE_PAIRS = {WEIGHED_MAX, K}, written
+		// only by compact output, right before DISTANCE_TARGETS. Its values are the reduction
+		// TargetDistances.compact applied to every TARGET_DISTANCES list, so a reader learns
+		// the document's kind before it reaches any pair. Full output never carries it.
+		public static final String DISTANCE_PAIRS = "distancePairs";
+		public static final String WEIGHED_MAX = "weighedMax";
+		public static final String K = "k";
+
 		// Windows section
 		public static final String ID = "id";
 		public static final String TYPE = "type";

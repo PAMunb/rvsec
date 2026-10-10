@@ -2517,6 +2517,36 @@ def test_streaming_byte_identical_on_cryptoapp():
     assert _streamed_artifact(FIXTURE_PATH) == _whole_artifact(FIXTURE_PATH)
 
 
+def test_compact_document_derives_the_same_artifact(tmp_path):
+    """
+    GATOR's compact output keeps per method the pairs the derive can use, so the
+    artifact derived from it equals the one derived from the full document of the
+    same analysis (INV-ANA-89). The compact document is the converter's output for
+    the fixture, which is byte-identical to GATOR's compact output (INV-ANA-87).
+    Both derivations are given the full document's provenance: `source.digest`
+    names the file the artifact was derived from, and only that field may differ.
+    """
+    from rv_static_analysis.compact import compact_document
+
+    compact_path = tmp_path / "cryptoapp.apk.json"
+    compact_document(FIXTURE_PATH, str(compact_path))
+
+    def artifact(path) -> bytes:
+        document, truncated = read_analysis_document(str(path), STREAMING_POLICY)
+        assert not truncated
+        return serialize_canonical(
+            derive(
+                document,
+                source_file="cryptoapp.apk.json",
+                source_digest=digest_of_file(FIXTURE_PATH),
+            )
+        )
+
+    # The conversion dropped pairs, so the two inputs really differ.
+    assert compact_path.stat().st_size < os.path.getsize(FIXTURE_PATH)
+    assert artifact(compact_path) == artifact(FIXTURE_PATH)
+
+
 # Pairs of the synthetic document below. The methods MainActivity's widgets and
 # its own `onCreate` reach hold no pair within DIST_WEIGHED_MAX, so its
 # `activityDist` comes entirely from pairs beyond d = 3, one target from each of
