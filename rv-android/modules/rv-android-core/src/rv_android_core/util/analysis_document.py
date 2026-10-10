@@ -2,18 +2,24 @@
 Read the static-analysis document as a stream of JSON events.
 
 The document GATOR writes (`<apk_name>.json`) carries, for every app method, its
-call-graph distance to every monitored target: `reachability[].methods[].targetDistances`,
-`[i, d]` pairs indexing the top-level `distanceTargets` list. Those pairs make the
-document 100 to 400 times larger than the rest of it (2.16 GB for a 39,950-method
-app, 9.34 GB for the largest of the Study 03 corpus), and a `json.loads` of it
-materialises every pair as a Python list. Its readers keep few or none of them:
-`StaticAnalysisParser` keeps none, and the MOP-artifact derivation of `aperv-tool`
-keeps the pairs within three calls and each method's three nearest.
+call-graph distance to every monitored target:
+`reachability[].methods[].targetDistances`, `[i, d]` pairs indexing the top-level
+`distanceTargets` list. Those pairs make the document 100 to 400 times larger than the
+rest of it (2.16 GB for a 39,950-method app, 9.34 GB for the largest of the Study 03
+corpus), and a `json.loads` of it materialises every pair as a Python list. Its readers
+keep few or none of them: `StaticAnalysisParser` keeps none, and the MOP-artifact
+derivation of `aperv-tool` keeps the pairs within three calls and each method's three
+nearest.
 
 `read_analysis_document()` walks the file once with `ijson` and builds every value
 as `json.loads` would, except the distance members, which the caller's
 `PairPolicy` either drops without building or folds into per-target minima as the
 events arrive.
+
+Where yajl and `json.loads` disagree, the reader follows yajl. A lone surrogate escape
+(`"\\ud800"`) comes back as `'?'` with no truncation reported, and an integer beyond
+64 bits or a number beyond double range stops the read as if the input had ended
+there. GATOR writes neither.
 
 ### Architectural Decisions:
 
@@ -139,7 +145,9 @@ def read_analysis_document(path: str, pairs: PairPolicy) -> tuple[dict, bool]:
     result only once its value was read in full, so a document cut by a killed
     producer yields the members written before the cut and none of the one being
     written. A top-level number needs a byte after it: when the input ends on a
-    digit, `12` may be the start of `123`, and the number is dropped.
+    digit, `12` may be the start of `123`, and the number is dropped. The check reads
+    the file's last byte, so when the read stops earlier on bytes that are not JSON, a
+    complete top-level number just before them is dropped too.
 
     Bytes after the root object closes are not read.
 
@@ -153,7 +161,9 @@ def read_analysis_document(path: str, pairs: PairPolicy) -> tuple[dict, bool]:
 
     Raises:
         OSError: The file cannot be opened or read.
-        ValueError: The file is empty, is not JSON, or its root is not an object.
+        ValueError: The file is empty, its first token is not JSON, or its root is not
+            an object. Bytes that stop being JSON after the root opened return
+            `({}, True)` or the members completed before them.
     """
     with open(path, "rb") as handle:
         events = ijson.parse(handle, use_float=True)
@@ -271,7 +281,11 @@ def _build_value(events: Iterator[_Event], hook=None) -> tuple[str, Any]:
     keys: list[Any] = [None]
     for prefix, event, value in events:
         if event == "map_key":
-            if hook is not None and value == TARGET_DISTANCES_KEY and prefix == _METHOD_PREFIX:
+            if (
+                hook is not None
+                and value == TARGET_DISTANCES_KEY
+                and prefix == _METHOD_PREFIX
+            ):
                 built = hook(events)
                 if built is not _DROPPED:
                     stack[-1][value] = built
@@ -317,7 +331,7 @@ def _skip_value(events: Iterator[_Event]) -> None:
 
 
 def _target_bound(document: dict) -> int | None:
-    """Return the exclusive bound on a pair's target index, as the derivation computes it.
+    """Return the exclusive bound on a pair's target index, as derivation computes it.
 
     `0` when `distanceTargets` is not a list, so every pair fails the range check.
     `None` when `distanceTargets` has not been read yet. GATOR writes it before

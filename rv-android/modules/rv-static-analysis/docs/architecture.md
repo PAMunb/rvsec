@@ -2,7 +2,7 @@
 
 ## Overview
 
-rv-static-analysis runs unified GATOR-based static analysis on Android APKs and parses the resulting JSON into domain objects consumed by the rest of the RV-Android system. It provides three distinct capabilities: (1) analysis orchestration -- invoking the Java GATOR client as a subprocess with timeout handling and scope-keyed caching, (2) data transformation -- converting the raw JSON output into `StaticAnalysisData` domain objects (Classes, Windows, WindowTransitionGraph, Components), and (3) a denominator gate that refuses to publish a coverage denominator the artefact cannot support. The module occupies the pre-processing phase of the experiment pipeline, producing the method universe for coverage calculations and the navigation graph for LLM-driven exploration.
+rv-static-analysis runs unified GATOR-based static analysis on Android APKs and parses the resulting JSON into domain objects consumed by the rest of the RV-Android system. It provides three distinct capabilities: (1) analysis orchestration -- invoking the Java GATOR client as a subprocess with timeout handling and scope-keyed caching, (2) data transformation -- reading the raw JSON output in streaming, without its call-graph distance members, into `StaticAnalysisData` domain objects (Classes, Windows, WindowTransitionGraph, Components), with a parsed copy beside the source that answers later reads while the source's digest is unchanged, and (3) a denominator gate that refuses to publish a coverage denominator the artefact cannot support. The module occupies the pre-processing phase of the experiment pipeline, producing the method universe for coverage calculations and the navigation graph for LLM-driven exploration.
 
 ## Specification Alignment
 
@@ -24,6 +24,11 @@ All three FRs are satisfied by a single GATOR client invocation (`RvsecAnalysisC
 |-----------|-------------|----------------------|
 | INV-ANA-67 | No identifier is transformed on the consumption path | `_parse_classes()` and `_parse_windows()` store `className` and window `name` exactly as the artefact spells them; the parser imports no normalizer and holds no transformation. Replaces the withdrawn INV-ANA-02, which mandated the opposite |
 | INV-ANA-06 | Parser does not propagate exceptions; returns empty domain objects per-section | Each `_parse_*()` method is wrapped in try/except; failures produce `Classes()`, `Windows()`, `WindowTransitionGraph()`, or `Components()` |
+| INV-ANA-80 | The document is read as a stream of JSON events; neither its text nor any distance pair is held in memory | `_load_json()` calls `read_analysis_document(path, PairPolicy.DROP)` from `rv_android_core.util.analysis_document`; `distanceTargets` and every `reachability[].methods[].targetDistances` are consumed as events without building a value |
+| INV-ANA-81 | A truncated document keeps exactly the top-level members read in full | The streaming read adds a top-level member only after its closing event, so the member in progress and every later one are dropped wherever the cut falls; `complete` is `True` only when that member was read. `_recover_truncated_json()` logs the recovery |
+| INV-ANA-82 | The parsed copy `<apk>.static.json` answers only while it records the source's current digest | `read_static_analysis_files()` compares the copy's `source.digest` with `digest_of_file()` of `<apk>.json`; absent, unreadable, unparseable or another digest is a miss that streams the source |
+| INV-ANA-83 | The parsed copy parses to the same model as its source, and a truncated source is never cached | The copy is the streamed dict plus a top-level `source` record no section parser reads; `_write_parsed_copy()` is called only when the read was not truncated |
+| INV-ANA-84 | No module outside rv-static-analysis reads or names the parsed copy, and it never reaches a device | `tests/test_static_copy_audit.py` scans every `.py` under `modules/` for the suffix and every `src/` for `EXTENSION_PARSED_COPY`; the definition in `rv_android_core/constants.py` is the permitted match |
 | INV-ANA-11 / INV-ANA-70 | An existing output JSON is reused, but only under its own scope key | `StaticAnalyzer._execute_command()` checks file existence and then `_disagreeing_recorded_key()`; a recorded key that is not this run's makes the run regenerate rather than reuse (an artefact recording no key is reused, which is the state of all 162 stored ones) |
 | INV-ANA-14 | PackageDetector applies heuristics in priority order, and only when the run enabled it | `PackageDetector` (in rv-android-core) resolves `code_package` via its 7-strategy priority chain under `--package-detector` / `RV_PACKAGE_DETECTOR`; by default `App` reports the declared applicationId and no strategy runs |
 | INV-ANA-58 | A run that *performs* an analysis records the key it used; no key is inferred from an artefact | `StaticAnalysisResult.code_package` / `.code_package_source` are set in `analyze()`; nothing reads the JSON's `package` member as a key (it holds the manifest package whatever key filtered the file) |
@@ -38,9 +43,10 @@ All three FRs are satisfied by a single GATOR client invocation (`RvsecAnalysisC
 Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture:
 
 - **Successful static analysis with valid APK**: Traces through `StaticAnalyzer._run_analysis()` -> GATOR subprocess -> JSON file -> `StaticAnalysisParser.parse_file()` -> `StaticAnalysisData` with non-empty Classes, Windows, WTG, and Components
-- **Timeout with partial JSON output**: Traces through `Command` timeout -> `kill_process_tree()` -> partial JSON preserved -> `StaticAnalysisParser` truncated JSON recovery via bracket completion -> valid sections parsed, missing sections return empty domain objects
+- **Timeout with partial JSON output**: Traces through `Command` timeout -> `kill_process_tree()` -> partial JSON preserved -> the streaming read keeps every top-level member read in full (INV-ANA-81) -> those sections parsed; the member cut mid-write and every later one return empty domain objects
 - **Analysis result is cached**: Traces through `StaticAnalyzer._execute_command()` -> file existence check -> `_disagreeing_recorded_key()` -> execution skipped -> `CommandResult(0, b"", b"")` returned with `execution_status='cached'` log. A recorded key that is not this run's removes the file and falls through to execution instead (INV-ANA-70)
 - **A degenerate denominator is refused**: Traces through `analyze()` -> `_check_denominator()` -> `parse_file()` -> `check_denominator(classes, class_defs_under_key, key)` -> `DenominatorImplausibleError` -> `StaticAnalysisResult(success=False)` carrying the parsed count, the compiled count and the key
+- **Parsed copy reuse**: `read_static_analysis_files()` -> `digest_of_file()` of `<apk>.json` -> `<apk>.static.json` records that digest -> `json.load` of the copy -> `StaticAnalysisData` equal to the source's (INV-ANA-82/83). On a miss the source is streamed and the copy rewritten unless the read was truncated
 - **Partial JSON parse failure**: Individual section parsing fails -> `_parse_classes()` catches exception, returns empty `Classes()` -> other sections (`_parse_windows()`, `_parse_transitions()`) parse independently and succeed
 
 ## Key Architectural Decisions
@@ -57,7 +63,7 @@ The original pipeline ran three separate Java tools in sequence -- GESDA (GUI el
 
 `StaticAnalyzer._execute_command()` checks whether the output JSON exists before invoking GATOR, and then asks `_disagreeing_recorded_key()` which scope key that file records. An artefact recording this run's key, or no key at all, is reused; one recording a different key is removed and regenerated, with a warning naming both keys. Nothing else about the content is validated -- no checksum, no schema check.
 
-**Why**: GATOR analysis takes 2-10 minutes per APK. In experiments with 100+ APKs, re-running the pre-processing phase after a crash would waste hours, so the reuse itself is what makes resume cheap. Existence alone was a sufficient signal only while every run scoped by the same rule: (a) a complete run produces valid JSON, and (b) a timed-out run produces truncated JSON the parser recovers via bracket completion. Once a run's key policy can change -- the build-type suffix rule, the package detector -- existence silently reuses an artefact filtered by the *previous* key, and the denominator gate would then judge an old artefact against a new key. The key check is the minimum that makes that mismatch detectable; it costs one parse of a file the run was about to skip. This satisfies INV-ANA-11 as amended by INV-ANA-70.
+**Why**: GATOR analysis takes 2-10 minutes per APK. In experiments with 100+ APKs, re-running the pre-processing phase after a crash would waste hours, so the reuse itself is what makes resume cheap. Existence alone was a sufficient signal only while every run scoped by the same rule: (a) a complete run produces valid JSON, and (b) a timed-out run produces truncated JSON whose members written in full the parser keeps (INV-ANA-81). Once a run's key policy can change -- the build-type suffix rule, the package detector -- existence silently reuses an artefact filtered by the *previous* key, and the denominator gate would then judge an old artefact against a new key. The key check is the minimum that makes that mismatch detectable; it costs one parse of a file the run was about to skip. This satisfies INV-ANA-11 as amended by INV-ANA-70.
 
 **Two deliberate reuses.** An artefact recording *no* key is reused rather than regenerated: all 162 artefacts of the article corpus predate INV-ANA-66, and the `package` member holds the manifest package whatever key filtered the file, so resolving a key from it would be the invented measurement INV-ANA-58 forbids. An *unreadable* artefact is reused too -- the parser recovers truncated JSON on purpose (INV-ANA-06), so a parse failure inside the check says something about the check, not about the file.
 
@@ -67,13 +73,13 @@ The original pipeline ran three separate Java tools in sequence -- GESDA (GUI el
 
 The module is split into two independent layers: analysis orchestration (`StaticAnalyzer`) and data transformation (`StaticAnalysisParser`). The parser has no dependency on the analyzer and can operate on any JSON file matching the expected schema.
 
-**Why**: This separation serves two use cases. In the experiment pipeline, the analyzer runs GATOR and then the parser transforms the output. In batch/offline scenarios, researchers parse pre-existing JSON files without running GATOR. The parser's independence also enables unit testing with JSON fixtures (76 tests) without requiring GATOR installation.
+**Why**: This separation serves two use cases. In the experiment pipeline, the analyzer runs GATOR and then the parser transforms the output. In batch/offline scenarios, researchers parse pre-existing JSON files without running GATOR. The parser's independence also enables unit testing with JSON fixtures (103 tests) without requiring GATOR installation.
 
 ### ADR-4: Per-Section Independent Parsing with Graceful Degradation
 
 Each JSON section (reachability, windows, transitions, components) is parsed in its own `_parse_*()` method wrapped in try/except. A failure in one section does not prevent parsing of others (INV-ANA-06).
 
-**Why**: The GATOR client writes sections sequentially and flushes between each. On timeout (the most common failure mode at 600s default), the file is truncated mid-section. Reachability is written first because it provides the coverage denominator -- the most critical data for experiment validity. Even if transitions are entirely lost, the coverage calculation and MOP tracking still function. This pattern is validated by the "Timeout with partial JSON output" scenario from the spec.
+**Why**: The GATOR client writes the document member by member -- `components`, `reachability`, `windows`, `transitions`, then the `complete` sentinel (the producer's `JsonReportWriter`; the authoritative order lives in `rvsec/rvsec-android/rvsec-gator/CLAUDE.md`). On timeout (the most common failure mode at 600s default), the file is cut inside one member, and the streaming read keeps every member before it (INV-ANA-81). `components` comes first because it is manifest-derived and cheap, so a WTG timeout cannot drop the windows-to-activity lookup; `reachability` comes before `windows` because it provides the coverage denominator -- the most critical data for experiment validity. Even if transitions are entirely lost, the coverage calculation and MOP tracking still function. This pattern is validated by the "Timeout with partial JSON output" scenario from the spec.
 
 ### ADR-5: SignatureNormalizer as Defensive Safety Net — SUPERSEDED (2026-08-30, gh111)
 
@@ -118,6 +124,28 @@ Choosing which classes count as the application's own is a decision made **once*
 
 **Why the exception lives in `denominator_gate.py`**: `static_analysis.py` imports the gate to wire it, so defining `DenominatorImplausibleError` there and importing it back would close a cycle.
 
+### ADR-9: Streaming Read Without the Distance Members
+
+`StaticAnalysisParser._load_json()` reads the document with `read_analysis_document(path, PairPolicy.DROP)` (`rv_android_core.util.analysis_document`): one pass of `ijson` events on the C backend `yajl2_c`, building every member as `json.loads` would except `distanceTargets` and every `reachability[].methods[].targetDistances`, whose events are consumed without building anything (INV-ANA-80). Truncation is recovered in the same pass (INV-ANA-81): a top-level member enters the result only once its closing event is read.
+
+**Why streaming**: every app method carries its call-graph distance to every monitored target, and those pairs make a document 100 to 400 times larger than the rest of it -- 2.16 GB for `org.wikipedia_50595`, 9.34 GB for `eu.darken.sdmse_10705000`. Loaded whole, a document needs several times its size in memory, more than a campaign container has beside its emulator; no section parser reads the pairs. Measured peak for the wikipedia parse: 243 MiB.
+
+**Why one event pass rather than one `ijson.items` pass per section**: the per-section builder is faster per byte, but it needs four or more passes and cannot tell, in a truncated file, which member was the last one written in full. In one pass, "read in full" is exactly "its closing event was seen", which holds wherever the cut falls -- including inside a nested `events`, `widgets` or `intentFilters` list, where a repair at the last `]` of the text left an invalid document and lost every section.
+
+**Why the reader lives in rv-android-core**: `aperv-tool` reads the same document to derive the MOP artifact, keeping a reduced set of pairs instead of none, and it does not depend on this module. Two copies of an event builder would drift on the cases that matter here: truncation and skipped subtrees. The C backend is required at import because the pure-Python backend reads tens of times slower, which on a 9 GB document turns a two-minute read into an hour.
+
+### ADR-10: A Parsed Copy Keyed by the Source Digest
+
+`read_static_analysis_files(results_dir, apk)` digests `<apk>.json` (`digest_of_file`, chunked SHA-256) and, when `<apk>.static.json` beside it loads as an object whose `source.digest` equals that digest, builds the model from the copy (INV-ANA-82). Any other state is a miss: the source is streamed and, unless the read was truncated, the copy is written -- the streamed dict plus `source: {digest, generator: "rv-static-analysis/1"}`, compact JSON to a `tempfile.mkstemp` in the same directory, then `os.replace`. `parse_file(path)`, the producer side's explicit-path read, streams and keeps no copy.
+
+**Why a copy**: one document is read once per task of its APK and once more per APK at result processing. The copy is the document without its distance members, so every read after the first is a small `json.load` plus one sequential SHA-256 of the source.
+
+**Why the digest and not size + mtime**: a re-analysed document landing under the same name must never be answered by the old copy. The digest is also the key the MOP-artifact cache of `aperv-tool` uses for the same file, which is why `digest_of_file()` lives in rv-android-core beside the reader.
+
+**Why a truncated source is never cached**: the copy stands for a document read in full, so a recovery is kept out of it and a later complete document under the same name is never shadowed by one; the price is one streaming pass per read of a truncated source (INV-ANA-83). The section parsers never read `source`, so the copy parses to the same model as its source. A failed write (read-only or full disk) is logged, the temporary file removed, and the model still returned.
+
+**Boundary**: the copy belongs to this module alone (INV-ANA-84). A module opening it directly would skip the digest check and read a stale copy as current; a device-side consumer would find no distances in it. `tests/test_static_copy_audit.py` enforces this over the workspace's code.
+
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Application Type | Library with CLI entry point | Consumed programmatically by rv-platform/rv-experiment; CLI for standalone/batch use |
@@ -126,6 +154,8 @@ Choosing which classes count as the application's own is a decision made **once*
 | Control Strategy | Call-based, synchronous | Single subprocess execution with timeout; no concurrency within the module |
 | Distribution | Single machine, subprocess | GATOR runs as a Java subprocess on the same host; no network communication |
 | Caching Strategy | File-level existence check, gated by the recorded scope key | An existing output JSON is reused when it records this run's key or no key; a disagreeing key regenerates it (INV-ANA-70). Nothing else about the content is validated |
+| Read Strategy | One streaming pass, distance members never built | Memory bounded by the document without its distance pairs; truncation recovered in the same pass (ADR-9) |
+| Parse Cache | `<apk>.static.json` keyed by the source's SHA-256 | Repeated run-time reads of one document cost a small `json.load`; a re-analysed source is never answered by the old copy (ADR-10) |
 
 ## Data Flow
 
@@ -193,7 +223,7 @@ flowchart LR
 
 2. **Intermediate file**: The GATOR client writes a single JSON file with four sections in priority order: `reachability` (classes with MOP flags), `windows` (widgets with event listeners and XML attribute extensions `prompt`/`spinnerMode`/`contentDescription`/`tooltipText` plus populated OPTIONSMENU widgets), `transitions` (window-to-window edges), and `components` (non-Activity component data). Each section is flushed before starting the next, so timeout preserves sections in priority order. When `skip_wtg=True` is set, the client returns after writing reachability and windows, leaving `transitions[]` empty by design (not a failure).
 
-3. **Transform**: `StaticAnalysisParser.parse_file()` reads the JSON and produces four domain objects:
+3. **Transform**: `StaticAnalysisParser` reads the JSON in one streaming pass that never builds the distance members (ADR-9) -- `parse_file()` on the producer side, `read_static_analysis_files()` at run time, which first consults the parsed copy (ADR-10) -- and produces four domain objects:
    - `Classes`: one `Clazz` per entry of `reachability`, unfiltered (INV-ANA-59) — the artefact was already scoped by GATOR, so this set is the whole coverage denominator. Each contains `Method` objects with `reachable`, `reaches_target`, and `directly_reaches_target` flags.
    - `Windows`: one `Window` per UI screen with `Widget` objects carrying event listeners (`WidgetEvent` with handler signatures).
    - `WindowTransitionGraph`: a `networkx.DiGraph` where nodes are `Window` objects and edges carry `WindowTransition` lists (widget ID, event type, handler method). Widgets referenced in transitions but absent from windows are back-filled on the fly.
@@ -205,17 +235,19 @@ flowchart LR
 
 ### JSON Section Priority and Timeout Behavior
 
-When the GATOR client is killed by timeout, the JSON file is truncated at the point of interruption. The parser's bracket-recovery mechanism finds the last complete `]` and closes the root object with `}`. This yields:
+When the GATOR client is killed by timeout, the JSON file ends inside one top-level member. The streaming read keeps every member whose closing event it saw and drops the member in progress together with everything after it (INV-ANA-81); a member is never partially recovered. `complete` is `True` only when the sentinel itself was read. With the producer's write order `components -> reachability -> windows -> transitions -> complete`, this yields:
 
-| Timeout point | Reachability | Windows | Transitions | Components | Impact |
-|---------------|-------------|---------|-------------|------------|--------|
-| After reachability flush | Complete | Empty | Empty | Empty | Coverage denominator preserved; no navigation data |
-| During windows write | Complete | Partial | Empty | Empty | Coverage + partial widget data for MOP matching |
-| After windows flush | Complete | Complete | Empty | Empty | Coverage + full widget matching; no WTG navigation |
-| During transitions write | Complete | Complete | Partial | Empty | Full data except some WTG edges and all components |
-| After transitions flush | Complete | Complete | Complete | Empty | Full navigation data; missing component-level MOP |
+| Cut point | Components | Reachability | Windows | Transitions | Impact |
+|-----------|-----------|-------------|---------|-------------|--------|
+| Inside `components` | Empty | Empty | Empty | Empty | Nothing usable |
+| Inside `reachability` | Complete | Empty | Empty | Empty | Component data only; no coverage denominator |
+| Inside `windows` | Complete | Complete | Empty | Empty | Coverage denominator preserved; no widget or navigation data |
+| Inside `transitions` | Complete | Complete | Complete | Empty | Coverage + full widget matching; no WTG navigation |
+| Before the `complete` sentinel | Complete | Complete | Complete | Complete | All data, marked incomplete |
 | Complete | Complete | Complete | Complete | Complete | All data available |
-| `skip_wtg=True` (deliberate) | Complete | Complete | Empty | Empty | Reachability + widget data for MOP matching; WTG construction bypassed by client choice (not failure) |
+| `skip_wtg=True` (deliberate) | Complete | Complete | Complete | Empty | Reachability + widget data for MOP matching; WTG construction bypassed by client choice (not failure) |
+
+A cut inside a member not listed here (`distanceTargets`, the scope members) drops that member and every later one by the same rule. A truncated source is parsed on every read and never cached as a parsed copy (INV-ANA-83).
 
 ## Architectural Patterns
 
@@ -232,7 +264,7 @@ When the GATOR client is killed by timeout, the JSON file is truncated at the po
 
 **Disadvantages**:
 - File I/O overhead for intermediate JSON storage
-- No streaming -- entire JSON must be written before parsing begins
+- The JSON must be written in full before parsing begins; the read itself streams (ADR-9), but there is no producer-to-parser pipe
 
 ### Pattern: Facade
 
@@ -270,7 +302,7 @@ When the GATOR client is killed by timeout, the JSON file is truncated at the po
 |--------|----------------|
 | `StaticAnalyzer` | Orchestrates GATOR execution with caching, timeout handling, and result packaging |
 | `RVStaticAnalysisConfig` | Validates and resolves paths for GATOR tools; generates command lines |
-| `StaticAnalysisParser` | Converts GATOR JSON output into `StaticAnalysisData` domain objects |
+| `StaticAnalysisParser` | Converts GATOR JSON output into `StaticAnalysisData` domain objects; sole reader and writer of the parsed copy `<apk>.static.json` |
 | `StaticAnalysisResult` | Value object capturing analysis outcome (file path, success, timeout, errors) |
 | `StaticAnalysisData` | Aggregate domain object holding Classes, Windows, WTG, Components, and the artefact's recorded scope (`code_package`, `code_package_source`, `class_defs_under_key`); defined in rv-android-core |
 | `check_denominator` | Pure predicate over one artefact: refuses an empty, degenerate, or universe-less coverage denominator (`denominator_gate.py`) |
@@ -306,12 +338,14 @@ flowchart TB
     subgraph External["External Systems"]
         GATOR["GATOR Java Client\n(subprocess)"]
         FS["JSON File\n(filesystem)"]
+        COPY["Parsed copy\n<apk>.static.json"]
     end
 
     subgraph Core["rv-android-core"]
         CMD["Command"]
         APP["App"]
         DOM["StaticAnalysisData\nClasses, Windows, WTG\nComponents"]
+        DOC["analysis_document\nread_analysis_document\ndigest_of_file"]
     end
 
     CLI --> SA
@@ -322,7 +356,9 @@ flowchart TB
     GATOR --> FS
     SA --> SAP
     SA --> GATE
-    SAP --> FS
+    SAP --> DOC
+    DOC --> FS
+    SAP --> COPY
     SAP --> DOM
     SA --> APP
     CFG --> Core
@@ -346,10 +382,11 @@ rv-static-analysis/
 │   │       └── denominator_gate.py     # check_denominator, DenominatorImplausibleError
 │   └── parser/
 │       └── static/
-│           └── static_analysis_parser.py  # StaticAnalysisParser (JSON -> domain)
-├── tests/                              # 163 tests
+│           └── static_analysis_parser.py  # StaticAnalysisParser (JSON -> domain, parsed copy)
+├── tests/                              # 195 tests
 │   ├── conftest.py                     # Shared fixtures
 │   ├── test_config.py                  # Config validation (13)
+│   ├── test_static_copy_audit.py       # INV-ANA-84: no other module names the parsed copy
 │   ├── analysis/
 │   │   ├── test_targets_file_cli.py    # --targets-file behaviour
 │   │   └── static/
@@ -357,7 +394,7 @@ rv-static-analysis/
 │   │       ├── test_denominator_gate.py    # Gate: refusals, admissions, wiring
 │   │       └── test_scope_key_policy.py    # Key travel: run -> GATOR -> artefact -> reuse
 │   ├── cli/                            # CLI flag tests (32)
-│   ├── parser/                         # Parser tests (76)
+│   ├── parser/                         # Parser tests (103)
 │   │   ├── test_sentinel.py
 │   │   └── static/test_static_analysis_parser.py
 │   └── resources/
@@ -387,6 +424,7 @@ flowchart TB
         BASE["BaseAnalyzer\nCommand\nErrorHandler"]
         DOMAIN["App, Classes\nWindows, WTG\nComponents"]
         UTIL["LoggingManager"]
+        DOCREAD["analysis_document\n(streaming reader, digest)"]
     end
 
     INIT --> ANALYZER
@@ -399,6 +437,7 @@ flowchart TB
     GATE --> DOMAIN
     PARSER --> DOMAIN
     PARSER --> UTIL
+    PARSER --> DOCREAD
     ANALYZER --> BASE
     ANALYZER --> DOMAIN
     CONFIG --> CoreDep
@@ -408,7 +447,7 @@ flowchart TB
 
 | Dependency | Type | Purpose |
 |------------|------|---------|
-| rv-android-core | Internal (workspace) | Domain models, base classes, error handling, logging |
+| rv-android-core | Internal (workspace) | Domain models, base classes, error handling, logging, the streaming document reader (`analysis_document`, which declares `ijson>=3.3.0` and requires its C backend) |
 | pydantic | External (>=2.9.0) | Configuration validation and model definitions |
 | pytest | Dev | Testing framework |
 | pytest-cov | Dev | Coverage reporting |
@@ -444,7 +483,7 @@ sequenceDiagram
         Note over SA,FS: A disagreeing key is removed<br/>and regenerated (INV-ANA-70)
         SA->>CMD: execute(command, timeout)
         CMD->>GATOR: subprocess.run(...)
-        Note over GATOR: Writes reachability, then<br/>windows, then transitions,<br/>then components (with flush)
+        Note over GATOR: Writes components, reachability,<br/>windows, transitions, then<br/>the complete sentinel
         alt Timeout
             CMD->>GATOR: kill_process_tree()
             CMD-->>SA: RVCommandTimeoutError
@@ -466,13 +505,32 @@ sequenceDiagram
 
     Caller->>SA: get_static_data()
     SA->>SAP: parse_file(json_path)
-    SAP->>FS: read JSON
+    SAP->>FS: stream JSON (distance members skipped)
     SAP->>SAP: _parse_classes() -> Classes
     SAP->>SAP: _parse_windows() -> Windows
     SAP->>SAP: _parse_transitions() -> WTG
     SAP->>SAP: _parse_components() -> Components
     SAP-->>SA: StaticAnalysisData
     SA-->>Caller: StaticAnalysisData
+```
+
+### Run-Time Read (rv-platform)
+
+`StaticAnalysisComponent` and `ResultProcessorComponent` never run an analysis; they call `read_static_analysis_files(results_dir, apk)`, which consults the parsed copy before touching the source (ADR-10):
+
+```mermaid
+%%{init: {'theme': 'neutral'}}%%
+flowchart LR
+    CALL["read_static_analysis_files(results_dir, apk)"] --> SRC{"<apk>.json exists?"}
+    SRC -->|no| EMPTY["empty StaticAnalysisData"]
+    SRC -->|yes| DIG["digest_of_file(<apk>.json)"]
+    DIG --> HIT{"<apk>.static.json loads and\nrecords this digest?"}
+    HIT -->|yes| MODEL["_build_model(copy)"]
+    HIT -->|no| READ["read_analysis_document(PairPolicy.DROP)"]
+    READ --> TRUNC{"truncated?"}
+    TRUNC -->|no| WRITE["_write_parsed_copy()\n(temp file + os.replace)"]
+    TRUNC -->|yes| MODEL2["_build_model(members read in full)"]
+    WRITE --> MODEL3["_build_model(dict)"]
 ```
 
 ---
@@ -513,15 +571,23 @@ sequenceDiagram
 
 ### StaticAnalysisParser
 
-**Purpose**: Converts GATOR JSON output into `StaticAnalysisData` domain objects. Handles four JSON sections independently (reachability, windows, transitions, components), enabling graceful degradation when sections are missing or corrupt. Implements truncated JSON recovery for timeout scenarios. Widgets carry XML attribute fields (`prompt`, `spinnerMode`, `contentDescription`, `tooltipText`) which default to `None` when absent.
+**Purpose**: Converts GATOR JSON output into `StaticAnalysisData` domain objects. Reads the document in streaming without its distance members (ADR-9), keeps the members of a truncated document read in full (INV-ANA-81), and owns the parsed copy `<apk>.static.json` (ADR-10). Handles four JSON sections independently (reachability, windows, transitions, components), enabling graceful degradation when sections are missing or corrupt. Widgets carry XML attribute fields (`prompt`, `spinnerMode`, `contentDescription`, `tooltipText`) which default to `None` when absent.
 
 **Location**: `src/rv_static_analysis/parser/static/static_analysis_parser.py`
 
 **Key Classes**:
-- `StaticAnalysisParser`: parser holding only its logger; a module-level singleton (`_instance`) provides convenience functions (`parse_file()`)
+- `StaticAnalysisParser`: parser holding only its logger; a module-level singleton (`_instance`) provides convenience functions (`parse_file()`, `read_static_analysis_files()`)
+
+**Key methods**:
+- `parse_file(path)`: explicit-path read used by `StaticAnalyzer`; streams every time, keeps no copy
+- `read_static_analysis_files(results_dir, apk)`: run-time read; digest, parsed-copy lookup, streaming read on a miss, copy written unless truncated
+- `_load_json(path)`: the streaming read with `PairPolicy.DROP`; returns `(document, truncated)`, with `None` for an empty, non-JSON, non-object or unopenable file
+- `_recover_truncated_json(path, data)`: logs the recovery of a truncated document; the members were already selected by the read
+- `_read_parsed_copy()` / `_write_parsed_copy()`: the copy's hit test and its atomic write
+- `_build_model(data)`: the one construction of `StaticAnalysisData`, shared by the source and the copy
 
 **Dependencies**:
-- External: rv-android-core (all domain models: `Classes`, `Method`, `Windows`, `Window`, `Widget`, `WidgetEvent`, `WindowTransitionGraph`, `Components`, `ComponentInfo`, `IntentFilter`)
+- External: rv-android-core (all domain models: `Classes`, `Method`, `Windows`, `Window`, `Widget`, `WidgetEvent`, `WindowTransitionGraph`, `Components`, `ComponentInfo`, `IntentFilter`; `util.analysis_document`: `read_analysis_document`, `PairPolicy`, `digest_of_file`; constants `EXTENSION_STATIC_ANALYSIS`, `EXTENSION_PARSED_COPY`)
 
 ### Denominator Gate
 
@@ -562,8 +628,8 @@ How the architecture supports non-functional requirements from `docs/PRD.md` Sec
 |-----|--------|----------|----------------------|
 | Modularity | NFR01 | P0 | Single uv workspace module with one internal dependency (rv-android-core). Clean Facade API via `__init__.py`. Analysis and parser layers are independent packages. |
 | Extensibility | NFR02 | P0 | `BaseAnalyzer` interface allows adding new analysis types. Parser sections are independent -- adding a new JSON section requires only a new `_parse_*()` method. |
-| Testability | NFR03 | P1 | Parser tests (76) operate on JSON fixtures without GATOR. Analyzer tests (42) use mocked `Command`. Reference JSON (`cryptoapp.apk.json`) enables baseline equivalence tests. The gate is tested twice over -- as a bare function and through `analyze()` -- because a gate that is written but never called leaves every function-level test green. |
-| Resilience | NFR04 | P1 | Graceful degradation: per-section error isolation (INV-ANA-06). Truncated JSON recovery via bracket completion. Scope-keyed caching avoids redundant execution without reusing an artefact filtered by another key. Timeout handling preserves partial results. A refused denominator fails one APK, not the campaign. |
+| Testability | NFR03 | P1 | Parser tests (103) operate on JSON fixtures without GATOR, including streaming equivalence with `json.load`, every truncation cut, and the parsed-copy cache. Analysis-layer tests (45) use mocked `Command`. Reference JSON (`cryptoapp.apk.json`) enables baseline equivalence tests. The gate is tested twice over -- as a bare function and through `analyze()` -- because a gate that is written but never called leaves every function-level test green. |
+| Resilience | NFR04 | P1 | Graceful degradation: per-section error isolation (INV-ANA-06). A truncated document keeps every member written in full (INV-ANA-81). Memory is bounded by the document without its distance pairs (ADR-9), and a parsed copy that cannot be written costs only a later streaming read. Scope-keyed caching avoids redundant execution without reusing an artefact filtered by another key. Timeout handling preserves partial results. A refused denominator fails one APK, not the campaign. |
 | Configurability | NFR05 | P1 | Pydantic model with 4-level path resolution. Environment variables (`RVSEC_HOME`, `ANDROID_HOME`). CLI arguments for standalone use. Configurable JVM memory and analysis timeout. |
 | Reproducibility | NFR08 | P2 | Caching ensures re-runs produce identical results *under the same key*, and regenerate when the key changed (INV-ANA-70). The artefact records the key, its origin and the compiled-class count that produced it (INV-ANA-66), so a stored result can be re-audited without the APK. Deterministic JSON output from GATOR. Reference test fixtures for parser validation. |
 
@@ -621,6 +687,10 @@ classDiagram
 
     class StaticAnalysisParser {
         +parse_file(path) StaticAnalysisData
+        +read_static_analysis_files(results_dir, apk) StaticAnalysisData
+        -_load_json(path) tuple
+        -_read_parsed_copy(copy_path, digest) dict
+        -_write_parsed_copy(copy_path, data, digest)
         -_parse_classes() Classes
         -_parse_windows() Windows
         -_parse_transitions() WindowTransitionGraph
@@ -654,13 +724,13 @@ classDiagram
 
 **Flow**:
 1. `Command` detects timeout and calls `kill_process_tree()`
-2. GATOR had already flushed the reachability section and part of the windows section
+2. GATOR had already written `components` and `reachability` and was inside `windows`
 3. `StaticAnalysisResult` is returned with `timed_out=True`
-4. `StaticAnalysisParser.parse_file()` attempts to load the truncated JSON
-5. `json.loads()` fails; parser finds last complete `]` bracket, truncates, closes JSON
-6. Reachability section parses successfully into `Classes` (coverage denominator preserved)
-7. Windows section partially recovers; transitions and components return empty domain objects
-8. Downstream consumers receive partial but usable `StaticAnalysisData`
+4. `StaticAnalysisParser` streams the truncated JSON; the input ends before the root object closes
+5. The read keeps `components` and `reachability`, whose closing events it saw, and drops `windows` and everything after it (INV-ANA-81); `_recover_truncated_json()` logs the recovery
+6. `reachability` parses into `Classes` (coverage denominator preserved) and `components` into `Components`
+7. `windows` and `transitions` return empty domain objects; `complete` is `False`
+8. Downstream consumers receive partial but usable `StaticAnalysisData`. At run time no parsed copy is written for this source, so every read streams it again (INV-ANA-83)
 
 ### Scenario 3: Batch Analysis via CLI
 
@@ -697,12 +767,13 @@ classDiagram
 |---------|---------|---------|
 | pydantic | >=2.9.0 | Configuration validation and model definitions |
 | networkx | (transitive via rv-android-core) | `WindowTransitionGraph` directed graph representation |
+| ijson | >=3.3.0 (transitive via rv-android-core) | Streaming JSON events for the document read; the C backend `yajl2_c` is required at import |
 
 ### Downstream Consumers
 
 | Module | What It Uses |
 |--------|-------------|
-| rv-platform | `StaticAnalysisComponent` calls `StaticAnalyzer.analyze()` and `parser.parse_file()` |
+| rv-platform | `StaticAnalysisComponent` and `ResultProcessorComponent` call `read_static_analysis_files(results_dir, apk)`; rv-platform runs no analysis. `StaticAnalysisComponent` copies the source into the task's results directory first, skipping the copy when size and mtime already match (INV-PLT-39) |
 | rv-experiment | `PreProcessor` orchestrates static analysis during pre-processing phase |
 | rv-agent | `TransitionManager` uses WTG; `MopScorer` uses reachability MOP flags |
 | rv-coverage | `CoverageTracker` uses `Classes` as the method universe for coverage % |
@@ -711,7 +782,8 @@ classDiagram
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit (parser) | `tests/parser/static/test_static_analysis_parser.py` | JSON sections, edge cases, truncated JSON recovery, artefact-scoped parsing (INV-ANA-59/60/61) and artefact-spelling preservation (INV-ANA-67) |
+| Unit (parser) | `tests/parser/static/test_static_analysis_parser.py` | JSON sections, edge cases, truncation at every cut point (`TestTruncatedJSON`, INV-ANA-81), model equality with `json.load` (`TestStreamingEquivalence`, INV-ANA-80), the parsed-copy cache (`TestParsedCopyCache`, INV-ANA-82/83), artefact-scoped parsing (INV-ANA-59/60/61) and artefact-spelling preservation (INV-ANA-67) |
+| Audit | `tests/test_static_copy_audit.py` | No module outside rv-static-analysis names the `.static.json` suffix, and no other `src/` names `EXTENSION_PARSED_COPY` (INV-ANA-84) |
 | Unit (analyzer) | `tests/analysis/static/test_static_analysis.py` | Caching, timeout handling, error scenarios (mocked Command) |
 | Unit (gate) | `tests/analysis/static/test_denominator_gate.py` | The three refusals and the admission that matters (a genuinely small app), plus wiring tests through `StaticAnalyzer.analyze()` -- without those, the gate could be written and never called with every other test still green |
 | Integration (scope key) | `tests/analysis/static/test_scope_key_policy.py` | The key's whole journey: what the run tells GATOR, what the artefact carries back, and what a stored artefact is allowed to answer for (INV-ANA-66/70) |
@@ -719,7 +791,7 @@ classDiagram
 | Unit (config) | `tests/test_config.py` | 13 tests covering path resolution, validation, command generation (including `-clientParam codePackage=` and `codePackageSource=`) |
 | Fixture | `tests/resources/cryptoapp.apk.json` | Reference analysis output for baseline equivalence tests |
 
-Total: 163 tests. Run them with the CI contract flags: `uv run pytest tests/ --import-mode=importlib -o "addopts="`.
+Total: 195 tests. Run them with the CI contract flags: `uv run pytest tests/ --import-mode=importlib -o "addopts="`.
 
 ## Related Documentation
 

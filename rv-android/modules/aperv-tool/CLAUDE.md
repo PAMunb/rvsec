@@ -24,7 +24,7 @@ uv run rv-experiment run --tools aperv:sata_mop --specification-set jca   # MOP-
 | `src/aperv_tool/analysis/callers/` | **The only place a research-question identifier may appear** (INV-CAN-22). `rq_map.toml` maps an entry id to a builder, an estimator and its parameters; `basis.py` carries the corpus and the upstream attrition into the envelope; `coverage.py` reports entries with no working caller, distinguishing "no caller declared" from "declared caller does not resolve". An entry whose knobs the author has not frozen is written with them **absent** — it loads, reports as wired, and raises `FreezeItemUnset` if run. That is intended; do not make it runnable by supplying a plausible value |
 | `src/aperv_tool/tools/aperv/ape-rv.jar` | APE-RV binary (gitignored); pushed to `/data/local/tmp/ape-rv.jar` |
 | `src/aperv_tool/tools/aperv/system-broadcast.json` | System broadcast intent catalog for component triggering |
-| `tests/test_aperv_tool.py` | Tool spec, variants, configure validation, JAR search paths, command building, empty-trace detection, trace compression, the completion check (`TestCompletionIsEstablished`), properties generation, artifact derivation/caching, the `.mop.json` audit, the frozen-corpus carve-out |
+| `tests/test_aperv_tool.py` | Tool spec, variants, configure validation, JAR search paths, command building, empty-trace detection, trace compression, the completion check (`TestCompletionIsEstablished`), properties generation, artifact derivation/caching (including the streaming miss path and the refusal of a truncated or non-UTF-8 source), the `.mop.json` audit, the frozen-corpus carve-out |
 | `tests/test_derive_mop_artifact.py` | One named test per relocated derivation rule, plus the cryptoapp ground truth |
 | `tests/test_trace_ndjson.py` | Reader semantics against `tests/fixtures/trace_ndjson_golden.ndjson` |
 | `tests/test_coverage_dump.py` | `UICOV` / `UICOV-ACT` parsing |
@@ -37,7 +37,7 @@ uv run rv-experiment run --tools aperv:sata_mop --specification-set jca   # MOP-
 | `tests/fixtures/cryptoapp.apk.json` | Ground-truth static-analysis JSON, a byte copy of the gh120 baseline in `rv-static-analysis` (provenance in `tests/fixtures/README.md`) |
 | `docs/architecture.md` | Architecture notes |
 
-Dependencies: workspace `rv-android-core` (AbstractTool, ToolSpec, Command, JarResolver, domain models) and `rv-tools` (plugin registration); external `pandas`, `numpy`, `scipy` and `statsmodels`, declared for the analysis layer alone — the tool path needs none of them, and `statsmodels` is imported lazily inside `analysis/estimators/count_glm.py`.
+Dependencies: workspace `rv-android-core` (AbstractTool, ToolSpec, Command, JarResolver, domain models, `util.analysis_document` for the streaming read and the source digest of the MOP artifact) and `rv-tools` (plugin registration); external `pandas`, `numpy`, `scipy` and `statsmodels`, declared for the analysis layer alone — the tool path needs none of them, and `statsmodels` is imported lazily inside `analysis/estimators/count_glm.py`.
 
 ## Variants
 

@@ -341,7 +341,9 @@ class StaticAnalysisParser:
         copy_path = os.path.join(results_dir, apk + constants.EXTENSION_PARSED_COPY)
         data = self._read_parsed_copy(copy_path, digest)
         if data is not None:
-            self.logger.info(f"Parsing analysis file: {file_path} (parsed copy {copy_path})")
+            self.logger.info(
+                f"Parsing analysis file: {file_path} (parsed copy {copy_path})"
+            )
             return self._build_model(data)
 
         self.logger.info(f"Parsing analysis file: {file_path}")
@@ -497,7 +499,9 @@ class StaticAnalysisParser:
             with open(copy_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         except (OSError, ValueError) as e:
-            self.logger.info(f"Parsed copy {copy_path} is unreadable, re-reading the source: {e}")
+            self.logger.info(
+                f"Parsed copy {copy_path} is unreadable, re-reading the source: {e}"
+            )
             return None
         source = data.get(PARSED_COPY_SOURCE_KEY) if isinstance(data, dict) else None
         if not isinstance(source, dict) or source.get("digest") != digest:

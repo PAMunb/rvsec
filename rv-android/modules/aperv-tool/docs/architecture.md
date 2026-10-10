@@ -27,6 +27,7 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 | INV-APV-04 | Working directory must be `/system/bin` | `_build_main_command()` passes `/system/bin` as the working directory argument to `app_process` |
 | INV-APV-07 | APE and APE-RV must not run concurrently | `TOOL_SPEC.process_pattern` is `com.android.commands.monkey`, shared with the builtin APE tool, so rv-platform's `kill_related_processes()` terminates either before launch |
 | INV-APV-60 | A run that did not explore its budget must not be reported as successful | `execute_tool_specific_logic()` measures the exploration against `time.monotonic()` and raises `RVToolExecutionError` when a non-timeout return came back more than `APERV_TEARDOWN_GRACE_S` short of `task.config.timeout` |
+| INV-APV-64 | On a cache miss the source is read in streaming, keeping per method only the per-target minima at `d <= DIST_WEIGHED_MAX` and the `DIST_K` nearest, and the artifact is byte-identical to one derived from the whole document | `_derive_mop_artifact()` calls `read_analysis_document(path, PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K))`; the cuts are imported from `derive_mop_artifact`, so the reduction and the derivation name one pair of constants. `tests/test_derive_mop_artifact.py` compares the streamed and whole-document artifacts byte for byte |
 
 ### Specification Scenarios
 
@@ -265,6 +266,7 @@ flowchart TB
         LoggingDep["LoggingManager"]
         DomainDep["Task, App, ToolSpec"]
         ExceptionsDep["ConfigurationError, RVToolTimeoutError, etc."]
+        AnalysisDocDep["util.analysis_document<br/>(read_analysis_document, PairPolicy, digest_of_file)"]
     end
     subgraph ToolsDeps["rv-tools"]
         RegistryDep["ToolRegistry (registration target)"]
@@ -280,6 +282,7 @@ flowchart TB
     ToolImpl --> LoggingDep
     ToolImpl --> DomainDep
     ToolImpl --> ExceptionsDep
+    ToolImpl --> AnalysisDocDep
     ToolImpl --> DeriveImpl
     ExtRegDep --> ToolImpl
     ExtRegDep --> RegistryDep
@@ -380,7 +383,7 @@ The two normal-exit branches are one code path that ends differently: compressio
 - `ApeRVTool`: Main tool class extending `AbstractTool`, covering configuration, JAR resolution, file push, MOP artifact derivation and caching, LLM provenance capture, properties generation, command building, execution, empty-trace detection and trace compression.
 
 **Dependencies**:
-- Internal: `rv-android-core` (AbstractTool, Command, JarResolver, ErrorHandler, LoggingManager, domain models, exceptions); `aperv_tool.tools.aperv.derive_mop_artifact`
+- Internal: `rv-android-core` (AbstractTool, Command, JarResolver, ErrorHandler, LoggingManager, domain models, exceptions, and `util.analysis_document` for the streaming read and the source digest); `aperv_tool.tools.aperv.derive_mop_artifact`
 - External: None (uses only stdlib `gzip`, `hashlib`, `json`, `os`, `re`, `shutil`, `tempfile`, `urllib.request`)
 
 ### derive_mop_artifact
@@ -390,6 +393,8 @@ The two normal-exit branches are one code path that ends differently: compressio
 **Location**: `src/aperv_tool/tools/aperv/derive_mop_artifact.py`
 
 **Why it is a module rather than methods on the tool**: these rules used to run on the device at load time, where the jar parsed the whole call graph and rejected large ones. Moving them host-side made them testable without a device and removed the per-app fairness gap; keeping them pure — no I/O, no device concepts — is what lets `tests/test_derive_mop_artifact.py` name one test per rule and check the cryptoapp ground truth directly.
+
+**Why its two cuts bind the caller's read**: `derive()` merges a target's distances by the minimum and cuts only at emission — a widget or handler list keeps every pair at `d <= DIST_WEIGHED_MAX`, an activity list its `DIST_K` nearest. That is what makes the caller's streaming reduction exact (INV-APV-64): a pair outside both cuts has `DIST_K` targets ahead of it in its own method, and they stay ahead after any merge, so dropping it while reading cannot change the artifact. A change to either cut is therefore a change to the reduction, and `tool.py` imports both constants from here rather than restating them. The module reads no file; the provenance digest is computed by the caller with `rv_android_core.util.analysis_document.digest_of_file()`, the same digest the parsed-copy cache of `rv-static-analysis` keys on.
 
 ### analysis package
 
@@ -690,7 +695,7 @@ For MOP-guided variants, static analysis data flows from rv-platform's pre-proce
 
 1. rv-experiment runs GATOR static analysis during pre-processing, producing `<apk_name>.json` in `task.results_dir`
 2. `_find_static_analysis_file(task)` locates this JSON by constructing the expected path
-3. `_derive_mop_artifact(task)` projects it into `<apk_name>.mop.json` (format 2) — widget MOP flags and target distances, both MOP-activity sets and the per-activity distances, the handler-class table a gh121 stamp is read through, the OPTIONSMENU records, the click-only WTG view and the component trigger surface — reusing the cache when the recorded `source.digest` matches the current JSON and its `formatVersion` matches the generator's, otherwise deriving and writing atomically. Widget and handler distance lists keep every target within three calls, the distances the jar weighs; an activity's list keeps its three nearest targets. The source is hashed in chunks before anything parses it, so a cache hit never parses the JSON, and a miss parses it straight from the file with no held `bytes` copy. `derive_mop_artifact.py` is the single authority for those rules; they used to run on the device at load time
+3. `_derive_mop_artifact(task)` projects it into `<apk_name>.mop.json` (format 2) — widget MOP flags and target distances, both MOP-activity sets and the per-activity distances, the handler-class table a gh121 stamp is read through, the OPTIONSMENU records, the click-only WTG view and the component trigger surface — reusing the cache when the recorded `source.digest` matches the current JSON and its `formatVersion` matches the generator's, otherwise deriving and writing atomically. Widget and handler distance lists keep every target within three calls, the distances the jar weighs; an activity's list keeps its three nearest targets. The source is hashed in chunks (`digest_of_file`) before anything reads it as JSON, so a cache hit never parses it. A miss reads it as a stream of JSON events (`read_analysis_document` with `PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K)`) that folds each method's `targetDistances` into the pairs the artifact can carry (INV-APV-64): the gh120 distance pairs make a document several gigabytes (9.34 GB for the largest of the Study 03 corpus), a whole-document parse peaked at about 3.1 times the file size, and the streamed derive of that document peaked at 685 MiB. The read is strict where the static-analysis parser is tolerant: a document whose root object never closes — a producer killed mid-write, or bytes that stop being UTF-8 JSON partway — raises `RVToolExecutionError` and leaves no artifact, because an interrupted write must not arm a run. `derive_mop_artifact.py` is the single authority for those rules; they used to run on the device at load time
 4. Only the artifact is pushed, to `/data/local/tmp/mop-artifact.json`. The full JSON stays byte-identical on the host as the archived source every metric reads, and never travels
 5. `_push_properties()` includes `ape.mopDataPath` pointing to the pushed artifact
 6. APE-RV reads the artifact at startup instead of parsing a call graph, and biases action selection toward screens where monitored operations are reachable
@@ -725,7 +730,7 @@ The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias
 
 | Module | Purpose |
 |--------|---------|
-| rv-android-core | AbstractTool base class, Command for ADB invocation, JarResolver for JAR lookup, ErrorHandler for error management, LoggingManager for structured logging, domain models (Task, App, ToolSpec), exception classes |
+| rv-android-core | AbstractTool base class, Command for ADB invocation, JarResolver for JAR lookup, ErrorHandler for error management, LoggingManager for structured logging, domain models (Task, App, ToolSpec), exception classes, `util.analysis_document` (streaming read of the static-analysis JSON on `ijson`'s C backend, and the source digest the artifact cache keys on) |
 | rv-tools | ToolRegistry where the tool is registered (registration performed by rv-platform) |
 
 ### External
@@ -748,8 +753,8 @@ and shell execution.
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, the completion check (INV-APV-60, `TestCompletionIsEstablished`: a truncated run raises naming elapsed and budget and still compresses, a full budget with a non-zero exit does not raise, a return inside the grace does not raise, and the timeout path is untouched), properties generation, the decisive-run arms and their contrasts, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
-| Unit | tests/test_derive_mop_artifact.py | One named test per relocated derivation rule, plus the cryptoapp ground truth in `tests/fixtures/cryptoapp.apk.json` |
+| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, the completion check (INV-APV-60, `TestCompletionIsEstablished`: a truncated run raises naming elapsed and budget and still compresses, a full budget with a non-zero exit does not raise, a return inside the grace does not raise, and the timeout path is untouched), properties generation, the decisive-run arms and their contrasts, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation (the streaming miss path, and the refusal of a truncated or non-UTF-8 source that leaves no artifact) and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
+| Unit | tests/test_derive_mop_artifact.py | One named test per relocated derivation rule, plus the cryptoapp ground truth in `tests/fixtures/cryptoapp.apk.json`, and the exactness of the streaming reduction: the streamed artifact is byte-identical to the whole-document one, including when a method's nearest targets lie beyond `DIST_WEIGHED_MAX` (INV-APV-64) |
 | Unit | tests/test_trace_ndjson.py, tests/test_coverage_dump.py, tests/test_clock_logcat_join.py | The offline readers: NDJSON row semantics against `tests/fixtures/trace_ndjson_golden.ndjson`, coverage-dump parsing, and heartbeat placement including both routes to `UNALIGNED` |
 | Migration | tests/migration/ | The explicit retirement list, the pinned jar tables (preset sizes and accepted vocabulary read off the ape source), the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table, and the decisive-run contrasts. The one-time regeneration diff that proved each surviving arm's effective configuration unchanged under `preset + overrides` was deleted at owner sign-off (2026-08-07); its baseline and executed result are archived under `docs/gh95-migration-record/`, because a one-time measurement kept running becomes a constant-vs-constant guard (INV-APV-44) |
 

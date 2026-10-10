@@ -57,12 +57,12 @@ read, changed and defended one at a time.
   one odd widget must not cost a whole app. A malformed *section* is a
   `DerivationError`, and no partial artifact is ever returned.
   The producer's `"complete": true` sentinel is deliberately not read (INV-DRV-08).
-  It says the second write pass happened, not that the file is intact: a killed
-  pass leaves unparseable bytes, because the producer truncates its output on open,
-  and those fail in the caller's streaming read before this module runs. A document without the
-  sentinel is the producer's intended first-pass report — populated `reachability`
-  and `windows`, empty `transitions` — and derives to an artifact whose `wtg` is
-  empty, which is how the device learns the WTG stage did not finish.
+  It says the second write pass happened, not that the file is intact: a killed pass
+  leaves unparseable bytes, because the producer truncates its output on open, and those
+  fail in the caller's streaming read before this module runs. A document without the
+  sentinel is the producer's intended first-pass report — populated `reachability` and
+  `windows`, empty `transitions` — and derives to an artifact whose `wtg` is empty,
+  which is how the device learns the WTG stage did not finish.
 
 ### Integration Points:
 
