@@ -16,22 +16,20 @@ Files are named `NNNN-kebab-case-title.md`, sequential, never reused.
 
 ## Template
 
-Use `.claude/skills/rv-doc-adr/templates/adr.md` as the starting point. The
-canonical sections are:
-
-1. **Status** — Proposed | Accepted | Deprecated | Superseded by NNNN
-2. **Context** — what problem prompted the decision; relevant FRs/NFRs from `docs/PRD.md`
-3. **Decision** — what we decided, in normative language
-4. **Alternatives considered** — concrete options, each with trade-offs that ruled it out
-5. **Consequences** — positive, negative, neutral
-6. **References** — proposals, change directories, code references
+ADRs are written with `/rv-doc-adr`, from `.claude/skills/rv-doc-adr/templates/adr.md`, which
+holds the section structure: metadata (Status, Date, Deciders, Supersedes), a one-paragraph
+summary, context, decision drivers ranked before the options, the considered options (keeping the
+current state among them) judged against those drivers, the decision, consequences and risks,
+the conditions under which to revisit it, and references.
 
 ## Lifecycle
 
 ADRs are immutable once Accepted. To amend a decision, write a new ADR with
 status `Supersedes NNNN` and update the original's status to `Superseded by`.
 Do not edit accepted ADRs in place — that loses the trail of why we changed
-our mind.
+our mind. This is the documented exception to the current-state principle (P4
+in the root `CLAUDE.md`): an ADR is a historical record, not a description of
+the present system.
 
 ## Index
 
@@ -43,3 +41,5 @@ our mind.
 | 0004 | [Generic-spec subtype target matching via FastHierarchy.canStoreType at match-time](0004-generic-subtype-target-matching-canstoretype.md) | Accepted (gh69) |
 | 0005 | [Build ape-rv.jar from source inside the rvandroid image](0005-build-ape-rv-jar-from-source-in-image.md) | Accepted (gh71) |
 | 0006 | [Fixed emulator execution profile: no GPU, no persisted state, cold boot per task; env-parameterized boot budget](0006-emulator-execution-profile-cold-boot-no-gpu.md) | Proposed (gh92) |
+| 0007 | [Relax the "do not touch GATOR" rule for semantics-preserving performance fixes](0007-relax-gator-no-touch-rule-for-semantics-preserving-perf-fixes.md) | Proposed (gh66) |
+| 0008 | [Separate stateful diagnostic parser over a union return type](0008-separate-stateful-diagnostic-parser.md) | Accepted (gh72) |

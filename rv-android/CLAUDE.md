@@ -116,6 +116,7 @@ Dead/superseded code is deleted entirely — no adapters, shims, wrappers, `# re
 
 ### P4: Current-State Comments
 Comments describe what the code does *now*. No migration history ("migrated from X", "replaces old Y"). No promotional language ("modern", "elegant", "advanced"). Names describe function, not lineage (`process_tasks` not `process_tasks_v2`). Reference thesis/ICST paper for historical context, don't embed it in comments.
+Exception: an ADR (`docs/adr/`) is a historical record of a decision as it stood when taken. Once Accepted, only its Status and `Superseded by` lines change; a revised decision is a new ADR that supersedes it (lifecycle in `docs/adr/README.md`).
 
 ## Development Guidelines
 

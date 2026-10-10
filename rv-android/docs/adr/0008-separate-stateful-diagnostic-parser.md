@@ -1,4 +1,4 @@
-# ADR-001: Separate Stateful Diagnostic Parser over a Union Return Type
+# ADR 0008 — Separate Stateful Diagnostic Parser over a Union Return Type
 
 ## Status
 

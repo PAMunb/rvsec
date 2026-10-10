@@ -1,4 +1,4 @@
-# ADR-001: Relax the "do not touch GATOR" rule for semantics-preserving performance fixes
+# ADR 0007 — Relax the "do not touch GATOR" rule for semantics-preserving performance fixes
 
 ## Status
 

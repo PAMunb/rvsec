@@ -7,7 +7,7 @@ objects. Unlike RVSEC/RVSEC-COV records — one line maps to one record, handled
 the stateless `parse_logcat_line` — a crash is multi-line: a header plus N stack
 frames, `Caused by:`, and `... N more`, all sharing one `(tag, pid, tid)`.
 
-### Why a separate stateful parser (decision D1 / ADR-001):
+### Why a separate stateful parser (decision D1 / ADR 0008):
 `parse_logcat_line` stays a pure 2-tuple function on the RVSEC/COV hot path; this
 class carries the multi-line state so that path is untouched (the G1 non-regression
 gate holds by construction). Both `parse_logcat_file` (offline / resume) and

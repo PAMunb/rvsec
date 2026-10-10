@@ -23,7 +23,7 @@ This module implements requirements from `openspec/specs/analysis/spec.md`.
 | INV-ANA-05 | CoverageTracker MUST be thread-safe with RLock protection; background thread MUST be a daemon | `_reader_lock` (RLock) protects file reads. Thread is created with `daemon=True`. `_stop_event` (threading.Event) signals termination. |
 | INV-ANA-07 | LogcatParser MUST support the Soot-signature (`<class: retType method(params)>`) and triple-colon (`class:::method:::params`) coverage formats | `_parse_coverage_message()` tries the Soot regex first, then the triple-colon split. Both produce valid `RvCoverageLog`. |
 | INV-ANA-08 | LogcatParser MUST support three error formats (JCA CSV, FSM `:::`, generic spec error); malformed messages return None with warning | `_parse_error_message()` tries generic spec error first, then JCA CSV (6+ fields), then FSM triple-colon. Unmatched messages log a warning and return `None`. |
-| INV-ANA-46 | `parse_logcat_line` MUST keep its `Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]` return type and RVSEC/RVSEC-COV behavior | Diagnostics are parsed by a separate stateful component rather than widening the return type (ADR-001). The added `diagnostics` parameter is optional and does not change the return type or the parse; it only names where the counters land. The sanctioned behavioral exceptions are frame-form normalization (INV-ANA-50) and envelope decoding (INV-ANA-63). |
+| INV-ANA-46 | `parse_logcat_line` MUST keep its `Tuple[Optional[RvErrorLog], Optional[RvCoverageLog]]` return type and RVSEC/RVSEC-COV behavior | Diagnostics are parsed by a separate stateful component rather than widening the return type (ADR 0008). The added `diagnostics` parameter is optional and does not change the return type or the parse; it only names where the counters land. The sanctioned behavioral exceptions are frame-form normalization (INV-ANA-50) and envelope decoding (INV-ANA-63). |
 | INV-ANA-47 | Diagnostic tags MUST be matched on the parsed tag field, not a line substring | `DiagnosticEventParser` classifies using the `tag` field produced by `_parse_logcat_line()`, so a substring such as `isAndroidRuntime()` cannot trigger a false positive. |
 | INV-ANA-50 | `parse_logcat_line` MUST NOT return an `RvErrorLog` whose `class_full_name` or `method` ends with a `(<file>:<line>)` group | `_normalize_frame()` runs inside `_parse_error_message()` before the `RvErrorLog` is constructed, on the JCA CSV branch (the only branch whose fields arrive pre-split from Java). |
 | INV-ANA-51 | Normalization MUST be idempotent and a byte-identical no-op on well-formed values | `_FRAME_SUFFIX` requires the trailing group to end in `:<digits>`, which a well-formed class or method never does. No match returns `None`, and the caller leaves its fields untouched. |
@@ -97,7 +97,7 @@ Coverage percentages are computed as `called_methods / total_reachable_methods`.
 
 Diagnostic events (crashes, `VerifyError`s, ANRs) are assembled by a distinct `DiagnosticEventParser` holding multi-line state, rather than by widening `parse_logcat_line()` into a three-way return.
 
-**Why**: RVSEC/RVSEC-COV parsing is a pure "one line to at most one record" mapping, while a diagnostic event spans many lines that must be grouped by `(tag, pid, tid)` and closed when the key changes. Folding stateful assembly into the stateless function would have changed a re-exported public signature and put churn on the exact code path whose output every experiment baseline depends on. Keeping the two orthogonal makes the non-regression guarantee hold by construction, at the cost of a second per-line pass and the caller's obligation to `flush()` at end of input. The full option analysis is recorded in `docs/adr/ADR-001-separate-stateful-diagnostic-parser.md`.
+**Why**: RVSEC/RVSEC-COV parsing is a pure "one line to at most one record" mapping, while a diagnostic event spans many lines that must be grouped by `(tag, pid, tid)` and closed when the key changes. Folding stateful assembly into the stateless function would have changed a re-exported public signature and put churn on the exact code path whose output every experiment baseline depends on. Keeping the two orthogonal makes the non-regression guarantee hold by construction, at the cost of a second per-line pass and the caller's obligation to `flush()` at end of input. The full option analysis is recorded in `docs/adr/0008-separate-stateful-diagnostic-parser.md` (workspace root).
 
 ### ADR-8: Frame-Form Normalization at Parse Time
 
@@ -398,8 +398,7 @@ rv-coverage/
 │           ├── test_analyzer_branches.py
 │           └── test_analyzer_fallback.py
 ├── docs/
-│   ├── architecture.md
-│   └── adr/ADR-001-separate-stateful-diagnostic-parser.md
+│   └── architecture.md
 ├── pyproject.toml
 ├── README.md
 └── CLAUDE.md
@@ -764,7 +763,7 @@ Key use cases that validate the architecture.
 
 ## Related Documentation
 
-- [ADR-001](adr/ADR-001-separate-stateful-diagnostic-parser.md) - Why diagnostics use a separate stateful parser instead of a widened `parse_logcat_line` return type
+- [ADR 0008](../../../docs/adr/0008-separate-stateful-diagnostic-parser.md) - Why diagnostics use a separate stateful parser instead of a widened `parse_logcat_line` return type
 - [Domain Spec](../../../openspec/specs/analysis/spec.md) - Requirements and invariants for rv-coverage (FR12, FR13, INV-ANA-04 through INV-ANA-08, INV-ANA-15, INV-ANA-46 through INV-ANA-52, INV-ANA-56/57, INV-ANA-62/63)
 - [PRD](../../../docs/PRD.md) - Product Requirements Document (FR12-FR13, NFR01-08)
 - [CLAUDE.md](../CLAUDE.md) - Module-level quick reference for Claude Code
