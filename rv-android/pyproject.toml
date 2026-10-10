@@ -46,10 +46,10 @@ dev = [
     "mypy>=1.11.0",
     "bandit>=1.7.0",
     "vulture>=2.7.0",
-    "safety>=3.2.0",
     "radon>=6.0.0",
     "autoflake>=2.3.0",
     "isort>=5.13.0",
+    "pip-audit>=2.10.1",
 ]
 
 [tool.uv]
