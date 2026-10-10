@@ -184,7 +184,9 @@ Two entry points: `--name` (implicit — activates when `results/<name>/tasks.js
 Runs inside containers via `docker/rvandroid/docker-entrypoint.sh`. The entrypoint
 validates `RV_*` names against the `ENV_*` registry (`rv-android-core/constants.py`, through
 `docker/rvandroid/scripts/validate_env_vars.sh`; unknown → exit 64) and
-`exec uv run --frozen --no-dev rv-experiment run`. Most `RV_*` vars are resolved by Click's
+`exec uv run --no-sync rv-experiment run` (the image also sets `UV_NO_SYNC=1`: a sync would
+rebuild the editable workspace members, whose ctime changes when the layers are unpacked, and
+fetch the build backend from PyPI). Most `RV_*` vars are resolved by Click's
 per-option `envvar=`.
 
 **Negation-flag gotcha**: 5 boolean-negation vars are translated to explicit

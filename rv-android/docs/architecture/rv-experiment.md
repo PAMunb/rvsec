@@ -319,8 +319,8 @@ the dexlib2 module's `lib/`. At start, `docker-entrypoint.sh` validates every `R
 against the `ENV_*` registry (unknown names exit 64), sleeps `RV_DELAY` seconds to stagger
 emulator boots, optionally starts a socat bridge to the SGLang alias, translates the five
 negation-style variables (`RV_SKIP_MONITORS`, `RV_SKIP_INSTRUMENT`, `RV_SKIP_STATIC_ANALYSIS`,
-`RV_SKIP_EXECUTION`, `RV_NO_QUARANTINE`) into explicit CLI flags, and execs `uv run --frozen
---no-dev rv-experiment run`. With `docker-compose.parallel.yml`, container `rv01` runs with
+`RV_SKIP_EXECUTION`, `RV_NO_QUARANTINE`) into explicit CLI flags, and execs `uv run --no-sync
+rv-experiment run`. With `docker-compose.parallel.yml`, container `rv01` runs with
 `RV_EXPERIMENT_NAME=rv01`, `RV_DEVICE_PORT=5554`, `RV_DELAY=0`, its own results volume,
 `/dev/kvm`, the docker socket, and the shared Humanoid service; `rv02` uses port 5556 and a
 10 s delay.
@@ -394,8 +394,10 @@ reusable.
 **Docker entrypoint.** The container's first process. It refuses unknown `RV_*` variables
 (exit 64), staggers start-up with `RV_DELAY`, optionally bridges the SGLang alias with socat,
 copies pre-computed files from `RV_SA_DIR`, translates the five negation-style variables into
-explicit CLI flags, and execs `uv run --frozen --no-dev rv-experiment run`, so container start
-needs no network. The arguments `bash` or `shell` skip validation and open a shell.
+explicit CLI flags, and execs `uv run --no-sync rv-experiment run`, so container start
+needs no network: the image also sets `UV_NO_SYNC=1`, because a sync would find every editable
+workspace member stale (its ctime changes when the image layers are unpacked) and rebuild it,
+resolving the build backend against PyPI. The arguments `bash` or `shell` skip validation and open a shell.
 
 **Results directory.** The durable record of a run. `results/<name>/` holds the pre-processing
 artifacts (`monitors/`, `instrumented_apks/` with the `.apk.json` documents), the resume state
@@ -561,10 +563,13 @@ and an inconsistency: `rvagent-tool` is declared in rv-platform's `pyproject.tom
 `aperv-tool` is not.
 
 **Frozen environment at container start; reactor built inside the image.** A bare `uv run`
-performs an implicit sync against all dependency groups, including dev-only ones, even though
-the image was built with `uv sync --no-dev`; every container start would then reach PyPI, and
-a network hiccup there kills the container before rv-experiment starts. `--frozen --no-dev`
-pins execution to the environment as built. In the same spirit, the image builds the Maven
+syncs before it runs, and in the image that sync always does work: the workspace members are
+installed editable, uv judges them fresh by the ctime of their `pyproject.toml` and `src/`, and
+unpacking the image layers changes every ctime, so all members are rebuilt and the build backend
+is resolved against PyPI. Without network, or on a PyPI timeout, the container dies before
+rv-experiment starts. The image builds the environment with `uv sync --locked --no-dev` and sets
+`UV_NO_SYNC=1`, and the entrypoint runs `uv run --no-sync`, so execution uses the environment as
+built; `build.sh` refuses an image whose start under `--network none` syncs. In the same spirit, the image builds the Maven
 reactor and `ape-rv.jar` from source and gates on `instr-cli.jar`, so a stale committed jar
 cannot ship. The flip side, stated in `docker/rvandroid/build.sh`, is that the image clones
 GitHub rather than the local tree: a commit that was not pushed is not in the image.
@@ -617,7 +622,7 @@ topology defined by the compose files.
 `experiment_config.json` before work begins, and `ExperimentMetadata` stores a SHA-256 checksum
 of the platform configuration that resume compares. The monitors directory records which
 specification set produced it. The image records the rvsec branch it was built from (`LABEL
-rvsec.branch`), builds `ape-rv.jar` from source, and starts with `--frozen --no-dev`. Result
+rvsec.branch`), builds `ape-rv.jar` from source, and starts with `uv run --no-sync`. Result
 files are reconstructible from primary sources: coverage is always recomputed from the
 persisted logcat plus the static document (INV-PLT-16), so `--process-results` can rebuild
 every file from a results directory alone.
@@ -659,7 +664,7 @@ whose document could not be found (INV-PLT-18); per-file write-error counts kept
 
 | NFR | PRD ID | Architectural support |
 |-----|--------|-----------------------|
-| Reproducibility | NFR08 | Config snapshot + checksum; monitor provenance; pinned image build; `--frozen --no-dev`; coverage rebuilt from primary sources (INV-PLT-16) |
+| Reproducibility | NFR08 | Config snapshot + checksum; monitor provenance; pinned image build; `uv sync --locked`, `UV_NO_SYNC=1`; coverage rebuilt from primary sources (INV-PLT-16) |
 | Resilience | NFR04 | Timeout-as-success; INV-EXP-08 fallback; INV-PLT-05; plugin degradation; atomic per-task persistence; restart-as-recovery |
 | Configurability | NFR05 | Unified `ExperimentConfig`; CLI > env > default; just-in-time sub-configs (INV-EXP-05); frozen arm tables |
 | Extensibility | NFR02 | Four-method `AbstractTool` contract; registry seam; `get_instrumenter` factory; component lifecycle |
@@ -773,7 +778,7 @@ flowchart TB
     DOCK["docker<br/>[component: image chain + entrypoint]"]
     RVCOV["rv-coverage<br/>[component: uv module, outside this target]"]
 
-    DOCK -. "entrypoint exec: uv run --frozen rv-experiment run" .-> RVEXP
+    DOCK -. "entrypoint exec: uv run --no-sync rv-experiment run" .-> RVEXP
     RVEXP --> RVPLT
     RVEXP --> RVMON
     RVEXP --> RVINS
@@ -1134,7 +1139,7 @@ inner frame = the Android emulator process, with the on-device processes it host
 invocation, request or write in the request direction, labeled with the mechanism where it
 crosses a process boundary.
 
-In a container, `docker-entrypoint.sh` is process 1 and `exec`s `uv run --frozen --no-dev
+In a container, `docker-entrypoint.sh` is process 1 and `exec`s `uv run --no-sync
 rv-experiment run`, so `uv` replaces the entrypoint as process 1 and the CLI process is its
 child. The CLI process imports every workspace module of the [module view](#module-view) — rv-experiment,
 rv-platform, rv-tools, rv-android-core, the pre-processing wrappers and both plugins — and, for

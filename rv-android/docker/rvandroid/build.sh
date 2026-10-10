@@ -37,6 +37,19 @@ docker build --no-cache \
     "${TAGS[@]}" \
     "$(dirname "$0")"
 
+# Gate: uma partida sem rede tem de rodar a .venv da imagem sem sincronizar. Se o uv reconstruir
+# algum membro do workspace ("Building", "Installed"), a partida dependeria do PyPI. O --network none
+# sozinho não basta: enquanto o cache do uv der por válido o índice do hatchling gravado no build, a
+# reconstrução passa sem rede — por isso o gate também procura essas linhas na saída.
+echo "=== gate: partida sem rede ==="
+GATE_OUT=$(docker run --rm --network none --entrypoint bash "$IMAGE:$VERSION" \
+    -c 'cd /opt/rvsec/rv-android && uv run --frozen --no-dev rv-experiment --help' 2>&1) || {
+    echo "$GATE_OUT"; echo "ERRO: rv-experiment não parte sem rede"; exit 1; }
+if echo "$GATE_OUT" | grep -qE '^ *(Building|Built|Installed|Uninstalled) '; then
+    echo "$GATE_OUT"; echo "ERRO: uv sincronizou o workspace na partida (falta UV_NO_SYNC?)"; exit 1
+fi
+echo "gate ok"
+
 echo "Image created successfully!!!"
 docker inspect "$IMAGE:$VERSION" --format 'criada em {{.Created}} | rvsec.branch={{index .Config.Labels "rvsec.branch"}}'
 

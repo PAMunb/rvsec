@@ -14,7 +14,7 @@ RUN git clone --branch ${RVSEC_BRANCH} https://github.com/PAMunb/rvsec.git . && 
     mvn clean install -DskipTests -DskipMopAgent && \
     mvn clean compile -f $RVSEC_HOME/rv-android/pom.xml && \
     cd $RVSEC_HOME/rv-android && \
-    uv sync --no-dev
+    uv sync --locked --no-dev
 
 # Build APE-RV from source so the shipped ape-rv.jar always matches current
 # ape (and the current static-analysis JSON schema, gh60 `reachesTarget`). The
@@ -43,6 +43,17 @@ RUN test -f /opt/rvsec/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-c
 # Persist the branch tag in the image for traceability (image history
 # + `docker inspect` reveals what code shipped).
 LABEL rvsec.branch="${RVSEC_BRANCH}"
+
+# `uv run` never syncs in this image. The workspace members are installed
+# editable, and uv decides whether one is fresh by comparing the ctime of its
+# pyproject.toml and src/ with the value recorded in its dist-info at sync
+# time. Unpacking the image layers (on this host or after a pull) gives every
+# file a new ctime, so without this a `uv run` rebuilds all workspace members
+# at every container start, and the rebuild resolves the build backend
+# (hatchling) against PyPI: a container with no network, or a PyPI timeout,
+# dies before rv-experiment starts. The .venv built by `uv sync` above is the
+# one that runs; build.sh checks it with a start under --network none.
+ENV UV_NO_SYNC=1
 
 # Default environment variables (gh55: RV_JCA_SPEC removed; use RV_SPEC_SET).
 ENV RV_TOOLS=monkey
