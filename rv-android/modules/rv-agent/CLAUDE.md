@@ -2,575 +2,300 @@
 
 ## Purpose
 
-RV-Agent is the core LLM-driven testing module for Android application exploration. It implements an autonomous agent that uses vision-language models (Qwen3-VL) to understand Android UI screenshots and interact with applications intelligently, combining LLM-based semantic understanding with algorithmic exploration strategies.
+Host-side exploration agent for Android apps (layer L2). It drives a device through UIAutomator2,
+chooses each action either with an algorithmic strategy or with a vision-language model (Qwen3-VL
+served by SGLang), and stops only on timeout (INV-AGT-07). Static analysis data (WTG + MOP
+reachability), when supplied, steers exploration toward monitored operations.
 
-### Key Capabilities
+Three modes, chosen by `RVAgentConfig.agent_mode` (overridable by `RVAGENT_MODE`):
+`pure_algorithm` (no LLM), `llm_only`, and `multimode` (default; LLM with probability
+`llm_probability` = 0.7, algorithm otherwise).
 
-- **Vision-Based UI Understanding**: Uses Qwen3-VL multimodal model to analyze screenshots and identify interactive elements
-- **Hybrid Exploration**: Combines LLM intelligence (70%) with algorithmic strategies (30%) for optimal coverage
-- **Three Execution Modes**: `pure_algorithm`, `llm_only`, and `multimode`
-- **MOP-Aware Prioritization**: Prioritizes actions that reach monitored operations from static analysis
-- **WTG-Guided Navigation**: Uses Window Transition Graph from GATOR for intelligent navigation
-- **Stateless LLM Context**: Fresh context each iteration (~2500 tokens) prevents context overflow
-- **Coordinate Normalization**: Handles Qwen3-VL [0, 1000) coordinate space conversion to device pixels
+Two ways to run it: the standalone CLI `rv-agent` (the user manages emulator and APK), or the
+`rvagent` tool of rv-platform/rv-experiment (`modules/rvagent-tool`, platform manages everything).
 
 ## Architecture
 
-### LangGraph Workflow
-
-The agent uses LangGraph for workflow orchestration with externalized node functions:
+### LangGraph workflow (`agent/rv_agent.py::RVAgent._build_agent_graph`)
 
 ```
-              start
-                |
-            parse_ui
-                |
-         decision_router
-        /       |        \
-   algorithm   llm       end
-        |       |
-        |  capture_screenshot
-        |       |
-        |  llm_generate
-        |       |
-        +-> validate_action
-                |
-            execute
-                |
-             learn
-                |
-               END
+parse_ui -> decision_router -+-> algorithm_node ----------------------+-> validate_action -> execute -> learn -> END
+                             +-> capture_screenshot -> llm_generate --+
+                             +-> END ("end" path)
 ```
 
-### Key Design Decisions
+One `graph.invoke()` is one iteration. `RVAgent.run()` is the external loop: it launches the app,
+invokes the graph until `config.timeout`, and merges each returned `AgentState` (`domain/state.py`)
+back. `decision_router_node` delegates to `RoutingManager.route_decision()` (`"llm"` /
+`"algorithm"`). Node functions live in `agent/nodes/` and receive `(agent, state)`.
 
-1. **Component-Based Architecture**: All components injected via constructor (dependency injection)
-2. **Stateless LLM Context**: Each iteration builds fresh messages from summaries
-3. **Hybrid Tool Call Parsing**: Native tool_calls + fallback XML/JSON parsing for SGLang
-4. **Coordinate-Based Action Tracking**: Actions tracked by (x, y) coordinates, not volatile IDs
-5. **Pre-Marking Actions**: Actions marked as executed BEFORE execution to prevent crash loops
-6. **Continuous Exploration**: Never "exhausted" - explores until timeout using least-executed actions
-7. **Unified Tracking System**: All decision logging uses `[RVTRACK:<CATEGORY>]` prefix for grep filtering
+### Key components
 
-### Tracking System
+| Component | Location (under `src/rv_agent/`) | Purpose |
+|---|---|---|
+| `RVAgent` | `agent/rv_agent.py` | Graph definition and timeout loop |
+| `AgentFactory.create_agent(config, static_data=None, device=None)` | `agent/agent_factory.py` | Builds and injects every component; loads the prompt module `rv_agent.prompts.<prompt_version>` |
+| `DeviceInterface` | `agent/device_interface.py` | Device operations over `rv_uiautomator.UIAutomator2Adapter` |
+| `DynamicStateGraph` | `agent/dynamic_state_graph.py` | Runtime state graph, structural hashing (`compute_screen_hash_from_description`) |
+| `NodeExplorationPolicy` | `agent/nodes/exploration_policy.py` | Idle-timeout cap, dynamic epsilon, per-activity budget (INV-AGT-51), applied by `learn_node` |
+| `RVAgentStrategy` | `strategies/rvagent_strategy/rvagent_strategy.py` | Default algorithmic strategy (5-tier selection, below) |
+| `ScoringPipeline.from_config` | `strategies/rvagent_strategy/ranking/pipeline.py` | The only place scorers are instantiated into an `ActionRanker` (INV-AGT-42); applies `pure_mode` |
+| `ActionRanker` / scorers | `strategies/rvagent_strategy/ranking/{action_ranker,scorers}.py` | Composite scoring; deterministic or Gumbel-max stochastic selection |
+| `PathBuffer` | `strategies/rvagent_strategy/path_buffer.py` | Multi-hop navigation plans (strategies A/B/C) |
+| `RewardPropagator` | `strategies/rvagent_strategy/reward_propagator.py` | N-step (N=5) discounted reward, clamped to ±15 |
+| `SuccessorTracker`, `PlateauDetector`, `InputValueGenerator` | `strategies/rvagent_strategy/` | Action re-enabling, stagnation detection, Faker-based input values |
+| `LLMClient` | `llm/llm_client.py` | `ChatOpenAI` against SGLang, tool binding, fresh context per iteration |
+| `tool_call_parser` | `llm/tools/tool_call_parser.py` | Native-then-text tool-call parsing; `denormalize_qwen_coords()` |
+| `ActionNormalizer` | `domain/action.py` | Maps LLM tool calls / algorithm actions to one action dict; `from_llm()` calls `denormalize_qwen_coords()` |
+| `RoutingManager`, `StuckRecovery`, `FallbackManager` | `routing/` | LLM/algorithm routing, backtrack-BFS stuck recovery, LLM-failure fallback |
+| `MemoryCoordinator` | `memory/memory_coordinator.py` | Updates `ShortTermMemory` (10 iterations), `LongTermMemory` (1000 states), `UICoverageTracker`, `AgentMemoryManager` |
+| `TransitionManager` | `services/transition_manager.py` | Maps GATOR WTG windows to runtime activities; `validate_static_data()` (INV-AGT-49) |
+| `NavigationGuidance` | `services/navigation_guidance.py` | WTG/MOP hints shared by LLM and algorithm |
+| `ComponentTriggerService` | `services/component_trigger.py` | Plateau-gated `am start-service` / `am broadcast` of MOP-reaching components (INV-AGT-48) |
+| `ScreenProcessor` / `ImageHandler` | `services/screen_analyzer.py` / `services/vision_service.py` | UI parsing (`ParserFactory` UIAUTOMATOR + `RVAgentVisitor`) / screenshot capture and resize |
+| `VisualErrorDetector` | `services/error_detection.py` | Form-validation error detection via rv-screen-parser's `ErrorDetector` |
+| `RVAgentVisitor` | `ui/rvagent_visitor.py` | Visitor with MOP enrichment and global widget search |
+| `ToolExecutor` | `execution/tool_executor.py` | Executes normalized actions on the device |
+| `MetricsExporter` / `StepTraceWriter` | `metrics/exporter.py` / `metrics/step_trace.py` | Metrics JSON / per-step `decision_source` CSV (INV-AGT-52) |
 
-All agent decision logs use a unified prefix `[RVTRACK:<CATEGORY>]` for easy filtering and analysis.
-The tracking module is at `tracking.py`.
+Other strategies registered in `strategies/strategy_registry.py`: `rvagent` (default), `dfs`,
+`bfs`, `greedy`; all implement `ExplorationStrategy` (`strategies/base_strategy.py`).
 
-**Categories:**
-| Category | Description | Key Fields |
-|----------|-------------|------------|
-| PARSE | UI parsing results | iter, activity, elements, hash |
-| ROUTE | Decision routing | iter, mode, path |
-| RANK | Action ranking | iter, top (top-5 actions with scores) |
-| SELECT | Action selection | iter, mode, action, coords, score, priority |
-| VALIDATE | Action validation | iter, status, action, coords, reason |
-| EXEC | Action execution | iter, action, coords, source |
-| STATE | State changes | iter, changed, activity_from, activity_to, hash |
-| LEARN | Learning updates | iter, stuck, memory_updated, stuck_reason |
-| LLM | LLM call metrics | iter, tokens_in, tokens_out, time_ms, tool_calls, success |
-| NAV | Navigation guidance | iter, wtg_available, unvisited_targets, suggested_action_id |
-| STRATEGY | Tier selection and routing | iter, mode, action, reason |
-| BACKTRACK | Reactive and proactive backtracking | iter, from_state, to_state, reason, strategy, remaining, target |
-| REWARD | Reward propagation events | iter, type, value, steps |
-| COVERAGE | Coverage-directed navigation | iter, target, potential, hops |
+### Design decisions
 
-**Usage:**
-```bash
-# Filter tracking logs
-grep "RVTRACK" agent.log
+1. **Constructor injection everywhere** — `AgentFactory` is the only assembly point.
+2. **Stateless LLM context** — each iteration builds fresh messages from memory summaries plus the
+   screenshot, so context size does not grow with the run.
+3. **Coordinate-based action identity** — actions are tracked by device-space coordinates
+   (`ItemAction.coords_for_matching`, INV-AGT-40), not volatile view IDs.
+4. **Pre-marking** — an action is marked executed *before* execution, so a crash on it does not
+   cause a crash loop.
+5. **Continuous exploration** — no state is ever "exhausted"; plateau detection raises stochastic
+   probability to 0.5 instead of terminating.
 
-# Filter specific category
-grep "RVTRACK:SELECT" agent.log
+### 5-tier action selection (`RVAgentStrategy.select_next_action`)
 
-# Remove tracking logs for production
-grep -v "RVTRACK" agent.log > clean.log
-```
+| Tier | Condition | Behavior |
+|---|---|---|
+| 1 | `PathBuffer` active | Dispense next buffered action |
+| 2 | Untested actions on screen | `ActionRanker` over untested actions |
+| 3 | Saturation ≥ `backtrack_saturation_threshold` (0.8) | Plan path C (coverage) > B (MOP, WTG BFS) > A (nearest unsaturated ancestor); no plan → fall through to Tier 4 (RESTART only if no actions at all) |
+| 4 | All visible actions tested | Optional scroll (`scroll_probability`), else scoring with execution-count decay |
+| 5 | No actions | BACK |
 
-**NOTE**: The project uses uv workspace with editable mode. Source changes are reflected immediately without reinstalling. Only run `uv sync` from root if `pyproject.toml` dependencies change.
+Before the tiers, `foreign_activity_guard` (if on) escapes a foreign foreground with BACK.
+TEXT_CHANGE actions get values from `InputValueGenerator` (up to `max_input_variations`, or
+`mop_max_input_variations` on MOP-reaching screens).
 
-### Key Components
+### Scoring pipeline
 
-| Component | Purpose | Location |
-|-----------|---------|----------|
-| RVAgent | Main orchestrator using LangGraph workflow | `agent/rv_agent.py` |
-| AgentFactory | Centralized dependency injection and creation | `agent/agent_factory.py` |
-| DeviceInterface | Android emulator interaction via UIAutomator2 | `agent/device_interface.py` |
-| DynamicStateGraph | Graph-based state tracking with structural hashing | `agent/dynamic_state_graph.py` |
-| LLMClient | Vision LLM communication with SGLang backend | `llm/llm_client.py` |
-| RVAgentStrategy | 5-tier action selection with proactive backtracking | `strategies/rvagent_strategy/rvagent_strategy.py` |
-| PathBuffer | Buffered multi-step navigation (Strategies A/B/C) | `strategies/rvagent_strategy/path_buffer.py` |
-| RewardPropagator | N-step reward propagation with gamma discounting | `strategies/rvagent_strategy/reward_propagator.py` |
-| ActionRanker | Composite scorer with 9 weighted scorers | `strategies/rvagent_strategy/ranking/action_ranker.py` |
-| RoutingManager | Decision routing between LLM and algorithm (stuck detection delegated to learn_node) | `routing/routing_manager.py` |
-| ToolExecutor | Action execution on Android device | `execution/tool_executor.py` |
-| MemoryCoordinator | Multi-component memory management | `memory/memory_coordinator.py` |
-| TransitionManager | WTG + DynamicGraph integration | `services/transition_manager.py` |
-| NavigationGuidance | Unified navigation hints for LLM/algorithm | `services/navigation_guidance.py` |
-| ActionNormalizer | Coordinate conversion and action format unification | `domain/action.py` |
-| ScreenProcessor | UI parsing and element formatting with priority scores | `services/screen_analyzer.py` |
-| ImageHandler | Screenshot capture and optimization | `services/vision_service.py` |
-| RVAgentVisitor | Custom visitor with MOP enrichment and global widget search | `ui/rvagent_visitor.py` |
+`ScoringPipeline.from_config` builds 12 candidate `Scorer` subclasses and keeps those whose
+`is_enabled(config)` is true. Values below are the `RVAgentConfig` defaults.
 
-## Directory Structure
+| Scorer | Score | Enabled when |
+|---|---|---|
+| `MopScorer` | +500 direct (`[DM]`), +300 transitive (`[M]`) | `mop_direct_score` or `mop_transitive_score` > 0 |
+| `WtgScorer` | +150 toward unvisited WTG targets | `wtg_guided_score` > 0 |
+| `MopFrontierScorer` | +`mop_frontier_weight` toward unvisited MOP activities | weight > 0 (default 0) |
+| `StateMopDensityScorer` | 100 × MOP-widget density of the state | `state_mop_density_enabled` |
+| `FormCompletionScorer` | +150 fill empty input, +100 submit when filled | `form_completion_enabled` |
+| `SaturationScorer` | 100 × (1 − saturation) | always |
+| `ComponentPriorityScorer` | +50 buttons/inputs, +40 toggles/sliders | always |
+| `StrengthScorer` | 50 × success rate + `reward_score_weight` × cumulative reward | always |
+| `GradualDecayScorer` | 200 × 0.7^visits, 0 after 5 visits | always |
+| `CoverageDensityScorer` | 200 × coverage gap | always |
+| `SystemElementFilter` | −5000 for system UI elements | always |
+| `VisitationPenaltyScorer` | −15 × log(1 + visits) | always |
+
+With defaults, 9 scorers are active; under `pure_mode`, 7.
+
+### Steering arms and the `pure_mode` kill-switch
+
+Config fields marked `json_schema_extra={"arm_defining": True}` (MOP/WTG weights, frontier,
+launcher `trigger_mop_first`, `component_trigger_enabled`, density, form completion, and the
+guards/caps `foreign_activity_guard`, `back_menu_pick_cap`, `mop_target_pick_cap`,
+`idle_timeout_cap`, `dynamic_epsilon`, `activity_budget_enabled`) must also appear in
+`RV_STEERING_FLAGS` (`ranking/pipeline.py`), which maps each to its off value. Assembly raises
+`ConfigurationError` when a marked field is missing (INV-AGT-43). `pure_mode=True` forces every
+registered flag off before assembly (INV-AGT-44). The pipeline logs its composition once as an
+`[RV-ARCH]` line. Adding a steering flag means: mark the field, add it to `RV_STEERING_FLAGS`, and
+add it to `RV_STEERING_OFF` in `modules/rvagent-tool/src/rvagent_tool/tools/rvagent/config.py`
+(a rvagent-tool test asserts the two dicts are equal).
+
+### Tracking logs
+
+Decision logs use `[RVTRACK:<CATEGORY>] key=value ...` (`tracking.py`). Categories: PARSE, ROUTE,
+RANK, RANK_FULL, SELECT, VALIDATE, EXEC, STATE, LEARN, LLM, NAV, ERROR, STRATEGY, BACKTRACK,
+REWARD, COVERAGE, SATURATION, STRENGTH, SCROLL, SCORE_DETAIL, ATTRIBUTION, MOP_RESOLVE,
+INPUT_VAR, HASH_DETAIL, SELF_LOOP, ELEMENT_MATCH, PATH_BUFFER, GUARD. `tracking.get_aggregate_counters()`
+holds per-run counters (backtracks, restarts, guard escapes, ...).
+
+When `metrics_output_dir` is set, a run writes, with base name
+`<package>__<repetition>__<timeout>__rvagent:<mode>`: `.rvagent_metrics.json`, `.trace` (all
+`rv_agent` logs at DEBUG), and `.trace.csv` (one row per step with `decision_source` ∈
+mop/wtg/menu/form/coverage/base/component_trigger/llm).
+
+## Directory structure
 
 ```
 src/rv_agent/
-├── __init__.py              # Package exports
-├── constants.py             # Validated constants (LLM params, thresholds)
-├── tracking.py              # Unified [RVTRACK:<CATEGORY>] tracking module
-│
-├── agent/                   # Core agent components
-│   ├── rv_agent.py          # Main RVAgent class with LangGraph workflow
-│   ├── agent_factory.py     # Factory for agent creation with DI
-│   ├── device_interface.py  # Android device interaction
-│   ├── dynamic_state_graph.py # State tracking with structural hashing
-│   └── nodes/               # LangGraph workflow nodes
-│       ├── __init__.py
-│       ├── parse_node.py        # UI capture and parsing
-│       ├── decision_node.py     # LLM/algorithm routing
-│       ├── algorithm_node.py    # Algorithmic action generation
-│       ├── capture_node.py      # Screenshot capture for LLM
-│       ├── llm_node.py          # LLM action generation
-│       ├── validation_node.py   # Action validation
-│       ├── execute_node.py      # Device action execution
-│       └── learn_node.py        # Memory updates and stuck detection
-│
-├── config/                  # Configuration
-│   └── agent_config.py      # RVAgentConfig with SGLang settings
-│
-├── domain/                  # Domain models
-│   ├── action.py            # ActionNormalizer, coordinate conversion
-│   ├── state.py             # AgentState TypedDict for LangGraph
-│   ├── screen_node.py       # ScreenNode for graph tracking
-│   └── exceptions.py        # Custom exceptions
-│
-├── strategies/              # Exploration strategies
-│   ├── base_strategy.py     # ExplorationStrategy interface
-│   ├── strategy_registry.py # Strategy factory and registry
-│   ├── dfs_strategy.py      # Basic DFS strategy
-│   ├── bfs_strategy.py      # Basic BFS strategy
-│   ├── greedy_strategy.py   # Greedy strategy
-│   └── rvagent_strategy/    # Main RVAgent strategy
-│       ├── rvagent_strategy.py   # 5-tier action selection with proactive backtracking
-│       ├── successor_tracker.py  # Successor state tracking
-│       ├── plateau_detector.py   # Stagnation detection
-│       ├── input_value_generator.py # Test value generation (clear-before-type)
-│       ├── coverage_metrics.py   # Coverage tracking
-│       ├── path_buffer.py        # Buffered multi-step navigation (Strategies A/B/C)
-│       ├── reward_propagator.py  # N-step reward propagation with gamma discounting
-│       └── ranking/              # Action ranking system
-│           ├── action_ranker.py  # Composite scorer (9 active scorers)
-│           ├── scorers.py        # MOP, WTG, Decay, Coverage, Saturation, etc.
-│           └── context.py        # RankingContext dataclass
-│
-├── llm/                     # LLM interaction
-│   ├── llm_client.py        # LLMClient with tool binding
-│   └── tools/               # LLM tools
-│       ├── sglang_tools.py      # Android action tools
-│       └── tool_call_parser.py  # Hybrid native/XML parsing
-│
-├── memory/                  # Memory systems
-│   ├── memory_coordinator.py # Coordinates all memory updates
-│   ├── agent_memory.py      # Summary generation
-│   ├── short_term.py        # Recent iterations
-│   ├── long_term.py         # State patterns
-│   ├── ui_coverage.py       # UI element coverage
-│   └── element_id.py        # Element identification
-│
-├── metrics/                 # Metrics collection
-│   └── exporter.py          # MetricsExporter - saves exploration metrics to JSON
-│
-├── routing/                 # Decision routing
-│   ├── routing_manager.py   # LLM/algorithm routing (stuck detection via learn_node)
-│   ├── fallback_manager.py  # Fallback strategy management
-│   └── stuck_recovery.py    # Stuck state recovery (backtrack BFS)
-│
-├── services/                # Support services
-│   ├── screen_analyzer.py   # ScreenProcessor
-│   ├── vision_service.py    # ImageHandler
-│   ├── transition_manager.py # WTG integration
-│   ├── navigation_guidance.py # Navigation hints
-│   ├── coordinate_utils.py  # Coordinate utilities
-│   ├── coordinate_extractor.py # Coordinate extraction
-│   ├── action_mapper.py     # Action mapping
-│   ├── error_detection.py   # Validation error detection with false-positive filtering
-│   └── screenshot_optimizer.py # Screenshot optimization
-│
-├── prompts/                 # LLM prompts
-│   ├── v12.py               # Base prompt with navigation hints
-│   ├── v13.py               # Dialog handling (default)
-│   ├── v14.py               # Structured reasoning
-│   ├── v15.py               # Priority scores and graph metadata inline
-│   ├── v16.py               # Navigation-first exploration with variety enforcement
-│   └── v17.py               # MOP-aware navigation with monitored operation context
-│
-├── ui/                      # UI processing
-│   └── rvagent_visitor.py   # Custom visitor for screen parsing
-│
-├── cli/                     # Command-line interface
-│   └── main.py              # CLI commands (run, test)
-│
-└── execution/               # Action execution
-    └── tool_executor.py     # ToolExecutor
+├── constants.py, tracking.py
+├── agent/        rv_agent.py, agent_factory.py, device_interface.py, dynamic_state_graph.py
+│   └── nodes/    parse, decision, algorithm, capture, llm, validation, execute, learn nodes; exploration_policy.py
+├── cli/main.py   click group: run, test, install
+├── config/agent_config.py   RVAgentConfig
+├── domain/       action.py, state.py, screen_node.py, exceptions.py
+├── execution/tool_executor.py
+├── llm/          llm_client.py; tools/sglang_tools.py, tools/tool_call_parser.py
+├── memory/       memory_coordinator.py, agent_memory.py, short_term.py, long_term.py, ui_coverage.py, element_id.py
+├── metrics/      exporter.py, step_trace.py
+├── prompts/      v12.py … v17.py (default v13)
+├── routing/      routing_manager.py, fallback_manager.py, stuck_recovery.py
+├── services/     screen_analyzer.py, vision_service.py, transition_manager.py, navigation_guidance.py,
+│                 component_trigger.py, error_detection.py, coordinate_utils.py, coordinate_extractor.py,
+│                 action_mapper.py, screenshot_optimizer.py
+├── strategies/   base_strategy.py, strategy_registry.py, dfs/bfs/greedy_strategy.py
+│   └── rvagent_strategy/  rvagent_strategy.py, path_buffer.py, reward_propagator.py, successor_tracker.py,
+│                          plateau_detector.py, input_value_generator.py, coverage_metrics.py
+│       └── ranking/       pipeline.py, action_ranker.py, scorers.py, context.py
+└── ui/rvagent_visitor.py
 ```
 
-## Key Files
+## Entry points
 
-| File | Purpose |
-|------|---------|
-| `agent/rv_agent.py` | Main RVAgent class - LangGraph workflow, execution loop |
-| `agent/agent_factory.py` | Factory pattern for agent creation with dependency injection |
-| `agent/device_interface.py` | DeviceInterface - UIAutomator2 wrapper for emulator control |
-| `agent/dynamic_state_graph.py` | DynamicStateGraph - structural hashing, coordinate-based tracking |
-| `config/agent_config.py` | RVAgentConfig - Pydantic model with all configuration options |
-| `strategies/rvagent_strategy/rvagent_strategy.py` | Main exploration strategy with successor tracking, MOP prioritization |
-| `llm/llm_client.py` | LLMClient - multimodal LLM interaction with tool binding |
-| `routing/routing_manager.py` | RoutingManager - decides between LLM and algorithm paths |
-| `memory/memory_coordinator.py` | MemoryCoordinator - coordinates all memory system updates |
-| `services/transition_manager.py` | TransitionManager - integrates static WTG with dynamic graph |
-| `domain/action.py` | ActionNormalizer - coordinate conversion from [0,1000) to device pixels |
-| `domain/state.py` | AgentState TypedDict - complete state for LangGraph workflow |
-| `prompts/v13.py` | Default prompt with dialog handling instructions |
+### Standalone CLI (`rv-agent = rv_agent.cli.main:cli`)
+
+The user starts the emulator and installs the APK; Claude never starts or stops emulators (root
+`CLAUDE.md`). For a Claude-driven run, use rv-experiment (below). LLM modes need a reachable
+SGLang server.
+
+```bash
+cd modules/rv-agent
+uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
+uv run rv-agent run --package br.unb.cic.cryptoapp --mode multimode --timeout 300 --llm-probability 0.7
+uv run rv-agent run --package br.unb.cic.cryptoapp --mode llm_only --timeout 300 --debug
+uv run rv-agent test                     # device connection check
+uv run rv-agent install path/to/app.apk  # adb install convenience
+```
+
+`run` options: `--package/-p` (required), `--device/-d` (`emulator-5554`), `--timeout/-t` (300),
+`--mode/-m`, `--strategy/-s` (`rvagent`), `--results-dir/-o` (`./rvagent_results`, becomes
+`metrics_output_dir`), `--debug/-v`, `--llm-probability` (0.7). The CLI passes no static data, so
+MOP/WTG scorers score 0.
+
+### Programmatic
+
+```python
+from rv_agent.agent.agent_factory import AgentFactory
+from rv_agent.config.agent_config import RVAgentConfig
+
+config = RVAgentConfig(package_name="br.unb.cic.cryptoapp", agent_mode="pure_algorithm", timeout=120)
+agent = AgentFactory.create_agent(config, static_data=None)  # StaticAnalysisData from rv-android-core
+results = agent.run()  # keys: status, iterations, execution_time_s, unique_states, total_transitions, ...
+```
+
+### Via rv-experiment (`rvagent` tool, no hyphen)
+
+```bash
+uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeouts 60
+uv run rv-experiment run --tools monkey,rvagent:multimode --apks-dir ./apks_examples --timeouts 300
+```
+
+Variants (`rvagent-tool` `get_variants()`): `default`, `multimode`, `pure_algorithm`
+(`pure_mode=True`), `mop_frontier`, `llm_only`, `thorough`. The tool passes `task.static_data`
+to `AgentFactory.create_agent`.
 
 ## Dependencies
 
-### Internal (RV-Android Modules)
+**Internal** (`pyproject.toml`):
+- `rv-android-core` — `StaticAnalysisData`, `WidgetEventType`, WTG/window/component models, `ConfigurationError`, `LoggingManager`.
+- `rv-screen-parser` — `ParserFactory`, `ScreenDescription`/`ItemAction`, `DefaultTextVisitor` (base of `RVAgentVisitor`), `ErrorDetector`.
+- `rv-uiautomator` — `UIAutomator2Adapter` only.
+- `rv-static-analysis` — declared, never imported; static data arrives as an already-parsed `StaticAnalysisData` object.
 
-| Module | Purpose |
-|--------|---------|
-| rv-android-core | Foundation: domain models, event system, logging, validation |
-| rv-screen-parser | UI parsing with visitor patterns for screen analysis |
-| rv-uiautomator | UIAutomator2 adapter for device interaction |
-| rv-static-analysis | Unified GATOR analysis for WTG and MOP data |
+**External (used)**: `langgraph`, `langchain-core`, `langchain-openai`, `pydantic`, `pillow`,
+`faker`, `click`.
 
-### External
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| langchain | ^0.3 | LLM framework |
-| langchain-openai | ^0.3 | OpenAI-compatible API (SGLang) |
-| langgraph | ^0.3 | Workflow orchestration |
-| pydantic | ^2.9 | Configuration validation |
-| pillow | ^10.0 | Image processing for screenshots |
-| httpx | ^0.28 | HTTP client for LLM API |
-| click | ^8.1 | CLI framework |
-| faker | ^29.0 | Test data generation |
-| scipy | ^1.14 | Statistical functions (Gumbel-max) |
-
-## Testing
-
-### Test Structure
-
-```
-tests/
-├── unit/                    # Isolated unit tests (no external deps)
-│   ├── test_rv_agent.py
-│   ├── test_rvagent_strategy.py
-│   ├── test_llm_client.py
-│   ├── test_device_interface.py
-│   ├── test_memory_coordinator_rigorous.py
-│   ├── test_*_hypothesis.py  # Property-based tests
-│   └── ...
-├── integration/             # Component integration tests
-│   ├── test_component_integration.py
-│   ├── test_routing_manager_integration.py
-│   └── ...
-├── smoke/                   # Quick sanity checks
-│   ├── test_imports.py
-│   ├── test_sglang_connectivity.py
-│   ├── test_tool_binding.py
-│   └── test_config_sglang.py
-├── online/                  # Tests requiring device/LLM server
-│   ├── test_llm_client.py
-│   ├── test_device_interface.py
-│   ├── test_agent_e2e.py
-│   └── ...
-├── performance/             # Performance and latency tests
-│   ├── test_llm_latency.py
-│   └── test_multimode_proportion.py
-├── regression/              # Regression tests
-│   └── test_baseline_comparison.py
-├── system/                  # Full system tests
-│   └── __init__.py
-├── fixtures/                # Test data
-│   ├── screenshots/         # Sample screenshots
-│   │   ├── cryptoapp/
-│   │   ├── hashpass/
-│   │   └── ludo/
-│   ├── static_analysis/     # Static analysis fixtures
-│   └── ui_dumps/            # UIAutomator XML dumps
-└── conftest.py              # Shared fixtures
-```
-
-### Running Tests
-
-```bash
-cd modules/rv-agent
-
-# Unit tests only (fast, no external dependencies)
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/ -v
-
-# Smoke tests (quick sanity checks)
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/smoke/ -v
-
-# Integration tests
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/integration/ -v
-
-# Online tests (requires device and LLM server)
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/online/ -v
-
-# All tests with coverage
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/ -v --cov=src/rv_agent
-
-# Property-based tests (Hypothesis)
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_*_hypothesis.py -v
-
-# Specific test file
-PYTHONPATH=../rv-android-core/src:src uv run pytest tests/unit/test_rvagent_strategy.py -v
-```
-
-## Common Tasks
-
-### Two Execution Modes
-
-rv-agent can run in two modes:
-
-1. **Standalone CLI** (`rv-agent`): User manages emulator and APK installation
-2. **Via rv-experiment** (`rvagent` tool): Platform manages emulator and APK installation
-
-### Prerequisites (Standalone Mode)
-
-```bash
-# 1. Start emulator (from project root)
-./scripts/run_emulator.sh
-
-# 2. Wait for device to be ready
-adb wait-for-device
-
-# 3. Install APK
-adb install apks_examples/cryptoapp.apk
-# Or use the convenience command:
-uv run rv-agent install apks_examples/cryptoapp.apk
-
-# 4. For LLM modes (multimode, llm_only): start SGLang server
-# (see LLM Configuration section below)
-```
-
-### Running the Agent (Standalone CLI)
-
-```bash
-cd modules/rv-agent
-
-# Pure algorithm mode (no LLM needed - good for quick testing)
-uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60
-
-# Multimode (default: 70% LLM / 30% algorithm) - requires SGLang server
-uv run rv-agent run --package br.unb.cic.cryptoapp --mode multimode --timeout 300
-
-# LLM only mode - requires SGLang server
-uv run rv-agent run --package br.unb.cic.cryptoapp --mode llm_only --timeout 300
-
-# With debug logging
-uv run rv-agent run --package br.unb.cic.cryptoapp --mode pure_algorithm --timeout 60 --debug
-
-# Test device connection
-uv run rv-agent test
-```
-
-### Programmatic Usage
-
-```python
-from rv_agent.config.agent_config import RVAgentConfig
-from rv_agent.agent.agent_factory import AgentFactory
-
-# Create configuration
-config = RVAgentConfig(
-    package_name="br.unb.cic.cryptoapp",
-    device_id="emulator-5554",
-    agent_mode="multimode",
-    llm_probability=0.7,
-    timeout=300,
-    strategy="rvagent"
-)
-
-# Create agent with factory
-agent = AgentFactory.create_agent(config)
-
-# Run exploration
-results = agent.run()
-print(f"Explored {results['unique_states']} states in {results['iterations']} iterations")
-```
-
-### Integration with rv-experiment (Recommended)
-
-When running via rv-experiment, the platform handles:
-- Emulator startup/shutdown
-- APK installation
-- Static analysis data loading
-- Results collection
-
-```bash
-# Run via rv-experiment (handles emulator and APK installation)
-uv run rv-experiment run --tools rvagent:pure_algorithm --apks-dir ./apks_examples --timeout 60
-
-# Run multimode with longer timeout
-uv run rv-experiment run --tools rvagent:multimode --apks-dir ./apks_examples --timeout 300
-
-# Multiple tools in one experiment
-uv run rv-experiment run --tools monkey,rvagent:multimode,droidbot:dfs_greedy --apks-dir ./apks_examples
-```
-
-**Note**: The tool name is `rvagent` (no hyphen) when used via rv-experiment.
+**Dependents**: `rvagent-tool` (imports `rv_agent` lazily inside `execute`).
 
 ## Configuration
 
-### Environment Variables
+### Environment variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `RVAGENT_MODE` | Override agent mode (pure_algorithm, llm_only, multimode) | multimode |
-| `RVAGENT_LOG_LEVEL` | Log level (DEBUG, INFO, WARNING, ERROR) | INFO |
-| `RVAGENT_VERBOSE_COUNTERS` | Enable detailed counter logging | false |
+| Variable | Effect | Default |
+|---|---|---|
+| `RVAGENT_MODE` | Overrides `agent_mode` in `RVAgentConfig.get_agent_mode()`; invalid values ignored | unset |
+| `RVAGENT_LOG_LEVEL` | Overrides `log_level` in `get_log_level()` | unset (`INFO`) |
+| `SGLANG_URL`, `SGLANG_MODEL` | Tests only (`tests/conftest.py`) | `http://192.168.0.36:30000/v1`, `Qwen/Qwen3-VL-4B-Instruct` |
 
-### RVAgentConfig Options
+### `RVAgentConfig` (`config/agent_config.py`, Pydantic with range constraints)
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `package_name` | str | required | Target application package name |
-| `device_id` | str | emulator-5554 | Android device/emulator ID |
-| `agent_mode` | str | multimode | Execution mode |
-| `llm_probability` | float | 0.7 | LLM probability in multimode (0.0-1.0) |
-| `timeout` | int | 300 | Execution timeout in seconds |
-| `strategy` | str | rvagent | Exploration strategy (rvagent, dfs, bfs, greedy) |
-| `llm_model` | str | Qwen/Qwen3-VL-4B-Instruct | LLM model identifier |
-| `llm_base_url` | str | http://192.168.0.36:30000/v1 | SGLang server URL |
-| `llm_temperature` | float | 0.01 | LLM temperature (0.01 optimal for tool calling) |
-| `prompt_version` | str | v13 | Prompt version (v12, v13, v14, v15, v16, v17) |
-| `stochastic_probability` | float | 0.15 | Gumbel-max stochastic selection probability |
-| `stochastic_temperature` | float | 1.0 | Gumbel-max temperature (higher = more random) |
-| `backtrack_saturation_threshold` | float | 0.8 | Saturation threshold triggering proactive backtrack |
-| `mop_nav_weight` | float | 2.0 | Weight for MOP-reaching targets in navigation scoring |
-| `mop_max_input_variations` | int | 11 | Max input value variations for MOP-reaching screens |
-| `reward_gamma` | float | 0.8 | Discount factor for N-step reward propagation |
-| `reward_score_weight` | float | 1.0 | Cumulative reward weight in StrengthScorer |
-| `coverage_density_weight` | float | 200.0 | CoverageDensityScorer weight for untested elements |
+| Field | Default | Note |
+|---|---|---|
+| `package_name` | required | |
+| `device_id` | `emulator-5554` | |
+| `agent_mode` / `llm_probability` | `multimode` / 0.7 | |
+| `timeout` | 300 | ≥ 60 |
+| `strategy` | `rvagent` | `rvagent`, `dfs`, `bfs`, `greedy` |
+| `seed` | None | Seeds the ranker RNG (INV-AGT-53) |
+| `llm_base_url` / `llm_model` | `http://192.168.0.36:30000/v1` / `Qwen/Qwen3-VL-4B-Instruct` | |
+| `llm_temperature` / `llm_top_p` / `llm_top_k` / `llm_max_tokens` / `llm_timeout` | 0.01 / 0.6 / 50 / 2048 / 30.0 s | `top_k` sent via `extra_body` |
+| `prompt_version` | `v13` | `v12`–`v17` |
+| `stochastic_probability` / `stochastic_temperature` | 0.15 / 1.0 | Gumbel-max selection |
+| `plateau_window` / `max_input_variations` / `mop_max_input_variations` | 10 / 3 / 11 | |
+| `backtrack_saturation_threshold` / `multi_value_saturation_threshold` | 0.8 / 4 | |
+| `reward_gamma` / `reward_score_weight` / `coverage_density_weight` | 0.8 / 1.0 / 200.0 | |
+| `scroll_probability` | 0.15 | Tier 4 scroll |
+| `metrics_output_dir` | None | None → no metrics/trace files |
+| `pure_mode` and steering flags | off / 0 | See "Steering arms" |
 
-### LLM Configuration (SGLang)
+Scorer weights (`mop_direct_score`, `wtg_guided_score`, `gradual_decay_*`, `component_*_priority`,
+...) are fields too; their defaults are in the scorer table. `static_analysis_path` exists but no
+code reads it.
 
-The agent uses SGLang server with Qwen3-VL model. Key parameters validated from extensive benchmarking:
-
-```python
-# Optimal parameters for tool calling (from rvsec-vision-llm benchmark)
-llm_temperature = 0.01  # Low for consistent tool calls
-llm_top_p = 0.6         # Controlled sampling
-llm_top_k = 50          # Controlled diversity
-llm_max_tokens = 2048   # Sufficient for responses
-```
-
-## Important Implementation Notes
-
-### Qwen3-VL Coordinate System
-
-Qwen3-VL returns coordinates in a normalized [0, 1000) range:
-
-```python
-# Conversion to device pixels (in ActionNormalizer)
-pixel_x = int((x / 1000) * device_width)
-pixel_y = int((y / 1000) * device_height)
-```
-
-Reference: https://github.com/QwenLM/Qwen3-VL/issues/1486
-
-### Hybrid Tool Call Parsing
-
-SGLang does not have official tool calling support for Qwen3-VL. The behavior is non-deterministic (~50% native tool_calls, ~50% XML in content).
-
-Solution in `tool_call_parser.py`:
-1. Try native `response.tool_calls` first
-2. If empty, parse from `response.content` (XML/JSON formats)
-3. Supports: XML (Hermes), JSON array, JSON object, markdown, pythonic
-
-### Action Ranking Scorers (9 scorers)
-
-The `RVAgentStrategy` uses a composite scoring system with 9 scorers for action selection:
-
-| Scorer | Score Range | Purpose |
-|--------|-------------|---------|
-| MopScorer | +500 (DM), +300 (M) | Prioritize MOP-reaching actions (Tier 4 only, deferred in Tier 2) |
-| GradualDecayScorer | 200 * 0.7^visits (0 after 5) | Exponential decay prevents cliff effect |
-| CoverageDensityScorer | 200 * coverage_gap | Prioritize actions leading to screens with untested elements |
-| WtgScorer | +150 | Prioritize WTG-guided transitions to unvisited screens |
-| SaturationScorer | +100 | Bonus for unsaturated states |
-| ComponentPriorityScorer | +50 (buttons), +40 (toggles) | Widget type priority |
-| StrengthScorer | weight * strength + rsw * cumulative_reward | Historical success rate + reward propagation |
-| SystemElementScorer | -5000 | Deprioritize system elements |
-| VisitationPenaltyScorer | -15 * log(1 + visits) | Logarithmic penalty for over-visited states |
-
-### 5-Tier Action Selection
-
-| Tier | Name | Condition | Behavior |
-|------|------|-----------|----------|
-| 1 | PathBuffer | Buffer has pending actions | Dispense next buffered action |
-| 2 | Untested | Untested actions available | Priority selection (MOP deferred) |
-| 3 | Proactive Backtrack | Saturation >= 0.8 threshold | Plan path: C (coverage) > B (MOP) > A (ancestor) |
-| 4 | Scored Continuous | All actions tested, not saturated | ActionRanker with all 9 scorers |
-| 5 | BACK Fallback | No actions available | Return BACK action |
-
-### PathBuffer (Strategies A/B/C)
-
-PathBuffer stores a sequence of actions and dispenses one per iteration for multi-hop navigation:
-
-| Strategy | Name | Target | Method |
-|----------|------|--------|--------|
-| A | Backtrack | Nearest unsaturated ancestor | BFS on SuccessorTracker.back_successors |
-| B | MOP | Activity with monitored operations | BFS on WTG via TransitionManager |
-| C | Coverage | Ancestor with highest exploration potential | BFS scored by coverage_gap * element_count |
-
-### RewardPropagator
-
-N-step temporal difference reward propagation with gamma discounting. When events occur (MOP reached, new state, etc.), rewards propagate backward through the last N=5 actions. Cumulative rewards are clamped to [-15.0, +15.0] to prevent score inflation.
-
-### Memory Systems
-
-| System | Purpose | Retention |
-|--------|---------|-----------|
-| ShortTermMemory | Recent iterations | Last 10 iterations |
-| LongTermMemory | State visit patterns | Up to 1000 states |
-| UICoverageTracker | Element interaction tracking | Per-element counts |
-| AgentMemory | Summary generation | Rolling window |
-| DynamicStateGraph | State/transition graph | All discovered states |
-
-### Stuck Detection
-
-Stuck detection is handled by `learn_node` based on screen hash changes (evidence-based):
-- Screen unchanged for N iterations triggers recovery
-- Dynamic threshold based on element count
-- `StuckRecovery` uses backtrack BFS to find unsaturated ancestors
-
-The algorithmic strategy (`RVAgentStrategy`) has additional loop prevention:
-- Action pre-marking (executed BEFORE execution)
-- Successor tracking
-- Plateau detection
-
-### Static Analysis Integration
-
-When `static_data` is provided:
-- WTG guides navigation toward unvisited screens
-- MOP data prioritizes actions reaching monitored operations
-- TransitionManager maps static Window IDs to runtime activities
-- NavigationGuidance provides hints to both LLM and algorithm
-
-## Development Notes
-
-This module is part of the RV-Android uv workspace. All modules are installed in **editable mode** via the root `pyproject.toml`.
-
-**Key points:**
-- Run `uv sync` from the project root to install all modules
-- Source code changes are reflected immediately (no reinstall needed)
-- Only reinstall if `pyproject.toml` dependencies change
+## Testing
 
 ```bash
-# From project root
-uv sync             # Install/update all modules (also removes unused packages)
+# From rv-android root; the CI contract flags are mandatory
+uv run pytest modules/rv-agent/tests --import-mode=importlib -o "addopts=" \
+  -m "not (slow or online or sglang or performance or dataset)"        # what CI runs
+uv run pytest modules/rv-agent/tests/unit --import-mode=importlib -o "addopts=" -q
+uv run pytest modules/rv-agent/tests/unit/strategies/ranking --import-mode=importlib -o "addopts=" -q
 ```
+
+| Directory | Content | Needs |
+|---|---|---|
+| `tests/unit/` | Components, nodes (`unit/agent/nodes/`), strategies and ranking (`unit/strategies/ranking/`, incl. `test_scoring_pipeline.py`, `test_pure_arm_parity.py`), Hypothesis tests (`test_*_hypothesis.py`) | nothing |
+| `tests/integration/` | Multi-component flows (routing, path buffer, reward, MOP guidance) | nothing |
+| `tests/smoke/` | Imports, config; `sglang`-marked connectivity/tool binding | SGLang for `sglang` marker |
+| `tests/online/` | Device, LLM client, end-to-end | device + SGLang |
+| `tests/performance/`, `tests/regression/` | LLM latency, multimode proportion; baseline comparison | SGLang |
+| `tests/fixtures/` | `screenshots/{cryptoapp,hashpass,ludo}/`, `static_analysis/cryptoapp/cryptoapp.apk.json` | |
+
+`tests/conftest.py` adds `src/` and `tests/` to `sys.path`; `tests/support_config.py` holds
+shared config factories. The `require_sglang` fixture skips when SGLang is unreachable.
+
+## Implementation notes and gotchas
+
+- **Qwen3-VL coordinates** are normalized to `[0, 1000)`. `denormalize_qwen_coords()`
+  (`llm/tools/tool_call_parser.py`) converts with `int(x / 1000 * width)`; values outside
+  `[0, 1000)` are treated as pixels already. Reference: https://github.com/QwenLM/Qwen3-VL/issues/1486
+- **Hybrid tool calling**: SGLang returns native `tool_calls` for Qwen3-VL only about half the
+  time. `LLMClient` reads native `tool_calls` first, then parses `response.content` (Hermes XML,
+  JSON array/object, markdown, pythonic) via `parse_tool_calls_from_text_with_strategy()`.
+- **Defaults differ by entry point**: `RVAgentConfig` defaults enable `MopScorer` and `WtgScorer`,
+  but every `rvagent-tool` variant spreads `RV_STEERING_OFF`, so `rvagent:multimode` runs with
+  those weights at 0. Only `mop_frontier` turns WTG/frontier steering on.
+- **Static data validation**: present-but-invalid `StaticAnalysisData` fails fast in
+  `AgentFactory.create_agent` (INV-AGT-49); absent static data is a supported degraded mode.
+- **Stuck detection** lives in `learn_node`: level 1 forces BACK when the screen hash is
+  unchanged beyond a threshold of `max(base, elements × factor)`; level 2 uses `StuckRecovery`
+  (backtrack BFS to an unsaturated ancestor, else RESTART). Validation-error detection runs
+  before stuck detection so form errors are not mistaken for stuck screens.
+- **`android_press_enter` does not work**: `ToolExecutor` calls `DeviceInterface.press_keycode(66)`,
+  which calls `UIAutomator2Adapter.press_keycode`, a method the adapter does not define; the
+  `AttributeError` is caught and the action returns False.
+- **CLI prints `Execution time: 0.0s`**: `cli/main.py` reads `results["execution_time"]`, but
+  `RVAgent.run()` returns `execution_time_s`.
+- `example_usage.py` at the module root imports `rv_agent.core.agent_factory`, which does not
+  exist; use the snippets above.

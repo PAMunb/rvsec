@@ -14,27 +14,27 @@ RV-Android is a modular framework for runtime verification of Android applicatio
 
 ## Module map
 
-Each module has its own `CLAUDE.md` — consult it for module-scoped detail. The instrumentation family is: `rv-instrumentation-core` (pure ABC + types) ← the `ajc`/`dexlib2` variant impls, with `rv-instrumentation` (parent) providing the `get_instrumenter()` factory. The canonical production set is 16 modules (`aperv-llm-validation` is a temporary validation module, excluded).
+Each module has its own `CLAUDE.md` — consult it for module-scoped detail. The instrumentation family is: `rv-instrumentation-core` (pure ABC + types) ← the `ajc`/`dexlib2` variant impls, with `rv-instrumentation` (parent) providing the `get_instrumenter()` factory. The canonical production set is 16 modules (`aperv-llm-validation` is a temporary validation module, excluded). `modules/rvsmart-tool/` holds only a jar and is excluded from the uv workspace (`exclude` in the root `pyproject.toml`). Key deps below are the workspace modules each `pyproject.toml` declares besides `rv-android-core`.
 
 | Module | 1-line role | Key dep |
 |---|---|---|
 | rv-android-core | Foundation: domain models, `ErrorHandler`, `LoggingManager` | (none) |
-| rv-platform | Central execution platform; coordinates `TaskExecutor` + result processing | rv-android-core, rv-tools |
-| rv-tools | Testing-tool plugin system (registry + factory) | rv-android-core |
-| rv-uiautomator | Shared UIAutomator components for direct device interaction | rv-android-core |
+| rv-platform | Central execution platform; coordinates `TaskExecutor` + result processing; registers the `rvagent` and `aperv` plugins in `rv_platform/__init__.py` | rv-tools, rv-coverage, rv-static-analysis, rvagent-tool |
+| rv-tools | Testing-tool plugin system (registry + built-in tools: monkey, ape, droidbot, …) | rv-android-core |
+| rv-uiautomator | Shared UIAutomator components for direct device interaction | rv-screen-parser |
 | rv-monitor-generator | JavaMOP/RV-Monitor integration → runtime verification monitors | rv-android-core |
 | rv-instrumentation-core | `Instrumenter` ABC + shared Pydantic result types; zero impl deps (avoids cycle) | rv-android-core |
-| rv-instrumentation | Parent canonical: `get_instrumenter(variant, config)` factory; shared `assets/keystore.jks`; re-exports `-core` API | rv-instrumentation-core |
-| rv-instrumentation-ajc | AspectJ variant `AjcInstrumentation` (dex2jar+ajc+d8) | rv-instrumentation-core only |
-| rv-instrumentation-dexlib2 | DEX-native variant `DexlibInstrumentation` (gh52) | rv-instrumentation-core only |
-| rv-static-analysis | Unified GATOR-based static analysis | rv-android-core |
-| rv-coverage | Coverage analysis/tracking for monitored operations | rv-android-core |
+| rv-instrumentation | Parent canonical: `get_instrumenter(variant, config)` factory; shared `assets/keystore.jks`; re-exports `-core` API | rv-instrumentation-core, -ajc, -dexlib2 |
+| rv-instrumentation-ajc | AspectJ variant `AjcInstrumentation` (dex2jar+ajc+d8) | rv-instrumentation-core (never the parent) |
+| rv-instrumentation-dexlib2 | DEX-native variant `DexlibInstrumentation`, wrapping the `rvsec-instrumentation-dexlib2` Java CLI | rv-instrumentation-core (never the parent) |
+| rv-static-analysis | GATOR-based static analysis producing the `<apk>.apk.json` document | rv-android-core |
+| rv-coverage | Logcat parsing and coverage of monitored operations | rv-android-core |
 | rv-screen-parser | Android UI parsing (visitor patterns) for state analysis | rv-android-core |
-| rv-agent | LLM-driven testing tool; LangGraph workflow orchestration | rv-android-core |
+| rv-agent | LLM-driven testing tool; LangGraph workflow orchestration | rv-screen-parser, rv-uiautomator, rv-static-analysis |
 | rvagent-tool | rv-platform plugin wrapping rv-agent as an `AbstractTool` | rv-tools, rv-agent |
 | aperv-tool | rv-platform plugin wrapping the APE-RV binary (`ape-rv.jar`) | rv-tools |
-| rv-experiment | Experiment orchestration (pre/post processing); does not duplicate rv-platform | rv-platform |
-| aperv-llm-validation | Temporary: offline validation for APE-RV LLM coordinate mapping | (temporary) |
+| rv-experiment | Experiment orchestration (pre/post processing); does not duplicate rv-platform | rv-platform + the pre-processing modules |
+| aperv-llm-validation | Temporary: offline validation for APE-RV LLM coordinate mapping | (none) |
 
 Child aggregator with its own `CLAUDE.md`: `experimento-20260604/CLAUDE.md`.
 
@@ -48,10 +48,10 @@ Source changes are immediate — no reinstall unless a `pyproject.toml` changes.
 
 | Env var | Purpose |
 |---|---|
-| `RVSEC_HOME` | Required for monitor generation + static analysis (path to RVSEC install). Without it, both are skipped. |
-| `ANDROID_HOME` | Android SDK path for emulator management. |
-| `RV_PYDANTIC=true` | Enable dev validation (recommended during development). |
-| `RVAGENT_MODE` | Override rv-agent mode (`pure_algorithm`, `llm_only`, `multimode`). |
+| `RVSEC_HOME` | Path to the RVSEC checkout; required by monitor generation, instrumentation and static analysis (an `rvsec_root` config field overrides it). When neither is set, each of those phases fails with a logged `ConfigurationError` and the run continues — instrumentation then copies the original APKs. |
+| `ANDROID_HOME` | Android SDK path; its `platforms/` supplies `android.jar` to static analysis and to the ajc variant. `emulator`/`adb` are taken from `PATH`. |
+| `RV_PYDANTIC=true` | Enable dev validation (default off; recommended during development). |
+| `RVAGENT_MODE` | Override rv-agent mode (`pure_algorithm`, `llm_only`, `multimode`; default `multimode`). |
 | `RV_EMULATOR_BOOT_TIMEOUT` | Total emulator boot budget in seconds (default 300, provisional). Raise it when boot timeouts appear. |
 | `RV_ADB_CMD_TIMEOUT` | Timeout in seconds for each individual ADB probe during the boot wait (default 30). |
 | `RV_APK_INSTALL_TIMEOUT` | Timeout in seconds for `adb install` (default 600). |
@@ -59,7 +59,7 @@ Source changes are immediate — no reinstall unless a `pyproject.toml` changes.
 See `.claude/project-info.md` for the full env-var, Docker, and command reference.
 
 ### Testing and Quality
-**CI contract**: always run pytest with `--import-mode=importlib -o "addopts="`. Without these, conftest isolation breaks across modules and collection fails; CI (`.github/workflows/ci.yml`) runs each module's tests in isolation with these flags. Full loop and lint commands: `.claude/project-info.md`.
+**CI contract**: always run pytest with `--import-mode=importlib -o "addopts="`. Without these, conftest isolation breaks across modules and collection fails; CI (`../.github/workflows/ci.yml`, at the git root) runs each module's tests in isolation with these flags. Full loop and lint commands: `.claude/project-info.md`.
 
 ### Experiment Execution
 ```bash
@@ -86,8 +86,8 @@ cd modules/rv-agent && uv run rv-agent run --package br.unb.cic.cryptoapp --mode
 `ExperimentController` → `ExecutionController` → `Platform` → `TaskExecutor` (component-based: emulator, static analysis, coverage, logcat, tool execution).
 
 ### RV-Agent Architecture
-- **RVAgent** (`agent/rv_agent.py`): LangGraph workflow with externalized nodes in `agent/nodes/` (parse, decision, algorithm, llm, validation, execute, learn).
-- **RVAgentStrategy** (`strategies/rvagent_strategy/`): DFS-based exploration with Successor Tracker, Plateau Detector, MOP Prioritization.
+- **RVAgent** (`agent/rv_agent.py`): LangGraph workflow with externalized nodes in `agent/nodes/` (parse, decision, algorithm, capture screenshot, llm, validation, execute, learn).
+- **RVAgentStrategy** (`strategies/rvagent_strategy/`): coverage-optimized DFS with a successor tracker, plateau detector and an action-ranking pipeline (`ranking/`).
 - **LLMClient** (`llm/llm_client.py`): Qwen3-VL via SGLang (OpenAI-compatible API).
 
 ## Directory Structure and Cleanup
@@ -97,7 +97,7 @@ Key directories: `out/` (temporary artifacts — monitors, instrumented APKs, st
 ./clear.sh                 # clean temporary artifacts (keeps results/)
 ./clear.sh --clean-results # clean everything including results
 ```
-**Gotcha**: with `--skip-monitors`/`--skip-instrument`/`--skip-static`, `--apks-dir` must point to **instrumented** APKs from a previous run (`results/<id>/instrumented_apks/`), not original APKs — otherwise coverage is 0%.
+**Gotcha**: with `--skip-instrument` (or a resume), execution runs the APKs in `<output_dir>/instrumented_apks/` when it holds any, otherwise the APKs in `--apks-dir` as they are. So `--apks-dir` must point to **instrumented** APKs from a previous run (`results/<id>/instrumented_apks/`) — an original APK runs but emits no monitor events. Coverage needs `<apk>.apk.json` next to each APK: without it the task still executes, with empty coverage cells and `measured=false`; the aperv MOP arms (`mop_data=static_analysis`) instead fail the task. `--skip-instrument` together with static analysis and no instrumented APK aborts pre-processing; `--skip-monitors` refuses monitors whose `specification_set.txt` names another set.
 
 See `.claude/project-info.md` for the full directory tree and pre-processed artifact locations.
 
@@ -122,7 +122,7 @@ Comments describe what the code does *now*. No migration history ("migrated from
 ### Code Structure
 - Use English for all code and comments.
 - When writing in Portuguese (Brazilian), always use correct accentuation (acentos, cedilha, til, etc.). The user may omit accents in their messages (non-ABNT keyboard), but Claude must always write Portuguese correctly.
-- Include detailed comments at critical architectural points — explain *why*, not just *what*. Follow the comment template in `ExecutionManager`, `TaskExecutor`.
+- Include detailed comments at critical architectural points — explain *why*, not just *what*. Follow the docstring template (`### Architectural Decisions`, `### Role in the System`) in `TaskExecutor` (`rv_platform/execution/executor.py`) and `ExecutionController`.
 
 ### Git Commits
 - NEVER add `Co-Authored-By` or any co-author trailer to commit messages. The user is the sole author.
@@ -147,7 +147,7 @@ The system supports three distinct specification sets, used **separately** acros
 2. **JCA Android Specifications** (`--specification-set jca_android`): the successor of `jca`, seeded byte-for-byte from it and targeted at Android API 30. It is the set that carries the specification repairs; `jca` stays frozen, because the published measurements answer to it. Its value clauses (which algorithms, protocols and key sizes are admitted) are anchored in the expert-validated CrySL rules of the RVSec replication package, pinned by sha256; its event alphabets, `ORDER` expressions and predicate wiring are anchored in the generated `MetaCrySL/generated/api30/` rules. An earlier derived set, generated wholesale against api30, was reproved and is archived at `jca_android_bug_predicate/` with no mapping entry — nothing selects it.
 3. **Generic Specifications** (`--specification-set generic`): detect violations of general API usage — e.g. `hasNext()` before `next()` on Iterator; close streams after use.
 
-A fourth value, `custom`, takes a directory of `.mop` files via `--custom-specs-dir`.
+A fourth value, `custom`, takes a directory of `.mop` files via `--custom-specs-dir`. The CLI default is `jca` (`DEFAULT_SPEC_SET` in `rv_experiment/constants.py`).
 
 **Important**: "MOP" (Monitored Operations) refers to operations monitored by ANY specification, not specifically security-related ones. Do NOT use "security" terminology for MOP — use "monitored operations".
 
@@ -155,7 +155,7 @@ A fourth value, `custom`, takes a directory of `.mop` files via `--custom-specs-
 - Uses LangGraph for workflow orchestration.
 - SGLang server required for the LLM backend (default: `http://192.168.0.36:30000/v1`).
 - Default model: `Qwen/Qwen3-VL-4B-Instruct`.
-- Multimode default: 70% LLM / 30% algorithm decisions.
+- Default mode `multimode`: 70% LLM / 30% algorithm decisions (`llm_probability=0.7` in `config/agent_config.py`).
 
 ### Tool Calling Híbrido (Qwen3-VL + SGLang)
 SGLang lacks official tool calling for Qwen3-VL (~50% native, ~50% XML). Hybrid approach: try `bind_tools()` native first, fallback to XML/JSON parsing via `rv_agent/llm/tools/tool_call_parser.py`. Both strategies achieve 100% success.
@@ -163,9 +163,8 @@ SGLang lacks official tool calling for Qwen3-VL (~50% native, ~50% XML). Hybrid 
 ### Qwen3-VL Coordinate System
 - Qwen3-VL returns coordinates in normalized `[0, 1000)` range for both x and y.
 - Conversion to device pixels: `pixel_x = int((x / 1000) * device_width)`.
-- `ActionNormalizer` in `domain/action.py` handles this via `denormalize_qwen_coords()`.
+- `denormalize_qwen_coords()` (`rv_agent/llm/tools/tool_call_parser.py`) does the conversion; `ActionNormalizer` (`rv_agent/domain/action.py`) calls it with the device size. It converts only when both values are in `[0, 1000)` and otherwise treats them as pixels already.
 - Reference: https://github.com/QwenLM/Qwen3-VL/issues/1486
-- Validated empirically: 84.2% hit rate with 20 apps (see `docs/20260107_rvagent_validacao_multimodal.md`).
 
 ## Skills and Agents
 

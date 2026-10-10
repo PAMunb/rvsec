@@ -16,10 +16,12 @@ the dexlib2 library.
 
 **Entry Point**: Programmatic only — construct `DexlibInstrumentation` directly,
 or let `rv-experiment` select the variant via `RV_INSTRUMENTATION_VARIANT=dexlib2`
-(or `--instrumentation-variant dexlib2`). There is no module CLI: `pyproject.toml`
-still declares a `rv-instrumentation-dexlib2` console script pointing at
+(or `--instrumentation-variant dexlib2`; the default variant is `ajc`). There is
+no module CLI: `pyproject.toml` declares a console script pointing at
 `rv_instrumentation_dexlib2.__main__:main`, but no `__main__.py` exists — the
-script is dangling and fails on invocation.
+script is dangling and fails with `ModuleNotFoundError`. To run the engine by
+hand, call the Java jar (`java -jar lib/instr-cli.jar instrument|batch …`; flags
+in the Java docs below).
 
 ## Public API
 
@@ -36,13 +38,27 @@ config = DexlibInstrumentationConfig(
     working_dir="/scratch",
     cli_jar_path="/path/to/instr-cli.jar",
 )
-results = DexlibInstrumentation(config).instrument_apks(apks_dir, results_dir)
+results = DexlibInstrumentation(config).instrument_apks(
+    apks_dir, results_dir, apk_paths=["/data/apks/cryptoapp.apk"]
+)
 results.weave_counts["cryptoapp.apk"]["matchesApplied"]  # weaver counters
 ```
 
-`instrument_apks` is the only abstract method on the ABC. `prepare_instrumentation()`
-and `instrument(app, result_dir) -> Path` are variant-specific and reached through
+`instrument_apks` is the only abstract method on the ABC; it calls
+`prepare_instrumentation()` itself. `prepare_instrumentation()` and
+`instrument(app, result_dir) -> Path` are variant-specific and reached through
 the concrete class.
+
+`prepare_instrumentation()` checks that a `descriptor_glob` match
+(`MultiSpec_*MonitorAspect.json`) exists in `monitor_output_dir`
+(`MissingDescriptorError`, INV-INS-50) and that `cli_jar_path` exists
+(`FileNotFoundError`), then resolves runtime jars through `-core`'s
+`_resolve_runtime_libs` into `<working_dir>/lib_tmp/` — this needs
+`RVSEC_HOME` (`RuntimeError` when unset) and `mvn` — and **appends** the
+allowlisted three (`rv-monitor-rt`, `rvsec-core`, `rvsec-logger-logcat`) to
+`config.extra_classpath`, which becomes `--classpath`. The append mutates the
+config, so a second `instrument_apks` call on the same config adds the jars
+again; build a fresh config per run (rv-experiment does).
 
 ## Handler stamp (`stamp_handlers`)
 
@@ -118,9 +134,9 @@ on the parent `rv-instrumentation` and NOT on the sibling
 
 The Python wrapper shells out to a Java fat jar produced by Maven from
 `rvsec/rvsec-android/rvsec-instrumentation-dexlib2/cli/`. Maven's
-copy-resources step (design D9) auto-copies the jar to
-`modules/rv-instrumentation-dexlib2/lib/instr-cli.jar` at every
-`mvn install` of the rvsec tree. The Docker build (`docker/rvandroid/Dockerfile`)
+copy-resources step (design D9, bound to `package`) auto-copies the jar to
+`modules/rv-instrumentation-dexlib2/lib/instr-cli.jar` (via `${main.basedir}`,
+so build from the rvsec reactor root). The Docker build (`docker/rvandroid/Dockerfile`)
 gates the image build on the jar being present — if it isn't, the build fails
 loudly so we never ship a runtime where `RV_INSTRUMENTATION_VARIANT=dexlib2`
 crashes with `FileNotFoundError` partway through an experiment.
@@ -133,9 +149,9 @@ inspected without knowing which path produced it (INV-INS-105).
 | Artefact | Written by | Content |
 |---|---|---|
 | `instrument_results.json` | `batch`: the Java CLI directly. `apk_paths`: `_merge_per_apk_results` concatenates the per-APK files. | `{"variant": "dexlib2", "results": [...]}` — one entry per APK with `apkName`, `success`, `phase`, `weaveCounts`. |
-| `instrument_results.d/<apk>.json` | `apk_paths` path only | One results JSON per JVM run; a single-APK run only knows its own APK, so a shared path would overwrite. |
-| `instrument_results.d/<apk>.log`, `instr-cli.log` | `_run_cli(log_path=...)` | Full argv, exit code, elapsed time, CLI stdout and stderr. `capture_output=True` takes the weaver's output off the terminal; without this file a platform-jar mismatch or a javac diagnostic is not diagnosable after the fact. |
-| `instrument_errors.json` | `_persist_errors_json` | `{<apk_name>: {code, tool, message, phase}}`; `{}` when clean, so consumers can rely on the file existing. Mirrors the AJC schema. |
+| `instrument_results.d/<stem>.json` | `apk_paths` path only | One results JSON per JVM run (`<stem>` = APK file name without `.apk`); a single-APK run only knows its own APK, so a shared path would overwrite. Written whether the weave succeeded or failed. |
+| `instrument_results.d/<stem>.log`, `instr-cli.log` | `_run_cli(log_path=...)` | Full argv, exit code, elapsed time, CLI stdout and stderr. `capture_output=True` takes the weaver's output off the terminal; without this file a platform-jar mismatch or a javac diagnostic is not diagnosable after the fact. |
+| `instrument_errors.json` | `_persist_errors_json` | `{<apk_name>: {code, tool, message, phase}}`; `{}` when clean, so consumers can rely on the file existing. Same schema as AJC. On the `apk_paths` path `phase` is the wrapper's (`dexlib2_pipeline`, or `apk_lookup` for a missing input); the engine's own phase tag (`dex_write`, `apk_read`, …) is in that APK's entry of `instrument_results.json`, and the `message` carries the CLI stderr with the cause chain. |
 
 ## Weaver counters (`InstrumentationResults.weave_counts`)
 
@@ -192,17 +208,27 @@ uv run pytest modules/rv-instrumentation-dexlib2/tests/ \
   `instrument_results.json` output, and tags it with `variant="dexlib2"`.
 - Spec-set agnostic — JCA and Generic specifications are handled identically
   by the underlying weaver.
-- `instrument_apks(apk_paths=...)` honours strict subsets via per-APK
-  invocation (one JVM per APK). Each item is a **complete path**; do not
-  re-join with `apks_dir`. When `apk_paths=None`, the batch subcommand
-  processes the whole directory in one JVM (fast path).
-- Exit code 0 is not proof of success. The CLI can print javac/d8 errors and
-  still exit 0, or record `success: true` in the JSON for an APK it never
-  wrote. Both paths cross-check the output APK on disk — the `apk_paths` loop
-  inline, the batch path via `_demote_silent_failures`.
+- `instrument_apks(apk_paths=...)` runs `java -jar instr-cli.jar instrument
+  <apk> --results-json instrument_results.d/<stem>.json …` once per APK (one
+  JVM per APK) — the production path, since rv-experiment always passes
+  `apk_paths`. Each item is a **complete path**; do not re-join with
+  `apks_dir`. A falsy `apk_paths` (`None` **or** `[]`) takes the `batch`
+  subcommand over the whole directory in one JVM.
+- Exit code contract of `instr-cli`: the results JSON is written first, then
+  the process exits 1 whenever any APK is not `phase=signed` — `dex_only` and
+  `build_only` included — and 0 otherwise. The wrapper always passes
+  `--monitor-src-dir` and `--output`, so a normal run either signs or fails.
+  A non-zero exit makes `_run_cli` raise `RuntimeError` with the stderr; on the
+  per-APK path that becomes one APK's `InstrumentationError` and the loop
+  continues, on the batch path it propagates out of `instrument_apks` for the
+  whole batch (no per-APK results returned).
+- Exit code 0 is still not taken on trust: both paths cross-check the output
+  APK on disk — the `apk_paths` loop inline, the batch path via
+  `_demote_silent_failures` — and a demoted APK keeps its counters.
 - No wallclock timeout on the subprocess. Weave time scales with method count;
-  JCA-400 APKs legitimately take 10-30+ minutes. If a hung CLI ever needs
-  detection, add an inactivity watchdog — not a wallclock cap.
+  large APKs (hundreds of thousands of methods) legitimately take 10-30+
+  minutes. If a hung CLI ever needs detection, add an inactivity watchdog — not
+  a wallclock cap.
 - `_build_subprocess_env` forwards only `PATH`, `HOME`, `JAVA_HOME`,
   `ANDROID_HOME`, `RVSEC_HOME`, plus `RVSEC_KEYSTORE` / `RVSEC_KEYSTORE_PASS`
   when configured. Wholesale `os.environ` propagation is forbidden by INV-EXP-30.

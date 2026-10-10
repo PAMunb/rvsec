@@ -14,25 +14,25 @@ src/rv_coverage/
     analysis/coverage/analyzer.py     # batch analysis with fallback
 ```
 
-- **LogcatParser** — `parse_logcat_line(line, diagnostics=None)`, `parse_logcat_file(log_file, static_data, tool_execution_start)` (→ `LogcatRepository`). Stateless: one line → at most one record. Real-time streaming is the tracker's tail loop, not a parser generator. `parse_logcat_file` never swallows an error raised while iterating: it logs the 1-based line number and re-raises, so a caller cannot mistake a partial repository for a complete one.
-- **ParserDiagnostics** (rv-android-core, `domain/coverage.py`) — 13 counters carried by `LogcatRepository.parser_diagnostics`. It lives beside the repository because rv-android-core cannot import rv-coverage. rv-coverage constructs nothing: `CoverageTracker` passes `self.repository.parser_diagnostics` into `parse_logcat_line`, and `parse_logcat_file` increments the repository's own object — so the live and the offline path count onto the same totals.
+- **Logcat parser** (`parser/log/logcat_parser.py`, module-level functions — there is no parser class) — `parse_logcat_line(line, diagnostics=None)` → `(error_log, coverage_log)`, and `parse_logcat_file(log_file, static_data=None, tool_execution_start=None, scope_key=None)` → `LogcatRepository`. `scope_key` defaults to `static_data.code_package` (see "The scope key at the crossing" in `modules/rv-android-core/CLAUDE.md`). Both are re-exported by `rv_coverage/__init__.py` with `CoverageTracker` and `CoverageAnalyzer`. Stateless: one line → at most one record. Real-time streaming is the tracker's tail loop, not a parser generator. `parse_logcat_file` never swallows an error raised while iterating: it logs the 1-based line number and re-raises, so a caller cannot mistake a partial repository for a complete one.
+- **ParserDiagnostics** (rv-android-core, `domain/coverage.py`) — 16 counters (7 discard, 6 sentinel/grammar, 3 `unmatched_*` crossing counters) carried by `LogcatRepository.parser_diagnostics`. It lives beside the repository because rv-android-core cannot import rv-coverage. rv-coverage constructs nothing: `CoverageTracker` passes `self.repository.parser_diagnostics` into `parse_logcat_line`, and `parse_logcat_file` increments the repository's own object — so the live and the offline path count onto the same totals.
 - **DiagnosticEventParser** — stateful, multi-line: `feed_line()` / `flush()` assemble crashes, `VerifyError`s and ANRs grouped by `(tag, pid, tid)` into `RvDiagnosticEvent`. Runs as a second pass alongside `parse_logcat_line()`; events land in the isolated `LogcatRepository.diagnostic_events` collection and never touch coverage/MOP metrics (see `docs/adr/ADR-001-separate-stateful-diagnostic-parser.md`).
-- **CoverageTracker** — monitors logcat in a background thread, logs coverage/MOP detections, calculates metrics incrementally with change detection; context-manager lifecycle; thread-safe.
+- **CoverageTracker** — tails the logcat file in a background daemon thread (`start()`/`stop()`, or the `track_coverage()` context manager), logs coverage/MOP detections, calculates metrics incrementally with change detection; thread-safe. rv-platform drives it through `CoverageComponent`.
 - **CoverageAnalyzer** — offline batch analysis; extends `BaseAnalyzer` (rv-android-core); modes `FULL_STATIC_ANALYSIS`, `PARTIAL_STATIC_ANALYSIS`, `RUNTIME_ONLY`, `FALLBACK_MODE`.
 
 ### Parser log-format contract
 
 - Tags: **RVSEC** = property violation (error); **RVSEC-COV** = method call (coverage). Diagnostic tags (`AndroidRuntime`, `art`/`dalvikvm`, `ActivityManager`) are matched on the parsed tag field, never a line substring.
 - Error formats, each recognised by structure and tried in this order:
-  - **Format 1 (generic)** `class.method(file:line) ::: Spec went into an error state.` — selected by the suffix **and** the spaced ` ::: ` separator. Both are required, because Format 3 ends in the same words with an unspaced `:::`. A line that matches the punctuation but whose regex fails is dropped and counted (`format1_regex_failed`), never retried as Format 2: a name bearing five commas would otherwise parse into a JCA record whose every field is a fragment of a value.
+  - **Format 1 (generic)** `class.method(file:line) ::: Spec went into an error state.` — selected by the suffix **and** the spaced ` ::: ` separator. Both are required, because Format 3 ends in the same words with an unspaced `:::`. A line that matches the punctuation but whose regex fails is dropped and counted (`format1_regex_failed`, or `format3_unresolved` when the part left of ` ::: ` has no dot), never retried as Format 2: a name bearing five commas would otherwise parse into a JCA record whose every field is a fragment of a value.
   - **Format 2 (JCA)** `spec,classQualifiedName,className,methodName,location,errorType,expecting` — selected by six or more comma-separated parts. Field 3 is redundant with field 2 and is not stored; fields 7 onwards are rejoined with `,` into `message`, since commas inside a message are legal. This is the only format whose class and method arrive pre-split from Java, so it is the only one that runs `_normalize_frame()`.
   - **Format 3 (FSM)** `class.method(params):::Spec message` — selected by `:::`. The line carries no source position at all, so `source` is the sentinel `UNSPECIFIED:0` (counted), never a fabricated `Unknown Source:1`.
 - Coverage formats: Soot signature `<class: returnType method(params)>`; triple-colon `class:::method:::params`. The triple-colon layout is still emitted by APKs instrumented with an older Coverage aspect — an APK is instrumented once and replayed across many runs.
-- **Frame-form normalization** (INV-ANA-50/51/52): in the standard error format the Java `ErrorSummary` sometimes fails to split class from method and copies the whole `StackTraceElement` into both fields. `_normalize_frame()` recovers `(class, method, source)` by stripping the trailing `(<file>:<line>)` group and splitting the remainder at its **last** dot. The guard is anchored on that trailing group only — method names in the corpus contain spaces and nested parentheses, so the prefix is left unconstrained. Normalization is idempotent and byte-identical no-op on well-formed values.
+- **Frame-form normalization** (INV-ANA-50/51/52): in the standard error format the Java `ErrorSummary` sometimes fails to split class from method and copies the whole `StackTraceElement` into both fields. `_normalize_frame()` recovers `(class, method, source)` by stripping the trailing `(<file>:<line>)` group and splitting the remainder at its **last** dot. The guard is anchored on that trailing group only — real method names (Kotlin backtick names) contain spaces and nested parentheses, so the prefix is left unconstrained. Normalization is idempotent and byte-identical no-op on well-formed values.
 
 ### v1 message envelope (INV-ANA-63)
 
-The seventh field of a Format-2 line written by the `jca_android` monitors is an envelope: `v=1 code=<SPEC>-<KIND>-<NN> ev=<event> obj=<SimpleClass> val='<observed>' exp='<expected>' msg='<text>'`. Bare values carry no space; quoted values are delimited by `'`, with `\'` as the escape and `\n` for a newline the collector escaped so logcat would not split the line. `_parse_envelope()` scans it by hand rather than by regex, because the escape has to be undone as the value is read and an unclosed closing quote is evidence, not a non-match.
+The seventh field of a Format-2 line written by the `jca_android` monitors is an envelope: `v=1 code=<SPEC>-<KIND>-<NN> ev=<event> obj=<SimpleClass> val='<observed>' exp='<expected>' msg='<text>'[ vfp='<fingerprint>'][ vcls='<class>']`. `_apply_envelope()` runs on the message of all three formats, so a Format-1 or Format-3 message that starts with `v=1` is decomposed the same way. `vfp`/`vcls` are evidence keys: they fill `value_fingerprint`/`value_class`, stay in `message`, and are stripped from the identity (`RvErrorLog.identity_message`, INV-CORE-63). Bare values carry no space; quoted values are delimited by `'`, with `\'` as the escape and `\n` for a newline the collector escaped so logcat would not split the line. `_parse_envelope()` scans it by hand rather than by regex, because the escape has to be undone as the value is read and an unclosed closing quote is evidence, not a non-match.
 
 - `v=1` is what decides whether a message is an envelope — the presence of the keys is not, or a pre-envelope sentence quoting `ev=` would erase the boundary between the two eras.
 - An **unclosed final quote** means logcat cut the payload (4068 bytes, no marker): the record is registered with `truncated=True` and counted under `truncated_envelopes`, keeping the fields parsed before the cut and nothing from the cut value onwards.
@@ -59,7 +59,7 @@ Continuation detection is one-shot: `last_truncated_key` is armed by a truncated
 
 ## Coverage Metrics
 
-Keys returned by `LogcatRepository.calculate_metrics()` (rv-android-core).
+Percentage keys of `CoverageMetrics.to_dict()` (rv-android-core); `LogcatRepository.calculate_metrics()` returns the `CoverageMetrics`, whose dict also carries the raw `total_*`/`called_*` counts.
 
 | Metric | Description |
 |--------|-------------|
@@ -71,7 +71,7 @@ Keys returned by `LogcatRepository.calculate_metrics()` (rv-android-core).
 | direct_mop_method_coverage | Same, restricted to methods that reach a monitored operation directly |
 | called_methods | Total unique methods called |
 | total_errors | Number of property violations |
-| unique_errors | Distinct violations at **event** granularity, keyed on `class:::method:::spec:::error_type:::code:::event:::message` — seven `:::` parts, deliberately finer than the `(apk, class, method, spec)` key used to count unique *misuses* downstream. `code` and `event` come from the message envelope and name which automaton transition failed; they are `UNSPECIFIED` for every record with no envelope, so two causes at one call site stay distinct |
+| unique_errors | Distinct violations at **event** granularity, keyed on `class:::method:::spec:::error_type:::code:::event:::message` (the last part is `identity_message`, i.e. `message` without trailing `vfp`/`vcls`) — seven `:::` parts, deliberately finer than the `(apk, class, method, spec)` key used to count unique *misuses* downstream. `code` and `event` come from the message envelope and name which automaton transition failed; they are `UNSPECIFIED` for every record with no envelope, so two causes at one call site stay distinct |
 
 ## Important Notes
 
@@ -80,6 +80,20 @@ Keys returned by `LogcatRepository.calculate_metrics()` (rv-android-core).
 - **Error vs coverage**: RVSEC → violation; RVSEC-COV → method call. Never conflate.
 - **Violation identity**: downstream misuse counting keys on `(apk, class, method, spec)`. A source position leaking into `class` or `method` splits one misuse into one record per line it occurs at, which is why normalization happens here in the parser and not only in the Java monitor — already-instrumented APKs keep emitting the uncorrected form.
 - **Diagnostics are isolated**: `RvDiagnosticEvent` records live in their own repository collection and are excluded from every coverage and violation metric. Callers driving the parser manually must call `flush()` at end of input, or a final buffered crash is lost.
-- **Thread safety**: `CoverageTracker` uses a background monitor thread with `RLock` protection over shared state; event publishing is non-blocking.
+- **Thread safety**: `CoverageTracker` uses a background monitor thread with `RLock` (`_reader_lock`) protection over file reads and shared state.
 - **No invented values**: a field the producer did not supply becomes the explicit sentinel `UNSPECIFIED` (`UNSPECIFIED:0` for a source position), never a plausible-looking `Unknown Source:1` or `No additional message` — an invented value reads as a measurement in every file it reaches and there is no way back from it. An absent seventh comma field is `message=""`.
 - **`unique_msg` is composed once**, in `RvErrorLog` (rv-android-core). Readers key on it; nothing downstream recomposes it, and an absent CSV column is a `KeyError` rather than a second composition that could disagree.
+
+## Dependencies
+
+- **Depends on**: rv-android-core (`LogcatRepository`, `ParserDiagnostics`, `RvErrorLog`/`RvCoverageLog`/`RvDiagnosticEvent`, `BaseAnalyzer`, `initialize_repository_from_static_data`). `pyproject.toml` also declares `regex`, `python-dateutil` and `pydantic`, none imported by `src/` (the parser uses the stdlib `re`).
+- **Depended on by**: rv-platform (`CoverageComponent` → `CoverageTracker`; `ResultProcessorComponent` → `parse_logcat_file`), and rv-android-core itself through an undeclared lazy import in `Task.get_repository()` (`domain/task.py`). rv-experiment declares it in `pyproject.toml` but imports nothing from it. aperv-tool restates the line grammar it needs instead of importing it.
+
+## Development
+
+```bash
+# From rv-android root
+uv run pytest modules/rv-coverage/tests/ --import-mode=importlib -o "addopts=" -v
+```
+
+Tests: `tests/parser/log/` (line/file parser, diagnostic parser, frame-form normalization with `fixtures/frame_form_corpus.py`, envelope transport in `test_gh104_collector_transport.py`), `tests/analysis/coverage/` (tracker lifecycle and final drain, analyzer and its fallback modes); a logcat + static-analysis JSON fixture pair in `tests/resources/`, read by the one top-level test.

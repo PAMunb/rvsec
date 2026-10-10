@@ -12,7 +12,7 @@ uv run python scripts/prevalidation.py \
     --output-dir results/prevalidation-qwen3vl
 ```
 
-CLI flags include `--modes`, `--temperatures`, `--max-screenshots`, `--disable-thinking`, `--model`.
+CLI flags include `--modes`, `--temperatures`, `--max-screenshots`, `--disable-thinking`, `--model`, `--cache-dir` (default `.cache`). The script is the only entry point: `pyproject.toml` declares a console script `aperv-llm-validate = aperv_llm_validation.cli:main`, but no `cli` module exists, so that command fails.
 
 ## Files
 
@@ -27,7 +27,7 @@ CLI flags include `--modes`, `--temperatures`, `--max-screenshots`, `--disable-t
 | `src/aperv_llm_validation/infrastructure/response_cache.py` | `ResponseCache`: SQLite WAL, keyed by screenshot+prompt+seed+temp+resize_mode |
 | `scripts/prevalidation.py` | CLI: discovers screenshot+XML pairs, calls LLM per widget, computes bounds/center hit rates |
 
-`evaluation/` and `prompts/` are placeholders. Tests: `tests/test_{coordinate_normalizer,image_processor,response_cache,uiautomator_parser}.py`; fixture `tests/fixtures/cryptoapp/`. Output: `results/prevalidation-qwen3vl/000_prevalidation_results.csv`.
+`evaluation/` and `prompts/` are placeholders. Tests: `tests/test_{coordinate_normalizer,image_processor,response_cache,uiautomator_parser}.py`; fixture `tests/fixtures/cryptoapp/001.uiautomator` (XML only, no screenshot). Output: `<output-dir>/000_prevalidation_results.csv` (default `--output-dir` is `results`).
 
 Dependencies: standalone module, no internal deps. External: `openai`, `Pillow`, `pydantic`, `rich`, `defusedxml`, `scipy`.
 

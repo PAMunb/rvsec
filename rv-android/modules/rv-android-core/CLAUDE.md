@@ -18,7 +18,8 @@ Foundational infrastructure for RV-Android: shared domain models, error handling
 
 ```
 src/rv_android_core/
-├── constants.py                 # File extensions + env var names (e.g. EXTENSION_STATIC_ANALYSIS = ".json")
+├── constants.py                 # File extensions (EXTENSION_STATIC_ANALYSIS = ".json", EXTENSION_PARSED_COPY = ".static.json"),
+│                                #   env var names, emulator/logcat launch constants
 ├── analysis/base_analyzer.py    # Base class for analysis tools
 ├── commands/                    # command.py, command_result.py, command_exception.py, command_not_found_error.py
 ├── domain/
@@ -31,21 +32,22 @@ src/rv_android_core/
 │   └── task.py                  # Task, TaskConfiguration, TaskResult
 ├── tools/                       # abstract_tool.py, tool_spec.py
 └── util/
+    ├── analysis_document.py     # streaming reader of the static-analysis document (ijson)
     ├── decorators.py  diagnostics.py  jar_resolver.py  json_helpers.py  utils.py
     ├── android/                 # android.py (ADB), emulator_manager, logcat_manager,
-    │                            #   package_detector, repository_initializer
+    │                            #   package_detector, build_type_suffix, repository_initializer
     ├── error/                   # error_handler.py, exceptions.py (23 exception types)
     ├── logging/                 # manager.py (LoggingManager), context_adapter, formatters, constants
     └── validation/              # base.py (BaseValidatedModel), config.py, decorators.py (@validated_model)
 ```
 
-Notable files: `util/android/package_detector.py` (code-package vs manifest-package detection; see below), `util/android/build_type_suffix.py` (neutralizes the Gradle build-type suffix of a declared applicationId — a run policy, off by default, INV-CORE-58), `constants.py` (holds file extensions and env var names, including the device timeout budgets `RV_EMULATOR_BOOT_TIMEOUT` / `RV_ADB_CMD_TIMEOUT` / `RV_APK_INSTALL_TIMEOUT`, resolved at the point of use in `util/android/android.py` with defaults 300 s / 30 s / 600 s; a value that is set but not an integer raises instead of falling back).
+Notable files: `util/analysis_document.py` (`read_analysis_document(path, PairPolicy)` walks the GATOR document once as `ijson` events and either drops the per-method `targetDistances` pairs or folds them into per-target minima, so a multi-gigabyte document is never materialized; `digest_of_file()` is the SHA-256 that keys both rv-static-analysis's parsed copy `<apk>.static.json` and aperv-tool's MOP-artifact cache; the module raises `ImportError` at import unless the `ijson` C backend `yajl2_c` is present), `util/android/package_detector.py` (code-package vs manifest-package detection; see below), `util/android/build_type_suffix.py` (neutralizes the Gradle build-type suffix of a declared applicationId — a run policy, off by default, INV-CORE-58), `constants.py` (holds file extensions and env var names, including the device timeout budgets `RV_EMULATOR_BOOT_TIMEOUT` / `RV_ADB_CMD_TIMEOUT` / `RV_APK_INSTALL_TIMEOUT`, resolved at the point of use in `util/android/android.py` with defaults 300 s / 30 s / 600 s; a value that is set but not an integer raises instead of falling back).
 
 ## Capture tags and emulator launch
 
 `util/android/logcat_manager.py` (`LogcatManager`) captures a live stream filtered on the device: `adb logcat -s <tags>` drops every line whose tag is not in the list before it leaves the emulator, so a stream exists in the captured file only if its tag is admitted when capture starts. The baseline is five tags, `RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V RVSEC-BIND:V` (`adb -s <serial> logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V RVSEC-BIND:V`, INV-CORE-37). `default_tags` is built from the five constants `TAG_RVSEC`, `TAG_RVSEC_COV`, `TAG_APERV_HEARTBEAT`, `TAG_RVSEC_OCC` and `TAG_RVSEC_BIND` in `util/logging/constants.py`, in that order, and each tag string appears only there (INV-CORE-53). A misspelt tag fails silently, as an empty stream, which is why the string lives in one place. `RVSEC` is the monitor runtime's first-occurrence violation line, `RVSEC-COV` the coverage line, `ApeRvHb` the APE-RV step heartbeat, `RVSEC-OCC` the monitor runtime's occurrence line (every occurrence of a violation identity, at most one line per identity per 100 ms), and `RVSEC-BIND` the handler-stamp verification line the `dexlib2` instrumenter's `mop.RvsecStamp` helper writes each time a View or Compose node's stamp changes (`RvsecStamp.TAG`). `RV_LOGCAT_DIAGNOSTICS` appends `AndroidRuntime:E art:E dalvikvm:E ActivityManager:W` after the five, without reordering them (INV-CORE-38). Before capture, `start_capture` sizes the device ring buffers to `LOGCAT_BUFFER_SIZE` (16 MiB) with a separate `logcat -G` command (INV-CORE-64). `rv-coverage`'s parser dispatches on the exact tag, so `ApeRvHb`, `RVSEC-OCC` and `RVSEC-BIND` lines are counted as `lines_other_tag` and change no parsed value (INV-CORE-65, INV-CORE-67).
 
-`util/android/android.py` (`Android.start_emulator`) launches `emulator -avd <name> -port <port> -read-only -no-cache -no-boot-anim -noaudio -no-snapshot-save -delay-adb -memory 4096 -partition-size 8192 [-no-window]`. The memory and the `/data` partition come from `EMULATOR_MEMORY_MB = 4096` and `EMULATOR_PARTITION_SIZE_MB = 8192` in `constants.py`, passed as `-memory` and `-partition-size` on every launch (INV-CORE-66). The flags take precedence over the AVD's `config.ini` for that launch; the campaign image's AVD carries the `pixel` profile defaults `hw.ramSize=1536M` and `disk.dataPartition.size=800M`, under which the guest's low-memory killer can terminate the app under test and a large APK can fail to install. The values are constants rather than environment variables so every container of one campaign runs under the same condition. `-cores` is not passed: the core count is left to the AVD (`hw.cpu.ncore=4`).
+`util/android/android.py` (`Android.start_emulator`) launches `emulator -avd <name> -port <port> -read-only -no-cache -no-boot-anim -noaudio -no-snapshot-save -delay-adb -memory 4096 -partition-size 8192 [-no-window]`. The memory and the `/data` partition come from `EMULATOR_MEMORY_MB = 4096` and `EMULATOR_PARTITION_SIZE_MB = 8192` in `constants.py`, passed as `-memory` and `-partition-size` on every launch (INV-CORE-66). The flags take precedence over the AVD's `config.ini` for that launch; the Docker image's AVD carries the `pixel` profile defaults `hw.ramSize=1536M` and `disk.dataPartition.size=800M`, under which the guest's low-memory killer can terminate the app under test and a large APK can fail to install. The values are constants rather than environment variables so every container of one campaign runs under the same condition. `-cores` is not passed: the core count is left to the AVD's `hw.cpu.ncore`. The boot wait is `Android._wait_for_boot()`, which raises `TimeoutError` when the shared budget is exhausted; `EmulatorManager.start_emulator()` (`util/android/emulator_manager.py`) wraps any start failure as `EmulatorError` and tears the emulator down.
 
 ## `package_name` vs `code_package`
 
@@ -55,10 +57,10 @@ The `App` model exposes two package properties, answering two different question
 
 The second question is about the corpus, not about the APK, so it is an input rather than an inference. By default `code_package` **is** `package_name`, returned verbatim. Two opt-in policies can change that, both off by default, both stated by the caller through a channel of their own:
 
-- **`package_detector=True`** runs `PackageDetector` over the APK's components, which is what a corpus of Godot games wants (manifest `ir.hsn6.trans`, classes under `org.godotengine.godot`); the mismatch is logged at INFO on that path only.
+- **`package_detector=True`** runs `PackageDetector` over the APK's components, which is what an app built on an engine wants (manifest package of the app, compiled classes under the engine's package); the mismatch is logged at INFO on that path only.
 - **`strip_build_type_suffix=True`** neutralizes the Gradle build-type suffix (`util/android/build_type_suffix.py`, INV-CORE-58), so the debug variant of `com.example.app` is scoped by the package its classes were compiled under rather than by `com.example.app.debug`, under which nothing was compiled at all. The rule is a fixed denylist compared in lowercase (`.BETA` is caught), applied repeatedly (`.qa.debug` is one Gradle variant, not two), with a floor of two segments (stripping to `com` would match every library in the Scene).
 
-**The detector takes precedence** when both are on (INV-CORE-18), because it answers from the compiled classes themselves while the neutralization only repairs the declared id. Prefix repair is neither policy and stays out: no string rule resolves it (`de.grobox.liberario` ships as `de.grobox.transportr`), and the denylist is deliberately not total either (INV-CORE-59) — an uncovered suffix passes through unchanged, and the backstop is the downstream denominator gate, which refuses an implausible universe loudly rather than a longer list that fails silently.
+**The detector takes precedence** when both are on (INV-CORE-18), because it answers from the compiled classes themselves while the neutralization only repairs the declared id. Prefix repair is neither policy and stays out: no string rule resolves it (an app whose classes live under a package prefix different from its applicationId), and the denylist is deliberately not total either (INV-CORE-59) — an uncovered suffix passes through unchanged, and the backstop is the downstream denominator gate, which refuses an implausible universe loudly rather than a longer list that fails silently.
 
 `code_package_source` reports which mechanism produced the value — `"manifest"`, `"manifest-neutralized"` or `"detector"` — because the analysis artefacts downstream carry no trace of it unless it is carried there deliberately. It names what *produced* the key, not what was requested: neutralization that removed nothing still reports `"manifest"`.
 
@@ -84,5 +86,16 @@ The key is read from the artefact's own record and never re-derived from a packa
 
 ## Dependencies
 
-- **Internal**: None (this is the core foundation module).
-- **External**: `pydantic` ^2.9.0, `androguard` 3.4.0a1 (APK metadata), `psutil` ^7.0.0 (process mgmt), `networkx` ^3.5 (WTG graphs).
+- **Internal (declared)**: none — this is the foundation module.
+- **Internal (undeclared)**: `Task.get_repository()` (`domain/task.py`, ~line 709) lazily imports `rv_coverage.parser.log.logcat_parser.parse_logcat_file` when it re-parses a persisted logcat. rv-coverage depends on this module, so the import is a cycle the `pyproject.toml` does not show; no `src/` caller invokes `get_repository()` (rv-platform rebuilds repositories itself in `ResultProcessorComponent`).
+- **External** (`pyproject.toml`): `pydantic>=2.9.0`, `androguard==3.4.0a1` (APK metadata), `psutil>=7.0.0` (process mgmt), `networkx>=3.5` (WTG graphs), `ijson>=3.3.0` (streaming document reader; needs the `yajl2_c` backend).
+- **Depended on by**: every production workspace module, directly or (rv-instrumentation, through rv-instrumentation-core) transitively.
+
+## Development
+
+```bash
+# From rv-android root
+uv run pytest modules/rv-android-core/tests/ --import-mode=importlib -o "addopts=" -v
+```
+
+Tests mirror `src/` (`tests/analysis/`, `commands/`, `domain/`, `tools/`, `util/`), plus `tests/unit/` (emulator boot gate and retry) and the top-level `test_constants_registry.py` / `test_top_level_configs_strict.py`.
