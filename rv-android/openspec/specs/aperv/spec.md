@@ -90,6 +90,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - `RVToolTimeoutError` -- raised when execution exceeds `task.config.timeout + 45` seconds (expected normal exit for exploration tools)
 - `SystemExit(2)` -- the offline clock-to-violation join utility on usage error (missing or unreadable run directory)
 - Provenance query failures are non-fatal: the run proceeds and the provenance fields record the failure rather than a fabricated value (INV-APV-33)
+- Streaming-read failure -- an unreadable, non-UTF-8, unparseable or truncated full JSON fails in the streaming read of `_derive_mop_artifact` on a cache miss and is raised as `RVToolExecutionError` before `derive()` is reached (INV-APV-64)
 
 ## Invariants
 
@@ -269,6 +270,7 @@ which the sibling `ape` change already references by number.
 - **INV-APV-61**: `RunStart` SHALL carry every top-level member of the `RUN_START` record the jar emits, with `build` as a nested `(sha, time)` value; a member absent on the wire SHALL be reported absent, never defaulted. No consumer in `aperv_tool` SHALL parse `RUN_START` other than through `TraceReader`.
 - **INV-APV-62**: `TraceReader` SHALL check `RUN_START.v` against the format version it was written for; a mismatch SHALL be surfaced in `TraceDiagnostics` and SHALL raise `SchemaVersionMismatch` when the reader is opened in strict mode. A trace with no `RUN_START` reports the version as unknown (INV-APV-51 applies).
 - **INV-APV-63**: The heartbeat placement rule SHALL exist once, in `clock_logcat_join.place_on_timeline(stamp, heartbeats)`, and SHALL be tag-agnostic; the tag admitted is a parameter of the line reader, not of the placement.
+- **INV-APV-64**: On a cache miss `_derive_mop_artifact` SHALL read the document in streaming and SHALL keep, of each method's `targetDistances`, after taking the minimum per target, only the pairs at `d ≤ DIST_WEIGHED_MAX` and the `DIST_K` nearest by `(d, i)`. The serialized artifact SHALL be byte-identical to `serialize_canonical(derive(json.load(document)))` of the same file.
 
 ## Requirements
 
@@ -1263,14 +1265,21 @@ task's APK, generating it when needed:
 2. When `<results_dir>/<apk_name>.mop.json` exists, its `source.digest` equals `"sha256:" + <hex>`
    **and** its `formatVersion` equals `derive_mop_artifact.FORMAT_VERSION`, reuse it without
    regenerating and without parsing the full JSON.
-3. Otherwise parse the full JSON from the file as UTF-8, call `derive()` + `serialize_canonical()`,
+3. Otherwise read the full JSON in streaming as UTF-8, reducing each method's `targetDistances` to the
+   pairs the artifact can carry (INV-APV-64), call `derive()` + `serialize_canonical()` on the result,
    and write the artifact atomically (write-temp-then-rename in the same directory). A failed
    derivation SHALL write nothing.
 
-The method SHALL NOT hold the file's bytes across the parse and the derivation. A gh120 document is
-large: the host's peak memory measured about 4.1 times the file size, so 36.4 GB for the largest
-round-A document (8.9 GB). The digest and the parse therefore each read the file on their own, and a
-cache hit never parses.
+The method SHALL NOT hold the file's text, nor any `targetDistances` pair that cannot reach the
+artifact. A gh120 document is large — up to 9.34 GB in the Study 03 corpus — and a whole-document
+parse peaked at 3.1 times the file size (gh122 task 7.7). The digest and the streaming read each read
+the file on their own, and a cache hit never parses.
+
+The reduction is exact, not an approximation. `derive()` merges distances by the minimum per target
+and cuts only at emission: every pair at `d ≤ DIST_WEIGHED_MAX` for a widget or handler, the
+`DIST_K` nearest by `(d, i)` for an activity (INV-DRV-10). A pair dropped by the reduction is beyond
+`DIST_WEIGHED_MAX` and has at least `DIST_K` targets ahead of it in its own method; after any merge
+those targets are still ahead of it, so it can be in no emitted list.
 
 The artifact is cached next to its source so it is inspectable and diffable, and it is a pure function
 of the full JSON and the generator's format (INV-APV-47, INV-DRV-05). The format is part of the cache
@@ -1281,8 +1290,9 @@ which is deleted together with its fallback-to-source push: there is no longer a
 which the full JSON reaches the device (INV-APV-46).
 
 Derivation failure means the document is structurally unusable, not that the analysis stopped early.
-An unreadable, non-UTF-8 or unparseable file fails here, in the parse, before `derive()` is reached; a
-well-formed document that lacks the WTG stage does not fail at all (INV-DRV-08).
+An unreadable, non-UTF-8, unparseable or truncated file fails here, in the streaming read, before
+`derive()` is reached; a well-formed document that lacks the WTG stage does not fail at all
+(INV-DRV-08).
 
 #### Scenario: cache hit skips derivation
 - **WHEN** `<results_dir>/com.example_1.apk.mop.json` exists carrying
@@ -1317,6 +1327,17 @@ well-formed document that lacks the WTG stage does not fail at all (INV-DRV-08).
   `FORMAT_VERSION` is 2
 - **THEN** `derive()` SHALL be called and the artifact overwritten
 - **AND** the pushed artifact SHALL carry `formatVersion: 2`
+
+#### Scenario: the streaming derivation is byte-identical to the whole-document one
+- **WHEN** the artifact of `cryptoapp.apk.json`, and of each of `org.wikipedia_50595`,
+  `at.techbee.jtx_216000015` and three smaller Study 03 documents, is derived once by streaming and
+  once by `derive(json.load(...))`
+- **THEN** the two serialized artifacts SHALL be byte-identical for every document
+
+#### Scenario: the largest corpus document derives inside a campaign container
+- **WHEN** `_derive_mop_artifact` derives `eu.darken.sdmse_10705000.apk.json` (9.34 GB) on a cache miss
+- **THEN** the process's peak resident memory SHALL stay below 3 GiB
+- **AND** the artifact SHALL be written
 
 ---
 

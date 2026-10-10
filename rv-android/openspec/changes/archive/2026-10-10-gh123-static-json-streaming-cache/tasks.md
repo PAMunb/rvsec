@@ -53,14 +53,14 @@
 ## 6. Image and smoke (gate before review)
 
 - [x] 6.1 Read the gates of the first `e03mini-smoke` run on its three finished containers (jtx, saucenao, vault) and record them in `docs/20261009_e03mini-smoke.md` before any cleanup; then remove its containers and move its results aside (`data/results/e03mini-smoke_*` → `data/results/e03mini-smoke-run1/`)
-- [ ] 6.2 With the author's go-ahead: commit (`refs #123`) and push `modules`; rebuild `phtcosta/rvandroid:0.9.5` (`docker/rvandroid/build.sh`) and confirm inside the image that `rv_android_core/util/analysis_document.py` is present and `ijson.backend == "yajl2_c"`
-- [ ] 6.3 Re-run `docker/docker-compose.e03mini-smoke.yml` (same 5 APKs × 4 arms, 10 GiB, `restart: "no"`) with the memory sampler `data/e03mini-smoke_mem/sample_mem.sh`
-- [ ] 6.4 Gates: 20/20 COMPLETED with `execution_time_seconds ≥ 295`; no `OOMKilled`; one `.static.json` per APK and the copy skipped from the second task on (log); `.mop.json` format 2 with `targets > 0`; `dec.mopd` only in `mopd_on_llm_off`; `RVSEC-OCC`/`RVSEC-BIND` present; 0 `VerifyError`; peak container memory per APK from `mem.tsv`. Record in `docs/20261009_e03mini-smoke.md`
+- [x] 6.2 With the author's go-ahead: commit (`refs #123`) and push `modules`; rebuild `phtcosta/rvandroid:0.9.5` (`docker/rvandroid/build.sh`) and confirm inside the image that `rv_android_core/util/analysis_document.py` is present and `ijson.backend == "yajl2_c"`
+- [x] 6.3 Re-run `docker/docker-compose.e03mini-smoke.yml` (same 5 APKs × 4 arms, 10 GiB, `restart: "no"`) with the memory sampler `data/e03mini-smoke_mem/sample_mem.sh`
+- [x] 6.4 Gates: 20/20 COMPLETED with `execution_time_seconds ≥ 295`; no `OOMKilled`; one `.static.json` per APK and the copy skipped from the second task on (log); `.mop.json` format 2 with `targets > 0`; `dec.mopd` only in `mopd_on_llm_off`; `RVSEC-OCC`/`RVSEC-BIND` present; 0 `VerifyError`; peak container memory per APK from `mem.tsv`. Record in `docs/20261009_e03mini-smoke.md`
 
 ## 7. Lint, verification, review and docs
 
-- [ ] 7.1 Run `/rv-qa-lint-fix rv-android-core`, `/rv-qa-lint-fix rv-static-analysis`, `/rv-qa-lint-fix aperv-tool`, `/rv-qa-lint-fix rv-platform`
-- [ ] 7.2 Run `/rv-verify` on the same four modules
-- [ ] 7.3 Invoke `/rv-code-reviewer` via Skill tool
-- [ ] 7.4 Run `/rv-docs-sync rv-static-analysis` and `/rv-docs-sync aperv-tool`
-- [ ] 7.5 Check off the acceptance criteria in the body of #123 (`gh issue view` → edit a copy → `test -s` → `gh issue edit --body-file`)
+- [x] 7.1 Run `/rv-qa-lint-fix rv-android-core`, `/rv-qa-lint-fix rv-static-analysis`, `/rv-qa-lint-fix aperv-tool`, `/rv-qa-lint-fix rv-platform`
+- [x] 7.2 Run `/rv-verify` on the same four modules
+- [x] 7.3 Invoke `/rv-code-reviewer` via Skill tool
+- [x] 7.4 Run `/rv-docs-sync rv-static-analysis` and `/rv-docs-sync aperv-tool`
+- [x] 7.5 Check off the acceptance criteria in the body of #123 (`gh issue view` → edit a copy → `test -s` → `gh issue edit --body-file`)

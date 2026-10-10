@@ -24,8 +24,8 @@ The device-side consumer is touched in one sentence only: the derivation of the 
 
 ## Invariants
 
-- **INV-ANA-80**: `StaticAnalysisParser` SHALL read the analysis document as a stream of JSON events and SHALL NOT hold the file's text, nor any `targetDistances` or `distanceTargets` value, in memory. For every well-formed document the returned `StaticAnalysisData` SHALL equal the one produced by `json.loads` of the same file followed by today's section parsers.
-- **INV-ANA-81**: When the document ends before its root object closes, the parser SHALL keep every top-level member whose value was read in full and SHALL drop the member being read when the input ended; `complete` SHALL be `False` unless the `complete` member itself was read. The recovery SHALL stay behind the `_recover_truncated_json` entry point.
+- **INV-ANA-80**: `StaticAnalysisParser` SHALL read the analysis document as a stream of JSON events and SHALL NOT hold the file's text, nor any `targetDistances` or `distanceTargets` value, in memory. For every well-formed document the returned `StaticAnalysisData` SHALL equal the one produced by `json.loads` of the same file followed by today's section parsers. Two inputs GATOR does not write are read as yajl reads them, not as `json.loads` does: a lone surrogate escape (`"\ud800"`) becomes `?` with no truncation reported, and an integer beyond 64 bits or a number beyond double range ends the read as a truncation (INV-ANA-81).
+- **INV-ANA-81**: When the document ends before its root object closes, the parser SHALL keep every top-level member whose value was read in full and SHALL drop the member being read when the input ended; `complete` SHALL be `False` unless the `complete` member itself was read. A top-level number is kept only when a byte after it proves it ended; the check reads the file's last byte, so when the read stops earlier on bytes that are not JSON, a complete top-level number just before them is dropped too. The recovery SHALL stay behind the `_recover_truncated_json` entry point.
 - **INV-ANA-82**: `read_static_analysis_files(results_dir, apk)` SHALL reuse `<apk_name>.static.json` only when its recorded `source.digest` equals `"sha256:" +` the SHA-256 of the current `<apk_name>.json`. Any other state — absent, unreadable, unparseable, another digest — SHALL be a cache miss that re-reads the source and rewrites the copy.
 - **INV-ANA-83**: Parsing `<apk_name>.static.json` SHALL yield a `StaticAnalysisData` equal to the one parsed from its source. The copy SHALL be written only from a source read without truncation, so a truncated source is re-read on every call.
 - **INV-ANA-84**: The parsed copy is read only by `rv-static-analysis`. No module SHALL open a `*.static.json` except through `static_analysis_parser`, and the copy SHALL never be pushed to a device.
@@ -50,7 +50,7 @@ A document that ends before its root object closes — the producer killed durin
 
 #### Scenario: a document truncated inside `transitions` keeps the earlier sections
 - **WHEN** the file ends inside the 12th element of `transitions`, after `reachability` and `windows` were written in full
-- **THEN** `classes` and `windows` SHALL be populated as from the complete document
+- **THEN** `classes` SHALL be populated as from the complete document, and `windows` as from the document without `transitions` (parsing `transitions` back-fills widgets into `windows`)
 - **AND** `wtg` SHALL be empty and `complete` SHALL be `False`
 - **AND** no exception SHALL reach the caller
 

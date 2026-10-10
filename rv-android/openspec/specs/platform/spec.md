@@ -125,6 +125,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - `APK files: List[Path]` -- APK files discovered in `config.apks_dir` via `glob("*.apk")`, sorted alphabetically
 - `Static analysis files: *.reach, *.wtg, *.gesda` -- Optional files co-located with APKs or in `apks_dir`, copied to task results directory before loading (source: rv-static-analysis pre-processing)
 - `LogcatManager.default_tags: List[str]` -- `[RVSEC, RVSEC-COV, ApeRvHb, RVSEC-OCC, RVSEC-BIND]`, passed through to `LogcatManager.start_capture` without filtering, reordering or subsetting (core INV-CORE-53, INV-PLT-21)
+- `<apks_dir>/<apk_name>.json`, `<apks_dir>/<apk_name>.methods` -- optional files co-located with the APK, copied by `StaticAnalysisComponent.copy_static_analysis_files` (source: the static-analysis pre-processing, or a corpus that ships them)
 
 ### Output
 
@@ -136,6 +137,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - `tasks.json` -- Persistent task state with experiment metadata and statistics for experiment continuation
 - `Dict[str, Any]` -- Execution summary returned from `Platform.run()` containing `total_tasks`, `successful_tasks`, `failed_tasks`, `success_rate`, `total_execution_time`, `average_execution_time`, and per-task `results` list
 - Baseline capture command: `adb -s <serial> logcat -v threadtime -s RVSEC:V RVSEC-COV:V ApeRvHb:V RVSEC-OCC:V RVSEC-BIND:V` (INV-PLT-21, core INV-CORE-37); destination: `task.result.logcat_file`
+- `<results>/<apk_name>/<apk_name>.json`, `.methods` -- copies carrying the source's modification time (destination: `read_static_analysis_files`, `aperv-tool` derive, resume, result processing; INV-PLT-39)
 
 ### Side-Effects
 
@@ -145,6 +147,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **File System**: Creates results directory, writes CSV/JSON output files, copies static analysis files from APK directory to task results directory, creates temporary files during atomic save (`.tmp` suffix)
 - **PerformanceMonitor**: Records timing metrics for task execution, component execution, and environment setup
 - **Task result**: a failure while writing a task's rows to `errors.csv` or while extracting a task's data for `results.json` increments an error count on that task's result and is logged at ERROR level with the task id and the number of rows not written (INV-PLT-32)
+- **File System (static-analysis copy)**: a co-located `.json`/`.methods` is copied only when the destination is absent or differs from the source in size or `st_mtime_ns` (INV-PLT-39)
 
 ### Error
 
@@ -229,6 +232,7 @@ ExperimentStatistics (Pydantic BaseValidatedModel):
 - **INV-PLT-37**: The consistency between `summary.csv` and `coverage.csv` is directional — when a task has **no denominator**, its `coverage.csv` per-method rows number zero **and** its `summary.csv` coverage cells are empty with `measured=false`; when a task has a denominator and covered nothing, its rows number zero **and** its cells read `0.00` with `measured=true`. Any consistency check (such as `verify.py` C3 in `scripts/regenerate_results/`) MUST check this directional form. INV-PLT-17 is a different rule — `cov_class` holds `class_coverage` — and keeps its number.
 - **INV-PLT-32**: A failure to write a task's violation rows (`errors.csv`) or to extract a task's violation data (`results.json`) MUST be counted into that task's result and logged at ERROR level with the number of rows lost. It MUST NOT be swallowed as a WARNING that leaves the file silently short, and the writer MUST NOT re-key the record: `unique_msg` MUST be read from the domain object, never assembled in the writer (core INV-CORE-25).
 - **INV-PLT-38**: A task's `repository` and `static_data` MUST be `None` (a) once `Platform` has stored the finished task in `TaskStorage`, and (b) once `ResultProcessorComponent` has written that task's rows and extracted its `results.json` entry. No reader of a finished task MAY depend on either field being populated.
+- **INV-PLT-39**: `copy_static_analysis_files` SHALL copy with `shutil.copy2` and SHALL skip a file whose destination exists with the same size in bytes and the same `st_mtime_ns` as the source. A skipped file SHALL count as copied for the method's return value.
 ## Requirements
 ### Requirement: Android Emulator Management (FR07, NFR04, NFR07)
 
@@ -1049,3 +1053,28 @@ The column is live, not merely published: task 8.3 makes those consumers filter 
 - **THEN** `df["cov_method"].mean()` MUST be understood as the mean of the 28 measured rows
 - **AND** `df["measured"].sum() == 28` MUST make that denominator readable from the same file, so `scripts/verify_phase.py` and `scripts/aperv_objective.py` can refuse or qualify the comparison instead of averaging silently over a changed base
 
+### Requirement: The Static-Analysis Copy Is Skipped When the Destination Is Identical (NFR04)
+
+`StaticAnalysisComponent.copy_static_analysis_files` SHALL, for each co-located extension (`.methods`, `.json`):
+
+1. leave the file alone when the source does not exist (unchanged);
+2. skip the copy when the destination exists and has the same size and the same `st_mtime_ns` as the source, logging the skip at debug level;
+3. otherwise copy it with `shutil.copy2`, which carries the modification time over (INV-PLT-39).
+
+Size and modification time are the comparison because the copy is local and its source is a read-only corpus: a file that changes in place keeps neither, and hashing a 9 GB document only to decide whether to copy it would cost as much as copying it. Whether the *content* is current is decided later, by the digest that keys the parsed copy and the MOP artifact (INV-ANA-82, INV-APV-47).
+
+#### Scenario: the second task of an APK does not copy its document again
+- **WHEN** the first task of `eu.darken.sdmse_10705000.apk` has copied its 9.34 GB document to `results/e03mini_02/eu.darken.sdmse_10705000.apk/`
+- **AND** the second task of the same APK runs `copy_static_analysis_files`
+- **THEN** the document SHALL NOT be copied again
+- **AND** the method SHALL return `True`
+
+#### Scenario: a replaced source is copied again
+- **WHEN** the destination exists but the source in `apks_dir` has a different size or modification time
+- **THEN** the source SHALL be copied over it with `shutil.copy2`
+- **AND** the destination's `st_mtime_ns` SHALL equal the source's afterwards
+
+#### Scenario: a first copy preserves the modification time
+- **WHEN** no destination exists
+- **THEN** the copy SHALL be made with `shutil.copy2`
+- **AND** the destination's size and `st_mtime_ns` SHALL equal the source's

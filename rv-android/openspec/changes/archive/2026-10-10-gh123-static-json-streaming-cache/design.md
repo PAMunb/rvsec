@@ -48,7 +48,7 @@ read_static_analysis_files                    _derive_mop_artifact (aperv)     R
 | Requirement / Invariant | Implementation | Test |
 |---|---|---|
 | analysis: Streaming Read of the Analysis Document; INV-ANA-80 | `analysis_document.read_analysis_document`, `StaticAnalysisParser._load_json` | `rv-android-core/tests/util/test_analysis_document.py::test_equals_json_loads_*`; `rv-static-analysis/tests/parser/static/test_static_analysis_parser.py::TestStreamingEquivalence` |
-| INV-ANA-81 (truncation) | `read_analysis_document` truncation report; `_recover_truncated_json` | `TestTruncatedJSON` (updated), `test_analysis_document.py::test_truncated_*` |
+| INV-ANA-81 (truncation) | `read_analysis_document` truncation report; `_recover_truncated_json` | `TestTruncatedJSON` (updated), `test_analysis_document.py::test_truncation_*` |
 | analysis: Parsed-Document Cache; INV-ANA-82, -83 | `read_static_analysis_files`, `_write_parsed_copy` | `test_static_analysis_parser.py::TestParsedCopyCache` |
 | INV-ANA-84 (copy read only by the parser) | audit test | `rv-static-analysis/tests/test_static_copy_audit.py` |
 | analysis: Full JSON Remains the Sole Metric Input (modified) | unchanged callers | `rv-platform/tests/components/test_result_processor.py::test_csv_identical_with_and_without_parsed_copy` |
@@ -92,7 +92,7 @@ read_static_analysis_files                    _derive_mop_artifact (aperv)     R
 
 - **Pre:** `path` names a readable file.
 - **Post:** returns the root object as a dict whose members are built exactly as `json.loads` would build them, except `distanceTargets` (absent under `DROP`) and every `reachability[].methods[].targetDistances` (absent under `DROP`, reduced under `reduce`), and a flag that is `True` iff the input ended before the root object closed. Under truncation the dict holds only the top-level members whose closing event was read.
-- **Errors:** `OSError` from opening; `ValueError` when the document's root is not an object or the bytes are not JSON before any member completes (the parser maps this to `None` → empty model; the derive to `RVToolExecutionError`).
+- **Errors:** `OSError` from opening; `ValueError` when the file is empty, its first token is not JSON, or its root is not an object (the parser maps this to `None` → empty model; the derive to `RVToolExecutionError`). Bytes that stop being JSON after the root opened are a truncation: `({}, True)`, or the members completed before them; downstream the outcome is the same (empty or partial model, no copy written, the derive refuses).
 
 ### `PairPolicy`
 
@@ -136,7 +136,7 @@ Signature unchanged. Adds the cache lookup and write of `<results_dir>/<apk><EXT
 - [The event loop is slower than C `items` per byte (84 vs 161 MB/s)] → paid once per APK per container (D4); sdmse ≈ 2 min against a 300 s task budget that does not include it (it runs before the tool starts, in the task's setup).
 - [Two SHA-256 per MOP task (parser cache and `.mop.json`)] → disk-speed, page-cached after the first task; sharing them is a non-goal to keep the two caches independent.
 - [The reduced pair count for very dense apps] → counted on 2026-10-09 with `ijson.items` over `reachability` (per-target minimum, then `d ≤ 3` ∪ 3 nearest): jtx keeps 395,630 of 30,922,867 pairs (1.3 %), wikipedia 450,621 of 32,828,700 (1.4 %), sdmse 3,848,622 of 143,185,999 (2.7 %; the `items` pass took 153 s). Even sdmse's kept pairs are a few hundred MB as Python lists; task 5.2 measures the real peaks and the scenario thresholds follow the measurement.
-- [Equality of the streamed dict with `json.loads` on numeric edge cases] → the builder uses `ijson`'s `use_float=True` so integers stay `int` and non-integers are `float`, as `json.loads` returns; the equivalence tests compare the dicts directly.
+- [Equality of the streamed dict with `json.loads` on numeric edge cases] → the builder uses `ijson`'s `use_float=True` so integers stay `int` and non-integers are `float`, as `json.loads` returns; the equivalence tests compare the dicts directly. Where yajl and `json.loads` disagree the reader follows yajl, measured on 2026-10-10: a lone surrogate escape (`"\ud800"`) becomes `?` with no truncation reported, and an integer beyond 64 bits or a number beyond double range ends the read as a truncation. GATOR writes neither; the module docstring states both.
 
 ## Testing Strategy
 
