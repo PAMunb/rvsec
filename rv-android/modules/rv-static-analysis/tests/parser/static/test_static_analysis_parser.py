@@ -3,13 +3,19 @@
 import json
 import os
 import pathlib
+import shutil
+from unittest.mock import MagicMock
 
 import pytest
+from rv_android_core.constants import EXTENSION_PARSED_COPY, EXTENSION_STATIC_ANALYSIS
 from rv_android_core.domain.classes import Classes
 from rv_android_core.domain.static import StaticAnalysisData
 from rv_android_core.domain.widget import WidgetEventType
 from rv_android_core.domain.window import Windows, WindowType
 from rv_android_core.domain.wtg import WindowTransitionGraph
+from rv_android_core.util.analysis_document import digest_of_file
+
+import rv_static_analysis.parser.static.static_analysis_parser as parser_module
 from rv_static_analysis.parser.static.static_analysis_parser import (
     StaticAnalysisParser,
     parse_file,
@@ -770,8 +776,102 @@ class TestTransitionsWithUnknownWindows:
 # --- Truncated JSON from timeout ---
 
 
+def _members_before(document: dict, key: str) -> str:
+    """Serialize the members of `document` that precede `key`, then open `key`.
+
+    The text is what a producer killed while writing `key` leaves on disk: every
+    earlier member in full, a separator, and the name of the member in progress.
+    """
+    keys = list(document)
+    head = {name: document[name] for name in keys[: keys.index(key)]}
+    opening = json.dumps(head)[:-1] + ", " if head else "{"
+    return opening + json.dumps(key) + ": "
+
+
+def _cut_inside_array(document: dict, key: str, index: int, chars: int) -> str:
+    """Text cut `chars` characters into element `index` of the array member `key`."""
+    items = document[key]
+    written = "".join(json.dumps(item) + ", " for item in items[:index])
+    return _members_before(document, key) + "[" + written + json.dumps(items[index])[:chars]
+
+
+def _write_text(tmp_path, text, filename="truncated.json"):
+    """Write raw text to a temp file and return its path."""
+    path = os.path.join(str(tmp_path), filename)
+    with open(path, "w") as f:
+        f.write(text)
+    return path
+
+
+def _load_fixture(path=CRYPTOAPP_FIXTURE) -> dict:
+    with open(path) as f:
+        return json.load(f)
+
+
+def _model_snapshot(data: StaticAnalysisData) -> dict:
+    """Everything a consumer can read from a model, in a comparable form.
+
+    Pydantic equality is not enough here: `Method` and `Widget` override `__eq__`
+    to compare one identifying field, so two models differing in a reachability
+    flag or a widget's text would compare equal. The dump compares every field;
+    the graph edges and each transition's `target_reaches_target` (computed from
+    a private index the dump leaves out) are added beside it.
+    """
+    snapshot = data.model_dump(mode="json")
+    snapshot["wtg"]["window_ids"] = sorted(snapshot["wtg"]["window_ids"])
+    snapshot["wtg_edges"] = sorted(
+        (
+            source,
+            target,
+            [
+                (
+                    event.widget_id,
+                    event.event_type.name,
+                    event.method,
+                    event.target_window_class,
+                    event.target_reaches_target,
+                )
+                for event in attributes["events"]
+            ],
+        )
+        for source, target, attributes in data.wtg.graph.edges(data=True)
+    )
+    return snapshot
+
+
 class TestTruncatedJSON:
-    """Tests for truncated JSON recovery (timeout scenarios)."""
+    """Recovery of a document cut by a producer killed mid-write (INV-ANA-81).
+
+    Every top-level member read in full is kept; the member being written when
+    the input ended, and everything after it, are dropped; `complete` is False
+    unless the `complete` member itself was read.
+
+    Outcomes against the bracket repair this recovery supersedes, which closed
+    the root object at the last `]` of the text:
+
+    - The two cases this class held before keep their outcome.
+      `test_truncated_after_reachability` cuts inside `windows` of a document
+      whose last `]` closes `reachability`, so the repair recovered
+      `reachability` too — the test only asserted that nothing crashed, and now
+      pins the recovered sections. `test_completely_invalid_json` is an empty
+      model under both.
+    - A cut inside the 12th element of `transitions`, inside `windows`, or
+      inside the `components` object returned an empty model under the repair:
+      the last `]` closed a nested list (an `events`, `widgets` or
+      `intentFilters` array), so the repaired text was still invalid and every
+      section was lost. The sections written before the cut are now kept.
+    - A document missing only its closing `}` was repaired at the `]` of
+      `transitions`, which dropped the `complete: true` written after it, so it
+      read as incomplete. The `complete` member was read in full, so `complete`
+      is now True.
+    - A cut inside the first `reachability` entry is an empty model for
+      `classes`, `windows` and `wtg` under both; the members written before
+      `reachability` (here `components`) are now kept.
+    - A JSON array at the root (`test_non_object_root`) parsed under
+      `json.loads` and then raised `AttributeError` from `parse_file`, because
+      the scalar reads call `.get` on the list. The streaming read rejects a
+      non-object root as not a document, so the result is the empty model.
+    """
 
     def test_truncated_after_reachability(self, parser, tmp_path):
         """JSON truncated mid-windows section still parses reachability."""
@@ -804,31 +904,418 @@ class TestTruncatedJSON:
             ],
         }
         content = json.dumps(full_data)
-        # Truncate mid-way through windows section
-        # Find the end of reachability array
+        # Cut 30 characters after the start of the windows member.
         reach_end = content.find('"windows"')
-        truncated = content[: reach_end + 30]  # Cut in middle of windows
-
-        path = os.path.join(str(tmp_path), "truncated.json")
-        with open(path, "w") as f:
-            f.write(truncated)
+        path = _write_text(tmp_path, content[: reach_end + 30])
 
         result = parser.parse_file(path)
-        # Recovery may or may not succeed depending on truncation point
-        # But it should NOT crash
-        assert isinstance(result, StaticAnalysisData)
+
+        assert list(result.classes.classes) == ["com.example.Main"]
+        assert len(result.classes.methods) == 1
+        assert len(result.windows.windows) == 0
+        assert result.complete is False
+
+    def test_cut_inside_twelfth_transition_keeps_earlier_sections(
+        self, parser, tmp_path
+    ):
+        """The spec scenario: `reachability` and `windows` written in full, the
+        file ends inside the 12th element of `transitions`."""
+        document = _load_fixture()
+        path = _write_text(
+            tmp_path, _cut_inside_array(document, "transitions", 11, 60)
+        )
+
+        # The reference is the complete document without the sections the cut
+        # lost: parsing `transitions` back-fills widgets into `windows`, so the
+        # windows of the whole document carry widgets the windows section alone
+        # does not.
+        written = {
+            k: v for k, v in document.items() if k not in ("transitions", "complete")
+        }
+        whole = parser.parse_file(_write_json(tmp_path, written, "written.json"))
+
+        result = parser.parse_file(path)
+
+        recovered = _model_snapshot(result)
+        expected = _model_snapshot(whole)
+        assert recovered["classes"] == expected["classes"]
+        assert recovered["windows"] == expected["windows"]
+        assert recovered["components"] == expected["components"]
+        assert len(result.wtg.transitions) == 0
+        assert result.complete is False
+
+    def test_cut_inside_windows_keeps_reachability(self, parser, tmp_path):
+        """The last `]` of this text closes a `widgets` list, not a section."""
+        document = _load_fixture()
+        path = _write_text(tmp_path, _cut_inside_array(document, "windows", 1, 100))
+
+        result = parser.parse_file(path)
+
+        assert len(result.classes.classes) == 16
+        assert len(result.classes.methods) == 106
+        assert len(result.windows.windows) == 0
+        assert len(result.wtg.transitions) == 0
+        assert result.complete is False
+
+    def test_cut_inside_components_object(self, parser, tmp_path):
+        """A section that is an object, cut inside one of its nested arrays."""
+        document = _load_fixture()
+        text = _members_before(document, "components") + json.dumps(
+            document["components"]
+        )[:300]
+        path = _write_text(tmp_path, text)
+
+        result = parser.parse_file(path)
+
+        # Only the scalar members before `components` were complete.
+        assert result.class_defs_under_key == 16
+        assert len(result.components.activities) == 0
+        assert len(result.classes.classes) == 0
+        assert result.complete is False
+
+    def test_cut_inside_first_reachability_entry(self, parser, tmp_path):
+        """The spec scenario: no complete top-level array of the model's
+        sections yields empty classes, windows and wtg."""
+        document = _load_fixture()
+        path = _write_text(
+            tmp_path, _cut_inside_array(document, "reachability", 0, 200)
+        )
+
+        result = parser.parse_file(path)
+
+        assert len(result.classes.classes) == 0
+        assert len(result.windows.windows) == 0
+        assert len(result.wtg.transitions) == 0
+        assert result.complete is False
+        # `components` precedes `reachability` in the fixture, so it was complete.
+        assert len(result.components.activities) == 4
+
+    def test_missing_final_brace_keeps_complete(self, parser, tmp_path):
+        """Every member, `complete` included, was read in full; only the root's
+        closing brace is missing."""
+        with open(CRYPTOAPP_FIXTURE) as f:
+            text = f.read().rstrip()
+        assert text.endswith("}")
+        path = _write_text(tmp_path, text[:-1])
+
+        result = parser.parse_file(path)
+
+        assert _model_snapshot(result) == _model_snapshot(
+            parser.parse_file(CRYPTOAPP_FIXTURE)
+        )
+        assert result.complete is True
+
+    def test_recovery_goes_through_recover_truncated_json(
+        self, parser, tmp_path
+    ):
+        """INV-ANA-81 keeps the entry point's name; the recovery is logged."""
+        document = _load_fixture()
+        path = _write_text(
+            tmp_path, _cut_inside_array(document, "transitions", 11, 60)
+        )
+        parser.logger = MagicMock()
+        recover = MagicMock(wraps=parser._recover_truncated_json)
+        parser._recover_truncated_json = recover
+
+        parser.parse_file(path)
+
+        recover.assert_called_once()
+        warnings = " ".join(str(c) for c in parser.logger.warning.call_args_list)
+        assert path in warnings
+        infos = " ".join(str(c) for c in parser.logger.info.call_args_list)
+        # package, mainActivity, codePackage, codePackageSource,
+        # class_defs_under_key, components, reachability, windows; the dropped
+        # distanceTargets is not counted.
+        assert "kept 8 " in infos
 
     def test_completely_invalid_json(self, parser, tmp_path):
         """Completely invalid JSON returns empty data."""
-        path = os.path.join(str(tmp_path), "invalid.json")
-        with open(path, "w") as f:
-            f.write("this is not json at all")
+        path = _write_text(tmp_path, "this is not json at all", "invalid.json")
 
         result = parser.parse_file(path)
         assert isinstance(result, StaticAnalysisData)
         assert len(result.classes.classes) == 0
         assert len(result.windows.windows) == 0
         assert len(result.wtg.transitions) == 0
+
+    def test_empty_file(self, parser, tmp_path):
+        """A file with no bytes is not a document: empty model, no exception."""
+        path = _write_text(tmp_path, "", "empty.json")
+
+        result = parser.parse_file(path)
+
+        assert len(result.classes.classes) == 0
+        assert result.complete is False
+
+    def test_non_object_root(self, parser, tmp_path):
+        """A JSON array at the root is not an analysis document."""
+        path = _write_text(tmp_path, "[1, 2, 3]", "array.json")
+
+        result = parser.parse_file(path)
+
+        assert len(result.classes.classes) == 0
+        assert result.complete is False
+
+
+# --- Streaming read equals the json.loads read (INV-ANA-80) ---
+
+
+def _equivalence_documents() -> list[str]:
+    """The fixtures plus every baseline the manifest pins, without duplicates.
+
+    Baseline paths in the manifest are relative to the rv-android root.
+    """
+    rv_android_root = pathlib.Path(__file__).resolve().parents[5]
+    manifest = pathlib.Path(FIXTURE_DIR) / "baselines" / "MANIFEST.json"
+    with open(manifest) as f:
+        entries = json.load(f)["entries"]
+    paths = [CRYPTOAPP_FIXTURE, os.path.join(FIXTURE_DIR, "app.notesr_59.apk.json")]
+    paths += [str(rv_android_root / entry["baseline_json"]) for entry in entries]
+    unique: dict[str, str] = {}
+    for path in paths:
+        unique.setdefault(os.path.realpath(path), path)
+    return list(unique.values())
+
+
+class TestStreamingEquivalence:
+    """The streaming read builds the same model as `json.loads` of the file.
+
+    The reference is built the way the parser read documents before it
+    streamed them: the whole text through `json.loads`, then the parser's own
+    section methods and scalar reads. Any difference is a difference in the
+    dict the section parsers receive, which is what the streaming read must not
+    change beyond the two distance members no section parser reads.
+    """
+
+    @staticmethod
+    def _reference_model(parser, path) -> StaticAnalysisData:
+        with open(path, encoding="utf-8") as f:
+            data = json.loads(f.read())
+        classes = parser._parse_classes(data)
+        windows = parser._parse_windows(data, classes)
+        index = {
+            name: any(m.reaches_target for m in clazz.methods)
+            for name, clazz in classes.classes.items()
+        }
+        wtg = parser._parse_transitions(data, windows, index)
+        recorded_defs = data.get("class_defs_under_key")
+        return StaticAnalysisData(
+            classes,
+            windows,
+            wtg,
+            components=parser._parse_components(data),
+            complete=bool(data.get("complete", False)),
+            code_package=data.get("codePackage") or None,
+            code_package_source=data.get("codePackageSource") or None,
+            class_defs_under_key=(
+                recorded_defs
+                if isinstance(recorded_defs, int) and recorded_defs >= 0
+                else None
+            ),
+        )
+
+    @pytest.mark.parametrize(
+        "path", _equivalence_documents(), ids=lambda p: os.path.basename(p)
+    )
+    def test_model_equals_json_loads_model(self, parser, path):
+        streamed = parser.parse_file(path)
+        reference = self._reference_model(parser, path)
+
+        assert _model_snapshot(streamed) == _model_snapshot(reference)
+        assert len(streamed.classes.methods) > 0
+
+    def test_distance_members_are_not_built(self, parser):
+        """cryptoapp carries `distanceTargets` and 38 `targetDistances` lists; the
+        dict handed to the section parsers holds neither."""
+        with open(CRYPTOAPP_FIXTURE) as f:
+            raw = json.load(f)
+        assert "distanceTargets" in raw
+        assert (
+            sum(
+                "targetDistances" in m
+                for c in raw["reachability"]
+                for m in c["methods"]
+            )
+            == 38
+        )
+
+        data, truncated = parser._load_json(CRYPTOAPP_FIXTURE)
+
+        assert truncated is False
+        assert "distanceTargets" not in data
+        assert not any(
+            "targetDistances" in m for c in data["reachability"] for m in c["methods"]
+        )
+
+
+# --- Parsed copy beside the source (INV-ANA-82, -83) ---
+
+
+class TestParsedCopyCache:
+    """`read_static_analysis_files` reuses `<apk>.static.json` keyed by the
+    source's digest, and writes it only from a source read in full."""
+
+    APK = "cryptoapp.apk"
+
+    @pytest.fixture
+    def results_dir(self, tmp_path):
+        shutil.copy(CRYPTOAPP_FIXTURE, tmp_path / (self.APK + EXTENSION_STATIC_ANALYSIS))
+        return tmp_path
+
+    def _source(self, results_dir) -> pathlib.Path:
+        return results_dir / (self.APK + EXTENSION_STATIC_ANALYSIS)
+
+    def _copy(self, results_dir) -> pathlib.Path:
+        return results_dir / (self.APK + EXTENSION_PARSED_COPY)
+
+    def _load_copy(self, results_dir) -> dict:
+        with open(self._copy(results_dir)) as f:
+            return json.load(f)
+
+    def test_miss_writes_the_copy(self, parser, results_dir):
+        result = parser.read_static_analysis_files(str(results_dir), self.APK)
+
+        copy = self._load_copy(results_dir)
+        assert copy["source"] == {
+            "digest": digest_of_file(str(self._source(results_dir))),
+            "generator": "rv-static-analysis/1",
+        }
+        assert "distanceTargets" not in copy
+        assert not any(
+            "targetDistances" in m for c in copy["reachability"] for m in c["methods"]
+        )
+        assert _model_snapshot(result) == _model_snapshot(
+            parser.parse_file(CRYPTOAPP_FIXTURE)
+        )
+        # Nothing but the copy is left beside the source.
+        assert sorted(p.name for p in results_dir.iterdir()) == sorted(
+            [self._source(results_dir).name, self._copy(results_dir).name]
+        )
+
+    def test_hit_reads_the_copy_and_not_the_source(
+        self, parser, results_dir, monkeypatch
+    ):
+        """The spec scenario: the second read of an unchanged source parses the
+        copy and reads the source only to digest it."""
+        first = parser.read_static_analysis_files(str(results_dir), self.APK)
+
+        def no_stream(*_args, **_kwargs):
+            raise AssertionError("the source was streamed on a cache hit")
+
+        monkeypatch.setattr(parser_module, "read_analysis_document", no_stream)
+        second = parser.read_static_analysis_files(str(results_dir), self.APK)
+
+        assert _model_snapshot(second) == _model_snapshot(first)
+
+    def test_hit_answers_from_the_copy_contents(self, parser, results_dir):
+        """A copy whose digest matches is believed: its contents, not the
+        source's, make the model."""
+        parser.read_static_analysis_files(str(results_dir), self.APK)
+        copy = self._load_copy(results_dir)
+        copy["reachability"] = copy["reachability"][:1]
+        self._copy(results_dir).write_text(json.dumps(copy))
+
+        result = parser.read_static_analysis_files(str(results_dir), self.APK)
+
+        assert len(result.classes.classes) == 1
+
+    def test_stale_digest_regenerates_the_copy(self, parser, results_dir):
+        """The spec scenario: the source changed under the same name."""
+        parser.read_static_analysis_files(str(results_dir), self.APK)
+        old_digest = self._load_copy(results_dir)["source"]["digest"]
+
+        document = _load_fixture()
+        document["reachability"] = document["reachability"][:2]
+        self._source(results_dir).write_text(json.dumps(document))
+        new_digest = digest_of_file(str(self._source(results_dir)))
+
+        result = parser.read_static_analysis_files(str(results_dir), self.APK)
+
+        assert new_digest != old_digest
+        assert self._load_copy(results_dir)["source"]["digest"] == new_digest
+        assert len(result.classes.classes) == 2
+
+    @pytest.mark.parametrize(
+        "contents",
+        ["{not json", "", "[]", '{"reachability": []}', '{"source": "sha256:x"}'],
+        ids=["unparseable", "empty", "array", "no-source", "source-not-object"],
+    )
+    def test_unusable_copy_is_a_miss_and_is_rewritten(
+        self, parser, results_dir, contents
+    ):
+        self._copy(results_dir).write_text(contents)
+
+        result = parser.read_static_analysis_files(str(results_dir), self.APK)
+
+        assert len(result.classes.classes) == 16
+        assert self._load_copy(results_dir)["source"]["digest"] == digest_of_file(
+            str(self._source(results_dir))
+        )
+
+    def test_truncated_source_is_not_cached(self, parser, results_dir):
+        """The spec scenario: the recovered model is returned and no copy is
+        written, so a later complete document is not shadowed by a recovery."""
+        document = _load_fixture()
+        self._source(results_dir).write_text(
+            _cut_inside_array(document, "transitions", 11, 60)
+        )
+
+        result = parser.read_static_analysis_files(str(results_dir), self.APK)
+
+        assert len(result.classes.classes) == 16
+        assert len(result.wtg.transitions) == 0
+        assert result.complete is False
+        assert not self._copy(results_dir).exists()
+
+    def test_missing_source_yields_empty_model_and_no_copy(self, parser, tmp_path):
+        result = parser.read_static_analysis_files(str(tmp_path), self.APK)
+
+        assert len(result.classes.classes) == 0
+        assert list(tmp_path.iterdir()) == []
+
+    @pytest.mark.skipif(
+        hasattr(os, "geteuid") and os.geteuid() == 0,
+        reason="root writes into a read-only directory",
+    )
+    def test_unwritable_directory_returns_the_model(self, parser, results_dir):
+        """The spec scenario: the temporary file cannot be created."""
+        parser.logger = MagicMock()
+        results_dir.chmod(0o555)
+        try:
+            result = parser.read_static_analysis_files(str(results_dir), self.APK)
+            names = sorted(p.name for p in results_dir.iterdir())
+        finally:
+            results_dir.chmod(0o755)
+
+        assert len(result.classes.classes) == 16
+        assert names == [self._source(results_dir).name]
+        warnings = " ".join(str(c) for c in parser.logger.warning.call_args_list)
+        assert str(self._copy(results_dir)) in warnings
+
+    def test_failed_rename_leaves_no_partial_file(
+        self, parser, results_dir, monkeypatch
+    ):
+        """A failure after the temporary file was written removes it."""
+        parser.logger = MagicMock()
+
+        def failing_replace(*_args, **_kwargs):
+            raise OSError("disk full")
+
+        monkeypatch.setattr(parser_module.os, "replace", failing_replace)
+        result = parser.read_static_analysis_files(str(results_dir), self.APK)
+
+        assert len(result.classes.classes) == 16
+        assert [p.name for p in results_dir.iterdir()] == [
+            self._source(results_dir).name
+        ]
+        warnings = " ".join(str(c) for c in parser.logger.warning.call_args_list)
+        assert str(self._copy(results_dir)) in warnings
+
+    def test_parse_file_keeps_no_cache(self, parser, results_dir):
+        """`parse_file` is the producer side's explicit-path read."""
+        parser.parse_file(str(self._source(results_dir)))
+
+        assert not self._copy(results_dir).exists()
 
 
 # --- Empty MOP specs ---

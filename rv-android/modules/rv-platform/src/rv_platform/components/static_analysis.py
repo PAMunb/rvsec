@@ -169,14 +169,24 @@ class StaticAnalysisComponent:
 
     def copy_static_analysis_files(self) -> bool:
         """
-        Copies static analysis files for current APK from APKs directory to results directory.
+        Copies the APK's static analysis files from the APKs directory to the task's results directory.
 
-        Based on the original ExecutionManager.copy_static_analysis_files method.
-        Copies files from the same directory where APKs are located to the task's results directory.
-        This ensures APKs and their static analysis files are kept together.
+        Each co-located file (``.methods``, ``.json``) is copied with
+        ``shutil.copy2``, which carries the modification time over, and is
+        skipped when the destination already exists with the source's size in
+        bytes and ``st_mtime_ns`` (INV-PLT-39). Every task of the same APK
+        shares one results directory, so without the skip each task would copy
+        the analysis document again (9.34 GB for the largest APK). Size and
+        modification time are enough to decide whether to copy because the
+        source is a read-only corpus: a file replaced there changes at least
+        one of them, and hashing a multi-gigabyte document only to decide a
+        copy costs as much as the copy. Whether the content is current is
+        decided later, by the source digest that keys the parsed copy and the
+        MOP artifact (INV-ANA-82, INV-APV-47).
 
         Returns:
-            True if at least one file was copied, False otherwise
+            True if at least one file was copied or skipped as identical,
+            False otherwise
         """
         # Static analysis files (.json, .methods) are co-located with APKs in
         # apks_dir. This is because rv-experiment's pre-processing phase generates
@@ -205,8 +215,26 @@ class StaticAnalysisComponent:
                 self.logger.debug(f"Checking file: {source_file_path}")
 
                 if os.path.exists(source_file_path):
-                    self.logger.debug(f"Copying {source_file_path} to {target_dir}")
-                    shutil.copy(source_file_path, target_dir)
+                    target_file_path = os.path.join(target_dir, file_name)
+                    source_stat = os.stat(source_file_path)
+                    target_stat = (
+                        os.stat(target_file_path)
+                        if os.path.exists(target_file_path)
+                        else None
+                    )
+                    if target_stat is not None and (
+                        target_stat.st_size,
+                        target_stat.st_mtime_ns,
+                    ) == (source_stat.st_size, source_stat.st_mtime_ns):
+                        self.logger.debug(
+                            f"Skipping copy of {source_file_path}: "
+                            f"{target_file_path} has the same size and mtime"
+                        )
+                    else:
+                        self.logger.debug(
+                            f"Copying {source_file_path} to {target_file_path}"
+                        )
+                        shutil.copy2(source_file_path, target_file_path)
                     copied_files += 1
                 else:
                     self.logger.debug(

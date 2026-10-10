@@ -15,6 +15,11 @@ import subprocess
 import sys
 
 import pytest
+from rv_android_core.util.analysis_document import (
+    PairPolicy,
+    digest_of_file,
+    read_analysis_document,
+)
 
 from aperv_tool.tools.aperv.derive_mop_artifact import (
     DIST_K,
@@ -28,7 +33,6 @@ from aperv_tool.tools.aperv.derive_mop_artifact import (
     _normalize_event_type,
     _read_pairs,
     derive,
-    digest_of_file,
     serialize_canonical,
 )
 
@@ -2369,19 +2373,6 @@ def test_provenance_digest_matches_the_input(cryptoapp, cryptoapp_bytes):
     assert cryptoapp["source"]["generator"] == "aperv-derive/2"
 
 
-def test_digest_of_file_is_the_sha256_of_the_bytes_read_in_chunks(tmp_path):
-    """
-    The digest streams the file, so a file longer than one read chunk must hash to
-    what the whole bytes hash to: a cached artifact derived before the streaming
-    read records that digest and must still match its source.
-    """
-    payload = bytes(range(256)) * 8192 + b"tail"
-    path = tmp_path / "large.apk.json"
-    path.write_bytes(payload)
-    assert len(payload) > 1 << 20
-    assert digest_of_file(str(path)) == "sha256:" + hashlib.sha256(payload).hexdigest()
-
-
 def test_serialize_canonical_is_byte_stable(cryptoapp_bytes):
     """
     Byte stability must survive a fresh process, where Python's hash randomization
@@ -2392,7 +2383,8 @@ def test_serialize_canonical_is_byte_stable(cryptoapp_bytes):
         "import json,sys;"
         "sys.path.insert(0, sys.argv[1]);"
         "from aperv_tool.tools.aperv.derive_mop_artifact import derive, "
-        "serialize_canonical, digest_of_file;"
+        "serialize_canonical;"
+        "from rv_android_core.util.analysis_document import digest_of_file;"
         "raw = open(sys.argv[2], 'rb').read();"
         "a = derive(json.loads(raw), source_file='cryptoapp.apk.json', "
         "source_digest=digest_of_file(sys.argv[2]));"
@@ -2486,3 +2478,220 @@ def test_collision_direct_outranks_transitive_resident():
         entry = artifact["widgets"]["com.example.MainActivity"]["btn_ok"]
         assert entry["hint"] == "direct"
         assert entry["mop"] == {"click": "both"}
+
+
+# ---------------------------------------------------------------------------
+# Streaming read with the pair reduction (INV-APV-64)
+# ---------------------------------------------------------------------------
+
+STREAMING_POLICY = PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K)
+
+
+def _streamed_artifact(path: str) -> bytes:
+    """The artifact bytes `_derive_mop_artifact` produces on a cache miss."""
+    document, truncated = read_analysis_document(path, STREAMING_POLICY)
+    assert not truncated
+    return serialize_canonical(
+        derive(
+            document,
+            source_file=os.path.basename(path),
+            source_digest=digest_of_file(path),
+        )
+    )
+
+
+def _whole_artifact(path: str) -> bytes:
+    """The artifact bytes of the whole-document parse the reduction must match."""
+    with open(path, encoding="utf-8") as source:
+        document = json.load(source)
+    return serialize_canonical(
+        derive(
+            document,
+            source_file=os.path.basename(path),
+            source_digest=digest_of_file(path),
+        )
+    )
+
+
+def test_streaming_byte_identical_on_cryptoapp():
+    assert _streamed_artifact(FIXTURE_PATH) == _whole_artifact(FIXTURE_PATH)
+
+
+# Pairs of the synthetic document below. The methods MainActivity's widgets and
+# its own `onCreate` reach hold no pair within DIST_WEIGHED_MAX, so its
+# `activityDist` comes entirely from pairs beyond d = 3, one target from each of
+# three methods. The third, `[11, 6]`, is the third nearest of `c()`, whose two
+# nearer targets lose the merge to `a()` and `b()`: a reduction keeping fewer than
+# DIST_K per method would lose it. Every far method also holds pairs past its own
+# three nearest, which the reduction drops.
+_FAR_A = [[0, 6], [0, 4], [1, 7], [2, 8], [3, 9], [4, 10]]
+_FAR_B = [[5, 5], [6, 9], [7, 10], [8, 11], [5, 12]]
+_FAR_C = [[0, 5], [5, 6], [11, 6], [10, 12], [12, 14]]
+_FAR_C_DUPLICATE = [[9, 8], [11, 7], [13, 15]]
+_ON_CREATE = [[12, 7], [13, 20], [14, 21], [15, 22]]
+_NEAR_D = [[13, 1], [14, 3], [15, 2], [0, 1], [1, 9], [2, 12]]
+_CLICK = [[3, 4], [4, 5], [5, 6], [6, 7]]
+# Entries `_read_pairs` skips. `[50, 0]` is out of range: if it took one of the
+# three nearest places in its method, the reduction would drop a pair the
+# derivation reads.
+_NOISE = [
+    [50, 0],
+    [1],
+    ["x", 2],
+    [True, 1],
+    [1, 2.0],
+    [-1, 2],
+    [2, -1],
+    [[1], 2],
+    {"i": 1},
+    [1, 2, 3],
+    None,
+]
+_TARGET_COUNT = 16
+_ACTIVITY_METHODS = {
+    "<A: void a()>": _FAR_A,
+    "<A: void b()>": _FAR_B,
+    "<A: void c()>": _FAR_C,
+    "<com.example.MainActivity: void onCreate(android.os.Bundle)>": _ON_CREATE,
+}
+
+
+def _far_targets_document(targets_first: bool) -> dict:
+    """A document whose activity's three nearest targets lie beyond d = 3."""
+    reachability = [
+        _reaching_class(
+            "com.example.Handlers",
+            [
+                _method("<A: void a()>", reaches=True, distances=_FAR_A + _NOISE),
+                _method("<A: void b()>", reaches=True, distances=_FAR_B),
+                _method("<A: void c()>", reaches=True, distances=_FAR_C),
+                _method("<A: void d()>", reaches=True, distances=_NOISE + _NEAR_D),
+                _method("<A: void e()>", reaches=False, distances="none"),
+                _method("<A: void f()>", reaches=False, distances={"0": 1}),
+            ],
+        ),
+        _reaching_class(
+            "com.example.MainActivity",
+            [
+                _method(
+                    "<com.example.MainActivity: void onCreate(android.os.Bundle)>",
+                    name="onCreate",
+                    reaches=True,
+                    distances=_ON_CREATE,
+                ),
+                _method(
+                    "<com.example.MainActivity: void <init>()>",
+                    name="<init>",
+                    reaches=True,
+                    distances=[[1, 0]],
+                ),
+            ],
+            component_type="activity",
+        ),
+        _reaching_class(
+            "com.example.Duplicates",
+            [_method("<A: void c()>", reaches=True, distances=_FAR_C_DUPLICATE)],
+        ),
+        _reaching_class(
+            "com.example.Click",
+            [
+                _method(
+                    "<com.example.Click: void onClick(android.view.View)>",
+                    name="onClick",
+                    reaches=True,
+                    distances=_CLICK,
+                )
+            ],
+        ),
+    ]
+    windows = [
+        _window(
+            1,
+            "com.example.MainActivity",
+            [
+                _widget("far_a", listeners=[_listener("click", "<A: void a()>")]),
+                _widget("far_b", listeners=[_listener("click", "<A: void b()>")]),
+                _widget("far_c", listeners=[_listener("long_click", "<A: void c()>")]),
+            ],
+        ),
+        _window(
+            2,
+            "com.example.OtherActivity",
+            [_widget("near_d", listeners=[_listener("click", "<A: void d()>")])],
+        ),
+    ]
+    document = {"package": "com.example", "mainActivity": "com.example.MainActivity"}
+    if targets_first:
+        document["distanceTargets"] = _distance_targets(_TARGET_COUNT)
+    document.update(reachability=reachability, windows=windows, transitions=[])
+    document["components"] = {}
+    if not targets_first:
+        document["distanceTargets"] = _distance_targets(_TARGET_COUNT)
+    document["complete"] = True
+    return document
+
+
+@pytest.mark.parametrize(
+    "targets_first", [True, False], ids=["targets-before-reachability", "targets-last"]
+)
+def test_streaming_byte_identical_when_nearest_targets_lie_beyond_the_cut(
+    tmp_path, targets_first
+):
+    """
+    The reduction keeps each method's three nearest targets, not only those within
+    DIST_WEIGHED_MAX, because an activity's three nearest after the merge can all
+    lie beyond the cut and come from different methods. GATOR writes
+    `distanceTargets` before `reachability`; the other order leaves the reader
+    without the index bound while the pairs stream past, and must still match.
+    """
+    document = _far_targets_document(targets_first)
+    path = tmp_path / "far.apk.json"
+    path.write_text(json.dumps(document, indent=2))
+
+    assert _streamed_artifact(str(path)) == _whole_artifact(str(path))
+
+    # The document exercises the case: MainActivity's three nearest are beyond
+    # d = 3, and each comes from a different method.
+    artifact = derive(document)
+    nearest = artifact["activityDist"]["com.example.MainActivity"]
+    assert nearest == [[0, 4], [5, 5], [11, 6]]
+    assert all(distance > DIST_WEIGHED_MAX for _, distance in nearest)
+    origins = [
+        {
+            signature
+            for signature, pairs in _ACTIVITY_METHODS.items()
+            if [index, distance] in pairs
+        }
+        for index, distance in nearest
+    ]
+    assert all(len(origin) == 1 for origin in origins)
+    assert len(set().union(*origins)) == len(nearest)
+
+    # A reduction to the pairs within DIST_WEIGHED_MAX alone would lose them.
+    cut = json.loads(json.dumps(document))
+    for entry in cut["reachability"]:
+        for method in entry["methods"]:
+            pairs = method.get("targetDistances")
+            if isinstance(pairs, list):
+                method["targetDistances"] = [
+                    pair
+                    for pair in pairs
+                    if isinstance(pair, list)
+                    and len(pair) == 2
+                    and isinstance(pair[1], int)
+                    and pair[1] <= DIST_WEIGHED_MAX
+                ]
+    assert derive(cut)["activityDist"] != artifact["activityDist"]
+
+    # And the reader did drop pairs: with the index bound known, each method
+    # carries only its survivors, noise and the out-of-range `[50, 0]` included.
+    if targets_first:
+        streamed, _ = read_analysis_document(str(path), STREAMING_POLICY)
+        reduced = {
+            method["signature"]: method["targetDistances"]
+            for entry in streamed["reachability"]
+            for method in entry["methods"]
+            if entry["className"] == "com.example.Handlers"
+        }
+        assert reduced["<A: void a()>"] == [[0, 4], [1, 7], [2, 8]]
+        assert reduced["<A: void d()>"] == [[0, 1], [13, 1], [15, 2], [14, 3]]

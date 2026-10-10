@@ -8,6 +8,13 @@ Components. The JSON contains four sections written in priority order
 may be missing. The parser handles partial or truncated JSON gracefully by
 returning empty domain objects for missing or corrupt sections.
 
+The document is read as a stream of JSON events, never as one string: it
+carries every app method's distance to every monitored target
+(``distanceTargets`` and ``reachability[].methods[].targetDistances``), which
+makes it 100 to 400 times larger — 2.16 GB for a 39,950-method app — and no
+section parser reads those members, so they are skipped as they stream past
+(INV-ANA-80).
+
 Identifiers cross this module untouched: the class names, window names and
 signatures a consumer sees are the ones the artefact carries. The artefact
 arrives already scoped: GATOR was invoked with ``-clientParam codePackage=<key>`` and
@@ -19,8 +26,21 @@ member is the application's whole method universe and is loaded as-is
 
 - Each section is parsed independently so a corrupt or missing section does
   not prevent recovery of the others (INV-ANA-06)
-- Truncated JSON recovery via bracket completion handles timeout scenarios
-  where the Java client flushed some sections but was killed mid-write
+- One streaming pass with ``PairPolicy.DROP`` (``rv_android_core.util.
+  analysis_document``): a document loaded whole needs several times its size
+  in memory, more than a 10 GiB campaign container has beside its emulator;
+  streamed, the distance pairs are never built
+- Truncation is recovered in the same pass (INV-ANA-81): a top-level member is
+  kept exactly when it was read in full, and the member being written when the
+  Java client was killed is dropped with everything after it — wherever the cut
+  falls, inside a nested list or object included
+- ``read_static_analysis_files`` caches the streamed dict beside the source as
+  ``<apk>.static.json``, keyed by the source's SHA-256 (INV-ANA-82): one
+  document is read once per task of its APK and once more at result
+  processing, and the copy turns every read after the first into a small
+  ``json.load``. The key is the digest, not size and mtime, so a re-analysed
+  document under the same name is never answered by the old copy; a truncated
+  source is never cached (INV-ANA-83)
 - No transformation on the consumption path (INV-ANA-67). GATOR writes
   ``SootClass.getName()``, the JVM binary name, in which a dot between two
   capitalized segments is a package boundary — so a heuristic that converts it
@@ -37,11 +57,18 @@ member is the application's whole method universe and is loaded as-is
   StaticAnalysisData domain objects for downstream consumers
 - Module-level convenience functions (parse_file, read_static_analysis_files)
   provide a singleton-based API for direct use
+- ``read_static_analysis_files`` is the run-time entry point
+  (``StaticAnalysisComponent``, ``ResultProcessorComponent``) and the only
+  reader and writer of the parsed copy (INV-ANA-84); ``parse_file`` is the
+  explicit-path read of the producer side and keeps no copy
 
 ### Key Features:
 
 - Graceful degradation: missing or corrupt sections yield empty domain objects
-- Truncated JSON recovery via bracket completion for timeout scenarios
+- Streaming read without the distance members; truncated documents keep the
+  members written in full
+- Parsed copy ``<apk>.static.json`` reused while its recorded digest matches
+  the source, written atomically (temporary file + rename)
 - ACTIVITY windows scoped by membership in reachability, because GATOR scopes
   reachability but not windows (INV-ANA-60)
 - Widget back-fill: widgets referenced in transitions but absent from windows
@@ -49,14 +76,18 @@ member is the application's whole method universe and is loaded as-is
 
 ### Integration Points:
 
-- Input: JSON files produced by RvsecAnalysisClient (GATOR)
-- Output: StaticAnalysisData (Classes, Windows, WindowTransitionGraph, Components)
-- Dependencies: rv-android-core domain models, LoggingManager
+- Input: JSON files produced by RvsecAnalysisClient (GATOR); the parsed copy
+  ``<apk>.static.json`` beside a results-directory source
+- Output: StaticAnalysisData (Classes, Windows, WindowTransitionGraph, Components);
+  the parsed copy, written on a cache miss
+- Dependencies: rv-android-core domain models, ``analysis_document``
+  (streaming reader, digest), LoggingManager
 """
 
 import json
 import os
 import re
+import tempfile
 from types import SimpleNamespace
 
 import rv_android_core.constants as constants
@@ -68,6 +99,11 @@ from rv_android_core.domain.components import (
     ProviderComponentInfo,
 )
 from rv_android_core.domain.static import StaticAnalysisData
+from rv_android_core.util.analysis_document import (
+    PairPolicy,
+    digest_of_file,
+    read_analysis_document,
+)
 
 # JSON key constants mirror — INV-ANA-32.
 #
@@ -173,6 +209,16 @@ from rv_android_core.domain.window import Window, Windows, WindowType
 from rv_android_core.domain.wtg import WindowTransition, WindowTransitionGraph
 from rv_android_core.util.logging.manager import LoggingManager
 
+# Parsed copy (`<apk>.static.json`, INV-ANA-82..84). The copy carries the source
+# document's members plus this top-level record naming the source it was built
+# from; the section parsers never read a member of this name.
+PARSED_COPY_SOURCE_KEY = "source"
+# Recorded in the copy's `source.generator`; names the writer and the layout of
+# the copy, so a copy from another writer can be told apart on inspection.
+PARSED_COPY_GENERATOR = "rv-static-analysis/1"
+# Suffix of the temporary file the copy is written to before its rename.
+PARSED_COPY_TEMP_SUFFIX = ".tmp"
+
 # Event type mapping from Java analysis client output to domain enum
 _EVENT_TYPE_MAP = {
     "click": WidgetEventType.CLICK,
@@ -223,7 +269,10 @@ class StaticAnalysisParser:
         Parse a unified analysis JSON file into StaticAnalysisData.
 
         The file is parsed at the scope its producer gave it — no package key
-        participates (INV-ANA-61).
+        participates (INV-ANA-61). It is read in streaming every time: this is
+        the explicit-path read `StaticAnalyzer` uses on the producer side, where
+        the document has just been written, so no parsed copy is consulted or
+        written (see `read_static_analysis_files`).
 
         Args:
             file_path: Path to the .json analysis output file
@@ -238,10 +287,87 @@ class StaticAnalysisParser:
 
         self.logger.info(f"Parsing analysis file: {file_path}")
 
-        data = self._load_json(file_path)
+        data, _ = self._load_json(file_path)
         if data is None:
             return StaticAnalysisData(Classes(), Windows(), WindowTransitionGraph())
+        return self._build_model(data)
 
+    def read_static_analysis_files(
+        self, results_dir: str, apk: str
+    ) -> StaticAnalysisData:
+        """
+        Parse the analysis JSON for an APK from a results directory.
+
+        The source is ``results_dir/<apk>.json``. Its parsed copy,
+        ``results_dir/<apk>.static.json``, answers instead when the digest it
+        records equals the source's current digest (INV-ANA-82); otherwise the
+        source is read in streaming and, when the read was not truncated, the
+        copy is (re)written beside it.
+
+        The copy exists because one document is read many times on one host —
+        once per task of the APK and once more per APK at result processing —
+        and the document runs to gigabytes. The copy is the document without
+        the two distance members, so it is small, and it parses to the same model
+        (INV-ANA-83). It is keyed by the digest rather than by size and mtime so
+        that a re-analysed document landing under the same name is never
+        answered by the old copy. A truncated source is never cached: a later
+        complete document under the same name must not be shadowed by a
+        recovery.
+
+        Never raises (INV-ANA-06): a missing or unreadable source yields an
+        empty model, and a copy that cannot be read or written only costs a
+        streaming read.
+
+        Args:
+            results_dir: Directory containing analysis result files.
+            apk: APK filename including extension (e.g., "cryptoapp.apk").
+                The JSON extension is appended automatically.
+
+        Returns:
+            StaticAnalysisData with parsed Classes, Windows, and
+            WindowTransitionGraph.
+        """
+        file_path = os.path.join(results_dir, apk + constants.EXTENSION_STATIC_ANALYSIS)
+        if not os.path.isfile(file_path):
+            # The not-found path of parse_file: logged there, empty model.
+            return self.parse_file(file_path)
+
+        try:
+            digest = digest_of_file(file_path)
+        except OSError as e:
+            self.logger.error(f"Failed to read analysis file {file_path}: {e}")
+            return StaticAnalysisData(Classes(), Windows(), WindowTransitionGraph())
+
+        copy_path = os.path.join(results_dir, apk + constants.EXTENSION_PARSED_COPY)
+        data = self._read_parsed_copy(copy_path, digest)
+        if data is not None:
+            self.logger.info(f"Parsing analysis file: {file_path} (parsed copy {copy_path})")
+            return self._build_model(data)
+
+        self.logger.info(f"Parsing analysis file: {file_path}")
+        data, truncated = self._load_json(file_path)
+        if data is None:
+            return StaticAnalysisData(Classes(), Windows(), WindowTransitionGraph())
+        if not truncated:
+            self._write_parsed_copy(copy_path, data, digest)
+        return self._build_model(data)
+
+    def _build_model(self, data: dict) -> StaticAnalysisData:
+        """Build StaticAnalysisData from the document's dict.
+
+        The same construction serves a dict streamed from the source and one
+        loaded from the parsed copy; the section parsers read only the members
+        they name, so the copy's extra ``source`` member does not reach the
+        model.
+
+        Args:
+            data: The analysis document as a dict (possibly a truncated one's
+                complete members).
+
+        Returns:
+            StaticAnalysisData with parsed Classes, Windows,
+            WindowTransitionGraph and Components.
+        """
         # Step 1: Parse each section independently so a corrupt section does not
         # prevent recovery of the others (graceful degradation, INV-ANA-06).
         # Order matters: windows need classes (to mark main activity), and
@@ -301,77 +427,123 @@ class StaticAnalysisParser:
             class_defs_under_key=class_defs_under_key,
         )
 
-    def read_static_analysis_files(
-        self, results_dir: str, apk: str
-    ) -> StaticAnalysisData:
-        """
-        Parse the analysis JSON for an APK from a results directory.
+    def _load_json(self, file_path: str) -> tuple[dict | None, bool]:
+        """Read the analysis document in streaming, without its distance members.
 
-        Construct the file path as ``results_dir/apk.json`` and delegate
-        to parse_file.
-
-        Args:
-            results_dir: Directory containing analysis result files.
-            apk: APK filename including extension (e.g., "cryptoapp.apk").
-                The JSON extension is appended automatically.
-
-        Returns:
-            StaticAnalysisData with parsed Classes, Windows, and
-            WindowTransitionGraph.
-        """
-        file_path = os.path.join(results_dir, apk + constants.EXTENSION_STATIC_ANALYSIS)
-        return self.parse_file(file_path)
-
-    def _load_json(self, file_path: str) -> dict | None:
-        """Load and parse JSON, with bracket-recovery for truncated files from timeout.
+        `read_analysis_document` walks the file as JSON events and never builds
+        ``distanceTargets`` nor any ``targetDistances`` (INV-ANA-80): those pairs
+        are what make a gh120 document gigabytes long, and no section parser
+        reads them. The file's text is never held in memory.
 
         Args:
             file_path: Path to the analysis JSON file.
 
         Returns:
-            Parsed dictionary, or None if the file cannot be read or recovered.
+            ``(document, truncated)``. ``document`` is None when the file cannot
+            be opened, is empty, is not JSON, or its root is not an object.
+            ``truncated`` is True when the input ended before the root object
+            closed; the document then holds only the members read in full.
         """
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            return json.loads(content)
-        except json.JSONDecodeError:
-            self.logger.warning(
-                f"JSON parse error in {file_path}, attempting truncated file recovery"
-            )
-            return self._recover_truncated_json(content)
-        except Exception as e:
+            data, truncated = read_analysis_document(file_path, PairPolicy.DROP)
+        except (OSError, ValueError) as e:
             self.logger.error(f"Failed to read analysis file {file_path}: {e}")
-            return None
+            return None, False
+        if truncated:
+            return self._recover_truncated_json(file_path, data), True
+        return data, False
 
-    def _recover_truncated_json(self, content: str) -> dict | None:
-        """Recover truncated JSON by closing at the last complete array bracket.
+    def _recover_truncated_json(self, file_path: str, data: dict) -> dict:
+        """Accept the members of a truncated document that were read in full.
+
+        The GATOR client writes the document member by member, and a producer
+        killed mid-write leaves a file that ends inside one of them (INV-ANA-31).
+        The streaming read already kept exactly the top-level members whose
+        closing event it saw and dropped the one in progress (INV-ANA-81), so
+        every section written in full is recovered wherever the cut falls —
+        inside a nested list or object included. ``complete`` is part of the
+        result only when that member itself was read.
 
         Args:
-            content: Raw file content that failed json.loads().
+            file_path: Path of the truncated document, for the log.
+            data: The members read in full.
 
         Returns:
-            Parsed dictionary from the recovered content, or None if
-            recovery fails (no ']' found or still invalid after fix).
+            ``data`` unchanged.
         """
-        # The GATOR client writes sections sequentially and flushes between each.
-        # On timeout, the file is truncated mid-array (e.g., the transitions array
-        # is half-written). We find the last complete ']' and close the root object
-        # with '}', discarding the partial entry. This preserves all fully-flushed
-        # sections even when the process was killed mid-write.
-        last_bracket = content.rfind("]")
-        if last_bracket == -1:
-            self.logger.error("Cannot recover truncated JSON: no ']' found")
-            return None
+        self.logger.warning(
+            f"Analysis file {file_path} is truncated: keeping the members read in full"
+        )
+        self.logger.info(
+            f"Recovered truncated JSON: kept {len(data)} top-level members read in full"
+        )
+        return data
 
-        truncated = content[: last_bracket + 1] + "}"
-        try:
-            data = json.loads(truncated)
-            self.logger.info("Recovered truncated JSON successfully")
-            return data
-        except json.JSONDecodeError:
-            self.logger.error("Cannot recover truncated JSON after bracket fix")
+    def _read_parsed_copy(self, copy_path: str, digest: str) -> dict | None:
+        """Load the parsed copy when it records the source's current digest.
+
+        Args:
+            copy_path: Path of ``<apk>.static.json``.
+            digest: The source's digest, from `digest_of_file`.
+
+        Returns:
+            The copy's dict on a hit, or None on any miss: absent, unreadable,
+            unparseable, not an object, or recording another digest
+            (INV-ANA-82).
+        """
+        if not os.path.isfile(copy_path):
             return None
+        try:
+            with open(copy_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, ValueError) as e:
+            self.logger.info(f"Parsed copy {copy_path} is unreadable, re-reading the source: {e}")
+            return None
+        source = data.get(PARSED_COPY_SOURCE_KEY) if isinstance(data, dict) else None
+        if not isinstance(source, dict) or source.get("digest") != digest:
+            self.logger.info(f"Parsed copy {copy_path} is stale, re-reading the source")
+            return None
+        return data
+
+    def _write_parsed_copy(self, copy_path: str, data: dict, digest: str) -> None:
+        """Write the parsed copy atomically beside its source.
+
+        The dict is written as compact JSON with a top-level ``source`` record
+        (the source's digest and the generator) to a temporary file in the same
+        directory, then renamed over the copy: a reader sees either the previous
+        copy or the complete new one, never a partial file. A failure — a
+        read-only or full disk — is logged and leaves no temporary file; the
+        caller still returns the model it parsed.
+
+        Args:
+            copy_path: Path of ``<apk>.static.json``.
+            data: The document read from the source without truncation.
+            digest: The source's digest, from `digest_of_file`.
+        """
+        record = {"digest": digest, "generator": PARSED_COPY_GENERATOR}
+        tmp_path = None
+        try:
+            handle, tmp_path = tempfile.mkstemp(
+                dir=os.path.dirname(copy_path) or ".", suffix=PARSED_COPY_TEMP_SUFFIX
+            )
+            with os.fdopen(handle, "w", encoding="utf-8") as tmp_file:
+                json.dump(
+                    {**data, PARSED_COPY_SOURCE_KEY: record},
+                    tmp_file,
+                    separators=(",", ":"),
+                )
+            os.replace(tmp_path, copy_path)
+            tmp_path = None
+        except OSError as e:
+            self.logger.warning(f"Could not write parsed copy {copy_path}: {e}")
+        finally:
+            # Reached on the error paths; a successful rename has already
+            # consumed the temporary file.
+            if tmp_path is not None:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
     def _parse_classes(self, data: dict) -> Classes:
         """Parse the reachability section into Classes domain object.

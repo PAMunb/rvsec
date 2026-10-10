@@ -58,6 +58,11 @@ from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
+from rv_android_core.util.analysis_document import (
+    PairPolicy,
+    digest_of_file,
+    read_analysis_document,
+)
 from rv_android_core.util.error.error_handler import ErrorHandler
 from rv_android_core.util.error.exceptions import (
     ConfigurationError,
@@ -72,10 +77,11 @@ from rv_android_core.util.logging.manager import LoggingManager
 from aperv_tool.tools.aperv.derive_mop_artifact import (
     ARTIFACT_SUFFIX,
     DEVICE_ARTIFACT_PATH,
+    DIST_K,
+    DIST_WEIGHED_MAX,
     FORMAT_VERSION,
     DerivationError,
     derive,
-    digest_of_file,
     serialize_canonical,
 )
 
@@ -773,10 +779,21 @@ class ApeRVTool(AbstractTool):
 
         The source is hashed in chunks before anything parses it, so a cache hit
         costs one sequential read of the file and no parse. On a miss the file is
-        parsed straight from a UTF-8 text handle: no `bytes` copy of a document
-        that can reach gigabytes stays referenced through the parse and the
-        derivation. Holding one raised the host's peak memory by one file size,
-        from about 3.1 to 4.1 times the file size on a 2 GB document.
+        read as a stream of JSON events (`read_analysis_document`) that folds each
+        method's `targetDistances` into the pairs the artifact can carry: the
+        per-target minima at `d <= DIST_WEIGHED_MAX` and the `DIST_K` nearest
+        (INV-APV-64). Those pairs make a gh120 document several gigabytes, and a
+        whole-document parse peaks at about 3.1 times the file size; neither the
+        file's text nor a pair that cannot reach the artifact is ever held. The
+        reduction is exact because `derive()` merges by the per-target minimum and
+        cuts only at emission, so the artifact is byte-identical to one derived
+        from the whole document.
+
+        The read is strict where the static-analysis parser is tolerant: a
+        document whose root object never closes — a producer killed mid-write, or
+        bytes that stop being JSON partway — is refused, even when every section
+        the derivation reads was complete, because an interrupted write must not
+        arm a run.
 
         Writes go through a temporary file in the same directory followed by an
         atomic rename, so a crash mid-write cannot leave a truncated artifact that a
@@ -793,13 +810,13 @@ class ApeRVTool(AbstractTool):
             current full JSON and whose `formatVersion` is `FORMAT_VERSION`.
 
         Raises:
-            RVToolExecutionError: The full JSON is unreadable, not UTF-8,
-                unparseable or too large to hold in memory, the derivation refused
-                it, or the artifact could not be written. `MemoryError` is caught
-                with the rest because
-                the document is parsed whole before deriving, and a bare one would
-                lose the path and tool context the caller needs to act. No partial
-                file survives any of those paths.
+            RVToolExecutionError: The full JSON is unreadable, empty, not JSON,
+                not an object, or truncated (which covers bytes that are not
+                UTF-8), the derivation refused it, or the artifact could not be
+                written. `MemoryError` is caught with the rest because the reduced
+                document is still built in memory before deriving, and a bare one
+                would lose the path and tool context the caller needs to act. No
+                partial file survives any of those paths.
         """
         source_path = os.path.join(task.results_dir, f"{task.config.apk_name}.json")
         artifact_path = os.path.join(
@@ -817,8 +834,16 @@ class ApeRVTool(AbstractTool):
                 self.logger.debug(f"Reusing cached MOP artifact {artifact_path}")
                 return artifact_path
 
-            with open(source_path, encoding="utf-8") as source_file:
-                document = json.load(source_file)
+            document, truncated = read_analysis_document(
+                source_path, PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K)
+            )
+            if truncated:
+                raise RVToolExecutionError(
+                    f"Could not derive the MOP artifact from {source_path}: the "
+                    "document is truncated (it ends, or stops being JSON, before "
+                    "its root object closes)",
+                    tool_name=self.name,
+                )
             artifact = derive(
                 document,
                 source_file=os.path.basename(source_path),
@@ -843,13 +868,7 @@ class ApeRVTool(AbstractTool):
                 f"recovered={stats['recovered']})"
             )
             return artifact_path
-        except (
-            DerivationError,
-            OSError,
-            json.JSONDecodeError,
-            UnicodeDecodeError,
-            MemoryError,
-        ) as e:
+        except (DerivationError, OSError, ValueError, MemoryError) as e:
             raise RVToolExecutionError(
                 f"Could not derive the MOP artifact from {source_path}: {e}",
                 tool_name=self.name,

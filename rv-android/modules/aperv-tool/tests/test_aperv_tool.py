@@ -24,7 +24,11 @@ from rv_android_core.util.error.exceptions import (
 )
 
 import aperv_tool.tools.aperv.tool as aperv_mod
-from aperv_tool.tools.aperv.derive_mop_artifact import DEVICE_ARTIFACT_PATH
+from aperv_tool.tools.aperv.derive_mop_artifact import (
+    DEVICE_ARTIFACT_PATH,
+    derive,
+    serialize_canonical,
+)
 from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_JAR_PATH,
     APERV_DEVICE_PROPERTIES_PATH,
@@ -1590,6 +1594,11 @@ SOURCE_DOCUMENT = {
 }
 
 
+CRYPTOAPP_FIXTURE = os.path.join(
+    os.path.dirname(__file__), "fixtures", "cryptoapp.apk.json"
+)
+
+
 def _write_source(tmp_path, document=None, raw=None):
     """Write a source JSON (pretty-printed, as the producer emits it)."""
     path = tmp_path / "app.apk.json"
@@ -1657,6 +1666,7 @@ class TestDeriveMopArtifact:
             return real_loads(text, *args, **kwargs)
 
         monkeypatch.setattr(aperv_mod, "derive", forbidden)
+        monkeypatch.setattr(aperv_mod, "read_analysis_document", forbidden)
         monkeypatch.setattr(aperv_mod.json, "load", load_but_not_the_source)
         monkeypatch.setattr(aperv_mod.json, "loads", loads_but_not_the_source)
 
@@ -1750,6 +1760,87 @@ class TestDeriveMopArtifact:
             self.tool._derive_mop_artifact(self._task(tmp_path))
 
         assert not self._artifact_path(tmp_path).exists()
+
+    def test_cache_miss_streams_the_source(self, tmp_path, monkeypatch):
+        # INV-APV-64: a miss reads the source in streaming. A whole-document parse
+        # of a gh120 document peaks at about 3.1 times its size, which is three
+        # campaign containers for the largest one.
+        source = _write_source(tmp_path, SOURCE_DOCUMENT)
+        source_text = Path(source).read_text()
+        real_load, real_loads = json.load, json.loads
+
+        def load_but_not_the_source(fp, *args, **kwargs):
+            if getattr(fp, "name", None) == source:
+                raise AssertionError("the source must not be parsed whole")
+            return real_load(fp, *args, **kwargs)
+
+        def loads_but_not_the_source(text, *args, **kwargs):
+            if text in (source_text, source_text.encode()):
+                raise AssertionError("the source must not be parsed whole")
+            return real_loads(text, *args, **kwargs)
+
+        monkeypatch.setattr(aperv_mod.json, "load", load_but_not_the_source)
+        monkeypatch.setattr(aperv_mod.json, "loads", loads_but_not_the_source)
+
+        self.tool._derive_mop_artifact(self._task(tmp_path))
+
+        assert self._artifact_path(tmp_path).exists()
+
+    def test_streaming_byte_identical_on_cryptoapp(self, tmp_path):
+        # Spec scenario "the streaming derivation is byte-identical to the
+        # whole-document one", through the method the run calls.
+        source = tmp_path / "app.apk.json"
+        source.write_bytes(Path(CRYPTOAPP_FIXTURE).read_bytes())
+        with open(source, encoding="utf-8") as handle:
+            expected = serialize_canonical(
+                derive(
+                    json.load(handle),
+                    source_file="app.apk.json",
+                    source_digest=aperv_mod.digest_of_file(str(source)),
+                )
+            )
+
+        self.tool._derive_mop_artifact(self._task(tmp_path))
+
+        assert self._artifact_path(tmp_path).read_bytes() == expected
+
+    @pytest.mark.parametrize(
+        "marker",
+        ['"directlyReachesTarget"', '"transitions"'],
+        ids=["inside-reachability", "after-windows-closed"],
+    )
+    def test_truncated_source_raises_and_leaves_nothing(self, tmp_path, marker):
+        # A producer killed mid-write leaves a document whose root never closes.
+        # Cut after `windows` closed, every section the derivation needs but
+        # `transitions` is complete, and it is still no document to arm a run on.
+        text = json.dumps(SOURCE_DOCUMENT, indent=2)
+        _write_source(tmp_path, raw=text[: text.index(marker)])
+        before = set(os.listdir(tmp_path))
+
+        with pytest.raises(RVToolExecutionError) as raised:
+            self.tool._derive_mop_artifact(self._task(tmp_path))
+
+        assert "the document is truncated" in str(raised.value)
+        assert str(tmp_path / "app.apk.json") in str(raised.value)
+        assert not self._artifact_path(tmp_path).exists()
+        assert set(os.listdir(tmp_path)) == before
+
+    def test_non_utf8_source_raises_and_leaves_nothing(self, tmp_path):
+        # Bytes that are not UTF-8 stop the document being JSON midway, so the
+        # streaming read reports it as truncated.
+        text = json.dumps(SOURCE_DOCUMENT, indent=2)
+        cut = text.index('"windows"')
+        source = tmp_path / "app.apk.json"
+        source.write_bytes(
+            text[:cut].encode() + b'"bad\xff": 1, ' + text[cut:].encode()
+        )
+        before = set(os.listdir(tmp_path))
+
+        with pytest.raises(RVToolExecutionError):
+            self.tool._derive_mop_artifact(self._task(tmp_path))
+
+        assert not self._artifact_path(tmp_path).exists()
+        assert set(os.listdir(tmp_path)) == before
 
     def test_full_json_is_byte_identical_after_derivation(self, tmp_path):
         # INV-ANA-53: the full JSON stays the archived source every metric reads.

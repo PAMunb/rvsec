@@ -12,6 +12,9 @@ EXTENSION_LOGCAT = ".logcat"
 EXTENSION_TRACE = ".trace"
 EXTENSION_METHODS = ".methods"
 EXTENSION_STATIC_ANALYSIS = ".json"
+# Parsed copy of the static-analysis document: the document without its distance
+# members, written and read only by rv-static-analysis (INV-ANA-82..84).
+EXTENSION_PARSED_COPY = ".static.json"
 
 EXECUTION_MEMORY_FILENAME = "execution_memory.json"
 RESULTS_FILENAME = "results_analysis.json"

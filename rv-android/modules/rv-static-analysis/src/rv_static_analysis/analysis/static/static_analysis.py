@@ -109,7 +109,7 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
     parsing for the GATOR analysis client. The client produces a single JSON
     file with reachability, windows, and transitions sections written in
     priority order. On timeout, partial JSON is preserved and the parser
-    recovers truncated sections via bracket recovery (INV-ANA-06).
+    recovers the sections written in full (INV-ANA-06, INV-ANA-81).
 
     ### Architectural Decisions:
 
@@ -416,7 +416,8 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
         artefact (`org.quantumbadger.redreader_117`, 48 MB), because the parser
         builds four domain aggregates to answer one string. It is paid on
         purpose: a timed-out GATOR run leaves a **truncated** artefact, which
-        `json.load` rejects outright and the parser recovers by bracket closing.
+        `json.load` rejects outright and the parser recovers by keeping the
+        members written in full (INV-ANA-81).
         Reading it the fast way would turn exactly those artefacts — the ones a
         key change is most likely to have stranded — into unverifiable reuses,
         which is the check's own failure mode. This runs once per APK during
@@ -442,8 +443,8 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
         """Execute analysis command with caching, timeout handling, and logging.
 
         If the output file already exists, execution is skipped (cache hit).
-        On timeout, the partial JSON is preserved -- the parser handles
-        truncated files via bracket recovery (INV-ANA-06).
+        On timeout, the partial JSON is preserved -- the parser keeps the
+        members of a truncated file written in full (INV-ANA-06, INV-ANA-81).
 
         Args:
             name: Human-readable label for the analysis phase (used in logs
@@ -506,8 +507,8 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             # Timeout is treated as partial success (not failure) because the GATOR
             # client writes sections in priority order -- reachability first, then
             # windows, then transitions -- and flushes between each. Even if killed
-            # mid-write, the parser recovers truncated JSON via bracket completion
-            # (INV-ANA-06), so a timed-out run still yields usable reachability data
+            # mid-write, the parser keeps every member written in full (INV-ANA-06,
+            # INV-ANA-81), so a timed-out run still yields usable reachability data
             # (the most critical section for coverage calculation and MOP tracking).
             try:
                 cmd_result = command.invoke(stdout=sys.stdout)

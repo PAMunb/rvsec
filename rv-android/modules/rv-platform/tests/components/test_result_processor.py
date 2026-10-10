@@ -12,6 +12,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from rv_android_core.constants import EXTENSION_PARSED_COPY
 from rv_android_core.domain.task import Task, TaskConfiguration, TaskState, ToolConfig
 from rv_coverage.parser.log.logcat_parser import parse_logcat_file
 from rv_platform.components.result_processor import ResultProcessorComponent
@@ -1089,6 +1090,58 @@ class TestExecutePipeline:
         assert all(t.repository is None and t.static_data is None for t in tasks)
         assert processor._static_data_by_apk == {}
 
+    def test_csv_identical_with_and_without_parsed_copy(self, tmp_path):
+        """Scenario "metrics are the same from the source and from its parsed copy":
+        the first pass reads the SA JSON (and writes its parsed copy), the second
+        answers from the copy; summary.csv and coverage.csv are byte-identical
+        and the static JSON is still resolved once per APK (INV-PLT-15)."""
+        apk = "sample_apk.apk"
+        apk_dir, logcat_path = _seed_apk_dir(tmp_path, apk)
+        # Give the document the gh120 distance members the copy leaves out, so
+        # the two passes really read two different files.
+        source = apk_dir / f"{apk}.json"
+        document = json.loads(source.read_text())
+        document["distanceTargets"] = [{"kind": "direct"}, {"kind": "boundary"}]
+        for entry in document["reachability"]:
+            for method in entry["methods"]:
+                method["targetDistances"] = [[0, 1], [1, 4]]
+        source.write_text(json.dumps(document))
+        copy_path = apk_dir / f"{apk}{EXTENSION_PARSED_COPY}"
+
+        def run(results_dir):
+            tasks = []
+            for rep in (1, 2):
+                task = _make_completed_task(apk=apk, rep=rep)
+                task.result.logcat_file = str(logcat_path)
+                tasks.append(task)
+            processor = ResultProcessorComponent(tasks, results_dir)
+            with patch(
+                "rv_platform.components.result_processor."
+                "static_analysis_parser.read_static_analysis_files",
+                wraps=static_analysis_parser.read_static_analysis_files,
+            ) as spy:
+                processor.execute({})
+            assert spy.call_count == 1
+            return {
+                name: (tmp_path / results_dir / name).read_bytes()
+                for name in ("summary.csv", "coverage.csv")
+            }
+
+        assert not copy_path.exists()
+        from_source = run(str(tmp_path / "results_source"))
+        assert copy_path.exists()
+
+        with patch(
+            "rv_static_analysis.parser.static.static_analysis_parser."
+            "read_analysis_document",
+            side_effect=AssertionError("the source must not be streamed on a hit"),
+        ):
+            from_copy = run(str(tmp_path / "results_copy"))
+
+        assert from_copy == from_source
+        coverage_rows = from_source["coverage.csv"].decode().splitlines()
+        assert len(coverage_rows) > 1
+
 
 class TestExportMemoryBound:
     """Scenario "Memory Does Not Grow With the Number of Tasks".
@@ -1812,11 +1865,16 @@ class TestGh65GoldenRegression:
     def test_golden_vs_offline_regen(self, tmp_path):
         manifest = _load_golden_manifest()
         assert len(manifest) >= 10, "G5 requires ≥10 golden samples"
+        # Read the fixture from a copy: resolving static data writes the parsed
+        # copy (EXTENSION_PARSED_COPY) beside the SA JSON (INV-ANA-82), and the
+        # committed fixture directory must stay as committed.
+        golden_dir = str(tmp_path / "gh65_golden")
+        shutil.copytree(_GH65_GOLDEN_DIR, golden_dir)
 
         mismatches = []
         for m in manifest:
             # Resume-shaped task: results_dir="" and app=None; logcat_file points
-            # at the committed fixture, with the SA JSON co-located in the same dir.
+            # at the fixture copy, with the SA JSON co-located in the same dir.
             config = TaskConfiguration(
                 apk_name=m["apk"],
                 repetition=int(m["rep"]),
@@ -1825,9 +1883,7 @@ class TestGh65GoldenRegression:
             )
             task = Task(config)
             assert task.results_dir == "" and task.app is None
-            task.result.logcat_file = os.path.join(
-                _GH65_GOLDEN_DIR, f"{m['idx']}.logcat"
-            )
+            task.result.logcat_file = os.path.join(golden_dir, f"{m['idx']}.logcat")
             task.update_state(TaskState.RUNNING)
             task.update_state(TaskState.COMPLETED)
 

@@ -35,7 +35,11 @@ read, changed and defended one at a time.
   map, and the cut happens only at emission: a widget or handler list keeps every
   pair at `d <= DIST_WEIGHED_MAX`, an activity list its `DIST_K` nearest pairs.
   Cutting each source first could drop a target that is fourth in one source and
-  first after the merge (INV-DRV-10).
+  first after the merge (INV-DRV-10). The same two cuts make the caller's streaming
+  read exact (INV-APV-64): it keeps, per method, the minima at
+  `d <= DIST_WEIGHED_MAX` and the `DIST_K` nearest, and a pair outside both has
+  `DIST_K` targets ahead of it in its own method that stay ahead after any merge.
+  A change to either cut is a change to that reduction.
 - **The two MOP axes.** `direct` is the producer's 0-hop bit — the handler invokes a
   monitored operation in its own body, which is what `ape.mopWeightDirect` was
   defined to reward. `transitive` is any-depth reach. `direct` implies `transitive`
@@ -45,9 +49,9 @@ read, changed and defended one at a time.
 - **A pure function.** Full-JSON dict in, artifact dict out — no I/O, no device
   interaction and no dependency on the tool object. Provenance (`source.file`,
   `source.digest`) is supplied by the caller precisely because computing it
-  requires reading the file, which `derive()` never does. `digest_of_file()` is
-  the one function here that reads a file: it fixes the digest convention beside
-  the format the digest is recorded in, and `derive()` never calls it.
+  requires reading the file, which nothing in this module does: the caller
+  computes the digest with `rv_android_core.util.analysis_document.digest_of_file()`,
+  the convention the parsed-copy cache of `rv-static-analysis` keys on too.
 - **Noise survivable, structure not.** Malformed *entries* inside a well-typed
   section are skipped rather than raised on: the producer is an external tool and
   one odd widget must not cost a whole app. A malformed *section* is a
@@ -55,7 +59,7 @@ read, changed and defended one at a time.
   The producer's `"complete": true` sentinel is deliberately not read (INV-DRV-08).
   It says the second write pass happened, not that the file is intact: a killed
   pass leaves unparseable bytes, because the producer truncates its output on open,
-  and those fail in the caller's parse before this module runs. A document without the
+  and those fail in the caller's streaming read before this module runs. A document without the
   sentinel is the producer's intended first-pass report — populated `reachability`
   and `windows`, empty `transitions` — and derives to an artifact whose `wtg` is
   empty, which is how the device learns the WTG stage did not finish.
@@ -63,7 +67,8 @@ read, changed and defended one at a time.
 ### Integration Points:
 
 - Input: the parsed full static-analysis JSON, plus the source file name and the
-  digest the caller computed over the file with `digest_of_file()`.
+  digest the caller computed over the file with `digest_of_file()` of
+  `rv_android_core.util.analysis_document`.
 - Output: the artifact dict, which `serialize_canonical()` encodes into the bytes
   that land at `DEVICE_ARTIFACT_PATH` and are cached host-side under
   `ARTIFACT_SUFFIX`.
@@ -71,7 +76,6 @@ read, changed and defended one at a time.
   stays testable without a device, a tool object or a fixture APK.
 """
 
-import hashlib
 import json
 import re
 from typing import Any, NamedTuple
@@ -91,8 +95,6 @@ GENERATOR_ID = "aperv-derive/2"
 # in one file.
 DEVICE_ARTIFACT_PATH = "/data/local/tmp/mop-artifact.json"
 ARTIFACT_SUFFIX = ".mop.json"
-
-DIGEST_ALGORITHM = "sha256"
 
 # === PRODUCER QUIRKS ===
 
@@ -210,34 +212,6 @@ class DerivationError(Exception):
     """
 
 
-def digest_of_file(path: str) -> str:
-    """Compute the provenance digest recorded as the artifact's `source.digest`.
-
-    Lives here rather than in the caller so the digest convention and the artifact
-    format it appears in stay defined in one place. The caller compares a cached
-    artifact's `source.digest` against this value to decide whether a re-derivation
-    is needed, so the algorithm prefix is part of the recorded form rather than
-    implied.
-
-    The file is hashed as stored on disk — not the re-encoded parse, which would
-    not round-trip — and streamed in chunks by `hashlib.file_digest`, so the digest
-    of a multi-gigabyte document holds no copy of it in memory. That is what lets a
-    cache hit cost one sequential read and nothing else.
-
-    Args:
-        path: Path of the full static-analysis JSON.
-
-    Returns:
-        The digest as `"<algorithm>:<hex>"`, e.g. `"sha256:9f86d0…"`.
-
-    Raises:
-        OSError: The file cannot be opened or read.
-    """
-    with open(path, "rb") as source_file:
-        digest = hashlib.file_digest(source_file, DIGEST_ALGORITHM)
-    return f"{DIGEST_ALGORITHM}:{digest.hexdigest()}"
-
-
 def serialize_canonical(artifact: dict) -> bytes:
     """Encode the artifact as canonical bytes.
 
@@ -272,7 +246,8 @@ def derive(document: dict, source_file: str = "", source_digest: str = "") -> di
         source_file: Basename of the JSON this document was parsed from, recorded
             as provenance. Supplied by the caller because `derive()` performs no
             I/O.
-        source_digest: `digest_of_file()` of that file, same reason.
+        source_digest: `rv_android_core.util.analysis_document.digest_of_file()`
+            of that file, same reason.
 
     Returns:
         The artifact dict per the `formatVersion: 2` wire schema, with keys:

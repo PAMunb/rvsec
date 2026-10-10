@@ -6,9 +6,9 @@ Verify that:
       ``StaticAnalysisData.complete is True``.
   (b) A JSON file missing the key (legacy gh57 / pre-sentinel writer
       output) parses to ``complete is False`` without raising.
-  (c) A truncated JSON file recovered via the
-      ``_recover_truncated_json`` bracket fix parses to
-      ``complete is False`` (the sentinel was never reached on disk).
+  (c) A truncated JSON file recovered through
+      ``_recover_truncated_json`` parses to ``complete is False`` (the
+      sentinel was never reached on disk).
 """
 
 import json
@@ -76,9 +76,9 @@ def test_legacy_gh57_json_without_sentinel_parses_with_complete_false(
 
 def test_truncated_recovery_yields_complete_false(tmp_path: Path) -> None:
     # A WTG-timeout produces a file that ends mid-array. The parser's
-    # _recover_truncated_json closes the bracket and reparses; the recovered
-    # JSON cannot contain "complete":true because the sentinel is emitted
-    # AFTER all sections by JsonReportWriter.
+    # _recover_truncated_json keeps the members read in full; they cannot
+    # include "complete":true because the sentinel is emitted AFTER all
+    # sections by JsonReportWriter.
     raw = """\
 {
   "package": "com.app",
@@ -92,8 +92,5 @@ def test_truncated_recovery_yields_complete_false(tmp_path: Path) -> None:
     data = StaticAnalysisParser().parse_file(str(p))
     # The load-bearing assertion: a truncation-recovered JSON CANNOT
     # contain the sentinel, because JsonReportWriter emits the sentinel
-    # AFTER all sections and only on the success path. Whether the
-    # recovered partial windows section yields 0 or 1 windows depends on
-    # exactly where the bracket-recovery truncation cut — the sentinel
-    # contract holds either way.
+    # AFTER all sections and only on the success path.
     assert data.complete is False

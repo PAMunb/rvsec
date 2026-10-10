@@ -260,3 +260,120 @@ class TestCopyStaticAnalysisFiles:
 
         assert result is False
         static_analysis_component.error_handler.handle_error.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# Tests: copy skip for an identical destination (INV-PLT-39)
+# ---------------------------------------------------------------------------
+
+EXTENSIONS = [".json", ".methods"]
+SOURCE_MTIME_NS = 1_700_000_000_123_456_789
+
+
+def _write(path, content, mtime_ns):
+    """Write ``content`` to ``path`` and pin its modification time."""
+    path.write_text(content)
+    os.utime(path, ns=(mtime_ns, mtime_ns))
+
+
+@pytest.fixture
+def copy_dirs(static_analysis_component, tmp_path):
+    """Point the component at an empty apks_dir and an empty results_dir."""
+    apks_dir = tmp_path / "apks"
+    results_dir = tmp_path / "results"
+    apks_dir.mkdir()
+    results_dir.mkdir()
+    static_analysis_component.apks_dir = str(apks_dir)
+    static_analysis_component.task.results_dir = str(results_dir)
+    return apks_dir, results_dir
+
+
+class TestCopySkip:
+    """A destination with the source's size and st_mtime_ns is not copied again."""
+
+    @pytest.mark.parametrize("extension", EXTENSIONS)
+    def test_identical_size_and_mtime_skips_and_returns_true(
+        self, static_analysis_component, copy_dirs, extension
+    ):
+        apks_dir, results_dir = copy_dirs
+        source = apks_dir / f"test_app.apk{extension}"
+        destination = results_dir / f"test_app.apk{extension}"
+        # Same size and same mtime, different bytes: only a copy would change them.
+        _write(source, "source-data", SOURCE_MTIME_NS)
+        _write(destination, "stale-bytes", SOURCE_MTIME_NS)
+
+        result = static_analysis_component.copy_static_analysis_files()
+
+        assert result is True
+        assert destination.read_text() == "stale-bytes"
+
+    def test_skip_does_not_call_copy2(self, static_analysis_component, copy_dirs):
+        apks_dir, results_dir = copy_dirs
+        for extension in EXTENSIONS:
+            _write(apks_dir / f"test_app.apk{extension}", "data", SOURCE_MTIME_NS)
+            _write(results_dir / f"test_app.apk{extension}", "data", SOURCE_MTIME_NS)
+
+        with patch("rv_platform.components.static_analysis.shutil.copy2") as mock_copy2:
+            result = static_analysis_component.copy_static_analysis_files()
+
+        assert result is True
+        mock_copy2.assert_not_called()
+
+    @pytest.mark.parametrize("extension", EXTENSIONS)
+    def test_source_of_other_size_is_copied(
+        self, static_analysis_component, copy_dirs, extension
+    ):
+        apks_dir, results_dir = copy_dirs
+        source = apks_dir / f"test_app.apk{extension}"
+        destination = results_dir / f"test_app.apk{extension}"
+        _write(source, "re-analysed document", SOURCE_MTIME_NS)
+        _write(destination, "old", SOURCE_MTIME_NS)
+
+        result = static_analysis_component.copy_static_analysis_files()
+
+        assert result is True
+        assert destination.read_text() == "re-analysed document"
+        assert destination.stat().st_mtime_ns == source.stat().st_mtime_ns
+
+    @pytest.mark.parametrize("extension", EXTENSIONS)
+    def test_source_of_other_mtime_is_copied(
+        self, static_analysis_component, copy_dirs, extension
+    ):
+        apks_dir, results_dir = copy_dirs
+        source = apks_dir / f"test_app.apk{extension}"
+        destination = results_dir / f"test_app.apk{extension}"
+        _write(source, "new-bytes", SOURCE_MTIME_NS)
+        _write(destination, "old-bytes", SOURCE_MTIME_NS - 1_000_000_000)
+
+        result = static_analysis_component.copy_static_analysis_files()
+
+        assert result is True
+        assert destination.read_text() == "new-bytes"
+        assert destination.stat().st_mtime_ns == SOURCE_MTIME_NS
+
+    def test_replaced_source_uses_copy2(self, static_analysis_component, copy_dirs):
+        apks_dir, results_dir = copy_dirs
+        source = apks_dir / "test_app.apk.json"
+        _write(source, "new", SOURCE_MTIME_NS)
+        _write(results_dir / "test_app.apk.json", "old", SOURCE_MTIME_NS - 1)
+
+        with patch("rv_platform.components.static_analysis.shutil.copy2") as mock_copy2:
+            static_analysis_component.copy_static_analysis_files()
+
+        mock_copy2.assert_called_once()
+        assert mock_copy2.call_args.args[0] == str(source)
+
+    @pytest.mark.parametrize("extension", EXTENSIONS)
+    def test_first_copy_preserves_size_and_mtime(
+        self, static_analysis_component, copy_dirs, extension
+    ):
+        apks_dir, results_dir = copy_dirs
+        source = apks_dir / f"test_app.apk{extension}"
+        destination = results_dir / f"test_app.apk{extension}"
+        _write(source, "first copy", SOURCE_MTIME_NS)
+
+        result = static_analysis_component.copy_static_analysis_files()
+
+        assert result is True
+        assert destination.stat().st_size == source.stat().st_size
+        assert destination.stat().st_mtime_ns == SOURCE_MTIME_NS
