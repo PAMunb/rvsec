@@ -16,6 +16,25 @@ ARG ARCHITECTURE=x86_64
 ARG CMD_LINE_VERSION=8512546_latest
 ARG DEVICE_ID=pixel
 
+# Pinned Android Emulator: 37.1.11, build 15917651. sdkmanager has no way to pin the emulator: it
+# comes in as a dependency of the system image, always at the latest version. Emulator 37.2.12
+# keeps ~113 MiB of host heap in qemu-system-x86_64 for every app (re)start. Each new app window
+# leaves behind a full-screen colour buffer that the host never frees. With the software renderer
+# that heap only grows: the E6 Smoke and e03mini containers died from memcg OOM kills.
+# A/B on 2026-10-11 (org.fossify.messages, APE, 300 s, -memory 4096). The two images were
+# identical except for this directory:
+#   - 37.2.12: 121 app starts, qemu RssAnon reached 17.15 GiB, growing 2.45 GiB/min;
+#   - 37.1.11: 123 app starts, flat at 5.89 GiB.
+# Both versions pick the same renderer (Vulkan lavapipe, GLES swangle), so the difference is in
+# the emulator code. The zip is still served by dl.google.com but is no longer listed in
+# repository2-3.xml. The RUN below verifies the zip by sha256 and replaces the emulator that
+# sdkmanager installed. It keeps sdkmanager's package.xml, rewriting only its revision, so
+# `sdkmanager --list_installed` reports the version that is really on disk. The build fails if
+# source.properties or package.xml do not show EMULATOR_REVISION.
+ARG EMULATOR_BUILD=15917651
+ARG EMULATOR_REVISION=37.1.11
+ARG EMULATOR_SHA256=95771e0ae431897b2a4bd2d97fa095f29a8b0624a7b216baf529f9306161c266
+
 
 ENV PACKAGE_PATH="system-images;android-${API_LEVEL};${IMG_TYPE};${ARCHITECTURE}"
 ENV ANDROID_PLATFORM_VERSION="platforms;android-$API_LEVEL"
@@ -71,6 +90,18 @@ RUN apt update && apt -qq -y --no-install-recommends install bzip2 libdrm-dev \
 	rm *tools*linux*.zip && \
 	yes Y | sdkmanager --licenses && \
 	sdkmanager --install ${ANDROID_SDK_PACKAGES} && \
+	mv $ANDROID_HOME/emulator/package.xml /tmp/emulator-package.xml && \
+	rm -rf $ANDROID_HOME/emulator && \
+	wget -q https://dl.google.com/android/repository/emulator-linux_x64-${EMULATOR_BUILD}.zip && \
+	echo "${EMULATOR_SHA256}  emulator-linux_x64-${EMULATOR_BUILD}.zip" | sha256sum -c - && \
+	unzip -q emulator-linux_x64-${EMULATOR_BUILD}.zip -d $ANDROID_HOME && \
+	rm emulator-linux_x64-${EMULATOR_BUILD}.zip && \
+	grep -qx "Pkg.Revision=${EMULATOR_REVISION}" $ANDROID_HOME/emulator/source.properties && \
+	REV_MINOR_MICRO=${EMULATOR_REVISION#*.} && \
+	REV_XML="<major>${EMULATOR_REVISION%%.*}</major><minor>${REV_MINOR_MICRO%%.*}</minor><micro>${REV_MINOR_MICRO#*.}</micro>" && \
+	sed "s|<revision>.*</revision>|<revision>${REV_XML}</revision>|" /tmp/emulator-package.xml > $ANDROID_HOME/emulator/package.xml && \
+	grep -qF "<revision>${REV_XML}</revision>" $ANDROID_HOME/emulator/package.xml && \
+	rm /tmp/emulator-package.xml && \
 	ln -s android-37.0 $ANDROID_HOME/platforms/android-37 && \
 	echo "no" | avdmanager --verbose create avd --force --name "$EMULATOR_NAME" --abi "$ABI" --package "$PACKAGE_PATH" --device "$DEVICE_ID"
 
