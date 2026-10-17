@@ -1,0 +1,123 @@
+<!-- Subagent dispatch plan (maximum parallelism by file ownership):
+
+     Wave 0 (serial, one agent, short): task group 0. It fixes the only shared Python contract, the reader's
+       declarations, so that the consumer front (A) and the reader front (R) never edit the same file.
+
+     Wave 1 (parallel, six agents, disjoint files), all against key/telemetry contract v3:
+       T  tools/aperv/tool.py, tests/test_aperv_tool.py
+       D  tools/aperv/derive_mop_artifact.py, tests/test_derive_mop_artifact.py           (not blocked; start first)
+       R  analysis/trace_ndjson.py (bodies only), tests/test_trace_ndjson.py, tests/fixtures/trace_ndjson_*.ndjson
+       A  analysis/gates.py, screen_visits.py, step_bundle.py, runspec.py, coverage_dump.py, state_coverage_join.py
+          and their tests (test_gates, test_screen_visits, test_step_bundle, test_runspec, test_coverage_dump,
+          test_state_coverage_join, test_baseline_*); baseline_ape.py/baseline_droidbot.py were finished in wave 0
+       M  tests/migration/*
+       W  docs: modules/aperv-tool/{CLAUDE.md,README.md,docs/architecture.md}, docs/architecture/{ape-rv,rv-experiment}.md,
+          .claude/skills/rv-experiment-compare/{SKILL.md,scripts/gen_compare.py docstring}
+
+     Wave 2 (serial, coordinator): group I. The module suite is green as a whole, and the work is re-checked against the
+       contract commit of APE 3.10.
+     Wave 3 (with the ape session): group S. The jar pairing (APE 11.9) and the six-cell device smoke (APE 12.1).
+     Wave 4 (serial): group C. Close.
+
+     Rules for every subagent prompt: no git state commands (stash, checkout, reset, branch, switch) and no commits;
+     edit only the files of the agent's front; run tests with `--import-mode=importlib -o "addopts="` from the
+     worktree's .venv. The coordinator commits each front by path (`git commit -- <paths>`).
+     Critical path: 0 → R/A/T (longest is R) → I → S (gated by APE 11.9/12.1) → C.
+     ~35 files; six parallel dispatches in wave 1. -->
+
+Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/tasks.md`):
+
+| This change | Waits for APE | APE waits for this change |
+|---|---|---|
+| T, R, A, M (written against contract v3) | 3.10 is re-checked in I.2, not waited on | — |
+| D (derive `data` member) | — | 5.6, 10.4, 11.7 (re-derive the APE fixtures) |
+| M.4 (offline cell gate) | 11.6 (`cells/<cell>.run_start.json`) | — |
+| S.1 (jar into this worktree) | 11.9 (`mvn install`, `rvsec_home` = this worktree's rvsec root) | — |
+| S.2–S.4 (device smoke, `RUN_START` gate) | 12.1 | 12.1 runs through this worktree |
+
+## 0. Wave 0 — setup and the reader's declarations (serial)
+
+- [ ] 0.1 In the worktree root (`…/worktrees-aperv/isolate-guidance-groups/rv-android`), run `uv sync` and confirm `modules/aperv-tool` tests import from this worktree's `.venv`
+- [ ] 0.2 Baseline: `cd modules/aperv-tool && uv run pytest --import-mode=importlib -o "addopts=" -q`; record the pass/skip counts, so a later red is attributable
+- [ ] 0.3 Back up `modules/aperv-tool/tests/migration/test_decisive_contrasts.py` to `backup/20261017-isolate-guidance-groups/` (P3)
+- [ ] 0.4 In `analysis/trace_ndjson.py`, declarations only: the `Ownership` and `NavTie` dataclasses; the fourteen new `StepRow` fields with `None` defaults (`nav_frontier` defaults to `0`); `activity_has_mop` / `target_activity_has_mop` as `Optional[bool]`; `RunStart.variant`; `TraceReader.run_end` property returning `None`; `SUPPORTED_VERSIONS = {1, 2}` (design § API Design). No parsing yet; the existing suite stays green
+- [ ] 0.5 In `analysis/baseline_ape.py` and `analysis/baseline_droidbot.py`, add `None` for the fourteen new fields to the row dicts, so `test_baseline_frames.py` parity stays green after 0.4
+- [ ] 0.6 Run `/rv-test-run aperv-tool`; commit wave 0 by path
+
+## T. Variants, configuration, properties, mapping, push (`tool.py`) — wave 1
+
+- [ ] T.1 Replace `get_variants()` with "ApeRVTool Cell Variants": `default` is the same object as `base`; every cell carries `preset` = `variant` = its name and `strategy="sata"`; every cell but `base` carries `static_data="static_analysis"`; `as`, `as_mop`, `as_llm`, `as_mop_llm` carry `broadcast_catalog=True`; `as_llm` and `as_mop_llm` carry `overrides={"llm_url": "http://10.0.2.2:30000/v1"}`. Delete the ten old dicts and their comments (`tool.py:329-541`); the docstring describes the cells (P4)
+- [ ] T.2 `APERV_ORCHESTRATION_KEYS`: add `variant` and `broadcast_catalog`, replace `mop_data` with `static_data`; `configure()` requires a non-empty `variant` (INV-APV-65); every `mop_data` read becomes `static_data`
+- [ ] T.3 `APERV_PROPERTY_MAPPING`: delete `mop_target_pick_cap` and `least_visited_priority_tiebreak`; add `addons`, `static`, `mop`, `llm`, `mop_coin_percentage`, `llm_gate_min_actions`, `llm_breaker_failures`, `llm_breaker_open_ms`, `activity_stable_restart_threshold`, `take_screenshot_for_every_step`, `save_gui_tree_to_xml_every_step`, `llm_boundary_top_pct` — 66 entries, grouped and commented by owning group as in "ape.properties Composition"
+- [ ] T.4 `_push_properties()`: `ape.preset`, `ape.variant`, `ape.staticDataPath` (only when the artifact was pushed), then overrides; no `ape.mopDataPath` left in `src/`
+- [ ] T.5 `execute_tool_specific_logic()`: catalog iff `broadcast_catalog` and the file exists (INV-APV-10); artifact keyed on `static_data` (INV-APV-45); the comments at `:1313-1322` and `:1364-1368` describe the cells
+- [ ] T.6 Rewrite `tests/test_aperv_tool.py`: `TestVariants` for the seven names; delete `TestDecisiveRunArms` and `TestDistanceArms`; `TestConfigure` / `TestDslOverrideFold` with cell names, plus the `variant`-missing and `mop_data`-rejected scenarios; `TestPushProperties` for the fixed lines and 66 entries; `TestExecuteMopArtifactFlow` on `static_data`; new `TestBroadcastCatalogPush`; `TestCorpusBasis` on `as_mop`/`base`
+- [ ] T.7 Grep `modules/aperv-tool/src/aperv_tool/tools` for `sata_mop`, `mop_on_llm`, `mop_off_llm`, `mopd_on`, `mop_data`, `mopDataPath`, `mopTargetPickCap`, `leastVisitedPriorityTiebreak`: no hit
+- [ ] T.8 Run `/rv-test-run aperv-tool` (front's tests only: `tests/test_aperv_tool.py`)
+
+## D. Derive: the intent-filter `data` member — wave 1, not blocked (start first)
+
+- [ ] D.1 `_reduce_filter_data(data)` in `derive_mop_artifact.py`: `schemes`, `hosts`, `paths`, `pathPrefixes`, `mimeTypes` via `_string_list`, empty lists omitted, `None` when all five are empty; called from `_project_component` for receivers and services (`:1494-1504`); `ports` and `pathPatterns` never emitted
+- [ ] D.2 Docstrings of `_project_components` / `_project_component` (`:1404-1480`): the filter carries `data`; every component is projected whatever its `reachesTarget`, because the trigger pool reads no MOP data
+- [ ] D.3 Tests in `tests/test_derive_mop_artifact.py`: the receiver-filter scenario (five lists kept, `ports`/`paths`-empty/`pathPatterns` absent, `data` absent when all empty, `formatVersion` 2); all components projected at `reachesTarget: false`; the cryptoapp ground truth and the streaming byte-identity tests unchanged
+- [ ] D.4 Run `/rv-test-run aperv-tool` (`tests/test_derive_mop_artifact.py`); the coordinator commits D first and sends the SHA to the ape session (unblocks APE 5.6, 10.4, 11.7)
+
+## R. Trace reader bodies (`trace_ndjson.py`) — wave 1, after 0.4
+
+- [ ] R.1 Version gate on `SUPPORTED_VERSIONS`; `SchemaVersionMismatch` names the supported set; `RunStart.variant` parsed; the module docstring cites both `ape` changes as wire authorities
+- [ ] R.2 Parse the new members into the declared fields: `own` → `Ownership`, `nav` → `NavTie`, `cfc`, `draw`, `inp`, `restart`, `bmc`, `strat`, `rot`, `buf`; `navf` joins `_BOOST_FIELDS`; `mopd`/`mops`/`ret`; a wrongly shaped member is malformed, and unknown enum values are carried
+- [ ] R.3 `ACT.mop` absent → `activity_has_mop = None` on both sides (INV-APV-68; `:806-810`)
+- [ ] R.4 `run_end` holds the record minus `type`; delete the "RUN_END is deliberately absent" comments (`:84-89`, `:830-836`) and the docstring clause (`:57-58`)
+- [ ] R.5 Docstrings: `decision_source` with both meanings keyed on `run_start.v` (INV-APV-67); `Counterfactual` says it zeroes only the MOP boosts and exists under `v == 1` only; `scorer_cf` says what it answers; `wtg_source` is `v == 1` only
+- [ ] R.6 Fixtures: add `mopd`/`mops`/`ret` to a golden step; rename `trace_ndjson_v2_header.ndjson` → `trace_ndjson_v3_header.ndjson` (`v: 3`); write `trace_ndjson_groups.ndjson` (`v: 2`, `variant`, an `ACT` without `mop`, owners `llm`/`mop`/`restart`/`sata`, a step with every new member, `RUN_END` with the eight new counters)
+- [ ] R.7 Tests in `tests/test_trace_ndjson.py` for every scenario of "NDJSON Trace Reader": invert the `V2_HEADER` tests (`:484-519`) onto the v3 fixture; the cmp162 real-trace check (`:760`) asserts `v == 1`; flip `test_run_end_is_read_by_nothing_and_not_counted_as_malformed` (`:253-272`) to the census scenario; the collection-path test still forbids `RUN_END` in `tools/aperv/*`
+- [ ] R.8 Run `/rv-doc-code modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`
+- [ ] R.9 Run `/rv-test-run aperv-tool` (`tests/test_trace_ndjson.py`)
+
+## A. Analysis consumers — wave 1, after 0.4 (codes against the declared fields)
+
+- [ ] A.1 `gates.py`: `count_mop_group_signal(reader)` over `StepRow` with the INV-SNK-17 member list ("Validity Gates Run Before Any Outcome"); gate 1 selects it for any NDJSON trace and keeps `count_forbidden_signal` for legacy streams; `ACT`/`MOP_DATA` never count
+- [ ] A.2 `runspec.py`: `attribution_evidence` compares `RunStart.variant` with the manifest arm's cell; `not-run` on `v == 1`; gate 3's evidence form names `variant`
+- [ ] A.3 `screen_visits.py`: `decision_source_counts` carries `run_start.v`, and cross-version pooling raises (INV-CAN-21); `activity_has_mop` / `target_activity_has_mop` are `Optional[bool]` (INV-CAN-22); `input_source_counts`
+- [ ] A.4 `step_bundle.py`: the `activity_has_mop` column is null when absent
+- [ ] A.4b `coverage_dump.py`: `StateCoverage.mop_reach: Optional[int]`; a `UICOV` line without `mopReach` is complete (`:300`); `state_coverage_join.py` carries `None` to `uicov_mop_reach` and its module docstring (`:15-18`) scopes the agreement claim to MOP cells; gate 1 also counts `UICOV` lines carrying `mopReach` (A.1); tests in `test_coverage_dump.py` and `test_state_coverage_join.py`
+- [ ] A.5 Tests: `test_gates.py` (the two new scenarios, the blind-pattern scenario, the variant attribution); `test_runspec.py` (variant pass/fail/not-run); `test_screen_visits.py` (version-tagged counts, `None` MOP fact, input counts); `test_step_bundle.py` (null column); `test_baseline_frames.py` (new null columns). Build the `v == 2` rows directly from the wave-0 dataclasses, not from R's fixtures, so A does not wait for R
+- [ ] A.6 Run `/rv-test-run aperv-tool` (the front's test files)
+
+## M. Migration checks against the jar source (`tests/migration/*`) — wave 1; M.4 also needs APE 11.6
+
+- [ ] M.1 `jar_tables.py`: parse the new `Presets.java` (cells composed from group blocks, design D10), against the file APE wave 0 writes; `test_jar_tables.py` pins six cells, the block unions, the new retired keys (`ape.mopDataPath`, `ape.mopTargetPickCap`, `ape.leastVisitedPriorityTiebreak`) and the vocabulary size read from `KeyOwnership.java`
+- [ ] M.2 `test_mapping_sweep.py` unchanged; it must pass against the `isolate-guidance-groups` checkout
+- [ ] M.3 Delete `tests/migration/test_decisive_contrasts.py` (backed up in 0.3); `retirements.py`, `capture_arm_baseline.py` and the gh95 migration record stay (archive tooling for recorded arms)
+- [ ] M.4 New `tests/migration/test_cells.py` (offline cell gate): preset names = the six cells; `as_mop_llm` keys = union of the four blocks; each `cells/<cell>.run_start.json` has `preset`/`variant` equal to `get_variants()`'s and the expected `features` (`mop` without `MENU_GATEWAY`; `COMPONENT_TRIGGER` in the four `as*`)
+- [ ] M.5 Run `APE_REPO=<ape checkout on isolate-guidance-groups> /rv-test-run aperv-tool` (`tests/migration`)
+
+## W. Documentation — wave 1 (writes from the specs, not from the code)
+
+- [ ] W.1 `modules/aperv-tool/CLAUDE.md`: Overview example, `## Variants` (cells, `default` = `base`, the deleted names, frozen image for old campaigns), Configuration Flow (`static_data`, `broadcast_catalog`, `ape.variant`, `ape.staticDataPath`), Gotchas, the reader's two jar generations; keep the frozen-corpus carve-out
+- [ ] W.2 `modules/aperv-tool/README.md` and `modules/aperv-tool/docs/architecture.md`: variant table, mapping table, data flow, scenarios (`aperv:as_mop`), reader fields and `run_end`, the two forms of gate 1
+- [ ] W.3 `docs/architecture/ape-rv.md`, `docs/architecture/rv-experiment.md` (`:101`, `:1343`), `.claude/skills/rv-experiment-compare/SKILL.md` (`:96`, `:154`) and the `scripts/gen_compare.py` docstring (`:14`, `:19`): cells in place of the deleted names
+- [ ] W.4 Grep the current-behaviour docs for the deleted names; historical docs, compose files, `scripts/`, `experimento-*/` and `callers/rq_map.toml` (decisive-corpus labels) stay as records
+
+## I. Wave 2 — integration (serial, coordinator)
+
+- [ ] I.1 Run the whole module suite: `/rv-test-run aperv-tool`; fix cross-front breaks (front owners re-dispatched if needed)
+- [ ] I.2 When APE 3.10 sends the contract commit: diff its `design.md` § Key contract / § Telemetry contract against v3; apply any difference through `/opsx:update` and the owning front; then run M.2 against that commit
+- [ ] I.3 Grep `modules/aperv-tool/src` for `FORMAT_VERSION`, `mop_data` (outside `TraceReader.mop_data`), `MOP_WIDGET`, `wtgsrc` in non-v1 docstrings: no stale reference
+
+## S. Wave 3 — jar pairing and device smoke (with APE 11.9 / 12.1)
+
+- [ ] S.1 The paired jar lands in this worktree's `modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar` (APE 11.9 with `-Drvsec_home=<this worktree's rvsec root>`); record its sha256 in the report (no literal in source, INV-APV-59)
+- [ ] S.2 Smoke: `uv run rv-experiment run --tools aperv:base,aperv:mop,aperv:as,aperv:as_mop,aperv:as_llm,aperv:as_mop_llm` on `cryptoapp`, its `.apk.json` beside the APK, a few minutes each, SGLang reachable for the two LLM cells; the platform manages the emulator
+- [ ] S.3 Device cell gate: a one-off script (scratchpad, not committed) reads each trace's `RUN_START` through `TraceReader` and compares it with `cells/<cell>.run_start.json` on `preset`, `variant`, `features`, `params`, `inert`, `digest`, masking `run_id`, `t0`, `seed`, `build`, `props_digest`; per-cell report
+- [ ] S.4 On the same traces: `v == 2`; gate 1 (`count_mop_group_signal`) is 0 on `base`, `as`, `as_llm` and positive on the three MOP cells; the catalog was pushed only on the four `as*` cells; no malformed record from the new members; the count of step records without `dec` (design Open Questions); the teardown overrun per run; UICOV `mopReach` on `as`/`as_llm` (open question to the ape session)
+- [ ] S.5 Report the smoke to the author and to the ape session before group C
+
+## C. Wave 4 — close (serial)
+
+- [ ] C.1 Run `/rv-qa-lint-fix aperv-tool`
+- [ ] C.2 Run `/rv-verify aperv-tool`
+- [ ] C.3 Invoke `/rv-code-reviewer` via Skill tool
+- [ ] C.4 Run `/rv-docs-sync aperv-tool`
+- [ ] C.5 At archive, synchronize by hand the § Invariants and § Data Contracts of `aperv` (INV-APV-05, -06, -08, -10, -38, -45, -49, -53, -58, -61, -62 replaced; -29, -30, -42 retired; -65 to -68 new) and of `campaign-analysis` (INV-CAN-07 replaced; -21, -22 new)
+- [ ] C.6 No push and no merge into `modules` without the author's explicit word (D-A19); commits only by path
