@@ -98,7 +98,7 @@ its artifacts reused.
   `0.00` there would claim the app covered nothing, which is a different fact.
 - **Tool plugin / variant** — A testing tool wrapped as an `AbstractTool` subclass and
   registered in the `ToolRegistry`. A variant is a named configuration preset from the
-  plugin's `get_variants()` (for example `droidbot:dfs_greedy`, `aperv:mop_on_llm_off`).
+  plugin's `get_variants()` (for example `droidbot:dfs_greedy`, `aperv:as_mop`).
   Experiment arms are variants.
 - **Resume** — Re-running with the same experiment name (`--name`, or `RV_EXPERIMENT_NAME` in
   Docker) finds `results/<name>/tasks.json`, turns all three pre-processing steps off
@@ -873,7 +873,12 @@ Ares, DroidBot, DroidMate, FastBot, Humanoid, QTesting) into the singleton `Tool
 shell`; Ares and QTesting start sibling Docker containers through the docker socket
 (`--network container:<hostname>` inside Docker, `--network host` outside, INV-TOOL-15);
 Humanoid talks to the shared inference server, whose address rv-experiment injects from
-`RV_HUMANOID_URL`. The execution lifecycle (`AbstractTool.execute()` →
+`RV_HUMANOID_URL`; in the same place rv-experiment reads `APERV_LLM_BASE_URL` and injects it as
+`llm_url` into the parameters of each `aperv` tool entry whose variant carries `overrides.llm_url`
+(the `as_llm` and `as_mop_llm` cells) and whose DSL does not already set `llm_url`, so an explicit
+`@llm_url` wins and the cells without the LLM group receive nothing (INV-EXP-41). It is the one
+user-facing variable outside the `RV_*` prefix that the entry-point rule admits, because the
+`aperv-tool` documentation names it; the plugin itself reads no environment. The execution lifecycle (`AbstractTool.execute()` →
 `execute_tool_specific_logic()`) lives in rv-android-core; rv-tools only defines discovery and
 configuration. It is separate because the registry must sit below rv-platform, which consumes
 it, and above rv-android-core, whose contract it fills, so plugins can be added without
@@ -1340,11 +1345,12 @@ The following scenarios illustrate the runtime behavior this view documents.
    maps an environment value onto the positive destination of a paired flag; outside Docker the
    five negation-style variables therefore have no effect and the CLI flags must be used.
 
-9. **WHEN** an `aperv:mop_on_llm_off` task starts under `--skip-static` and no `<apk>.json` sits
-   beside the APK in `--apks-dir`, **THEN** `ApeRVTool` raises `RVToolExecutionError` before
-   pushing anything and the task ends in ERROR, **AND** the run summary counts it as failed and
-   the CLI exits 1. *Why:* a MOP arm that explored without MOP guidance would be
-   indistinguishable from a real one in the results (INV-APV-45).
+9. **WHEN** an `aperv:as_mop` task — or any `aperv` cell but `base`, all of which read the
+   static-analysis artifact — starts under `--skip-static` and no `<apk>.json` sits beside the APK
+   in `--apks-dir`, **THEN** `ApeRVTool` raises `RVToolExecutionError` before launching the jar
+   and the task ends in ERROR, **AND** the run summary counts it as failed and the CLI exits 1.
+   *Why:* a cell that explored without its static or MOP data would be indistinguishable from a
+   real run of that cell in the results (INV-APV-45).
 
 10. **WHEN** an APK whose static document is 2 GB in full form runs 9 tasks, **THEN** GATOR has
     written the compact form (INV-ANA-85), the document is copied into the APK's task

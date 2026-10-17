@@ -30,6 +30,22 @@ Passed via `--tools` (see top `rv-android/CLAUDE.md` for `run` examples) or `--c
 Under `--config` the JSON file is the authority: `--tools` is not parsed, and the file's
 `package_detector`, `strip_build_type_suffix` and `stamp_handlers` win over the flags.
 
+### Server URLs injected into tool parameters
+After the tool specifications are parsed into `ToolConfig`s, `__main__.py` reads two server
+addresses from the environment, through their `ENV_*` constants, and passes them on by value in
+`ToolConfig.parameters`; the plugins below it read no environment (INV-TOOL-20):
+- `RV_HUMANOID_URL` — the shared inference server the Humanoid wrapper talks to.
+- `APERV_LLM_BASE_URL` (INV-EXP-41) — the LLM endpoint of the `aperv` cells that mount the LLM
+  group. When it is non-empty, every `aperv` `ToolConfig` whose variant definition in
+  `ToolRegistry` carries `overrides.llm_url` (today `as_llm` and `as_mop_llm`) and whose
+  parameters carry no `llm_url` receives `parameters["llm_url"]`; `ApeRVTool.configure()`'s DSL
+  fold then moves it into `overrides`. The LLM cells are found through the registry, not a list of
+  names here. Precedence is DSL `@llm_url` > variable > the cell's default
+  (`http://10.0.2.2:30000/v1`). Cells without the LLM group never receive it, because it would
+  write an `ape.llmUrl` line for a group they do not mount. It is the one user-facing name outside
+  `RV_*` that the entry-point rule admits, because the `aperv-tool` docs advertise that name.
+  `rv-platform run` does not read it.
+
 ## Three-Phase Workflow
 1. **Pre-Processing** (`PreProcessor.process`), in this order:
    - monitor generation via `rv-monitor-generator` into `<output_dir>/monitors/`; on success writes

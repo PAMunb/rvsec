@@ -105,11 +105,11 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 
 ## W. Documentation — wave 1 (writes from the specs, not from the code)
 
-- [ ] W.1 `modules/aperv-tool/CLAUDE.md`: Overview example, `## Variants` (cells, `default` = `base`, the deleted names, frozen image for old campaigns), Configuration Flow (`static_data`, `broadcast_catalog`, `ape.variant`, `ape.staticDataPath`), Gotchas, the reader's two jar generations; keep the frozen-corpus carve-out
-- [ ] W.2 `modules/aperv-tool/README.md` and `modules/aperv-tool/docs/architecture.md`: variant table, mapping table, data flow, scenarios (`aperv:as_mop`), reader fields and `run_end`, the two forms of gate 1
-- [ ] W.3 `docs/architecture/ape-rv.md`, `docs/architecture/rv-experiment.md` (`:101`, `:1343`), `.claude/skills/rv-experiment-compare/SKILL.md` (`:96`, `:154`) and the `scripts/gen_compare.py` docstring (`:14`, `:19`): cells in place of the deleted names
-- [ ] W.3b `APERV_LLM_BASE_URL` in `modules/aperv-tool/README.md:73`, `docs/architecture.md` (`:49`, `:518`, `:595`, `:709-725`) and `docs/architecture/ape-rv.md:1466`: the variable is read by `rv-experiment` and injected into the LLM cells, `configure()` reads no environment, `@llm_url` wins; `modules/rv-experiment/CLAUDE.md` names the new read beside `RV_HUMANOID_URL`
-- [ ] W.4 Grep the current-behaviour docs for the deleted names; historical docs, compose files, `scripts/`, `experimento-*/` and `callers/rq_map.toml` (decisive-corpus labels) stay as records
+- [x] W.1 `modules/aperv-tool/CLAUDE.md`: Overview example, `## Variants` (cells, `default` = `base`, the deleted names, frozen image for old campaigns), Configuration Flow (`static_data`, `broadcast_catalog`, `ape.variant`, `ape.staticDataPath`), Gotchas, the reader's two jar generations; keep the frozen-corpus carve-out
+- [x] W.2 `modules/aperv-tool/README.md` and `modules/aperv-tool/docs/architecture.md`: variant table, mapping table, data flow, scenarios (`aperv:as_mop`), reader fields and `run_end`, the two forms of gate 1
+- [x] W.3 `docs/architecture/ape-rv.md`, `docs/architecture/rv-experiment.md` (`:101`, `:1343`), `.claude/skills/rv-experiment-compare/SKILL.md` (`:96`, `:154`) and the `scripts/gen_compare.py` docstring (`:14`, `:19`): cells in place of the deleted names
+- [x] W.3b `APERV_LLM_BASE_URL` in `modules/aperv-tool/README.md:73`, `docs/architecture.md` (`:49`, `:518`, `:595`, `:709-725`) and `docs/architecture/ape-rv.md:1466`: the variable is read by `rv-experiment` and injected into the LLM cells, `configure()` reads no environment, `@llm_url` wins; `modules/rv-experiment/CLAUDE.md` names the new read beside `RV_HUMANOID_URL`
+- [x] W.4 Grep the current-behaviour docs for the deleted names; historical docs, compose files, `scripts/`, `experimento-*/` and `callers/rq_map.toml` (decisive-corpus labels) stay as records
 
 ## I. Wave 2 — integration (serial, coordinator)
 

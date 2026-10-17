@@ -2,7 +2,7 @@
 
 ## Overview
 
-The aperv-tool module wraps the APE-RV binary (`ape-rv.jar`) as an `AbstractTool` plugin for rv-platform integration. APE-RV is an enhanced fork of the AOSP Monkey tool that implements model-based UI exploration via the Widget Table Graph (WTG) model with adaptive random testing (SATA) and random strategies. The module handles JAR deployment to the Android device, strategy configuration via `ape.properties`, optional MOP-guided scoring using static analysis data, and optional LLM-guided exploration via an OpenAI-compatible endpoint. It runs inside the Android emulator via `app_process`, not as a standard JVM process.
+The aperv-tool module wraps the APE-RV binary (`ape-rv.jar`) as an `AbstractTool` plugin for rv-platform integration. APE-RV is an enhanced fork of the AOSP Monkey tool that implements model-based UI exploration via the Widget Table Graph (WTG) model with adaptive random testing (SATA) and random strategies. The module handles JAR deployment to the Android device and the selection of one experimental cell per variant: each cell is a jar preset that mounts a union of APE-RV's behaviour groups (BASE, ADDONS, STATIC, MOP, LLM), and the module supplies only what the jar cannot know — the static-analysis artifact for the cells that read it, the broadcast catalog for the cells that mount STATIC, the server URL for the LLM cells, and the cell's name, which the jar echoes into the trace. It runs inside the Android emulator via `app_process`, not as a standard JVM process.
 
 ## Specification Alignment
 
@@ -13,26 +13,29 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 | FR | Description | Architectural Support |
 |----|-------------|----------------------|
 | FR18 | Plugin system with registry and factory patterns | `ApeRVTool` extends `AbstractTool` (rv-android-core) and registers via `ToolRegistry` in rv-platform's `_register_external_tools()` |
-| FR20 | Per-tool variant system | `get_variants()` returns 8 named variants as `preset` + `overrides`; `configure()` validates strategy, preset and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
+| FR20 | Per-tool variant system | `get_variants()` returns seven names — the six cells `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, plus `default` bound to `base` — each a `preset`, a `variant` name and `overrides`; `configure()` validates strategy, preset, variant and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
 
 ### Key Invariants
 
 | Invariant | Description | Enforcement Mechanism |
 |-----------|-------------|----------------------|
-| INV-TOOL-02 | Every registered tool must have a "default" variant | `get_variants()` returns a dictionary containing the "default" key, mapping to sata strategy |
+| INV-TOOL-02 | Every registered tool must have a "default" variant | `get_variants()["default"]` is the same object as `get_variants()["base"]`, so a bare `aperv` runs the APE reference cell and its trace says `variant: "base"` |
 | INV-TOOL-05 | Factory must call `configure()` before returning tool | `configure()` stores validated config in `_tool_config`; `execute_tool_specific_logic()` checks truthiness of `_tool_config` |
 | INV-TOOL-06 | `execute()` must convert `RVCommandTimeoutError` to `RVToolTimeoutError` | `execute_tool_specific_logic()` catches `RVCommandTimeoutError` and re-raises as `RVToolTimeoutError` |
 | INV-APV-01 | JAR resolution follows priority search order | `_resolve_jar_path()` searches: module directory, `$RVSEC_HOME/ape/target/`, `$TOOLS_DIR/aperv/` |
 | INV-APV-02 | Invalid strategy must be rejected before device interaction | `configure()` validates strategy against `APERV_AVAILABLE_STRATEGIES` and raises `ConfigurationError` immediately |
 | INV-APV-04 | Working directory must be `/system/bin` | `_build_main_command()` passes `/system/bin` as the working directory argument to `app_process` |
 | INV-APV-07 | APE and APE-RV must not run concurrently | `TOOL_SPEC.process_pattern` is `com.android.commands.monkey`, shared with the builtin APE tool, so rv-platform's `kill_related_processes()` terminates either before launch |
+| INV-APV-10 | The broadcast catalog reaches the device exactly where its only reader runs | `execute_tool_specific_logic()` pushes `system-broadcast.json` only when the variant carries `broadcast_catalog=True` (the four `as*` cells, whose presets mount component triggering) and the file exists |
+| INV-APV-45 | A cell that reads the artifact never launches without it | when `static_data == "static_analysis"` the tool either pushes a freshly validated derived artifact and writes `ape.staticDataPath`, or raises `RVToolExecutionError` before the jar is launched |
+| INV-APV-65 | The trace names its cell | every variant carries `variant` equal to its cell name; `_push_properties()` writes `ape.variant=<variant>` as the second line; the jar echoes it as `RUN_START.variant`, and the tool never reads it back |
 | INV-APV-60 | A run that did not explore its budget must not be reported as successful | `execute_tool_specific_logic()` measures the exploration against `time.monotonic()` and raises `RVToolExecutionError` when a non-timeout return came back more than `APERV_TEARDOWN_GRACE_S` short of `task.config.timeout` |
 | INV-APV-64 | On a cache miss the source is read in streaming, keeping per method only the per-target minima at `d <= DIST_WEIGHED_MAX` and the `DIST_K` nearest, and the artifact is byte-identical to one derived from the whole document | `_derive_mop_artifact()` calls `read_analysis_document(path, PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K))`; the cuts are imported from `derive_mop_artifact`, so the reduction and the derivation name one pair of constants. `tests/test_derive_mop_artifact.py` compares the streamed and whole-document artifacts byte for byte |
 
 ### Specification Scenarios
 
 Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
-- **External tool registration**: rv-platform imports `ApeRVTool` in `_register_external_tools()`, checks `is_tool_registered("aperv")` for idempotency, and registers the tool class with all 8 variants -- traces through `rv_platform/__init__.py` -> `ToolRegistry` -> `ApeRVTool.get_tool_spec()` / `get_variants()`
+- **External tool registration**: rv-platform imports `ApeRVTool` in `_register_external_tools()`, checks `is_tool_registered("aperv")` for idempotency, and registers the tool class with all seven variants -- traces through `rv_platform/__init__.py` -> `ToolRegistry` -> `ApeRVTool.get_tool_spec()` / `get_variants()`
 - **Tool execution with variant**: rv-platform calls `ToolFactory.create_tool(tool_config)` which instantiates `ApeRVTool`, resolves the variant config, merges parameters, calls `configure()`, then `execute_tool_specific_logic()` -- traces through `ToolFactory` -> `ApeRVTool.configure()` -> `execute_tool_specific_logic()`
 
 ## Key Architectural Decisions
@@ -46,11 +49,11 @@ Scenarios from `openspec/specs/tools/spec.md` that validate this architecture:
 | Configuration | Properties file injection | APE-RV reads `ape.properties` from the device; the tool generates this file from Python config and pushes via ADB |
 | JAR Resolution | Priority search with JarResolver | Module-local JAR takes precedence over Maven build output, ensuring packaged JAR is used by default for reproducibility |
 | Process Pattern | Shared with builtin APE | Both APE and APE-RV use `com.android.commands.monkey` -- mutual exclusion enforced by rv-platform process cleanup |
-| LLM URL Override | Environment variable `APERV_LLM_BASE_URL` | Emulator uses `10.0.2.2` (host loopback alias); Docker and physical devices need different addresses |
+| LLM URL Override | Tool DSL `@llm_url`, or `APERV_LLM_BASE_URL` read by the `rv-experiment` entry point and injected as `llm_url` into the LLM cells | Emulator uses `10.0.2.2` (host loopback alias); Docker and physical devices need different addresses. `configure()` reads no environment (INV-TOOL-20), so the variable reaches the tool by value, through `ToolConfig.parameters` |
 
 ### Why Properties File Injection?
 
-APE-RV is a Java application running inside the Android emulator via `app_process`. It reads configuration from `ape.properties` on the device filesystem at startup. The Python wrapper generates this file dynamically, and since stage 2 of the re-architecture it writes only what distinguishes the arm: `ape.preset=<name>` first, `ape.mopDataPath` when the derived MOP artifact was pushed, then one line per `overrides` entry. What a preset contains is resolved inside the jar, so the file no longer restates 18-33 keys the two sides had to agree on. Keys not in `APERV_PROPERTY_MAPPING` — the eight in `APERV_ORCHESTRATION_KEYS` — are Python-only control parameters and never reach the device.
+APE-RV is a Java application running inside the Android emulator via `app_process`. It reads configuration from `ape.properties` on the device filesystem at startup. The Python wrapper generates this file dynamically and writes only what distinguishes the cell: `ape.preset=<cell>` first, `ape.variant=<cell>` second, `ape.staticDataPath` when the derived artifact was pushed, then one line per `overrides` entry. What a preset contains is resolved inside the jar, so the file never restates the keys of a group block. Keys not in `APERV_PROPERTY_MAPPING` — the ten in `APERV_ORCHESTRATION_KEYS` — are Python-only control parameters; of those, only `preset` and `variant` reach the device, through their fixed lines.
 
 ### Why Shared Process Pattern with APE?
 
@@ -93,12 +96,12 @@ Raising is what makes the failure recoverable. rv-platform stores the task as ER
 
 ### Pattern: Variant Configuration
 
-**Description**: `get_variants()` returns a dictionary of named configurations, each a `preset` name plus an `overrides` dict. `configure()` validates the shape, folds any tool-DSL override into `overrides`, and raises on a top-level key it cannot honour -- without that fold a DSL override would produce no property line and no error, which is the silent-discard failure the preset mechanism exists to remove. `_push_properties()` then translates `overrides` through `APERV_PROPERTY_MAPPING`. Python-only keys are excluded automatically because they have no mapping entry.
+**Description**: `get_variants()` returns a dictionary of named cells, each a `preset` name, a `variant` name, an `overrides` dict and the Python-only keys `strategy`, `static_data` and `broadcast_catalog`. `configure()` validates the shape, folds any tool-DSL override into `overrides`, and raises on a top-level key it cannot honour -- without that fold a DSL override would produce no property line and no error, which is the silent-discard failure the preset mechanism exists to remove. `_push_properties()` then translates `overrides` through `APERV_PROPERTY_MAPPING`. Python-only keys are excluded automatically because they have no mapping entry.
 
-**When Used**: When the experiment configuration specifies a variant (e.g., `aperv:sata_mop`), `ToolFactory` resolves the variant config, merges any parameter overrides, and calls `configure()`.
+**When Used**: When the experiment configuration specifies a variant (e.g., `aperv:as_mop`), `ToolFactory` resolves the variant config, merges any parameter overrides, and calls `configure()`.
 
 **Advantages**:
-- Declarative variant definitions: adding a variant requires only a dictionary entry
+- Declarative cell definitions: what a cell mounts is stated once, in the jar's group blocks, and the Python side names it
 - Type safety: `configure()` validates strategy eagerly before device interaction
 
 **Disadvantages**:
@@ -232,9 +235,9 @@ aperv-tool/
 │               └── count_model.py          #   example caller: negative-binomial GLM
 ├── tests/
 │   ├── __init__.py
-│   ├── test_aperv_tool.py                  # spec, variants, configure/DSL fold, commands, properties, arms
+│   ├── test_aperv_tool.py                  # spec, cells, configure/DSL fold, commands, properties, pushes
 │   ├── test_derive_mop_artifact.py         # one named test per derivation rule + cryptoapp ground truth
-│   ├── test_trace_ndjson.py                # reader semantics against the golden NDJSON
+│   ├── test_trace_ndjson.py                # reader semantics against the v1 golden and the v2 groups traces
 │   ├── test_coverage_dump.py               # coverage-dump parsing
 │   ├── test_clock_logcat_join.py           # heartbeat placement, including both routes to UNALIGNED
 │   ├── test_smoke_two_apps.py              # the whole chain over two applications, no device
@@ -242,11 +245,11 @@ aperv-tool/
 │   ├── test_no_rq_identifier.py            # the genericity scan over the package
 │   ├── test_analysis_off_collection_path.py  # import-graph proof the run path cannot reach analysis/
 │   ├── fixtures/                           # cryptoapp.apk.json, the golden NDJSON, the pinned manifests
-│   └── migration/                          # one-time regeneration diff, retirement list, jar tables, mapping sweep
+│   └── migration/                          # retirement list, jar tables, mapping sweep, offline cell gate
 └── pyproject.toml
 ```
 
-The `tools/` ÷ `analysis/` split is load-bearing rather than cosmetic: `analysis/` reads artifacts a run already produced and rv-platform never calls into it, so a change there cannot alter what any arm does on a device.
+The `tools/` ÷ `analysis/` split is load-bearing rather than cosmetic: `analysis/` reads artifacts a run already produced and rv-platform never calls into it, so a change there cannot alter what any cell does on a device.
 
 ### Package Dependencies
 
@@ -308,8 +311,8 @@ sequenceDiagram
     participant APE as APE-RV<br/>(app_process)
 
     Platform->>Tool: configure(variant_config)
-    Tool->>Tool: validate strategy
-    Tool->>Tool: store _tool_config
+    Tool->>Tool: validate strategy, preset, variant, overrides
+    Tool->>Tool: fold DSL keys into overrides, store _tool_config
 
     Platform->>Tool: execute_tool_specific_logic(task, app)
 
@@ -319,12 +322,12 @@ sequenceDiagram
     Tool->>ADB: adb push ape-rv.jar /data/local/tmp/
     ADB-->>Tool: OK
 
-    opt system-broadcast.json exists
+    opt broadcast_catalog and system-broadcast.json exists (as* cells)
         Tool->>ADB: adb push system-broadcast.json /data/local/tmp/
         ADB-->>Tool: OK
     end
 
-    opt mop_data == "static_analysis"
+    opt static_data == "static_analysis" (every cell but base)
         Tool->>Tool: _find_static_analysis_file(task)
         alt static analysis JSON found
             Tool->>Tool: _derive_mop_artifact(task) [cache-or-derive]
@@ -335,7 +338,7 @@ sequenceDiagram
         end
     end
 
-    Tool->>Tool: _push_properties() - generate ape.properties
+    Tool->>Tool: _push_properties() - ape.preset, ape.variant,<br/>ape.staticDataPath (if pushed), overrides
     Tool->>ADB: adb push ape.properties /data/local/tmp/
     ADB-->>Tool: OK
 
@@ -406,8 +409,8 @@ The three stream readers:
 
 | Module | Reads | Produces |
 |--------|-------|----------|
-| `trace_ndjson.py` | the stage-4 NDJSON trace | one row per exploration step, with the `ACT`/`STATE` dictionaries resolved, omitted defaults materialized, and the run-relative clock expanded through `RUN_START.t0` |
-| `coverage_dump.py` | the `UICOV` / `UICOV-ACT` lines of the trace | parsed coverage records; unaffected by the NDJSON change, which does not touch those lines |
+| `trace_ndjson.py` | the stage-4 NDJSON trace, `RUN_START.v` 1 or 2 | one row per exploration step, with the `ACT`/`STATE` dictionaries resolved, omitted defaults materialized, and the run-relative clock expanded through `RUN_START.t0`; the run-level records `run_start` (with `variant`), `mop_data`, `pipeline`, `llm_ack` and `run_end` as verbatim attributes (see "The reader's two jar generations" below) |
+| `coverage_dump.py` | the `UICOV` / `UICOV-ACT` lines of the trace | parsed coverage records; `StateCoverage.mop_reach` is `None` on a `UICOV` line without `mopReach`, which the group-isolation jar writes only with MOP mounted, and such a line is complete, not partial (INV-APV-68) |
 | `clock_logcat_join.py` | a run's logcat plus `trace_ndjson` rows | each `RVSEC` violation placed at the step of the last `ApeRvHb` heartbeat at or before it. Also owns `read_tagged_lines`, the exact-match reader of one logcat tag shared by all three streams (INV-APV-63), returning a `TaggedLines` list subclass whose `.skipped` makes unparseable tagged lines visible without changing the eight existing call sites |
 | `violations.py` | the `RVSEC` lines of a run's logcat, or rv-platform's consolidated `errors.csv` | `ViolationEvent` records with the seven comma fields and the v1 message envelope decomposed, plus `LogcatDiagnostics` / `CsvDiagnostics` accounting for every line that did not survive intact |
 
@@ -425,6 +428,47 @@ The campaign analysis layer, in five layers plus a callers directory:
 **Constraints**: nothing here is imported by the run path, and none of it holds a clock reconstruction. `clock_logcat_join` works because both series come out of the same logcat, so their identical unknowns (no year, no zone) cancel in the difference. No `*.mop.json` is ever opened (INV-ANA-53). No research-question identifier appears outside `callers/` (INV-CAN-22). Every knob the pre-registration decides — the margin, the corpus, the replica rule, the dedup convention, the GLM offset and reference level, the multiplicity strategy — is a required parameter with no default (INV-CAN-11), so a call that omits one raises rather than choosing on the author's behalf.
 
 Full narrative, including the two fixture classes and why the activity-visit is the analysis unit: [docs/20260815_gh103_analysis_layer.md](../../../docs/20260815_gh103_analysis_layer.md).
+
+#### The reader's two jar generations
+
+`TraceReader` accepts `RUN_START.v` in `SUPPORTED_VERSIONS = {1, 2}` (INV-APV-62). Version 1 is the `eea2b1a9` jar and earlier; version 2 is the jar of the `ape` change `isolate-guidance-groups` (contract v3.2, `ape` `16b185f4`), which bumped the version because `dec.src` changed meaning. Any other declared version is counted in `TraceDiagnostics.schema_version_mismatch`, and raises `SchemaVersionMismatch` in strict mode before any row is yielded. The reader carries the version as `run_start.v` and does not branch on it: it reads both vocabularies faithfully and leaves the interpretation to the consumer, which is why some fields need the version to be read correctly.
+
+**`decision_source` has two meanings** (INV-APV-67). Under `v == 2` it is the owner that executed the step — `budget`, `restart`, `llm`, `launcher`, `mop` or `sata` — and it is causal. Under `v == 1` it is the stage whose boost was largest, which is not causal, because every stage adds into one shared priority. `screen_visits` reports `decision_source_counts` beside the version, and an aggregation across runs refuses to pool two versions (INV-CAN-21).
+
+**The decision record of the group-isolation jar** reaches typed `StepRow` fields. Each is `None` when the member is absent, because a `v == 1` trace carries none of them and a default would claim a mechanism ran (INV-APV-49). Enumerated values are carried as written, so a new owner or SATA path on the jar side does not turn a well-formed record into a malformed one.
+
+| Wire member | `StepRow` field | Type |
+|---|---|---|
+| `dec.own` | `owner` | `Ownership(intended, trigger, u_llm, u_mop, gate, fallback)` — the intended owner, the LLM stage that made the step's one call, the two coin draws, the gate and the fallback |
+| `dec.cfc` | `scorer_cf` | `Mapping[str, bool]`: for each mounted scorer, whether zeroing it alone would have changed the pick |
+| `dec.draw` | `draw` | `Tuple[int, int]` (index, total) |
+| `dec.nav` | `nav` | `NavTie(point, component, alternative, drew)` |
+| `dec.inp` | `input_source` | `str` |
+| `dec.restart` | `restart_kind` | `str` |
+| `dec.bmc` | `back_menu_capped` | `int` |
+| `dec.strat` | `sata_path` | `str` |
+| `dec.rot` | `rotation` | `int` |
+| `dec.buf` | `buffer_abandoned_by` | `str` |
+| `dec.trig` | `component_trigger` | `ComponentTrigger(kind, component_class)` — the step during which component triggering fired, whatever its owner |
+| `dec.navf` | `nav_frontier` | `int`, a boost field materialized at `0` |
+| `dec.mopd` / `dec.mops` / `dec.ret` | `mop_distance` / `mop_stamp` / `retired_targets` | `int` / `str` / `Tuple[int, ...]`, on both versions |
+
+`counterfactual` and `wtg_source` carry the `v == 1` jar's `dec.cf` and `dec.wtgsrc`, and are `None` on `v == 2`, which removed them. `counterfactual` is the pick with **only the MOP boosts** zeroed, so it is evidence about MOP guidance and about nothing else; `scorer_cf` answers the narrower "did this one scorer change the choice", not "did the guidance as a whole change it".
+
+**`activity_has_mop` is tri-state** (INV-APV-68). The `v == 2` jar writes `ACT.mop` only when MOP is mounted, so in `base`, `as` and `as_llm` the fact was not computed and reads `None` on both sides of the row. `screen_visits` and `step_bundle` carry `None` through as null, never as `False` (INV-CAN-22).
+
+**`RunStart` has fourteen members**, `variant` among them; it is `None` on every `v == 1` trace.
+
+**`run_end` is a census attribute.** It is the `RUN_END` record minus `type`, verbatim, beside `mop_data`, `pipeline` and `llm_ack`, and `None` when the trace has none: `reason`, `steps`, and `counters`, which on `v == 2` add `launches`, `gateMinActions`, `gateBreaker`, `guardBacks`, `bufAbandoned`, `restarts`, `coinLlm` and `coinMop` beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and `llm`. An analysis of the cells needs those per-run counts of each mechanism. The reader derives nothing from the record — no completeness flag, no status — and the collection path in `tools/aperv/*` never reads it (INV-APV-53).
+
+#### Gate 1 has two forms
+
+The clean-control gate counts a forbidden signal in each run of the arms the caller declares as controls (`arm_predicate`, a parameter, not a module constant). Its signal is computed in exactly one place per trace format (INV-CAN-07):
+
+- **Legacy `key=value` streams**: `count_forbidden_signal` keeps the anchored pattern `(?<![a-z_])mop=`, so `activity_has_mop=1` never matches. The pattern cannot match an NDJSON `"mop":` member, so on a stage-4 trace it would count zero whatever the trace carried; the gate therefore never uses it there.
+- **NDJSON traces** (the first sink record is `{`-leading): `count_mop_group_signal(reader)` reads the trace through `TraceReader` and counts the members of the `ape` side's own clean-control list (`event-sink` INV-SNK-18). A step row counts once when it carries a non-zero `mop`, `mop_frontier`, `wtg` or `menu`; a present `mop_distance`, `mop_stamp`, `retired_targets` or `mop_exposure`; an `owner.u_mop`; a `scorer_cf` key among `mop`, `mopf`, `wtg`, `menu`; `nav.component == "mop"`; a `pick_channel` of `mop_coin` or `launcher`; a `decision_source` or `owner.intended` of `mop` or `launcher`; or, on `v == 2` only, an `activity_has_mop` or `target_activity_has_mop` that is not `None`. Outside the rows, a `UICOV` line carrying `mopReach` counts once, and so, on `v == 2` only, does a `RUN_END` with a non-zero `coinMop`, `launches`, `stampHits` or `retired`.
+
+The `ACT` and `RUN_END` members count only on `v == 2` because only that jar writes them exclusively with MOP mounted. The `v == 1` jar wrote `ACT.mop` in every arm, and its control arm mounted MOP with the weights zeroed, so stamp lookups and retirements happened in a clean run. `MOP_DATA` never counts: it reports that the artifact was loaded, which the STATIC cells `as` and `as_llm` do by design. On a group-isolation campaign the controls are `aperv:base`, `aperv:as` and `aperv:as_llm`. Gate 3 (arm attribution) uses `RUN_START.variant` as evidence against the manifest's cell on a `v == 2` trace, and reports that check `not-run` on `v == 1`.
 
 #### The violation record
 
@@ -487,21 +531,36 @@ frozen with the reason — closed by a grep over `modules/`, `scripts/`, the exp
 - `APERV_MAIN_CLASS = "com.android.commands.monkey.Monkey"` -- Java entry point
 - `APERV_TEARDOWN_GRACE_S = 45` -- seconds of teardown allowed beyond the exploration budget. Stated once because two users must agree on it: the command timeout is the budget *plus* this value, and the completion floor is the budget *minus* it (INV-APV-60). The value is a hypothesis about censored teardown durations, not a measurement — among iter0 runs whose teardown completed the overrun reaches 12,991 ms, with 32 runs stacked against the previous 15 s ceiling and none beyond it, the signature of a hard wall rather than a natural distribution
 - `APERV_AVAILABLE_STRATEGIES = ["sata", "random"]` -- valid strategies. `bfs`/`dfs` were never agent types (`ApeAgent.createAgent` knows `sata`, `random` and `replay`), so accepting them would let a run pass local validation and abort on the device
-- `APERV_ORCHESTRATION_KEYS` -- the top-level keys that are Python orchestration rather than jar configuration; anything else at the top level must be a mapped override or `configure()` raises
-- `APERV_PROPERTY_MAPPING` -- 56-entry pass-through table mapping Python override keys to Java `ape.*` property names. It contains only keys the deployed jar accepts (INV-APV-41); the sweep against `KeyOwnership.java` lives in `tests/migration/test_mapping_sweep.py`
+- `APERV_ORCHESTRATION_KEYS` -- the ten top-level keys that are Python orchestration rather than jar configuration (`preset`, `variant`, `overrides`, `strategy`, `static_data`, `broadcast_catalog`, `seed`, `device_port`, `device_serial`, `device_id`); anything else at the top level must be a mapped override or `configure()` raises, `mop_data` included
+- `APERV_PROPERTY_MAPPING` -- 66-entry pass-through table mapping Python override keys to Java `ape.*` property names. It contains only keys the deployed jar accepts (INV-APV-41); the sweep against `KeyOwnership.java` lives in `tests/migration/test_mapping_sweep.py`
 
 ### Variant System
 
-**Purpose**: Define the experimental matrix as **preset + overrides**: 10 names carrying 9 configurations, each a jar preset name plus a dict of deltas over it.
+**Purpose**: Define the experimental matrix as **one variant per cell**: 7 names carrying 6 configurations, each a jar cell preset, the cell's own name, and the deployment facts the jar cannot know.
 
 **Location**: `src/aperv_tool/tools/aperv/tool.py` (`get_variants()` classmethod)
 
-**Variants**:
-- **Preset-identity** (4, plus the `default` alias): `sata` (`aperv`), `sata_mop` (`mop`), `sata_llm` (`llm`), `sata_mop_llm` (`llm_mop`) -- empty overrides but for the deployment-specific `llm_url`, since a preset names an arm while a URL names a machine
-- **E3 decisive run** (3): `mop_on_llm_off` (reference, on the reach package), `mop_off_llm_off` (control, MOP scoring zeroed but navigation alive), `mop_on_llm_70` (LLM arm at the calibrated dose)
-- **Distance scoring** (2, gh122): `mopd_on_llm_off` (the reference plus `mop_scoring="distance"`) and `mopd_on_llm_90` (Study 03's E6 arm 4 plus `mop_scoring="distance"`); both take the jar's distance defaults
+APE-RV mounts five behaviour groups by declaration. BASE is the APE algorithm, ADDONS the fork's own improvements, STATIC the consumers of the static GUI model (the navigation frontier, typed input, component triggering), MOP the consumers of the specification targets, and LLM the vision-language model. A cell is a union of groups, and each jar preset is the union of that cell's group blocks.
 
-The division of authority is the point: the jar owns what a preset *means*, Python owns *which arms exist*. Adding an ablation means adding a named override set, never a fifth preset.
+| Variant | preset | Groups beside BASE | static_data | broadcast_catalog | overrides |
+|---|---|---|---|---|---|
+| `default` | `base` | — | — | — | _(empty)_ — the same object as `base` (INV-TOOL-02) |
+| `base` | `base` | — | — | — | _(empty)_ |
+| `mop` | `mop` | MOP | `"static_analysis"` | — | _(empty)_ |
+| `as` | `as` | ADDONS, STATIC | `"static_analysis"` | `True` | _(empty)_ |
+| `as_mop` | `as_mop` | ADDONS, STATIC, MOP | `"static_analysis"` | `True` | _(empty)_ |
+| `as_llm` | `as_llm` | ADDONS, STATIC, LLM | `"static_analysis"` | `True` | `llm_url` |
+| `as_mop_llm` | `as_mop_llm` | ADDONS, STATIC, MOP, LLM | `"static_analysis"` | `True` | `llm_url` |
+
+Every variant carries `strategy="sata"` and `variant` equal to its cell name (`default` carries `"base"`).
+
+Each orchestration key states one deployment fact, because the Python side does not know what a preset mounts and does not branch on a preset name:
+
+- `static_data` is present exactly on the cells that mount STATIC or MOP (INV-APV-66). `mop` reads the artifact with ADDONS and STATIC off, and `as` reads it with MOP off, which is why the key is named after the static data and not after MOP.
+- `broadcast_catalog` is present exactly on the cells that mount STATIC (INV-APV-10), because the catalog's only reader in the jar is component triggering, a STATIC member.
+- `overrides` carries only `llm_url` on the two LLM cells (INV-APV-38). The LLM presets state the group without the URL, which names a machine rather than a cell.
+
+The division of authority is the point: the jar owns what a group *means* and which groups a cell mounts, Python owns *which cells exist*. A dose or another tunable is an ablation through the tool DSL (`aperv:as_mop@mop_coin_percentage=0.5`), never a new variant and never a new preset. The arm names of earlier campaigns are not defined; campaigns recorded under them resume from the frozen image `rvandroid:0.9.5`.
 
 ---
 
@@ -512,10 +571,10 @@ How the architecture supports non-functional requirements from the PRD.
 | NFR | PRD ID | Priority | Architectural Support |
 |-----|--------|----------|----------------------|
 | Modularity | NFR01 | P0 | Standalone uv workspace module whose only declared workspace dependency is rv-android-core; registered lazily by rv-platform, which declares aperv-tool |
-| Extensibility | NFR02 | P0 | A new arm is a named entry in `get_variants()` carrying a preset plus override deltas; a new tunable is an entry in `APERV_PROPERTY_MAPPING`. New presets are not added here — the preset vocabulary belongs to the jar's `Presets.java` |
-| Testability | NFR03 | P1 | `tests/test_aperv_tool.py` covers spec metadata, variant shape, `configure()` validation, the DSL override fold, JAR paths, command building, constants, empty-trace detection, properties generation and the decisive-run arms; `tests/migration/` holds the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table, the pinned jar tables and the decisive-run contrasts, and skips silently without `$APE_REPO` |
+| Extensibility | NFR02 | P0 | An ablation is a tool-DSL override on an existing cell; a new tunable is an entry in `APERV_PROPERTY_MAPPING`. New cells and presets are not added here — the preset vocabulary and the group blocks belong to the jar's `Presets.java` |
+| Testability | NFR03 | P1 | `tests/test_aperv_tool.py` covers spec metadata, variant shape, `configure()` validation, the DSL override fold, JAR paths, command building, constants, empty-trace detection, properties generation and the catalog and artifact pushes per cell; `tests/migration/` holds the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table, the pinned jar tables and the offline cell gate, and skips silently without `$APE_REPO` |
 | Resilience | NFR04 | P1 | Timeout treated as expected exit (re-raised as `RVToolTimeoutError`); non-zero exit codes logged as debug (APE-RV reports app crashes this way) and never used to judge a run; a truncated exploration raises `RVToolExecutionError` so rv-platform's resume re-executes the identity (INV-APV-60); empty trace produces warning, not error |
-| Configurability | NFR05 | P1 | `APERV_LLM_BASE_URL` env var overrides LLM URL; `RVSEC_HOME` and `TOOLS_DIR` env vars extend JAR search paths; `ape.properties` generated from `_tool_config` via mapping |
+| Configurability | NFR05 | P1 | The LLM cells' URL is changed by a DSL `@llm_url`, or by `APERV_LLM_BASE_URL`, which the `rv-experiment` entry point reads and injects into those cells' `ToolConfig.parameters` (the tool itself reads no environment for it); `RVSEC_HOME` and `TOOLS_DIR` extend JAR search paths; `ape.properties` generated from `_tool_config` via mapping |
 | Reproducibility | NFR08 | P1 | Module-local JAR (`ape-rv.jar` shipped alongside `tool.py`) takes priority in resolution, ensuring experiments use the packaged binary |
 
 ---
@@ -570,31 +629,32 @@ classDiagram
 
 ## Scenarios
 
-### Scenario 1: SATA Exploration with MOP Guidance
+### Scenario 1: The full tool with MOP guidance (`aperv:as_mop`)
 
-**Description**: An experiment runs APE-RV with the `sata_mop` variant — adaptive random exploration biased toward screens where monitored operations are reachable. This arm is preset-identity: it names the `mop` preset and overrides nothing, so it is the shortest properties file the tool can produce.
+**Description**: An experiment runs the `as_mop` cell — APE plus the fork's improvements, the static GUI model and MOP guidance. It overrides nothing, so it is the shortest properties file a cell that reads the artifact can produce.
 
 **Flow**:
-1. rv-experiment generates a task with `tool_config = ToolConfig(name="aperv", variant="sata_mop")`
-2. rv-platform's `ToolFactory` instantiates `ApeRVTool`, resolves the `sata_mop` variant config (`preset=mop`, `strategy=sata`, `mop_data=static_analysis`, `overrides={}`), and calls `configure()`
-3. `configure()` validates `strategy="sata"` against `APERV_AVAILABLE_STRATEGIES`, checks the preset name and the shape of `overrides`, and stores the config. WHEN the experiment adds a DSL override (`aperv:sata_mop@default_epsilon=0.1`) THEN `configure()` folds that top-level key into `overrides` AND an unmappable key raises `ConfigurationError` here, before any device interaction
+1. rv-experiment generates a task with `tool_config = ToolConfig(name="aperv", variant="as_mop")`
+2. rv-platform's `ToolFactory` instantiates `ApeRVTool`, resolves the `as_mop` variant config (`preset="as_mop"`, `variant="as_mop"`, `strategy="sata"`, `static_data="static_analysis"`, `broadcast_catalog=True`, `overrides={}`), and calls `configure()`
+3. `configure()` validates `strategy="sata"` against `APERV_AVAILABLE_STRATEGIES`, checks that `preset` and `variant` are present and non-empty and that `overrides` is a dict, and stores the config. WHEN the experiment adds a DSL ablation (`aperv:as_mop@mop_coin_percentage=0.5`) THEN `configure()` folds that top-level key into `overrides` AND an unmappable key raises `ConfigurationError` here, before any device interaction
 4. `execute_tool_specific_logic()` resolves `ape-rv.jar` via `JarResolver` and pushes it to the device
-5. The tool finds the static analysis JSON in `task.results_dir`, derives the compact MOP artifact from it (or reuses the cached `<apk_name>.mop.json` when its recorded digest still matches), and pushes **only the artifact** as `/data/local/tmp/mop-artifact.json`
-6. `_push_properties()` generates a two-line `ape.properties`: `ape.preset=mop` followed by `ape.mopDataPath=/data/local/tmp/mop-artifact.json`. Nothing else is written — the throttle, the epsilon and the MOP weights are all supplied by the `mop` preset inside the jar
-7. APE-RV runs via `app_process` on the device, resolves the preset, and uses the artifact to bias action selection toward MOP-relevant screens
-8. After timeout, `RVCommandTimeoutError` is caught and re-raised as `RVToolTimeoutError` (normal completion)
-9. rv-platform collects coverage from logcat independently
+5. Because the variant carries `broadcast_catalog=True`, `system-broadcast.json` is pushed when present in the module directory; component triggering, a STATIC member, reads it for typed extras
+6. The tool finds the static analysis JSON in `task.results_dir`, derives the compact artifact from it (or reuses the cached `<apk_name>.mop.json` when its recorded digest and format still match), and pushes **only the artifact** as `/data/local/tmp/mop-artifact.json`
+7. `_push_properties()` generates a three-line `ape.properties`: `ape.preset=as_mop`, `ape.variant=as_mop`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`. Nothing else is written — the group keys, the throttle, the frontier, the MOP weights and the MOP coin are all supplied by the `as_mop` preset inside the jar
+8. APE-RV runs via `app_process` on the device, resolves the cell, echoes `RUN_START` with `variant: "as_mop"`, and uses the artifact for the STATIC and MOP members
+9. After timeout, `RVCommandTimeoutError` is caught and re-raised as `RVToolTimeoutError` (normal completion)
+10. rv-platform collects coverage from logcat independently
 
-### Scenario 2: LLM-Guided Exploration at a Calibrated Dose
+### Scenario 2: The LLM cell behind a non-emulator address (`aperv:as_mop_llm`)
 
-**Description**: An experiment runs `mop_on_llm_70`, the E3 decisive run's LLM arm: the `llm_mop` preset plus the reach package and the calibrated LLM dose. It is the longest properties file of any surviving arm, which makes it the useful illustration of how overrides stack on a preset.
+**Description**: An experiment runs `as_mop_llm` in a Docker deployment, where `10.0.2.2` does not reach the SGLang server. It shows the one override a cell carries and the two ways a deployment changes it.
 
 **Flow**:
-1. rv-experiment specifies `aperv:mop_on_llm_70` in the tool configuration
-2. `ToolFactory` resolves the variant: `preset=llm_mop`, `mop_data=static_analysis`, and nine overrides — the reach package (`mop_activity_source_components=True`, `frontier_boost_weight=200`, `mop_frontier_weight=200`, `activity_trigger_enabled=True`) plus the LLM dose (`llm_url=http://10.0.2.2:30000/v1`, `llm_prompt_variant=v13`, `llm_percentage=0.7`, `llm_temperature=0`) and `llm_snap_tolerance_px=150`
-3. `configure()` validates the shape and checks `APERV_LLM_BASE_URL` for a URL override, which Docker and physical-device deployments need because `10.0.2.2` is an emulator-only alias for host loopback
-4. Execution pushes the JAR, the derived MOP artifact and the broadcast catalog, then writes `ape.properties`: `ape.preset=llm_mop`, `ape.mopDataPath=...`, and one line per override in `APERV_PROPERTY_MAPPING` order. The identity of the jar being pushed is measured, not declared: `_capture_llm_provenance()` digests it into the run's `jar_sha256`, and no arm names a build (INV-APV-59)
-5. APE-RV queries the SGLang server at the configured URL during exploration, using the `v13` prompt for 70% of decisions and snapping answered coordinates to a widget within 150 px
+1. The operator sets `APERV_LLM_BASE_URL=http://192.168.0.36:30000/v1` and runs `rv-experiment run --tools aperv:as_mop_llm`
+2. `rv-experiment`'s entry point reads the variable once, beside `RV_HUMANOID_URL`. The variant definition of `as_mop_llm` in `ToolRegistry` carries `overrides.llm_url`, and the `ToolConfig` has no `llm_url` parameter, so the entry point sets `parameters["llm_url"]` to the variable's value. A `ToolConfig` for `aperv:as_mop` or `aperv:base` would receive nothing, and `aperv:as_mop_llm@llm_url=http://sglang:30000/v1` would keep its own value, because the DSL wins over the variable
+3. `ToolFactory` merges the variant (`preset="as_mop_llm"`, `variant="as_mop_llm"`, `static_data`, `broadcast_catalog`, `overrides={"llm_url": "http://10.0.2.2:30000/v1"}`) with the parameters, and `configure()`'s DSL fold moves the top-level `llm_url` into `overrides`, where it replaces the cell default. `configure()` reads no environment
+4. Execution pushes the JAR, the broadcast catalog and the derived artifact, then writes `ape.properties`: `ape.preset=as_mop_llm`, `ape.variant=as_mop_llm`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`, `ape.llmUrl=http://192.168.0.36:30000/v1`. The identity of the jar being pushed is measured, not declared: `_capture_llm_provenance()` digests it into the run's `jar_sha256` and queries the backend's `/v1/models`, and no variant names a build (INV-APV-59)
+5. APE-RV resolves the cell, whose LLM block states E6 arm 4's sampling configuration with `p_L = 0.9`, and queries the SGLang server at the configured URL during exploration
 
 ---
 
@@ -615,18 +675,18 @@ flowchart TB
 
     subgraph ConfigPhase["Configuration Phase"]
         FactoryResolve["ToolFactory resolves\nvariant from registry"]
-        Configure["configure()\nValidates strategy\nStores _tool_config"]
+        Configure["configure()\nValidates strategy, preset, variant\nFolds DSL keys, stores _tool_config"]
     end
 
     subgraph ExecutionPhase["Execution Phase"]
         direction TB
         JarResolve["_resolve_jar_path()\nPriority: module > RVSEC_HOME > TOOLS_DIR"]
         PushJar["Push ape-rv.jar\n-> /data/local/tmp/"]
-        PushBroadcast["Push system-broadcast.json\n-> /data/local/tmp/\n(optional)"]
+        PushBroadcast["Push system-broadcast.json\n-> /data/local/tmp/\n(broadcast_catalog: as* cells)"]
         FindStatic["_find_static_analysis_file()\nLook for <apk>.json\nabsent => task fails"]
         DeriveArtifact["_derive_mop_artifact()\nDigest cache -> derive\n-> <apk>.mop.json"]
-        PushStatic["Push mop-artifact.json\n-> /data/local/tmp/\n(MOP variants only)"]
-        GenProps["_push_properties()\nGenerate ape.properties\nfrom APERV_PROPERTY_MAPPING"]
+        PushStatic["Push mop-artifact.json\n-> /data/local/tmp/\n(static_data: every cell but base)"]
+        GenProps["_push_properties()\npreset, variant, staticDataPath,\nthen overrides via APERV_PROPERTY_MAPPING"]
         BuildCmd["_build_main_command()\nadb shell CLASSPATH=...\napp_process /system/bin"]
         Execute["Command.invoke()\nWrite stdout to trace_file"]
         CheckTrace["_check_empty_trace()\nWarn on 0-byte trace"]
@@ -659,70 +719,131 @@ flowchart TB
 
 ### Properties Generation Flow
 
-`_push_properties()` writes only what distinguishes the arm. The file leads with `ape.preset=<name>`; when the derived MOP artifact was pushed it adds `ape.mopDataPath=/data/local/tmp/mop-artifact.json`; then it emits one line per `overrides` entry, translated through `APERV_PROPERTY_MAPPING`. What a preset contains is resolved inside the jar, so no line restates a preset value — a `sata_mop` run ships a two-line file. The emission loop walks the mapping rather than the `overrides` dict, so line order follows the table and two runs of the same arm produce byte-identical properties.
+`_push_properties()` writes only what distinguishes the cell, in a fixed order, so two runs of the same variant produce byte-identical files:
 
-Python-only control keys are the eight in `APERV_ORCHESTRATION_KEYS` and never reach the device: `preset` and `overrides` (the arm's shape itself), `strategy` (the `--ape` flag), `mop_data` (whether the artifact is pushed), `seed`, and `device_port` / `device_serial` / `device_id` (device addressing that rv-experiment's `ExecutionController` injects into every tool's parameters whenever `--device-port` is set). Any other top-level key must resolve through `APERV_PROPERTY_MAPPING`, or `configure()` raises `ConfigurationError` before a device is touched.
+```text
+ape.preset=<preset>                                   # always first
+ape.variant=<variant>                                 # always second; echoed as RUN_START.variant
+ape.staticDataPath=/data/local/tmp/mop-artifact.json  # only when the artifact was pushed
+ape.<mapped-override-key>=<value>                     # one line per overrides entry, mapping order
+```
 
-`APERV_PROPERTY_MAPPING` has 56 entries. Most exist so an ablation can be expressed as an override set without a code change; the entries a surviving arm actually sets are:
+What a preset contains is resolved inside the jar, so no line restates a group block: `base` ships a two-line file, `as_mop` a three-line one, and `as_mop_llm` four lines, the fourth being `ape.llmUrl`. The emission loop walks the mapping rather than the `overrides` dict, so line order follows the table. The data line is `ape.staticDataPath` because the artifact feeds STATIC as well as MOP; the jar retired `ape.mopDataPath`, and a file that still writes it aborts with `retired_key`. The device path of the artifact is a file name, not a key, and keeps its name.
 
-| Python override key | Java property | Category | Set by |
-|-----------|--------------|----------|--------|
-| `llm_url` | `ape.llmUrl` | LLM | `sata_llm`, `sata_mop_llm`, `mop_on_llm_70`, `mopd_on_llm_90` |
-| `mop_activity_source_components` | `ape.mopActivitySourceComponents` | MOP reach | the three E3 arms and the two `mopd_*` arms |
-| `frontier_boost_weight` | `ape.frontierBoostWeight` | Navigation | the three E3 arms and the two `mopd_*` arms |
-| `mop_frontier_weight` | `ape.mopFrontierWeight` | MOP reach | `mop_on_llm_off`, `mop_on_llm_70`, both `mopd_*` |
-| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | MOP reach | `mop_on_llm_off`, `mop_on_llm_70`, both `mopd_*` |
-| `mop_scoring` | `ape.mopScoring` | MOP scoring | both `mopd_*` (`distance`) |
-| `mop_weight_direct` | `ape.mopWeightDirect` | MOP scoring | `mop_off_llm_off` (at `0`) |
-| `mop_weight_transitive` | `ape.mopWeightTransitive` | MOP scoring | `mop_off_llm_off` (at `0`) |
-| `mop_weight_open_menu` | `ape.mopWeightOpenMenu` | MOP scoring | `mop_off_llm_off` (at `0`) |
-| `mop_weight_wtg` | `ape.mopWeightWtg` | MOP scoring | `mop_off_llm_off` (at `0`) |
-| `llm_prompt_variant` | `ape.llmPromptVariant` | LLM | `mop_on_llm_70`, `mopd_on_llm_90` (`v13`) |
-| `llm_percentage` | `ape.llmPercentage` | LLM | `mop_on_llm_70` (`0.7`), `mopd_on_llm_90` (`0.9`) |
-| `llm_temperature` | `ape.llmTemperature` | LLM | `mop_on_llm_70`, `mopd_on_llm_90` (`0`) |
-| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | LLM | `mop_on_llm_70`, `mopd_on_llm_90` (`150`) |
-| `llm_model` | `ape.llmModel` | LLM | `mopd_on_llm_90` (`Qwen/Qwen3-VL-4B-Instruct-FP8`) |
-| `llm_top_p` | `ape.llmTopP` | LLM | `mopd_on_llm_90` (`1.0`) |
-| `llm_top_k` | `ape.llmTopK` | LLM | `mopd_on_llm_90` (`-1`) |
+`ape.variant` is a fixed line rather than a mapped override for a reason: `ToolFactory` passes `configure()` the variant's config, not its name, so the name has to live in the config, and a mapped key would let any DSL parameter relabel a run. The jar echoes it outside the plan digest, so a trace names its cell without relying on the file name, and two cells with the same effective plan keep the same digest.
 
-`throttle_ms` -> `ape.defaultGUIThrottle` is mapped but set by no arm: the `aperv` preset already states `ape.defaultGUIThrottle=200`, and an override restating a preset value would be a delta that is not a delta. Boolean values are serialized as lowercase `true`/`false` to match what the jar's `Config` loader parses.
+Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS`: `preset` and `variant` (written by their own lines), `overrides` (the cell's deltas), `strategy` (the `--ape` flag), `static_data` (whether the artifact is pushed), `broadcast_catalog` (whether the catalog is pushed), `seed`, and `device_port` / `device_serial` / `device_id` (device addressing that rv-experiment's `ExecutionController` injects into every tool's parameters whenever `--device-port` is set). Any other top-level key must resolve through `APERV_PROPERTY_MAPPING`, or `configure()` raises `ConfigurationError` before a device is touched. Boolean values are serialized as lowercase `true`/`false` to match what the jar's `Config` loader parses.
 
-`corpus_basis` -> `ape.corpusBasis` is mapped, set by no arm, and supplied per campaign through the tool DSL. It is deployment provenance, not configuration: it names the application list a run was drawn from, as `<corpus-id>:<sha256>` (`CORPUS_BASIS_PATTERN`). The jar recognises the key, echoes it into the trace's opening record and reads it nowhere, so it changes no behaviour. `configure()` validates only the shape — whether the digest matches the list is verified where the list lives, by recomputing it from the file — because a value that is not `<corpus-id>:<sha256>` produces a run whose provenance line looks populated while nothing can be checked against it. The check runs after the DSL fold, so it covers both an arm's own `overrides` dict and an `@corpus_basis=…` parameter. When unstated the key is omitted entirely.
+`APERV_PROPERTY_MAPPING` is a pass-through table that contains only keys the paired jar accepts (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps it against the jar's `KeyOwnership.java` vocabulary and retired list. No cell sets any entry but `llm_url`: the others exist so an ablation can be written as a DSL override without a code change. The 66 entries, grouped by the group that owns each key:
 
-### MOP Data Flow (sata_mop variants)
+| Python Key | Java Property | Notes |
+|------------|--------------|-------|
+| `addons` | `ape.addons` | ADDONS group key; stated by the `as*` presets |
+| `static` | `ape.static` | STATIC group key; requires the artifact |
+| `mop` | `ape.mop` | MOP group key; requires the artifact |
+| `llm` | `ape.llm` | LLM group key; requires `llm_url` |
+| `throttle_ms` | `ape.defaultGUIThrottle` | BASE |
+| `default_epsilon` | `ape.defaultEpsilon` | BASE |
+| `graph_stable_restart_threshold` | `ape.graphStableRestartThreshold` | BASE |
+| `state_stable_restart_threshold` | `ape.stateStableRestartThreshold` | BASE |
+| `fuzzing_rate` | `ape.fuzzingRate` | `FUZZING` sub-parameter |
+| `do_fuzzing` | `ape.doFuzzing` | `FUZZING` activation |
+| `throttle_for_activity_transition` | `ape.throttleForActivityTransition` | BASE |
+| `max_extra_priority_aliased_actions` | `ape.maxExtraPriorityAliasedActions` | BASE |
+| `max_states_per_activity` | `ape.maxStatesPerActivity` | BASE |
+| `trivial_activity_rank_threshold` | `ape.trivialActivityRankThreshold` | BASE |
+| `do_back_to_trivial_activity` | `ape.doBackToTrivialActivity` | BASE |
+| `max_idle_timeout_ms` | `ape.maxIdleTimeoutMs` | BASE tuning knob |
+| `take_screenshot_for_every_step` | `ape.takeScreenshotForEveryStep` | BASE diagnostic |
+| `save_gui_tree_to_xml_every_step` | `ape.saveGUITreeToXmlEveryStep` | BASE diagnostic |
+| `back_menu_pick_cap` | `ape.backMenuPickCap` | `BACK_MENU_CAP` (ADDONS) |
+| `activity_stable_restart_threshold` | `ape.activityStableRestartThreshold` | `ACTIVITY_STABLE_RESTART` (ADDONS) |
+| `foreign_activity_guard` | `ape.foreignActivityGuard` | `FOREIGN_ACTIVITY_GUARD` (ADDONS) |
+| `tree_package_guard` | `ape.treePackageGuard` | `TREE_PACKAGE_GUARD` (ADDONS) |
+| `dynamic_epsilon` | `ape.dynamicEpsilon` | `DYNAMIC_EPSILON` (ADDONS) |
+| `heuristic_input` | `ape.heuristicInput` | `HEURISTIC_INPUT` (ADDONS) |
+| `form_completion_enabled` | `ape.formCompletionEnabled` | `FORM_COMPLETION` (ADDONS) |
+| `model_menu_enabled` | `ape.modelMenuEnabled` | `MODEL_MENU` (ADDONS) |
+| `tree_enhancements_enabled` | `ape.treeEnhancementsEnabled` | `TREE_ENHANCEMENTS` (ADDONS) |
+| `activity_budget_enabled` | `ape.activityBudgetEnabled` | `ACTIVITY_BUDGET` (ADDONS) |
+| `coverage_boost_weight` | `ape.coverageBoostWeight` | `COVERAGE_BOOST` (ADDONS) |
+| `frontier_boost_weight` | `ape.frontierBoostWeight` | `NAV_FRONTIER` (STATIC) |
+| `fuzz_input_typed` | `ape.fuzzInputTyped` | `TYPED_FUZZ` (STATIC) |
+| `mop_weight_direct` | `ape.mopWeightDirect` | `MOP` sub-parameter, read under `flag` |
+| `mop_weight_transitive` | `ape.mopWeightTransitive` | `MOP` sub-parameter, read under `flag` |
+| `mop_weight_open_menu` | `ape.mopWeightOpenMenu` | `MENU_GATEWAY` activation (MOP; also requires `MODEL_MENU`) |
+| `mop_weight_wtg` | `ape.mopWeightWtg` | `WTG` activation (MOP) |
+| `mop_activity_source_components` | `ape.mopActivitySourceComponents` | `MOP_ACTIVITY_SOURCE` (MOP) |
+| `mop_frontier_weight` | `ape.mopFrontierWeight` | `MOP_FRONTIER` activation (MOP) |
+| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | `MOP_LAUNCHER` activation (MOP) |
+| `activity_trigger_stagnation_step` | `ape.activityTriggerStagnationStep` | `MOP_LAUNCHER` sub-parameter; the launcher cadence |
+| `activity_trigger_max_per_run` | `ape.activityTriggerMaxPerRun` | `MOP_LAUNCHER` sub-parameter |
+| `component_percentage` | `ape.componentPercentage` | `COMPONENT_TRIGGER` activation (STATIC); the STATIC block states 0.03 |
+| `mop_scoring` | `ape.mopScoring` | `MOP` sub-parameter; the MOP block states `distance` |
+| `mop_weight_d1` | `ape.mopWeightD1` | `MOP` sub-parameter, read under `distance` only |
+| `mop_weight_d2` | `ape.mopWeightD2` | `MOP` sub-parameter, read under `distance` only |
+| `mop_weight_d3` | `ape.mopWeightD3` | `MOP` sub-parameter, read under `distance` only |
+| `mop_retire_after` | `ape.mopRetireAfter` | `MOP` sub-parameter, read under `distance` only |
+| `mop_launcher_dmax` | `ape.mopLauncherDmax` | `MOP` sub-parameter, read under `distance` only |
+| `mop_coin_percentage` | `ape.mopCoinPercentage` | `MOP_COIN` activation (MOP); `p_M`, jar default 1.0 |
+| `llm_url` | `ape.llmUrl` | `LLM` dependency; required on both LLM cells (INV-APV-38) |
+| `llm_on_new_state` | `ape.llmOnNewState` | `LLM_NEW_STATE` activation |
+| `llm_on_stagnation` | `ape.llmOnStagnation` | `LLM_STAGNATION` activation |
+| `llm_model` | `ape.llmModel` | `LLM` sub-parameter |
+| `llm_temperature` | `ape.llmTemperature` | `LLM` sub-parameter |
+| `llm_top_p` | `ape.llmTopP` | `LLM` sub-parameter |
+| `llm_top_k` | `ape.llmTopK` | `LLM` sub-parameter |
+| `llm_timeout_ms` | `ape.llmTimeoutMs` | `LLM` sub-parameter |
+| `llm_percentage` | `ape.llmPercentage` | `LLM_COIN` activation; `p_L`, the LLM block states 0.9 |
+| `llm_percentage_no_substrate` | `ape.llmPercentageNoSubstrate` | `LLM_COIN` sub-parameter; the `-1` sentinel is accepted on a plan with no LLM |
+| `llm_prompt_variant` | `ape.llmPromptVariant` | `LLM` sub-parameter |
+| `llm_max_tokens` | `ape.llmMaxTokens` | `LLM` sub-parameter |
+| `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | `LLM` sub-parameter |
+| `llm_boundary_top_pct` | `ape.llmBoundaryTopPct` | `LLM` sub-parameter |
+| `llm_gate_min_actions` | `ape.llmGateMinActions` | `LLM` sub-parameter; `0` leaves the gate unmounted |
+| `llm_breaker_failures` | `ape.llmBreakerFailures` | `LLM` sub-parameter; `0` leaves the gate unmounted |
+| `llm_breaker_open_ms` | `ape.llmBreakerOpenMs` | `LLM` sub-parameter |
+| `corpus_basis` | `ape.corpusBasis` | deployment provenance, echoed into `RUN_START` and read nowhere ("Corpus Basis Provenance") |
 
-For MOP-guided variants, static analysis data flows from rv-platform's pre-processing through to APE-RV's scoring engine:
+`mop_target_pick_cap` (`ape.mopTargetPickCap`, subsumed by the MOP coin's first-interaction rule) and `least_visited_priority_tiebreak` (`ape.leastVisitedPriorityTiebreak`, replaced by the scorer-sum tie at X1, which equals APE with zero scorers) are not in the table, because the jar retired their keys and a file carrying either aborts with `retired_key`. The jar has no launcher-mode key, no X1 key and no X3/X4 key — the cadence is fixed and the MOP variant of each extension point is mounted with MOP — so the table carries none. A key the jar does not recognise is not inert: under stage-2 resolution an unknown key, a retired key, or a non-neutral value of an inactive feature aborts before step 1, which is what makes the mapping's contents a correctness property rather than a tidiness one.
+
+`corpus_basis` -> `ape.corpusBasis` is mapped, set by no cell, and supplied per campaign through the tool DSL. It is deployment provenance, not configuration: it names the application list a run was drawn from, as `<corpus-id>:<sha256>` (`CORPUS_BASIS_PATTERN`). The jar recognises the key, echoes it into the trace's opening record and reads it nowhere, so it changes no behaviour. `configure()` validates only the shape — whether the digest matches the list is verified where the list lives, by recomputing it from the file — because a value that is not `<corpus-id>:<sha256>` produces a run whose provenance line looks populated while nothing can be checked against it. The check runs after the DSL fold, so it covers both a variant's own `overrides` dict and an `@corpus_basis=…` parameter. When unstated the key is omitted entirely.
+
+### Static Data Flow (every cell but `base`)
+
+For the cells that mount STATIC or MOP, static analysis data flows from rv-platform's pre-processing through to the jar's static-model consumers and MOP scorers:
 
 1. rv-experiment runs GATOR static analysis during pre-processing, producing `<apk_name>.json` in `task.results_dir`
 2. `_find_static_analysis_file(task)` locates this JSON by constructing the expected path
-3. `_derive_mop_artifact(task)` projects it into `<apk_name>.mop.json` (format 2) — widget MOP flags and target distances, both MOP-activity sets and the per-activity distances, the handler-class table a gh121 stamp is read through, the OPTIONSMENU records, the click-only WTG view and the component trigger surface — reusing the cache when the recorded `source.digest` matches the current JSON and its `formatVersion` matches the generator's, otherwise deriving and writing atomically. Widget and handler distance lists keep every target within three calls, the distances the jar weighs; an activity's list keeps its three nearest targets. The source is hashed in chunks (`digest_of_file`) before anything reads it as JSON, so a cache hit never parses it. A miss reads it as a stream of JSON events (`read_analysis_document` with `PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K)`) that folds each method's `targetDistances` into the pairs the artifact can carry (INV-APV-64): the gh120 distance pairs make a document several gigabytes (9.34 GB for the largest of the Study 03 corpus), a whole-document parse peaked at about 3.1 times the file size, and the streamed derive of that document peaked at 685 MiB. The read is strict where the static-analysis parser is tolerant: a document whose root object never closes — a producer killed mid-write, or bytes that stop being UTF-8 JSON partway — raises `RVToolExecutionError` and leaves no artifact, because an interrupted write must not arm a run. `derive_mop_artifact.py` is the single authority for those rules; they used to run on the device at load time
+3. `_derive_mop_artifact(task)` projects it into `<apk_name>.mop.json` (format 2) — widget MOP flags and target distances, both MOP-activity sets and the per-activity distances, the handler-class table a gh121 stamp is read through, the OPTIONSMENU records, the click-only WTG view and the component trigger surface — reusing the cache when the recorded `source.digest` matches the current JSON and its `formatVersion` matches the generator's, otherwise deriving and writing atomically. Widget and handler distance lists keep every target within three calls, the distances the jar weighs; an activity's list keeps its three nearest targets. The component trigger surface projects every receiver, service and provider, whatever its `reachesTarget`, because the trigger is a STATIC member whose pool reads no MOP data. Each receiver and service intent filter carries `actions`, `categories` and a reduced `data` member (`schemes`, `hosts`, `paths`, `pathPrefixes`, `mimeTypes`): a component that filters on a scheme or a MIME type matches no intent built from its action alone, and the jar builds one intent from the first scheme, host and MIME type and the first path, or the first path prefix. `ports` and `pathPatterns` are never emitted, empty lists are omitted, and `data` is omitted when all five are empty, so the member is additive and the format stays 2. The source is hashed in chunks (`digest_of_file`) before anything reads it as JSON, so a cache hit never parses it. A miss reads it as a stream of JSON events (`read_analysis_document` with `PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K)`) that folds each method's `targetDistances` into the pairs the artifact can carry (INV-APV-64): the gh120 distance pairs make a document several gigabytes (9.34 GB for the largest of the Study 03 corpus), a whole-document parse peaked at about 3.1 times the file size, and the streamed derive of that document peaked at 685 MiB. The read is strict where the static-analysis parser is tolerant: a document whose root object never closes — a producer killed mid-write, or bytes that stop being UTF-8 JSON partway — raises `RVToolExecutionError` and leaves no artifact, because an interrupted write must not arm a run. `derive_mop_artifact.py` is the single authority for those rules
 4. Only the artifact is pushed, to `/data/local/tmp/mop-artifact.json`. The full JSON stays byte-identical on the host as the archived source every metric reads, and never travels
-5. `_push_properties()` includes `ape.mopDataPath` pointing to the pushed artifact
-6. APE-RV reads the artifact at startup instead of parsing a call graph, and biases action selection toward screens where monitored operations are reachable
+5. `_push_properties()` includes `ape.staticDataPath` pointing to the pushed artifact
+6. APE-RV reads the artifact at startup instead of parsing a call graph. Its loader separates the static GUI model (read by STATIC) from the MOP targets (read by MOP), so the same artifact serves `mop`, `as` and the cells that mount both
 
-If the static analysis file is not found, or the derivation refuses the document, the task **fails** with `RVToolExecutionError`. A MOP arm that cannot arm is not degraded to pure strategy-based exploration: such a run is labelled a MOP arm while behaving like the baseline, which is indistinguishable from a real MOP arm in the results directory.
+If the static analysis file is not found, or the derivation refuses the document, the task **fails** with `RVToolExecutionError` (INV-APV-45). A cell that cannot arm is not degraded to a run without its data: such a run would carry the cell's name while behaving like another cell, which is indistinguishable from a real run of that cell in the results directory.
 
-### LLM Data Flow (LLM variants)
+### LLM Data Flow (`as_llm`, `as_mop_llm`)
 
-For LLM-guided variants, the data flow involves network communication between the emulator and the host:
+For the LLM cells, the data flow involves network communication between the emulator and the host:
 
-1. `configure()` checks `APERV_LLM_BASE_URL` environment variable for URL override
-2. `_push_properties()` writes `ape.preset=llm` or `ape.preset=llm_mop` plus the arm's LLM overrides. The timeout comes from the preset inside the jar, and so do the model, top_p and top_k unless the arm overrides them; `llm_url` is always an override because it names a machine rather than an arm. `mop_on_llm_70` additionally overrides the prompt variant, the percentage, the temperature and the snap tolerance, and `mopd_on_llm_90` overrides those four plus the model, top_p and top_k, as Study 03's E6 arm 4 does
-3. APE-RV resolves the preset at startup and initializes its LLM client
+1. The cell's `overrides` carry `llm_url=http://10.0.2.2:30000/v1`. A deployment that needs another address changes it in one of two ways, with the precedence DSL > environment > cell default: a tool-DSL `@llm_url=…`, or the `APERV_LLM_BASE_URL` environment variable. The variable is read only by the `rv-experiment` entry point (`rv_experiment/__main__.py`, beside `RV_HUMANOID_URL`), which places its value as `llm_url` in the `ToolConfig.parameters` of each `aperv` cell whose variant definition carries `overrides.llm_url` and whose parameters do not already set it. `configure()` reads no environment (INV-TOOL-20); its DSL fold moves the top-level `llm_url` into `overrides`. Cells without the LLM group never receive it, because it would write an `ape.llmUrl` line for a group they do not mount. `rv-platform run` does not read the variable, so there only `@llm_url` changes the address
+2. `_push_properties()` writes `ape.preset=as_llm` or `ape.preset=as_mop_llm`, the matching `ape.variant`, `ape.staticDataPath`, and `ape.llmUrl`. The model, the prompt, the sampling parameters, the dose `p_L` and the timeouts come from the preset's LLM block inside the jar; `llm_url` is always an override because it names a machine rather than a cell
+3. APE-RV resolves the cell at startup and initializes its LLM client
 4. During exploration, APE-RV sends requests to the SGLang server at the configured URL
 5. Inside the emulator, `10.0.2.2` routes to the host machine's loopback address
 6. The SGLang server returns action suggestions that APE-RV integrates with its WTG model
 
-The `APERV_LLM_BASE_URL` override exists because the emulator's `10.0.2.2` alias does not work in Docker containers (where the SGLang server is at the Docker host's IP) or on physical devices (where the server is at the development machine's network IP).
+The override exists because the emulator's `10.0.2.2` alias does not work in Docker containers (where the SGLang server is at the Docker host's IP) or on physical devices (where the server is at the development machine's network IP).
 
 ---
 
 ## Extension Points
 
-- **Adding an arm**: Add an entry to the dictionary returned by `get_variants()` naming one of the jar's four presets and the deltas over it. An ablation is always a named override set, never a fifth preset — the jar owns what a preset means. If a delta uses a tunable not yet listed, add it to `APERV_PROPERTY_MAPPING` first, and only if the deployed jar accepts the key (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps the mapping against the jar's `KeyOwnership.java` vocabulary.
+- **Running an ablation**: Write it as a tool-DSL override on an existing cell (`aperv:as_mop@mop_coin_percentage=0.5`), not as a new variant. If it uses a tunable not yet listed, add it to `APERV_PROPERTY_MAPPING` first, and only if the paired jar accepts the key (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps the mapping against the jar's `KeyOwnership.java` vocabulary.
+- **Adding a cell**: A cell is a jar preset first. Add it to the jar's `Presets.java` as a union of group blocks, then add one entry to `get_variants()` with `preset` and `variant` equal to its name, `static_data` when it mounts STATIC or MOP, `broadcast_catalog` when it mounts STATIC, and `llm_url` in `overrides` when it mounts LLM. The offline cell gate (`tests/migration/test_cells.py`) then needs the jar's `cells/<cell>.run_start.json` fixture.
 - **Adding a strategy**: Add the strategy name to `APERV_AVAILABLE_STRATEGIES`. The string is passed directly to APE-RV's `--ape` flag, so it must be an agent type `ApeAgent.createAgent` knows (`sata`, `random`, `replay`) — anything else passes local validation and aborts on the device.
 - **Changing the JAR**: The shipped jar is built from `ape` source at Docker image build (`docker/rvandroid/Dockerfile`: clone → `mvn package` → copy); it is gitignored, never committed. To change what ships, change the `ape` source (or pin the clone ref in the Dockerfile). For local non-Docker runs, place a built `ape-rv.jar` in `src/aperv_tool/tools/aperv/` — the module-local path has highest resolution priority.
-- **LLM URL override**: Set `APERV_LLM_BASE_URL` environment variable to redirect LLM requests to a different endpoint (used in Docker environments).
+- **LLM URL override**: Set `APERV_LLM_BASE_URL` before `rv-experiment run` to redirect the LLM cells to a different endpoint (used in Docker environments); `rv-experiment` injects it as `llm_url`, and a DSL `@llm_url` on one tool entry wins over it.
 
 ## Dependencies
 
@@ -756,10 +877,10 @@ and shell execution.
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, the completion check (INV-APV-60, `TestCompletionIsEstablished`: a truncated run raises naming elapsed and budget and still compresses, a full budget with a non-zero exit does not raise, a return inside the grace does not raise, and the timeout path is untouched), properties generation, the decisive-run arms and their contrasts, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation (the streaming miss path, and the refusal of a truncated or non-UTF-8 source that leaves no artifact) and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
+| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, the completion check (INV-APV-60, `TestCompletionIsEstablished`: a truncated run raises naming elapsed and budget and still compresses, a full budget with a non-zero exit does not raise, a return inside the grace does not raise, and the timeout path is untouched), properties generation (the fixed `ape.preset` / `ape.variant` / `ape.staticDataPath` lines and the 66 entries), the cell variants, the catalog push on the four `as*` cells only, the rejection of a missing `variant` and of the old `mop_data` key, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation (the streaming miss path, and the refusal of a truncated or non-UTF-8 source that leaves no artifact) and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
 | Unit | tests/test_derive_mop_artifact.py | One named test per relocated derivation rule, plus the cryptoapp ground truth in `tests/fixtures/cryptoapp.apk.json`, and the exactness of the streaming reduction: the streamed artifact is byte-identical to the whole-document one, including when a method's nearest targets lie beyond `DIST_WEIGHED_MAX` (INV-APV-64) |
-| Unit | tests/test_trace_ndjson.py, tests/test_coverage_dump.py, tests/test_clock_logcat_join.py | The offline readers: NDJSON row semantics against `tests/fixtures/trace_ndjson_golden.ndjson`, coverage-dump parsing, and heartbeat placement including both routes to `UNALIGNED` |
-| Migration | tests/migration/ | The explicit retirement list, the pinned jar tables (preset sizes and accepted vocabulary read off the ape source), the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table, and the decisive-run contrasts. The one-time regeneration diff that proved each surviving arm's effective configuration unchanged under `preset + overrides` was deleted at owner sign-off (2026-08-07); its baseline and executed result are archived under `docs/gh95-migration-record/`, because a one-time measurement kept running becomes a constant-vs-constant guard (INV-APV-44) |
+| Unit | tests/test_trace_ndjson.py, tests/test_coverage_dump.py, tests/test_clock_logcat_join.py | The offline readers: NDJSON row semantics against `tests/fixtures/trace_ndjson_golden.ndjson` (`v: 1`), `trace_ndjson_groups.ndjson` (`v: 2`, every new decision member, `RUN_END` counters) and `trace_ndjson_v3_header.ndjson` (an unsupported version), coverage-dump parsing including `UICOV` lines without `mopReach`, and heartbeat placement including both routes to `UNALIGNED` |
+| Migration | tests/migration/ | The explicit retirement list, the pinned jar tables (the six cells, their group-block unions and the accepted vocabulary read off the ape source), the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table, and the offline cell gate (`test_cells.py`: the jar's presets are the six cells, and each `cells/<cell>.run_start.json` fixture carries the `preset` and `variant` of `get_variants()`). The one-time regeneration diff that proved each surviving arm's effective configuration unchanged under `preset + overrides` was deleted at owner sign-off (2026-08-07); its baseline and executed result are archived under `docs/gh95-migration-record/`, because a one-time measurement kept running becomes a constant-vs-constant guard (INV-APV-44) |
 
 ## Related Documentation
 

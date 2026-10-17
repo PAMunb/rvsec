@@ -8,15 +8,15 @@ Saidas (todas com o mesmo --name, para nada ficar solto):
   docs/<YYYYMMDD>_<name>.md               plano (padrao docs/20260619_comparacao_aperv.md)
   data/results/<name>_compare_meta.json   metadados lidos por monitor/consolidate
 
-Exemplo (comparacao APE x APE-RV, como a de 2026-06-19):
+Exemplo (comparacao do APE com as celulas do APE-RV; as_mop_llm usa o SGLang):
   python3 .claude/skills/rv-experiment-compare/scripts/gen_compare.py \
     --name cmp --dataset /caminho/APKS_FINAL_JCA_DEXLIB_20260604 \
-    --tools "ape,aperv:sata,aperv:sata_mop,aperv:sata_mop_llm@llm_percentage=0.9" \
+    --tools "ape,aperv:base,aperv:as,aperv:as_mop,aperv:as_mop_llm" \
     --timeout 300 --reps 3 --containers 6 --spec-set jca --with-sglang
 
 Exemplo (comparacao sem LLM, sem GPU):
   python3 .../gen_compare.py --name baseline --dataset /caminho/apks \
-    --tools "monkey,droidbot:dfs_greedy,aperv:sata" --containers 4
+    --tools "monkey,droidbot:dfs_greedy,aperv:as" --containers 4
 """
 import argparse, json, os, re, sys
 from datetime import datetime

@@ -92,8 +92,8 @@ git log --since="<Created menos alguns min>" --until="<Created>" --oneline
 git diff --stat <commit-do-build>..HEAD -- . ':!docs' ':!openspec'
 ```
 
-Rode esse check **antes de qualquer comparação que dependa do comportamento do APE-RV** (ex.: braços
-`aperv:sata`/`aperv:sata_mop`) — sobretudo se houve trabalho recente no repo `ape` (ex.: mudanças em
+Rode esse check **antes de qualquer comparação que dependa do comportamento do APE-RV** (ex.: as
+células `aperv:as`/`aperv:as_mop`) — sobretudo se houve trabalho recente no repo `ape` (ex.: mudanças em
 `mop-guidance`/priorização MOP), pois um jar desatualizado na imagem invalida silenciosamente H1/H2 do
 plano da comparação sem erro visível em runtime.
 
@@ -151,7 +151,9 @@ Exemplo real: `docs/20260830_smk111.md` + `scripts/smk111_gates.py` + `scripts/s
   (aqui pulamos). APKs patológicos podem precisar de muito mais memória/tempo (campanhas anteriores:
   60 g no FixpointSolver, ~1800–3600 s) — por isso o dataset já vem com o `.apk.json` pré-computado.
 - **`llm_timeout_ms`** (ex. **15000**, só braço LLM) — timeout por chamada ao SGLang; ao estourar, o
-  APE-RV **segue sem LLM naquele passo** (degradação graciosa → comportamento tende a `sata_mop`),
+  APE-RV **segue sem LLM naquele passo** (degradação graciosa: o passo vai para o dono seguinte, com
+  o motivo em `dec.own.fb`, e o comportamento tende ao da célula sem o grupo LLM — `as_mop` para
+  `as_mop_llm`),
   então o wall-clock da task NÃO estoura. Referência empírica: ~1,1 s/chamada, 0 timeouts numa GPU.
 
 ### Resume (a skill depende dele)
