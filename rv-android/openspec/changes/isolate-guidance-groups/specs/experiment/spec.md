@@ -20,7 +20,9 @@ archive.
   to the value. A `ToolConfig` whose `parameters` already carry `llm_url` (a DSL `@llm_url`) MUST keep it: DSL >
   variable > the cell's default. A `ToolConfig` whose variant carries no `llm_url` MUST NOT receive one. When the
   variable is unset or empty, nothing MUST be injected. No module between the entry point and `ApeRVTool.configure()`
-  MUST read it.
+  MUST read it. The core registry's `ENV_*` name rule (INV-CORE-30, `rv-android-core/tests/test_constants_registry.py`)
+  MUST admit `APERV_LLM_BASE_URL` as its one user-facing name outside `RV_*`, beside the three installation paths,
+  and no other.
 
 ## MODIFIED Requirements
 

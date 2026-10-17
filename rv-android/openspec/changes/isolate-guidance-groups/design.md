@@ -1,15 +1,16 @@
 ## Context
 
 The `ape` change `isolate-guidance-groups` changes the contract between APE-RV and this module in four ways at
-once (its `design.md` § API Design, contract v3.1, committed in `ape` `558549a5`, with D-B13 and D-B14):
+once (its `design.md` § API Design, contract v3.2, committed in `ape` `16b185f4`, with D-B13 and D-B14; see D16):
 
 - The keys. There are four group keys and one data root. `ape.mopDataPath` is renamed `ape.staticDataPath`.
   Three keys are retired. Four member keys are new. `ape.variant` is echoed as `RUN_START.variant`.
 - The presets. The six cell presets `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm` replace `aperv`, `mop`,
   `llm` and `llm_mop`.
 - The artifact. Component triggering becomes a STATIC member, and it needs each intent filter's `data`.
-- The telemetry. `dec.src` becomes the step's owner, eleven `dec` members are new, `dec.cf` and `dec.wtgsrc` are
-  removed, and eight `RUN_END` counters are new.
+- The telemetry. `dec.src` becomes the step's owner, twelve `dec` members are new (`own`, `cfc`, `draw`, `nav`,
+  `inp`, `restart`, `bmc`, `strat`, `rot`, `buf`, the scorer field `navf`, and `trig`), `dec.cf` and `dec.wtgsrc`
+  are removed, and eight `RUN_END` counters are new.
 
 The current module state, read for this design:
 
@@ -84,7 +85,7 @@ Requirements: FR19, FR20, FR11, FR04/FR06, NFR06 (`docs/PRD.md`).
 | `trace_ndjson.TraceReader` | New `StepRow` fields, `RunStart.variant`, `run_end` | NDJSON trace | `StepRow`s, attributes |
 | `baseline_ape` / `baseline_droidbot` row builders | Write `None` for each new column | baseline stream | tidy frame rows |
 | `tests/migration/test_cells.py` (new) | Offline cell gate against the jar source and fixtures | `$APE_REPO` | pass / fail |
-| `gates.count_mop_group_signal()` (new) | Gate 1 over NDJSON: MOP-group members of steps + `UICOV mopReach` | `TraceReader`, `coverage_dump` rows | count |
+| `gates.count_mop_group_signal()` (new) | Gate 1 over NDJSON: MOP-group members of steps + `UICOV mopReach`; on `v == 2` also `ACT.mop` and the MOP counters of `RUN_END` | `TraceReader`, `coverage_dump` rows | count |
 | `runspec.attribution_evidence()` | Adds the `variant` check (`not-run` on `v == 1`) | `RunStart`, manifest arm | verdicts |
 | `screen_visits` / `step_bundle` | Version-tagged source counts, tri-state MOP fact | `StepRow`s | visits, frames |
 | `coverage_dump._parse_state_line()` | `mop_reach` optional; absence is not partial | `UICOV` payload | `StateCoverage` |
@@ -107,7 +108,7 @@ Requirements: FR19, FR20, FR11, FR04/FR06, NFR06 (`docs/PRD.md`).
 | Validity Gates Run Before Any Outcome; INV-CAN-07 | `gates.py` `count_mop_group_signal`, gate 1 selection; `runspec.py` variant check | `test_gates.py`, `test_runspec.py` |
 | Analysis Consumers Follow the Trace Version; INV-CAN-21, -22 | `screen_visits.py`, `step_bundle.py`, `runspec.py`, baselines | `test_screen_visits.py`, `test_step_bundle.py`, `test_baseline_frames.py` |
 | Offline Coverage-Dump Parser at Activity Grain | `coverage_dump.py`, `state_coverage_join.py` | `test_coverage_dump.py`, `test_state_coverage_join.py` |
-| ApeRVTool Configuration (LLM URL scenario); INV-APV-09; experiment "aperv LLM URL Resolved at the Entry Point", Layer-Purity Audit | `rv-experiment/__main__.py`, `rv_android_core.constants.ENV_APERV_LLM_BASE_URL` | new `rv-experiment/tests/test_cli_aperv_llm_url.py`; `test_aperv_tool.py` (L2 still ignores the variable) |
+| ApeRVTool Configuration (LLM URL scenario); INV-APV-09; experiment "aperv LLM URL Resolved at the Entry Point", Layer-Purity Audit | `rv-experiment/__main__.py`, `rv_android_core.constants.ENV_APERV_LLM_BASE_URL` | new `rv-experiment/tests/test_cli_aperv_llm_url.py`; `rv-android-core/tests/test_constants_registry.py` (name rule, INV-CORE-30); `test_aperv_tool.py` (L2 still ignores the variable) |
 | Decisive Run Arm Set (removed) | delete `tests/migration/test_decisive_contrasts.py` | `TestDecisiveRunArms`, `TestDistanceArms` deleted |
 
 ## Goals / Non-Goals
@@ -120,7 +121,8 @@ Requirements: FR19, FR20, FR11, FR04/FR06, NFR06 (`docs/PRD.md`).
 
 **Non-Goals:**
 - Any change to rv-platform or rv-tools. `default` survives, so INV-TOOL-02 holds. The one change outside
-  `aperv-tool` is the `APERV_LLM_BASE_URL` read in `rv-experiment` and its constant in `rv-android-core` (D14).
+  `aperv-tool` is the `APERV_LLM_BASE_URL` read in `rv-experiment`, its constant in `rv-android-core` and that
+  constant's admission in the core name test (D14).
 - Migrating finished-campaign files: compose files, `scripts/`, `experimento-*/`, `tests/migration/retirements.py`
   and the gh95 migration record. They describe recorded runs.
 - Changing what the analysis modules compute. `screen_visits` keeps counting `decision_source`. Its meaning per
@@ -155,7 +157,7 @@ and it must not branch on preset names. The flag states, on the variant, the one
 - Alternative: push iff `component_percentage > 0` in `overrides`. Rejected, because the dose comes from the
   preset, so no cell carries it.
 
-**D5 — The reduced `data` member keeps five lists** (contract v3.1, `ape` D-B14). They are `schemes`, `hosts`,
+**D5 — The reduced `data` member keeps five lists** (contract v3.2, `ape` D-B14). They are `schemes`, `hosts`,
 `paths`, `pathPrefixes` and `mimeTypes`. The jar builds one intent from the first scheme, host and MIME type of the
 filter that supplied the action, with `paths[0]`, or `pathPrefixes[0]` when there is no path. `ports` and
 `pathPatterns` would be wire bytes that nothing reads, and a pattern is not a literal path. Empty lists are
@@ -185,7 +187,7 @@ the block unions, and each fixture's `preset`/`variant` against `get_variants()`
 six cells on `cryptoapp` and compares each recorded `RUN_START` with its fixture through `TraceReader`, masking
 `run_id`, `t0`, `seed`, `build` and `props_digest`. Neither level runs in `tool.py` (INV-APV-43).
 
-**D11 — The reader accepts versions 1 and 2, and `activity_has_mop` becomes tri-state** (contract v3.1).
+**D11 — The reader accepts versions 1 and 2, and `activity_has_mop` becomes tri-state** (contract v3.2).
 `RunSpecEcho.FORMAT_VERSION` moves to 2 on the group-isolation jar because `dec.src` changes meaning.
 `FORMAT_VERSION = 1` becomes `SUPPORTED_VERSIONS = {1, 2}`. Strict mode keeps rejecting any other version, and
 `trace_ndjson_v2_header.ndjson` becomes `trace_ndjson_v3_header.ndjson`. The jar writes `ACT.mop` only with MOP
@@ -196,14 +198,23 @@ that tests truthiness treats `None` as not-MOP, which is what it does with `Fals
 
 **D12 — Gate 1 has two forms, selected by the trace's format.** The anchored pattern `(?<![a-z_])mop=`
 (`gates.py:83`) was written for the `key=value` lines, and it matches no NDJSON `"mop":` member, so on every
-stage-4 trace it counted zero. Rather than a second regex over JSON text, the NDJSON form reads `StepRow`s through
-`TraceReader` (one parser, INV-APV-48) and applies the `ape` side's own clean-control list (INV-SNK-17), plus
-`UICOV mopReach`. Which arms are controls stays a caller parameter. `ACT` and `MOP_DATA` are excluded, because the
-STATIC cells load the artifact by design.
-- Alternative: an unanchored JSON-key regex. Rejected, because it would match `ACT.mop` and `MOP_DATA` and need
-  its own anchoring rules, which is the defect class INV-CAN-07 exists for.
+stage-4 trace it counted zero. Rather than a second regex over JSON text, the NDJSON form reads the trace through
+`TraceReader` (one parser, INV-APV-48) and applies the `ape` side's own clean-control list, INV-SNK-18 (author's
+decision, 2026-10-17). Over the `StepRow`s it counts a row carrying a MOP scorer, a MOP stamp member, `own.uM`, a
+MOP key of `cfc`, `nav.c == "mop"`, a `pick_channel` of `mop_coin` or `launcher`, or an owner `mop` or `launcher`.
+Outside the step rows it counts a `UICOV` line carrying `mopReach`. On a `v == 2` trace it also counts a row whose
+`activity_has_mop` or `target_activity_has_mop` is not `None`, and a `RUN_END` whose `coinMop`, `launches`,
+`stampHits` or `retired` counter is non-zero. The group-isolation jar writes `ACT.mop` only with MOP mounted
+(D-B14.9), and those counters stay at 0 without it, so each is a MOP signal there. On a `v == 1` trace neither is:
+that jar writes `ACT.mop` in every arm, and its control mounted MOP with the weights zeroed, so stamp lookups and
+retirements happened in a clean run. `MOP_DATA` never counts, because it reports the artifact load, which the STATIC
+cells do by design. Which arms are controls stays a caller parameter.
+- Alternative: an unanchored JSON-key regex. Rejected, because it would match `MOP_DATA` and the `v == 1` `ACT.mop`
+  and need its own anchoring rules, which is the defect class INV-CAN-07 exists for.
+- Alternative: leave `ACT` and `RUN_END` out, as the first version of this design did. Rejected by the author: on
+  the new jar both are written only by the MOP group, and the `ape` gate counts them.
 
-**D13 — `mop_reach` is optional** (contract v3.1). The new jar writes `mopReach` only with MOP mounted. Today
+**D13 — `mop_reach` is optional** (contract v3.2, `ape` D-B14.21). The new jar writes `mopReach` only with MOP mounted. Today
 `coverage_dump.py:300` subscripts it, so every `UICOV` line of `base`, `as` and `as_llm` would parse as incomplete
 and every dump would read `PARTIAL`. The field becomes `Optional[int]`, and only a missing required field or a
 truncation makes a line incomplete.
@@ -220,6 +231,9 @@ variable > the cell's default, the CLI > env > default order of INV-EXP-32 with 
 without the LLM group never receive `llm_url`, because a URL there would write an `ape.llmUrl` line for a group
 that is not mounted. The name stays `APERV_LLM_BASE_URL`, the one the docs advertise, although the entry-point
 rule speaks of `RV_*` variables; the experiment delta names it as that rule's one exception (author's decision).
+The core registry's name test (`rv-android-core/tests/test_constants_registry.py`, INV-CORE-30) pins every `ENV_*`
+value to `RV_*` or one of the three installation paths, so its pattern admits `APERV_LLM_BASE_URL` as the same one
+exception, and nothing wider.
 `rv-platform run` does not read it, as it does not read `RV_HUMANOID_URL`.
 - Alternative: read it in `configure()`. Rejected: INV-TOOL-20 and the lint forbid environment reads in
   `aperv-tool`.
@@ -231,6 +245,23 @@ form-completion context) and which generator wrote the text (`typed`, `heuristic
 > the generator. The LLM never writes the text (`ApeAgent.checkInput`). A per-visit count would hide the generator
 on the form and LLM fills, which is where typed input matters most. The reader keeps `StepRow.input_source` per
 step, and a caller that needs it reads the rows.
+
+**D16 — The change follows contract v3.2** (author, 2026-10-17). The `ape` verification of 2026-10-17
+(`16b185f4`) revised the telemetry over v3.1 and left the keys and the group blocks unchanged, so fronts T, E and
+D are untouched. On this side it means:
+- `features` names `MOP_LAUNCHER` where v3.1 named `ACTIVITY_TRIGGER` (key `ape.activityTriggerEnabled` unchanged);
+  the cell gate expects the new name.
+- `dec.trig` is new: `{"k": "broadcast"|"service"|"provider", "c": "<class>"}`, written on the step during which
+  component triggering fired, whatever the owner. It is a side effect, never an owner. The reader carries it as
+  `StepRow.component_trigger`. `dec.comp` stays the launcher's activity-launch outcome.
+- `dec.ch` drops `short_circuit_*` and gains `mop_coin`, `budget` and `restart`; `launcher`, `llm` and
+  `sata_other` stay. The reader carries the value as written in `pick_channel`.
+- `dec.nav.alt` is 1 only when the MOP variant decided by its own rule (D-B14.8), so it is 0 on every cell without
+  MOP and always 0 at X1. `dec.nav` is written only when the point had at least two candidates.
+- A step makes at most one LLM call, and `own.trg` names the stage that made it. `own.i` also takes the guard
+  owners `budget` and `restart`. `own.fb` never takes `coin`: a lost coin claims nothing.
+- Every step record carries `src`, `ch` and `own` (`ape` INV-SEL-05), which closes the question of a record
+  without `dec`.
 
 **D10 — `test_jar_tables.py` re-pins the presets.** The parser in `jar_tables.py` reads `Presets.java` with
 regular expressions. The new file composes cells from group blocks, so the parser has to read that composition, or
@@ -285,26 +316,32 @@ pathPrefixes?, mimeTypes?}}`.
 ```python
 @dataclass(frozen=True)
 class Ownership:
-    intended: str                 # own.i
-    trigger: Optional[str]        # own.trg: new_state | stagnation | coin
+    intended: str                 # own.i: budget | restart | llm | launcher | mop | sata
+    trigger: Optional[str]        # own.trg: the LLM stage that made the step's one call: new_state | stagnation | coin
     u_llm: Optional[float]        # own.uL, only when LLM is mounted
     u_mop: Optional[float]        # own.uM, only when MOP is mounted
     gate: Optional[str]           # own.g: min_actions | breaker
-    fallback: Optional[str]       # own.fb: gate | error | decline | no_match | coin | ineligible
+    fallback: Optional[str]       # own.fb: gate | error | decline | no_match | ineligible
 
 @dataclass(frozen=True)
 class NavTie:
     point: str                    # nav.x: X1 | X3 | X4
     component: str                # nav.c: ape | mop
-    alternative: bool             # nav.alt
+    alternative: bool             # nav.alt: the MOP variant decided by its own rule (D-B14.8)
     drew: bool                    # nav.drew
+
+@dataclass(frozen=True)
+class ComponentTrigger:
+    kind: str                     # trig.k: broadcast | service | provider
+    component_class: str          # trig.c
 ```
 
-New `StepRow` fields: `owner: Optional[Ownership]`, `scorer_cf: Optional[Mapping[str, bool]]`,
+New `StepRow` fields (fifteen): `owner: Optional[Ownership]`, `scorer_cf: Optional[Mapping[str, bool]]`,
 `draw: Optional[Tuple[int, int]]`, `nav: Optional[NavTie]`, `input_source: Optional[str]`,
 `restart_kind: Optional[str]`, `back_menu_capped: Optional[int]`, `sata_path: Optional[str]`,
-`rotation: Optional[int]`, `buffer_abandoned_by: Optional[str]`, `nav_frontier: int = 0`,
-`mop_distance: Optional[int]`, `mop_stamp: Optional[str]`, `retired_targets: Optional[Tuple[int, ...]]`.
+`rotation: Optional[int]`, `buffer_abandoned_by: Optional[str]`, `component_trigger: Optional[ComponentTrigger]`,
+`nav_frontier: int = 0`, `mop_distance: Optional[int]`, `mop_stamp: Optional[str]`,
+`retired_targets: Optional[Tuple[int, ...]]`.
 `RunStart.variant: Optional[str]`. `TraceReader.run_end -> Optional[Dict[str, Any]]`.
 
 A wrongly shaped member (for example, `own` that is not an object, or `draw` that is not a pair) makes the record
@@ -362,10 +399,6 @@ The smoke runs before lint, verification and review.
 
 ## Open Questions
 
-- **A step record without `dec`** (not decided; question for the author): the jar writes `dec` only when
-  `hasDecision` (`StepRecord.java:257`), and today the reader counts such a record as malformed
-  (`trace_ndjson.py:969-976`). It is outside this change unless the new owners (budget, restart, launcher) produce
-  such records. Check this on the smoke traces.
 - **The device file name `mop-artifact.json`** (not decided): the jar reads the path from `ape.staticDataPath`,
   so the name is cosmetic. Renaming it would touch `derive_mop_artifact.DEVICE_ARTIFACT_PATH` and the `ape`
   fixtures for no behavioural gain. It is left as is.

@@ -5,8 +5,8 @@ GitHub Issue: none (author's decision, 2026-10-17). This is the sister change of
 jar side. Both changes are on branch `isolate-guidance-groups` in their repositories. They are merged only after
 the mini experiment's results are good and the author decides so explicitly (D-A19). Source of the plan-level
 decisions: APE-RV `docs/plans/20261017_isolamento_grupos_aperv.md` (the plan; §9 is this change). Source of the
-key and telemetry contract: the `ape` change's `design.md` § API Design (contract v3.1, `ape` `558549a5`, which includes
-D-B13 and D-B14).
+key and telemetry contract: the `ape` change's `design.md` § API Design (contract v3.2, `ape` `16b185f4`, which includes
+D-B13 and D-B14; the author confirmed v3.2 on 2026-10-17).
 
 **Label: MEASUREMENT.** The change alters what an `aperv` arm measures.
 
@@ -52,7 +52,7 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
   whatever its `reachesTarget`. The code already does this, and the spec makes it normative because the trigger
   pool no longer filters on MOP data.
 - **Trace reader** (P-9): `trace_ndjson.py` surfaces the new `dec` members (`own`, `cfc`, `draw`, `nav`, `inp`,
-  `restart`, `bmc`, `strat`, `rot`, `buf`, `navf`). It also surfaces `mopd`/`mops`/`ret`, which it drops today,
+  `restart`, `bmc`, `strat`, `rot`, `buf`, `navf`, `trig`). It also surfaces `mopd`/`mops`/`ret`, which it drops today,
   `RUN_START.variant`, and the `RUN_END` record. The coverage-dump parser accepts `UICOV` lines without
   `mopReach`, which the new jar writes only when MOP is mounted. It accepts `RUN_START.v` 1 and 2, the new jar's version,
   and reports `activity_has_mop` as absent where the jar did not compute it. The docs of `decision_source` and `Counterfactual` say what each
@@ -81,8 +81,9 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
   `RUN_END`. The new cell gate.
 
 - `campaign-analysis`: gate 1 gains an NDJSON form. The anchored `mop=` pattern is blind on every stage-4 trace,
-  a pre-existing defect. The new form counts the MOP-group members of the step records and `UICOV mopReach`, and
-  `MOP_DATA` and `ACT` never count. Gate 3 uses `RUN_START.variant` as attribution evidence. `screen_visits` tags
+  a pre-existing defect. The new form counts the members of the `ape` side's clean-control list (INV-SNK-18): the
+  MOP-group members of the step records, `UICOV mopReach`, and, on the new jar, an `ACT` carrying `mop` and the MOP
+  counters of `RUN_END` (author's decision, 2026-10-17). `MOP_DATA` never counts. Gate 3 uses `RUN_START.variant` as attribution evidence. `screen_visits` tags
   `decision_source` counts with the trace version. `screen_visits` and `step_bundle`
   carry `activity_has_mop = None` through. The arm names in `analysis/` and `callers/rq_map.toml` (cmp162, E3)
   are labels of recorded data and stay.
@@ -107,7 +108,7 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
   - the docs: the module's `CLAUDE.md`, `README.md` and `docs/architecture.md`.
 - **Outside the module, code**: `modules/rv-experiment/src/rv_experiment/__main__.py` (the variable's read and
   injection) and `modules/rv-android-core/src/rv_android_core/constants.py` (`ENV_APERV_LLM_BASE_URL`), with a new
-  `rv-experiment` test.
+  `rv-experiment` test, and the core name test (`test_constants_registry.py`) admitting the one non-`RV_*` name.
 - **Outside the module, docs**: the current-behaviour docs that name the deleted variants (`docs/architecture/ape-rv.md`,
   `docs/architecture/rv-experiment.md`, the `rv-experiment-compare` skill examples) are updated. Compose files,
   `scripts/` and `experimento-*/` are records of finished campaigns and stay as they are.

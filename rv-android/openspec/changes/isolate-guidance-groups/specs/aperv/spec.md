@@ -25,8 +25,9 @@ object as `base`, so `aperv` with no variant runs the APE reference cell and its
 
 The reader change follows from the jar's new telemetry. `dec.src` now names the owner that took the step (`budget`,
 `restart`, `llm`, `launcher`, `mop`, `sata`) instead of the largest boost, `dec.cf` is replaced by a per-scorer
-`dec.cfc`, ten new `dec` members record the coins, gates, extension points, input origin, restart kind, SATA path,
-display rotation and buffer preemption, and `RUN_END.counters` gains the per-run counts of each mechanism. The
+`dec.cfc`, eleven further new `dec` members record the owner with its coins and gates, the roulette draw, the
+extension points, the input origin, the restart kind, the SATA path, the display rotation, the buffer preemption,
+the navigation-frontier boost and the component trigger (contract v3.2, `ape` `16b185f4`), and `RUN_END.counters` gains the per-run counts of each mechanism. The
 reader surfaces all of them, plus the `mopd`/`mops`/`ret` members it drops today, and exposes `RUN_END` as a
 census record. The collection path in `tool.py` still never reads `RUN_END` or `RUN_START`.
 
@@ -47,10 +48,17 @@ census record. The collection path in `tool.py` still never reads `RUN_END` or `
   - `RUN_START.variant: str`, omitted when the jar received no `ape.variant`;
   - `dec.src: str` — on the group-isolation jar, one of `budget`, `restart`, `llm`, `launcher`, `mop`, `sata`; on
     the `eea2b1a9` jar and earlier, the stage whose boost was largest;
+  - `dec.ch: str` — on the group-isolation jar, `mop_coin`, `budget`, `restart`, `launcher`, `llm` or one of the
+    SATA channels; `short_circuit_*` is no longer written;
   - `dec.own: {"i": str, "trg"?: "new_state"|"stagnation"|"coin", "uL"?: float, "uM"?: float, "g"?:
-    "min_actions"|"breaker", "fb"?: "gate"|"error"|"decline"|"no_match"|"coin"|"ineligible"}`;
+    "min_actions"|"breaker", "fb"?: "gate"|"error"|"decline"|"no_match"|"ineligible"}` — written on every step
+    record; `i` takes the owners of `dec.src`; `trg` is the LLM stage that made the step's one LLM call;
   - `dec.cfc: {<scorer>: 0|1}` over `mop`, `mopf`, `wtg`, `navf`, `cov`, `menu`, `form`;
-  - `dec.draw: [int, int]`; `dec.nav: {"x": "X1"|"X3"|"X4", "c": "ape"|"mop", "alt": 0|1, "drew": 0|1}`;
+  - `dec.draw: [int, int]`; `dec.nav: {"x": "X1"|"X3"|"X4", "c": "ape"|"mop", "alt": 0|1, "drew": 0|1}` — written
+    when the point had at least two candidates; `alt` is 1 only when the MOP variant decided by its own rule
+    (`ape` D-B14.8), so always 0 at X1 and on cells without MOP;
+  - `dec.trig: {"k": "broadcast"|"service"|"provider", "c": str}` — the step during which component triggering
+    fired, whatever its owner; `dec.comp` stays the launcher's activity-launch outcome;
   - `dec.inp: "typed"|"heuristic"|"random"|"form"|"llm"`; `dec.restart: "graph"|"state"|"activity"|"periodic"`;
   - `dec.bmc: int` (omitted when 0); `dec.strat: str` (one of the sixteen SATA path names); `dec.rot: int` in
     `-1..3`; `dec.buf: str` (an owner name);
@@ -66,8 +74,8 @@ census record. The collection path in `tool.py` still never reads `RUN_END` or `
 - `TraceReader.run_end: Optional[Dict[str, Any]]` — the `RUN_END` record minus `type`, verbatim; `None` when the
   trace carries none (destination: offline analysis)
 - `StepRow` — gains `owner`, `scorer_cf`, `draw`, `nav`, `input_source`, `restart_kind`, `back_menu_capped`,
-  `sata_path`, `rotation`, `buffer_abandoned_by`, `nav_frontier`, `mop_distance`, `mop_stamp`, `retired_targets`
-  (destination: `analysis/*` consumers and the baseline frames, which write `None` for each)
+  `sata_path`, `rotation`, `buffer_abandoned_by`, `component_trigger`, `nav_frontier`, `mop_distance`, `mop_stamp`,
+  `retired_targets` (destination: `analysis/*` consumers and the baseline frames, which write `None` for each)
 - `RunStart.variant: Optional[str]` — the fourteenth member
 
 ### Side-Effects
@@ -883,7 +891,7 @@ The parser exists because the dump has **no automated consumer today**: a search
 
 **Line format.** `gap` carries one decimal place under `Locale.ROOT` and SHALL NOT be used as a computation source; `discovered` and `interacted` are integers and are the authoritative fields. `byType` is `TYPE:interacted/discovered`. Note that `mopReach` appears on the `UICOV` line and **not** on `UICOV-ACT`, so MOP reach is not reconstructible at Activity grain from the current jar; the parser SHALL report its absence rather than infer it.
 
-**`mopReach` is present only where MOP is mounted.** The group-isolation jar writes `mopReach` on a `UICOV` line only when the MOP group is mounted, as it does with `ACT.mop` (`ape` D-B14, contract v3.1). `StateCoverage.mop_reach` SHALL therefore be `Optional[int]`. A `UICOV` line without `mopReach` SHALL be a complete line with `mop_reach = None`, and SHALL NOT count toward a partial dump. Partial means truncated or unparseable, and a cell that does not compute MOP reach is neither. A `UICOV` line of the `eea2b1a9` jar always carries the field and reads as before. The consumer `state_coverage_join.py` SHALL carry `None` through to `uicov_mop_reach`. Its statement that `mopReach` agrees with the activity's MOP flag holds on the cells that mount MOP, and on the other cells both facts are absent.
+**`mopReach` is present only where MOP is mounted.** The group-isolation jar writes `mopReach` on a `UICOV` line only when the MOP group is mounted, as it does with `ACT.mop` (`ape` D-B14.21, contract v3.2). `StateCoverage.mop_reach` SHALL therefore be `Optional[int]`. A `UICOV` line without `mopReach` SHALL be a complete line with `mop_reach = None`, and SHALL NOT count toward a partial dump. Partial means truncated or unparseable, and a cell that does not compute MOP reach is neither. A `UICOV` line of the `eea2b1a9` jar always carries the field and reads as before. The consumer `state_coverage_join.py` SHALL carry `None` through to `uicov_mop_reach`. Its statement that `mopReach` agrees with the activity's MOP flag holds on the cells that mount MOP, and on the other cells both facts are absent.
 
 #### Scenario: Cross-run aggregation uses Activity grain only
 - **WHEN** the parser aggregates coverage across two runs of the same APK and arm
@@ -1082,9 +1090,9 @@ entries are:
 | `mop_weight_wtg` | `ape.mopWeightWtg` | `WTG` activation (MOP) |
 | `mop_activity_source_components` | `ape.mopActivitySourceComponents` | `MOP_ACTIVITY_SOURCE` (MOP) |
 | `mop_frontier_weight` | `ape.mopFrontierWeight` | `MOP_FRONTIER` activation (MOP) |
-| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | `ACTIVITY_TRIGGER` activation (MOP) |
-| `activity_trigger_stagnation_step` | `ape.activityTriggerStagnationStep` | `ACTIVITY_TRIGGER` sub-parameter; the launcher cadence |
-| `activity_trigger_max_per_run` | `ape.activityTriggerMaxPerRun` | `ACTIVITY_TRIGGER` sub-parameter |
+| `activity_trigger_enabled` | `ape.activityTriggerEnabled` | `MOP_LAUNCHER` activation (MOP) |
+| `activity_trigger_stagnation_step` | `ape.activityTriggerStagnationStep` | `MOP_LAUNCHER` sub-parameter; the launcher cadence |
+| `activity_trigger_max_per_run` | `ape.activityTriggerMaxPerRun` | `MOP_LAUNCHER` sub-parameter |
 | `component_percentage` | `ape.componentPercentage` | `COMPONENT_TRIGGER` activation (STATIC); the STATIC block states 0.03 |
 | `mop_scoring` | `ape.mopScoring` | `MOP` sub-parameter; the MOP block states `distance` |
 | `mop_weight_d1` | `ape.mopWeightD1` | `MOP` sub-parameter, read under `distance` only |
@@ -1201,6 +1209,7 @@ records, for each step, which mechanism owned it and why. `StepRow` SHALL carry 
 | `dec.strat` | `sata_path` | `str` |
 | `dec.rot` | `rotation` | `int` |
 | `dec.buf` | `buffer_abandoned_by` | `str` |
+| `dec.trig` | `component_trigger` | `ComponentTrigger(kind: str, component_class: str)` |
 | `dec.navf` | `nav_frontier` | `int`, a boost field materialized at `0` |
 | `dec.mopd` | `mop_distance` | `int` |
 | `dec.mops` | `mop_stamp` | `str` |
@@ -1276,14 +1285,15 @@ The golden fixture that exercises this requirement SHALL be `modules/aperv-tool/
 - **AND** `owner` SHALL be `Ownership(intended="llm", trigger="coin", u_llm=0.42, u_mop=0.17, gate="min_actions", fallback="gate")`
 
 #### Scenario: Every new decision member reaches the row
-- **WHEN** the reader runs over the groups fixture's step carrying `cfc`, `draw`, `nav`, `inp`, `restart`, `bmc`, `strat`, `rot`, `buf` and `navf`
+- **WHEN** the reader runs over the groups fixture's step carrying `cfc`, `draw`, `nav`, `inp`, `restart`, `bmc`, `strat`, `rot`, `buf`, `trig` and `navf`
 - **THEN** each SHALL reach its `StepRow` field with the type of the table above
 - **AND** `nav` given as `{"x":"X3","c":"mop","alt":1,"drew":0}` SHALL become `NavTie(point="X3", component="mop", alternative=True, drew=False)`
+- **AND** `trig` given as `{"k":"broadcast","c":"com.example.BootReceiver"}` SHALL become `ComponentTrigger(kind="broadcast", component_class="com.example.BootReceiver")`
 - **AND** `rotation` given as `0` SHALL be `0`, not `None`
 
 #### Scenario: An eea2b1a9 trace reports the new members as absent
 - **WHEN** the reader runs over the golden fixture, which comes from the `eea2b1a9` jar
-- **THEN** `owner`, `scorer_cf`, `draw`, `nav`, `input_source`, `restart_kind`, `back_menu_capped`, `sata_path`, `rotation` and `buffer_abandoned_by` SHALL be `None` on every row
+- **THEN** `owner`, `scorer_cf`, `draw`, `nav`, `input_source`, `restart_kind`, `back_menu_capped`, `sata_path`, `rotation`, `buffer_abandoned_by` and `component_trigger` SHALL be `None` on every row
 - **AND** `nav_frontier` SHALL be `0`, as the other boost fields are
 - **AND** `reader.run_start.variant` SHALL be `None`
 
@@ -1385,7 +1395,7 @@ It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-A
 - **WHEN** the smoke runs `aperv:mop` on `cryptoapp` with the paired jar
 - **THEN** the trace's `RUN_START.variant` SHALL be `"mop"`
 - **AND** its `features` SHALL equal the fixture's `FUZZING`, `STATIC_DATA`, `MOP`, `WTG`, `MOP_FRONTIER`,
-  `ACTIVITY_TRIGGER`, `MOP_ACTIVITY_SOURCE`, `MOP_COIN`, with no `MENU_GATEWAY`
+  `MOP_LAUNCHER`, `MOP_ACTIVITY_SOURCE`, `MOP_COIN`, with no `MENU_GATEWAY`
 - **AND** its `digest` SHALL equal the fixture's
 
 #### Scenario: A mismatched pair fails at resolution

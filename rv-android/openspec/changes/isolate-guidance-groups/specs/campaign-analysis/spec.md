@@ -10,7 +10,8 @@ Three things change for a consumer:
 - **What a control is.** On the earlier jars, the control arm (`mop_off_llm_off`) mounted MOP with its weights
   zeroed, so "clean" meant that no MOP boost fired. On the new jar a control is a cell that does not mount the MOP
   group (`base`, `as`, `as_llm`). "Clean" then means that no member of the MOP group appears in any step record:
-  no MOP boost, no MOP stamp, no MOP coin draw, no MOP owner. The artifact census `MOP_DATA` still appears in `as`
+  no MOP boost, no MOP stamp, no MOP coin draw, no MOP owner; nor a `mop` member on an `ACT` record, nor a
+  non-zero MOP counter in `RUN_END`, which that jar writes only with MOP mounted. The artifact census `MOP_DATA` still appears in `as`
   and `as_llm`, because those cells load the artifact for STATIC. It reports a load, not a mechanism, and it does
   not make a control dirty.
 - **How a run proves its cell.** `RUN_START.variant` names the cell directly, beside `preset`, `features` and
@@ -27,9 +28,10 @@ legacy format, and the NDJSON form below replaces it for every NDJSON trace.
 
 - **INV-CAN-07** (replaced): the clean-control signal SHALL be computed in exactly one place, by the form that
   matches the trace. Over a legacy `key=value` stream the pattern SHALL be anchored, `(?<![a-z_])mop=`, so that
-  `activity_has_mop=1` never matches. Over an NDJSON trace the signal SHALL be the count of step records carrying
-  any MOP-group member, listed in "Validity Gates Run Before Any Outcome". `ACT` records and `MOP_DATA` SHALL
-  NOT count.
+  `activity_has_mop=1` never matches. Over an NDJSON trace the signal SHALL be the count of the MOP-group members
+  listed in "Validity Gates Run Before Any Outcome", which follow the `ape` clean-control gate (`event-sink`
+  INV-SNK-18). The `ACT`-derived and `RUN_END` members SHALL count only on a `v == 2` trace. `MOP_DATA` SHALL NOT
+  count.
 - **INV-CAN-21** (new): no consumer SHALL compare or pool `decision_source` values across traces of different
   `RUN_START.v`. A count of `decision_source` SHALL carry the version it was computed under.
 - **INV-CAN-22** (new): a consumer SHALL carry `activity_has_mop = None` through as absent. It SHALL NOT coerce it
@@ -42,23 +44,33 @@ legacy format, and the NDJSON form below replaces it for every NDJSON trace.
 `analysis/gates.py` SHALL implement the five gates: **1 clean control** (`∀ run ∈ arm_predicate: forbidden_signal(run) == 0`, INV-CAN-07); **2 correct binary** (digest of the artefact under test, captured per run into a sidecar beside it or read from `RUN_START.build.sha`, compared to the manifest — `capture_status` never back-filled from config); **3 arm attribution** (evidenced from the artefact, never from the orchestrator's filename label); **4 task integrity** (identity-not-line, ≥1 COMPLETED, full budget — INV-CAN-08); **5 corpse detection** (three independent signals: trace below a size floor · coverage all zero · a named fatal exception, via `liveness`). Gates 2 and 3 SHALL name their evidence form per arm (INV-CAN-06): `aperv:*` — `RUN_START.build.sha` / `preset` / `features` / `params` against the manifest, plus `RUN_START.variant` against the manifest's cell when the trace is `v == 2`; `droidbot:*` — the `start sending events, policy is …` line against the policy in the filename, digest `not-run` unless a sidecar exists; `ape` — negative evidence, the trace carries zero `{`-leading NDJSON lines (proof the upstream `ape.jar`, not `ape-rv.jar`, ran), digest `not-run` unless a sidecar exists. `not-run` SHALL be reported as such and never as a pass. A richer corpse classification by last non-empty trace line (normal-end / crash / cut-during-teardown / cut-elsewhere) SHALL be emitted beside the boolean.
 
 **The forbidden signal has two forms (INV-CAN-07).** `count_forbidden_signal` keeps its anchored pattern for a
-legacy `key=value` stream. A new `count_mop_group_signal(reader)` counts, over the `StepRow`s of an NDJSON trace,
-the rows that carry any member of the MOP group. The members are the ones the `ape` change lists for its own
-clean-control gate (`event-sink` INV-SNK-17):
+legacy `key=value` stream. A new `count_mop_group_signal(reader)` counts the MOP-group signals of an NDJSON
+trace. The members are the ones the `ape` change lists for its own clean-control gate (`event-sink` INV-SNK-18;
+author's decision, 2026-10-17). Each `StepRow` carrying at least one of the following counts once:
 
 - a non-zero `mop`, `mop_frontier`, `wtg` or `menu`;
 - a present `mop_distance`, `mop_stamp`, `retired_targets` or `mop_exposure`;
 - an `owner.u_mop`;
 - a `scorer_cf` key among `mop`, `mopf`, `wtg`, `menu`;
 - a `nav.component == "mop"`;
+- a `pick_channel` of `mop_coin` or `launcher`;
 - a `decision_source` or an `owner.intended` of `mop` or `launcher`;
-- outside the step records, a `UICOV` line carrying `mopReach` (read through `coverage_dump`), which the jar
-  writes only when MOP is mounted (`ape` D-B14).
+- on a `v == 2` trace, an `activity_has_mop` or `target_activity_has_mop` that is not `None`, which the reader
+  derives from an `ACT` record carrying `mop`.
 
-On a `v == 1` trace the same predicate applies to the members that version carries. The counter SHALL read the
-trace through `TraceReader`, never by a second parser. `ACT` records and `MOP_DATA` SHALL NOT count: `ACT.mop`
-is a static fact about an activity, and `MOP_DATA` reports that the artifact was loaded, which a STATIC cell does
-by design.
+Outside the step rows, each of the following counts once:
+
+- a `UICOV` line carrying `mopReach` (read through `coverage_dump`), which the jar writes only when MOP is mounted
+  (`ape` D-B14.21);
+- on a `v == 2` trace, a `RUN_END` (read through `TraceReader.run_end`) whose `counters` carry a non-zero
+  `coinMop`, `launches`, `stampHits` or `retired`.
+
+The `ACT` and `RUN_END` members count only on `v == 2`. The group-isolation jar writes `ACT.mop` only with MOP
+mounted (`ape` D-B14.9), and without MOP those counters stay at 0. The `v == 1` jar writes `ACT.mop` in every arm,
+and its control arm mounted MOP with the weights zeroed, so stamp lookups and retirements happened in a clean run.
+On a `v == 1` trace the step-row predicate applies to the members that version carries. The counter SHALL read the
+trace through `TraceReader`, never by a second parser. `MOP_DATA` SHALL NOT count: it reports that the artifact was
+loaded, which a STATIC cell does by design.
 
 Which arms are controls is a parameter of the gate (`arm_predicate`), not a constant of the module. On a
 group-isolation campaign the controls are the cells that do not mount MOP: `aperv:base`, `aperv:as`,
@@ -93,6 +105,15 @@ group-isolation campaign the controls are the cells that do not mount MOP: `aper
 - **THEN** the count SHALL be 3
 - **AND** gate 1 SHALL report `fail` naming the run
 
+#### Scenario: An ACT MOP fact or a MOP counter in a v2 control is counted
+- **WHEN** gate 1 runs `count_mop_group_signal` over an `aperv:as` trace (`v == 2`) whose two steps refer to an `ACT` record carrying `mop:0`, and whose `RUN_END` counters hold `coinMop:1`
+- **THEN** the count SHALL be 3: two rows whose `activity_has_mop` is not `None`, and one `RUN_END`
+- **AND** the value `0` of `ACT.mop` SHALL count, because on this jar its presence means MOP was mounted
+
+#### Scenario: The v1 ACT fact and RUN_END counters are not a signal
+- **WHEN** gate 1 runs `count_mop_group_signal` over a `v == 1` control trace whose `ACT` records carry `mop:1` and whose `RUN_END` counters hold `stampHits:5` and `retired:2`, with no MOP member on any step
+- **THEN** the count SHALL be 0
+
 #### Scenario: The legacy pattern is blind on NDJSON, and the gate does not use it there
 - **WHEN** an NDJSON trace whose steps carry `"mop":500` is scanned with `count_forbidden_signal`
 - **THEN** the pattern count SHALL be 0, because the NDJSON member is `"mop":`, not `mop=`
@@ -125,7 +146,7 @@ reader tells them apart through `run_start.v`.
   present. It SHALL report the check as `not-run` when the trace is `v == 1`, which carries no variant, rather than
   as a pass.
 - **`baseline_ape.py` and `baseline_droidbot.py`** SHALL write `None` for every `StepRow` field the two baselines
-  cannot carry, the fourteen fields added by the reader included (INV-CAN-19), and SHALL keep deriving their column
+  cannot carry, the fifteen fields added by the reader included (INV-CAN-19), and SHALL keep deriving their column
   list from `fields(StepRow)`.
 
 The consumers whose inputs do not change are left as they are: `clock_logcat_join`, `violations`,
@@ -152,6 +173,6 @@ campaign declares its own entries where its analysis is defined, and this change
 - **AND** the digest, preset, features and params checks SHALL give the same verdicts as before this change
 
 #### Scenario: Baseline frames keep the aperv column list
-- **WHEN** `baseline_ape` parses a fixture run after the reader gains its fourteen fields
+- **WHEN** `baseline_ape` parses a fixture run after the reader gains its fifteen fields
 - **THEN** the frame's first block of columns SHALL equal `APERV_STEP_COLUMNS`, derived from `fields(StepRow)`
 - **AND** `owner`, `scorer_cf`, `sata_path`, `rotation` and the other new columns SHALL be null on every row
