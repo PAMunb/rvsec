@@ -183,8 +183,8 @@ it, and the collection-path test that forbids it stays.
 
 **D9 — The cell gate has two levels.** Offline: `tests/migration/test_cells.py` reads the `ape` checkout's
 `Presets.java` and `src/test/resources/cells/*.run_start.json` through `$APE_REPO`, and asserts the preset names,
-the block unions, and each fixture's `preset`/`variant` against `get_variants()`. On the device: the smoke runs the
-six cells on `cryptoapp` and compares each recorded `RUN_START` with its fixture through `TraceReader`, masking
+the block unions, and each fixture's `preset`/`variant` against `get_variants()`. On the device: the smoke, the short pre-run of a comparison
+mini-experiment on instrumented corpus APKs, compares each recorded `RUN_START` with its fixture through `TraceReader`, masking
 `run_id`, `t0`, `seed`, `build` and `props_digest`. Neither level runs in `tool.py` (INV-APV-43).
 
 **D11 — The reader accepts versions 1 and 2, and `activity_has_mop` becomes tri-state** (contract v3.2).
@@ -395,7 +395,7 @@ malformed, as a wrongly shaped `cf` does today (`trace_ndjson.py:988-995`). An u
 | Unit | reader: new fields, eea2b1a9 absence, `run_end`, `variant`, unknown enum | `test_trace_ndjson.py` + `trace_ndjson_groups.ndjson` | ~10 new or changed |
 | Unit | baseline frames carry the new columns as `None` | `test_baseline_frames.py` | existing parity test |
 | Migration | presets = cells, block unions, fixtures vs variants, mapping sweep | `tests/migration/*` with `$APE_REPO` | ~8 |
-| Smoke | six cells on cryptoapp, `RUN_START` vs fixture | `rv-experiment run` on the host, the platform manages the emulator | 6 runs |
+| Smoke | cells run by the mini-experiment pre-run, `RUN_START` vs fixture | container `rv-experiment run` with the jar and `aperv_tool` sources bind-mounted, the platform manages the emulator; gates run from the host | a few APKs × cells |
 
 The smoke runs before lint, verification and review.
 

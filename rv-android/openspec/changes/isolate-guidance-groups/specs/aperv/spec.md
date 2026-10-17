@@ -1370,8 +1370,8 @@ names. The `RUN_START` fixture of each cell (`src/test/resources/cells/<cell>.ru
 `preset` and `variant` equal to the variant's own `preset` and `variant`. This catches a renamed cell or a moved
 block before any device is started.
 
-**On the device, against the trace.** The integration smoke SHALL run each of the six cells on `cryptoapp` and
-compare the recorded `RUN_START` with the cell's fixture on `preset`, `variant`, `features`, `params`, `inert`
+**On the device, against the trace.** The integration smoke SHALL run each cell it covers on an instrumented APK with its
+`.apk.json` beside it and compare the recorded `RUN_START` with the cell's fixture on `preset`, `variant`, `features`, `params`, `inert`
 and `digest`. The comparison masks the members that differ by construction: `run_id`, `t0`, `seed`, `build` and
 `props_digest`. This is the gate of the cross-repository pairing (plan §9.3). A jar and a `tool.py` from different
 sides of the key change cannot pass it, because the run aborts at resolution and writes no `RUN_START`. A pair
@@ -1392,7 +1392,7 @@ It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-A
 - **AND** its `features` SHALL contain `LLM_COIN` and SHALL NOT contain `MOP` or `MOP_COIN`
 
 #### Scenario: A device run echoes the cell it was given
-- **WHEN** the smoke runs `aperv:mop` on `cryptoapp` with the paired jar
+- **WHEN** the smoke runs `aperv:mop` on an instrumented APK with its `.apk.json`, with the paired jar
 - **THEN** the trace's `RUN_START.variant` SHALL be `"mop"`
 - **AND** its `features` SHALL equal the fixture's `FUZZING`, `STATIC_DATA`, `MOP`, `WTG`, `MOP_FRONTIER`,
   `MOP_LAUNCHER`, `MOP_ACTIVITY_SOURCE`, `MOP_COIN`, with no `MENU_GATEWAY`

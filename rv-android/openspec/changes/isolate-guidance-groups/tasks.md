@@ -18,7 +18,8 @@
 
      Wave 2 (serial, coordinator): group I. The module suite is green as a whole, and the work is re-checked against the
        contract commit of APE 3.10.
-     Wave 3 (with the ape session): group S. The jar pairing (APE 11.9) and the six-cell device smoke (APE 12.1).
+     Wave 3 (with the ape and mini-experimento sessions): group S. The jar pairing (APE 11.9) and the device smoke,
+       which is the short pre-run of the mini-experimento session's comparison (APE 12.1 hands off to it).
      Wave 4 (serial): group C. Close.
 
      Rules for every subagent prompt: no git state commands (stash, checkout, reset, branch, switch) and no commits;
@@ -36,7 +37,7 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 | D (derive `data` member) | — | 5.6, 10.4, 11.7 (re-derive the APE fixtures) |
 | M.4 (offline cell gate) | 11.6 (`cells/<cell>.run_start.json`) | — |
 | S.1 (jar into this worktree) | 11.9 (`mvn install`, `rvsec_home` = this worktree's rvsec root) | — |
-| S.2–S.4 (device smoke, `RUN_START` gate) | 12.1 | 12.1 runs through this worktree |
+| S.2–S.4 (device smoke, `RUN_START` gate) | 12.1, run as the `mini-experimento` session's short pre-run | 12.1 runs through this worktree's jar and sources |
 
 ## 0. Wave 0 — setup and the reader's declarations (serial)
 
@@ -120,10 +121,10 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 ## S. Wave 3 — jar pairing and device smoke (with APE 11.9 / 12.1)
 
 - [ ] S.1 The paired jar lands in this worktree's `modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar` (APE 11.9 with `-Drvsec_home=<this worktree's rvsec root>`); record its sha256 in the report (no literal in source, INV-APV-59)
-- [ ] S.2 Smoke: `uv run rv-experiment run --tools aperv:base,aperv:mop,aperv:as,aperv:as_mop,aperv:as_llm,aperv:as_mop_llm` on `cryptoapp`, its `.apk.json` beside the APK, a few minutes each, SGLang reachable for the two LLM cells; the platform manages the emulator
-- [ ] S.3 Device cell gate: a one-off script (scratchpad, not committed) reads each trace's `RUN_START` through `TraceReader` and compares it with `cells/<cell>.run_start.json` on `preset`, `variant`, `features`, `params`, `inert`, `digest`, masking `run_id`, `t0`, `seed`, `build`, `props_digest`; per-cell report
-- [ ] S.4 On the same traces: `v == 2`; gate 1 (`count_mop_group_signal`) is 0 on `base`, `as`, `as_llm` and positive on the three MOP cells; the catalog was pushed only on the four `as*` cells; no malformed record from the new members; zero step records without `dec` (`ape` INV-SEL-05: every record carries `src`, `ch`, `own`); the teardown overrun per run; no UICOV `mopReach` on `base`/`as`/`as_llm` (`ape` D-B14.21)
-- [ ] S.5 Report the smoke to the author and to the ape session before group C
+- [ ] S.2 Smoke (author's decision, 2026-10-17): the short pre-run ("smoke of the smoke") of the `mini-experimento` session's comparison, run by that session on a few instrumented APKs of the Study 03 v2 corpus (rep pack `data/raw/e6-corpus`), each with its compact `.apk.json` beside it; image `phtcosta/rvandroid:0.9.5` with the S.1 jar, `tool.py` and `derive_mop_artifact.py` bind-mounted from this worktree into `/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/`; the mounted jar's sha256 equals the one recorded in S.1; the six cells, or the subset the author fixes; LLM through the entrypoint's socat for the LLM cells; the platform manages the emulator inside the container. The evidence of S.3/S.4 is that pre-run's results dir
+- [ ] S.3 Device cell gate, run from the host with this worktree's `.venv` over the pre-run's results dir: a one-off script (scratchpad, not committed) reads each trace's `RUN_START` through `TraceReader` and compares it with `cells/<cell>.run_start.json` on `preset`, `variant`, `features`, `params`, `inert`, `digest`, masking `run_id`, `t0`, `seed`, `build`, `props_digest`; per-cell report
+- [ ] S.4 On the same traces, for the cells the pre-run ran: `v == 2`; gate 1 (`count_mop_group_signal`) is 0 on `base`, `as`, `as_llm` and positive on the three MOP cells; the catalog was pushed only on the four `as*` cells; no malformed record from the new members; zero step records without `dec` (`ape` INV-SEL-05: every record carries `src`, `ch`, `own`); the teardown overrun per run; no UICOV `mopReach` on `base`/`as`/`as_llm` (`ape` D-B14.21)
+- [ ] S.5 Report the smoke to the author, to the ape session and to the `mini-experimento` session before group C
 
 ## C. Wave 4 — close (serial)
 
