@@ -138,6 +138,13 @@ WIDGET_METADATA_FIELDS = (
 )
 WIDGET_ENTRIES_FIELD = "entries"
 
+# Intent-filter `data` lists the jar reads to build a receiver or service
+# intent: the first scheme, host and MIME type, and the first path, or the
+# first path prefix when the filter declares no path. `ports` and
+# `pathPatterns` are not among them — a port is not part of the matching data
+# the jar sets, and a pattern is not a literal path.
+FILTER_DATA_FIELDS = ("schemes", "hosts", "paths", "pathPrefixes", "mimeTypes")
+
 # === WINDOW AND EVENT VOCABULARY ===
 
 # Window names carry a fragment/menu suffix (`MainActivity#OptionsMenu`); the base
@@ -1410,9 +1417,14 @@ def _project_components(components: dict) -> dict:
     `reachesTarget` becomes `reachesMop` on the wire — inside the explorer the only
     targets are monitored operations, and the neutral producer vocabulary stops at
     this boundary. The `targetMethods` signature list compacts to the boolean the
-    trigger ordering actually reads, and the intent-filter structure reduces to the
-    actions and categories a broadcast needs; the `data` block survives only as the
+    trigger ordering actually reads. A receiver or service filter reduces to its
+    actions, categories and the `data` lists the jar builds an intent from
+    (`_reduce_filter_data`); an activity's `data` block survives only as the
     already-assembled `deepLinkUri`.
+
+    Every component is projected whatever its `reachesTarget`. The jar's
+    component trigger is a STATIC member and its pool reads no MOP data, so a
+    component left off the wire is one the trigger can never fire.
 
     Returns:
         Dictionary with keys:
@@ -1463,8 +1475,9 @@ def _project_component(
     Args:
         entry: One component object from the `components` section.
         deep_link: Attach `deepLinkUri` when derivable. Activities only.
-        intent_filters: Attach `hasTargetMethods` and the reduced `intentFilters`.
-            Receivers and services.
+        intent_filters: Attach `hasTargetMethods` and the reduced `intentFilters`,
+            each `{"actions", "categories"}` plus `data` when any of its lists is
+            non-empty. Receivers and services.
         authorities: Attach `authorities` verbatim. Providers only.
 
     Returns:
@@ -1495,17 +1508,45 @@ def _project_component(
             isinstance(target_methods, list) and target_methods
         )
         raw_filters = entry.get("intentFilters")
-        projected["intentFilters"] = [
-            {
+        projected_filters = []
+        for filter_entry in raw_filters if isinstance(raw_filters, list) else []:
+            if not isinstance(filter_entry, dict):
+                continue
+            projected_filter = {
                 "actions": _string_list(filter_entry.get("actions")),
                 "categories": _string_list(filter_entry.get("categories")),
             }
-            for filter_entry in (raw_filters if isinstance(raw_filters, list) else [])
-            if isinstance(filter_entry, dict)
-        ]
+            # Absent `data` reads on the jar as "no data".
+            data = _reduce_filter_data(filter_entry.get("data"))
+            if data is not None:
+                projected_filter["data"] = data
+            projected_filters.append(projected_filter)
+        projected["intentFilters"] = projected_filters
     if authorities:
         projected["authorities"] = entry.get("authorities")
     return projected
+
+
+def _reduce_filter_data(data: Any) -> dict | None:
+    """Reduce a producer `data` block to the lists the jar builds an intent from.
+
+    A receiver or service that filters on a scheme or a MIME type matches no
+    intent built from its action alone, so the trigger needs these lists to
+    fire an intent the platform delivers.
+
+    Returns:
+        The `FILTER_DATA_FIELDS` lists that are non-empty, each read through
+        `_string_list`; None when `data` is not a mapping or all five are
+        empty, which keeps a filter without data byte-identical on the wire.
+    """
+    if not isinstance(data, dict):
+        return None
+    reduced = {}
+    for field in FILTER_DATA_FIELDS:
+        values = _string_list(data.get(field))
+        if values:
+            reduced[field] = values
+    return reduced or None
 
 
 def _emit_activity_dist(

@@ -40,9 +40,9 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 
 ## 0. Wave 0 — setup and the reader's declarations (serial)
 
-- [ ] 0.1 In the worktree root (`…/worktrees-aperv/isolate-guidance-groups/rv-android`), run `uv sync` and confirm `modules/aperv-tool` tests import from this worktree's `.venv`
-- [ ] 0.2 Baseline: `cd modules/aperv-tool && uv run pytest --import-mode=importlib -o "addopts=" -q`; record the pass/skip counts, so a later red is attributable
-- [ ] 0.3 Back up `modules/aperv-tool/tests/migration/test_decisive_contrasts.py` to `backup/20261017-isolate-guidance-groups/` (P3)
+- [x] 0.1 In the worktree root (`…/worktrees-aperv/isolate-guidance-groups/rv-android`), run `uv sync` and confirm `modules/aperv-tool` tests import from this worktree's `.venv`
+- [x] 0.2 Baseline: `cd modules/aperv-tool && uv run pytest --import-mode=importlib -o "addopts=" -q`; record the pass/skip counts, so a later red is attributable
+- [x] 0.3 Back up `modules/aperv-tool/tests/migration/test_decisive_contrasts.py` to `backup/20261017-isolate-guidance-groups/` (P3)
 - [ ] 0.4 In `analysis/trace_ndjson.py`, declarations only: the `Ownership` and `NavTie` dataclasses; the fourteen new `StepRow` fields with `None` defaults (`nav_frontier` defaults to `0`); `activity_has_mop` / `target_activity_has_mop` as `Optional[bool]`; `RunStart.variant`; `TraceReader.run_end` property returning `None`; `SUPPORTED_VERSIONS = {1, 2}` (design § API Design). No parsing yet; the existing suite stays green
 - [ ] 0.5 In `analysis/baseline_ape.py` and `analysis/baseline_droidbot.py`, add `None` for the fourteen new fields to the row dicts, so `test_baseline_frames.py` parity stays green after 0.4
 - [ ] 0.6 Run `/rv-test-run aperv-tool`; commit wave 0 by path
@@ -68,10 +68,10 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 
 ## D. Derive: the intent-filter `data` member — wave 1, not blocked (start first)
 
-- [ ] D.1 `_reduce_filter_data(data)` in `derive_mop_artifact.py`: `schemes`, `hosts`, `paths`, `pathPrefixes`, `mimeTypes` via `_string_list`, empty lists omitted, `None` when all five are empty; called from `_project_component` for receivers and services (`:1494-1504`); `ports` and `pathPatterns` never emitted
-- [ ] D.2 Docstrings of `_project_components` / `_project_component` (`:1404-1480`): the filter carries `data`; every component is projected whatever its `reachesTarget`, because the trigger pool reads no MOP data
-- [ ] D.3 Tests in `tests/test_derive_mop_artifact.py`: the receiver-filter scenario (five lists kept, `ports`/`paths`-empty/`pathPatterns` absent, `data` absent when all empty, `formatVersion` 2); all components projected at `reachesTarget: false`; the cryptoapp ground truth and the streaming byte-identity tests unchanged
-- [ ] D.4 Run `/rv-test-run aperv-tool` (`tests/test_derive_mop_artifact.py`); the coordinator commits D first and sends the SHA to the ape session (unblocks APE 5.6, 10.4, 11.7)
+- [x] D.1 `_reduce_filter_data(data)` in `derive_mop_artifact.py`: `schemes`, `hosts`, `paths`, `pathPrefixes`, `mimeTypes` via `_string_list`, empty lists omitted, `None` when all five are empty; called from `_project_component` for receivers and services (`:1494-1504`); `ports` and `pathPatterns` never emitted
+- [x] D.2 Docstrings of `_project_components` / `_project_component` (`:1404-1480`): the filter carries `data`; every component is projected whatever its `reachesTarget`, because the trigger pool reads no MOP data
+- [x] D.3 Tests in `tests/test_derive_mop_artifact.py`: the receiver-filter scenario (five lists kept, `ports`/`paths`-empty/`pathPatterns` absent, `data` absent when all empty, `formatVersion` 2); all components projected at `reachesTarget: false`; the cryptoapp ground truth and the streaming byte-identity tests unchanged
+- [x] D.4 Run `/rv-test-run aperv-tool` (`tests/test_derive_mop_artifact.py`); the coordinator commits D first and sends the SHA to the ape session (unblocks APE 5.6, 10.4, 11.7)
 
 ## R. Trace reader bodies (`trace_ndjson.py`) — wave 1, after 0.4
 
