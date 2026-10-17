@@ -30,8 +30,8 @@ legacy format, and the NDJSON form below replaces it for every NDJSON trace.
   matches the trace. Over a legacy `key=value` stream the pattern SHALL be anchored, `(?<![a-z_])mop=`, so that
   `activity_has_mop=1` never matches. Over an NDJSON trace the signal SHALL be the count of the MOP-group members
   listed in "Validity Gates Run Before Any Outcome", which follow the `ape` clean-control gate (`event-sink`
-  INV-SNK-18). The `ACT`-derived and `RUN_END` members SHALL count only on a `v == 2` trace. `MOP_DATA` SHALL NOT
-  count.
+  INV-SNK-18) on a `v == 2` trace. On a `v == 1` trace it SHALL be the count of steps carrying a non-zero MOP boost
+  (`mop` or `mop_frontier`), the meaning the legacy pattern had. `MOP_DATA` SHALL NOT count.
 - **INV-CAN-21** (new): no consumer SHALL compare or pool `decision_source` values across traces of different
   `RUN_START.v`. A count of `decision_source` SHALL carry the version it was computed under.
 - **INV-CAN-22** (new): a consumer SHALL carry `activity_has_mop = None` through as absent. It SHALL NOT coerce it
@@ -45,8 +45,9 @@ legacy format, and the NDJSON form below replaces it for every NDJSON trace.
 
 **The forbidden signal has two forms (INV-CAN-07).** `count_forbidden_signal` keeps its anchored pattern for a
 legacy `key=value` stream. A new `count_mop_group_signal(reader)` counts the MOP-group signals of an NDJSON
-trace. The members are the ones the `ape` change lists for its own clean-control gate (`event-sink` INV-SNK-18;
-author's decision, 2026-10-17). Each `StepRow` carrying at least one of the following counts once:
+trace. On a `v == 2` trace the members are the ones the `ape` change lists for its own clean-control gate
+(`event-sink` INV-SNK-18; author's decision, 2026-10-17). Each `StepRow` carrying at least one of the following
+counts once:
 
 - a non-zero `mop`, `mop_frontier`, `wtg` or `menu`;
 - a present `mop_distance`, `mop_stamp`, `retired_targets` or `mop_exposure`;
@@ -55,20 +56,25 @@ author's decision, 2026-10-17). Each `StepRow` carrying at least one of the foll
 - a `nav.component == "mop"`;
 - a `pick_channel` of `mop_coin` or `launcher`;
 - a `decision_source` or an `owner.intended` of `mop` or `launcher`;
-- on a `v == 2` trace, an `activity_has_mop` or `target_activity_has_mop` that is not `None`, which the reader
-  derives from an `ACT` record carrying `mop`.
+- an `activity_has_mop` or `target_activity_has_mop` that is not `None`, which the reader derives from an `ACT`
+  record carrying `mop`.
 
 Outside the step rows, each of the following counts once:
 
 - a `UICOV` line carrying `mopReach` (read through `coverage_dump`), which the jar writes only when MOP is mounted
   (`ape` D-B14.21);
-- on a `v == 2` trace, a `RUN_END` (read through `TraceReader.run_end`) whose `counters` carry a non-zero
-  `coinMop`, `launches`, `stampHits` or `retired`.
+- a `RUN_END` (read through `TraceReader.run_end`) whose `counters` carry a non-zero `coinMop`, `launches`,
+  `stampHits` or `retired`.
 
-The `ACT` and `RUN_END` members count only on `v == 2`. The group-isolation jar writes `ACT.mop` only with MOP
-mounted (`ape` D-B14.9), and without MOP those counters stay at 0. The `v == 1` jar writes `ACT.mop` in every arm,
-and its control arm mounted MOP with the weights zeroed, so stamp lookups and retirements happened in a clean run.
-On a `v == 1` trace the step-row predicate applies to the members that version carries. The counter SHALL read the
+Each of these is a MOP signal because the group-isolation jar writes it only with MOP mounted: `ACT.mop` (`ape`
+D-B14.9), `mopReach` (D-B14.21), the MOP scorers and stamps, and those counters, which stay at 0 without MOP.
+
+**On a `v == 1` trace the list is the legacy one** (author's decision, 2026-10-17). The control arm of that jar
+(`mop_off_llm_off`) mounted the MOP group with its weights zeroed, so the MOP pass ran and wrote its by-products in
+a clean run: on a recorded cmp162 control of 73 steps, `mop_exposure` is on all 73, `wtg` is non-zero on 1, every
+`UICOV` line carries `mopReach`, and every `ACT` carries `mop`. Clean meant that no MOP boost fired. So on `v == 1`
+a `StepRow` counts once when its `mop` or `mop_frontier` is non-zero, and nothing else counts; that control counts
+0. The counter SHALL read the
 trace through `TraceReader`, never by a second parser. `MOP_DATA` SHALL NOT count: it reports that the artifact was
 loaded, which a STATIC cell does by design.
 
@@ -113,6 +119,11 @@ group-isolation campaign the controls are the cells that do not mount MOP: `aper
 #### Scenario: The v1 ACT fact and RUN_END counters are not a signal
 - **WHEN** gate 1 runs `count_mop_group_signal` over a `v == 1` control trace whose `ACT` records carry `mop:1` and whose `RUN_END` counters hold `stampHits:5` and `retired:2`, with no MOP member on any step
 - **THEN** the count SHALL be 0
+
+#### Scenario: A v1 control counts only fired MOP boosts
+- **WHEN** gate 1 runs `count_mop_group_signal` over a `v == 1` `mop_off_llm_off` trace whose 73 steps all carry `mopx`, one of them `wtg:200`, whose `UICOV` lines all carry `mopReach`, and whose steps carry no `mop` or `mopf` boost
+- **THEN** the count SHALL be 0
+- **AND** the same trace with one step carrying `mop:500` SHALL count 1
 
 #### Scenario: The legacy pattern is blind on NDJSON, and the gate does not use it there
 - **WHEN** an NDJSON trace whose steps carry `"mop":500` is scanned with `count_forbidden_signal`

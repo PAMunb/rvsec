@@ -83,7 +83,8 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
 - `campaign-analysis`: gate 1 gains an NDJSON form. The anchored `mop=` pattern is blind on every stage-4 trace,
   a pre-existing defect. The new form counts the members of the `ape` side's clean-control list (INV-SNK-18): the
   MOP-group members of the step records, `UICOV mopReach`, and, on the new jar, an `ACT` carrying `mop` and the MOP
-  counters of `RUN_END` (author's decision, 2026-10-17). `MOP_DATA` never counts. Gate 3 uses `RUN_START.variant` as attribution evidence. `screen_visits` tags
+  counters of `RUN_END` (author's decision, 2026-10-17). On a `v == 1` trace it counts what the legacy rule meant, a
+  fired MOP boost, because that jar's control mounted MOP with zero weights. `MOP_DATA` never counts. Gate 3 uses `RUN_START.variant` as attribution evidence. `screen_visits` tags
   `decision_source` counts with the trace version. `screen_visits` and `step_bundle`
   carry `activity_has_mop = None` through. The arm names in `analysis/` and `callers/rq_map.toml` (cmp162, E3)
   are labels of recorded data and stay.

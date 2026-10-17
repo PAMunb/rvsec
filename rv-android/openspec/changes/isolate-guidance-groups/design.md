@@ -85,7 +85,7 @@ Requirements: FR19, FR20, FR11, FR04/FR06, NFR06 (`docs/PRD.md`).
 | `trace_ndjson.TraceReader` | New `StepRow` fields, `RunStart.variant`, `run_end` | NDJSON trace | `StepRow`s, attributes |
 | `baseline_ape` / `baseline_droidbot` row builders | Write `None` for each new column | baseline stream | tidy frame rows |
 | `tests/migration/test_cells.py` (new) | Offline cell gate against the jar source and fixtures | `$APE_REPO` | pass / fail |
-| `gates.count_mop_group_signal()` (new) | Gate 1 over NDJSON: MOP-group members of steps + `UICOV mopReach`; on `v == 2` also `ACT.mop` and the MOP counters of `RUN_END` | `TraceReader`, `coverage_dump` rows | count |
+| `gates.count_mop_group_signal()` (new) | Gate 1 over NDJSON: on `v == 2` the INV-SNK-18 list (step members, `ACT.mop`, `UICOV mopReach`, MOP counters of `RUN_END`); on `v == 1` the fired MOP boosts | `TraceReader`, `coverage_dump` rows | count |
 | `runspec.attribution_evidence()` | Adds the `variant` check (`not-run` on `v == 1`) | `RunStart`, manifest arm | verdicts |
 | `screen_visits` / `step_bundle` | Version-tagged source counts, tri-state MOP fact | `StepRow`s | visits, frames |
 | `coverage_dump._parse_state_line()` | `mop_reach` optional; absence is not partial | `UICOV` payload | `StateCoverage` |
@@ -199,15 +199,17 @@ that tests truthiness treats `None` as not-MOP, which is what it does with `Fals
 **D12 — Gate 1 has two forms, selected by the trace's format.** The anchored pattern `(?<![a-z_])mop=`
 (`gates.py:83`) was written for the `key=value` lines, and it matches no NDJSON `"mop":` member, so on every
 stage-4 trace it counted zero. Rather than a second regex over JSON text, the NDJSON form reads the trace through
-`TraceReader` (one parser, INV-APV-48) and applies the `ape` side's own clean-control list, INV-SNK-18 (author's
-decision, 2026-10-17). Over the `StepRow`s it counts a row carrying a MOP scorer, a MOP stamp member, `own.uM`, a
+`TraceReader` (one parser, INV-APV-48). On a `v == 2` trace it applies the `ape` side's own clean-control list,
+INV-SNK-18 (author's decision, 2026-10-17). Over the `StepRow`s it counts a row carrying a MOP scorer, a MOP stamp member, `own.uM`, a
 MOP key of `cfc`, `nav.c == "mop"`, a `pick_channel` of `mop_coin` or `launcher`, or an owner `mop` or `launcher`.
-Outside the step rows it counts a `UICOV` line carrying `mopReach`. On a `v == 2` trace it also counts a row whose
-`activity_has_mop` or `target_activity_has_mop` is not `None`, and a `RUN_END` whose `coinMop`, `launches`,
-`stampHits` or `retired` counter is non-zero. The group-isolation jar writes `ACT.mop` only with MOP mounted
-(D-B14.9), and those counters stay at 0 without it, so each is a MOP signal there. On a `v == 1` trace neither is:
-that jar writes `ACT.mop` in every arm, and its control mounted MOP with the weights zeroed, so stamp lookups and
-retirements happened in a clean run. `MOP_DATA` never counts, because it reports the artifact load, which the STATIC
+It also counts a row whose `activity_has_mop` or `target_activity_has_mop` is not `None`, a `UICOV` line carrying
+`mopReach`, and a `RUN_END` whose `coinMop`, `launches`, `stampHits` or `retired` counter is non-zero. The
+group-isolation jar writes each of these only with MOP mounted (D-B14.9, D-B14.21). On a `v == 1` trace the list is
+the legacy one (author's decision, 2026-10-17): a step counts when its `mop` or `mop_frontier` boost is non-zero,
+and nothing else counts. That jar's control mounted MOP with the weights zeroed, so the MOP pass wrote its
+by-products in a clean run; a recorded cmp162 control of 73 steps carries `mopx` on all 73, a non-zero `wtg` on
+1 and `mopReach` on every `UICOV` line, and no MOP boost. The full list gives it 80, the legacy one 0. `MOP_DATA`
+never counts, because it reports the artifact load, which the STATIC
 cells do by design. Which arms are controls stays a caller parameter.
 - Alternative: an unanchored JSON-key regex. Rejected, because it would match `MOP_DATA` and the `v == 1` `ACT.mop`
   and need its own anchoring rules, which is the defect class INV-CAN-07 exists for.
