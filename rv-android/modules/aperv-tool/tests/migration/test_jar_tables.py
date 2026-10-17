@@ -18,10 +18,8 @@ The vocabulary is 124 keys. Group isolation added ten (the four group keys `ape.
 three (`ape.mopDataPath`, renamed to `ape.staticDataPath`; `ape.leastVisitedPriorityTiebreak`;
 `ape.mopTargetPickCap`).
 
-`Presets.java` still carries the four former arm presets (`aperv`, `mop_arm`, `llm`,
-`llm_mop`) until the ape side's wave-2 integration deletes them. The one assertion that the
-preset names are exactly the six cells is a strict xfail until then: when the four go, it
-passes, the strict marker turns that into a failure, and the marker is removed.
+`Presets.java` declares exactly the six cells, so a preset added or left behind on the ape
+side fails `test_preset_names_are_exactly_the_six_cells`.
 """
 
 import pytest
@@ -93,10 +91,6 @@ EXPECTED_CELL_KEYS = {
 
 
 class TestPresets:
-    @pytest.mark.xfail(
-        strict=True,
-        reason="ape wave 2 deletes the former arm presets aperv, mop_arm, llm and llm_mop",
-    )
     def test_preset_names_are_exactly_the_six_cells(self, ape_repo):
         assert set(load_presets(ape_repo)) == set(CELLS)
 
