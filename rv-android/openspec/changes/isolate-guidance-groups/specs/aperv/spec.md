@@ -60,7 +60,7 @@ census record. The collection path in `tool.py` still never reads `RUN_END` or `
   - `dec.trig: {"k": "broadcast"|"service"|"provider", "c": str}` — the step during which component triggering
     fired, whatever its owner; `dec.comp` stays the launcher's activity-launch outcome;
   - `dec.inp: "typed"|"heuristic"|"random"|"form"|"llm"`; `dec.restart: "graph"|"state"|"activity"|"periodic"`;
-  - `dec.bmc: int` (omitted when 0); `dec.strat: str` (one of the sixteen SATA path names); `dec.rot: int` in
+  - `dec.bmc: int` (omitted when 0); `dec.strat: str` (one of the fifteen SATA path names); `dec.rot: int` in
     `-1..3`; `dec.buf: str` (an owner name);
   - `dec.navf: int` (scorer field, omitted when 0); `dec.mopd: int`; `dec.mops: "s"|"i"`; `dec.ret: [int, …]`;
   - `RUN_END: {reason, detail?, steps, t_first_step?, t_last_step?, counters: {acts, states, stampNodes,
@@ -1230,7 +1230,9 @@ counting two different things, and the documentation of `StepRow.decision_source
 the pick the agent would have made with **only the MOP boosts** zeroed, so a `changed` value is evidence about MOP
 guidance and about nothing else. It is absent on the group-isolation jar, which removed `dec.cf`. `scorer_cf` is that
 jar's `dec.cfc`. For each mounted scorer with a non-zero term in the candidate set, it records whether zeroing that
-one scorer would have changed the pick at a roulette or least-visited site, replaying the same draw index. It answers
+one scorer would have changed the pick at a roulette or least-visited site, replaying the same draw index. On the
+least-visited pick the candidate set is the tie of least-visited actions, and `cfc` is written only when that tie
+holds two or more actions. It answers
 "did this scorer change the choice", one scorer at a time. It does not answer "did the guidance as a whole change it".
 
 **`RunStart` carries the whole `RUN_START` record (INV-APV-61).** The jar echoes its resolved run specification into the first record so that a post-hoc audit can say which jar, which cell and which parameters produced a trace — `build.sha` exists because a stale jar once shipped, its MOP boost fired zero times across 147,153 evaluations, and nothing in 2,028 tasks' output said which jar had run. `RunStart` SHALL therefore expose `v`, `run_id`, `t0_ms`, `seed`, `agent`, `preset`, `variant`, `features`, `params`, `inert`, `corpus_basis`, `digest`, `props_digest` and `build` (as a nested value with `sha` and `time`), each reported absent — `None` — when the wire record lacks it, never defaulted; `params` remains what the jar recorded verbatim (only non-default values plus active activation keys — absence means "at the jar default for this `build.sha`"). `variant` is absent on every trace written before the group-isolation jar. No consumer in `aperv_tool` SHALL parse `RUN_START` other than through this class.
@@ -1298,7 +1300,7 @@ The golden fixture that exercises this requirement SHALL be `modules/aperv-tool/
 - **AND** `reader.run_start.variant` SHALL be `None`
 
 #### Scenario: An unknown enumerated value is carried, not rejected
-- **WHEN** a step carries `dec.strat:"lookahead"`, a value absent from the sixteen names the contract lists
+- **WHEN** a step carries `dec.strat:"lookahead"`, a value absent from the fifteen names the contract lists
 - **THEN** the row SHALL report `sata_path="lookahead"`
 - **AND** the record SHALL NOT be counted as malformed
 

@@ -592,9 +592,12 @@ class StepRow:
         scorer_cf: Per-scorer counterfactual (`cfc`), scorer name -> whether
             zeroing that one scorer on every candidate, replaying the same draw
             index, would have changed the pick at a roulette or least-visited
-            site. It answers "did this scorer change the choice", one scorer at
+            site. On the least-visited pick the candidates are the tied
+            least-visited actions, and the jar writes `cfc` only when two or more
+            tied. It answers "did this scorer change the choice", one scorer at
             a time; it does not answer "did the guidance as a whole change it".
-            None when absent, which is every step outside those sites.
+            None when absent, which is every step outside those sites and every
+            least-visited pick with a single least-visited action.
         draw: `(index, total)` the roulette drew (`draw`), enough to replay the
             pick offline. None when the pick was not a roulette.
         nav: The extension-point tie record (`nav`). None when no extension
@@ -607,7 +610,7 @@ class StepRow:
         back_menu_capped: Candidates the BACK/MENU cap removed from the pick
             (`bmc`). None when absent, which is how the jar writes 0.
         sata_path: The SATA path that picked the action (`strat`), one of the
-            sixteen path names the contract lists or any later one. None unless
+            fifteen path names the contract lists or any later one. None unless
             `decision_source` is `sata`.
         rotation: Display rotation at step open (`rot`), `0..3`, or `-1` when
             it could not be read. Written on every step of the group-isolation

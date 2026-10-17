@@ -117,6 +117,7 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 - [x] I.1 Run the whole module suites: `/rv-test-run aperv-tool` and `/rv-test-run rv-experiment`; fix cross-front breaks (front owners re-dispatched if needed)
 - [x] I.2 When APE 3.10 sends the contract commit: diff its `design.md` § Key contract / § Telemetry contract against v3.2 (`16b185f4`); apply any difference through `/opsx:update` and the owning front; then run M.2 against that commit
 - [x] I.3 Grep `modules/aperv-tool/src` for `FORMAT_VERSION`, `mop_data` (outside `TraceReader.mop_data`), `MOP_WIDGET`, `wtgsrc` in non-v1 docstrings: no stale reference
+- [x] I.4 Fold ape `21bee6be` (author decisions 2026-10-17) into the `StepRow` docstrings of `trace_ndjson.py`: `sata_path` names fifteen SATA paths (`early_forward` left the enum); `scorer_cf` on the least-visited pick is written only when two or more least-visited actions tied. Text only: the reader accepts any `strat` value and reads `cfc` as a map wherever it appears
 
 ## S. Wave 3 — jar pairing and device smoke (with APE 11.9 / 12.1)
 
