@@ -594,9 +594,10 @@ versions. The `v == 2` owner record and the other new decision members reach typ
 that are `None` on a `v == 1` trace; `activity_has_mop` is `None` where the jar did not compute it
 (INV-APV-68); `RUN_END` is a verbatim census attribute that the reader does not interpret. The
 clean-control gate follows suit: on a legacy `key=value` stream it keeps an anchored `mop=`
-pattern, and on any NDJSON trace it counts, through `TraceReader`, the MOP-group members of the
-`ape` side's own clean-control list (`count_mop_group_signal`, INV-CAN-07), where `MOP_DATA` never
-counts because the STATIC cells load the artifact by design.
+pattern, and on any NDJSON trace it counts through `TraceReader` (`count_mop_group_signal`,
+INV-CAN-07): on `v == 2` the MOP-group members of the `ape` side's own clean-control list, on
+`v == 1` only fired MOP boosts, because that jar's control mounted MOP with zero weights. `MOP_DATA`
+never counts, because the STATIC cells load the artifact by design.
 
 **Decisions at a glance**
 

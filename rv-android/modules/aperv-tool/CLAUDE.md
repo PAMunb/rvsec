@@ -201,10 +201,12 @@ one it holds:
 Gate 1 (clean control) has two forms for the same reason. The anchored pattern
 `(?<![a-z_])mop=` is kept for the legacy `key=value` streams and is blind on NDJSON,
 whose member is `"mop":`. Over any NDJSON trace the gate uses
-`count_mop_group_signal(reader)`, which counts the members of the `ape` side's
-clean-control list (INV-SNK-18) through `TraceReader`. The `ACT`-derived and
-`RUN_END` members count only on `v == 2`; `MOP_DATA` never counts, because it reports
-an artifact load, which the STATIC cells do by design.
+`count_mop_group_signal(reader)`, which reads the trace through `TraceReader`. On
+`v == 2` it counts the members of the `ape` side's clean-control list (INV-SNK-18). On
+`v == 1` it counts only steps whose `mop` or `mop_frontier` boost fired: that jar's
+control mounted MOP with zero weights, so `mopx`, `wtg`, `mopReach` and `ACT.mop`
+appear in a clean run. `MOP_DATA` never counts, because it reports an artifact load,
+which the STATIC cells do by design.
 
 ## Gotchas
 
