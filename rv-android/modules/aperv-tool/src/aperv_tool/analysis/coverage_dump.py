@@ -52,8 +52,9 @@ from aperv_tool.analysis.run_identity import try_parse_run_filename
 # The dump line shape this parser was written against. The jar stamps no version
 # into the dump itself, so the constant records which shape was verified: both
 # line kinds carry `discovered`, `interacted`, `gap` and `byType`, `UICOV` ends
-# with `mopReach` and `UICOV-ACT` with `liveStates`. A jar-side field change
-# should bump this rather than silently misparse into plausible numbers.
+# with `mopReach` when the MOP group is mounted and `UICOV-ACT` with
+# `liveStates`. A jar-side field change should bump this rather than silently
+# misparse into plausible numbers.
 DUMP_SCHEMA_VERSION = 1
 
 # Matched as SUBSTRINGS, never anchored at the start of the line. Every line the
@@ -134,7 +135,10 @@ class StateCoverage:
         discovered: Actions the agent found on this state.
         interacted: Actions it actually exercised — a subset of discovered.
         mop_reach: Actions on this state that reach a monitored operation,
-            per the agent's own MOP data.
+            per the agent's own MOP data. None when the line carries no
+            `mopReach`, which the group-isolation jar writes only when the MOP
+            group is mounted (INV-APV-68): the cell did not compute it, and 0
+            would claim it did.
         by_type: Per-widget-type breakdown as {type: (interacted, discovered)},
             interacted first, mirroring the jar's `TYPE:interacted/discovered`.
     """
@@ -142,7 +146,7 @@ class StateCoverage:
     state_key: str
     discovered: int
     interacted: int
-    mop_reach: int
+    mop_reach: int | None
     by_type: dict[str, tuple[int, int]] = field(default_factory=dict)
 
 
@@ -290,14 +294,19 @@ def _parse_state_line(payload: str) -> StateCoverage | None:
     Returns:
         The state row, or None when a required field is missing or
         unparseable — which the caller counts toward a PARTIAL status.
+        `mopReach` is not a required field: a line without it is complete,
+        with `mop_reach` None, because a cell that does not mount MOP never
+        writes it. A `mopReach` that is present and unparseable still makes
+        the line incomplete.
     """
     fields = _parse_fields(payload)
     try:
+        mop_reach = fields.get("mopReach")
         return StateCoverage(
             state_key=fields["state"],
             discovered=int(fields["discovered"]),
             interacted=int(fields["interacted"]),
-            mop_reach=int(fields["mopReach"]),
+            mop_reach=None if mop_reach is None else int(mop_reach),
             by_type=_parse_by_type(fields.get("byType", "")),
         )
     except (KeyError, ValueError):

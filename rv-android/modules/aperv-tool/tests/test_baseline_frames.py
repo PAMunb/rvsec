@@ -40,6 +40,22 @@ APE_NULL_COLUMNS = (
     "component",
     "llm",
     "outcome",
+    # The members the group-isolation jar added to the step record.
+    "nav_frontier",
+    "owner",
+    "scorer_cf",
+    "draw",
+    "nav",
+    "input_source",
+    "restart_kind",
+    "back_menu_capped",
+    "sata_path",
+    "rotation",
+    "buffer_abandoned_by",
+    "component_trigger",
+    "mop_distance",
+    "mop_stamp",
+    "retired_targets",
     "policy",
 )
 DROIDBOT_NULL_COLUMNS = APE_NULL_COLUMNS[:-1] + (
@@ -94,6 +110,12 @@ def test_baseline_frames_match_aperv_shape(
     )
     assert baseline_ape.APERV_STEP_COLUMNS == aperv_block
     assert baseline_ape.STEP_FRAME_COLUMNS[: len(aperv_block)] == aperv_block
+    # Every declared hole outside the baseline block is a reader field, so a
+    # misspelt name cannot pass here as a hole the frame does not have.
+    step_fields = {step_field.name for step_field in fields(StepRow)}
+    assert set(APE_NULL_COLUMNS) - set(baseline_ape.BASELINE_STEP_COLUMNS) <= (
+        step_fields
+    )
 
     assert list(ape.columns) == list(baseline_ape.STEP_FRAME_COLUMNS)
     assert list(droidbot.columns) == list(baseline_ape.STEP_FRAME_COLUMNS)

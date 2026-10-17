@@ -13,16 +13,24 @@ from __future__ import annotations
 
 import statistics as st
 from collections import Counter
+from dataclasses import fields, replace
 from pathlib import Path
 from typing import Optional, Sequence
 
+import pytest
+
+from aperv_tool.analysis import step_bundle
 from aperv_tool.analysis.screen_visits import (
     CLICK,
+    ActivityVisit,
+    CrossVersionPooling,
     action_type,
     form_episodes,
     is_text_entry,
+    pool_decision_sources,
     segment,
 )
+from aperv_tool.analysis.step_bundle import StepBundle
 from aperv_tool.analysis.trace_ndjson import StepOutcome, StepRow, TraceReader
 
 MAIN = "com.example.MainActivity"
@@ -402,3 +410,101 @@ def test_cmp162_spans_nest_inside_visits(
         assert sum(visit.n_steps for visit in visits) == len(rows)
         for visit in visits:
             assert sum(span.n_steps for span in visit.state_trail) == visit.n_steps
+
+
+def test_decision_source_counts_carry_their_version() -> None:
+    """Owner counts of a v2 trace are reported with version 2, and never pooled
+    with a v1 visit's boost counts."""
+    owners = ["sata"] * 5 + ["mop"] * 2
+    v2_rows = [
+        replace(step(number, MAIN, key(MAIN, 0)), decision_source=owner)
+        for number, owner in enumerate(owners, start=1)
+    ]
+    (v2_visit,) = segment(v2_rows, trace_version=2)
+
+    assert v2_visit.decision_source_counts == {"sata": 5, "mop": 2}
+    assert v2_visit.trace_version == 2
+
+    (other_v2,) = segment(v2_rows[:3], trace_version=2)
+    assert pool_decision_sources([v2_visit, other_v2]) == (2, {"sata": 8, "mop": 2})
+    assert pool_decision_sources([]) == (None, {})
+
+    v1_rows = [
+        replace(step(number, MAIN, key(MAIN, 0)), decision_source="mop")
+        for number in (1, 2)
+    ]
+    (v1_visit,) = segment(v1_rows, trace_version=1)
+    with pytest.raises(CrossVersionPooling):
+        pool_decision_sources([v2_visit, v1_visit])
+
+    # A visit of a trace that declared no version is a vocabulary of its own.
+    (unknown,) = segment(v1_rows)
+    assert unknown.trace_version is None
+    with pytest.raises(CrossVersionPooling):
+        pool_decision_sources([v1_visit, unknown])
+
+
+def test_static_cell_reports_the_mop_fact_as_absent() -> None:
+    """An ``ACT`` without ``mop`` is None on the visit and null in the frame."""
+    rows = [
+        replace(
+            step(number, MAIN, key(MAIN, 0)),
+            activity_has_mop=None,
+            outcome=StepOutcome(
+                target_state=key(MAIN, 0),
+                target_activity=MAIN,
+                target_activity_has_mop=None,
+            ),
+        )
+        for number in (1, 2, 3)
+    ]
+    rows[-1] = replace(
+        rows[-1],
+        outcome=StepOutcome(
+            target_state=key(SETTINGS, 0),
+            target_activity=SETTINGS,
+            target_activity_has_mop=None,
+            activity_changed=True,
+        ),
+    )
+    rows.append(replace(rows[0], step=4, activity=SETTINGS, state_key=key(SETTINGS, 0)))
+
+    visits = segment(rows, trace_version=2)
+    assert len(visits) == 2
+    assert all(visit.activity_has_mop is None for visit in visits)
+    assert visits[0].target_activity_has_mop is None
+
+    frame = step_bundle.frame(StepBundle(row=row) for row in rows)
+    assert frame["activity_has_mop"].isna().all()
+    assert not frame["activity_has_mop"].eq(False).any()
+
+
+def test_no_input_source_aggregate() -> None:
+    """The visit keeps the per-step input origin on its rows and counts none."""
+    names = {visit_field.name for visit_field in fields(ActivityVisit)}
+    assert not any("input_source" in name for name in names)
+
+    typed = replace(step(1, MAIN, key(MAIN, 0)), input_source="form")
+    (visit,) = segment([typed])
+    assert visit.steps[0].input_source == "form"
+
+
+def test_version_is_read_off_a_reader(tmp_path: Path) -> None:
+    """Handed the reader itself, the segmenter takes the version from its header."""
+    trace = tmp_path / "app.apk__1__300__aperv:as.trace"
+    trace.write_text(
+        "\n".join(
+            [
+                '{"type":"RUN_START","v":1,"preset":"mop"}',
+                f'{{"type":"ACT","id":0,"name":"{MAIN}","mop":1}}',
+                f'{{"type":"STATE","id":0,"key":"{key(MAIN, 0)}","act":0}}',
+                (
+                    '{"s":1,"t":0,"act":0,"st":0,'
+                    f'"dec":{{"a":"{BACK}","src":"sata","ch":"roulette"}}}}'
+                ),
+            ]
+        )
+        + "\n"
+    )
+    (visit,) = segment(TraceReader(trace))
+    assert visit.trace_version == 1

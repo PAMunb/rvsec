@@ -23,6 +23,7 @@ from aperv_tool.analysis.runspec import (
     CHECK_FEATURES,
     CHECK_PARAMS,
     CHECK_PRESET,
+    CHECK_VARIANT,
     AttributionEvidence,
     ManifestArm,
     attribution_evidence,
@@ -100,7 +101,7 @@ def test_matching_header_passes() -> None:
     assert evidence.arm == "aperv:mop_on_llm_off"
     assert evidence.evidence_form == "build.sha, preset, features, params"
     assert evidence.reasons == ()
-    assert [check.verdict for check in evidence.checks] == ["pass"] * 4
+    assert [check.verdict for check in evidence.checks] == ["pass"] * 4 + ["not-run"]
 
 
 def test_digest_mismatch_fails_naming_both_shas() -> None:
@@ -185,7 +186,7 @@ def test_no_run_start_is_not_run_on_every_check() -> None:
 
     assert evidence.verdict == "not-run"
     assert evidence.evidence_form == "none"
-    assert len(evidence.reasons) == 4
+    assert len(evidence.reasons) == 5
     assert all("no RUN_START record" in reason for reason in evidence.reasons)
 
 
@@ -288,3 +289,89 @@ def test_evidence_is_frozen() -> None:
     evidence = attribution_evidence(header(), manifest())
     with pytest.raises(FrozenInstanceError):
         evidence.verdict = "pass"  # type: ignore[misc]
+
+
+def group_isolation_header(**overrides: Any) -> RunStart:
+    """An ``aperv:as_mop`` header as the group-isolation jar writes it (``v == 2``)."""
+    fields: dict[str, Any] = {
+        "v": 2,
+        "preset": "as_mop",
+        "variant": "as_mop",
+        "build": BuildStamp(sha=JAR_SHA, time="2026-10-17T09:00:00Z"),
+    }
+    fields.update(overrides)
+    return header(features=None, params=None, **fields)
+
+
+def as_mop_manifest(**overrides: Any) -> ManifestArm:
+    """The campaign's declaration for cell ``as_mop``."""
+    fields: dict[str, Any] = {
+        "arm": "aperv:as_mop",
+        "digest": JAR_SHA,
+        "preset": "as_mop",
+        "features": None,
+        "params": {},
+        "cell": "as_mop",
+    }
+    fields.update(overrides)
+    return ManifestArm(**fields)
+
+
+def test_variant_matching_the_cell_passes() -> None:
+    """On a v2 trace the echoed variant is evidence, and the form names it."""
+    evidence = attribution_evidence(group_isolation_header(), as_mop_manifest())
+
+    variant = check_of(evidence, CHECK_VARIANT)
+    assert variant.verdict == "pass"
+    assert variant.counted is True
+    assert "'as_mop' as declared" in variant.detail
+    assert "variant" in evidence.evidence_form.split(", ")
+
+
+def test_variant_differing_from_the_cell_fails_though_the_preset_matches() -> None:
+    """The preset alone does not settle the cell; the variant does."""
+    evidence = attribution_evidence(
+        group_isolation_header(variant="as"), as_mop_manifest()
+    )
+
+    assert check_of(evidence, CHECK_PRESET).verdict == "pass"
+    variant = check_of(evidence, CHECK_VARIANT)
+    assert variant.verdict == "fail"
+    assert "expected 'as_mop', the header carries 'as'" in variant.detail
+    assert evidence.verdict == "fail"
+
+
+def test_variant_is_not_run_on_a_v1_trace() -> None:
+    """A v1 trace carries no variant: not-run, never a pass, and no degradation."""
+    declared = manifest(cell="mop_on_llm_off")
+    evidence = attribution_evidence(header(), declared)
+
+    variant = check_of(evidence, CHECK_VARIANT)
+    assert variant.verdict == "not-run"
+    assert variant.counted is False
+    assert "v=1 trace carries no variant" in variant.detail
+    # The four checks the v1 header does carry give the verdicts they always gave.
+    assert [
+        check_of(evidence, name).verdict
+        for name in (CHECK_DIGEST, CHECK_PRESET, CHECK_FEATURES, CHECK_PARAMS)
+    ] == ["pass"] * 4
+    assert evidence.verdict == "pass"
+    assert "variant" not in evidence.evidence_form
+
+
+def test_v2_header_without_a_variant_is_unevidenced() -> None:
+    """On the jar that writes a variant, a missing one is a gap in the evidence."""
+    evidence = attribution_evidence(
+        group_isolation_header(variant=None), as_mop_manifest()
+    )
+
+    variant = check_of(evidence, CHECK_VARIANT)
+    assert variant.verdict == "not-run"
+    assert variant.counted is True
+    assert evidence.verdict == "not-run"
+
+    undeclared = attribution_evidence(
+        group_isolation_header(), as_mop_manifest(cell=None)
+    )
+    assert check_of(undeclared, CHECK_VARIANT).verdict == "not-run"
+    assert "declares no cell" in check_of(undeclared, CHECK_VARIANT).detail

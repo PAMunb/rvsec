@@ -23,6 +23,13 @@ absence. The overall verdict therefore degrades: any failed check makes the
 whole ``fail``, and otherwise any check that could not run makes it ``not-run``.
 Only an evidence set that is both complete and matching yields ``pass``.
 
+**The variant is evidence only where the jar writes it.** The group-isolation
+jar (``RUN_START.v == 2``) echoes the cell it was handed as ``variant``, and that
+is compared with the cell the manifest declares. A ``v == 1`` trace carries no
+variant by construction, so the check is reported ``not-run`` there and left out
+of the overall verdict: absent evidence is not a pass, and a member the jar
+generation never wrote is not a gap in that run's evidence either.
+
 **No expected digest lives here.** What the campaign declares — the jar sha, the
 preset, the feature set, the parameters — arrives as a ``ManifestArm`` the
 caller supplies as data (INV-APV-59). A digest literal committed under
@@ -46,12 +53,16 @@ from aperv_tool.analysis.trace_ndjson import RunStart
 #: (INV-CAN-06). ``not-run`` is a result, not an error, and never a pass.
 Verdict = Literal["pass", "fail", "not-run"]
 
-# The four comparisons this module can make, named so a gate report can quote
+# The five comparisons this module can make, named so a gate report can quote
 # the evidence form it used rather than asserting "attribution verified".
 CHECK_DIGEST = "build.sha"
 CHECK_PRESET = "preset"
 CHECK_FEATURES = "features"
 CHECK_PARAMS = "params"
+CHECK_VARIANT = "variant"
+
+# The trace version whose `RUN_START` carries `variant`.
+_VARIANT_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -81,6 +92,9 @@ class ManifestArm:
             plus each active feature's activation key, so an exhaustive
             comparison would break on any parameter the manifest does not care
             about. An empty mapping declares nothing and yields ``not-run``.
+        cell: The cell the arm runs, e.g. ``as_mop``, compared with
+            ``RUN_START.variant`` on a ``v == 2`` trace. None when the manifest
+            declares none.
     """
 
     arm: str
@@ -88,6 +102,7 @@ class ManifestArm:
     preset: Optional[str]
     features: Optional[tuple[str, ...]]
     params: Mapping[str, Any]
+    cell: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -95,17 +110,20 @@ class EvidenceCheck:
     """One comparison between the header and the manifest.
 
     Attributes:
-        name: Which comparison — one of the four ``CHECK_*`` constants.
+        name: Which comparison — one of the five ``CHECK_*`` constants.
         verdict: ``pass``, ``fail``, or ``not-run`` when the comparison could
             not be made at all.
         detail: Why, in words a gate report can print unmodified. A passing
             check still says what it compared, so a reader of the report can
             tell a verified arm from an unverified one without re-running it.
+        counted: Whether the verdict enters the overall verdict. False only for
+            the variant check on a trace whose version carries no variant.
     """
 
     name: str
     verdict: Verdict
     detail: str
+    counted: bool = True
 
 
 @dataclass(frozen=True)
@@ -114,8 +132,8 @@ class AttributionEvidence:
 
     Attributes:
         arm: The arm label judged.
-        verdict: ``fail`` if any check failed; otherwise ``not-run`` if any
-            check could not run; otherwise ``pass``. The ordering is the point:
+        verdict: ``fail`` if any counted check failed; otherwise ``not-run`` if
+            any counted check could not run; otherwise ``pass``. The ordering is the point:
             an incomplete evidence set never yields a clean pass, and a real
             mismatch is never hidden behind a missing one.
         evidence_form: The checks that actually ran, comma-joined — the phrase
@@ -133,8 +151,16 @@ class AttributionEvidence:
 
     @property
     def reasons(self) -> tuple[str, ...]:
-        """The detail of every check that did not pass, in check order."""
-        return tuple(check.detail for check in self.checks if check.verdict != "pass")
+        """The detail of every counted check that did not pass, in check order.
+
+        A check left out of the verdict is left out here too; its detail stays on
+        the check itself.
+        """
+        return tuple(
+            check.detail
+            for check in self.checks
+            if check.counted and check.verdict != "pass"
+        )
 
 
 @dataclass(frozen=True)
@@ -221,7 +247,13 @@ def attribution_evidence(
         absent = "no RUN_START record in the trace, so nothing is evidenced"
         checks = tuple(
             EvidenceCheck(name=name, verdict="not-run", detail=f"{name}: {absent}")
-            for name in (CHECK_DIGEST, CHECK_PRESET, CHECK_FEATURES, CHECK_PARAMS)
+            for name in (
+                CHECK_DIGEST,
+                CHECK_PRESET,
+                CHECK_FEATURES,
+                CHECK_PARAMS,
+                CHECK_VARIANT,
+            )
         )
         return AttributionEvidence(
             arm=manifest_arm.arm,
@@ -235,12 +267,14 @@ def attribution_evidence(
         _check_preset(run_start, manifest_arm),
         _check_features(run_start, manifest_arm),
         _check_params(run_start, manifest_arm),
+        _check_variant(run_start, manifest_arm),
     )
     ran = tuple(check.name for check in checks if check.verdict != "not-run")
+    counted = [check for check in checks if check.counted]
 
-    if any(check.verdict == "fail" for check in checks):
+    if any(check.verdict == "fail" for check in counted):
         verdict: Verdict = "fail"
-    elif any(check.verdict == "not-run" for check in checks):
+    elif any(check.verdict == "not-run" for check in counted):
         verdict = "not-run"
     else:
         verdict = "pass"
@@ -393,4 +427,45 @@ def _check_params(run_start: RunStart, manifest_arm: ManifestArm) -> EvidenceChe
         CHECK_PARAMS,
         "pass",
         f"{CHECK_PARAMS}: {len(expected)} declared parameters, all as declared",
+    )
+
+
+def _check_variant(run_start: RunStart, manifest_arm: ManifestArm) -> EvidenceCheck:
+    """Compare the cell the jar echoed against the cell the manifest declares.
+
+    The preset alone does not settle the cell: a cell is the preset plus what
+    the harness handed the jar, and ``variant`` is the jar's echo of the cell
+    name it was given. Only a ``v == 2`` trace carries it.
+    """
+    if run_start.v != _VARIANT_VERSION:
+        return EvidenceCheck(
+            CHECK_VARIANT,
+            "not-run",
+            f"{CHECK_VARIANT}: a v={run_start.v!r} trace carries no variant",
+            counted=False,
+        )
+
+    expected = manifest_arm.cell
+    found = run_start.variant
+    if expected is None:
+        return EvidenceCheck(
+            CHECK_VARIANT,
+            "not-run",
+            f"{CHECK_VARIANT}: the manifest declares no cell for arm "
+            f"{manifest_arm.arm!r}",
+        )
+    if found is None:
+        return EvidenceCheck(
+            CHECK_VARIANT,
+            "not-run",
+            f"{CHECK_VARIANT}: the header carries no variant; expected {expected!r}",
+        )
+    if found != expected:
+        return EvidenceCheck(
+            CHECK_VARIANT,
+            "fail",
+            f"{CHECK_VARIANT}: expected {expected!r}, the header carries {found!r}",
+        )
+    return EvidenceCheck(
+        CHECK_VARIANT, "pass", f"{CHECK_VARIANT}: {found!r} as declared"
     )

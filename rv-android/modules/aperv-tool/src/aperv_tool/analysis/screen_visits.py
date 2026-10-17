@@ -80,6 +80,22 @@ widgets — the state key free to change between them, since 382 of 954 measured
 ``EditText`` clicks change the key within the same Activity — closed by the
 first click on anything else, which is the submit candidate.
 
+## Two vocabularies, told apart by the trace version
+
+``decision_source`` names the largest boost under ``RUN_START.v == 1`` and the
+executed owner under ``v == 2``. The same string means two different things
+across the two jar generations, so every visit carries the version its counts
+were computed under, and ``pool_decision_sources`` refuses to add counts of
+different versions (INV-CAN-21). ``activity_has_mop`` is ``None`` where the cell
+did not compute it, and the visit carries the ``None`` rather than a ``False``
+(INV-CAN-22).
+
+The visit does not count ``StepRow.input_source``. Its value folds why a field
+was filled (``llm``, ``form``) and which generator wrote the text (``typed``,
+``heuristic``, ``random``) into one label, with the first winning, so a count
+per visit would hide the generator on exactly the LLM and form fills. The
+per-step value stays on the rows in ``steps``.
+
 Pure functions, no I/O, one call per run.
 """
 
@@ -215,7 +231,8 @@ class ActivityVisit:
         visit_ordinal: Position of this visit in the run, from 1.
         activity: The Activity class name the visit happened on.
         activity_has_mop: Whether that Activity is in the run's precomputed
-            monitored set. Uniformly False in an arm that reports no such data.
+            monitored set. None when the cell did not compute the fact — its
+            ``ACT`` record carries no ``mop`` — which is not the same as False.
         revisit_index: Which occasion this is of that Activity, from 1.
         visits_of_activity: How many occasions of that Activity the whole run
             had. Together with ``revisit_index`` it says "the 2nd of 5", which
@@ -234,7 +251,12 @@ class ActivityVisit:
         state_visits: Spans in the trail — larger than ``distinct_states``
             whenever a state was returned to, as a combobox does.
         action_type_counts: Steps by action type.
-        decision_source_counts: Steps by the pipeline stage that picked them.
+        decision_source_counts: Steps by ``decision_source``. Its labels mean
+            the largest boost under ``trace_version`` 1 and the executed owner
+            under 2, so it is read only beside ``trace_version`` and pooled only
+            through ``pool_decision_sources``.
+        trace_version: The ``RUN_START.v`` of the trace the visit came from, or
+            None when the trace carried no version.
         n_edittext_clicks: Clicks on text-entry widgets — the fill proxy, since
             the trace has no typing record of its own.
         n_form_boosted_steps: Steps whose pick carried a non-zero form boost.
@@ -245,7 +267,8 @@ class ActivityVisit:
         target_activity: The Activity the closing step led to, when its outcome
             named one. None when it did not.
         target_activity_has_mop: Whether that landing Activity is monitored.
-            None under the same condition.
+            None under the same condition, and when the landing Activity's
+            ``ACT`` record carries no ``mop``.
         violations: Monitor violations placed inside the visit's window, when
             the visit was built from bundles. Empty otherwise.
         monitored_ops: Monitored operations, same condition.
@@ -258,7 +281,7 @@ class ActivityVisit:
 
     visit_ordinal: int
     activity: str
-    activity_has_mop: bool
+    activity_has_mop: Optional[bool]
     revisit_index: int
     visits_of_activity: int
     first_step: int
@@ -273,6 +296,7 @@ class ActivityVisit:
     state_visits: int
     action_type_counts: Mapping[str, int]
     decision_source_counts: Mapping[str, int]
+    trace_version: Optional[int]
     n_edittext_clicks: int
     n_form_boosted_steps: int
     n_llm_calls: int
@@ -396,7 +420,9 @@ def _state_spans(steps: Sequence[StepRow]) -> list[tuple[int, int, StateSpan]]:
     return spans
 
 
-def segment(rows: Iterable[Any]) -> list[ActivityVisit]:
+def segment(
+    rows: Iterable[Any], *, trace_version: Optional[int] = None
+) -> list[ActivityVisit]:
     """Segment one run's step stream into activity-visits.
 
     Args:
@@ -404,6 +430,10 @@ def segment(rows: Iterable[Any]) -> list[ActivityVisit]:
             as bundles carrying one. One call per run: the segmenter has no
             notion of a run boundary and would merge two runs' first and last
             visits if handed both.
+        trace_version: The trace's ``RUN_START.v``, for a caller that passes
+            rows rather than the reader. When ``rows`` is a ``TraceReader`` it is
+            read off the reader's header once the stream has been consumed,
+            since the reader fills its header as it reads.
 
     Returns:
         The visits in order. Empty for an empty stream, which is a first-class
@@ -412,6 +442,9 @@ def segment(rows: Iterable[Any]) -> list[ActivityVisit]:
     items = list(rows)
     if not items:
         return []
+    if trace_version is None:
+        run_start = getattr(rows, "run_start", None)
+        trace_version = None if run_start is None else run_start.v
 
     steps = [_step_of(item) for item in items]
     spans = _state_spans(steps)
@@ -465,6 +498,7 @@ def segment(rows: Iterable[Any]) -> list[ActivityVisit]:
                 decision_source_counts=dict(
                     Counter(row.decision_source for row in window)
                 ),
+                trace_version=trace_version,
                 n_edittext_clicks=sum(
                     1
                     for row in window
@@ -486,6 +520,47 @@ def segment(rows: Iterable[Any]) -> list[ActivityVisit]:
             )
         )
     return visits
+
+
+class CrossVersionPooling(ValueError):
+    """A caller asked to add ``decision_source`` counts of different versions.
+
+    Raised rather than answered: ``mop`` under version 1 is the largest boost and
+    under version 2 the executed owner, so a sum of the two is a count of
+    nothing (INV-CAN-21).
+    """
+
+
+def pool_decision_sources(
+    visits: Iterable[ActivityVisit],
+) -> tuple[Optional[int], dict[str, int]]:
+    """Add the visits' ``decision_source_counts``, across runs if need be.
+
+    Args:
+        visits: Visits of one or more runs.
+
+    Returns:
+        ``(trace_version, counts)``: the one version every visit carries and the
+        summed counts. ``(None, {})`` for no visits.
+
+    Raises:
+        CrossVersionPooling: The visits carry more than one ``trace_version``.
+            An unknown version (None) is a version of its own here, since a
+            trace that did not say which vocabulary it uses cannot be added to
+            one that did.
+    """
+    versions: set[Optional[int]] = set()
+    pooled: Counter[str] = Counter()
+    for visit in visits:
+        versions.add(visit.trace_version)
+        pooled.update(visit.decision_source_counts)
+    if len(versions) > 1:
+        raise CrossVersionPooling(
+            "decision_source counts of trace versions "
+            f"{sorted(versions, key=str)} cannot be pooled: the label is the "
+            "largest boost under v1 and the executed owner under v2"
+        )
+    return (next(iter(versions)) if versions else None), dict(pooled)
 
 
 def _streams_of(items: Sequence[Any], name: str) -> Tuple[Any, ...]:

@@ -134,6 +134,40 @@ class TestLineParsing:
         assert run.states[0].mop_reach == 1
         assert run.activities[0].mop_reach is None
 
+    def test_state_line_without_mop_reach_is_complete(self, tmp_path):
+        # A cell that does not mount MOP writes no `mopReach`: the line is
+        # complete and reports the field absent, and the dump is not partial.
+        line = (
+            "[APE] [APE-RV] UICOV state=S1 discovered=12 interacted=5 byType=CLICK:5/12"
+        )
+        run = parse_run(_write_trace(tmp_path, line, ACTIVITY_LINE))
+
+        assert run.status is DumpStatus.COMPLETE
+        assert run.unparsed_lines == 0
+        assert run.states[0].mop_reach is None
+        assert run.states[0].discovered == 12
+
+    def test_state_line_missing_a_required_field_is_still_partial(self, tmp_path):
+        without_mop_reach = (
+            "[APE] [APE-RV] UICOV state=S1 discovered=12 interacted=5 byType=CLICK:5/12"
+        )
+        without_discovered = (
+            "[APE] [APE-RV] UICOV state=S2 interacted=5 byType=CLICK:5/12"
+        )
+        run = parse_run(
+            _write_trace(tmp_path, without_mop_reach, without_discovered, ACTIVITY_LINE)
+        )
+
+        assert run.status is DumpStatus.PARTIAL
+        assert run.unparsed_lines == 1
+        assert [state.state_key for state in run.states] == ["S1"]
+
+    def test_unparseable_mop_reach_is_partial(self, tmp_path):
+        run = parse_run(_write_trace(tmp_path, STATE_LINE[:-1] + "x"))
+
+        assert run.status is DumpStatus.PARTIAL
+        assert run.states == ()
+
     def test_rows_carry_the_schema_version(self, tmp_path):
         run = parse_run(_write_trace(tmp_path, ACTIVITY_LINE))
 

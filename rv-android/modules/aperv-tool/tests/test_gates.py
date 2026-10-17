@@ -6,18 +6,27 @@ carries the unanchored form beside the anchored one, because the defect it encod
 caused it is in the test. ``test_gates_delegate_to_liveness`` reads this module's own
 source: an excluded run must be excluded once, and nothing but a source check stops a
 later author from adding a second, slightly different corpse predicate here.
+
+The MOP-group tests build their version-2 rows directly from the reader's
+dataclasses and hand them to the counter through a stub reader, so the counter's
+member list is tested apart from the reader's parsing of the group-isolation jar.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field, replace
 from pathlib import Path
+from typing import Any, Iterator, Optional
 
 import pandas as pd
+import pytest
 
 from aperv_tool.analysis import gates
+from aperv_tool.analysis.coverage_dump import DumpStatus, RunCoverage, StateCoverage
 from aperv_tool.analysis.gates import (
     _EVIDENCE_COLUMNS,
+    FORM_MOP_GROUP,
     GATE_ARM_ATTRIBUTION,
     GATE_CLEAN_CONTROL,
     GATE_CORPSE_DETECTION,
@@ -25,10 +34,19 @@ from aperv_tool.analysis.gates import (
     GATE_TASK_INTEGRITY,
     ArmManifest,
     ArmSpec,
+    clean_control_signal,
     count_forbidden_signal,
+    count_mop_group_signal,
     run_all,
 )
 from aperv_tool.analysis.runspec import ManifestArm
+from aperv_tool.analysis.trace_ndjson import (
+    NavTie,
+    Ownership,
+    RunStart,
+    StepOutcome,
+    StepRow,
+)
 
 DECLARED_DIGEST = "0f1e2d3c4b5a69788796a5b4c3d2e1f00f1e2d3c"
 
@@ -290,3 +308,392 @@ def test_decisive_corpse() -> None:
     assert admissibility.admissible is False
     assert admissibility.is_corpse is True
     assert report.corpse_census == {"crash": 1}
+
+
+# ---------------------------------------------------------------------------
+# The MOP-group form of gate 1, over NDJSON traces.
+# ---------------------------------------------------------------------------
+
+STATIC_ACTIVITY = "com.example.FormActivity"
+SATA_ACTION = "g0a0[]@MODEL_CLICKclass=android.widget.Button;"
+
+
+@dataclass
+class StubReader:
+    """The three things ``count_mop_group_signal`` reads off a ``TraceReader``."""
+
+    rows: list[StepRow]
+    run_start: Optional[RunStart]
+    run_end: Optional[dict[str, Any]] = None
+    mop_data: Optional[dict[str, Any]] = field(
+        default_factory=lambda: {"activities": 4, "wtgEdges": 12}
+    )
+
+    def __iter__(self) -> Iterator[StepRow]:
+        return iter(self.rows)
+
+
+def clean_step(number: int, source: str = "sata", **overrides: Any) -> StepRow:
+    """A step of an ``aperv:as`` run: STATIC boosts, no MOP member at all."""
+    fields: dict[str, Any] = {
+        "step": number,
+        "t_rel_ms": number * 1_000,
+        "t_epoch_ms": None,
+        "activity": STATIC_ACTIVITY,
+        "activity_has_mop": None,
+        "state_key": f"{STATIC_ACTIVITY}@1@Naming[0]@[W=3]",
+        "action": SATA_ACTION,
+        "decision_source": source,
+        "pick_channel": "roulette",
+        "priority": 40,
+        "coverage": 120,
+        "nav_frontier": 200,
+        "form": 80,
+        "owner": Ownership(intended=source, u_llm=0.42),
+        "scorer_cf": {"cov": True, "navf": False, "form": True},
+        "nav": NavTie(point="X3", component="ape", alternative=False, drew=True),
+        "outcome": StepOutcome(
+            target_state=f"{STATIC_ACTIVITY}@1@Naming[0]@[W=3]",
+            target_activity=STATIC_ACTIVITY,
+            target_activity_has_mop=None,
+        ),
+    }
+    fields.update(overrides)
+    return StepRow(**fields)
+
+
+def coverage(*mop_reach: Optional[int]) -> RunCoverage:
+    """A complete dump with one ``UICOV`` state per given ``mopReach``."""
+    return RunCoverage(
+        trace_path=Path("run.trace"),
+        apk="app.apk",
+        repetition=1,
+        timeout_seconds=300,
+        arm="aperv:as",
+        status=DumpStatus.COMPLETE,
+        states=tuple(
+            StateCoverage(
+                state_key=f"S{index}", discovered=4, interacted=2, mop_reach=reach
+            )
+            for index, reach in enumerate(mop_reach)
+        ),
+    )
+
+
+def static_control(rows: list[StepRow], **run_end_counters: int) -> StubReader:
+    """An ``aperv:as`` trace (``v == 2``) with the given steps and counters."""
+    counters = {"coinMop": 0, "launches": 0, "stampHits": 0, "retired": 0}
+    counters.update(run_end_counters)
+    return StubReader(
+        rows=rows,
+        run_start=RunStart(v=2, preset="as", variant="as"),
+        run_end={"reason": "budget", "counters": counters},
+    )
+
+
+def group_manifest() -> ArmManifest:
+    """A group-isolation roster: ``as`` is a control, ``as_mop`` is not."""
+    features = ("ADDONS", "MOP", "STATIC")
+    return ArmManifest(
+        arms={
+            "aperv:as": ArmSpec(
+                tool="aperv",
+                variant="as",
+                declaration=ManifestArm(
+                    arm="aperv:as",
+                    digest=None,
+                    preset="as",
+                    features=None,
+                    params={},
+                    cell="as",
+                ),
+                control=True,
+            ),
+            "aperv:as_mop": ArmSpec(
+                tool="aperv",
+                variant="as_mop",
+                declaration=ManifestArm(
+                    arm="aperv:as_mop",
+                    digest=None,
+                    preset="as_mop",
+                    features=features,
+                    params={"ape.mopCoinPercentage": 1.0},
+                    cell="as_mop",
+                ),
+            ),
+        }
+    )
+
+
+def test_static_control_with_the_artifact_loaded_is_clean() -> None:
+    """``MOP_DATA``, ``ACT`` without ``mop`` and STATIC boosts are not MOP signals."""
+    reader = static_control([clean_step(1), clean_step(2, source="llm"), clean_step(3)])
+    assert reader.mop_data is not None
+
+    count = count_mop_group_signal(reader, coverage(None, None))
+    assert count == 0
+
+    report = run_all(
+        pd.DataFrame(
+            [
+                row(
+                    "aperv:as",
+                    forbidden_signal_count=count,
+                    forbidden_signal_form=FORM_MOP_GROUP,
+                )
+            ]
+        ),
+        group_manifest(),
+    )
+    result = report.results[(GATE_CLEAN_CONTROL, "aperv:as")]
+    assert result.status == "pass"
+    assert result.evidence_form == FORM_MOP_GROUP
+
+
+def test_mop_members_in_a_control_are_counted() -> None:
+    """A MOP owner, a MOP distance and a ``mopReach`` line are three signals."""
+    reader = static_control(
+        [
+            clean_step(1),
+            clean_step(2, source="mop"),
+            clean_step(3, mop_distance=2),
+            clean_step(4),
+        ]
+    )
+    count = count_mop_group_signal(reader, coverage(None, 3))
+    assert count == 3
+
+    report = run_all(
+        pd.DataFrame(
+            [
+                row(
+                    "aperv:as",
+                    forbidden_signal_count=count,
+                    forbidden_signal_form=FORM_MOP_GROUP,
+                )
+            ]
+        ),
+        group_manifest(),
+    )
+    result = report.results[(GATE_CLEAN_CONTROL, "aperv:as")]
+    assert result.status == "fail"
+    assert "com.example_1.apk__1__300__aperv:as" in result.detail
+    assert result.evidence_form == FORM_MOP_GROUP
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        {"mop": 500},
+        {"mop_frontier": 200},
+        {"wtg": 200},
+        {"menu": 50},
+        {"mop_distance": 0},
+        {"mop_stamp": "cache"},
+        {"retired_targets": (7,)},
+        {"mop_exposure": (0, 5)},
+        {"owner": Ownership(intended="sata", u_llm=0.4, u_mop=0.9)},
+        {"scorer_cf": {"cov": True, "mopf": False}},
+        {"nav": NavTie(point="X3", component="mop", alternative=True, drew=False)},
+        {"pick_channel": "mop_coin"},
+        {"pick_channel": "launcher"},
+        {"decision_source": "launcher"},
+        {"owner": Ownership(intended="mop", fallback="no_match")},
+        {"owner": Ownership(intended="launcher", fallback="ineligible")},
+    ],
+    ids=lambda member: "-".join(f"{key}={value}" for key, value in member.items()),
+)
+def test_each_step_member_counts(member: dict[str, Any]) -> None:
+    """Every step-row member of the list is a signal on its own."""
+    reader = static_control([clean_step(1, **member)])
+    assert count_mop_group_signal(reader) == 1
+
+
+def test_a_row_counts_once_whatever_it_carries() -> None:
+    """Several members on one step are one signal, not several."""
+    loaded = clean_step(
+        1,
+        source="mop",
+        mop=500,
+        mop_distance=1,
+        mop_stamp="cache",
+        pick_channel="mop_coin",
+        activity_has_mop=True,
+    )
+    assert count_mop_group_signal(static_control([loaded])) == 1
+
+
+def test_act_mop_fact_and_mop_counter_count_on_v2() -> None:
+    """``ACT.mop:0`` on two steps and ``coinMop:1`` are three signals."""
+    rows = [
+        clean_step(1, activity_has_mop=False),
+        clean_step(
+            2,
+            activity_has_mop=False,
+            outcome=StepOutcome(
+                target_activity=STATIC_ACTIVITY, target_activity_has_mop=False
+            ),
+        ),
+    ]
+    assert count_mop_group_signal(static_control(rows, coinMop=1)) == 3
+
+    # The outcome side alone is enough for a row.
+    target_only = clean_step(
+        3,
+        outcome=StepOutcome(
+            target_activity=STATIC_ACTIVITY, target_activity_has_mop=False
+        ),
+    )
+    assert count_mop_group_signal(static_control([target_only])) == 1
+
+    # Each counter is a signal, and a RUN_END counts once however many it holds.
+    for counter in ("coinMop", "launches", "stampHits", "retired"):
+        assert count_mop_group_signal(static_control([], **{counter: 4})) == 1
+    assert count_mop_group_signal(static_control([], launches=2, retired=3)) == 1
+
+
+def test_v1_act_fact_and_run_end_counters_are_not_a_signal() -> None:
+    """The v1 jar writes ``ACT.mop`` everywhere and stamps in a clean control."""
+    rows = [
+        replace(
+            clean_step(number),
+            owner=None,
+            scorer_cf=None,
+            nav=None,
+            nav_frontier=0,
+            activity_has_mop=True,
+            outcome=StepOutcome(
+                target_activity=STATIC_ACTIVITY, target_activity_has_mop=True
+            ),
+        )
+        for number in (1, 2, 3)
+    ]
+    reader = StubReader(
+        rows=rows,
+        run_start=RunStart(v=1, preset="mop"),
+        run_end={"counters": {"stampHits": 5, "retired": 2}},
+    )
+    assert count_mop_group_signal(reader) == 0
+
+    # The step-row members that version carries still count on it.
+    reader.rows.append(replace(rows[0], step=4, mop=500))
+    assert count_mop_group_signal(reader) == 1
+
+
+def v1_control_step(number: int, **overrides: Any) -> StepRow:
+    """A step of a cmp162 ``mop_off_llm_off`` run: the zero-weight MOP pass ran."""
+    fields: dict[str, Any] = {
+        "step": number,
+        "t_rel_ms": number * 1_000,
+        "t_epoch_ms": None,
+        "activity": STATIC_ACTIVITY,
+        "activity_has_mop": True,
+        "state_key": f"{STATIC_ACTIVITY}@1@Naming[0]@[W=3]",
+        "action": SATA_ACTION,
+        "decision_source": "Coverage",
+        "pick_channel": "roulette_early",
+        "priority": 152,
+        "coverage": 100,
+        "mop_exposure": (0, 5),
+        "outcome": StepOutcome(
+            target_activity=STATIC_ACTIVITY, target_activity_has_mop=True
+        ),
+    }
+    fields.update(overrides)
+    return StepRow(**fields)
+
+
+def test_v1_control_counts_only_fired_mop_boosts() -> None:
+    """By-products of the zero-weight MOP pass are not a v1 signal; a boost is."""
+    rows = [v1_control_step(number) for number in range(1, 74)]
+    rows[10] = v1_control_step(11, wtg=200)
+    reader = StubReader(
+        rows=rows,
+        run_start=RunStart(v=1, preset="mop"),
+        run_end={"counters": {"stampHits": 5, "retired": 2, "coinMop": 1}},
+    )
+    dump = coverage(1, 0, 3, 1, 0, 2, 1)
+
+    assert count_mop_group_signal(reader, dump) == 0
+
+    reader.rows[20] = v1_control_step(21, mop=500)
+    assert count_mop_group_signal(reader, dump) == 1
+
+    reader.rows[30] = v1_control_step(31, mop=500, mop_frontier=200)
+    assert count_mop_group_signal(reader, dump) == 2
+
+
+@pytest.mark.parametrize(
+    "header", [None, RunStart(preset="mop")], ids=["no-header", "no-version"]
+)
+def test_unknown_version_reads_as_legacy(header: Optional[RunStart]) -> None:
+    """A trace that does not say its version gets the narrower, v1 reading."""
+    rows = [v1_control_step(1, activity_has_mop=False), v1_control_step(2)]
+    reader = StubReader(
+        rows=rows, run_start=header, run_end={"counters": {"coinMop": 1}}
+    )
+    assert count_mop_group_signal(reader, coverage(1)) == 0
+
+    reader.rows.append(v1_control_step(3, mop_frontier=200))
+    assert count_mop_group_signal(reader, coverage(1)) == 1
+
+
+def _write(path: Path, *lines: str) -> Path:
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
+def test_legacy_pattern_is_blind_on_ndjson_and_the_gate_does_not_use_it(
+    tmp_path: Path,
+) -> None:
+    """``"mop":500`` is not ``mop=``; the NDJSON trace is counted by its own form."""
+    step_line = (
+        '{"s":1,"t":10,"act":0,"st":0,'
+        '"dec":{"a":"g0a0[]@MODEL_CLICK","src":"sata","ch":"roulette","mop":500}}'
+    )
+    trace = _write(
+        tmp_path / "app.apk__1__300__aperv:mop_off_llm_off.trace",
+        "[APE] *** INFO *** banner before the header",
+        '{"type":"RUN_START","v":1,"preset":"mop"}',
+        '{"type":"ACT","id":0,"name":"com.example.Main","mop":1}',
+        '{"type":"STATE","id":0,"key":"com.example.Main@1@Naming[0]@[W=3]","act":0}',
+        step_line,
+    )
+
+    assert count_forbidden_signal(trace.read_text().splitlines()) == 0
+
+    signal = clean_control_signal(trace)
+    assert signal.form == FORM_MOP_GROUP
+    assert signal.count == 1
+
+    legacy = _write(
+        tmp_path / "app.apk__1__300__aperv:legacy.trace",
+        "[APE-STEP] step=1 activity_has_mop=1 mop=0",
+        "[APE-STEP] step=2 activity_has_mop=1 mop=500",
+    )
+    legacy_signal = clean_control_signal(legacy)
+    assert legacy_signal.count == 2
+    assert legacy_signal.form.startswith("anchored field pattern")
+
+
+def test_variant_is_gate_3_evidence_on_the_new_jar() -> None:
+    """An ``as_mop`` run passes on its variant and fails on another cell's."""
+    header = RunStart(
+        v=2,
+        preset="as_mop",
+        variant="as_mop",
+        features=("ADDONS", "MOP", "STATIC"),
+        params={"ape.mopCoinPercentage": 1.0},
+    )
+    passing = run_all(
+        pd.DataFrame([row("aperv:as_mop", run_start=header)]), group_manifest()
+    )
+    result = passing.results[(GATE_ARM_ATTRIBUTION, "aperv:as_mop")]
+    assert result.status == "pass"
+    assert "variant" in result.evidence_form.split(", ")
+
+    mislabelled = run_all(
+        pd.DataFrame([row("aperv:as_mop", run_start=replace(header, variant="as"))]),
+        group_manifest(),
+    )
+    assert mislabelled.status(GATE_ARM_ATTRIBUTION, "aperv:as_mop") == "fail"
