@@ -18,10 +18,10 @@ model. Within rv-platform, it sits alongside other AbstractTool implementations
 - JAR deployment: resolves ape-rv.jar via priority search and pushes to the device
 - Strategy selection: SATA (adaptive random) and random, the two agent types the
   jar's ApeAgent.createAgent builds and this tool can launch
-- Properties injection: generates ape.properties naming the arm's jar preset plus
-  its override deltas
-- MOP artifact derivation: projects static analysis host-side and pushes only the
-  projection, so the device never parses a call graph
+- Properties injection: generates ape.properties naming the cell's jar preset, its
+  variant name and its override deltas
+- Static-data artifact derivation: projects static analysis host-side and pushes
+  only the projection, so the device never parses a call graph
 - Timeout-aware execution: treats timeout as expected exit for exploration tools
 - Trace compression: writes a .gz copy beside the raw capture, on every exit path
 
@@ -105,19 +105,34 @@ APERV_TEARDOWN_GRACE_S = 45
 # directory with its destination so the rename that publishes it is atomic.
 ARTIFACT_TEMP_SUFFIX = ".mop.json.tmp"
 
+# The broadcast catalog ships beside this module and is pushed under the same name. It
+# gives component triggering the typed extras of the system broadcast intents.
+APERV_BROADCAST_CATALOG_NAME = "system-broadcast.json"
+APERV_DEVICE_BROADCAST_CATALOG_PATH = "/data/local/tmp/system-broadcast.json"
+
+# The value of `static_data` that makes execute_tool_specific_logic() derive the compact
+# artifact from the task's static-analysis JSON and push it.
+STATIC_DATA_FROM_STATIC_ANALYSIS = "static_analysis"
+
+# The server URL the two LLM cells carry. 10.0.2.2 is the Android emulator's alias for
+# the host loopback interface, where SGLang listens on a host-driven run.
+LLM_URL_DEFAULT = "http://10.0.2.2:30000/v1"
+
 # Strategies accepted by configure(), matching what the jar's ApeAgent.createAgent builds.
 # "bfs" and "dfs" are absent deliberately: they were never agent types, and a run configured
 # with either used to fall through to SataAgent silently. The jar now aborts on an unknown
 # --ape value, so accepting them here would only let a run pass local validation and die on
 # the device — the silent-degradation class this whole re-architecture removes. "replay" is
 # legal in the jar but stays out too: it needs --ape-replay <log>, which this tool never
-# passes. "random" remains reachable as aperv:sata@strategy=random even though the named
-# random arm is retired.
+# passes. "random" is reachable through the tool DSL, e.g. aperv:base@strategy=random.
 APERV_AVAILABLE_STRATEGIES = ["sata", "random"]
 
 # The top-level config keys that are Python orchestration rather than jar configuration.
 # Everything else at the top level must be a mapped override key, or configure() raises:
-# these are the only names that legitimately never reach ape.properties.
+# these are the only names that never reach ape.properties as an override line. `preset`
+# and `variant` are written by their own fixed lines; `static_data` and
+# `broadcast_catalog` decide what is pushed to the device; `strategy` and `seed` reach
+# the command line.
 #
 # device_port/device_serial/device_id are device addressing, not configuration: rv-experiment's
 # ExecutionController injects all three into every tool's parameters whenever --device-port is
@@ -127,9 +142,11 @@ APERV_AVAILABLE_STRATEGIES = ["sata", "random"]
 APERV_ORCHESTRATION_KEYS = frozenset(
     {
         "preset",
+        "variant",
         "overrides",
         "strategy",
-        "mop_data",
+        "static_data",
+        "broadcast_catalog",
         "seed",
         "device_port",
         "device_serial",
@@ -137,74 +154,84 @@ APERV_ORCHESTRATION_KEYS = frozenset(
     }
 )
 
-# Maps Python config key -> Java ape.properties key.
-# Keys in _tool_config that appear here are written to ape.properties.
-# Keys NOT here (strategy, mop_data) are Python-only and not written.
+# Maps Python override key -> Java ape.properties key, grouped by the jar group that owns
+# the key. Only the entries of `overrides` are translated through it; `preset` and
+# `variant` have their own fixed lines, and the other orchestration keys never reach
+# ape.properties. Every value must be a key the deployed jar accepts: under the jar's
+# fail-fast resolution an unknown or retired key aborts the run before step 1
+# (INV-APV-41). The cell presets state every key a group needs, so an entry here is an
+# ablation knob for the tool DSL (`aperv:as_mop@mop_coin_percentage=0.5`), not part of
+# any cell.
 APERV_PROPERTY_MAPPING = {
-    # Exploration parameters
+    # Group keys. A cell preset states the groups it mounts; setting one through the DSL
+    # mounts or unmounts a whole group. STATIC and MOP require the static-data artifact,
+    # LLM requires llm_url.
+    "addons": "ape.addons",
+    "static": "ape.static",
+    "mop": "ape.mop",
+    "llm": "ape.llm",
+    # BASE: the APE algorithm, mounted in every cell.
+    "throttle_ms": "ape.defaultGUIThrottle",
     "default_epsilon": "ape.defaultEpsilon",
     "graph_stable_restart_threshold": "ape.graphStableRestartThreshold",
     "state_stable_restart_threshold": "ape.stateStableRestartThreshold",
     "fuzzing_rate": "ape.fuzzingRate",
     "do_fuzzing": "ape.doFuzzing",
     "throttle_for_activity_transition": "ape.throttleForActivityTransition",
-    "throttle_ms": "ape.defaultGUIThrottle",
     "max_extra_priority_aliased_actions": "ape.maxExtraPriorityAliasedActions",
     "max_states_per_activity": "ape.maxStatesPerActivity",
     "trivial_activity_rank_threshold": "ape.trivialActivityRankThreshold",
     "do_back_to_trivial_activity": "ape.doBackToTrivialActivity",
-    # MOP weight parameters
+    # Caps the idle-drain wait; a tuning knob that applies to every cell alike.
+    "max_idle_timeout_ms": "ape.maxIdleTimeoutMs",
+    # Diagnostics: a screenshot and a GUI-tree XML dump per step.
+    "take_screenshot_for_every_step": "ape.takeScreenshotForEveryStep",
+    "save_gui_tree_to_xml_every_step": "ape.saveGUITreeToXmlEveryStep",
+    # ADDONS: the fork's own improvements over APE.
+    "back_menu_pick_cap": "ape.backMenuPickCap",
+    "activity_stable_restart_threshold": "ape.activityStableRestartThreshold",
+    "foreign_activity_guard": "ape.foreignActivityGuard",
+    "tree_package_guard": "ape.treePackageGuard",
+    "dynamic_epsilon": "ape.dynamicEpsilon",
+    "heuristic_input": "ape.heuristicInput",
+    "form_completion_enabled": "ape.formCompletionEnabled",
+    "model_menu_enabled": "ape.modelMenuEnabled",
+    "tree_enhancements_enabled": "ape.treeEnhancementsEnabled",
+    "activity_budget_enabled": "ape.activityBudgetEnabled",
+    "coverage_boost_weight": "ape.coverageBoostWeight",
+    # STATIC: the consumers of the static GUI model. The frontier boost, typed fuzz input,
+    # and component triggering at the per-step probability the STATIC block states (the
+    # jar's only reader of system-broadcast.json).
+    "frontier_boost_weight": "ape.frontierBoostWeight",
+    "fuzz_input_typed": "ape.fuzzInputTyped",
+    "component_percentage": "ape.componentPercentage",
+    # MOP: the consumers of the specification targets. The flag-scoring weights, the WTG
+    # and menu gateways, the MOP frontier, the activity launcher with its cadence and
+    # per-run cap, and the component source of MOP activities.
     "mop_weight_direct": "ape.mopWeightDirect",
     "mop_weight_transitive": "ape.mopWeightTransitive",
     "mop_weight_open_menu": "ape.mopWeightOpenMenu",
     "mop_weight_wtg": "ape.mopWeightWtg",
-    # gh11/gh13: per-step component-trigger probability (default 0.0 = disabled).
-    "component_percentage": "ape.componentPercentage",
-    # mop-fairtest: cap on deterministic MOP short-circuit picks per (widget,type,activity).
-    "mop_target_pick_cap": "ape.mopTargetPickCap",
-    # The jar's MOP scoring mode, "flag" (its default, the E6 yes/no mark) or "distance"
-    # (the static call-graph distance of the format-2 artifact), and the five keys only
-    # the distance mode reads: the weights for d <= 1, 2 and 3, the first interactions
-    # after which a target retires, and the launcher's distance bound. The two mopd_*
-    # arms set the mode and take the jar's defaults for the five; an ablation sets them
-    # through the tool DSL. The jar accepts the other mode's keys under each mode and
-    # reports them as inert rather than rejecting them.
+    "mop_activity_source_components": "ape.mopActivitySourceComponents",
+    "mop_frontier_weight": "ape.mopFrontierWeight",
+    "activity_trigger_enabled": "ape.activityTriggerEnabled",
+    "activity_trigger_stagnation_step": "ape.activityTriggerStagnationStep",
+    "activity_trigger_max_per_run": "ape.activityTriggerMaxPerRun",
+    # The scoring mode, "flag" (a yes/no mark) or "distance" (the static call-graph
+    # distance of the artifact), which the MOP block states as "distance", and the five
+    # keys only the distance mode reads: the weights for d <= 1, 2 and 3, the first
+    # interactions after which a target retires, and the launcher's distance bound.
     "mop_scoring": "ape.mopScoring",
     "mop_weight_d1": "ape.mopWeightD1",
     "mop_weight_d2": "ape.mopWeightD2",
     "mop_weight_d3": "ape.mopWeightD3",
     "mop_retire_after": "ape.mopRetireAfter",
     "mop_launcher_dmax": "ape.mopLauncherDmax",
-    "coverage_boost_weight": "ape.coverageBoostWeight",
-    # RV exploration flags. Every preset states all of them, so an arm overrides one only
-    # to deviate from its preset — which no surviving arm does.
-    "back_menu_pick_cap": "ape.backMenuPickCap",
-    "foreign_activity_guard": "ape.foreignActivityGuard",
-    "tree_package_guard": "ape.treePackageGuard",
-    "dynamic_epsilon": "ape.dynamicEpsilon",
-    "heuristic_input": "ape.heuristicInput",
-    "fuzz_input_typed": "ape.fuzzInputTyped",
-    "form_completion_enabled": "ape.formCompletionEnabled",
-    "model_menu_enabled": "ape.modelMenuEnabled",
-    "least_visited_priority_tiebreak": "ape.leastVisitedPriorityTiebreak",
-    "tree_enhancements_enabled": "ape.treeEnhancementsEnabled",
-    "activity_budget_enabled": "ape.activityBudgetEnabled",
-    # MOP reach strategies (mop-reach-strategies: A′/B). E-min is the activity-trigger
-    # launcher (activity_trigger_enabled below).
-    "mop_activity_source_components": "ape.mopActivitySourceComponents",
-    "mop_frontier_weight": "ape.mopFrontierWeight",
-    # Frontier boosting + component triggering (gh43).
-    "frontier_boost_weight": "ape.frontierBoostWeight",
-    "activity_trigger_enabled": "ape.activityTriggerEnabled",
-    # Global tuning knob (idle-timeout-cap): mapped so an experiment can lower the
-    # idle-drain ceiling. Applies to every arm, so it never distinguishes one.
-    "max_idle_timeout_ms": "ape.maxIdleTimeoutMs",
-    # Launcher-dose sub-params (activity-trigger-dose): the cadence at which the launcher
-    # fires and the per-run launch cap. A paired comparison sets the same dose on both
-    # arms, so they tune activity_trigger_enabled without themselves selecting a behavior.
-    "activity_trigger_stagnation_step": "ape.activityTriggerStagnationStep",
-    "activity_trigger_max_per_run": "ape.activityTriggerMaxPerRun",
-    # LLM parameters
+    # p_M, the probability that a step offered to MOP is taken by it; the MOP block
+    # states 1.0, so a lower dose is an ablation.
+    "mop_coin_percentage": "ape.mopCoinPercentage",
+    # LLM: the vision-language model. llm_url is the one deployment fact the LLM cells
+    # carry; the LLM block states the sampling configuration and the dose.
     "llm_url": "ape.llmUrl",
     "llm_on_new_state": "ape.llmOnNewState",
     "llm_on_stagnation": "ape.llmOnStagnation",
@@ -213,20 +240,23 @@ APERV_PROPERTY_MAPPING = {
     "llm_top_p": "ape.llmTopP",
     "llm_top_k": "ape.llmTopK",
     "llm_timeout_ms": "ape.llmTimeoutMs",
+    # p_L, the probability that a step offered to the LLM is taken by it.
     "llm_percentage": "ape.llmPercentage",
-    # mop-reach-strategies F′ seam: the LLM boost applied when the substrate is widgetless.
     "llm_percentage_no_substrate": "ape.llmPercentageNoSubstrate",
     "llm_prompt_variant": "ape.llmPromptVariant",
-    # Live Feature.LLM sub-parameters in the jar's ownership table. The snap tolerance
-    # is set by mop_on_llm_70 and mopd_on_llm_90; max_tokens is mapped and set by no
-    # arm, so it takes the jar's default.
     "llm_max_tokens": "ape.llmMaxTokens",
     "llm_snap_tolerance_px": "ape.llmSnapTolerancePx",
+    "llm_boundary_top_pct": "ape.llmBoundaryTopPct",
+    # The two gates in front of an LLM call: a minimum number of actions on a state,
+    # and a circuit breaker that opens after consecutive failures. 0 leaves either
+    # gate unmounted.
+    "llm_gate_min_actions": "ape.llmGateMinActions",
+    "llm_breaker_failures": "ape.llmBreakerFailures",
+    "llm_breaker_open_ms": "ape.llmBreakerOpenMs",
     # Deployment provenance, not configuration: the application list this run was
     # drawn from. The jar recognises the key, echoes it into the trace's opening
     # record and reads it nowhere, so it changes no behaviour — it makes a recorded
-    # run answer "which corpus?" from its own artifacts, which today is
-    # reconstructed after the fact from a compose file or an operator's memory.
+    # run answer "which corpus?" from its own artifacts.
     "corpus_basis": "ape.corpusBasis",
 }
 
@@ -261,11 +291,8 @@ class ApeRVTool(AbstractTool):
       APE-RV output is captured only for diagnostics
 
     ### Key Features:
-    - Named variants: ten names carrying nine configurations, each a jar preset
-      plus a dict of override deltas (default [alias of sata], sata, sata_mop,
-      sata_llm, sata_mop_llm, the three E3 decisive-run arms mop_on_llm_off,
-      mop_off_llm_off, mop_on_llm_70, and the two distance-scoring arms
-      mopd_on_llm_off, mopd_on_llm_90)
+    - Named variants: one per experimental cell, each naming the jar's cell preset
+      (base, mop, as, as_mop, as_llm, as_mop_llm), plus default bound to base
     - Eager validation in configure() catches typos before device access, including
       tool-DSL overrides that no arm could honour
     - ape.properties injection states the preset and its deltas without modifying the JAR
@@ -329,214 +356,101 @@ class ApeRVTool(AbstractTool):
     @classmethod
     def get_variants(cls) -> Dict[str, Dict[str, Any]]:
         """
-        Get available APE-RV variants.
+        Get available APE-RV variants: one per experimental cell.
 
-        Ten names carrying nine configurations. An arm is a `preset` name plus an
-        `overrides` dict of deltas over it, and nothing else: the jar owns what a preset
-        means, this module owns the experimental matrix — which arms exist, what their
-        names are, and how each differs from its preset.
+        Seven names carrying six configurations. APE-RV mounts five behaviour groups
+        by declaration: BASE (the APE algorithm), ADDONS (the fork's own
+        improvements), STATIC (the consumers of the static GUI model), MOP (the
+        consumers of the specification targets) and LLM (the vision-language model).
+        A cell is a union of groups, and the jar ships one preset per cell:
 
-        Four are one-to-one with the jar's presets and carry nothing but the
-        deployment-specific server URL where an LLM is involved — `sata` (aperv),
-        `sata_mop` (mop), `sata_llm` (llm), `sata_mop_llm` (llm_mop) — with `default`
-        bound to the same object as `sata` (INV-TOOL-02). Three are the E3 decisive
-        run's arms: a reference on the reach package, its MOP-off control, and its LLM
-        arm. The last two select the jar's distance MOP scoring: one on the reference,
-        one on Study 03's E6 LLM arm.
+        - `base`: BASE only, the APE reference.
+        - `mop`: BASE + MOP.
+        - `as`: BASE + ADDONS + STATIC.
+        - `as_mop`: `as` + MOP.
+        - `as_llm`: `as` + LLM.
+        - `as_mop_llm`: `as` + MOP + LLM.
 
-        Python-only orchestration keys stay at the top level and never reach
-        ape.properties: `strategy` (the --ape flag), `mop_data` (whether the derived MOP
-        artifact is pushed) and `seed`. The full set, with the three device-addressing
-        keys rv-experiment injects, is `APERV_ORCHESTRATION_KEYS`.
+        `default` is bound to the same object as `base` (INV-TOOL-02), so `aperv`
+        with no variant runs the APE reference cell and writes `ape.variant=base`.
+
+        What a group switches on is defined in the jar. A variant therefore names
+        its cell and carries only the deployment facts the jar cannot know:
+
+        - `preset` and `variant`, both the cell's name. `_push_properties()` writes
+          them as the first two lines, and the jar echoes the variant into the
+          trace outside the plan digest (INV-APV-65).
+        - `strategy="sata"`, the `--ape` flag.
+        - `static_data="static_analysis"` on every cell that mounts STATIC or MOP,
+          which is every cell but `base`: the derived artifact reaches the device
+          exactly when a group that reads it is mounted (INV-APV-66).
+        - `broadcast_catalog=True` on the four cells that mount STATIC, whose
+          component triggering is the catalog's only reader (INV-APV-10). It is
+          stated per cell because this module does not know what a preset mounts.
+        - `overrides={"llm_url": ...}` on the two LLM cells, because the LLM preset
+          needs a server and a URL names a machine, not a cell (INV-APV-38).
+
+        A dose or any other mapped key is an ablation expressed through the tool
+        DSL (`aperv:as_mop@mop_coin_percentage=0.5`), never a new variant. The
+        Python-only keys never reach ape.properties; the full set, with the three
+        device-addressing keys rv-experiment injects, is `APERV_ORCHESTRATION_KEYS`.
 
         Returns:
             Dictionary mapping variant names to configuration parameters
         """
-        # "mop_data" and "strategy" are Python-only keys consumed during execution; they are
-        # NOT written to ape.properties. Build sata once and bind default to the same object
-        # so the alias holds by construction (INV-TOOL-02).
-        sata = {"preset": "aperv", "strategy": "sata", "overrides": {}}
+        # Built once and bound under both names, so default cannot drift from base.
+        base = {
+            "preset": "base",
+            "variant": "base",
+            "strategy": "sata",
+            "overrides": {},
+        }
         return {
-            # The four preset-identity arms. Each is one-to-one with a jar preset and carries
-            # nothing but the deployment-specific server URL where an LLM is involved — the
-            # preset names an arm, the URL names a machine. throttle_ms is absent from all of
-            # them because the aperv preset already states ape.defaultGUIThrottle=200.
-            "default": sata,
-            "sata": sata,
-            # sata_mop is the frozen corpus's identity: 4,096 aperv:sata_mop.trace artifacts
-            # and 1,066 files under results/ carry that exact token, so renaming it would
-            # orphan every one of those runs from resume and every row from consolidation.
-            # A data-identity constraint, not backward compatibility (INV-APV-42).
-            "sata_mop": {
+            "default": base,
+            "base": base,
+            "mop": {
                 "preset": "mop",
+                "variant": "mop",
                 "strategy": "sata",
-                "mop_data": "static_analysis",
+                "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
                 "overrides": {},
             },
-            # 10.0.2.2 is the Android emulator alias for host loopback; APERV_LLM_BASE_URL
-            # redirects it at L5 without touching the variant table.
-            "sata_llm": {
-                "preset": "llm",
+            "as": {
+                "preset": "as",
+                "variant": "as",
                 "strategy": "sata",
-                "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
+                "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
+                "broadcast_catalog": True,
+                "overrides": {},
             },
-            "sata_mop_llm": {
-                "preset": "llm_mop",
+            "as_mop": {
+                "preset": "as_mop",
+                "variant": "as_mop",
                 "strategy": "sata",
-                "mop_data": "static_analysis",
-                "overrides": {"llm_url": "http://10.0.2.2:30000/v1"},
+                "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
+                "broadcast_catalog": True,
+                "overrides": {},
             },
-            # --- E3 decisive-run arms (gh90) -------------------------------------
-            # The three arms of the run that decides whether the LLM stays in the
-            # design. All three sit on the reach package (INV-APV-30) — the
-            # standing rule is *sempre modo frontier* — and each contrast is
-            # single-factor: arm 2 differs from arm 1 only in the MOP keys, arm 3
-            # only in the LLM keys, which the override dicts now make readable
-            # directly rather than only through a test.
-            #
-            # The names are normative, not cosmetic: the variant string is the
-            # resume identity key (platform.py:308-318) and the consolidation
-            # column key ({arm}__{metric}), so a rename silently splits a
-            # campaign's results.
-            #
-            # Arm 1 absorbs the retired sata_mop_act_frontier: the two carried
-            # byte-identical effective configurations — the ANC2 anchor under two
-            # names — so the reference is not a newly invented baseline but the
-            # configuration that won the cmpma multi-arm comparison (cov_mop
-            # 37.75% vs <=35%, Friedman+Holm), under the name the decisive run
-            # recorded. E-min is the activity-trigger launcher.
-            "mop_on_llm_off": {
-                "preset": "mop",
+            # The LLM cells carry the server URL. configure() reads no environment
+            # (INV-TOOL-20): rv-experiment reads APERV_LLM_BASE_URL and injects it as a
+            # top-level llm_url into these two cells' parameters, and configure()'s DSL
+            # fold moves it into `overrides`, where it replaces this default. A DSL
+            # @llm_url wins over the variable.
+            "as_llm": {
+                "preset": "as_llm",
+                "variant": "as_llm",
                 "strategy": "sata",
-                "mop_data": "static_analysis",
-                "overrides": {
-                    "mop_activity_source_components": True,
-                    "frontier_boost_weight": 200,
-                    "mop_frontier_weight": 200,
-                    "activity_trigger_enabled": True,
-                },
+                "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
+                "broadcast_catalog": True,
+                "overrides": {"llm_url": LLM_URL_DEFAULT},
             },
-            # Arm 2 — the experiment's first control arm. Every APE-RV run ever
-            # executed had MOP guidance on, so no measured difference has ever
-            # been attributable to MOP guidance rather than to APE's baseline
-            # exploration. arm 1 vs arm 2 is RQ-C1.
-            #
-            # The shape is forced, not chosen (INV-APV-29). Three things could
-            # plausibly mean MOP-off, and two of them silently destroy the
-            # experiment:
-            #
-            #   1. Point ape.mopDataPath at a missing file -> requireMopArm raises
-            #      StopTestingException and the whole run ABORTS.
-            #   2. Omit mop_data so the path is never set -> loads as null without
-            #      aborting, but WtgPass and FrontierPass both require
-            #      mopData != null, so the generic WTG and frontier navigation die
-            #      as collateral. The contrast would then be "full substrate versus
-            #      almost no substrate", not "MOP guidance on versus off".
-            #   3. Keep the document, zero the weights, turn the trigger off -> the
-            #      MOP short-circuits become no-ops (pickBestMopTarget requires
-            #      mopBoost > 0) while the frontier and WTG passes keep running on
-            #      generic signal.
-            #
-            # Only the third isolates MOP guidance, so mop_data stays present and
-            # frontier_boost_weight is deliberately NOT zeroed: the control removes
-            # MOP guidance, not navigation (INV-APV-30). mop_frontier_weight and
-            # activity_trigger_enabled are absent because the mop preset already
-            # states them at 0 and false — an override restating a preset value
-            # would be a delta that is not a delta.
-            "mop_off_llm_off": {
-                "preset": "mop",
+            "as_mop_llm": {
+                "preset": "as_mop_llm",
+                "variant": "as_mop_llm",
                 "strategy": "sata",
-                "mop_data": "static_analysis",
-                "overrides": {
-                    "mop_activity_source_components": True,
-                    "frontier_boost_weight": 200,
-                    "mop_weight_direct": 0,
-                    "mop_weight_transitive": 0,
-                    "mop_weight_open_menu": 0,
-                    "mop_weight_wtg": 0,
-                },
-            },
-            # Arm 3 — the LLM dose the Phase-A calibration settled on (v13 at 70%,
-            # temperature 0), stated here because this is now its only home. 0.7 is
-            # the only dose with a measured 300 s counterpart on this substrate
-            # and subset, which is what lets the 1800 s result be read as a
-            # dose x budget interaction (design D8). arm 1 vs arm 3 is RQ-C3.
-            "mop_on_llm_70": {
-                "preset": "llm_mop",
-                "strategy": "sata",
-                "mop_data": "static_analysis",
-                "overrides": {
-                    "mop_activity_source_components": True,
-                    "frontier_boost_weight": 200,
-                    "mop_frontier_weight": 200,
-                    "activity_trigger_enabled": True,
-                    "llm_url": "http://10.0.2.2:30000/v1",
-                    "llm_prompt_variant": "v13",
-                    "llm_percentage": 0.7,
-                    "llm_temperature": 0,
-                    # The raised snap radius. Widening it makes more LLM answers
-                    # resolve to a widget, which pays off only against a jar that
-                    # bans dead pairs: without the ban the extra resolutions are
-                    # repeated taps on pairs already known to produce no new
-                    # state, and the widening amplifies the measured 25.6%
-                    # dead-call waste instead of rescuing near-misses. Which jar
-                    # is installed is a deployment fact, recorded per run by the
-                    # jar_sha256 of the run's provenance (INV-APV-59); this file
-                    # states the arm, not the binary.
-                    "llm_snap_tolerance_px": 150,
-                },
-            },
-            # --- Distance-scoring arms (gh122) -----------------------------------
-            # Both select the jar's distance MOP scoring (ape.mopScoring=distance),
-            # which weighs a widget by its call-graph distance to the nearest
-            # unretired target instead of the E6 yes/no mark. They need the jar of
-            # ape's llm-coordinate-single-base: no earlier jar knows the key, and
-            # stage-2 resolution aborts on an unknown one. Neither states the
-            # distance weights, the retirement count or the launcher bound: the jar's
-            # defaults (500/400/300, 3, 6) are the plan's decision-10 values, and
-            # restating them would be a delta that is not a delta.
-            #
-            # Arm 4 — the reference plus the scoring mode, and nothing else, so arm 4
-            # vs arm 1 isolates the distance. With arm 2 (no guidance) and arm 1 (the
-            # mark plus the ordered shortcut) it is the third arm of the minimal
-            # family the plan analysis proposes
-            # (docs/20261006_analise_rigorosa_plano_guia_mop.md:315-319).
-            "mopd_on_llm_off": {
-                "preset": "mop",
-                "strategy": "sata",
-                "mop_data": "static_analysis",
-                "overrides": {
-                    "mop_activity_source_components": True,
-                    "frontier_boost_weight": 200,
-                    "mop_frontier_weight": 200,
-                    "activity_trigger_enabled": True,
-                    "mop_scoring": "distance",
-                },
-            },
-            # Arm 5 — Study 03's E6 arm 4 (e6_mop_on_llm_90: E5b's selected arm
-            # e5b_m1_v13_A key by key with llm_percentage 0.9) plus the scoring mode.
-            # Written out key by key so this module does not depend on the replication
-            # package at run time; its flag-mode counterpart is that package's arm.
-            # Against arm 4 it differs only in the LLM keys.
-            "mopd_on_llm_90": {
-                "preset": "llm_mop",
-                "strategy": "sata",
-                "mop_data": "static_analysis",
-                "overrides": {
-                    "mop_activity_source_components": True,
-                    "frontier_boost_weight": 200,
-                    "mop_frontier_weight": 200,
-                    "activity_trigger_enabled": True,
-                    "llm_url": "http://10.0.2.2:30000/v1",
-                    "llm_prompt_variant": "v13",
-                    "llm_percentage": 0.9,
-                    "llm_temperature": 0,
-                    "llm_snap_tolerance_px": 150,
-                    "llm_model": "Qwen/Qwen3-VL-4B-Instruct-FP8",
-                    "llm_top_p": 1.0,
-                    "llm_top_k": -1,
-                    "mop_scoring": "distance",
-                },
+                "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
+                "broadcast_catalog": True,
+                "overrides": {"llm_url": LLM_URL_DEFAULT},
             },
         }
 
@@ -544,9 +458,9 @@ class ApeRVTool(AbstractTool):
         """
         Configure tool with resolved variant parameters.
 
-        An arm is a preset name plus a dict of override deltas, so configure()
-        validates all three parts of that shape — strategy, preset, overrides — and
-        folds any tool-DSL override into place. Everything is raised before any
+        A variant is a cell preset, the cell's name and a dict of override deltas,
+        so configure() validates every part of that shape — strategy, preset,
+        variant, overrides — and folds any tool-DSL override into place. Everything is raised before any
         device interaction, so a typo in experiment YAML costs nothing (INV-APV-02).
 
         Args:
@@ -554,8 +468,8 @@ class ApeRVTool(AbstractTool):
 
         Raises:
             ConfigurationError: If strategy is absent or outside
-                APERV_AVAILABLE_STRATEGIES, if preset is absent or empty, if
-                overrides is not a dict, if a top-level key is neither a mapped
+                APERV_AVAILABLE_STRATEGIES, if preset or variant is absent or
+                empty, if overrides is not a dict, if a top-level key is neither a mapped
                 override nor a recognised orchestration key (INV-APV-39), or if
                 `corpus_basis` is present and does not match CORPUS_BASIS_PATTERN
         """
@@ -580,7 +494,16 @@ class ApeRVTool(AbstractTool):
         if not preset:
             raise ConfigurationError(
                 "aperv: 'preset' key is required and must be non-empty. "
-                "An arm is a preset name plus its override deltas."
+                "A variant is a cell preset plus its override deltas."
+            )
+
+        # The variant name is the cell the trace says it ran (INV-APV-65). Without it the
+        # jar echoes no name, and which cell produced a trace rests on the file name alone.
+        variant = config.get("variant")
+        if not variant:
+            raise ConfigurationError(
+                "aperv: 'variant' key is required and must be non-empty. "
+                "It is written as ape.variant and names the cell in the trace."
             )
 
         overrides = config.get("overrides", {})
@@ -597,14 +520,15 @@ class ApeRVTool(AbstractTool):
         #
         # ToolFactory merges DSL parameters at the TOP LEVEL of the config
         # (`{**variant_config, **tool_config.parameters}`), while _push_properties()
-        # reads only `overrides`. Without this fold, `aperv:sata_mop@mop_frontier_weight=400`
+        # reads only `overrides`. Without this fold, `aperv:as_mop@mop_coin_percentage=0.5`
         # would land somewhere nothing reads: no property line, no error, and a run whose
         # configuration silently differs from what the operator asked for. That is the exact
         # failure class this change exists to remove, so it may not be introduced by it.
         #
-        # The DSL value wins over an arm's own entry for the same key — the DSL is the
+        # The DSL value wins over a variant's own entry for the same key — the DSL is the
         # operator's last word, which is what makes it usable for smokes and ablations
-        # without declaring a variant.
+        # without declaring a variant. The same fold carries the LLM server URL that
+        # rv-experiment injects as a top-level llm_url from APERV_LLM_BASE_URL.
         for key in list(self._tool_config):
             if key in APERV_PROPERTY_MAPPING:
                 self._tool_config["overrides"][key] = self._tool_config.pop(key)
@@ -653,11 +577,11 @@ class ApeRVTool(AbstractTool):
                 "verified against any list. Expected /^[A-Za-z0-9._-]+:[0-9a-f]{64}$/."
             )
 
-        # gh55 D8: LLM URL override flows through `parameters["llm_url"]` (set by
-        # L5 from env / CLI). The factory merge `{**variant_defaults, **parameters}`
-        # ensures the value is present at configure() time. No `os.environ` read
-        # at L2 — operators set `APERV_LLM_BASE_URL` (or the variant default)
-        # and L5 propagates it via `ToolConfig.parameters`.
+        # No environment variable is read here (INV-TOOL-20). APERV_LLM_BASE_URL is read
+        # by the rv-experiment entry point, which sets it as a top-level llm_url in the
+        # ToolConfig.parameters of the LLM cells (as_llm, as_mop_llm) when the tool DSL
+        # does not set @llm_url. The factory merges it beside the variant's keys and the
+        # fold above moves it into `overrides`, where it replaces the cell's default.
 
     def _resolve_jar_path(self) -> str:
         """
@@ -773,7 +697,7 @@ class ApeRVTool(AbstractTool):
         longer describes the app. The format is part of the key because the digest
         names the input, not the derivation: after a format bump a cached artifact
         of the old format still matches its source's digest, and pushing it to a
-        jar that reads only the new format would abort every MOP arm
+        jar that reads only the new format would abort every cell that reads it
         (INV-APV-47). Both fields live inside the artifact, so there is no sidecar
         to keep consistent.
 
@@ -910,35 +834,41 @@ class ApeRVTool(AbstractTool):
         return digest, format_version
 
     def _push_properties(
-        self, device_serial: str, trace_file_path: str, mop_json_pushed: bool = False
+        self, device_serial: str, trace_file_path: str, artifact_pushed: bool = False
     ) -> None:
         """
         Generate ape.properties from tool config and push to device.
 
-        The file states the arm as the jar reads it: a preset name, the MOP artifact
-        path when one was pushed, and one line per override delta. What the preset
-        contains is the jar's business — this side never restates it.
+        The file states the cell as the jar reads it: the preset, the variant name the
+        jar echoes into the trace, the static-data artifact path when one was pushed,
+        and one line per override delta. What the preset mounts is the jar's business
+        — this side never restates it.
 
-            ape.preset=<preset>                                # always first
-            ape.mopDataPath=/data/local/tmp/mop-artifact.json  # only when pushed
-            ape.<mapped-override-key>=<value>                  # deltas, mapping order
+            ape.preset=<preset>                                   # always first
+            ape.variant=<variant>                                 # always second
+            ape.staticDataPath=/data/local/tmp/mop-artifact.json  # only when pushed
+            ape.<mapped-override-key>=<value>                     # deltas, mapping order
 
-        The order is fixed so two runs of the same arm produce byte-identical output.
+        The order is fixed so two runs of the same variant produce byte-identical
+        output.
 
         Args:
             device_serial: Device serial number
             trace_file_path: Trace file for logging
-            mop_json_pushed: If True, include ape.mopDataPath in properties
+            artifact_pushed: If True, include ape.staticDataPath in properties
         """
         # Every key here is mappable: configure() rejected the unmappable ones before the
         # run reached a device (INV-APV-02).
         overrides = self._tool_config.get("overrides", {})
 
-        lines = [f"ape.preset={self._tool_config['preset']}"]
-        if mop_json_pushed:
+        lines = [
+            f"ape.preset={self._tool_config['preset']}",
+            f"ape.variant={self._tool_config['variant']}",
+        ]
+        if artifact_pushed:
             # Same constant the push destination uses, so the property and the file
             # cannot drift apart.
-            lines.append(f"ape.mopDataPath={DEVICE_ARTIFACT_PATH}")
+            lines.append(f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}")
         # Walk the mapping rather than the overrides so line order follows the table and
         # is stable across runs regardless of how the arm dict was written.
         for python_key, java_key in APERV_PROPERTY_MAPPING.items():
@@ -1273,8 +1203,8 @@ class ApeRVTool(AbstractTool):
             RVToolTimeoutError: The exploration was still running at the command
                 timeout. This is the expected, successful ending.
             RVToolExecutionError: The exploration returned more than
-                APERV_TEARDOWN_GRACE_S short of its budget (INV-APV-60), or a MOP
-                arm had no static-analysis JSON to arm from.
+                APERV_TEARDOWN_GRACE_S short of its budget (INV-APV-60), or a cell
+                with `static_data` had no static-analysis JSON to derive from.
         """
         self.logger.info(f"Executing APE-RV for {app.package_name}")
 
@@ -1296,39 +1226,48 @@ class ApeRVTool(AbstractTool):
             jar_path, APERV_DEVICE_JAR_PATH, device_serial, task.result.trace_file
         )
 
-        # Step 1b: Push system-broadcast.json for component triggering (gh11).
-        # This catalog tells APE-RV which broadcast intents to fire at receivers
-        # discovered in the manifest. Optional — APE-RV degrades gracefully without it.
+        # Step 1b: Push system-broadcast.json on the cells that mount STATIC (INV-APV-10).
+        # The catalog tells component triggering which typed extras to send with the
+        # system broadcast intents it fires at the receivers of the manifest. Component
+        # triggering is a STATIC member and the catalog's only reader, so the variant
+        # states the push with `broadcast_catalog` (the four as* cells) and base and mop
+        # receive nothing. A missing file is skipped: component triggering degrades
+        # gracefully, firing those intents without typed extras.
         broadcast_catalog = os.path.join(
-            os.path.dirname(__file__), "system-broadcast.json"
+            os.path.dirname(__file__), APERV_BROADCAST_CATALOG_NAME
         )
-        if os.path.exists(broadcast_catalog):
+        if self._tool_config.get("broadcast_catalog") and os.path.exists(
+            broadcast_catalog
+        ):
             self._push_file_to_device(
                 broadcast_catalog,
-                "/data/local/tmp/system-broadcast.json",
+                APERV_DEVICE_BROADCAST_CATALOG_PATH,
                 device_serial,
                 task.result.trace_file,
             )
 
-        # Step 1c: Derive and push the MOP artifact for MOP-guided variants.
-        # Only the derived projection travels: the full JSON stays where it is as the
-        # archived source that offline consolidation and resume re-parse.
+        # Step 1c: Derive and push the static-data artifact on every cell that mounts
+        # STATIC or MOP, which is every cell but base (INV-APV-66). Only the derived
+        # projection travels: the full JSON stays where it is as the archived source
+        # that offline consolidation and resume re-parse. One artifact serves both
+        # groups, because the jar's loader separates the static GUI model from the MOP
+        # targets.
         #
-        # A MOP arm without its static-analysis input is a failed task, not a
-        # degraded run. The warn-and-continue this replaces produced runs labelled as
-        # MOP arms that explored as pure SATA, indistinguishable in the results
-        # directory from a real one — the worst evidence-to-signal ratio in the
-        # pipeline. Failing here makes the supervisor retry it and shows it in the
-        # run summary.
-        mop_json_pushed = False
-        if self._tool_config.get("mop_data") == "static_analysis":
+        # A cell without its static-analysis input is a failed task, not a degraded
+        # run (INV-APV-45): launching the jar without ape.staticDataPath would run a
+        # cell whose STATIC or MOP group has no data, under the cell's name, and the
+        # results directory could not tell it from a real one. Failing here makes the
+        # supervisor retry it and shows it in the run summary.
+        artifact_pushed = False
+        if self._tool_config.get("static_data") == STATIC_DATA_FROM_STATIC_ANALYSIS:
             static_json = self._find_static_analysis_file(task)
             if not static_json:
                 results_dir = getattr(task, "results_dir", None) or "<results_dir>"
                 apk_name = getattr(task_config, "apk_name", None) or "<apk_name>"
                 expected_path = os.path.join(results_dir, f"{apk_name}.json")
                 raise RVToolExecutionError(
-                    f"MOP arm cannot arm: no static analysis JSON at {expected_path}",
+                    f"aperv cell {self._tool_config.get('variant')!r} needs its static "
+                    f"data: no static analysis JSON at {expected_path}",
                     tool_name=self.name,
                     cause=None,
                 )
@@ -1339,14 +1278,14 @@ class ApeRVTool(AbstractTool):
                 device_serial,
                 task.result.trace_file,
             )
-            mop_json_pushed = True
+            artifact_pushed = True
 
         # Step 2: Push ape.properties with exploration parameters.
         # Skipped only when _tool_config is empty (tool used without configure()),
         # which means APE-RV falls back to its built-in defaults.
         if self._tool_config:
             self._push_properties(
-                device_serial, task.result.trace_file, mop_json_pushed
+                device_serial, task.result.trace_file, artifact_pushed
             )
 
         # Step 2b: Capture which backend actually serves this run (N4). Only for
@@ -1361,11 +1300,11 @@ class ApeRVTool(AbstractTool):
         # It cannot be written into the trace itself: step 3 opens that file in
         # "wb" and would truncate anything written here.
         #
-        # The discriminator is `llm_url` in the arm's overrides, not the preset name.
-        # Both say the same thing today — the llm and llm_mop presets state the routing
-        # gates ON, and INV-APV-38 requires every such arm to supply the URL — but the URL
-        # is what this step actually needs, so testing for it cannot go looking for a
-        # server that was never configured.
+        # The discriminator is `llm_url` in the variant's overrides, not the preset name.
+        # Both say the same thing for the cells — as_llm and as_mop_llm mount the LLM
+        # group, and INV-APV-38 requires both to supply the URL — but the URL is what
+        # this step actually needs, and this module does not branch on preset names, so
+        # testing for it cannot go looking for a server that was never configured.
         llm_url = self._tool_config.get("overrides", {}).get("llm_url")
         if llm_url:
             provenance = self._capture_llm_provenance(llm_url, jar_path)
