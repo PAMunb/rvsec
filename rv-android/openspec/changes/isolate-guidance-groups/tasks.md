@@ -43,9 +43,9 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 - [x] 0.1 In the worktree root (`…/worktrees-aperv/isolate-guidance-groups/rv-android`), run `uv sync` and confirm `modules/aperv-tool` tests import from this worktree's `.venv`
 - [x] 0.2 Baseline: `cd modules/aperv-tool && uv run pytest --import-mode=importlib -o "addopts=" -q`; record the pass/skip counts, so a later red is attributable
 - [x] 0.3 Back up `modules/aperv-tool/tests/migration/test_decisive_contrasts.py` to `backup/20261017-isolate-guidance-groups/` (P3)
-- [ ] 0.4 In `analysis/trace_ndjson.py`, declarations only: the `Ownership`, `NavTie` and `ComponentTrigger` dataclasses; the fifteen new `StepRow` fields with `None` defaults (`nav_frontier` defaults to `0`); `activity_has_mop` / `target_activity_has_mop` as `Optional[bool]`; `RunStart.variant`; `TraceReader.run_end` property returning `None`; `SUPPORTED_VERSIONS = {1, 2}` (design § API Design). No parsing yet; the existing suite stays green
-- [ ] 0.5 In `analysis/baseline_ape.py` and `analysis/baseline_droidbot.py`, add `None` for the fifteen new fields to the row dicts, so `test_baseline_frames.py` parity stays green after 0.4
-- [ ] 0.6 Run `/rv-test-run aperv-tool`; commit wave 0 by path
+- [x] 0.4 In `analysis/trace_ndjson.py`, declarations only: the `Ownership`, `NavTie` and `ComponentTrigger` dataclasses; the fifteen new `StepRow` fields with `None` defaults (`nav_frontier` defaults to `0`); `activity_has_mop` / `target_activity_has_mop` as `Optional[bool]`; `RunStart.variant`; `TraceReader.run_end` property returning `None`; `SUPPORTED_VERSIONS = {1, 2}` (design § API Design). No parsing yet; the existing suite stays green
+- [x] 0.5 In `analysis/baseline_ape.py` and `analysis/baseline_droidbot.py`, add `None` for the fifteen new fields to the row dicts, so `test_baseline_frames.py` parity stays green after 0.4
+- [x] 0.6 Run `/rv-test-run aperv-tool`; commit wave 0 by path
 
 ## T. Variants, configuration, properties, mapping, push (`tool.py`) — wave 1
 

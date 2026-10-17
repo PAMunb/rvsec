@@ -266,7 +266,9 @@ class TestDiagnostics:
         assert reader.diagnostics.activities == 2
         assert reader.diagnostics.states == 2
         assert reader.diagnostics.run_start_present is True
-        assert not hasattr(reader, "run_end")
+        # `run_end` is declared and not parsed yet; R.4/R.7 turn this into the
+        # census scenario.
+        assert reader.run_end is None
         assert "RUN_END" not in {
             name for name in dir(reader) if not name.startswith("_")
         }

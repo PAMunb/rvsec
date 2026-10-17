@@ -79,7 +79,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
 # Record types carried in the same NDJSON stream that this reader resolves.
 # The record types this module reads. `RUN_END` is deliberately absent and has
@@ -108,6 +108,11 @@ _RECORD_PREFIX = "{"
 # — and neither trace says which it is. The version exists so the next such
 # comparison fails loudly instead of quietly averaging incomparable fields.
 FORMAT_VERSION = 1
+
+# The trace schemas this reader reads: 1 is the `eea2b1a9` jar and earlier, 2 is
+# the group-isolation jar, which bumped `RunSpecEcho.FORMAT_VERSION` because
+# `dec.src` changed meaning (INV-APV-62).
+SUPPORTED_VERSIONS = frozenset({1, 2})
 
 
 class SchemaVersionMismatch(Exception):
@@ -216,6 +221,9 @@ class RunStart:
         digest: The run specification's own digest, as the jar computed it.
         props_digest: Digest of the resolved property set.
         build: The jar's identity, or None when the record carried no `build`.
+        variant: The cell name the harness passed as `ape.variant`. None on
+            every trace written before the group-isolation jar, and when the
+            harness passed none.
     """
 
     v: Optional[int] = None
@@ -231,6 +239,7 @@ class RunStart:
     digest: Optional[str] = None
     props_digest: Optional[str] = None
     build: Optional[BuildStamp] = None
+    variant: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -341,7 +350,8 @@ class StepOutcome:
         target_activity_has_mop: Whether that landing activity is in the run's
             MOP set. This is the "reached a monitored screen" half of the
             evidential link whose other half is `StepRow.activity_has_mop`.
-            None when there is no target to look it up from.
+            None when there is no target to look it up from, or when its `ACT`
+            record carries no `mop` (INV-APV-68).
         activity_changed: Whether the transition crossed an Activity boundary,
             as opposed to moving between states of the same one.
     """
@@ -390,6 +400,70 @@ class ComponentDispatch:
 
 
 @dataclass(frozen=True)
+class Ownership:
+    """Which mechanism was meant to take the step, and why another did (`dec.own`).
+
+    Written on every step record by the group-isolation jar; absent on the
+    `eea2b1a9` jar and earlier.
+
+    Attributes:
+        intended: The owner that claimed the step (`i`): `budget`, `restart`,
+            `llm`, `launcher`, `mop` or `sata`.
+        trigger: The LLM stage that made the step's one LLM call (`trg`):
+            `new_state`, `stagnation` or `coin`. None when no LLM stage called.
+        u_llm: The LLM coin's draw (`uL`). None when LLM is not mounted.
+        u_mop: The MOP coin's draw (`uM`). None when MOP is not mounted.
+        gate: The gate that barred the LLM call (`g`): `min_actions` or
+            `breaker`. None when no gate barred it.
+        fallback: Why the intended owner did not take the step (`fb`): `gate`,
+            `error`, `decline`, `no_match` or `ineligible`. None when it did.
+    """
+
+    intended: str
+    trigger: Optional[str] = None
+    u_llm: Optional[float] = None
+    u_mop: Optional[float] = None
+    gate: Optional[str] = None
+    fallback: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class NavTie:
+    """How a navigation extension point broke a tie (`dec.nav`).
+
+    The jar writes it only when the point had at least two candidates.
+
+    Attributes:
+        point: The extension point (`x`): `X1`, `X3` or `X4`.
+        component: The variant that decided (`c`): `ape` or `mop`.
+        alternative: True only when the MOP variant decided by its own rule
+            (`alt`, `ape` D-B14.8); always False at X1 and on cells without MOP.
+        drew: Whether the decision was a random draw among equals (`drew`).
+    """
+
+    point: str
+    component: str
+    alternative: bool
+    drew: bool
+
+
+@dataclass(frozen=True)
+class ComponentTrigger:
+    """The component the STATIC component trigger fired during the step (`dec.trig`).
+
+    A side effect of the step, never its owner: the record's `src` names who took
+    the step. `StepRow.component` stays the launcher's activity-launch outcome.
+
+    Attributes:
+        kind: `broadcast`, `service` or `provider` (`k`).
+        component_class: The fired component's class name (`c`).
+    """
+
+    kind: str
+    component_class: str
+
+
+@dataclass(frozen=True)
 class StepRow:
     """One fully-joined exploration step, dictionary references resolved.
 
@@ -407,8 +481,9 @@ class StepRow:
             is inferred from anywhere else (INV-APV-51).
         activity: Activity class name, resolved from the `ACT` dictionary.
         activity_has_mop: Whether the activity the step started on is in the
-            run's precomputed MOP set. Uniformly False in a MOP-off arm, which
-            reports no MOP data at all.
+            run's precomputed MOP set. None when the trace's `ACT` record carries
+            no `mop`, which the group-isolation jar omits when MOP is not
+            mounted (INV-APV-68).
         state_key: Abstract state key, resolved from the `STATE` dictionary.
             Run-local: the key embeds a JVM identity hash and carries no
             meaning outside the process that produced it (INV-APV-36), so it
@@ -421,6 +496,8 @@ class StepRow:
         mop: MOP-widget boost applied to the pick. Zero when not applied.
         mop_frontier: MOP activity-frontier boost. Zero when not applied.
         wtg: Window-transition-graph boost. Zero when not applied.
+        nav_frontier: Navigation-frontier boost (`navf`, STATIC). Zero when not
+            applied, and on every trace of the `eea2b1a9` jar and earlier.
         coverage: Coverage boost. Zero when not applied.
         menu: Menu boost. Zero when not applied.
         form: Form boost. Zero when not applied.
@@ -455,13 +532,34 @@ class StepRow:
         outcome: What the action produced. None when the record legitimately
             closed with no outcome — which is a different fact from an outcome
             that exists but is unresolved (`StepOutcome.resolved is False`).
+        owner: The owner record (`own`). None on the `eea2b1a9` jar and earlier.
+        scorer_cf: Per-scorer counterfactual (`cfc`): for each mounted scorer
+            with a non-zero term, whether zeroing it alone would have changed
+            the pick at a roulette or least-visited site. None when absent.
+        draw: `(index, total)` of a roulette pick (`draw`). None when absent.
+        nav: The extension-point tie record (`nav`). None when absent.
+        input_source: How the action's text was filled (`inp`). None when the
+            action entered no text.
+        restart_kind: Which restart the `restart` owner made (`restart`).
+        back_menu_capped: Candidates the BACK/MENU cap removed (`bmc`). None
+            when absent, which the jar writes for 0.
+        sata_path: The SATA path that picked the action (`strat`). None unless
+            the owner is `sata`.
+        rotation: Display rotation at step open (`rot`), `-1` when unreadable.
+        buffer_abandoned_by: The owner that abandoned a non-empty buffer (`buf`).
+        component_trigger: The component the STATIC trigger fired during the
+            step (`trig`). None when it fired none.
+        mop_distance: MOP distance of the chosen action (`mopd`). None when it
+            has no MOP weight.
+        mop_stamp: Source of the chosen action's MOP lookup (`mops`).
+        retired_targets: MOP targets retired at this step (`ret`).
     """
 
     step: int
     t_rel_ms: int
     t_epoch_ms: Optional[int]
     activity: str
-    activity_has_mop: bool
+    activity_has_mop: Optional[bool]
     state_key: str
     action: str
     decision_source: str
@@ -470,6 +568,7 @@ class StepRow:
     mop: int = 0
     mop_frontier: int = 0
     wtg: int = 0
+    nav_frontier: int = 0
     coverage: int = 0
     menu: int = 0
     form: int = 0
@@ -480,6 +579,20 @@ class StepRow:
     component: Optional[ComponentDispatch] = None
     llm: Tuple[LlmCall, ...] = ()
     outcome: Optional[StepOutcome] = None
+    owner: Optional[Ownership] = None
+    scorer_cf: Optional[Mapping[str, bool]] = None
+    draw: Optional[Tuple[int, int]] = None
+    nav: Optional[NavTie] = None
+    input_source: Optional[str] = None
+    restart_kind: Optional[str] = None
+    back_menu_capped: Optional[int] = None
+    sata_path: Optional[str] = None
+    rotation: Optional[int] = None
+    buffer_abandoned_by: Optional[str] = None
+    component_trigger: Optional[ComponentTrigger] = None
+    mop_distance: Optional[int] = None
+    mop_stamp: Optional[str] = None
+    retired_targets: Optional[Tuple[int, ...]] = None
 
 
 @dataclass
@@ -693,6 +806,11 @@ class TraceReader:
         decisive campaign's 40 applications.
         """
         return self._pipeline
+
+    @property
+    def run_end(self) -> Optional[Dict[str, Any]]:
+        """The `RUN_END` record minus `type`, verbatim, or None."""
+        return None
 
     @property
     def llm_ack(self) -> Optional[Dict[str, Any]]:
