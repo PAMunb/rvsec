@@ -541,8 +541,8 @@ class StepRow:
         pick_channel: Label of the channel the pick came through (`ch`),
             carried as written. On the group-isolation jar it is `mop_coin`,
             `budget`, `restart`, `launcher`, `llm` or one of SATA's channels
-            (`roulette_greedy`, `roulette_early`, `buffer`, `sata_other`), and
-            `short_circuit_*` is no longer written.
+            (`roulette_greedy`, `roulette_early`, `buffer`, `sata_other`); the
+            `short_circuit_*` channels appear only under `v == 1`.
         priority: Model-action priority. None for non-model actions, which
             carry neither a priority nor any boost.
         mop: MOP-widget boost applied to the pick. Zero when not applied.
