@@ -75,15 +75,15 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 
 ## R. Trace reader bodies (`trace_ndjson.py`) — wave 1, after 0.4
 
-- [ ] R.1 Version gate on `SUPPORTED_VERSIONS`; `SchemaVersionMismatch` names the supported set; `RunStart.variant` parsed; the module docstring cites both `ape` changes as wire authorities
-- [ ] R.2 Parse the new members into the declared fields: `own` → `Ownership`, `nav` → `NavTie`, `trig` → `ComponentTrigger`, `cfc`, `draw`, `inp`, `restart`, `bmc`, `strat`, `rot`, `buf`; `navf` joins `_BOOST_FIELDS`; `mopd`/`mops`/`ret`; a wrongly shaped member is malformed, and unknown enum values are carried
-- [ ] R.3 `ACT.mop` absent → `activity_has_mop = None` on both sides (INV-APV-68; `:806-810`)
-- [ ] R.4 `run_end` holds the record minus `type`; delete the "RUN_END is deliberately absent" comments (`:84-89`, `:830-836`) and the docstring clause (`:57-58`)
-- [ ] R.5 Docstrings: `decision_source` with both meanings keyed on `run_start.v` (INV-APV-67); `Counterfactual` says it zeroes only the MOP boosts and exists under `v == 1` only; `scorer_cf` says what it answers; `wtg_source` is `v == 1` only
-- [ ] R.6 Fixtures: add `mopd`/`mops`/`ret` to a golden step; rename `trace_ndjson_v2_header.ndjson` → `trace_ndjson_v3_header.ndjson` (`v: 3`); write `trace_ndjson_groups.ndjson` (`v: 2`, `variant`, an `ACT` without `mop`, owners `llm`/`mop`/`restart`/`sata`, a step with every new member, `RUN_END` with the eight new counters)
-- [ ] R.7 Tests in `tests/test_trace_ndjson.py` for every scenario of "NDJSON Trace Reader": invert the `V2_HEADER` tests (`:484-519`) onto the v3 fixture; the cmp162 real-trace check (`:760`) asserts `v == 1`; flip `test_run_end_is_read_by_nothing_and_not_counted_as_malformed` (`:253-272`) to the census scenario; the collection-path test still forbids `RUN_END` in `tools/aperv/*`
-- [ ] R.8 Run `/rv-doc-code modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`
-- [ ] R.9 Run `/rv-test-run aperv-tool` (`tests/test_trace_ndjson.py`)
+- [x] R.1 Version gate on `SUPPORTED_VERSIONS`; `SchemaVersionMismatch` names the supported set; `RunStart.variant` parsed; the module docstring cites both `ape` changes as wire authorities
+- [x] R.2 Parse the new members into the declared fields: `own` → `Ownership`, `nav` → `NavTie`, `trig` → `ComponentTrigger`, `cfc`, `draw`, `inp`, `restart`, `bmc`, `strat`, `rot`, `buf`; `navf` joins `_BOOST_FIELDS`; `mopd`/`mops`/`ret`; a wrongly shaped member is malformed, and unknown enum values are carried
+- [x] R.3 `ACT.mop` absent → `activity_has_mop = None` on both sides (INV-APV-68; `:806-810`)
+- [x] R.4 `run_end` holds the record minus `type`; delete the "RUN_END is deliberately absent" comments (`:84-89`, `:830-836`) and the docstring clause (`:57-58`)
+- [x] R.5 Docstrings: `decision_source` with both meanings keyed on `run_start.v` (INV-APV-67); `Counterfactual` says it zeroes only the MOP boosts and exists under `v == 1` only; `scorer_cf` says what it answers; `wtg_source` is `v == 1` only
+- [x] R.6 Fixtures: add `mopd`/`mops`/`ret` to a golden step; rename `trace_ndjson_v2_header.ndjson` → `trace_ndjson_v3_header.ndjson` (`v: 3`); write `trace_ndjson_groups.ndjson` (`v: 2`, `variant`, an `ACT` without `mop`, owners `llm`/`mop`/`restart`/`sata`, a step with every new member, `RUN_END` with the eight new counters)
+- [x] R.7 Tests in `tests/test_trace_ndjson.py` for every scenario of "NDJSON Trace Reader": invert the `V2_HEADER` tests (`:484-519`) onto the v3 fixture; the cmp162 real-trace check (`:760`) asserts `v == 1`; flip `test_run_end_is_read_by_nothing_and_not_counted_as_malformed` (`:253-272`) to the census scenario; the collection-path test still forbids `RUN_END` in `tools/aperv/*`
+- [x] R.8 Run `/rv-doc-code modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`
+- [x] R.9 Run `/rv-test-run aperv-tool` (`tests/test_trace_ndjson.py`)
 
 ## A. Analysis consumers — wave 1, after 0.4 (codes against the declared fields)
 
