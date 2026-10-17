@@ -5,7 +5,7 @@ GitHub Issue: none (author's decision, 2026-10-17). This is the sister change of
 jar side. Both changes are on branch `isolate-guidance-groups` in their repositories. They are merged only after
 the mini experiment's results are good and the author decides so explicitly (D-A19). Source of the plan-level
 decisions: APE-RV `docs/plans/20261017_isolamento_grupos_aperv.md` (the plan; §9 is this change). Source of the
-key and telemetry contract: the `ape` change's `design.md` § API Design (contract v3, 2026-10-17, which includes
+key and telemetry contract: the `ape` change's `design.md` § API Design (contract v3.1, `ape` `558549a5`, which includes
 D-B13 and D-B14).
 
 **Label: MEASUREMENT.** The change alters what an `aperv` arm measures.
@@ -57,6 +57,11 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
   `mopReach`, which the new jar writes only when MOP is mounted. It accepts `RUN_START.v` 1 and 2, the new jar's version,
   and reports `activity_has_mop` as absent where the jar did not compute it. The docs of `decision_source` and `Counterfactual` say what each
   means on each jar.
+- **`APERV_LLM_BASE_URL` works** (author's decision, 2026-10-17): the module's docs and spec promise that the
+  variable redirects the LLM cells, and no code reads it. gh55 removed the read from `configure()` for layer purity
+  and the entry-point read it announced was never written. `rv-experiment` now reads it, beside `RV_HUMANOID_URL`,
+  and injects it as `llm_url` into the `ToolConfig.parameters` of the `as_llm` and `as_mop_llm` cells. A DSL
+  `@llm_url` wins over it. No recorded run set it, so no measurement changes.
 - **BREAKING (spec) — `RUN_END` in the offline reader** (author's decision, 2026-10-17): INV-APV-53 is narrowed to
   the collection path and the `RUN_END` clause of INV-APV-58 is reversed. `tool.py` still never reads `RUN_END`
   (owner decision D5). The reader exposes the record as a census, like `MOP_DATA`, without interpreting it.
@@ -78,15 +83,18 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
 - `campaign-analysis`: gate 1 gains an NDJSON form. The anchored `mop=` pattern is blind on every stage-4 trace,
   a pre-existing defect. The new form counts the MOP-group members of the step records and `UICOV mopReach`, and
   `MOP_DATA` and `ACT` never count. Gate 3 uses `RUN_START.variant` as attribution evidence. `screen_visits` tags
-  `decision_source` counts with the trace version and counts the input origin. `screen_visits` and `step_bundle`
+  `decision_source` counts with the trace version. `screen_visits` and `step_bundle`
   carry `activity_has_mop = None` through. The arm names in `analysis/` and `callers/rq_map.toml` (cmp162, E3)
   are labels of recorded data and stay.
+
+- `experiment`: the entry point reads `APERV_LLM_BASE_URL` and injects it into the `aperv` LLM cells; the
+  Layer-Purity audit names the new reader and its one exception to the `RV_*` naming.
 
 `tools` is not modified: `default` survives.
 
 ## Impact
 
-- **Module**: `modules/aperv-tool` only:
+- **Module**: `modules/aperv-tool`:
   - `tools/aperv/tool.py`: variants, mapping, push rules, properties lines;
   - `tools/aperv/derive_mop_artifact.py`: the intent-filter `data` member;
   - `analysis/trace_ndjson.py`: the reader;
@@ -97,7 +105,10 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
   - the tests: `tests/test_aperv_tool.py`, `tests/test_trace_ndjson.py`, `tests/test_derive_mop_artifact.py`,
     `tests/migration/*`, and the trace fixtures;
   - the docs: the module's `CLAUDE.md`, `README.md` and `docs/architecture.md`.
-- **Outside the module**: the current-behaviour docs that name the deleted variants (`docs/architecture/ape-rv.md`,
+- **Outside the module, code**: `modules/rv-experiment/src/rv_experiment/__main__.py` (the variable's read and
+  injection) and `modules/rv-android-core/src/rv_android_core/constants.py` (`ENV_APERV_LLM_BASE_URL`), with a new
+  `rv-experiment` test.
+- **Outside the module, docs**: the current-behaviour docs that name the deleted variants (`docs/architecture/ape-rv.md`,
   `docs/architecture/rv-experiment.md`, the `rv-experiment-compare` skill examples) are updated. Compose files,
   `scripts/` and `experimento-*/` are records of finished campaigns and stay as they are.
 - **Requirements**: FR19 (external tool support), FR20 (per-tool variant system), FR11 (trace parsing for
@@ -105,7 +116,7 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
 - **Cross-repository**: the tasks that encode the contract are blocked by the `ape` change's wave 0 (contracts),
   and the gate and the jar refresh by its wave 2 (cell `RUN_START` fixtures, `mvn install`). `tasks.md` cites
   them.
-- **Not affected**: the builtin `ape` tool, the rv-platform and rv-experiment code (nothing there names an `aperv`
-  variant), the frozen legacy-corpus readers (INV-APV-55), and the artifact format version.
+- **Not affected**: the builtin `ape` tool, the rv-platform code and the rest of rv-experiment (nothing there
+  names an `aperv` variant), the frozen legacy-corpus readers (INV-APV-55), and the artifact format version.
 - **Comparability**: no run made with this tree shares a name with an E6 or earlier `aperv` run. That is the
   point of deleting the names.

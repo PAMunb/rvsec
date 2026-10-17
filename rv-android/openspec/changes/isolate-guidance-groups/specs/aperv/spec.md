@@ -100,6 +100,11 @@ invariant section is synchronized by hand at archive.
 - **INV-APV-08** (replaced): `ape.properties` generation SHALL use `APERV_PROPERTY_MAPPING` to translate the
   `overrides` keys. Python-only keys (`strategy`, `static_data`, `seed`, the three device-addressing keys) have no
   mapping entry and are never written; `preset` and `variant` are written by their own fixed lines.
+- **INV-APV-09** (replaced): the LLM cells (`as_llm`, `as_mop_llm`) SHALL carry `http://10.0.2.2:30000/v1` as
+  their default `llm_url`; `10.0.2.2` is the Android emulator's alias for the host loopback interface. The
+  `APERV_LLM_BASE_URL` environment variable SHALL replace that default when set, through the `rv-experiment` entry
+  point and `ToolConfig.parameters`, never through a read in this module (INV-TOOL-20). A DSL `@llm_url` SHALL win
+  over the variable. A cell without the LLM group SHALL NOT receive `llm_url` from the variable.
 - **INV-APV-10** (replaced): `system-broadcast.json` SHALL be pushed when it is present in the module directory and
   the variant carries `broadcast_catalog=True`, and SHALL NOT be pushed otherwise. `broadcast_catalog` SHALL be
   `True` exactly on the cells whose preset mounts STATIC, because the catalog's only reader in the jar is
@@ -197,9 +202,13 @@ recognises `sata`, `random` and `replay` and nothing else, so accepting them Pyt
 validation only to fail on the emulator. `replay` is legal in the jar but SHALL NOT be accepted here: it requires
 `--ape-replay <log>`, which this tool never passes.
 
-When the `APERV_LLM_BASE_URL` environment variable is set and `llm_url` is present in the config, the
-environment variable value SHALL override the config value. This allows operators to redirect LLM
-traffic without modifying variant definitions.
+The `APERV_LLM_BASE_URL` environment variable redirects the LLM cells to another endpoint without a variant
+change, which Docker and physical-device setups need because `10.0.2.2` is the emulator's alias for the host.
+`configure()` SHALL NOT read it (INV-TOOL-20). The `rv-experiment` entry point reads it and places the value in the
+`aperv` LLM cells' `ToolConfig.parameters` as `llm_url` (experiment "aperv LLM URL Resolved at the Entry Point").
+The factory merges it at the top level, and the DSL fold above moves it into `overrides`, where it replaces the
+cell's default. A `@llm_url` written in the tool DSL is the operator's explicit value and wins over the variable.
+The cells without the LLM group never receive it (INV-APV-09).
 
 #### Scenario: Valid preset arm configured
 - **WHEN** `configure({"strategy": "sata", "preset": "mop", "variant": "mop", "static_data": "static_analysis", "overrides": {}})` is called
@@ -262,9 +271,10 @@ traffic without modifying variant definitions.
   belief that it had been overridden
 
 #### Scenario: LLM URL override via environment variable
-- **WHEN** `configure({"strategy": "sata", "preset": "as_llm", "variant": "as_llm", "static_data": "static_analysis", "overrides": {"llm_url": "http://10.0.2.2:30000/v1"}})` is called
-- **AND** the `APERV_LLM_BASE_URL` environment variable is set to `"http://192.168.1.100:30000/v1"`
-- **THEN** the effective `llm_url` SHALL be `"http://192.168.1.100:30000/v1"`
+- **WHEN** `APERV_LLM_BASE_URL` is set to `"http://192.168.1.100:30000/v1"` and `rv-experiment run --tools aperv:as_llm` resolves the tool, so `ToolConfig.parameters` carries `llm_url="http://192.168.1.100:30000/v1"`
+- **AND** the factory calls `configure({"strategy": "sata", "preset": "as_llm", "variant": "as_llm", "static_data": "static_analysis", "broadcast_catalog": True, "overrides": {"llm_url": "http://10.0.2.2:30000/v1"}, "llm_url": "http://192.168.1.100:30000/v1"})`
+- **THEN** the effective `llm_url` SHALL be `"http://192.168.1.100:30000/v1"` and exactly one `ape.llmUrl` line SHALL carry it
+- **AND** `configure()` called directly with the variable set and no top-level `llm_url` SHALL keep `"http://10.0.2.2:30000/v1"`, because the tool does not read the environment
 
 ---
 

@@ -115,9 +115,10 @@ reader tells them apart through `run_start.v`.
     caller that aggregates counts across runs SHALL refuse to pool versions.
   - `ActivityVisit.activity_has_mop` and `target_activity_has_mop` SHALL be `Optional[bool]` and carry `None`
     through (INV-CAN-22).
-  - The visit SHALL gain `input_source_counts`, the counts of `StepRow.input_source` over its steps. It is
-    `None` on a `v == 1` trace, which records no input origin. This makes the new jar's text-entry origin
-    countable without re-deriving it from action types.
+  - The visit SHALL NOT aggregate `StepRow.input_source`. The jar's `dec.inp` folds two facts into one value: why
+    the field was filled (`llm`, `form`) and which generator wrote the text (`typed`, `heuristic`, `random`), with
+    `llm` > `form` > the generator. A count per visit would hide the generator on exactly the form and LLM fills,
+    and the LLM never writes the text (`ApeAgent.checkInput`). The per-step value stays on the row.
 - **`step_bundle.py`** SHALL carry `activity_has_mop` as `Optional[bool]` into its frame column, written as
   null when absent (INV-CAN-22).
 - **`runspec.attribution_evidence`** SHALL compare `RunStart.variant` with the manifest arm's cell when both are
@@ -127,9 +128,11 @@ reader tells them apart through `run_start.v`.
   cannot carry, the fourteen fields added by the reader included (INV-CAN-19), and SHALL keep deriving their column
   list from `fields(StepRow)`.
 
-The consumers whose inputs do not change are left as they are: `coverage_dump`, `clock_logcat_join`,
-`violations`, `monitored_ops`, `liveness`, `run_identity`, `tasks_record`, `loader`, the estimators and the caller
-glue. The group-isolation change touches no logcat tag, no heartbeat and no `UICOV` line. The arm literals of
+The consumers whose inputs do not change are left as they are: `clock_logcat_join`, `violations`,
+`monitored_ops`, `liveness`, `run_identity`, `tasks_record`, `loader`, the estimators and the caller glue. The
+group-isolation change touches no logcat tag and no heartbeat. Its one `UICOV` change, `mopReach` written only
+where MOP is mounted, is handled by `coverage_dump` and `state_coverage_join` under the `aperv` delta's
+"Offline Coverage-Dump Parser at Activity Grain". The arm literals of
 `callers/rq_map.toml` name the decisive corpus (cmp162/E3), whose runs are recorded data. A group-isolation
 campaign declares its own entries where its analysis is defined, and this change adds none.
 
@@ -142,11 +145,6 @@ campaign declares its own entries where its analysis is defined, and this change
 - **WHEN** `screen_visits` segments an `aperv:as` trace whose `ACT` records carry no `mop`
 - **THEN** every visit's `activity_has_mop` SHALL be `None`
 - **AND** the `step_bundle` frame's `activity_has_mop` column SHALL be null on every row, not `False`
-
-#### Scenario: Input origin is counted on the new jar only
-- **WHEN** a `v == 2` visit has steps with `input_source` `typed` (2) and `heuristic` (1)
-- **THEN** `input_source_counts` SHALL be `{"typed": 2, "heuristic": 1}`
-- **AND** a `v == 1` visit SHALL report `input_source_counts = None`
 
 #### Scenario: Variant attribution is not-run on an old trace
 - **WHEN** `runspec.attribution_evidence` checks a cmp162 `aperv:mop_on_llm_off` trace (`v == 1`)
