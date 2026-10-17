@@ -97,8 +97,8 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 
 ## M. Migration checks against the jar source (`tests/migration/*`) — wave 1; M.4 also needs APE 11.6
 
-- [ ] M.1 `jar_tables.py`: parse the new `Presets.java` (cells composed from group blocks, design D10), against the file APE wave 0 writes; `test_jar_tables.py` pins six cells, the block unions, the new retired keys (`ape.mopDataPath`, `ape.mopTargetPickCap`, `ape.leastVisitedPriorityTiebreak`) and the vocabulary size read from `KeyOwnership.java`
-- [ ] M.2 `test_mapping_sweep.py` unchanged; it must pass against the `isolate-guidance-groups` checkout
+- [x] M.1 `jar_tables.py`: parse the new `Presets.java` (cells composed from group blocks, design D10), against the file APE wave 0 writes; `test_jar_tables.py` pins six cells, the block unions, the new retired keys (`ape.mopDataPath`, `ape.mopTargetPickCap`, `ape.leastVisitedPriorityTiebreak`) and the vocabulary size read from `KeyOwnership.java`
+- [x] M.2 `test_mapping_sweep.py` unchanged; it must pass against the `isolate-guidance-groups` checkout
 - [x] M.3 Delete `tests/migration/test_decisive_contrasts.py` (backed up in 0.3); `retirements.py`, `capture_arm_baseline.py` and the gh95 migration record stay (archive tooling for recorded arms)
 - [ ] M.4 New `tests/migration/test_cells.py` (offline cell gate): preset names = the six cells; `as_mop_llm` keys = union of the four blocks; each `cells/<cell>.run_start.json` has `preset`/`variant` equal to `get_variants()`'s and the expected `features` of contract v3.2 (`mop` with `MOP_LAUNCHER` and without `MENU_GATEWAY`; `COMPONENT_TRIGGER` in the four `as*`)
 - [ ] M.5 Run `APE_REPO=<ape checkout on isolate-guidance-groups> /rv-test-run aperv-tool` (`tests/migration`)
@@ -114,7 +114,7 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 ## I. Wave 2 — integration (serial, coordinator)
 
 - [x] I.1 Run the whole module suites: `/rv-test-run aperv-tool` and `/rv-test-run rv-experiment`; fix cross-front breaks (front owners re-dispatched if needed)
-- [ ] I.2 When APE 3.10 sends the contract commit: diff its `design.md` § Key contract / § Telemetry contract against v3.2 (`16b185f4`); apply any difference through `/opsx:update` and the owning front; then run M.2 against that commit
+- [x] I.2 When APE 3.10 sends the contract commit: diff its `design.md` § Key contract / § Telemetry contract against v3.2 (`16b185f4`); apply any difference through `/opsx:update` and the owning front; then run M.2 against that commit
 - [x] I.3 Grep `modules/aperv-tool/src` for `FORMAT_VERSION`, `mop_data` (outside `TraceReader.mop_data`), `MOP_WIDGET`, `wtgsrc` in non-v1 docstrings: no stale reference
 
 ## S. Wave 3 — jar pairing and device smoke (with APE 11.9 / 12.1)
