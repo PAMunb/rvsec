@@ -24,6 +24,7 @@ from typing import List, Optional
 
 import click
 from rv_android_core.constants import (
+    ENV_APERV_LLM_BASE_URL,
     ENV_APKS_DIR,
     ENV_APKS_FILTER,
     ENV_DEBUG,
@@ -71,6 +72,15 @@ from rv_experiment.constants import (
 )
 from rv_experiment.experiment.experiment_controller import execute_with_config
 from rv_tools import ToolRegistry
+
+# Names of the aperv tool, of its variant-definition overrides block and of the LLM URL
+# key, as the aperv variant table writes them. They are the only aperv facts the
+# APERV_LLM_BASE_URL injection needs; which cells mount the LLM group is read from the
+# registry, not listed here.
+APERV_TOOL_NAME = "aperv"
+APERV_OVERRIDES_KEY = "overrides"
+APERV_LLM_URL_KEY = "llm_url"
+DEFAULT_VARIANT = "default"
 
 
 class CLIContext:
@@ -1218,6 +1228,42 @@ def validate(ctx: CLIContext, config_file: str):
         sys.exit(1)
 
 
+def _inject_aperv_llm_url(
+    tool_configs: List[ToolConfig], registry: ToolRegistry
+) -> None:
+    """Inject APERV_LLM_BASE_URL into the aperv cells that mount the LLM group (INV-EXP-41).
+
+    A cell mounts the LLM group when its variant definition in the registry carries
+    `overrides.llm_url`; a ToolConfig without a variant resolves `default`, as
+    ToolFactory does. The value goes into `parameters["llm_url"]`, and the tool's own
+    DSL fold moves it into `overrides`, so aperv-tool reads no environment.
+
+    Precedence is DSL `@llm_url` > APERV_LLM_BASE_URL > the cell's default: a
+    `parameters["llm_url"]` already set by the DSL is the operator's word for that one
+    entry and is kept, while the variable is a deployment default for all of them. A
+    cell without the LLM group never receives the URL, because it would write an
+    `ape.llmUrl` line for a group the cell does not mount. When the variable is unset
+    or empty, nothing is injected and each cell keeps its default. A ToolConfig whose
+    variant is not registered is left alone; config validation reports it.
+
+    Args:
+        tool_configs: Parsed tool configurations, updated in place.
+        registry: Registry holding the aperv variant definitions.
+    """
+    llm_url = os.environ.get(ENV_APERV_LLM_BASE_URL)
+    if not llm_url:
+        return
+    for tc in tool_configs:
+        if tc.name != APERV_TOOL_NAME or APERV_LLM_URL_KEY in tc.parameters:
+            continue
+        variant = tc.variant or DEFAULT_VARIANT
+        if not registry.has_variant(APERV_TOOL_NAME, variant):
+            continue
+        definition = registry.get_variant_config(APERV_TOOL_NAME, variant)
+        if APERV_LLM_URL_KEY in definition.get(APERV_OVERRIDES_KEY, {}):
+            tc.parameters[APERV_LLM_URL_KEY] = llm_url
+
+
 def _split_tool_specifications(tools_string: str) -> list[str]:
     """
     Split tool specification string into individual tool specs.
@@ -1377,6 +1423,9 @@ def _create_experiment_config_from_cli(
             for tc in tool_configs:
                 if tc.name == "humanoid":
                     tc.parameters["humanoid_url"] = humanoid_url_env
+
+        # APERV_LLM_BASE_URL is resolved here too, into the aperv LLM cells only.
+        _inject_aperv_llm_url(tool_configs, ctx.tool_registry)
 
         # Resume detection: three mutually exclusive paths determine how the
         # experiment identity and output directory are resolved.

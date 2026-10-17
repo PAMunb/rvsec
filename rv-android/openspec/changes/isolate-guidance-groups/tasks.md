@@ -61,10 +61,10 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 
 ## E. `APERV_LLM_BASE_URL` at the entry point (D14) — wave 1, not blocked
 
-- [ ] E.1 `rv_android_core/constants.py`: `ENV_APERV_LLM_BASE_URL = "APERV_LLM_BASE_URL"` beside `ENV_HUMANOID_URL`; `tests/test_constants_registry.py` (INV-CORE-30): the name pattern admits `APERV_LLM_BASE_URL` as its one non-`RV_*` user-facing name, beside the three installation paths (INV-EXP-41)
-- [ ] E.2 `rv_experiment/__main__.py`, beside the `RV_HUMANOID_URL` block (`:1369-1379`): read the variable through the constant; when non-empty, for each `ToolConfig` named `aperv` whose variant definition in `ToolRegistry` carries `overrides.llm_url` and whose `parameters` lack `llm_url`, set `parameters["llm_url"]`; the comment states the precedence DSL > variable > cell default and why non-LLM cells get nothing (INV-EXP-41). The lookup reads the registry, not a list of cell names
-- [ ] E.3 New `modules/rv-experiment/tests/test_cli_aperv_llm_url.py`: the five scenarios of "aperv LLM URL Resolved at the Entry Point" (LLM cells injected; `base`/`as_mop` untouched; DSL wins; unset/empty injects nothing; reader set pinned to `__main__.py`, none in `aperv-tool/src`). Exercise the resolution through the same function the CLI calls, with the registry populated by importing `rv_platform` as `__main__` does
-- [ ] E.4 Run `/rv-test-run rv-experiment` (the new file and `test_constants.py`) and `/rv-test-run rv-android-core` (constants tests)
+- [x] E.1 `rv_android_core/constants.py`: `ENV_APERV_LLM_BASE_URL = "APERV_LLM_BASE_URL"` beside `ENV_HUMANOID_URL`; `tests/test_constants_registry.py` (INV-CORE-30): the name pattern admits `APERV_LLM_BASE_URL` as its one non-`RV_*` user-facing name, beside the three installation paths (INV-EXP-41)
+- [x] E.2 `rv_experiment/__main__.py`, beside the `RV_HUMANOID_URL` block (`:1369-1379`): read the variable through the constant; when non-empty, for each `ToolConfig` named `aperv` whose variant definition in `ToolRegistry` carries `overrides.llm_url` and whose `parameters` lack `llm_url`, set `parameters["llm_url"]`; the comment states the precedence DSL > variable > cell default and why non-LLM cells get nothing (INV-EXP-41). The lookup reads the registry, not a list of cell names
+- [x] E.3 New `modules/rv-experiment/tests/test_cli_aperv_llm_url.py`: the five scenarios of "aperv LLM URL Resolved at the Entry Point" (LLM cells injected; `base`/`as_mop` untouched; DSL wins; unset/empty injects nothing; reader set pinned to `__main__.py`, none in `aperv-tool/src`). Exercise the resolution through the same function the CLI calls, with the registry populated by importing `rv_platform` as `__main__` does
+- [x] E.4 Run `/rv-test-run rv-experiment` (the new file and `test_constants.py`) and `/rv-test-run rv-android-core` (constants tests)
 
 ## D. Derive: the intent-filter `data` member — wave 1, not blocked (start first)
 
