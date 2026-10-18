@@ -27,7 +27,8 @@ The reader change follows from the jar's new telemetry. `dec.src` now names the 
 `restart`, `llm`, `launcher`, `mop`, `sata`) instead of the largest boost, `dec.cf` is replaced by a per-scorer
 `dec.cfc`, eleven further new `dec` members record the owner with its coins and gates, the roulette draw, the
 extension points, the input origin, the restart kind, the SATA path, the display rotation, the buffer preemption,
-the navigation-frontier boost and the component trigger (contract v3.2, `ape` `16b185f4`), and `RUN_END.counters` gains the per-run counts of each mechanism. Contract v3.3 (2026-10-18) adds the stamped handler `dec.hnd`, the fallback reason `screenshot` and the counter `nullRelaunches`, and one MOP coin key, which the ablation variant `mop_k2` sets. The
+the navigation-frontier boost and the component trigger (contract v3.2, `ape` `16b185f4`), and `RUN_END.counters` gains the per-run counts of each mechanism. Contract v3.3 (2026-10-18) adds the stamped handler `dec.hnd`, the fallback reason `screenshot` and the counter `nullRelaunches`, and one MOP coin key, which the ablation variant `mop_k2` sets; a second ablation variant, `mop_nolaunch`, runs
+the `mop` cell without its launcher. The
 reader surfaces all of them, plus the `mopd`/`mops`/`ret` members it drops today, and exposes `RUN_END` as a
 census record. The collection path in `tool.py` still never reads `RUN_END` or `RUN_START`.
 
@@ -38,7 +39,8 @@ census record. The collection path in `tool.py` still never reads `RUN_END` or `
   `as_mop_llm`), `variant: str` (the cell's own name), `overrides: Dict[str, Any]` (the server URL on the two LLM
   cells, otherwise empty), `strategy: "sata"`, `static_data: "static_analysis"` on every cell except `base`, and
   `broadcast_catalog: True` on the four cells that mount STATIC; the ablation variant `mop_k2` is the `mop` cell
-  with `variant: "mop_k2"` and `overrides: {"mop_coin_ledger_max_interactions": 2}` (source:
+  with `variant: "mop_k2"` and `overrides: {"mop_coin_ledger_max_interactions": 2}`, and `mop_nolaunch` is the
+  `mop` cell with `variant: "mop_nolaunch"` and `overrides: {"activity_trigger_enabled": False}` (source:
   `ApeRVTool.get_variants()`, merged with DSL parameters by `ToolFactory`)
 - `APERV_PROPERTY_MAPPING: Dict[str, str]` — 67 entries: override key → `ape.*` property name; only keys the jar
   built from the `ape` branch `isolate-guidance-groups` accepts (source: `tool.py` module constant)
@@ -103,8 +105,8 @@ These replace, add to or retire the listed invariants of `openspec/specs/aperv/s
 invariant section is synchronized by hand at archive.
 
 - **INV-APV-05** (replaced): `get_variants()` SHALL return a dict whose keys are exactly `default`, `base`, `mop`,
-  `as`, `as_mop`, `as_llm`, `as_mop_llm` and the ablation variant `mop_k2`, with `default` bound to the same object
-  as `base` (INV-TOOL-02).
+  `as`, `as_mop`, `as_llm`, `as_mop_llm` and the ablation variants `mop_k2` and `mop_nolaunch`, with `default`
+  bound to the same object as `base` (INV-TOOL-02).
 - **INV-APV-06** (replaced): every cell except `base` SHALL set `static_data` to `"static_analysis"`. When
   `static_data == "static_analysis"`, `execute_tool_specific_logic()` SHALL locate the full static-analysis JSON,
   obtain the derived compact artifact from it (cache-or-generate), and push only that artifact. If the JSON is not
@@ -929,8 +931,8 @@ The parser exists because the dump has **no automated consumer today**: a search
 `ApeRVTool` SHALL define one variant per experimental cell and nothing else. Every variant SHALL consist of a
 `preset` name, a `variant` name, an `overrides` dict, and Python-only orchestration keys (INV-APV-40).
 
-`get_variants()` SHALL return exactly these **eight** names, carrying **seven** distinct configurations: the six
-cells, `default`, and one ablation variant, `mop_k2`:
+`get_variants()` SHALL return exactly these **nine** names, carrying **eight** distinct configurations: the six
+cells, `default`, and two ablation variants, `mop_k2` and `mop_nolaunch`:
 
 | Variant | preset | static_data | broadcast_catalog | overrides | Groups mounted by the preset |
 |---|---|---|---|---|---|
@@ -942,6 +944,7 @@ cells, `default`, and one ablation variant, `mop_k2`:
 | `as_llm` | `as_llm` | `"static_analysis"` | `True` | `llm_url` | ADDONS, STATIC, LLM |
 | `as_mop_llm` | `as_mop_llm` | `"static_analysis"` | `True` | `llm_url` | ADDONS, STATIC, MOP, LLM |
 | `mop_k2` | `mop` | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2` | MOP |
+| `mop_nolaunch` | `mop` | `"static_analysis"` | — | `activity_trigger_enabled: False` | MOP without `MOP_LAUNCHER` |
 
 Every variant carries `strategy="sata"` and `variant` equal to its own name; `default` carries `"base"`.
 
@@ -957,9 +960,12 @@ On a cell, `overrides` SHALL carry only what the jar cannot know: the server URL
 Resume"), and the result file names are built from the same fields. `aperv:mop` and `aperv:mop@k=2` in one
 campaign would therefore be the same task: the second would be skipped as completed, or would overwrite the first.
 An ablation run beside its cell is therefore a named variant: the cell's preset, its own `variant` name, and the
-ablated key in `overrides`. `mop_k2` is the one such variant (author's decision, 2026-10-18). It is the `mop`
-cell with `ape.mopCoinLedgerMaxInteractions=2`, so the MOP coin may take each (activity, widget) key twice
-instead of once, and nothing else differs. An ablation that never shares a container with its cell stays a DSL
+ablated key in `overrides`. There are two such variants (author's decisions, 2026-10-18), both on the `mop` cell,
+each with one key changed and nothing else. `mop_k2` sets `ape.mopCoinLedgerMaxInteractions=2`, so the MOP coin
+may take each (activity, widget) key twice instead of once. `mop_nolaunch` sets `ape.activityTriggerEnabled=false`,
+which unmounts `MOP_LAUNCHER`: the launcher stage leaves the pipeline, and the null-tree recovery the launcher owns
+goes with it, so the jar's recovery falls back to APE's. Every other MOP member runs as in `mop`; none depends on
+the launcher. An ablation that never shares a container with its cell stays a DSL
 parameter.
 
 **The artifact follows the groups.** `static_data="static_analysis"` is set on every cell that mounts STATIC or
@@ -1001,7 +1007,8 @@ arm at least in the MOP coin, the owner order of the step and the X1–X4 defaul
 #### Scenario: The variant set is the six cells and default
 
 - **WHEN** `get_variants()` is read
-- **THEN** its keys SHALL be exactly `default`, `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `mop_k2`
+- **THEN** its keys SHALL be exactly `default`, `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `mop_k2`,
+  `mop_nolaunch`
 - **AND** `get_variants()["default"] is get_variants()["base"]` SHALL be true
 - **AND** none of `sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`,
   `mop_on_llm_70`, `mopd_on_llm_off`, `mopd_on_llm_90` SHALL be a key
@@ -1033,9 +1040,18 @@ arm at least in the MOP coin, the owner order of the step and the X1–X4 defaul
 - **AND** `_push_properties()` with the artifact pushed SHALL write `ape.preset=mop`, `ape.variant=mop_k2`,
   `ape.staticDataPath=/data/local/tmp/mop-artifact.json` and `ape.mopCoinLedgerMaxInteractions=2`, in that order
 
+#### Scenario: The launcher ablation is the mop cell without its launcher
+
+- **WHEN** `get_variants()["mop_nolaunch"]` is read
+- **THEN** `preset` SHALL be `"mop"`, `variant` SHALL be `"mop_nolaunch"` and `strategy` SHALL be `"sata"`
+- **AND** `overrides` SHALL be exactly `{"activity_trigger_enabled": False}`
+- **AND** every other top-level key SHALL equal the `mop` cell's
+- **AND** `_push_properties()` with the artifact pushed SHALL write `ape.preset=mop`, `ape.variant=mop_nolaunch`,
+  `ape.staticDataPath=/data/local/tmp/mop-artifact.json` and `ape.activityTriggerEnabled=false`, in that order
+
 #### Scenario: Every cell but base carries the static data
 
-- **WHEN** the variants `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `mop_k2` are read
+- **WHEN** the variants `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `mop_k2`, `mop_nolaunch` are read
 - **THEN** each SHALL carry `static_data="static_analysis"` at the top level
 - **AND** none SHALL carry `mop_data`
 
@@ -1407,12 +1423,19 @@ and `digest`. The comparison masks the members that differ by construction: `run
 sides of the key change cannot pass it, because the run aborts at resolution and writes no `RUN_START`. A pair
 that passes it runs what each cell claims.
 
-**An ablation variant is checked against its cell's fixture.** The jar ships no preset for `mop_k2`, so there is
-no fixture of its own. Its `RUN_START` SHALL equal `cells/mop.run_start.json` on `preset`, `features` and `inert`;
-`variant` SHALL be `"mop_k2"`; `params` SHALL be the fixture's plus `mopCoinLedgerMaxInteractions: 2`, the only
-non-default value the variant adds. `digest` is not compared, because it hashes every plan value and so differs by
-construction. Offline, the test checks that `mop_k2` names the `mop` preset and that its overrides map to that one
-key.
+**An ablation variant is checked against its cell's fixture.** The jar ships no preset for an ablation variant, so
+there is no fixture of its own. Its `RUN_START` SHALL be compared with `cells/mop.run_start.json`, its preset's
+fixture, with the variant's own deltas set apart. `preset` SHALL be equal and `variant` SHALL be the variant's name.
+`digest` is not compared, because it hashes every plan value and so differs by construction. The deltas follow from
+the jar's echo rules: `params` carries a non-default value and the activation key of each active feature, and a key
+of an inactive feature stated at its neutral value is reported in `inert`.
+- `mop_k2`: `features` and `inert` equal the fixture's; `params` is the fixture's plus
+  `ape.mopCoinLedgerMaxInteractions: 2`.
+- `mop_nolaunch`: `features` is the fixture's without `MOP_LAUNCHER`; `params` is the fixture's, because `false`
+  is the launcher key's neutral value and an inactive feature's activation key is not echoed; `inert` is
+  `["ape.activityTriggerEnabled"]`.
+Offline, the test checks that each ablation variant names the `mop` preset and that its overrides map to the one
+key the jar accepts.
 
 The comparison is post-hoc analysis over a recorded trace, done by a test or a smoke script through `TraceReader`.
 It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-APV-57).
@@ -1440,6 +1463,13 @@ It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-A
 - **THEN** the trace's `RUN_START.preset` SHALL be `"mop"` and `RUN_START.variant` SHALL be `"mop_k2"`
 - **AND** its `features` and `inert` SHALL equal those of `cells/mop.run_start.json`
 - **AND** its `params` SHALL equal the fixture's plus `mopCoinLedgerMaxInteractions: 2`
+
+#### Scenario: The launcher ablation echoes its cell without the launcher
+- **WHEN** the smoke runs `aperv:mop_nolaunch` on an instrumented APK with its `.apk.json`, with the paired jar
+- **THEN** the trace's `RUN_START.preset` SHALL be `"mop"` and `RUN_START.variant` SHALL be `"mop_nolaunch"`
+- **AND** its `features` SHALL be those of `cells/mop.run_start.json` without `MOP_LAUNCHER`
+- **AND** its `params` SHALL equal the fixture's, and its `inert` SHALL be `["ape.activityTriggerEnabled"]`
+- **AND** its `RUN_END.counters.launches` and `nullRelaunches` SHALL be `0`
 
 #### Scenario: A mismatched pair fails at resolution
 - **WHEN** a jar that predates the group keys is deployed under this `tool.py` and `aperv:base` runs

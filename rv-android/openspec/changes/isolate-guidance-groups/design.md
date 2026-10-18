@@ -77,7 +77,7 @@ Requirements: FR19, FR20, FR11, FR04/FR06, NFR06 (`docs/PRD.md`).
 
 | Component | Responsibility | Input | Output |
 |-----------|---------------|-------|--------|
-| `ApeRVTool.get_variants()` | The eight names, seven configurations (six cells, `default`, `mop_k2`) | — | `Dict[str, dict]` |
+| `ApeRVTool.get_variants()` | The nine names, eight configurations (six cells, `default`, `mop_k2`, `mop_nolaunch`) | — | `Dict[str, dict]` |
 | `ApeRVTool.configure()` | Validate, fold DSL keys, reject `mop_data` and unknown keys | merged variant config | `self._tool_config` |
 | `ApeRVTool._push_properties()` | Write the fixed lines, then the overrides | `_tool_config`, artifact flag | `/data/local/tmp/ape.properties` |
 | `ApeRVTool.execute_tool_specific_logic()` | Push the catalog iff `broadcast_catalog`, the artifact iff `static_data` | task, app | trace file |
@@ -281,16 +281,23 @@ leaves the group blocks, the cells and the meaning of `dec.mopx` unchanged:
 The digest of the three MOP fixtures changes with v3.3 even at k = 1, because it hashes every plan value,
 defaults included. The fixtures are regenerated on the `ape` side and the migration tier is re-run against them.
 
-**D17 — `mop_k2` is a named ablation variant** (author's decision, 2026-10-18). The `e03igg` round contrasts
-`mop_k2` with `mop`: the same cell, with the MOP coin allowed two picks per (activity, widget) key instead of
-one. The DSL form `aperv:mop@mop_coin_ledger_max_interactions=2` cannot run beside `aperv:mop` in one campaign,
+**D17 — `mop_k2` and `mop_nolaunch` are named ablation variants** (author's decisions, 2026-10-18). The `e03igg`
+round contrasts each with `mop`. `mop_k2` is the same cell with the MOP coin allowed two picks per (activity,
+widget) key instead of one. `mop_nolaunch` is the same cell with `ape.activityTriggerEnabled=false`, which
+unmounts `MOP_LAUNCHER`: `DecisionPipeline.fromSpec` mounts no launcher stage, and the null-tree recovery of
+`ape` D-B16, which only the launcher owns, gives way to APE's own. No other feature depends on `MOP_LAUNCHER`, so
+the plan resolves without an abort, and the other MOP members run as in `mop` (checked against `ape` `a4afd31b`). The DSL form `aperv:mop@mop_coin_ledger_max_interactions=2` cannot run beside `aperv:mop` in one campaign,
 because the platform's resume identity is `(apk, tool, variant, repetition, timeout)` without the parameters
 (`rv-platform/platform.py:319-327`), and the result file names use the same fields. The second arm would be
 skipped as already completed or would overwrite the first. So the ablation gets its own name. It is the `mop`
-cell's dict with `variant="mop_k2"` and `overrides={"mop_coin_ledger_max_interactions": 2}`, and nothing else.
-The preset stays `mop`, because the jar ships no `mop_k2` preset and the preset vocabulary belongs to the jar. The
-cell gate checks it against `cells/mop.run_start.json` with `variant` and the one `params` entry set apart and
-the digest not compared, the same scheme as the smoke's `as_mop_llm@llm_gate_min_actions=0` run.
+cell's dict with its own `variant` and one key in `overrides`, and nothing else. The preset stays `mop`, because
+the jar ships no preset for an ablation and the preset vocabulary belongs to the jar. The cell gate checks each
+against `cells/mop.run_start.json`, with the deltas the jar's echo rules predict set apart and the digest not
+compared. For `mop_k2` the delta is one `params` entry. For `mop_nolaunch` it is `MOP_LAUNCHER` out of
+`features` and `ape.activityTriggerEnabled` in `inert`, with `params` unchanged, because `false` is that key's
+neutral value and an inactive feature's activation key is not echoed. The `ape` session generated this record
+through `RunSpec.resolve` + `RunSpecEcho.emit` (digest `56dc053166b660eb`, against the `mop` fixture's
+`186262eb97d2d560`).
 - Alternative: keep the DSL and run the two arms in separate containers or campaigns. Rejected: the round runs
   both arms in the same containers, which is what the named variant allows.
 - Alternative: make the platform's resume identity include the parameters. Rejected: it touches `rv-platform`
@@ -323,7 +330,9 @@ def get_variants(cls) -> Dict[str, Dict[str, Any]]:
     return {"default": base, "base": base, "mop": cell("mop"), "as": cell("as"), "as_mop": cell("as_mop"),
             "as_llm": cell("as_llm", llm=True), "as_mop_llm": cell("as_mop_llm", llm=True),
             "mop_k2": {**cell("mop"), "variant": "mop_k2",
-                       "overrides": {"mop_coin_ledger_max_interactions": 2}}}
+                       "overrides": {"mop_coin_ledger_max_interactions": 2}},
+            "mop_nolaunch": {**cell("mop"), "variant": "mop_nolaunch",
+                             "overrides": {"activity_trigger_enabled": False}}}
 ```
 
 The sketch shows the shape, not the final code: the implementation may spell the six dicts out if that reads
