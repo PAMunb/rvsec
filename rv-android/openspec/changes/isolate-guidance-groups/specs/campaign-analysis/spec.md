@@ -50,7 +50,7 @@ trace. On a `v == 2` trace the members are the ones the `ape` change lists for i
 counts once:
 
 - a non-zero `mop`, `mop_frontier`, `wtg` or `menu`;
-- a present `mop_distance`, `mop_stamp`, `retired_targets` or `mop_exposure`;
+- a present `mop_distance`, `mop_stamp`, `mop_handler`, `retired_targets` or `mop_exposure`;
 - an `owner.u_mop`;
 - a `scorer_cf` key among `mop`, `mopf`, `wtg`, `menu`;
 - a `nav.component == "mop"`;
@@ -153,11 +153,11 @@ reader tells them apart through `run_start.v`.
     and the LLM never writes the text (`ApeAgent.checkInput`). The per-step value stays on the row.
 - **`step_bundle.py`** SHALL carry `activity_has_mop` as `Optional[bool]` into its frame column, written as
   null when absent (INV-CAN-22).
-- **`runspec.attribution_evidence`** SHALL compare `RunStart.variant` with the manifest arm's cell when both are
-  present. It SHALL report the check as `not-run` when the trace is `v == 1`, which carries no variant, rather than
+- **`runspec.attribution_evidence`** SHALL compare `RunStart.variant` with the manifest arm's variant when both
+  are present; for an ablation variant such as `mop_k2` that is the variant's own name, not its cell's. It SHALL report the check as `not-run` when the trace is `v == 1`, which carries no variant, rather than
   as a pass.
 - **`baseline_ape.py` and `baseline_droidbot.py`** SHALL write `None` for every `StepRow` field the two baselines
-  cannot carry, the fifteen fields added by the reader included (INV-CAN-19), and SHALL keep deriving their column
+  cannot carry, the sixteen fields added by the reader included (INV-CAN-19), and SHALL keep deriving their column
   list from `fields(StepRow)`.
 
 The consumers whose inputs do not change are left as they are: `clock_logcat_join`, `violations`,
@@ -184,6 +184,6 @@ campaign declares its own entries where its analysis is defined, and this change
 - **AND** the digest, preset, features and params checks SHALL give the same verdicts as before this change
 
 #### Scenario: Baseline frames keep the aperv column list
-- **WHEN** `baseline_ape` parses a fixture run after the reader gains its fifteen fields
+- **WHEN** `baseline_ape` parses a fixture run after the reader gains its sixteen fields
 - **THEN** the frame's first block of columns SHALL equal `APERV_STEP_COLUMNS`, derived from `fields(StepRow)`
 - **AND** `owner`, `scorer_cf`, `sata_path`, `rotation` and the other new columns SHALL be null on every row

@@ -77,7 +77,7 @@ Requirements: FR19, FR20, FR11, FR04/FR06, NFR06 (`docs/PRD.md`).
 
 | Component | Responsibility | Input | Output |
 |-----------|---------------|-------|--------|
-| `ApeRVTool.get_variants()` | The seven names, six configurations | — | `Dict[str, dict]` |
+| `ApeRVTool.get_variants()` | The eight names, seven configurations (six cells, `default`, `mop_k2`) | — | `Dict[str, dict]` |
 | `ApeRVTool.configure()` | Validate, fold DSL keys, reject `mop_data` and unknown keys | merged variant config | `self._tool_config` |
 | `ApeRVTool._push_properties()` | Write the fixed lines, then the overrides | `_tool_config`, artifact flag | `/data/local/tmp/ape.properties` |
 | `ApeRVTool.execute_tool_specific_logic()` | Push the catalog iff `broadcast_catalog`, the artifact iff `static_data` | task, app | trace file |
@@ -265,6 +265,39 @@ D are untouched. On this side it means:
 - Every step record carries `src`, `ch` and `own` (`ape` INV-SEL-05), which closes the question of a record
   without `dec`.
 
+Contract v3.3 (the `ape` amendment after the `e03igg` comparison, 2026-10-18) adds four things on this side and
+leaves the group blocks, the cells and the meaning of `dec.mopx` unchanged:
+- one `MOP_COIN` key, `ape.mopCoinLedgerMaxInteractions` (int, jar default 1, values below 1 read as 1): how many
+  times the MOP coin may take one (activity, widget) key. No group block sets it. The mapping gains it as
+  `mop_coin_ledger_max_interactions`, and the retired `ape.mopTargetPickCap` now names it as its replacement;
+- `dec.hnd`, the binary class name of the handler stamp behind the weight, written exactly when `dec.mops` is
+  `"s"`. It is a MOP member, so INV-SNK-18 lists it, the reader carries it as `StepRow.mop_handler`, and gate 1
+  counts it on `v == 2`;
+- the value `screenshot` of `dec.own.fb`, for an LLM step whose screenshot could not be captured. The reader
+  carries enumerated values as written, so only its documentation changes;
+- the counter `RUN_END.counters.nullRelaunches`, written in every cell and 0 without `MOP_LAUNCHER`. The reader
+  exposes `RUN_END` verbatim, so nothing parses it; gate 1 does not count it, because INV-SNK-18 does not list it.
+
+The digest of the three MOP fixtures changes with v3.3 even at k = 1, because it hashes every plan value,
+defaults included. The fixtures are regenerated on the `ape` side and the migration tier is re-run against them.
+
+**D17 — `mop_k2` is a named ablation variant** (author's decision, 2026-10-18). The `e03igg` round contrasts
+`mop_k2` with `mop`: the same cell, with the MOP coin allowed two picks per (activity, widget) key instead of
+one. The DSL form `aperv:mop@mop_coin_ledger_max_interactions=2` cannot run beside `aperv:mop` in one campaign,
+because the platform's resume identity is `(apk, tool, variant, repetition, timeout)` without the parameters
+(`rv-platform/platform.py:319-327`), and the result file names use the same fields. The second arm would be
+skipped as already completed or would overwrite the first. So the ablation gets its own name. It is the `mop`
+cell's dict with `variant="mop_k2"` and `overrides={"mop_coin_ledger_max_interactions": 2}`, and nothing else.
+The preset stays `mop`, because the jar ships no `mop_k2` preset and the preset vocabulary belongs to the jar. The
+cell gate checks it against `cells/mop.run_start.json` with `variant` and the one `params` entry set apart and
+the digest not compared, the same scheme as the smoke's `as_mop_llm@llm_gate_min_actions=0` run.
+- Alternative: keep the DSL and run the two arms in separate containers or campaigns. Rejected: the round runs
+  both arms in the same containers, which is what the named variant allows.
+- Alternative: make the platform's resume identity include the parameters. Rejected: it touches `rv-platform`
+  for one contrast, and it would change the identity of every recorded campaign.
+- Alternative: a fixture of its own on the `ape` side. Rejected by the author: a fixture per ablation leaves the
+  six-cell design.
+
 **D10 — `test_jar_tables.py` re-pins the presets.** The parser in `jar_tables.py` reads `Presets.java` with
 regular expressions. The new file composes cells from group blocks, so the parser has to read that composition, or
 the test resolves each cell through the jar's own preset table if `Presets.java` exposes one. Either way, the
@@ -288,7 +321,9 @@ def get_variants(cls) -> Dict[str, Dict[str, Any]]:
             "overrides": {"llm_url": LLM_URL_DEFAULT} if llm else {},
         }
     return {"default": base, "base": base, "mop": cell("mop"), "as": cell("as"), "as_mop": cell("as_mop"),
-            "as_llm": cell("as_llm", llm=True), "as_mop_llm": cell("as_mop_llm", llm=True)}
+            "as_llm": cell("as_llm", llm=True), "as_mop_llm": cell("as_mop_llm", llm=True),
+            "mop_k2": {**cell("mop"), "variant": "mop_k2",
+                       "overrides": {"mop_coin_ledger_max_interactions": 2}}}
 ```
 
 The sketch shows the shape, not the final code: the implementation may spell the six dicts out if that reads
@@ -323,7 +358,7 @@ class Ownership:
     u_llm: Optional[float]        # own.uL, only when LLM is mounted
     u_mop: Optional[float]        # own.uM, only when MOP is mounted
     gate: Optional[str]           # own.g: min_actions | breaker
-    fallback: Optional[str]       # own.fb: gate | error | decline | no_match | ineligible
+    fallback: Optional[str]       # own.fb: gate | screenshot | error | decline | no_match | ineligible
 
 @dataclass(frozen=True)
 class NavTie:
@@ -338,12 +373,12 @@ class ComponentTrigger:
     component_class: str          # trig.c
 ```
 
-New `StepRow` fields (fifteen): `owner: Optional[Ownership]`, `scorer_cf: Optional[Mapping[str, bool]]`,
+New `StepRow` fields (sixteen): `owner: Optional[Ownership]`, `scorer_cf: Optional[Mapping[str, bool]]`,
 `draw: Optional[Tuple[int, int]]`, `nav: Optional[NavTie]`, `input_source: Optional[str]`,
 `restart_kind: Optional[str]`, `back_menu_capped: Optional[int]`, `sata_path: Optional[str]`,
 `rotation: Optional[int]`, `buffer_abandoned_by: Optional[str]`, `component_trigger: Optional[ComponentTrigger]`,
 `nav_frontier: int = 0`, `mop_distance: Optional[int]`, `mop_stamp: Optional[str]`,
-`retired_targets: Optional[Tuple[int, ...]]`.
+`retired_targets: Optional[Tuple[int, ...]]`, `mop_handler: Optional[str]`.
 `RunStart.variant: Optional[str]`. `TraceReader.run_end -> Optional[Dict[str, Any]]`.
 
 A wrongly shaped member (for example, `own` that is not an object, or `draw` that is not a pair) makes the record

@@ -27,7 +27,7 @@ The reader change follows from the jar's new telemetry. `dec.src` now names the 
 `restart`, `llm`, `launcher`, `mop`, `sata`) instead of the largest boost, `dec.cf` is replaced by a per-scorer
 `dec.cfc`, eleven further new `dec` members record the owner with its coins and gates, the roulette draw, the
 extension points, the input origin, the restart kind, the SATA path, the display rotation, the buffer preemption,
-the navigation-frontier boost and the component trigger (contract v3.2, `ape` `16b185f4`), and `RUN_END.counters` gains the per-run counts of each mechanism. The
+the navigation-frontier boost and the component trigger (contract v3.2, `ape` `16b185f4`), and `RUN_END.counters` gains the per-run counts of each mechanism. Contract v3.3 (2026-10-18) adds the stamped handler `dec.hnd`, the fallback reason `screenshot` and the counter `nullRelaunches`, and one MOP coin key, which the ablation variant `mop_k2` sets. The
 reader surfaces all of them, plus the `mopd`/`mops`/`ret` members it drops today, and exposes `RUN_END` as a
 census record. The collection path in `tool.py` still never reads `RUN_END` or `RUN_START`.
 
@@ -37,9 +37,10 @@ census record. The collection path in `tool.py` still never reads `RUN_END` or `
 - `variant dict: Dict[str, Any]` — per cell: `preset: str` (one of `base`, `mop`, `as`, `as_mop`, `as_llm`,
   `as_mop_llm`), `variant: str` (the cell's own name), `overrides: Dict[str, Any]` (the server URL on the two LLM
   cells, otherwise empty), `strategy: "sata"`, `static_data: "static_analysis"` on every cell except `base`, and
-  `broadcast_catalog: True` on the four cells that mount STATIC (source: `ApeRVTool.get_variants()`, merged with
-  DSL parameters by `ToolFactory`)
-- `APERV_PROPERTY_MAPPING: Dict[str, str]` — 66 entries: override key → `ape.*` property name; only keys the jar
+  `broadcast_catalog: True` on the four cells that mount STATIC; the ablation variant `mop_k2` is the `mop` cell
+  with `variant: "mop_k2"` and `overrides: {"mop_coin_ledger_max_interactions": 2}` (source:
+  `ApeRVTool.get_variants()`, merged with DSL parameters by `ToolFactory`)
+- `APERV_PROPERTY_MAPPING: Dict[str, str]` — 67 entries: override key → `ape.*` property name; only keys the jar
   built from the `ape` branch `isolate-guidance-groups` accepts (source: `tool.py` module constant)
 - `<ape>/src/test/resources/cells/<cell>.run_start.json` — the jar's expected `RUN_START` per cell, with `run_id`,
   `t0`, `seed`, `build` and `props_digest` masked (source: `ape` change wave 2; read by the cell gate only, never at
@@ -51,7 +52,7 @@ census record. The collection path in `tool.py` still never reads `RUN_END` or `
   - `dec.ch: str` — on the group-isolation jar, `mop_coin`, `budget`, `restart`, `launcher`, `llm` or one of the
     SATA channels; `short_circuit_*` is no longer written;
   - `dec.own: {"i": str, "trg"?: "new_state"|"stagnation"|"coin", "uL"?: float, "uM"?: float, "g"?:
-    "min_actions"|"breaker", "fb"?: "gate"|"error"|"decline"|"no_match"|"ineligible"}` — written on every step
+    "min_actions"|"breaker", "fb"?: "gate"|"screenshot"|"error"|"decline"|"no_match"|"ineligible"}` — written on every step
     record; `i` takes the owners of `dec.src`; `trg` is the LLM stage that made the step's one LLM call;
   - `dec.cfc: {<scorer>: 0|1}` over `mop`, `mopf`, `wtg`, `navf`, `cov`, `menu`, `form`;
   - `dec.draw: [int, int]`; `dec.nav: {"x": "X1"|"X3"|"X4", "c": "ape"|"mop", "alt": 0|1, "drew": 0|1}` — written
@@ -63,9 +64,11 @@ census record. The collection path in `tool.py` still never reads `RUN_END` or `
   - `dec.bmc: int` (omitted when 0); `dec.strat: str` (one of the fifteen SATA path names); `dec.rot: int` in
     `-1..3`; `dec.buf: str` (an owner name);
   - `dec.navf: int` (scorer field, omitted when 0); `dec.mopd: int`; `dec.mops: "s"|"i"`; `dec.ret: [int, …]`;
+  - `dec.hnd: str` — the binary class name of the handler stamp behind the weight, written exactly when
+    `dec.mops` is `"s"`; a MOP member;
   - `RUN_END: {reason, detail?, steps, t_first_step?, t_last_step?, counters: {acts, states, stampNodes,
     stampHits, retired, launches, gateMinActions, gateBreaker, guardBacks, bufAbandoned, restarts, coinLlm,
-    coinMop, llm?: {…}}}`
+    coinMop, nullRelaunches, llm?: {…}}}`
 
 ### Output
 - `ape.properties` on device — `ape.preset=<cell>` first, `ape.variant=<variant>` second,
@@ -75,7 +78,7 @@ census record. The collection path in `tool.py` still never reads `RUN_END` or `
   trace carries none (destination: offline analysis)
 - `StepRow` — gains `owner`, `scorer_cf`, `draw`, `nav`, `input_source`, `restart_kind`, `back_menu_capped`,
   `sata_path`, `rotation`, `buffer_abandoned_by`, `component_trigger`, `nav_frontier`, `mop_distance`, `mop_stamp`,
-  `retired_targets` (destination: `analysis/*` consumers and the baseline frames, which write `None` for each)
+  `retired_targets`, `mop_handler` (destination: `analysis/*` consumers and the baseline frames, which write `None` for each)
 - `RunStart.variant: Optional[str]` — the fourteenth member
 
 ### Side-Effects
@@ -100,7 +103,8 @@ These replace, add to or retire the listed invariants of `openspec/specs/aperv/s
 invariant section is synchronized by hand at archive.
 
 - **INV-APV-05** (replaced): `get_variants()` SHALL return a dict whose keys are exactly `default`, `base`, `mop`,
-  `as`, `as_mop`, `as_llm` and `as_mop_llm`, with `default` bound to the same object as `base` (INV-TOOL-02).
+  `as`, `as_mop`, `as_llm`, `as_mop_llm` and the ablation variant `mop_k2`, with `default` bound to the same object
+  as `base` (INV-TOOL-02).
 - **INV-APV-06** (replaced): every cell except `base` SHALL set `static_data` to `"static_analysis"`. When
   `static_data == "static_analysis"`, `execute_tool_specific_logic()` SHALL locate the full static-analysis JSON,
   obtain the derived compact artifact from it (cache-or-generate), and push only that artifact. If the JSON is not
@@ -152,7 +156,7 @@ invariant section is synchronized by hand at archive.
 - **INV-APV-61** (replaced): `RunStart` SHALL carry every top-level member of the `RUN_START` record the jar emits,
   `variant` included, with `build` as a nested `(sha, time)` value; a member absent on the wire SHALL be reported
   absent, never defaulted.
-- **INV-APV-65** (new): every variant SHALL carry a top-level `variant` equal to its own cell name (`default`
+- **INV-APV-65** (new): every variant SHALL carry a top-level `variant` equal to its own name (`default`
   carries `"base"`), and `_push_properties()` SHALL write it as `ape.variant=<variant>` on the second line. The tool
   SHALL NOT read the echoed `RUN_START.variant` back (INV-APV-43).
 - **INV-APV-66** (new): `static_data` SHALL be present exactly on the cells that mount STATIC or MOP — every cell
@@ -925,7 +929,8 @@ The parser exists because the dump has **no automated consumer today**: a search
 `ApeRVTool` SHALL define one variant per experimental cell and nothing else. Every variant SHALL consist of a
 `preset` name, a `variant` name, an `overrides` dict, and Python-only orchestration keys (INV-APV-40).
 
-`get_variants()` SHALL return exactly these **seven** names, carrying **six** distinct configurations:
+`get_variants()` SHALL return exactly these **eight** names, carrying **seven** distinct configurations: the six
+cells, `default`, and one ablation variant, `mop_k2`:
 
 | Variant | preset | static_data | broadcast_catalog | overrides | Groups mounted by the preset |
 |---|---|---|---|---|---|
@@ -936,16 +941,26 @@ The parser exists because the dump has **no automated consumer today**: a search
 | `as_mop` | `as_mop` | `"static_analysis"` | `True` | _(empty)_ | ADDONS, STATIC, MOP |
 | `as_llm` | `as_llm` | `"static_analysis"` | `True` | `llm_url` | ADDONS, STATIC, LLM |
 | `as_mop_llm` | `as_mop_llm` | `"static_analysis"` | `True` | `llm_url` | ADDONS, STATIC, MOP, LLM |
+| `mop_k2` | `mop` | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2` | MOP |
 
-Every variant carries `strategy="sata"` and `variant` equal to its own cell name; `default` carries `"base"`.
+Every variant carries `strategy="sata"` and `variant` equal to its own name; `default` carries `"base"`.
 
 **What a cell means lives in the jar.** Each preset is the union of the jar's group blocks (the `ape` design's
 § "Group blocks and cells"): ADDONS is the former `aperv` vector, STATIC is the frontier at 200 plus typed input,
 MOP is E6 arm 3's MOP configuration plus `p_M = 1.0`, LLM is E6 arm 4's sampling configuration with `p_L = 0.9`.
-`overrides` SHALL carry only what the jar cannot know: the server URL. A dose (`llm_percentage`,
+On a cell, `overrides` SHALL carry only what the jar cannot know: the server URL. A dose (`llm_percentage`,
 `mop_coin_percentage`) or any other mapped key is an ablation, expressed through the tool DSL
-(`aperv:as_mop@mop_coin_percentage=0.5`), never as a new variant and never as a new preset. The preset vocabulary
-belongs to the jar.
+(`aperv:as_mop@mop_coin_percentage=0.5`), and never as a new preset. The preset vocabulary belongs to the jar.
+
+**An ablation that shares a container with its cell needs a name of its own.** The platform's resume identity is
+`(apk, tool, variant, repetition, timeout)`, without the parameters (`rv-platform` "Skip Completed Tasks During
+Resume"), and the result file names are built from the same fields. `aperv:mop` and `aperv:mop@k=2` in one
+campaign would therefore be the same task: the second would be skipped as completed, or would overwrite the first.
+An ablation run beside its cell is therefore a named variant: the cell's preset, its own `variant` name, and the
+ablated key in `overrides`. `mop_k2` is the one such variant (author's decision, 2026-10-18). It is the `mop`
+cell with `ape.mopCoinLedgerMaxInteractions=2`, so the MOP coin may take each (activity, widget) key twice
+instead of once, and nothing else differs. An ablation that never shares a container with its cell stays a DSL
+parameter.
 
 **The artifact follows the groups.** `static_data="static_analysis"` is set on every cell that mounts STATIC or
 MOP, which is every cell except `base` (INV-APV-66). The `mop` cell reads the artifact with ADDONS and STATIC off;
@@ -986,14 +1001,14 @@ arm at least in the MOP coin, the owner order of the step and the X1–X4 defaul
 #### Scenario: The variant set is the six cells and default
 
 - **WHEN** `get_variants()` is read
-- **THEN** its keys SHALL be exactly `default`, `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`
+- **THEN** its keys SHALL be exactly `default`, `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `mop_k2`
 - **AND** `get_variants()["default"] is get_variants()["base"]` SHALL be true
 - **AND** none of `sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`,
   `mop_on_llm_70`, `mopd_on_llm_off`, `mopd_on_llm_90` SHALL be a key
 
 #### Scenario: Each cell names its own preset and itself
 
-- **WHEN** any variant `v` other than `default` is read from `get_variants()`
+- **WHEN** any of the six cells `v` is read from `get_variants()`
 - **THEN** `v["preset"]` SHALL equal its key and `v["variant"]` SHALL equal its key
 - **AND** `v["strategy"]` SHALL be `"sata"`
 
@@ -1009,9 +1024,18 @@ arm at least in the MOP coin, the owner order of the step and the X1–X4 defaul
 - **AND** `get_variants()["as_llm"]["overrides"]` SHALL be the same dict value
 - **AND** every other cell's `overrides` SHALL be empty
 
+#### Scenario: The MOP ledger ablation is the mop cell with one key
+
+- **WHEN** `get_variants()["mop_k2"]` is read
+- **THEN** `preset` SHALL be `"mop"`, `variant` SHALL be `"mop_k2"` and `strategy` SHALL be `"sata"`
+- **AND** `overrides` SHALL be exactly `{"mop_coin_ledger_max_interactions": 2}`
+- **AND** every other top-level key SHALL equal the `mop` cell's
+- **AND** `_push_properties()` with the artifact pushed SHALL write `ape.preset=mop`, `ape.variant=mop_k2`,
+  `ape.staticDataPath=/data/local/tmp/mop-artifact.json` and `ape.mopCoinLedgerMaxInteractions=2`, in that order
+
 #### Scenario: Every cell but base carries the static data
 
-- **WHEN** the variants `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm` are read
+- **WHEN** the variants `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `mop_k2` are read
 - **THEN** each SHALL carry `static_data="static_analysis"` at the top level
 - **AND** none SHALL carry `mop_data`
 
@@ -1048,7 +1072,7 @@ STATIC as well as MOP (`ape` D-B2) and retired the old name, so a file that stil
 resolves.
 
 `APERV_PROPERTY_MAPPING` is a pass-through translation table and nothing more (see "Arm Property
-Overrides Pass-Through"). It SHALL contain only keys the deployed jar accepts (INV-APV-41). The 66
+Overrides Pass-Through"). It SHALL contain only keys the deployed jar accepts (INV-APV-41). The 67
 entries are:
 
 | Python Key | Java Property | Notes |
@@ -1101,6 +1125,7 @@ entries are:
 | `mop_retire_after` | `ape.mopRetireAfter` | `MOP` sub-parameter, read under `distance` only |
 | `mop_launcher_dmax` | `ape.mopLauncherDmax` | `MOP` sub-parameter, read under `distance` only |
 | `mop_coin_percentage` | `ape.mopCoinPercentage` | `MOP_COIN` activation (MOP); `p_M`, jar default 1.0 |
+| `mop_coin_ledger_max_interactions` | `ape.mopCoinLedgerMaxInteractions` | `MOP_COIN` sub-parameter; the coin's picks per (activity, widget) key, jar default 1, values below 1 read as 1; set by `mop_k2` |
 | `llm_url` | `ape.llmUrl` | `LLM` dependency; required on both LLM cells (INV-APV-38) |
 | `llm_on_new_state` | `ape.llmOnNewState` | `LLM_NEW_STATE` activation |
 | `llm_on_stagnation` | `ape.llmOnStagnation` | `LLM_STAGNATION` activation |
@@ -1121,10 +1146,10 @@ entries are:
 | `corpus_basis` | `ape.corpusBasis` | deployment provenance, echoed into `RUN_START` and read nowhere ("Corpus Basis Provenance") |
 
 Two entries leave the table because the jar retires their keys, and a properties file carrying either now aborts
-with `retired_key`: `mop_target_pick_cap` (`ape.mopTargetPickCap`, subsumed by the MOP coin's first-interaction
-rule) and `least_visited_priority_tiebreak` (`ape.leastVisitedPriorityTiebreak`, replaced by the scorer-sum tie X1,
-which equals APE with zero scorers). Twelve enter, so the table goes from 56 to 66 entries: the four group keys,
-the MOP coin dose, the three LLM gate parameters, and four existing jar keys the table lacked
+with `retired_key`: `mop_target_pick_cap` (`ape.mopTargetPickCap`, replaced by
+`ape.mopCoinLedgerMaxInteractions`, the MOP coin's budget of picks per activity and widget) and `least_visited_priority_tiebreak` (`ape.leastVisitedPriorityTiebreak`, replaced by the scorer-sum tie X1,
+which equals APE with zero scorers). Thirteen enter, so the table goes from 56 to 67 entries: the four group keys,
+the MOP coin dose and its ledger budget, the three LLM gate parameters, and four existing jar keys the table lacked
 (`activity_stable_restart_threshold`, `take_screenshot_for_every_step`, `save_gui_tree_to_xml_every_step`,
 `llm_boundary_top_pct`). `ape.variant` and
 `ape.staticDataPath` are not in the table: the tool writes them from the variant and from the push, never from an
@@ -1162,8 +1187,9 @@ the mapping's contents a correctness property rather than a tidiness one.
 
 #### Scenario: The mapping holds the group-isolation vocabulary
 - **WHEN** `APERV_PROPERTY_MAPPING` is inspected after this change
-- **THEN** it SHALL contain exactly 66 entries
-- **AND** it SHALL contain `addons`, `static`, `mop`, `llm`, `mop_coin_percentage`, `llm_gate_min_actions`,
+- **THEN** it SHALL contain exactly 67 entries
+- **AND** it SHALL contain `addons`, `static`, `mop`, `llm`, `mop_coin_percentage`,
+  `mop_coin_ledger_max_interactions`, `llm_gate_min_actions`,
   `llm_breaker_failures`, `llm_breaker_open_ms`, `activity_stable_restart_threshold`,
   `take_screenshot_for_every_step`, `save_gui_tree_to_xml_every_step` and `llm_boundary_top_pct`
 - **AND** it SHALL NOT contain `mop_target_pick_cap`, `least_visited_priority_tiebreak`, `mop_weight_activity`,
@@ -1214,6 +1240,7 @@ records, for each step, which mechanism owned it and why. `StepRow` SHALL carry 
 | `dec.mopd` | `mop_distance` | `int` |
 | `dec.mops` | `mop_stamp` | `str` |
 | `dec.ret` | `retired_targets` | `Tuple[int, ...]` |
+| `dec.hnd` | `mop_handler` | `str` |
 
 The reader SHALL NOT validate the enumerated values of these members against a closed list. A value it does not
 know is carried as written. A new owner or SATA path added on the jar side would otherwise turn well-formed records
@@ -1245,7 +1272,7 @@ holds two or more actions. It answers
 `LLM_ACK` and `RUN_END` as attributes beside the `RUN_START` header, each the record verbatim minus `type`, and
 `None` when the trace carries none. A step-row iterator has no natural place for run-level records, and this module
 is the only way to reach them. `RUN_END` is now one of them. Its counters (`launches`, `gateMinActions`,
-`gateBreaker`, `guardBacks`, `bufAbandoned`, `restarts`, `coinLlm`, `coinMop`, beside the existing `acts`,
+`gateBreaker`, `guardBacks`, `bufAbandoned`, `restarts`, `coinLlm`, `coinMop`, `nullRelaunches`, beside the existing `acts`,
 `states`, `stampNodes`, `stampHits`, `retired` and `llm`) are the per-run census of the mechanisms the cells mount,
 and an analysis of the cells needs them. Owner decision D5 stays in force where it was aimed, on the collection
 path. `tool.py` reads no `RUN_END`, and the reader exposes the record without interpreting it: there is no
@@ -1256,7 +1283,8 @@ The reader SHALL NOT convert between formats in either direction, SHALL NOT writ
 
 **The `ape` changes are the authority for the wire format.** `rearch-04-step-ndjson-telemetry` defines the `StepRecord` schema, the dictionary encoding, the omitted-default rules and the heartbeat payload; `isolate-guidance-groups` defines the members listed above, the meaning of `dec.src` on its jar, `RUN_START.variant` and the new `RUN_END` counters. This reader conforms to them rather than restating them.
 
-The golden fixture that exercises this requirement SHALL be `modules/aperv-tool/tests/fixtures/trace_ndjson_golden.ndjson`, a hand-written stage-4 trace from the `eea2b1a9` jar containing, at minimum: a `RUN_START` with `t0` **and all thirteen of that jar's members**; `ACT` entries with `mop:1` and `mop:0`; two `STATE` entries; a step whose `dec` carries no boost fields at all; a step carrying `patched:0`; a step carrying no `patched` member; a step with two `llm[]` entries in occurrence order; a step whose `out` resolves to a new state; a step closed with no `out` member; a step flushed with `out:{"resolved":false}`; a completed call carrying the `sys` / `user` / `resp` / `tool_calls` dumps beside one that carries none; a step carrying `mopd`, `mops` and `ret`; a `MOP_DATA` record, a `PIPELINE` record whose `candidates` include disabled entries, an `LLM_ACK` and a `RUN_END` with `counters`; a malformed line; and a truncated final line. A second fixture, `trace_ndjson_v3_header.ndjson` (renamed from `trace_ndjson_v2_header.ndjson`, since 2 is now a supported version), SHALL carry `RUN_START` with `v: 3` and one step. A third, `trace_ndjson_groups.ndjson`, SHALL be a trace of the group-isolation jar: a `RUN_START` carrying `v: 2` and `variant: "as_mop_llm"`; an `ACT` without `mop`; a step owned by each of `llm`, `mop`, `restart` and `sata`; a step carrying every member of the table above; a step carrying `dec.own` with `fb` and `g`; and a `RUN_END` carrying the eight new counters. Every scenario below names the fixture element that exercises it, so no rule is asserted against an input that cannot reach it.
+The golden fixture that exercises this requirement SHALL be `modules/aperv-tool/tests/fixtures/trace_ndjson_golden.ndjson`, a hand-written stage-4 trace from the `eea2b1a9` jar containing, at minimum: a `RUN_START` with `t0` **and all thirteen of that jar's members**; `ACT` entries with `mop:1` and `mop:0`; two `STATE` entries; a step whose `dec` carries no boost fields at all; a step carrying `patched:0`; a step carrying no `patched` member; a step with two `llm[]` entries in occurrence order; a step whose `out` resolves to a new state; a step closed with no `out` member; a step flushed with `out:{"resolved":false}`; a completed call carrying the `sys` / `user` / `resp` / `tool_calls` dumps beside one that carries none; a step carrying `mopd`, `mops` and `ret`; a `MOP_DATA` record, a `PIPELINE` record whose `candidates` include disabled entries, an `LLM_ACK` and a `RUN_END` with `counters`; a malformed line; and a truncated final line. A second fixture, `trace_ndjson_v3_header.ndjson` (renamed from `trace_ndjson_v2_header.ndjson`, since 2 is now a supported version), SHALL carry `RUN_START` with `v: 3` and one step. A third, `trace_ndjson_groups.ndjson`, SHALL be a trace of the group-isolation jar: a `RUN_START` carrying `v: 2` and `variant: "as_mop_llm"`; an `ACT` without `mop`; a step owned by each of `llm`, `mop`, `restart` and `sata`; a step carrying every member of the table above; a step carrying `dec.own` with `fb` and `g`; a step carrying `dec.own.fb:"screenshot"`; a step carrying
+`dec.mops:"s"` with `dec.hnd`; and a `RUN_END` carrying the nine new counters. Every scenario below names the fixture element that exercises it, so no rule is asserted against an input that cannot reach it.
 
 #### Scenario: Reader yields a joined step row
 - **WHEN** the reader runs over the golden fixture, whose step 42 carries a `dec` with no boost fields, two `llm[]` sub-events and an `out` closed at step 43
@@ -1379,6 +1407,13 @@ and `digest`. The comparison masks the members that differ by construction: `run
 sides of the key change cannot pass it, because the run aborts at resolution and writes no `RUN_START`. A pair
 that passes it runs what each cell claims.
 
+**An ablation variant is checked against its cell's fixture.** The jar ships no preset for `mop_k2`, so there is
+no fixture of its own. Its `RUN_START` SHALL equal `cells/mop.run_start.json` on `preset`, `features` and `inert`;
+`variant` SHALL be `"mop_k2"`; `params` SHALL be the fixture's plus `mopCoinLedgerMaxInteractions: 2`, the only
+non-default value the variant adds. `digest` is not compared, because it hashes every plan value and so differs by
+construction. Offline, the test checks that `mop_k2` names the `mop` preset and that its overrides map to that one
+key.
+
 The comparison is post-hoc analysis over a recorded trace, done by a test or a smoke script through `TraceReader`.
 It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-APV-57).
 
@@ -1400,6 +1435,12 @@ It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-A
   `MOP_LAUNCHER`, `MOP_ACTIVITY_SOURCE`, `MOP_COIN`, with no `MENU_GATEWAY`
 - **AND** its `digest` SHALL equal the fixture's
 
+#### Scenario: The ablation variant echoes its cell plus one key
+- **WHEN** the smoke runs `aperv:mop_k2` on an instrumented APK with its `.apk.json`, with the paired jar
+- **THEN** the trace's `RUN_START.preset` SHALL be `"mop"` and `RUN_START.variant` SHALL be `"mop_k2"`
+- **AND** its `features` and `inert` SHALL equal those of `cells/mop.run_start.json`
+- **AND** its `params` SHALL equal the fixture's plus `mopCoinLedgerMaxInteractions: 2`
+
 #### Scenario: A mismatched pair fails at resolution
 - **WHEN** a jar that predates the group keys is deployed under this `tool.py` and `aperv:base` runs
 - **THEN** the jar SHALL abort before step 1 on the unknown preset `base` or the unknown key `ape.variant`
@@ -1415,7 +1456,7 @@ It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-A
 
 ### Requirement: ape.properties Generation
 
-**Reason**: the file it specified no longer has that layout. `ape.variant` is a fixed second line, `ape.mopDataPath` is now `ape.staticDataPath`, and the mapping goes from 56 to 66 entries. It is replaced by "ape.properties Composition". Its scenarios pin the deleted arms and the old line counts, so they cannot be carried over.
+**Reason**: the file it specified no longer has that layout. `ape.variant` is a fixed second line, `ape.mopDataPath` is now `ape.staticDataPath`, and the mapping goes from 56 to 67 entries. It is replaced by "ape.properties Composition". Its scenarios pin the deleted arms and the old line counts, so they cannot be carried over.
 
 **Migration**: none; the requirement named in the reason is its successor in this delta.
 

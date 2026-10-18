@@ -6,7 +6,8 @@ jar side. Both changes are on branch `isolate-guidance-groups` in their reposito
 the mini experiment's results are good and the author decides so explicitly (D-A19). Source of the plan-level
 decisions: APE-RV `docs/plans/20261017_isolamento_grupos_aperv.md` (the plan; §9 is this change). Source of the
 key and telemetry contract: the `ape` change's `design.md` § API Design (contract v3.2, `ape` `16b185f4`, which includes
-D-B13 and D-B14; the author confirmed v3.2 on 2026-10-17).
+D-B13 and D-B14; the author confirmed v3.2 on 2026-10-17), amended to v3.3 after the `e03igg` comparison
+(2026-10-18: one MOP coin key, `dec.hnd`, `dec.own.fb:"screenshot"`, `RUN_END.counters.nullRelaunches`).
 
 **Label: MEASUREMENT.** The change alters what an `aperv` arm measures.
 
@@ -25,8 +26,10 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
   `as_mop`, `as_llm` and `as_mop_llm`. It also returns `default`, bound to the same object as `base`, because every
   registered tool must carry a `default` variant (`tools` INV-TOOL-02; author's decision, 2026-10-17). Each
   variant is the cell's jar preset plus what the jar cannot know: the server URL on the two LLM cells. What a group
-  switches on lives in the jar's group blocks. Doses and other keys are ablations through the tool DSL, never new
-  variants.
+  switches on lives in the jar's group blocks. Doses and other keys are ablations through the tool DSL. The one
+  exception is an ablation that runs in the same containers as its cell, which needs a name of its own because
+  the platform's resume identity omits the parameters: `mop_k2`, the `mop` cell with the MOP coin allowed two picks
+  per (activity, widget) key (author's decision, 2026-10-18).
 - **BREAKING — the ten current variants are deleted, without alias** (D-A13). The deleted names are `sata`,
   `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`, `mop_on_llm_70`,
   `mopd_on_llm_off` and `mopd_on_llm_90`, and `default` is rebound to `base`. The decisive-run arm set, the
@@ -42,8 +45,8 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
   pushed only for them.
 - **The variant name reaches the trace**: `ape.variant=<variant>` is a fixed second line of `ape.properties`.
   The jar echoes it as `RUN_START.variant`.
-- **Property mapping** (P-8): `APERV_PROPERTY_MAPPING` goes from 56 to 66 entries. It gains the four group keys,
-  the MOP coin dose, the three LLM gate parameters, and four existing jar keys it lacked
+- **Property mapping** (P-8): `APERV_PROPERTY_MAPPING` goes from 56 to 67 entries. It gains the four group keys,
+  the MOP coin dose and its ledger budget (`mop_coin_ledger_max_interactions`), the three LLM gate parameters, and four existing jar keys it lacked
   (`activity_stable_restart_threshold`, `take_screenshot_for_every_step`, `save_gui_tree_to_xml_every_step`,
   `llm_boundary_top_pct`). It loses `mop_target_pick_cap` and `least_visited_priority_tiebreak`, whose jar keys
   are retired.
@@ -52,7 +55,7 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
   whatever its `reachesTarget`. The code already does this, and the spec makes it normative because the trigger
   pool no longer filters on MOP data.
 - **Trace reader** (P-9): `trace_ndjson.py` surfaces the new `dec` members (`own`, `cfc`, `draw`, `nav`, `inp`,
-  `restart`, `bmc`, `strat`, `rot`, `buf`, `navf`, `trig`). It also surfaces `mopd`/`mops`/`ret`, which it drops today,
+  `restart`, `bmc`, `strat`, `rot`, `buf`, `navf`, `trig`, `hnd`). It also surfaces `mopd`/`mops`/`ret`, which it drops today,
   `RUN_START.variant`, and the `RUN_END` record. The coverage-dump parser accepts `UICOV` lines without
   `mopReach`, which the new jar writes only when MOP is mounted. It accepts `RUN_START.v` 1 and 2, the new jar's version,
   and reports `activity_has_mop` as absent where the jar did not compute it. The docs of `decision_source` and `Counterfactual` say what each
@@ -76,7 +79,8 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
 
 ### Modified Capabilities
 - `aperv`: the variant set (cells instead of arms) and the removal of the decisive-run arm set. The data-key
-  rename. The artifact and broadcast push rules. The variant line of `ape.properties` and the 66-entry mapping. The
+  rename. The artifact and broadcast push rules. The variant line of `ape.properties` and the 67-entry mapping.
+  The named ablation variant `mop_k2`. The
   intent-filter `data` member of the artifact. The trace reader's coverage of the new decision record and of
   `RUN_END`. The new cell gate.
 

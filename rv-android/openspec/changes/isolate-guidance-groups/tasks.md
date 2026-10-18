@@ -127,6 +127,16 @@ Cross-repository dependencies (APE-RV `openspec/changes/isolate-guidance-groups/
 - [x] S.4 On the same traces, for the cells the pre-run ran: `v == 2`; gate 1 (`count_mop_group_signal`) is 0 on `base`, `as`, `as_llm` and positive on the three MOP cells; the catalog was pushed only on the four `as*` cells; no malformed record from the new members; zero step records without `dec` (`ape` INV-SEL-05: every record carries `src`, `ch`, `own`); the teardown overrun per run; no UICOV `mopReach` on `base`/`as`/`as_llm` (`ape` D-B14.21)
 - [x] S.5 Report the smoke to the author, to the ape session and to the `mini-experimento` session before group C
 
+## K. Contract v3.3 and the `mop_k2` ablation (author's decision, 2026-10-18; design D16, D17)
+
+The code tasks wait for the `ape` commit that lands v3.3 with its regenerated MOP fixtures, and the paired jar. No task here is closed against an uncommitted `ape` tree.
+
+- [ ] K.1 `tool.py`: `mop_coin_ledger_max_interactions` → `ape.mopCoinLedgerMaxInteractions` in `APERV_PROPERTY_MAPPING`, under the MOP coin (67 entries); the `mop_k2` variant = the `mop` dict with `variant="mop_k2"` and `overrides={"mop_coin_ledger_max_interactions": 2}`; the `get_variants()` docstring states the eight names and why an ablation that shares containers with its cell is named (D17). `tests/test_aperv_tool.py`: the variant-set, cell-name, overrides, mapping-size and "The MOP ledger ablation is the mop cell with one key" scenarios
+- [ ] K.2 `trace_ndjson.py`: `StepRow.mop_handler` from `dec.hnd`; the `Ownership.fallback` docstring names `screenshot`; the `run_end` docstring names `nullRelaunches`. `baseline_ape.py` / `baseline_droidbot.py` write `None` for `mop_handler`. `tests/fixtures/trace_ndjson_groups.ndjson` gains a step with `mops:"s"` + `hnd`, a step with `fb:"screenshot"` and `nullRelaunches` in `RUN_END`; tests in `test_trace_ndjson.py` and `test_baseline_frames.py`
+- [ ] K.3 `gates.py`: `count_mop_group_signal` counts a present `mop_handler` on `v == 2`; `nullRelaunches` is not counted; `runspec.attribution_evidence` compares `RunStart.variant` with the manifest arm's variant; tests in `test_gates.py` and `test_runspec.py`
+- [ ] K.4 `tests/migration/test_cells.py`: `mop_k2` names the `mop` preset and its overrides map to the one key the jar accepts; then `APE_REPO=<ape at the v3.3 commit>` migration tier (the sweep finds the new key in `KeyOwnership.java`, the retired `ape.mopTargetPickCap` keeps a reason); `cell_gates.py` (one-off, not committed) compares `mop_k2` against `cells/mop.run_start.json` with `variant`, `params.mopCoinLedgerMaxInteractions` set apart and the digest not compared
+- [ ] K.5 Docs: `modules/aperv-tool/{CLAUDE.md,README.md,docs/architecture.md}` (the variant and mapping tables, `mop_k2`, `mop_handler`; `docs/architecture.md:808` names `ape.mopCoinLedgerMaxInteractions` as the replacement of `ape.mopTargetPickCap`); run the module suites; commit by path; send `mini-experimento` the worktree SHA and the paired jar's sha256, and tell `aperv` what was folded in
+
 ## C. Wave 4 — close (serial)
 
 - [ ] C.1 Run `/rv-qa-lint-fix aperv-tool` and `/rv-qa-lint-fix rv-experiment`
