@@ -565,9 +565,13 @@ class StepRow:
             leaving 10,231 steps at 200 ambiguous and only 91 at 400 proving
             both fired. This field de-aliases them; the decision still sums the
             same number into the same field.
-        mop_exposure: `(boosted, total)` — how many of the screen's actions the
-            MOP widget pass boosted, against how many were eligible at all.
-            Present when that pass is constructed. It is the denominator without
+        mop_exposure: `(weighted, total)` — how many of the screen's actions
+            carry a positive MOP weight, against how many were eligible at all.
+            Present when that pass is constructed. It measures the opportunity,
+            not the boost: on the group-isolation jar a weighted action whose
+            key was already tried gets no boost and is still counted, while on
+            the `eea2b1a9` jar every weighted action was boosted, so the two
+            readings coincide there. It is the denominator without
             which "the MOP scorer fired on 0.4% of decisions" cannot be split
             into "the mechanism had no opportunity" and "it had one and lost the
             roulette". It rides the step rather than the `STATE` entry because
