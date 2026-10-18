@@ -294,8 +294,8 @@ cell's dict with its own `variant` and one key in `overrides`, and nothing else.
 the jar ships no preset for an ablation and the preset vocabulary belongs to the jar. The cell gate checks each
 against `cells/mop.run_start.json`, with the deltas the jar's echo rules predict set apart and the digest not
 compared. For `mop_k2` the delta is one `params` entry. For `mop_nolaunch` it is `MOP_LAUNCHER` out of
-`features` and `ape.activityTriggerEnabled` in `inert`, with `params` unchanged, because `false` is that key's
-neutral value and an inactive feature's activation key is not echoed. The `ape` session generated this record
+`features`, `ape.activityTriggerEnabled` out of `params` and into `inert`, because an inactive feature's
+activation key is not echoed and `false` is that key's neutral value. The `ape` session generated this record
 through `RunSpec.resolve` + `RunSpecEcho.emit` (digest `56dc053166b660eb`, against the `mop` fixture's
 `186262eb97d2d560`).
 - Alternative: keep the DSL and run the two arms in separate containers or campaigns. Rejected: the round runs

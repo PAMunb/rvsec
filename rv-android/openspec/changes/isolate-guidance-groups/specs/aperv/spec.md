@@ -1431,9 +1431,9 @@ the jar's echo rules: `params` carries a non-default value and the activation ke
 of an inactive feature stated at its neutral value is reported in `inert`.
 - `mop_k2`: `features` and `inert` equal the fixture's; `params` is the fixture's plus
   `ape.mopCoinLedgerMaxInteractions: 2`.
-- `mop_nolaunch`: `features` is the fixture's without `MOP_LAUNCHER`; `params` is the fixture's, because `false`
-  is the launcher key's neutral value and an inactive feature's activation key is not echoed; `inert` is
-  `["ape.activityTriggerEnabled"]`.
+- `mop_nolaunch`: `features` is the fixture's without `MOP_LAUNCHER`; `params` is the fixture's without
+  `ape.activityTriggerEnabled`, because an inactive feature's activation key is not echoed and `false` is that
+  key's neutral value; `inert` is `["ape.activityTriggerEnabled"]`.
 Offline, the test checks that each ablation variant names the `mop` preset and that its overrides map to the one
 key the jar accepts.
 
@@ -1468,7 +1468,8 @@ It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-A
 - **WHEN** the smoke runs `aperv:mop_nolaunch` on an instrumented APK with its `.apk.json`, with the paired jar
 - **THEN** the trace's `RUN_START.preset` SHALL be `"mop"` and `RUN_START.variant` SHALL be `"mop_nolaunch"`
 - **AND** its `features` SHALL be those of `cells/mop.run_start.json` without `MOP_LAUNCHER`
-- **AND** its `params` SHALL equal the fixture's, and its `inert` SHALL be `["ape.activityTriggerEnabled"]`
+- **AND** its `params` SHALL equal the fixture's without `ape.activityTriggerEnabled`, and its `inert` SHALL be
+  `["ape.activityTriggerEnabled"]`
 - **AND** its `RUN_END.counters.launches` and `nullRelaunches` SHALL be `0`
 
 #### Scenario: A mismatched pair fails at resolution
