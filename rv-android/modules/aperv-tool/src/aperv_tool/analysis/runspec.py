@@ -24,8 +24,9 @@ whole ``fail``, and otherwise any check that could not run makes it ``not-run``.
 Only an evidence set that is both complete and matching yields ``pass``.
 
 **The variant is evidence only where the jar writes it.** The group-isolation
-jar (``RUN_START.v == 2``) echoes the cell it was handed as ``variant``, and that
-is compared with the cell the manifest declares. A ``v == 1`` trace carries no
+jar (``RUN_START.v == 2``) echoes the variant name it was handed as ``variant``,
+and that is compared with the variant the manifest declares: a cell, or an
+ablation variant such as ``mop_k2`` that runs a cell's preset under its own name. A ``v == 1`` trace carries no
 variant by construction, so the check is reported ``not-run`` there and left out
 of the overall verdict: absent evidence is not a pass, and a member the jar
 generation never wrote is not a gap in that run's evidence either.
@@ -92,9 +93,9 @@ class ManifestArm:
             plus each active feature's activation key, so an exhaustive
             comparison would break on any parameter the manifest does not care
             about. An empty mapping declares nothing and yields ``not-run``.
-        cell: The cell the arm runs, e.g. ``as_mop``, compared with
-            ``RUN_START.variant`` on a ``v == 2`` trace. None when the manifest
-            declares none.
+        variant: The variant name the arm runs, e.g. ``as_mop`` or ``mop_k2``,
+            compared with ``RUN_START.variant`` on a ``v == 2`` trace. None when
+            the manifest declares none.
     """
 
     arm: str
@@ -102,7 +103,7 @@ class ManifestArm:
     preset: Optional[str]
     features: Optional[tuple[str, ...]]
     params: Mapping[str, Any]
-    cell: Optional[str] = None
+    variant: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -431,11 +432,11 @@ def _check_params(run_start: RunStart, manifest_arm: ManifestArm) -> EvidenceChe
 
 
 def _check_variant(run_start: RunStart, manifest_arm: ManifestArm) -> EvidenceCheck:
-    """Compare the cell the jar echoed against the cell the manifest declares.
+    """Compare the variant the jar echoed against the one the manifest declares.
 
-    The preset alone does not settle the cell: a cell is the preset plus what
-    the harness handed the jar, and ``variant`` is the jar's echo of the cell
-    name it was given. Only a ``v == 2`` trace carries it.
+    The preset alone does not settle the arm: ``mop`` and ``mop_k2`` share a
+    preset, and ``variant`` is the jar's echo of the variant name the harness
+    handed it. Only a ``v == 2`` trace carries it.
     """
     if run_start.v != _VARIANT_VERSION:
         return EvidenceCheck(
@@ -445,13 +446,13 @@ def _check_variant(run_start: RunStart, manifest_arm: ManifestArm) -> EvidenceCh
             counted=False,
         )
 
-    expected = manifest_arm.cell
+    expected = manifest_arm.variant
     found = run_start.variant
     if expected is None:
         return EvidenceCheck(
             CHECK_VARIANT,
             "not-run",
-            f"{CHECK_VARIANT}: the manifest declares no cell for arm "
+            f"{CHECK_VARIANT}: the manifest declares no variant for arm "
             f"{manifest_arm.arm!r}",
         )
     if found is None:

@@ -344,6 +344,7 @@ def _row(key: Optional[RunKey], step: ApeStep) -> dict:
         "mop_distance": None,
         "mop_stamp": None,
         "retired_targets": None,
+        "mop_handler": None,
         "step_index_synthesized": False,
         "step_unit": STEP_UNIT,
         "action_type": step.action_type,

@@ -242,6 +242,7 @@ def _row(key: Optional[RunKey], policy: Optional[str], step: DroidbotStep) -> di
         "mop_distance": None,
         "mop_stamp": None,
         "retired_targets": None,
+        "mop_handler": None,
         "step_index_synthesized": True,
         "step_unit": STEP_UNIT,
         "action_type": step.event_type,

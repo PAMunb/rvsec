@@ -13,7 +13,7 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 | FR | Description | Architectural Support |
 |----|-------------|----------------------|
 | FR18 | Plugin system with registry and factory patterns | `ApeRVTool` extends `AbstractTool` (rv-android-core) and registers via `ToolRegistry` in rv-platform's `_register_external_tools()` |
-| FR20 | Per-tool variant system | `get_variants()` returns seven names — the six cells `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, plus `default` bound to `base` — each a `preset`, a `variant` name and `overrides`; `configure()` validates strategy, preset, variant and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
+| FR20 | Per-tool variant system | `get_variants()` returns eight names — the six cells `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `default` bound to `base`, and the ablation `mop_k2` on the `mop` preset — each a `preset`, a `variant` name and `overrides`; `configure()` validates strategy, preset, variant and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
 
 ### Key Invariants
 
@@ -452,6 +452,7 @@ Full narrative, including the two fixture classes and why the activity-visit is 
 | `dec.trig` | `component_trigger` | `ComponentTrigger(kind, component_class)` — the step during which component triggering fired, whatever its owner |
 | `dec.navf` | `nav_frontier` | `int`, a boost field materialized at `0` |
 | `dec.mopd` / `dec.mops` / `dec.ret` | `mop_distance` / `mop_stamp` / `retired_targets` | `int` / `str` / `Tuple[int, ...]`, on both versions |
+| `dec.hnd` | `mop_handler` | `str`: the binary class name of the handler stamp behind the weight, written only when `mops` is `s` |
 
 `counterfactual` and `wtg_source` carry the `v == 1` jar's `dec.cf` and `dec.wtgsrc`, and are `None` on `v == 2`, which removed them. `counterfactual` is the pick with **only the MOP boosts** zeroed, so it is evidence about MOP guidance and about nothing else; `scorer_cf` answers the narrower "did this one scorer change the choice", not "did the guidance as a whole change it".
 
@@ -459,7 +460,7 @@ Full narrative, including the two fixture classes and why the activity-visit is 
 
 **`RunStart` has fourteen members**, `variant` among them; it is `None` on every `v == 1` trace.
 
-**`run_end` is a census attribute.** It is the `RUN_END` record minus `type`, verbatim, beside `mop_data`, `pipeline` and `llm_ack`, and `None` when the trace has none: `reason`, `steps`, and `counters`, which on `v == 2` add `launches`, `gateMinActions`, `gateBreaker`, `guardBacks`, `bufAbandoned`, `restarts`, `coinLlm` and `coinMop` beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and `llm`. An analysis of the cells needs those per-run counts of each mechanism. The reader derives nothing from the record — no completeness flag, no status — and the collection path in `tools/aperv/*` never reads it (INV-APV-53).
+**`run_end` is a census attribute.** It is the `RUN_END` record minus `type`, verbatim, beside `mop_data`, `pipeline` and `llm_ack`, and `None` when the trace has none: `reason`, `steps`, and `counters`, which on `v == 2` add `launches`, `gateMinActions`, `gateBreaker`, `guardBacks`, `bufAbandoned`, `restarts`, `coinLlm`, `coinMop` and `nullRelaunches` beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and `llm`. An analysis of the cells needs those per-run counts of each mechanism. The reader derives nothing from the record — no completeness flag, no status — and the collection path in `tools/aperv/*` never reads it (INV-APV-53).
 
 #### Gate 1 has two forms
 
@@ -532,11 +533,11 @@ frozen with the reason — closed by a grep over `modules/`, `scripts/`, the exp
 - `APERV_TEARDOWN_GRACE_S = 45` -- seconds of teardown allowed beyond the exploration budget. Stated once because two users must agree on it: the command timeout is the budget *plus* this value, and the completion floor is the budget *minus* it (INV-APV-60). The value is a hypothesis about censored teardown durations, not a measurement — among iter0 runs whose teardown completed the overrun reaches 12,991 ms, with 32 runs stacked against the previous 15 s ceiling and none beyond it, the signature of a hard wall rather than a natural distribution
 - `APERV_AVAILABLE_STRATEGIES = ["sata", "random"]` -- valid strategies. `bfs`/`dfs` were never agent types (`ApeAgent.createAgent` knows `sata`, `random` and `replay`), so accepting them would let a run pass local validation and abort on the device
 - `APERV_ORCHESTRATION_KEYS` -- the ten top-level keys that are Python orchestration rather than jar configuration (`preset`, `variant`, `overrides`, `strategy`, `static_data`, `broadcast_catalog`, `seed`, `device_port`, `device_serial`, `device_id`); anything else at the top level must be a mapped override or `configure()` raises, `mop_data` included
-- `APERV_PROPERTY_MAPPING` -- 66-entry pass-through table mapping Python override keys to Java `ape.*` property names. It contains only keys the deployed jar accepts (INV-APV-41); the sweep against `KeyOwnership.java` lives in `tests/migration/test_mapping_sweep.py`
+- `APERV_PROPERTY_MAPPING` -- 67-entry pass-through table mapping Python override keys to Java `ape.*` property names. It contains only keys the deployed jar accepts (INV-APV-41); the sweep against `KeyOwnership.java` lives in `tests/migration/test_mapping_sweep.py`
 
 ### Variant System
 
-**Purpose**: Define the experimental matrix as **one variant per cell**: 7 names carrying 6 configurations, each a jar cell preset, the cell's own name, and the deployment facts the jar cannot know.
+**Purpose**: Define the experimental matrix as **one variant per cell**, plus the ablation `mop_k2`: 8 names carrying 7 configurations, each a jar cell preset, its own name, and the deployment facts the jar cannot know.
 
 **Location**: `src/aperv_tool/tools/aperv/tool.py` (`get_variants()` classmethod)
 
@@ -551,8 +552,9 @@ APE-RV mounts five behaviour groups by declaration. BASE is the APE algorithm, A
 | `as_mop` | `as_mop` | ADDONS, STATIC, MOP | `"static_analysis"` | `True` | _(empty)_ |
 | `as_llm` | `as_llm` | ADDONS, STATIC, LLM | `"static_analysis"` | `True` | `llm_url` |
 | `as_mop_llm` | `as_mop_llm` | ADDONS, STATIC, MOP, LLM | `"static_analysis"` | `True` | `llm_url` |
+| `mop_k2` | `mop` | MOP | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2` |
 
-Every variant carries `strategy="sata"` and `variant` equal to its cell name (`default` carries `"base"`).
+Every variant carries `strategy="sata"` and `variant` equal to its own name (`default` carries `"base"`).
 
 Each orchestration key states one deployment fact, because the Python side does not know what a preset mounts and does not branch on a preset name:
 
@@ -560,7 +562,7 @@ Each orchestration key states one deployment fact, because the Python side does 
 - `broadcast_catalog` is present exactly on the cells that mount STATIC (INV-APV-10), because the catalog's only reader in the jar is component triggering, a STATIC member.
 - `overrides` carries only `llm_url` on the two LLM cells (INV-APV-38). The LLM presets state the group without the URL, which names a machine rather than a cell.
 
-The division of authority is the point: the jar owns what a group *means* and which groups a cell mounts, Python owns *which cells exist*. A dose or another tunable is an ablation through the tool DSL (`aperv:as_mop@mop_coin_percentage=0.5`), never a new variant and never a new preset. The arm names of earlier campaigns are not defined; campaigns recorded under them resume from the frozen image `rvandroid:0.9.5`.
+The division of authority is the point: the jar owns what a group *means* and which groups a cell mounts, Python owns *which cells exist*. A dose or another tunable is an ablation through the tool DSL (`aperv:as_mop@mop_coin_percentage=0.5`), never a new preset. An ablation that runs in the same containers as its cell is a named variant on the cell's preset instead, because the platform's resume identity (apk, tool, variant, repetition, timeout) and the result file names leave the parameters out: `mop_k2` is the `mop` cell with the MOP coin allowed two picks per (activity, widget) key. The arm names of earlier campaigns are not defined; campaigns recorded under them resume from the frozen image `rvandroid:0.9.5`.
 
 ---
 
@@ -734,7 +736,7 @@ What a preset contains is resolved inside the jar, so no line restates a group b
 
 Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS`: `preset` and `variant` (written by their own lines), `overrides` (the cell's deltas), `strategy` (the `--ape` flag), `static_data` (whether the artifact is pushed), `broadcast_catalog` (whether the catalog is pushed), `seed`, and `device_port` / `device_serial` / `device_id` (device addressing that rv-experiment's `ExecutionController` injects into every tool's parameters whenever `--device-port` is set). Any other top-level key must resolve through `APERV_PROPERTY_MAPPING`, or `configure()` raises `ConfigurationError` before a device is touched. Boolean values are serialized as lowercase `true`/`false` to match what the jar's `Config` loader parses.
 
-`APERV_PROPERTY_MAPPING` is a pass-through table that contains only keys the paired jar accepts (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps it against the jar's `KeyOwnership.java` vocabulary and retired list. No cell sets any entry but `llm_url`: the others exist so an ablation can be written as a DSL override without a code change. The 66 entries, grouped by the group that owns each key:
+`APERV_PROPERTY_MAPPING` is a pass-through table that contains only keys the paired jar accepts (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps it against the jar's `KeyOwnership.java` vocabulary and retired list. No cell sets any entry but `llm_url`: the others exist so an ablation can be written as a DSL override without a code change. The 67 entries, grouped by the group that owns each key:
 
 | Python Key | Java Property | Notes |
 |------------|--------------|-------|
@@ -786,6 +788,7 @@ Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS`: `preset` and
 | `mop_retire_after` | `ape.mopRetireAfter` | `MOP` sub-parameter, read under `distance` only |
 | `mop_launcher_dmax` | `ape.mopLauncherDmax` | `MOP` sub-parameter, read under `distance` only |
 | `mop_coin_percentage` | `ape.mopCoinPercentage` | `MOP_COIN` activation (MOP); `p_M`, jar default 1.0 |
+| `mop_coin_ledger_max_interactions` | `ape.mopCoinLedgerMaxInteractions` | `MOP_COIN` sub-parameter; the coin's picks per (activity, widget) key, jar default 1, below 1 read as 1; set by `mop_k2` |
 | `llm_url` | `ape.llmUrl` | `LLM` dependency; required on both LLM cells (INV-APV-38) |
 | `llm_on_new_state` | `ape.llmOnNewState` | `LLM_NEW_STATE` activation |
 | `llm_on_stagnation` | `ape.llmOnStagnation` | `LLM_STAGNATION` activation |
@@ -805,7 +808,7 @@ Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS`: `preset` and
 | `llm_breaker_open_ms` | `ape.llmBreakerOpenMs` | `LLM` sub-parameter |
 | `corpus_basis` | `ape.corpusBasis` | deployment provenance, echoed into `RUN_START` and read nowhere ("Corpus Basis Provenance") |
 
-`mop_target_pick_cap` (`ape.mopTargetPickCap`, subsumed by the MOP coin's first-interaction rule) and `least_visited_priority_tiebreak` (`ape.leastVisitedPriorityTiebreak`, replaced by the scorer-sum tie at X1, which equals APE with zero scorers) are not in the table, because the jar retired their keys and a file carrying either aborts with `retired_key`. The jar has no launcher-mode key, no X1 key and no X3/X4 key — the cadence is fixed and the MOP variant of each extension point is mounted with MOP — so the table carries none. A key the jar does not recognise is not inert: under stage-2 resolution an unknown key, a retired key, or a non-neutral value of an inactive feature aborts before step 1, which is what makes the mapping's contents a correctness property rather than a tidiness one.
+`mop_target_pick_cap` (`ape.mopTargetPickCap`, replaced by `ape.mopCoinLedgerMaxInteractions`, the MOP coin's budget of picks per activity and widget) and `least_visited_priority_tiebreak` (`ape.leastVisitedPriorityTiebreak`, replaced by the scorer-sum tie at X1, which equals APE with zero scorers) are not in the table, because the jar retired their keys and a file carrying either aborts with `retired_key`. The jar has no launcher-mode key, no X1 key and no X3/X4 key — the cadence is fixed and the MOP variant of each extension point is mounted with MOP — so the table carries none. A key the jar does not recognise is not inert: under stage-2 resolution an unknown key, a retired key, or a non-neutral value of an inactive feature aborts before step 1, which is what makes the mapping's contents a correctness property rather than a tidiness one.
 
 `corpus_basis` -> `ape.corpusBasis` is mapped, set by no cell, and supplied per campaign through the tool DSL. It is deployment provenance, not configuration: it names the application list a run was drawn from, as `<corpus-id>:<sha256>` (`CORPUS_BASIS_PATTERN`). The jar recognises the key, echoes it into the trace's opening record and reads it nowhere, so it changes no behaviour. `configure()` validates only the shape — whether the digest matches the list is verified where the list lives, by recomputing it from the file — because a value that is not `<corpus-id>:<sha256>` produces a run whose provenance line looks populated while nothing can be checked against it. The check runs after the DSL fold, so it covers both a variant's own `overrides` dict and an `@corpus_basis=…` parameter. When unstated the key is omitted entirely.
 
@@ -839,7 +842,7 @@ The override exists because the emulator's `10.0.2.2` alias does not work in Doc
 
 ## Extension Points
 
-- **Running an ablation**: Write it as a tool-DSL override on an existing cell (`aperv:as_mop@mop_coin_percentage=0.5`), not as a new variant. If it uses a tunable not yet listed, add it to `APERV_PROPERTY_MAPPING` first, and only if the paired jar accepts the key (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps the mapping against the jar's `KeyOwnership.java` vocabulary.
+- **Running an ablation**: Write it as a tool-DSL override on an existing cell (`aperv:as_mop@mop_coin_percentage=0.5`). Only when it runs in the same containers as its cell does it need a named variant on that cell's preset, as `mop_k2` does, because the resume identity leaves the parameters out. If it uses a tunable not yet listed, add it to `APERV_PROPERTY_MAPPING` first, and only if the paired jar accepts the key (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps the mapping against the jar's `KeyOwnership.java` vocabulary.
 - **Adding a cell**: A cell is a jar preset first. Add it to the jar's `Presets.java` as a union of group blocks, then add one entry to `get_variants()` with `preset` and `variant` equal to its name, `static_data` when it mounts STATIC or MOP, `broadcast_catalog` when it mounts STATIC, and `llm_url` in `overrides` when it mounts LLM. The offline cell gate (`tests/migration/test_cells.py`) then needs the jar's `cells/<cell>.run_start.json` fixture.
 - **Adding a strategy**: Add the strategy name to `APERV_AVAILABLE_STRATEGIES`. The string is passed directly to APE-RV's `--ape` flag, so it must be an agent type `ApeAgent.createAgent` knows (`sata`, `random`, `replay`) — anything else passes local validation and aborts on the device.
 - **Changing the JAR**: The shipped jar is built from `ape` source at Docker image build (`docker/rvandroid/Dockerfile`: clone → `mvn package` → copy); it is gitignored, never committed. To change what ships, change the `ape` source (or pin the clone ref in the Dockerfile). For local non-Docker runs, place a built `ape-rv.jar` in `src/aperv_tool/tools/aperv/` — the module-local path has highest resolution priority.
@@ -877,7 +880,7 @@ and shell execution.
 
 | Type | Location | Purpose |
 |------|----------|---------|
-| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, the completion check (INV-APV-60, `TestCompletionIsEstablished`: a truncated run raises naming elapsed and budget and still compresses, a full budget with a non-zero exit does not raise, a return inside the grace does not raise, and the timeout path is untouched), properties generation (the fixed `ape.preset` / `ape.variant` / `ape.staticDataPath` lines and the 66 entries), the cell variants, the catalog push on the four `as*` cells only, the rejection of a missing `variant` and of the old `mop_data` key, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation (the streaming miss path, and the refusal of a truncated or non-UTF-8 source that leaves no artifact) and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
+| Unit | tests/test_aperv_tool.py | ToolSpec metadata, variant structure (INV-APV-05), `configure()` validation (INV-APV-02) including the `corpus_basis` shape, the DSL override fold (INV-APV-39), JAR search paths (INV-APV-01), command building (INV-APV-04), constants (INV-APV-03), empty-trace detection, trace compression, the completion check (INV-APV-60, `TestCompletionIsEstablished`: a truncated run raises naming elapsed and budget and still compresses, a full budget with a non-zero exit does not raise, a return inside the grace does not raise, and the timeout path is untouched), properties generation (the fixed `ape.preset` / `ape.variant` / `ape.staticDataPath` lines and the 67 entries), the cell variants, the catalog push on the four `as*` cells only, the rejection of a missing `variant` and of the old `mop_data` key, the ban on declaring an external artifact's identity in source (INV-APV-59), MOP artifact derivation (the streaming miss path, and the refusal of a truncated or non-UTF-8 source that leaves no artifact) and the `.mop.json` audit (INV-ANA-53), and the frozen-corpus carve-out |
 | Unit | tests/test_derive_mop_artifact.py | One named test per relocated derivation rule, plus the cryptoapp ground truth in `tests/fixtures/cryptoapp.apk.json`, and the exactness of the streaming reduction: the streamed artifact is byte-identical to the whole-document one, including when a method's nearest targets lie beyond `DIST_WEIGHED_MAX` (INV-APV-64) |
 | Unit | tests/test_trace_ndjson.py, tests/test_coverage_dump.py, tests/test_clock_logcat_join.py | The offline readers: NDJSON row semantics against `tests/fixtures/trace_ndjson_golden.ndjson` (`v: 1`), `trace_ndjson_groups.ndjson` (`v: 2`, every new decision member, `RUN_END` counters) and `trace_ndjson_v3_header.ndjson` (an unsupported version), coverage-dump parsing including `UICOV` lines without `mopReach`, and heartbeat placement including both routes to `UNALIGNED` |
 | Migration | tests/migration/ | The explicit retirement list, the pinned jar tables (the six cells, their group-block unions and the accepted vocabulary read off the ape source), the sweep of `APERV_PROPERTY_MAPPING` against the jar's accepted-key table, and the offline cell gate (`test_cells.py`: the jar's presets are the six cells, and each `cells/<cell>.run_start.json` fixture carries the `preset` and `variant` of `get_variants()`). The one-time regeneration diff that proved each surviving arm's effective configuration unchanged under `preset + overrides` was deleted at owner sign-off (2026-08-07); its baseline and executed result are archived under `docs/gh95-migration-record/`, because a one-time measurement kept running becomes a constant-vs-constant guard (INV-APV-44) |

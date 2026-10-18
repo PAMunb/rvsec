@@ -734,7 +734,7 @@ class TestRunLevelRecords:
         """The four run-level records of a group-isolation trace are reachable.
 
         `RUN_END.counters` is the per-run census of the mechanisms the cell
-        mounts, so an analysis of the cells needs the eight routing counters
+        mounts, so an analysis of the cells needs the nine routing counters
         exactly as the jar wrote them.
         """
         reader = TraceReader(GROUPS)
@@ -748,6 +748,7 @@ class TestRunLevelRecords:
         assert counters["coinMop"] == 37
         assert counters["coinLlm"] == 120
         assert counters["launches"] == 4
+        assert counters["nullRelaunches"] == 1
         assert {
             key: counters[key]
             for key in (
@@ -780,6 +781,7 @@ GROUP_ONLY_FIELDS = (
     "rotation",
     "buffer_abandoned_by",
     "component_trigger",
+    "mop_handler",
 )
 
 
@@ -861,11 +863,16 @@ class TestGroupIsolationMembers:
             3: ("restart", "restart", "restart"),
             4: ("sata", "sata_other", "llm"),
             5: ("sata", "roulette_greedy", "sata"),
+            6: ("sata", "sata_other", "llm"),
         }
         assert groups_by_step[1].owner.trigger == "new_state"
         assert groups_by_step[1].owner.u_mop == 0.88
         assert groups_by_step[2].mop_distance == 2
         assert groups_by_step[2].mop_stamp == "s"
+        assert (
+            groups_by_step[2].mop_handler == "br.unb.cic.cryptoapp.SettingsActivity$2"
+        )
+        assert groups_by_step[6].owner.fallback == "screenshot"
         assert groups_by_step[3].restart_kind == "activity"
         assert groups_by_step[3].sata_path is None
 
@@ -891,6 +898,7 @@ class TestGroupIsolationMembers:
         assert (step5.mop, step5.coverage) == (400, 50)
         assert step5.mop_distance == 1
         assert step5.mop_stamp == "i"
+        assert step5.mop_handler is None, "hnd is written only on a stamp lookup"
         assert step5.retired_targets == (0, 3)
         assert step5.patched == 0
         assert step5.mop_exposure == (2, 9)
@@ -1103,9 +1111,9 @@ class TestRunStartOnRecordedTraces:
 
         assert set(by_arm) == {"aperv:mop_off_llm_off", "aperv:mop_on_llm_off"}
         for arm, features in by_arm.items():
-            assert not any(
-                name.startswith("LLM") for name in features
-            ), f"{arm} is an llm_off arm, yet its headers declare {sorted(features)}"
+            assert not any(name.startswith("LLM") for name in features), (
+                f"{arm} is an llm_off arm, yet its headers declare {sorted(features)}"
+            )
         assert "MOP_FRONTIER" in by_arm["aperv:mop_on_llm_off"]
         assert "MOP_FRONTIER" not in by_arm["aperv:mop_off_llm_off"]
 

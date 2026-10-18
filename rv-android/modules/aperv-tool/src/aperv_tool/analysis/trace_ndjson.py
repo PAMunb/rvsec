@@ -454,7 +454,9 @@ class Ownership:
         gate: The gate that barred the LLM call (`g`): `min_actions` or
             `breaker`. None when no gate barred it.
         fallback: Why the intended owner did not take the step (`fb`): `gate`,
-            `error`, `decline`, `no_match` or `ineligible`. None when it did.
+            `screenshot` (the LLM screenshot could not be captured, so no call
+            was made), `error`, `decline`, `no_match` or `ineligible`. None when
+            it did.
     """
 
     intended: str
@@ -629,6 +631,10 @@ class StepRow:
             had no source or the action no resolved target.
         retired_targets: Indices into `MOP_DATA.targets` of the targets this
             step's action retired (`ret`), ascending. None when it retired none.
+        mop_handler: Binary class name of the handler stamp that answered the
+            chosen action's MOP lookup (`hnd`), written exactly when
+            `mop_stamp` is `s`. None otherwise, and on every step of a cell
+            without MOP.
     """
 
     step: int
@@ -669,6 +675,7 @@ class StepRow:
     mop_distance: Optional[int] = None
     mop_stamp: Optional[str] = None
     retired_targets: Optional[Tuple[int, ...]] = None
+    mop_handler: Optional[str] = None
 
 
 @dataclass
@@ -957,8 +964,9 @@ class TraceReader:
 
         `counters` is the per-run census of the mechanisms the cell mounted:
         on the group-isolation jar `launches`, `gateMinActions`, `gateBreaker`,
-        `guardBacks`, `bufAbandoned`, `restarts`, `coinLlm` and `coinMop`
-        beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and the
+        `guardBacks`, `bufAbandoned`, `restarts`, `coinLlm`, `coinMop` and
+        `nullRelaunches` (the null-tree recoveries that relaunched the app,
+        which are not steps and have no step record) beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and the
         LLM aggregates. The reader exposes the record without interpreting it
         and derives no completeness flag or status from it (INV-APV-53): a
         trace cut by a `SIGKILL` legitimately has none, and None here is that
@@ -1355,6 +1363,7 @@ class TraceReader:
             mop_distance=dec.get("mopd"),
             mop_stamp=dec.get("mops"),
             retired_targets=retired,
+            mop_handler=dec.get("hnd"),
             **boosts,
         )
 

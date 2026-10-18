@@ -19,12 +19,13 @@ from typing import Any, Dict
 import pytest
 
 from aperv_tool.tools.aperv.tool import (
+    APERV_PROPERTY_MAPPING,
     DEVICE_ARTIFACT_PATH,
     STATIC_DATA_FROM_STATIC_ANALYSIS,
     ApeRVTool,
 )
 
-from .jar_tables import load_presets
+from .jar_tables import load_key_specs, load_presets
 from .test_jar_tables import ADDONS_BLOCK, CELLS, LLM_BLOCK, MOP_BLOCK, STATIC_BLOCK
 
 CELLS_DIR = Path("src/test/resources/cells")
@@ -135,3 +136,31 @@ class TestCellFixtures:
         for member in VOLATILE_MEMBERS:
             assert record[member] == MASKED, member
         assert record["inert"] == []
+
+
+class TestAblationVariant:
+    """`mop_k2` runs the `mop` preset under its own name, so it has no fixture of its own.
+
+    Its device echo is the `mop` fixture with `variant` and the one ablated key set apart and
+    the digest left out, because the digest hashes every plan value. Offline, what can be
+    checked is that it names a preset the jar ships and that its one override is a key the
+    jar accepts with the type the variant gives it.
+    """
+
+    def test_mop_k2_names_the_mop_preset(self, ape_repo):
+        variant = ApeRVTool.get_variants()["mop_k2"]
+        assert variant["preset"] == "mop"
+        assert variant["preset"] in load_presets(ape_repo)
+        assert _fixture(ape_repo, "mop")["preset"] == variant["preset"]
+
+    def test_mop_k2_overrides_one_key_the_jar_accepts(self, ape_repo):
+        overrides = ApeRVTool.get_variants()["mop_k2"]["overrides"]
+        assert list(overrides) == ["mop_coin_ledger_max_interactions"]
+        key = APERV_PROPERTY_MAPPING["mop_coin_ledger_max_interactions"]
+        spec = load_key_specs(ape_repo)[key]
+        assert spec.value_type == "INT"
+        assert spec.default == "1"
+        assert overrides["mop_coin_ledger_max_interactions"] != int(spec.default)
+        # No block states it, so the mop fixture carries the default by omission and the
+        # device echo of mop_k2 adds exactly this one params entry.
+        assert key not in _fixture(ape_repo, "mop")["params"]

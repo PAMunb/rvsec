@@ -230,6 +230,9 @@ APERV_PROPERTY_MAPPING = {
     # p_M, the probability that a step offered to MOP is taken by it; the MOP block
     # states 1.0, so a lower dose is an ablation.
     "mop_coin_percentage": "ape.mopCoinPercentage",
+    # How many times the MOP coin may take one (activity, widget) key; the jar default is
+    # 1, no block states it, and the mop_k2 variant sets 2.
+    "mop_coin_ledger_max_interactions": "ape.mopCoinLedgerMaxInteractions",
     # LLM: the vision-language model. llm_url is the one deployment fact the LLM cells
     # carry; the LLM block states the sampling configuration and the dose.
     "llm_url": "ape.llmUrl",
@@ -358,7 +361,8 @@ class ApeRVTool(AbstractTool):
         """
         Get available APE-RV variants: one per experimental cell.
 
-        Seven names carrying six configurations. APE-RV mounts five behaviour groups
+        Eight names carrying seven configurations: the six cells, `default` and one
+        ablation variant. APE-RV mounts five behaviour groups
         by declaration: BASE (the APE algorithm), ADDONS (the fork's own
         improvements), STATIC (the consumers of the static GUI model), MOP (the
         consumers of the specification targets) and LLM (the vision-language model).
@@ -373,6 +377,14 @@ class ApeRVTool(AbstractTool):
 
         `default` is bound to the same object as `base` (INV-TOOL-02), so `aperv`
         with no variant runs the APE reference cell and writes `ape.variant=base`.
+
+        `mop_k2` is the `mop` cell with the MOP coin allowed two picks per (activity,
+        widget) key instead of one. It is the one ablation with a name of its own:
+        it runs in the same containers as `mop`, and the platform's resume identity
+        (apk, tool, variant, repetition, timeout) and the result file names leave the
+        parameters out, so `aperv:mop` and a DSL `aperv:mop@...` there would be the
+        same task. Its preset stays `mop`, because the preset vocabulary belongs to
+        the jar.
 
         What a group switches on is defined in the jar. A variant therefore names
         its cell and carries only the deployment facts the jar cannot know:
@@ -391,7 +403,8 @@ class ApeRVTool(AbstractTool):
           needs a server and a URL names a machine, not a cell (INV-APV-38).
 
         A dose or any other mapped key is an ablation expressed through the tool
-        DSL (`aperv:as_mop@mop_coin_percentage=0.5`), never a new variant. The
+        DSL (`aperv:as_mop@mop_coin_percentage=0.5`) unless it shares containers
+        with its cell, as `mop_k2` does. The
         Python-only keys never reach ape.properties; the full set, with the three
         device-addressing keys rv-experiment injects, is `APERV_ORCHESTRATION_KEYS`.
 
@@ -451,6 +464,15 @@ class ApeRVTool(AbstractTool):
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
                 "broadcast_catalog": True,
                 "overrides": {"llm_url": LLM_URL_DEFAULT},
+            },
+            # The mop cell with one ablated key, named because it shares containers
+            # with mop (see the docstring).
+            "mop_k2": {
+                "preset": "mop",
+                "variant": "mop_k2",
+                "strategy": "sata",
+                "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
+                "overrides": {"mop_coin_ledger_max_interactions": 2},
             },
         }
 

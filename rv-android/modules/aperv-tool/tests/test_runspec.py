@@ -311,7 +311,7 @@ def as_mop_manifest(**overrides: Any) -> ManifestArm:
         "preset": "as_mop",
         "features": None,
         "params": {},
-        "cell": "as_mop",
+        "variant": "as_mop",
     }
     fields.update(overrides)
     return ManifestArm(**fields)
@@ -341,9 +341,25 @@ def test_variant_differing_from_the_cell_fails_though_the_preset_matches() -> No
     assert evidence.verdict == "fail"
 
 
+def test_an_ablation_variant_is_told_from_its_cell() -> None:
+    """``mop_k2`` runs the ``mop`` preset, so only the variant tells the two apart."""
+    declared = as_mop_manifest(arm="aperv:mop_k2", preset="mop", variant="mop_k2")
+
+    passed = attribution_evidence(
+        group_isolation_header(preset="mop", variant="mop_k2"), declared
+    )
+    assert check_of(passed, CHECK_VARIANT).verdict == "pass"
+
+    mislabelled = attribution_evidence(
+        group_isolation_header(preset="mop", variant="mop"), declared
+    )
+    assert check_of(mislabelled, CHECK_PRESET).verdict == "pass"
+    assert check_of(mislabelled, CHECK_VARIANT).verdict == "fail"
+
+
 def test_variant_is_not_run_on_a_v1_trace() -> None:
     """A v1 trace carries no variant: not-run, never a pass, and no degradation."""
-    declared = manifest(cell="mop_on_llm_off")
+    declared = manifest(variant="mop_on_llm_off")
     evidence = attribution_evidence(header(), declared)
 
     variant = check_of(evidence, CHECK_VARIANT)
@@ -371,7 +387,7 @@ def test_v2_header_without_a_variant_is_unevidenced() -> None:
     assert evidence.verdict == "not-run"
 
     undeclared = attribution_evidence(
-        group_isolation_header(), as_mop_manifest(cell=None)
+        group_isolation_header(), as_mop_manifest(variant=None)
     )
     assert check_of(undeclared, CHECK_VARIANT).verdict == "not-run"
-    assert "declares no cell" in check_of(undeclared, CHECK_VARIANT).detail
+    assert "declares no variant" in check_of(undeclared, CHECK_VARIANT).detail

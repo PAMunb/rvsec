@@ -405,7 +405,7 @@ def group_manifest() -> ArmManifest:
                     preset="as",
                     features=None,
                     params={},
-                    cell="as",
+                    variant="as",
                 ),
                 control=True,
             ),
@@ -418,7 +418,7 @@ def group_manifest() -> ArmManifest:
                     preset="as_mop",
                     features=features,
                     params={"ape.mopCoinPercentage": 1.0},
-                    cell="as_mop",
+                    variant="as_mop",
                 ),
             ),
         }
@@ -490,6 +490,7 @@ def test_mop_members_in_a_control_are_counted() -> None:
         {"menu": 50},
         {"mop_distance": 0},
         {"mop_stamp": "cache"},
+        {"mop_handler": "com.example.MainActivity$1"},
         {"retired_targets": (7,)},
         {"mop_exposure": (0, 5)},
         {"owner": Ownership(intended="sata", u_llm=0.4, u_mop=0.9)},
@@ -550,6 +551,9 @@ def test_act_mop_fact_and_mop_counter_count_on_v2() -> None:
     for counter in ("coinMop", "launches", "stampHits", "retired"):
         assert count_mop_group_signal(static_control([], **{counter: 4})) == 1
     assert count_mop_group_signal(static_control([], launches=2, retired=3)) == 1
+
+    # nullRelaunches is written in every cell and is not on the clean-control list.
+    assert count_mop_group_signal(static_control([], nullRelaunches=3)) == 0
 
 
 def test_v1_act_fact_and_run_end_counters_are_not_a_signal() -> None:

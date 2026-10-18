@@ -46,6 +46,8 @@ from aperv_tool.tools.aperv.tool import (
 CELLS = ("base", "mop", "as", "as_mop", "as_llm", "as_mop_llm")
 STATIC_CELLS = ("as", "as_mop", "as_llm", "as_mop_llm")
 LLM_CELLS = ("as_llm", "as_mop_llm")
+# The ablation variant that shares containers with its cell, so it carries a name.
+ABLATIONS = ("mop_k2",)
 
 
 def _stub_clock(*readings):
@@ -127,7 +129,7 @@ class TestVariants:
 
     def test_the_variant_set_is_the_six_cells_and_default(self):
         variants = ApeRVTool.get_variants()
-        assert set(variants) == {"default", *CELLS}
+        assert set(variants) == {"default", *CELLS, *ABLATIONS}
         for name in self.DELETED_NAMES:
             assert name not in variants, f"{name} survives as an alias"
 
@@ -161,10 +163,23 @@ class TestVariants:
         for name in set(CELLS) - set(LLM_CELLS):
             assert variants[name]["overrides"] == {}, name
 
+    def test_the_mop_ledger_ablation_is_the_mop_cell_with_one_key(self):
+        # Spec scenario "The MOP ledger ablation is the mop cell with one key".
+        variants = ApeRVTool.get_variants()
+        k2 = variants["mop_k2"]
+        assert k2["preset"] == "mop"
+        assert k2["variant"] == "mop_k2"
+        assert k2["strategy"] == "sata"
+        assert k2["overrides"] == {"mop_coin_ledger_max_interactions": 2}
+        same = set(k2) - {"variant", "overrides"}
+        assert same == set(variants["mop"]) - {"variant", "overrides"}
+        for key in same:
+            assert k2[key] == variants["mop"][key], key
+
     def test_every_cell_but_base_carries_the_static_data(self):
         # INV-APV-66: the artifact reaches the device exactly when STATIC or MOP is mounted.
         variants = ApeRVTool.get_variants()
-        for name in ("mop", *STATIC_CELLS):
+        for name in ("mop", *STATIC_CELLS, *ABLATIONS):
             assert variants[name]["static_data"] == "static_analysis", name
             assert "mop_data" not in variants[name], name
 
@@ -179,7 +194,8 @@ class TestVariants:
 
     def test_no_variant_carries_a_property_expansion(self):
         # What a cell mounts lives in the jar. A dose or a throttle in a variant would be
-        # the jar's vocabulary restated here; an ablation goes through the tool DSL.
+        # the jar's vocabulary restated here; an ablation goes through the tool DSL, or,
+        # when it shares containers with its cell, through a named variant.
         allowed = {
             "preset",
             "variant",
@@ -359,9 +375,12 @@ class TestDslOverrideFold:
     def test_dsl_override_reaches_the_properties_file(self, tmp_path):
         # Spec scenario "DSL override reaches the properties file".
         self.tool.configure(_cell("as_mop", mop_coin_percentage=0.5))
-        assert "ape.mopCoinPercentage=0.5" in _written_properties(
-            self.tool, tmp_path, artifact_pushed=True
-        ).splitlines()
+        assert (
+            "ape.mopCoinPercentage=0.5"
+            in _written_properties(
+                self.tool, tmp_path, artifact_pushed=True
+            ).splitlines()
+        )
 
     def test_dsl_value_wins_over_the_cells_own_entry(self, tmp_path):
         # Spec scenario "DSL override wins over the arm's own value": the DSL is the
@@ -939,9 +958,23 @@ class TestPushProperties:
             "ape.llmUrl=http://10.0.2.2:30000/v1",
         ]
 
+    def test_the_mop_ledger_ablation_writes_its_key(self, tmp_path):
+        # Spec scenario "The MOP ledger ablation is the mop cell with one key".
+        lines = self._capture_properties(
+            tmp_path, _cell("mop_k2"), artifact_pushed=True
+        )
+        assert lines == [
+            "ape.preset=mop",
+            "ape.variant=mop_k2",
+            f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
+            "ape.mopCoinLedgerMaxInteractions=2",
+        ]
+
     def test_a_cell_with_data_writes_exactly_three_lines(self, tmp_path):
         # Spec scenario "Properties file carries preset plus deltas only".
-        lines = self._capture_properties(tmp_path, _cell("as_mop"), artifact_pushed=True)
+        lines = self._capture_properties(
+            tmp_path, _cell("as_mop"), artifact_pushed=True
+        )
         assert lines == [
             "ape.preset=as_mop",
             "ape.variant=as_mop",
@@ -1045,9 +1078,7 @@ class TestPushProperties:
 
         self.tool._push_file_to_device = fail_on_push
         with pytest.raises(ConfigurationError, match="mop_coin_percentag"):
-            self.tool.configure(
-                _cell("as_mop", overrides={"mop_coin_percentag": 0.5})
-            )
+            self.tool.configure(_cell("as_mop", overrides={"mop_coin_percentag": 0.5}))
 
     def test_no_semantic_validation_of_override_values(self, tmp_path):
         # Spec scenario "No semantic validation is performed on override values": llm_url
@@ -1113,13 +1144,14 @@ class TestRetiredGuards:
 class TestPropertyMapping:
     """The pass-through table: what it translates, and what it must not carry."""
 
-    # The twelve entries the group-isolation jar's vocabulary adds to the table.
+    # The thirteen entries the group-isolation jar's vocabulary adds to the table.
     ADDED = {
         "addons": "ape.addons",
         "static": "ape.static",
         "mop": "ape.mop",
         "llm": "ape.llm",
         "mop_coin_percentage": "ape.mopCoinPercentage",
+        "mop_coin_ledger_max_interactions": "ape.mopCoinLedgerMaxInteractions",
         "llm_gate_min_actions": "ape.llmGateMinActions",
         "llm_breaker_failures": "ape.llmBreakerFailures",
         "llm_breaker_open_ms": "ape.llmBreakerOpenMs",
@@ -1131,7 +1163,7 @@ class TestPropertyMapping:
 
     def test_the_mapping_holds_the_group_isolation_vocabulary(self):
         # Spec scenario "The mapping holds the group-isolation vocabulary".
-        assert len(APERV_PROPERTY_MAPPING) == 66
+        assert len(APERV_PROPERTY_MAPPING) == 67
         assert {key: APERV_PROPERTY_MAPPING[key] for key in self.ADDED} == self.ADDED
         for absent in (
             "mop_target_pick_cap",
@@ -1376,9 +1408,9 @@ class TestNoExternalArtifactIdentityInSource:
             for path in sorted(self.SRC_ROOT.rglob("*.py"))
             if self.ARTIFACT_DIGEST.search(path.read_text(encoding="utf-8"))
         }
-        assert (
-            offenders == {}
-        ), f"external artifact identity declared in source: {offenders}"
+        assert offenders == {}, (
+            f"external artifact identity declared in source: {offenders}"
+        )
 
     def test_no_arm_declares_an_expected_artifact(self):
         # The keys are also absent from APERV_ORCHESTRATION_KEYS, so an experiment YAML
@@ -1992,7 +2024,6 @@ class _ExecutionHarness:
         ].decode()
 
 
-
 class TestExecuteMopArtifactFlow(_ExecutionHarness):
     """Step 1c wiring, keyed on `static_data`: what reaches the device, and what fails
     the task (INV-APV-06, INV-APV-45)."""
@@ -2159,7 +2190,10 @@ class TestExecuteMopArtifactFlow(_ExecutionHarness):
             APERV_DEVICE_JAR_PATH,
             APERV_DEVICE_PROPERTIES_PATH,
         ]
-        assert self._properties().splitlines() == ["ape.preset=base", "ape.variant=base"]
+        assert self._properties().splitlines() == [
+            "ape.preset=base",
+            "ape.variant=base",
+        ]
 
 
 class TestBroadcastCatalogPush(_ExecutionHarness):

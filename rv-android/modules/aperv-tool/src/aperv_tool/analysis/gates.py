@@ -211,6 +211,7 @@ def _mop_group_row(row: StepRow) -> bool:
         or row.menu != 0
         or row.mop_distance is not None
         or row.mop_stamp is not None
+        or row.mop_handler is not None
         or row.retired_targets is not None
         or row.mop_exposure is not None
         or (owner is not None and owner.u_mop is not None)
@@ -240,7 +241,7 @@ def count_mop_group_signal(
 
     On a ``v == 2`` trace each step row carrying at least one MOP-group member
     counts once: a non-zero MOP, MOP-frontier, WTG or menu boost; a MOP distance,
-    stamp, retirement or exposure; a MOP coin draw on the owner record; a MOP
+    stamp, stamped handler, retirement or exposure; a MOP coin draw on the owner record; a MOP
     scorer in the per-scorer counterfactual; a tie decided by the MOP navigation
     component; a MOP-coin or launcher pick channel; a ``mop`` or ``launcher``
     owner, executed or intended; an ``activity_has_mop`` or outcome
@@ -248,6 +249,8 @@ def count_mop_group_signal(
     jar writes ``ACT.mop`` only with MOP mounted. Outside the rows, each ``UICOV``
     line carrying ``mopReach`` counts once, and a ``RUN_END`` with a non-zero
     ``coinMop``, ``launches``, ``stampHits`` or ``retired`` counter counts once.
+    ``nullRelaunches`` does not count: it is written in every cell, and the
+    clean-control list of the jar (INV-SNK-18) does not name it.
     A ``UICOV`` line that did not parse never reaches ``coverage.states``, so its
     ``mopReach`` is not counted.
 

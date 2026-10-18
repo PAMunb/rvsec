@@ -143,7 +143,7 @@ class TestPresets:
 
 class TestKeySpecs:
     def test_accepted_vocabulary_size(self, ape_repo):
-        assert len(load_key_specs(ape_repo)) == 124
+        assert len(load_key_specs(ape_repo)) == 125
 
     def test_the_group_data_and_resolver_keys_are_accepted(self, ape_repo):
         specs = load_key_specs(ape_repo)

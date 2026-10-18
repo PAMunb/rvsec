@@ -99,8 +99,10 @@ the platform's timeout and cleanup semantics.
   `variant` name (echoed as `RUN_START.variant`), an `overrides` dict holding only the server URL
   on the two LLM cells, and the Python-only orchestration keys `strategy`, `static_data` (every
   cell but `base`) and `broadcast_catalog` (the four `as*` cells). `ApeRVTool.get_variants()`
-  returns seven names carrying six configurations (`default` is the same object as `base`). A dose
-  or other tunable is a tool-DSL ablation on a cell, never a new variant.
+  returns eight names carrying seven configurations (`default` is the same object as `base`, and
+  `mop_k2` is the `mop` cell with `ape.mopCoinLedgerMaxInteractions=2`). A dose or other tunable is
+  a tool-DSL ablation on a cell; only an ablation that shares containers with its cell gets a name,
+  because the platform's resume identity leaves the parameters out.
 - **Preset** — One of the six cell presets resident in the jar (`Presets.java`: `base`, `mop`,
   `as`, `as_mop`, `as_llm`, `as_mop_llm`), each the union of its cell's group blocks. `ape.preset`
   selects it and explicit keys override it. The jar owns what a group and a preset mean;
@@ -222,7 +224,7 @@ MOP-boosted widget click on the device and the completion check after the run.
 `ApeRVTool` inside a try/except `ImportError` and calls
 `ToolRegistry.register_tool_class(ApeRVTool)`, guarded by `is_tool_registered('aperv')`.
 Registration stores the `ToolSpec` (name `aperv`, `process_pattern` `com.android.commands.monkey`)
-and the seven variant dicts. If `aperv-tool` is not installed, the platform logs "aperv tool not
+and the eight variant dicts. If `aperv-tool` is not installed, the platform logs "aperv tool not
 available" and continues. (`modules/rv-platform/src/rv_platform/__init__.py:30-38`;
 `ToolRegistry.get_instance()` in `modules/rv-tools/src/rv_tools/registry/registry.py`.)
 
@@ -653,8 +655,8 @@ in a cell that reads it, and an early return is not success: the fail-fast point
 `configure()`'s validation, the missing jar, the cell that cannot arm (host and device), and the
 completion check.
 
-*Configurability (NFR05).* Six jar cell presets, seven variant names (six cells plus `default`),
-a 66-entry property mapping, and per-run overrides through the tool DSL (`aperv:<variant>@key=value`) that `configure()` folds into
+*Configurability (NFR05).* Six jar cell presets, eight variant names (six cells, `default` and the ablation `mop_k2`),
+a 67-entry property mapping, and per-run overrides through the tool DSL (`aperv:<variant>@key=value`) that `configure()` folds into
 `overrides`. The jar also honours `/sdcard/ape.properties`. Deployment-specific values (`llm_url`,
 `corpus_basis`) travel the same path as any other mapped key.
 
@@ -677,7 +679,7 @@ the served model.
 | Extensibility | NFR02 | AbstractTool hooks + guarded registration; new cell = jar preset + one variant entry; ablation = tool-DSL override; new tunable = jar key + mapping entry |
 | Testability | NFR03 | Pure derivation with per-rule tests; device-free offline readers; plan-assembled pipelines testable on the JVM |
 | Resilience | NFR04 | Graceful degradation at optional stages; fail-fast at configure(), jar resolution, artifact arming and completion |
-| Configurability | NFR05 | 6 cell presets, 7 variant names, 66-entry mapping, tool-DSL overrides |
+| Configurability | NFR05 | 6 cell presets, 8 variant names, 67-entry mapping, tool-DSL overrides |
 | Observability | NFR06 | NDJSON trace (`RUN_START`, `MOP_DATA`, `PIPELINE`, `StepRecord`, `RUN_END`), `ApeRvHb` heartbeat, provenance sidecar |
 | Reproducibility | NFR08 | Seed via Monkey `-s`; `RUN_START.variant`; canonical artifact bytes with source digest; plan digest in `RUN_START` |
 
@@ -818,14 +820,15 @@ in brackets; solid arrow = call or use, labeled with what the source does.
 
 **aperv-tool — run path** (Python, `modules/aperv-tool/src/aperv_tool/tools/aperv`, plugin L5).
 Two files carry it. `tool.py` holds the declarative tables and `ApeRVTool`.
-`APERV_PROPERTY_MAPPING` has 66 entries translating Python override keys to `ape.*` properties,
+`APERV_PROPERTY_MAPPING` has 67 entries translating Python override keys to `ape.*` properties,
 grouped by the behaviour group that owns each key (the four group keys `addons`, `static`, `mop`,
 `llm`, then the members); `APERV_ORCHESTRATION_KEYS` lists the ten top-level keys that are Python
 orchestration (`preset`, `variant`, `overrides`, `strategy`, `static_data`, `broadcast_catalog`,
 `seed`, and the three device-addressing keys rv-experiment injects with `--device-port`); of
 those, only `preset` and `variant` reach the jar, through fixed lines. `get_variants()` returns
-seven names carrying six configurations, one per experimental cell — `base`, `mop`, `as`,
-`as_mop`, `as_llm`, `as_mop_llm`, with `default` bound to the `base` object. Each is the cell's
+eight names carrying seven configurations: one per experimental cell — `base`, `mop`, `as`,
+`as_mop`, `as_llm`, `as_mop_llm` — `default` bound to the `base` object, and `mop_k2`, the `mop`
+preset with the MOP coin allowed two picks per (activity, widget) key. Each is the cell's
 preset and its own `variant` name; every cell but `base` carries `static_data`, the four `as*`
 cells carry `broadcast_catalog`, and the two LLM cells carry `llm_url` as their only override. A
 MOP-off control is the absence of the MOP group, stated by the cell preset (`as` against
@@ -1067,7 +1070,8 @@ code in the other, which lets the Python side treat the engine as a black box co
 Variation happens almost entirely in data. The experimental cells are fixed by the jar's
 presets, each the union of the group blocks of the groups it mounts, and `get_variants()` names
 each cell once; a new cell is a new preset in `Presets.java` plus one variant entry. An ablation is
-not a new variant: it is a tool-DSL override on a cell (`aperv:as_mop@mop_coin_percentage=0.5`).
+a tool-DSL override on a cell (`aperv:as_mop@mop_coin_percentage=0.5`), unless it runs in the same
+containers as its cell, where the resume identity needs a name of its own (`mop_k2`).
 A new engine tunable is a `KeyOwnership` entry in the jar plus an
 `APERV_PROPERTY_MAPPING` entry here; the mapping must hold only keys the deployed jar accepts
 (INV-APV-41). Tool-DSL overrides (`aperv:<variant>@key=value`) vary any mapped key per run without
