@@ -13,6 +13,7 @@ that a feature the jar adds or drops is a decision taken here, not a silent pass
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict
 
@@ -29,6 +30,9 @@ from .jar_tables import load_key_specs, load_presets
 from .test_jar_tables import ADDONS_BLOCK, CELLS, LLM_BLOCK, MOP_BLOCK, STATIC_BLOCK
 
 CELLS_DIR = Path("src/test/resources/cells")
+FEATURE_JAVA = Path(
+    "src/main/java/com/android/commands/monkey/ape/runtime/Feature.java"
+)
 
 MASKED = "<masked>"
 VOLATILE_MEMBERS = ("run_id", "t0", "seed", "props_digest", "build")
@@ -139,16 +143,17 @@ class TestCellFixtures:
 
 
 class TestAblationVariant:
-    """`mop_k2` runs the `mop` preset under its own name, so it has no fixture of its own.
+    """`mop_k2` and `mop_nolaunch` run the `mop` preset under their own names, without fixtures.
 
-    Its device echo is the `mop` fixture with `variant` and the one ablated key set apart and
-    the digest left out, because the digest hashes every plan value. Offline, what can be
-    checked is that it names a preset the jar ships and that its one override is a key the
-    jar accepts with the type the variant gives it.
+    Their device echo is the `mop` fixture with `variant` and the ablated key's effect set
+    apart and the digest left out, because the digest hashes every plan value. Offline, what
+    can be checked is that each names a preset the jar ships and that its one override is a
+    key the jar accepts, with the type and the meaning the variant relies on.
     """
 
-    def test_mop_k2_names_the_mop_preset(self, ape_repo):
-        variant = ApeRVTool.get_variants()["mop_k2"]
+    @pytest.mark.parametrize("name", ("mop_k2", "mop_nolaunch"))
+    def test_the_ablation_names_the_mop_preset(self, ape_repo, name):
+        variant = ApeRVTool.get_variants()[name]
         assert variant["preset"] == "mop"
         assert variant["preset"] in load_presets(ape_repo)
         assert _fixture(ape_repo, "mop")["preset"] == variant["preset"]
@@ -164,3 +169,24 @@ class TestAblationVariant:
         # No block states it, so the mop fixture carries the default by omission and the
         # device echo of mop_k2 adds exactly this one params entry.
         assert key not in _fixture(ape_repo, "mop")["params"]
+
+    def test_mop_nolaunch_states_the_launcher_activation_key_at_its_neutral_value(
+        self, ape_repo
+    ):
+        overrides = ApeRVTool.get_variants()["mop_nolaunch"]["overrides"]
+        assert overrides == {"activity_trigger_enabled": False}
+        key = APERV_PROPERTY_MAPPING["activity_trigger_enabled"]
+        assert load_key_specs(ape_repo)[key].value_type == "BOOLEAN"
+        # The key is MOP_LAUNCHER's activation key and false is its neutral value, so the
+        # jar drops the feature from the plan and reports the key as inert instead of
+        # aborting, and the device echo is the mop fixture without MOP_LAUNCHER.
+        feature_java = (ape_repo / FEATURE_JAVA).read_text(encoding="utf-8")
+        assert re.search(
+            r'MOP_LAUNCHER\(\s*"'
+            + re.escape(key)
+            + r'"\s*,\s*Rule\.TRUE\s*,\s*"false"\s*\)',
+            feature_java,
+        )
+        mop = _fixture(ape_repo, "mop")
+        assert "MOP_LAUNCHER" in mop["features"]
+        assert mop["params"][key] is True

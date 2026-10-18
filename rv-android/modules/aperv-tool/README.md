@@ -44,7 +44,7 @@ uv run rv-platform run --tools aperv:as --apks-dir ./apks_examples
 
 APE-RV mounts five behaviour groups by declaration: **BASE** (the APE algorithm), **ADDONS** (the fork's own improvements), **STATIC** (the consumers of the static GUI model), **MOP** (the consumers of the specification targets) and **LLM** (the vision-language model). A **cell** is a union of groups, and the jar ships one preset per cell, each the union of that cell's group blocks. What a group switches on lives in the jar; this module names a cell and supplies only what the jar cannot know: the server URL, the static-analysis artifact, and the variant name the jar echoes into the trace.
 
-Eight names carry seven configurations — the six cells, `default` and the ablation `mop_k2`; `default` is bound to the same object as `base`, because every registered tool must carry a `default` variant.
+Nine names carry eight configurations — the six cells, `default` and the ablations `mop_k2` and `mop_nolaunch`; `default` is bound to the same object as `base`, because every registered tool must carry a `default` variant.
 
 | Variant | Preset | Groups beside BASE | Static-analysis artifact | Broadcast catalog | Overrides |
 |---------|--------|--------------------|--------------------------|-------------------|-----------|
@@ -56,12 +56,13 @@ Eight names carry seven configurations — the six cells, `default` and the abla
 | `as_llm` | `as_llm` | ADDONS, STATIC, LLM | Yes | Yes | `llm_url` |
 | `as_mop_llm` | `as_mop_llm` | ADDONS, STATIC, MOP, LLM | Yes | Yes | `llm_url` |
 | `mop_k2` | `mop` | MOP | Yes | No | `mop_coin_ledger_max_interactions: 2` — the MOP coin may take each (activity, widget) key twice |
+| `mop_nolaunch` | `mop` | MOP without the launcher | Yes | No | `activity_trigger_enabled: False` — the MOP launcher and its null-tree recovery are unmounted |
 
 The artifact goes to the device on every cell that mounts STATIC or MOP — every cell except `base` — because those are the groups that read it; `as` reads it with MOP off. The broadcast catalog goes only to the four `as*` cells, because its only reader in the jar is component triggering, a STATIC member. For a new experiment, `as` is the control without specifications, `as_mop` the guidance on the full tool, and `mop` against `base` the guidance on APE alone.
 
-A dose or any other tunable is an ablation through the tool DSL: `--tools aperv:as_mop@mop_coin_percentage=0.5`, or `aperv:as_mop_llm@llm_percentage=0.7`. An ablation that runs in the same containers as its cell needs a name instead, because the platform's resume identity (apk, tool, variant, repetition, timeout) and the result file names leave the parameters out; `mop_k2` is that variant for the MOP coin's ledger budget.
+A dose or any other tunable is an ablation through the tool DSL: `--tools aperv:as_mop@mop_coin_percentage=0.5`, or `aperv:as_mop_llm@llm_percentage=0.7`. An ablation that runs in the same containers as its cell needs a name instead, because the platform's resume identity (apk, tool, variant, repetition, timeout) and the result file names leave the parameters out; `mop_k2` (the MOP coin's ledger budget) and `mop_nolaunch` (the MOP launcher off) are those variants.
 
-These eight are the only names. The arm names of earlier campaigns (`sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`, `mop_on_llm_70`, `mopd_on_llm_off`, `mopd_on_llm_90`) have no alias in this tree, because they configured presets and keys the paired jar no longer has; resolving one fails with "Invalid variant". Campaigns recorded under them resume from the frozen image `rvandroid:0.9.5`, and their recorded results stay readable.
+These nine are the only names. The arm names of earlier campaigns (`sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`, `mop_on_llm_70`, `mopd_on_llm_off`, `mopd_on_llm_90`) have no alias in this tree, because they configured presets and keys the paired jar no longer has; resolving one fails with "Invalid variant". Campaigns recorded under them resume from the frozen image `rvandroid:0.9.5`, and their recorded results stay readable.
 
 The cells need the `ape-rv.jar` built from the `ape` change `isolate-guidance-groups` (contract v3.3). A jar that predates the group keys aborts before step 1 on `ape.variant` and on the cell presets, which is the intended guard against a mismatched pair.
 

@@ -42,12 +42,12 @@ from aperv_tool.tools.aperv.tool import (
     ApeRVTool,
 )
 
-# The seven variant names: the six cells and default, bound to base.
+# The six cells; with default, bound to base, and the ablations they make the variant set.
 CELLS = ("base", "mop", "as", "as_mop", "as_llm", "as_mop_llm")
 STATIC_CELLS = ("as", "as_mop", "as_llm", "as_mop_llm")
 LLM_CELLS = ("as_llm", "as_mop_llm")
-# The ablation variant that shares containers with its cell, so it carries a name.
-ABLATIONS = ("mop_k2",)
+# The ablation variants that share containers with their cell, so they carry a name.
+ABLATIONS = ("mop_k2", "mop_nolaunch")
 
 
 def _stub_clock(*readings):
@@ -175,6 +175,19 @@ class TestVariants:
         assert same == set(variants["mop"]) - {"variant", "overrides"}
         for key in same:
             assert k2[key] == variants["mop"][key], key
+
+    def test_the_launcher_ablation_is_the_mop_cell_without_its_launcher(self):
+        # Spec scenario "The launcher ablation is the mop cell without its launcher".
+        variants = ApeRVTool.get_variants()
+        nolaunch = variants["mop_nolaunch"]
+        assert nolaunch["preset"] == "mop"
+        assert nolaunch["variant"] == "mop_nolaunch"
+        assert nolaunch["strategy"] == "sata"
+        assert nolaunch["overrides"] == {"activity_trigger_enabled": False}
+        same = set(nolaunch) - {"variant", "overrides"}
+        assert same == set(variants["mop"]) - {"variant", "overrides"}
+        for key in same:
+            assert nolaunch[key] == variants["mop"][key], key
 
     def test_every_cell_but_base_carries_the_static_data(self):
         # INV-APV-66: the artifact reaches the device exactly when STATIC or MOP is mounted.
@@ -968,6 +981,18 @@ class TestPushProperties:
             "ape.variant=mop_k2",
             f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
             "ape.mopCoinLedgerMaxInteractions=2",
+        ]
+
+    def test_the_launcher_ablation_writes_its_key(self, tmp_path):
+        # Spec scenario "The launcher ablation is the mop cell without its launcher".
+        lines = self._capture_properties(
+            tmp_path, _cell("mop_nolaunch"), artifact_pushed=True
+        )
+        assert lines == [
+            "ape.preset=mop",
+            "ape.variant=mop_nolaunch",
+            f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
+            "ape.activityTriggerEnabled=false",
         ]
 
     def test_a_cell_with_data_writes_exactly_three_lines(self, tmp_path):
