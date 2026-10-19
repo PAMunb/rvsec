@@ -1192,13 +1192,14 @@ class TestPropertyMapping:
 
     def test_the_mapping_holds_the_group_isolation_vocabulary(self):
         # Spec scenario "The mapping holds the group-isolation vocabulary".
-        assert len(APERV_PROPERTY_MAPPING) == 67
+        assert len(APERV_PROPERTY_MAPPING) == 66
         assert {key: APERV_PROPERTY_MAPPING[key] for key in self.ADDED} == self.ADDED
         for absent in (
             "mop_target_pick_cap",
             "least_visited_priority_tiebreak",
             "mop_weight_activity",
             "step_telemetry_enabled",
+            "llm_percentage_no_substrate",
             "variant",
             "preset",
         ):

@@ -252,7 +252,6 @@ APERV_PROPERTY_MAPPING = {
     "llm_timeout_ms": "ape.llmTimeoutMs",
     # p_L, the probability that a step offered to the LLM is taken by it.
     "llm_percentage": "ape.llmPercentage",
-    "llm_percentage_no_substrate": "ape.llmPercentageNoSubstrate",
     "llm_prompt_variant": "ape.llmPromptVariant",
     "llm_max_tokens": "ape.llmMaxTokens",
     "llm_snap_tolerance_px": "ape.llmSnapTolerancePx",

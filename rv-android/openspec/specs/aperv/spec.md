@@ -47,7 +47,7 @@ The `ape-rv.jar` binary supports several capabilities that `aperv-tool` configur
 - `self._tool_config: Dict[str, Any]` -- resolved variant configuration from `configure()`
 - `variant dict: Dict[str, Any]` -- per cell: `preset: str` (one of `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`), `variant: str` (the cell's own name), `overrides: Dict[str, Any]` (the server URL on the two LLM cells and `mop_coin_ledger_max_interactions: 2` on `mop`, `as_mop` and `as_mop_llm`, otherwise empty), `strategy: "sata"`, `static_data: "static_analysis"` on every cell except `base`, and `broadcast_catalog: True` on the four cells that mount STATIC; the ablation variant `mop_nolaunch` is the `mop` cell with `variant: "mop_nolaunch"` and `activity_trigger_enabled: False` added to its `overrides` (source: `ApeRVTool.get_variants()`, merged with experiment parameters by `ToolFactory`). No variant declares the revision or the digest of an `ape-rv.jar` build (INV-APV-59)
 - `tool_config.parameters: Dict[str, Any]` -- tool-DSL overrides (`aperv:<variant>@key=value`), merged **at the top level** over the variant dict by `ToolFactory` (`registry/factory.py:127`) and folded into `overrides` by `configure()` (INV-APV-39)
-- `APERV_PROPERTY_MAPPING: Dict[str, str]` -- 67 entries: override key → `ape.*` property name; contains only keys the deployed jar accepts (source: `tool.py` module constant)
+- `APERV_PROPERTY_MAPPING: Dict[str, str]` -- 66 entries: override key → `ape.*` property name; contains only keys the deployed jar accepts (source: `tool.py` module constant)
 - `<ape>/src/test/resources/cells/<cell>.run_start.json` -- the jar's expected `RUN_START` per cell, with `run_id`, `t0`, `seed`, `build` and `props_digest` masked (source: the `ape` repository; read by the cell gate tests only, never at run time)
 - preset vectors and the accepted-key vocabulary -- read from the `ape` source checkout (`runtime/Presets.java`, `runtime/KeyOwnership.java`) by the migration tooling only; not a runtime dependency of `aperv-tool`
 - `ape-rv.jar` -- Dalvik JAR resolved at execution time via priority search
@@ -1881,7 +1881,6 @@ entries are:
 | `llm_top_k` | `ape.llmTopK` | `LLM` sub-parameter |
 | `llm_timeout_ms` | `ape.llmTimeoutMs` | `LLM` sub-parameter |
 | `llm_percentage` | `ape.llmPercentage` | `LLM_COIN` activation; `p_L`, the LLM block states 0.9 |
-| `llm_percentage_no_substrate` | `ape.llmPercentageNoSubstrate` | `LLM_COIN` sub-parameter; the `-1` sentinel is accepted on a plan with no LLM |
 | `llm_prompt_variant` | `ape.llmPromptVariant` | `LLM` sub-parameter |
 | `llm_max_tokens` | `ape.llmMaxTokens` | `LLM` sub-parameter |
 | `llm_snap_tolerance_px` | `ape.llmSnapTolerancePx` | `LLM` sub-parameter |
@@ -1897,7 +1896,8 @@ with `retired_key`: `mop_target_pick_cap` (`ape.mopTargetPickCap`, replaced by
 which equals APE with zero scorers). Thirteen enter, so the table goes from 56 to 67 entries: the four group keys,
 the MOP coin dose and its ledger budget, the three LLM gate parameters, and four existing jar keys the table lacked
 (`activity_stable_restart_threshold`, `take_screenshot_for_every_step`, `save_gui_tree_to_xml_every_step`,
-`llm_boundary_top_pct`). `ape.variant` and
+`llm_boundary_top_pct`). The jar then retired `ape.llmPercentageNoSubstrate` (ape `isolate-guidance-groups`
+D-B24: it never had a consumer), so `llm_percentage_no_substrate` left the table, which holds 66 entries. `ape.variant` and
 `ape.staticDataPath` are not in the table: the tool writes them from the variant and from the push, never from an
 override, so an operator cannot set either through the DSL. The jar has no launcher-mode key, no X1 key and no
 X3/X4 key (the cadence is fixed and the MOP variant of each extension point is mounted with MOP), so the table
@@ -1934,13 +1934,14 @@ the mapping's contents a correctness property rather than a tidiness one.
 
 #### Scenario: The mapping holds the group-isolation vocabulary
 - **WHEN** `APERV_PROPERTY_MAPPING` is inspected after this change
-- **THEN** it SHALL contain exactly 67 entries
+- **THEN** it SHALL contain exactly 66 entries
 - **AND** it SHALL contain `addons`, `static`, `mop`, `llm`, `mop_coin_percentage`,
   `mop_coin_ledger_max_interactions`, `llm_gate_min_actions`,
   `llm_breaker_failures`, `llm_breaker_open_ms`, `activity_stable_restart_threshold`,
   `take_screenshot_for_every_step`, `save_gui_tree_to_xml_every_step` and `llm_boundary_top_pct`
 - **AND** it SHALL NOT contain `mop_target_pick_cap`, `least_visited_priority_tiebreak`, `mop_weight_activity`,
-  `step_telemetry_enabled`, `variant` or any key mapping to `ape.mopDataPath` or `ape.staticDataPath`
+  `step_telemetry_enabled`, `llm_percentage_no_substrate`, `variant` or any key mapping to `ape.mopDataPath` or
+  `ape.staticDataPath`
 
 #### Scenario: Python-only keys are still excluded
 - **WHEN** `_push_properties()` is called for `aperv:as_mop@seed=42`, whose `_tool_config` carries
