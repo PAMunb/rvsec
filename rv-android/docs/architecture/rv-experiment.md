@@ -972,8 +972,9 @@ the compact MOP artifact from the static document in the task's directory
 (`derive_mop_artifact.py`, cached beside its source and keyed by the source digest and the
 format, INV-APV-47) and push only that artifact (INV-APV-46); push `ape.properties`; then run
 `adb shell CLASSPATH=… app_process … com.android.commands.monkey.Monkey` with a timeout of the
-budget plus `APERV_TEARDOWN_GRACE_S` (45 s). Its ten variants are frozen names, each a
-`preset` plus `overrides` (INV-APV-40, INV-APV-42). The module also holds the offline
+budget plus `APERV_TEARDOWN_GRACE_S` (45 s). Its variants are the six APE-RV cells
+plus `default` and the ablation `mop_nolaunch`, each a `preset`, a `variant` name and `overrides`
+(INV-APV-05, INV-APV-40, INV-APV-65). The module also holds the offline
 campaign-analysis library `aperv_tool.analysis`, which never runs during execution. It is
 separate because the exploration logic lives in the APE-RV Java repository; the plugin owns
 the deployment contract, so the platform never learns APE-RV specifics. Gotchas: a MOP arm

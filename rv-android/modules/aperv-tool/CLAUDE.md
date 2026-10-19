@@ -170,7 +170,7 @@ one it holds:
   largest, which is not causal, because every stage adds into one shared priority.
   Counting it across traces of both versions counts two different things;
   `screen_visits` reports its counts beside the version and refuses to pool them
-  (INV-CAN-21).
+  (INV-CAN-27).
 - **The decision record of `v == 2`** reaches typed `StepRow` fields, `None` when
   absent: `owner` (`dec.own`, an `Ownership` with the intended owner, the LLM
   stage that made the step's one call, the coin draws `u_llm`/`u_mop`, the gate and
@@ -191,7 +191,7 @@ one it holds:
 - **`activity_has_mop` is tri-state** (INV-APV-68). The `v == 2` jar writes
   `ACT.mop` only with MOP mounted, so on `base`, `as` and `as_llm` the fact was not
   computed and reads `None`, not `False`. Consumers carry `None` through
-  (INV-CAN-22).
+  (INV-CAN-28).
 - **`RUN_START.variant`** names the cell (`RunStart.variant`); it is `None` on every
   `v == 1` trace.
 - **`RUN_END` is a census attribute.** `reader.run_end` is the record minus `type`,
