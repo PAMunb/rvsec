@@ -200,6 +200,8 @@ which the sibling `ape` change already references by number.
 
 - **INV-DRV-10**: Every distance pair `[i, d]` in the artifact SHALL satisfy `0 ≤ i < targets` and `d ≥ 0`. A pair list SHALL hold each index at most once and SHALL be sorted by `d` ascending, then `i` ascending. A widget's or a handler's list SHALL hold exactly the targets of its per-target minima at `d ≤ 3` and no pair at `d ≥ 4`. An `activityDist` list SHALL hold the three pairs of smallest `d`. Every list is cut from the full per-target minima after every merge (listener, collision, dialog, class), never before, and an activity's minima start from its widgets' uncut minima. An empty pair list SHALL NOT be emitted. `targets` and `handlers` SHALL always be emitted.
 
+- **INV-DRV-11**: A `reachability[]` method SHALL fill the `click` event of its class's `handlers` record exactly when its name and parameter list are one of `onClick(android.view.View)`, `onOptionsItemSelected(android.view.MenuItem)`, `onNavigationItemSelected(android.view.MenuItem)`, `onMenuItemClick(android.view.MenuItem)`, `onMenuItemSelected(android.view.MenuItem)`, `onPreferenceClick(androidx.preference.Preference)`, `onPreferenceTreeClick(androidx.preference.Preference)`, `onPreferenceChange(androidx.preference.Preference,java.lang.Object)`, `onClick(android.content.DialogInterface,int)`, or `java.lang.Object invoke()` / `java.lang.Object invoke(java.lang.Object)`; `onLongClick(android.view.View)` and the two `invoke` forms fill `longclick`. A name with any other parameter list SHALL fill no event. All methods that fill one event of one class SHALL OR their flags and merge their pairs by the minimum per target before the cut of INV-DRV-10, so no method's contribution is lost.
+
 - **INV-APV-38**: every variant whose preset mounts the LLM group (`as_llm`, `as_mop_llm`) MUST carry `llm_url` in its `overrides`. The cell preset states `ape.llm=true` without the URL, which names a machine rather than a cell, so a variant without it aborts at resolution (`MISSING_DEPENDENCY`). This is a fail-fast, not a fallback.
 
 - **INV-APV-39**: `configure()` MUST fold every top-level config key that has an
@@ -1005,6 +1007,17 @@ read format 1 only, so the two sides ship together.
      and `java.lang.Object invoke(java.lang.Object)`, which fill both. A Compose node's stamp is the
      class of a `Function0`, and a toggleable's is the class of its `onValueChange`, a `Function1`
      (`instrumentation` INV-INS-178); the node's extras key, not the method, tells the event.
+     The app callbacks that a library dispatcher calls, and that the View stamp names in
+     `rvsec.click` instead of the dispatcher (`instrumentation` INV-INS-181), are handler methods
+     that fill `click` (INV-DRV-11): `onOptionsItemSelected(android.view.MenuItem)`,
+     `onNavigationItemSelected(android.view.MenuItem)`, `onMenuItemClick(android.view.MenuItem)`,
+     `onMenuItemSelected(android.view.MenuItem)`, `onPreferenceClick(androidx.preference.Preference)`,
+     `onPreferenceTreeClick(androidx.preference.Preference)`,
+     `onPreferenceChange(androidx.preference.Preference,java.lang.Object)` and
+     `onClick(android.content.DialogInterface,int)`. A class that declares more than one of them,
+     or one of them and `onClick(android.view.View)`, as an activity that is both a button's
+     listener and the options-menu owner does, gets one `click` event by the merge rule below; the
+     stamp names the class, not the method, so the record cannot be finer than the class.
      `<init>` and `<clinit>` are never handler methods. An event's flag is derived from the method's
      own `directlyReachesTarget`/`reachesTarget` on INV-DRV-01's two axes, and its pairs are the
      method's distances; two methods filling one event OR their flags and merge their pairs by the
@@ -1056,10 +1069,13 @@ its output file on open and cannot leave a parseable stale tail.
   for `executeButton`, the three of its wrapper's ten pairs at `d ≤ 3`
 - **AND** `btn_cipher_encrypt` SHALL be emitted with `mop == {"click": "transitive"}` and no `dist`,
   because its handler `CipherActivity$1.onClick` reaches its two targets only at `d = 4`
-- **AND** `handlers` SHALL have exactly the keys `br.unb.cic.cryptoapp.cipher.CipherActivity$1` and
+- **AND** `handlers` SHALL have exactly four keys: `br.unb.cic.cryptoapp.cipher.CipherActivity$1` and
   `br.unb.cic.cryptoapp.generated.CryptographyActivity$$ExternalSyntheticLambda0`, each with
-  `mop == {"click": "transitive"}`; the second SHALL carry `dist == {"click": [[16,3],[17,3],[18,3]]}`
-  and the first no `dist`
+  `mop == {"click": "transitive"}`, the second carrying `dist == {"click": [[16,3],[17,3],[18,3]]}`
+  and the first no `dist`; and `br.unb.cic.cryptoapp.MainActivity` (its
+  `onOptionsItemSelected(android.view.MenuItem)`) and `br.unb.cic.cryptoapp.MainActivity$1` (its
+  `onMenuItemClick(android.view.MenuItem)`), each `{"mop": {"click": "none"}}` with no `dist`,
+  because those callbacks reach no target (INV-DRV-11)
 - **AND** `activityDist` SHALL be exactly `{CipherActivity: [[0,2],[1,2]], CryptographyActivity:
   [[12,0],[13,0],[14,0]], MessageDigestActivity: [[22,2]]}` (fully qualified keys), with no entry
   for `MainActivity`, whose only reaching method is its own constructor
@@ -1172,6 +1188,20 @@ its output file on open and cannot leave a parseable stale tail.
 - **THEN** `components.receivers` SHALL have 2 entries and `components.services` 1, each with `reachesMop == false`
 
 ---
+
+#### Scenario: the handler table records the app callbacks behind library dispatchers
+- **WHEN** `reachability[]` lists `com.example.app.MainActivity` with the method `<com.example.app.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>` at distance 2 from target 0, `com.example.app.SettingsFragment$$ExternalSyntheticLambda5` with `<...: boolean onPreferenceClick(androidx.preference.Preference)>` at distance 1 from target 1, and `com.example.app.Dialogs$$ExternalSyntheticLambda3` with `<...: void onClick(android.content.DialogInterface,int)>` at distance 3 from target 0
+- **THEN** `handlers["com.example.app.MainActivity"].dist` SHALL be `{"click": [[0, 2]]}`, `handlers["com.example.app.SettingsFragment$$ExternalSyntheticLambda5"].dist` SHALL be `{"click": [[1, 1]]}`, and `handlers["com.example.app.Dialogs$$ExternalSyntheticLambda3"].dist` SHALL be `{"click": [[0, 3]]}`
+- **AND** none of the three records SHALL carry a `longclick` event
+
+#### Scenario: a callback name with another parameter list is not a handler method
+- **WHEN** `reachability[]` lists `com.example.app.Helper` whose only methods are `<com.example.app.Helper: boolean onOptionsItemSelected(int)>` and `<com.example.app.Helper: void onClick(android.content.DialogInterface)>`, both reaching target 0
+- **THEN** `handlers` SHALL have no key `com.example.app.Helper`
+
+#### Scenario: a class with a view listener and an options-menu callback merges both into click
+- **WHEN** `com.example.app.MainActivity` declares `onClick(android.view.View)` at distances `{0: 3}` and `onOptionsItemSelected(android.view.MenuItem)` at distances `{0: 1, 2: 2}`, the first reaching no target directly and the second reaching target 0 directly
+- **THEN** `handlers["com.example.app.MainActivity"]` SHALL carry `dist.click == [[0, 1], [2, 2]]`
+- **AND** its `click` flag SHALL be the OR of the two methods' flags, with neither method's record overwriting the other
 
 ### Requirement: Widget MOP Flag Derivation (FR04, FR06)
 

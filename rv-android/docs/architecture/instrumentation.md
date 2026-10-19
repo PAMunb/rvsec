@@ -187,7 +187,7 @@ The decisions that shaped this architecture, each with the tension behind it and
 | JSON descriptor as the contract | stable machine contract; fail fast on drift | INV-INS-56 |
 | Exit code = APK instrumented; JSON always written with cause | failures never look like successes; post-mortem | INV-INS-105 |
 | No wallclock timeout; fixed environment; options as argv | slow large apps; layer purity | INV-EXP-30, INV-INS-180; ADR 0001 |
-| Handler stamp as a separate opt-in pass | node key for the GUI explorer; MOP weave unchanged; off byte-identical | INV-INS-174..179 |
+| Handler stamp as a separate opt-in pass | node key for the GUI explorer; MOP weave unchanged; off byte-identical | INV-INS-174..181 |
 | Decide once per weave | weave cost; identical output | INV-INS-168 |
 
 No ADR records the decisions above; formal records can be authored with `/rv-doc-adr`. One workspace ADR does constrain these modules: ADR 0001 (`docs/adr/0001-env-var-pattern.md`) lists `rv-instrumentation*` under its Layer Purity rule — they read no user-facing `RV_*` variable and receive their configuration from rv-experiment — which is the rule the fixed subprocess environment (INV-EXP-30) carries down to the engine.
