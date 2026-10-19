@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 import soot.SootClass;
@@ -40,6 +41,11 @@ import soot.jimple.toolkits.callgraph.Edge;
  * app methods carry pairs. Every method with a pair is in {@code reachesTarget}, because the
  * reachability search runs on the same graph from a superset of these seeds (INV-ANA-74).
  *
+ * <p>Each search visits a method's callers in signature order with a first-in first-out queue.
+ * The order changes no distance, since a breadth-first level does not depend on it; it fixes
+ * which of several equally short paths a search reaches first, which {@link #paths} records
+ * (INV-ANA-92).
+ *
  * <p>The algorithm works on a callee → callers map, so it is exercised in tests on string
  * vertices without a Soot Scene; {@link #compute(CallGraph, ReachabilityIndex, Map, Set)} builds
  * that map from the Soot call graph.
@@ -63,11 +69,28 @@ public final class TargetDistances<V> {
 	private final List<V> targets;
 	private final List<String> kinds;
 	private final Map<V, int[][]> pairs;
+	/**
+	 * Callee → callers in signature order, kept so {@link #paths} repeats the same searches;
+	 * {@code null} after {@link #releaseCallers}.
+	 */
+	private Map<V, List<V>> callers;
+	private final Function<V, String> signature;
 
-	private TargetDistances(List<V> targets, List<String> kinds, Map<V, int[][]> pairs) {
+	private TargetDistances(List<V> targets, List<String> kinds, Map<V, int[][]> pairs,
+			Map<V, List<V>> callers, Function<V, String> signature) {
 		this.targets = Collections.unmodifiableList(targets);
 		this.kinds = Collections.unmodifiableList(kinds);
 		this.pairs = Collections.unmodifiableMap(pairs);
+		this.callers = callers;
+		this.signature = signature;
+	}
+
+	/**
+	 * Drops the callers map, a copy of the call graph's reverse edges that only {@link #paths}
+	 * reads, so it is not held through the WTG. The distances and pairs stay readable.
+	 */
+	public void releaseCallers() {
+		callers = null;
 	}
 
 	/** Targets in index order. */
@@ -155,9 +178,16 @@ public final class TargetDistances<V> {
 	 * @param direct the {@code directlyReachesTarget} set; only its app members become targets
 	 * @param targets the resolved target methods; the library ones seed the boundary search
 	 */
-	public static <V> TargetDistances<V> compute(Map<V, Set<V>> callers, Set<V> appMethods,
+	public static <V> TargetDistances<V> compute(Map<V, Set<V>> callerSets, Set<V> appMethods,
 			Set<V> direct, Set<V> targets, Function<V, String> signature) {
 		Comparator<V> bySignature = Comparator.comparing(signature);
+		// Sorted once here; both passes walk these lists (INV-ANA-92).
+		Map<V, List<V>> callers = new HashMap<>(callerSets.size() * 2);
+		for (Map.Entry<V, Set<V>> e : callerSets.entrySet()) {
+			List<V> sorted = new ArrayList<>(e.getValue());
+			sorted.sort(bySignature);
+			callers.put(e.getKey(), sorted);
+		}
 		List<V> c = new ArrayList<>();
 		for (V m : direct) {
 			if (appMethods.contains(m)) {
@@ -173,7 +203,7 @@ public final class TargetDistances<V> {
 			if (targets.contains(lib)) {
 				continue;
 			}
-			for (V p : callers.getOrDefault(lib, Collections.emptySet())) {
+			for (V p : callers.getOrDefault(lib, Collections.emptyList())) {
 				if (appMethods.contains(p) && !cSet.contains(p)) {
 					bNotC.add(p);
 				}
@@ -192,7 +222,7 @@ public final class TargetDistances<V> {
 		// Targets are visited in index order, so each method's pairs come out sorted by index.
 		Map<V, List<int[]>> collected = new HashMap<>();
 		for (int i = 0; i < all.size(); i++) {
-			for (Map.Entry<V, Integer> e : reverseBfs(callers, all.get(i)).entrySet()) {
+			for (Map.Entry<V, Integer> e : reverseBfs(callers, all.get(i), null).entrySet()) {
 				if (appMethods.contains(e.getKey())) {
 					collected.computeIfAbsent(e.getKey(), k -> new ArrayList<>())
 							.add(new int[] { i, e.getValue() });
@@ -203,11 +233,144 @@ public final class TargetDistances<V> {
 		for (Map.Entry<V, List<int[]>> e : collected.entrySet()) {
 			pairs.put(e.getKey(), e.getValue().toArray(new int[0][]));
 		}
-		return new TargetDistances<>(all, kinds, pairs);
+		return new TargetDistances<>(all, kinds, pairs, callers, signature);
 	}
 
-	/** Reverse BFS from {@code seed}, levels up to {@link #DIST_MAX}; returns vertex → distance. */
-	private static <V> Map<V, Integer> reverseBfs(Map<V, Set<V>> callers, V seed) {
+	/**
+	 * The written-pair predicate of compact output, for {@link #paths}: true for the pairs
+	 * {@link #compact} keeps of {@code pairs(m)}. It reduces a method's pairs once and reuses the
+	 * result while it is asked about the same method, as {@link #paths} asks about one method's
+	 * pairs in a row. Not thread-safe.
+	 */
+	public BiPredicate<V, int[]> keptByCompact() {
+		return new BiPredicate<V, int[]>() {
+			private V method;
+			private Set<Integer> keptTargets;
+
+			@Override
+			public boolean test(V m, int[] pair) {
+				if (keptTargets == null || !m.equals(method)) {
+					method = m;
+					keptTargets = new HashSet<>();
+					for (int[] kept : compact(pairs(m))) {
+						keptTargets.add(kept[0]);
+					}
+				}
+				// A method holds at most one pair per target, so the index identifies the pair.
+				return keptTargets.contains(pair[0]);
+			}
+		};
+	}
+
+	/**
+	 * Distance paths of the written pairs (INV-ANA-91, -92, -93), in a second pass.
+	 *
+	 * <p>For each target named by a written pair, the target's reverse search runs again, the
+	 * same one {@code compute} ran, and records for each method the callee from which the search
+	 * first visited it. From the method of each written pair {@code [i, d]} the recorded callees
+	 * lead to the target in {@code d} steps; each step {@code [i, v, n]} on those chains is kept
+	 * once. One target's search is held at a time, so the memory is that search plus the steps.
+	 *
+	 * @param written true exactly for the pairs the output mode writes on a method: every pair
+	 *     in full output, {@link #keptByCompact()} in compact output
+	 * @return the steps over the table of the methods that occur in them
+	 * @throws IllegalStateException when the repeated search does not find a written pair's
+	 *     method at the pair's distance, which would mean the two passes walked different graphs
+	 */
+	public DistancePaths paths(BiPredicate<V, int[]> written) {
+		if (callers == null) {
+			throw new IllegalStateException("callers released before the path pass");
+		}
+		// The written pairs grouped by target: method → distance, one map per named target.
+		List<Map<V, Integer>> byTarget = new ArrayList<>(
+				Collections.<Map<V, Integer>>nCopies(targets.size(), null));
+		for (Map.Entry<V, int[][]> e : pairs.entrySet()) {
+			for (int[] pair : e.getValue()) {
+				if (written.test(e.getKey(), pair)) {
+					Map<V, Integer> methods = byTarget.get(pair[0]);
+					if (methods == null) {
+						methods = new HashMap<>();
+						byTarget.set(pair[0], methods);
+					}
+					methods.put(e.getKey(), pair[1]);
+				}
+			}
+		}
+
+		List<Step<V>> steps = new ArrayList<>();
+		Set<V> vertices = new HashSet<>();
+		for (int i = 0; i < byTarget.size(); i++) {
+			Map<V, Integer> chainStarts = byTarget.get(i);
+			if (chainStarts == null) {
+				continue;
+			}
+			byTarget.set(i, null);
+			Map<V, V> callee = new HashMap<>();
+			Map<V, Integer> dist = reverseBfs(callers, targets.get(i), callee);
+			// A method's chain is fixed by its recorded callee, so a chain that reaches a method
+			// already walked for this target continues with steps already kept.
+			Set<V> walked = new HashSet<>();
+			for (Map.Entry<V, Integer> start : chainStarts.entrySet()) {
+				V v = start.getKey();
+				int d = start.getValue();
+				Integer found = dist.get(v);
+				if (found == null || found != d) {
+					throw new IllegalStateException("distance path: " + signature.apply(v)
+							+ " carries [" + i + ", " + d + "] but the repeated search found "
+							+ found);
+				}
+				for (int k = d; k > 0 && walked.add(v); k--) {
+					V n = callee.get(v);
+					steps.add(new Step<>(i, v, n));
+					vertices.add(v);
+					vertices.add(n);
+					v = n;
+				}
+			}
+		}
+
+		List<V> ordered = new ArrayList<>(vertices);
+		ordered.sort(Comparator.comparing(signature));
+		Map<V, Integer> position = new HashMap<>(ordered.size() * 2);
+		List<String> methods = new ArrayList<>(ordered.size());
+		for (V v : ordered) {
+			position.put(v, methods.size());
+			methods.add(signature.apply(v));
+		}
+		int[][] out = new int[steps.size()][];
+		for (int s = 0; s < out.length; s++) {
+			Step<V> step = steps.get(s);
+			out[s] = new int[] { step.target, position.get(step.caller),
+					position.get(step.callee) };
+		}
+		// At most one step per (i, v), so this order is total.
+		Arrays.sort(out, Comparator.<int[]>comparingInt(p -> p[0]).thenComparingInt(p -> p[1]));
+		return new DistancePaths(methods, out);
+	}
+
+	/**
+	 * On the way to target {@code target}, {@code caller} calls {@code callee}, one call closer.
+	 * A class, not a record: the build's ClassIndex annotation processor rejects records.
+	 */
+	private static final class Step<V> {
+		final int target;
+		final V caller;
+		final V callee;
+
+		Step(int target, V caller, V callee) {
+			this.target = target;
+			this.caller = caller;
+			this.callee = callee;
+		}
+	}
+
+	/**
+	 * Reverse BFS from {@code seed}, levels up to {@link #DIST_MAX}; returns vertex → distance.
+	 * When {@code callee} is not null, it receives, for each visited vertex other than the seed,
+	 * the vertex from which the search first visited it.
+	 */
+	private static <V> Map<V, Integer> reverseBfs(Map<V, List<V>> callers, V seed,
+			Map<V, V> callee) {
 		Map<V, Integer> dist = new HashMap<>();
 		ArrayDeque<V> queue = new ArrayDeque<>();
 		dist.put(seed, 0);
@@ -218,9 +381,12 @@ public final class TargetDistances<V> {
 			if (d == DIST_MAX) {
 				continue;
 			}
-			for (V p : callers.getOrDefault(cur, Collections.emptySet())) {
+			for (V p : callers.getOrDefault(cur, Collections.emptyList())) {
 				if (!dist.containsKey(p)) {
 					dist.put(p, d + 1);
+					if (callee != null) {
+						callee.put(p, cur);
+					}
 					queue.add(p);
 				}
 			}
@@ -232,7 +398,7 @@ public final class TargetDistances<V> {
 	 * Library methods from which a library target is reachable along call-graph paths through
 	 * library methods only; the library targets themselves are included.
 	 */
-	private static <V> Set<V> libraryReachesTarget(Map<V, Set<V>> callers, Set<V> appMethods,
+	private static <V> Set<V> libraryReachesTarget(Map<V, List<V>> callers, Set<V> appMethods,
 			Set<V> targets) {
 		Set<V> seen = new HashSet<>();
 		ArrayDeque<V> queue = new ArrayDeque<>();
@@ -242,7 +408,7 @@ public final class TargetDistances<V> {
 			}
 		}
 		while (!queue.isEmpty()) {
-			for (V p : callers.getOrDefault(queue.poll(), Collections.emptySet())) {
+			for (V p : callers.getOrDefault(queue.poll(), Collections.emptyList())) {
 				if (!appMethods.contains(p) && seen.add(p)) {
 					queue.add(p);
 				}

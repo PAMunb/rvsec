@@ -87,7 +87,7 @@ sequenceDiagram
 
 1. **Reachability defines the method universe**: The total number of reachable methods from the analysis JSON's `reachability` section is the denominator for all coverage percentages. Without reachability data, coverage percentages cannot be computed (only absolute method call counts). The `CoverageAnalyzer` has explicit fallback modes for this scenario.
 
-2. **Single GATOR analysis client**: A single GATOR invocation (`RvsecAnalysisClient`) produces all four data sections (reachability, windows, transitions, components) in one JSON file. The client writes sections in priority order: reachability first (coverage denominator), then windows, then transitions, then components (non-Activity component data with intent-filters, exported status, and MOP reachability). Entry points include all four Android component types: Activity lifecycle handlers, Service lifecycle methods (`onCreate`, `onStartCommand`, `onBind`, `onUnbind`, `onRebind`, `onDestroy`, `onHandleIntent`), BroadcastReceiver (`onReceive`), and ContentProvider lifecycle methods (`onCreate`, `query`, `insert`, `update`, `delete`, `call`, `openFile`). On timeout, partial JSON preserves the most critical data first.
+2. **Single GATOR analysis client**: A single GATOR invocation (`RvsecAnalysisClient`) produces all four data sections (reachability, windows, transitions, components) in one JSON file. The client writes sections in priority order: reachability first (coverage denominator), then windows, then transitions, then components (non-Activity component data with intent-filters, exported status, and MOP reachability). Entry points include all four Android component types: Activity lifecycle handlers, Service lifecycle methods (`onCreate`, `onStartCommand`, `onBind`, `onUnbind`, `onRebind`, `onDestroy`, `onHandleIntent`), BroadcastReceiver (`onReceive`), and ContentProvider lifecycle methods (`onCreate`, `query`, `insert`, `update`, `delete`, `call`, `openFile`). They also include the classes the framework or a library creates and drives, which no app code calls into: the `Application` subclass named in the manifest, every app `Fragment` subclass, the `doWork`/`startWork` of every `ListenableWorker` subclass, and the public methods of every RecyclerView `Adapter` and `ViewHolder` subclass (INV-ANA-95). The callbacks (activity lifecycle handlers, GUI event handlers, Service/Receiver/Provider lifecycle methods) seed the forward search together with the entry points (INV-ANA-94). On timeout, partial JSON preserves the most critical data first.
 
 3. **MOP means Monitored Operations, not security**: The term "MOP" refers to methods being monitored by ANY specification set (JCA cryptographic specifications or generic FSM specifications). The `reaches_target` and `directly_reaches_target` flags in the reachability section indicate paths to monitored API methods, regardless of specification domain. Do NOT use "security" terminology when referring to MOP coverage.
 
@@ -298,6 +298,10 @@ rv-screen-parser:
 - `-clientParam fullOutput=true|false` — GATOR client parameter; absent or any value other than `true` (case-insensitive) selects compact (source: `RVStaticAnalysisConfig.get_tool_command` in `modules/rv-static-analysis/src/rv_static_analysis/config.py`)
 - `RVStaticAnalysisConfig.full_output: bool = False` and `--full-output` on the `analyze` and `batch` subcommands (source: the operator)
 - `<full.json>` — a full-mode document, the input of `rv-static-analysis compact` (source: an earlier GATOR run)
+- `-clientParam distancePaths=true|false` — GATOR client parameter; absent or any value other than `true` (case-insensitive) writes no path (source: `RVStaticAnalysisConfig.get_tool_command`, `modules/rv-static-analysis/src/rv_static_analysis/config.py`)
+- `RVStaticAnalysisConfig.distance_paths: bool = False` and `--distance-paths` on the `analyze` and `batch` subcommands (source: the operator)
+- `rv-static-analysis path DOC METHOD [--target I]` — a document written with `distancePaths=true`, a method's Soot signature, and optionally a target index (source: the operator)
+- `AndroidManifest.xml` `<application android:name="…">` — the Application subclass, resolved against the manifest package as activity names are (source: the decoded APK, read by `DefaultXMLParser`)
 - `analysis_timeout: float` -- Timeout in seconds for the analysis tool (default: 600.0). Passed both as `Command.timeout` (Python process-level kill) and `--timeout` (GATOR's internal timeout)
 - `analysis_client_jar: str` -- Path to the analysis client fat JAR (`lib/gator/rvsec-analysis-client.jar`)
 - `logcat_file: str` -- Path to Android logcat output file (source: LogcatComponent in rv-platform, consumed by CoverageTracker and CoverageAnalyzer)
@@ -308,7 +312,7 @@ rv-screen-parser:
 - `screenshot_path: str` -- Path to screenshot image file (source: device screenshot capture, consumed by ScreenshotAnalyzer)
 - `task_start_time: datetime` -- Tool execution start time (source: rv-platform TaskExecutor, consumed by CoverageTracker for relative timing)
 - `task_id: str` -- Task identifier for event correlation (source: rv-platform, consumed by CoverageTracker)
-- `Scene.v().getCallGraph()` — the SPARK call graph after the client's lambda edges are added (source: GATOR/Soot 4.7.1)
+- `Scene.v().getCallGraph()` — the SPARK call graph after the client's lambda edges and empty-site edges are added; the empty-site edges are present for the reachability search, the distances and the distance paths only (INV-ANA-96) (source: GATOR/Soot 4.7.1)
 - `ReachabilityIndex` — the reachability result, including the `directlyReachesTarget` set restricted to app methods, which is C (source: `ReachabilityEngine`)
 - `GUIAnalysisOutput` — the solved flow graph (view trees, inflate results, listener registrations), complete before the pre-WTG write (source: `GUIAnalysis`)
 - Layout and navigation resources decoded by apktool (`res/layout`, `res/navigation`) (source: `Configs.resourceLocation`)
@@ -333,9 +337,12 @@ rv-screen-parser:
 - `<apk_name>.json` in compact mode — the document without whitespace; the top-level member `distancePairs: {weighedMax: 3, k: 3}` written right before `distanceTargets`; each `reachability[].methods[].targetDistances` reduced by INV-ANA-85 and sorted by `i`; every other member as in full mode (destination: `rv-static-analysis` parser, `aperv-tool` derive, offline analyses)
 - `<apk_name>.json` in full mode — today's document: byte for byte up to `transitions`, and the same `transitions` edges, whose order follows identity-hash iteration (INV-ANA-86) (destination: same)
 - `<out.json>` — the converter's output, byte-identical to the compact document GATOR writes for the same analysis (INV-ANA-87) (destination: the operator)
+- `pathMethods: list[str]` — top-level, only with `distancePaths=true`: the Soot signatures of the methods that occur in some step, app and library, sorted by signature; the index space of `distancePaths` (destination: stand-alone readers of the document)
+- `distancePaths: list[[int, int, int]]` — top-level, only with `distancePaths=true`, written right after `reachability`: steps `[i, v, n]`, `i` an index into `distanceTargets`, `v` and `n` indices into `pathMethods`, sorted by `(i, v)`, at most one step per `(i, v)` (destination: same)
+- `path` subcommand stdout — for each target of the method's written pairs, sorted by `i`: one header line `[i] d=<d> <target signature>` followed by the `d + 1` signatures of the chain from the method to the target, one per line, indented by two spaces (destination: the operator)
 - `windows[]` entries of type `FRAGMENT` — name `Host#Fragment` (fully qualified class names), `isMain: false`, `widgets[]` with the same fields as an activity window (destination: `StaticAnalysisParser`, `aperv-tool` derive)
 - `windows[]` entries of type `HOSTED` — name `Host#Owner`, where `Owner` is the class holding the inflating code (dialog, DialogFragment, adapter, binding owner); same fields (destination: same)
-- `<results_dir>/<apk_name>.static.json` -- the source document without `distanceTargets` and `reachability[].methods[].targetDistances`, plus a top-level `source: {digest: "sha256:<hex>", generator: "rv-static-analysis/1"}` (destination: later reads of the same APK through `read_static_analysis_files`; INV-ANA-83, INV-ANA-84)
+- `<results_dir>/<apk_name>.static.json` -- the source document without `distanceTargets`, `reachability[].methods[].targetDistances`, `pathMethods` and `distancePaths`, plus a top-level `source: {digest: "sha256:<hex>", generator: "rv-static-analysis/1"}` (destination: later reads of the same APK through `read_static_analysis_files`; INV-ANA-83, INV-ANA-84)
 
 ### Side-Effects
 
@@ -348,6 +355,7 @@ rv-screen-parser:
 - **Soot Scene (target matching)**: each declared target owner FQN is force-resolved into the Scene at HIERARCHY level before `canStoreType` is queried (INV-ANA-43)
 - **Log (target matching)**: an owner that cannot be resolved into the Scene with hierarchy content is logged and degrades to exact matching; an owner the extractor cannot resolve is logged and skipped (INV-ANA-40)
 - **Soot call graph**: lambda wrapper edges are added to `Scene.v().getCallGraph()` before the reachability BFS; they stay for the rest of the run, so the WTG with `cgDelegation=true` sees them too
+- **Soot call graph (empty-site edges)**: `EmptySiteEdges.addTo` adds edges to `Scene.v().getCallGraph()` before the reachability search, and the client removes the same edges after the distances and the distance paths, before the fragment windows and the WTG; the WTG never reads them, with `cgDelegation=true` either
 - **Flow graph**: value-flow edges from a fragment's `onCreateView` return value to its `onViewCreated` `view` parameter and to `getView()`/`requireView()` results, and ViewBinding `findChildViewById` op nodes, are added before the solver runs
 - **File System (parsed copy)**: one `<apk_name>.static.json` per APK per results directory, written atomically (temporary file in the same directory, then rename); overwritten when the source's digest changes; never written from a truncated source (INV-ANA-82, INV-ANA-83)
 - **File System (compact converter)**: `rv-static-analysis compact` writes `<out.json>` atomically (a temporary file in the same directory, then a rename) and never opens its input for writing
@@ -363,8 +371,11 @@ rv-screen-parser:
 - `ValueError` -- Raised by ItemAction coordinate validation when coordinates are not a 2-element integer tuple or contain negative values.
 - Parser errors -- Caught internally and logged; the parser returns empty domain objects per-section (empty Classes, empty Windows, empty WindowTransitionGraph, empty Components) on failure rather than propagating exceptions.
 - A failure inside the fragment pass, the hosted-window pass or the distance pass is caught, logged with `[RvsecAnalysisClient]`, and costs only that section; the rest of the artefact is written (no new exception type)
+- A failure inside `EmptySiteEdges.addTo` is logged and the analysis continues on the graph as it stands, as `LambdaEdges` failures are; a method whose body cannot be retrieved is skipped
+- A failure of the path pass costs only `pathMethods` and `distancePaths`; the rest of the document is written
+- `rv-static-analysis path` exits 1 with one stderr line when the document carries no `distancePaths`, when the method is not in the document, or when `--target` names a target the method has no written pair for
 - Static-document read -- none raised to callers. A missing, unreadable or empty source yields an empty `StaticAnalysisData` (INV-ANA-06); a truncated source yields the members read in full (INV-ANA-81); a parsed copy that cannot be written is logged and the parsed model is still returned
-- `rv-static-analysis compact` exits with status 1 and one line on stderr, leaving no output file, when the input is truncated, already compact, holds a non-integer number, or resolves to the same file as the output; exit status 2 is argparse's usage error
+- `rv-static-analysis compact` exits with status 1 and one line on stderr, leaving no output file, when the input is truncated, already compact, carries `distancePaths`, holds a non-integer number, or resolves to the same file as the output; exit status 2 is argparse's usage error
 
 ## Invariants
 
@@ -720,6 +731,19 @@ rv-screen-parser:
 - **INV-ANA-87**: For a full-mode document `F` and the compact-mode document `C` that GATOR writes for the same analysis state, `rv-static-analysis compact F` SHALL write `C` byte for byte.
 - **INV-ANA-88**: `TargetDistances.COMPACT_WEIGHED_MAX` and `TargetDistances.COMPACT_K` (Java), the converter's constants (`rv-static-analysis`) and `DIST_WEIGHED_MAX` and `DIST_K` (`aperv-tool`) SHALL be pairwise equal. A parity test under `tests/parity/` SHALL fail when any of them differs.
 - **INV-ANA-89**: For the same analysis state, the `StaticAnalysisData` parsed from the compact document SHALL equal the one parsed from the full document, and the `*.mop.json` derived from the compact document SHALL be byte-identical to the one derived from the full document apart from its `source` object: `source.digest` is the sha256 of the input file and so names which of the two documents the artifact came from. Given the same provenance, `derive()` writes the same bytes from either document.
+- **INV-ANA-90**: For the same analysis state, the document written with `distancePaths=true` SHALL equal the one written without it apart from the members `pathMethods` and `distancePaths`, which only the former carries.
+- **INV-ANA-91**: For every pair `[i, d]` written on a method `m`, the steps SHALL hold a chain `m = v_0 → v_1 → … → v_d = t_i`, where `t_i` is `distanceTargets[i]` and each `v_k → v_(k+1)` is one step `[i, v_k, v_(k+1)]` and an edge of the call graph the distance searches walk. A pair with `d = 0` needs no step.
+- **INV-ANA-92**: Two runs over the same call graph and target list SHALL write the same `pathMethods` and `distancePaths`: each search visits a method's callers in signature order and its queue is first-in first-out.
+- **INV-ANA-93**: Every step SHALL lie on the chain of at least one written pair. In compact mode the steps SHALL be the union of the chains of the pairs compact mode keeps (INV-ANA-85); in full mode, of every pair.
+- **INV-ANA-94**: The reachable set SHALL contain every method the call graph reaches from an entry point or from a member of the callback set (activity lifecycle handlers, GUI event handlers, Service/Receiver/Provider lifecycle methods).
+- **INV-ANA-95**: The entry points SHALL include:
+  - the lifecycle and public/protected methods of the manifest's Application subclass, when the manifest names one present in the Scene;
+  - the public/protected methods of every app class with `android.app.Fragment`, `android.support.v4.app.Fragment` or `androidx.fragment.app.Fragment` among its superclasses;
+  - the `doWork` and `startWork` methods of every app class with `androidx.work.ListenableWorker` among its superclasses;
+  - the public methods of every app class with `androidx.recyclerview.widget.RecyclerView$Adapter`, `androidx.recyclerview.widget.RecyclerView$ViewHolder` or their `android.support.v7.widget` counterparts among its superclasses.
+- **INV-ANA-96**: After `EmptySiteEdges.addTo`, at every instance-invoke site of a concrete app method that held no outgoing call-graph edge after SPARK and `LambdaEdges`, the call graph SHALL hold an edge to each concrete app method obtained by dispatching the invoked method over the class the invoke instruction names and its app subtypes (the resolved method itself for a special invoke). A site that held an edge SHALL keep exactly its edges, and no edge to a library method SHALL be added. Those edges SHALL be in the call graph for the reachability search, the distances and the distance paths only: before the fragment windows and the WTG are built, the client SHALL remove every edge `EmptySiteEdges.addTo` added, so `windows` and `transitions` equal what the call graph without them gives.
+- **INV-ANA-97**: `read_analysis_document` SHALL drop `pathMethods` and `distancePaths` under every `PairPolicy`. The `StaticAnalysisData` parsed from a document and the `*.mop.json` derived from it SHALL be the same with and without those members.
+- **INV-ANA-98**: For a method `m` and a target `i` it carries a written pair `[i, d]` for, `rv-static-analysis path` SHALL print exactly the `d + 1` methods of the chain INV-ANA-91 defines, from `m` to `t_i`, in order.
 
 ## Requirements
 
@@ -745,7 +769,7 @@ The execution order inside `run()`:
 
 1. **Loads target methods via `TargetMethodSource` and resolves into Soot `Scene`**. The source is constructed from CLI input: `--mop-dir <dir>` yields a `MopSpecsTargetSource` wrapping `JavamopFacade.listUsedMethods(mopDir, false)`; `--targets-file <path>` yields a `SignatureFileTargetSource` parsing a text file of Soot signatures (one per line, `#` comments, blank lines tolerated). The two CLI flags are mutually exclusive (INV-ANA-33). The `TargetResolver` calls `source.load()` to produce a `Set<TargetMethod>`, then resolves each to one or more `SootMethod` instances per the source's matching policy: LENIENT (class+name only) for `MopSpecsTargetSource` because AspectJ wildcards in `.mop` specs leave the full signature semantically undefined; STRICT (full Soot signature) for `SignatureFileTargetSource` because the user controls precision. Wildcard parameter lists in a targets-file entry (`(..)` or `(*)`) resolve LENIENT for that entry only.
 
-2. **Enumerates application classes and computes method reachability** using `Scene.v().getApplicationClasses()` for class/method enumeration and `Scene.v().getCallGraph()` + JGraphT for reachability flags. Entry points include: Activity lifecycle handlers and public/protected methods (via `output.getActivities()`), Service lifecycle methods (`onCreate`, `onStartCommand`, `onBind`, `onUnbind`, `onRebind`, `onDestroy`, `onHandleIntent`) and public/protected methods (via `XMLParser.getServices()`), BroadcastReceiver lifecycle method (`onReceive`) and public/protected methods (via `XMLParser.getReceivers()`), and ContentProvider lifecycle methods (`onCreate`, `query`, `insert`, `update`, `delete`, `call`, `openFile`) and public/protected methods (via `XMLParser.getProviders()`). For each application method, the `ReachabilityEngine` computes: `reachable` (reachable from entry points), `reachesTarget` (has path to a resolved target method — renamed from `reachesMop`), and `directlyReachesTarget` (directly invokes a resolved target method — renamed from `directlyReachesMop`). The `ReachabilityIndex` materializes these as `Set<String>` for O(1) lookup. This section is written and flushed first.
+2. **Enumerates application classes and computes method reachability** using `Scene.v().getApplicationClasses()` for class/method enumeration and `Scene.v().getCallGraph()` + JGraphT for reachability flags. Entry points include: Activity lifecycle handlers and public/protected methods (via `output.getActivities()`), Service lifecycle methods (`onCreate`, `onStartCommand`, `onBind`, `onUnbind`, `onRebind`, `onDestroy`, `onHandleIntent`) and public/protected methods (via `XMLParser.getServices()`), BroadcastReceiver lifecycle method (`onReceive`) and public/protected methods (via `XMLParser.getReceivers()`), ContentProvider lifecycle methods (`onCreate`, `query`, `insert`, `update`, `delete`, `call`, `openFile`) and public/protected methods (via `XMLParser.getProviders()`), the `Application` subclass named by the manifest's `<application android:name>` (lifecycle methods and public/protected methods, via `XMLParser.getApplicationClassName()`), and the public/protected methods of every app subclass of `android.app.Fragment`, `android.support.v4.app.Fragment` or `androidx.fragment.app.Fragment` and the `doWork`/`startWork` of every app `ListenableWorker` subclass and the public methods of every app RecyclerView `Adapter` and `ViewHolder` subclass (Requirement: Framework-Created Component Entry Points). The callbacks the complement collects are seeds of the same forward search (Requirement: Callbacks Seed the Reachability Search). Before the search, the call graph receives the lambda wrapper edges (INV-ANA-77) and the empty-site edges (Requirement: Empty-Site Edges in the Reachability Call Graph). For each application method, the `ReachabilityEngine` computes: `reachable` (reachable from entry points), `reachesTarget` (has path to a resolved target method — renamed from `reachesMop`), and `directlyReachesTarget` (directly invokes a resolved target method — renamed from `directlyReachesMop`). The `ReachabilityIndex` materializes these as `Set<String>` for O(1) lookup. This section is written and flushed first.
 
 3. **Extracts windows and widgets** using GATOR's internal APIs (`getActivities()`, `getActivityRoots()`, `getDialogs()`, `getDialogRoots()`, `getOptionsMenu()`, `PropertyManager`). GATOR's interprocedural analysis provides the widget inventory (IDs, names, types, text, hint, listeners) including dynamically-registered listeners. Widget XML attributes not available via GATOR APIs — `inputType`, `entries` (from `android:entries="@array/X"`), and the four attributes `prompt`, `spinnerMode`, `contentDescription`, `tooltipText` — are extracted by `enrichFromXml()` from the decoded layout XML files at `Configs.resourceLocation`. The `windows[]` section is written in both the partial-JSON path (after reachability, with `wtg=null`) and the full-JSON path (after WTG completion, with the WTG handle for numeric ID assignment and catch-all enumeration).
 
@@ -755,7 +779,7 @@ The execution order inside `run()`:
 
 6. **Emits sentinel `"complete": true`** as the final top-level field, after all sections are flushed. Parser uses this to distinguish a successful run from a truncated one (INV-ANA-31).
 
-The `complementWithCallbacks()` method, which propagates target reachability flags for lifecycle and event handlers, MUST also include Service, Receiver, and Provider lifecycle methods in its callback set, so they receive flag propagation via the call graph.
+The callback set — activity lifecycle handlers, the event handlers of every GUI object GATOR resolves, and Service, Receiver and Provider lifecycle methods — MUST seed the forward reachability search together with the entry points, so every method a callback reaches through the call graph is `reachable` (INV-ANA-94). The target flags of a callback come from the same searches as every other method's: a callback with an edge to a target is in the call-graph direct set, and a callback that reaches one is in the reverse search, so no step after the searches adds a flag.
 
 Each entry in `reachability[]` MUST include `componentType` (string: `"activity"`, `"service"`, `"receiver"`, `"provider"`, or `null` when the method belongs to no component) and `isMain` (boolean) fields. The legacy `isActivity` and `isMainActivity` fields are removed (no shim — P3). The `StaticAnalysisParser` (Python) MUST parse the new fields into the `Clazz` domain model as `component_type: str | None` and `is_main: bool`. The `null` handler exists because `getSootClassUnsafe` may return `null` for methods declared on synthetic or excluded classes; the producer emits `componentType=null` rather than dropping the entry, preserving the reachability set cardinality.
 
@@ -767,7 +791,7 @@ The reachability section defines the **method universe** — the total set of re
 
 The reachability section also provides target prioritization data consumed by agents. The agent's action ranker assigns score boosts to actions whose handler method has `directly_reaches_target=true` or `reaches_target=true` (consumer side details outside this spec).
 
-The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:true`, which performs full points-to analysis to resolve virtual calls based on types effectively instantiated in the program. SPARK is the operational default. Other algorithms — CHA, RTA, VTA — remain available. JCA framework classes appear as call targets whenever any application method invokes them — they do not need to be entry points.
+The call graph is built using SPARK (`-cgAlgorithm spark`) with `all-reachable:true`, which performs full points-to analysis to resolve virtual calls based on types effectively instantiated in the program. A receiver whose object is created by the Android framework, by reflection or by a dependency-injection container has no allocation site SPARK follows, so SPARK leaves such a call site without an edge; the empty-site edges restore those calls among app methods (INV-ANA-96). SPARK is the operational default. Other algorithms — CHA, RTA, VTA — remain available. JCA framework classes appear as call targets whenever any application method invokes them — they do not need to be entry points.
 
 **Module**: rv-static-analysis (launcher + parser — modified for `--targets-file`, `_JK`, sentinel check), rvsec-gator (analysis client — decomposed + renamed + sentinel-emitting)
 **Key components**: `Main.java` (Soot config), `Flowgraph.java` (error handling), `RvsecAnalysisClient` (orchestrator, ~200 LOC post-decomp), `TargetMethod`, `TargetMethodSource`, `MopSpecsTargetSource`, `SignatureFileTargetSource`, `TargetResolver`, `ReachabilityEngine`, `ReachabilityIndex`, `ReachabilityEnricher` (visitor callback, no `ReportModel` materialization), `JsonReportWriter` (streaming walker with `flush()` per section), `JsonSchema.Keys`, `JsonSchemaKeysDump` (reflection-based parity dumper), `JimpleDefUtils`, `XMLParser`, `DefaultXMLParser`, `IntentFilterManager`, `StaticAnalysisParser` (consumes `_JK` + sentinel; builds `window_methods_index` for `WindowTransition.target_reaches_target`), `Clazz`.
@@ -1396,6 +1420,102 @@ The fix is structural: the BFS MUST treat seeds as roots unconditionally. Implem
 - **AND** a non-empty `seeds` set
 - **WHEN** `multiSourceBfs(graph, seeds)` is invoked
 - **THEN** the returned set MUST equal `seeds` (no member is silently dropped)
+
+### Requirement: Callbacks Seed the Reachability Search (FR04, FR06, FR12)
+
+`ReachabilityEngine.run()` SHALL collect the callback set before the forward search. The set is the activity lifecycle handlers, the event handlers of every GUI object reachable from an activity root, and the Service, Receiver and Provider lifecycle methods. The engine SHALL seed `multiSourceBfs` with the entry points and that set together. The step that marked callbacks `reachable` after the search, and copied target flags onto them from their direct callees, SHALL be deleted (P3). Both of its effects come out of the searches themselves:
+- a callback is a seed, so it is `reachable`;
+- a callback with an edge to a target is found by `findDirectTargetCallers`, and one that reaches a target is found by the reverse search.
+
+Seeding is what makes a method that only a handler calls `reachable`. A widget handler is invoked by the framework, not by any app code SPARK sees. Marking the handler alone left everything below it unreachable unless an entry point also reached it.
+
+#### Scenario: A method two calls below a widget handler becomes reachable
+- **WHEN** `org.cry.otp_31.apk` is analysed, where `Home$1.onClick(View)` is a widget handler GATOR resolves and the call graph holds `Home$1.onClick → HOTP.gen → HOTP.generateOTP → HOTP.hmac_sha1`
+- **THEN** `HOTP.gen`, `HOTP.generateOTP` and `HOTP.hmac_sha1` SHALL carry `reachable: true`
+- **AND** `Home$1.onClick` SHALL carry `reachable: true` and `reachesTarget: true`, as before this change
+
+#### Scenario: The target flags of callbacks are unchanged by the seeding
+- **WHEN** the same APK is analysed before and after the callback step is replaced by seeding, with the empty-site edges disabled in the test harness
+- **THEN** every method's `reachesTarget` and `directlyReachesTarget` SHALL be equal in the two documents
+
+### Requirement: Framework-Created Component Entry Points (FR04, FR12)
+
+`XMLParser` SHALL expose `getApplicationClassName()`, the class named by `<application android:name>` resolved against the manifest package, or `null` when the attribute is absent. When the class is present in the Scene, `getEntryPoints` SHALL add its lifecycle methods (`onCreate`, `onTerminate`, `onConfigurationChanged`, `onLowMemory`, `onTrimMemory`, `attachBaseContext`) and its public and protected methods. A missing class SHALL be logged as a missing service class is.
+
+`getEntryPoints` SHALL also add the public and protected methods of every app class with `android.app.Fragment`, `android.support.v4.app.Fragment` or `androidx.fragment.app.Fragment` among its superclasses. This applies to every such class, whether or not an activity is found to host it. The fragment base names SHALL be the set `FragmentViewFlow.FRAGMENT_BASES` (sootandroid) holds, made public and read by `FragmentHostResolver` and `getEntryPoints`, so the three users read one declaration instead of two copies.
+
+`getEntryPoints` SHALL also add:
+- the `doWork` and `startWork` methods of every app class with `androidx.work.ListenableWorker` among its superclasses. WorkManager calls them; `Worker`, `CoroutineWorker` and `RxWorker` are its subclasses;
+- the public methods of every app class with `androidx.recyclerview.widget.RecyclerView$Adapter`, `androidx.recyclerview.widget.RecyclerView$ViewHolder` or their `android.support.v7.widget` counterparts among its superclasses. RecyclerView calls `onCreateViewHolder`, `onBindViewHolder`, `getItemCount` and the holder's methods while a list is on screen.
+
+All four kinds are created or driven by the framework or a library, so nothing in the app's code calls their entry methods. Without them, the code an application object, a fragment, a worker or a list runs on its own is unreachable, even when the call graph holds every edge below it. `androidx.lifecycle.ViewModel` is deliberately not among them. A ViewModel runs only when a screen requests it, so its use is reached from that screen's call, which the empty-site edges restore, and taking its methods by hierarchy would also mark ViewModels no screen uses.
+
+#### Scenario: The Application's onCreate is an entry point
+- **WHEN** `app.maskan.chat_90.apk` is analysed, whose manifest names `app.maskan.chat.MaskanApplication` and whose `MaskanApplication.onCreate` calls `initDatabaseEncryption`
+- **THEN** `MaskanApplication.onCreate` and `MaskanApplication.initDatabaseEncryption` SHALL carry `reachable: true`
+
+#### Scenario: A manifest without an Application subclass
+- **WHEN** the manifest's `<application>` element has no `android:name`
+- **THEN** `getApplicationClassName()` SHALL return `null`
+- **AND** the entry points SHALL be the ones the other component kinds give
+
+#### Scenario: A worker's doWork is an entry point
+- **WHEN** an app class `SyncWorker extends androidx.work.CoroutineWorker` declares `doWork(Continuation)`, which calls `HttpClientFactory.getClient`
+- **THEN** `SyncWorker.doWork` and `HttpClientFactory.getClient` SHALL carry `reachable: true`
+
+#### Scenario: An adapter's bind method is an entry point
+- **WHEN** an app class `EntryAdapter extends androidx.recyclerview.widget.RecyclerView$Adapter` declares `public void onBindViewHolder(EntryHolder, int)`, which calls `EntryHolder.getOtp`
+- **THEN** `EntryAdapter.onBindViewHolder` and `EntryHolder.getOtp` SHALL carry `reachable: true`
+
+#### Scenario: A ViewModel's method is not an entry point by itself
+- **WHEN** an app class `EditViewModel extends androidx.lifecycle.ViewModel` declares `public void saveNote()` and no entry point reaches it through the call graph
+- **THEN** `EditViewModel.saveNote` SHALL carry `reachable: false`
+
+#### Scenario: A fragment method is an entry point
+- **WHEN** an app class `SettingsFragment extends androidx.preference.PreferenceFragmentCompat`, itself a subclass of `androidx.fragment.app.Fragment`, declares `public void onCreatePreferences(Bundle, String)`
+- **THEN** `SettingsFragment.onCreatePreferences` SHALL be an entry point and SHALL carry `reachable: true`
+
+### Requirement: Empty-Site Edges in the Reachability Call Graph (FR04, FR06)
+
+Before the reachability search, and after the lambda wrapper edges, the client SHALL run `EmptySiteEdges.addTo(Scene.v().getCallGraph(), appClasses)` (`client/.../clients/reach/EmptySiteEdges.java`). For every concrete method of an app class whose body can be retrieved, and for every statement of it holding an instance invoke (virtual, interface or special) with no outgoing edge in the call graph, it SHALL add one edge from that statement to each callee below:
+
+- for a special invoke, the method the reference resolves to, when it is a concrete app method;
+- for a virtual or interface invoke, every concrete app method that dispatching the invoked method's sub-signature yields on the class the invoke instruction names, when that class is a concrete app class, and on each concrete app subclass or implementer of it.
+
+Static invokes, sites that hold at least one edge, and callees in library classes SHALL be left alone. The pass SHALL log the number of instance-invoke sites, of empty sites, of edges added, and the largest number of callees added at one site.
+
+SPARK leaves a site empty when the receiver's points-to set is empty. On Android that is the normal state of any object the framework, reflection or a DI container creates, because Soot sees no allocation for it:
+- `this` of an activity, fragment, application or service;
+- a ViewModel obtained from a provider;
+- a field holding an injected dependency.
+
+Resolving such a site by the class the invoke names is the class-hierarchy answer SPARK would have given if it had known nothing. Keeping it to app callees and to empty sites leaves every call SPARK resolved unchanged. It also leaves `directlyReachesTarget` and `distanceTargets` unchanged, because every target is a library method. A site that is truly dead also receives edges. That over-approximates `reachesTarget` and the distances, the same way the bytecode-scan complement over-approximates the direct set.
+
+`addTo` SHALL return the edges it added. After the distances and, when requested, the distance paths are computed, the client SHALL remove those edges from the call graph, before the fragment windows and the WTG. With `cgDelegation=true` the WTG builds its transitions from the Soot call graph. Measured on 2026-10-19 with the edges left in place, the WTG ran up to 12 times longer (the client on `org.fedorahosted.freeotp_48` went from 40 s to 269 s, of which 3.8 s outside the WTG), and the transitions of `net.gaast.giggity_769` went from 431 to 1,622. Among the new transitions, some are real: a click that calls `ScheduleViewActivity.showItem` opens `ScheduleItemActivity`. Others are false: `EventDialog$ShareButton.onClick` only opens a share chooser, yet it gained a transition to `ScheduleItemActivity` through a wide interface dispatch. A WTG built on these edges needs its own evaluation, so this change keeps them out of it.
+
+#### Scenario: A call on `this` inside an activity gets its edge
+- **WHEN** `org.fedorahosted.freeotp_48.apk` is analysed, where `Activity.onNewIntent(Intent)` holds `invoke-virtual this.addToken(Uri, boolean)` and SPARK gives the site no edge
+- **THEN** the call graph SHALL hold an edge from that site to `Activity.addToken(Uri, boolean)`
+- **AND** `Activity.onNewIntent` SHALL carry `reachesTarget: true` and the pair `[i, 2]` for `Token.parse(Uri)` at index `i`
+- **AND** `Activity.addToken` SHALL carry `reachable: true`
+
+#### Scenario: A call through an injected field gets its edge
+- **WHEN** `com.kin.easynotes_14.apk` is analysed, where `NoteUseCase.encryptNote` loads `this.encryptionHelper` and invokes `EncryptionHelper.encrypt(String)`
+- **THEN** `NoteUseCase.encryptNote` SHALL carry `reachesTarget: true` and the pair `[j, 1]` for `EncryptionHelper.encrypt` at index `j`
+
+#### Scenario: A resolved site is not touched
+- **WHEN** a site holds the SPARK edge `A.run → B.work` and `B` has an app subclass `C` overriding `work`
+- **THEN** the pass SHALL add no edge from that site, and `A.run → C.work` SHALL be absent unless SPARK produced it
+
+#### Scenario: An interface call fans out to the app implementers
+- **WHEN** an empty site invokes `Repo.load()` on the interface `Repo`, implemented by the app classes `DbRepo` and `NetRepo`, and by the library class `androidx.room.RoomRepo`
+- **THEN** the pass SHALL add edges to `DbRepo.load` and `NetRepo.load`
+- **AND** it SHALL NOT add an edge to `androidx.room.RoomRepo.load`
+
+#### Scenario: The WTG is built without the empty-site edges
+- **WHEN** `net.gaast.giggity_769.apk` is analysed with `cgDelegation=true`, and `EmptySiteEdges.addTo` adds 761 edges
+- **THEN** `reachable`, `reachesTarget` and `targetDistances` SHALL be computed with those edges
+- **AND** `windows` and `transitions` SHALL equal those of the same analysis without the edges, transitions compared as a set (their order follows identity hashing)
 
 ### Requirement: XML Enrichment Recognizes Both `@id/` and `@+id/` Prefixes (FR06)
 
@@ -2456,7 +2576,7 @@ The consequence is specific to this change: a re-run whose scope-key policy chan
 
 ### Requirement: Per-Target Call-Graph Distance (FR06)
 
-The client SHALL compute, after the reachability search and before the pre-WTG write, one reverse breadth-first search per direct caller `c ∈ C` over the call graph with self-loops dropped (the graph the reachability search walks, lambda edges included). The search SHALL stop at depth `DIST_MAX = 10` and SHALL record the depth at which it first visits each app method. C SHALL be the app methods in the `directlyReachesTarget` set, sorted by signature, and SHALL be written as `distanceTargets`; each app method's pairs SHALL be written as `targetDistances` inside its `reachability[].methods[]` entry. The keys SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
+The client SHALL compute, after the reachability search and before the pre-WTG write, one reverse breadth-first search per direct caller `c ∈ C` over the call graph with self-loops dropped (the graph the reachability search walks, lambda edges and empty-site edges included). Each search SHALL visit the callers of a method in the order of their signatures. The order changes no distance, since a breadth-first level does not depend on it; it fixes which of several equally short paths a search finds first, which the distance paths record (INV-ANA-92). The search SHALL stop at depth `DIST_MAX = 10` and SHALL record the depth at which it first visits each app method. C SHALL be the app methods in the `directlyReachesTarget` set, sorted by signature, and SHALL be written as `distanceTargets`; each app method's pairs SHALL be written as `targetDistances` inside its `reachability[].methods[]` entry. The keys SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
 
 Which of a method's pairs are written depends on the output mode (Requirement: Compact and Full Output Modes of the Analysis Document). Full mode writes every pair the searches recorded. Compact mode, the default, writes the pairs at `d ≤ 3` and the 3 nearest by `(d, i)` (INV-ANA-85). The searches themselves do not depend on the mode.
 
@@ -2489,6 +2609,88 @@ The graph is the whole call graph, not the subgraph induced by app methods. Both
 - **WHEN** the analysis of `org.quantumbadger.redreader_117.apk` is killed by the 1,800 s timeout while `WTGBuilder` runs
 - **THEN** the partial `.apk.json` MUST contain `distanceTargets` and every `targetDistances` list
 - **AND** it MUST NOT contain the `complete` sentinel (INV-ANA-31)
+
+### Requirement: Distance Paths (FR06, NFR05, NFR08)
+
+`RvsecAnalysisClient` SHALL read the client parameter `distancePaths` as it reads `fullOutput`. When it is `true` (case-insensitive), the client SHALL write `pathMethods` and `distancePaths` right after `reachability`, in both writes of a run (pre-WTG and final) and in both output modes. Otherwise it SHALL write neither. The member names SHALL be declared in `JsonSchema.Keys` and `_JK` (INV-ANA-32).
+
+The paths SHALL be computed by `TargetDistances` in a second pass, after the distances. The pass first determines, for every app method, the pairs the output mode writes:
+- every pair in full mode;
+- the pairs `TargetDistances.compact` keeps in compact mode.
+
+Then, for each target `i` that one of those pairs names, it repeats the reverse search from target `i` and records, for each method first visited from a callee, that callee. The pass SHALL then follow the recorded callees from each written pair's method down to the target, and SHALL emit each step `[i, v, n]` on those chains once.
+
+`pathMethods` SHALL hold the signatures of the methods that appear in some step, sorted by signature. `distancePaths` SHALL hold the steps with `v` and `n` as indices into it, sorted by `(i, v)`.
+
+The second pass is what keeps the cost of the first unchanged. Compact mode's rank rule needs every target's pairs of a method before it can say which pair survives. Recording predecessors during the first pass would hold one entry per visited method per target for the whole run, library methods included. Repeating only the searches that some written pair needs holds one target's predecessors at a time.
+
+A step says that the search found `n` one call closer to the target than `v`. It does not imply that `v` carries a written pair for `i`: in compact mode an intermediate method's own pair for `i` may be reduced away while a farther method's pair, kept by rank, still passes through it. Library methods appear only in `pathMethods` and in steps, never in `reachability`.
+
+#### Scenario: The path of a handler two calls from a direct caller
+- **WHEN** an app has `A.onClick → A.save → Crypto.encrypt`, `Crypto.encrypt` calls the target `javax.crypto.Cipher.doFinal`, `distanceTargets[i]` is `Crypto.encrypt`, and the analysis runs with `distancePaths=true`
+- **THEN** `A.onClick` SHALL carry `[i, 2]`
+- **AND** `distancePaths` SHALL hold `[i, p(A.onClick), p(A.save)]` and `[i, p(A.save), p(Crypto.encrypt)]`, where `p(x)` is the index of `x` in `pathMethods`
+
+#### Scenario: A path through a library method
+- **WHEN** an app method `UI.onClick` calls the library method `kotlinx.coroutines.BuildersKt.launch`, whose graph edges reach the app method `Repo.save`, which is `distanceTargets[j]`, and `UI.onClick` carries `[j, 2]`
+- **THEN** `pathMethods` SHALL contain the signature of `kotlinx.coroutines.BuildersKt.launch`
+- **AND** the chain from `UI.onClick` SHALL pass through it
+
+#### Scenario: Equally short paths are chosen the same way on every run
+- **WHEN** `M` reaches target `i` at distance 2 both through `A` and through `B`, with `A`'s signature sorting before `B`'s
+- **THEN** every run over the same call graph SHALL write the step `[i, p(M), p(A)]`
+- **AND** no run SHALL write `[i, p(M), p(B)]`
+
+#### Scenario: Compact mode keeps the steps of the kept pairs only
+- **WHEN** a method carries, in full mode, pairs at distances 1, 2, 3 and 6 for four targets, and the analysis runs in compact mode with `distancePaths=true`
+- **THEN** the pair at distance 6 is not written (INV-ANA-85), and no step SHALL exist that lies only on its chain
+- **AND** the chains of the three kept pairs SHALL be complete (INV-ANA-91)
+
+#### Scenario: The parameter off leaves the document as it is
+- **WHEN** the same APK is analysed with `distancePaths=true` and without the parameter
+- **THEN** the two documents SHALL differ only by `pathMethods` and `distancePaths` (INV-ANA-90)
+
+#### Scenario: `rv-static-analysis` passes the parameter
+- **WHEN** `rv-static-analysis analyze app.apk --distance-paths` builds the GATOR command
+- **THEN** the command SHALL contain `-clientParam distancePaths=true`
+- **AND** without `--distance-paths` it SHALL contain no `distancePaths` parameter
+
+### Requirement: Path Query Subcommand (FR06, NFR05)
+
+`rv-static-analysis` SHALL provide the subcommand `path DOC METHOD [--target I]`, implemented in `modules/rv-static-analysis/src/rv_static_analysis/path_query.py`. It SHALL read `DOC` in one streaming pass of its own with `ijson` (C backend), because `read_analysis_document` drops the path members (INV-ANA-97). From that pass it SHALL keep:
+- `distanceTargets`;
+- `pathMethods`;
+- `distancePaths`;
+- the `targetDistances` of the one `reachability[].methods[]` entry whose `signature` equals `METHOD`.
+
+For each pair `[i, d]` of that method, sorted by `i`, or for the one pair with `i = I` when `--target` is given, it SHALL follow the steps from `METHOD` to `distanceTargets[i]`. It SHALL print a header line `[i] d=<d> <target signature>`, then the chain's `d + 1` signatures, one per line, indented by two spaces (INV-ANA-98).
+
+It SHALL exit 1 with one line on stderr naming the document and the reason when:
+- the document carries no `distancePaths`;
+- `METHOD` has no entry in `reachability`;
+- `METHOD` carries no pair for the target `--target` names;
+- a chain breaks (a step is missing, or a chain does not have `d` steps): the document does not satisfy INV-ANA-91.
+
+A method with no pair at all exits 0 and prints nothing. It is a valid answer: the method reaches no target within `DIST_MAX`.
+
+The subcommand exists because the steps are indices into a table and are not readable by eye. Reading them in its own pass keeps the campaign reader's contract unchanged. It holds the method table and the steps, which for a compact document are a few times the size of the pairs (about 0.1 MB for `com.kin.easynotes_14`).
+
+#### Scenario: The chains of a handler
+- **WHEN** `rv-static-analysis path cryotp.json "<org.cry.otp.Home$1: void onClick(android.view.View)>"` runs on a document of `org.cry.otp_31.apk` written with `distancePaths=true`, where `Home$1.onClick` carries `[k, 3]` for `HOTP.hmac_sha1`
+- **THEN** it SHALL exit 0
+- **AND** stdout SHALL contain the line `[k] d=3 <org.cry.otp.HOTP: byte[] hmac_sha1(byte[],byte[])>` followed by the four signatures `Home$1.onClick`, `HOTP.gen`, `HOTP.generateOTP`, `HOTP.hmac_sha1`, each indented by two spaces
+
+#### Scenario: One target requested
+- **WHEN** the same command runs with `--target k`
+- **THEN** stdout SHALL hold only the block for target `k`
+
+#### Scenario: A document without paths is refused
+- **WHEN** the document was written without `distancePaths=true`
+- **THEN** the subcommand SHALL exit 1 with a message naming the document and saying that it carries no `distancePaths`
+
+#### Scenario: An unknown method is refused
+- **WHEN** `METHOD` names no method in `reachability`
+- **THEN** the subcommand SHALL exit 1 with a message naming the method
 
 ### Requirement: Boundary Targets (FR06)
 
@@ -2612,7 +2814,7 @@ The programmatic spinner extractor SHALL take a spinner's items from an array re
 
 ### Requirement: Streaming Read of the Analysis Document (NFR02, NFR04)
 
-`StaticAnalysisParser` (`modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py`) SHALL read the analysis document with `ijson` (C backend) in one pass of JSON events, building each top-level member as a Python value except `distanceTargets` and the `targetDistances` member of every `reachability[].methods[]` entry, whose events SHALL be consumed and discarded without building a value (INV-ANA-80). The section parsers (`_parse_classes`, `_parse_windows`, `_parse_transitions`, `_parse_components`) SHALL receive the same dict shape they receive today, so section independence and graceful degradation (INV-ANA-06) are unchanged.
+`StaticAnalysisParser` (`modules/rv-static-analysis/src/rv_static_analysis/parser/static/static_analysis_parser.py`) SHALL read the analysis document with `ijson` (C backend) in one pass of JSON events, building each top-level member as a Python value except `distanceTargets`, the `targetDistances` member of every `reachability[].methods[]` entry, and the top-level `pathMethods` and `distancePaths` members, whose events SHALL be consumed and discarded without building a value (INV-ANA-80, INV-ANA-97). `read_analysis_document` drops `pathMethods` and `distancePaths` under both pair policies, so neither the parser, the parsed copy nor the `aperv-tool` derive ever holds a path. The section parsers (`_parse_classes`, `_parse_windows`, `_parse_transitions`, `_parse_components`) SHALL receive the same dict shape they receive today, so section independence and graceful degradation (INV-ANA-06) are unchanged.
 
 A document that ends before its root object closes — the producer killed during its write, INV-ANA-31 — SHALL be recovered from the same pass: every top-level member read in full is kept, the member in progress and everything after it are dropped (INV-ANA-81). This is the behaviour `_recover_truncated_json` names, and the name stays. It is a superset of the bracket repair it replaces: that repair closed the root at the last `]` of the text, which failed whenever the last `]` closed a nested list rather than a top-level section.
 
@@ -2636,6 +2838,11 @@ A document that ends before its root object closes — the producer killed durin
 - **WHEN** the file ends inside the first element of `reachability`
 - **THEN** the parser SHALL return a `StaticAnalysisData` with empty `classes`, `windows` and `wtg`
 - **AND** `complete` SHALL be `False`
+
+#### Scenario: a document with distance paths parses to the model of the same document without them
+- **WHEN** the parser reads a document GATOR wrote for `org.cry.otp_31.apk` with `distancePaths=true`, and the document of the same analysis without it
+- **THEN** the two `StaticAnalysisData` SHALL be equal
+- **AND** `<apk_name>.static.json` SHALL carry neither `pathMethods` nor `distancePaths`
 
 ### Requirement: Parsed-Document Cache Beside the Source (NFR04)
 
@@ -2723,6 +2930,7 @@ The converter SHALL refuse, with exit status 1, one line on stderr naming the in
 
 - an input whose read reports truncation, because a truncated document is not the document GATOR wrote and its compact form would not be one either;
 - an input that already carries `distancePairs`;
+- an input that carries `distancePaths`, because the paths of a full document are not reduced here: a compact document with paths is written by GATOR itself, in compact mode with `distancePaths=true`;
 - an input holding a number that is not an integer, because GATOR writes only integers and Gson's form of a non-integer is not reproduced;
 - an `OUTPUT` that resolves to the same file as `INPUT`.
 
@@ -2750,3 +2958,8 @@ The output SHALL be written to a temporary file in the directory of `OUTPUT` and
 #### Scenario: the converter never overwrites its input
 - **WHEN** `rv-static-analysis compact a.json a.json` runs
 - **THEN** it SHALL exit 1 and `a.json` SHALL be byte-identical to its content before the call
+
+#### Scenario: an input with distance paths is refused
+- **WHEN** the input carries `distancePaths`
+- **THEN** the converter SHALL exit 1 with a message naming the input and saying that a compact document with paths is written by GATOR with `distancePaths=true`
+- **AND** `OUTPUT` SHALL NOT exist afterwards

@@ -39,6 +39,10 @@ one streaming pass per document.
   they are; those two are escaped after encoding. Only integers are accepted as
   numbers: GATOR writes no other kind, and Gson's formatting of a double is not
   reproduced.
+- A document carrying `distancePaths` is refused rather than reduced. Its
+  compact form would keep only the steps on the chains of the kept pairs, a
+  second reduction per target; GATOR writes that document itself in compact mode
+  with `distancePaths=true`.
 - Every refusal is decided before the output file exists, and the output is
   written to a temporary file in its own directory and renamed onto it, so a
   refused or interrupted conversion leaves no file or the previous one.
@@ -167,9 +171,9 @@ def compact_document(src: str, dst: str) -> None:
 
     Raises:
         CompactRefused: `dst` is `src` itself; the read of `src` reports
-            truncation; `src` already carries `distancePairs`; or `src` holds a
-            value other than an integer, string, boolean or null. `dst` is left
-            as it was.
+            truncation; `src` already carries `distancePairs`; `src` carries
+            `distancePaths`; or `src` holds a value other than an integer,
+            string, boolean or null. `dst` is left as it was.
         ValueError: `src` is empty, not JSON, or its root is not an object.
         OSError: `src` cannot be read or `dst` cannot be written.
     """
@@ -178,8 +182,11 @@ def compact_document(src: str, dst: str) -> None:
     if os.path.exists(dst) and os.path.samefile(src, dst):
         raise CompactRefused(f"{src}: the output {dst} is the input file itself")
 
+    dropped_paths: set[str] = set()
     document, truncated = read_analysis_document(
-        src, PairPolicy.reduce(COMPACT_WEIGHED_MAX, COMPACT_K)
+        src,
+        PairPolicy.reduce(COMPACT_WEIGHED_MAX, COMPACT_K),
+        dropped_paths=dropped_paths,
     )
     if truncated:
         raise CompactRefused(
@@ -188,6 +195,15 @@ def compact_document(src: str, dst: str) -> None:
         )
     if _JK.distance_pairs in document:
         raise CompactRefused(f"{src}: the document is already compact")
+    # The reader drops the path members, so their presence comes from the read
+    # itself. Reducing a full document's steps to the chains of the kept pairs is
+    # not done here (design D6).
+    if _JK.distance_paths in dropped_paths:
+        raise CompactRefused(
+            f"{src}: the document carries distancePaths, which are not reduced "
+            "here; GATOR writes a compact document with paths when run in compact "
+            "mode with -clientParam distancePaths=true"
+        )
 
     _sort_pairs_by_target(document)
     try:

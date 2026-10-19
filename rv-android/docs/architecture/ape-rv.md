@@ -1560,7 +1560,7 @@ environment.
 | Type | IDs | Where realized |
 |------|-----|----------------|
 | Functional requirements | FR18, FR19, FR20; FR04–FR06 (inputs); FR11, FR13 (offline readers) | ToolRegistry/ToolFactory (`rv-tools`); `ApeRVTool.get_variants()`, `configure()`, `execute_tool_specific_logic()`; `derive_mop_artifact.derive()`; `aperv_tool.analysis` |
-| Invariants | INV-APV-01..12, 18, 33, 35..41, 43..68; INV-DRV-01..10; INV-CAN-07, 21, 22; INV-EXP-41; INV-ANA-53; INV-TOOL-02/05/06/07/08/12/13 | INV-APV-*: `tool.py`, `analysis/` + tests; INV-DRV-*: `derive_mop_artifact.py` + `tests/test_derive_mop_artifact.py`; INV-TOOL-*: `rv-tools` registry/factory + `rv-android-core` `AbstractTool` |
+| Invariants | INV-APV-01..12, 18, 33, 35..41, 43..68; INV-DRV-01..10; INV-CAN-07, 27, 28; INV-EXP-41; INV-ANA-53; INV-TOOL-02/05/06/07/08/12/13 | INV-APV-*: `tool.py`, `analysis/` + tests; INV-DRV-*: `derive_mop_artifact.py` + `tests/test_derive_mop_artifact.py`; INV-TOOL-*: `rv-tools` registry/factory + `rv-android-core` `AbstractTool` |
 | NFRs | NFR02, NFR03, NFR04, NFR05, NFR06, NFR08 | see [Rationale](#7-rationale) |
 
 **Related documentation:** per-module docs (`modules/aperv-tool/CLAUDE.md`,

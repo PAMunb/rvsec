@@ -1,0 +1,1 @@
+org.fedorahosted.freeotp_48.apk: app->app steps 65, invoke by name 64, into lambda 1, unexplained 0

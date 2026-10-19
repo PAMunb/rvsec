@@ -1,3 +1,3 @@
 #!/bin/env bash
 
-docker run -it --rm phtcosta/rvsec_base:0.9.5 bash
+docker run -it --rm phtcosta/rvsec_base:0.9.6 bash

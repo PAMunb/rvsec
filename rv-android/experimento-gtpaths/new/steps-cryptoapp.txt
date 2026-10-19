@@ -1,0 +1,1 @@
+cryptoapp.apk: app->app steps 23, invoke by name 23, into lambda 0, unexplained 0

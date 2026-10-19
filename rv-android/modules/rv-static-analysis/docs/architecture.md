@@ -2,7 +2,7 @@
 
 ## Overview
 
-rv-static-analysis runs unified GATOR-based static analysis on Android APKs and parses the resulting JSON into domain objects consumed by the rest of the RV-Android system. It provides three distinct capabilities: (1) analysis orchestration -- invoking the Java GATOR client as a subprocess with timeout handling and scope-keyed caching, (2) data transformation -- reading the raw JSON output in streaming, without its call-graph distance members, into `StaticAnalysisData` domain objects (Classes, Windows, WindowTransitionGraph, Components), with a parsed copy beside the source that answers later reads while the source's digest is unchanged, and (3) a denominator gate that refuses to publish a coverage denominator the artefact cannot support. It also chooses GATOR's output mode -- compact by default, full on request -- and converts a full document already on disk into the compact one offline (ADR-11). The module occupies the pre-processing phase of the experiment pipeline, producing the method universe for coverage calculations and the navigation graph for LLM-driven exploration.
+rv-static-analysis runs unified GATOR-based static analysis on Android APKs and parses the resulting JSON into domain objects consumed by the rest of the RV-Android system. It provides three distinct capabilities: (1) analysis orchestration -- invoking the Java GATOR client as a subprocess with timeout handling and scope-keyed caching, (2) data transformation -- reading the raw JSON output in streaming, without its call-graph distance members, into `StaticAnalysisData` domain objects (Classes, Windows, WindowTransitionGraph, Components), with a parsed copy beside the source that answers later reads while the source's digest is unchanged, and (3) a denominator gate that refuses to publish a coverage denominator the artefact cannot support. It also chooses GATOR's output mode -- compact by default, full on request -- and converts a full document already on disk into the compact one offline (ADR-11). On request it asks GATOR for the call path behind every written distance and prints one method's paths in readable form (ADR-12). The module occupies the pre-processing phase of the experiment pipeline, producing the method universe for coverage calculations and the navigation graph for LLM-driven exploration.
 
 ## Specification Alignment
 
@@ -33,6 +33,9 @@ All three FRs are satisfied by a single GATOR client invocation (`RvsecAnalysisC
 | INV-ANA-87 | The converter writes, byte for byte, the compact document GATOR writes for the same analysis | `compact_document()` reads with `PairPolicy.reduce(COMPACT_WEIGHED_MAX, COMPACT_K)`, re-sorts by `i`, inserts the marker where `JsonReportWriter` writes it and serialises with `dumps_gson_compact()`; refusals raise `CompactRefused` before any output exists |
 | INV-ANA-88 | The reduction constants agree in Java, in the converter and in `aperv-tool` | `rv-android/tests/parity/test_distance_pair_constants.py` compares `TargetDistances.COMPACT_WEIGHED_MAX`/`COMPACT_K` (read from the Java source), `compact.COMPACT_WEIGHED_MAX`/`COMPACT_K` and `DIST_WEIGHED_MAX`/`DIST_K` |
 | INV-ANA-89 | Either output mode parses to the same `StaticAnalysisData` | The streaming read drops every pair (INV-ANA-80) and no section parser reads `distancePairs`; `tests/test_compact_equivalence.py` compares the models of the fixture and of its compact form |
+| INV-ANA-90 | A document written with distance paths equals the one written without them apart from `pathMethods` and `distancePaths` | Written by the GATOR client; this module only asks for them: `get_tool_command()` appends `-clientParam distancePaths=true` when `distance_paths` is `True` and nothing otherwise |
+| INV-ANA-97 | The campaign reader drops the path members under every `PairPolicy` | `read_analysis_document` skips `pathMethods` and `distancePaths` without building them, so the model, the parsed copy and the converter's input never hold a step; `compact_document()` learns their presence from the `dropped_paths` out-parameter and refuses the input |
+| INV-ANA-98 | `path` prints exactly the `d + 1` methods of each written pair's chain | `path_query.query_paths()` follows the steps `d` times per pair and refuses a chain that breaks or does not end on the target (INV-ANA-91) |
 | INV-ANA-11 / INV-ANA-70 | An existing output JSON is reused, but only under its own scope key | `StaticAnalyzer._execute_command()` checks file existence and then `_disagreeing_recorded_key()`; a recorded key that is not this run's makes the run regenerate rather than reuse (an artefact recording no key is reused, which is the state of all 162 stored ones) |
 | INV-ANA-14 | PackageDetector applies heuristics in priority order, and only when the run enabled it | `PackageDetector` (in rv-android-core) resolves `code_package` via its 7-strategy priority chain under `--package-detector` / `RV_PACKAGE_DETECTOR`; by default `App` reports the declared applicationId and no strategy runs |
 | INV-ANA-58 | A run that *performs* an analysis records the key it used; no key is inferred from an artefact | `StaticAnalysisResult.code_package` / `.code_package_source` are set in `analyze()`; nothing reads the JSON's `package` member as a key (it holds the manifest package whatever key filtered the file) |
@@ -51,7 +54,8 @@ Scenarios from `openspec/specs/analysis/spec.md` that validate this architecture
 - **Analysis result is cached**: Traces through `StaticAnalyzer._execute_command()` -> file existence check -> `_disagreeing_recorded_key()` -> execution skipped -> `CommandResult(0, b"", b"")` returned with `execution_status='cached'` log. A recorded key that is not this run's removes the file and falls through to execution instead (INV-ANA-70)
 - **A degenerate denominator is refused**: Traces through `analyze()` -> `_check_denominator()` -> `parse_file()` -> `check_denominator(classes, class_defs_under_key, key)` -> `DenominatorImplausibleError` -> `StaticAnalysisResult(success=False)` carrying the parsed count, the compiled count and the key
 - **Parsed copy reuse**: `read_static_analysis_files()` -> `digest_of_file()` of `<apk>.json` -> `<apk>.static.json` records that digest -> `json.load` of the copy -> `StaticAnalysisData` equal to the source's (INV-ANA-82/83). On a miss the source is streamed and the copy rewritten unless the read was truncated
-- **Converting a full document**: `rv-static-analysis compact IN OUT` -> `handle_compact_command()` -> `compact_document()` -> `read_analysis_document(PairPolicy.reduce(3, 3))` -> refusal checks -> pairs sorted by `i` -> `distancePairs` inserted before `distanceTargets` -> `dumps_gson_compact()` -> temporary file renamed onto `OUT` (INV-ANA-87). A truncated, already compact or non-integer input, or `OUT` equal to `IN`, exits 1 with one stderr line and no output file
+- **Converting a full document**: `rv-static-analysis compact IN OUT` -> `handle_compact_command()` -> `compact_document()` -> `read_analysis_document(PairPolicy.reduce(3, 3))` -> refusal checks -> pairs sorted by `i` -> `distancePairs` inserted before `distanceTargets` -> `dumps_gson_compact()` -> temporary file renamed onto `OUT` (INV-ANA-87). A truncated, already compact, path-carrying or non-integer input, or `OUT` equal to `IN`, exits 1 with one stderr line and no output file
+- **The chains of a handler**: `rv-static-analysis path DOC METHOD [--target I]` -> `handle_path_command()` -> `query_paths()` -> one `ijson` pass building `distanceTargets`, `pathMethods`, `distancePaths` and `METHOD`'s pairs -> each pair's chain followed `d` steps -> `[i] d=<d> <target>` plus `d + 1` indented signatures (INV-ANA-98). A document without `distancePaths`, an unknown method, a `--target` with no pair, or a broken chain exits 1 with one stderr line
 - **Partial JSON parse failure**: Individual section parsing fails -> `_parse_classes()` catches exception, returns empty `Classes()` -> other sections (`_parse_windows()`, `_parse_transitions()`) parse independently and succeed
 
 ## Key Architectural Decisions
@@ -131,7 +135,7 @@ Choosing which classes count as the application's own is a decision made **once*
 
 ### ADR-9: Streaming Read Without the Distance Members
 
-`StaticAnalysisParser._load_json()` reads the document with `read_analysis_document(path, PairPolicy.DROP)` (`rv_android_core.util.analysis_document`): one pass of `ijson` events on the C backend `yajl2_c`, building every member as `json.loads` would except `distanceTargets` and every `reachability[].methods[].targetDistances`, whose events are consumed without building anything (INV-ANA-80). Truncation is recovered in the same pass (INV-ANA-81): a top-level member enters the result only once its closing event is read.
+`StaticAnalysisParser._load_json()` reads the document with `read_analysis_document(path, PairPolicy.DROP)` (`rv_android_core.util.analysis_document`): one pass of `ijson` events on the C backend `yajl2_c`, building every member as `json.loads` would except `distanceTargets`, every `reachability[].methods[].targetDistances` and the top-level distance-path members `pathMethods`/`distancePaths` (ADR-12), whose events are consumed without building anything (INV-ANA-80, INV-ANA-97). Truncation is recovered in the same pass (INV-ANA-81): a top-level member enters the result only once its closing event is read.
 
 **Why streaming**: every app method carries its call-graph distance to every monitored target, and those pairs make a document 100 to 400 times larger than the rest of it -- 2.16 GB for `org.wikipedia_50595`, 9.34 GB for `eu.darken.sdmse_10705000`. Loaded whole, a document needs several times its size in memory, more than a campaign container has beside its emulator; no section parser reads the pairs. Measured peak for the wikipedia parse: 243 MiB.
 
@@ -174,6 +178,18 @@ GATOR writes the analysis document in one of two modes (INV-ANA-85, INV-ANA-86).
 | Read Strategy | One streaming pass, distance members never built | Memory bounded by the document without its distance pairs; truncation recovered in the same pass (ADR-9) |
 | Parse Cache | `<apk>.static.json` keyed by the source's SHA-256 | Repeated run-time reads of one document cost a small `json.load`; a re-analysed source is never answered by the old copy (ADR-10) |
 | Output Mode | Compact by default, full on request, offline converter | 1.02 GB instead of 24.62 GB on the E6 corpus with nothing lost for any consumer; published full documents stay reproducible (ADR-11) |
+
+### ADR-12: Distance Paths on Request, Read Only by the `path` Subcommand
+
+`RVStaticAnalysisConfig.distance_paths` / `--distance-paths` (on `analyze` and `batch`) appends `-clientParam distancePaths=true`, and GATOR then writes two more top-level members right after `reachability`: `pathMethods`, the sorted signatures of every method on some path (library methods included), and `distancePaths`, steps `[i, v, n]` meaning "on the way to `distanceTargets[i]`, `pathMethods[v]` calls `pathMethods[n]`, one call closer". For every pair `[i, d]` the document writes on a method, following `n` from that method `d` times reaches the target (INV-ANA-91). The producer-side contract is in `rvsec-gator/CLAUDE.md`.
+
+**Why**: a distance says how far a target is, not through which calls, and the analyser is also used on its own, where that is the question asked. GATOR computes the path during each distance search anyway; with the parameter it keeps it, as steps over a method table so the chains of different pairs share their tails.
+
+**Why off by default and dropped by the reader**: no campaign consumer reads a path. With the parameter off the document is exactly the one written without it (INV-ANA-90), so compact output and the converter's byte identity are unaffected. With it on, `read_analysis_document` skips both members under every policy (INV-ANA-97), so `StaticAnalysisData`, the parsed copy and the `aperv-tool` derive are the same whether a document carries paths or not.
+
+**Why the converter refuses a document with paths**: its compact form would keep only the steps on the chains of the pairs the reduction keeps, a second reduction per target. GATOR writes that document itself when run in compact mode with `--distance-paths`, so `compact_document()` refuses instead, learning that the member was present from the `dropped_paths` out-parameter of the same read.
+
+**Why `path` reads in a pass of its own**: the steps are indices and unreadable by eye, so `path_query.py` turns one method's pairs into chains of signatures. It cannot go through `read_analysis_document`, which must keep dropping the path members for the campaign readers, and widening that reader's contract for a stand-alone tool would touch the parser and the derive. Its own `ijson` pass builds only `distanceTargets`, `pathMethods`, `distancePaths` and the requested method's `targetDistances`, and stops once it holds them. Each chain is followed for exactly `d` steps and must end on the target, so a broken document is reported, never printed short.
 
 ## Data Flow
 
@@ -354,6 +370,7 @@ flowchart TB
         subgraph Conversion["Offline Conversion"]
             direction LR
             CONV["compact_document\n(compact.py)"]
+            PQ["query_paths\n(path_query.py)"]
         end
     end
 
@@ -385,6 +402,8 @@ flowchart TB
     CLI --> CONV
     CONV --> DOC
     CONV --> FS
+    CLI --> PQ
+    PQ --> FS
     SA --> APP
     CFG --> Core
 ```
@@ -399,9 +418,10 @@ flowchart TB
 rv-static-analysis/
 ├── src/rv_static_analysis/
 │   ├── __init__.py                     # Facade: 4 public exports
-│   ├── __main__.py                     # CLI: analyze, batch and compact subcommands
+│   ├── __main__.py                     # CLI: analyze, batch, compact and path subcommands
 │   ├── config.py                       # RVStaticAnalysisConfig (Pydantic)
 │   ├── compact.py                      # compact_document: full -> compact document (ADR-11)
+│   ├── path_query.py                   # query_paths: one method's distance-path chains (ADR-12)
 │   ├── analysis/
 │   │   └── static/
 │   │       ├── static_analysis.py      # StaticAnalyzer, StaticAnalysisResult
@@ -409,20 +429,21 @@ rv-static-analysis/
 │   └── parser/
 │       └── static/
 │           └── static_analysis_parser.py  # StaticAnalysisParser (JSON -> domain, parsed copy)
-├── tests/                              # 244 tests
+├── tests/                              # 266 tests
 │   ├── conftest.py                     # Shared fixtures
 │   ├── test_config.py                  # Config validation (13)
 │   ├── test_static_copy_audit.py       # INV-ANA-84: no other module names the parsed copy
-│   ├── test_compact_converter.py       # Converter: reduction, marker, escapes, refusals (41)
+│   ├── test_compact_converter.py       # Converter: reduction, marker, escapes, refusals (43)
 │   ├── test_compact_equivalence.py     # INV-ANA-89: compact and full parse to the same model
+│   ├── test_path_query.py              # path: chains, --target, refusals, broken chain (12)
 │   ├── analysis/
 │   │   ├── test_targets_file_cli.py    # --targets-file behaviour
 │   │   └── static/
 │   │       ├── test_static_analysis.py     # Analyzer: caching, timeout, errors
 │   │       ├── test_denominator_gate.py    # Gate: refusals, admissions, wiring
 │   │       └── test_scope_key_policy.py    # Key travel: run -> GATOR -> artefact -> reuse
-│   ├── cli/                            # CLI flag tests (38)
-│   ├── parser/                         # Parser tests (103)
+│   ├── cli/                            # CLI flag tests (44)
+│   ├── parser/                         # Parser tests (105)
 │   │   ├── test_sentinel.py
 │   │   └── static/test_static_analysis_parser.py
 │   └── resources/
@@ -447,6 +468,7 @@ flowchart TB
     end
     subgraph Conversion["Conversion Layer"]
         COMPACTMOD["compact.py\n(compact_document)"]
+        PATHMOD["path_query.py\n(query_paths)"]
     end
     subgraph Parser["Parser Layer"]
         PARSER["static_analysis_parser.py\n(StaticAnalysisParser)"]
@@ -462,6 +484,8 @@ flowchart TB
     MAIN --> COMPACTMOD
     COMPACTMOD --> DOCREAD
     COMPACTMOD --> PARSER
+    MAIN --> PATHMOD
+    PATHMOD --> PARSER
     INIT --> CONFIG
     MAIN --> ANALYZER
     MAIN --> CONFIG
@@ -598,7 +622,7 @@ flowchart LR
 **Location**: `src/rv_static_analysis/config.py`
 
 **Key Classes**:
-- `RVStaticAnalysisConfig(BaseValidatedModel)`: Pydantic model with field validators and `model_post_init` for path resolution. Notable fields: `cg_algorithm` (default `spark`), `jvm_memory`, `analysis_timeout`, `skip_wtg` (default `False` — when True the generated command includes `-clientParam skipWtg=true`), `full_output` (default `False` — when True the command includes `-clientParam fullOutput=true` and GATOR writes the full document; otherwise nothing is appended and GATOR writes the compact one, ADR-11). `get_tool_command()` resolves the launcher under `sys.executable` (the running interpreter) to remain portable across hosts without `/usr/bin/python`.
+- `RVStaticAnalysisConfig(BaseValidatedModel)`: Pydantic model with field validators and `model_post_init` for path resolution. Notable fields: `cg_algorithm` (default `spark`), `jvm_memory`, `analysis_timeout`, `skip_wtg` (default `False` — when True the generated command includes `-clientParam skipWtg=true`), `full_output` (default `False` — when True the command includes `-clientParam fullOutput=true` and GATOR writes the full document; otherwise nothing is appended and GATOR writes the compact one, ADR-11), `distance_paths` (default `False` — when True the command includes `-clientParam distancePaths=true` and GATOR adds `pathMethods`/`distancePaths`, ADR-12). `get_tool_command()` resolves the launcher under `sys.executable` (the running interpreter) to remain portable across hosts without `/usr/bin/python`.
 
 **Dependencies**:
 - External: rv-android-core (`BaseValidatedModel`, `ConfigurationError`, constants)
@@ -644,7 +668,7 @@ flowchart LR
 **Location**: `src/rv_static_analysis/compact.py`
 
 **Key names**:
-- `compact_document(src, dst)`: same-file check, streaming read with `PairPolicy.reduce(COMPACT_WEIGHED_MAX, COMPACT_K)`, refusal of a truncated or already compact input, pairs re-sorted by `i` (the reader yields `(d, i)` order), `distancePairs` inserted before the first of `distanceTargets`, `components`, ... the document holds, and an atomic write (temporary file in the destination's directory, fsync, the input's permission bits, `os.replace`)
+- `compact_document(src, dst)`: same-file check, streaming read with `PairPolicy.reduce(COMPACT_WEIGHED_MAX, COMPACT_K)` and the `dropped_paths` out-parameter, refusal of a truncated, already compact or path-carrying input (ADR-12), pairs re-sorted by `i` (the reader yields `(d, i)` order), `distancePairs` inserted before the first of `distanceTargets`, `components`, ... the document holds, and an atomic write (temporary file in the destination's directory, fsync, the input's permission bits, `os.replace`)
 - `dumps_gson_compact(value)`: Gson's compact serialisation -- `json.dumps(ensure_ascii=False, separators=(",", ":"))` plus the U+2028/U+2029 escapes; raises on any value that is not a `dict`, `list`, `str`, `int`, `bool` or `None`
 - `CompactRefused(Exception)`: a document that cannot be converted; the message names the input and the reason
 - `COMPACT_WEIGHED_MAX = 3`, `COMPACT_K = 3`: pinned to `TargetDistances` and to `aperv-tool`'s `DIST_WEIGHED_MAX`/`DIST_K` (INV-ANA-88)
@@ -655,20 +679,38 @@ flowchart LR
 - Internal: `_JK` (`static_analysis_parser.py`) for the member names and the marker keys
 - External: rv-android-core (`util.analysis_document`: `read_analysis_document`, `PairPolicy`)
 
+### Path Query
+
+**Purpose**: Prints the call chains behind one method's target distances from a document GATOR wrote with `distancePaths=true` (ADR-12, INV-ANA-98).
+
+**Location**: `src/rv_static_analysis/path_query.py`
+
+**Key names**:
+- `query_paths(doc, method, target=None) -> list[str]`: for each pair `[i, d]` of `method` sorted by `(i, d)`, or only target `target`, the header `[i] d=<d> <target signature>` and the chain's `d + 1` signatures indented by two spaces; empty when the method has no pair
+- `PathQueryRefused(Exception)`: the document carries no `distancePaths`, the method has no `reachability` entry, `target` has no pair on it, a pair names an index outside `distanceTargets`, or a chain breaks (INV-ANA-91); the message names the document and the truncation when the read was cut
+
+**Memory**: the method table, the steps and one method's pairs; the pass stops once it holds them, so `windows` and `transitions` are never read. A document cut by a killed producer is read up to the cut (INV-ANA-81).
+
+**Dependencies**:
+- Internal: `_JK` (`static_analysis_parser.py`) for the member names
+- External: `ijson` (backend `yajl2_c`)
+
 ### CLI Entry Point
 
-**Purpose**: Provides `analyze` (single APK) and `batch` (directory of APKs) subcommands for standalone use outside the rv-platform pipeline, and `compact` (full document -> compact document, offline).
+**Purpose**: Provides `analyze` (single APK) and `batch` (directory of APKs) subcommands for standalone use outside the rv-platform pipeline, `compact` (full document -> compact document, offline) and `path` (one method's distance-path chains).
 
 **Location**: `src/rv_static_analysis/__main__.py`
 
 **Dependencies**:
-- Internal: `StaticAnalyzer`, `RVStaticAnalysisConfig`, `compact_document`
+- Internal: `StaticAnalyzer`, `RVStaticAnalysisConfig`, `compact_document`, `query_paths`
 
 **CLI Library**: `argparse` (NOT Click). This matters for env-var handling: `argparse` has no `envvar=` analogue, so this entry-point does NOT honor `RV_SA_TIMEOUT` or `RV_JVM_MEMORY` directly. The env-var bridge only exists through `rv-experiment` (gh55 §9 Click `envvar=` gambiarra). Standalone runs must pass `--analysis-timeout` (gh55 added) or `--jvm-memory` explicitly. The architectural fix that gives every L5 entry-point uniform env-var resolution lives at `openspec/changes/gh-tbd-env-vars-architecture/`.
 
-**CLI Flags (selected)**: `--analysis-timeout SECS` overrides per-APK GATOR timeout; `--skip-wtg` (gh57) propagates to GATOR as `-clientParam skipWtg=true` so the client emits reachability + `windows[]` and returns without invoking `WTGBuilder.build()`; `--jvm-memory SIZE` sets the JVM `-Xmx` for the GATOR subprocess; `--package-detector` / `--strip-build-type-suffix` choose the scope key; `--force` removes the stored artefact so the run regenerates it under the same key; `--full-output` (on `analyze` and `batch`) sets `full_output`, so GATOR writes the full document. A cached artefact is reused whatever mode wrote it, so `--full-output` regenerates one only together with `--force`.
+**CLI Flags (selected)**: `--analysis-timeout SECS` overrides per-APK GATOR timeout; `--skip-wtg` (gh57) propagates to GATOR as `-clientParam skipWtg=true` so the client emits reachability + `windows[]` and returns without invoking `WTGBuilder.build()`; `--jvm-memory SIZE` sets the JVM `-Xmx` for the GATOR subprocess; `--package-detector` / `--strip-build-type-suffix` choose the scope key; `--force` removes the stored artefact so the run regenerates it under the same key; `--full-output` (on `analyze` and `batch`) sets `full_output`, so GATOR writes the full document. `--distance-paths` (on `analyze` and `batch`) sets `distance_paths`, so GATOR also writes the distance paths. A cached artefact is reused whatever mode wrote it, so `--full-output` or `--distance-paths` regenerates one only together with `--force`.
 
 **`compact INPUT OUTPUT`**: calls `compact_document()` through `handle_compact_command()`. Exit 0 on success; exit 1 with one line on stderr (`Compact Error: ...`, whitespace collapsed because the reader's parse errors span several lines and a batch driver reads one line per document) on `CompactRefused`, `ValueError` (empty, non-JSON or non-object input) or `OSError`; exit 2 is argparse's usage error.
+
+**`path DOC METHOD [--target I]`**: calls `query_paths()` through `handle_path_command()` and prints its lines. Exit 0 on success, including a method with no pair (nothing printed); exit 1 with one line on stderr (`Path Error: ...`, whitespace collapsed) on `PathQueryRefused` or `OSError`; exit 2 is argparse's usage error. Like `compact`, it opens no APK, so the package policy is not resolved.
 
 **Env-var exceptions**: `RV_PACKAGE_DETECTOR` and `RV_STRIP_BUILD_TYPE_SUFFIX` *are* honored here, resolved in `main()` by `resolve_package_detector()` / `resolve_strip_build_type_suffix()` under flag > env > default. Both delegate to `rv_android_core.util.utils.resolve_bool_setting`, the same helper `rv-experiment` uses, so the two CLIs cannot drift on what a given string means; an unparseable value exits nonzero before any APK is opened. This is deliberate (gh98 D4): a standalone invocation is a run, not a step inside one, and only entry points may read the environment (INV-EXP-35).
 
@@ -837,18 +879,19 @@ classDiagram
 | Type | Location | Purpose |
 |------|----------|---------|
 | Unit (parser) | `tests/parser/static/test_static_analysis_parser.py` | JSON sections, edge cases, truncation at every cut point (`TestTruncatedJSON`, INV-ANA-81), model equality with `json.load` (`TestStreamingEquivalence`, INV-ANA-80), the parsed-copy cache (`TestParsedCopyCache`, INV-ANA-82/83), artefact-scoped parsing (INV-ANA-59/60/61) and artefact-spelling preservation (INV-ANA-67) |
-| Unit (converter) | `tests/test_compact_converter.py` | 41 tests: the INV-ANA-85 reduction, marker placement with and without `distanceTargets`, Gson escapes written out literally rather than computed with `json.dumps`, every refusal leaving no output, the atomic write and the CLI exit codes (INV-ANA-87) |
+| Unit (converter) | `tests/test_compact_converter.py` | 43 tests: the INV-ANA-85 reduction, marker placement with and without `distanceTargets`, Gson escapes written out literally rather than computed with `json.dumps`, every refusal leaving no output, the atomic write and the CLI exit codes (INV-ANA-87) |
+| Unit (path query) | `tests/test_path_query.py` | Chains for every pair and for `--target`, the refusals, a broken chain detected rather than printed short, a method with no pair printing nothing (INV-ANA-98) |
 | Equivalence | `tests/test_compact_equivalence.py` | The `cryptoapp.apk.json` fixture and its compact form parse to the same model, compared field by field (INV-ANA-89) |
 | Parity (workspace) | `rv-android/tests/parity/test_distance_pair_constants.py` | The reduction constants agree in Java, in the converter and in `aperv-tool` (INV-ANA-88) |
 | Audit | `tests/test_static_copy_audit.py` | No module outside rv-static-analysis names the `.static.json` suffix, and no other `src/` names `EXTENSION_PARSED_COPY` (INV-ANA-84) |
 | Unit (analyzer) | `tests/analysis/static/test_static_analysis.py` | Caching, timeout handling, error scenarios (mocked Command) |
 | Unit (gate) | `tests/analysis/static/test_denominator_gate.py` | The three refusals and the admission that matters (a genuinely small app), plus wiring tests through `StaticAnalyzer.analyze()` -- without those, the gate could be written and never called with every other test still green |
 | Integration (scope key) | `tests/analysis/static/test_scope_key_policy.py` | The key's whole journey: what the run tells GATOR, what the artefact carries back, and what a stored artefact is allowed to answer for (INV-ANA-66/70) |
-| Unit (CLI) | `tests/cli/` | 38 tests over flag parsing, mutual exclusion, env-var resolution and `--full-output` reaching the GATOR command |
+| Unit (CLI) | `tests/cli/` | 44 tests over flag parsing, mutual exclusion, env-var resolution and `--full-output` reaching the GATOR command; `test_distance_paths.py` checks that `--distance-paths` reaches it as `-clientParam distancePaths=true` and that nothing does without it |
 | Unit (config) | `tests/test_config.py` | 13 tests covering path resolution, validation, command generation (including `-clientParam codePackage=` and `codePackageSource=`) |
 | Fixture | `tests/resources/cryptoapp.apk.json` | Reference analysis output for baseline equivalence tests |
 
-Total: 244 tests. Run them with the CI contract flags: `uv run pytest tests/ --import-mode=importlib -o "addopts="`.
+Total: 266 tests. Run them with the CI contract flags: `uv run pytest tests/ --import-mode=importlib -o "addopts="`.
 
 ## Related Documentation
 

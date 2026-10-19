@@ -32,6 +32,8 @@ public interface XMLParser {
 
     protected String appPkg;
 
+    protected String applicationClassName;
+
     protected final ArrayList<String> activities = Lists.newArrayList();
     protected final ArrayList<String> services = Lists.newArrayList();
     protected final ArrayList<String> receivers = Lists.newArrayList();
@@ -109,6 +111,11 @@ public interface XMLParser {
     @Override
     public String getAppPackageName() {
       return appPkg;
+    }
+
+    @Override
+    public String getApplicationClassName() {
+      return applicationClassName;
     }
   }
 
@@ -230,6 +237,13 @@ public interface XMLParser {
   int getNumberOfActivities();
 
   String getAppPackageName();
+
+  /**
+   * The class named by {@code <application android:name>}, resolved against the
+   * manifest package by {@link Helper#getClassName} as component names are, or
+   * {@code null} when the attribute is absent or {@code Helper} rejects the class.
+   */
+  String getApplicationClassName();
 
   enum ActivityLaunchMode {
     standard,

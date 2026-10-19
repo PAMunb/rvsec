@@ -132,6 +132,17 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "published in that form."
         ),
     )
+    distance_paths: bool = Field(
+        default=False,
+        description=(
+            "When True, append -clientParam distancePaths=true so RvsecAnalysisClient "
+            "also writes the top-level pathMethods and distancePaths members: for "
+            "every targetDistances pair the document writes, the call path the "
+            "distance search followed, as [i, v, n] steps over a method table. "
+            "Campaign readers drop both members; 'rv-static-analysis path' prints "
+            "a method's chains. Off by default, which writes no path."
+        ),
+    )
     cg_delegation: Optional[bool] = Field(
         default=None,
         description=(
@@ -421,6 +432,9 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         # Compact is GATOR's default, so only the full mode is passed.
         if self.full_output:
             cmd.extend(["-clientParam", "fullOutput=true"])
+
+        if self.distance_paths:
+            cmd.extend(["-clientParam", "distancePaths=true"])
 
         if self.cg_delegation is not None:
             cmd.extend(["-cgDelegation", "true" if self.cg_delegation else "false"])

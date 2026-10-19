@@ -157,6 +157,12 @@ _JK = SimpleNamespace(
     distance_pairs="distancePairs",
     weighed_max="weighedMax",
     k="k",
+    # Distance paths, written only with `distancePaths=true` (INV-ANA-91):
+    # `pathMethods` is the top-level table of method signatures, `distancePaths` the
+    # top-level list of `[i, v, n]` steps over it. `read_analysis_document` drops
+    # both (INV-ANA-97); `rv_static_analysis.path_query` reads them.
+    path_methods="pathMethods",
+    distance_paths="distancePaths",
     # Windows section
     id="id",
     type="type",

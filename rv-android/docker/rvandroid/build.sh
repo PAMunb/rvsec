@@ -7,25 +7,25 @@ set -e
 # produz uma imagem silenciosamente velha, e a campanha inteira mede o código anterior.
 #
 # Parametrizado por ambiente, com os valores de sempre como default:
-#   VERSION       tag da imagem            (default 0.9.5)
+#   VERSION       tag da imagem            (default 0.9.6)
 #   RVSEC_BRANCH  branch clonado           (default modules — o canônico)
-#   TAG_LATEST    também taguear :latest   (default 1 apenas quando VERSION=0.9.5)
+#   TAG_LATEST    também taguear :latest   (default 1 apenas quando VERSION=0.9.6)
 #
 # Uma tag de campanha NÃO deve mover o :latest — quem roda `phtcosta/rvandroid:latest` no dia
 # seguinte estaria rodando a imagem de um experimento, não a de produção. Por isso o default
 # de TAG_LATEST depende de VERSION.
 #
 # Exemplos:
-#   ./build.sh                                     # produção: 0.9.5 + latest
-#   VERSION=0.9.5-gh111 ./build.sh                 # imagem de campanha, sem mover o latest
-#   VERSION=0.9.5-gh111 RVSEC_BRANCH=modules ./build.sh
+#   ./build.sh                                     # produção: 0.9.6 + latest
+#   VERSION=0.9.6-gh111 ./build.sh                 # imagem de campanha, sem mover o latest
+#   VERSION=0.9.6-gh111 RVSEC_BRANCH=modules ./build.sh
 
-VERSION="${VERSION:-0.9.5}"
+VERSION="${VERSION:-0.9.6}"
 RVSEC_BRANCH="${RVSEC_BRANCH:-modules}"
 IMAGE=phtcosta/rvandroid
 
 if [ -z "${TAG_LATEST+x}" ]; then
-    if [ "$VERSION" = "0.9.5" ]; then TAG_LATEST=1; else TAG_LATEST=0; fi
+    if [ "$VERSION" = "0.9.6" ]; then TAG_LATEST=1; else TAG_LATEST=0; fi
 fi
 
 TAGS=(-t "$IMAGE:$VERSION")

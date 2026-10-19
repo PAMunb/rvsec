@@ -1,0 +1,1 @@
+org.cry.otp_31.apk: app->app steps 10, invoke by name 10, into lambda 0, unexplained 0

@@ -22,30 +22,29 @@ import soot.jimple.toolkits.callgraph.CallGraph;
  * Pipeline orchestrator that turns the resolved target {@link SootMethod}
  * set into a {@link ReachabilityIndex}.
  *
- * <p>The reachability pipeline has five steps:
+ * <p>The reachability pipeline has four steps:
  * <ol>
  *   <li>Build a JGraphT view of the SPARK call graph (self-loops filtered).</li>
- *   <li>Multi-source BFS from entry points → {@code reachableSet}.</li>
+ *   <li>Multi-source BFS seeded with the entry points ∪ the callback set →
+ *       {@code reachableSet}. The callbacks (activity lifecycle handlers, GUI event
+ *       handlers, Service/Receiver/Provider lifecycle methods) are invoked by the
+ *       framework, so seeding them is what makes the methods only a callback calls
+ *       reachable (INV-ANA-94).</li>
  *   <li>{@code directTargetSet} = CG-edge direct callers ∪ bytecode-scan
  *       complement (BUG-INV-ANA-19 — SPARK quarantines library targets so
  *       the scanner catches app→library invokes the CG drops).</li>
  *   <li>Reverse-graph multi-source BFS seeded with
  *       {@code targets ∪ directTargetSet} → {@code reachesTargetSet}. The direct set is
  *       part of the seed so that {@code reachesTarget ⊇ directlyReachesTarget} holds by
- *       construction rather than by luck (INV-ANA-64).</li>
- *   <li>Lifecycle + listener callbacks complement: callbacks marked
- *       reachable, target flags propagated when callbacks fan into the
- *       target set.</li>
+ *       construction rather than by luck (INV-ANA-64). A callback's target flags come
+ *       from these two steps like any other method's: an edge to a target puts it in the
+ *       direct set, and a path to one puts it in the reverse search.</li>
  * </ol>
  *
- * <p>Step bodies still live as package-private statics on
- * {@link RvsecAnalysisClient} (this is the C1c stepping-stone; the full
- * physical code move is a follow-up cleanup that does NOT block the public
- * API contract here). What the engine does own is the orchestration and
- * the publication boundary — once {@link #run} returns, the
- * {@link ReachabilityIndex} is immutable, so downstream code (the
- * {@code ReachabilityEnricher} arriving in C1d, the {@code JsonReportWriter}
- * arriving in C1e) cannot retroactively mutate reachability state.
+ * <p>The step bodies live as static helpers on {@link RvsecAnalysisClient}. The engine
+ * owns the orchestration and the publication boundary: once {@link #run} returns, the
+ * {@link ReachabilityIndex} is immutable, so downstream code ({@code ReachabilityEnricher},
+ * {@code JsonReportWriter}) cannot mutate reachability state.
  */
 public final class ReachabilityEngine {
 
@@ -82,10 +81,15 @@ public final class ReachabilityEngine {
 				+ graph.vertexSet().size() + " vertices, "
 				+ graph.edgeSet().size() + " edges");
 
-		Set<SootMethod> entryPoints = RvsecAnalysisClient.getEntryPoints(output);
-		System.out.println("[ReachabilityEngine] Entry points: " + entryPoints.size());
+		Set<SootMethod> entryPoints = RvsecAnalysisClient.getEntryPoints(output, appClasses);
+		Set<SootMethod> callbacks = RvsecAnalysisClient.collectCallbacks(output);
+		Set<SootMethod> forwardSeeds = new HashSet<>(entryPoints);
+		forwardSeeds.addAll(callbacks);
+		System.out.println("[ReachabilityEngine] Entry points: " + entryPoints.size()
+				+ ", callbacks: " + callbacks.size()
+				+ ", forward seeds: " + forwardSeeds.size());
 
-		Set<SootMethod> reachableSet = RvsecAnalysisClient.multiSourceBfs(graph, entryPoints);
+		Set<SootMethod> reachableSet = RvsecAnalysisClient.multiSourceBfs(graph, forwardSeeds);
 
 		// The direct set is computed FIRST, and the reverse BFS is then seeded with it.
 		//
@@ -133,9 +137,6 @@ public final class ReachabilityEngine {
 		System.out.println("[ReachabilityEngine] reverseBfs: "
 				+ (System.currentTimeMillis() - bfsStart) + " ms from " + bfsSeeds.size()
 				+ " seeds");
-
-		RvsecAnalysisClient.complementWithCallbacks(
-				output, reachableSet, reachesTargetSet, directTargetSet, graph, targets);
 
 		System.out.println("[ReachabilityEngine] Reachable: " + reachableSet.size()
 				+ ", reachesTarget: " + reachesTargetSet.size()

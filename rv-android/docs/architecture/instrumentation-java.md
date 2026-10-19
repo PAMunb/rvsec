@@ -32,7 +32,7 @@
 This document describes the **Java/Maven instrumentation engine** of RV-Android: the subsystem
 that rewrites the bytecode of an Android APK so that runtime-verification monitors observe it.
 It is the DEX-native instrumentation variant (`artifactId rvsec-instrumentation-dexlib2`,
-version `0.9.5-SNAPSHOT`), shaded into one fat JAR, `instr-cli.jar`, and driven through a
+version `0.9.6-SNAPSHOT`), shaded into one fat JAR, `instr-cli.jar`, and driven through a
 picocli command line. The audience is a **new engineer with no prior exposure to this
 subsystem**: read it top to bottom and you will know what it does, how one APK flows through
 it, and why it is built this way.

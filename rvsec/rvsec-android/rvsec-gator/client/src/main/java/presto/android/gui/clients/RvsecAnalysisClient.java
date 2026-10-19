@@ -30,6 +30,7 @@ import com.google.gson.stream.JsonWriter;
 
 import br.unb.cic.mop.extractor.model.MopMethod;
 import presto.android.Configs;
+import presto.android.gui.FragmentViewFlow;
 import presto.android.gui.PropertyManager;
 import presto.android.gui.GUIAnalysisClient;
 import presto.android.gui.GUIAnalysisOutput;
@@ -38,9 +39,12 @@ import presto.android.gui.wtg.intent.IntentFilterManager;
 import presto.android.gui.wtg.util.PatternMatcher;
 import presto.android.xml.XMLParser;
 import presto.android.gui.clients.energy.VarUtil;
+import presto.android.gui.clients.fragment.FragmentHostResolver;
 import presto.android.gui.clients.fragment.FragmentWindows;
 import presto.android.gui.clients.hosted.HostedWindowExtractor;
 import presto.android.gui.clients.json.JsonSchema;
+import presto.android.gui.clients.reach.DistancePaths;
+import presto.android.gui.clients.reach.EmptySiteEdges;
 import presto.android.gui.clients.reach.LambdaEdges;
 import presto.android.gui.clients.reach.TargetDistances;
 import presto.android.gui.graph.NDialogNode;
@@ -159,9 +163,18 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		} catch (RuntimeException e) {
 			System.out.println("[RvsecAnalysisClient] Lambda edges failed: " + e);
 		}
+		// 3b. Edges at the instance-invoke sites SPARK left without one (empty points-to set of a
+		//     framework-, reflection- or DI-created receiver), to app callees only (INV-ANA-96).
+		//     After 3a, so a wrapper site LambdaEdges filled is no longer empty.
+		List<Edge> emptySiteEdges = new ArrayList<>();
+		try {
+			EmptySiteEdges.addTo(Scene.v().getCallGraph(), appClasses, emptySiteEdges);
+		} catch (RuntimeException e) {
+			System.out.println("[RvsecAnalysisClient] Empty-site edges failed: " + e);
+		}
 
-		// 3. Reachability pipeline (BFS + bytecode-scan + callback complement)
-		//    encapsulated in ReachabilityEngine. The ReachabilityIndex it
+		// 3. Reachability pipeline (forward BFS from entry points and callbacks, bytecode scan,
+		//    reverse BFS) encapsulated in ReachabilityEngine. The ReachabilityIndex it
 		//    publishes is immutable — downstream JSON writing reads but does
 		//    not mutate reachability state (precondition for INV-ANA-30,
 		//    enforced in C1e when JsonReportWriter becomes pure).
@@ -202,14 +215,29 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		//    NO sentinel — a partial sample the parser and the gh91 predicate
 		//    both refuse to count as finished (INV-ANA-31).
 		boolean wtgSkipped = skipWtg();
+		// 4b. The empty-site edges served reachability, distances and paths only. The fragment
+		//     windows and the WTG (which reads this graph when cgDelegation=true) see the graph
+		//     SPARK and LambdaEdges built (INV-ANA-96).
+		for (Edge e : emptySiteEdges) {
+			Scene.v().getCallGraph().removeEdge(e);
+		}
+		System.out.println("[RvsecAnalysisClient] Empty-site edges removed before the WTG: "
+				+ emptySiteEdges.size());
 		fragmentWindows = analyzeFragments(output, appClasses);
 		// The mode is read once and held by the writer, so the pre-WTG write and the
 		// final write of a run never differ in format (INV-ANA-86).
 		boolean compact = !fullOutput();
 		System.out.println("[RvsecAnalysisClient] Output mode: "
 				+ (compact ? "compact" : "full"));
+		// The paths are computed before the pre-WTG write, so a WTG timeout keeps them as it
+		// keeps the distances.
+		DistancePaths paths = distancePaths() ? computeDistancePaths(distances, compact) : null;
+		// The callers map served only the paths; the WTG runs without it.
+		if (distances != null) {
+			distances.releaseCallers();
+		}
 		presto.android.gui.clients.json.JsonReportWriter writer =
-				new presto.android.gui.clients.json.JsonReportWriter(enricher, compact);
+				new presto.android.gui.clients.json.JsonReportWriter(enricher, compact, paths);
 		try {
 			List<Map<String, Object>> preWtgWindows = prepareWindows(output, new HashMap<>(), null);
 			writer.write(outputPath, wtgSkipped, appPackage, mainActivity, appClasses, output,
@@ -312,6 +340,16 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		return param != null && "true".equalsIgnoreCase(param.substring("fullOutput=".length()));
 	}
 
+	/**
+	 * {@code distancePaths=true} (case-insensitive) asks for {@code pathMethods} and
+	 * {@code distancePaths}, the call path behind every written distance pair. Any other value,
+	 * or no parameter, writes neither (INV-ANA-90).
+	 */
+	private boolean distancePaths() {
+		String param = Configs.getClientParamCode("distancePaths=");
+		return param != null && "true".equalsIgnoreCase(param.substring("distancePaths=".length()));
+	}
+
 	// ========================================================================
 	// Class/Method Enumeration
 	// ========================================================================
@@ -409,10 +447,14 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	// ========================================================================
 
 	/**
-	 * Collect entry points: public/protected methods of activity classes,
-	 * lifecycle handlers, and event handlers from GATOR's analysis.
+	 * Collect entry points: the lifecycle handlers and public/protected methods of
+	 * activities; the lifecycle and public/protected methods of the manifest's services,
+	 * receivers and providers; the manifest's Application subclass
+	 * ({@link #applicationEntryPoints}); and the framework-created components found in
+	 * {@code appClasses} by hierarchy ({@link #frameworkCreatedEntryPoints}).
 	 */
-	public static Set<SootMethod> getEntryPoints(GUIAnalysisOutput output) {
+	public static Set<SootMethod> getEntryPoints(GUIAnalysisOutput output,
+			Map<SootClass, List<SootMethod>> appClasses) {
 		Set<SootMethod> entryPoints = new HashSet<>();
 		for (SootClass activity : output.getActivities()) {
 			// Lifecycle handlers
@@ -495,6 +537,81 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			}
 		}
 
+		entryPoints.addAll(applicationEntryPoints(xmlParser.getApplicationClassName()));
+		entryPoints.addAll(frameworkCreatedEntryPoints(appClasses));
+		return entryPoints;
+	}
+
+	/**
+	 * Entry points of the Application subclass the manifest names: its lifecycle methods,
+	 * listed for when they are not public, and its public/protected methods. Only that class
+	 * is instantiated by the runtime, so other Application subclasses in the APK are not
+	 * taken. Empty when the manifest names none or the class is absent from the Scene.
+	 */
+	static Set<SootMethod> applicationEntryPoints(String className) {
+		Set<SootMethod> entryPoints = new HashSet<>();
+		if (className == null) {
+			return entryPoints;
+		}
+		SootClass sootClass = Scene.v().getSootClassUnsafe(className);
+		if (sootClass == null) {
+			System.out.println("[RvsecAnalysisClient] WARNING: Application class not found in Soot Scene: " + className);
+			return entryPoints;
+		}
+		for (SootMethod m : sootClass.getMethods()) {
+			String methodName = m.getName();
+			if (methodName.equals("onCreate") || methodName.equals("onTerminate") ||
+				methodName.equals("onConfigurationChanged") || methodName.equals("onLowMemory") ||
+				methodName.equals("onTrimMemory") || methodName.equals("attachBaseContext")) {
+				entryPoints.add(m);
+			}
+			if (m.isPublic() || m.isProtected()) {
+				entryPoints.add(m);
+			}
+		}
+		return entryPoints;
+	}
+
+	/**
+	 * Entry points of app classes the framework or a library creates and drives, so no app
+	 * code calls their entry methods. A class is matched by name over its superclass chain:
+	 * <ul>
+	 *   <li>a subclass of a {@link FragmentViewFlow#FRAGMENT_BASES} class gives its
+	 *       public/protected methods, whether or not an activity is found to host it;</li>
+	 *   <li>a subclass of {@link FragmentViewFlow#LISTENABLE_WORKER} gives {@code doWork} and
+	 *       {@code startWork}, the two methods WorkManager calls; its other methods are its
+	 *       own API;</li>
+	 *   <li>a subclass of a {@link FragmentViewFlow#RECYCLER_VIEW_BASES} class gives its
+	 *       public methods, which RecyclerView calls while a list is shown.</li>
+	 * </ul>
+	 * {@code androidx.lifecycle.ViewModel} is not among them: a ViewModel runs when a screen
+	 * requests it, and that request is the screen's own call.
+	 */
+	static Set<SootMethod> frameworkCreatedEntryPoints(Map<SootClass, List<SootMethod>> appClasses) {
+		Set<String> workerBases = Set.of(FragmentViewFlow.LISTENABLE_WORKER);
+		Set<SootMethod> entryPoints = new HashSet<>();
+		for (Map.Entry<SootClass, List<SootMethod>> entry : appClasses.entrySet()) {
+			SootClass cls = entry.getKey();
+			if (FragmentHostResolver.extendsAny(cls, FragmentViewFlow.FRAGMENT_BASES)) {
+				for (SootMethod m : entry.getValue()) {
+					if (m.isPublic() || m.isProtected()) {
+						entryPoints.add(m);
+					}
+				}
+			} else if (FragmentHostResolver.extendsAny(cls, workerBases)) {
+				for (SootMethod m : entry.getValue()) {
+					if (m.getName().equals("doWork") || m.getName().equals("startWork")) {
+						entryPoints.add(m);
+					}
+				}
+			} else if (FragmentHostResolver.extendsAny(cls, FragmentViewFlow.RECYCLER_VIEW_BASES)) {
+				for (SootMethod m : entry.getValue()) {
+					if (m.isPublic()) {
+						entryPoints.add(m);
+					}
+				}
+			}
+		}
 		return entryPoints;
 	}
 
@@ -874,22 +991,17 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	}
 
 	// ========================================================================
-	// Callback Complement
+	// Callbacks
 	// ========================================================================
 
 	/**
-	 * Mark lifecycle and listener callbacks as reachable. These methods are
-	 * invoked by the Android framework at runtime but may not appear in the
-	 * call graph.
+	 * The callback set: activity lifecycle handlers, the event handlers of every GUI object
+	 * under every activity root, and the Service/Receiver/Provider lifecycle methods. The
+	 * Android framework invokes them, so no call site in the app's code reaches them; they
+	 * seed the forward reachability search together with the entry points. No state is
+	 * changed.
 	 */
-	public static void complementWithCallbacks(
-			GUIAnalysisOutput output,
-			Set<SootMethod> reachableSet,
-			Set<SootMethod> reachesTargetSet,
-			Set<SootMethod> directMopSet,
-			DefaultDirectedGraph<SootMethod, DefaultEdge> graph,
-			Set<SootMethod> targetMethods) {
-
+	public static Set<SootMethod> collectCallbacks(GUIAnalysisOutput output) {
 		Set<SootMethod> callbacks = new HashSet<>();
 
 		// Lifecycle handlers for all activities
@@ -944,24 +1056,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			}
 		}
 
-		// Mark callbacks as reachable and propagate MOP flags
-		for (SootMethod callback : callbacks) {
-			reachableSet.add(callback);
-			// Check if this callback can reach MOP via graph
-			if (graph.containsVertex(callback)) {
-				for (DefaultEdge edge : graph.outgoingEdgesOf(callback)) {
-					SootMethod target = graph.getEdgeTarget(edge);
-					if (targetMethods.contains(target)) {
-						directMopSet.add(callback);
-						reachesTargetSet.add(callback);
-						break;
-					}
-					if (reachesTargetSet.contains(target)) {
-						reachesTargetSet.add(callback);
-					}
-				}
-			}
-		}
+		return callbacks;
 	}
 
 	private static void collectEventHandlers(GUIAnalysisOutput output, NNode node,
@@ -1564,6 +1659,29 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			return d;
 		} catch (RuntimeException e) {
 			System.out.println("[RvsecAnalysisClient] Distance pass failed: " + e);
+			return null;
+		}
+	}
+
+	/**
+	 * The steps behind the pairs the output mode writes: every pair in full output, the pairs
+	 * {@link TargetDistances#compact} keeps in compact output (INV-ANA-93). A failure costs only
+	 * the two path members, never the rest of the report.
+	 */
+	private static DistancePaths computeDistancePaths(TargetDistances<SootMethod> distances,
+			boolean compact) {
+		if (distances == null) {
+			return null;
+		}
+		try {
+			long start = System.currentTimeMillis();
+			DistancePaths p = distances.paths(compact ? distances.keptByCompact() : (m, pair) -> true);
+			System.out.println("[RvsecAnalysisClient] Distance paths: " + p.methods().size()
+					+ " methods, " + p.steps().length + " steps ("
+					+ (System.currentTimeMillis() - start) + " ms)");
+			return p;
+		} catch (RuntimeException e) {
+			System.out.println("[RvsecAnalysisClient] Distance path pass failed: " + e);
 			return null;
 		}
 	}

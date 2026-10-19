@@ -1125,7 +1125,7 @@ class TestStreamingEquivalence:
         assert len(streamed.classes.methods) > 0
 
     def test_distance_members_are_not_built(self, parser):
-        """cryptoapp carries `distanceTargets` and 38 `targetDistances` lists; the
+        """cryptoapp carries `distanceTargets` and 39 `targetDistances` lists; the
         dict handed to the section parsers holds neither."""
         with open(CRYPTOAPP_FIXTURE) as f:
             raw = json.load(f)
@@ -1136,7 +1136,7 @@ class TestStreamingEquivalence:
                 for c in raw["reachability"]
                 for m in c["methods"]
             )
-            == 38
+            == 39
         )
 
         data, truncated = parser._load_json(CRYPTOAPP_FIXTURE)
@@ -1146,6 +1146,50 @@ class TestStreamingEquivalence:
         assert not any(
             "targetDistances" in m for c in data["reachability"] for m in c["methods"]
         )
+
+
+# --- Distance paths (INV-ANA-97) ---
+
+
+def _with_distance_paths(document: dict) -> dict:
+    """The document with `pathMethods` and `distancePaths` right after
+    `reachability`, where GATOR writes them with `distancePaths=true`."""
+    result = {}
+    for key, value in document.items():
+        result[key] = value
+        if key == "reachability":
+            result["pathMethods"] = ["<a.A: void f()>", "<a.B: void g()>"]
+            result["distancePaths"] = [[0, 0, 1], [1, 0, 1]]
+    return result
+
+
+class TestDistancePaths:
+    """A document with distance paths parses to the model of the same document
+    without them, and the parsed copy carries neither member."""
+
+    APK = "cryptoapp.apk"
+
+    def test_model_equals_the_model_without_paths(self, parser, tmp_path):
+        raw = _load_fixture()
+        with_paths = _write_json(tmp_path, _with_distance_paths(raw), "paths.json")
+
+        assert _model_snapshot(parser.parse_file(with_paths)) == _model_snapshot(
+            parser.parse_file(CRYPTOAPP_FIXTURE)
+        )
+
+    def test_parsed_copy_lacks_the_path_members(self, parser, tmp_path):
+        _write_json(
+            tmp_path,
+            _with_distance_paths(_load_fixture()),
+            self.APK + EXTENSION_STATIC_ANALYSIS,
+        )
+
+        parser.read_static_analysis_files(str(tmp_path), self.APK)
+
+        with open(tmp_path / (self.APK + EXTENSION_PARSED_COPY)) as f:
+            copy = json.load(f)
+        assert "pathMethods" not in copy
+        assert "distancePaths" not in copy
 
 
 # --- Parsed copy beside the source (INV-ANA-82, -83) ---
@@ -1576,13 +1620,19 @@ class TestBaselineEquivalence:
     #     reaches_target goes 33→37: the default constructors of MainActivity,
     #     CipherActivity, CryptographyActivity and MessageDigestActivity reach
     #     `String.valueOf(Object)` through the framework call graph.
+    #
+    # reachable moved 55→61 in gh-tbd-gator-distance-paths, which regenerated the
+    # fixture: the click callback `CipherActivity$1.onClick` now seeds the forward
+    # search instead of being flagged after it, so the methods it calls become
+    # reachable too: `CipherActivity.access$000`, `encrypt` and four `CipherUtil`
+    # methods (INV-ANA-94).
     BASELINE = {
         "classes": 16,
         "methods": 106,
         "activities": 4,
         "windows": 5,
         "transitions": 36,  # 35 raw JSON objects, 1 has 2 events → 36 expanded
-        "reachable": 55,
+        "reachable": 61,
         "reaches_target": 37,
         "directly_reaches_target": 23,
     }

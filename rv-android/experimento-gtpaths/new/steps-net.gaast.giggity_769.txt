@@ -1,0 +1,6 @@
+   UNEXPLAINED <net.gaast.giggity.Fetcher$ProgressStream: int read(byte[],int,int)> -> <net.gaast.giggity.ScheduleViewActivity$LoadProgressDialog$1: void handleMessage(android.os.Message)>
+   UNEXPLAINED <net.gaast.giggity.ScheduleViewActivity$14: void run()> -> <net.gaast.giggity.ScheduleViewActivity$LoadProgressDialog$1: void handleMessage(android.os.Message)>
+   UNEXPLAINED <net.gaast.giggity.ScheduleViewActivity$8: void run()> -> <net.gaast.giggity.ScheduleViewActivity$LoadProgressView$1: void handleMessage(android.os.Message)>
+   UNEXPLAINED <net.gaast.giggity.ScheduleViewActivity: boolean viewLink(net.gaast.giggity.Schedule$Link)> -> <net.gaast.giggity.ScheduleViewActivity$14: void run()>
+   UNEXPLAINED <net.gaast.giggity.ScheduleViewActivity: void loadScheduleAsync(java.lang.String,net.gaast.giggity.Fetcher$Source,android.os.Bundle)> -> <net.gaast.giggity.ScheduleViewActivity$8: void run()>
+net.gaast.giggity_769.apk: app->app steps 40, invoke by name 35, into lambda 0, unexplained 5

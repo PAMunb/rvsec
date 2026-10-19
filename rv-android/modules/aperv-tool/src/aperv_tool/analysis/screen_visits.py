@@ -86,9 +86,9 @@ first click on anything else, which is the submit candidate.
 executed owner under ``v == 2``. The same string means two different things
 across the two jar generations, so every visit carries the version its counts
 were computed under, and ``pool_decision_sources`` refuses to add counts of
-different versions (INV-CAN-21). ``activity_has_mop`` is ``None`` where the cell
+different versions (INV-CAN-27). ``activity_has_mop`` is ``None`` where the cell
 did not compute it, and the visit carries the ``None`` rather than a ``False``
-(INV-CAN-22).
+(INV-CAN-28).
 
 The visit does not count ``StepRow.input_source``. Its value folds why a field
 was filled (``llm``, ``form``) and which generator wrote the text (``typed``,
@@ -527,7 +527,7 @@ class CrossVersionPooling(ValueError):
 
     Raised rather than answered: ``mop`` under version 1 is the largest boost and
     under version 2 the executed owner, so a sum of the two is a count of
-    nothing (INV-CAN-21).
+    nothing (INV-CAN-27).
     """
 
 

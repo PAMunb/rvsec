@@ -74,6 +74,14 @@ public final class JsonSchema {
 		public static final String WEIGHED_MAX = "weighedMax";
 		public static final String K = "k";
 
+		// Distance paths (INV-ANA-90, -91), written only with -clientParam distancePaths=true,
+		// right after REACHABILITY. PATH_METHODS is the sorted list of the signatures that occur
+		// on a path, app and library; DISTANCE_PATHS is a list of steps [i, v, n], i an index
+		// into DISTANCE_TARGETS, v and n indices into PATH_METHODS: on the way to target i, v
+		// calls n, one call closer. Without the parameter the document carries neither.
+		public static final String PATH_METHODS = "pathMethods";
+		public static final String DISTANCE_PATHS = "distancePaths";
+
 		// Windows section
 		public static final String ID = "id";
 		public static final String TYPE = "type";

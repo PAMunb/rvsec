@@ -112,6 +112,25 @@ public class ReachabilityBfsTest {
 		assertEquals(setOf("A", "B", "C"), result);
 	}
 
+	@Test
+	public void testMethodTwoCallsBelowACallbackSeedIsReachable() {
+		// The forward search is seeded with entry points ∪ callbacks (INV-ANA-94). A widget
+		// handler has no caller in the call graph, so what it calls is reachable only because
+		// the handler is a seed: "onClick" → "gen" → "hmac", with no entry point above.
+		DefaultDirectedGraph<String, DefaultEdge> g = newGraph();
+		addEdge(g, "entry", "other");
+		addEdge(g, "onClick", "gen");
+		addEdge(g, "gen", "hmac");
+
+		Set<String> fromEntriesOnly = RvsecAnalysisClient.multiSourceBfs(g, setOf("entry"));
+		assertFalse(fromEntriesOnly.contains("hmac"));
+
+		Set<String> seeds = setOf("entry");
+		seeds.addAll(setOf("onClick"));
+		Set<String> reachable = RvsecAnalysisClient.multiSourceBfs(g, seeds);
+		assertEquals(setOf("entry", "other", "onClick", "gen", "hmac"), reachable);
+	}
+
 	// ── reverse BFS (reachesTarget) ────────────────────────────────────────
 
 	@Test

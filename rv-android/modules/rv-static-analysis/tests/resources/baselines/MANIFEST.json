@@ -44,8 +44,8 @@
     "design.md §D12 follow-up notes."
   ],
   "schema_version": 1,
-  "regenerated_at": "2026-10-10",
-  "regenerated_against_jar_sha256": "e65eb662093b30a0017bceda5d44126b0b15344c1d30e5d7bb82259a700d5ca7",
+  "regenerated_at": "2026-10-19",
+  "regenerated_against_jar_sha256": "434e861496645cc48982cc0092cc3ef3d115abe005e065e1a7b7ad6239b387f5",
   "entries": [
     {
       "name": "cryptoapp",
@@ -59,8 +59,8 @@
         "package": "br.unb.cic.cryptoapp",
         "classes": 16,
         "methods": 106,
-        "reachable": 55,
-        "reaches_target": 38,
+        "reachable": 61,
+        "reaches_target": 39,
         "directly_reaches_target": 23,
         "windows": 5,
         "transitions": 35,

@@ -108,14 +108,25 @@ reachability data. The Python-side PackageDetector runs Androguard component ana
 to find the actual code package, passed via the `codePackage` client parameter.
 (Cross-ref: INV-CORE-25)
 
-### AD-5: Lifecycle and listener callback complementation
+### AD-5: Callbacks and framework-created components seed the forward search
 
-After the initial BFS, `complementWithCallbacks()` adds lifecycle methods (`onCreate`,
-`onResume`, etc.) and listener callbacks registered in the GUI model to the reachable set.
+The forward BFS is seeded with `getEntryPoints(output, appClasses)` ∪
+`collectCallbacks(output)` (INV-ANA-94, INV-ANA-95). The entry points are the activities'
+lifecycle handlers and public/protected methods, the manifest's services, receivers and
+providers, the `Application` subclass named by `<application android:name>`, and the app
+subclasses of the framework-created bases in `FragmentViewFlow`: every fragment
+(public/protected methods), every `ListenableWorker` (`doWork`/`startWork`) and every
+RecyclerView `Adapter`/`ViewHolder` (public methods). The callbacks are the activity
+lifecycle handlers, the event handlers of every GUI object under an activity root, and the
+Service/Receiver/Provider lifecycle methods.
 
-**Why**: Standard call graph analysis misses Android lifecycle callbacks and listener
-registrations because they are invoked by the framework, not by application code.
-Without complementation, ~30-40% of reachable methods would be missed.
+**Why**: the framework, WorkManager and RecyclerView invoke these methods, so no app call
+site reaches them and the call graph has no edge into them. Seeding them, rather than
+marking them reachable after the search, is what makes the methods they call reachable
+too. Their target flags need no extra step: a callback with an edge to a target is in the
+direct set, and one that reaches a target is in the reverse search, like any method.
+`androidx.lifecycle.ViewModel` is not an entry point: a ViewModel runs when a screen asks
+for it, and that call is the screen's own, restored by the empty-site edges (§4.3).
 
 ### AD-6: WTG node ID consistency via windowNodeIds map
 
@@ -158,11 +169,11 @@ sequenceDiagram
     C->>J: loadMopSignatures(mopDir)
     J-->>C: Set<MopMethod>
     C->>C: resolveMopInScene(mopSignatures)
+    C->>S: LambdaEdges.addTo / EmptySiteEdges.addTo(callGraph, appClasses)
     C->>G: buildJGraph(callGraph)
-    C->>G: multiSourceBfs(graph, entryPoints)
-    C->>G: multiSourceBfs(reversed, targetMethods)
+    C->>G: multiSourceBfs(graph, entryPoints ∪ collectCallbacks(output))
     C->>C: findDirectTargetCallers(graph, targetMethods)
-    C->>C: complementWithCallbacks(...)
+    C->>G: multiSourceBfs(reversed, targetMethods ∪ direct)
     C->>S: WTGBuilder.build(output)
     S-->>C: WTG
     C->>W: writePackage(codePackage)
@@ -170,6 +181,8 @@ sequenceDiagram
     C->>W: writeComponents(manifest)  // D14: moved before reachability
     W->>W: flush()
     C->>W: writeReachability(classes, reachable, mop)
+    W->>W: flush()
+    C->>W: writeDistancePaths(paths)  // pathMethods, distancePaths; only with distancePaths=true
     W->>W: flush()
     C->>W: writeWindows(wtg, widgets)
     W->>W: flush()
@@ -193,20 +206,19 @@ AndroidManifest.xml → Package name, components (broadcasts, services)
 ```mermaid
 flowchart TD
     CG["Soot CallGraph"] --> JG["JGraphT DefaultDirectedGraph"]
-    EP["Entry Points<br/>(lifecycle methods)"] --> FWD["Forward BFS<br/>→ reachable set"]
-    MOP["MOP Methods<br/>(resolved signatures)"] --> REV["Reverse BFS<br/>→ reachesTarget set"]
-    MOP --> DIRECT["Direct callers<br/>→ directMop set"]
-    CB["Callbacks<br/>(lifecycle, listeners)"] --> COMP["Complement sets"]
+    EP["Entry Points<br/>(components, Application,<br/>fragments, workers, adapters)"] --> FWD["Forward BFS<br/>→ reachable set"]
+    CB["Callbacks<br/>(lifecycle, listeners)"] --> FWD
+    MOP["MOP Methods<br/>(resolved signatures)"] --> DIRECT["Direct callers<br/>→ directTarget set"]
+    MOP --> REV["Reverse BFS<br/>→ reachesTarget set"]
+    DIRECT --> REV
 
     JG --> FWD
     JG --> REV
     JG --> DIRECT
 
-    FWD --> COMP
-    REV --> COMP
-    DIRECT --> COMP
-
-    COMP --> JSON["Per-method flags:<br/>reachable, reachesTarget, directlyReachesTarget"]
+    FWD --> JSON["Per-method flags:<br/>reachable, reachesTarget, directlyReachesTarget"]
+    REV --> JSON
+    DIRECT --> JSON
 ```
 
 ### 4.3 Distances, lambda edges and owned windows
@@ -216,12 +228,35 @@ Order inside `RvsecAnalysisClient.run`, all before the pre-WTG write (INV-ANA-75
 1. `LambdaEdges.addTo(Scene.v().getCallGraph(), appClasses)` adds D8 lambda wrapper →
    body edges and single-invoke SAM implementation → callee edges (INV-ANA-77), so
    `reachesTarget`, the distances and the WTG walk the same graph.
-2. `ReachabilityEngine` computes the flags as in §4.2.
-3. `TargetDistances.compute` builds the targets (C = app direct callers, then
+2. `EmptySiteEdges.addTo(Scene.v().getCallGraph(), appClasses)` adds an edge at every
+   instance-invoke site of an app method that still has none (INV-ANA-96). SPARK leaves
+   such a site empty when the receiver is created by the framework, reflection or a DI
+   container (`this` of an activity, an injected field), because it sees no allocation for
+   it. The callees are the method a special invoke resolves to, or the concrete app methods
+   `FastHierarchy.resolveConcreteDispatch` yields on the concrete app classes the invoked
+   class admits. Library callees are never added and resolved sites are never touched, so
+   `directlyReachesTarget` and `distanceTargets` keep their values. It runs after step 1
+   so a wrapper site already filled is not empty. A failure keeps the edges added up to it,
+   which are removed with the others below.
+   Calls that leave the app and return through library code (coroutines, Rx, executors,
+   DI registries) are not repaired. The pass appends each edge it adds to a list the client owns: after the
+   distances, and before `analyzeFragments` and the WTG, the client removes them from the
+   call graph (log `Empty-site edges removed before the WTG: N`), so the fragment windows
+   and the WTG see the graph of SPARK and step 1. The distance paths still see them,
+   through the callers map `TargetDistances` keeps until the path pass, after which the
+   client releases it (`releaseCallers`).
+3. `ReachabilityEngine` computes the flags as in §4.2.
+4. `TargetDistances.compute` builds the targets (C = app direct callers, then
    B \ C = boundary methods) and runs one reverse BFS per target over the self-loop-free
-   call graph to depth 10. `ReachabilityEnricher` carries `distanceTargets` and the
-   per-method `targetDistances`; a failure leaves both keys out and nothing else.
-4. `FragmentWindows.analyze` (host → fragment map) and, inside `prepareWindows`, the
+   call graph to depth 10, visiting callers in signature order. `ReachabilityEnricher`
+   carries `distanceTargets` and the per-method `targetDistances`; a failure leaves both
+   keys out and nothing else.
+5. With `distancePaths=true`, `TargetDistances.paths` repeats the search of every target
+   named by a written pair (all pairs in full output, `keptByCompact()` in compact output),
+   recording the callee each method was first visited from, and returns a `DistancePaths`
+   (`pathMethods` table, `[i, v, n]` steps). `JsonReportWriter` writes both members right
+   after `reachability` in both writes; a failure drops only them.
+6. `FragmentWindows.analyze` (host → fragment map) and, inside `prepareWindows`, the
    `FRAGMENT` windows, then `HostedWindowExtractor.extendInto` (`HOSTED` windows), both
    numbered from 900000 after the highest existing id; then `dropRepeatedOwnedWindows`,
    `enrichFromXml`, `unionProgrammaticSpinnerItems` and `dropRepeatedWidgets`.
@@ -289,6 +324,10 @@ classDiagram
 | INV-ANA-75 | WTG-independent sections in the pre-WTG write | call order in `RvsecAnalysisClient.run` |
 | INV-ANA-76 | One window per (host, owner); owned ids from 900000 | `prepareWindows`, `dropRepeatedOwnedWindows` |
 | INV-ANA-77 | Lambda wrapper edges in the Scene call graph | `reach/LambdaEdges` |
+| INV-ANA-90..93 | Distance paths: absent without the parameter, complete chains, deterministic, only written pairs' chains | `reach/TargetDistances.paths`, `reach/DistancePaths`, `JsonReportWriter` |
+| INV-ANA-94 | Callbacks seed the forward search | `ReachabilityEngine.run`, `RvsecAnalysisClient.collectCallbacks` |
+| INV-ANA-95 | Application, fragment, worker and RecyclerView entry points | `RvsecAnalysisClient.getEntryPoints`, `XMLParser.getApplicationClassName`, `FragmentViewFlow` |
+| INV-ANA-96 | Empty-site edges to app callees only | `reach/EmptySiteEdges` |
 
 ## 7. Test Structure
 

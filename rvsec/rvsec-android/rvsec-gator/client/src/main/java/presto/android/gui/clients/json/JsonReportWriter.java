@@ -12,6 +12,7 @@ import com.google.gson.stream.JsonWriter;
 
 import presto.android.gui.GUIAnalysisOutput;
 import presto.android.gui.clients.RvsecAnalysisClient;
+import presto.android.gui.clients.reach.DistancePaths;
 import presto.android.gui.clients.reach.ReachabilityEnricher;
 import presto.android.gui.clients.reach.TargetDistances;
 import presto.android.gui.wtg.ds.WTG;
@@ -46,22 +47,30 @@ import soot.SootMethod;
  * {@code distancePairs} marker and writes each method's pairs reduced by
  * {@link TargetDistances#compact}. A writer has one mode, so the pre-WTG
  * write and the final write of a run always agree.
+ *
+ * <p>Distance paths (INV-ANA-90). A writer given a {@link DistancePaths}
+ * writes {@code pathMethods} and {@code distancePaths} right after
+ * {@code reachability}, in every write. A writer given none writes
+ * neither, and its document is otherwise the same.
  */
 public final class JsonReportWriter {
 
 	private final ReachabilityEnricher enricher;
 	private final boolean compact;
+	private final DistancePaths paths;
 
 	/**
 	 * @param enricher the only source of per-node reachability (INV-ANA-30)
 	 * @param compact {@code true} for compact output, {@code false} for full output
+	 * @param paths the distance paths to write, or {@code null} to write none
 	 */
-	public JsonReportWriter(ReachabilityEnricher enricher, boolean compact) {
+	public JsonReportWriter(ReachabilityEnricher enricher, boolean compact, DistancePaths paths) {
 		if (enricher == null) {
 			throw new NullPointerException("enricher");
 		}
 		this.enricher = enricher;
 		this.compact = compact;
+		this.paths = paths;
 	}
 
 	/**
@@ -145,6 +154,10 @@ public final class JsonReportWriter {
 					compact);
 			w.flush();
 
+			// Distance paths (INV-ANA-90): nothing when the writer has none.
+			writeDistancePaths(w, paths);
+			w.flush();
+
 			// Section 3: windows
 			w.name(JsonSchema.Keys.WINDOWS);
 			RvsecAnalysisClient.writeWindowsSection(w, windows);
@@ -205,6 +218,28 @@ public final class JsonReportWriter {
 			w.name(JsonSchema.Keys.SIGNATURE).value(t.get(JsonSchema.Keys.SIGNATURE));
 			w.name(JsonSchema.Keys.KIND).value(t.get(JsonSchema.Keys.KIND));
 			w.endObject();
+		}
+		w.endArray();
+	}
+
+	/**
+	 * Emit {@code pathMethods} and then {@code distancePaths} (INV-ANA-91); nothing when
+	 * {@code paths} is null, so the document is the one written without paths (INV-ANA-90).
+	 */
+	static void writeDistancePaths(JsonWriter w, DistancePaths paths) throws IOException {
+		if (paths == null) {
+			return;
+		}
+		w.name(JsonSchema.Keys.PATH_METHODS);
+		w.beginArray();
+		for (String signature : paths.methods()) {
+			w.value(signature);
+		}
+		w.endArray();
+		w.name(JsonSchema.Keys.DISTANCE_PATHS);
+		w.beginArray();
+		for (int[] step : paths.steps()) {
+			w.beginArray().value(step[0]).value(step[1]).value(step[2]).endArray();
 		}
 		w.endArray();
 	}

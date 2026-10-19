@@ -115,7 +115,7 @@ _TYPE_RUN_END = "RUN_END"
 # The jar interleaves free-text `[APE] ` diagnostics into the same stdout, so
 # those lines are mechanically separable and are skipped without being counted
 # as malformed — counting them would report a healthy run as damaged.
-_RECORD_PREFIX = "{"
+RECORD_PREFIX = "{"
 
 # The trace schemas this reader reads, checked against every `RUN_START.v`
 # (INV-APV-62). They mirror the jar's `RunSpecEcho.FORMAT_VERSION`: 1 is the
@@ -966,15 +966,15 @@ class TraceReader:
     def run_end(self) -> Optional[Dict[str, Any]]:
         """The `RUN_END` record minus `type`, verbatim, or None.
 
-        `counters` is the per-run census of the mechanisms the cell mounted:
-        on the group-isolation jar `launches`, `gateMinActions`, `gateBreaker`,
-        `guardBacks`, `bufAbandoned`, `restarts`, `coinLlm`, `coinMop` and
-        `nullRelaunches` (the null-tree recoveries that relaunched the app,
-        which are not steps and have no step record) beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and the
-        LLM aggregates. The reader exposes the record without interpreting it
-        and derives no completeness flag or status from it (INV-APV-53): a
-        trace cut by a `SIGKILL` legitimately has none, and None here is that
-        fact, reported, not repaired. The collection path never reads it.
+        `counters` is the per-run census of the mechanisms the cell mounted: on the
+        group-isolation jar `launches`, `gateMinActions`, `gateBreaker`, `guardBacks`,
+        `bufAbandoned`, `restarts`, `coinLlm`, `coinMop` and `nullRelaunches` (the
+        null-tree recoveries that relaunched the app, which are not steps and have no
+        step record) beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and
+        the LLM aggregates. The reader exposes the record without interpreting it and
+        derives no completeness flag or status from it (INV-APV-53): a trace cut by a
+        `SIGKILL` legitimately has none, and None here is that fact, reported, not
+        repaired. The collection path never reads it.
         """
         return self._run_end
 
@@ -1033,7 +1033,7 @@ class TraceReader:
         with self._path.open("r", encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 line = line.strip()
-                if not line.startswith(_RECORD_PREFIX):
+                if not line.startswith(RECORD_PREFIX):
                     # Free-text `[APE] ` diagnostics and blank lines: not sink
                     # records, so not malformed either.
                     continue
