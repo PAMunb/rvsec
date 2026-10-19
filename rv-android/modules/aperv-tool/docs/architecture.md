@@ -13,7 +13,7 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 | FR | Description | Architectural Support |
 |----|-------------|----------------------|
 | FR18 | Plugin system with registry and factory patterns | `ApeRVTool` extends `AbstractTool` (rv-android-core) and registers via `ToolRegistry` in rv-platform's `_register_external_tools()` |
-| FR20 | Per-tool variant system | `get_variants()` returns nine names — the six cells `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `default` bound to `base`, and the ablation `mop_nolaunch` on the `mop` preset — each a `preset`, a `variant` name and `overrides`; `configure()` validates strategy, preset, variant and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
+| FR20 | Per-tool variant system | `get_variants()` returns eight names carrying seven configurations — the six cells `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `default` bound to `base`, and the ablation `mop_nolaunch` on the `mop` preset — each a `preset`, a `variant` name and `overrides`; the three MOP cells and `mop_nolaunch` set `mop_coin_ledger_max_interactions` to 2 (D18); `configure()` validates strategy, preset, variant and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
 
 ### Key Invariants
 
@@ -643,20 +643,20 @@ classDiagram
 4. `execute_tool_specific_logic()` resolves `ape-rv.jar` via `JarResolver` and pushes it to the device
 5. Because the variant carries `broadcast_catalog=True`, `system-broadcast.json` is pushed when present in the module directory; component triggering, a STATIC member, reads it for typed extras
 6. The tool finds the static analysis JSON in `task.results_dir`, derives the compact artifact from it (or reuses the cached `<apk_name>.mop.json` when its recorded digest and format still match), and pushes **only the artifact** as `/data/local/tmp/mop-artifact.json`
-7. `_push_properties()` generates a three-line `ape.properties`: `ape.preset=as_mop`, `ape.variant=as_mop`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`. Nothing else is written — the group keys, the throttle, the frontier, the MOP weights and the MOP coin are all supplied by the `as_mop` preset inside the jar
+7. `_push_properties()` generates a four-line `ape.properties`: `ape.preset=as_mop`, `ape.variant=as_mop`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`, `ape.mopCoinLedgerMaxInteractions=2`. The last line is the cell's one override: the jar's default is 1, and this side sets the MOP cells to 2 (D18). Nothing else is written — the group keys, the throttle, the frontier, the MOP weights and the rest of the MOP coin are supplied by the `as_mop` preset inside the jar
 8. APE-RV runs via `app_process` on the device, resolves the cell, echoes `RUN_START` with `variant: "as_mop"`, and uses the artifact for the STATIC and MOP members
 9. After timeout, `RVCommandTimeoutError` is caught and re-raised as `RVToolTimeoutError` (normal completion)
 10. rv-platform collects coverage from logcat independently
 
 ### Scenario 2: The LLM cell behind a non-emulator address (`aperv:as_mop_llm`)
 
-**Description**: An experiment runs `as_mop_llm` in a Docker deployment, where `10.0.2.2` does not reach the SGLang server. It shows the one override a cell carries and the two ways a deployment changes it.
+**Description**: An experiment runs `as_mop_llm` in a Docker deployment, where `10.0.2.2` does not reach the SGLang server. It shows the two overrides the cell carries, the MOP coin ledger at 2 and the LLM URL, and the two ways a deployment changes the URL.
 
 **Flow**:
 1. The operator sets `APERV_LLM_BASE_URL=http://192.168.0.36:30000/v1` and runs `rv-experiment run --tools aperv:as_mop_llm`
 2. `rv-experiment`'s entry point reads the variable once, beside `RV_HUMANOID_URL`. The variant definition of `as_mop_llm` in `ToolRegistry` carries `overrides.llm_url`, and the `ToolConfig` has no `llm_url` parameter, so the entry point sets `parameters["llm_url"]` to the variable's value. A `ToolConfig` for `aperv:as_mop` or `aperv:base` would receive nothing, and `aperv:as_mop_llm@llm_url=http://sglang:30000/v1` would keep its own value, because the DSL wins over the variable
-3. `ToolFactory` merges the variant (`preset="as_mop_llm"`, `variant="as_mop_llm"`, `static_data`, `broadcast_catalog`, `overrides={"llm_url": "http://10.0.2.2:30000/v1"}`) with the parameters, and `configure()`'s DSL fold moves the top-level `llm_url` into `overrides`, where it replaces the cell default. `configure()` reads no environment
-4. Execution pushes the JAR, the broadcast catalog and the derived artifact, then writes `ape.properties`: `ape.preset=as_mop_llm`, `ape.variant=as_mop_llm`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`, `ape.llmUrl=http://192.168.0.36:30000/v1`. The identity of the jar being pushed is measured, not declared: `_capture_llm_provenance()` digests it into the run's `jar_sha256` and queries the backend's `/v1/models`, and no variant names a build (INV-APV-59)
+3. `ToolFactory` merges the variant (`preset="as_mop_llm"`, `variant="as_mop_llm"`, `static_data`, `broadcast_catalog`, `overrides={"mop_coin_ledger_max_interactions": 2, "llm_url": "http://10.0.2.2:30000/v1"}`) with the parameters, and `configure()`'s DSL fold moves the top-level `llm_url` into `overrides`, where it replaces the cell default. `configure()` reads no environment
+4. Execution pushes the JAR, the broadcast catalog and the derived artifact, then writes `ape.properties`: `ape.preset=as_mop_llm`, `ape.variant=as_mop_llm`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`, `ape.mopCoinLedgerMaxInteractions=2`, `ape.llmUrl=http://192.168.0.36:30000/v1`. The identity of the jar being pushed is measured, not declared: `_capture_llm_provenance()` digests it into the run's `jar_sha256` and queries the backend's `/v1/models`, and no variant names a build (INV-APV-59)
 5. APE-RV resolves the cell, whose LLM block states E6 arm 4's sampling configuration with `p_L = 0.9`, and queries the SGLang server at the configured URL during exploration
 
 ---
@@ -731,7 +731,7 @@ ape.staticDataPath=/data/local/tmp/mop-artifact.json  # only when the artifact w
 ape.<mapped-override-key>=<value>                     # one line per overrides entry, mapping order
 ```
 
-What a preset contains is resolved inside the jar, so no line restates a group block: `base` ships a two-line file, `as_mop` a three-line one, and `as_mop_llm` four lines, the fourth being `ape.llmUrl`. The emission loop walks the mapping rather than the `overrides` dict, so line order follows the table. The data line is `ape.staticDataPath` because the artifact feeds STATIC as well as MOP; the jar retired `ape.mopDataPath`, and a file that still writes it aborts with `retired_key`. The device path of the artifact is a file name, not a key, and keeps its name.
+What a preset contains is resolved inside the jar, so no line restates a group block: `base` ships a two-line file, `as_mop` a four-line one, the fourth being `ape.mopCoinLedgerMaxInteractions=2`, and `as_mop_llm` five lines, the ledger line followed by `ape.llmUrl`. The emission loop walks the mapping rather than the `overrides` dict, so line order follows the table. The data line is `ape.staticDataPath` because the artifact feeds STATIC as well as MOP; the jar retired `ape.mopDataPath`, and a file that still writes it aborts with `retired_key`. The device path of the artifact is a file name, not a key, and keeps its name.
 
 `ape.variant` is a fixed line rather than a mapped override for a reason: `ToolFactory` passes `configure()` the variant's config, not its name, so the name has to live in the config, and a mapped key would let any DSL parameter relabel a run. The jar echoes it outside the plan digest, so a trace names its cell without relying on the file name, and two cells with the same effective plan keep the same digest.
 

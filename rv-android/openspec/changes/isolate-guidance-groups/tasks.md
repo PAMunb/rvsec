@@ -151,8 +151,8 @@ The jar is not touched: the pair is this worktree's new SHA with the same jar `f
 ## C. Wave 4 — close (serial)
 
 - [x] C.1 Run `/rv-qa-lint-fix aperv-tool` and `/rv-qa-lint-fix rv-experiment`
-- [ ] C.2 Run `/rv-verify aperv-tool` and `/rv-verify rv-experiment`
-- [ ] C.3 Invoke `/rv-code-reviewer` via Skill tool
+- [x] C.2 Run `/rv-verify aperv-tool` and `/rv-verify rv-experiment`
+- [x] C.3 Invoke `/rv-code-reviewer` via Skill tool
 - [ ] C.4 Run `/rv-docs-sync aperv-tool` and `/rv-docs-sync rv-experiment`
 - [ ] C.5 At archive, synchronize by hand the § Invariants and § Data Contracts of `aperv` (INV-APV-05, -06, -08, -10, -38, -45, -49, -53, -58, -61, -62 and -09 replaced; -29, -30, -42 retired; -65 to -68 new), of `campaign-analysis` (INV-CAN-07 replaced; -21, -22 new) and of `experiment` (INV-EXP-41 new)
 - [ ] C.6 No push and no merge into `modules` without the author's explicit word (D-A19); commits only by path

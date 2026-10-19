@@ -87,7 +87,7 @@ from aperv_tool.analysis.runspec import (
     Verdict,
     attribution_evidence,
 )
-from aperv_tool.analysis.trace_ndjson import _RECORD_PREFIX, StepRow, TraceReader
+from aperv_tool.analysis.trace_ndjson import RECORD_PREFIX, StepRow, TraceReader
 
 #: The forbidden-signal pattern for the clean-control gate, anchored so that a field
 #: whose name *ends* in the field being looked for — ``activity_has_mop=1`` — does not
@@ -340,7 +340,7 @@ def clean_control_signal(
 
     def before_first_record(line: str) -> bool:
         nonlocal found_record
-        found_record = line.strip().startswith(_RECORD_PREFIX)
+        found_record = line.strip().startswith(RECORD_PREFIX)
         return not found_record
 
     with trace_path.open("r", encoding="utf-8", errors="replace") as handle:

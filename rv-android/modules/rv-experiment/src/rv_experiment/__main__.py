@@ -24,6 +24,7 @@ from typing import List, Optional
 
 import click
 from rv_android_core.constants import (
+    DEFAULT_VARIANT_NAME,
     ENV_APERV_LLM_BASE_URL,
     ENV_APKS_DIR,
     ENV_APKS_FILTER,
@@ -80,7 +81,6 @@ from rv_tools import ToolRegistry
 APERV_TOOL_NAME = "aperv"
 APERV_OVERRIDES_KEY = "overrides"
 APERV_LLM_URL_KEY = "llm_url"
-DEFAULT_VARIANT = "default"
 
 
 class CLIContext:
@@ -1256,7 +1256,7 @@ def _inject_aperv_llm_url(
     for tc in tool_configs:
         if tc.name != APERV_TOOL_NAME or APERV_LLM_URL_KEY in tc.parameters:
             continue
-        variant = tc.variant or DEFAULT_VARIANT
+        variant = tc.variant or DEFAULT_VARIANT_NAME
         if not registry.has_variant(APERV_TOOL_NAME, variant):
             continue
         definition = registry.get_variant_config(APERV_TOOL_NAME, variant)

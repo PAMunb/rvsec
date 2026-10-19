@@ -115,7 +115,7 @@ _TYPE_RUN_END = "RUN_END"
 # The jar interleaves free-text `[APE] ` diagnostics into the same stdout, so
 # those lines are mechanically separable and are skipped without being counted
 # as malformed — counting them would report a healthy run as damaged.
-_RECORD_PREFIX = "{"
+RECORD_PREFIX = "{"
 
 # The trace schemas this reader reads, checked against every `RUN_START.v`
 # (INV-APV-62). They mirror the jar's `RunSpecEcho.FORMAT_VERSION`: 1 is the
@@ -1033,7 +1033,7 @@ class TraceReader:
         with self._path.open("r", encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 line = line.strip()
-                if not line.startswith(_RECORD_PREFIX):
+                if not line.startswith(RECORD_PREFIX):
                     # Free-text `[APE] ` diagnostics and blank lines: not sink
                     # records, so not malformed either.
                     continue

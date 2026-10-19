@@ -302,7 +302,8 @@ class ApeRVTool(AbstractTool):
 
     ### Key Features:
     - Named variants: one per experimental cell, each naming the jar's cell preset
-      (base, mop, as, as_mop, as_llm, as_mop_llm), plus default bound to base
+      (base, mop, as, as_mop, as_llm, as_mop_llm), plus default bound to base and
+      the ablation mop_nolaunch on the mop preset
     - Eager validation in configure() catches typos before device access, including
       tool-DSL overrides that no arm could honour
     - ape.properties injection states the preset and its deltas without modifying the JAR
