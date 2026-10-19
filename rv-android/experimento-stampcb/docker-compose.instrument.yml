@@ -1,0 +1,39 @@
+# experimento-stampcb, step 1: instrument the six A/B APKs for the treatment arm.
+# Same image, environment and input as the E6 v2 corpus instrumentation
+# (rep pack data/raw/e6-instrumentation/docker-compose.instrument.yml); the only change is
+# the instr-cli.jar mounted over the image's: the image's own jar with mop/RvsecStamp.java
+# replaced by the patched helper (jar/instr-cli-treatment.jar, see README).
+# CPU only, no emulator.
+# Usage (from this directory): docker compose -p stampcb-instr -f docker-compose.instrument.yml up
+name: "stampcb-instr"
+services:
+  stampcb_instr:
+    image: "phtcosta/rvandroid@sha256:7ea5a6f59d248934fbd096c068d2f6e57588fdb0e7fb673e163290f65767886f"
+    container_name: "stampcb_instr"
+    restart: "no"
+    environment:
+      RV_SKIP_STATIC_ANALYSIS: "true"
+      RV_SKIP_EXECUTION: "true"
+      RV_INSTRUMENTATION_VARIANT: "dexlib2"
+      RV_SPEC_SET: "jca_android"
+      RV_STAMP_HANDLERS: "true"
+      RV_NO_WINDOW: "true"
+      RV_PACKAGE_DETECTOR: "false"
+      RV_STRIP_BUILD_TYPE_SUFFIX: "true"
+      RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+      RV_TOOLS: "monkey"
+      RV_TIMEOUTS: "1"
+      RV_REPETITIONS: "1"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/instrument.txt"
+      RV_EXPERIMENT_NAME: "stampcb_instr"
+      RV_DELAY: "0"
+    volumes:
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-dataset/head_apks:/opt/rvsec/rv-android/apks:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/filters:/opt/rvsec/rv-android/filters:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/results/instrument:/opt/rvsec/rv-android/results"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/jar/instr-cli-treatment.jar:/opt/rvsec/rv-android/modules/rv-instrumentation-dexlib2/lib/instr-cli.jar:ro"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "10g"

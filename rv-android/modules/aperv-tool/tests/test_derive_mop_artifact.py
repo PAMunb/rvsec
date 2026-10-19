@@ -2055,6 +2055,139 @@ def test_handler_table_matches_handler_methods_by_name_and_parameters():
     }
 
 
+def test_handler_table_records_the_app_callbacks_behind_library_dispatchers():
+    """
+    The View stamp names the app callback a library dispatcher calls — here an
+    options-menu owner, a preference listener and an AppCompat dialog button — so
+    each callback fills `click` of its class, and only `click`.
+    """
+    activity = "com.example.app.MainActivity"
+    preference = "com.example.app.SettingsFragment$$ExternalSyntheticLambda5"
+    dialog = "com.example.app.Dialogs$$ExternalSyntheticLambda3"
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(2),
+            reachability=[
+                _reaching_class(
+                    activity,
+                    [
+                        _method(
+                            f"<{activity}: boolean "
+                            "onOptionsItemSelected(android.view.MenuItem)>",
+                            name="onOptionsItemSelected",
+                            reaches=True,
+                            distances=[[0, 2]],
+                        )
+                    ],
+                    component_type="activity",
+                ),
+                _reaching_class(
+                    preference,
+                    [
+                        _method(
+                            f"<{preference}: boolean "
+                            "onPreferenceClick(androidx.preference.Preference)>",
+                            name="onPreferenceClick",
+                            reaches=True,
+                            distances=[[1, 1]],
+                        )
+                    ],
+                ),
+                _reaching_class(
+                    dialog,
+                    [
+                        _method(
+                            f"<{dialog}: void "
+                            "onClick(android.content.DialogInterface,int)>",
+                            name="onClick",
+                            reaches=True,
+                            distances=[[0, 3]],
+                        )
+                    ],
+                ),
+            ],
+        )
+    )
+    handlers = artifact["handlers"]
+    assert handlers[activity]["dist"] == {"click": [[0, 2]]}
+    assert handlers[preference]["dist"] == {"click": [[1, 1]]}
+    assert handlers[dialog]["dist"] == {"click": [[0, 3]]}
+    for record in (handlers[activity], handlers[preference], handlers[dialog]):
+        assert record["mop"] == {"click": "transitive"}
+
+
+def test_callback_name_with_another_parameter_list_is_not_a_handler():
+    helper = "com.example.app.Helper"
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(1),
+            reachability=[
+                _reaching_class(
+                    helper,
+                    [
+                        _method(
+                            f"<{helper}: boolean onOptionsItemSelected(int)>",
+                            name="onOptionsItemSelected",
+                            reaches=True,
+                            distances=[[0, 1]],
+                        ),
+                        _method(
+                            f"<{helper}: void "
+                            "onClick(android.content.DialogInterface)>",
+                            name="onClick",
+                            reaches=True,
+                            distances=[[0, 1]],
+                        ),
+                    ],
+                )
+            ],
+        )
+    )
+    assert helper not in artifact["handlers"]
+
+
+@pytest.mark.parametrize("view_listener_first", [True, False])
+def test_view_listener_and_options_menu_callback_merge_into_one_click(
+    view_listener_first,
+):
+    """
+    An activity that is both a button's listener and the options-menu owner gets one
+    `click` record: the flags OR (`transitive` with `both` gives `both`) and the pairs
+    take the minimum per target, whichever method the producer lists first.
+    """
+    activity = "com.example.app.MainActivity"
+    view_listener = _method(
+        f"<{activity}: void onClick(android.view.View)>",
+        name="onClick",
+        reaches=True,
+        distances=[[0, 3]],
+    )
+    options_menu = _method(
+        f"<{activity}: boolean onOptionsItemSelected(android.view.MenuItem)>",
+        name="onOptionsItemSelected",
+        reaches=True,
+        direct=True,
+        distances=[[0, 1], [2, 2]],
+    )
+    methods = (
+        [view_listener, options_menu]
+        if view_listener_first
+        else [options_menu, view_listener]
+    )
+    artifact = derive(
+        _document(
+            distanceTargets=_distance_targets(3),
+            reachability=[
+                _reaching_class(activity, methods, component_type="activity")
+            ],
+        )
+    )
+    assert artifact["handlers"][activity] == {
+        "mop": {"click": "both"},
+        "dist": {"click": [[0, 1], [2, 2]]},
+    }
+
+
 def test_document_without_distances_derives_with_no_target():
     """
     A September document has no `distanceTargets`, so `targets` is 0 and every
@@ -2311,7 +2444,9 @@ def test_derive_cryptoapp_ground_truth(cryptoapp):
     because the producer links each wrapper to its body (INV-ANA-77), so nothing
     is recovered. `MainActivity` reaches a target only through its own `<init>`,
     a boundary target, so it stays out of the augmented set and has no
-    `activityDist` entry.
+    `activityDist` entry. Its `onOptionsItemSelected(MenuItem)` and its
+    `MainActivity$1.onMenuItemClick(MenuItem)` are app callbacks that reach no
+    target, so both classes are listed with `click` `none`.
     """
     assert cryptoapp["package"] == "br.unb.cic.cryptoapp"
     assert cryptoapp["mainActivity"] == "br.unb.cic.cryptoapp.MainActivity"
@@ -2360,6 +2495,8 @@ def test_derive_cryptoapp_ground_truth(cryptoapp):
     }
 
     assert cryptoapp["handlers"] == {
+        "br.unb.cic.cryptoapp.MainActivity": {"mop": {"click": "none"}},
+        "br.unb.cic.cryptoapp.MainActivity$1": {"mop": {"click": "none"}},
         f"{cipher}$1": {"mop": {"click": "transitive"}},
         f"{generated}$$ExternalSyntheticLambda0": {
             "mop": {"click": "transitive"},

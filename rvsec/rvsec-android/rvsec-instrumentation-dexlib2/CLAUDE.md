@@ -67,7 +67,7 @@ Test/tooling only (never prod path): commons-math3 (validator), commonmark (gram
 
 ## Handler stamp (`--stamp-handlers`, off by default)
 Spec: "Handler Stamp on the Accessibility Node" in the instrumentation spec
-(INV-INS-174..180).
+(INV-INS-174..181).
 
 - **Option.** `--stamp-handlers` / `--no-stamp-handlers` (picocli `Boolean`,
   negatable, `INHERIT`, so both subcommands take it). `ConfigResolver` resolves
@@ -128,17 +128,59 @@ Spec: "Handler Stamp on the Accessibility Node" in the instrumentation spec
   the tag `RVSEC-BIND` (`view kind=… id=… handler=…` /
   `compose kind=… semanticsId=… bounds=… handler=…`), the fifth tag of the
   platform's logcat capture.
+- **App callback behind a library dispatcher (INV-INS-181).** When the last
+  click listener routed for a view is not an app class (an app class's name
+  starts with none of `android.`, `androidx.`, `com.google.android.material.`,
+  `java.`, `kotlin.`), the delegate's `onInitializeAccessibilityNodeInfo` calls
+  `RvsecStamp.callback(host, listener)` and, when it resolves one, `rvsec.click`
+  holds the app callback's class instead of the dispatcher's. Order: an androidx
+  `Preference` (`this$0` of `Preference$1`) gives its `mOnClickListener`, else
+  `mOnChangeListener`, else the nearest app class of the hierarchy of the
+  preference manager's `mOnPreferenceTreeClickListener` that declares
+  `onPreferenceTreeClick(androidx.preference.Preference)` (with none, the row
+  is the library's and keeps `Preference$1`, with no `kind=callback` line);
+  an AppCompat `AlertController` gives the
+  `obj` of the host button's `Message` (`DialogInterface.OnClickListener`); a
+  `ToolbarWidgetWrapper` (up button) gives the activity's options menu; a menu
+  item (`getItemData()` is a `MenuItemImpl`) gives its `mClickListener`, else
+  the first `NavigationView` (`listener`) or `NavigationBarView`
+  (`selectedListener`) parent with no further step, else a `Toolbar` parent's
+  `mOnMenuItemClickListener`, then its first app `MenuProvider`, then the
+  activity's options menu. The options menu is the nearest app class of the
+  activity's hierarchy that declares
+  `onOptionsItemSelected(android.view.MenuItem)` (the declaring class, which
+  is the class the derive keys, not the concrete activity), otherwise the
+  first app provider in its `MenuHostHelper.mMenuProviders`. The
+  lookup runs when the node is populated, because the menu, the preference
+  manager and the dialog's messages are wired after the setter; every read is
+  reflective (members cached in `MEMBERS`) and inside `catch (Throwable)`, and
+  an unresolved or failed lookup leaves the dispatcher's class.
+  `rvsec.longClick` has no callback resolution. The delegate writes one
+  `view kind=callback viewClass=… id=… handler=<dispatcher> callback=<app class> obj=…`
+  line under `RVSEC-BIND` each time the resolved class differs from the one
+  last logged for that view, and none when it is unchanged.
 - **Delivery check.** That the extras reach a `UiAutomation` client is checked
   by `rv-android/experimento-smk121/`: `StampProbe` (run with `app_process`,
   as APE-RV does) dumps the `rvsec.*` extras of the first screen and of each
   screen one click away, and `check_delivery.py` pairs each node with its last
   `RVSEC-BIND` line (View by view-id, Compose by bounds).
 - **Known limits** (what the stamp says, not defects): XML `android:onClick`
-  stamps `AppCompatViewInflater$DeclaredOnClickListener`; toolbar, menu and
-  `SearchView` stamp the library dispatcher (`ToolbarWidgetWrapper$1`,
-  `ActionMenuItemView`, `SearchView$5`), and so do AppCompat `AlertDialog`
-  buttons (`AlertController.mButtonHandler`) and androidx `Preference` rows
-  (`Preference.mClickListener`), whose `setOnClickListener` sites are routed;
+  stamps `AppCompatViewInflater$DeclaredOnClickListener`; dispatchers the
+  callback lookup does not reach keep the library class: `SearchView`
+  (`SearchView$5`), the overflow popup item, `AdapterView.onItemClick` and
+  `CompoundButton.onCheckedChanged` (its change listener has no public getter
+  and its field is hidden API), and a menu, navigation or toolbar item whose
+  callback sits in an object the lookup does not read; the callback is
+  coarser than the item: a fragment's `onOptionsItemSelected` is not named
+  (the activity hierarchy's declaring class is, or the first app
+  `MenuProvider`), only the first provider
+  is named, and every item of one menu carries the same class while the
+  static distance is per method; an app whose R8 build renamed the library
+  fields the lookup reads by name keeps the dispatcher (sign: a
+  dispatcher-bound view with no `kind=callback` line; names present in 148 of
+  163 Study 03 APKs for `AlertController` and `MenuItemImpl`); a Material
+  `TabLayout` tab carries no stamp (tab selection goes through no routed
+  `setOnClickListener`), so `onTabSelected` is not named;
   the framework `android.app.AlertDialog` and `android.preference` are not
   stamped (their code is not in the APK); R8-renamed Compose gets 0 sites and
   no change; below API 29 the delegate a view already carries cannot be read,

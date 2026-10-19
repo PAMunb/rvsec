@@ -1,0 +1,8 @@
+apk,target,band,cov_reps_control,cov_reps_treatment
+app.michaelwuensch.bitbanana_79.apk,<app.michaelwuensch.bitbanana.util.CertificateUtil: java.lang.String certToPEM(byte[])>,2 blind callback d<=3,0,0
+app.michaelwuensch.bitbanana_79.apk,<app.michaelwuensch.bitbanana.util.KeystoreUtil: boolean isAppLockActive()>,4 blind d4-5,3,3
+com.beemdevelopment.aegis_81.apk,<com.beemdevelopment.aegis.crypto.KeyStoreHandle: javax.crypto.SecretKey generateKey(java.lang.String)>,4 blind d4-5,0,0
+com.beemdevelopment.aegis_81.apk,<com.beemdevelopment.aegis.crypto.KeyStoreHandle: void <init>()>,2 blind callback d<=3,0,0
+com.beemdevelopment.aegis_81.apk,"<com.beemdevelopment.aegis.vault.VaultEntryIcon: byte[] generateHash(byte[],com.beemdevelopment.aegis.icons.IconType)>",2 blind callback d<=3,0,0
+se.arctosoft.vault_41.apk,<se.arctosoft.vault.SettingsFragment: boolean enableBiometrics()>,2 blind callback d<=3,3,3
+se.arctosoft.vault_41.apk,<se.arctosoft.vault.encryption.Encryption: void deleteBiometricSecretKey()>,2 blind callback d<=3,0,0

@@ -115,12 +115,34 @@ CONSTRUCTOR_METHOD_NAMES = frozenset({"<init>", "<clinit>"})
 # on the Soot signature. `onLongClick` returns `boolean`, which is why the return
 # type is read only to pick the Object-returning `invoke`: that is the bridge the
 # Compose runtime calls through `Function0`/`Function1`, so its distance is the
-# distance from the entry the framework enters.
+# distance from the entry the framework enters. The other names are the app
+# callbacks of `CALLBACK_PARAMS`.
 HANDLER_METHOD_PATTERN = re.compile(
     r"^<(?P<cls>[^:]+): (?P<ret>\S+) "
-    r"(?P<name>onClick|onLongClick|invoke)\((?P<params>[^)]*)\)>$"
+    r"(?P<name>onClick|onLongClick|invoke"
+    r"|onOptionsItemSelected|onNavigationItemSelected"
+    r"|onMenuItemClick|onMenuItemSelected|onPreferenceClick|onPreferenceChange"
+    r"|onPreferenceTreeClick)\((?P<params>[^)]*)\)>$"
 )
 VIEW_PARAMS = "android.view.View"
+# When a tap lands on a view that a library dispatcher owns — a menu, navigation or
+# toolbar item, a menu provider's item, an androidx preference row, an AppCompat
+# dialog button — the View stamp names the app callback that dispatcher calls, not
+# the dispatcher (instrumentation INV-INS-181). That callback is the code the tap
+# runs, so its distance is the click's distance, and each one fills `click`.
+# Method name -> the exact parameter list it must declare; the same name with any
+# other list is not the callback. `onClick` here is `DialogInterface.OnClickListener`,
+# told apart from the View listener by its parameters.
+CALLBACK_PARAMS = {
+    "onOptionsItemSelected": "android.view.MenuItem",
+    "onNavigationItemSelected": "android.view.MenuItem",
+    "onMenuItemClick": "android.view.MenuItem",
+    "onMenuItemSelected": "android.view.MenuItem",
+    "onPreferenceClick": "androidx.preference.Preference",
+    "onPreferenceChange": "androidx.preference.Preference,java.lang.Object",
+    "onPreferenceTreeClick": "androidx.preference.Preference",
+    "onClick": "android.content.DialogInterface,int",
+}
 OBJECT_TYPE = "java.lang.Object"
 
 # === PROJECTED WIDGET FIELDS ===
@@ -596,7 +618,10 @@ def _handler_events(signature: str) -> tuple[str, ...]:
     what a Compose node's `Function0` or a toggleable's `Function1` stamp names, and
     the node's extras key, not the method, tells which event it serves, so it fills
     both. A Kotlin lambda's typed `void invoke()` is one call further in and is not
-    listed; constructors never match the name.
+    listed; constructors never match the name. An app callback of `CALLBACK_PARAMS`
+    is what the View stamp names for a tap a library dispatcher receives, so it
+    fills `click`, but only with the exact parameter list stated there: a method
+    that shares the name and takes other parameters is not that callback.
 
     Args:
         signature: A Soot method signature from `reachability[].methods[]`.
@@ -614,6 +639,8 @@ def _handler_events(signature: str) -> tuple[str, ...]:
         return (LONG_CLICK_EVENT_TYPE,)
     if name == "invoke" and match["ret"] == OBJECT_TYPE and params in ("", OBJECT_TYPE):
         return (CLICK_EVENT_TYPE, LONG_CLICK_EVENT_TYPE)
+    if CALLBACK_PARAMS.get(name) == params:
+        return (CLICK_EVENT_TYPE,)
     return ()
 
 

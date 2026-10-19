@@ -372,7 +372,9 @@ does it update the stamp, inside `catch (Throwable)`, so stamp logic never throw
 set (read with `View.getAccessibilityDelegate()` from API 29) or to the platform default, and in
 `onInitializeAccessibilityNodeInfo`, after forwarding, writes `rvsec.click` and `rvsec.longClick`
 into the node extras: the `getClass().getName()` of the last non-null listener routed for that
-view, with the key removed when the last one was `null`. A callback re-entered while being
+view, with the key removed when the last one was `null`; when that click listener is a library
+dispatcher whose app callback the helper resolves, `rvsec.click` holds the callback's class
+instead (below). A callback re-entered while being
 forwarded goes to the platform default, because a delegate that wraps the delegate it finds on
 the view (as `ViewCompat` does) would otherwise call back into the stamp. An app delegate set later
 through a routed `setAccessibilityDelegate` is chained behind the stamp instead of replacing it
@@ -410,10 +412,59 @@ library type is recognised by name.
   class by another. The prefix test does not identify the app: a `kotlin.*` or third-party function
   outside `androidx.` is stamped too. The field lookup is cached per class in the helper's `MEMBERS` map.
 
+**The app callback behind a library dispatcher.** Menu items, navigation items, the toolbar's up
+button, androidx `Preference` rows and AppCompat dialog buttons are bound, through routed
+`setOnClickListener` sites, to a listener of the library (`ActionMenuItemView`,
+`NavigationMenuPresenter$1`, `ToolbarWidgetWrapper$1`, `Preference$1`, `AlertController$1`) that
+calls an app callback at click time: `onOptionsItemSelected`, `onNavigationItemSelected`,
+`onMenuItemClick`, `onPreferenceClick` or a `DialogInterface.OnClickListener`. The static analysis
+gives distances to the app callback, and a dispatcher has none. So when the last click listener
+routed for a view is not an app class — a class is an app class when its name starts with none of
+`android.`, `androidx.`, `com.google.android.material.`, `java.` and `kotlin.` — the delegate's
+`onInitializeAccessibilityNodeInfo` calls `RvsecStamp.callback(host, listener)`, and a resolved
+class replaces the dispatcher's in `rvsec.click`, the key the testing tool already reads
+(INV-INS-181). The lookup follows the dispatcher to the object it will call, in this order:
+
+- a listener whose `this$0` is an androidx `Preference`: the preference's `mOnClickListener`, else
+  its `mOnChangeListener`, else the nearest app class of the hierarchy of its
+  `mPreferenceManager`'s `mOnPreferenceTreeClickListener` that declares
+  `onPreferenceTreeClick(androidx.preference.Preference)`; when no app class declares it, the
+  library handles the row, and the node keeps `Preference$1`, which is what runs, with no
+  `kind=callback` line;
+- a listener whose `this$0` is an AppCompat `AlertController`: the `obj` of the `Message` of the
+  button that is the host view (`mButtonPositive`/`Negative`/`Neutral` with
+  `mButtonPositiveMessage`/`NegativeMessage`/`NeutralMessage`);
+- a listener whose `this$0` is a `ToolbarWidgetWrapper` (the up button): the activity's options
+  menu;
+- a host whose `getItemData()` is a `MenuItemImpl`: the item's `mClickListener`; otherwise the first
+  parent that is a `NavigationView` (its `listener`) or a `NavigationBarView` (its
+  `selectedListener`), with no further step, or a `Toolbar` (its `mOnMenuItemClickListener`, else
+  the first app provider of its `MenuHostHelper`, else the activity's options menu); with no such
+  parent, the activity's options menu.
+
+The activity's options menu is the app class of the activity's class hierarchy nearest the
+activity's own class that declares `onOptionsItemSelected(android.view.MenuItem)`: the declaring
+class, not the concrete activity, because that is the method the platform runs and the class the
+derive gives the `handlers` record to. When no app class declares it, it is the first app object
+in the activity's `MenuHostHelper`'s `mMenuProviders`, and it is `null` when the host's context
+chain holds no `Activity`. A candidate counts only when it is non-null and an app class.
+The lookup runs when the node is populated rather than when the listener is set, because the
+menu item, the navigation view's listener, the preference manager and the dialog's messages are
+wired after the setter has run. The helper compiles against `android.jar` alone, so it reads these
+library fields by name, by reflection, with members cached in `MEMBERS` and every read inside the
+delegate's `catch (Throwable)` (INV-INS-177): an unresolved or failed lookup leaves the
+dispatcher's class on the node. `rvsec.longClick` has no callback resolution. The callback's class
+weighs a click only when the derived artifact of APE-RV's guide has a record for it; the
+aperv-tool derive gives these callback methods a `click` record.
+
 Every change of a stamp writes one logcat line at level `I` under the tag `RVSEC-BIND`
 (INV-INS-179): `view kind=<click|longClick> node=… viewClass=… id=<resource name|0x…|-> handler=<class|-> obj=…`
 for a view, and `compose kind=… node=… semanticsId=… id=… bounds=… handler=…[ longClickHandler=…]`
-for a Compose semantics id; setting a listener of the same class again writes nothing. The line
+for a Compose semantics id; setting a listener of the same class again writes nothing. A view
+whose `rvsec.click` holds a resolved callback also gets
+`view kind=callback viewClass=… id=… handler=<dispatcher class> callback=<app class> obj=…` each
+time the resolved class differs from the one last logged for that view, so the substitution can
+be audited from the capture. The line
 lets the stamp be checked from a logcat capture alone, and the platform's capture keeps the tag
 (it is the fifth baseline tag beside `RVSEC`, `RVSEC-COV`, `ApeRvHb` and `RVSEC-OCC`). The stamp is
 useful only if the extras reach the process that reads the tree, so delivery to a `UiAutomation`
@@ -430,16 +481,23 @@ emulator.
 The stamp names the class of the listener object the app passed, which bounds what a consumer may
 read into it. An XML `android:onClick` under AppCompat stamps the inflater's generic
 `AppCompatViewInflater$DeclaredOnClickListener` (the app method's name sits in its `mMethodName`
-field, which the helper does not read). The toolbar navigation button, menu items and `SearchView`
-stamp the library's own dispatcher (`ToolbarWidgetWrapper$1`, `ActionMenuItemView`,
-`SearchView$5`), which hands off to an app callback such as `onOptionsItemSelected`. AppCompat
-`AlertDialog` buttons and androidx `Preference` rows are in the same case:
-`AlertController.setupButtons` sets `mButtonHandler` on each button and
-`Preference.onBindViewHolder` sets `mClickListener` on the row's view, both through routed
-`setOnClickListener` sites, so the stamp names that library listener (routed in the stamped APKs
-of the device verification, not observed on the device). The framework `android.app.AlertDialog`
-and `android.preference` set their listeners in framework code, which is not in the APK, so their
-buttons and rows carry no stamp. An APK whose Compose internals R8 renamed gets
+field, which the helper does not read). Dispatchers the callback lookup does not reach keep the
+library listener's class: `SearchView` (`SearchView$5`), the overflow menu's popup item,
+`AdapterView.onItemClick` and `CompoundButton.onCheckedChanged` (a compound button's change
+listener has no public getter and its framework field is hidden API, so naming it would need a new
+woven setter), and a menu, navigation or toolbar item whose app callback is held by an object the
+lookup does not read. Where the lookup does resolve, the callback is coarser than the item: a
+fragment's `onOptionsItemSelected` is not named — the declaring class of the activity's hierarchy
+is, or the first app `MenuProvider` of its `MenuHostHelper` — only the first of several providers is named, and every item of one menu
+carries the same class while the static analysis's distance is per method, so the guide points at
+the menu, not the item. The lookup reads AppCompat, androidx Preference, Material and
+`androidx.core` fields by name; an app whose R8 build renamed them keeps the dispatcher's class,
+and the sign is a dispatcher-bound view with no `kind=callback` line (the names were present in
+148 of 163 APKs of the Study 03 corpus for `AlertController` and `MenuItemImpl`, an indicative
+count from the DEX's class and field names). A Material `TabLayout` tab carries no stamp, because
+selecting a tab goes through no routed `setOnClickListener`, so the app's `onTabSelected` is not
+named. The framework `android.app.AlertDialog` and `android.preference` set their listeners in
+framework code, which is not in the APK, so their buttons and rows carry no stamp. An APK whose Compose internals R8 renamed gets
 `stampComposeSites=0` and no Compose stamp. The Material step follows a wrapper only when it
 captures exactly one function whose class is outside `androidx.`: a wrapper capturing two or more
 functions keeps its own class, and so does a wrapper of a library function, as in the DatePicker
@@ -506,7 +564,8 @@ hard failure, and route the experiment accordingly.
 One more element appears only when the stamp option is on: **`mop.RvsecStamp`**, a fixed Java
 source shipped as a `monitor-builder` resource rather than generated per descriptor. It is the
 runtime half of the handler stamp — the setter helpers the rewritten call sites reach, the stamp
-delegate, `composeNode` and the `RVSEC-BIND` log — and it travels in the monitor DEX next to
+delegate, the callback lookup behind library dispatchers, `composeNode` and the `RVSEC-BIND`
+log — and it travels in the monitor DEX next to
 `mop.MonitorWrappers` and `mop.Coverage` (see [On the device](#4-how-it-works--end-to-end)).
 
 | Component | Realized by | Responsibility |
@@ -515,7 +574,7 @@ delegate, `composeNode` and the `RVSEC-BIND` log — and it travels in the monit
 | DEX weave pipeline | `cli/BatchRunner.runPipeline`, `dex-mutator/DexWeaver`, `coverage-weaver/CoverageWeaver` | The six-phase in-process transformation from APK + descriptor to woven DEXes (and optionally signed APK). |
 | `mop.MonitorWrappers` (generated) | `advice-emitter/WrapperEmitter` | Generated static wrappers that fire monitor events without aliasing the caller's registers. |
 | `instrument_results.json` | `cli/BatchRunner.writeResultsJson`, `cli/BatchRunner.PerApkResult` | The cross-language result contract: per-APK phase, success flag, message, and weave counters. |
-| `mop.RvsecStamp` (fixed resource, stamp on only) | `monitor-builder/StampSourceEmitter` + resource `stamp/RvsecStamp.java`; call sites rewritten by `dex-mutator/StampWeaver` | Runtime helper of the handler stamp: makes the original setter call, installs the chaining stamp delegate, writes `rvsec.click` / `rvsec.longClick` node extras, logs `RVSEC-BIND`. |
+| `mop.RvsecStamp` (fixed resource, stamp on only) | `monitor-builder/StampSourceEmitter` + resource `stamp/RvsecStamp.java`; call sites rewritten by `dex-mutator/StampWeaver` | Runtime helper of the handler stamp: makes the original setter call, installs the chaining stamp delegate, writes `rvsec.click` / `rvsec.longClick` node extras (`rvsec.click` naming the app callback behind a library dispatcher when it resolves one), logs `RVSEC-BIND`. |
 
 ### 6. Mapping between views
 
@@ -624,7 +683,7 @@ uses) and continues to the next APK (INV-INS-55). The rejected alternative (thro
 batch) would lose every successful APK after the first failure and force a full re-run; the phase
 tag also lets `dex_only`/`build_only` artifacts be consumed downstream for debugging.
 
-**Handler stamp as a separate, opt-in pass with a fixed helper (INV-INS-174..179).** APE-RV keys
+**Handler stamp as a separate, opt-in pass with a fixed helper (INV-INS-174..181).** APE-RV keys
 widget guidance by `(activity, resource-id, event)`; many clicked nodes carry no resource-id, and
 Compose virtual nodes carry none the static analysis knows, while the static widget → handler
 binding over-assigns where the id does match. Recording the handler class on the real node at
@@ -645,6 +704,12 @@ measurement stays reproducible. The rejected alternative for Compose was rewriti
 `Modifier.clickable(…)` call sites to add a `testTag`: it depends on Kotlin-mangled names that
 change between Compose versions and overwrites an app's own tag, whereas one exact-match insertion
 after node population needs no Compose type at compile time and fails closed on a renamed library.
+For a library dispatcher, the app callback is written into `rvsec.click` itself rather than into a
+second key, so the testing tool reads the same key and the same table and needs no change; and it
+is found by reflective reads at node population rather than by weaving more setters
+(`setOnMenuItemClickListener`, `setOnPreferenceClickListener`, …), which would add method
+references to app DEXes near the 64K ceiling and new weave sites, while a renamed field only
+degrades the node to the dispatcher's class.
 
 **Decisions at a glance**
 
@@ -655,7 +720,7 @@ after node population needs no Compose type at compile time and fails closed on 
 | Frame growth by MMI clone + mandatory supplier notification | registerCount is private final, atomic spill, serialization must see grown frame | INV-INS-80 (also INV-INS-87) |
 | Class-invariant `commonPointcut` hoisted to per-class gate | weave performance O(classes) not O(classes×methods×instr×advices); correctness equivalence | — (§4.PERF.P2.1) |
 | Phase-tagged partial results (well-formed failure) | batch resilience, cross-language error routing | INV-INS-55 |
-| Handler stamp as a separate, opt-in pass with a fixed helper in the monitor DEX | resource-id-free node key for the GUI explorer; MOP weave unchanged; off byte-identical | INV-INS-174..179 |
+| Handler stamp as a separate, opt-in pass with a fixed helper in the monitor DEX | resource-id-free node key for the GUI explorer; MOP weave unchanged; off byte-identical | INV-INS-174..181 |
 
 **Patterns and styles**
 
@@ -1282,7 +1347,7 @@ narrated in the [Rationale](#7-rationale) section above.
 | Type | IDs | Where realized |
 |------|-----|----------------|
 | Functional requirements | FR01, FR02, FR03 | the full weave pipeline: `cli/BatchRunner.runPipeline` orchestrating descriptor-reader → pointcut-engine → advice-emitter → dex-mutator → coverage-weaver → monitor-builder → multidex-merger |
-| Invariants | INV-INS-52, INV-INS-53, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87, INV-INS-103, INV-INS-159, INV-INS-160, INV-INS-161, INV-INS-162, INV-INS-163, INV-INS-174, INV-INS-175, INV-INS-176, INV-INS-177, INV-INS-178, INV-INS-179 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-53 `coverage-weaver/PackageFilter` (canonical Coverage exclusion filter); INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator`; INV-INS-103 `advice-emitter/WrapperEmitter.expandCallTarget`; INV-INS-159 `pointcut-engine/PointcutMatcher.matchArgs` + `advice-emitter/WrapperEmitter` grouping loop (`advicesExcludedByArity`); INV-INS-160 `pointcut-engine/AndroidClassIndex.methodsInHierarchy` + `advice-emitter/WrapperEmitter.expandCallTarget` (`wrapperTargetsUnresolved`) + `dex-mutator/DexWeaver.resolveSubtypeAlias` (`wrappersAliasedToSubtype`, `wrapperAliasesUnmerged`); INV-INS-161 `dex-mutator/InstructionInjector.insertBefore`; INV-INS-162 `pointcut-engine/TypeResolver` with `AndroidClassIndex.exists`; INV-INS-163 `advice-emitter/WrapperEmitter.appendWrapperMethod` + `dex-mutator/DexWeaver.applyConstructorAfterFinally`; INV-INS-174 `cli/ConfigResolver` (option, then `RVSEC_STAMP_HANDLERS`) + `cli/BatchRunner` step 4a′ guard and step 5a′ + `monitor-builder/StampSourceEmitter.remove`; INV-INS-175/176 `dex-mutator/StampWeaver.weave` (`stamp*` counters); INV-INS-177/178/179 `mop.RvsecStamp` (resource `monitor-builder/.../stamp/RvsecStamp.java`) |
+| Invariants | INV-INS-52, INV-INS-53, INV-INS-54, INV-INS-55, INV-INS-56, INV-INS-58, INV-INS-59, INV-INS-60, INV-INS-66, INV-INS-68, INV-INS-69, INV-INS-71, INV-INS-72, INV-INS-73, INV-INS-80, INV-INS-87, INV-INS-103, INV-INS-159, INV-INS-160, INV-INS-161, INV-INS-162, INV-INS-163, INV-INS-174, INV-INS-175, INV-INS-176, INV-INS-177, INV-INS-178, INV-INS-179, INV-INS-181 | INV-INS-52 `multidex-merger/MultidexMerger`; INV-INS-53 `coverage-weaver/PackageFilter` (canonical Coverage exclusion filter); INV-INS-54/58/59/73 `validator/{FeatureMappingChecker,BatchValidator,TraceComparator}`; INV-INS-55 `cli/BatchRunner.PerApkResult`; INV-INS-56 `descriptor-reader/DescriptorReader`; INV-INS-60 `coverage-weaver`/`monitor-builder` (`mop.Coverage`); INV-INS-66/68 `dex-mutator/DexWeaver` + `advice-emitter/WrapperEmitter`; INV-INS-69/71 `advice-emitter/MonitorInvokeBuilder`; INV-INS-72 `pointcut-engine/PointcutMatcher`; INV-INS-80/87 `dex-mutator/RegisterShifter` + `DexFileMutator`; INV-INS-103 `advice-emitter/WrapperEmitter.expandCallTarget`; INV-INS-159 `pointcut-engine/PointcutMatcher.matchArgs` + `advice-emitter/WrapperEmitter` grouping loop (`advicesExcludedByArity`); INV-INS-160 `pointcut-engine/AndroidClassIndex.methodsInHierarchy` + `advice-emitter/WrapperEmitter.expandCallTarget` (`wrapperTargetsUnresolved`) + `dex-mutator/DexWeaver.resolveSubtypeAlias` (`wrappersAliasedToSubtype`, `wrapperAliasesUnmerged`); INV-INS-161 `dex-mutator/InstructionInjector.insertBefore`; INV-INS-162 `pointcut-engine/TypeResolver` with `AndroidClassIndex.exists`; INV-INS-163 `advice-emitter/WrapperEmitter.appendWrapperMethod` + `dex-mutator/DexWeaver.applyConstructorAfterFinally`; INV-INS-174 `cli/ConfigResolver` (option, then `RVSEC_STAMP_HANDLERS`) + `cli/BatchRunner` step 4a′ guard and step 5a′ + `monitor-builder/StampSourceEmitter.remove`; INV-INS-175/176 `dex-mutator/StampWeaver.weave` (`stamp*` counters); INV-INS-177/178/179 `mop.RvsecStamp` (resource `monitor-builder/.../stamp/RvsecStamp.java`); INV-INS-181 `mop.RvsecStamp.callback` and its helpers |
 | NFRs | NFR03, NFR04, NFR05, NFR06, NFR07 | see [Rationale](#7-rationale) |
 
 **Related documentation:** per-module 4+1 docs (`modules/<m>/docs/architecture.md`), ADRs

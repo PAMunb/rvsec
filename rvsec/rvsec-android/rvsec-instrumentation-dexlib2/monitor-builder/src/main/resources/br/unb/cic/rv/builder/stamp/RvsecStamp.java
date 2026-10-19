@@ -27,6 +27,11 @@ import java.util.WeakHashMap;
  * runs inside {@code catch (Throwable)}, so it never throws into the app. The
  * stamp emits no monitor event.
  *
+ * <p>When the click listener is a library dispatcher, such as a menu item's,
+ * a preference row's or a dialog button's, {@link #callback} names the app
+ * callback the dispatcher will call, and that class is written under
+ * {@value #KEY_CLICK} in place of the dispatcher's.
+ *
  * <p>Compose nodes are virtual and have no listener call to rewrite; for them
  * the weaver calls {@link #composeNode} after Compose has populated each node.
  *
@@ -93,6 +98,9 @@ public final class RvsecStamp {
     static void stamp(View v, String key, String kind, Object listener) {
         String cls = listener == null ? null : listener.getClass().getName();
         Delegate sd = installed(v);
+        if (sd != null && KEY_CLICK.equals(key)) {
+            sd.clickListener = listener;
+        }
         if (sd == null) {
             if (cls == null) {
                 return;
@@ -100,6 +108,9 @@ public final class RvsecStamp {
             View.AccessibilityDelegate app =
                     Build.VERSION.SDK_INT >= 29 ? v.getAccessibilityDelegate() : null;
             sd = new Delegate(app);
+            if (KEY_CLICK.equals(key)) {
+                sd.clickListener = listener;
+            }
             v.setAccessibilityDelegate(sd);
             if (Build.VERSION.SDK_INT < 29) {
                 synchronized (PRE29) {
@@ -345,6 +356,241 @@ public final class RvsecStamp {
         return fn == null || fn.getClass().getName().startsWith("androidx.") ? handler : fn;
     }
 
+    /**
+     * The app callback behind a library dispatcher bound as a view's click
+     * listener, or {@code null}. A menu item, a navigation item, a toolbar's
+     * up button, a preference row and an AppCompat dialog button are bound to
+     * a listener of the library, which calls the app later, at click time;
+     * the class the app wrote is read here, when the node is populated, from
+     * the objects that dispatcher will call.
+     *
+     * <p>A listener of app code (see {@link #isAppClass}) is the handler
+     * itself and is not looked behind. For any other listener the first step
+     * that applies decides, and its result is final, {@code null} included:
+     * <ol>
+     *   <li>The listener's {@code this$0} is an androidx {@code Preference}
+     *       (a preference row): its {@code mOnClickListener}, then its
+     *       {@code mOnChangeListener}, then the nearest app class of the
+     *       hierarchy of its {@code mPreferenceManager}'s
+     *       {@code mOnPreferenceTreeClickListener} (the app's
+     *       {@code PreferenceFragmentCompat}) that declares
+     *       {@code onPreferenceTreeClick(Preference)}. A fragment that does
+     *       not declare it leaves the row to the library, so nothing is
+     *       named.</li>
+     *   <li>{@code this$0} is an AppCompat {@code AlertController} (a dialog
+     *       button): the {@code obj} of the {@code Message} of the button that
+     *       is {@code host}, the app's {@code DialogInterface.OnClickListener}.</li>
+     *   <li>{@code this$0} is a {@code ToolbarWidgetWrapper} (the toolbar's up
+     *       button): the activity's options menu.</li>
+     *   <li>{@code host.getItemData()} is a {@code MenuItemImpl} (a menu or
+     *       navigation item): the item's own {@code mClickListener}; otherwise
+     *       the first ancestor that is a {@code NavigationView} (its
+     *       {@code listener}, and nothing further), a
+     *       {@code NavigationBarView} (its {@code selectedListener}, and
+     *       nothing further) or a {@code Toolbar} (its
+     *       {@code mOnMenuItemClickListener}, then the first app provider of
+     *       its {@code MenuHostHelper}, then the activity's options menu);
+     *       with no such ancestor, the activity's options menu.</li>
+     * </ol>
+     * A candidate counts only when it is non-null and of app code.
+     *
+     * <p>The activity's options menu is the app class of the activity's
+     * hierarchy nearest the activity's own class that declares
+     * {@code onOptionsItemSelected(MenuItem)}, the class whose method the
+     * platform runs; when none declares it, the first app provider in the
+     * activity's {@code MenuHostHelper}; with no activity in the host's
+     * context chain, {@code null}. A fragment's
+     * {@code onOptionsItemSelected}, and the other providers when there are
+     * several, are not named. Both this rule and the tree-click step name the
+     * declaring class, because the static analysis keys a method by the class
+     * that declares it.
+     *
+     * <p>Every library field is read by reflection, by name, so an app whose
+     * R8 build renamed those fields gets no callback and its node keeps the
+     * dispatcher's class. A failed read throws; the caller catches it and the
+     * node keeps the dispatcher's class.
+     */
+    static String callback(View host, Object listener) throws Exception {
+        if (listener == null || isAppClass(listener.getClass().getName())) {
+            return null;
+        }
+        Object owner = read(listener, "this$0");
+        if (owner != null) {
+            if (isA(owner, "androidx.preference.Preference")) {
+                return preferenceCallback(owner);
+            }
+            if (isA(owner, "androidx.appcompat.app.AlertController")) {
+                return dialogCallback(owner, host);
+            }
+            if (isA(owner, "androidx.appcompat.widget.ToolbarWidgetWrapper")) {
+                return optionsMenuCallback(host);
+            }
+        }
+        Object item = call(host, "getItemData");
+        if (item != null && isA(item, "androidx.appcompat.view.menu.MenuItemImpl")) {
+            return menuCallback(host, item);
+        }
+        return null;
+    }
+
+    private static String menuCallback(View host, Object item) throws Exception {
+        String own = appClassOf(read(item, "mClickListener"));
+        if (own != null) {
+            return own;
+        }
+        for (Object p = host.getParent(); p instanceof View; p = ((View) p).getParent()) {
+            if (isA(p, "com.google.android.material.navigation.NavigationView")) {
+                return appClassOf(read(p, "listener"));
+            }
+            if (isA(p, "com.google.android.material.navigation.NavigationBarView")) {
+                return appClassOf(read(p, "selectedListener"));
+            }
+            if (isA(p, "androidx.appcompat.widget.Toolbar")) {
+                String toolbar = appClassOf(read(p, "mOnMenuItemClickListener"));
+                if (toolbar == null) {
+                    toolbar = firstAppProvider(readTyped(p, "androidx.core.view.MenuHostHelper"));
+                }
+                if (toolbar != null) {
+                    return toolbar;
+                }
+                break;
+            }
+        }
+        return optionsMenuCallback(host);
+    }
+
+    private static String optionsMenuCallback(View host) throws Exception {
+        android.app.Activity activity = activityOf(host.getContext());
+        return activity == null ? null : optionsMenu(activity);
+    }
+
+    /** The options-menu callback of {@code activity}; see {@link #callback}. */
+    private static String optionsMenu(Object activity) throws Exception {
+        String cls = declaringAppClass(activity, "onOptionsItemSelected",
+                "android.view.MenuItem");
+        if (cls != null) {
+            return cls;
+        }
+        return firstAppProvider(readTyped(activity, "androidx.core.view.MenuHostHelper"));
+    }
+
+    private static String preferenceCallback(Object preference) throws Exception {
+        String cls = appClassOf(read(preference, "mOnClickListener"));
+        if (cls == null) {
+            cls = appClassOf(read(preference, "mOnChangeListener"));
+        }
+        if (cls == null) {
+            Object manager = read(preference, "mPreferenceManager");
+            if (manager != null) {
+                cls = declaringAppClass(read(manager, "mOnPreferenceTreeClickListener"),
+                        "onPreferenceTreeClick", "androidx.preference.Preference");
+            }
+        }
+        return cls;
+    }
+
+    private static String dialogCallback(Object controller, View host) throws Exception {
+        for (String which : new String[] {"Positive", "Negative", "Neutral"}) {
+            if (read(controller, "mButton" + which) == host) {
+                Object msg = read(controller, "mButton" + which + "Message");
+                return msg instanceof android.os.Message
+                        ? appClassOf(((android.os.Message) msg).obj) : null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The app class of {@code o}'s hierarchy nearest {@code o}'s own class that
+     * declares {@code method} with one parameter of the type named
+     * {@code paramType}, or {@code null}. The walk stops at the first class
+     * that is not app code. Types are compared by name because library types
+     * are not on the compile classpath.
+     */
+    private static String declaringAppClass(Object o, String method, String paramType) {
+        for (Class<?> c = o == null ? null : o.getClass(); c != null && isAppClass(c.getName());
+                c = c.getSuperclass()) {
+            for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+                Class<?>[] params = m.getParameterTypes();
+                if (m.getName().equals(method) && params.length == 1
+                        && params[0].getName().equals(paramType)) {
+                    return c.getName();
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String firstAppProvider(Object menuHostHelper) throws Exception {
+        Object providers = menuHostHelper == null ? null : read(menuHostHelper, "mMenuProviders");
+        if (providers instanceof Iterable) {
+            for (Object provider : (Iterable<?>) providers) {
+                String cls = appClassOf(provider);
+                if (cls != null) {
+                    return cls;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static android.app.Activity activityOf(android.content.Context ctx) {
+        for (int i = 0; ctx != null && i < 16; i++) {
+            if (ctx instanceof android.app.Activity) {
+                return (android.app.Activity) ctx;
+            }
+            if (!(ctx instanceof android.content.ContextWrapper)) {
+                return null;
+            }
+            ctx = ((android.content.ContextWrapper) ctx).getBaseContext();
+        }
+        return null;
+    }
+
+    private static String appClassOf(Object o) {
+        return o != null && isAppClass(o.getClass().getName()) ? o.getClass().getName() : null;
+    }
+
+    /**
+     * Whether {@code name} is app code: outside the platform ({@code android.}),
+     * androidx, Material and the Java and Kotlin runtimes. A third-party
+     * library class counts as app code.
+     */
+    private static boolean isAppClass(String name) {
+        return !name.startsWith("android.") && !name.startsWith("androidx.")
+                && !name.startsWith("com.google.android.material.")
+                && !name.startsWith("java.") && !name.startsWith("kotlin.");
+    }
+
+    /**
+     * Read the first field typed {@code typeName} on the class of {@code target}
+     * or a superclass.
+     */
+    private static Object readTyped(Object target, String typeName) throws Exception {
+        Class<?> cls = target.getClass();
+        String k = cls.getName() + "@" + typeName;
+        Object f;
+        synchronized (MEMBERS) {
+            f = MEMBERS.get(k);
+        }
+        if (f == null) {
+            f = MISSING;
+            for (Class<?> c = cls; c != null && f == MISSING; c = c.getSuperclass()) {
+                for (java.lang.reflect.Field candidate : c.getDeclaredFields()) {
+                    if (candidate.getType().getName().equals(typeName)) {
+                        candidate.setAccessible(true);
+                        f = candidate;
+                        break;
+                    }
+                }
+            }
+            synchronized (MEMBERS) {
+                MEMBERS.put(k, f);
+            }
+        }
+        return f == MISSING ? null : ((java.lang.reflect.Field) f).get(target);
+    }
+
     private static boolean isA(Object o, String className) {
         for (Class<?> c = o.getClass(); c != null; c = c.getSuperclass()) {
             if (c.getName().equals(className)) {
@@ -407,10 +653,11 @@ public final class RvsecStamp {
     /**
      * Stamp delegate: forwards every callback to the app's delegate when there
      * is one, and to the platform default otherwise, then adds the stamp to the
-     * node. A callback re-entered while it is being forwarded goes to the
-     * platform default: an app delegate that wraps the delegate it found on the
-     * view (as {@code ViewCompat} does) would otherwise call back into this one
-     * forever.
+     * node, with the click listener replaced by the app callback behind it when
+     * {@link RvsecStamp#callback} resolves one. A callback re-entered while it
+     * is being forwarded goes to the platform default: an app delegate that
+     * wraps the delegate it found on the view (as {@code ViewCompat} does)
+     * would otherwise call back into this one forever.
      */
     static final class Delegate extends View.AccessibilityDelegate {
         private static final int SEND = 0;
@@ -429,6 +676,10 @@ public final class RvsecStamp {
         /** Handler class names, {@code null} when no listener is set. */
         private volatile String click;
         private volatile String longClick;
+        /** The click listener itself, which {@link RvsecStamp#callback} looks behind. */
+        volatile Object clickListener;
+        /** The app callback last logged for this view, so an unchanged one logs nothing. */
+        private String loggedCallback;
         /** Callbacks currently being forwarded to {@link #app}, by index. */
         private final boolean[] busy = new boolean[10];
 
@@ -472,6 +723,27 @@ public final class RvsecStamp {
             }
             try {
                 Bundle extras = info.getExtras();
+                String click = this.click;
+                if (click != null) {
+                    String cb = null;
+                    try {
+                        cb = callback(host, clickListener);
+                    } catch (Throwable ignored) {
+                        // Unresolved: the node keeps the bound listener's class.
+                    }
+                    if (cb != null) {
+                        if (!cb.equals(loggedCallback)) {
+                            loggedCallback = cb;
+                            Log.i(TAG, "view kind=callback"
+                                    + " viewClass=" + host.getClass().getName()
+                                    + " id=" + idName(host)
+                                    + " handler=" + click
+                                    + " callback=" + cb
+                                    + " obj=" + Integer.toHexString(System.identityHashCode(host)));
+                        }
+                        click = cb;
+                    }
+                }
                 if (click != null) {
                     extras.putString(KEY_CLICK, click);
                 } else {
