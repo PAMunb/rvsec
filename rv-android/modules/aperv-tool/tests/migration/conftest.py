@@ -16,7 +16,7 @@ from .jar_tables import JarTableError, resolve_ape_repo
 
 _SKIP_REASON = (
     "no stage-2 ape checkout: run with "
-    "APE_REPO=<checkout carrying rearch-02-runspec> to execute the migration tier"
+    "APE_REPO=<ape checkout carrying isolate-guidance-groups> to execute the migration tier"
 )
 
 

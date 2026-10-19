@@ -278,6 +278,7 @@ Quick reference (subset — see CLAUDE.md for complete coverage and for the stan
 | `RV_SA_TIMEOUT` | `--analysis-timeout` | Static analysis timeout in seconds |
 | `RV_JVM_MEMORY` | `--jvm-memory` | JVM memory for static analysis (e.g. `4g`) |
 | `RV_HUMANOID_URL` | (passed via `ToolConfig.parameters["humanoid_url"]`) | Humanoid tool URL (Layer Purity, gh55) |
+| `APERV_LLM_BASE_URL` | (passed via `ToolConfig.parameters["llm_url"]`) | LLM endpoint of the `aperv` cells that mount the LLM group (`as_llm`, `as_mop_llm`); a DSL `@llm_url` wins over it. Not read by `rv-platform run` |
 | `RV_DELAY` | (startup sleep, not a CLI flag) | Seconds to wait before starting (staggering parallel containers) |
 
 Pass `bash` or `shell` as the container command for interactive access instead of running the experiment.

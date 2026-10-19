@@ -15,7 +15,10 @@ attachable to the step that was standing on that state. What it does *not* buy i
 `mopReach`: over 4719 state/activity pairs it agrees with the activity's own MOP
 flag in 100 % of cases, because it is `activityHasMop(state.getActivity())`
 replicated at state grain. It is carried because the dump carries it, and it is
-not a state-level fact.
+not a state-level fact. That agreement holds on the cells that mount the MOP
+group. On the other cells the jar writes neither fact — no `mopReach` on the
+`UICOV` line and no `mop` on the `ACT` record — so `uicov_mop_reach` and the
+step's `activity_has_mop` are both None, and there is nothing to agree.
 
 **Two properties of the dump decide the shape of everything here.**
 

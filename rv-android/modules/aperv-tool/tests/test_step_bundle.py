@@ -24,7 +24,8 @@ import pytest
 from fixture_gate import MISSING_REAL
 
 from aperv_tool.analysis import clock_logcat_join, step_bundle
-from aperv_tool.analysis.step_bundle import DIAGNOSTIC_STREAM, bundle_run
+from aperv_tool.analysis.step_bundle import DIAGNOSTIC_STREAM, StepBundle, bundle_run
+from aperv_tool.analysis.trace_ndjson import StepRow
 
 MONITORED_OP_TAG = "RVSEC-COV"
 VIOLATION_TAG = "RVSEC"
@@ -491,3 +492,31 @@ def test_a_discarded_line_is_a_number_on_the_bundle(tmp_path: Path) -> None:
     assert len(by_step[3].violations) == 1
     assert by_step[3].violations[0].code == "CIPHER-ALG-02"
     assert len(by_step[5].violations) == 1
+
+
+def test_activity_has_mop_column_is_null_when_absent() -> None:
+    """A step whose cell did not compute the MOP fact is null, never False."""
+
+    def row(step: int, has_mop: bool | None) -> StepRow:
+        return StepRow(
+            step=step,
+            t_rel_ms=step * STEP_INTERVAL_MS,
+            t_epoch_ms=None,
+            activity=ACTIVITY,
+            activity_has_mop=has_mop,
+            state_key="S1",
+            action="g0a0[]@MODEL_BACK",
+            decision_source="sata",
+            pick_channel="roulette",
+        )
+
+    absent = step_bundle.frame(
+        [StepBundle(row=row(1, None)), StepBundle(row=row(2, None))]
+    )
+    assert absent["activity_has_mop"].isna().all()
+
+    mixed = step_bundle.frame(
+        [StepBundle(row=row(1, None)), StepBundle(row=row(2, False))]
+    )
+    assert mixed["activity_has_mop"].isna().tolist() == [True, False]
+    assert mixed.loc[1, "activity_has_mop"] is False

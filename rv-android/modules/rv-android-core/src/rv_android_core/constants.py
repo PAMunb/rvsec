@@ -78,6 +78,9 @@ ENV_RVSEC_HOME = "RVSEC_HOME"
 ENV_ANDROID_HOME = "ANDROID_HOME"
 ENV_TOOLS_DIR = "TOOLS_DIR"
 ENV_HUMANOID_URL = "RV_HUMANOID_URL"
+# The one user-facing variable outside the RV_* prefix: the aperv-tool docs advertise
+# this name. Read only by rv-experiment/__main__.py (INV-EXP-41).
+ENV_APERV_LLM_BASE_URL = "APERV_LLM_BASE_URL"
 ENV_REPETITIONS = "RV_REPETITIONS"
 ENV_TIMEOUTS = "RV_TIMEOUTS"
 ENV_TOOLS = "RV_TOOLS"

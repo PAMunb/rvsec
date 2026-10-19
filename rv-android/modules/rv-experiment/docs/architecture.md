@@ -417,7 +417,9 @@ Configuration enters rv-experiment through two paths:
 1. **CLI mode**: The DSL parser converts `--tools monkey,droidbot:dfs_greedy` into `ToolConfig` instances; `ConfigurationFactory` assembles the full `ExperimentConfig`.
 2. **Config file mode**: `ExperimentConfig.from_file()` loads a JSON file directly, bypassing the DSL parser.
 
-In Docker mode, `docker-entrypoint.sh` translates environment variables (`RV_TOOLS`, `RV_TIMEOUTS`, etc.) into CLI arguments before the Python process starts.
+In Docker mode, `docker-entrypoint.sh` validates the `RV_*` names and translates the five boolean-negation variables (`RV_SKIP_*`, `RV_NO_QUARANTINE`) into CLI flags; Click resolves the other `RV_*` variables through each option's `envvar=`.
+
+Two server addresses reach the tools by value rather than through the environment: after the DSL is parsed, `__main__.py` reads `RV_HUMANOID_URL` into `parameters["humanoid_url"]` of the Humanoid entries, and `_inject_aperv_llm_url()` reads `APERV_LLM_BASE_URL` into `parameters["llm_url"]` of the `aperv` entries whose variant definition in `ToolRegistry` carries `overrides.llm_url` (INV-EXP-41). An entry that already has `@llm_url` from the DSL keeps it, so the precedence is DSL > variable > the cell's default; the plugins themselves read no environment.
 
 JIT configuration methods (`get_monitored_operations_config()`, etc.) are called only by `PreProcessor` during Phase 1, and only when the corresponding operation is enabled (INV-EXP-05).
 
@@ -555,6 +557,7 @@ On resume, the data flow changes:
 - `config()`: Configuration template generation
 - `list_tools()`: Tool discovery and display
 - `validate()`: Configuration file validation
+- `_inject_aperv_llm_url()`: Puts `APERV_LLM_BASE_URL` into the `aperv` tool configs whose variant mounts the LLM group (INV-EXP-41)
 
 **Dependencies**:
 - Internal: `config.py`, `factories/configuration_factory.py`, `experiment/experiment_controller.py`

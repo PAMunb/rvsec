@@ -10,10 +10,19 @@ format over the primary artifact would make the file everyone opens a derived
 reconstruction, and would re-import the unescaped line-breaking defect the jar's
 new serializer exists to eliminate.
 
-The wire format's authority is the other repository — the `event-sink` spec of
-`ape`'s `rearch-04-step-ndjson-telemetry`, which owns the `StepRecord` schema,
-the dictionary encoding and the omitted-default rules. This reader conforms to
-it rather than restating it.
+The wire format's authority is the other repository, in two `ape` changes. The
+`event-sink` spec of `rearch-04-step-ndjson-telemetry` owns the `StepRecord`
+schema, the dictionary encoding and the omitted-default rules. The `event-sink`
+spec of `isolate-guidance-groups` owns the decision members of the
+group-isolation jar (`own`, `cfc`, `draw`, `nav`, `inp`, `restart`, `bmc`,
+`strat`, `rot`, `buf`, `trig`, `navf`), the meaning of `dec.src` on that jar,
+`RUN_START.variant` and the routing counters of `RUN_END`. This reader conforms
+to them rather than restating them.
+
+The reader reads two generations of trace, told apart by `RUN_START.v`: `1` is
+the `eea2b1a9` jar and earlier, `2` the group-isolation jar. It carries what
+each wrote and does not branch on the version; the version is what tells a
+consumer which meaning a field has (INV-APV-67).
 
 What the reader does for its callers, so that no consumer does it again:
 
@@ -23,15 +32,19 @@ What the reader does for its callers, so that no consumer does it again:
   reference; a reference that is nevertheless unresolved makes the record
   malformed rather than yielding a placeholder string (INV-APV-50).
 - **Materializes omitted defaults, but only where absence means a default.**
-  The six boosts come back as explicit zeros and the two outcome booleans as
-  `False`. `patched` and `cf` are left absent when absent: `patched` is a
-  tri-state the jar emits explicitly for both `0` and `1`, so defaulting it
-  would erase the difference between "no resolved target" and "natively
-  clickable node" (INV-APV-49).
+  The seven boosts come back as explicit zeros and the two outcome booleans as
+  `False`. `patched`, `cf` and every member of the group-isolation jar are left
+  absent when absent: `patched` is a tri-state the jar emits explicitly for
+  both `0` and `1`, so defaulting it would erase the difference between "no
+  resolved target" and "natively clickable node", and a defaulted `own` or
+  `cfc` on an `eea2b1a9` trace would claim a mechanism ran that did not exist
+  (INV-APV-49).
 - **Re-derives `activity_has_mop` on both sides.** The jar records that static
   per-activity fact once, on the `ACT` entry, instead of on every step: the
   step side reads `ACT[act].mop`, the outcome side follows
-  `out.target -> STATE.act -> ACT.mop`.
+  `out.target -> STATE.act -> ACT.mop`. The group-isolation jar writes
+  `ACT.mop` only when the MOP group is mounted, so an entry without it gives
+  None on both sides, never False (INV-APV-68).
 - **Expands the run-relative clock.** `t` is milliseconds since `RUN_START`,
   whose record carries the epoch base `t0`. Without a `RUN_START` — a capture
   that began late, or a truncated file — the epoch expansion is reported as
@@ -40,22 +53,25 @@ What the reader does for its callers, so that no consumer does it again:
 - **Joins the step's own sections.** `dec`, `llm[]` and `out` arrive on one
   record, so the three-way join by `step=` that the retired format forced on
   every consumer ceases to exist. The sub-event keeps every field it was
-  written with, prompt and response dumps included.
+  written with, prompt and response dumps included, and every `dec` member
+  reaches a typed `StepRow` field (INV-APV-58).
 - **Carries the whole header and checks the schema it declares.** `RUN_START`
-  is the run answering "what am I": the jar, the preset, the features and every
-  parameter someone chose. All thirteen of its members reach the caller
-  (INV-APV-61), because a reader that surfaced three of them would leave a trace
-  unable to say which jar or which arm produced it — the exact blindness
-  `build.sha` was created to end. Its `v` is compared against `FORMAT_VERSION`
-  and a mismatch is counted, or raised in strict mode (INV-APV-62), so a
-  cross-campaign comparison over incomparable fields fails loudly. The header is
-  the first sink record rather than the first line, since the jar's AOSP banners
-  print to the same stdout ahead of it.
-- **Surfaces the run-level census.** `MOP_DATA`, `PIPELINE` and `LLM_ACK` are
-  reader attributes beside `run_start`, because a step-row iterator has no
-  natural place for them and this module is the only sanctioned reader — a
-  record it skipped would be a record no analysis could reach. `RUN_END` is
-  the deliberate exception and has no accessor (D5, INV-APV-53).
+  is the run answering "what am I": the jar, the preset, the cell, the features
+  and every parameter someone chose. All fourteen of its members reach the
+  caller (INV-APV-61), because a reader that surfaced three of them would leave
+  a trace unable to say which jar or which cell produced it — the exact
+  blindness `build.sha` was created to end. Its `v` is checked against
+  `SUPPORTED_VERSIONS` and any other version is counted, or raised in strict
+  mode (INV-APV-62), so a cross-campaign comparison over incomparable fields
+  fails loudly. The header is the first sink record rather than the first
+  line, since the jar's AOSP banners print to the same stdout ahead of it.
+- **Surfaces the run-level census.** `MOP_DATA`, `PIPELINE`, `LLM_ACK` and
+  `RUN_END` are reader attributes beside `run_start`, because a step-row
+  iterator has no natural place for them and this module is the only
+  sanctioned reader — a record it skipped would be a record no analysis could
+  reach. Each is carried verbatim and none is interpreted: in particular the
+  reader derives no completeness flag from `RUN_END`, whose absence is a fact
+  the analysis reports (INV-APV-53).
 
 Two structural properties are worth stating because they are load-bearing
 rather than incidental:
@@ -71,7 +87,10 @@ imports it, and a test asserts that.
 
 A malformed record is skipped and counted, never raised (INV-APV-50): a trace
 cut by a `SIGKILL` ends in a partial line by construction, and losing a whole
-run's analysis over its last line would be the worse failure.
+run's analysis over its last line would be the worse failure. A record whose
+`dec` member has the wrong shape — an `own` that is not an object, a `draw`
+that is not a pair — is malformed in the same way; a value the reader does not
+know, such as a new SATA path name, is carried as written and is not.
 """
 
 from __future__ import annotations
@@ -79,35 +98,36 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
-# Record types carried in the same NDJSON stream that this reader resolves.
-# The record types this module reads. `RUN_END` is deliberately absent and has
-# no constant: it is write-only by owner decision D5, so no code path here
-# reads, validates or acts on it (INV-APV-53), and an accessor would be the
-# first step toward the exit contract that decision refuses. It is skipped
-# without being counted as malformed, as any unknown future type is.
+# The record types this module reads. Any other type is well-formed and skipped
+# without being counted as malformed, so a type the jar adds later does not
+# report a healthy trace as damaged.
 _TYPE_RUN_START = "RUN_START"
 _TYPE_ACT = "ACT"
 _TYPE_STATE = "STATE"
 _TYPE_MOP_DATA = "MOP_DATA"
 _TYPE_PIPELINE = "PIPELINE"
 _TYPE_LLM_ACK = "LLM_ACK"
+_TYPE_RUN_END = "RUN_END"
 
 # INV-SNK-11: a trace line is a sink record if and only if it begins with `{`.
 # The jar interleaves free-text `[APE] ` diagnostics into the same stdout, so
 # those lines are mechanically separable and are skipped without being counted
 # as malformed — counting them would report a healthy run as damaged.
-_RECORD_PREFIX = "{"
+RECORD_PREFIX = "{"
 
-# The trace schema this reader implements, checked against every `RUN_START.v`
-# (INV-APV-62). It mirrors the jar's `RunSpecEcho.FORMAT_VERSION`, and the two
-# move together: this study's own legacy traces already carry incompatible
-# schemas across campaigns — the calibration corpus has no `mop_frontier` field
-# and realises `mop=` over {0,300} where the decisive campaign realises {0,500}
-# — and neither trace says which it is. The version exists so the next such
-# comparison fails loudly instead of quietly averaging incomparable fields.
-FORMAT_VERSION = 1
+# The trace schemas this reader reads, checked against every `RUN_START.v`
+# (INV-APV-62). They mirror the jar's `RunSpecEcho.FORMAT_VERSION`: 1 is the
+# `eea2b1a9` jar and earlier, 2 is the group-isolation jar, which bumped the
+# version because `dec.src` changed meaning from the largest boost to the owner
+# that executed the step. The check exists because this study's own legacy
+# traces already carry incompatible schemas across campaigns — the calibration
+# corpus has no `mop_frontier` field and realises `mop=` over {0,300} where the
+# decisive campaign realises {0,500} — and neither trace says which it is. A
+# declared version outside this set makes the next such comparison fail loudly
+# instead of quietly averaging incomparable fields.
+SUPPORTED_VERSIONS = frozenset({1, 2})
 
 
 class SchemaVersionMismatch(Exception):
@@ -121,24 +141,28 @@ class SchemaVersionMismatch(Exception):
 
     Attributes:
         found: The version the trace declared.
-        expected: `FORMAT_VERSION`, the version this reader implements.
+        supported: `SUPPORTED_VERSIONS`, the versions this reader implements.
     """
 
-    def __init__(self, found: Any, expected: int) -> None:
+    def __init__(self, found: Any, supported: frozenset) -> None:
+        versions = ", ".join(str(version) for version in sorted(supported))
         super().__init__(
-            f"trace declares RUN_START.v={found!r}, reader implements {expected}"
+            f"trace declares RUN_START.v={found!r}, reader implements {versions}"
         )
         self.found = found
-        self.expected = expected
+        self.supported = supported
 
 
-# The six per-mechanism boost fields, in the wire names the sink emits, mapped
+# The seven per-mechanism boost fields, in the wire names the sink emits, mapped
 # to their row attribute. Absent means zero (INV-SNK-05), and the reader
-# materializes that zero so no consumer has to remember the rule.
+# materializes that zero so no consumer has to remember the rule. `navf` is
+# written only by the group-isolation jar; on an older trace it reads as the
+# zero it would have been.
 _BOOST_FIELDS = (
     ("mop", "mop"),
     ("mopf", "mop_frontier"),
     ("wtg", "wtg"),
+    ("navf", "nav_frontier"),
     ("cov", "coverage"),
     ("menu", "menu"),
     ("form", "form"),
@@ -168,12 +192,14 @@ class BuildStamp:
 class RunStart:
     """The trace's header record: the run specification the jar resolved.
 
-    The jar echoes preset, features, every parameter someone chose and its own
-    build into this one record so that a post-hoc audit can say which jar, which
-    arm and which parameters produced a trace without opening the harness's
-    source in another repository. This class carries all thirteen members of it
-    (INV-APV-61): a reader that surfaced three of them would reproduce, one
-    layer up, exactly the blindness `build.sha` was created to end.
+    The jar echoes preset, cell, features, every parameter someone chose and its
+    own build into this one record so that a post-hoc audit can say which jar,
+    which cell and which parameters produced a trace without opening the
+    harness's source in another repository. This class carries all fourteen
+    members of it (INV-APV-61): a reader that surfaced three of them would
+    reproduce, one layer up, exactly the blindness `build.sha` was created to
+    end. No consumer in `aperv_tool` parses `RUN_START` other than through this
+    class.
 
     **Every member is optional and absence is reported, never defaulted.** The
     distinction is not pedantic: `inert=None` means the record did not say,
@@ -181,9 +207,11 @@ class RunStart:
     merged the two would answer a provenance question with its own default.
 
     Attributes:
-        v: The record's format version, checked against `FORMAT_VERSION`
-            (INV-APV-62). None when the record carries no `v`, in which case the
-            schema is unknown and is not assumed.
+        v: The record's format version, checked against `SUPPORTED_VERSIONS`
+            (INV-APV-62): 1 for the `eea2b1a9` jar and earlier, 2 for the
+            group-isolation jar. It is what tells the two meanings of
+            `StepRow.decision_source` apart. None when the record carries no
+            `v`, in which case the schema is unknown and is not assumed.
         run_id: The run's identifier, carried only by the border records
             `RUN_START` and `RUN_END` and never repeated on a step (INV-SNK-04).
         t0_ms: Epoch milliseconds at which the run's clock started. Every step's
@@ -195,7 +223,8 @@ class RunStart:
             independent draws, so a run whose seed never arrived is a different
             experiment from the one that was planned.
         agent: The agent type the run instantiated, e.g. `sata`.
-        preset: The named preset the arm resolved from, e.g. `mop`.
+        preset: The named preset the run resolved from, e.g. `mop`; on the
+            group-isolation jar, the cell's preset, e.g. `as_mop_llm`.
         features: The active feature names, sorted by the jar. Features are
             derived from the configuration, whereas the assembled passes depend
             on the APK's substrate — two different arms print identical passes
@@ -216,6 +245,9 @@ class RunStart:
         digest: The run specification's own digest, as the jar computed it.
         props_digest: Digest of the resolved property set.
         build: The jar's identity, or None when the record carried no `build`.
+        variant: The cell name the harness passed as `ape.variant`. None on
+            every trace written before the group-isolation jar, and when the
+            harness passed none.
     """
 
     v: Optional[int] = None
@@ -231,6 +263,7 @@ class RunStart:
     digest: Optional[str] = None
     props_digest: Optional[str] = None
     build: Optional[BuildStamp] = None
+    variant: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -341,7 +374,8 @@ class StepOutcome:
         target_activity_has_mop: Whether that landing activity is in the run's
             MOP set. This is the "reached a monitored screen" half of the
             evidential link whose other half is `StepRow.activity_has_mop`.
-            None when there is no target to look it up from.
+            None when there is no target to look it up from, or when its `ACT`
+            record carries no `mop` (INV-APV-68).
         activity_changed: Whether the transition crossed an Activity boundary,
             as opposed to moving between states of the same one.
     """
@@ -356,10 +390,13 @@ class StepOutcome:
 
 @dataclass(frozen=True)
 class Counterfactual:
-    """The counterfactual pick, present exactly on the MOP-sensitive channels.
+    """The MOP-off counterfactual pick of the `eea2b1a9` jar (`dec.cf`).
 
-    It answers, per step, what the agent would have chosen with the MOP boosts
-    removed — the per-decision evidence that the guidance changed anything.
+    It answers, per step, what the agent would have chosen with **only the MOP
+    boosts** zeroed, so a `changed` value is evidence about MOP guidance and
+    about nothing else. It exists only on traces with `RUN_START.v == 1`, where
+    it rides the MOP-sensitive pick channels; the group-isolation jar removed
+    `dec.cf` and writes the per-scorer `StepRow.scorer_cf` instead.
 
     Attributes:
         changed: Whether the counterfactual pick diverges from the factual one.
@@ -374,10 +411,13 @@ class Counterfactual:
 
 @dataclass(frozen=True)
 class ComponentDispatch:
-    """The result the platform returned for a component launch.
+    """The result the platform returned for an activity launch (`dec.comp`).
 
-    A refused intent and an accepted one were the same trace evidence in the
-    retired line family; `result` is what distinguishes them.
+    Written on the launcher's steps only: it is the MOP launcher's
+    activity-launch outcome. A component the STATIC trigger fired is a different
+    record, `ComponentTrigger`. A refused intent and an accepted one were the
+    same trace evidence in the retired line family; `result` is what
+    distinguishes them.
 
     Attributes:
         result: The platform's own result code for the launch, passed through
@@ -387,6 +427,81 @@ class ComponentDispatch:
 
     result: int
     error: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class Ownership:
+    """Which mechanism was meant to take the step, and why another did (`dec.own`).
+
+    Written on every step record by the group-isolation jar; absent on the
+    `eea2b1a9` jar and earlier. `intended` against `StepRow.decision_source` is
+    the pair that shows a fallback: when they differ, `fallback` says why. The
+    enumerated values below are the ones the contract lists; the reader carries
+    any other as written.
+
+    Attributes:
+        intended: The owner that claimed the step (`i`): `budget`, `restart`,
+            `llm`, `launcher`, `mop` or `sata`.
+        trigger: The LLM stage behind the step (`trg`): `new_state`,
+            `stagnation` or `coin`. It names the stage that made the step's one
+            LLM call or, when a gate barred the call, the first stage whose
+            trigger held. None when neither the intended nor the executed owner
+            is `llm`.
+        u_llm: The LLM coin's uniform draw for the step (`uL`), drawn whether or
+            not the coin was consulted. None when LLM is not mounted.
+        u_mop: The MOP coin's uniform draw for the step (`uM`), under the same
+            rule. None when MOP is not mounted.
+        gate: The gate that barred the LLM call (`g`): `min_actions` or
+            `breaker`. None when no gate barred it.
+        fallback: Why the intended owner did not take the step (`fb`): `gate`,
+            `screenshot` (the LLM screenshot could not be captured, so no call
+            was made), `error`, `decline`, `no_match` or `ineligible`. None when
+            it did.
+    """
+
+    intended: str
+    trigger: Optional[str] = None
+    u_llm: Optional[float] = None
+    u_mop: Optional[float] = None
+    gate: Optional[str] = None
+    fallback: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class NavTie:
+    """How a navigation extension point broke a tie (`dec.nav`).
+
+    The jar writes it only when the point had at least two candidates. The
+    wire's `0`/`1` integers become booleans.
+
+    Attributes:
+        point: The extension point (`x`): `X1`, `X3` or `X4`.
+        component: The variant that decided (`c`): `ape` or `mop`.
+        alternative: True only when the MOP variant decided by its own rule
+            (`alt`, `ape` D-B14.8); always False at X1 and on cells without MOP.
+        drew: Whether the decision was a random draw among equals (`drew`).
+    """
+
+    point: str
+    component: str
+    alternative: bool
+    drew: bool
+
+
+@dataclass(frozen=True)
+class ComponentTrigger:
+    """The component the STATIC component trigger fired during the step (`dec.trig`).
+
+    A side effect of the step, never its owner: the record's `src` names who took
+    the step. `StepRow.component` stays the launcher's activity-launch outcome.
+
+    Attributes:
+        kind: `broadcast`, `service` or `provider` (`k`).
+        component_class: The fired component's class name (`c`).
+    """
+
+    kind: str
+    component_class: str
 
 
 @dataclass(frozen=True)
@@ -407,34 +522,56 @@ class StepRow:
             is inferred from anywhere else (INV-APV-51).
         activity: Activity class name, resolved from the `ACT` dictionary.
         activity_has_mop: Whether the activity the step started on is in the
-            run's precomputed MOP set. Uniformly False in a MOP-off arm, which
-            reports no MOP data at all.
+            run's precomputed MOP set. None when the trace's `ACT` record carries
+            no `mop`, which the group-isolation jar omits when MOP is not
+            mounted (INV-APV-68).
         state_key: Abstract state key, resolved from the `STATE` dictionary.
             Run-local: the key embeds a JVM identity hash and carries no
             meaning outside the process that produced it (INV-APV-36), so it
             joins within a run and never across runs.
-        action: The full action string exactly as the agent printed it.
-        decision_source: The pipeline stage that selected the action (`src`).
-        pick_channel: Label of the channel the pick came through (`ch`).
+        action: The full action string exactly as the agent printed it; on the
+            group-isolation jar, the action the step dispatched.
+        decision_source: The `src` member, carried as written, with two
+            meanings that `RunStart.v` tells apart (INV-APV-67). Under `v == 2`
+            (the group-isolation jar) it is the owner that executed the step:
+            `budget`, `restart`, `llm`, `launcher`, `mop` or `sata`, which is
+            causal. Under `v == 1` (the `eea2b1a9` jar and earlier) it is the
+            stage whose boost was largest, e.g. `MOP_WIDGET`, which is not
+            causal, because every stage adds into one shared priority. A count
+            of this field across traces of both jars counts two different
+            things.
+        pick_channel: Label of the channel the pick came through (`ch`),
+            carried as written. On the group-isolation jar it is `mop_coin`,
+            `budget`, `restart`, `launcher`, `llm` or one of SATA's channels
+            (`roulette_greedy`, `roulette_early`, `buffer`, `sata_other`); the
+            `short_circuit_*` channels appear only under `v == 1`.
         priority: Model-action priority. None for non-model actions, which
             carry neither a priority nor any boost.
         mop: MOP-widget boost applied to the pick. Zero when not applied.
         mop_frontier: MOP activity-frontier boost. Zero when not applied.
         wtg: Window-transition-graph boost. Zero when not applied.
+        nav_frontier: Navigation-frontier boost (`navf`, STATIC). Zero when not
+            applied, and on every trace of the `eea2b1a9` jar and earlier.
         coverage: Coverage boost. Zero when not applied.
         menu: Menu boost. Zero when not applied.
         form: Form boost. Zero when not applied.
         wtg_source: Which pass produced the `wtg` boost — `wtg`, `frontier` or
-            `both` — present exactly when `wtg` is non-zero. The boost is a sum
+            `both` (`wtgsrc`) — present exactly when `wtg` is non-zero, and only
+            on traces with `RUN_START.v == 1`; the group-isolation jar writes the
+            navigation frontier in its own `navf` field. The boost is a sum
             of two producers (the WTG pass writes it, the frontier pass
             read-modify-writes on top), so the value alone cannot be attributed:
             with both weights at 200 the decisive campaign realises {0,200,400},
             leaving 10,231 steps at 200 ambiguous and only 91 at 400 proving
             both fired. This field de-aliases them; the decision still sums the
             same number into the same field.
-        mop_exposure: `(boosted, total)` — how many of the screen's actions the
-            MOP widget pass boosted, against how many were eligible at all.
-            Present when that pass is constructed. It is the denominator without
+        mop_exposure: `(weighted, total)` — how many of the screen's actions
+            carry a positive MOP weight, against how many were eligible at all.
+            Present when that pass is constructed. It measures the opportunity,
+            not the boost: on the group-isolation jar a weighted action whose
+            key was already tried gets no boost and is still counted, while on
+            the `eea2b1a9` jar every weighted action was boosted, so the two
+            readings coincide there. It is the denominator without
             which "the MOP scorer fired on 0.4% of decisions" cannot be split
             into "the mechanism had no opportunity" and "it had one and lost the
             roulette". It rides the step rather than the `STATE` entry because
@@ -446,22 +583,69 @@ class StepRow:
             has no resolved target at all (`MODEL_BACK`, `MODEL_MENU`,
             `MODEL_LLM_TAP`). The None is never collapsed into `0`
             (INV-APV-49). Read causally only for `MODEL_CLICK`.
-        counterfactual: The MOP-off counterfactual pick, present exactly on the
-            MOP-sensitive pick channels and None everywhere else.
-        component: Result of a component launch, present only on the steps that
-            dispatched one.
+        counterfactual: The MOP-off counterfactual pick (`cf`), present exactly
+            on the MOP-sensitive pick channels of a `v == 1` trace and None
+            everywhere else, including every step of the group-isolation jar.
+        component: The launcher's activity-launch outcome (`comp`), present
+            only on the steps that dispatched one.
         llm: LLM routing attempts made during this step's selection, in
             occurrence order. Empty when the step made none.
         outcome: What the action produced. None when the record legitimately
             closed with no outcome — which is a different fact from an outcome
             that exists but is unresolved (`StepOutcome.resolved is False`).
+        owner: The owner record (`own`), written on every step of the
+            group-isolation jar. None on the `eea2b1a9` jar and earlier.
+        scorer_cf: Per-scorer counterfactual (`cfc`), scorer name -> whether
+            zeroing that one scorer on every candidate, replaying the same draw
+            index, would have changed the pick at a roulette or least-visited
+            site. On the least-visited pick the candidates are the tied
+            least-visited actions, and the jar writes `cfc` only when two or more
+            tied. It answers "did this scorer change the choice", one scorer at
+            a time; it does not answer "did the guidance as a whole change it".
+            None when absent, which is every step outside those sites and every
+            least-visited pick with a single least-visited action.
+        draw: `(index, total)` the roulette drew (`draw`), enough to replay the
+            pick offline. None when the pick was not a roulette.
+        nav: The extension-point tie record (`nav`). None when no extension
+            point decided between two or more candidates.
+        input_source: Origin of the text the action entered (`inp`): `typed`,
+            `heuristic`, `random`, `form` or `llm`. None when it entered none.
+        restart_kind: Which restart the RESTART guard made (`restart`):
+            `graph`, `state`, `activity` or `periodic`. None unless
+            `decision_source` is `restart`.
+        back_menu_capped: Candidates the BACK/MENU cap removed from the pick
+            (`bmc`). None when absent, which is how the jar writes 0.
+        sata_path: The SATA path that picked the action (`strat`), one of the
+            fifteen path names the contract lists or any later one. None unless
+            `decision_source` is `sata`.
+        rotation: Display rotation at step open (`rot`), `0..3`, or `-1` when
+            it could not be read. Written on every step of the group-isolation
+            jar, `0` included, so `0` is a reading and None means the jar wrote
+            no rotation at all.
+        buffer_abandoned_by: The owner that took the step while the SATA buffer
+            was non-empty and abandoned it (`buf`). None when no buffer was
+            abandoned.
+        component_trigger: The component the STATIC trigger fired during the
+            step (`trig`), whatever the step's owner. None when it fired none.
+        mop_distance: Distance of the nearest unretired MOP target that gave the
+            chosen action its weight (`mopd`), `0..3`; `0` means the handler is
+            itself a target. None when the action has no distance-based weight.
+        mop_stamp: Source of the chosen action's MOP lookup (`mops`): `s` for
+            the handler stamp, `i` for the resource-id key. None when the lookup
+            had no source or the action no resolved target.
+        retired_targets: Indices into `MOP_DATA.targets` of the targets this
+            step's action retired (`ret`), ascending. None when it retired none.
+        mop_handler: Binary class name of the handler stamp that answered the
+            chosen action's MOP lookup (`hnd`), written exactly when
+            `mop_stamp` is `s`. None otherwise, and on every step of a cell
+            without MOP.
     """
 
     step: int
     t_rel_ms: int
     t_epoch_ms: Optional[int]
     activity: str
-    activity_has_mop: bool
+    activity_has_mop: Optional[bool]
     state_key: str
     action: str
     decision_source: str
@@ -470,6 +654,7 @@ class StepRow:
     mop: int = 0
     mop_frontier: int = 0
     wtg: int = 0
+    nav_frontier: int = 0
     coverage: int = 0
     menu: int = 0
     form: int = 0
@@ -480,6 +665,21 @@ class StepRow:
     component: Optional[ComponentDispatch] = None
     llm: Tuple[LlmCall, ...] = ()
     outcome: Optional[StepOutcome] = None
+    owner: Optional[Ownership] = None
+    scorer_cf: Optional[Mapping[str, bool]] = None
+    draw: Optional[Tuple[int, int]] = None
+    nav: Optional[NavTie] = None
+    input_source: Optional[str] = None
+    restart_kind: Optional[str] = None
+    back_menu_capped: Optional[int] = None
+    sata_path: Optional[str] = None
+    rotation: Optional[int] = None
+    buffer_abandoned_by: Optional[str] = None
+    component_trigger: Optional[ComponentTrigger] = None
+    mop_distance: Optional[int] = None
+    mop_stamp: Optional[str] = None
+    retired_targets: Optional[Tuple[int, ...]] = None
+    mop_handler: Optional[str] = None
 
 
 @dataclass
@@ -501,8 +701,8 @@ class TraceDiagnostics:
             by a `SIGKILL`; a larger count means damage or schema drift.
         run_start_present: Whether a `RUN_START` was consumed. False makes
             every row's `t_epoch_ms` None.
-        schema_version_mismatch: How many times the header declared a `v` other
-            than `FORMAT_VERSION` — at most one per trace, so over a survey of
+        schema_version_mismatch: How many times the header declared a `v`
+            outside `SUPPORTED_VERSIONS` — at most one per trace, so over a survey of
             many traces it is the count of foreign ones. It stays 0 when the
             header carries no `v` at all, because unknown is not mismatched.
             A strict reader raises instead of reaching a non-zero value here
@@ -541,6 +741,64 @@ def _as_str_tuple(value: Any) -> Optional[Tuple[str, ...]]:
     if isinstance(value, list):
         return tuple(value)
     return None
+
+
+def _require_object(dec: Dict[str, Any], member: str) -> Dict[str, Any]:
+    """Return the `dec` member that the contract writes as a JSON object.
+
+    Raises `TypeError` when it is anything else, so a wrongly shaped member
+    joins the malformed count instead of reaching a field half-read
+    (INV-APV-50).
+    """
+    value = dec[member]
+    if not isinstance(value, dict):
+        raise TypeError(f"{member} is not an object")
+    return value
+
+
+def _parse_ownership(own: Dict[str, Any]) -> Ownership:
+    """Build the owner record from `dec.own`; `i` is required, the rest optional."""
+    return Ownership(
+        intended=own["i"],
+        trigger=own.get("trg"),
+        u_llm=own.get("uL"),
+        u_mop=own.get("uM"),
+        gate=own.get("g"),
+        fallback=own.get("fb"),
+    )
+
+
+def _parse_nav_tie(nav: Dict[str, Any]) -> NavTie:
+    """Build the tie record from `dec.nav`, whose four members are all required.
+
+    `alt` and `drew` are `0`/`1` on the wire and become booleans here; the
+    values are not otherwise checked, as no enumerated member is.
+    """
+    return NavTie(
+        point=nav["x"],
+        component=nav["c"],
+        alternative=bool(nav["alt"]),
+        drew=bool(nav["drew"]),
+    )
+
+
+def _parse_draw(value: Any) -> Tuple[int, int]:
+    """Freeze `dec.draw` into `(index, total)`.
+
+    Unlike `_as_int_pair`, which reads optional coordinates, a `draw` that is
+    not a two-element array raises `TypeError`: the member exists only to make
+    the pick replayable, and half of it replays nothing.
+    """
+    if not isinstance(value, list) or len(value) != 2:
+        raise TypeError("draw is not an [index, total] pair")
+    return (value[0], value[1])
+
+
+def _parse_retired(value: Any) -> Tuple[int, ...]:
+    """Freeze `dec.ret` into a tuple; anything but an array raises `TypeError`."""
+    if not isinstance(value, list):
+        raise TypeError("ret is not an array")
+    return tuple(value)
 
 
 def _without_type(record: Dict[str, Any]) -> Dict[str, Any]:
@@ -636,33 +894,43 @@ class TraceReader:
                 consumed, and reset to None at the start of every iteration.
             self._diagnostics: Counters filled as the file is read; complete
                 only once iteration is exhausted. Replaced on each iteration.
-            self._activities: `ACT` ID -> (activity name, has-MOP flag). Filled
-                forward as entries are met, cleared on each iteration.
+            self._activities: `ACT` ID -> (activity name, has-MOP flag), the
+                flag None when the entry carries no `mop`. Filled forward as
+                entries are met, cleared on each iteration.
             self._states: `STATE` ID -> (state key, owning `ACT` ID). Same
                 lifecycle as `_activities`.
-            self._mop_data, self._pipeline, self._llm_ack: The run-level census
-                records, verbatim. Same lifecycle as `_run_start`.
+            self._mop_data, self._pipeline, self._llm_ack, self._run_end: The
+                run-level census records, verbatim. Same lifecycle as
+                `_run_start`.
         """
         self._path = Path(trace_path)
         self._strict = strict
         self._run_start: Optional[RunStart] = None
         self._diagnostics = TraceDiagnostics()
-        self._activities: Dict[int, Tuple[str, bool]] = {}
+        self._activities: Dict[int, Tuple[str, Optional[bool]]] = {}
         self._states: Dict[int, Tuple[str, int]] = {}
         self._mop_data: Optional[Dict[str, Any]] = None
         self._pipeline: Optional[Dict[str, Any]] = None
         self._llm_ack: Optional[Dict[str, Any]] = None
+        self._run_end: Optional[Dict[str, Any]] = None
 
     @property
     def path(self) -> Path:
+        """The trace file this reader is bound to."""
         return self._path
 
     @property
     def run_start(self) -> Optional[RunStart]:
+        """The trace's header, or None until — or unless — it has been read.
+
+        Populated as soon as the first sink record is consumed, so a caller that
+        needs only the header can stop after the first row.
+        """
         return self._run_start
 
     @property
     def diagnostics(self) -> TraceDiagnostics:
+        """The counters of the current read, complete once iteration ends."""
         return self._diagnostics
 
     @property
@@ -693,6 +961,22 @@ class TraceReader:
         decisive campaign's 40 applications.
         """
         return self._pipeline
+
+    @property
+    def run_end(self) -> Optional[Dict[str, Any]]:
+        """The `RUN_END` record minus `type`, verbatim, or None.
+
+        `counters` is the per-run census of the mechanisms the cell mounted: on the
+        group-isolation jar `launches`, `gateMinActions`, `gateBreaker`, `guardBacks`,
+        `bufAbandoned`, `restarts`, `coinLlm`, `coinMop` and `nullRelaunches` (the
+        null-tree recoveries that relaunched the app, which are not steps and have no
+        step record) beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and
+        the LLM aggregates. The reader exposes the record without interpreting it and
+        derives no completeness flag or status from it (INV-APV-53): a trace cut by a
+        `SIGKILL` legitimately has none, and None here is that fact, reported, not
+        repaired. The collection path never reads it.
+        """
+        return self._run_end
 
     @property
     def llm_ack(self) -> Optional[Dict[str, Any]]:
@@ -731,6 +1015,7 @@ class TraceReader:
         self._mop_data = None
         self._pipeline = None
         self._llm_ack = None
+        self._run_end = None
 
         # Records are one line each by construction (INV-SNK-01), so line
         # iteration is a safe record boundary: a raw newline can only appear as
@@ -748,7 +1033,7 @@ class TraceReader:
         with self._path.open("r", encoding="utf-8", errors="replace") as handle:
             for line in handle:
                 line = line.strip()
-                if not line.startswith(_RECORD_PREFIX):
+                if not line.startswith(RECORD_PREFIX):
                     # Free-text `[APE] ` diagnostics and blank lines: not sink
                     # records, so not malformed either.
                     continue
@@ -801,13 +1086,17 @@ class TraceReader:
 
         Raises:
             SchemaVersionMismatch: In strict mode, when the header declares a
-                `v` other than `FORMAT_VERSION`.
+                `v` outside `SUPPORTED_VERSIONS`.
         """
         if record_type == _TYPE_ACT:
+            # The group-isolation jar writes `mop` only when the MOP group is
+            # mounted, so an entry without it is a fact not computed, kept None
+            # rather than read as False (INV-APV-68).
+            mop = record.get("mop")
             try:
                 self._activities[record["id"]] = (
                     record["name"],
-                    bool(record.get("mop", 0)),
+                    None if mop is None else bool(mop),
                 )
                 self._diagnostics.activities += 1
             except (KeyError, TypeError):
@@ -827,18 +1116,15 @@ class TraceReader:
             self._pipeline = _without_type(record)
         elif record_type == _TYPE_LLM_ACK:
             self._llm_ack = _without_type(record)
-        # RUN_END, a RUN_START outside the header position, and any type added
-        # later: well-formed and skipped without a malformed count. RUN_END is
-        # skipped by decision rather than by omission — D5 makes it write-only,
-        # and exposing it would invite the `if not run_end: ...` that is the
-        # exit contract that decision refuses (INV-APV-53). The three census
-        # records above are not termination signals, so surfacing them creates
-        # no such gradient.
+        elif record_type == _TYPE_RUN_END:
+            self._run_end = _without_type(record)
+        # A RUN_START outside the header position, and any type added later:
+        # well-formed and skipped without a malformed count.
 
     def _absorb_header(self, record: Dict[str, Any]) -> None:
         """Read the whole `RUN_START` record and check the schema it declares.
 
-        Nothing here can fail on an absent member: all thirteen are optional by
+        Nothing here can fail on an absent member: all fourteen are optional by
         design, and reporting one absent is the honest answer to "what did this
         run say about itself" (INV-APV-61). What can fail is the schema check,
         and only in strict mode.
@@ -848,7 +1134,7 @@ class TraceReader:
 
         Raises:
             SchemaVersionMismatch: In strict mode, when `v` is present and is
-                not `FORMAT_VERSION`.
+                not in `SUPPORTED_VERSIONS`.
         """
         build = record.get("build")
         self._run_start = RunStart(
@@ -869,6 +1155,7 @@ class TraceReader:
                 if isinstance(build, dict)
                 else None
             ),
+            variant=record.get("variant"),
         )
         self._diagnostics.run_start_present = True
 
@@ -876,13 +1163,13 @@ class TraceReader:
         # mismatched: the reader does not infer a version from the fields it
         # happens to recognise (INV-APV-51 applies to the schema too).
         version = self._run_start.v
-        if version is not None and version != FORMAT_VERSION:
+        if version is not None and version not in SUPPORTED_VERSIONS:
             self._diagnostics.schema_version_mismatch += 1
             if self._strict:
-                raise SchemaVersionMismatch(version, FORMAT_VERSION)
+                raise SchemaVersionMismatch(version, SUPPORTED_VERSIONS)
 
-    def _activity(self, act_id: int) -> Tuple[str, bool]:
-        """Resolve an `ACT` ID to its (name, has-MOP) pair.
+    def _activity(self, act_id: int) -> Tuple[str, Optional[bool]]:
+        """Resolve an `ACT` ID to its (name, has-MOP) pair, the flag possibly None.
 
         Raises:
             UnresolvedReference: When no earlier `ACT` record defined the ID.
@@ -908,8 +1195,9 @@ class TraceReader:
 
         The outcome-side flag is a two-hop lookup — `target -> STATE.act ->
         ACT.mop` — because the jar records it once per activity rather than on
-        every record. A target naming an undefined state is an unresolved
-        reference like any other, and takes the malformed branch.
+        every record; it is None when that `ACT` entry carries no `mop`. A
+        target naming an undefined state is an unresolved reference like any
+        other, and takes the malformed branch.
 
         Args:
             out: The record's `out` member, already known to be an object.
@@ -952,6 +1240,15 @@ class TraceReader:
         the `KeyError` becomes the caller's malformed count. Guarding them would
         only produce a row that is missing the fields an analysis reads.
 
+        The optional `dec` members are read only when present, and a present
+        one with the wrong shape — `cf`, `own`, `nav`, `trig` or `cfc` that is
+        not an object, `draw` that is not a pair, `ret` that is not an array,
+        or an object lacking a member its type requires — raises, so the record
+        is malformed. The enumerated values inside them are carried as written
+        and never checked against a list: a new owner or SATA path on the jar
+        side is a well-formed record, and the malformed count exists for
+        damaged lines (INV-APV-50).
+
         Args:
             record: A parsed step record — a sink record with no `type` member.
 
@@ -962,9 +1259,10 @@ class TraceReader:
         Raises:
             UnresolvedReference: When `act`, `st` or `out.target` names an
                 undefined dictionary ID.
-            KeyError: When a schema-required member is absent.
-            TypeError: When `dec`, `llm` or `out` is present with the wrong
-                shape.
+            KeyError: When a schema-required member is absent, at the top
+                level or inside a present `comp`, `own`, `nav` or `trig`.
+            TypeError: When `dec`, `llm`, `out` or a structured `dec` member is
+                present with the wrong shape.
         """
         step = record["s"]
         t_rel_ms = record["t"]
@@ -987,12 +1285,36 @@ class TraceReader:
 
         counterfactual = None
         if "cf" in dec:
-            cf = dec["cf"]
-            if not isinstance(cf, dict):
-                raise TypeError("cf is not an object")
+            cf = _require_object(dec, "cf")
             counterfactual = Counterfactual(
                 changed=bool(cf.get("changed", 0)), action=cf.get("a")
             )
+
+        owner = None
+        if "own" in dec:
+            owner = _parse_ownership(_require_object(dec, "own"))
+
+        nav = None
+        if "nav" in dec:
+            nav = _parse_nav_tie(_require_object(dec, "nav"))
+
+        component_trigger = None
+        if "trig" in dec:
+            trig = _require_object(dec, "trig")
+            component_trigger = ComponentTrigger(
+                kind=trig["k"], component_class=trig["c"]
+            )
+
+        # `cfc` values are `0`/`1` on the wire, read as booleans.
+        scorer_cf = None
+        if "cfc" in dec:
+            scorer_cf = {
+                scorer: bool(changed)
+                for scorer, changed in _require_object(dec, "cfc").items()
+            }
+
+        draw = _parse_draw(dec["draw"]) if "draw" in dec else None
+        retired = _parse_retired(dec["ret"]) if "ret" in dec else None
 
         component = None
         if "comp" in dec:
@@ -1023,13 +1345,29 @@ class TraceReader:
             priority=dec.get("pri"),
             wtg_source=dec.get("wtgsrc"),
             mop_exposure=_as_int_pair(dec.get("mopx")),
-            # Absent stays absent: `patched` is a tri-state and `cf` is present
-            # only on the MOP-sensitive channels (INV-APV-49).
+            # Absent stays absent: `patched` is a tri-state, `cf` is present
+            # only on the MOP-sensitive channels, and every member of the
+            # group-isolation jar is absent on older traces (INV-APV-49).
             patched=dec.get("patched"),
             counterfactual=counterfactual,
             component=component,
             llm=tuple(_parse_llm_call(entry) for entry in llm_entries),
             outcome=outcome,
+            owner=owner,
+            scorer_cf=scorer_cf,
+            draw=draw,
+            nav=nav,
+            input_source=dec.get("inp"),
+            restart_kind=dec.get("restart"),
+            back_menu_capped=dec.get("bmc"),
+            sata_path=dec.get("strat"),
+            rotation=dec.get("rot"),
+            buffer_abandoned_by=dec.get("buf"),
+            component_trigger=component_trigger,
+            mop_distance=dec.get("mopd"),
+            mop_stamp=dec.get("mops"),
+            retired_targets=retired,
+            mop_handler=dec.get("hnd"),
             **boosts,
         )
 

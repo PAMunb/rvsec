@@ -1362,6 +1362,7 @@ def test_components_rename_reaches_target_and_compact_target_methods():
         {
             "actions": ["android.intent.action.BOOT_COMPLETED"],
             "categories": ["android.intent.category.DEFAULT"],
+            "data": {"schemes": ["x"]},
         }
     ]
     provider = artifact["components"]["providers"][0]
@@ -1375,6 +1376,130 @@ def test_components_rename_reaches_target_and_compact_target_methods():
     assert "exported" not in artifact["components"]["activities"][0]
     assert "exported" not in receiver
     assert "exported" not in provider
+
+
+def test_receiver_filter_carries_reduced_data():
+    """A filter keeps the five data lists the jar builds an intent from.
+
+    The jar fires one intent per filter from its first scheme, host and MIME
+    type and its first path, or first path prefix. `ports` and `pathPatterns`
+    are never on the wire, an empty list is omitted, and a filter whose five
+    lists are all empty carries no `data` at all — so an application without
+    data filters keeps the artifact it had.
+    """
+    artifact = derive(
+        _document(
+            components={
+                "receivers": [
+                    {
+                        "className": "R",
+                        "reachesTarget": False,
+                        "targetMethods": [],
+                        "intentFilters": [
+                            {
+                                "actions": ["android.intent.action.MEDIA_MOUNTED"],
+                                "categories": [],
+                                "data": {
+                                    "schemes": ["file", 7],
+                                    "hosts": ["example.com"],
+                                    "ports": ["8080"],
+                                    "paths": [],
+                                    "pathPrefixes": ["/sdcard"],
+                                    "pathPatterns": ["/.*"],
+                                    "mimeTypes": ["text/plain"],
+                                },
+                            },
+                            {
+                                "actions": ["android.intent.action.BOOT_COMPLETED"],
+                                "categories": [],
+                                "data": {
+                                    "schemes": [],
+                                    "hosts": [],
+                                    "ports": ["1"],
+                                    "paths": [],
+                                    "pathPrefixes": [],
+                                    "pathPatterns": ["/x"],
+                                    "mimeTypes": [],
+                                },
+                            },
+                            {"actions": ["a.B"], "categories": [], "data": "bogus"},
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+    assert artifact["formatVersion"] == 2
+    assert artifact["components"]["receivers"][0]["intentFilters"] == [
+        {
+            "actions": ["android.intent.action.MEDIA_MOUNTED"],
+            "categories": [],
+            "data": {
+                "schemes": ["file"],
+                "hosts": ["example.com"],
+                "pathPrefixes": ["/sdcard"],
+                "mimeTypes": ["text/plain"],
+            },
+        },
+        {"actions": ["android.intent.action.BOOT_COMPLETED"], "categories": []},
+        {"actions": ["a.B"], "categories": []},
+    ]
+
+
+def test_service_filter_carries_reduced_data():
+    artifact = derive(
+        _document(
+            components={
+                "services": [
+                    {
+                        "className": "S",
+                        "reachesTarget": True,
+                        "targetMethods": [],
+                        "intentFilters": [
+                            {
+                                "actions": ["a.SYNC"],
+                                "categories": [],
+                                "data": {"paths": ["/p"], "pathPrefixes": ["/q"]},
+                            }
+                        ],
+                    }
+                ],
+            }
+        )
+    )
+    assert artifact["components"]["services"][0]["intentFilters"] == [
+        {
+            "actions": ["a.SYNC"],
+            "categories": [],
+            "data": {"paths": ["/p"], "pathPrefixes": ["/q"]},
+        }
+    ]
+
+
+def test_every_component_projected_whatever_reaches_target():
+    """Components at `reachesTarget: false` stay on the wire.
+
+    The jar's component trigger is a STATIC member whose pool reads no MOP
+    data, so a component dropped for not reaching a target is one the trigger
+    can never fire.
+    """
+    components = {
+        section: [
+            {"className": f"{section}.Reaching", "reachesTarget": True},
+            {"className": f"{section}.NotReaching", "reachesTarget": False},
+            {"className": f"{section}.Unmarked"},
+        ]
+        for section in ("activities", "receivers", "services", "providers")
+    }
+    artifact = derive(_document(components=components))
+    for section in components:
+        projected = artifact["components"][section]
+        assert [entry["className"] for entry in projected] == [
+            f"{section}.Reaching",
+            f"{section}.NotReaching",
+            f"{section}.Unmarked",
+        ]
+        assert [entry["reachesMop"] for entry in projected] == [True, False, False]
 
 
 # ---------------------------------------------------------------------------

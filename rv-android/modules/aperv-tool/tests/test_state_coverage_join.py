@@ -97,6 +97,20 @@ def test_a_step_without_a_dump_row_is_reported_not_invented() -> None:
     assert not totals.total
 
 
+def test_absent_mop_reach_is_carried_as_none() -> None:
+    """A cell without MOP has no `mopReach`; the join says absent, not zero."""
+    without = StateCoverage(state_key="S1", discovered=4, interacted=2, mop_reach=None)
+    frame, totals = state_coverage_join.join(
+        [_row(1, "S1"), _row(2, "S2")], _coverage(without, _state("S2"))
+    )
+
+    # Null in the frame, beside a present 0 that stays a 0.
+    assert pd.isna(frame.loc[0, "uicov_mop_reach"])
+    assert frame.loc[1, "uicov_mop_reach"] == 0
+    assert bool(frame.loc[0, "uicov_present"]) is True
+    assert totals.total
+
+
 def test_no_cross_run_key() -> None:
     """A state key is refused at the run boundary, by exception."""
     rows = [_row(1, "S1")]

@@ -390,7 +390,9 @@ def frame(bundles: Iterable[StepBundle]) -> pd.DataFrame:
 
     Returns:
         One row per step with the step's identity, the three stream counts, the
-        joined coverage counters and the two heartbeat flags.
+        joined coverage counters and the two heartbeat flags. `activity_has_mop`
+        is written as the row carries it, so it is null where the cell did not
+        compute the fact and never `False` in its place (INV-CAN-28).
     """
     records = [
         {

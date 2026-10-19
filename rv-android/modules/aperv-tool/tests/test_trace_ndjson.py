@@ -1,14 +1,19 @@
 """Tests for the native stage-4 NDJSON trace reader.
 
-Every rule the `aperv` delta states about the reader gets one named test, and
-each is asserted against `tests/fixtures/trace_ndjson_golden.ndjson` — a fixture
-written from the `event-sink` spec of `ape`'s `rearch-04-step-ndjson-telemetry`
-*before* the reader existed, so these tests compare the reader against the wire
-contract rather than against itself.
+Every rule the `aperv` delta states about the reader gets one named test, each
+asserted against a hand-written fixture rather than against the reader itself:
 
-The two negative cases that would perturb the golden fixture's malformed count
-(an undefined dictionary ID, a trace with no `RUN_START`) are built inline
-instead, so the fixture keeps its exact count of 2.
+- `trace_ndjson_golden.ndjson`, a trace of the `eea2b1a9` jar (`v: 1`), written
+  from the `event-sink` spec of `ape`'s `rearch-04-step-ndjson-telemetry`
+  *before* the reader existed;
+- `trace_ndjson_groups.ndjson`, a trace of the group-isolation jar (`v: 2`),
+  written from the `event-sink` spec of `ape`'s `isolate-guidance-groups`;
+- `trace_ndjson_v3_header.ndjson`, a header declaring a version the reader does
+  not implement.
+
+The negative cases that would perturb the golden fixture's malformed count (an
+undefined dictionary ID, a trace with no `RUN_START`, a wrongly shaped member)
+are built inline instead, so the fixture keeps its exact count of 2.
 """
 
 from __future__ import annotations
@@ -20,9 +25,12 @@ import pytest
 from fixture_gate import MISSING_REAL
 
 from aperv_tool.analysis.trace_ndjson import (
-    FORMAT_VERSION,
+    SUPPORTED_VERSIONS,
     BuildStamp,
+    ComponentTrigger,
     Counterfactual,
+    NavTie,
+    Ownership,
     SchemaVersionMismatch,
     StepRow,
     TraceReader,
@@ -31,7 +39,8 @@ from aperv_tool.analysis.trace_ndjson import (
 
 FIXTURES = Path(__file__).parent / "fixtures"
 GOLDEN = FIXTURES / "trace_ndjson_golden.ndjson"
-V2_HEADER = FIXTURES / "trace_ndjson_v2_header.ndjson"
+GROUPS = FIXTURES / "trace_ndjson_groups.ndjson"
+V3_HEADER = FIXTURES / "trace_ndjson_v3_header.ndjson"
 
 # The epoch base the golden fixture's RUN_START declares.
 GOLDEN_T0_MS = 1750000000000
@@ -95,6 +104,7 @@ class TestDefaultMaterialization:
         """Absent boost fields come back as explicit zeros (INV-APV-49)."""
         step42 = by_step[42]
         assert (step42.mop, step42.mop_frontier, step42.wtg) == (0, 0, 0)
+        assert step42.nav_frontier == 0
         assert (step42.coverage, step42.menu, step42.form) == (0, 0, 0)
 
     def test_present_boosts_are_not_overwritten(self, by_step):
@@ -250,25 +260,38 @@ class TestDiagnostics:
         assert "[APE] " in GOLDEN.read_text(encoding="utf-8")
         assert reader.diagnostics.malformed == 2
 
-    def test_run_end_is_read_by_nothing_and_not_counted_as_malformed(self):
-        """RUN_END is well-formed, skipped, and has no accessor at all.
+    def test_run_end_is_a_census_record_not_counted_as_malformed(self):
+        """RUN_END is well-formed, carried verbatim, and interpreted by nothing.
 
-        Write-only by owner decision D5: no code path reads, validates or acts
-        on it (INV-APV-53). The absence of an accessor is the point — an
-        attribute is the first step toward `if not run_end: ...`, which is the
-        exit contract that decision refuses — so it is asserted rather than
-        left to be noticed.
+        The reader exposes it beside the other run-level records and derives
+        nothing from it (INV-APV-53): the public surface is pinned, so a
+        completeness flag or an "ended normally" property cannot appear
+        unnoticed. The collection path still never reads it, which
+        `test_aperv_tool.py` asserts over `tools/aperv/*`.
         """
         reader = TraceReader(GOLDEN)
         list(reader)
 
         assert reader.diagnostics.records_read == 14
+        assert reader.diagnostics.malformed == 2
         assert reader.diagnostics.activities == 2
         assert reader.diagnostics.states == 2
         assert reader.diagnostics.run_start_present is True
-        assert not hasattr(reader, "run_end")
-        assert "RUN_END" not in {
-            name for name in dir(reader) if not name.startswith("_")
+        assert reader.run_end == {
+            "reason": "timeout",
+            "steps": 4,
+            "t_first_step": 8123,
+            "t_last_step": 9500,
+            "counters": {"calls": 2, "matched": 1},
+        }
+        assert {name for name in dir(reader) if not name.startswith("_")} == {
+            "path",
+            "run_start",
+            "diagnostics",
+            "mop_data",
+            "pipeline",
+            "llm_ack",
+            "run_end",
         }
 
     def test_undefined_dictionary_id_is_malformed(self, tmp_path):
@@ -384,13 +407,14 @@ class TestRunStartHeader:
     """
 
     def test_run_start_thirteen_members(self):
-        """All thirteen wire members reach the caller, `build` nested."""
+        """All thirteen members of an `eea2b1a9` header arrive, `build` nested."""
         reader = TraceReader(GOLDEN)
         list(reader)
         run_start = reader.run_start
 
         assert run_start is not None
-        assert run_start.v == FORMAT_VERSION
+        assert run_start.v == 1
+        assert run_start.variant is None, "the eea2b1a9 jar writes no variant"
         assert run_start.run_id == "cryptoapp.apk__1__1800__aperv:mop_on_llm_70"
         assert run_start.t0_ms == GOLDEN_T0_MS
         assert run_start.seed == 1750000000001
@@ -452,10 +476,10 @@ class TestRunStartHeader:
         assert reader.run_start.seed is None
         assert reader.run_start.preset == "mop"
 
-        v2 = TraceReader(V2_HEADER)
-        list(v2)
-        assert v2.run_start.inert == (), "an empty list is not an absent member"
-        assert v2.run_start.corpus_basis is None
+        v3 = TraceReader(V3_HEADER)
+        list(v3)
+        assert v3.run_start.inert == (), "an empty list is not an absent member"
+        assert v3.run_start.corpus_basis is None
 
     def test_missing_t0_leaves_the_epoch_unavailable(self, tmp_path):
         """A header without `t0` is a header, not a malformed record.
@@ -488,14 +512,15 @@ class TestRunStartHeader:
         schema change invalidates, so it gets the exception rather than rows it
         would go on to average against rows of another schema.
         """
-        reader = TraceReader(V2_HEADER, strict=True)
+        reader = TraceReader(V3_HEADER, strict=True)
 
         with pytest.raises(SchemaVersionMismatch) as raised:
             list(reader)
 
-        assert raised.value.found == 2
-        assert raised.value.expected == FORMAT_VERSION
-        assert "2" in str(raised.value) and "1" in str(raised.value)
+        assert raised.value.found == 3
+        assert raised.value.supported == SUPPORTED_VERSIONS == frozenset({1, 2})
+        assert "v=3" in str(raised.value)
+        assert "implements 1, 2" in str(raised.value)
         assert reader.diagnostics.steps_yielded == 0, "raised before any row"
 
     def test_v_mismatch_counted(self):
@@ -504,18 +529,28 @@ class TestRunStartHeader:
         A survey over a mixed tree should report the tree's composition, not
         stop at its first foreign trace.
         """
-        reader = TraceReader(V2_HEADER)
+        reader = TraceReader(V3_HEADER)
         rows = list(reader)
 
         assert len(rows) == 1
         assert reader.diagnostics.schema_version_mismatch == 1
-        assert reader.run_start.v == 2
+        assert reader.run_start.v == 3
 
-    def test_matching_version_is_not_counted(self):
-        """The golden fixture is at `FORMAT_VERSION`, so nothing is counted."""
-        reader = TraceReader(GOLDEN, strict=True)
-        list(reader)
+    @pytest.mark.parametrize(
+        ("trace", "version"), [(GOLDEN, 1), (GROUPS, 2)], ids=["eea2b1a9", "groups"]
+    )
+    def test_both_jar_generations_read_in_strict_mode(self, trace, version):
+        """Version 1 (`eea2b1a9`) and version 2 (group isolation) both pass.
 
+        The group-isolation jar bumped the version because `dec.src` changed
+        meaning, not because the reader cannot read it; the version is carried
+        so a consumer can tell the two meanings apart (INV-APV-67).
+        """
+        reader = TraceReader(trace, strict=True)
+        rows = list(reader)
+
+        assert rows
+        assert reader.run_start.v == version
         assert reader.diagnostics.schema_version_mismatch == 0
 
     def test_absent_version_is_unknown_not_mismatched(self, tmp_path):
@@ -693,6 +728,293 @@ class TestRunLevelRecords:
         assert reader.mop_data is None
         assert reader.pipeline is None
         assert reader.llm_ack is None
+        assert reader.run_end is None
+
+    def test_groups_run_level_records_with_the_routing_counters(self):
+        """The four run-level records of a group-isolation trace are reachable.
+
+        `RUN_END.counters` is the per-run census of the mechanisms the cell
+        mounts, so an analysis of the cells needs the nine routing counters
+        exactly as the jar wrote them.
+        """
+        reader = TraceReader(GROUPS)
+        list(reader)
+
+        assert reader.mop_data["targets"] == 4
+        assert "NavFrontierPass" in reader.pipeline["passes"]
+        assert reader.llm_ack["server_model"] == "Qwen/Qwen3-VL-4B-Instruct"
+        assert "type" not in reader.run_end
+        counters = reader.run_end["counters"]
+        assert counters["coinMop"] == 37
+        assert counters["coinLlm"] == 120
+        assert counters["launches"] == 4
+        assert counters["nullRelaunches"] == 1
+        assert {
+            key: counters[key]
+            for key in (
+                "gateMinActions",
+                "gateBreaker",
+                "guardBacks",
+                "bufAbandoned",
+                "restarts",
+            )
+        } == {
+            "gateMinActions": 3,
+            "gateBreaker": 0,
+            "guardBacks": 2,
+            "bufAbandoned": 1,
+            "restarts": 1,
+        }
+        assert reader.diagnostics.malformed == 0
+
+
+# Fields that only the group-isolation jar writes, absent on every older trace.
+GROUP_ONLY_FIELDS = (
+    "owner",
+    "scorer_cf",
+    "draw",
+    "nav",
+    "input_source",
+    "restart_kind",
+    "back_menu_capped",
+    "sata_path",
+    "rotation",
+    "buffer_abandoned_by",
+    "component_trigger",
+    "mop_handler",
+)
+
+
+@pytest.fixture
+def groups_by_step():
+    return {row.step: row for row in read_steps(GROUPS)}
+
+
+def _one_step_trace(tmp_path: Path, dec: str) -> TraceReader:
+    """A minimal trace whose step 1 carries `dec` and whose step 2 is clean.
+
+    The clean second step is the control: it proves a malformed first record
+    was skipped rather than taking the read down with it.
+    """
+    trace = tmp_path / "one_step.ndjson"
+    trace.write_text(
+        '{"type":"RUN_START","v":2,"run_id":"r","t0":10}\n'
+        '{"type":"ACT","id":1,"name":"com.foo/.Main"}\n'
+        '{"type":"STATE","id":1,"key":"S1","act":1}\n'
+        '{"s":1,"t":5,"act":1,"st":1,"dec":' + dec + "}\n"
+        '{"s":2,"t":6,"act":1,"st":1,'
+        '"dec":{"a":"CLICK","src":"sata","ch":"sata_other","own":{"i":"sata"}}}\n',
+        encoding="utf-8",
+    )
+    return TraceReader(trace)
+
+
+class TestMopStampMembers:
+    def test_mop_stamp_members_reach_the_row(self, by_step):
+        """`mopd`, `mops` and `ret` reach typed fields instead of being dropped."""
+        step43 = by_step[43]
+        assert step43.mop_distance == 2
+        assert step43.mop_stamp == "s"
+        assert step43.retired_targets == (0, 3)
+
+        step42 = by_step[42]
+        assert (
+            step42.mop_distance,
+            step42.mop_stamp,
+            step42.retired_targets,
+        ) == (None, None, None)
+
+
+class TestGroupIsolationMembers:
+    """The decision record of the group-isolation jar reaches the row.
+
+    `trace_ndjson_groups.ndjson` is hand-written from the `event-sink` spec of
+    `ape`'s `isolate-guidance-groups`. Two of its records deliberately go beyond
+    what one real step writes, so that every rule has an input that reaches it:
+    step 5 carries every new member at once (a real step carries `restart` only
+    when the RESTART guard owns it, and `buf` only when a preempting owner took
+    it), and `ACT` 2 carries no `mop` although the cell mounts MOP.
+    """
+
+    def test_owner_record_reaches_the_row(self, groups_by_step):
+        """`src` is carried as written, beside the owner that was intended."""
+        step4 = groups_by_step[4]
+
+        assert step4.decision_source == "sata"
+        assert step4.owner == Ownership(
+            intended="llm",
+            trigger="coin",
+            u_llm=0.42,
+            u_mop=0.17,
+            gate="min_actions",
+            fallback="gate",
+        )
+        assert step4.sata_path == "greedy_path"
+        assert step4.rotation == 1
+
+    def test_one_step_per_owner(self, groups_by_step):
+        """Steps owned by `llm`, `mop`, `restart` and `sata` each read whole."""
+        assert {
+            step: (row.decision_source, row.pick_channel, row.owner.intended)
+            for step, row in groups_by_step.items()
+        } == {
+            1: ("llm", "llm", "llm"),
+            2: ("mop", "mop_coin", "mop"),
+            3: ("restart", "restart", "restart"),
+            4: ("sata", "sata_other", "llm"),
+            5: ("sata", "roulette_greedy", "sata"),
+            6: ("sata", "sata_other", "llm"),
+        }
+        assert groups_by_step[1].owner.trigger == "new_state"
+        assert groups_by_step[1].owner.u_mop == 0.88
+        assert groups_by_step[2].mop_distance == 2
+        assert groups_by_step[2].mop_stamp == "s"
+        assert (
+            groups_by_step[2].mop_handler == "br.unb.cic.cryptoapp.SettingsActivity$2"
+        )
+        assert groups_by_step[6].owner.fallback == "screenshot"
+        assert groups_by_step[3].restart_kind == "activity"
+        assert groups_by_step[3].sata_path is None
+
+    def test_every_new_member_reaches_its_field(self, groups_by_step):
+        """Each member of step 5 lands in its typed `StepRow` field."""
+        step5 = groups_by_step[5]
+
+        assert step5.scorer_cf == {"mop": True, "navf": False, "cov": False}
+        assert step5.draw == (731, 1290)
+        assert step5.nav == NavTie(
+            point="X3", component="mop", alternative=True, drew=False
+        )
+        assert step5.input_source == "typed"
+        assert step5.restart_kind == "periodic"
+        assert step5.back_menu_capped == 1
+        assert step5.sata_path == "eps_roulette"
+        assert step5.rotation == 0, "rot:0 is a reading, not an absence"
+        assert step5.buffer_abandoned_by == "budget"
+        assert step5.component_trigger == ComponentTrigger(
+            kind="broadcast", component_class="com.example.BootReceiver"
+        )
+        assert step5.nav_frontier == 150
+        assert (step5.mop, step5.coverage) == (400, 50)
+        assert step5.mop_distance == 1
+        assert step5.mop_stamp == "i"
+        assert step5.mop_handler is None, "hnd is written only on a stamp lookup"
+        assert step5.retired_targets == (0, 3)
+        assert step5.patched == 0
+        assert step5.mop_exposure == (2, 9)
+
+    def test_group_isolation_trace_has_no_v1_members(self, groups_by_step):
+        """`cf` and `wtgsrc` exist only on `v == 1`, so they are None here."""
+        for row in groups_by_step.values():
+            assert row.counterfactual is None
+            assert row.wtg_source is None
+
+    def test_eea2b1a9_trace_reports_the_new_members_absent(self, rows):
+        """No default for a mechanism the older jar did not have (INV-APV-49)."""
+        for row in rows:
+            for name in GROUP_ONLY_FIELDS:
+                assert getattr(row, name) is None, f"step {row.step}: {name}"
+            assert row.nav_frontier == 0
+
+        reader = TraceReader(GOLDEN)
+        list(reader)
+        assert reader.run_start.variant is None
+
+    def test_run_start_carries_every_member_variant_included(self):
+        """All fourteen members of the group-isolation header reach the caller."""
+        reader = TraceReader(GROUPS)
+        list(reader)
+        run_start = reader.run_start
+
+        assert run_start.v == 2
+        assert run_start.variant == "as_mop_llm"
+        assert run_start.preset == "as_mop_llm"
+        assert run_start.run_id == "cryptoapp.apk__1__900__aperv:as_mop_llm"
+        assert run_start.t0_ms == 1790000000000
+        assert run_start.seed == 1790000000001
+        assert run_start.agent == "sata"
+        assert "MOP_LAUNCHER" in run_start.features
+        assert run_start.params["ape.variant"] == "as_mop_llm"
+        assert run_start.inert == ()
+        assert run_start.corpus_basis == "e6-corpus:5b1f0c2d"
+        assert run_start.digest == "c0ffee0123456789"
+        assert run_start.props_digest.startswith("9a8b7c6d")
+        assert run_start.build == BuildStamp(
+            sha="16b185f4", time="2026-10-17T09:00:00Z"
+        )
+
+    def test_activity_without_the_mop_fact_reports_it_absent(
+        self, groups_by_step, by_step
+    ):
+        """An `ACT` with no `mop` gives None on both sides (INV-APV-68).
+
+        The group-isolation jar writes the member only when MOP is mounted, so
+        its absence says the fact was not computed; False would claim it was.
+        """
+        assert groups_by_step[3].activity_has_mop is None
+        assert groups_by_step[1].activity_has_mop is True
+        assert groups_by_step[1].outcome.target_activity == (
+            "br.unb.cic.cryptoapp/.SettingsActivity"
+        )
+        assert groups_by_step[1].outcome.target_activity_has_mop is None
+
+        # ACT 18 of the golden fixture carries mop:0, which still reads False.
+        assert by_step[43].activity == ABOUT_ACTIVITY
+        assert by_step[43].activity_has_mop is False
+
+    def test_unknown_enumerated_value_is_carried(self, tmp_path):
+        """A SATA path the contract does not list is data, not damage."""
+        reader = _one_step_trace(
+            tmp_path,
+            '{"a":"CLICK","src":"sata","ch":"sata_other",'
+            '"own":{"i":"sata","fb":"novel"},"strat":"lookahead",'
+            '"nav":{"x":"X9","c":"other","alt":0,"drew":1}}',
+        )
+        rows = list(reader)
+
+        assert rows[0].sata_path == "lookahead"
+        assert rows[0].owner.fallback == "novel"
+        assert rows[0].nav == NavTie(
+            point="X9", component="other", alternative=False, drew=True
+        )
+        assert reader.diagnostics.malformed == 0
+
+    @pytest.mark.parametrize(
+        "member",
+        [
+            '"own":"llm"',
+            '"own":{"trg":"coin"}',
+            '"draw":[731]',
+            '"draw":731',
+            '"nav":"X3"',
+            '"nav":{"x":"X3","c":"mop","alt":1}',
+            '"trig":"broadcast"',
+            '"trig":{"k":"broadcast"}',
+            '"cfc":["mop"]',
+            '"ret":3',
+        ],
+        ids=[
+            "own_is_str",
+            "own_without_i",
+            "draw_is_short",
+            "draw_is_int",
+            "nav_is_str",
+            "nav_without_drew",
+            "trig_is_str",
+            "trig_without_c",
+            "cfc_is_list",
+            "ret_is_int",
+        ],
+    )
+    def test_wrongly_shaped_member_is_malformed(self, tmp_path, member):
+        """A structured member of the wrong shape drops its record, not the read."""
+        reader = _one_step_trace(
+            tmp_path, '{"a":"CLICK","src":"sata","ch":"sata_other",' + member + "}"
+        )
+        rows = list(reader)
+
+        assert [row.step for row in rows] == [2]
+        assert reader.diagnostics.malformed == 1
 
 
 class TestRunStartOnRecordedTraces:
@@ -757,7 +1079,7 @@ class TestRunStartOnRecordedTraces:
                 if getattr(run_start, name) is None
             ]
             assert not absent, f"{relative}: header lacks {absent}"
-            assert run_start.v == FORMAT_VERSION
+            assert run_start.v == 1
             assert run_start.build.sha, f"{relative}: build carries no sha"
             assert reader.diagnostics.schema_version_mismatch == 0
             checked += 1
@@ -789,9 +1111,9 @@ class TestRunStartOnRecordedTraces:
 
         assert set(by_arm) == {"aperv:mop_off_llm_off", "aperv:mop_on_llm_off"}
         for arm, features in by_arm.items():
-            assert not any(
-                name.startswith("LLM") for name in features
-            ), f"{arm} is an llm_off arm, yet its headers declare {sorted(features)}"
+            assert not any(name.startswith("LLM") for name in features), (
+                f"{arm} is an llm_off arm, yet its headers declare {sorted(features)}"
+            )
         assert "MOP_FRONTIER" in by_arm["aperv:mop_on_llm_off"]
         assert "MOP_FRONTIER" not in by_arm["aperv:mop_off_llm_off"]
 

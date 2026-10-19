@@ -28,6 +28,15 @@ unanchored form matched the tail of ``activity_has_mop=1`` and produced hundreds
 phantom violations in a campaign that had none. ``ANCHORED_MOP`` encodes the
 anchoring rather than the memory of it (INV-CAN-07).
 
+**Gate 1's signal has two forms, chosen by the trace's format.** The anchored
+pattern matches the ``key=value`` line format and cannot match an NDJSON ``"mop":``
+member, so over an NDJSON trace it would count zero whatever the trace carried.
+``clean_control_signal`` therefore picks the form: a trace whose first sink record
+is ``{``-leading is counted by ``count_mop_group_signal``, which reads the trace
+through ``TraceReader`` and counts the MOP-group members the jar's own
+clean-control gate lists; any other stream keeps ``count_forbidden_signal``.
+Which arms are controls is the manifest's declaration, not this module's.
+
 **Gates 2 and 3 have a per-arm evidence form and the code names it** (INV-CAN-06),
 because one form does not fit every arm. An ``aperv`` run's jar writes a header
 declaring the preset, features, parameters and its own build; a ``droidbot`` run
@@ -55,14 +64,17 @@ campaign.
 
 from __future__ import annotations
 
+import itertools
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Optional, Pattern, Sequence
 
 import pandas as pd
 
 from aperv_tool.analysis import liveness
+from aperv_tool.analysis.coverage_dump import RunCoverage, parse_run
 from aperv_tool.analysis.run_identity import (
     IDENTITY_COLUMNS,
     RunKey,
@@ -75,12 +87,37 @@ from aperv_tool.analysis.runspec import (
     Verdict,
     attribution_evidence,
 )
+from aperv_tool.analysis.trace_ndjson import RECORD_PREFIX, StepRow, TraceReader
 
 #: The forbidden-signal pattern for the clean-control gate, anchored so that a field
 #: whose name *ends* in the field being looked for — ``activity_has_mop=1`` — does not
 #: match (INV-CAN-07). The lookbehind rejects a preceding lowercase letter or
 #: underscore, which is what a longer field name always has.
 ANCHORED_MOP: Pattern[str] = re.compile(r"(?<![a-z_])mop=")
+
+#: The trace version on which the whole MOP-group list is a signal. The
+#: group-isolation jar writes ``ACT.mop``, ``mopReach``, the MOP stamps and the MOP
+#: counters only with MOP mounted; the version-1 jar's control mounted MOP with the
+#: weights zeroed, so on any other version only a fired MOP boost is a signal.
+GROUP_ISOLATION_VERSION = 2
+
+# The MOP-group members of a step record, as the reader names them.
+_MOP_GROUP_SCORERS = frozenset({"mop", "mopf", "wtg", "menu"})
+_MOP_GROUP_CHANNELS = frozenset({"mop_coin", "launcher"})
+_MOP_GROUP_OWNERS = frozenset({"mop", "launcher"})
+_MOP_NAV_COMPONENT = "mop"
+
+# The `RUN_END` counters the MOP group alone advances on the group-isolation jar.
+_MOP_GROUP_COUNTERS = ("coinMop", "launches", "stampHits", "retired")
+
+#: Gate 1's evidence form for a count made with `count_mop_group_signal`.
+FORM_MOP_GROUP = "MOP-group members of the NDJSON trace, read through TraceReader"
+
+
+def _legacy_form(pattern: Pattern[str]) -> str:
+    """Gate 1's evidence form for a count made with ``count_forbidden_signal``."""
+    return f"anchored field pattern {pattern.pattern!r} over the run's own stream"
+
 
 GATE_CLEAN_CONTROL = 1
 GATE_CORRECT_BINARY = 2
@@ -106,8 +143,10 @@ GATE_NAMES: Mapping[int, str] = {
 _IDENTITY_COLUMNS = IDENTITY_COLUMNS
 
 # The evidence columns, named here so the frame's producer has one list to satisfy:
-#   forbidden_signal_count — matches of the signal pattern in the run's own stream,
-#       counted with `count_forbidden_signal` so the anchored pattern has one seat
+#   forbidden_signal_count — the clean-control signal in the run's own stream,
+#       counted with `clean_control_signal` so each form has one seat
+#   forbidden_signal_form  — which form counted it, `ControlSignal.form`; a frame
+#       that carries the count alone was counted with `count_forbidden_signal`
 #   jar_sha256             — digest of the artefact that ran, from a sidecar
 #   ndjson_line_count      — `{`-leading lines in the trace, for the ape arms
 #   first_ndjson_line_no   — the line number of the first of them, for the message
@@ -115,6 +154,7 @@ _IDENTITY_COLUMNS = IDENTITY_COLUMNS
 #   run_start              — the header `TraceReader` read, for the aperv arms
 _EVIDENCE_COLUMNS = (
     "forbidden_signal_count",
+    "forbidden_signal_form",
     "jar_sha256",
     "ndjson_line_count",
     "first_ndjson_line_no",
@@ -158,6 +198,160 @@ def count_forbidden_signal(
         The total number of matches, counting every match on a line.
     """
     return sum(len(pattern.findall(line)) for line in lines)
+
+
+def _mop_group_row(row: StepRow) -> bool:
+    """Whether a step row carries a ``v == 2`` MOP-group member other than ``ACT``."""
+    owner = row.owner
+    scorers = row.scorer_cf or {}
+    return (
+        row.mop != 0
+        or row.mop_frontier != 0
+        or row.wtg != 0
+        or row.menu != 0
+        or row.mop_distance is not None
+        or row.mop_stamp is not None
+        or row.mop_handler is not None
+        or row.retired_targets is not None
+        or row.mop_exposure is not None
+        or (owner is not None and owner.u_mop is not None)
+        or any(scorer in _MOP_GROUP_SCORERS for scorer in scorers)
+        or (row.nav is not None and row.nav.component == _MOP_NAV_COMPONENT)
+        or row.pick_channel in _MOP_GROUP_CHANNELS
+        or row.decision_source in _MOP_GROUP_OWNERS
+        or (owner is not None and owner.intended in _MOP_GROUP_OWNERS)
+    )
+
+
+def _act_mop_fact(row: StepRow) -> bool:
+    """Whether the reader derived a MOP fact from an ``ACT`` record for the row."""
+    outcome = row.outcome
+    return row.activity_has_mop is not None or (
+        outcome is not None and outcome.target_activity_has_mop is not None
+    )
+
+
+def count_mop_group_signal(
+    reader: TraceReader, coverage: Optional[RunCoverage] = None
+) -> int:
+    """The MOP-group signals of an NDJSON trace, for gate 1 (INV-CAN-07).
+
+    The list depends on the trace version, because the two jar generations mean
+    different things by a clean control.
+
+    On a ``v == 2`` trace each step row carrying at least one MOP-group member counts
+    once: a non-zero MOP, MOP-frontier, WTG or menu boost; a MOP distance, stamp,
+    stamped handler, retirement or exposure; a MOP coin draw on the owner record; a MOP
+    scorer in the per-scorer counterfactual; a tie decided by the MOP navigation
+    component; a MOP-coin or launcher pick channel; a ``mop`` or ``launcher`` owner,
+    executed or intended; an ``activity_has_mop`` or outcome ``target_activity_has_mop``
+    that is not None, whatever the value, since that jar writes ``ACT.mop`` only with
+    MOP mounted. Outside the rows, each ``UICOV`` line carrying ``mopReach`` counts
+    once, and a ``RUN_END`` with a non-zero ``coinMop``, ``launches``, ``stampHits`` or
+    ``retired`` counter counts once. ``nullRelaunches`` does not count: it is written in
+    every cell, and the clean-control list of the jar (INV-SNK-18) does not name it. A
+    ``UICOV`` line that did not parse never reaches ``coverage.states``, so its
+    ``mopReach`` is not counted.
+
+    On any other trace — ``v == 1``, or a trace whose header is absent or
+    declares no version — the legacy list applies: a step row counts once when
+    its ``mop`` or ``mop_frontier`` boost is non-zero, and nothing else counts.
+    The version-1 control mounted MOP with its weights zeroed, so the MOP pass
+    wrote its exposure, stamps, ``ACT.mop`` and ``mopReach`` in a clean run, and
+    clean meant that no MOP boost fired. An unknown version gets that reading
+    because it is the narrower claim: it never fails a control on a by-product.
+
+    ``MOP_DATA`` never counts on either version: it reports that the artifact
+    was loaded, which a STATIC cell does by design.
+
+    Args:
+        reader: The run's trace. Iterated once; ``run_start`` and ``run_end`` are
+            read after the iteration, since the reader fills them as it reads.
+            Any object exposing those two attributes and yielding ``StepRow``
+            serves.
+        coverage: The same run's coverage dump, from ``coverage_dump.parse_run``,
+            which is where the ``UICOV`` lines are read. None counts no ``UICOV``
+            line.
+
+    Returns:
+        The number of MOP-group signals. Zero is a clean control.
+    """
+    # The version is known only once the reader has been iterated, so both
+    # readings are counted in the one pass and the header picks between them.
+    group_rows = 0
+    legacy_rows = 0
+    for row in reader:
+        if _mop_group_row(row) or _act_mop_fact(row):
+            group_rows += 1
+        if row.mop != 0 or row.mop_frontier != 0:
+            legacy_rows += 1
+
+    run_start = reader.run_start
+    if run_start is None or run_start.v != GROUP_ISOLATION_VERSION:
+        return legacy_rows
+
+    count = group_rows
+    if coverage is not None:
+        count += sum(1 for state in coverage.states if state.mop_reach is not None)
+    counters = (reader.run_end or {}).get("counters") or {}
+    if any(counters.get(name) for name in _MOP_GROUP_COUNTERS):
+        count += 1
+    return count
+
+
+@dataclass(frozen=True, slots=True)
+class ControlSignal:
+    """Gate 1's signal for one run, and the form that counted it.
+
+    Attributes:
+        count: The value for the frame's ``forbidden_signal_count``.
+        form: The value for ``forbidden_signal_form``, quoted as gate 1's
+            evidence form.
+    """
+
+    count: int
+    form: str
+
+
+def clean_control_signal(
+    trace_path: Path | str, *, pattern: Pattern[str] = ANCHORED_MOP
+) -> ControlSignal:
+    """Count one run's clean-control signal in the form its trace calls for.
+
+    A trace whose first sink record is ``{``-leading is NDJSON and is counted by
+    ``count_mop_group_signal``. A stream with no such line is a legacy
+    ``key=value`` stream and is counted by ``count_forbidden_signal``. The scan
+    for that first record is the legacy count's own pass, so a legacy trace is
+    read once; the AOSP banners that precede an NDJSON header are the only lines
+    an NDJSON trace spends on it.
+
+    Args:
+        trace_path: The run's recorded ``.trace``. Never written to.
+        pattern: The legacy signal, anchored by default.
+
+    Returns:
+        The ``ControlSignal``.
+
+    Raises:
+        OSError: When the trace cannot be read.
+    """
+    trace_path = Path(trace_path)
+    found_record = False
+
+    def before_first_record(line: str) -> bool:
+        nonlocal found_record
+        found_record = line.strip().startswith(RECORD_PREFIX)
+        return not found_record
+
+    with trace_path.open("r", encoding="utf-8", errors="replace") as handle:
+        legacy = count_forbidden_signal(
+            itertools.takewhile(before_first_record, handle), pattern
+        )
+
+    if not found_record:
+        return ControlSignal(count=legacy, form=_legacy_form(pattern))
+    count = count_mop_group_signal(TraceReader(trace_path), parse_run(trace_path))
+    return ControlSignal(count=count, form=FORM_MOP_GROUP)
 
 
 @dataclass(frozen=True)
@@ -309,20 +503,26 @@ def _value(row: Mapping[str, Any], column: str) -> Any:
 def _gate_clean_control(
     arm: str, rows: Sequence[tuple[RunKey, Mapping[str, Any]]], pattern: Pattern[str]
 ) -> GateResult:
-    """Gate 1 over one control arm."""
+    """Gate 1 over one control arm.
+
+    The evidence form names each signal form the arm's runs were counted with,
+    so an arm whose traces span both formats says so.
+    """
     unmeasured: list[RunKey] = []
     contaminated: list[RunKey] = []
+    forms: set[str] = set()
     total = 0
     for identity, row in rows:
         count = _value(row, "forbidden_signal_count")
         if count is None:
             unmeasured.append(identity)
             continue
+        forms.add(str(_value(row, "forbidden_signal_form") or _legacy_form(pattern)))
         if int(count) > 0:
             contaminated.append(identity)
             total += int(count)
 
-    form = f"anchored field pattern {pattern.pattern!r} over the run's own stream"
+    form = "; ".join(sorted(forms)) if forms else _legacy_form(pattern)
     if contaminated:
         return GateResult(
             status="fail",
@@ -430,7 +630,13 @@ def _gate_attribution_header(
             unevidenced.append(identity)
             continue
         # The digest belongs to gate 2; gate 3 asks what configuration resolved.
-        checks = [check for check in evidence.checks if check.name != CHECK_DIGEST]
+        # A check the trace's version cannot carry is reported by `runspec` and
+        # left out here, as it is left out of the evidence's own verdict.
+        checks = [
+            check
+            for check in evidence.checks
+            if check.name != CHECK_DIGEST and check.counted
+        ]
         verdict = _aggregate([check.verdict for check in checks])
         statuses.append(verdict)
         forms.update(check.name for check in checks if check.verdict != "not-run")
@@ -656,8 +862,10 @@ def run_all(
         arm_manifest: The campaign's roster and declarations, as data. An arm in the
             frame that the manifest does not declare raises rather than being split
             heuristically (INV-CAN-02).
-        alpha_signal: The forbidden signal gate 1 counts. Anchored by default
-            (INV-CAN-07).
+        alpha_signal: The legacy forbidden signal, named in gate 1's evidence form
+            for a run whose frame row carries no ``forbidden_signal_form``.
+            Anchored by default (INV-CAN-07). The counts themselves arrive in
+            the frame, made by ``clean_control_signal``.
         aperv_evidence: The header comparison gate 3 uses for the arms whose jar
             writes one. Supplied as a collaborator so this module holds no second
             copy of the comparison.

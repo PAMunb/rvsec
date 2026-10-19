@@ -11,13 +11,15 @@ the jar again. Reading the Java keeps one authority and confines the coupling to
 that is deleted at sign-off.
 
 The parser is deliberately shallow: regex over ``put(...)`` / ``base(...)`` /
-``feature(...)`` lines, with just enough structure to follow the composition
-(``mop()`` starts from ``aperv()``, ``llm_mop`` is ``mop()`` plus the LLM block). It has one
-caller and a lifetime measured in this change, so a full Java parser would be complexity
-bought for nobody. What it does NOT do is degrade: a file it cannot find, or a method whose
-body yields nothing, raises. A parse failure that returned an empty preset would make the
-regeneration diff pass by comparing nothing against nothing, which is the one outcome worse
-than a crash.
+``feature(...)`` lines, plus a statement walk of ``resolve()`` that follows its composition.
+A cell is the union of group blocks, chosen by ``if (X.equals(name) || ...)`` branches that
+may nest (``as_mop`` takes the ADDONS and STATIC blocks of the ``as*`` branch, then the MOP
+block of an inner branch). A full Java parser would be complexity bought for nobody. What it
+does NOT do is degrade: a file it cannot find, a ``resolve()`` it cannot locate, a block
+method it cannot find, or a name that reaches no ``return``, raises. A parse failure that
+returned an empty preset would make a comparison pass by comparing nothing against nothing,
+which is the one outcome worse than a crash. ``base`` is empty because its branch returns the
+untouched vector, not because a match failed.
 """
 
 from __future__ import annotations
@@ -40,11 +42,19 @@ _METHOD_RE = re.compile(
     r"private\s+static\s+Map<String,\s*String>\s+(\w+)\(\)\s*\{(.*?)\n    \}",
     re.DOTALL,
 )
-# `if (APERV.equals(name)) { ... }` — how resolve() wires a preset name to those blocks.
-_BRANCH_RE = re.compile(
-    r"if\s*\((\w+)\.equals\(name\)\)\s*\{(.*?)\n        \}",
+# `public static Map<String, String> resolve(String name) { ... }` — the one place a preset
+# name meets the blocks.
+_RESOLVE_RE = re.compile(
+    r"public\s+static\s+Map<String,\s*String>\s+resolve\(String\s+name\)\s*\{(.*?)\n    \}",
     re.DOTALL,
 )
+# The statements of resolve(): an `if (...) {` opener (its condition may span lines), a bare
+# brace, or a `...;` statement.
+_STATEMENT_RE = re.compile(r"if\s*\((.*?)\)\s*\{|\{|\}|[^;{}]+;", re.DOTALL)
+# One disjunct of an `if` condition: `AS_MOP.equals(name)`.
+_EQUALS_RE = re.compile(r"(\w+)\.equals\(name\)")
+# `NAMES = ... Arrays.asList(BASE, MOP, ...)` — every name `ape.preset` accepts.
+_NAMES_RE = re.compile(r"\bNAMES\s*=.*?Arrays\.asList\(([^)]*)\)", re.DOTALL)
 # Both files name presets and keys through constants, so an identifier has to be resolved
 # back to the literal it stands for before it means anything here.
 _CONSTANT_RE = re.compile(r'public\s+static\s+final\s+String\s+(\w+)\s*=\s*"([^"]*)"')
@@ -113,7 +123,7 @@ def resolve_ape_repo() -> Path:
     if not candidates:
         raise JarTableError(
             "no ape source checkout: set $APE_REPO to a checkout carrying "
-            "rearch-02-runspec (or $RVSEC_HOME, whose ape/ subdirectory is tried)"
+            "isolate-guidance-groups (or $RVSEC_HOME, whose ape/ subdirectory is tried)"
         )
     for candidate in candidates:
         if (candidate / PRESETS_FILE).is_file():
@@ -166,7 +176,10 @@ def _evaluate(body: str, methods: Dict[str, str]) -> Dict[str, str]:
 
 
 def load_presets(ape_repo: Path) -> Dict[str, Dict[str, str]]:
-    """The four preset vectors, keyed by the name ``ape.preset`` accepts.
+    """Every preset vector, keyed by the name ``ape.preset`` accepts.
+
+    The names come from the ``NAMES`` list (the unknown-preset diagnostic's list), and each
+    is resolved by walking ``resolve()`` the way the jar would for that name.
 
     Args:
         ape_repo: Checkout root, as :func:`resolve_ape_repo` returns it.
@@ -176,31 +189,103 @@ def load_presets(ape_repo: Path) -> Dict[str, Dict[str, str]]:
         (typing is the caller's job, through :func:`load_key_specs`).
 
     Raises:
-        JarTableError: when a branch resolves to an empty vector — the shallow parser
-            stopped matching the file's shape and a silent empty preset would make the
-            regeneration diff vacuous.
+        JarTableError: when ``NAMES`` or ``resolve()`` is not found, or a name cannot be
+            resolved (see :func:`_resolve_name`).
     """
     source = _read(ape_repo, PRESETS_FILE)
     methods = {name: body for name, body in _METHOD_RE.findall(source)}
     constants = dict(_CONSTANT_RE.findall(source))
+    names_match = _NAMES_RE.search(source)
+    resolve_match = _RESOLVE_RE.search(source)
+    if names_match is None or resolve_match is None:
+        raise JarTableError(f"{PRESETS_FILE}: NAMES or resolve() not found")
 
     presets: Dict[str, Dict[str, str]] = {}
-    for constant, body in _BRANCH_RE.findall(source):
+    for constant in re.findall(r"\w+", names_match.group(1)):
         name = constants.get(constant)
         if name is None:
             raise JarTableError(
-                f"{PRESETS_FILE}: resolve() branches on unknown constant {constant}"
+                f"{PRESETS_FILE}: NAMES lists unknown constant {constant}"
             )
-        vector = _evaluate(body, methods)
-        if not vector:
-            raise JarTableError(
-                f"{PRESETS_FILE}: preset '{name}' parsed to an empty vector"
-            )
-        presets[name] = vector
-
-    if not presets:
-        raise JarTableError(f"{PRESETS_FILE}: no preset branches found in resolve()")
+        presets[name] = _resolve_name(resolve_match.group(1), name, constants, methods)
     return presets
+
+
+def _resolve_name(
+    body: str, name: str, constants: Dict[str, str], methods: Dict[str, str]
+) -> Dict[str, str]:
+    """Walk ``resolve()``'s statements for one name, as the jar would execute them.
+
+    A branch whose condition does not hold for ``name`` is skipped with everything nested in
+    it. In a taken branch, ``vector.putAll(x())`` folds block ``x`` in, ``vector = x();``
+    starts from it, ``return x();`` returns it, and ``return vector;`` returns what was folded
+    so far.
+
+    Args:
+        body: The source of ``resolve()``'s body.
+        name: The preset name being resolved.
+        constants: The file's ``String`` constants, to read the conditions.
+        methods: The block methods, by name.
+
+    Returns:
+        The name's ``{ape.key: text value}`` vector.
+
+    Raises:
+        JarTableError: when a condition is not a disjunction of ``X.equals(name)``, names an
+            unknown constant, a statement names an unknown block, or the walk reaches the
+            ``throw`` or the end without a ``return``.
+    """
+    vector: Dict[str, str] = {}
+    skip_depth = 0
+    for match in _STATEMENT_RE.finditer(body):
+        statement = match.group(0).strip()
+        if skip_depth:
+            skip_depth += statement.count("{") - statement.count("}")
+            continue
+        if match.group(1) is not None:
+            if not _condition_holds(match.group(1), name, constants):
+                skip_depth = 1
+            continue
+        if statement in ("{", "}") or statement.startswith(("Map<", "vector = new")):
+            continue
+        if statement.startswith("throw"):
+            break
+        if statement == "return vector;":
+            return vector
+        block = _INHERIT_RE.search(statement)
+        if block is None or block.group(1) not in methods:
+            raise JarTableError(
+                f"{PRESETS_FILE}: resolve() statement not understood: {statement}"
+            )
+        folded = _evaluate(methods[block.group(1)], methods)
+        if statement.startswith("return"):
+            return folded
+        if statement.startswith("vector ="):
+            vector = folded
+        else:
+            vector.update(folded)
+    raise JarTableError(
+        f"{PRESETS_FILE}: preset '{name}' reaches no return in resolve()"
+    )
+
+
+def _condition_holds(condition: str, name: str, constants: Dict[str, str]) -> bool:
+    """Whether an ``if`` condition of ``resolve()`` holds for ``name``.
+
+    Raises:
+        JarTableError: when the condition is anything but ``X.equals(name)`` disjuncts, or
+            names a constant the file does not declare.
+    """
+    disjuncts = [part.strip() for part in condition.split("||")]
+    values = []
+    for disjunct in disjuncts:
+        match = _EQUALS_RE.fullmatch(disjunct)
+        if match is None or match.group(1) not in constants:
+            raise JarTableError(
+                f"{PRESETS_FILE}: resolve() condition not understood: {condition}"
+            )
+        values.append(constants[match.group(1)])
+    return name in values
 
 
 def load_key_specs(ape_repo: Path) -> Dict[str, KeySpec]:

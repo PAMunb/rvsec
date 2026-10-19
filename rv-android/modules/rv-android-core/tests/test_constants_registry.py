@@ -3,8 +3,9 @@
 The `rv-android-core/constants.py` registry MUST contain ENV_* names that match a
 fixed regex: every entry is either an `RV_*` user-facing variable, or one of the
 three legacy non-`RV_*`-prefixed L1 cross-layer infra paths (`RVSEC_HOME`,
-`ANDROID_HOME`, `TOOLS_DIR`). Any ENV_* added in the future MUST satisfy this
-predicate.
+`ANDROID_HOME`, `TOOLS_DIR`), or `APERV_LLM_BASE_URL` — the one user-facing name
+outside `RV_*`, kept because the aperv-tool docs advertise it (INV-EXP-41). Any
+ENV_* added in the future MUST satisfy this predicate.
 """
 
 from __future__ import annotations
@@ -13,7 +14,9 @@ import re
 
 from rv_android_core import constants
 
-ENV_NAME_RE = re.compile(r"^(RV_[A-Z_]+|RVSEC_HOME|ANDROID_HOME|TOOLS_DIR)$")
+ENV_NAME_RE = re.compile(
+    r"^(RV_[A-Z_]+|RVSEC_HOME|ANDROID_HOME|TOOLS_DIR|APERV_LLM_BASE_URL)$"
+)
 
 
 def _env_constants() -> list[tuple[str, str]]:
@@ -34,7 +37,7 @@ def test_every_env_constant_matches_regex():
     pairs = _env_constants()
     bad = [(n, v) for n, v in pairs if not ENV_NAME_RE.match(v)]
     assert not bad, (
-        "ENV_* values must match ^(RV_[A-Z_]+|RVSEC_HOME|ANDROID_HOME|TOOLS_DIR)$; "
+        f"ENV_* values must match {ENV_NAME_RE.pattern}; "
         f"violators: {bad}"
     )
 
