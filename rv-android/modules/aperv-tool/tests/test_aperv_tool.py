@@ -46,8 +46,11 @@ from aperv_tool.tools.aperv.tool import (
 CELLS = ("base", "mop", "as", "as_mop", "as_llm", "as_mop_llm")
 STATIC_CELLS = ("as", "as_mop", "as_llm", "as_mop_llm")
 LLM_CELLS = ("as_llm", "as_mop_llm")
-# The ablation variants that share containers with their cell, so they carry a name.
-ABLATIONS = ("mop_k2", "mop_nolaunch")
+# The cells that mount MOP, which carry the coin's ledger budget (design D18).
+MOP_CELLS = ("mop", "as_mop", "as_mop_llm")
+# The ablation variant that shares containers with its cell, so it carries a name.
+ABLATIONS = ("mop_nolaunch",)
+LEDGER = {"mop_coin_ledger_max_interactions": 2}
 
 
 def _stub_clock(*readings):
@@ -125,6 +128,7 @@ class TestVariants:
         "mop_on_llm_70",
         "mopd_on_llm_off",
         "mopd_on_llm_90",
+        "mop_k2",
     )
 
     def test_the_variant_set_is_the_six_cells_and_default(self):
@@ -154,27 +158,21 @@ class TestVariants:
         assert "static_data" not in base
         assert "broadcast_catalog" not in base
 
-    def test_only_the_llm_cells_carry_an_override(self):
-        # INV-APV-38: the LLM preset needs a server, and a URL names a machine, not a cell.
+    def test_each_cell_carries_the_server_url_or_the_ledger_budget(self):
+        # Spec scenario "Each cell carries the server URL or the ledger budget, and nothing
+        # else". INV-APV-38: the LLM preset needs a server, and a URL names a machine, not a
+        # cell; D18: the MOP cells run the coin's ledger at 2 against the jar's default of 1.
         variants = ApeRVTool.get_variants()
-        assert variants["as_mop_llm"]["overrides"] == {"llm_url": LLM_URL_DEFAULT}
-        assert variants["as_llm"]["overrides"] == variants["as_mop_llm"]["overrides"]
+        assert variants["as_mop_llm"]["overrides"] == {
+            **LEDGER,
+            "llm_url": LLM_URL_DEFAULT,
+        }
+        assert variants["as_llm"]["overrides"] == {"llm_url": LLM_URL_DEFAULT}
         assert LLM_URL_DEFAULT == "http://10.0.2.2:30000/v1"
-        for name in set(CELLS) - set(LLM_CELLS):
+        assert variants["mop"]["overrides"] == LEDGER
+        assert variants["as_mop"]["overrides"] == LEDGER
+        for name in set(CELLS) - set(LLM_CELLS) - set(MOP_CELLS):
             assert variants[name]["overrides"] == {}, name
-
-    def test_the_mop_ledger_ablation_is_the_mop_cell_with_one_key(self):
-        # Spec scenario "The MOP ledger ablation is the mop cell with one key".
-        variants = ApeRVTool.get_variants()
-        k2 = variants["mop_k2"]
-        assert k2["preset"] == "mop"
-        assert k2["variant"] == "mop_k2"
-        assert k2["strategy"] == "sata"
-        assert k2["overrides"] == {"mop_coin_ledger_max_interactions": 2}
-        same = set(k2) - {"variant", "overrides"}
-        assert same == set(variants["mop"]) - {"variant", "overrides"}
-        for key in same:
-            assert k2[key] == variants["mop"][key], key
 
     def test_the_launcher_ablation_is_the_mop_cell_without_its_launcher(self):
         # Spec scenario "The launcher ablation is the mop cell without its launcher".
@@ -183,7 +181,7 @@ class TestVariants:
         assert nolaunch["preset"] == "mop"
         assert nolaunch["variant"] == "mop_nolaunch"
         assert nolaunch["strategy"] == "sata"
-        assert nolaunch["overrides"] == {"activity_trigger_enabled": False}
+        assert nolaunch["overrides"] == {**LEDGER, "activity_trigger_enabled": False}
         same = set(nolaunch) - {"variant", "overrides"}
         assert same == set(variants["mop"]) - {"variant", "overrides"}
         for key in same:
@@ -968,17 +966,16 @@ class TestPushProperties:
             "ape.preset=as_mop_llm",
             "ape.variant=as_mop_llm",
             f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
+            "ape.mopCoinLedgerMaxInteractions=2",
             "ape.llmUrl=http://10.0.2.2:30000/v1",
         ]
 
-    def test_the_mop_ledger_ablation_writes_its_key(self, tmp_path):
-        # Spec scenario "The MOP ledger ablation is the mop cell with one key".
-        lines = self._capture_properties(
-            tmp_path, _cell("mop_k2"), artifact_pushed=True
-        )
+    def test_the_mop_cells_write_the_ledger_budget(self, tmp_path):
+        # Spec scenario "The MOP cells write the ledger budget".
+        lines = self._capture_properties(tmp_path, _cell("mop"), artifact_pushed=True)
         assert lines == [
             "ape.preset=mop",
-            "ape.variant=mop_k2",
+            "ape.variant=mop",
             f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
             "ape.mopCoinLedgerMaxInteractions=2",
         ]
@@ -993,9 +990,10 @@ class TestPushProperties:
             "ape.variant=mop_nolaunch",
             f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
             "ape.activityTriggerEnabled=false",
+            "ape.mopCoinLedgerMaxInteractions=2",
         ]
 
-    def test_a_cell_with_data_writes_exactly_three_lines(self, tmp_path):
+    def test_a_cell_with_data_writes_exactly_four_lines(self, tmp_path):
         # Spec scenario "Properties file carries preset plus deltas only".
         lines = self._capture_properties(
             tmp_path, _cell("as_mop"), artifact_pushed=True
@@ -1004,6 +1002,7 @@ class TestPushProperties:
             "ape.preset=as_mop",
             "ape.variant=as_mop",
             "ape.staticDataPath=/data/local/tmp/mop-artifact.json",
+            "ape.mopCoinLedgerMaxInteractions=2",
         ]
         assert not [ln for ln in lines if ln.startswith("ape.mopDataPath")]
 
@@ -1021,7 +1020,11 @@ class TestPushProperties:
         # ape.staticDataPath names a file on the device, so it is written only when the
         # artifact was pushed, whatever the variant declares.
         lines = self._capture_properties(tmp_path, _cell("as_mop"))
-        assert lines == ["ape.preset=as_mop", "ape.variant=as_mop"]
+        assert lines == [
+            "ape.preset=as_mop",
+            "ape.variant=as_mop",
+            "ape.mopCoinLedgerMaxInteractions=2",
+        ]
 
     def test_a_dose_ablation_writes_the_dose(self, tmp_path):
         # Spec scenario "A dose ablation writes the dose".
@@ -1092,6 +1095,7 @@ class TestPushProperties:
             "ape.preset=as_mop",
             "ape.variant=as_mop",
             f"ape.staticDataPath={DEVICE_ARTIFACT_PATH}",
+            "ape.mopCoinLedgerMaxInteractions=2",
         ]
 
     def test_unmapped_override_key_aborts_in_configure(self):

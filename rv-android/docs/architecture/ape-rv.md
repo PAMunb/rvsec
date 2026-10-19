@@ -96,12 +96,11 @@ the platform's timeout and cleanup semantics.
   `Presets.java`.
 - **Cell / variant** — A named configuration used as one comparison unit in an experiment: a
   union of groups. In `aperv-tool` a variant is one cell — its jar **preset** name, its own
-  `variant` name (echoed as `RUN_START.variant`), an `overrides` dict holding only the server URL
-  on the two LLM cells, and the Python-only orchestration keys `strategy`, `static_data` (every
+  `variant` name (echoed as `RUN_START.variant`), an `overrides` dict holding the server URL
+  on the two LLM cells and the MOP coin's ledger budget (2) on the three MOP cells, and the Python-only orchestration keys `strategy`, `static_data` (every
   cell but `base`) and `broadcast_catalog` (the four `as*` cells). `ApeRVTool.get_variants()`
-  returns nine names carrying eight configurations (`default` is the same object as `base`;
-  `mop_k2` is the `mop` cell with `ape.mopCoinLedgerMaxInteractions=2`, and `mop_nolaunch` the
-  `mop` cell with `ape.activityTriggerEnabled=false`). A dose or other tunable is
+  returns eight names carrying seven configurations (`default` is the same object as `base`;
+  `mop_nolaunch` is the `mop` cell with `ape.activityTriggerEnabled=false` added). A dose or other tunable is
   a tool-DSL ablation on a cell; only an ablation that shares containers with its cell gets a name,
   because the platform's resume identity leaves the parameters out.
 - **Preset** — One of the six cell presets resident in the jar (`Presets.java`: `base`, `mop`,
@@ -225,7 +224,7 @@ MOP-boosted widget click on the device and the completion check after the run.
 `ApeRVTool` inside a try/except `ImportError` and calls
 `ToolRegistry.register_tool_class(ApeRVTool)`, guarded by `is_tool_registered('aperv')`.
 Registration stores the `ToolSpec` (name `aperv`, `process_pattern` `com.android.commands.monkey`)
-and the nine variant dicts. If `aperv-tool` is not installed, the platform logs "aperv tool not
+and the eight variant dicts. If `aperv-tool` is not installed, the platform logs "aperv tool not
 available" and continues. (`modules/rv-platform/src/rv_platform/__init__.py:30-38`;
 `ToolRegistry.get_instance()` in `modules/rv-tools/src/rv_tools/registry/registry.py`.)
 
@@ -656,7 +655,7 @@ in a cell that reads it, and an early return is not success: the fail-fast point
 `configure()`'s validation, the missing jar, the cell that cannot arm (host and device), and the
 completion check.
 
-*Configurability (NFR05).* Six jar cell presets, nine variant names (six cells, `default` and the ablations `mop_k2` and `mop_nolaunch`),
+*Configurability (NFR05).* Six jar cell presets, eight variant names (six cells, `default` and the ablation `mop_nolaunch`),
 a 67-entry property mapping, and per-run overrides through the tool DSL (`aperv:<variant>@key=value`) that `configure()` folds into
 `overrides`. The jar also honours `/sdcard/ape.properties`. Deployment-specific values (`llm_url`,
 `corpus_basis`) travel the same path as any other mapped key.
@@ -827,12 +826,12 @@ grouped by the behaviour group that owns each key (the four group keys `addons`,
 orchestration (`preset`, `variant`, `overrides`, `strategy`, `static_data`, `broadcast_catalog`,
 `seed`, and the three device-addressing keys rv-experiment injects with `--device-port`); of
 those, only `preset` and `variant` reach the jar, through fixed lines. `get_variants()` returns
-nine names carrying eight configurations: one per experimental cell — `base`, `mop`, `as`,
-`as_mop`, `as_llm`, `as_mop_llm` — `default` bound to the `base` object, and two ablations on the `mop`
-preset: `mop_k2`, with the MOP coin allowed two picks per (activity, widget) key, and `mop_nolaunch`,
-with the launcher unmounted. Each is the cell's
+eight names carrying seven configurations: one per experimental cell — `base`, `mop`, `as`,
+`as_mop`, `as_llm`, `as_mop_llm` — `default` bound to the `base` object, and one ablation on the `mop`
+preset, `mop_nolaunch`, with the launcher unmounted. Each is the cell's
 preset and its own `variant` name; every cell but `base` carries `static_data`, the four `as*`
-cells carry `broadcast_catalog`, and the two LLM cells carry `llm_url` as their only override. A
+cells carry `broadcast_catalog`, the two LLM cells carry `llm_url`, and the three MOP cells carry the coin's ledger budget
+(`mop_coin_ledger_max_interactions: 2`, against the jar's default of 1). A
 MOP-off control is the absence of the MOP group, stated by the cell preset (`as` against
 `as_mop`), not a set of zeroed weights. `configure()` validates the shape, requires a non-empty
 `variant`, and folds tool-DSL parameters into `overrides`. `execute_tool_specific_logic()` pushes
@@ -1073,7 +1072,7 @@ Variation happens almost entirely in data. The experimental cells are fixed by t
 presets, each the union of the group blocks of the groups it mounts, and `get_variants()` names
 each cell once; a new cell is a new preset in `Presets.java` plus one variant entry. An ablation is
 a tool-DSL override on a cell (`aperv:as_mop@mop_coin_percentage=0.5`), unless it runs in the same
-containers as its cell, where the resume identity needs a name of its own (`mop_k2`, `mop_nolaunch`).
+containers as its cell, where the resume identity needs a name of its own (`mop_nolaunch`).
 A new engine tunable is a `KeyOwnership` entry in the jar plus an
 `APERV_PROPERTY_MAPPING` entry here; the mapping must hold only keys the deployed jar accepts
 (INV-APV-41). Tool-DSL overrides (`aperv:<variant>@key=value`) vary any mapped key per run without

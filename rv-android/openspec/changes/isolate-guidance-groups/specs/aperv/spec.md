@@ -277,6 +277,7 @@ The cells without the LLM group never receive it (INV-APV-09).
 - **AND** the generated `ape.properties` SHALL contain no line naming any of the three keys and no
   occurrence of the port value
 - **AND** the variant SHALL still resolve as `ape.preset=as_mop`, `ape.variant=as_mop` plus `ape.staticDataPath`
+  and `ape.mopCoinLedgerMaxInteractions=2`
 
 #### Scenario: Unhonourable top-level key fails loudly
 - **WHEN** `aperv:as_mop@mop_coin_percentag=0.5` is resolved (a typo absent from `APERV_PROPERTY_MAPPING`)
@@ -346,8 +347,8 @@ The trailing `-s <seed>` is appended only when a seed is configured (INV-APV-18)
 
 #### Scenario: Properties file carries preset plus deltas only
 - **WHEN** step 5 runs for `as_mop` with the artifact pushed
-- **THEN** the generated file SHALL be exactly the three lines `ape.preset=as_mop`, `ape.variant=as_mop`,
-  `ape.staticDataPath=/data/local/tmp/mop-artifact.json`
+- **THEN** the generated file SHALL be exactly the four lines `ape.preset=as_mop`, `ape.variant=as_mop`,
+  `ape.staticDataPath=/data/local/tmp/mop-artifact.json`, `ape.mopCoinLedgerMaxInteractions=2`
 - **AND** it SHALL contain no `ape.mopDataPath` line
 
 #### Scenario: Collection leaves the NDJSON trace intact
@@ -1186,7 +1187,8 @@ the mapping's contents a correctness property rather than a tidiness one.
 - **WHEN** `_push_properties()` is called for `as_mop_llm` with the artifact pushed
 - **THEN** the first line SHALL be `ape.preset=as_mop_llm` and the second `ape.variant=as_mop_llm`
 - **AND** the third SHALL be `ape.staticDataPath=/data/local/tmp/mop-artifact.json`
-- **AND** the only remaining line SHALL be `ape.llmUrl=http://10.0.2.2:30000/v1`
+- **AND** the remaining lines SHALL be `ape.mopCoinLedgerMaxInteractions=2` and `ape.llmUrl=http://10.0.2.2:30000/v1`,
+  in that order
 
 #### Scenario: Base cell writes two lines
 - **WHEN** `_push_properties()` is called for the `base` variant

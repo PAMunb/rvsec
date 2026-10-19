@@ -118,6 +118,12 @@ STATIC_DATA_FROM_STATIC_ANALYSIS = "static_analysis"
 # the host loopback interface, where SGLang listens on a host-driven run.
 LLM_URL_DEFAULT = "http://10.0.2.2:30000/v1"
 
+# How many times the MOP coin may take one (activity, widget) key on the three cells that
+# mount MOP. The jar's default is 1 and no group block states the key; the author set the
+# cells to 2 on this side after the e03igg2 campaign, where the coin at 2 was the only
+# arm above APE in misuses (design D18).
+MOP_COIN_LEDGER_MAX_INTERACTIONS = 2
+
 # Strategies accepted by configure(), matching what the jar's ApeAgent.createAgent builds.
 # "bfs" and "dfs" are absent deliberately: they were never agent types, and a run configured
 # with either used to fall through to SataAgent silently. The jar now aborts on an unknown
@@ -231,7 +237,7 @@ APERV_PROPERTY_MAPPING = {
     # states 1.0, so a lower dose is an ablation.
     "mop_coin_percentage": "ape.mopCoinPercentage",
     # How many times the MOP coin may take one (activity, widget) key; the jar default is
-    # 1, no block states it, and the mop_k2 variant sets 2.
+    # 1, no block states it, and the three MOP cells set MOP_COIN_LEDGER_MAX_INTERACTIONS.
     "mop_coin_ledger_max_interactions": "ape.mopCoinLedgerMaxInteractions",
     # LLM: the vision-language model. llm_url is the one deployment fact the LLM cells
     # carry; the LLM block states the sampling configuration and the dose.
@@ -361,8 +367,8 @@ class ApeRVTool(AbstractTool):
         """
         Get available APE-RV variants: one per experimental cell.
 
-        Nine names carrying eight configurations: the six cells, `default` and two
-        ablation variants. APE-RV mounts five behaviour groups
+        Eight names carrying seven configurations: the six cells, `default` and one
+        ablation variant. APE-RV mounts five behaviour groups
         by declaration: BASE (the APE algorithm), ADDONS (the fork's own
         improvements), STATIC (the consumers of the static GUI model), MOP (the
         consumers of the specification targets) and LLM (the vision-language model).
@@ -378,18 +384,13 @@ class ApeRVTool(AbstractTool):
         `default` is bound to the same object as `base` (INV-TOOL-02), so `aperv`
         with no variant runs the APE reference cell and writes `ape.variant=base`.
 
-        The two ablation variants are the `mop` cell with one key changed:
-
-        - `mop_k2`: the MOP coin may take each (activity, widget) key twice instead
-          of once.
-        - `mop_nolaunch`: the MOP launcher is unmounted, and with it the null-tree
-          recovery it owns.
-
-        They have names of their own because they run in the same containers as
-        `mop`, and the platform's resume identity (apk, tool, variant, repetition,
-        timeout) and the result file names leave the parameters out, so `aperv:mop`
-        and a DSL `aperv:mop@...` there would be the same task. Their preset stays
-        `mop`, because the preset vocabulary belongs to the jar.
+        The ablation variant `mop_nolaunch` is the `mop` cell with one key added: the
+        MOP launcher is unmounted, and with it the null-tree recovery it owns. It has
+        a name of its own because it runs in the same containers as `mop`, and the
+        platform's resume identity (apk, tool, variant, repetition, timeout) and the
+        result file names leave the parameters out, so `aperv:mop` and a DSL
+        `aperv:mop@...` there would be the same task. Its preset stays `mop`, because
+        the preset vocabulary belongs to the jar.
 
         What a group switches on is defined in the jar. A variant therefore names
         its cell and carries only the deployment facts the jar cannot know:
@@ -407,9 +408,15 @@ class ApeRVTool(AbstractTool):
         - `overrides={"llm_url": ...}` on the two LLM cells, because the LLM preset
           needs a server and a URL names a machine, not a cell (INV-APV-38).
 
+        The one key a cell carries that the jar could know is the MOP coin's ledger
+        budget: `mop`, `as_mop` and `as_mop_llm` set
+        `mop_coin_ledger_max_interactions` to 2 against the jar's default of 1,
+        because the author placed that default here and not in the jar's MOP block
+        (design D18). `mop_nolaunch` inherits it from `mop`.
+
         A dose or any other mapped key is an ablation expressed through the tool
         DSL (`aperv:as_mop@mop_coin_percentage=0.5`) unless it shares containers
-        with its cell, as `mop_k2` and `mop_nolaunch` do. The
+        with its cell, as `mop_nolaunch` does. The
         Python-only keys never reach ape.properties; the full set, with the three
         device-addressing keys rv-experiment injects, is `APERV_ORCHESTRATION_KEYS`.
 
@@ -431,7 +438,9 @@ class ApeRVTool(AbstractTool):
                 "variant": "mop",
                 "strategy": "sata",
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
-                "overrides": {},
+                "overrides": {
+                    "mop_coin_ledger_max_interactions": MOP_COIN_LEDGER_MAX_INTERACTIONS
+                },
             },
             "as": {
                 "preset": "as",
@@ -447,7 +456,9 @@ class ApeRVTool(AbstractTool):
                 "strategy": "sata",
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
                 "broadcast_catalog": True,
-                "overrides": {},
+                "overrides": {
+                    "mop_coin_ledger_max_interactions": MOP_COIN_LEDGER_MAX_INTERACTIONS
+                },
             },
             # The LLM cells carry the server URL. configure() reads no environment
             # (INV-TOOL-20): rv-experiment reads APERV_LLM_BASE_URL and injects it as a
@@ -468,23 +479,22 @@ class ApeRVTool(AbstractTool):
                 "strategy": "sata",
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
                 "broadcast_catalog": True,
-                "overrides": {"llm_url": LLM_URL_DEFAULT},
+                "overrides": {
+                    "mop_coin_ledger_max_interactions": MOP_COIN_LEDGER_MAX_INTERACTIONS,
+                    "llm_url": LLM_URL_DEFAULT,
+                },
             },
-            # The mop cell with one ablated key each, named because they share
+            # The mop cell with one ablated key added, named because it shares
             # containers with mop (see the docstring).
-            "mop_k2": {
-                "preset": "mop",
-                "variant": "mop_k2",
-                "strategy": "sata",
-                "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
-                "overrides": {"mop_coin_ledger_max_interactions": 2},
-            },
             "mop_nolaunch": {
                 "preset": "mop",
                 "variant": "mop_nolaunch",
                 "strategy": "sata",
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
-                "overrides": {"activity_trigger_enabled": False},
+                "overrides": {
+                    "mop_coin_ledger_max_interactions": MOP_COIN_LEDGER_MAX_INTERACTIONS,
+                    "activity_trigger_enabled": False,
+                },
             },
         }
 

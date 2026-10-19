@@ -142,39 +142,52 @@ class TestCellFixtures:
         assert record["inert"] == []
 
 
-class TestAblationVariant:
-    """`mop_k2` and `mop_nolaunch` run the `mop` preset under their own names, without fixtures.
+class TestLedgerBudget:
+    """The three MOP cells run the coin's ledger at 2, a key their fixtures leave at the default.
 
-    Their device echo is the `mop` fixture with `variant` and the ablated key's effect set
-    apart and the digest left out, because the digest hashes every plan value. Offline, what
-    can be checked is that each names a preset the jar ships and that its one override is a
-    key the jar accepts, with the type and the meaning the variant relies on.
+    No group block states `ape.mopCoinLedgerMaxInteractions`, so each MOP fixture carries the
+    jar's default (1) by omission, and the device echo of the cell is its fixture plus exactly
+    this one `params` entry, with the digest left out because it hashes every plan value
+    (design D18).
     """
 
-    @pytest.mark.parametrize("name", ("mop_k2", "mop_nolaunch"))
-    def test_the_ablation_names_the_mop_preset(self, ape_repo, name):
-        variant = ApeRVTool.get_variants()[name]
-        assert variant["preset"] == "mop"
-        assert variant["preset"] in load_presets(ape_repo)
-        assert _fixture(ape_repo, "mop")["preset"] == variant["preset"]
-
-    def test_mop_k2_overrides_one_key_the_jar_accepts(self, ape_repo):
-        overrides = ApeRVTool.get_variants()["mop_k2"]["overrides"]
-        assert list(overrides) == ["mop_coin_ledger_max_interactions"]
+    @pytest.mark.parametrize("cell", ("mop", "as_mop", "as_mop_llm"))
+    def test_the_ledger_override_is_a_key_the_jar_accepts_away_from_its_default(
+        self, ape_repo, cell
+    ):
+        overrides = ApeRVTool.get_variants()[cell]["overrides"]
         key = APERV_PROPERTY_MAPPING["mop_coin_ledger_max_interactions"]
         spec = load_key_specs(ape_repo)[key]
         assert spec.value_type == "INT"
         assert spec.default == "1"
-        assert overrides["mop_coin_ledger_max_interactions"] != int(spec.default)
-        # No block states it, so the mop fixture carries the default by omission and the
-        # device echo of mop_k2 adds exactly this one params entry.
-        assert key not in _fixture(ape_repo, "mop")["params"]
+        assert overrides["mop_coin_ledger_max_interactions"] == 2
+        assert key not in _fixture(ape_repo, cell)["params"]
+
+
+class TestAblationVariant:
+    """`mop_nolaunch` runs the `mop` preset under its own name, without a fixture.
+
+    Its device echo is the `mop` fixture with `variant`, the ledger entry and the launcher's
+    effect set apart and the digest left out, because the digest hashes every plan value.
+    Offline, what can be checked is that it names a preset the jar ships and that the key it
+    adds is one the jar accepts, with the type and the meaning the variant relies on.
+    """
+
+    def test_the_ablation_names_the_mop_preset(self, ape_repo):
+        variant = ApeRVTool.get_variants()["mop_nolaunch"]
+        assert variant["preset"] == "mop"
+        assert variant["preset"] in load_presets(ape_repo)
+        assert _fixture(ape_repo, "mop")["preset"] == variant["preset"]
 
     def test_mop_nolaunch_states_the_launcher_activation_key_at_its_neutral_value(
         self, ape_repo
     ):
-        overrides = ApeRVTool.get_variants()["mop_nolaunch"]["overrides"]
-        assert overrides == {"activity_trigger_enabled": False}
+        variants = ApeRVTool.get_variants()
+        overrides = variants["mop_nolaunch"]["overrides"]
+        assert overrides == {
+            **variants["mop"]["overrides"],
+            "activity_trigger_enabled": False,
+        }
         key = APERV_PROPERTY_MAPPING["activity_trigger_enabled"]
         assert load_key_specs(ape_repo)[key].value_type == "BOOLEAN"
         # The key is MOP_LAUNCHER's activation key and false is its neutral value, so the

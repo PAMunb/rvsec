@@ -342,11 +342,13 @@ def test_variant_differing_from_the_cell_fails_though_the_preset_matches() -> No
 
 
 def test_an_ablation_variant_is_told_from_its_cell() -> None:
-    """``mop_k2`` runs the ``mop`` preset, so only the variant tells the two apart."""
-    declared = as_mop_manifest(arm="aperv:mop_k2", preset="mop", variant="mop_k2")
+    """``mop_nolaunch`` runs the ``mop`` preset, so only the variant tells the two apart."""
+    declared = as_mop_manifest(
+        arm="aperv:mop_nolaunch", preset="mop", variant="mop_nolaunch"
+    )
 
     passed = attribution_evidence(
-        group_isolation_header(preset="mop", variant="mop_k2"), declared
+        group_isolation_header(preset="mop", variant="mop_nolaunch"), declared
     )
     assert check_of(passed, CHECK_VARIANT).verdict == "pass"
 

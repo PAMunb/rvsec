@@ -13,7 +13,7 @@ This module implements requirements from `openspec/specs/tools/spec.md` as an ex
 | FR | Description | Architectural Support |
 |----|-------------|----------------------|
 | FR18 | Plugin system with registry and factory patterns | `ApeRVTool` extends `AbstractTool` (rv-android-core) and registers via `ToolRegistry` in rv-platform's `_register_external_tools()` |
-| FR20 | Per-tool variant system | `get_variants()` returns nine names — the six cells `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `default` bound to `base`, and the ablations `mop_k2` and `mop_nolaunch` on the `mop` preset — each a `preset`, a `variant` name and `overrides`; `configure()` validates strategy, preset, variant and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
+| FR20 | Per-tool variant system | `get_variants()` returns nine names — the six cells `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `default` bound to `base`, and the ablation `mop_nolaunch` on the `mop` preset — each a `preset`, a `variant` name and `overrides`; `configure()` validates strategy, preset, variant and overrides eagerly, and folds tool-DSL overrides into place (INV-APV-39) |
 
 ### Key Invariants
 
@@ -537,7 +537,7 @@ frozen with the reason — closed by a grep over `modules/`, `scripts/`, the exp
 
 ### Variant System
 
-**Purpose**: Define the experimental matrix as **one variant per cell**, plus the ablations `mop_k2` and `mop_nolaunch`: 9 names carrying 8 configurations, each a jar cell preset, its own name, and the deployment facts the jar cannot know.
+**Purpose**: Define the experimental matrix as **one variant per cell**, plus the ablation `mop_nolaunch`: 8 names carrying 7 configurations, each a jar cell preset, its own name, the deployment facts the jar cannot know, and on the three MOP cells the coin's ledger budget.
 
 **Location**: `src/aperv_tool/tools/aperv/tool.py` (`get_variants()` classmethod)
 
@@ -547,13 +547,12 @@ APE-RV mounts five behaviour groups by declaration. BASE is the APE algorithm, A
 |---|---|---|---|---|---|
 | `default` | `base` | — | — | — | _(empty)_ — the same object as `base` (INV-TOOL-02) |
 | `base` | `base` | — | — | — | _(empty)_ |
-| `mop` | `mop` | MOP | `"static_analysis"` | — | _(empty)_ |
+| `mop` | `mop` | MOP | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2` |
 | `as` | `as` | ADDONS, STATIC | `"static_analysis"` | `True` | _(empty)_ |
-| `as_mop` | `as_mop` | ADDONS, STATIC, MOP | `"static_analysis"` | `True` | _(empty)_ |
+| `as_mop` | `as_mop` | ADDONS, STATIC, MOP | `"static_analysis"` | `True` | `mop_coin_ledger_max_interactions: 2` |
 | `as_llm` | `as_llm` | ADDONS, STATIC, LLM | `"static_analysis"` | `True` | `llm_url` |
-| `as_mop_llm` | `as_mop_llm` | ADDONS, STATIC, MOP, LLM | `"static_analysis"` | `True` | `llm_url` |
-| `mop_k2` | `mop` | MOP | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2` |
-| `mop_nolaunch` | `mop` | MOP without `MOP_LAUNCHER` | `"static_analysis"` | — | `activity_trigger_enabled: False` |
+| `as_mop_llm` | `as_mop_llm` | ADDONS, STATIC, MOP, LLM | `"static_analysis"` | `True` | `mop_coin_ledger_max_interactions: 2`, `llm_url` |
+| `mop_nolaunch` | `mop` | MOP without `MOP_LAUNCHER` | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2`, `activity_trigger_enabled: False` |
 
 Every variant carries `strategy="sata"` and `variant` equal to its own name (`default` carries `"base"`).
 
@@ -561,9 +560,10 @@ Each orchestration key states one deployment fact, because the Python side does 
 
 - `static_data` is present exactly on the cells that mount STATIC or MOP (INV-APV-66). `mop` reads the artifact with ADDONS and STATIC off, and `as` reads it with MOP off, which is why the key is named after the static data and not after MOP.
 - `broadcast_catalog` is present exactly on the cells that mount STATIC (INV-APV-10), because the catalog's only reader in the jar is component triggering, a STATIC member.
-- `overrides` carries only `llm_url` on the two LLM cells (INV-APV-38). The LLM presets state the group without the URL, which names a machine rather than a cell.
+- `overrides` carries `llm_url` on the two LLM cells (INV-APV-38). The LLM presets state the group without the URL, which names a machine rather than a cell.
+- `overrides` carries `mop_coin_ledger_max_interactions: 2` on the three MOP cells (design D18). The jar's default is 1 and its group blocks do not state the key; the author placed the default here after the `e03igg2` campaign, where the coin at 2 was the only arm above APE in misuses. The cell gate therefore compares these cells with their fixtures plus one `params` entry and leaves the digest out.
 
-The division of authority is the point: the jar owns what a group *means* and which groups a cell mounts, Python owns *which cells exist*. A dose or another tunable is an ablation through the tool DSL (`aperv:as_mop@mop_coin_percentage=0.5`), never a new preset. An ablation that runs in the same containers as its cell is a named variant on the cell's preset instead, because the platform's resume identity (apk, tool, variant, repetition, timeout) and the result file names leave the parameters out: `mop_k2` is the `mop` cell with the MOP coin allowed two picks per (activity, widget) key, and `mop_nolaunch` the `mop` cell with the launcher unmounted. The arm names of earlier campaigns are not defined; campaigns recorded under them resume from the frozen image `rvandroid:0.9.5`.
+The division of authority is the point: the jar owns what a group *means* and which groups a cell mounts, Python owns *which cells exist*. A dose or another tunable is an ablation through the tool DSL (`aperv:as_mop@mop_coin_percentage=0.5`), never a new preset. An ablation that runs in the same containers as its cell is a named variant on the cell's preset instead, because the platform's resume identity (apk, tool, variant, repetition, timeout) and the result file names leave the parameters out: `mop_nolaunch` is the `mop` cell with the launcher unmounted. The arm names of earlier campaigns are not defined; campaigns recorded under them resume from the frozen image `rvandroid:0.9.5`.
 
 ---
 
@@ -737,7 +737,7 @@ What a preset contains is resolved inside the jar, so no line restates a group b
 
 Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS`: `preset` and `variant` (written by their own lines), `overrides` (the cell's deltas), `strategy` (the `--ape` flag), `static_data` (whether the artifact is pushed), `broadcast_catalog` (whether the catalog is pushed), `seed`, and `device_port` / `device_serial` / `device_id` (device addressing that rv-experiment's `ExecutionController` injects into every tool's parameters whenever `--device-port` is set). Any other top-level key must resolve through `APERV_PROPERTY_MAPPING`, or `configure()` raises `ConfigurationError` before a device is touched. Boolean values are serialized as lowercase `true`/`false` to match what the jar's `Config` loader parses.
 
-`APERV_PROPERTY_MAPPING` is a pass-through table that contains only keys the paired jar accepts (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps it against the jar's `KeyOwnership.java` vocabulary and retired list. No cell sets any entry but `llm_url`: the others exist so an ablation can be written as a DSL override without a code change. The 67 entries, grouped by the group that owns each key:
+`APERV_PROPERTY_MAPPING` is a pass-through table that contains only keys the paired jar accepts (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps it against the jar's `KeyOwnership.java` vocabulary and retired list. No cell sets any entry but `llm_url` and, on the three MOP cells, `mop_coin_ledger_max_interactions`: the others exist so an ablation can be written as a DSL override without a code change. The 67 entries, grouped by the group that owns each key:
 
 | Python Key | Java Property | Notes |
 |------------|--------------|-------|
@@ -789,7 +789,7 @@ Python-only control keys are the ten in `APERV_ORCHESTRATION_KEYS`: `preset` and
 | `mop_retire_after` | `ape.mopRetireAfter` | `MOP` sub-parameter, read under `distance` only |
 | `mop_launcher_dmax` | `ape.mopLauncherDmax` | `MOP` sub-parameter, read under `distance` only |
 | `mop_coin_percentage` | `ape.mopCoinPercentage` | `MOP_COIN` activation (MOP); `p_M`, jar default 1.0 |
-| `mop_coin_ledger_max_interactions` | `ape.mopCoinLedgerMaxInteractions` | `MOP_COIN` sub-parameter; the coin's picks per (activity, widget) key, jar default 1, below 1 read as 1; set by `mop_k2` |
+| `mop_coin_ledger_max_interactions` | `ape.mopCoinLedgerMaxInteractions` | `MOP_COIN` sub-parameter; the coin's picks per (activity, widget) key, jar default 1, below 1 read as 1; set to 2 on `mop`, `as_mop` and `as_mop_llm` |
 | `llm_url` | `ape.llmUrl` | `LLM` dependency; required on both LLM cells (INV-APV-38) |
 | `llm_on_new_state` | `ape.llmOnNewState` | `LLM_NEW_STATE` activation |
 | `llm_on_stagnation` | `ape.llmOnStagnation` | `LLM_STAGNATION` activation |
@@ -843,7 +843,7 @@ The override exists because the emulator's `10.0.2.2` alias does not work in Doc
 
 ## Extension Points
 
-- **Running an ablation**: Write it as a tool-DSL override on an existing cell (`aperv:as_mop@mop_coin_percentage=0.5`). Only when it runs in the same containers as its cell does it need a named variant on that cell's preset, as `mop_k2` and `mop_nolaunch` do, because the resume identity leaves the parameters out. If it uses a tunable not yet listed, add it to `APERV_PROPERTY_MAPPING` first, and only if the paired jar accepts the key (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps the mapping against the jar's `KeyOwnership.java` vocabulary.
+- **Running an ablation**: Write it as a tool-DSL override on an existing cell (`aperv:as_mop@mop_coin_percentage=0.5`). Only when it runs in the same containers as its cell does it need a named variant on that cell's preset, as `mop_nolaunch` does, because the resume identity leaves the parameters out. If it uses a tunable not yet listed, add it to `APERV_PROPERTY_MAPPING` first, and only if the paired jar accepts the key (INV-APV-41); `tests/migration/test_mapping_sweep.py` sweeps the mapping against the jar's `KeyOwnership.java` vocabulary.
 - **Adding a cell**: A cell is a jar preset first. Add it to the jar's `Presets.java` as a union of group blocks, then add one entry to `get_variants()` with `preset` and `variant` equal to its name, `static_data` when it mounts STATIC or MOP, `broadcast_catalog` when it mounts STATIC, and `llm_url` in `overrides` when it mounts LLM. The offline cell gate (`tests/migration/test_cells.py`) then needs the jar's `cells/<cell>.run_start.json` fixture.
 - **Adding a strategy**: Add the strategy name to `APERV_AVAILABLE_STRATEGIES`. The string is passed directly to APE-RV's `--ape` flag, so it must be an agent type `ApeAgent.createAgent` knows (`sata`, `random`, `replay`) — anything else passes local validation and aborts on the device.
 - **Changing the JAR**: The shipped jar is built from `ape` source at Docker image build (`docker/rvandroid/Dockerfile`: clone → `mvn package` → copy); it is gitignored, never committed. To change what ships, change the `ape` source (or pin the clone ref in the Dockerfile). For local non-Docker runs, place a built `ape-rv.jar` in `src/aperv_tool/tools/aperv/` — the module-local path has highest resolution priority.
