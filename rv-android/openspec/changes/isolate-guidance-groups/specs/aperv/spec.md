@@ -13,7 +13,8 @@ targets. LLM is the vision-language model. A **cell** is a union of groups. The 
 each preset is the union of that cell's group blocks: `base`, `mop`, `as` (ADDONS + STATIC), `as_mop`, `as_llm`
 and `as_mop_llm`. What a group switches on is defined in the jar. The Python side therefore names a cell and
 supplies only the deployment facts: the server URL, the static-analysis artifact, and the variant name that the
-jar echoes into `RUN_START`.
+jar echoes into `RUN_START`. The one exception is the MOP coin's ledger budget, which the three MOP cells set to 2
+on this side (author's decision, 2026-10-19).
 
 The ten arms this module defined before are deleted, without alias (author decision D-A13). They were built on
 presets the jar no longer has and on override sets that the new jar either rejects (`ape.mopDataPath`,
@@ -27,7 +28,7 @@ The reader change follows from the jar's new telemetry. `dec.src` now names the 
 `restart`, `llm`, `launcher`, `mop`, `sata`) instead of the largest boost, `dec.cf` is replaced by a per-scorer
 `dec.cfc`, eleven further new `dec` members record the owner with its coins and gates, the roulette draw, the
 extension points, the input origin, the restart kind, the SATA path, the display rotation, the buffer preemption,
-the navigation-frontier boost and the component trigger (contract v3.2, `ape` `16b185f4`), and `RUN_END.counters` gains the per-run counts of each mechanism. Contract v3.3 (2026-10-18) adds the stamped handler `dec.hnd`, the fallback reason `screenshot` and the counter `nullRelaunches`, and one MOP coin key, which the ablation variant `mop_k2` sets; a second ablation variant, `mop_nolaunch`, runs
+the navigation-frontier boost and the component trigger (contract v3.2, `ape` `16b185f4`), and `RUN_END.counters` gains the per-run counts of each mechanism. Contract v3.3 (2026-10-18) adds the stamped handler `dec.hnd`, the fallback reason `screenshot` and the counter `nullRelaunches`, and one MOP coin key, which the three MOP cells set to 2; the ablation variant `mop_nolaunch` runs
 the `mop` cell without its launcher. The
 reader surfaces all of them, plus the `mopd`/`mops`/`ret` members it drops today, and exposes `RUN_END` as a
 census record. The collection path in `tool.py` still never reads `RUN_END` or `RUN_START`.
@@ -37,10 +38,9 @@ census record. The collection path in `tool.py` still never reads `RUN_END` or `
 ### Input
 - `variant dict: Dict[str, Any]` — per cell: `preset: str` (one of `base`, `mop`, `as`, `as_mop`, `as_llm`,
   `as_mop_llm`), `variant: str` (the cell's own name), `overrides: Dict[str, Any]` (the server URL on the two LLM
-  cells, otherwise empty), `strategy: "sata"`, `static_data: "static_analysis"` on every cell except `base`, and
-  `broadcast_catalog: True` on the four cells that mount STATIC; the ablation variant `mop_k2` is the `mop` cell
-  with `variant: "mop_k2"` and `overrides: {"mop_coin_ledger_max_interactions": 2}`, and `mop_nolaunch` is the
-  `mop` cell with `variant: "mop_nolaunch"` and `overrides: {"activity_trigger_enabled": False}` (source:
+  cells and `mop_coin_ledger_max_interactions: 2` on `mop`, `as_mop` and `as_mop_llm`, otherwise empty), `strategy: "sata"`, `static_data: "static_analysis"` on every cell except `base`, and
+  `broadcast_catalog: True` on the four cells that mount STATIC; the ablation variant `mop_nolaunch` is the
+  `mop` cell with `variant: "mop_nolaunch"` and `activity_trigger_enabled: False` added to its `overrides` (source:
   `ApeRVTool.get_variants()`, merged with DSL parameters by `ToolFactory`)
 - `APERV_PROPERTY_MAPPING: Dict[str, str]` — 67 entries: override key → `ape.*` property name; only keys the jar
   built from the `ape` branch `isolate-guidance-groups` accepts (source: `tool.py` module constant)
@@ -105,7 +105,7 @@ These replace, add to or retire the listed invariants of `openspec/specs/aperv/s
 invariant section is synchronized by hand at archive.
 
 - **INV-APV-05** (replaced): `get_variants()` SHALL return a dict whose keys are exactly `default`, `base`, `mop`,
-  `as`, `as_mop`, `as_llm`, `as_mop_llm` and the ablation variants `mop_k2` and `mop_nolaunch`, with `default`
+  `as`, `as_mop`, `as_llm`, `as_mop_llm` and the ablation variant `mop_nolaunch`, with `default`
   bound to the same object as `base` (INV-TOOL-02).
 - **INV-APV-06** (replaced): every cell except `base` SHALL set `static_data` to `"static_analysis"`. When
   `static_data == "static_analysis"`, `execute_tool_specific_logic()` SHALL locate the full static-analysis JSON,
@@ -931,27 +931,30 @@ The parser exists because the dump has **no automated consumer today**: a search
 `ApeRVTool` SHALL define one variant per experimental cell and nothing else. Every variant SHALL consist of a
 `preset` name, a `variant` name, an `overrides` dict, and Python-only orchestration keys (INV-APV-40).
 
-`get_variants()` SHALL return exactly these **nine** names, carrying **eight** distinct configurations: the six
-cells, `default`, and two ablation variants, `mop_k2` and `mop_nolaunch`:
+`get_variants()` SHALL return exactly these **eight** names, carrying **seven** distinct configurations: the six
+cells, `default`, and one ablation variant, `mop_nolaunch`:
 
 | Variant | preset | static_data | broadcast_catalog | overrides | Groups mounted by the preset |
 |---|---|---|---|---|---|
 | `default` | `base` | — | — | _(empty)_ — bound to the same object as `base` (INV-TOOL-02) | — |
 | `base` | `base` | — | — | _(empty)_ | — |
-| `mop` | `mop` | `"static_analysis"` | — | _(empty)_ | MOP |
+| `mop` | `mop` | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2` | MOP |
 | `as` | `as` | `"static_analysis"` | `True` | _(empty)_ | ADDONS, STATIC |
-| `as_mop` | `as_mop` | `"static_analysis"` | `True` | _(empty)_ | ADDONS, STATIC, MOP |
+| `as_mop` | `as_mop` | `"static_analysis"` | `True` | `mop_coin_ledger_max_interactions: 2` | ADDONS, STATIC, MOP |
 | `as_llm` | `as_llm` | `"static_analysis"` | `True` | `llm_url` | ADDONS, STATIC, LLM |
-| `as_mop_llm` | `as_mop_llm` | `"static_analysis"` | `True` | `llm_url` | ADDONS, STATIC, MOP, LLM |
-| `mop_k2` | `mop` | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2` | MOP |
-| `mop_nolaunch` | `mop` | `"static_analysis"` | — | `activity_trigger_enabled: False` | MOP without `MOP_LAUNCHER` |
+| `as_mop_llm` | `as_mop_llm` | `"static_analysis"` | `True` | `mop_coin_ledger_max_interactions: 2`, `llm_url` | ADDONS, STATIC, MOP, LLM |
+| `mop_nolaunch` | `mop` | `"static_analysis"` | — | `mop_coin_ledger_max_interactions: 2`, `activity_trigger_enabled: False` | MOP without `MOP_LAUNCHER` |
 
 Every variant carries `strategy="sata"` and `variant` equal to its own name; `default` carries `"base"`.
 
 **What a cell means lives in the jar.** Each preset is the union of the jar's group blocks (the `ape` design's
 § "Group blocks and cells"): ADDONS is the former `aperv` vector, STATIC is the frontier at 200 plus typed input,
 MOP is E6 arm 3's MOP configuration plus `p_M = 1.0`, LLM is E6 arm 4's sampling configuration with `p_L = 0.9`.
-On a cell, `overrides` SHALL carry only what the jar cannot know: the server URL. A dose (`llm_percentage`,
+On a cell, `overrides` SHALL carry only what the jar cannot know, the server URL, with one exception: the three
+cells that mount MOP (`mop`, `as_mop`, `as_mop_llm`) carry `mop_coin_ledger_max_interactions: 2`, so the MOP coin
+may take each (activity, widget) key twice instead of the jar's default once. In the `e03igg2` campaign the coin at
+2 brought `mop` back to the misuse level of the earlier jar and was the only arm above `ape`; the author placed
+that default on this side, and the jar's group blocks do not state the key (author's decision, 2026-10-19). A dose (`llm_percentage`,
 `mop_coin_percentage`) or any other mapped key is an ablation, expressed through the tool DSL
 (`aperv:as_mop@mop_coin_percentage=0.5`), and never as a new preset. The preset vocabulary belongs to the jar.
 
@@ -960,9 +963,8 @@ On a cell, `overrides` SHALL carry only what the jar cannot know: the server URL
 Resume"), and the result file names are built from the same fields. `aperv:mop` and `aperv:mop@k=2` in one
 campaign would therefore be the same task: the second would be skipped as completed, or would overwrite the first.
 An ablation run beside its cell is therefore a named variant: the cell's preset, its own `variant` name, and the
-ablated key in `overrides`. There are two such variants (author's decisions, 2026-10-18), both on the `mop` cell,
-each with one key changed and nothing else. `mop_k2` sets `ape.mopCoinLedgerMaxInteractions=2`, so the MOP coin
-may take each (activity, widget) key twice instead of once. `mop_nolaunch` sets `ape.activityTriggerEnabled=false`,
+cell's `overrides` plus the ablated key. There is one such variant (author's decision, 2026-10-18), on the `mop`
+cell, with one key added and nothing else. `mop_nolaunch` sets `ape.activityTriggerEnabled=false`,
 which unmounts `MOP_LAUNCHER`: the launcher stage leaves the pipeline, and the null-tree recovery the launcher owns
 goes with it, so the jar's recovery falls back to APE's. Every other MOP member runs as in `mop`; none depends on
 the launcher. An ablation that never shares a container with its cell stays a DSL
@@ -1007,11 +1009,11 @@ arm at least in the MOP coin, the owner order of the step and the X1–X4 defaul
 #### Scenario: The variant set is the six cells and default
 
 - **WHEN** `get_variants()` is read
-- **THEN** its keys SHALL be exactly `default`, `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `mop_k2`,
+- **THEN** its keys SHALL be exactly `default`, `base`, `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`,
   `mop_nolaunch`
 - **AND** `get_variants()["default"] is get_variants()["base"]` SHALL be true
 - **AND** none of `sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`,
-  `mop_on_llm_70`, `mopd_on_llm_off`, `mopd_on_llm_90` SHALL be a key
+  `mop_on_llm_70`, `mopd_on_llm_off`, `mopd_on_llm_90`, `mop_k2` SHALL be a key
 
 #### Scenario: Each cell names its own preset and itself
 
@@ -1024,34 +1026,37 @@ arm at least in the MOP coin, the owner order of the step and the X1–X4 defaul
 - **WHEN** `get_variants()["base"]` is read
 - **THEN** `preset` SHALL be `"base"`, `overrides` SHALL be empty, and no `static_data` key SHALL be present
 
-#### Scenario: Only the LLM cells carry an override
+#### Scenario: Each cell carries the server URL or the ledger budget, and nothing else
 
 - **WHEN** `get_variants()["as_mop_llm"]` is read
-- **THEN** `overrides` SHALL be exactly `{"llm_url": "http://10.0.2.2:30000/v1"}`
-- **AND** `get_variants()["as_llm"]["overrides"]` SHALL be the same dict value
-- **AND** every other cell's `overrides` SHALL be empty
+- **THEN** `overrides` SHALL be exactly `{"mop_coin_ledger_max_interactions": 2, "llm_url": "http://10.0.2.2:30000/v1"}`
+- **AND** `get_variants()["as_llm"]["overrides"]` SHALL be exactly `{"llm_url": "http://10.0.2.2:30000/v1"}`
+- **AND** `get_variants()["mop"]["overrides"]` and `get_variants()["as_mop"]["overrides"]` SHALL each be exactly
+  `{"mop_coin_ledger_max_interactions": 2}`
+- **AND** the `base` and `as` cells' `overrides` SHALL be empty
 
-#### Scenario: The MOP ledger ablation is the mop cell with one key
+#### Scenario: The MOP cells write the ledger budget
 
-- **WHEN** `get_variants()["mop_k2"]` is read
-- **THEN** `preset` SHALL be `"mop"`, `variant` SHALL be `"mop_k2"` and `strategy` SHALL be `"sata"`
-- **AND** `overrides` SHALL be exactly `{"mop_coin_ledger_max_interactions": 2}`
-- **AND** every other top-level key SHALL equal the `mop` cell's
-- **AND** `_push_properties()` with the artifact pushed SHALL write `ape.preset=mop`, `ape.variant=mop_k2`,
-  `ape.staticDataPath=/data/local/tmp/mop-artifact.json` and `ape.mopCoinLedgerMaxInteractions=2`, in that order
+- **WHEN** `_push_properties()` runs for the `mop` cell with the artifact pushed
+- **THEN** it SHALL write `ape.preset=mop`, `ape.variant=mop`, `ape.staticDataPath=/data/local/tmp/mop-artifact.json`
+  and `ape.mopCoinLedgerMaxInteractions=2`, in that order
+- **AND** for the `as_mop_llm` cell the line `ape.mopCoinLedgerMaxInteractions=2` SHALL come before `ape.llmUrl=…`,
+  because the lines follow the order of `APERV_PROPERTY_MAPPING`
 
 #### Scenario: The launcher ablation is the mop cell without its launcher
 
 - **WHEN** `get_variants()["mop_nolaunch"]` is read
 - **THEN** `preset` SHALL be `"mop"`, `variant` SHALL be `"mop_nolaunch"` and `strategy` SHALL be `"sata"`
-- **AND** `overrides` SHALL be exactly `{"activity_trigger_enabled": False}`
+- **AND** `overrides` SHALL be exactly `{"mop_coin_ledger_max_interactions": 2, "activity_trigger_enabled": False}`,
+  the `mop` cell's plus one key
 - **AND** every other top-level key SHALL equal the `mop` cell's
 - **AND** `_push_properties()` with the artifact pushed SHALL write `ape.preset=mop`, `ape.variant=mop_nolaunch`,
-  `ape.staticDataPath=/data/local/tmp/mop-artifact.json` and `ape.activityTriggerEnabled=false`, in that order
+  `ape.staticDataPath=/data/local/tmp/mop-artifact.json`, `ape.activityTriggerEnabled=false` and
+  `ape.mopCoinLedgerMaxInteractions=2`, in that order
 
 #### Scenario: Every cell but base carries the static data
 
-- **WHEN** the variants `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `mop_k2`, `mop_nolaunch` are read
+- **WHEN** the variants `mop`, `as`, `as_mop`, `as_llm`, `as_mop_llm`, `mop_nolaunch` are read
 - **THEN** each SHALL carry `static_data="static_analysis"` at the top level
 - **AND** none SHALL carry `mop_data`
 
@@ -1141,7 +1146,7 @@ entries are:
 | `mop_retire_after` | `ape.mopRetireAfter` | `MOP` sub-parameter, read under `distance` only |
 | `mop_launcher_dmax` | `ape.mopLauncherDmax` | `MOP` sub-parameter, read under `distance` only |
 | `mop_coin_percentage` | `ape.mopCoinPercentage` | `MOP_COIN` activation (MOP); `p_M`, jar default 1.0 |
-| `mop_coin_ledger_max_interactions` | `ape.mopCoinLedgerMaxInteractions` | `MOP_COIN` sub-parameter; the coin's picks per (activity, widget) key, jar default 1, values below 1 read as 1; set by `mop_k2` |
+| `mop_coin_ledger_max_interactions` | `ape.mopCoinLedgerMaxInteractions` | `MOP_COIN` sub-parameter; the coin's picks per (activity, widget) key, jar default 1, values below 1 read as 1; set to 2 on the `mop`, `as_mop` and `as_mop_llm` cells |
 | `llm_url` | `ape.llmUrl` | `LLM` dependency; required on both LLM cells (INV-APV-38) |
 | `llm_on_new_state` | `ape.llmOnNewState` | `LLM_NEW_STATE` activation |
 | `llm_on_stagnation` | `ape.llmOnStagnation` | `LLM_STAGNATION` activation |
@@ -1423,19 +1428,22 @@ and `digest`. The comparison masks the members that differ by construction: `run
 sides of the key change cannot pass it, because the run aborts at resolution and writes no `RUN_START`. A pair
 that passes it runs what each cell claims.
 
-**An ablation variant is checked against its cell's fixture.** The jar ships no preset for an ablation variant, so
-there is no fixture of its own. Its `RUN_START` SHALL be compared with `cells/mop.run_start.json`, its preset's
-fixture, with the variant's own deltas set apart. `preset` SHALL be equal and `variant` SHALL be the variant's name.
-`digest` is not compared, because it hashes every plan value and so differs by construction. The deltas follow from
-the jar's echo rules: `params` carries a non-default value and the activation key of each active feature, and a key
-of an inactive feature stated at its neutral value is reported in `inert`.
-- `mop_k2`: `features` and `inert` equal the fixture's; `params` is the fixture's plus
-  `ape.mopCoinLedgerMaxInteractions: 2`.
-- `mop_nolaunch`: `features` is the fixture's without `MOP_LAUNCHER`; `params` is the fixture's without
-  `ape.activityTriggerEnabled`, because an inactive feature's activation key is not echoed and `false` is that
-  key's neutral value; `inert` is `["ape.activityTriggerEnabled"]`.
-Offline, the test checks that each ablation variant names the `mop` preset and that its overrides map to the one
-key the jar accepts.
+**A variant whose overrides reach the plan is checked with its deltas set apart.** The fixtures describe the jar's
+presets, and the jar's echo rules predict how an override moves the echo: `params` carries a non-default value and
+the activation key of each active feature, and a key of an inactive feature stated at its neutral value is
+reported in `inert`. `digest` is not compared for these variants, because it hashes every plan value and so differs
+by construction. `preset` SHALL be equal and `variant` SHALL be the variant's name.
+- `mop`, `as_mop`, `as_mop_llm`, each against its own fixture: `features` and `inert` equal the fixture's; `params`
+  is the fixture's plus `ape.mopCoinLedgerMaxInteractions: 2`, the ledger budget the cell carries and the jar's
+  default (1) does not.
+- `mop_nolaunch`, against `cells/mop.run_start.json`, because the jar ships no preset for an ablation variant:
+  `features` is the fixture's without `MOP_LAUNCHER`; `params` is the fixture's plus
+  `ape.mopCoinLedgerMaxInteractions: 2` and without `ape.activityTriggerEnabled`, because an inactive feature's
+  activation key is not echoed and `false` is that key's neutral value; `inert` is `["ape.activityTriggerEnabled"]`.
+- `base`, `as`, `as_llm` are compared on every member, `digest` included: `as_llm`'s only override, `llm_url`,
+  states the value its fixture already carries (`http://10.0.2.2:30000/v1`).
+Offline, the test checks that the ablation variant names the `mop` preset and that the ledger and launcher
+overrides map to keys the jar accepts.
 
 The comparison is post-hoc analysis over a recorded trace, done by a test or a smoke script through `TraceReader`.
 It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-APV-57).
@@ -1452,24 +1460,26 @@ It SHALL NOT be done in `tool.py`, which never reads the echo (INV-APV-43, INV-A
 - **AND** its `features` SHALL contain `LLM_COIN` and SHALL NOT contain `MOP` or `MOP_COIN`
 
 #### Scenario: A device run echoes the cell it was given
-- **WHEN** the smoke runs `aperv:mop` on an instrumented APK with its `.apk.json`, with the paired jar
-- **THEN** the trace's `RUN_START.variant` SHALL be `"mop"`
-- **AND** its `features` SHALL equal the fixture's `FUZZING`, `STATIC_DATA`, `MOP`, `WTG`, `MOP_FRONTIER`,
-  `MOP_LAUNCHER`, `MOP_ACTIVITY_SOURCE`, `MOP_COIN`, with no `MENU_GATEWAY`
+- **WHEN** the smoke runs `aperv:as` on an instrumented APK with its `.apk.json`, with the paired jar
+- **THEN** the trace's `RUN_START.variant` SHALL be `"as"`
+- **AND** its `features`, `params` and `inert` SHALL equal those of `cells/as.run_start.json`
 - **AND** its `digest` SHALL equal the fixture's
 
-#### Scenario: The ablation variant echoes its cell plus one key
-- **WHEN** the smoke runs `aperv:mop_k2` on an instrumented APK with its `.apk.json`, with the paired jar
-- **THEN** the trace's `RUN_START.preset` SHALL be `"mop"` and `RUN_START.variant` SHALL be `"mop_k2"`
-- **AND** its `features` and `inert` SHALL equal those of `cells/mop.run_start.json`
-- **AND** its `params` SHALL equal the fixture's plus `mopCoinLedgerMaxInteractions: 2`
+#### Scenario: A MOP cell echoes its fixture plus the ledger budget
+- **WHEN** the smoke runs `aperv:mop` on an instrumented APK with its `.apk.json`, with the paired jar
+- **THEN** the trace's `RUN_START.preset` and `RUN_START.variant` SHALL be `"mop"`
+- **AND** its `features` SHALL equal the fixture's `FUZZING`, `STATIC_DATA`, `MOP`, `WTG`, `MOP_FRONTIER`,
+  `MOP_LAUNCHER`, `MOP_ACTIVITY_SOURCE`, `MOP_COIN`, with no `MENU_GATEWAY`, and its `inert` SHALL equal the
+  fixture's
+- **AND** its `params` SHALL equal the fixture's plus `ape.mopCoinLedgerMaxInteractions: 2`
+- **AND** its `digest` SHALL NOT be compared
 
 #### Scenario: The launcher ablation echoes its cell without the launcher
 - **WHEN** the smoke runs `aperv:mop_nolaunch` on an instrumented APK with its `.apk.json`, with the paired jar
 - **THEN** the trace's `RUN_START.preset` SHALL be `"mop"` and `RUN_START.variant` SHALL be `"mop_nolaunch"`
 - **AND** its `features` SHALL be those of `cells/mop.run_start.json` without `MOP_LAUNCHER`
-- **AND** its `params` SHALL equal the fixture's without `ape.activityTriggerEnabled`, and its `inert` SHALL be
-  `["ape.activityTriggerEnabled"]`
+- **AND** its `params` SHALL equal the fixture's plus `ape.mopCoinLedgerMaxInteractions: 2` and without
+  `ape.activityTriggerEnabled`, and its `inert` SHALL be `["ape.activityTriggerEnabled"]`
 - **AND** its `RUN_END.counters.launches` and `nullRelaunches` SHALL be `0`
 
 #### Scenario: A mismatched pair fails at resolution

@@ -77,7 +77,7 @@ Requirements: FR19, FR20, FR11, FR04/FR06, NFR06 (`docs/PRD.md`).
 
 | Component | Responsibility | Input | Output |
 |-----------|---------------|-------|--------|
-| `ApeRVTool.get_variants()` | The nine names, eight configurations (six cells, `default`, `mop_k2`, `mop_nolaunch`) | — | `Dict[str, dict]` |
+| `ApeRVTool.get_variants()` | The eight names, seven configurations (six cells, `default`, `mop_nolaunch`) | — | `Dict[str, dict]` |
 | `ApeRVTool.configure()` | Validate, fold DSL keys, reject `mop_data` and unknown keys | merged variant config | `self._tool_config` |
 | `ApeRVTool._push_properties()` | Write the fixed lines, then the overrides | `_tool_config`, artifact flag | `/data/local/tmp/ape.properties` |
 | `ApeRVTool.execute_tool_specific_logic()` | Push the catalog iff `broadcast_catalog`, the artifact iff `static_data` | task, app | trace file |
@@ -185,7 +185,7 @@ it, and the collection-path test that forbids it stays.
 `Presets.java` and `src/test/resources/cells/*.run_start.json` through `$APE_REPO`, and asserts the preset names,
 the block unions, and each fixture's `preset`/`variant` against `get_variants()`. On the device: the smoke, the short pre-run of a comparison
 mini-experiment on instrumented corpus APKs, compares each recorded `RUN_START` with its fixture through `TraceReader`, masking
-`run_id`, `t0`, `seed`, `build` and `props_digest`. Neither level runs in `tool.py` (INV-APV-43).
+`run_id`, `t0`, `seed`, `build` and `props_digest`, with the deltas of D17 and D18 set apart. Neither level runs in `tool.py` (INV-APV-43).
 
 **D11 — The reader accepts versions 1 and 2, and `activity_has_mop` becomes tri-state** (contract v3.2).
 `RunSpecEcho.FORMAT_VERSION` moves to 2 on the group-isolation jar because `dec.src` changes meaning.
@@ -268,8 +268,8 @@ D are untouched. On this side it means:
 Contract v3.3 (the `ape` amendment after the `e03igg` comparison, 2026-10-18) adds four things on this side and
 leaves the group blocks, the cells and the meaning of `dec.mopx` unchanged:
 - one `MOP_COIN` key, `ape.mopCoinLedgerMaxInteractions` (int, jar default 1, values below 1 read as 1): how many
-  times the MOP coin may take one (activity, widget) key. No group block sets it. The mapping gains it as
-  `mop_coin_ledger_max_interactions`, and the retired `ape.mopTargetPickCap` now names it as its replacement;
+  times the MOP coin may take one (activity, widget) key. No group block sets it; the three MOP cells set it to 2
+  on this side (D18). The mapping gains it as `mop_coin_ledger_max_interactions`, and the retired `ape.mopTargetPickCap` now names it as its replacement;
 - `dec.hnd`, the binary class name of the handler stamp behind the weight, written exactly when `dec.mops` is
   `"s"`. It is a MOP member, so INV-SNK-18 lists it, the reader carries it as `StepRow.mop_handler`, and gate 1
   counts it on `v == 2`;
@@ -281,29 +281,50 @@ leaves the group blocks, the cells and the meaning of `dec.mopx` unchanged:
 The digest of the three MOP fixtures changes with v3.3 even at k = 1, because it hashes every plan value,
 defaults included. The fixtures are regenerated on the `ape` side and the migration tier is re-run against them.
 
-**D17 — `mop_k2` and `mop_nolaunch` are named ablation variants** (author's decisions, 2026-10-18). The `e03igg`
-round contrasts each with `mop`. `mop_k2` is the same cell with the MOP coin allowed two picks per (activity,
-widget) key instead of one. `mop_nolaunch` is the same cell with `ape.activityTriggerEnabled=false`, which
+**D17 — `mop_nolaunch` is a named ablation variant** (author's decision, 2026-10-18). The `e03igg2` round
+contrasts it with `mop`. It is the same cell with `ape.activityTriggerEnabled=false`, which
 unmounts `MOP_LAUNCHER`: `DecisionPipeline.fromSpec` mounts no launcher stage, and the null-tree recovery of
 `ape` D-B16, which only the launcher owns, gives way to APE's own. No other feature depends on `MOP_LAUNCHER`, so
-the plan resolves without an abort, and the other MOP members run as in `mop` (checked against `ape` `a4afd31b`). The DSL form `aperv:mop@mop_coin_ledger_max_interactions=2` cannot run beside `aperv:mop` in one campaign,
+the plan resolves without an abort, and the other MOP members run as in `mop` (checked against `ape` `a4afd31b`).
+The DSL form `aperv:mop@activity_trigger_enabled=false` cannot run beside `aperv:mop` in one campaign,
 because the platform's resume identity is `(apk, tool, variant, repetition, timeout)` without the parameters
 (`rv-platform/platform.py:319-327`), and the result file names use the same fields. The second arm would be
 skipped as already completed or would overwrite the first. So the ablation gets its own name. It is the `mop`
-cell's dict with its own `variant` and one key in `overrides`, and nothing else. The preset stays `mop`, because
-the jar ships no preset for an ablation and the preset vocabulary belongs to the jar. The cell gate checks each
+cell's dict with its own `variant` and one more key in `overrides`, and nothing else; it inherits the `mop` cell's
+ledger budget (D18). The preset stays `mop`, because
+the jar ships no preset for an ablation and the preset vocabulary belongs to the jar. The cell gate checks it
 against `cells/mop.run_start.json`, with the deltas the jar's echo rules predict set apart and the digest not
-compared. For `mop_k2` the delta is one `params` entry. For `mop_nolaunch` it is `MOP_LAUNCHER` out of
-`features`, `ape.activityTriggerEnabled` out of `params` and into `inert`, because an inactive feature's
-activation key is not echoed and `false` is that key's neutral value. The `ape` session generated this record
+compared: `MOP_LAUNCHER` out of `features`, `ape.activityTriggerEnabled` out of `params` and into `inert`, because
+an inactive feature's activation key is not echoed and `false` is that key's neutral value, and the ledger entry of
+D18 added to `params`. The `ape` session generated this record at k = 1
 through `RunSpec.resolve` + `RunSpecEcho.emit` (digest `56dc053166b660eb`, against the `mop` fixture's
-`186262eb97d2d560`).
+`186262eb97d2d560`). A second ablation, `mop_k2` (the ledger at 2), ran in `e03igg2` and was retired on
+2026-10-19, when D18 made it identical to `mop`.
 - Alternative: keep the DSL and run the two arms in separate containers or campaigns. Rejected: the round runs
   both arms in the same containers, which is what the named variant allows.
 - Alternative: make the platform's resume identity include the parameters. Rejected: it touches `rv-platform`
   for one contrast, and it would change the identity of every recorded campaign.
 - Alternative: a fixture of its own on the `ape` side. Rejected by the author: a fixture per ablation leaves the
   six-cell design.
+
+**D18 — The three MOP cells run the coin ledger at k = 2** (author's decision, 2026-10-19). In the `e03igg2`
+campaign (`docs/20261019_e03igg2.md` §6.2, §9) the `mop_k2` ablation reached 0.448 misuses per task against
+0.408 for `mop` at k = 1 (IRR 1.098, 97.5 % CI [0.987; 1.222]), the level `mop` had in `e03igg` (0.452), and it was
+the only arm above `ape`. With k = 2 the coin wins 11.1 times per task instead of 6.3. The cells `mop`, `as_mop` and
+`as_mop_llm` therefore carry `mop_coin_ledger_max_interactions: 2` in `overrides`; the LLM cell carries it beside
+`llm_url`. The jar's default stays 1 and no group block states the key, so the preset and its fixture still
+describe k = 1. This is the one exception to "a cell's `overrides` carry only what the jar cannot know": the author
+placed the default here rather than in the jar.
+
+The cell gate follows from the jar's echo rules: a non-default value is echoed in `params`, and the digest hashes
+every plan value. For each of the three cells, `features` and `inert` equal the fixture's, `params` is the
+fixture's plus `ape.mopCoinLedgerMaxInteractions: 2`, and the digest is not compared. `base`, `as` and `as_llm`
+keep the full comparison, digest included. The 16 `mop_k2` runs of the `e03igg2smk` smoke echoed exactly that
+`params` entry against the `mop` fixture.
+- Alternative: state k = 2 in the jar's MOP block, so the fixtures carry it and the gate stays an equality.
+  Rejected by the author: the jar is not touched for this.
+- Alternative: set it on the `mop` cell only. Rejected by the author: `as_mop` and `as_mop_llm` would then run a
+  different coin from `mop`, and the AS and G1 contrasts would mix the group with the ledger budget.
 
 **D10 — `test_jar_tables.py` re-pins the presets.** The parser in `jar_tables.py` reads `Presets.java` with
 regular expressions. The new file composes cells from group blocks, so the parser has to read that composition, or
@@ -327,12 +348,14 @@ def get_variants(cls) -> Dict[str, Dict[str, Any]]:
             **({"broadcast_catalog": True} if name.startswith("as") else {}),
             "overrides": {"llm_url": LLM_URL_DEFAULT} if llm else {},
         }
-    return {"default": base, "base": base, "mop": cell("mop"), "as": cell("as"), "as_mop": cell("as_mop"),
-            "as_llm": cell("as_llm", llm=True), "as_mop_llm": cell("as_mop_llm", llm=True),
-            "mop_k2": {**cell("mop"), "variant": "mop_k2",
-                       "overrides": {"mop_coin_ledger_max_interactions": 2}},
-            "mop_nolaunch": {**cell("mop"), "variant": "mop_nolaunch",
-                             "overrides": {"activity_trigger_enabled": False}}}
+    k2 = {"mop_coin_ledger_max_interactions": 2}
+    mop = {**cell("mop"), "overrides": k2}
+    return {"default": base, "base": base, "mop": mop, "as": cell("as"),
+            "as_mop": {**cell("as_mop"), "overrides": k2},
+            "as_llm": cell("as_llm", llm=True),
+            "as_mop_llm": {**cell("as_mop_llm"), "overrides": {**k2, "llm_url": LLM_URL_DEFAULT}},
+            "mop_nolaunch": {**mop, "variant": "mop_nolaunch",
+                             "overrides": {**k2, "activity_trigger_enabled": False}}}
 ```
 
 The sketch shows the shape, not the final code: the implementation may spell the six dicts out if that reads

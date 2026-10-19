@@ -139,6 +139,15 @@ The code tasks wait for the `ape` commit that lands v3.3 with its regenerated MO
 
 - [x] K.6 `mop_nolaunch` (author's decision, 2026-10-18; design D17), against `ape` `a4afd31b` and the paired jar `ff0a3069…141f`: the variant in `tool.py` = the `mop` dict with `variant="mop_nolaunch"` and `overrides={"activity_trigger_enabled": False}` (the key is already mapped), docstring with nine names; tests for "The launcher ablation is the mop cell without its launcher" in `tests/test_aperv_tool.py`; `tests/migration/test_cells.py` checks it names the `mop` preset and that `ape.activityTriggerEnabled` is the `MOP_LAUNCHER` activation key with neutral value `false`; module docs and `docs/architecture/ape-rv.md` counts (nine names, eight configurations); commit by path; send `mini-experimento` the worktree SHA and the S.3 rule (features without `MOP_LAUNCHER`, params without `ape.activityTriggerEnabled`, inert `["ape.activityTriggerEnabled"]`, digest out)
 
+## L. MOP coin ledger at k = 2, `mop_k2` retired (author's decision, 2026-10-19; design D18)
+
+The jar is not touched: the pair is this worktree's new SHA with the same jar `ff0a3069…141f` (`ape` `a4afd31b`).
+
+- [ ] L.1 `tool.py`: `overrides={"mop_coin_ledger_max_interactions": 2}` on `mop`, `as_mop` and `as_mop_llm` (beside `llm_url` on the last), and on `mop_nolaunch` beside `activity_trigger_enabled`; the `mop_k2` variant deleted; the mapping comment of `mop_coin_ledger_max_interactions` and the `get_variants()` docstring (eight names, seven configurations, the ledger exception and why)
+- [ ] L.2 Tests: `tests/test_aperv_tool.py` (variant set without `mop_k2`, "Each cell carries the server URL or the ledger budget", "The MOP cells write the ledger budget", the `mop_nolaunch` overrides and line order); `tests/migration/test_cells.py` (only `mop_nolaunch` as ablation; the ledger key on the three MOP cells maps to a key the jar accepts); `tests/test_runspec.py` and the `analysis/runspec.py` docstrings name `mop_nolaunch` instead of `mop_k2`
+- [ ] L.3 Docs: `modules/aperv-tool/{CLAUDE.md,README.md,docs/architecture.md}` and `docs/architecture/ape-rv.md` (variant table, counts, the ledger on the three MOP cells, `mop_k2` gone); grep the worktree for `mop_k2` outside `openspec/changes/` and `backup/`
+- [ ] L.4 Run the module suites (aperv-tool, with and without `APE_REPO=<ape a4afd31b>`; rv-experiment); commit by path; send `mini-experimento` the worktree SHA, the unchanged jar sha256 and the S.3 rule (D18: `mop`, `as_mop`, `as_mop_llm` = own fixture with `params` + `ape.mopCoinLedgerMaxInteractions: 2`, digest out; `mop_nolaunch` as before plus that entry; `base`, `as`, `as_llm` full equality)
+
 ## C. Wave 4 — close (serial)
 
 - [ ] C.1 Run `/rv-qa-lint-fix aperv-tool` and `/rv-qa-lint-fix rv-experiment`

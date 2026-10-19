@@ -154,7 +154,7 @@ reader tells them apart through `run_start.v`.
 - **`step_bundle.py`** SHALL carry `activity_has_mop` as `Optional[bool]` into its frame column, written as
   null when absent (INV-CAN-22).
 - **`runspec.attribution_evidence`** SHALL compare `RunStart.variant` with the manifest arm's variant when both
-  are present; for an ablation variant such as `mop_k2` or `mop_nolaunch` that is the variant's own name, not its cell's. It SHALL report the check as `not-run` when the trace is `v == 1`, which carries no variant, rather than
+  are present; for an ablation variant such as `mop_nolaunch` that is the variant's own name, not its cell's. It SHALL report the check as `not-run` when the trace is `v == 1`, which carries no variant, rather than
   as a pass.
 - **`baseline_ape.py` and `baseline_droidbot.py`** SHALL write `None` for every `StepRow` field the two baselines
   cannot carry, the sixteen fields added by the reader included (INV-CAN-19), and SHALL keep deriving their column

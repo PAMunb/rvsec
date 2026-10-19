@@ -28,9 +28,15 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
   variant is the cell's jar preset plus what the jar cannot know: the server URL on the two LLM cells. What a group
   switches on lives in the jar's group blocks. Doses and other keys are ablations through the tool DSL. The one
   exception is an ablation that runs in the same containers as its cell, which needs a name of its own because
-  the platform's resume identity omits the parameters. There are two, both on the `mop` cell (author's decisions,
-  2026-10-18): `mop_k2`, with the MOP coin allowed two picks per (activity, widget) key, and `mop_nolaunch`, with
-  the MOP launcher unmounted.
+  the platform's resume identity omits the parameters. There is one, on the `mop` cell (author's decision,
+  2026-10-18): `mop_nolaunch`, with the MOP launcher unmounted.
+- **MOP coin ledger at k = 2** (author's decision, 2026-10-19, after the `e03igg2` campaign): the cells `mop`,
+  `as_mop` and `as_mop_llm` carry `mop_coin_ledger_max_interactions: 2` in `overrides`, so the MOP coin may take
+  each (activity, widget) key twice. In `e03igg2` the ablation that set it brought `mop` back to the misuse level
+  of the earlier jar, and it was the only arm above `ape`. The jar's default stays 1 and no group block states
+  the key: the author placed the default on this side, and the jar is not touched for it. This is the one key a
+  cell carries besides the server URL. The `mop_k2` ablation that measured it is retired, because it would be
+  identical to `mop`.
 - **BREAKING — the ten current variants are deleted, without alias** (D-A13). The deleted names are `sata`,
   `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`, `mop_on_llm_70`,
   `mopd_on_llm_off` and `mopd_on_llm_90`, and `default` is rebound to `base`. The decisive-run arm set, the
@@ -81,7 +87,7 @@ longer runs. The trace reader also cannot read the decision fields the new jar w
 ### Modified Capabilities
 - `aperv`: the variant set (cells instead of arms) and the removal of the decisive-run arm set. The data-key
   rename. The artifact and broadcast push rules. The variant line of `ape.properties` and the 67-entry mapping.
-  The named ablation variants `mop_k2` and `mop_nolaunch`. The
+  The MOP coin ledger budget on the three MOP cells and the named ablation variant `mop_nolaunch`. The
   intent-filter `data` member of the artifact. The trace reader's coverage of the new decision record and of
   `RUN_END`. The new cell gate.
 
