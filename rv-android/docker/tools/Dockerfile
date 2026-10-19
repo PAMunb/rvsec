@@ -1,4 +1,4 @@
-FROM phtcosta/rvsec_android:0.9.5
+FROM phtcosta/rvsec_android:0.9.6
 
 WORKDIR /opt
 # O droidbot serve CINCO dos onze bracos da comparacao: as quatro politicas `droidbot:*` e o

@@ -1,4 +1,4 @@
-FROM phtcosta/rvsec_base:0.9.5
+FROM phtcosta/rvsec_base:0.9.6
 
 
 # Build-time AVD configuration. Default = API 30 x86_64 google_apis (gh55 D8/D10

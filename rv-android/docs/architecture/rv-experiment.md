@@ -184,7 +184,7 @@ The following walks through a concrete example: running `uv run rv-experiment ru
 monkey --specification-set jca --apks-dir ./apks_examples --timeouts 60 --name demo` over
 `apks_examples/cryptoapp.apk` (package `br.unb.cic.cryptoapp`, a test app that calls
 `javax.crypto.Cipher` and `MessageDigest`), and then the same run inside a
-`phtcosta/rvandroid:0.9.5` container.
+`phtcosta/rvandroid:0.9.6` container.
 
 **1. CLI parsing and config assembly.** Click's `run` command in `rv_experiment/__main__.py`
 parses the tool DSL `tool[:variant[:variant…]][@k=v,…]`. Multi-variant specs expand at parse
@@ -309,7 +309,7 @@ rv-platform's job (INV-EXP-02). The CLI then exits with status 1 if any task fai
 execution raised, and 0 otherwise — which is also the container's exit status in Docker.
 
 **10. The same pipeline in a container.** In a container the flow is identical, inside
-`phtcosta/rvandroid:0.9.5`, the fourth image of the chain `phtcosta/rvsec_base` (Python 3.12
+`phtcosta/rvandroid:0.9.6`, the fourth image of the chain `phtcosta/rvsec_base` (Python 3.12
 slim, OpenJDK 25.0.2, Maven, AspectJ 1.9.25.1, uv, Docker CLI) → `phtcosta/rvsec_android`
 (Android SDK, API 30 system image, the `RVSec` AVD) → `phtcosta/rvandroid_tools` (DroidBot at
 a pinned commit) → `phtcosta/rvandroid`. The last image clones `PAMunb/rvsec` at
@@ -1004,10 +1004,10 @@ that names `rvsmart` fails tool resolution.
 (Python 3.12 slim, OpenJDK 25.0.2, Maven 3.9.16, AspectJ 1.9.25.1, uv, Docker CLI) →
 `phtcosta/rvsec_android` (Android SDK, platforms 10 to 37, the API 30 `google_apis` x86_64
 system image and the `RVSec` AVD) → `phtcosta/rvandroid_tools` (DroidBot at a pinned commit)
-→ `phtcosta/rvandroid`, all at version 0.9.5. The last image clones `PAMunb/rvsec` at
+→ `phtcosta/rvandroid`, all at version 0.9.6. The last image clones `PAMunb/rvsec` at
 `RVSEC_BRANCH`, runs `mvn clean install -DskipTests -DskipMopAgent`, runs `uv sync --no-dev`,
 builds `ape-rv.jar` from the APE-RV repository, gates on `instr-cli.jar`, and records the
-branch in `LABEL rvsec.branch`. `docker/rvandroid/build.sh` tags `0.9.5` and `latest`; any
+branch in `LABEL rvsec.branch`. `docker/rvandroid/build.sh` tags `0.9.6` and `latest`; any
 other `VERSION` (a campaign image) does not move `latest`. `docker-entrypoint.sh` validates
 the allow-list, handles `RV_DELAY`, the socat bridge (`RVSMART_LLM_MODE`), the `RV_SA_DIR`
 copy and the five negation flags, and execs rv-experiment. The two generic compose files
@@ -1405,11 +1405,11 @@ host (deployment). Diagram 6 is the install chain; Diagram 7 is the deployment.
 flowchart TB
     %% Source: docker/base/Dockerfile, docker/android/Dockerfile, docker/tools/Dockerfile, docker/rvandroid/Dockerfile, docker/rvandroid/build.sh, docker/build_all.sh
     %% Omitted: the Ares and QTesting images that docker/build_all.sh also builds, and docker/rvandroid_dev (not part of the run path)
-    subgraph CHAIN["Install: four-image chain (docker/), version 0.9.5"]
+    subgraph CHAIN["Install: four-image chain (docker/), version 0.9.6"]
         IBASE[("phtcosta/rvsec_base<br/>Python 3.12 slim, OpenJDK 25.0.2,<br/>Maven, AspectJ, uv, Docker CLI<br/>[Docker image]")]
         IANDR[("phtcosta/rvsec_android<br/>Android SDK, API 30 x86_64 image,<br/>AVD RVSec<br/>[Docker image]")]
         ITOOL[("phtcosta/rvandroid_tools<br/>DroidBot (pinned commit)<br/>[Docker image]")]
-        IRVA[("phtcosta/rvandroid:0.9.5<br/>rvsec clone + Maven reactor + uv sync --no-dev<br/>(ape-rv.jar from source; instr-cli.jar gate)<br/>[Docker image]")]
+        IRVA[("phtcosta/rvandroid:0.9.6<br/>rvsec clone + Maven reactor + uv sync --no-dev<br/>(ape-rv.jar from source; instr-cli.jar gate)<br/>[Docker image]")]
     end
     GHUB["GitHub (PAMunb/rvsec, APE-RV)<br/>[external system]"]
     DHUB["Docker Hub (phtcosta/*)<br/>[external system]"]
@@ -1475,7 +1475,7 @@ Every container gets its own experiment name, device port, start delay and resul
 | `phtcosta/rvsec_base` | image chain layer 1 | Python 3.12 slim (Debian trixie), OpenJDK 25.0.2, Maven 3.9.16, AspectJ 1.9.25.1, uv, Docker CLI |
 | `phtcosta/rvsec_android` | image chain layer 2 | Android SDK (platforms 10 to 37), API 30 `google_apis` x86_64 system image, AVD `RVSec` (pixel profile) |
 | `phtcosta/rvandroid_tools` | image chain layer 3 | DroidBot cloned at a pinned commit |
-| `phtcosta/rvandroid:0.9.5` | image chain layer 4 | Clones `PAMunb/rvsec` at `RVSEC_BRANCH`, Maven reactor, `uv sync --no-dev`, `ape-rv.jar` from source, `instr-cli.jar` gate, `LABEL rvsec.branch` |
+| `phtcosta/rvandroid:0.9.6` | image chain layer 4 | Clones `PAMunb/rvsec` at `RVSEC_BRANCH`, Maven reactor, `uv sync --no-dev`, `ape-rv.jar` from source, `instr-cli.jar` gate, `LABEL rvsec.branch` |
 | GitHub (PAMunb/rvsec, APE-RV) | build-time source | The image builds what is pushed, not the local tree |
 | Docker Hub (phtcosta/*) | distribution | Hosts pull images |
 | rv01, rv02 containers | container host | Each: own `RV_EXPERIMENT_NAME`, device port, `RV_DELAY`, results volume |
