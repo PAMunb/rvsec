@@ -118,10 +118,10 @@ STATIC_DATA_FROM_STATIC_ANALYSIS = "static_analysis"
 # the host loopback interface, where SGLang listens on a host-driven run.
 LLM_URL_DEFAULT = "http://10.0.2.2:30000/v1"
 
-# How many times the MOP coin may take one (activity, widget) key on the three cells that
-# mount MOP. The jar's default is 1 and no group block states the key; the author set the
-# cells to 2 on this side after the e03igg2 campaign, where the coin at 2 was the only
-# arm above APE in misuses (design D18).
+# How many times the MOP coin may take one (activity, widget) key on the three cells
+# that mount MOP. The jar's default is 1 and no group block states the key; the author
+# set the cells to 2 on this side after the e03igg2 campaign, where the coin at 2 was
+# the only arm above APE in misuses (design D18).
 MOP_COIN_LEDGER_MAX_INTERACTIONS = 2
 
 # Strategies accepted by configure(), matching what the jar's ApeAgent.createAgent builds.
@@ -160,8 +160,8 @@ APERV_ORCHESTRATION_KEYS = frozenset(
     }
 )
 
-# Maps Python override key -> Java ape.properties key, grouped by the jar group that owns
-# the key. Only the entries of `overrides` are translated through it; `preset` and
+# Maps Python override key -> Java ape.properties key, grouped by the jar group that
+# owns the key. Only the entries of `overrides` are translated through it; `preset` and
 # `variant` have their own fixed lines, and the other orchestration keys never reach
 # ape.properties. Every value must be a key the deployed jar accepts: under the jar's
 # fail-fast resolution an unknown or retired key aborts the run before step 1
@@ -205,9 +205,9 @@ APERV_PROPERTY_MAPPING = {
     "tree_enhancements_enabled": "ape.treeEnhancementsEnabled",
     "activity_budget_enabled": "ape.activityBudgetEnabled",
     "coverage_boost_weight": "ape.coverageBoostWeight",
-    # STATIC: the consumers of the static GUI model. The frontier boost, typed fuzz input,
-    # and component triggering at the per-step probability the STATIC block states (the
-    # jar's only reader of system-broadcast.json).
+    # STATIC: the consumers of the static GUI model. The frontier boost, typed fuzz
+    # input, and component triggering at the per-step probability the STATIC block
+    # states (the jar's only reader of system-broadcast.json).
     "frontier_boost_weight": "ape.frontierBoostWeight",
     "fuzz_input_typed": "ape.fuzzInputTyped",
     "component_percentage": "ape.componentPercentage",
@@ -236,8 +236,9 @@ APERV_PROPERTY_MAPPING = {
     # p_M, the probability that a step offered to MOP is taken by it; the MOP block
     # states 1.0, so a lower dose is an ablation.
     "mop_coin_percentage": "ape.mopCoinPercentage",
-    # How many times the MOP coin may take one (activity, widget) key; the jar default is
-    # 1, no block states it, and the three MOP cells set MOP_COIN_LEDGER_MAX_INTERACTIONS.
+    # How many times the MOP coin may take one (activity, widget) key; the jar default
+    # is 1, no block states it, and the three MOP cells set
+    # MOP_COIN_LEDGER_MAX_INTERACTIONS.
     "mop_coin_ledger_max_interactions": "ape.mopCoinLedgerMaxInteractions",
     # LLM: the vision-language model. llm_url is the one deployment fact the LLM cells
     # carry; the LLM block states the sampling configuration and the dose.
@@ -480,7 +481,9 @@ class ApeRVTool(AbstractTool):
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
                 "broadcast_catalog": True,
                 "overrides": {
-                    "mop_coin_ledger_max_interactions": MOP_COIN_LEDGER_MAX_INTERACTIONS,
+                    "mop_coin_ledger_max_interactions": (
+                        MOP_COIN_LEDGER_MAX_INTERACTIONS
+                    ),
                     "llm_url": LLM_URL_DEFAULT,
                 },
             },
@@ -492,7 +495,9 @@ class ApeRVTool(AbstractTool):
                 "strategy": "sata",
                 "static_data": STATIC_DATA_FROM_STATIC_ANALYSIS,
                 "overrides": {
-                    "mop_coin_ledger_max_interactions": MOP_COIN_LEDGER_MAX_INTERACTIONS,
+                    "mop_coin_ledger_max_interactions": (
+                        MOP_COIN_LEDGER_MAX_INTERACTIONS
+                    ),
                     "activity_trigger_enabled": False,
                 },
             },
@@ -502,20 +507,21 @@ class ApeRVTool(AbstractTool):
         """
         Configure tool with resolved variant parameters.
 
-        A variant is a cell preset, the cell's name and a dict of override deltas,
-        so configure() validates every part of that shape — strategy, preset,
-        variant, overrides — and folds any tool-DSL override into place. Everything is raised before any
-        device interaction, so a typo in experiment YAML costs nothing (INV-APV-02).
+        A variant is a cell preset, the cell's name and a dict of override deltas, so
+        configure() validates every part of that shape — strategy, preset, variant,
+        overrides — and folds any tool-DSL override into place. Everything is raised
+        before any device interaction, so a typo in experiment YAML costs nothing
+        (INV-APV-02).
 
         Args:
             config: Configuration dictionary with tool-specific parameters
 
         Raises:
             ConfigurationError: If strategy is absent or outside
-                APERV_AVAILABLE_STRATEGIES, if preset or variant is absent or
-                empty, if overrides is not a dict, if a top-level key is neither a mapped
-                override nor a recognised orchestration key (INV-APV-39), or if
-                `corpus_basis` is present and does not match CORPUS_BASIS_PATTERN
+                APERV_AVAILABLE_STRATEGIES, if preset or variant is absent or empty, if
+                overrides is not a dict, if a top-level key is neither a mapped override
+                nor a recognised orchestration key (INV-APV-39), or if `corpus_basis` is
+                present and does not match CORPUS_BASIS_PATTERN
         """
         # Validate eagerly so experiment YAML typos are caught before any device
         # interaction — a failed push mid-experiment wastes minutes of emulator time.
@@ -541,8 +547,9 @@ class ApeRVTool(AbstractTool):
                 "A variant is a cell preset plus its override deltas."
             )
 
-        # The variant name is the cell the trace says it ran (INV-APV-65). Without it the
-        # jar echoes no name, and which cell produced a trace rests on the file name alone.
+        # The variant name is the cell the trace says it ran (INV-APV-65). Without it
+        # the jar echoes no name, and which cell produced a trace rests on the file name
+        # alone.
         variant = config.get("variant")
         if not variant:
             raise ConfigurationError(
@@ -564,15 +571,16 @@ class ApeRVTool(AbstractTool):
         #
         # ToolFactory merges DSL parameters at the TOP LEVEL of the config
         # (`{**variant_config, **tool_config.parameters}`), while _push_properties()
-        # reads only `overrides`. Without this fold, `aperv:as_mop@mop_coin_percentage=0.5`
-        # would land somewhere nothing reads: no property line, no error, and a run whose
-        # configuration silently differs from what the operator asked for. That is the exact
-        # failure class this change exists to remove, so it may not be introduced by it.
+        # reads only `overrides`. Without this fold,
+        # `aperv:as_mop@mop_coin_percentage=0.5` would land somewhere nothing reads: no
+        # property line, no error, and a run whose configuration silently differs from
+        # what the operator asked for. That is the exact failure class this change
+        # exists to remove, so it may not be introduced by it.
         #
-        # The DSL value wins over a variant's own entry for the same key — the DSL is the
-        # operator's last word, which is what makes it usable for smokes and ablations
-        # without declaring a variant. The same fold carries the LLM server URL that
-        # rv-experiment injects as a top-level llm_url from APERV_LLM_BASE_URL.
+        # The DSL value wins over a variant's own entry for the same key — the DSL is
+        # the operator's last word, which is what makes it usable for smokes and
+        # ablations without declaring a variant. The same fold carries the LLM server
+        # URL that rv-experiment injects as a top-level llm_url from APERV_LLM_BASE_URL.
         for key in list(self._tool_config):
             if key in APERV_PROPERTY_MAPPING:
                 self._tool_config["overrides"][key] = self._tool_config.pop(key)
@@ -888,10 +896,10 @@ class ApeRVTool(AbstractTool):
         and one line per override delta. What the preset mounts is the jar's business
         — this side never restates it.
 
-            ape.preset=<preset>                                   # always first
-            ape.variant=<variant>                                 # always second
-            ape.staticDataPath=/data/local/tmp/mop-artifact.json  # only when pushed
-            ape.<mapped-override-key>=<value>                     # deltas, mapping order
+            ape.preset=<preset>                                  # always first
+            ape.variant=<variant>                                # always second
+            ape.staticDataPath=/data/local/tmp/mop-artifact.json # only when pushed
+            ape.<mapped-override-key>=<value>                    # deltas, mapping order
 
         The order is fixed so two runs of the same variant produce byte-identical
         output.
@@ -1270,13 +1278,13 @@ class ApeRVTool(AbstractTool):
             jar_path, APERV_DEVICE_JAR_PATH, device_serial, task.result.trace_file
         )
 
-        # Step 1b: Push system-broadcast.json on the cells that mount STATIC (INV-APV-10).
-        # The catalog tells component triggering which typed extras to send with the
-        # system broadcast intents it fires at the receivers of the manifest. Component
-        # triggering is a STATIC member and the catalog's only reader, so the variant
-        # states the push with `broadcast_catalog` (the four as* cells) and base and mop
-        # receive nothing. A missing file is skipped: component triggering degrades
-        # gracefully, firing those intents without typed extras.
+        # Step 1b: Push system-broadcast.json on the cells that mount STATIC
+        # (INV-APV-10). The catalog tells component triggering which typed extras to
+        # send with the system broadcast intents it fires at the receivers of the
+        # manifest. Component triggering is a STATIC member and the catalog's only
+        # reader, so the variant states the push with `broadcast_catalog` (the four as*
+        # cells) and base and mop receive nothing. A missing file is skipped: component
+        # triggering degrades gracefully, firing those intents without typed extras.
         broadcast_catalog = os.path.join(
             os.path.dirname(__file__), APERV_BROADCAST_CATALOG_NAME
         )
@@ -1344,11 +1352,12 @@ class ApeRVTool(AbstractTool):
         # It cannot be written into the trace itself: step 3 opens that file in
         # "wb" and would truncate anything written here.
         #
-        # The discriminator is `llm_url` in the variant's overrides, not the preset name.
-        # Both say the same thing for the cells — as_llm and as_mop_llm mount the LLM
-        # group, and INV-APV-38 requires both to supply the URL — but the URL is what
-        # this step actually needs, and this module does not branch on preset names, so
-        # testing for it cannot go looking for a server that was never configured.
+        # The discriminator is `llm_url` in the variant's overrides, not the preset
+        # name. Both say the same thing for the cells — as_llm and as_mop_llm mount the
+        # LLM group, and INV-APV-38 requires both to supply the URL — but the URL is
+        # what this step actually needs, and this module does not branch on preset
+        # names, so testing for it cannot go looking for a server that was never
+        # configured.
         llm_url = self._tool_config.get("overrides", {}).get("llm_url")
         if llm_url:
             provenance = self._capture_llm_provenance(llm_url, jar_path)

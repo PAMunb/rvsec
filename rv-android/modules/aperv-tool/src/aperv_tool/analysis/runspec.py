@@ -23,12 +23,12 @@ absence. The overall verdict therefore degrades: any failed check makes the
 whole ``fail``, and otherwise any check that could not run makes it ``not-run``.
 Only an evidence set that is both complete and matching yields ``pass``.
 
-**The variant is evidence only where the jar writes it.** The group-isolation
-jar (``RUN_START.v == 2``) echoes the variant name it was handed as ``variant``,
-and that is compared with the variant the manifest declares: a cell, or an
-ablation variant such as ``mop_nolaunch`` that runs a cell's preset under its own name. A ``v == 1`` trace carries no
-variant by construction, so the check is reported ``not-run`` there and left out
-of the overall verdict: absent evidence is not a pass, and a member the jar
+**The variant is evidence only where the jar writes it.** The group-isolation jar
+(``RUN_START.v == 2``) echoes the variant name it was handed as ``variant``, and that is
+compared with the variant the manifest declares: a cell, or an ablation variant such as
+``mop_nolaunch`` that runs a cell's preset under its own name. A ``v == 1`` trace
+carries no variant by construction, so the check is reported ``not-run`` there and left
+out of the overall verdict: absent evidence is not a pass, and a member the jar
 generation never wrote is not a gap in that run's evidence either.
 
 **No expected digest lives here.** What the campaign declares — the jar sha, the
@@ -134,8 +134,8 @@ class AttributionEvidence:
     Attributes:
         arm: The arm label judged.
         verdict: ``fail`` if any counted check failed; otherwise ``not-run`` if
-            any counted check could not run; otherwise ``pass``. The ordering is the point:
-            an incomplete evidence set never yields a clean pass, and a real
+            any counted check could not run; otherwise ``pass``. The ordering is the
+            point: an incomplete evidence set never yields a clean pass, and a real
             mismatch is never hidden behind a missing one.
         evidence_form: The checks that actually ran, comma-joined — the phrase
             a ``GateReport`` prints as its evidence form. ``none`` when the

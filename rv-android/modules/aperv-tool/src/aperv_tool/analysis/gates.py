@@ -239,19 +239,18 @@ def count_mop_group_signal(
     The list depends on the trace version, because the two jar generations mean
     different things by a clean control.
 
-    On a ``v == 2`` trace each step row carrying at least one MOP-group member
-    counts once: a non-zero MOP, MOP-frontier, WTG or menu boost; a MOP distance,
-    stamp, stamped handler, retirement or exposure; a MOP coin draw on the owner record; a MOP
+    On a ``v == 2`` trace each step row carrying at least one MOP-group member counts
+    once: a non-zero MOP, MOP-frontier, WTG or menu boost; a MOP distance, stamp,
+    stamped handler, retirement or exposure; a MOP coin draw on the owner record; a MOP
     scorer in the per-scorer counterfactual; a tie decided by the MOP navigation
-    component; a MOP-coin or launcher pick channel; a ``mop`` or ``launcher``
-    owner, executed or intended; an ``activity_has_mop`` or outcome
-    ``target_activity_has_mop`` that is not None, whatever the value, since that
-    jar writes ``ACT.mop`` only with MOP mounted. Outside the rows, each ``UICOV``
-    line carrying ``mopReach`` counts once, and a ``RUN_END`` with a non-zero
-    ``coinMop``, ``launches``, ``stampHits`` or ``retired`` counter counts once.
-    ``nullRelaunches`` does not count: it is written in every cell, and the
-    clean-control list of the jar (INV-SNK-18) does not name it.
-    A ``UICOV`` line that did not parse never reaches ``coverage.states``, so its
+    component; a MOP-coin or launcher pick channel; a ``mop`` or ``launcher`` owner,
+    executed or intended; an ``activity_has_mop`` or outcome ``target_activity_has_mop``
+    that is not None, whatever the value, since that jar writes ``ACT.mop`` only with
+    MOP mounted. Outside the rows, each ``UICOV`` line carrying ``mopReach`` counts
+    once, and a ``RUN_END`` with a non-zero ``coinMop``, ``launches``, ``stampHits`` or
+    ``retired`` counter counts once. ``nullRelaunches`` does not count: it is written in
+    every cell, and the clean-control list of the jar (INV-SNK-18) does not name it. A
+    ``UICOV`` line that did not parse never reaches ``coverage.states``, so its
     ``mopReach`` is not counted.
 
     On any other trace — ``v == 1``, or a trace whose header is absent or

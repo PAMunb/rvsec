@@ -1231,7 +1231,7 @@ def validate(ctx: CLIContext, config_file: str):
 def _inject_aperv_llm_url(
     tool_configs: List[ToolConfig], registry: ToolRegistry
 ) -> None:
-    """Inject APERV_LLM_BASE_URL into the aperv cells that mount the LLM group (INV-EXP-41).
+    """Inject APERV_LLM_BASE_URL into the aperv cells mounting the LLM (INV-EXP-41).
 
     A cell mounts the LLM group when its variant definition in the registry carries
     `overrides.llm_url`; a ToolConfig without a variant resolves `default`, as

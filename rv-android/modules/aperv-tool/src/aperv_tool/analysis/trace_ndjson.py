@@ -966,15 +966,15 @@ class TraceReader:
     def run_end(self) -> Optional[Dict[str, Any]]:
         """The `RUN_END` record minus `type`, verbatim, or None.
 
-        `counters` is the per-run census of the mechanisms the cell mounted:
-        on the group-isolation jar `launches`, `gateMinActions`, `gateBreaker`,
-        `guardBacks`, `bufAbandoned`, `restarts`, `coinLlm`, `coinMop` and
-        `nullRelaunches` (the null-tree recoveries that relaunched the app,
-        which are not steps and have no step record) beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and the
-        LLM aggregates. The reader exposes the record without interpreting it
-        and derives no completeness flag or status from it (INV-APV-53): a
-        trace cut by a `SIGKILL` legitimately has none, and None here is that
-        fact, reported, not repaired. The collection path never reads it.
+        `counters` is the per-run census of the mechanisms the cell mounted: on the
+        group-isolation jar `launches`, `gateMinActions`, `gateBreaker`, `guardBacks`,
+        `bufAbandoned`, `restarts`, `coinLlm`, `coinMop` and `nullRelaunches` (the
+        null-tree recoveries that relaunched the app, which are not steps and have no
+        step record) beside `acts`, `states`, `stampNodes`, `stampHits`, `retired` and
+        the LLM aggregates. The reader exposes the record without interpreting it and
+        derives no completeness flag or status from it (INV-APV-53): a trace cut by a
+        `SIGKILL` legitimately has none, and None here is that fact, reported, not
+        repaired. The collection path never reads it.
         """
         return self._run_end
 
