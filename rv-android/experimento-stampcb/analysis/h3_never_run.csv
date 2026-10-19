@@ -1,0 +1,31 @@
+target,apk,arm,rep,pair,cov_CertInputView$1.onTabSelected,cov_CertificateUtil.DER_To_PEM,cov_CertificateUtil.certToPEM,cov_CertInputView.<init>,cov_CertInputView.convertCurrentDataToBase64,trigger,host_steps,bind_callback,hnd_steps,hnd_src_ch,hnd_mopd,ret_steps,cov_SecurityPreferencesFragment$$ExternalSyntheticLambda3.onPreferenceChange,cov_SecurityPreferencesFragment.lambda$onCreatePreferences$5,cov_KeyStoreHandle.<init>,cov_SecurityPreferencesFragment.updateEncryptionPreferences,cov_BiometricsHelper.isAvailable,cov_PasswordSlot.<init>,cov_BiometricSlotInitializer.authenticate,cov_KeyStoreHandle.generateKey,cov_SecuritySetupSlide.showBiometricPrompt,cov_AssignIconsActivity.onOptionsItemSelected,cov_AssignIconsActivity.saveAndFinish,cov_VaultEntryIcon.<init>,cov_VaultEntryIcon.generateHash,cov_AssignIconsActivity.onCreate,cov_EditEntryActivity.onSave,cov_BitmapHelper.toVaultEntryIcon,cov_IconPacksManagerFragment.importIconPack,cov_SettingsFragment$$ExternalSyntheticLambda6.onPreferenceChange,cov_SettingsFragment.lambda$onCreatePreferences$8,cov_Encryption.deleteBiometricSecretKey,cov_SettingsFragment.enableBiometrics,cov_Encryption.getBiometricCipher
+certToPEM,app.michaelwuensch.bitbanana_79.apk,control,1,no record,0,0,0,1,1,,,0,0,,,,,,,,,,,,,,,,,,,,,,,,,
+certToPEM,app.michaelwuensch.bitbanana_79.apk,control,2,no record,0,0,0,0,0,,,0,0,,,,,,,,,,,,,,,,,,,,,,,,,
+certToPEM,app.michaelwuensch.bitbanana_79.apk,control,3,no record,0,0,0,0,0,,,0,0,,,,,,,,,,,,,,,,,,,,,,,,,
+KeyStoreHandle.<init>,com.beemdevelopment.aegis_81.apk,control,1,no record,,,,,,,157,0,0,,,,0,0,0,2,1,0,,,,,,,,,,,,,,,,
+KeyStoreHandle.generateKey,com.beemdevelopment.aegis_81.apk,control,1,no record,,,,,,,157,0,0,,,,0,,,,,,0,0,0,,,,,,,,,,,,,
+VaultEntryIcon.generateHash,com.beemdevelopment.aegis_81.apk,control,1,no record,,,,,,,0,0,0,,,,,,,,,,,,,0,0,0,0,1,0,0,0,,,,,
+KeyStoreHandle.<init>,com.beemdevelopment.aegis_81.apk,control,2,no record,,,,,,,102,0,0,,,,0,0,0,1,1,0,,,,,,,,,,,,,,,,
+KeyStoreHandle.generateKey,com.beemdevelopment.aegis_81.apk,control,2,no record,,,,,,,102,0,0,,,,0,,,,,,0,0,0,,,,,,,,,,,,,
+VaultEntryIcon.generateHash,com.beemdevelopment.aegis_81.apk,control,2,no record,,,,,,,0,0,0,,,,,,,,,,,,,0,0,0,0,1,0,0,0,,,,,
+KeyStoreHandle.<init>,com.beemdevelopment.aegis_81.apk,control,3,no record,,,,,,,80,0,0,,,,0,0,0,2,1,0,,,,,,,,,,,,,,,,
+KeyStoreHandle.generateKey,com.beemdevelopment.aegis_81.apk,control,3,no record,,,,,,,80,0,0,,,,0,,,,,,0,0,0,,,,,,,,,,,,,
+VaultEntryIcon.generateHash,com.beemdevelopment.aegis_81.apk,control,3,no record,,,,,,,0,0,0,,,,,,,,,,,,,0,0,0,0,1,1,0,0,,,,,
+deleteBiometricSecretKey,se.arctosoft.vault_41.apk,control,1,no record,,,,,,s=17 src=sata ch=roulette_early mopd=- mops=- act=MainActivity text=,255,0,0,,,,,,,,,,,,,,,,,,,,,2,2,0,2,0
+deleteBiometricSecretKey,se.arctosoft.vault_41.apk,control,2,no record,,,,,,s=70 src=sata ch=roulette_early mopd=- mops=- act=MainActivity text=,268,0,0,,,,,,,,,,,,,,,,,,,,,1,1,0,1,0
+deleteBiometricSecretKey,se.arctosoft.vault_41.apk,control,3,no record,,,,,,s=33 src=sata ch=roulette_early mopd=- mops=- act=MainActivity text=Unlock y,265,0,0,,,,,,,,,,,,,,,,,,,,,1,1,0,1,0
+certToPEM,app.michaelwuensch.bitbanana_79.apk,treatment,1,no record,0,0,0,1,0,,,0,0,,,,,,,,,,,,,,,,,,,,,,,,,
+certToPEM,app.michaelwuensch.bitbanana_79.apk,treatment,2,no record,1,0,0,1,1,s=139 src=sata ch=roulette_early mopd=- mops=- act=ManualSetup text=,,0,0,,,,,,,,,,,,,,,,,,,,,,,,,
+certToPEM,app.michaelwuensch.bitbanana_79.apk,treatment,3,no record,0,0,0,1,0,,,0,0,,,,,,,,,,,,,,,,,,,,,,,,,
+KeyStoreHandle.<init>,com.beemdevelopment.aegis_81.apk,treatment,1,"[('click', 3)]",,,,,,,1,0,0,,,,0,0,0,1,7,0,,,,,,,,,,,,,,,,
+KeyStoreHandle.generateKey,com.beemdevelopment.aegis_81.apk,treatment,1,no pair,,,,,,,1,0,0,,,,0,,,,,,0,0,0,,,,,,,,,,,,,
+VaultEntryIcon.generateHash,com.beemdevelopment.aegis_81.apk,treatment,1,"[('click', 3)]",,,,,,,0,0,0,,,,,,,,,,,,,0,0,0,0,1,0,0,0,,,,,
+KeyStoreHandle.<init>,com.beemdevelopment.aegis_81.apk,treatment,2,"[('click', 3)]",,,,,,,60,0,0,,,,0,0,0,1,1,0,,,,,,,,,,,,,,,,
+KeyStoreHandle.generateKey,com.beemdevelopment.aegis_81.apk,treatment,2,no pair,,,,,,,60,0,0,,,,0,,,,,,0,0,0,,,,,,,,,,,,,
+VaultEntryIcon.generateHash,com.beemdevelopment.aegis_81.apk,treatment,2,"[('click', 3)]",,,,,,,0,0,0,,,,,,,,,,,,,0,0,0,0,1,1,0,0,,,,,
+KeyStoreHandle.<init>,com.beemdevelopment.aegis_81.apk,treatment,3,"[('click', 3)]",,,,,,,73,0,0,,,,0,0,0,1,1,0,,,,,,,,,,,,,,,,
+KeyStoreHandle.generateKey,com.beemdevelopment.aegis_81.apk,treatment,3,no pair,,,,,,,73,0,0,,,,0,,,,,,0,0,0,,,,,,,,,,,,,
+VaultEntryIcon.generateHash,com.beemdevelopment.aegis_81.apk,treatment,3,"[('click', 3)]",,,,,,,0,0,0,,,,,,,,,,,,,0,0,0,0,1,1,0,0,,,,,
+deleteBiometricSecretKey,se.arctosoft.vault_41.apk,treatment,1,"[('click', 3)]",,,,,,"s=167 src=sata ch=sata_other mopd=- mops=- act=MainActivity text=, UNVISITED",257,1,0,,,,,,,,,,,,,,,,,,,,,1,1,0,1,0
+deleteBiometricSecretKey,se.arctosoft.vault_41.apk,treatment,2,"[('click', 3)]",,,,,,s=12 src=mop ch=mop_coin mopd=3 mops=s act=MainActivity text=,260,2,6,mop/mop_coin:5;sata/roulette_early:1,-:1;3:5,26,,,,,,,,,,,,,,,,,,1,1,0,1,0
+deleteBiometricSecretKey,se.arctosoft.vault_41.apk,treatment,3,"[('click', 3)]",,,,,,s=25 src=mop ch=mop_coin mopd=3 mops=s act=MainActivity text=,293,5,7,mop/mop_coin:5;sata/roulette_early:2,-:2;3:5,202,,,,,,,,,,,,,,,,,,3,3,0,3,0

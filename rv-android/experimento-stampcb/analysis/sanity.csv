@@ -1,0 +1,13 @@
+arm,apk,fatal,stamp_frame,verify_error
+control,be.digitalia.fosdem_2300230.apk,11,0,0
+control,com.beemdevelopment.aegis_81.apk,10,0,0
+control,app.michaelwuensch.bitbanana_79.apk,4,0,0
+control,se.arctosoft.vault_41.apk,6,0,0
+control,org.openhab.habdroid_589.apk,5,0,0
+control,me.timschneeberger.rootlessjamesdsp_51.apk,0,0,0
+treatment,be.digitalia.fosdem_2300230.apk,11,0,0
+treatment,com.beemdevelopment.aegis_81.apk,14,0,0
+treatment,app.michaelwuensch.bitbanana_79.apk,3,0,0
+treatment,se.arctosoft.vault_41.apk,18,0,0
+treatment,org.openhab.habdroid_589.apk,2,0,0
+treatment,me.timschneeberger.rootlessjamesdsp_51.apk,0,0,0

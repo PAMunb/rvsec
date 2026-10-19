@@ -1,0 +1,37 @@
+--- control/derive_mop_artifact.py	2026-10-19 14:50:07.752417998 -0300
++++ treatment/derive_mop_artifact.py	2026-10-19 14:50:27.030550504 -0300
+@@ -118,9 +118,24 @@
+ # distance from the entry the framework enters.
+ HANDLER_METHOD_PATTERN = re.compile(
+     r"^<(?P<cls>[^:]+): (?P<ret>\S+) "
+-    r"(?P<name>onClick|onLongClick|invoke)\((?P<params>[^)]*)\)>$"
++    r"(?P<name>onClick|onLongClick|invoke|onOptionsItemSelected|onNavigationItemSelected"
++    r"|onMenuItemClick|onMenuItemSelected|onPreferenceClick|onPreferenceChange"
++    r"|onPreferenceTreeClick)\((?P<params>[^)]*)\)>$"
+ )
+ VIEW_PARAMS = "android.view.View"
++# A/B experimento-stampcb: the app callbacks a library dispatcher calls, which the
++# patched stamp names in `rvsec.click` (menu, navigation, toolbar, menu provider,
++# preference, AppCompat dialog button). Method name -> parameter list.
++CALLBACK_PARAMS = {
++    "onOptionsItemSelected": "android.view.MenuItem",
++    "onNavigationItemSelected": "android.view.MenuItem",
++    "onMenuItemClick": "android.view.MenuItem",
++    "onMenuItemSelected": "android.view.MenuItem",
++    "onPreferenceClick": "androidx.preference.Preference",
++    "onPreferenceChange": "androidx.preference.Preference,java.lang.Object",
++    "onPreferenceTreeClick": "androidx.preference.Preference",
++    "onClick": "android.content.DialogInterface,int",
++}
+ OBJECT_TYPE = "java.lang.Object"
+ 
+ # === PROJECTED WIDGET FIELDS ===
+@@ -614,6 +629,8 @@
+         return (LONG_CLICK_EVENT_TYPE,)
+     if name == "invoke" and match["ret"] == OBJECT_TYPE and params in ("", OBJECT_TYPE):
+         return (CLICK_EVENT_TYPE, LONG_CLICK_EVENT_TYPE)
++    if CALLBACK_PARAMS.get(name) == params:
++        return (CLICK_EVENT_TYPE,)
+     return ()
+ 
+ 

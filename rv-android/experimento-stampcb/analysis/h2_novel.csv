@@ -1,0 +1,22 @@
+arm,apk,family,distinct_targets,not_in_control,not_in_control_sigs
+treatment,be.digitalia.fosdem_2300230.apk,preference,1,0,
+treatment,be.digitalia.fosdem_2300230.apk,menu_nav,2,0,
+treatment,com.beemdevelopment.aegis_81.apk,preference,7,0,
+treatment,com.beemdevelopment.aegis_81.apk,menu_nav,1,0,
+treatment,com.beemdevelopment.aegis_81.apk,dialog,1,0,
+treatment,com.beemdevelopment.aegis_81.apk,stamp_orig,4,0,
+treatment,com.beemdevelopment.aegis_81.apk,id,1,0,
+treatment,app.michaelwuensch.bitbanana_79.apk,stamp_orig,5,0,
+treatment,se.arctosoft.vault_41.apk,preference,3,0,
+treatment,se.arctosoft.vault_41.apk,stamp_orig,2,0,
+treatment,org.openhab.habdroid_589.apk,preference,4,2,"<org.openhab.habdroid.ui.preference.fragments.MainSettingsFragment: boolean onCreatePreferences$lambda$4(org.openhab.habdroid.ui.preference.fragments.MainSettingsFragment,androidx.preference.Preference,java.lang.Object)>;<org.openhab.habdroid.ui.preference.fragments.ServerEditorFragment: boolean onCreatePreferences$lambda$8(org.openhab.habdroid.ui.preference.fragments.ServerEditorFragment,androidx.preference.Preference,androidx.preference.Preference)>"
+treatment,org.openhab.habdroid_589.apk,menu_nav,2,0,
+treatment,org.openhab.habdroid_589.apk,dialog,1,0,
+treatment,org.openhab.habdroid_589.apk,stamp_orig,3,0,
+treatment,me.timschneeberger.rootlessjamesdsp_51.apk,preference,7,1,<me.timschneeberger.rootlessjamesdsp.interop.BenchmarkManager: void clearBenchmarks()>
+treatment,me.timschneeberger.rootlessjamesdsp_51.apk,stamp_orig,2,0,
+treatment,ALL,preference,22,3,"<me.timschneeberger.rootlessjamesdsp.interop.BenchmarkManager: void clearBenchmarks()>;<org.openhab.habdroid.ui.preference.fragments.MainSettingsFragment: boolean onCreatePreferences$lambda$4(org.openhab.habdroid.ui.preference.fragments.MainSettingsFragment,androidx.preference.Preference,java.lang.Object)>;<org.openhab.habdroid.ui.preference.fragments.ServerEditorFragment: boolean onCreatePreferences$lambda$8(org.openhab.habdroid.ui.preference.fragments.ServerEditorFragment,androidx.preference.Preference,androidx.preference.Preference)>"
+treatment,ALL,menu_nav,5,0,
+treatment,ALL,dialog,2,0,
+treatment,ALL,stamp_orig,16,0,
+treatment,ALL,id,1,0,

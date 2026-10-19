@@ -1,0 +1,43 @@
+# experimento-stampcb smoke-d10, step 3 (task 6.5 of gh-tbd-stamp-app-callback):
+# aperv:mop x 1 rep x 300 s on bitbanana instrumented with the D10 stamp, with the
+# worktree's derive. Same image and mounts as the A/B treatment arm otherwise.
+# Usage (from this directory): docker compose -p stampcbd10 -f docker-compose.run.yml up -d
+name: "stampcbd10"
+services:
+  stampcbd10_run:
+    image: "phtcosta/rvandroid:0.9.5@sha256:cdaeba4ab23c38c95be1fea5de731fb6b13e986be499f14c6600132be62ec9c3"
+    container_name: "stampcbd10_run"
+    environment:
+      RV_EXPERIMENT_NAME: "stampcbd10_run"
+      RV_TOOLS: "aperv:mop"
+      RV_TIMEOUTS: "300"
+      RV_REPETITIONS: "1"
+      RV_NO_WINDOW: "true"
+      RV_SPEC_SET: "jca_android"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+      RV_LOGCAT_DIAGNOSTICS: "true"
+      RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/bitbanana.txt"
+      RV_DELAY: "0"
+      RV_DEVICE_PORT: "5554"
+      RVSMART_LLM_MODE: "false"
+      UV_NO_SYNC: "1"
+    devices:
+      - "/dev/kvm:/dev/kvm"
+    restart: "no"
+    mem_limit: "20g"
+    memswap_limit: "20g"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "20g"
+    volumes:
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/smoke-d10/apks:/opt/rvsec/rv-android/apks:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/smoke-d10/filters:/opt/rvsec/rv-android/filters:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/smoke-d10/results/run:/opt/rvsec/rv-android/results"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/treatment/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/treatment/tool.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/derive_mop_artifact.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/derive_mop_artifact.py:ro"

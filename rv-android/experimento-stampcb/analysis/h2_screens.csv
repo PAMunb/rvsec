@@ -1,0 +1,15 @@
+arm,apk,steps,steps_pref_screen,guided,guided_pref_screen,guided_pref_family,guided_pref_family_on_pref_screen,guided_non_pref_family,guided_non_pref_family_off_screen
+control,be.digitalia.fosdem_2300230.apk,696,40,0,0,0,0,0,0
+control,com.beemdevelopment.aegis_81.apk,877,211,36,0,0,0,36,36
+control,app.michaelwuensch.bitbanana_79.apk,1093,7,191,0,0,0,191,191
+control,se.arctosoft.vault_41.apk,874,74,86,0,0,0,86,86
+control,org.openhab.habdroid_589.apk,650,118,58,1,0,0,58,57
+control,me.timschneeberger.rootlessjamesdsp_51.apk,952,436,43,0,0,0,43,43
+control,ALL,5142,886,414,1,0,0,414,413
+treatment,be.digitalia.fosdem_2300230.apk,709,62,39,13,11,10,28,25
+treatment,com.beemdevelopment.aegis_81.apk,951,70,73,21,26,21,47,47
+treatment,app.michaelwuensch.bitbanana_79.apk,1081,16,198,0,0,0,198,198
+treatment,se.arctosoft.vault_41.apk,892,71,125,16,20,16,105,105
+treatment,org.openhab.habdroid_589.apk,762,298,114,50,44,43,70,63
+treatment,me.timschneeberger.rootlessjamesdsp_51.apk,892,454,98,61,84,61,14,14
+treatment,ALL,5287,971,647,161,185,151,462,452

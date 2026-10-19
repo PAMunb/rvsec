@@ -1,0 +1,158 @@
+# experimento-stampcb, step 3: the A/B. aperv:mop (preset of snapshot c6865a73_k1, the e03igg3
+# `mop` arm) x 3 reps x 300 s on six APKs, two containers per arm.
+#   control:   corpus APKs (E6 v2, stamp gh124) + mount/control  (= data/e03igg_mount/c6865a73_k1)
+#   treatment: apks_treatment/ (patched stamp)   + mount/treatment (derive with callback records)
+# Same image as e03igg3. Usage (from this directory):
+#   docker compose -p stampcb -f docker-compose.ab.yml up -d
+# Never `down` before the traces and logcats are on the host.
+
+name: "stampcb"
+services:
+  stampcb_con_a:
+    image: "phtcosta/rvandroid:0.9.5@sha256:cdaeba4ab23c38c95be1fea5de731fb6b13e986be499f14c6600132be62ec9c3"
+    container_name: "stampcb_con_a"
+    environment:
+      RV_EXPERIMENT_NAME: "stampcb_con_a"
+      RV_TOOLS: "aperv:mop"
+      RV_TIMEOUTS: "300"
+      RV_REPETITIONS: "3"
+      RV_NO_WINDOW: "true"
+      RV_SPEC_SET: "jca_android"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+      RV_LOGCAT_DIAGNOSTICS: "true"
+      RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/half_a.txt"
+      RV_DELAY: "0"
+      RV_DEVICE_PORT: "5554"
+      RVSMART_LLM_MODE: "false"
+      UV_NO_SYNC: "1"
+    devices:
+      - "/dev/kvm:/dev/kvm"
+    restart: "no"
+    mem_limit: "20g"
+    memswap_limit: "20g"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "20g"
+    volumes:
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/filters:/opt/rvsec/rv-android/filters:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/results/stampcb_con_a:/opt/rvsec/rv-android/results"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/control/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/control/tool.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/control/derive_mop_artifact.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/derive_mop_artifact.py:ro"
+  stampcb_con_b:
+    image: "phtcosta/rvandroid:0.9.5@sha256:cdaeba4ab23c38c95be1fea5de731fb6b13e986be499f14c6600132be62ec9c3"
+    container_name: "stampcb_con_b"
+    environment:
+      RV_EXPERIMENT_NAME: "stampcb_con_b"
+      RV_TOOLS: "aperv:mop"
+      RV_TIMEOUTS: "300"
+      RV_REPETITIONS: "3"
+      RV_NO_WINDOW: "true"
+      RV_SPEC_SET: "jca_android"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+      RV_LOGCAT_DIAGNOSTICS: "true"
+      RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/half_b.txt"
+      RV_DELAY: "20"
+      RV_DEVICE_PORT: "5554"
+      RVSMART_LLM_MODE: "false"
+      UV_NO_SYNC: "1"
+    devices:
+      - "/dev/kvm:/dev/kvm"
+    restart: "no"
+    mem_limit: "20g"
+    memswap_limit: "20g"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "20g"
+    volumes:
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus:/opt/rvsec/rv-android/apks:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/filters:/opt/rvsec/rv-android/filters:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/results/stampcb_con_b:/opt/rvsec/rv-android/results"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/control/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/control/tool.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/control/derive_mop_artifact.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/derive_mop_artifact.py:ro"
+  stampcb_tre_a:
+    image: "phtcosta/rvandroid:0.9.5@sha256:cdaeba4ab23c38c95be1fea5de731fb6b13e986be499f14c6600132be62ec9c3"
+    container_name: "stampcb_tre_a"
+    environment:
+      RV_EXPERIMENT_NAME: "stampcb_tre_a"
+      RV_TOOLS: "aperv:mop"
+      RV_TIMEOUTS: "300"
+      RV_REPETITIONS: "3"
+      RV_NO_WINDOW: "true"
+      RV_SPEC_SET: "jca_android"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+      RV_LOGCAT_DIAGNOSTICS: "true"
+      RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/half_a.txt"
+      RV_DELAY: "40"
+      RV_DEVICE_PORT: "5554"
+      RVSMART_LLM_MODE: "false"
+      UV_NO_SYNC: "1"
+    devices:
+      - "/dev/kvm:/dev/kvm"
+    restart: "no"
+    mem_limit: "20g"
+    memswap_limit: "20g"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "20g"
+    volumes:
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/apks_treatment:/opt/rvsec/rv-android/apks:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/filters:/opt/rvsec/rv-android/filters:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/results/stampcb_tre_a:/opt/rvsec/rv-android/results"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/treatment/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/treatment/tool.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/treatment/derive_mop_artifact.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/derive_mop_artifact.py:ro"
+  stampcb_tre_b:
+    image: "phtcosta/rvandroid:0.9.5@sha256:cdaeba4ab23c38c95be1fea5de731fb6b13e986be499f14c6600132be62ec9c3"
+    container_name: "stampcb_tre_b"
+    environment:
+      RV_EXPERIMENT_NAME: "stampcb_tre_b"
+      RV_TOOLS: "aperv:mop"
+      RV_TIMEOUTS: "300"
+      RV_REPETITIONS: "3"
+      RV_NO_WINDOW: "true"
+      RV_SPEC_SET: "jca_android"
+      RV_SKIP_MONITORS: "true"
+      RV_SKIP_INSTRUMENT: "true"
+      RV_SKIP_STATIC_ANALYSIS: "true"
+      RV_LOGCAT_DIAGNOSTICS: "true"
+      RV_APKS_DIR: "/opt/rvsec/rv-android/apks"
+      RV_APKS_FILTER: "/opt/rvsec/rv-android/filters/half_b.txt"
+      RV_DELAY: "60"
+      RV_DEVICE_PORT: "5554"
+      RVSMART_LLM_MODE: "false"
+      UV_NO_SYNC: "1"
+    devices:
+      - "/dev/kvm:/dev/kvm"
+    restart: "no"
+    mem_limit: "20g"
+    memswap_limit: "20g"
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: "20g"
+    volumes:
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/apks_treatment:/opt/rvsec/rv-android/apks:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/filters:/opt/rvsec/rv-android/filters:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/results/stampcb_tre_b:/opt/rvsec/rv-android/results"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/treatment/ape-rv.jar:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/ape-rv.jar:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/treatment/tool.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/tool.py:ro"
+      - "/pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/worktrees-stamp/callback/rv-android/experimento-stampcb/mount/treatment/derive_mop_artifact.py:/opt/rvsec/rv-android/modules/aperv-tool/src/aperv_tool/tools/aperv/derive_mop_artifact.py:ro"

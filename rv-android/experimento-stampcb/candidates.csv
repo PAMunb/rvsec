@@ -1,0 +1,92 @@
+apk,ui_tech,bind_lib_menu_nav,bind_lib_preference,bind_lib_dialog,nameable_near,examples
+org.wikipedia_50595.apk,mixed,1035,0,133,80,org.wikipedia.activity.BaseActivity$$ExternalSyntheticLambda0.onClick org.wikipedia.activity.BaseActivity$$ExternalSyntheticLambda1.onClick org.wikipedia.activity.SingleWebViewActivity.onOptionsItemSelected org.wikipedia.activitytab.ActivityTabFragment$menuProvider$1.onMenuItemSelected
+com.celzero.bravedns_619.apk,view-only,108,0,584,62,com.celzero.bravedns.adapter.AppWiseDomainsAdapter$ConnectionDetailsViewHolder$$ExternalSyntheticLambda0.onClick com.celzero.bravedns.adapter.DnsCryptEndpointAdapter$DnsCryptEndpointViewHolder$$ExternalSyntheticLambda1.onClick com.celzero.bravedns.adapter.DnsCryptRelayEndpointAdapter$DnsCryptRelayEndpointViewHolder$$ExternalSyntheticLambda3.onClick com.celzero.bravedns.adapter.DnsProxyEndpointAdapter$$ExternalSyntheticLambda3.onClick
+app.pachli_50.apk,mixed,102,0,282,34,app.pachli.MainActivity$$ExternalSyntheticLambda2.onClick app.pachli.MainActivity.onMenuItemSelected app.pachli.TabPreferenceActivity$$ExternalSyntheticLambda4.onClick app.pachli.TabPreferenceActivity$$ExternalSyntheticLambda5.onClick
+com.beemdevelopment.aegis_81.apk,view-only,243,729,588,31,com.beemdevelopment.aegis.ui.AssignIconsActivity.onOptionsItemSelected com.beemdevelopment.aegis.ui.EditEntryActivity$$ExternalSyntheticLambda16.onClick com.beemdevelopment.aegis.ui.EditEntryActivity.onOptionsItemSelected com.beemdevelopment.aegis.ui.GroupManagerActivity.onOptionsItemSelected
+app.michaelwuensch.bitbanana_79.apk,view-only,437,44,22,24,app.michaelwuensch.bitbanana.home.HomeActivity$$ExternalSyntheticLambda2.onClick app.michaelwuensch.bitbanana.labels.LabelActivity.onOptionsItemSelected app.michaelwuensch.bitbanana.listViews.backendConfigs.itemDetails.BackendConfigDetailsActivity$10.onClick app.michaelwuensch.bitbanana.listViews.channels.ManageChannelsActivity.onOptionsItemSelected
+com.micoyc.speakthat_58.apk,view-only,435,0,292,20,com.micoyc.speakthat.AppPickerActivity$$ExternalSyntheticLambda0.onClick com.micoyc.speakthat.AppPickerActivity.onOptionsItemSelected com.micoyc.speakthat.BluetoothConditionActivity$$ExternalSyntheticLambda0.onClick com.micoyc.speakthat.DevelopmentSettingsActivity$$ExternalSyntheticLambda42.onClick
+org.openhab.habdroid_589.apk,view-only,737,734,250,20,org.openhab.habdroid.ui.ChartWidgetActivity.onOptionsItemSelected org.openhab.habdroid.ui.ImageWidgetActivity.onOptionsItemSelected org.openhab.habdroid.ui.LogActivity.onOptionsItemSelected org.openhab.habdroid.ui.MainActivity$$ExternalSyntheticLambda0.onClick
+com.absinthe.libchecker_2671.apk,view-only,659,234,257,19,com.absinthe.libchecker.database.backup.RoomBackup$$ExternalSyntheticLambda0.onClick com.absinthe.libchecker.features.album.backup.ui.BackupActivity$BackupFragment$$ExternalSyntheticLambda4.onPreferenceClick com.absinthe.libchecker.features.album.comparison.ui.ComparisonActivity.onMenuItemSelected com.absinthe.libchecker.features.album.comparison.ui.ComparisonActivity.onOptionsItemSelected
+me.timschneeberger.rootlessjamesdsp_51.apk,view-only,247,3014,581,18,me.timschneeberger.rootlessjamesdsp.activity.LiveprogEditorActivity.onOptionsItemSelected me.timschneeberger.rootlessjamesdsp.activity.MainActivity$$ExternalSyntheticLambda2.onClick me.timschneeberger.rootlessjamesdsp.activity.MainActivity$$ExternalSyntheticLambda3.onClick me.timschneeberger.rootlessjamesdsp.activity.MainActivity$$ExternalSyntheticLambda7.onMenuItemClick
+de.markusfisch.android.binaryeye_174.apk,view-only,509,18,201,15,de.markusfisch.android.binaryeye.activity.BarcodeActivity$$ExternalSyntheticLambda5.onClick de.markusfisch.android.binaryeye.activity.BarcodeActivity.onOptionsItemSelected de.markusfisch.android.binaryeye.activity.CameraActivity$$ExternalSyntheticLambda3.onClick de.markusfisch.android.binaryeye.activity.CameraActivity$$ExternalSyntheticLambda6.onClick
+com.github.livingwithhippos.unchained_60.apk,view-only,149,778,168,13,com.github.livingwithhippos.unchained.downloaddetails.view.DownloadDetailsFragment$$ExternalSyntheticLambda16.onMenuItemClick com.github.livingwithhippos.unchained.downloaddetails.view.DownloadDetailsFragment$onCreateView$1.onMenuItemSelected com.github.livingwithhippos.unchained.folderlist.view.FolderListFragment$$ExternalSyntheticLambda1.onMenuItemClick com.github.livingwithhippos.unchained.lists.view.ListsTabFragment$onCreateView$1.onMenuItemSelected
+com.arslan.shizuwall_40.apk,view-only,6,0,366,10,com.arslan.shizuwall.LadbSetupActivity$$ExternalSyntheticLambda20.onClick com.arslan.shizuwall.ui.MainActivity$$ExternalSyntheticLambda10.onClick com.arslan.shizuwall.ui.MainActivity$$ExternalSyntheticLambda14.onClick com.arslan.shizuwall.ui.MainActivity$$ExternalSyntheticLambda42.onClick
+ua.com.radiokot.photoprism_67.apk,view-only,1815,64,198,8,ua.com.radiokot.photoprism.features.ext.prefs.view.GalleryExtensionPreferencesFragment$$ExternalSyntheticLambda6.onPreferenceChange ua.com.radiokot.photoprism.features.ext.prefs.view.GalleryExtensionPreferencesFragment$$ExternalSyntheticLambda9.onPreferenceClick ua.com.radiokot.photoprism.features.prefs.extension.OnPreferenceChangeListenerWithDisposable.onPreferenceChange ua.com.radiokot.photoprism.features.prefs.view.PreferencesFragment$$ExternalSyntheticLambda12.onPreferenceClick
+se.arctosoft.vault_41.apk,view-only,368,106,644,7,se.arctosoft.vault.DirectoryBaseFragment.onMenuItemSelected se.arctosoft.vault.SettingsFragment$$ExternalSyntheticLambda0.onPreferenceClick se.arctosoft.vault.SettingsFragment$$ExternalSyntheticLambda5.onPreferenceClick se.arctosoft.vault.SettingsFragment$$ExternalSyntheticLambda6.onPreferenceChange
+com.craxiom.networksurvey_114.apk,mixed,33,183,42,6,com.craxiom.networksurvey.fragments.SettingsFragment$$ExternalSyntheticLambda2.onPreferenceClick com.craxiom.networksurvey.fragments.SettingsFragment$$ExternalSyntheticLambda3.onPreferenceClick com.craxiom.networksurvey.fragments.SettingsFragment$$ExternalSyntheticLambda4.onPreferenceClick com.craxiom.networksurvey.fragments.SettingsFragment$$ExternalSyntheticLambda6.onPreferenceClick
+org.piepmeyer.gauguin_75.apk,view-only,607,84,153,6,org.piepmeyer.gauguin.ui.LoadGameListActivity$$ExternalSyntheticLambda6.onMenuItemClick org.piepmeyer.gauguin.ui.MainDialogs$$ExternalSyntheticLambda1.onClick org.piepmeyer.gauguin.ui.MainDialogs$$ExternalSyntheticLambda4.onClick org.piepmeyer.gauguin.ui.main.BottomAppBarItemClickListener.onMenuItemClick
+com.owncloud.android_48000100.apk,view-only,780,1412,72,5,com.owncloud.android.presentation.logging.LogsListActivity.onOptionsItemSelected com.owncloud.android.presentation.settings.security.SettingsSecurityFragment$$ExternalSyntheticLambda7.onPreferenceChange com.owncloud.android.presentation.settings.security.SettingsSecurityFragment$$ExternalSyntheticLambda9.onPreferenceChange com.owncloud.android.ui.activity.ReceiveExternalFilesActivity.onOptionsItemSelected
+eu.opencloud.android_9.apk,view-only,491,612,132,5,eu.opencloud.android.presentation.logging.LogsListActivity.onOptionsItemSelected eu.opencloud.android.presentation.settings.security.SettingsSecurityFragment$$ExternalSyntheticLambda6.onPreferenceChange eu.opencloud.android.presentation.settings.security.SettingsSecurityFragment$$ExternalSyntheticLambda8.onPreferenceChange eu.opencloud.android.ui.activity.ReceiveExternalFilesActivity.onOptionsItemSelected
+org.fossify.messages_20.apk,mixed,441,0,0,5,org.fossify.messages.activities.ArchivedConversationsActivity$$ExternalSyntheticLambda2.onMenuItemClick org.fossify.messages.activities.MainActivity$$ExternalSyntheticLambda5.onMenuItemClick org.fossify.messages.activities.ManageBlockedKeywordsActivity$$ExternalSyntheticLambda7.onMenuItemClick org.fossify.messages.activities.RecycleBinConversationsActivity$$ExternalSyntheticLambda6.onMenuItemClick
+org.fossify.musicplayer_14.apk,mixed,1409,0,2141,5,org.fossify.musicplayer.activities.MainActivity$$ExternalSyntheticLambda3.onMenuItemClick org.fossify.musicplayer.activities.TracksActivity$$ExternalSyntheticLambda13.onMenuItemClick org.fossify.musicplayer.dialogs.ChangeSortingDialog$$ExternalSyntheticLambda0.onClick org.fossify.musicplayer.dialogs.RemovePlaylistDialog$$ExternalSyntheticLambda0.onClick
+be.digitalia.fosdem_2300230.apk,view-only,1592,187,120,4,be.digitalia.fosdem.activities.MainActivity$$ExternalSyntheticLambda0.onNavigationItemSelected be.digitalia.fosdem.activities.MainActivity.onOptionsItemSelected be.digitalia.fosdem.fragments.ExternalBookmarksListFragment$onViewCreated$menuProvider$1.onMenuItemSelected be.digitalia.fosdem.fragments.SettingsFragment$$ExternalSyntheticLambda5.onPreferenceClick
+com.vermont.possin_8.apk,view-only,0,0,144,3,com.vermont.possin.HomeActivity$$ExternalSyntheticLambda14.onClick com.vermont.possin.HomeActivity$$ExternalSyntheticLambda17.onClick com.vermont.possin.XpubAddress$$ExternalSyntheticLambda7.onClick
+org.fossify.keyboard_14.apk,mixed,440,0,2536,3,org.fossify.keyboard.activities.MainActivity$$ExternalSyntheticLambda1.onMenuItemClick org.fossify.keyboard.activities.ManageClipboardItemsActivity$$ExternalSyntheticLambda7.onMenuItemClick org.fossify.keyboard.dialogs.ManageKeyboardLanguagesDialog$$ExternalSyntheticLambda1.onClick
+com.darkrockstudios.apps.fasttrack_40.apk,mixed,0,0,237,2,com.darkrockstudios.apps.fasttrack.screens.fasting.FastingScreenKt$$ExternalSyntheticLambda1.onClick com.darkrockstudios.apps.fasttrack.screens.fasting.FastingScreenKt$$ExternalSyntheticLambda15.onClick
+com.etesync.syncadapter_20700.apk,view-only,740,216,81,2,com.etesync.syncadapter.ui.AccountActivity.onMenuItemClick com.etesync.syncadapter.ui.AccountActivity.onOptionsItemSelected
+com.gaurav.avnc_51.apk,view-only,120,1126,582,2,com.gaurav.avnc.ui.home.ServerTabs$ProfileViewHolder$$ExternalSyntheticLambda2.onMenuItemClick com.gaurav.avnc.ui.prefs.PrefsActivity$Server$$ExternalSyntheticLambda3.onPreferenceClick
+me.hackerchick.sharetoinputstick_26.apk,view-only,185,0,0,2,me.hackerchick.sharetoinputstick.MainActivity$$ExternalSyntheticLambda13.onClick me.hackerchick.sharetoinputstick.MainActivity$$ExternalSyntheticLambda8.onClick
+org.fedorahosted.freeotp_48.apk,view-only,13,0,24,2,org.fedorahosted.freeotp.main.Activity$9.onClick org.fedorahosted.freeotp.main.Activity.onOptionsItemSelected
+org.fossify.math_10.apk,mixed,593,30,2388,2,org.fossify.math.activities.MainActivity$$ExternalSyntheticLambda0.onMenuItemClick org.fossify.math.dialogs.HistoryDialog$$ExternalSyntheticLambda0.onClick
+org.hwyl.sexytopo_93.apk,view-only,942,25,156,2,org.hwyl.sexytopo.control.activity.CrossSectionActivity.onOptionsItemSelected org.hwyl.sexytopo.control.activity.SettingsActivity.onOptionsItemSelected
+com.github.gotify_35.apk,view-only,94,36,270,1,com.github.gotify.messages.MessagesActivity$$ExternalSyntheticLambda7.onClick
+de.luhmer.owncloudnewsreader_196.apk,view-only,650,0,406,1,de.luhmer.owncloudnewsreader.NewsReaderListActivity.onOptionsItemSelected
+de.stephanlindauer.criticalmaps_104.apk,view-only,576,0,345,1,de.stephanlindauer.criticalmaps.handler.ProcessCameraResultHandler$$ExternalSyntheticLambda0.onClick
+github.paroj.dsub2000_217.apk,view-only,1310,0,134,1,github.paroj.dsub2000.fragments.SettingsFragment$8$1.onClick
+it.niedermann.owncloud.notes_340000090.apk,view-only,1004,64,336,1,it.niedermann.owncloud.notes.preferences.PreferencesFragment$$ExternalSyntheticLambda7.onPreferenceChange
+me.testcase.ognarviewer_25.apk,view-only,502,363,183,1,me.testcase.ognarviewer.ui.directory.DirectoryFragment.onMenuItemClick
+org.fossify.notes_13.apk,mixed,3175,0,1513,1,org.fossify.notes.activities.MainActivity$$ExternalSyntheticLambda39.onMenuItemClick
+org.fossify.paint_7.apk,mixed,977,0,1183,1,org.fossify.paint.activities.MainActivity$$ExternalSyntheticLambda26.onMenuItemClick
+org.fossify.voicerecorder_18.apk,mixed,107,0,1473,1,org.fossify.voicerecorder.activities.MainActivity$$ExternalSyntheticLambda8.onMenuItemClick
+org.prauga.messages_8.apk,view-only,498,0,858,1,org.prauga.messages.feature.blocking.BlockingDialog$showDialog$2$$ExternalSyntheticLambda0.onClick
+rocks.poopjournal.metadataremover_20020.apk,view-only,1698,0,39,1,rocks.poopjournal.metadataremover.ui.MainActivity$$ExternalSyntheticLambda17.onMenuItemClick
+ch.joshuah.bibleverseapp_8.apk,view-only,321,980,1465,0,
+co.epitre.aelf_lectures_86.apk,view-only,1464,796,405,0,
+com.afkanerd.deku_83.apk,mixed,132,0,0,0,
+com.antony.muzei.pixiv_327.apk,view-only,0,1591,288,0,
+com.dessalines.habitmaker_5501.apk,mixed,0,981,0,0,
+com.dessalines.rankmyfavs_44.apk,mixed,0,557,0,0,
+com.dessalines.thumbkey_179.apk,mixed,0,623,0,0,
+com.ds.avare_404.apk,view-only,6,0,0,0,
+com.faltenreich.diaguard_68.apk,view-only,501,0,333,0,
+com.flauschcode.broccoli_1040400.apk,view-only,576,188,513,0,
+com.gasperpintar.smokingtracker_12.apk,view-only,545,0,597,0,
+com.gelakinetic.mtgfam_99.apk,view-only,629,0,284,0,
+com.github.cvzi.screenshottile_148.apk,view-only,0,290,462,0,
+com.hwloc.lstopo_80283.apk,view-only,573,0,0,0,
+com.iyps_158.apk,view-only,181,0,104,0,
+com.jerboa_87.apk,mixed,136,61,0,0,
+com.kylecorry.trail_sense_145.apk,view-only,135,10,148,0,
+com.manimarank.spell4wiki_21.apk,view-only,98,0,85,0,
+com.ominous.quickweather_112.apk,view-only,292,0,27,0,
+com.password.monitor_102.apk,view-only,170,0,131,0,
+com.rastislavkish.vscan_24.apk,view-only,72,0,0,0,
+com.sapuseven.untis_29198884.apk,mixed,7,24,0,0,
+com.smartpack.packagemanager_79.apk,view-only,200,0,656,0,
+com.starry.greenstash_440.apk,mixed,5,0,0,0,
+com.tananaev.passportreader_22.apk,view-only,47,0,416,0,
+com.vrem.wifianalyzer_71.apk,view-only,1889,93,48,0,
+com.yogeshpaliyal.deepr_28.apk,mixed,14,0,0,0,
+de.markusfisch.android.shadereditor_93.apk,view-only,66,121,385,0,
+dev.patri9ck.a2ln_25.apk,view-only,196,0,321,0,
+dev.ukanth.ufirewall_20260301.apk,view-only,1564,0,2748,0,
+io.keepalive.android_133.apk,view-only,160,0,552,0,
+io.treehouses.remote_6098.apk,view-only,1650,1100,0,0,
+it.danieleverducci.nextcloudmaps_9.apk,view-only,0,0,1608,0,
+jwtc.android.chess_283.apk,view-only,95,0,90,0,
+me.rosuh.easywatermark_21000.apk,view-only,2414,0,266,0,
+net.christianbeier.droidvnc_ng_60.apk,view-only,44,0,102,0,
+net.osmtracker_73.apk,view-only,62,188,534,0,
+net.phbwt.paperwork_1003007.apk,mixed,136,0,0,0,
+nz.eloque.foss_wallet_111.apk,mixed,489,0,0,0,
+org.cry.otp_31.apk,view-only,48,0,0,0,
+org.glpi.inventory.agent_39469.apk,view-only,389,0,39,0,
+org.isoron.uhabits_20301.apk,view-only,940,24,477,0,
+org.liberty.android.fantastischmemo_241.apk,view-only,404,0,81,0,
+org.musicbrainz.picard.barcodescanner_38.apk,view-only,954,0,0,0,
+org.quantumbadger.redreader_117.apk,mixed,1029,1065,1272,0,
+org.totschnig.myexpenses_858.apk,mixed,674,0,336,0,
+swati4star.createpdf_110.apk,view-only,3379,444,774,0,
+systems.sieber.droid_scep_7.apk,view-only,213,0,0,0,
+ua.com.radiokot.lnaddr2invoice_8.apk,view-only,630,0,21,0,
+uk.org.ngo.squeezer_158.apk,view-only,352,995,1359,0,
