@@ -6,7 +6,9 @@ Expose ``analyze`` (single APK) and ``batch`` (directory of APKs) subcommands
 that run the unified GATOR-based analysis client. Each invocation produces a
 single JSON output per APK with reachability, windows, and transitions sections.
 ``compact`` converts a document GATOR wrote in full mode into the compact form
-GATOR writes by default, without running GATOR again.
+GATOR writes by default, without running GATOR again. ``path`` prints the call
+paths behind one method's target distances, from a document GATOR wrote with
+``-clientParam distancePaths=true``.
 
 ### Role in the System:
 
@@ -20,6 +22,7 @@ GATOR writes by default, without running GATOR again.
 - Verbose output and summary display for debugging
 - Continue-on-error option for batch resilience
 - Offline conversion of a full-mode document to the compact form
+- Readable call paths of a method's target distances
 
 ### Integration Points:
 
@@ -27,6 +30,7 @@ GATOR writes by default, without running GATOR again.
 - Delegates analysis to StaticAnalyzer (analysis/static/static_analysis.py)
 - Reports StaticAnalysisResult status and timing to stdout
 - Delegates ``compact`` to compact_document (compact.py)
+- Delegates ``path`` to query_paths (path_query.py)
 """
 
 import argparse
@@ -48,12 +52,14 @@ from rv_static_analysis import (
     StaticAnalyzer,
 )
 from rv_static_analysis.compact import CompactRefused, compact_document
+from rv_static_analysis.path_query import PathQueryRefused, query_paths
 
 
 def setup_argument_parser() -> argparse.ArgumentParser:
-    """Build the top-level argument parser with its three subcommands.
+    """Build the top-level argument parser with its four subcommands.
 
-    ``analyze`` and ``batch`` run GATOR; ``compact`` converts a stored document.
+    ``analyze`` and ``batch`` run GATOR; ``compact`` converts a stored document;
+    ``path`` reads the call paths of a stored document.
 
     Returns:
         Configured ArgumentParser with subparsers for each command.
@@ -77,6 +83,9 @@ Examples:
 
   # Convert a full-mode document to the compact form
   rv-static-analysis compact app.apk.json app.compact.apk.json
+
+  # Print a method's call paths to its targets (document written with --distance-paths)
+  rv-static-analysis path app.apk.json "<com.example.Main: void onClick(android.view.View)>"
         """,
     )
 
@@ -109,6 +118,32 @@ Examples:
     compact_parser.add_argument("input", help="Full-mode analysis document")
     compact_parser.add_argument(
         "output", help="Path of the compact document (replaced atomically)"
+    )
+
+    path_parser = subparsers.add_parser(
+        "path",
+        help="Print the call paths behind a method's target distances",
+        description=(
+            "For each [i, d] pair of METHOD, print '[i] d=<d> <target>' and the "
+            "d + 1 signatures of the call chain from METHOD to the target, "
+            "following the distancePaths steps of a document GATOR wrote with "
+            "-clientParam distancePaths=true. A method with no pair prints nothing."
+        ),
+    )
+    path_parser.add_argument(
+        "doc", metavar="DOC", help="Analysis document written with distance paths"
+    )
+    path_parser.add_argument(
+        "method",
+        metavar="METHOD",
+        help="Soot signature of the method, as in reachability",
+    )
+    path_parser.add_argument(
+        "--target",
+        type=int,
+        metavar="I",
+        default=None,
+        help="Print only the chain towards distanceTargets[I]",
     )
 
     return parser
@@ -178,6 +213,13 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
         "indented, every targetDistances pair, no distancePairs member. Default: "
         "the compact document, without whitespace and with only the pairs the "
         "MOP-artifact derive reads.",
+    )
+    tools_group.add_argument(
+        "--distance-paths",
+        action="store_true",
+        help="Also write the call path behind every written targetDistances pair "
+        "(propagated as -clientParam distancePaths=true): the top-level pathMethods "
+        "and distancePaths members, read by the 'path' subcommand.",
     )
     tools_group.add_argument(
         "--cg-delegation",
@@ -348,6 +390,9 @@ def create_config_from_args(args: argparse.Namespace) -> RVStaticAnalysisConfig:
 
     if getattr(args, "full_output", False):
         config_kwargs["full_output"] = True
+
+    if getattr(args, "distance_paths", False):
+        config_kwargs["distance_paths"] = True
 
     cg_del = getattr(args, "cg_delegation", None)
     if cg_del is not None:
@@ -569,6 +614,28 @@ def handle_compact_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_path_command(args: argparse.Namespace) -> int:
+    """Print the call paths of a method's target distances.
+
+    Args:
+        args: Parsed argparse namespace with the path subcommand's ``doc``,
+            ``method`` and ``target``.
+
+    Returns:
+        Exit code: 0 when the chains were printed (none for a method with no
+        pair), 1 when the query is refused or the document cannot be read, with
+        one line on stderr.
+    """
+    try:
+        lines = query_paths(args.doc, args.method, args.target)
+    except (PathQueryRefused, OSError) as error:
+        print(f"Path Error: {' '.join(str(error).split())}", file=sys.stderr)
+        return 1
+    for line in lines:
+        print(line)
+    return 0
+
+
 def display_configuration_summary(config: RVStaticAnalysisConfig) -> None:
     """Print a human-readable configuration summary to stdout.
 
@@ -671,9 +738,11 @@ def main() -> int:
         parser.print_help()
         return 1
 
-    # The conversion opens no APK, so the package policy below does not apply.
+    # Neither command opens an APK, so the package policy below does not apply.
     if args.command == "compact":
         return handle_compact_command(args)
+    if args.command == "path":
+        return handle_path_command(args)
 
     # Resolve the package policy before either handler builds an App. argparse
     # has no click.BadParameter, so an unparseable variable is reported here and

@@ -1,0 +1,6 @@
+# Jars, GATOR documents and logs: reproducible from the sha256 in baseline/SHA256 and
+# new-jars.SHA256 and from RELATORIO.md, and too large for git.
+*.jar
+*.json
+*.log
+conv/

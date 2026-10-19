@@ -1,0 +1,27 @@
+## 6.3 effect sizes (baseline full -> new full)
+cryptoapp: reachable 55->61, reachesTarget 34->35, directlyReachesTarget 23->23, pairs 72->73; distanceTargets equal=True; directlyReachesTarget set equal=True; windows 5->5; transitions 35->35
+net.gaast.giggity_769: reachable 294->623, reachesTarget 1->53, directlyReachesTarget 0->0, pairs 1->41; distanceTargets equal=True; directlyReachesTarget set equal=True; windows 41->41; transitions 431->1622
+org.cry.otp_31: reachable 46->88, reachesTarget 13->13, directlyReachesTarget 2->2, pairs 13->13; distanceTargets equal=True; directlyReachesTarget set equal=True; windows 44->44; transitions 1443->1443
+org.fedorahosted.freeotp_48: reachable 131->409, reachesTarget 36->62, directlyReachesTarget 15->15, pairs 109->261; distanceTargets equal=True; directlyReachesTarget set equal=True; windows 15->15; transitions 47->53
+com.vrem.wifianalyzer_71: reachable 574->1269, reachesTarget 12->39, directlyReachesTarget 0->0, pairs 12->39; distanceTargets equal=True; directlyReachesTarget set equal=True; windows 24->24; transitions 94->169
+systems.sieber.droid_scep_7: reachable 22->75, reachesTarget 17->20, directlyReachesTarget 4->4, pairs 36->39; distanceTargets equal=True; directlyReachesTarget set equal=True; windows 18->18; transitions 18->18
+
+## 6.2 cases of targets63.csv in the measured APKs
+com.vrem.wifianalyzer_71 i=0 misuse=True <com.vrem.wifianalyzer.wifi.accesspoint.AccessPointsAdapterData: int calculateChildType()>
+   before: reachable=False reachesTarget=True
+   after:  reachable=True reachesTarget=True
+com.vrem.wifianalyzer_71 i=1 misuse=True <com.vrem.wifianalyzer.wifi.graphutils.GraphWrapper: int calculateGraphType()>
+   before: reachable=False reachesTarget=True
+   after:  reachable=True reachesTarget=True
+net.gaast.giggity_769 i=0 misuse=True <net.gaast.giggity.Schedule$Item: int hashCode()>
+   before: reachable=False reachesTarget=True
+   after:  reachable=True reachesTarget=True
+org.cry.otp_31 i=0 misuse=True <org.cry.otp.HOTP: byte[] hmac_sha1(byte[],byte[])>
+   before: reachable=False reachesTarget=True
+   after:  reachable=True reachesTarget=True
+org.fedorahosted.freeotp_48 i=2 misuse=False <org.fedorahosted.freeotp.Token: android.util.Pair parse(android.net.Uri)>
+   before: reachable=False reachesTarget=True
+   after:  reachable=True reachesTarget=True
+systems.sieber.droid_scep_7 i=6 misuse=False <systems.sieber.droid_scep.ScepClient: systems.sieber.droid_scep.ScepClient$CertReqResponse CertReq(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String,int)>
+   before: reachable=False reachesTarget=True
+   after:  reachable=True reachesTarget=True

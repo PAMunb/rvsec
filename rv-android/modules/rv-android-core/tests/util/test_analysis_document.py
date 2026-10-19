@@ -124,7 +124,7 @@ def test_cryptoapp_fixture_carries_the_distances_the_drop_removes():
         m for e in raw["reachability"] for m in e["methods"] if "targetDistances" in m
     ]
     assert raw["distanceTargets"]
-    assert len(carriers) == 38
+    assert len(carriers) == 39
 
 
 @pytest.mark.parametrize("fixture", FIXTURES, ids=lambda p: p.name)
@@ -286,6 +286,80 @@ def test_distance_members_outside_their_place_are_ordinary_members(tmp_path):
     }
     document, _ = read_analysis_document(_write(tmp_path, json.dumps(raw)), PairPolicy.DROP)
     assert document == raw
+
+
+# === DISTANCE PATHS ===
+
+_PATH_METHODS = ["<a.A: void f()>", "<a.B: void g()>", "<a.C: void h()>"]
+_DISTANCE_PATHS = [[0, 0, 1], [0, 1, 2], [1, 0, 2]]
+
+
+def _with_paths(document: dict) -> dict:
+    """The document with the path members inserted right after `reachability`."""
+    result = {}
+    for key, value in document.items():
+        result[key] = value
+        if key == "reachability":
+            result["pathMethods"] = _PATH_METHODS
+            result["distancePaths"] = _DISTANCE_PATHS
+    return result
+
+
+@pytest.mark.parametrize(
+    "policy", [PairPolicy.DROP, PairPolicy.reduce(3, 3)], ids=["drop", "reduce"]
+)
+def test_every_policy_drops_the_path_members(tmp_path, policy):
+    raw = _fixture_document()
+    path = _write(tmp_path, json.dumps(_with_paths(raw)))
+    without = _write(tmp_path, json.dumps(raw), name="plain.apk.json")
+
+    document, truncated = read_analysis_document(path, policy)
+
+    assert truncated is False
+    assert "pathMethods" not in document
+    assert "distancePaths" not in document
+    assert document == read_analysis_document(without, policy)[0]
+
+
+def test_dropped_paths_names_the_path_members_the_read_met(tmp_path):
+    with_paths = _write(
+        tmp_path, json.dumps(_with_paths({"a": 1, "reachability": []}))
+    )
+    plain = _write(
+        tmp_path, json.dumps({"a": 1, "reachability": []}), name="plain.json"
+    )
+
+    met: set[str] = set()
+    document, _ = read_analysis_document(
+        with_paths, PairPolicy.DROP, dropped_paths=met
+    )
+    assert met == {"pathMethods", "distancePaths"}
+    assert document == {"a": 1, "reachability": []}
+
+    met = set()
+    read_analysis_document(plain, PairPolicy.DROP, dropped_paths=met)
+    assert met == set()
+
+
+def test_truncation_inside_distance_paths_keeps_the_members_before_it(tmp_path):
+    raw = _with_paths(_fixture_document())
+    text, spans = _members_with_offsets(raw)
+    position = next(n for n, (key, _, _) in enumerate(spans) if key == "distancePaths")
+    cut = spans[position][1] + len("[[0, 0, 1], [0,")
+
+    document, truncated = read_analysis_document(
+        _write(tmp_path, text[:cut]), PairPolicy.DROP
+    )
+
+    assert truncated is True
+    expected = _without_distances(raw)
+    before = [key for key, _, _ in spans[:position]]
+    assert "reachability" in before
+    assert list(document) == [
+        k for k in before if k not in ("distanceTargets", "pathMethods")
+    ]
+    for key in document:
+        assert document[key] == expected[key]
 
 
 # === TRUNCATION ===

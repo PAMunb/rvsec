@@ -331,6 +331,19 @@ class DefaultXMLParser extends AbstractXMLParser {
     }
   }
 
+  /**
+   * The {@code android:name} of the manifest's {@code <application>} element, resolved
+   * by {@link Helper#getClassName}; {@code null} when the attribute is absent or empty
+   * (an empty name would make {@code getClassName} throw and abort the manifest read).
+   */
+  static String readApplicationClassName(Node appNode, String appPkg) {
+    Node nameNode = appNode.getAttributes().getNamedItemNS(ANDROID_NS, "name");
+    if (nameNode == null || nameNode.getTextContent().isEmpty()) {
+      return null;
+    }
+    return Helper.getClassName(nameNode.getTextContent(), appPkg);
+  }
+
   private void readManifest() {
     String fn = Configs.manifestLocation;
     DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -344,6 +357,7 @@ class DefaultXMLParser extends AbstractXMLParser {
       appPkg = root.getAttributes().getNamedItem("package").getTextContent();
 
       Node appNode = doc.getElementsByTagName("application").item(0);
+      applicationClassName = readApplicationClassName(appNode, appPkg);
       NodeList nodes = appNode.getChildNodes();
       for (int i = 0; i < nodes.getLength(); ++i) {
         try {

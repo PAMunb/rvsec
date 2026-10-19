@@ -1,0 +1,7 @@
+compact-paths/cryptoapp.apk.d: bytes before transitions equal=True; all other members equal=True; transitions same multiset (ids raw)=True; n=35/35
+compact-paths/net.gaast.giggity_769.apk.d: bytes before transitions equal=True; all other members equal=True; transitions same multiset (ids raw)=True; n=1622/1622
+compact-paths/org.cry.otp_31.apk.d: bytes before transitions equal=True; all other members equal=True; transitions same multiset (ids raw)=True; n=1443/1443
+compact-paths/org.fedorahosted.freeotp_48.apk.d: bytes before transitions equal=True; all other members equal=True; transitions same multiset (ids raw)=True; n=53/53
+compact-paths/com.vrem.wifianalyzer_71.apk.d: bytes before transitions equal=True; all other members equal=True; transitions same multiset (ids raw)=True; n=169/169
+compact-paths/systems.sieber.droid_scep_7.apk.d: bytes before transitions equal=True; all other members equal=True; transitions same multiset (ids raw)=True; n=18/18
+compact-paths-rerun/org.cry.otp_31.apk.d: bytes before transitions equal=True; all other members equal=True; transitions same multiset (ids raw)=True; n=1443/1443

@@ -106,6 +106,13 @@ public class JsonSchemaKeysTest {
 	}
 
 	@Test
+	public void distancePathKeysMatchTheParserMirror() {
+		// Mirrored in _JK (INV-ANA-32); the readers skip the two members by these names.
+		assertEquals("pathMethods", JsonSchema.Keys.PATH_METHODS);
+		assertEquals("distancePaths", JsonSchema.Keys.DISTANCE_PATHS);
+	}
+
+	@Test
 	public void keysDumpExitsCleanlyAndProducesExpectedCount() throws Exception {
 		// Don't subprocess the JVM here — that's the Python parity test's
 		// job. We can invoke main() directly and capture stdout to confirm

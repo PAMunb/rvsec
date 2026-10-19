@@ -1,0 +1,40 @@
+== net.gaast.giggity_769: (src,tgt,event,handler,widget) keys 967 -> 1350; added 383, removed 0
+   distinct window pairs 26 -> 31; new pairs 5
+   +22  click  <net.gaast.giggity.ScheduleViewActivity$16: void onClick(android.view.View)>
+   +22  click  <net.gaast.giggity.ScheduleViewActivity$DayButtonsHider$3: void onClick(android.view.View)>
+   +22  click  <net.gaast.giggity.ImportView$1: void onClick(android.view.View)>
+   +22  click  <net.gaast.giggity.BlockScheduleVertical$Element$1: void onClick(android.view.View)>
+   +22  click  <net.gaast.giggity.EventDialog$1: void onClick(android.view.View)>
+   +22  click  <net.gaast.giggity.EventDialog$ShareButton: void onClick(android.view.View)>
+   +22  click  <net.gaast.giggity.EventDialog$HideButton: void onClick(android.view.View)>
+   +22  click  <net.gaast.giggity.EventDialog$LinkButton: void onClick(android.view.View)>
+   new pair: ('net.gaast.giggity.ChooserActivity', 'net.gaast.giggity.ScheduleItemActivity')
+   new pair: ('net.gaast.giggity.ScheduleItemActivity', 'net.gaast.giggity.ChooserActivity')
+   new pair: ('net.gaast.giggity.ScheduleItemActivity', 'net.gaast.giggity.ScheduleViewActivity')
+   new pair: ('net.gaast.giggity.ScheduleViewActivity', 'net.gaast.giggity.ScheduleItemActivity')
+   new pair: ('net.gaast.giggity.ScheduleViewActivity#OptionsMenu', 'net.gaast.giggity.ScheduleItemActivity')
+== com.vrem.wifianalyzer_71: (src,tgt,event,handler,widget) keys 42 -> 60; added 19, removed 1
+   distinct window pairs 4 -> 8; new pairs 4
+   +2  click  <com.vrem.wifianalyzer.MainActivity: boolean onOptionsItemSelected(android.view.MenuItem)>
+   +1  click  <FakeName_69: void onClick(android.view.View)>
+   +1  click  <FakeName_53: void onClick(android.view.View)>
+   +1  implicit_home_event  
+   +1  implicit_back_event  
+   +1  implicit_power_event  
+   +1  click  <com.vrem.wifianalyzer.MainActivity: boolean onCreateOptionsMenu(android.view.Menu)>
+   +1  click  <FakeName_45: void onClick(android.view.View)>
+   new pair: ('com.vrem.wifianalyzer.MainActivity', 'com.vrem.wifianalyzer.MainActivity#OptionsMenu')
+   new pair: ('com.vrem.wifianalyzer.MainActivity#OptionsMenu', 'android.app.AlertDialog')
+   new pair: ('com.vrem.wifianalyzer.MainActivity#OptionsMenu', 'com.vrem.wifianalyzer.MainActivity')
+   new pair: ('com.vrem.wifianalyzer.MainActivity#OptionsMenu', 'com.vrem.wifianalyzer.MainActivity#OptionsMenu')
+== org.fedorahosted.freeotp_48: (src,tgt,event,handler,widget) keys 105 -> 105; added 0, removed 0
+   distinct window pairs 10 -> 10; new pairs 0
+== giggity added transitions by (src -> tgt):
+     18  net.gaast.giggity.ScheduleViewActivity -> net.gaast.giggity.ScheduleItemActivity
+      1  net.gaast.giggity.ScheduleViewActivity#OptionsMenu -> net.gaast.giggity.ScheduleItemActivity
+      1  net.gaast.giggity.ScheduleItemActivity -> net.gaast.giggity.ChooserActivity
+      1  net.gaast.giggity.ChooserActivity -> net.gaast.giggity.ScheduleItemActivity
+      1  net.gaast.giggity.ScheduleItemActivity -> net.gaast.giggity.ScheduleViewActivity
+      1  android.app.AlertDialog -> net.gaast.giggity.ScheduleViewActivity
+== EventDialog$ShareButton.onClick before: [('net.gaast.giggity.ScheduleViewActivity', 'android.app.AlertDialog'), ('net.gaast.giggity.ScheduleViewActivity', 'net.gaast.giggity.ScheduleViewActivity'), ('net.gaast.giggity.ScheduleViewActivity', 'net.gaast.giggity.ScheduleViewActivity$LoadProgressDialog'), ('net.gaast.giggity.ScheduleViewActivity', 'net.gaast.giggity.SettingsActivity')]
+   after added: [('net.gaast.giggity.ScheduleViewActivity', 'net.gaast.giggity.ScheduleItemActivity')]

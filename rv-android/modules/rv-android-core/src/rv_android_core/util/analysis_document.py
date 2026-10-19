@@ -16,6 +16,13 @@ as `json.loads` would, except the distance members, which the caller's
 `PairPolicy` either drops without building or folds into per-target minima as the
 events arrive.
 
+A document GATOR wrote with `distancePaths=true` also carries the top-level members
+`pathMethods` and `distancePaths`: the call path behind each written pair, as steps
+over a method table. No campaign reader uses them, so the reader consumes both
+without building a value under every policy, and a document parses to the same dict
+with and without them (INV-ANA-97). `rv_static_analysis.path_query` reads them in a
+pass of its own.
+
 Where yajl and `json.loads` disagree, the reader follows yajl. A lone surrogate escape
 (`"\\ud800"`) comes back as `'?'` with no truncation reported, and an integer beyond
 64 bits or a number beyond double range stops the read as if the input had ended
@@ -52,7 +59,7 @@ there. GATOR writes neither.
 - Input: the path of a static-analysis document, any size, possibly truncated by a
   producer killed mid-write.
 - Output: `(dict, truncated)`; the dict has the shape `json.loads` would give,
-  minus or with reduced distance members.
+  minus or with reduced distance members, and always without the path members.
 - Dependencies: `ijson` (backend `yajl2_c`).
 """
 
@@ -75,6 +82,12 @@ if ijson.backend != "yajl2_c":
 DISTANCE_TARGETS_KEY = "distanceTargets"
 TARGET_DISTANCES_KEY = "targetDistances"
 REACHABILITY_KEY = "reachability"
+
+# The distance-path members GATOR writes with `distancePaths=true`; dropped under
+# every policy (INV-ANA-97).
+PATH_METHODS_KEY = "pathMethods"
+DISTANCE_PATHS_KEY = "distancePaths"
+_PATH_KEYS = frozenset((PATH_METHODS_KEY, DISTANCE_PATHS_KEY))
 
 # ijson prefix of an entry of `reachability[].methods[]`: the object whose
 # `targetDistances` member the policy applies to. A member of that name anywhere
@@ -132,14 +145,17 @@ class PairPolicy:
 PairPolicy.DROP = PairPolicy(drop=True)
 
 
-def read_analysis_document(path: str, pairs: PairPolicy) -> tuple[dict, bool]:
+def read_analysis_document(
+    path: str, pairs: PairPolicy, *, dropped_paths: set[str] | None = None
+) -> tuple[dict, bool]:
     """Read a static-analysis document in one pass of JSON events.
 
     Every member is built as `json.loads` would build it — same values, same types,
     same key order, the last of duplicate keys winning — except `distanceTargets`
-    (absent under `PairPolicy.DROP`) and the `targetDistances` member of every
-    `reachability[].methods[]` entry (absent under `DROP`, reduced otherwise). The
-    file's text is never held in memory, nor any dropped pair.
+    (absent under `PairPolicy.DROP`), the `targetDistances` member of every
+    `reachability[].methods[]` entry (absent under `DROP`, reduced otherwise), and
+    the top-level `pathMethods` and `distancePaths` (absent under every policy). The
+    file's text is never held in memory, nor any dropped pair or path step.
 
     Truncation is reported rather than raised. A top-level member enters the
     result only once its value was read in full, so a document cut by a killed
@@ -154,6 +170,9 @@ def read_analysis_document(path: str, pairs: PairPolicy) -> tuple[dict, bool]:
     Args:
         path: Path of the document.
         pairs: What to do with the distance members.
+        dropped_paths: When given, receives the name of each path member the read
+            met at the top level, so a caller that must refuse a document with paths
+            learns it from this same pass.
 
     Returns:
         `(document, truncated)`. `truncated` is True iff the input ended, or stopped
@@ -185,6 +204,11 @@ def read_analysis_document(path: str, pairs: PairPolicy) -> tuple[dict, bool]:
                 if event == "end_map":
                     return document, False
                 # Every other event at this level is a member's key.
+                if key in _PATH_KEYS:
+                    if dropped_paths is not None:
+                        dropped_paths.add(key)
+                    _skip_value(events)
+                    continue
                 if key == DISTANCE_TARGETS_KEY and pairs.drop:
                     _skip_value(events)
                     continue

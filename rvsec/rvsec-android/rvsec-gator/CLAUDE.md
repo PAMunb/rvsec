@@ -40,20 +40,28 @@ Guava 27.1-jre, classindex 3.4, velocity 1.7, slf4j-simple 1.7.26, JUnit 4.12.
 |---|---|---|
 | `commons/` | 4 | Timer/Logger helpers |
 | `sootandroid/` | 180 | GATOR fork; main `presto.android.Main`; fat jar `rvsec-gator.jar` |
-| `client/` | 26 (main) | `presto.android.gui.clients`; fat jar **`rvsec-analysis-client.jar`** |
+| `client/` | 28 (main) | `presto.android.gui.clients`; fat jar **`rvsec-analysis-client.jar`** |
 
 ## Key components (real paths)
 
-- `client/.../clients/RvsecAnalysisClient.java` — orchestrator (~2120 LOC; also holds the
+- `client/.../clients/RvsecAnalysisClient.java` — orchestrator (~2250 LOC; also holds the
   `writeReachability/Windows/Transitions/ComponentsSection` static writers, `prepareWindows`,
-  `dropRepeatedOwnedWindows`, `dropRepeatedWidgets`).
+  `dropRepeatedOwnedWindows`, `dropRepeatedWidgets`), and the reachability seeds:
+  `getEntryPoints(output, appClasses)` (activities; manifest services, receivers, providers;
+  the manifest's `Application` subclass; app subclasses of the `FragmentViewFlow` bases —
+  fragments, `ListenableWorker` (`doWork`/`startWork` only), RecyclerView `Adapter`/`ViewHolder`;
+  INV-ANA-95) and `collectCallbacks(output)` (lifecycle, GUI event and component callbacks),
+  which seed the forward search together (INV-ANA-94).
 - `client/.../clients/target/{TargetResolver,MopSpecsTargetSource,SignatureFileTargetSource}.java`
 - `client/.../clients/reach/{ReachabilityEngine,ReachabilityIndex,ReachabilityEnricher}.java`,
   `reach/LambdaEdges.java` (D8 lambda wrapper → body and single-invoke SAM edges added to the
-  Scene call graph before reachability, INV-ANA-77), `reach/TargetDistances.java` (one reverse
+  Scene call graph before reachability, INV-ANA-77), `reach/EmptySiteEdges.java` (edges at the
+  instance-invoke sites of app methods SPARK left with no edge, to app callees only, added right
+  after the lambda edges, INV-ANA-96), `reach/TargetDistances.java` (one reverse
   BFS per target, depth ≤ `DIST_MAX` = 10, INV-ANA-73; `compact()` and
   `COMPACT_WEIGHED_MAX`/`COMPACT_K` = 3/3, the per-method reduction of compact output,
-  INV-ANA-85)
+  INV-ANA-85; `paths()` and `keptByCompact()`, the second pass behind the distance paths),
+  `reach/DistancePaths.java` (the `pathMethods` table and `distancePaths` steps a run writes)
 - `client/.../clients/fragment/{FragmentHostResolver,FragmentWindows}.java` — host → fragment
   map (layout tags, transactions, Navigation XML, pagers) and `FRAGMENT` windows
 - `client/.../clients/hosted/{HostedWindowExtractor,HostResolver,NavGraphUses,BindingListenerRecovery}.java`
@@ -63,8 +71,10 @@ Guava 27.1-jre, classindex 3.4, velocity 1.7, slf4j-simple 1.7.26, JUnit 4.12.
 - `client/.../clients/{MenuExtractor,SpinnerItemExtractor}.java` (+ legacy `wtg/model/*`, `wtg/writer/Writer.java`)
 - `sootandroid/.../presto/android/Main.java` (Soot config), `Configs.java` (client params),
   `gui/Flowgraph.java`, `gui/wtg/WTGBuilder.java`, `gui/flowgraph/{FlowgraphRebuilder,AndroidCallGraph}.java`
-  (cgDelegation), `xml/XMLParser.java`, `gui/util/JimpleDefUtils.java`,
-  `gui/FragmentViewFlow.java` (`onCreateView` → `onViewCreated(view)`/`getView()`),
+  (cgDelegation), `xml/XMLParser.java` (`getApplicationClassName()` = `<application android:name>`), `gui/util/JimpleDefUtils.java`,
+  `gui/FragmentViewFlow.java` (`onCreateView` → `onViewCreated(view)`/`getView()`; also the
+  public `FRAGMENT_BASES`, `LISTENABLE_WORKER` and `RECYCLER_VIEW_BASES` the client's
+  `FragmentHostResolver` and entry points read),
   `gui/LibraryInflateModel.java` (DataBinding, `AppCompatActivity(int)`, builder
   `setView(int)`); the ViewBinding op node (`ViewBindings.findChildViewById`) lives in
   `Flowgraph.createOpNode`.
@@ -106,6 +116,27 @@ count pairs beyond the reduction need a full document; the marker says which one
 hold. A full document already on disk is converted with `rv-static-analysis compact`
 (byte-identical to GATOR's compact output, INV-ANA-87) instead of re-running GATOR.
 
+**Distance paths (INV-ANA-90..93).** `RvsecAnalysisClient.distancePaths()` reads the client
+parameter `distancePaths`; `true` (case-insensitive) adds two top-level members, written by
+`JsonReportWriter` right after `reachability`, in both writes and in both output modes:
+- `pathMethods`: the sorted signatures of every method on some path, app and library;
+- `distancePaths`: steps `[i, v, n]` sorted by `(i, v)`, at most one per `(i, v)` — "on the
+  way to `distanceTargets[i]`, method `pathMethods[v]` calls method `pathMethods[n]`, one call
+  closer". Following `n` from a method `d` times reaches the target of its pair `[i, d]`.
+
+The steps cover exactly the chains of the pairs the mode writes (every pair in full output,
+the pairs `compact()` keeps in compact output), so a step may pass through a method whose own
+pair for `i` was reduced away. A path ends at the app target, never inside library code.
+Without the parameter the document is the one written without it, member for member, so
+the compact default and the converter's byte identity hold for every campaign document. The
+paths exist for the analyser's stand-alone use: no campaign reader reads them
+(`read_analysis_document` drops both members), `rv-static-analysis path` prints one method's
+chains, and `rv-static-analysis compact` refuses a document that carries them (reducing a
+full document's steps would be a second reduction; run GATOR in compact mode with the
+parameter instead). The pass runs before the pre-WTG write, logs
+`[RvsecAnalysisClient] Distance paths: N methods, S steps (t ms)`, and a failure costs only
+the two members.
+
 ### Distances and owned windows
 
 - `distanceTargets` (top level) lists the targets of the distance pass as
@@ -114,6 +145,16 @@ hold. A full document already on disk is converted with `rv-static-analysis comp
   library code only (B \ C). Each method entry may carry `targetDistances` = `[[index, d], …]`
   with `d ≤ 10`, sorted by index; the key is omitted when the method has no pair, and
   `distanceTargets` is omitted only when the pass failed.
+- Each search visits a method's callers in signature order (sorted once in `compute`, kept
+  on the instance until `run()` releases them after the path pass, so the WTG runs
+  without them), with a first-in first-out queue. The order changes no distance; it
+  fixes which of several equally short paths a search reaches first, so the distance paths
+  are the same on every run over the same graph (INV-ANA-92). `paths()` is a second pass:
+  it repeats the search of each target named by a written pair, recording the callee each
+  method was first visited from, and holds one target's search at a time. Recording
+  predecessors in the first pass would hold one entry per visited method per target,
+  library methods included, for the whole run, and compact output cannot know which pairs
+  survive before every target's search is done.
 - Full output writes every pair the searches recorded. Compact output keeps per method the
   pairs at `d ≤ COMPACT_WEIGHED_MAX` (3) plus the `COMPACT_K` (3) nearest by `(d, i)`,
   still sorted by index (INV-ANA-85); `distanceTargets` is written whole in both modes,
@@ -149,7 +190,8 @@ python gator a -p <apk> --client-jar <jar> -client RvsecAnalysisClient \
 Params (`Configs.getClientParamCode`): `mopDir` **XOR** `targetsFile` (INV-ANA-33; enforced
 in Python and re-checked in-client); `cgAlgorithm=spark` (default); **`cgDelegation=false`
 (default, M3 gate 2026-05-15)**; `skipWtg=false`; `fullOutput=false` (compact output;
-`true` writes the full document, see JSON contract); `--timeout=600`.
+`true` writes the full document, see JSON contract); `distancePaths=false` (`true` adds
+`pathMethods`/`distancePaths`, see JSON contract); `--timeout=600`.
 
 ## References
 
@@ -194,6 +236,38 @@ Canonical spec: `../rv-android/openspec/specs/analysis/spec.md` (invariants **IN
   before INV-ANA-77 lists such wrappers with `false`, and the derive trusts a listed
   wrapper's own flag (INV-DRV-09), so never derive from an artefact older than this
   producer.
+- **Reachability is seeded by the callbacks, not complemented with them.** Activity
+  lifecycle handlers, GUI event handlers and Service/Receiver/Provider lifecycle methods
+  are seeds of the forward search with the entry points, so a method only a handler calls
+  is `reachable`; their target flags come from the searches like any method's. With the
+  `Application`, fragment, worker and RecyclerView entry points, this makes the `reachable`
+  set (the coverage denominator) of a document from this producer larger than one from an
+  older producer: never compare the two on `reachable`.
+- **Empty-site edges (`EmptySiteEdges`, log `[EmptySiteEdges] added …`).** SPARK resolves
+  `x.m()` from the objects `x` may point to, learnt from allocation sites. `this` of an
+  activity, fragment, application or service, a ViewModel from a provider, and an injected
+  field point to nothing, because the framework, reflection or a DI container creates them,
+  so SPARK leaves the site with no edge. At every instance-invoke site of an app method
+  still without an edge after `LambdaEdges`, the pass adds an edge to the method a special
+  invoke resolves to, or, for a virtual or interface invoke, to the method
+  `FastHierarchy.resolveConcreteDispatch` yields on each concrete app class that the class
+  the invoke names admits (itself included). Only app callees, only empty sites: a site
+  SPARK resolved keeps exactly its edges, and no edge enters library code, so
+  `directlyReachesTarget` and `distanceTargets` do not move while `reachable`,
+  `reachesTarget` and `targetDistances` grow. It is the class-hierarchy answer, so a dead
+  site also gets edges and an interface invoke fans out to every app implementer; the
+  counter line and up to 10 `[EmptySiteEdges] fan-out n at …` lines (largest first) show
+  the width per run. No fan-out bound is applied. The edges serve reachability, the
+  distances and the paths only: after the distances, `RvsecAnalysisClient.run()` removes
+  them from the call graph before `analyzeFragments` and the WTG (log `Empty-site edges
+  removed before the WTG: N`), so `windows` and `transitions` stay as SPARK and
+  `LambdaEdges` make them even with `cgDelegation=true`.
+- **What the empty-site edges do not repair: library dispatch.** A call that leaves the
+  app and comes back through library code stays lost when SPARK gave the library its own
+  empty site: coroutine resumption (`kotlinx.coroutines`), RxJava operators, an executor
+  running a `Runnable`, `Collections.sort` calling a `Comparator`, and koin/Hilt registries handing out objects from `java.util` maps whose bodies Soot does
+  not load. The pass only fills sites inside app methods; the edge from the library's own
+  call site to the app callback is not modelled.
 - **Compose UI is not modelled** (no view tree for GATOR to read); it does not break the run.
 - **WTG cost can grow where fragment listeners appear for the first time**
   (`com.iyps_158`: 106 s → 1,031 s, WTG stage 3 `CloseWindowEdgeBuilder`); the pre-WTG

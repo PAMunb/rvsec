@@ -323,6 +323,37 @@ def test_truncated_input_is_refused_without_output(tmp_path):
     assert sorted(os.listdir(tmp_path)) == ["cut.json"]
 
 
+def _document_with_paths() -> dict:
+    return _full_document(
+        [_method("a", [[0, 1]])],
+        pathMethods=["<com.example.Main: void a()>", "<com.example.T: void m0()>"],
+        distancePaths=[[0, 0, 1]],
+    )
+
+
+def test_input_with_distance_paths_is_refused_without_output(tmp_path):
+    src = _write_full(tmp_path / "p.json", _document_with_paths())
+    dst = tmp_path / "out.json"
+
+    with pytest.raises(CompactRefused, match="distancePaths=true") as refused:
+        compact_document(str(src), str(dst))
+
+    assert str(src) in str(refused.value)
+    assert "carries distancePaths" in str(refused.value)
+    assert sorted(os.listdir(tmp_path)) == ["p.json"]
+
+
+def test_cli_exits_1_with_one_line_on_distance_paths(tmp_path, monkeypatch, capsys):
+    src = _write_full(tmp_path / "p.json", _document_with_paths())
+    dst = tmp_path / "out.json"
+
+    assert _run_cli(monkeypatch, "compact", str(src), str(dst)) == 1
+    err = capsys.readouterr().err
+    assert err.count("\n") == 1
+    assert str(src) in err and "distancePaths" in err
+    assert not dst.exists()
+
+
 def test_same_file_is_refused_and_input_untouched(tmp_path):
     src = _write_full(tmp_path / "a.json", _full_document([_method("a", [[0, 1]])]))
     before = src.read_bytes()

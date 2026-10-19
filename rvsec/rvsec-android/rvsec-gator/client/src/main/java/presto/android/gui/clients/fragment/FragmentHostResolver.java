@@ -26,6 +26,7 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 import presto.android.gui.FixpointSolver;
+import presto.android.gui.FragmentViewFlow;
 import presto.android.gui.GUIAnalysisOutput;
 import presto.android.gui.graph.NActivityNode;
 import presto.android.gui.graph.NInflate1OpNode;
@@ -99,11 +100,6 @@ import soot.toolkits.scalar.SimpleLocalDefs;
  * not attributed: the loss is recall, not a wrong host.
  */
 public final class FragmentHostResolver {
-
-	private static final Set<String> FRAGMENT_BASES = Set.of(
-			"android.app.Fragment",
-			"android.support.v4.app.Fragment",
-			"androidx.fragment.app.Fragment");
 
 	/** Dialog fragments are dialogs, shown with {@code show()}; dialog windows are out of scope here. */
 	private static final Set<String> DIALOG_FRAGMENT_BASES = Set.of(
@@ -184,14 +180,15 @@ public final class FragmentHostResolver {
 	// ------------------------------------------------------------------
 
 	public static boolean isFragment(SootClass c) {
-		return extendsAny(c, FRAGMENT_BASES);
+		return extendsAny(c, FragmentViewFlow.FRAGMENT_BASES);
 	}
 
 	public static boolean isDialogFragment(SootClass c) {
 		return extendsAny(c, DIALOG_FRAGMENT_BASES);
 	}
 
-	private static boolean extendsAny(SootClass c, Set<String> bases) {
+	/** Whether {@code c} or one of its superclasses is named in {@code bases}. */
+	public static boolean extendsAny(SootClass c, Set<String> bases) {
 		SootClass cur = c;
 		int guard = 0;
 		while (cur != null && guard++ < 32) {

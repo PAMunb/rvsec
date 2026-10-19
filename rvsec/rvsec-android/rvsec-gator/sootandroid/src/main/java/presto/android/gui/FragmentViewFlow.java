@@ -41,10 +41,31 @@ import soot.jimple.Stmt;
  */
 public final class FragmentViewFlow {
 
-  private static final Set<String> FRAGMENT_BASES = Set.of(
+  /**
+   * Fragment base classes, matched by name over a class's superclass chain. Also read
+   * by the client's {@code FragmentHostResolver} and by its reachability entry points.
+   */
+  public static final Set<String> FRAGMENT_BASES = Set.of(
           "android.app.Fragment",
           "android.support.v4.app.Fragment",
           "androidx.fragment.app.Fragment");
+
+  /**
+   * WorkManager's worker base class. WorkManager calls a subclass's {@code doWork} or
+   * {@code startWork}; the client's reachability entry points read it.
+   */
+  public static final String LISTENABLE_WORKER = "androidx.work.ListenableWorker";
+
+  /**
+   * RecyclerView adapter and view-holder base classes, in androidx and in the support
+   * library. RecyclerView calls their subclasses' methods while a list is shown; the
+   * client's reachability entry points read the set.
+   */
+  public static final Set<String> RECYCLER_VIEW_BASES = Set.of(
+          "androidx.recyclerview.widget.RecyclerView$Adapter",
+          "androidx.recyclerview.widget.RecyclerView$ViewHolder",
+          "android.support.v7.widget.RecyclerView$Adapter",
+          "android.support.v7.widget.RecyclerView$ViewHolder");
 
   private static final Set<String> VIEW_GETTERS = Set.of("getView", "requireView");
 
