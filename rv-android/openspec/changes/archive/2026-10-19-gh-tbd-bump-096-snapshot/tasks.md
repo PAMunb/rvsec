@@ -65,5 +65,5 @@
 ## 9. Commit and archive (sequential — main window)
 
 - [x] 9.1 `git commit -- <paths of plan.md §3> <this change's tasks.md>` with message `chore(gh-tbd-bump-096-snapshot): bump 0.9.5-SNAPSHOT → 0.9.6-SNAPSHOT (reactor, rv-android, scripts, cadeia Docker 0.9.6)` (no co-author trailer); `git show --stat HEAD` lists 85 files — the 84 §3 paths plus `tasks.md`
-- [ ] 9.2 Archive via `/opsx:archive gh-tbd-bump-096-snapshot` (`--skip-specs`) and commit the archive by path
-- [ ] 9.3 Report to the user; do NOT push (the user pushes `modules`)
+- [x] 9.2 Archive via `/opsx:archive gh-tbd-bump-096-snapshot` (`--skip-specs`) and commit the archive by path
+- [x] 9.3 Report to the user; do NOT push (the user pushes `modules`)
