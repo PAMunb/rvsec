@@ -66,10 +66,10 @@ docker run --rm --device /dev/kvm \
 
 ## Output
 
-APE creates an `ape_output/` directory alongside the trace file containing:
-- State graphs and transition data
-- Screenshots and GUI-tree XML of each new abstract state
-- Model abstraction refinement logs
+The tool creates an empty `ape_output/` directory alongside the trace file. APE writes its
+state graphs, model refinement logs and the screenshots and GUI-tree XML of each new abstract state
+on the device (`/sdcard`), and rv-android does not pull them; the trace file holds APE's stdout and
+stderr.
 
 ## ICST Study
 
