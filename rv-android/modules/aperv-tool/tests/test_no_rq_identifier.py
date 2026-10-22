@@ -97,6 +97,6 @@ def test_the_pattern_catches_what_it_is_for() -> None:
         "INV-CAN-22",
         "INV-APV-61",
         "the R replicas",
-        "TEARDOWN_GRACE_S",
+        "TOOL_TEARDOWN_GRACE_S",
     ):
         assert not RQ_IDENTIFIER.search(allowed), allowed

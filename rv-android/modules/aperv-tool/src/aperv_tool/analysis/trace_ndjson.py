@@ -639,6 +639,10 @@ class StepRow:
             chosen action's MOP lookup (`hnd`), written exactly when
             `mop_stamp` is `s`. None otherwise, and on every step of a cell
             without MOP.
+        fuzz_events: Kinds of the gesture events the step's fuzz action
+            queued (`fz`), in order: `rotation`, `app_switch`, `key`,
+            `trackball`, `drag`, `pinch` or `click`. `()` when fuzzing fired
+            and queued nothing; None when the step did not fuzz.
     """
 
     step: int
@@ -680,6 +684,7 @@ class StepRow:
     mop_stamp: Optional[str] = None
     retired_targets: Optional[Tuple[int, ...]] = None
     mop_handler: Optional[str] = None
+    fuzz_events: Optional[Tuple[str, ...]] = None
 
 
 @dataclass
@@ -794,10 +799,16 @@ def _parse_draw(value: Any) -> Tuple[int, int]:
     return (value[0], value[1])
 
 
-def _parse_retired(value: Any) -> Tuple[int, ...]:
-    """Freeze `dec.ret` into a tuple; anything but an array raises `TypeError`."""
+def _parse_array(dec: Dict[str, Any], key: str) -> Optional[Tuple[Any, ...]]:
+    """Freeze the array `dec[key]` into a tuple, None when the member is absent.
+
+    Anything but an array raises `TypeError`, which makes the record malformed.
+    """
+    if key not in dec:
+        return None
+    value = dec[key]
     if not isinstance(value, list):
-        raise TypeError("ret is not an array")
+        raise TypeError(f"{key} is not an array")
     return tuple(value)
 
 
@@ -1314,7 +1325,8 @@ class TraceReader:
             }
 
         draw = _parse_draw(dec["draw"]) if "draw" in dec else None
-        retired = _parse_retired(dec["ret"]) if "ret" in dec else None
+        retired = _parse_array(dec, "ret")
+        fuzz_events = _parse_array(dec, "fz")
 
         component = None
         if "comp" in dec:
@@ -1368,6 +1380,7 @@ class TraceReader:
             mop_stamp=dec.get("mops"),
             retired_targets=retired,
             mop_handler=dec.get("hnd"),
+            fuzz_events=fuzz_events,
             **boosts,
         )
 

@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+from rv_android_core.constants import TOOL_TEARDOWN_GRACE_S
 from rv_android_core.util.error.exceptions import (
     ConfigurationError,
     RVCommandTimeoutError,
@@ -37,7 +38,6 @@ from aperv_tool.tools.aperv.tool import (
     APERV_DEVICE_PROPERTIES_PATH,
     APERV_ORCHESTRATION_KEYS,
     APERV_PROPERTY_MAPPING,
-    APERV_TEARDOWN_GRACE_S,
     LLM_URL_DEFAULT,
     ApeRVTool,
 )
@@ -557,7 +557,7 @@ class TestBuildCommand:
         # read from opposite sides, so it is stated once. A literal here would let
         # the two drift apart silently.
         cmd = self.tool._build_main_command(self._make_app(), "emulator-5554", 300)
-        assert cmd.timeout == 300 + APERV_TEARDOWN_GRACE_S
+        assert cmd.timeout == 300 + TOOL_TEARDOWN_GRACE_S
 
 
 class TestConstants:
@@ -814,7 +814,7 @@ class TestCompletionIsEstablished:
     ):
         # The floor is budget minus the grace the command already carries, so a run
         # that ended a few seconds early is a normal ending, not a truncation.
-        self._clock(monkeypatch, 1000.0, 1000.0 + (1800 - APERV_TEARDOWN_GRACE_S))
+        self._clock(monkeypatch, 1000.0, 1000.0 + (1800 - TOOL_TEARDOWN_GRACE_S))
 
         self._run(tmp_path, 1800, MagicMock(code=0))
 

@@ -6,6 +6,8 @@ Tests cover:
 - configure() with strategy validation
 - _resolve_ape_jar_path() resolution
 - _build_ape_shell_command() with correct CLI flags
+- execute_tool_specific_logic(): teardown grace, elapsed-time completion rule,
+  ape.properties push (INV-TOOL-27, INV-TOOL-28, INV-TOOL-29)
 - get_available_strategies() and get_tool_info()
 """
 
@@ -13,13 +15,16 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-from rv_android_core.domain.app import App
-from rv_android_core.domain.task import Task
+from rv_android_core.commands.command import Command
+from rv_android_core.constants import TOOL_TEARDOWN_GRACE_S
 from rv_android_core.util.error.exceptions import (
     ConfigurationError,
+    RVCommandTimeoutError,
     RVToolExecutionError,
+    RVToolTimeoutError,
 )
-from rv_tools.builtin.ape.tool import APETool
+from rv_tools.builtin.ape import tool as ape_module
+from rv_tools.builtin.ape.tool import APE_PROPERTIES_CONTENT, APETool
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -266,11 +271,163 @@ class TestBuildApeShellCommand:
         assert "/system/bin/app_process" in cmd.args
 
     def test_build_command_timeout(self, ape_tool, mock_app):
-        """Test command timeout is set correctly."""
+        """The command timeout is the budget plus the shared teardown grace."""
         ape_tool.configure({"strategy": "sata"})
-        cmd = ape_tool._build_ape_shell_command(mock_app, 5, 600)
+        cmd = ape_tool._build_ape_shell_command(mock_app, 10, 600)
 
-        assert cmd.timeout == 600
+        assert cmd.timeout == 600 + TOOL_TEARDOWN_GRACE_S
+
+
+# ---------------------------------------------------------------------------
+# Tests: execute_tool_specific_logic()
+# ---------------------------------------------------------------------------
+
+
+class _FakeResult:
+    """The part of CommandResult the tool reads."""
+
+    def __init__(self, code: int):
+        self.code = code
+
+    def is_failure(self) -> bool:
+        return self.code != 0
+
+    def has_error_output(self) -> bool:
+        return False
+
+
+class _Device:
+    """Records each Command.invoke and answers per command kind.
+
+    A push is recognised by its ``push`` argument; anything else is the APE run.
+    The pushed properties file is read at invoke time, since the tool removes it
+    after the push.
+    """
+
+    def __init__(self, ape_code=0, ape_raises=None, properties_push_code=0):
+        self.ape_code = ape_code
+        self.ape_raises = ape_raises
+        self.properties_push_code = properties_push_code
+        self.calls = []
+        self.pushed_properties = None
+
+    def invoke(self, command, stdout=None, stderr=None, stdin=None):
+        self.calls.append(command)
+        if "push" in command.args:
+            if command.args[-1] == "/data/local/tmp/ape.properties":
+                with open(command.args[-2]) as f:
+                    self.pushed_properties = f.read()
+                return _FakeResult(self.properties_push_code)
+            return _FakeResult(0)
+        if self.ape_raises is not None:
+            raise self.ape_raises
+        return _FakeResult(self.ape_code)
+
+    def ape_calls(self):
+        return [c for c in self.calls if "push" not in c.args]
+
+
+@pytest.fixture
+def run_ape(ape_tool, mock_app, tmp_path, monkeypatch):
+    """Run execute_tool_specific_logic against a fake device and clock.
+
+    Returns a function taking the fake device and the elapsed seconds of the APE
+    command; it returns the device so the test can inspect what ran.
+    """
+    ape_tool.configure({"strategy": "sata", "device_serial": "emulator-5554"})
+    ape_tool.jar_resolver.resolve_jar_path = MagicMock(return_value="/x/ape.jar")
+
+    task = MagicMock()
+    task.config.timeout = 300
+    task.result.trace_file = str(tmp_path / "trace.txt")
+
+    def run(device, elapsed=310.0):
+        clock = iter([1000.0, 1000.0 + elapsed])
+        monkeypatch.setattr(ape_module.time, "monotonic", lambda: next(clock))
+        monkeypatch.setattr(
+            Command,
+            "invoke",
+            lambda self, stdout=None, stderr=None, stdin=None: device.invoke(
+                self, stdout, stderr, stdin
+            ),
+        )
+        ape_tool.execute_tool_specific_logic(task, mock_app)
+        return device
+
+    run.task = task
+    return run
+
+
+class TestExecuteToolSpecificLogic:
+    """Grace, completion rule and capture properties of the ape built-in."""
+
+    def test_command_timeout_carries_the_grace(self, run_ape):
+        """A 300 s budget runs --running-minutes 5 under a 345 s timeout."""
+        device = run_ape(_Device())
+
+        [ape_cmd] = device.ape_calls()
+        assert ape_cmd.timeout == 345
+        index = ape_cmd.args.index("--running-minutes")
+        assert ape_cmd.args[index + 1] == "5"
+
+    def test_non_zero_exit_after_full_budget_completes(self, run_ape):
+        """Exit 1 after 310 s of a 300 s budget is a completed run."""
+        run_ape(_Device(ape_code=1), elapsed=310.0)
+
+    def test_early_return_raises_whatever_the_exit_code(self, run_ape):
+        """Exit 0 after 120 s of a 300 s budget is a truncated run."""
+        with pytest.raises(RVToolExecutionError) as excinfo:
+            run_ape(_Device(ape_code=0), elapsed=120.0)
+
+        assert "120" in str(excinfo.value)
+        assert "300" in str(excinfo.value)
+
+    def test_return_just_above_the_floor_completes(self, run_ape):
+        """256 s of a 300 s budget is above the 255 s floor."""
+        run_ape(_Device(ape_code=0), elapsed=256.0)
+
+    def test_host_timeout_is_a_normal_end(self, ape_tool, run_ape, mock_app):
+        """The command timeout reaches execute() and becomes RVToolTimeoutError."""
+        timeout = RVCommandTimeoutError("timed out", timeout_seconds=345)
+
+        with pytest.raises(RVCommandTimeoutError):
+            run_ape(_Device(ape_raises=timeout))
+
+        with pytest.raises(RVToolTimeoutError):
+            ape_tool.execute(run_ape.task, mock_app)
+
+    def test_properties_pushed_before_ape_with_exact_content(self, run_ape):
+        """ape.properties goes to the device before the APE command runs."""
+        device = run_ape(_Device())
+
+        properties_index = next(
+            i
+            for i, c in enumerate(device.calls)
+            if c.args[-1:] == ["/data/local/tmp/ape.properties"]
+        )
+        ape_index = device.calls.index(device.ape_calls()[0])
+        assert properties_index < ape_index
+
+        push = device.calls[properties_index]
+        assert push.command == "adb"
+        assert push.args[:3] == ["-s", "emulator-5554", "push"]
+        assert push.timeout == 60
+        assert device.pushed_properties == (
+            "ape.takeScreenshotForEveryStep=false\n"
+            "ape.saveGUITreeToXmlEveryStep=false\n"
+            "ape.takeScreenshotForNewState=true\n"
+        )
+        assert device.pushed_properties == APE_PROPERTIES_CONTENT
+        assert not os.path.exists(push.args[-2])
+
+    def test_failed_properties_push_raises_and_ape_never_starts(self, run_ape):
+        """A failed push stops the run before APE."""
+        device = _Device(properties_push_code=1)
+
+        with pytest.raises(RVToolExecutionError, match="APE properties"):
+            run_ape(device)
+
+        assert device.ape_calls() == []
 
 
 # ---------------------------------------------------------------------------
