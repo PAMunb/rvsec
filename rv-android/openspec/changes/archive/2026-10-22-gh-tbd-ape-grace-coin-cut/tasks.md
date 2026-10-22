@@ -21,7 +21,7 @@
 - [x] 2.2 Grep the module for any other text that describes the callbacks as handler methods (module docstring, `_index_reachability` docstring, `_emit_handlers`) and rewrite it to the current behaviour
 - [x] 2.3 `modules/aperv-tool/tests/test_derive_mop_artifact.py`: rewrite the callback tests (~lines 2060-2170, 2447) to the delta scenarios (callback-only classes not listed; a class with View `onClick` and `onOptionsItemSelected` carries only the View record, `dist.click == [[0, 3]]`); the cryptoapp ground truth has exactly 2 handler keys, and `MainActivity` and `MainActivity$1` are absent; leave the fixture `tests/fixtures/cryptoapp.apk.json` unchanged
 - [x] 2.4 Check `modules/aperv-tool/docs/architecture.md` and `CLAUDE.md` for text on the callback handler records and update it
-- [ ] 2.5 At archive: the aperv requirement is renamed to "MOP Artifact Projection and Handler Table" — update the cross-reference in `openspec/specs/instrumentation/spec.md` (View app-callback paragraph, ~line 3641), whose sentence "that table gives the callback's class a `click` record" no longer holds; hand-sync the delta Purpose, Data Contracts and INV-DRV-11 into `openspec/specs/aperv/spec.md`, and INV-TOOL-27..29 into `openspec/specs/tools/spec.md`
+- [x] 2.5 At archive: the aperv requirement is renamed to "MOP Artifact Projection and Handler Table" — update the cross-reference in `openspec/specs/instrumentation/spec.md` (View app-callback paragraph, ~line 3641), whose sentence "that table gives the callback's class a `click` record" no longer holds; hand-sync the delta Purpose, Data Contracts and INV-DRV-11 into `openspec/specs/aperv/spec.md`, and INV-TOOL-27..29 into `openspec/specs/tools/spec.md`
 - [x] 2.6 Run `/rv-test-run aperv-tool`
 
 ## 5. Step fuzzing in the trace reader (added 22/10)
@@ -40,7 +40,7 @@
 ## 4. Lint, verify, review
 
 - [x] 4.1 Run `/rv-qa-lint-fix` on rv-tools and aperv-tool (per module; touch only changed lines)
-- [ ] 4.2 Run `/rv-verify` on rv-tools and aperv-tool
-- [ ] 4.3 Invoke `/rv-code-reviewer` via the Skill tool on the branch diff
-- [ ] 4.4 Run `/rv-docs-sync aperv-tool` and `/rv-docs-sync rv-tools` if docs drift
-- [ ] 4.5 Commit by path (no Co-Authored-By), no push; report the worktree, branch and SHAs to mini-experimento
+- [x] 4.2 Run `/rv-verify` on rv-tools and aperv-tool
+- [x] 4.3 Invoke `/rv-code-reviewer` via the Skill tool on the branch diff
+- [x] 4.4 Run `/rv-docs-sync aperv-tool` and `/rv-docs-sync rv-tools` if docs drift
+- [x] 4.5 Commit by path (no Co-Authored-By), no push; report the worktree, branch and SHAs to mini-experimento

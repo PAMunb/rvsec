@@ -158,6 +158,7 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 
 - **Device**: UIAutomator2Adapter performs clicks, swipes, text input, button presses, app launches/stops, and screenshot captures on the connected Android device/emulator.
 - **File System**: Screenshot files written to configurable directory (`./screenshots/` default). Tool trace files written to `task.result.trace_file` during execution.
+- **Device**: the `ape` built-in pushes `/data/local/tmp/ape.properties` before each run (INV-TOOL-29); the emulator of each task runs with `-read-only -no-snapshot-save`, so the file does not outlive the task.
 - **Processes**: `kill_related_processes()` terminates device-side processes matching the tool's `process_pattern` via `adb shell kill`.
 - **Logging**: All operations emit structured log entries via `LoggingManager` with component context.
 
@@ -168,7 +169,7 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 - `ConfigurationError` -- Raised when tool configuration is invalid (e.g., missing required parameter, invalid variant name, invalid DroidBot policy).
 - `ToolCreationError` -- Raised when `ToolFactory.create_tool()` fails during instance creation.
 - `RVToolTimeoutError` -- Raised when tool execution exceeds the configured timeout. This is expected behavior and is handled gracefully (task is marked as completed, not failed).
-- `RVToolExecutionError` -- Raised when a tool command returns a non-zero exit code.
+- `RVToolExecutionError` -- Raised when a tool command returns a non-zero exit code. The `ape` built-in is the exception: APE exits non-zero when the app under test crashes, so it raises only when APE returns earlier than the budget minus `TOOL_TEARDOWN_GRACE_S` (INV-TOOL-28), or when a push fails.
 - `CircuitBreakerOpenError` -- Raised when the circuit breaker blocks command execution after consecutive failures.
 
 ## Invariants
@@ -204,6 +205,12 @@ UIAutomator2Adapter                 UIAutomatorActionExecutor
 - **INV-TOOL-15**: When ARES or QTesting tools build their Docker `run` command inside a Docker container (detected by the presence of `/.dockerenv`), the command MUST include `--network container:<hostname>` where `<hostname>` is the current container's ID obtained via `socket.gethostname()`. This flag makes the sibling container (ARES/QTesting) share the parent container's network namespace, allowing it to reach the emulator at `localhost:5554` without any network configuration changes in the ARES/QTesting code or Dockerfiles. When running outside Docker (`/.dockerenv` does not exist), the command MUST use `--network host` so the sibling container shares the host's network namespace and can reach the emulator at `localhost:5554`.
 
 - **INV-TOOL-26**: Every plugin module that `_register_external_tools()` imports MUST be declared in `modules/rv-platform/pyproject.toml`, in `dependencies` and in `[tool.uv.sources]`. A plugin module (`rvagent-tool`, `aperv-tool`) or a tool-infrastructure module (`rv-uiautomator`) MUST NOT declare a workspace module that its `src/` never imports.
+
+- **INV-TOOL-27**: The `ape` built-in SHALL run APE under a command timeout of the budget plus `TOOL_TEARDOWN_GRACE_S` (`rv_android_core.constants`, 45 s), the same constant `aperv-tool` uses. No tool module SHALL define its own copy of the grace.
+
+- **INV-TOOL-28**: The `ape` built-in SHALL NOT decide a run's outcome from APE's exit code. A return that arrives earlier than the budget minus `TOOL_TEARDOWN_GRACE_S` SHALL raise `RVToolExecutionError`, naming the elapsed time and the budget. Any other return SHALL complete the task.
+
+- **INV-TOOL-29**: Before starting APE, the `ape` built-in SHALL push `/data/local/tmp/ape.properties` holding exactly `ape.takeScreenshotForEveryStep=false`, `ape.saveGUITreeToXmlEveryStep=false` and `ape.takeScreenshotForNewState=true`, in that order.
 
 ## Requirements
 
@@ -552,3 +559,48 @@ The build and the repository SHALL NOT depend on a pre-committed `ape-rv.jar`, r
 #### Scenario: ape ref tracks the default branch
 - **WHEN** the image is built at any time
 - **THEN** the `ape` clone uses the repository default branch (current tip), with no build `ARG` and no pinned SHA
+
+### Requirement: APE Built-in Shares the APE-RV Harness Timing and Capture Policy (FR19, NFR04)
+
+`APETool` (`modules/rv-tools/src/rv_tools/builtin/ape/tool.py`) SHALL give APE the host time that
+`aperv` gets. The `adb shell` command's timeout SHALL be the budget plus `TOOL_TEARDOWN_GRACE_S`, so
+APE can end on its own `--running-minutes` timer and finish its teardown before the host kills it
+(INV-TOOL-27).
+
+Once APE ends on its own, the exit code reaches the tool. That code cannot tell a lost run from a
+good one: APE exits non-zero when the app under test crashes, which is data the run exists to
+collect, and a device that went away also yields non-zero. The tool SHALL therefore run the command
+without the non-zero-exit check of `AbstractTool._execute_and_check_command` and judge the run by
+elapsed time instead (INV-TOOL-28). This is `aperv`'s completion rule (`aperv` INV-APV-60). A command
+timeout still raises `RVToolTimeoutError`, which stays a normal end.
+
+Before starting APE, the tool SHALL push `/data/local/tmp/ape.properties` with the three capture lines
+(INV-TOOL-29). Upstream APE then writes a screenshot and a GUI-tree XML only when a new abstract state
+appears, rather than on every step, which is the capture policy the `aperv` jar applies by default.
+The files stay on the emulator's `/sdcard`, and rv-android does not read them.
+
+#### Scenario: the command timeout carries the grace
+- **WHEN** `APETool.execute_tool_specific_logic()` runs with `task.config.timeout = 300`
+- **THEN** the `adb` command SHALL carry `--running-minutes 5` and a timeout of `345` seconds
+
+#### Scenario: a non-zero exit after the full budget completes the task
+- **WHEN** APE returns exit code `1` after 310 s of a 300 s budget
+- **THEN** the tool SHALL return without raising, and the task SHALL be stored as completed
+
+#### Scenario: an early return is an error, whatever the exit code
+- **WHEN** APE returns exit code `0` after 120 s of a 300 s budget
+- **THEN** the tool SHALL raise `RVToolExecutionError` whose message names `120` and `300`
+
+#### Scenario: a return just above the floor completes the task
+- **WHEN** APE returns after 256 s of a 300 s budget (floor 255 s)
+- **THEN** the tool SHALL return without raising
+
+#### Scenario: the host timeout is still a normal end
+- **WHEN** the `adb` command times out at 345 s
+- **THEN** `RVToolTimeoutError` SHALL propagate, and `AbstractTool.execute()` SHALL treat it as a normal end (INV-TOOL-06)
+
+#### Scenario: the capture properties are pushed before APE starts
+- **WHEN** the tool runs on device `emulator-5554`
+- **THEN** an `adb -s emulator-5554 push` to `/data/local/tmp/ape.properties` SHALL run before the APE command
+- **AND** the pushed file SHALL be exactly `ape.takeScreenshotForEveryStep=false\nape.saveGUITreeToXmlEveryStep=false\nape.takeScreenshotForNewState=true\n`
+- **AND** a failed push SHALL raise `RVToolExecutionError`, and APE SHALL NOT start
