@@ -27,7 +27,7 @@ the consumers that reach for it there.
 Blind to the arm and to the direction of the effect:
 
 - **C1** — ``COMPLETED`` with an empty ``error_message``.
-- **C2** — ``execution_time_s >= timeout - TEARDOWN_GRACE_S``. Exploration is
+- **C2** — ``execution_time_s >= timeout - TOOL_TEARDOWN_GRACE_S``. Exploration is
   budget-limited **by construction**, so elapsed time is the discriminator; the
   exit code is not, because a dead emulator and an application crash are
   indistinguishable through it.
@@ -89,11 +89,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Mapping, Optional, Sequence
 
-from aperv_tool.analysis.run_identity import RunKey, arm_label
+from rv_android_core.constants import TOOL_TEARDOWN_GRACE_S
 
-# The teardown slack the tool itself uses on both sides: the command's timeout is
-# the budget plus this grace, and the completeness floor is the budget minus it.
-TEARDOWN_GRACE_S = 45
+from aperv_tool.analysis.run_identity import RunKey, arm_label
 
 # The size below which a trace is a corpse signal. Measured on cmp162's 1458
 # traces: the smallest is 251,204 bytes and the fifth percentile is 1.06 MB, while
@@ -211,7 +209,7 @@ def classify_last_line(line: Optional[str]) -> CorpseClass:
 
 def floor_for(timeout_s: int) -> int:
     """C2's floor for a budget."""
-    return timeout_s - TEARDOWN_GRACE_S
+    return timeout_s - TOOL_TEARDOWN_GRACE_S
 
 
 def _absent(value: Any) -> bool:
@@ -377,7 +375,7 @@ def full_budget(run: RunFacts) -> bool:
     before an outcome is read.
 
     The floor is the budget **minus** the teardown grace rather than the budget
-    itself. The tool stops exploring up to ``TEARDOWN_GRACE_S`` before the budget
+    itself. The tool stops exploring up to ``TOOL_TEARDOWN_GRACE_S`` before the budget
     expires so its teardown fits inside the command's timeout, so a literal
     "duration >= timeout" would be a predicate the tool is built never to satisfy
     from the exploration side. Measured on cmp162's 1486 task records the observed

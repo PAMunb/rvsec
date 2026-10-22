@@ -6,19 +6,32 @@ enabling CEGAR-based model abstraction refinement for systematic exploration.
 """
 
 import os
+import tempfile
+import time
 from typing import Any, Dict, List
 
 from rv_android_core.commands.command import Command
+from rv_android_core.constants import TOOL_TEARDOWN_GRACE_S
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
 from rv_android_core.tools.tool_spec import ToolSpec
 from rv_android_core.util.error.error_handler import ErrorHandler
-from rv_android_core.util.error.exceptions import (
-    RVToolExecutionError,
-    RVToolTimeoutError,
-)
+from rv_android_core.util.error.exceptions import RVToolExecutionError
 from rv_android_core.util.jar_resolver import JarResolver
+
+APE_DEVICE_PROPERTIES_PATH = "/data/local/tmp/ape.properties"
+
+# Upstream APE writes a screenshot and a GUI-tree XML on every step by default. These
+# lines make it capture once per new abstract state instead, the capture policy the
+# APE-RV jar applies by default, so the two arms of a comparison capture the same
+# things. This is the only setting of the `ape` tool that departs from the author's
+# defaults. APE reads /data/local/tmp/ape.properties first, then /sdcard/ape.properties.
+APE_PROPERTIES_CONTENT = (
+    "ape.takeScreenshotForEveryStep=false\n"
+    "ape.saveGUITreeToXmlEveryStep=false\n"
+    "ape.takeScreenshotForNewState=true\n"
+)
 
 
 class APETool(AbstractTool):
@@ -46,6 +59,10 @@ class APETool(AbstractTool):
     - Configurable execution timeouts and exploration parameters
     - JAR-based deployment and execution on Android devices via ADB shell
     - Integration with Android Debug Bridge (ADB) for device communication
+    - Same host timing as APE-RV: the command timeout is the budget plus
+      TOOL_TEARDOWN_GRACE_S, and a run is judged by elapsed time, not exit code
+    - Pushes an ape.properties that captures on each new abstract state rather
+      than on every step
 
     ### Tool Variants:
     APE supports different exploration strategies as variants:
@@ -164,21 +181,25 @@ class APETool(AbstractTool):
     )
     def execute_tool_specific_logic(self, task: Task, app: App) -> None:
         """
-        Execute APE testing with configured parameters using original ADB shell approach.
+        Run APE on the device for the task's budget and check that it ran for it.
 
         ### Execution Workflow:
-        1. Resolve APE jar file location
-        2. Calculate execution timeout from task configuration
-        3. Push APE jar to Android device
-        4. Execute APE using original ADB shell command format
-        5. Check command execution result and handle failures
+        1. Resolve the budget from the task configuration
+        2. Resolve the APE jar and push it to the device
+        3. Push ape.properties with the capture settings
+        4. Run APE with a command timeout of the budget plus TOOL_TEARDOWN_GRACE_S
+        5. Compare the elapsed time with the budget minus TOOL_TEARDOWN_GRACE_S
 
         Args:
             task: Task configuration containing timeout and other parameters
             app: Application under test with package name and metadata
 
         Raises:
-            RVToolExecutionError: If APE execution fails or command returns non-zero exit code
+            RVCommandTimeoutError: APE was still running at the command timeout.
+                AbstractTool.execute() converts it to RVToolTimeoutError, the
+                normal end of a run.
+            RVToolExecutionError: The jar or properties push failed, or APE
+                returned more than TOOL_TEARDOWN_GRACE_S short of its budget.
         """
         # --- Step 1: Resolve execution parameters ---
         self.logger.info(f"Executing APE tool for {app.package_name}")
@@ -203,60 +224,56 @@ class APETool(AbstractTool):
         output_dir = os.path.join(os.path.dirname(task.result.trace_file), "ape_output")
         os.makedirs(output_dir, exist_ok=True)
 
-        # --- Step 2: Resolve and deploy the APE jar ---
+        # --- Step 2: Resolve and deploy the APE jar and its properties ---
         # APE runs inside the Android runtime via app_process, so the jar must
-        # be pushed to /data/local/tmp/ before each execution.
+        # be pushed to /data/local/tmp/ before each execution. A failed push of
+        # either file raises before APE starts.
         ape_jar_path = self._resolve_ape_jar_path()
         self._push_ape_jar_to_device(ape_jar_path, task.result.trace_file)
+        self._push_ape_properties(task.result.trace_file)
 
         # --- Step 3: Build and execute APE shell command ---
         ape_cmd = self._build_ape_shell_command(
             app, timeout_in_minutes, timeout_in_seconds
         )
 
-        # Build command string for logging
         cmd_str = f"{ape_cmd.command} {' '.join(ape_cmd.args)}"
         self.logger.debug(f"APE command: {cmd_str}")
-
-        # Execute APE testing with centralized error handling
         self.logger.info(f"Starting APE execution for {app.package_name}")
 
-        # Execute command with output redirection (binary mode for command output)
-        try:
-            with open(task.result.trace_file, "wb") as trace_file:
-                # Use centralized command execution with error handling
-                # Redirect both stdout and stderr to trace file to prevent console flooding
-                self._execute_and_check_command(
-                    ape_cmd, stdout=trace_file, stderr=trace_file
-                )
+        started = time.monotonic()
 
-            # # Append success information to trace file (text mode for metadata)
-            # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
-            #     success_info = f"\n--- APE Execution Completed ---\n"
-            #     success_info += f"Strategy: {self.config['strategy']}\n"
-            #     success_info += f"Running minutes: {timeout_in_minutes}\n"
-            #     success_info += f"Command: {cmd_str}\n"
-            #     trace_file.write(success_info)
-
-        except RVToolTimeoutError:
-            # APE's --running-minutes is an internal timer, but the Command
-            # timeout fires first when the platform's timeout is shorter.
-            # Either way, a timeout means APE explored for the full budget,
-            # which is the successful outcome — not an error.
-            self.logger.info(
-                f"APE execution timed out after {timeout_in_seconds} seconds (expected behavior)"
+        # invoke() rather than _execute_and_check_command(): the exit code is not
+        # consulted. APE exits non-zero when the app under test crashes, which is
+        # data the run exists to collect, and a device that went away also exits
+        # non-zero, so the code cannot tell a lost run from a good one. A command
+        # timeout raises RVCommandTimeoutError, which propagates to
+        # AbstractTool.execute() and ends the run normally. Both streams go to the
+        # trace file to keep APE's output off the console.
+        with open(task.result.trace_file, "wb") as trace_file:
+            result = ape_cmd.invoke(stdout=trace_file, stderr=trace_file)
+        if result.code != 0:
+            self.logger.debug(
+                f"APE exited with code {result.code} "
+                "(non-zero is normal when app crashes are detected)"
             )
 
-            # Append timeout information to trace file (text mode for metadata)
-            # with open(task.result.trace_file, 'a', encoding='utf-8') as trace_file:
-            #     timeout_info = f"\n--- APE Execution Completed (Timeout) ---\n"
-            #     timeout_info += f"Timeout duration: {timeout_in_seconds} seconds\n"
-            #     timeout_info += f"Strategy: {self.config['strategy']}\n"
-            #     timeout_info += f"Command: {cmd_str}\n"
-            #     trace_file.write(timeout_info)
-
-            # Re-raise the timeout exception (will be handled gracefully by error handler)
-            raise
+        # --- Step 4: Check that APE ran for its budget ---
+        # APE ends on its own --running-minutes timer, so a run that returned more
+        # than the grace short of the budget did not explore it, whatever ended it.
+        # Raising makes rv-platform store the task as ERROR, which its resume
+        # re-executes. This is the completion rule of APE-RV.
+        elapsed_seconds = time.monotonic() - started
+        completion_floor = timeout_in_seconds - TOOL_TEARDOWN_GRACE_S
+        if elapsed_seconds < completion_floor:
+            raise RVToolExecutionError(
+                f"APE returned after {elapsed_seconds:.0f}s of a "
+                f"{timeout_in_seconds}s exploration budget "
+                f"(floor {completion_floor}s): the exploration was truncated, "
+                "so this run did not happen as declared",
+                tool_name=self.name,
+                cause=None,
+            )
 
         self.logger.info("APE execution completed successfully")
 
@@ -347,6 +364,63 @@ class APETool(AbstractTool):
 
         self.logger.debug("APE jar pushed to device successfully")
 
+    def _push_ape_properties(self, trace_file_path: str) -> None:
+        """
+        Push APE_PROPERTIES_CONTENT to /data/local/tmp/ape.properties.
+
+        The file is not removed after the run: each task boots its own emulator
+        with -read-only and -no-snapshot-save, so it does not outlive the task.
+
+        Args:
+            trace_file_path: Path to trace file for logging output
+
+        Raises:
+            RVToolExecutionError: If the push fails
+        """
+        self.logger.info(f"Pushing APE properties to {APE_DEVICE_PROPERTIES_PATH}")
+
+        # adb push needs a local file. delete=False so the file survives the
+        # with-block until the push has read it; it is removed in the finally.
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".properties", delete=False
+        ) as tmp:
+            tmp.write(APE_PROPERTIES_CONTENT)
+            tmp_path = tmp.name
+
+        try:
+            push_cmd = Command(
+                "adb",
+                [
+                    "-s",
+                    self.config["device_serial"],
+                    "push",
+                    tmp_path,
+                    APE_DEVICE_PROPERTIES_PATH,
+                ],
+                timeout=60,
+            )
+
+            with open(trace_file_path, "ab") as trace_file:
+                trace_file.write("\n--- APE Properties Push ---\n".encode("utf-8"))
+                result = push_cmd.invoke(stdout=trace_file)
+
+                if result.is_failure():
+                    error_msg = (
+                        "Failed to push APE properties to device with exit code "
+                        f"{result.code}"
+                    )
+                    if result.has_error_output():
+                        error_msg += f". Error: {result.get_stderr_text()}"
+
+                    self.logger.error(error_msg)
+                    raise RVToolExecutionError(
+                        error_msg, tool_name=self.name, cause=None
+                    )
+        finally:
+            os.unlink(tmp_path)
+
+        self.logger.debug("APE properties pushed to device successfully")
+
     def _build_ape_shell_command(
         self, app: App, timeout_minutes: int, timeout_seconds: int
     ) -> Command:
@@ -356,10 +430,10 @@ class APETool(AbstractTool):
         Args:
             app: Application under test
             timeout_minutes: Execution timeout in minutes
-            timeout_seconds: Command execution timeout in seconds
+            timeout_seconds: Exploration budget in seconds
 
         Returns:
-            Configured Command object for APE execution
+            Command with timeout = timeout_seconds + TOOL_TEARDOWN_GRACE_S
         """
         # APE piggybacks on the Monkey entry point class but with its own
         # CEGAR-based exploration engine loaded via the --ape flag. The
@@ -382,7 +456,10 @@ class APETool(AbstractTool):
             self.config["strategy"],
         ]
 
-        return Command("adb", cmd_args, timeout_seconds)
+        # The grace lets APE end on its own --running-minutes timer and finish its
+        # teardown before the host kills it. APE-RV reads the same constant, so both
+        # arms of a comparison get the same host time.
+        return Command("adb", cmd_args, timeout_seconds + TOOL_TEARDOWN_GRACE_S)
 
     def get_available_strategies(self) -> List[str]:
         """

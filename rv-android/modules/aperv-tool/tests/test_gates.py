@@ -257,7 +257,7 @@ def test_gates_delegate_to_liveness() -> None:
     assert comparison.search(source) is None
 
     # Nor a second copy of the completion criterion or the budget floor.
-    for token in ("COMPLETED", "TEARDOWN_GRACE_S", "floor_for", "TRACE_FLOOR_BYTES ="):
+    for token in ("COMPLETED", "TOOL_TEARDOWN_GRACE_S", "floor_for", "TRACE_FLOOR_BYTES ="):
         assert token not in source
 
 

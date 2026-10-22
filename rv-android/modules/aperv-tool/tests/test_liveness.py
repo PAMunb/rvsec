@@ -22,8 +22,8 @@ from fixture_gate import (
     campaign_root,
     load_manifest,
 )
+from rv_android_core.constants import TOOL_TEARDOWN_GRACE_S
 
-from aperv_tool.analysis import liveness
 from aperv_tool.analysis.liveness import (
     SIGNAL_COVERAGE_ALL_ZERO,
     SIGNAL_FATAL_EXCEPTION,
@@ -207,7 +207,7 @@ def test_full_budget_required() -> None:
 
 def test_teardown_grace_is_the_floor() -> None:
     """C2's floor is the budget minus the grace the tool itself takes."""
-    assert liveness.TEARDOWN_GRACE_S == 45
+    assert TOOL_TEARDOWN_GRACE_S == 45
     assert floor_for(300) == 255
     assert floor_for(1800) == 1755
 
@@ -463,7 +463,7 @@ def test_promoted_rule_matches_the_campaign_copy(tmp_path: Path) -> None:
     campaign = _load_campaign_rule()
 
     glob_pattern = str(tmp_path / "tasks.json")
-    assert campaign.TEARDOWN_GRACE_S == liveness.TEARDOWN_GRACE_S
+    assert campaign.TEARDOWN_GRACE_S == TOOL_TEARDOWN_GRACE_S
     theirs = campaign.judge_identities(glob_pattern, 300)
     ours = judge_identities(glob_pattern, 300)
     assert theirs == ours

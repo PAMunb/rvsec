@@ -145,7 +145,7 @@ the platform's timeout and cleanup semantics.
   iff it begins with `{`; Logger lines begin with `[APE] `. Telemetry is always on. A per-step
   `Log.i` heartbeat under the logcat tag `ApeRvHb` lets offline code place violations on steps.
 - **Completion check** — `ApeRVTool` establishes from its own monotonic clock that the
-  exploration ran its budget: a non-timeout return more than `APERV_TEARDOWN_GRACE_S` (45 s)
+  exploration ran its budget: a non-timeout return more than `TOOL_TEARDOWN_GRACE_S` (45 s)
   short of the budget raises `RVToolExecutionError`. The exit code is not used, because APE-RV
   exits non-zero when it detects app crashes.
 - **SATA agent, GUITree / State / Naming** — `SataAgent` is APE's epsilon-greedy adaptive
@@ -539,7 +539,8 @@ budget-bound by construction: a non-timeout return more than 45 s short of the b
 `RVToolExecutionError`, which rv-platform stores as an error that resume re-executes
 (INV-APV-60). The same 45 s is added to the `Command` timeout so the engine can flush its model
 and emit its coverage dump before the host kills it. The value is stated once
-(`APERV_TEARDOWN_GRACE_S`) because the two uses must agree.
+(`TOOL_TEARDOWN_GRACE_S` in `rv_android_core.constants`) because the two uses must agree; the
+`ape` built-in reads the same constant for its own timeout and completion floor.
 
 **The run path writes telemetry and never reads it.** The jar emits its own provenance
 (`RUN_START`) and its own ending (`RUN_END`). If the tool parsed them, the run path would depend
@@ -880,7 +881,7 @@ object or a fixture APK.
   (INV-APV-39).
 - The trace file is opened `'ab'` for push diagnostics and `'wb'` for the main run: exploration
   output deliberately replaces push output.
-- `APERV_TEARDOWN_GRACE_S` (45 s) is read from opposite sides — added to the `Command` timeout and
+- `TOOL_TEARDOWN_GRACE_S` (45 s) is read from opposite sides — added to the `Command` timeout and
   subtracted from the budget for the completion floor. Changing it moves both.
 - `configure()` reads no environment variable for the LLM URL (INV-TOOL-20). The default
   `http://10.0.2.2:30000/v1` lives in the LLM cells' overrides. A deployment changes it through the

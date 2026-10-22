@@ -54,6 +54,7 @@ import urllib.request
 from typing import Any, Dict
 
 from rv_android_core.commands.command import Command
+from rv_android_core.constants import TOOL_TEARDOWN_GRACE_S
 from rv_android_core.domain.app import App
 from rv_android_core.domain.task import Task
 from rv_android_core.tools.abstract_tool import AbstractTool
@@ -91,15 +92,6 @@ APERV_JAR_NAME = "ape-rv.jar"
 APERV_DEVICE_JAR_PATH = "/data/local/tmp/ape-rv.jar"
 APERV_DEVICE_PROPERTIES_PATH = "/data/local/tmp/ape.properties"
 APERV_MAIN_CLASS = "com.android.commands.monkey.Monkey"
-
-# Seconds of teardown allowed beyond the exploration budget, used for two things that
-# have to agree: the command timeout is the budget plus this grace, and an exploration
-# that returned more than this grace short of its budget did not do the work it was
-# asked for (INV-APV-60). Stating it once is what keeps the two from drifting apart.
-#
-# The value is a HYPOTHESIS about censored teardown durations, not a measurement — see
-# _build_main_command for what the iter0 evidence does and does not support.
-APERV_TEARDOWN_GRACE_S = 45
 
 # Suffix of the in-progress artifact write. The temporary file shares the results
 # directory with its destination so the rename that publishes it is atomic.
@@ -1114,7 +1106,7 @@ class ApeRVTool(AbstractTool):
             timeout_seconds: Execution timeout in seconds
 
         Returns:
-            Command with timeout = timeout_seconds + APERV_TEARDOWN_GRACE_S
+            Command with timeout = timeout_seconds + TOOL_TEARDOWN_GRACE_S
         """
         strategy = self._tool_config.get("strategy", "sata")
         # APE-RV accepts minutes, not seconds. Floor division with min 1 ensures
@@ -1159,16 +1151,11 @@ class ApeRVTool(AbstractTool):
         # this buffer, the Command timeout kills the process before it can write
         # final output.
         #
-        # APERV_TEARDOWN_GRACE_S is a HYPOTHESIS about censored teardown durations,
-        # not a measurement, and the distinction matters: among iter0 runs whose
-        # teardown completed, the overrun beyond the exploration budget reaches
-        # 12,991 ms with 32 runs stacked against the old 15 s ceiling and none
-        # beyond it — the signature of a hard wall rather than a natural
-        # distribution. The teardown duration of the runs that were cut is
-        # unobservable, which is what censoring means, so no recovery rate can be
-        # claimed in advance; the smoke reports what the wider window actually cost
-        # (design D9).
-        return Command("adb", cmd_args, timeout_seconds + APERV_TEARDOWN_GRACE_S)
+        # TOOL_TEARDOWN_GRACE_S (rv_android_core.constants) is a HYPOTHESIS about
+        # censored teardown durations, not a measurement; the iter0 evidence behind
+        # it is stated beside the constant. The `ape` built-in reads the same value,
+        # so both arms of a comparison get the same host time.
+        return Command("adb", cmd_args, timeout_seconds + TOOL_TEARDOWN_GRACE_S)
 
     def _check_empty_trace(self, trace_file_path: str) -> None:
         """
@@ -1255,7 +1242,7 @@ class ApeRVTool(AbstractTool):
             RVToolTimeoutError: The exploration was still running at the command
                 timeout. This is the expected, successful ending.
             RVToolExecutionError: The exploration returned more than
-                APERV_TEARDOWN_GRACE_S short of its budget (INV-APV-60), or a cell
+                TOOL_TEARDOWN_GRACE_S short of its budget (INV-APV-60), or a cell
                 with `static_data` had no static-analysis JSON to derive from.
         """
         self.logger.info(f"Executing APE-RV for {app.package_name}")
@@ -1449,7 +1436,7 @@ class ApeRVTool(AbstractTool):
         # Before this check the run was stored COMPLETED with error_message null and
         # no resume could reach it.
         elapsed_seconds = time.monotonic() - exploration_started
-        completion_floor = timeout_seconds - APERV_TEARDOWN_GRACE_S
+        completion_floor = timeout_seconds - TOOL_TEARDOWN_GRACE_S
         if elapsed_seconds < completion_floor:
             raise RVToolExecutionError(
                 f"APE-RV returned after {elapsed_seconds:.0f}s of a "

@@ -162,6 +162,21 @@ EMULATOR_PARTITION_SIZE_MB = 8192
 # the largest size Android's developer settings offer.
 LOGCAT_BUFFER_SIZE = "16M"
 
+# Seconds of teardown allowed beyond the exploration budget of an APE-family tool
+# (the `ape` built-in and APE-RV), used for two things that have to agree: the
+# command timeout is the budget plus this grace, and an exploration that returned
+# more than this grace short of its budget did not do the work it was asked for.
+# Stating it once, for both tools, is what keeps the two uses from drifting apart and
+# gives both arms of a comparison the same host time. The aperv-tool liveness
+# analysis reads the same value for its completion floor.
+#
+# The value is a HYPOTHESIS about censored teardown durations, not a measurement:
+# among APE-RV iter0 runs whose teardown completed, the overrun beyond the budget
+# reaches 12,991 ms with 32 runs stacked against an earlier 15 s ceiling and none
+# beyond it, the signature of a hard wall rather than a natural distribution. The
+# teardown duration of the runs that were cut is unobservable.
+TOOL_TEARDOWN_GRACE_S = 45
+
 # Variant system constants
 DEFAULT_VARIANT_NAME = "default"
 VARIANT_SEPARATOR = ":"
