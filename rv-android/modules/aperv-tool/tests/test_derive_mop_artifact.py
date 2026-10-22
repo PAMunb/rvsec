@@ -2055,105 +2055,61 @@ def test_handler_table_matches_handler_methods_by_name_and_parameters():
     }
 
 
-def test_handler_table_records_the_app_callbacks_behind_library_dispatchers():
-    """
-    The View stamp names the app callback a library dispatcher calls — here an
-    options-menu owner, a preference listener and an AppCompat dialog button — so
-    each callback fills `click` of its class, and only `click`.
-    """
-    activity = "com.example.app.MainActivity"
-    preference = "com.example.app.SettingsFragment$$ExternalSyntheticLambda5"
-    dialog = "com.example.app.Dialogs$$ExternalSyntheticLambda3"
-    artifact = derive(
-        _document(
-            distanceTargets=_distance_targets(2),
-            reachability=[
-                _reaching_class(
-                    activity,
-                    [
-                        _method(
-                            f"<{activity}: boolean "
-                            "onOptionsItemSelected(android.view.MenuItem)>",
-                            name="onOptionsItemSelected",
-                            reaches=True,
-                            distances=[[0, 2]],
-                        )
-                    ],
-                    component_type="activity",
-                ),
-                _reaching_class(
-                    preference,
-                    [
-                        _method(
-                            f"<{preference}: boolean "
-                            "onPreferenceClick(androidx.preference.Preference)>",
-                            name="onPreferenceClick",
-                            reaches=True,
-                            distances=[[1, 1]],
-                        )
-                    ],
-                ),
-                _reaching_class(
-                    dialog,
-                    [
-                        _method(
-                            f"<{dialog}: void "
-                            "onClick(android.content.DialogInterface,int)>",
-                            name="onClick",
-                            reaches=True,
-                            distances=[[0, 3]],
-                        )
-                    ],
-                ),
-            ],
-        )
-    )
-    handlers = artifact["handlers"]
-    assert handlers[activity]["dist"] == {"click": [[0, 2]]}
-    assert handlers[preference]["dist"] == {"click": [[1, 1]]}
-    assert handlers[dialog]["dist"] == {"click": [[0, 3]]}
-    for record in (handlers[activity], handlers[preference], handlers[dialog]):
-        assert record["mop"] == {"click": "transitive"}
+# The library-dispatched app callbacks, each with the parameter list the View
+# stamp's dispatcher calls it with, and with another list that shares the name.
+LIBRARY_DISPATCHED_CALLBACKS = (
+    "boolean onOptionsItemSelected(android.view.MenuItem)",
+    "boolean onNavigationItemSelected(android.view.MenuItem)",
+    "boolean onMenuItemClick(android.view.MenuItem)",
+    "boolean onMenuItemSelected(android.view.MenuItem)",
+    "boolean onPreferenceClick(androidx.preference.Preference)",
+    "boolean onPreferenceTreeClick(androidx.preference.Preference)",
+    "boolean onPreferenceChange(androidx.preference.Preference,java.lang.Object)",
+    "void onClick(android.content.DialogInterface,int)",
+    "boolean onOptionsItemSelected(int)",
+    "void onClick(android.content.DialogInterface)",
+)
 
 
-def test_callback_name_with_another_parameter_list_is_not_a_handler():
-    helper = "com.example.app.Helper"
+@pytest.mark.parametrize("callback", LIBRARY_DISPATCHED_CALLBACKS)
+def test_library_dispatched_app_callback_is_not_a_handler(callback):
+    """
+    The menu, navigation, preference and dialog callbacks a library dispatcher
+    calls fill no event (INV-DRV-11), so a class whose only method is one of them
+    is not a key of `handlers`, even when it reaches a target directly.
+    """
+    owner = "com.example.app.Callbacks"
+    name = callback.split(" ", 1)[1].split("(", 1)[0]
     artifact = derive(
         _document(
             distanceTargets=_distance_targets(1),
             reachability=[
                 _reaching_class(
-                    helper,
+                    owner,
                     [
                         _method(
-                            f"<{helper}: boolean onOptionsItemSelected(int)>",
-                            name="onOptionsItemSelected",
+                            f"<{owner}: {callback}>",
+                            name=name,
                             reaches=True,
-                            distances=[[0, 1]],
-                        ),
-                        _method(
-                            f"<{helper}: void "
-                            "onClick(android.content.DialogInterface)>",
-                            name="onClick",
-                            reaches=True,
-                            distances=[[0, 1]],
-                        ),
+                            direct=True,
+                            distances=[[0, 0]],
+                        )
                     ],
                 )
             ],
         )
     )
-    assert helper not in artifact["handlers"]
+    assert artifact["handlers"] == {}
 
 
 @pytest.mark.parametrize("view_listener_first", [True, False])
-def test_view_listener_and_options_menu_callback_merge_into_one_click(
+def test_class_with_view_listener_and_options_menu_callback_keeps_the_view_record(
     view_listener_first,
 ):
     """
-    An activity that is both a button's listener and the options-menu owner gets one
-    `click` record: the flags OR (`transitive` with `both` gives `both`) and the pairs
-    take the minimum per target, whichever method the producer lists first.
+    An activity that is both a button's listener and the options-menu owner is
+    listed through its View `onClick` alone: the callback's direct pairs do not
+    enter the record, whichever method the producer lists first.
     """
     activity = "com.example.app.MainActivity"
     view_listener = _method(
@@ -2182,9 +2138,11 @@ def test_view_listener_and_options_menu_callback_merge_into_one_click(
             ],
         )
     )
-    assert artifact["handlers"][activity] == {
-        "mop": {"click": "both"},
-        "dist": {"click": [[0, 1], [2, 2]]},
+    assert artifact["handlers"] == {
+        activity: {
+            "mop": {"click": "transitive"},
+            "dist": {"click": [[0, 3]]},
+        }
     }
 
 
@@ -2444,9 +2402,9 @@ def test_derive_cryptoapp_ground_truth(cryptoapp):
     because the producer links each wrapper to its body (INV-ANA-77), so nothing
     is recovered. `MainActivity` reaches a target only through its own `<init>`,
     a boundary target, so it stays out of the augmented set and has no
-    `activityDist` entry. Its `onOptionsItemSelected(MenuItem)` and its
-    `MainActivity$1.onMenuItemClick(MenuItem)` are app callbacks that reach no
-    target, so both classes are listed with `click` `none`.
+    `activityDist` entry. Its `onOptionsItemSelected(MenuItem)` and
+    `MainActivity$1.onMenuItemClick(MenuItem)` are library-dispatched app
+    callbacks, not handler methods, so neither class is listed (INV-DRV-11).
     """
     assert cryptoapp["package"] == "br.unb.cic.cryptoapp"
     assert cryptoapp["mainActivity"] == "br.unb.cic.cryptoapp.MainActivity"
@@ -2495,14 +2453,14 @@ def test_derive_cryptoapp_ground_truth(cryptoapp):
     }
 
     assert cryptoapp["handlers"] == {
-        "br.unb.cic.cryptoapp.MainActivity": {"mop": {"click": "none"}},
-        "br.unb.cic.cryptoapp.MainActivity$1": {"mop": {"click": "none"}},
         f"{cipher}$1": {"mop": {"click": "transitive"}},
         f"{generated}$$ExternalSyntheticLambda0": {
             "mop": {"click": "transitive"},
             "dist": {"click": [[16, 3], [17, 3], [18, 3]]},
         },
     }
+    assert "br.unb.cic.cryptoapp.MainActivity" not in cryptoapp["handlers"]
+    assert "br.unb.cic.cryptoapp.MainActivity$1" not in cryptoapp["handlers"]
     assert cryptoapp["activityDist"] == {
         cipher: [[0, 2], [1, 2]],
         generated: [[12, 0], [13, 0], [14, 0]],
