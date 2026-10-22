@@ -10,6 +10,18 @@ unchanged, and so is the wire format.
 
 ## Data Contracts
 
+### Input
+- `dec.fz: [str, …]` — the kinds of the gesture events the step's fuzz action queued, in order, each one
+  of `rotation`, `app_switch`, `key`, `trackball`, `drag`, `pinch`, `click` (`ape` change
+  `gh-tbd-base-equals-ape`, `event-sink` "dec.fz"). Present exactly when fuzzing fired on that step, in
+  every cell; `[]` means it fired and queued nothing; absent means the step did not fuzz. `RUN_START.v`
+  stays 2.
+
+### Output
+- `StepRow.fuzz_events: tuple[str, ...] | None` — `dec.fz` frozen in order; `None` when the member is
+  absent, `()` when it is `[]` (destination: `analysis/*` consumers and the baseline frames, which write
+  `None`).
+
 ### Side-Effects
 - **[Artifact cache]**: `<results_dir>/<apk>/<apk>.mop.json` is reused when its `source.digest` and
   `formatVersion` match the current JSON and `FORMAT_VERSION` (2, unchanged). Neither changes with this
@@ -18,6 +30,8 @@ unchanged, and so is the wire format.
   directory or delete the cached `*.mop.json` first.
 
 ## Invariants
+
+- **INV-APV-69**: The trace reader SHALL carry `dec.fz` into `StepRow.fuzz_events` as a tuple in wire order, and SHALL leave `fuzz_events` `None` when the member is absent; absence means the step did not fuzz and SHALL NOT be materialized as `()` (INV-APV-49, INV-APV-58). A `dec.fz` that is not an array SHALL make the record malformed, as `dec.ret` does.
 
 - **INV-DRV-11**: A `reachability[]` method SHALL fill the `click` event of its class's `handlers` record exactly when its name and parameter list are `onClick(android.view.View)` or `java.lang.Object invoke()` / `java.lang.Object invoke(java.lang.Object)`; `onLongClick(android.view.View)` and the two `invoke` forms fill `longclick`. Any other method, including the library-dispatched app callbacks `onOptionsItemSelected`, `onNavigationItemSelected`, `onMenuItemClick`, `onMenuItemSelected`, `onPreferenceClick`, `onPreferenceTreeClick`, `onPreferenceChange` and `onClick(android.content.DialogInterface,int)`, SHALL fill no event. All methods that fill one event of one class SHALL OR their flags and merge their pairs by the minimum per target before the cut of INV-DRV-10, so no method's contribution is lost.
 
@@ -28,6 +42,28 @@ unchanged, and so is the wire format.
 **Migration**: None — the derivation is rewritten in place (P3); no reader depends on the old requirement name except the cross-reference in the `instrumentation` spec, updated at archive.
 
 ## ADDED Requirements
+
+### Requirement: The Trace Reader Carries the Step's Fuzzing (FR18, NFR06)
+
+`TraceReader` (`modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`) SHALL map the step
+record's `dec.fz` to `StepRow.fuzz_events` (INV-APV-69), so that no `dec` member the jar writes is
+dropped (INV-APV-58). The member is optional within trace version 2; a trace without it reads as before.
+
+#### Scenario: a step that fuzzed carries its gesture kinds in order
+- **WHEN** a step record carries `dec.fz:["key","drag","key"]`
+- **THEN** its row SHALL have `fuzz_events == ("key", "drag", "key")`
+
+#### Scenario: fuzzing that queued nothing is an empty tuple
+- **WHEN** a step record carries `dec.fz:[]`
+- **THEN** its row SHALL have `fuzz_events == ()`
+
+#### Scenario: a step that did not fuzz has no fuzz events
+- **WHEN** a step record carries no `fz` in `dec`
+- **THEN** its row SHALL have `fuzz_events is None`
+
+#### Scenario: a non-array fz makes the record malformed
+- **WHEN** a step record carries `dec.fz:"key"`
+- **THEN** the record SHALL be skipped and counted in `diagnostics.malformed`, and the next record SHALL still be read
 
 ### Requirement: MOP Artifact Projection and Handler Table (FR04, FR05, FR06, FR19)
 

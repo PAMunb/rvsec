@@ -453,6 +453,7 @@ Full narrative, including the two fixture classes and why the activity-visit is 
 | `dec.navf` | `nav_frontier` | `int`, a boost field materialized at `0` |
 | `dec.mopd` / `dec.mops` / `dec.ret` | `mop_distance` / `mop_stamp` / `retired_targets` | `int` / `str` / `Tuple[int, ...]`, on both versions |
 | `dec.hnd` | `mop_handler` | `str`: the binary class name of the handler stamp behind the weight, written only when `mops` is `s` |
+| `dec.fz` | `fuzz_events` | `Tuple[str, ...]`: the gesture kinds the step's fuzz action queued, in order; `()` when fuzzing queued nothing, `None` when the step did not fuzz (INV-APV-69) |
 
 `counterfactual` and `wtg_source` carry the `v == 1` jar's `dec.cf` and `dec.wtgsrc`, and are `None` on `v == 2`, which removed them. `counterfactual` is the pick with **only the MOP boosts** zeroed, so it is evidence about MOP guidance and about nothing else; `scorer_cf` answers the narrower "did this one scorer change the choice", not "did the guidance as a whole change it".
 

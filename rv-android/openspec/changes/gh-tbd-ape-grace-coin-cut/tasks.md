@@ -24,15 +24,22 @@
 - [ ] 2.5 At archive: the aperv requirement is renamed to "MOP Artifact Projection and Handler Table" — update the cross-reference in `openspec/specs/instrumentation/spec.md` (View app-callback paragraph, ~line 3641), whose sentence "that table gives the callback's class a `click` record" no longer holds; hand-sync the delta Purpose, Data Contracts and INV-DRV-11 into `openspec/specs/aperv/spec.md`, and INV-TOOL-27..29 into `openspec/specs/tools/spec.md`
 - [x] 2.6 Run `/rv-test-run aperv-tool`
 
+## 5. Step fuzzing in the trace reader (added 22/10)
+
+- [x] 5.1 `modules/aperv-tool/src/aperv_tool/analysis/trace_ndjson.py`: add `StepRow.fuzz_events: Optional[Tuple[str, ...]] = None` (docstring entry) and map `dec.fz` to it, raising `TypeError` on a non-array as `dec.ret` does (INV-APV-69)
+- [x] 5.2 `modules/aperv-tool/tests/test_trace_ndjson.py`: the four scenarios of "The Trace Reader Carries the Step's Fuzzing"; add `fuzz_events` to the absent-on-older-traces field list
+- [x] 5.3 Update `modules/aperv-tool/CLAUDE.md` / `docs/architecture.md` where the `dec` → `StepRow` mapping is listed
+- [x] 5.4 Run `/rv-test-run aperv-tool`
+
 ## 3. Smoke and full tests
 
-- [ ] 3.1 Smoke: derive the MOP artifact of two e7-corpus JSONs that contain callback classes, with the new and the old derive, and check that only the callback-only classes leave `handlers` and that everything else is byte-identical; write the outputs to the scratchpad, not the repo
-- [ ] 3.2 Smoke: build the `ape` command and the properties file with a fake device (no emulator) and print the command, its timeout and the pushed content
-- [ ] 3.3 Full tests of rv-android-core, rv-tools and aperv-tool with `--import-mode=importlib -o "addopts="`; `openspec validate gh-tbd-ape-grace-coin-cut --strict`
+- [x] 3.1 Smoke: derive the MOP artifact of two e7-corpus JSONs that contain callback classes, with the new and the old derive, and check that only the callback-only classes leave `handlers` and that everything else is byte-identical; write the outputs to the scratchpad, not the repo
+- [x] 3.2 Smoke: build the `ape` command and the properties file with a fake device (no emulator) and print the command, its timeout and the pushed content
+- [x] 3.3 Full tests of rv-android-core, rv-tools and aperv-tool with `--import-mode=importlib -o "addopts="`; `openspec validate gh-tbd-ape-grace-coin-cut --strict`
 
 ## 4. Lint, verify, review
 
-- [ ] 4.1 Run `/rv-qa-lint-fix` on rv-tools and aperv-tool (per module; touch only changed lines)
+- [x] 4.1 Run `/rv-qa-lint-fix` on rv-tools and aperv-tool (per module; touch only changed lines)
 - [ ] 4.2 Run `/rv-verify` on rv-tools and aperv-tool
 - [ ] 4.3 Invoke `/rv-code-reviewer` via the Skill tool on the branch diff
 - [ ] 4.4 Run `/rv-docs-sync aperv-tool` and `/rv-docs-sync rv-tools` if docs drift

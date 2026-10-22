@@ -51,6 +51,7 @@ aperv-tool derive_mop_artifact.py ── _handler_events: View onClick/onLongCli
 | INV-TOOL-28 | `APETool.execute_tool_specific_logic` uses `Command.invoke` plus the elapsed-time floor | `test_ape_tool.py`: exit 1 at full budget passes; early return raises; floor + 1 passes |
 | INV-TOOL-29 | `APETool._push_ape_properties` | `test_ape_tool.py`: push order and exact content; failed push raises |
 | INV-DRV-11 | `_handler_events`, `HANDLER_METHOD_PATTERN` | `aperv-tool/tests/test_derive_mop_artifact.py` (callback classes not listed, merge class keeps the View record, cryptoapp has 2 handler keys) |
+| INV-APV-69 | `TraceReader` maps `dec.fz` → `StepRow.fuzz_events` (`analysis/trace_ndjson.py`) | `aperv-tool/tests/test_trace_ndjson.py` (in order, `[]`, absent, non-array) |
 
 ## Goals / Non-Goals
 
@@ -92,6 +93,8 @@ of each task runs with `-read-only -no-snapshot-save`.
 `onClick(android.content.DialogInterface,int)` then falls through to "not a handler" because its
 parameters are not `android.view.View`. Nothing else in the derivation serves the callbacks. Docstrings
 and the comment above `CALLBACK_PARAMS` are rewritten to the current behaviour.
+
+**D6. `dec.fz` is read like `dec.ret`.** The `ape` change `gh-tbd-base-equals-ape` adds the optional member under trace version 2. The reader freezes it into a tuple and keeps `None` for absence, because absence (no fuzzing) and `[]` (fuzzing that queued nothing) are different facts (INV-APV-49). No version bump: an older trace simply has no `fz`.
 
 **D5. No `FORMAT_VERSION` or cache-key change.** The jar parses format 2 only, and Pedro decided not to
 add the generator to the cache key. A reused results directory therefore keeps stale artifacts, which

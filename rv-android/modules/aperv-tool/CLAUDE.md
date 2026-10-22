@@ -179,7 +179,9 @@ one it holds:
   `rotation`, `buffer_abandoned_by`, `component_trigger` (`dec.trig`, a
   `ComponentTrigger`), plus `nav_frontier` (`dec.navf`, a boost field materialized
   at `0`). `mop_handler` (`dec.hnd`, the stamped handler, written only when `mops` is `s`)
-  is `v == 2` only. `mop_distance`, `mop_stamp` and `retired_targets` (`dec.mopd`, `mops`,
+  is `v == 2` only, and so is `fuzz_events` (`dec.fz`, the gesture kinds a fuzz action
+  queued, in order; `()` when fuzzing queued nothing, `None` when the step did not fuzz).
+  `mop_distance`, `mop_stamp` and `retired_targets` (`dec.mopd`, `mops`,
   `ret`) are read on both versions. A `v == 1` trace carries none of the `v == 2`
   members, and a default would claim a mechanism ran, so they stay `None`
   (INV-APV-49). Enumerated values are carried as written, never checked against a

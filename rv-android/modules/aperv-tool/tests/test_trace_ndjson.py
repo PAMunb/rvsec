@@ -782,6 +782,7 @@ GROUP_ONLY_FIELDS = (
     "buffer_abandoned_by",
     "component_trigger",
     "mop_handler",
+    "fuzz_events",
 )
 
 
@@ -992,6 +993,7 @@ class TestGroupIsolationMembers:
             '"trig":{"k":"broadcast"}',
             '"cfc":["mop"]',
             '"ret":3',
+            '"fz":"key"',
         ],
         ids=[
             "own_is_str",
@@ -1004,6 +1006,7 @@ class TestGroupIsolationMembers:
             "trig_without_c",
             "cfc_is_list",
             "ret_is_int",
+            "fz_is_str",
         ],
     )
     def test_wrongly_shaped_member_is_malformed(self, tmp_path, member):
@@ -1015,6 +1018,29 @@ class TestGroupIsolationMembers:
 
         assert [row.step for row in rows] == [2]
         assert reader.diagnostics.malformed == 1
+
+
+class TestStepFuzzing:
+    """`dec.fz` reaches `StepRow.fuzz_events`, with absence kept apart from `[]`."""
+
+    @pytest.mark.parametrize(
+        ("member", "expected"),
+        [
+            (',"fz":["key","drag","key"]', ("key", "drag", "key")),
+            (',"fz":[]', ()),
+            ("", None),
+        ],
+        ids=["fuzzed_in_order", "fuzzed_nothing_queued", "did_not_fuzz"],
+    )
+    def test_fuzz_member_reaches_the_row(self, tmp_path, member, expected):
+        reader = _one_step_trace(
+            tmp_path, '{"a":"CLICK","src":"sata","ch":"sata_other"' + member + "}"
+        )
+        rows = list(reader)
+
+        assert rows[0].fuzz_events == expected
+        assert rows[1].fuzz_events is None
+        assert reader.diagnostics.malformed == 0
 
 
 class TestRunStartOnRecordedTraces:
