@@ -23,7 +23,6 @@ from rv_android_core.util.error.exceptions import (
     RVToolExecutionError,
     RVToolTimeoutError,
 )
-
 from rv_tools.builtin.ape import tool as ape_module
 from rv_tools.builtin.ape.tool import APE_PROPERTIES_CONTENT, APETool
 
