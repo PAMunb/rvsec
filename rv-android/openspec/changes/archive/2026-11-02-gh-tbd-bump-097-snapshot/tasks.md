@@ -65,6 +65,6 @@
 
 ## 9. Commit and archive (sequential — main window)
 
-- [ ] 9.1 `git add -A -- <paths of plan.md §3> <this change's tasks.md>` + `git commit --only -- <same paths>` with message `chore(gh-tbd-bump-097-snapshot): bump 0.9.6-SNAPSHOT → 0.9.7-SNAPSHOT (reactor, rv-android, scripts, cadeia Docker 0.9.7)` (no co-author trailer); `git show --stat HEAD` lists 85 files — the 84 §3 paths plus `tasks.md`
-- [ ] 9.2 Archive via `/opsx:archive gh-tbd-bump-097-snapshot` (`--skip-specs`) and commit the archive by path
-- [ ] 9.3 Report to the user; do NOT push (the user pushes `modules`)
+- [x] 9.1 `git add -A -- <paths of plan.md §3> <this change's tasks.md>` + `git commit --only -- <same paths>` with message `chore(gh-tbd-bump-097-snapshot): bump 0.9.6-SNAPSHOT → 0.9.7-SNAPSHOT (reactor, rv-android, scripts, cadeia Docker 0.9.7)` (no co-author trailer); `git show --stat HEAD` lists 85 files — the 84 §3 paths plus `tasks.md`
+- [x] 9.2 Archive via `/opsx:archive gh-tbd-bump-097-snapshot` (`--skip-specs`) and commit the archive by path
+- [x] 9.3 Report to the user; do NOT push (the user pushes `modules`)
