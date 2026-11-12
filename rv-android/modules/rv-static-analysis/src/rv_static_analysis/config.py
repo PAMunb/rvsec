@@ -37,6 +37,11 @@ from rv_android_core.constants import ENV_ANDROID_HOME, ENV_RVSEC_HOME, EXTENSIO
 from rv_android_core.util.error.exceptions import ConfigurationError
 from rv_android_core.util.validation import BaseValidatedModel
 
+# Distance horizon of a GATOR run given no distMax: TargetDistances.DEFAULT_DIST_MAX
+# on the Java side. A document without a distMax member was computed with it
+# (INV-ANA-99). tests/parity/test_distance_pair_constants.py pins the two equal.
+DEFAULT_DIST_MAX = 10
+
 
 class RVStaticAnalysisConfig(BaseValidatedModel):
     """
@@ -124,12 +129,13 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
         default=False,
         description=(
             "When True, append -clientParam fullOutput=true so RvsecAnalysisClient "
-            "writes the full document: indented by two spaces, every "
-            "targetDistances pair up to DIST_MAX, no distancePairs member. When "
-            "False (default), GATOR writes the compact document: no whitespace, "
-            "and per method only the pairs at d <= 3 plus the 3 nearest, the "
-            "ones the aperv-tool derive reads. Full output reproduces a document "
-            "published in that form."
+            "writes the full document: every targetDistances pair up to the run's "
+            "horizon (dist_max, or DEFAULT_DIST_MAX when None), no distancePairs "
+            "member. When False (default), GATOR writes the compact document: per "
+            "method only the pairs at d <= 3 plus the 3 nearest, the ones the "
+            "aperv-tool derive reads, under the distancePairs marker. Both modes "
+            "are written without whitespace. Full output reproduces the content "
+            "of a document published in that form, compared after parsing."
         ),
     )
     distance_paths: bool = Field(
@@ -141,6 +147,19 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
             "distance search followed, as [i, v, n] steps over a method table. "
             "Campaign readers drop both members; 'rv-static-analysis path' prints "
             "a method's chains. Off by default, which writes no path."
+        ),
+    )
+    dist_max: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Horizon of the distance searches. When set, append -clientParam "
+            "distMax=<value>: no targetDistances pair farther than that many calls "
+            "is recorded, the distance paths follow the same horizon, and the "
+            "document carries the top-level member distMax (INV-ANA-99). None "
+            "(default) passes nothing: GATOR searches up to DEFAULT_DIST_MAX and "
+            "writes no member. A stored document is reused only under the horizon "
+            "it records (INV-ANA-102)."
         ),
     )
     cg_delegation: Optional[bool] = Field(
@@ -435,6 +454,11 @@ class RVStaticAnalysisConfig(BaseValidatedModel):
 
         if self.distance_paths:
             cmd.extend(["-clientParam", "distancePaths=true"])
+
+        # GATOR's own default horizon applies when none is passed, and only a
+        # passed horizon is recorded in the document (INV-ANA-99).
+        if self.dist_max is not None:
+            cmd.extend(["-clientParam", f"distMax={self.dist_max}"])
 
         if self.cg_delegation is not None:
             cmd.extend(["-cgDelegation", "true" if self.cg_delegation else "false"])

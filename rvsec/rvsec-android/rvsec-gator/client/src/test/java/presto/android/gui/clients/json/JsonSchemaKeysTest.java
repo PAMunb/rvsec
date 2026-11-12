@@ -106,6 +106,13 @@ public class JsonSchemaKeysTest {
 	}
 
 	@Test
+	public void horizonKeyMatchesTheParserMirror() {
+		// Mirrored in _JK as dist_max (INV-ANA-32); the reuse check and the derive read the
+		// recorded horizon by this name (INV-ANA-99).
+		assertEquals("distMax", JsonSchema.Keys.DIST_MAX);
+	}
+
+	@Test
 	public void distancePathKeysMatchTheParserMirror() {
 		// Mirrored in _JK (INV-ANA-32); the readers skip the two members by these names.
 		assertEquals("pathMethods", JsonSchema.Keys.PATH_METHODS);

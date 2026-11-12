@@ -14,10 +14,11 @@ windows, then transitions).
   the coordination overhead of three separate tools (GESDA, GATOR, REACH)
 - Priority-ordered output: the client flushes reachability before windows and
   windows before transitions, so timeout yields gracefully degraded data
-- File-level caching under the artefact's own key: an existing output JSON is
-  reused when it records the scope key this run would use, or no key at all
-  (INV-ANA-70). Nothing else about the content is validated — a partial file
-  from a timeout is still a hit, because the parser recovers it
+- File-level caching under the artefact's own horizon and key: an existing
+  output JSON is reused when the distance horizon it records equals this run's
+  (INV-ANA-102) and it records the scope key this run would use, or no key at
+  all (INV-ANA-70). Nothing else about the content is validated — a partial
+  file from a timeout is still a hit, because the parser recovers it
 
 ### Role in the System:
 
@@ -35,11 +36,13 @@ windows, then transitions).
 - Dependencies: rv-android-core (Command, ErrorHandler, App, BaseAnalyzer)
 """
 
+import contextlib
 import os.path
 import sys
 import time
 from typing import Any, Dict, List, Optional
 
+import ijson
 from pydantic import Field, field_validator
 from rv_android_core.analysis.base_analyzer import BaseAnalyzer
 from rv_android_core.commands.command import Command
@@ -58,8 +61,46 @@ from rv_static_analysis.analysis.static.denominator_gate import (
     DenominatorImplausibleError,
     check_denominator,
 )
-from rv_static_analysis.config import RVStaticAnalysisConfig
-from rv_static_analysis.parser.static.static_analysis_parser import StaticAnalysisParser
+from rv_static_analysis.config import DEFAULT_DIST_MAX, RVStaticAnalysisConfig
+from rv_static_analysis.parser.static.static_analysis_parser import (
+    _JK,
+    StaticAnalysisParser,
+)
+
+# The top-level members GATOR writes after the scope block and `distMax`. A
+# document that reaches the first of them without `distMax` was computed with
+# DEFAULT_DIST_MAX (INV-ANA-99), so the horizon check stops reading there.
+_MEMBERS_AFTER_DIST_MAX = frozenset(
+    (
+        _JK.distance_pairs,
+        _JK.distance_targets,
+        _JK.components,
+        _JK.reachability,
+        _JK.windows,
+        _JK.transitions,
+        _JK.complete,
+    )
+)
+
+
+def _horizon_from_top(events) -> Optional[int]:
+    """The horizon a document's top-level `ijson` events record, if readable.
+
+    `distMax`'s value when the events reach it, `DEFAULT_DIST_MAX` when they
+    first reach a member GATOR writes after it, and `None` when `distMax` is
+    not an integer >= 1 or the events end before either.
+    """
+    for prefix, event, value in events:
+        if prefix != "" or event != "map_key":
+            continue
+        if value in _MEMBERS_AFTER_DIST_MAX:
+            return DEFAULT_DIST_MAX
+        if value == _JK.dist_max:
+            # The value's own event; a bool arrives as "boolean".
+            _, kind, recorded = next(events)
+            valid = kind == "number" and isinstance(recorded, int) and recorded >= 1
+            return recorded if valid else None
+    return None
 
 
 class StaticAnalysisException(RVAndroidError):
@@ -116,8 +157,10 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
     - Pydantic + BaseAnalyzer dual inheritance: Pydantic provides validated
       construction and serialization; BaseAnalyzer provides the analyze/
       get_metrics interface expected by rv-platform components
-    - File-level caching: if the output file exists, execution is skipped.
-      This enables experiment resume without re-running expensive analysis
+    - File-level caching: if the output file exists, was computed with this
+      run's distance horizon and records this run's scope key (or none),
+      execution is skipped. This enables experiment resume without re-running
+      expensive analysis
     - Timeout tolerance: RVCommandTimeoutError is caught and treated as a
       partial success — the parser handles truncated JSON gracefully
 
@@ -395,6 +438,64 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
                 "check that the python interpreter and gator launcher are reachable."
             )
 
+    def _recorded_dist_max(self, result_file: str) -> Optional[int]:
+        """The distance horizon a stored document was computed with (INV-ANA-102).
+
+        GATOR writes `distMax` right after the scope members, and only when the
+        run was given the parameter (INV-ANA-99). So the answer is at the top of
+        the document: the member's value when the read meets it, and
+        `DEFAULT_DIST_MAX` when the read first meets a member GATOR writes after
+        it. The read stops at either, so its cost does not grow with the
+        document, and a document cut by a timeout still answers, because GATOR
+        writes its top first.
+
+        Returns:
+            The recorded horizon, or `None` when the top cannot be read: the file
+            cannot be opened, is empty, stops being JSON before either member, has
+            no object at its root, or carries a `distMax` that is not an integer
+            >= 1.
+        """
+        try:
+            with open(result_file, "rb") as handle:
+                return _horizon_from_top(ijson.parse(handle, use_float=True))
+        except (OSError, ijson.JSONError):
+            # Not JSON before either member, or gone since the existence check
+            # or not readable: the horizon is unknown, so the caller
+            # regenerates the document like any unreadable top.
+            return None
+
+    def _stale_reason(self, result_file: str) -> Optional[str]:
+        """Why a stored document cannot answer this run, or `None` when it can.
+
+        The horizon is checked first (INV-ANA-102) because it reads only the
+        document's top, while the scope-key check (INV-ANA-70) parses the whole
+        document, so a horizon mismatch skips that parse.
+        """
+        horizon = self.config.dist_max or DEFAULT_DIST_MAX
+        recorded_horizon = self._recorded_dist_max(result_file)
+        if recorded_horizon is None:
+            return (
+                "its members up to the first one after the scope block "
+                "cannot be read, so the distance horizon it was computed "
+                f"with is unknown; this run asks for horizon {horizon}"
+            )
+        if recorded_horizon != horizon:
+            return (
+                "it was computed with distance horizon "
+                f"{recorded_horizon} and this run asks for horizon "
+                f"{horizon}. Reusing it would answer this run with the "
+                "pairs of another horizon"
+            )
+        stale_key = self._disagreeing_recorded_key(result_file)
+        if stale_key is None:
+            return None
+        return (
+            f"it was produced under scope key '{stale_key}' and this "
+            f"run scopes by '{self.app.code_package}'. Reusing it "
+            "would publish a denominator built from one key against "
+            "coverage measured under another"
+        )
+
     def _disagreeing_recorded_key(self, result_file: str) -> Optional[str]:
         """The scope key a stored artefact records, when it is not this run's.
 
@@ -410,6 +511,9 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
         An unreadable artefact is also reused rather than regenerated: the
         parser recovers truncated JSON on purpose (INV-ANA-06), so a parse
         failure here says something about this method, not about the file.
+        `_execute_command` runs the horizon check first, and that check
+        regenerates a document whose top cannot be read, so every document
+        that reaches this one has a readable top.
 
         The key is read through the parser and not with a bare `json.load`, and
         the cost is real — 2258 ms against 318 ms on the corpus's largest
@@ -442,15 +546,17 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
     ) -> CommandResult:
         """Execute analysis command with caching, timeout handling, and logging.
 
-        If the output file already exists, execution is skipped (cache hit).
-        On timeout, the partial JSON is preserved -- the parser keeps the
-        members of a truncated file written in full (INV-ANA-06, INV-ANA-81).
+        If the output file already exists and answers this run's distance
+        horizon and scope key, execution is skipped (cache hit); otherwise the
+        file is removed and the command runs. On timeout, the partial JSON is
+        preserved -- the parser keeps the members of a truncated file written
+        in full (INV-ANA-06, INV-ANA-81).
 
         Args:
             name: Human-readable label for the analysis phase (used in logs
                 and execution_times keys).
-            result_file: Expected output file path. If this file exists,
-                execution is skipped.
+            result_file: Expected output file path. If this file exists and
+                answers this run, execution is skipped.
             command: Command instance to invoke.
 
         Returns:
@@ -467,33 +573,25 @@ class StaticAnalyzer(BaseValidatedModel, BaseAnalyzer[StaticAnalysisResult]):
             tool_name=name,
             app_name=self.app.name,
         ):
-            # File-level caching: an existing output JSON answers for this run, but
-            # only under its own scope key (INV-ANA-70). Existence alone used to
-            # imply completion, which silently reused an artefact produced under a
-            # different key the moment a run's key policy changed — and the
-            # denominator gate would then have judged the old artefact by the new
-            # key. What survives unchanged is the reuse itself, which is what makes
-            # experiment resume cheap.
+            # File-level caching: an existing output JSON answers for this run only
+            # under its own distance horizon (INV-ANA-102) and its own scope key
+            # (INV-ANA-70); the reuse is what makes experiment resume cheap. The
+            # horizon is checked first because it reads only the document's top,
+            # while the key check parses the whole document. A document of another
+            # horizon carries other pairs, and one of another key would have the
+            # denominator gate judge it by this run's key.
             if os.path.isfile(result_file):
-                stale_key = self._disagreeing_recorded_key(result_file)
-                if stale_key is None:
+                stale = self._stale_reason(result_file)
+                if stale is None:
                     self.logger.info(
                         "Analysis result already exists, skipping",
-                        extra={
-                            "tool_name": name,
-                            "result_file": result_file,
-                        },
+                        extra={"tool_name": name, "result_file": result_file},
                     )
                     return CommandResult(0, b"", b"")
-
-                self.logger.warning(
-                    f"Regenerating {result_file}: it was produced under scope key "
-                    f"'{stale_key}' and this run scopes by "
-                    f"'{self.app.code_package}'. Reusing it would publish a "
-                    "denominator built from one key against coverage measured "
-                    "under another."
-                )
-                os.remove(result_file)
+                self.logger.warning(f"Regenerating {result_file}: {stale}.")
+                # A document whose top could not be opened may be gone already.
+                with contextlib.suppress(FileNotFoundError):
+                    os.remove(result_file)
 
             self.logger.info(
                 f"Executing analysis: {name}",

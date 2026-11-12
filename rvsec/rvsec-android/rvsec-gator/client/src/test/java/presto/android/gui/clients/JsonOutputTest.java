@@ -37,7 +37,6 @@ public class JsonOutputTest {
 	private JsonObject writeAndParse(WriteAction action) throws IOException {
 		StringWriter sw = new StringWriter();
 		JsonWriter w = new JsonWriter(sw);
-		w.setIndent("  ");
 		action.write(w);
 		w.close();
 		return JsonParser.parseString(sw.toString()).getAsJsonObject();
@@ -49,7 +48,6 @@ public class JsonOutputTest {
 	private JsonArray writeArrayAndParse(WriteAction action) throws IOException {
 		StringWriter sw = new StringWriter();
 		JsonWriter w = new JsonWriter(sw);
-		w.setIndent("  ");
 		action.write(w);
 		w.close();
 		return JsonParser.parseString(sw.toString()).getAsJsonArray();
@@ -61,7 +59,6 @@ public class JsonOutputTest {
 	private String writeToString(WriteAction action) throws IOException {
 		StringWriter sw = new StringWriter();
 		JsonWriter w = new JsonWriter(sw);
-		w.setIndent("  ");
 		action.write(w);
 		w.close();
 		return sw.toString();
@@ -347,7 +344,6 @@ public class JsonOutputTest {
 
 		StringWriter sw = new StringWriter();
 		JsonWriter w = new JsonWriter(sw);
-		w.setIndent("  ");
 
 		w.beginObject();
 		w.name("package").value("test.app");

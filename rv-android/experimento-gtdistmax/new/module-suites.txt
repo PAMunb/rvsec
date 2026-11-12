@@ -1,0 +1,13 @@
+# Task 6.3, module suites after the fixture regeneration (--import-mode=importlib -o addopts=, aperv-tool without tests/migration)
+# first run:
+== rv-static-analysis
+1 failed, 306 passed in 2.14s
+== rv-android-core
+1154 passed, 1 warning in 4.05s
+== rv-tools
+464 passed in 0.62s
+== aperv-tool
+878 passed, 49 skipped in 14.59s
+# rv-static-analysis failure: tests/test_compact_equivalence.py::test_fixture_is_a_full_mode_document pinned the indented layout ('\n  "distanceTargets": ['); rewritten to tell the mode by content
+# rerun of rv-static-analysis after the fix:
+307 passed in 1.93s

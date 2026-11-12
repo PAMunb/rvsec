@@ -1,0 +1,5 @@
+rv-static-analysis analyze --dist-max=0 exit=2 wall=0.90s output_dir_exists=no | rv-static-analysis analyze: error: argument --dist-max: must be an integer >= 1, got '0'
+rv-static-analysis analyze --dist-max=ten exit=2 wall=0.88s output_dir_exists=no | rv-static-analysis analyze: error: argument --dist-max: must be an integer >= 1, got 'ten'
+rv-static-analysis analyze --dist-max=-1 exit=2 wall=0.80s output_dir_exists=no | rv-static-analysis analyze: error: argument --dist-max: must be an integer >= 1, got '-1'
+lines mentioning java|GATOR|gator a in cli-0.log: 1
+batch --dist-max 0 exit=2 | rv-static-analysis batch: error: argument --dist-max: must be an integer >= 1, got '0'

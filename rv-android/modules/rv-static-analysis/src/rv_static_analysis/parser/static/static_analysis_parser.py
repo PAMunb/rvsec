@@ -157,6 +157,11 @@ _JK = SimpleNamespace(
     distance_pairs="distancePairs",
     weighed_max="weighedMax",
     k="k",
+    # Horizon of the run's distance searches, written right after
+    # `class_defs_under_key` only when the run was given `-clientParam distMax`
+    # (INV-ANA-99). No section parser reads it; `StaticAnalyzer` reads it to decide
+    # whether a stored document answers a run (INV-ANA-102).
+    dist_max="distMax",
     # Distance paths, written only with `distancePaths=true` (INV-ANA-91):
     # `pathMethods` is the top-level table of method signatures, `distancePaths` the
     # top-level list of `[i, v, n]` steps over it. `read_analysis_document` drops

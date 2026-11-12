@@ -241,7 +241,8 @@ the target-distance pairs the APE-RV derivation can use (INV-ANA-85). The output
 the instrumented APK as `results/demo/instrumented_apks/cryptoapp.apk.json`. A denominator
 gate (INV-ANA-69) parses the result and, if its class list cannot be the app's class universe
 under that key, renames the artifact so every later stage sees it as absent. An artifact that
-already exists is reused rather than regenerated, unless it records a different scope key.
+already exists is reused rather than regenerated, unless it was computed with another distance
+horizon than the default 10 or records a different scope key.
 For cryptoapp, the reachability section omits `unreachableEncrypt()` and `unreachableHash()`,
 methods the test app contains precisely to exercise this filter.
 
@@ -953,7 +954,7 @@ from the variants; the `--quarantine/--no-quarantine` flag affects only the ajc 
 builds the GATOR command from `RVStaticAnalysisConfig` — passing the scope key and its source,
 the specification directory as targets, and `fullOutput=true` only when the full document is
 requested — and runs `rvsec-analysis-client.jar` through `Command`. An existing output is
-reused unless it records a different scope key; a timeout is a partial success
+reused unless it records another distance horizon or a different scope key; a timeout is a partial success
 (`timed_out=True`) because GATOR writes reachability first; a run that leaves no output file
 raises `StaticAnalysisException`; the denominator gate (INV-ANA-69) renames an implausible
 artifact out of the consumers' path. `StaticAnalysisParser` reads the document in streaming,

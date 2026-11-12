@@ -203,6 +203,7 @@ class TestArtifactReusedOnlyUnderItsOwnKey:
         config = MagicMock(spec=RVStaticAnalysisConfig)
         config.output_dir = str(tmp_path)
         config.analysis_timeout = 600
+        config.dist_max = None
         config.get_tool_command.return_value = ["/bin/true"]
         return StaticAnalyzer(app=app, config=config, output_dir=str(tmp_path))
 

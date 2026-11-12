@@ -1192,6 +1192,30 @@ class TestDistancePaths:
         assert "distancePaths" not in copy
 
 
+# --- Distance horizon (INV-ANA-99) ---
+
+
+class TestDistMax:
+    """The recorded horizon changes what pairs a document carries, which the
+    parser drops, so it does not change the model."""
+
+    def test_model_equals_the_model_without_dist_max(self, parser, tmp_path):
+        """The cryptoapp fixture with `distMax: 15` right after
+        `class_defs_under_key`, where GATOR writes it, parses to the same
+        `StaticAnalysisData` as the fixture."""
+        with_dist_max = {}
+        for key, value in _load_fixture().items():
+            with_dist_max[key] = value
+            if key == "class_defs_under_key":
+                with_dist_max["distMax"] = 15
+        assert "distMax" in with_dist_max
+        path = _write_json(tmp_path, with_dist_max, "dist_max.json")
+
+        assert _model_snapshot(parser.parse_file(path)) == _model_snapshot(
+            parser.parse_file(CRYPTOAPP_FIXTURE)
+        )
+
+
 # --- Parsed copy beside the source (INV-ANA-82, -83) ---
 
 

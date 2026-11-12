@@ -55,17 +55,18 @@ public class JsonReportWriterPurityTest {
 	}
 
 	@Test
-	public void writerConstructorTakesEnricherOutputModeAndPathsOnly() {
+	public void writerConstructorTakesEnricherOutputModePathsAndHorizonOnly() {
 		// The only inputs are the enricher visitor, the output mode flag
-		// (compact or full) and the distance paths, which carry no
-		// reachability state.
+		// (compact or full), the distance paths and the run's distMax,
+		// none of which carries reachability state.
 		boolean foundEnricherCtor = false;
 		for (var ctor : JsonReportWriter.class.getDeclaredConstructors()) {
 			Class<?>[] params = ctor.getParameterTypes();
-			if (params.length == 3
+			if (params.length == 4
 					&& params[0].getSimpleName().equals("ReachabilityEnricher")
 					&& params[1] == boolean.class
-					&& params[2].getSimpleName().equals("DistancePaths")) {
+					&& params[2].getSimpleName().equals("DistancePaths")
+					&& params[3] == Integer.class) {
 				foundEnricherCtor = true;
 			}
 			for (Class<?> p : params) {
@@ -76,7 +77,8 @@ public class JsonReportWriterPurityTest {
 			}
 		}
 		assertTrue("JsonReportWriter must expose a constructor accepting only the "
-				+ "ReachabilityEnricher visitor, the boolean output mode and the DistancePaths",
+				+ "ReachabilityEnricher visitor, the boolean output mode, the DistancePaths "
+				+ "and the Integer distMax",
 				foundEnricherCtor);
 	}
 }

@@ -177,6 +177,19 @@ LOGCAT_BUFFER_SIZE = "16M"
 # teardown duration of the runs that were cut is unobservable.
 TOOL_TEARDOWN_GRACE_S = 45
 
+# The heap growth limit an APE-family tool (the `ape` built-in and APE-RV) gives
+# APE's VM, set as root with `setprop HEAP_GROWTH_LIMIT_PROPERTY` before each launch
+# and read back (`Android.set_ape_heap_growth_limit`). The APE-RV jar loads the whole
+# MOP artifact into its heap, and the AVD's default of 192m does not hold the larger
+# artifacts of a deeper cut. Both tools set it, so `aperv:base` and `ape` keep the
+# same heap, as they keep the same host time through TOOL_TEARDOWN_GRACE_S.
+# app_process reads the property when it starts APE's VM, so the setprop after boot
+# reaches it; the app under test forks from the zygote, which read the property at
+# boot, so it is expected to keep the AVD's heap (inferred from the mechanism, not
+# measured). The property is not persistent and lasts until the emulator stops.
+APE_HEAP_GROWTH_LIMIT = "512m"
+HEAP_GROWTH_LIMIT_PROPERTY = "dalvik.vm.heapgrowthlimit"
+
 # Variant system constants
 DEFAULT_VARIANT_NAME = "default"
 VARIANT_SEPARATOR = ":"

@@ -11,7 +11,7 @@ The RV-Static-Analysis module runs a unified GATOR analysis client on Android AP
 - **Single-Client Architecture**: One GATOR invocation produces all data in a single JSON file
 - **Priority-Ordered Output**: Reachability first, then windows, then transitions — timeout preserves the most critical data
 - **Graceful Degradation**: Parser recovers partial data when sections are missing
-- **Scope-Keyed Caching**: An existing output JSON is reused only when it records this run's scope key (or none); a disagreeing key regenerates it. `--force` invalidates deliberately
+- **Horizon- and Scope-Keyed Caching**: An existing output JSON is reused only when it was computed with this run's distance horizon (`--dist-max`, 10 by default) and records this run's scope key (or none); a different horizon, an unreadable top or a disagreeing key regenerates it. `--force` invalidates deliberately
 - **Denominator Gate**: A coverage denominator the artefact cannot support is refused, not published as a small percentage
 
 ## Architecture

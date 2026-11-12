@@ -1,0 +1,2 @@
+JVM distMax=0 exit=1 wall=26.8s output_file_exists=no
+JVM distMax=ten exit=1 wall=29.1s output_file_exists=no

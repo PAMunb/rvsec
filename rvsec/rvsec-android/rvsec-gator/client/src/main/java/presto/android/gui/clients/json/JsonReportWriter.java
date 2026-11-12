@@ -41,12 +41,18 @@ import soot.SootMethod;
  * cleanup. The architectural boundary is the public surface of this
  * writer, which is what the spec contract pins.
  *
- * <p>Output mode (INV-ANA-85, INV-ANA-86). Full output is indented by two
- * spaces and carries every distance pair the searches recorded. Compact
- * output, the client's default, has no whitespace, carries the
- * {@code distancePairs} marker and writes each method's pairs reduced by
+ * <p>Output mode (INV-ANA-85, INV-ANA-86). Both modes are written with no
+ * whitespace between tokens: no indent is set on the {@link JsonWriter}.
+ * Full output carries every distance pair the searches recorded. Compact
+ * output, the client's default, carries the {@code distancePairs} marker
+ * and writes each method's pairs reduced by
  * {@link TargetDistances#compact}. A writer has one mode, so the pre-WTG
  * write and the final write of a run always agree.
+ *
+ * <p>Distance horizon (INV-ANA-99). A writer given the run's
+ * {@code distMax} writes it as the {@code distMax} member right after
+ * {@code class_defs_under_key}, in every write and in both modes. A writer
+ * given none writes no such member.
  *
  * <p>Distance paths (INV-ANA-90). A writer given a {@link DistancePaths}
  * writes {@code pathMethods} and {@code distancePaths} right after
@@ -58,19 +64,25 @@ public final class JsonReportWriter {
 	private final ReachabilityEnricher enricher;
 	private final boolean compact;
 	private final DistancePaths paths;
+	private final Integer distMax;
 
 	/**
 	 * @param enricher the only source of per-node reachability (INV-ANA-30)
 	 * @param compact {@code true} for compact output, {@code false} for full output
 	 * @param paths the distance paths to write, or {@code null} to write none
+	 * @param distMax the run's {@code distMax} client parameter, written as the
+	 *     {@code distMax} member (INV-ANA-99), or {@code null} when the run was
+	 *     given none, to write no member
 	 */
-	public JsonReportWriter(ReachabilityEnricher enricher, boolean compact, DistancePaths paths) {
+	public JsonReportWriter(ReachabilityEnricher enricher, boolean compact, DistancePaths paths,
+			Integer distMax) {
 		if (enricher == null) {
 			throw new NullPointerException("enricher");
 		}
 		this.enricher = enricher;
 		this.compact = compact;
 		this.paths = paths;
+		this.distMax = distMax;
 	}
 
 	/**
@@ -101,36 +113,13 @@ public final class JsonReportWriter {
 				OutputStreamWriter osw = new OutputStreamWriter(fos, StandardCharsets.UTF_8);
 				JsonWriter w = new JsonWriter(osw)) {
 
-			// Full output keeps the two-space indent; compact output has no whitespace.
-			if (!compact) {
-				w.setIndent("  ");
-			}
 			w.beginObject();
 
-			w.name(JsonSchema.Keys.PACKAGE).value(appPackage != null ? appPackage : "");
-			w.name(JsonSchema.Keys.MAIN_ACTIVITY).value(
-					mainActivity != null ? mainActivity.getName() : "");
-
-			// Scope provenance (INV-ANA-66), read through the enricher rather than
-			// from new writer arguments — the same routing that keeps this class free
-			// of a ReachabilityIndex reference (INV-ANA-30). PACKAGE above is the
-			// manifest package; these three are what the run actually filtered by.
-			Map<String, Object> metadata = enricher.topLevelMetadata();
-			w.name(JsonSchema.Keys.CODE_PACKAGE).value(
-					String.valueOf(metadata.get("codePackage")));
-			w.name(JsonSchema.Keys.CODE_PACKAGE_SOURCE).value(
-					String.valueOf(metadata.get("codePackageSource")));
-			w.name(JsonSchema.Keys.CLASS_DEFS_UNDER_KEY).value(
-					((Number) metadata.get("class_defs_under_key")).intValue());
-
-			// Output-mode marker (INV-ANA-86): only in compact output, before the
-			// first pair so a streaming reader learns the document's kind early, and
-			// after the scope members so the member order is otherwise the full one.
-			// Written even when distanceTargets is absent: it describes how the
-			// document was written, not what the distance pass found.
-			if (compact) {
-				writeDistancePairs(w);
-			}
+			// The scope metadata is read through the enricher rather than from new
+			// writer arguments — the same routing that keeps this class free of a
+			// ReachabilityIndex reference (INV-ANA-30).
+			writeHeader(w, appPackage, mainActivity != null ? mainActivity.getName() : null,
+					enricher.topLevelMetadata(), compact, distMax);
 
 			// Distance targets (INV-ANA-73): the index space of every method's
 			// targetDistances pairs, so it precedes the reachability section. Read
@@ -188,6 +177,55 @@ public final class JsonReportWriter {
 			// did not reach disk, which is exactly what we want — the
 			// consumer treats the file as incomplete.
 			fos.getFD().sync();
+		}
+	}
+
+	/**
+	 * Emit the members {@link #write} writes before {@code distanceTargets}, in this order:
+	 * {@code package}, {@code mainActivity}, the three scope members, {@code distMax} when it
+	 * is not null, and the {@code distancePairs} marker in compact output.
+	 *
+	 * <p>It takes no Soot type, so a unit test can drive it ({@link #write} needs a Soot Scene),
+	 * and no distance-pass result, so none of these members depends on whether the distance
+	 * pass produced {@code distanceTargets}.
+	 *
+	 * @param appPackage the manifest package; {@code null} is written as an empty string
+	 * @param mainActivityName the main activity's class name; {@code null} is written as an
+	 *     empty string
+	 * @param metadata the enricher's {@link ReachabilityEnricher#topLevelMetadata()}
+	 * @param compact {@code true} for compact output, which carries the marker
+	 * @param distMax the run's horizon to record, or {@code null} to write no member
+	 */
+	static void writeHeader(JsonWriter w, String appPackage, String mainActivityName,
+			Map<String, Object> metadata, boolean compact, Integer distMax) throws IOException {
+		w.name(JsonSchema.Keys.PACKAGE).value(appPackage != null ? appPackage : "");
+		w.name(JsonSchema.Keys.MAIN_ACTIVITY).value(
+				mainActivityName != null ? mainActivityName : "");
+
+		// Scope provenance (INV-ANA-66). PACKAGE above is the manifest package; these
+		// three are what the run actually filtered by.
+		w.name(JsonSchema.Keys.CODE_PACKAGE).value(
+				String.valueOf(metadata.get("codePackage")));
+		w.name(JsonSchema.Keys.CODE_PACKAGE_SOURCE).value(
+				String.valueOf(metadata.get("codePackageSource")));
+		w.name(JsonSchema.Keys.CLASS_DEFS_UNDER_KEY).value(
+				((Number) metadata.get("class_defs_under_key")).intValue());
+
+		// Distance horizon (INV-ANA-99): only when the run was given distMax, so a
+		// document without the member was computed with TargetDistances.DEFAULT_DIST_MAX.
+		// Before the marker, so the converter, which inserts the marker before
+		// distanceTargets, keeps GATOR's member order (INV-ANA-87).
+		if (distMax != null) {
+			w.name(JsonSchema.Keys.DIST_MAX).value(distMax.intValue());
+		}
+
+		// Output-mode marker (INV-ANA-86): only in compact output, before the
+		// first pair so a streaming reader learns the document's kind early, and
+		// after the scope members and distMax so the member order is otherwise the
+		// full one. Written even when distanceTargets is absent: it describes how the
+		// document was written, not what the distance pass found.
+		if (compact) {
+			writeDistancePairs(w);
 		}
 	}
 

@@ -1,0 +1,35 @@
+### 5.2 compact, no parameter: new vs baseline
+## cryptoapp.apk
+experimento-gtdistmax/baseline/compact/cryptoapp.apk.d/cryptoapp.apk.json e experimento-gtdistmax/new/compact/cryptoapp.apk.d/cryptoapp.apk.json são diferentes: byte 43225, linha 1
+bytes 50784 vs 50784; newlines 0 vs 0; bytes-identical False
+ members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distancePairs', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+ package equal
+ mainActivity equal
+ codePackage equal
+ codePackageSource equal
+ class_defs_under_key equal
+ distancePairs equal
+ distanceTargets equal
+ components equal
+ reachability equal
+ windows equal
+ transitions multiset-equal (35 edges)
+ complete equal
+RESULT PASS
+## org.musicbrainz.picard.barcodescanner_38.apk
+experimento-gtdistmax/baseline/compact/org.musicbrainz.picard.barcodescanner_38.apk.d/org.musicbrainz.picard.barcodescanner_38.apk.json e experimento-gtdistmax/new/compact/org.musicbrainz.picard.barcodescanner_38.apk.d/org.musicbrainz.picard.barcodescanner_38.apk.json são diferentes: byte 143101, linha 1
+bytes 278526 vs 278526; newlines 0 vs 0; bytes-identical False
+ members same order: ['package', 'mainActivity', 'codePackage', 'codePackageSource', 'class_defs_under_key', 'distancePairs', 'distanceTargets', 'components', 'reachability', 'windows', 'transitions', 'complete']
+ package equal
+ mainActivity equal
+ codePackage equal
+ codePackageSource equal
+ class_defs_under_key equal
+ distancePairs equal
+ distanceTargets equal
+ components equal
+ reachability equal
+ windows equal
+ transitions multiset-equal (175 edges)
+ complete equal
+RESULT PASS

@@ -36,10 +36,13 @@ import soot.jimple.toolkits.callgraph.Edge;
  *
  * <p>One reverse breadth-first search per target over the call graph with self-loops dropped —
  * the graph the reachability search walks, lambda edges included — records the level at which
- * it first visits each method, up to {@value #DIST_MAX}; {@code d(t, t) = 0}. The search walks
- * library methods too (D2: app callbacks invoked from library code are real paths), but only
- * app methods carry pairs. Every method with a pair is in {@code reachesTarget}, because the
- * reachability search runs on the same graph from a superset of these seeds (INV-ANA-74).
+ * it first visits each method, up to the run's horizon ({@link #horizon()}: the client
+ * parameter {@code distMax}, or {@value #DEFAULT_DIST_MAX} without it); {@code d(t, t) = 0}.
+ * Both passes stop at that horizon: the distance pass in {@code compute} and the repeated
+ * searches of {@link #paths}. The search walks library methods too (D2: app callbacks invoked
+ * from library code are real paths), but only app methods carry pairs. Every method with a
+ * pair is in {@code reachesTarget}, because the reachability search runs on the same graph
+ * from a superset of these seeds (INV-ANA-74).
  *
  * <p>Each search visits a method's callers in signature order with a first-in first-out queue.
  * The order changes no distance, since a breadth-first level does not depend on it; it fixes
@@ -47,14 +50,18 @@ import soot.jimple.toolkits.callgraph.Edge;
  * (INV-ANA-92).
  *
  * <p>The algorithm works on a callee → callers map, so it is exercised in tests on string
- * vertices without a Soot Scene; {@link #compute(CallGraph, ReachabilityIndex, Map, Set)} builds
- * that map from the Soot call graph.
+ * vertices without a Soot Scene; {@link #compute(CallGraph, ReachabilityIndex, Map, Set, int)}
+ * builds that map from the Soot call graph.
  *
  * @param <V> vertex type ({@link SootMethod} in production)
  */
 public final class TargetDistances<V> {
 
-	public static final int DIST_MAX = 10;
+	/**
+	 * Horizon of the searches when the run passes no {@code distMax} client parameter. A document
+	 * without the {@code distMax} member was computed with it (INV-ANA-99).
+	 */
+	public static final int DEFAULT_DIST_MAX = 10;
 	/** Largest distance a compact document keeps for every target (see {@link #compact}). */
 	public static final int COMPACT_WEIGHED_MAX = 3;
 	/** Number of nearest targets a compact document keeps per method (see {@link #compact}). */
@@ -75,14 +82,22 @@ public final class TargetDistances<V> {
 	 */
 	private Map<V, List<V>> callers;
 	private final Function<V, String> signature;
+	/** Depth at which every search stops, in the distance pass and in {@link #paths}. */
+	private final int horizon;
 
 	private TargetDistances(List<V> targets, List<String> kinds, Map<V, int[][]> pairs,
-			Map<V, List<V>> callers, Function<V, String> signature) {
+			Map<V, List<V>> callers, Function<V, String> signature, int horizon) {
 		this.targets = Collections.unmodifiableList(targets);
 		this.kinds = Collections.unmodifiableList(kinds);
 		this.pairs = Collections.unmodifiableMap(pairs);
 		this.callers = callers;
 		this.signature = signature;
+		this.horizon = horizon;
+	}
+
+	/** The horizon the searches stopped at: every pair has {@code 0 <= d <= horizon()}. */
+	public int horizon() {
+		return horizon;
 	}
 
 	/**
@@ -150,9 +165,13 @@ public final class TargetDistances<V> {
 	/**
 	 * Distances over the Soot call graph. {@code targets} are the resolved target methods the
 	 * reachability search was seeded with.
+	 *
+	 * @param horizon depth at which each search stops; at least 1
+	 * @throws IllegalArgumentException when {@code horizon} is below 1
 	 */
 	public static TargetDistances<SootMethod> compute(CallGraph cg, ReachabilityIndex index,
-			Map<SootClass, List<SootMethod>> appClasses, Set<SootMethod> targets) {
+			Map<SootClass, List<SootMethod>> appClasses, Set<SootMethod> targets, int horizon) {
+		requireHorizon(horizon);
 		Set<SootMethod> appMethods = new HashSet<>();
 		for (List<SootMethod> ms : appClasses.values()) {
 			appMethods.addAll(ms);
@@ -169,7 +188,7 @@ public final class TargetDistances<V> {
 			callers.computeIfAbsent(tgt, k -> new HashSet<>()).add(src);
 		}
 		return compute(callers, appMethods, index.directlyReachesTargetMethods(), targets,
-				SootMethod::getSignature);
+				SootMethod::getSignature, horizon);
 	}
 
 	/**
@@ -177,9 +196,12 @@ public final class TargetDistances<V> {
 	 *
 	 * @param direct the {@code directlyReachesTarget} set; only its app members become targets
 	 * @param targets the resolved target methods; the library ones seed the boundary search
+	 * @param horizon depth at which each search stops; at least 1
+	 * @throws IllegalArgumentException when {@code horizon} is below 1
 	 */
 	public static <V> TargetDistances<V> compute(Map<V, Set<V>> callerSets, Set<V> appMethods,
-			Set<V> direct, Set<V> targets, Function<V, String> signature) {
+			Set<V> direct, Set<V> targets, Function<V, String> signature, int horizon) {
+		requireHorizon(horizon);
 		Comparator<V> bySignature = Comparator.comparing(signature);
 		// Sorted once here; both passes walk these lists (INV-ANA-92).
 		Map<V, List<V>> callers = new HashMap<>(callerSets.size() * 2);
@@ -222,7 +244,8 @@ public final class TargetDistances<V> {
 		// Targets are visited in index order, so each method's pairs come out sorted by index.
 		Map<V, List<int[]>> collected = new HashMap<>();
 		for (int i = 0; i < all.size(); i++) {
-			for (Map.Entry<V, Integer> e : reverseBfs(callers, all.get(i), null).entrySet()) {
+			for (Map.Entry<V, Integer> e : reverseBfs(callers, all.get(i), horizon, null)
+					.entrySet()) {
 				if (appMethods.contains(e.getKey())) {
 					collected.computeIfAbsent(e.getKey(), k -> new ArrayList<>())
 							.add(new int[] { i, e.getValue() });
@@ -233,7 +256,13 @@ public final class TargetDistances<V> {
 		for (Map.Entry<V, List<int[]>> e : collected.entrySet()) {
 			pairs.put(e.getKey(), e.getValue().toArray(new int[0][]));
 		}
-		return new TargetDistances<>(all, kinds, pairs, callers, signature);
+		return new TargetDistances<>(all, kinds, pairs, callers, signature, horizon);
+	}
+
+	private static void requireHorizon(int horizon) {
+		if (horizon < 1) {
+			throw new IllegalArgumentException("horizon must be >= 1, got " + horizon);
+		}
 	}
 
 	/**
@@ -266,10 +295,11 @@ public final class TargetDistances<V> {
 	 * Distance paths of the written pairs (INV-ANA-91, -92, -93), in a second pass.
 	 *
 	 * <p>For each target named by a written pair, the target's reverse search runs again, the
-	 * same one {@code compute} ran, and records for each method the callee from which the search
-	 * first visited it. From the method of each written pair {@code [i, d]} the recorded callees
-	 * lead to the target in {@code d} steps; each step {@code [i, v, n]} on those chains is kept
-	 * once. One target's search is held at a time, so the memory is that search plus the steps.
+	 * same one {@code compute} ran with the same {@link #horizon()}, and records for each method
+	 * the callee from which the search first visited it. From the method of each written pair
+	 * {@code [i, d]} the recorded callees lead to the target in {@code d} steps; each step
+	 * {@code [i, v, n]} on those chains is kept once. One target's search is held at a time, so
+	 * the memory is that search plus the steps.
 	 *
 	 * @param written true exactly for the pairs the output mode writes on a method: every pair
 	 *     in full output, {@link #keptByCompact()} in compact output
@@ -306,7 +336,7 @@ public final class TargetDistances<V> {
 			}
 			byTarget.set(i, null);
 			Map<V, V> callee = new HashMap<>();
-			Map<V, Integer> dist = reverseBfs(callers, targets.get(i), callee);
+			Map<V, Integer> dist = reverseBfs(callers, targets.get(i), horizon, callee);
 			// A method's chain is fixed by its recorded callee, so a chain that reaches a method
 			// already walked for this target continues with steps already kept.
 			Set<V> walked = new HashSet<>();
@@ -365,11 +395,13 @@ public final class TargetDistances<V> {
 	}
 
 	/**
-	 * Reverse BFS from {@code seed}, levels up to {@link #DIST_MAX}; returns vertex → distance.
+	 * Reverse BFS from {@code seed}, levels up to {@code horizon}; returns vertex → distance.
+	 * The distance pass and the path pass call it with the same horizon, so the path pass finds
+	 * every written pair's method at the pair's distance.
 	 * When {@code callee} is not null, it receives, for each visited vertex other than the seed,
 	 * the vertex from which the search first visited it.
 	 */
-	private static <V> Map<V, Integer> reverseBfs(Map<V, List<V>> callers, V seed,
+	private static <V> Map<V, Integer> reverseBfs(Map<V, List<V>> callers, V seed, int horizon,
 			Map<V, V> callee) {
 		Map<V, Integer> dist = new HashMap<>();
 		ArrayDeque<V> queue = new ArrayDeque<>();
@@ -378,7 +410,7 @@ public final class TargetDistances<V> {
 		while (!queue.isEmpty()) {
 			V cur = queue.poll();
 			int d = dist.get(cur);
-			if (d == DIST_MAX) {
+			if (d == horizon) {
 				continue;
 			}
 			for (V p : callers.getOrDefault(cur, Collections.emptyList())) {

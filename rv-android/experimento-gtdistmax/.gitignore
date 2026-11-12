@@ -1,0 +1,11 @@
+# Jars, GATOR documents and logs: reproducible from the sha256 in baseline/SHA256 and
+# new/SHA256 and from RELATORIO.md, and too large for git.
+*.jar
+*.json
+*.log
+# The code before the change, written by `git show 99572bc0:` (task 7.1).
+pin/old_*.py
+pin/*.99572bc0
+# The ape source of a867e471 (gh-tbd-mop-defaults-f1), extracted by git archive for the
+# migration tier (task 7.4).
+ape-f1/

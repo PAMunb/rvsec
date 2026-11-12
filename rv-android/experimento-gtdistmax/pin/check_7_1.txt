@@ -1,0 +1,23 @@
+derive cut=3 SAME experimento-gtdistmax/pin/cryptoapp.apk.json.99572bc0 artifact_bytes=4666 sha256=d86a813f8624b1bd
+derive cut=3 SAME modules/rv-static-analysis/tests/resources/cryptoapp.apk.json artifact_bytes=4657 sha256=6bc0e01c67a74164
+derive cut=3 SAME experimento-gtdistmax/new/full/org.musicbrainz.picard.barcodescanner_38.apk.d/org.musicbrainz.picard.barcodescanner_38.apk.json artifact_bytes=12818 sha256=667d1a8d52b46834
+derive cut=3 SAME /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus/org.musicbrainz.picard.barcodescanner_38.apk.json artifact_bytes=8426 sha256=c953ae5764fb42d9
+derive cut=3 SAME /pedro/desenvolvimento/workspaces/workspaces-doutorado/workspace-rv/rvsec-study03-replication-package/data/raw/e6-corpus/com.password.monitor_102.apk.json artifact_bytes=17643 sha256=40c25aa610bd6038
+variant names SAME: ['as', 'as_llm', 'as_mop', 'as_mop_llm', 'base', 'default', 'mop', 'mop_nolaunch']
+ape.properties as artifact_pushed=False SAME lines=2
+ape.properties as artifact_pushed=True SAME lines=3
+ape.properties as_llm artifact_pushed=False SAME lines=3
+ape.properties as_llm artifact_pushed=True SAME lines=4
+ape.properties as_mop artifact_pushed=False SAME lines=3
+ape.properties as_mop artifact_pushed=True SAME lines=4
+ape.properties as_mop_llm artifact_pushed=False SAME lines=4
+ape.properties as_mop_llm artifact_pushed=True SAME lines=5
+ape.properties base artifact_pushed=False SAME lines=2
+ape.properties base artifact_pushed=True SAME lines=3
+ape.properties default artifact_pushed=False SAME lines=2
+ape.properties default artifact_pushed=True SAME lines=3
+ape.properties mop artifact_pushed=False SAME lines=3
+ape.properties mop artifact_pushed=True SAME lines=4
+ape.properties mop_nolaunch artifact_pushed=False SAME lines=4
+ape.properties mop_nolaunch artifact_pushed=True SAME lines=5
+RESULT PASS

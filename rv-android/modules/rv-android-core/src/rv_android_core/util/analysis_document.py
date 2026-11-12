@@ -52,7 +52,8 @@ there. GATOR writes neither.
 - `rv_static_analysis.parser.static.static_analysis_parser` reads with
   `PairPolicy.DROP`, and caches the result keyed by `digest_of_file()`.
 - `aperv_tool.tools.aperv.tool.ApeRVTool._derive_mop_artifact` reads with
-  `PairPolicy.reduce(DIST_WEIGHED_MAX, DIST_K)` and passes the dict to `derive()`.
+  `PairPolicy.reduce(cut, DIST_K)`, `cut` being the cell's weighed cut, and passes
+  the dict to `derive()` with the same cut.
 
 ### Integration Points:
 

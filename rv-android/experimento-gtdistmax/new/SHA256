@@ -1,0 +1,7 @@
+# New GATOR jars (task 4.1), built 2026-11-11 14:56:44.503663195 -0300 from the worktree's working tree, JDK 21.0.12
+gator_tree_working 604d611738e25acd3ff6f6e603c6fb35cecc572d   (computed with a temporary index; HEAD tree is 1f252fe039498c56d56b11f63a0e4913b7caee7c)
+install: [INFO] Tests run: 6, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 29, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 69, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 45, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 37, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 12, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 15, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 18, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 31, Failures: 0, Errors: 0, Skipped: 0;[INFO] Tests run: 311, Failures: 0, Errors: 0, Skipped: 0;  # surefire totals per module (rv-monitor-rt..sootandroid 31, client 311)
+verify -DskipITs=false: [INFO] Tests run: 33, Failures: 0, Errors: 0, Skipped: 0  # client ITs
+Tests are skipped lines in install log: 4 (failsafe integration-test/verify of rv-monitor and client; client ITs then run by verify)
+b4493670d61d62767e3bb0d888ec1a47bee59de6b2b0601674da3f81ab4e1117  rvsec-analysis-client.jar
+e104db866bb29f59fb55a330a196e996b15c68f2d278a2631d5254627c26513f  rvsec-gator.jar

@@ -7,7 +7,8 @@ Tests cover:
 - _resolve_ape_jar_path() resolution
 - _build_ape_shell_command() with correct CLI flags
 - execute_tool_specific_logic(): teardown grace, elapsed-time completion rule,
-  ape.properties push (INV-TOOL-27, INV-TOOL-28, INV-TOOL-29)
+  ape.properties push, heap growth limit (INV-TOOL-27, INV-TOOL-28, INV-TOOL-29,
+  INV-TOOL-30)
 - get_available_strategies() and get_tool_info()
 """
 
@@ -284,10 +285,12 @@ class TestBuildApeShellCommand:
 
 
 class _FakeResult:
-    """The part of CommandResult the tool reads."""
+    """The part of CommandResult the tool and Android.set_ape_heap_growth_limit
+    read."""
 
-    def __init__(self, code: int):
+    def __init__(self, code: int, stdout: str = ""):
         self.code = code
+        self.stdout = stdout
 
     def is_failure(self) -> bool:
         return self.code != 0
@@ -295,19 +298,37 @@ class _FakeResult:
     def has_error_output(self) -> bool:
         return False
 
+    def get_stdout_text(self) -> str:
+        return self.stdout
+
+    def get_combined_output(self) -> str:
+        return self.stdout
+
+
+# The two commands of Android.set_ape_heap_growth_limit, recognised by their verb.
+_HEAP_VERBS = {"setprop", "getprop"}
+
 
 class _Device:
     """Records each Command.invoke and answers per command kind.
 
-    A push is recognised by its ``push`` argument; anything else is the APE run.
-    The pushed properties file is read at invoke time, since the tool removes it
-    after the push.
+    A push is recognised by its ``push`` argument and the heap growth limit by its
+    ``setprop``/``getprop`` verb; anything else is the APE run. The pushed
+    properties file is read at invoke time, since the tool removes it after the
+    push.
     """
 
-    def __init__(self, ape_code=0, ape_raises=None, properties_push_code=0):
+    def __init__(
+        self,
+        ape_code=0,
+        ape_raises=None,
+        properties_push_code=0,
+        heap_read_back="512m",
+    ):
         self.ape_code = ape_code
         self.ape_raises = ape_raises
         self.properties_push_code = properties_push_code
+        self.heap_read_back = heap_read_back
         self.calls = []
         self.pushed_properties = None
 
@@ -319,12 +340,23 @@ class _Device:
                     self.pushed_properties = f.read()
                 return _FakeResult(self.properties_push_code)
             return _FakeResult(0)
+        if "setprop" in command.args:
+            return _FakeResult(0)
+        if "getprop" in command.args:
+            return _FakeResult(0, f"{self.heap_read_back}\n")
         if self.ape_raises is not None:
             raise self.ape_raises
         return _FakeResult(self.ape_code)
 
     def ape_calls(self):
-        return [c for c in self.calls if "push" not in c.args]
+        return [
+            c
+            for c in self.calls
+            if "push" not in c.args and not _HEAP_VERBS & set(c.args)
+        ]
+
+    def index_of(self, predicate):
+        return next(i for i, c in enumerate(self.calls) if predicate(c))
 
 
 @pytest.fixture
@@ -427,6 +459,54 @@ class TestExecuteToolSpecificLogic:
         with pytest.raises(RVToolExecutionError, match="APE properties"):
             run_ape(device)
 
+        assert device.ape_calls() == []
+
+    def test_heap_limit_is_set_after_both_pushes_and_before_ape(
+        self, ape_tool, run_ape
+    ):
+        """Spec scenario "the limit is set before APE starts" (INV-TOOL-30)."""
+        ape_tool.configure({"strategy": "sata", "device_serial": "emulator-5556"})
+        device = run_ape(_Device())
+
+        jar_push = device.index_of(
+            lambda c: "push" in c.args and c.args[-1] == "/data/local/tmp/ape.jar"
+        )
+        properties_push = device.index_of(
+            lambda c: c.args[-1:] == ["/data/local/tmp/ape.properties"]
+        )
+        setprop = device.index_of(lambda c: "setprop" in c.args)
+        getprop = device.index_of(lambda c: "getprop" in c.args)
+        ape = device.calls.index(device.ape_calls()[0])
+        assert jar_push < properties_push < setprop < getprop < ape
+        assert device.calls[setprop].command == "adb"
+        assert device.calls[setprop].args == [
+            "-s",
+            "emulator-5556",
+            "shell",
+            "su",
+            "0",
+            "setprop",
+            "dalvik.vm.heapgrowthlimit",
+            "512m",
+        ]
+        assert device.calls[getprop].args == [
+            "-s",
+            "emulator-5556",
+            "shell",
+            "getprop",
+            "dalvik.vm.heapgrowthlimit",
+        ]
+        assert device.calls[ape].args[:2] == ["-s", "emulator-5556"]
+
+    def test_heap_limit_that_does_not_hold_stops_ape(self, run_ape):
+        """Spec scenario "a limit that does not hold stops the task"."""
+        device = _Device(heap_read_back="192m")
+
+        with pytest.raises(RVToolExecutionError) as raised:
+            run_ape(device)
+
+        assert raised.value.tool_name == "ape"
+        assert "'192m'" in str(raised.value)
         assert device.ape_calls() == []
 
 

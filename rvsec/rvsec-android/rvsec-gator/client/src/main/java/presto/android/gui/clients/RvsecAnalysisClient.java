@@ -91,6 +91,12 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 
 	@Override
 	public void run(GUIAnalysisOutput output) {
+		// The horizon is checked first (INV-ANA-100): an invalid distMax ends the run here,
+		// before the client computes or writes anything, rather than falling back to the
+		// default horizon.
+		Integer distMax = parseDistMax(getDistMax());
+		int horizon = distMax != null ? distMax : TargetDistances.DEFAULT_DIST_MAX;
+
 		VarUtil.v().guiOutput = output;
 
 		String mopDir = getMopDir();
@@ -183,7 +189,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 						output, appClasses, targetMethods, targetSpecs, matching).run();
 		// Distances depend only on the call graph and the index, both final here, so
 		// they are computed before the pre-WTG write and survive a WTG timeout.
-		TargetDistances<SootMethod> distances = computeDistances(index, appClasses, targetMethods);
+		TargetDistances<SootMethod> distances =
+				computeDistances(index, appClasses, targetMethods, horizon);
 
 		// 4. Build the per-node enricher. The inline writer consults it for
 		//    each method/widget/transition/component rather than reading the
@@ -228,7 +235,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 		// final write of a run never differ in format (INV-ANA-86).
 		boolean compact = !fullOutput();
 		System.out.println("[RvsecAnalysisClient] Output mode: "
-				+ (compact ? "compact" : "full"));
+				+ (compact ? "compact" : "full") + ", distance horizon: " + horizon
+				+ (distMax != null ? " (distMax parameter)" : " (default)"));
 		// The paths are computed before the pre-WTG write, so a WTG timeout keeps them as it
 		// keeps the distances.
 		DistancePaths paths = distancePaths() ? computeDistancePaths(distances, compact) : null;
@@ -237,7 +245,8 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			distances.releaseCallers();
 		}
 		presto.android.gui.clients.json.JsonReportWriter writer =
-				new presto.android.gui.clients.json.JsonReportWriter(enricher, compact, paths);
+				new presto.android.gui.clients.json.JsonReportWriter(enricher, compact, paths,
+						distMax);
 		try {
 			List<Map<String, Object>> preWtgWindows = prepareWindows(output, new HashMap<>(), null);
 			writer.write(outputPath, wtgSkipped, appPackage, mainActivity, appClasses, output,
@@ -331,9 +340,49 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	}
 
 	/**
-	 * {@code fullOutput=true} (case-insensitive) asks for full output: indented, every
-	 * distance pair, no {@code distancePairs} marker. Any other value, or no parameter,
-	 * gives compact output, the default (INV-ANA-85, INV-ANA-86).
+	 * The text after {@code distMax=}, or {@code null} when the run has no {@code distMax}
+	 * client parameter; {@link #parseDistMax} checks it.
+	 */
+	private String getDistMax() {
+		String param = Configs.getClientParamCode("distMax=");
+		if (param == null) {
+			return null;
+		}
+		return param.substring("distMax=".length());
+	}
+
+	/**
+	 * The horizon of the distance searches given as {@code -clientParam distMax=N}
+	 * (INV-ANA-99, INV-ANA-100). {@code null} when the parameter is absent: the searches then
+	 * stop at {@link TargetDistances#DEFAULT_DIST_MAX} and the document carries no
+	 * {@code distMax} member. Otherwise {@code N}, which must be a value
+	 * {@link Integer#parseInt} accepts and at least 1; there is no upper bound.
+	 *
+	 * @param param the text after {@code distMax=}, or {@code null} when the parameter is absent
+	 * @return the horizon, or {@code null} when the parameter is absent
+	 * @throws IllegalStateException naming the given text when it is not an integer of at
+	 *     least 1, so the run stops instead of computing with another horizon
+	 */
+	static Integer parseDistMax(String param) {
+		if (param == null) {
+			return null;
+		}
+		try {
+			int value = Integer.parseInt(param);
+			if (value >= 1) {
+				return value;
+			}
+		} catch (NumberFormatException e) {
+			// Not an int: refused below, like a value below 1.
+		}
+		throw new IllegalStateException("distMax must be an integer >= 1, got '" + param + "'");
+	}
+
+	/**
+	 * {@code fullOutput=true} (case-insensitive) asks for full output: every distance pair up
+	 * to the run's horizon, no {@code distancePairs} marker. Any other value, or no parameter,
+	 * gives compact output, the default (INV-ANA-85, INV-ANA-86). Both modes are written
+	 * without whitespace between tokens.
 	 */
 	private boolean fullOutput() {
 		String param = Configs.getClientParamCode("fullOutput=");
@@ -1636,16 +1685,18 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 	// ========================================================================
 
 	/**
-	 * Distance from each app method to each distance target (INV-ANA-73). A failure
-	 * costs only the two distance keys, never the rest of the report.
+	 * Distance from each app method to each distance target (INV-ANA-73), up to
+	 * {@code horizon}. A failure costs only the two distance keys, never the rest of the
+	 * report.
 	 */
 	private static TargetDistances<SootMethod> computeDistances(
 			presto.android.gui.clients.reach.ReachabilityIndex index,
-			Map<SootClass, List<SootMethod>> appClasses, Set<SootMethod> targetMethods) {
+			Map<SootClass, List<SootMethod>> appClasses, Set<SootMethod> targetMethods,
+			int horizon) {
 		try {
 			long start = System.currentTimeMillis();
 			TargetDistances<SootMethod> d = TargetDistances.compute(
-					Scene.v().getCallGraph(), index, appClasses, targetMethods);
+					Scene.v().getCallGraph(), index, appClasses, targetMethods, horizon);
 			int direct = 0;
 			for (String kind : d.kinds()) {
 				if (TargetDistances.KIND_DIRECT.equals(kind)) {
@@ -1654,7 +1705,7 @@ public class RvsecAnalysisClient implements GUIAnalysisClient {
 			}
 			System.out.println("[RvsecAnalysisClient] Distances: " + d.targets().size()
 					+ " targets (direct: " + direct + ", boundary: " + (d.targets().size() - direct)
-					+ "), " + d.methodsWithPairs() + " app methods within " + TargetDistances.DIST_MAX
+					+ "), " + d.methodsWithPairs() + " app methods within " + d.horizon()
 					+ " (" + (System.currentTimeMillis() - start) + " ms)");
 			return d;
 		} catch (RuntimeException e) {

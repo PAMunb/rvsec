@@ -50,22 +50,22 @@ Eight names carry seven configurations — the six cells, `default` and the abla
 |---------|--------|--------------------|--------------------------|-------------------|-----------|
 | `default` | `base` | — | No | No | _(none)_ — same object as `base` |
 | `base` | `base` | — | No | No | _(none)_ — the APE reference cell |
-| `mop` | `mop` | MOP | Yes | No | `mop_coin_ledger_max_interactions: 2` |
+| `mop` | `mop` | MOP | Yes | No | _(none)_ |
 | `as` | `as` | ADDONS, STATIC | Yes | Yes | _(none)_ |
-| `as_mop` | `as_mop` | ADDONS, STATIC, MOP | Yes | Yes | `mop_coin_ledger_max_interactions: 2` |
+| `as_mop` | `as_mop` | ADDONS, STATIC, MOP | Yes | Yes | _(none)_ |
 | `as_llm` | `as_llm` | ADDONS, STATIC, LLM | Yes | Yes | `llm_url` |
-| `as_mop_llm` | `as_mop_llm` | ADDONS, STATIC, MOP, LLM | Yes | Yes | `mop_coin_ledger_max_interactions: 2`, `llm_url` |
-| `mop_nolaunch` | `mop` | MOP without the launcher | Yes | No | `mop_coin_ledger_max_interactions: 2`, `activity_trigger_enabled: False` — the MOP launcher and its null-tree recovery are unmounted |
+| `as_mop_llm` | `as_mop_llm` | ADDONS, STATIC, MOP, LLM | Yes | Yes | `llm_url` |
+| `mop_nolaunch` | `mop` | MOP without the launcher | Yes | No | `activity_trigger_enabled: False` — the MOP launcher and its null-tree recovery are unmounted |
 
 The artifact goes to the device on every cell that mounts STATIC or MOP — every cell except `base` — because those are the groups that read it; `as` reads it with MOP off. The broadcast catalog goes only to the four `as*` cells, because its only reader in the jar is component triggering, a STATIC member. For a new experiment, `as` is the control without specifications, `as_mop` the guidance on the full tool, and `mop` against `base` the guidance on APE alone.
 
-The three cells that mount MOP set `mop_coin_ledger_max_interactions` to 2, so the MOP coin may take each (activity, widget) key twice instead of the jar's default once. The jar's group blocks do not state that key; the default lives here by the author's decision, after the `e03igg2` campaign, where the coin at 2 was the only arm above APE in misuses.
+The cells that mount MOP state no MOP parameter: the MOP coin's ledger budget, the weight ladder, the retirement and the launcher cadence take the jar's defaults, which on the paired jar are calibration v6's finalist F1 (the coin takes each (activity, widget) key up to 4 times).
 
 A dose or any other tunable is an ablation through the tool DSL: `--tools aperv:as_mop@mop_coin_percentage=0.5`, or `aperv:as_mop_llm@llm_percentage=0.7`. An ablation that runs in the same containers as its cell needs a name instead, because the platform's resume identity (apk, tool, variant, repetition, timeout) and the result file names leave the parameters out; `mop_nolaunch` (the MOP launcher off) is that variant.
 
 These eight are the only names. The arm names of earlier campaigns (`sata`, `sata_mop`, `sata_llm`, `sata_mop_llm`, `mop_on_llm_off`, `mop_off_llm_off`, `mop_on_llm_70`, `mopd_on_llm_off`, `mopd_on_llm_90`) have no alias in this tree, because they configured presets and keys the paired jar no longer has; resolving one fails with "Invalid variant". Campaigns recorded under them resume from the frozen image `rvandroid:0.9.5`, and their recorded results stay readable.
 
-The cells need the `ape-rv.jar` built from the `ape` change `isolate-guidance-groups` (contract v3.3). A jar that predates the group keys aborts before step 1 on `ape.variant` and on the cell presets, which is the intended guard against a mismatched pair.
+The cells need the `ape-rv.jar` of the `ape` change `gh-tbd-mop-defaults-f1`, which carries the change `isolate-guidance-groups` (contract v3.3), reads the weight ladder `ape.mopWeights` and takes calibration v6's F1 as its MOP defaults. A jar that predates the group keys aborts before step 1 on `ape.variant` and on the cell presets, and one that predates the ladder aborts on `ape.mopWeights` when a cell sets `mop_weights`, which is the intended guard against a mismatched pair.
 
 ## Configuration
 
@@ -85,17 +85,16 @@ The cells need the `ape-rv.jar` built from the `ape` change `isolate-guidance-gr
 
 ### Properties (ape.properties)
 
-The generated file states the cell and nothing more. For `as_mop_llm`, whose overrides are the coin's ledger budget and the server URL, it is exactly five lines:
+The generated file states the cell and nothing more. For `as_mop_llm`, whose one override is the server URL, it is exactly four lines:
 
 ```properties
 ape.preset=as_mop_llm                                 # always first
 ape.variant=as_mop_llm                                # always second; echoed as RUN_START.variant
 ape.staticDataPath=/data/local/tmp/mop-artifact.json  # only when the artifact was pushed
-ape.mopCoinLedgerMaxInteractions=2                    # one line per override delta, in mapping order
-ape.llmUrl=http://10.0.2.2:30000/v1                   # one line per override delta
+ape.llmUrl=http://10.0.2.2:30000/v1                   # one line per override delta, in mapping order
 ```
 
-Everything a preset supplies — throttle, epsilon, the group keys, MOP weights and coin, LLM model, dose and timeouts — is resolved inside the jar and is never restated here, so `as_mop` ships a four-line file, `as` a three-line one and `base` a two-line one. Override keys are translated to `ape.*` names through `APERV_PROPERTY_MAPPING` (67 entries; the full table is in [docs/architecture.md](./docs/architecture.md)); the emission walks the mapping rather than the override dict, so two runs of the same cell produce byte-identical properties. The ten top-level keys in `APERV_ORCHESTRATION_KEYS` (`preset`, `variant`, `overrides`, `strategy`, `static_data`, `broadcast_catalog`, `seed`, and the three device-addressing keys `device_port` / `device_serial` / `device_id`) are Python orchestration; `preset` and `variant` reach the device only through their fixed lines, and the rest never do. Any other unmapped key raises `ConfigurationError` before a device is touched — `mop_data` included, since the data key is `static_data`.
+Everything a preset supplies — throttle, epsilon, the group keys, MOP weights and coin, LLM model, dose and timeouts — is resolved inside the jar and is never restated here, so `as_mop` and `as` ship a three-line file and `base` a two-line one. Override keys are translated to `ape.*` names through `APERV_PROPERTY_MAPPING` (64 entries; the full table is in [docs/architecture.md](./docs/architecture.md)); the emission walks the mapping rather than the override dict, so two runs of the same cell produce byte-identical properties. The ten top-level keys in `APERV_ORCHESTRATION_KEYS` (`preset`, `variant`, `overrides`, `strategy`, `static_data`, `broadcast_catalog`, `seed`, and the three device-addressing keys `device_port` / `device_serial` / `device_id`) are Python orchestration; `preset` and `variant` reach the device only through their fixed lines, and the rest never do. Any other unmapped key raises `ConfigurationError` before a device is touched — `mop_data` included, since the data key is `static_data`.
 
 The jar must postdate the preset mechanism. An older build treats `ape.preset` as an unknown key and ignores it, and since the file no longer carries what the preset would have supplied, the run silently executes on jar defaults while the results directory still carries the cell's name.
 

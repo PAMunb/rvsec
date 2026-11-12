@@ -11,8 +11,8 @@ import org.junit.Test;
  * The compact-output marker (INV-ANA-86). {@link JsonReportWriter#write} cannot be driven
  * from a unit test (its section writers need a Soot Scene and GATOR's manifest parser), so
  * the marker's bytes are pinned on {@link JsonReportWriter#writeDistancePairs}, the call
- * {@code write} makes in compact mode, through a writer without indentation as compact
- * output uses.
+ * {@code write} makes in compact mode, through a writer without indentation as both output
+ * modes use.
  */
 public class DistancePairsMarkerTest {
 

@@ -2,6 +2,8 @@ package presto.android.gui.clients.reach;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -12,6 +14,8 @@ import java.util.Set;
 import java.util.function.Function;
 
 import org.junit.Test;
+
+import soot.jimple.toolkits.callgraph.CallGraph;
 
 /**
  * {@link TargetDistances} on synthetic call graphs with string vertices: the vertex is its own
@@ -36,7 +40,24 @@ public class TargetDistancesTest {
 	}
 
 	private TargetDistances<String> compute(Set<String> direct, Set<String> targets) {
-		return TargetDistances.compute(callers, app, direct, targets, Function.identity());
+		return compute(direct, targets, TargetDistances.DEFAULT_DIST_MAX);
+	}
+
+	private TargetDistances<String> compute(Set<String> direct, Set<String> targets,
+			int horizon) {
+		return TargetDistances.compute(callers, app, direct, targets, Function.identity(),
+				horizon);
+	}
+
+	/** The chain {@code m<length> -> ... -> m1 -> m0 -> T.target}, {@code m0} the direct caller. */
+	private void chainOf(int length) {
+		for (int i = 0; i <= length; i++) {
+			app("m" + i);
+		}
+		for (int i = length; i > 0; i--) {
+			call("m" + i, "m" + (i - 1));
+		}
+		call("m0", "T.target");
 	}
 
 	@Test
@@ -58,21 +79,69 @@ public class TargetDistancesTest {
 	}
 
 	@Test
-	public void distanceStopsAtTheCap() {
+	public void distanceStopsAtTheDefaultHorizon() {
 		// m11 -> m10 -> ... -> m0, m0 the direct caller: m10 is 10 calls away, m11 is 11.
-		for (int i = 0; i <= 11; i++) {
-			app("m" + i);
-		}
-		for (int i = 11; i > 0; i--) {
-			call("m" + i, "m" + (i - 1));
-		}
-		call("m0", "T.target");
+		chainOf(11);
 
 		TargetDistances<String> d = compute(set("m0"), set("T.target"));
 
-		assertArrayEquals(new int[][] { { 0, TargetDistances.DIST_MAX } }, d.pairs("m10"));
-		assertEquals("11 calls away is beyond the cap", 0, d.pairs("m11").length);
+		assertEquals(TargetDistances.DEFAULT_DIST_MAX, d.horizon());
+		assertArrayEquals(new int[][] { { 0, TargetDistances.DEFAULT_DIST_MAX } },
+				d.pairs("m10"));
+		assertEquals("11 calls away is beyond the default horizon", 0, d.pairs("m11").length);
 		assertEquals(11, d.methodsWithPairs());
+	}
+
+	@Test
+	public void aChainOfElevenEdgesHasNoPairAtHorizonTenAndOneAtHorizonTwelve() {
+		chainOf(11);
+
+		TargetDistances<String> ten = compute(set("m0"), set("T.target"), 10);
+		TargetDistances<String> twelve = compute(set("m0"), set("T.target"), 12);
+
+		assertEquals(0, ten.pairs("m11").length);
+		assertEquals(12, twelve.horizon());
+		assertArrayEquals(new int[][] { { 0, 11 } }, twelve.pairs("m11"));
+		assertArrayEquals("a larger horizon moves no nearer pair",
+				ten.pairs("m10"), twelve.pairs("m10"));
+		assertEquals(12, twelve.methodsWithPairs());
+	}
+
+	@Test
+	public void horizonOneRecordsOnlyTheFirstLevel() {
+		chainOf(3);
+
+		TargetDistances<String> d = compute(set("m0"), set("T.target"), 1);
+
+		assertEquals(1, d.horizon());
+		assertArrayEquals(new int[][] { { 0, 0 } }, d.pairs("m0"));
+		assertArrayEquals(new int[][] { { 0, 1 } }, d.pairs("m1"));
+		assertEquals(0, d.pairs("m2").length);
+		assertEquals(0, d.pairs("m3").length);
+		assertEquals(2, d.methodsWithPairs());
+	}
+
+	@Test
+	public void aHorizonBelowOneIsRefused() {
+		chainOf(1);
+
+		for (int horizon : new int[] { 0, -1 }) {
+			try {
+				compute(set("m0"), set("T.target"), horizon);
+				fail("compute accepted the horizon " + horizon);
+			} catch (IllegalArgumentException expected) {
+				assertTrue(expected.getMessage(),
+						expected.getMessage().contains(String.valueOf(horizon)));
+			}
+		}
+		try {
+			// The Soot overload checks the horizon before it reads any of its inputs.
+			TargetDistances.compute((CallGraph) null, null, Collections.emptyMap(),
+					Collections.emptySet(), 0);
+			fail("the Soot overload accepted the horizon 0");
+		} catch (IllegalArgumentException expected) {
+			// refused before the call graph is read
+		}
 	}
 
 	@Test

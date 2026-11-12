@@ -16,13 +16,18 @@ from typing import Optional
 from rv_android_core import constants
 from rv_android_core.commands.command import Command
 from rv_android_core.constants import (
+    APE_HEAP_GROWTH_LIMIT,
     ENV_ADB_CMD_TIMEOUT,
     ENV_APK_INSTALL_TIMEOUT,
     ENV_EMULATOR_BOOT_TIMEOUT,
+    HEAP_GROWTH_LIMIT_PROPERTY,
 )
 from rv_android_core.domain.app import App
 from rv_android_core.util import utils
-from rv_android_core.util.error.exceptions import RVCommandTimeoutError
+from rv_android_core.util.error.exceptions import (
+    RVCommandTimeoutError,
+    RVToolExecutionError,
+)
 
 logging = logging_api.getLogger(__name__)
 
@@ -73,6 +78,8 @@ class Android:
 
     - Called by EmulatorComponent in rv-platform for emulator lifecycle management
     - Handles APK installation and permission granting during task execution
+    - Sets the heap growth limit of APE's VM for the `ape` built-in and APE-RV,
+      which both call `set_ape_heap_growth_limit` before their launch
     - Provides boot wait logic with two-phase verification (boot animation,
       then sys.boot_completed)
 
@@ -527,3 +534,69 @@ class Android:
                 cmd_timeout,
             )
             grant_cmd.invoke()
+
+    @classmethod
+    def set_ape_heap_growth_limit(
+        cls, tool_name: str, device_name: str = "emulator-5554"
+    ) -> None:
+        """Set the heap growth limit of APE's VM as root and read it back.
+
+        Runs `su 0 setprop` of HEAP_GROWTH_LIMIT_PROPERTY to APE_HEAP_GROWTH_LIMIT,
+        then `getprop`. app_process reads the property when it starts the VM, so
+        the value must hold before an APE-family tool launches its jar; the app
+        under test forks from the zygote, which read the property at boot, so it
+        is expected to keep the AVD's heap (inferred from the mechanism, not
+        measured). The emulator image is a `userdebug` build with `su`,
+        and the property lasts until the emulator stops. Both the `ape` built-in
+        and APE-RV call this, so the two start APE with the same heap.
+
+        Args:
+            tool_name: Name of the calling tool, carried by the error.
+            device_name: ADB device serial (default: "emulator-5554").
+
+        Raises:
+            RVToolExecutionError: The setprop failed, or the property does not
+                read back as APE_HEAP_GROWTH_LIMIT. The message names the value
+                read back.
+        """
+        cmd_timeout = cls._resolve_timeout(
+            ENV_ADB_CMD_TIMEOUT, DEFAULT_ADB_CMD_TIMEOUT_SECONDS
+        )
+        set_result = Command(
+            "adb",
+            [
+                "-s",
+                device_name,
+                "shell",
+                "su",
+                "0",
+                "setprop",
+                HEAP_GROWTH_LIMIT_PROPERTY,
+                APE_HEAP_GROWTH_LIMIT,
+            ],
+            cmd_timeout,
+        ).invoke()
+        if set_result.is_failure():
+            raise RVToolExecutionError(
+                f"Failed to set {HEAP_GROWTH_LIMIT_PROPERTY}={APE_HEAP_GROWTH_LIMIT} "
+                f"as root on {device_name} (exit code {set_result.code}): "
+                f"{set_result.get_combined_output()!r}",
+                tool_name=tool_name,
+            )
+        get_result = Command(
+            "adb",
+            ["-s", device_name, "shell", "getprop", HEAP_GROWTH_LIMIT_PROPERTY],
+            cmd_timeout,
+        ).invoke()
+        read_back = get_result.get_stdout_text().strip()
+        if get_result.is_failure() or read_back != APE_HEAP_GROWTH_LIMIT:
+            raise RVToolExecutionError(
+                f"{HEAP_GROWTH_LIMIT_PROPERTY} reads {read_back!r} on {device_name} "
+                f"after the setprop, not {APE_HEAP_GROWTH_LIMIT!r} "
+                f"(exit code {get_result.code})",
+                tool_name=tool_name,
+            )
+        logging.info(
+            f"{HEAP_GROWTH_LIMIT_PROPERTY} set to {APE_HEAP_GROWTH_LIMIT} "
+            f"on {device_name}"
+        )
